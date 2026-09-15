@@ -1,7 +1,8 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Sqlite;
-using Backlog.Modules.Knowledge.Abstractions;
+using Backlog.Modules.Devbook.Abstractions;
 
 namespace Backlog.Infrastructure.FileSystem;
 
@@ -20,7 +21,7 @@ namespace Backlog.Infrastructure.FileSystem;
 /// decision: this folder, backed by that repository, with these knowledge
 /// folders. Only the folder itself is a module port — WorkspaceTaskStore
 /// implements the module's store port over this one. The repository and the
-/// folder list are named in an adapter type and a Second Brain type that no
+/// folder list are named in an adapter type and a Devbook type that no
 /// abstractions project may see, and their only consumer is the desktop settings
 /// screen, which takes this adapter directly the way it already takes the GitHub
 /// and Claude ones.
@@ -94,11 +95,14 @@ public sealed class WorkspaceSettingsStore
         var settings = ReadSettings();
         RootDirectory = settings?.RootDirectory ?? DefaultRootDirectory;
         RootRepository = settings?.RootRepository?.ToRepository();
-        KnowledgeFolders = KnowledgeFolderSetting.Normalize(
-            settings?.KnowledgeFolders?.Select(folder => folder.ToSetting()).OfType<KnowledgeFolderSetting>() ?? []);
+        // The legacy names are consulted only when the current one is absent, so a
+        // file written before the context was renamed reads as the same choices
+        // and the next save carries them under the current names only.
+        DevbookFolders = DevbookFolderSetting.Normalize(
+            (settings?.DevbookFolders ?? settings?.KnowledgeFolders)?.Select(folder => folder.ToSetting()).OfType<DevbookFolderSetting>() ?? []);
 
-        DefaultKnowledgeCacheDirectory = Path.Combine(appData, KnowledgeCacheFolderName);
-        KnowledgeCacheDirectory = Clean(settings?.KnowledgeCacheDirectory) ?? DefaultKnowledgeCacheDirectory;
+        DefaultDevbookCacheDirectory = ResolveDefaultDevbookCacheDirectory(appData);
+        DevbookCacheDirectory = Clean(settings?.DevbookCacheDirectory) ?? Clean(settings?.KnowledgeCacheDirectory) ?? DefaultDevbookCacheDirectory;
 
         ActivityCacheDirectory = Path.Combine(appData, ActivityCacheFolderName);
         SessionActivityCacheDirectory = Path.Combine(appData, SessionActivityCacheFolderName);
@@ -155,15 +159,15 @@ public sealed class WorkspaceSettingsStore
     /// folder later. The folder remains the source of truth today.</summary>
     public GitHubRepositoryRef? RootRepository { get; private set; }
 
-    /// <summary>Knowledge folders resolved against the storage root when no repository scope is active.</summary>
-    public IReadOnlyList<KnowledgeFolderSetting> KnowledgeFolders { get; private set; }
+    /// <summary>Devbook folders resolved against the storage root when no repository scope is active.</summary>
+    public IReadOnlyList<DevbookFolderSetting> DevbookFolders { get; private set; }
 
     /// <summary>The folder branch snapshots are kept in when nothing overrides
     /// it: one beside the per-user settings, never inside the backlog.</summary>
-    public string DefaultKnowledgeCacheDirectory { get; }
+    public string DefaultDevbookCacheDirectory { get; }
 
     /// <summary>
-    /// Where knowledge fetched from a repository branch is cached.
+    /// Where the devbook fetched from a repository branch is cached.
     /// <para>
     /// Configurable, and beside the per-user settings by default rather than
     /// inside the backlog folder, because a snapshot is neither the workspace's
@@ -179,16 +183,16 @@ public sealed class WorkspaceSettingsStore
     /// want somewhere they chose.
     /// </para>
     /// </summary>
-    public string KnowledgeCacheDirectory { get; private set; }
+    public string DevbookCacheDirectory { get; private set; }
 
     /// <summary>Whether snapshots are still going to the folder beside the
     /// per-user settings. The settings screen shows the field empty when they
     /// are, so the placeholder does the explaining rather than a path somebody
     /// never typed.</summary>
-    public bool IsDefaultKnowledgeCacheDirectory =>
+    public bool IsDefaultDevbookCacheDirectory =>
         string.Equals(
-            Path.TrimEndingDirectorySeparator(KnowledgeCacheDirectory),
-            Path.TrimEndingDirectorySeparator(DefaultKnowledgeCacheDirectory),
+            Path.TrimEndingDirectorySeparator(DevbookCacheDirectory),
+            Path.TrimEndingDirectorySeparator(DefaultDevbookCacheDirectory),
             StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
@@ -203,7 +207,7 @@ public sealed class WorkspaceSettingsStore
     /// commits that cannot change, and can always be fetched again.
     /// </para>
     /// <para>
-    /// Not configurable, unlike <see cref="KnowledgeCacheDirectory"/>. That one is
+    /// Not configurable, unlike <see cref="DevbookCacheDirectory"/>. That one is
     /// a setting because a repository tree per registered repository is large
     /// enough that somebody with a small system drive needs a say; this is
     /// kilobytes, and a second path field on the settings screen would cost more
@@ -232,7 +236,13 @@ public sealed class WorkspaceSettingsStore
     /// </summary>
     public string SessionActivityCacheDirectory { get; }
 
-    private const string KnowledgeCacheFolderName = "knowledge-cache";
+    private const string DevbookCacheFolderName = "devbook-cache";
+
+    /// <summary>The name the default cache folder had while the context was
+    /// called Knowledge. Still honoured as the default on a machine that has it
+    /// and no <see cref="DevbookCacheFolderName"/> beside it — see
+    /// <see cref="ResolveDefaultDevbookCacheDirectory"/>.</summary>
+    private const string LegacyDevbookCacheFolderName = "knowledge-cache";
 
     private const string ActivityCacheFolderName = "activity-cache";
 
@@ -368,11 +378,11 @@ public sealed class WorkspaceSettingsStore
         return SaveSettings("Repository cleared, but the choice couldn't be saved for next time.");
     }
 
-    public string? SetKnowledgeFolder(string key, bool enabled, string? path)
+    public string? SetDevbookFolder(string key, bool enabled, string? path)
     {
         if (string.IsNullOrWhiteSpace(key)) return "Choose a knowledge folder before saving.";
 
-        var folders = KnowledgeFolderSetting.Normalize(KnowledgeFolders).ToList();
+        var folders = DevbookFolderSetting.Normalize(DevbookFolders).ToList();
         var index = folders.FindIndex(folder => string.Equals(folder.Key, key, StringComparison.OrdinalIgnoreCase));
         if (index < 0) return $"Unknown knowledge folder '{key}'.";
 
@@ -382,8 +392,8 @@ public sealed class WorkspaceSettingsStore
             Path = string.IsNullOrWhiteSpace(path) ? null : path.Trim()
         };
 
-        KnowledgeFolders = KnowledgeFolderSetting.Normalize(folders);
-        var error = SaveSettings("Knowledge folders updated, but the choice couldn't be saved for next time.");
+        DevbookFolders = DevbookFolderSetting.Normalize(folders);
+        var error = SaveSettings("Devbook folders updated, but the choice couldn't be saved for next time.");
         if (error is null) RootChanged?.Invoke();
         return error;
     }
@@ -399,15 +409,15 @@ public sealed class WorkspaceSettingsStore
     /// somebody may have pointed at something else entirely.
     /// </para>
     /// </summary>
-    public string? SetKnowledgeCacheDirectory(string? path)
+    public string? SetDevbookCacheDirectory(string? path)
     {
         var trimmed = Clean(path);
 
         if (trimmed is null)
         {
-            if (IsDefaultKnowledgeCacheDirectory) return null;
+            if (IsDefaultDevbookCacheDirectory) return null;
 
-            KnowledgeCacheDirectory = DefaultKnowledgeCacheDirectory;
+            DevbookCacheDirectory = DefaultDevbookCacheDirectory;
             var reset = SaveSettings("Snapshot folder reset, but the choice couldn't be saved for next time.");
             if (reset is null) RootChanged?.Invoke();
             return reset;
@@ -416,7 +426,7 @@ public sealed class WorkspaceSettingsStore
         // The same demand TryUseRoot makes, for the same reason: a relative path
         // would resolve against whatever the working directory happens to be and
         // put somebody's snapshots somewhere they never named.
-        if (!Path.IsPathRooted(trimmed)) return "Use a full path, such as D:\\Backlog\\knowledge-cache.";
+        if (!Path.IsPathRooted(trimmed)) return "Use a full path, such as D:\\Backlog\\devbook-cache.";
 
         string full;
         try
@@ -428,7 +438,7 @@ public sealed class WorkspaceSettingsStore
             return "That doesn't look like a valid folder path.";
         }
 
-        if (!Path.IsPathFullyQualified(full)) return "Use a full path, such as D:\\Backlog\\knowledge-cache.";
+        if (!Path.IsPathFullyQualified(full)) return "Use a full path, such as D:\\Backlog\\devbook-cache.";
 
         try
         {
@@ -441,17 +451,41 @@ public sealed class WorkspaceSettingsStore
 
         if (string.Equals(
             Path.TrimEndingDirectorySeparator(full),
-            Path.TrimEndingDirectorySeparator(KnowledgeCacheDirectory),
+            Path.TrimEndingDirectorySeparator(DevbookCacheDirectory),
             StringComparison.OrdinalIgnoreCase))
         {
             return null;
         }
 
-        KnowledgeCacheDirectory = full;
+        DevbookCacheDirectory = full;
 
         var error = SaveSettings("Snapshot folder changed, but the choice couldn't be saved for next time.");
         if (error is null) RootChanged?.Invoke();
         return error;
+    }
+
+    /// <summary>
+    /// The folder branch snapshots go to when nobody has chosen one.
+    /// <para>
+    /// <c>devbook-cache</c>, except on a machine that already has a
+    /// <c>knowledge-cache</c> from before the rename and no <c>devbook-cache</c>
+    /// beside it — there the old folder stays the default. The snapshots inside
+    /// it are disposable, so nothing would be lost by starting a fresh folder;
+    /// what would be lost is the fetch that filled it, and a rename is not a
+    /// reason to re-download every registered repository's tree. Keeping the
+    /// old folder as the default also keeps
+    /// <see cref="IsDefaultDevbookCacheDirectory"/> true, so the settings screen
+    /// still shows the field empty rather than a path nobody typed. Once the old
+    /// folder is gone the new name takes over for good.
+    /// </para>
+    /// </summary>
+    private static string ResolveDefaultDevbookCacheDirectory(string appData)
+    {
+        var current = Path.Combine(appData, DevbookCacheFolderName);
+        if (Directory.Exists(current)) return current;
+
+        var legacy = Path.Combine(appData, LegacyDevbookCacheFolderName);
+        return Directory.Exists(legacy) ? legacy : current;
     }
 
     private string? SaveSettings(string saveFailureMessage)
@@ -469,11 +503,11 @@ public sealed class WorkspaceSettingsStore
                         Owner = RootRepository.Owner,
                         Name = RootRepository.Name
                     },
-                KnowledgeFolders = KnowledgeFolders.Select(StoreKnowledgeFolderSettings.From).ToList(),
+                DevbookFolders = DevbookFolders.Select(StoreDevbookFolderSettings.From).ToList(),
 
                 // Written as null while it is the default, so a workspace nobody
                 // has moved the cache in keeps producing the file it always did.
-                KnowledgeCacheDirectory = IsDefaultKnowledgeCacheDirectory ? null : KnowledgeCacheDirectory
+                DevbookCacheDirectory = IsDefaultDevbookCacheDirectory ? null : DevbookCacheDirectory
             };
             File.WriteAllText(_settingsPath, JsonSerializer.Serialize(settings, JsonOptions));
             return null;
@@ -513,15 +547,26 @@ public sealed class WorkspaceSettingsStore
 
         public StoreRepositorySettings? RootRepository { get; init; }
 
-        public List<StoreKnowledgeFolderSettings>? KnowledgeFolders { get; init; }
+        public List<StoreDevbookFolderSettings>? DevbookFolders { get; init; }
 
         /// <summary>Where branch snapshots are cached, or null for the default
         /// folder beside this file. Absent reads as the default, which is what
         /// every settings file written before branch loading existed says.</summary>
+        public string? DevbookCacheDirectory { get; init; }
+
+        /// <summary>FROZEN LEGACY FIELDS: the names <see cref="DevbookFolders"/>
+        /// and <see cref="DevbookCacheDirectory"/> were written under while the
+        /// context was called Knowledge. Read when the current name is absent,
+        /// never assigned on save, and omitted when null so the file written back
+        /// carries only the current names.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<StoreDevbookFolderSettings>? KnowledgeFolders { get; init; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? KnowledgeCacheDirectory { get; init; }
     }
 
-    private sealed record StoreKnowledgeFolderSettings
+    private sealed record StoreDevbookFolderSettings
     {
         public string? Key { get; init; }
 
@@ -531,12 +576,12 @@ public sealed class WorkspaceSettingsStore
 
         /// <summary>The stored row as a setting, or null when its key names no
         /// knowledge folder — a typo, or a section since retired, as
-        /// <c>.backlog</c> now is. Dropping it is what <see cref="KnowledgeFolderSetting.Normalize"/>
+        /// <c>.backlog</c> now is. Dropping it is what <see cref="DevbookFolderSetting.Normalize"/>
         /// would do anyway; saying so here is what keeps a stale file from
         /// stopping the app from opening.</summary>
-        public KnowledgeFolderSetting? ToSetting()
+        public DevbookFolderSetting? ToSetting()
         {
-            var folder = KnowledgeFolderSetting.Defaults()
+            var folder = DevbookFolderSetting.Defaults()
                 .FirstOrDefault(defaultFolder => string.Equals(defaultFolder.Key, Key, StringComparison.OrdinalIgnoreCase));
 
             return folder is null
@@ -548,7 +593,7 @@ public sealed class WorkspaceSettingsStore
                 };
         }
 
-        public static StoreKnowledgeFolderSettings From(KnowledgeFolderSetting folder) => new()
+        public static StoreDevbookFolderSettings From(DevbookFolderSetting folder) => new()
         {
             Key = folder.Key,
             Enabled = folder.Enabled,

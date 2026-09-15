@@ -2,7 +2,7 @@ using System.Collections.ObjectModel;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-using Backlog.Modules.Knowledge.Abstractions;
+using Backlog.Modules.Devbook.Abstractions;
 
 namespace Backlog.Infrastructure.GitHub;
 
@@ -683,9 +683,9 @@ public sealed class GitHubSettingsStore
     /// remembered.</param>
     /// <param name="useLocalFolder">True to read the clone instead. A repository
     /// with no clone directory still resolves to the branch — see
-    /// <see cref="GitHubRepositoryRef.KnowledgeSource"/> — so this is a stated
+    /// <see cref="GitHubRepositoryRef.DevbookSource"/> — so this is a stated
     /// preference, not a promise.</param>
-    public string? SetKnowledgeSource(string alias, string? branch, bool useLocalFolder)
+    public string? SetDevbookSource(string alias, string? branch, bool useLocalFolder)
     {
         if (Find(alias) is not { } target) return NotConfigured;
 
@@ -696,8 +696,8 @@ public sealed class GitHubSettingsStore
                 .. Current.Repositories.Select(r => IsSame(r, target)
                     ? r with
                     {
-                        KnowledgeBranch = CleanBranch(branch) ?? r.KnowledgeBranch,
-                        UseLocalKnowledgeFolder = useLocalFolder
+                        DevbookBranch = CleanBranch(branch) ?? r.DevbookBranch,
+                        UseLocalDevbookFolder = useLocalFolder
                     }
                     : r)
             ],
@@ -712,7 +712,7 @@ public sealed class GitHubSettingsStore
     /// off.
     /// <para>
     /// Local, and the whole list stays local rather than being split down the
-    /// middle. <c>KnowledgeFolderSetting</c> is Second Brain's published language
+    /// middle. <c>DevbookFolderSetting</c> is Devbook's published language
     /// and the shared registry has to stay a Repository Management artifact; and
     /// splitting one row across two files would make this a two-file write whose
     /// partial failure leaves an inconsistent row.
@@ -727,7 +727,7 @@ public sealed class GitHubSettingsStore
     /// recorded as withdrawn rather than deleted, so nobody re-derives it.
     /// </para>
     /// </summary>
-    public string? SetKnowledgeFolder(string alias, string key, bool enabled, string? path)
+    public string? SetDevbookFolder(string alias, string key, bool enabled, string? path)
     {
         if (Find(alias) is not { } target) return NotConfigured;
 
@@ -738,9 +738,9 @@ public sealed class GitHubSettingsStore
                 .. Current.Repositories.Select(r => IsSame(r, target)
                     ? r with
                     {
-                        KnowledgeFolders =
+                        DevbookFolders =
                         [
-                            .. KnowledgeFolderSetting.Normalize(r.KnowledgeFolders)
+                            .. DevbookFolderSetting.Normalize(r.DevbookFolders)
                                 .Select(folder => string.Equals(folder.Key, key, StringComparison.OrdinalIgnoreCase)
                                     ? folder with { Enabled = enabled, Path = CleanPath(path) }
                                     : folder)
@@ -942,7 +942,7 @@ public sealed class GitHubSettingsStore
                 Alias = r.Alias,
                 Colour = r.Colour,
                 Account = r.Account,
-                KnowledgeBranch = r.KnowledgeBranch
+                DevbookBranch = r.DevbookBranch
             })
         ]);
 
@@ -1051,10 +1051,10 @@ public sealed class GitHubSettingsStore
                 Id = repository.FullName,
                 CloneDirectory = repository.CloneDirectory,
                 Token = repository.Token,
-                UseLocalKnowledgeFolder = repository.UseLocalKnowledgeFolder,
-                KnowledgeFolders =
+                UseLocalDevbookFolder = repository.UseLocalDevbookFolder,
+                DevbookFolders =
                 [
-                    .. KnowledgeFolderSetting.Normalize(repository.KnowledgeFolders).Select(f => new KnowledgeFolderDto
+                    .. DevbookFolderSetting.Normalize(repository.DevbookFolders).Select(f => new DevbookFolderDto
                     {
                         Key = f.Key,
                         Enabled = f.Enabled,
@@ -1094,9 +1094,9 @@ public sealed class GitHubSettingsStore
     private static bool CarriesMachineLocalData(GitHubRepositoryRef repository) =>
         repository.CloneDirectory is not null
         || repository.Token is not null
-        || repository.UseLocalKnowledgeFolder is not null
-        || !KnowledgeFolderSetting.Normalize(repository.KnowledgeFolders)
-            .SequenceEqual(KnowledgeFolderSetting.Defaults());
+        || repository.UseLocalDevbookFolder is not null
+        || !DevbookFolderSetting.Normalize(repository.DevbookFolders)
+            .SequenceEqual(DevbookFolderSetting.Defaults());
 
     /// <summary>
     /// Reads both files, carries a legacy local file over into the registry, and
@@ -1139,7 +1139,7 @@ public sealed class GitHubSettingsStore
                         Alias = row.Alias,
                         Colour = row.Colour,
                         Account = row.Account,
-                        KnowledgeBranch = row.KnowledgeBranch
+                        DevbookBranch = row.DevbookBranch
                     })
                 ]) is null;
 
@@ -1230,18 +1230,20 @@ public sealed class GitHubSettingsStore
                         // Shared, like the account and for the same reason: which
                         // branch a repository's knowledge is read from is true of
                         // the repository, not of this machine.
-                        KnowledgeBranch = identity.KnowledgeBranch,
+                        DevbookBranch = identity.DevbookBranch,
 
                         // Machine-local, and absent stays absent rather than
-                        // becoming false. Null is what lets KnowledgeSource read an
-                        // upgraded install as "the clone it always used".
-                        UseLocalKnowledgeFolder = overlay?.UseLocalKnowledgeFolder,
+                        // becoming false. Null is what lets DevbookSource read an
+                        // upgraded install as "the clone it always used". The
+                        // legacy name is consulted only when the current one is
+                        // absent, so a row carrying both keeps the newer answer.
+                        UseLocalDevbookFolder = overlay?.UseLocalDevbookFolder ?? overlay?.UseLocalKnowledgeFolder,
 
                         // A repository with no overlay row starts from the defaults,
                         // which is exactly where a repository registered on another
                         // install has to start.
-                        KnowledgeFolders = KnowledgeFolderSetting.Normalize(
-                            (overlay?.KnowledgeFolders ?? []).Select(f => new KnowledgeFolderSetting(
+                        DevbookFolders = DevbookFolderSetting.Normalize(
+                            (overlay?.DevbookFolders ?? overlay?.KnowledgeFolders ?? []).Select(f => new DevbookFolderSetting(
                                 string.IsNullOrWhiteSpace(f.Key) ? string.Empty : f.Key!,
                                 string.Empty,
                                 string.Empty)
@@ -1429,8 +1431,8 @@ public sealed class GitHubSettingsStore
                 Token = CleanToken(repository.Token) ?? CleanToken(Current.Token),
                 Colour = CleanColour(repository.Colour),
                 Account = GitHubAccount.NormalizeLogin(repository.Account),
-                KnowledgeBranch = CleanBranch(repository.KnowledgeBranch),
-                KnowledgeFolders = KnowledgeFolderSetting.Normalize(repository.KnowledgeFolders)
+                DevbookBranch = CleanBranch(repository.DevbookBranch),
+                DevbookFolders = DevbookFolderSetting.Normalize(repository.DevbookFolders)
             };
         }
 
@@ -1446,9 +1448,9 @@ public sealed class GitHubSettingsStore
             // would otherwise send a repository back to its default branch and
             // undo somebody's choice to read their own clone — turning the panels
             // read-only on the next keystroke in the repositories box.
-            KnowledgeBranch = CleanBranch(repository.KnowledgeBranch) ?? existing.KnowledgeBranch,
-            UseLocalKnowledgeFolder = repository.UseLocalKnowledgeFolder ?? existing.UseLocalKnowledgeFolder,
-            KnowledgeFolders = KnowledgeFolderSetting.Normalize(existing.KnowledgeFolders)
+            DevbookBranch = CleanBranch(repository.DevbookBranch) ?? existing.DevbookBranch,
+            UseLocalDevbookFolder = repository.UseLocalDevbookFolder ?? existing.UseLocalDevbookFolder,
+            DevbookFolders = DevbookFolderSetting.Normalize(existing.DevbookFolders)
         };
     }
 
@@ -1460,8 +1462,8 @@ public sealed class GitHubSettingsStore
             Token = CleanToken(r.Token),
             Colour = CleanColour(r.Colour),
             Account = GitHubAccount.NormalizeLogin(r.Account),
-            KnowledgeBranch = CleanBranch(r.KnowledgeBranch),
-            KnowledgeFolders = KnowledgeFolderSetting.Normalize(r.KnowledgeFolders)
+            DevbookBranch = CleanBranch(r.DevbookBranch),
+            DevbookFolders = DevbookFolderSetting.Normalize(r.DevbookFolders)
         })
     ];
 
@@ -1568,10 +1570,10 @@ public sealed class GitHubSettingsStore
         string Name,
         int? Colour,
         string? Account,
-        string? KnowledgeBranch = null)
+        string? DevbookBranch = null)
     {
         public static RegistryRow? From(RegistryRepositoryDto dto) =>
-            From(dto.Id, dto.Alias, CleanColour(dto.Colour), dto.Account, dto.KnowledgeBranch);
+            From(dto.Id, dto.Alias, CleanColour(dto.Colour), dto.Account, dto.DevbookBranch ?? dto.KnowledgeBranch);
 
         /// <summary>
         /// A stored row read as an identity, or null when its <c>id</c> is not a
@@ -1588,7 +1590,7 @@ public sealed class GitHubSettingsStore
         /// rather than a coordinate, so it is carried through as it was written and
         /// nothing is validated at read time: an account this machine has no row for
         /// is an unsatisfied binding to report, not a corrupt row to drop.</param>
-        public static RegistryRow? From(string? id, string? alias, int? colour, string? account = null, string? knowledgeBranch = null)
+        public static RegistryRow? From(string? id, string? alias, int? colour, string? account = null, string? devbookBranch = null)
         {
             if (string.IsNullOrWhiteSpace(id)) return null;
 
@@ -1606,7 +1608,7 @@ public sealed class GitHubSettingsStore
                 name,
                 colour,
                 GitHubAccount.NormalizeLogin(account),
-                CleanBranch(knowledgeBranch));
+                CleanBranch(devbookBranch));
         }
     }
 
@@ -1645,10 +1647,20 @@ public sealed class GitHubSettingsStore
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? Account { get; set; }
 
-        /// <summary>The branch this repository's knowledge is read from. Omitted
+        /// <summary>The branch this repository's devbook is read from. Omitted
         /// when null, for the reason <see cref="Account"/> is: a workspace where
         /// nobody has picked a branch writes the file it always wrote, and absent
         /// reads as the repository's own default branch.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? DevbookBranch { get; set; }
+
+        /// <summary>FROZEN LEGACY FIELD: the name <see cref="DevbookBranch"/> was
+        /// written under while the context was still called Knowledge. Read so a
+        /// registry another install wrote before the rename keeps its branch, and
+        /// never written again — the next write carries the value under the
+        /// current name only. The registry is the synced half, so an install still
+        /// on the old build reads a re-saved file as "no branch chosen" until it is
+        /// upgraded; accepted, because it regains the value on its next save.</summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? KnowledgeBranch { get; set; }
     }
@@ -1684,16 +1696,28 @@ public sealed class GitHubSettingsStore
     /// local file that also stated it would be a second answer to the one question
     /// the split exists to give one answer to.
     /// </para>
+    /// <para>
+    /// <see cref="KnowledgeFolders"/> and <see cref="UseLocalKnowledgeFolder"/>
+    /// are frozen for a different reason: they are the names
+    /// <see cref="DevbookFolders"/> and <see cref="UseLocalDevbookFolder"/> were
+    /// written under before the context was renamed. Same treatment — read when
+    /// the current name is absent, migrated onto the row, never emitted again.
+    /// </para>
     /// </summary>
     private sealed class RepositoryDto
     {
         public string? Id { get; set; }
         public string? CloneDirectory { get; set; }
         public string? Token { get; set; }
-        public List<KnowledgeFolderDto> KnowledgeFolders { get; set; } = [];
+
+        /// <summary>Nullable so that "absent" is distinguishable from "empty":
+        /// absent is what lets a file written under the old name fall through to
+        /// <see cref="KnowledgeFolders"/>. Every write sets it, so the file never
+        /// carries a null.</summary>
+        public List<DevbookFolderDto>? DevbookFolders { get; set; }
 
         /// <summary>
-        /// Whether knowledge is read out of <see cref="CloneDirectory"/> rather
+        /// Whether the devbook is read out of <see cref="CloneDirectory"/> rather
         /// than out of a branch snapshot. Machine-local, because it is only
         /// answerable where the clone is.
         /// <para>
@@ -1706,6 +1730,15 @@ public sealed class GitHubSettingsStore
         /// repository read-only on upgrade.
         /// </para>
         /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public bool? UseLocalDevbookFolder { get; set; }
+
+        // FROZEN LEGACY FIELDS: the pre-rename names of the two properties above.
+        // Read only when the current name is absent; never assigned on a write, so
+        // the next save carries the value under the current name and drops these.
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<DevbookFolderDto>? KnowledgeFolders { get; set; }
+
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public bool? UseLocalKnowledgeFolder { get; set; }
 
@@ -1761,7 +1794,7 @@ public sealed class GitHubSettingsStore
         public string? ApiEndpoint { get; set; }
     }
 
-    private sealed class KnowledgeFolderDto
+    private sealed class DevbookFolderDto
     {
         public string? Key { get; set; }
         public bool Enabled { get; set; } = true;

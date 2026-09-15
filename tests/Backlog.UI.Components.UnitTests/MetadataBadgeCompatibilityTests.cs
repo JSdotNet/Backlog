@@ -22,16 +22,16 @@ public sealed class MetadataBadgeCompatibilityTests
             .Add(b => b.Related, ["a", "b"]));
 
         var root = badge.Find("div");
-        Assert.Equal("knowledge-meta", root.GetAttribute("class"));
+        Assert.Equal("devbook-meta", root.GetAttribute("class"));
         Assert.Equal("Metadata", root.GetAttribute("aria-label"));
 
         var status = badge.Find("span");
-        Assert.Equal("knowledge-status knowledge-status--ready", status.GetAttribute("class"));
+        Assert.Equal("devbook-status devbook-status--ready", status.GetAttribute("class"));
         Assert.Equal("ready", status.TextContent);
 
         var related = badge.FindAll("code");
         Assert.Equal(2, related.Count);
-        Assert.All(related, chip => Assert.Equal("knowledge-related", chip.GetAttribute("class")));
+        Assert.All(related, chip => Assert.Equal("devbook-related", chip.GetAttribute("class")));
         Assert.Equal(["a", "b"], related.Select(chip => chip.TextContent));
 
         // The old strip is a flat row of chips. No description list, no link, no
@@ -62,7 +62,7 @@ public sealed class MetadataBadgeCompatibilityTests
             Assert.Empty(badge.FindAll("select"));
             Assert.Empty(badge.FindAll("label"));
             Assert.DoesNotContain("status-editor", badge.Markup, StringComparison.Ordinal);
-            Assert.Equal($"knowledge-status knowledge-status--{status}", badge.Find("span").GetAttribute("class"));
+            Assert.Equal($"devbook-status devbook-status--{status}", badge.Find("span").GetAttribute("class"));
         }
     }
 
@@ -74,7 +74,7 @@ public sealed class MetadataBadgeCompatibilityTests
         var badge = context.Render<MetadataBadge>(parameters => parameters
             .Add(b => b.Status, "draft"));
 
-        Assert.Equal("knowledge-status knowledge-status--draft", badge.Find("span").GetAttribute("class"));
+        Assert.Equal("devbook-status devbook-status--draft", badge.Find("span").GetAttribute("class"));
         Assert.Empty(badge.FindAll("code"));
     }
 
@@ -102,7 +102,7 @@ public sealed class MetadataBadgeCompatibilityTests
             .AddUnmatched("data-role", "meta"));
 
         var root = badge.Find("div");
-        Assert.Equal("knowledge-meta entry-doc__meta", root.GetAttribute("class"));
+        Assert.Equal("devbook-meta entry-doc__meta", root.GetAttribute("class"));
         Assert.Equal("Entry metadata", root.GetAttribute("aria-label"));
         Assert.Equal("entry-meta", root.GetAttribute("data-testid"));
         Assert.Equal("meta", root.GetAttribute("data-role"));
@@ -123,18 +123,18 @@ public sealed class MetadataBadgeCompatibilityTests
         var badge = context.Render<MetadataBadge>(parameters => parameters
             .Add(b => b.Status, "ready")
             .Add(b => b.Related, ["a"])
-            .Add(b => b.Folder, KnowledgeFolder.Backlog));
+            .Add(b => b.Folder, DevbookFolder.Backlog));
 
-        Assert.Equal("knowledge-meta", badge.Find("div").GetAttribute("class"));
-        Assert.NotNull(badge.Find("dl.knowledge-fields"));
+        Assert.Equal("devbook-meta", badge.Find("div").GetAttribute("class"));
+        Assert.NotNull(badge.Find("dl.devbook-fields"));
 
-        var select = badge.Find(".knowledge-record__headline .status-editor select");
+        var select = badge.Find(".devbook-record__headline .status-editor select");
         Assert.Equal("ready", select.GetAttribute("value"));
         Assert.Equal(
             ["draft", "ready", "in-progress", "done", "blocked"],
             select.QuerySelectorAll("option").Select(option => option.GetAttribute("value")));
 
-        Assert.Equal("a", badge.Find("dd.knowledge-fields__value code").TextContent);
+        Assert.Equal("a", badge.Find("dd.devbook-fields__value code").TextContent);
     }
 
     [Fact]
@@ -150,7 +150,7 @@ public sealed class MetadataBadgeCompatibilityTests
 
         var badge = context.Render<MetadataBadge>(parameters => parameters
             .Add(b => b.Metadata, MetadataReader.Parse("status: draft"))
-            .Add(b => b.Folder, KnowledgeFolder.Backlog)
+            .Add(b => b.Folder, DevbookFolder.Backlog)
             .Add(b => b.OnStatusChanged, EventCallback.Factory.Create<string?>(this, chosen.Add)));
 
         badge.Find(".status-editor select").Change("in-progress");
@@ -172,7 +172,7 @@ public sealed class MetadataBadgeCompatibilityTests
             .Add(b => b.Status, "ready")
             .Add(b => b.OnStatusChanged, EventCallback.Factory.Create<string?>(this, _ => { })));
 
-        Assert.NotNull(badge.Find(".knowledge-record"));
+        Assert.NotNull(badge.Find(".devbook-record"));
     }
 
     [Fact]
@@ -204,12 +204,12 @@ public sealed class MetadataBadgeCompatibilityTests
             .Add(b => b.Status, "ready")
             .Add(b => b.AriaLabel, "Entry metadata"));
 
-        Assert.Equal("Entry metadata", legacy.Find("div.knowledge-meta").GetAttribute("aria-label"));
+        Assert.Equal("Entry metadata", legacy.Find("div.devbook-meta").GetAttribute("aria-label"));
 
         var typed = context.Render<MetadataBadge>(parameters => parameters
             .Add(b => b.Status, "ready")
             .Add(b => b.Related, ["a"])
-            .Add(b => b.Folder, KnowledgeFolder.Backlog)
+            .Add(b => b.Folder, DevbookFolder.Backlog)
             .Add(b => b.AriaLabel, "Entry metadata"));
 
         // Exactly one element claims to be this block. The headline's status
@@ -217,7 +217,7 @@ public sealed class MetadataBadgeCompatibilityTests
         // control rather than the block — so the count is of things called
         // "Entry metadata", not of aria-labels.
         var labelled = typed.FindAll("[aria-label='Entry metadata']");
-        Assert.Contains("knowledge-record", Assert.Single(labelled).ClassList);
+        Assert.Contains("devbook-record", Assert.Single(labelled).ClassList);
     }
 
     [Fact]
@@ -227,7 +227,7 @@ public sealed class MetadataBadgeCompatibilityTests
 
         var badge = context.Render<MetadataBadge>(parameters => parameters
             .Add(b => b.Metadata, MetadataRecord.Empty)
-            .Add(b => b.Folder, KnowledgeFolder.Tech));
+            .Add(b => b.Folder, DevbookFolder.Tech));
 
         Assert.Equal(string.Empty, badge.Markup.Trim());
     }

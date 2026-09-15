@@ -67,13 +67,13 @@ public sealed class TextFieldSuffixTests
         var field = context.Render<TextField>(parameters => parameters
             .Add(f => f.Bare, true)
             .Add(f => f.InputCssClass, "setting__input")
-            .Add(f => f.TestId, "knowledge-folder-path-input")
+            .Add(f => f.TestId, "devbook-folder-path-input")
             .Add(f => f.Suffix, Marker));
 
         Assert.Empty(field.FindAll(".field"));
         Assert.Equal("setting__input", field.Find(".field__control > input").GetAttribute("class"));
 
-        var found = Assert.Single(field.FindAll("[data-testid=\"knowledge-folder-path-input\"]"));
+        var found = Assert.Single(field.FindAll("[data-testid=\"devbook-folder-path-input\"]"));
         Assert.Equal("INPUT", found.TagName);
     }
 

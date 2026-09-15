@@ -168,4 +168,5 @@ Neutral:
   **Task**. `TaskItem` rather than the bare `Task` because the module's own
   namespace declares dozens of `Task`-returning async methods and `TaskType.Task`
   already means something narrower. The `.domain` vocabulary has not been renamed
-  to match yet; that is a governed-vocabulary change and belongs to `orch-domain`.
+  to match yet; that is a governed-vocabulary change and belongs to `flow-domain`
+  (the `devbook-flows` plugin).

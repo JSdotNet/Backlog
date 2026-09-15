@@ -36,7 +36,7 @@ Refine and prioritize work items linked to projects and GitHub repositories. Ite
 
 Prompts are stored, versioned, and linked to the project and work item they belong to. One-click copy delivers a prompt directly to your active tooling. Usage is tracked so high-value prompts surface again when they are relevant.
 
-### Second brain
+### Devbook
 
 Project knowledge, cross-project notes, and reference material are organized in a PARA-aligned structure. AI sessions and decisions are stored alongside the work they informed.
 
@@ -55,7 +55,7 @@ Primary domains:
 - Inbox
 - Tasks
 - Roadmap Planning
-- Second Brain
+- Devbook
 - Productivity
 - Environment
 - Monitoring and Dashboard
@@ -109,8 +109,8 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `src/Modules/Inbox/Backlog.Modules.Inbox` | Inbox module — the Inbox Item, List and Group aggregates, the `IInboxItemRepository` and `IInboxOrganizerRepository` ports, and vertical-slice features (intake, capture, triage, route to backlog, create plan, organiser) |
 | `src/Modules/Inbox/Backlog.Modules.Inbox.Abstractions` | The Inbox module's published surface — DTOs, `IInboxItems`, and the `IInboxIntake`, `IInboxCaptureOutbox`, `IInboxBacklogTarget` and `IInboxPlanDrafter` ports |
 | `src/Modules/Inbox/Backlog.Modules.Inbox.UI` | Inbox's desktop face — the pane, its side menu of lists and groups, and the per-kind detail view |
-| `src/Modules/Knowledge/Backlog.Modules.Knowledge.Abstractions` | Second Brain's published surface — `IKnowledgeFolderSource`, the configured-folder format, and the location a folder resolves to |
-| `src/Modules/Knowledge/Backlog.Modules.Knowledge.UI` | Second Brain's desktop face — the knowledge menu and the arc42, domain, design, technology, and instruction panels |
+| `src/Modules/Devbook/Backlog.Modules.Devbook.Abstractions` | Devbook's published surface — `IDevbookFolderSource`, the configured-folder format, and the location a folder resolves to |
+| `src/Modules/Devbook/Backlog.Modules.Devbook.UI` | Devbook's desktop face — the Devbook menu and the arc42, domain, design, technology, and instruction panels |
 | `src/Modules/Roadmap/Backlog.Modules.Roadmap` | Roadmap module — the plan and its items, the sequencing rules between them, and the `IRoadmapPlanRepository` port |
 | `src/Modules/Roadmap/Backlog.Modules.Roadmap.Abstractions` | The Roadmap module's published surface — the plan DTOs, `IRoadmapPlanning`, and `RoadmapFeatures` |
 | `src/Modules/Roadmap/Backlog.Modules.Roadmap.UI` | Roadmap Planning's desktop face — the band above the panes and its editor |
@@ -122,8 +122,8 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `src/Modules/Dashboard/Backlog.Modules.Dashboard.Abstractions` | The Dashboard module's published surface — the scope, the insight DTOs, `IProductivityInsights` and `ICostInsights`, and the four ports its adapters answer |
 | `src/Modules/Dashboard/Backlog.Modules.Dashboard.UI` | The Dashboard's face — the full-screen surface, its seven independent parts, and the adapters over GitHub and Anthropic |
 | `src/Infrastructure/Backlog.Infrastructure.Sqlite` | Cross-cutting adapter — the canonical local store, one SQLite database holding the tasks behind `ITaskRepository` and the roadmap plan behind `IRoadmapPlanRepository` as a single document row. Two tables with an owner each: they share the file, not the schema. See [ADR 0003](.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md) |
-| `src/Infrastructure/Backlog.Infrastructure.Knowledge` | Cross-cutting adapter — the generated knowledge database, `_meta/knowledge.db`: the reference graph, reading outline, chapter text, full-text index and Archify rows. Read-only, because the Node writer is the only writer, and every read degrades to the Markdown rather than failing. See [ADR 0004](.arc42/adr/0004-knowledge-index-is-a-generated-local-database.md) |
-| `src/Infrastructure/Backlog.Infrastructure.FileSystem` | Cross-cutting adapter — the JSON on local disk: the workspace settings and feature flags behind `ITaskStore`, `IKnowledgeFolderSource` and `IAppFeatureSettings`, all per-device and deliberately unsynced. Also the roadmap plan's two cross-context joins, which are lookups rather than storage |
+| `src/Infrastructure/Backlog.Infrastructure.Devbook` | Cross-cutting adapter — the generated devbook database, `_meta/devbook.db`: the reference graph, reading outline, chapter text, full-text index and Archify rows. Read-only, because the Node writer is the only writer, and every read degrades to the Markdown rather than failing. See [ADR 0004](.arc42/adr/0004-knowledge-index-is-a-generated-local-database.md) |
+| `src/Infrastructure/Backlog.Infrastructure.FileSystem` | Cross-cutting adapter — the JSON on local disk: the workspace settings and feature flags behind `ITaskStore`, `IDevbookFolderSource` and `IAppFeatureSettings`, all per-device and deliberately unsynced. Also the roadmap plan's two cross-context joins, which are lookups rather than storage |
 | `src/Infrastructure/Backlog.Infrastructure.Claude` | Cross-cutting adapter — Claude usage and spend from the Anthropic organization APIs |
 | `src/Infrastructure/Backlog.Infrastructure.Copilot` | Cross-cutting adapter — starting the GitHub Copilot CLI from a Backlog workflow |
 | `src/Infrastructure/Backlog.Infrastructure.AzureFoundry` | Cross-cutting adapter — the Azure Foundry chat client behind the AI assistant |
@@ -143,7 +143,7 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `tests/Backlog.Modules.Dashboard.UnitTests` | Unit tests for the Dashboard module's derivations — scoring, bucketing, churn rates, spend aggregation, and the cache |
 | `tests/Backlog.Modules.Roadmap.UnitTests` | Unit tests for the Roadmap module — plan items, sequencing, and the scheduling rules |
 | `tests/Backlog.Infrastructure.Sqlite.UnitTests` | Unit tests for the SQLite store — round-tripping a task aggregate and rank order, and round-tripping the roadmap plan document, its `updated_at` stamp, and the two tables coexisting in one file |
-| `tests/Backlog.Infrastructure.Knowledge.UnitTests` | Unit tests for the knowledge database — every rung of the degradation ladder, the scope projection, and the cross-language schema contract, whose fixtures are built from the writer's own DDL text so the two languages cannot drift apart silently |
+| `tests/Backlog.Infrastructure.Devbook.UnitTests` | Unit tests for the devbook database — every rung of the degradation ladder, the scope projection, and the cross-language schema contract, whose fixtures are built from the writer's own DDL text so the two languages cannot drift apart silently |
 | `tests/Backlog.Infrastructure.FileSystem.UnitTests` | Unit tests for the knowledge graph and the roadmap item rollup. The same adapter's workspace-settings and feature-flag tests sit in `Backlog.Desktop.UI.UnitTests`, where the collection fixture they serialize on lives |
 | `tests/Backlog.Infrastructure.GitHub.UnitTests` | Unit tests for the GitHub adapter — issue projection, activity, and billing |
 | `tests/Backlog.Infrastructure.Claude.UnitTests` | Unit tests for the Claude usage adapter |
@@ -162,7 +162,7 @@ rather than a folder inside the shell. The split follows
 |---|---|
 | `src/Modules/Inbox/Backlog.Modules.Inbox.UI` | Inbox — what has been captured but not decided on. Reaches Tasks only through a port its own module publishes |
 | `src/Modules/Tasks/Backlog.Modules.Tasks.UI` | Tasks — the task pane and its GitHub and Copilot CLI projections |
-| `src/Modules/Knowledge/Backlog.Modules.Knowledge.UI` | Second Brain — arc42, domain, design, technology, and instruction knowledge, scoped by a repository alias |
+| `src/Modules/Devbook/Backlog.Modules.Devbook.UI` | Devbook — arc42, domain, design, technology, and instruction knowledge, scoped by a repository alias |
 | `src/Modules/Roadmap/Backlog.Modules.Roadmap.UI` | Roadmap Planning — the forward plan, as a band above the panes |
 | `src/Modules/Dashboard/Backlog.Modules.Dashboard.UI` | Dashboard — productivity and cost insight over what the other systems already hold. Reads only; writes nothing back |
 | `src/Modules/DevPc/Backlog.Modules.DevPc.UI` | Dev PC Management — the tools surface: plugins, repository tools, and MCP servers |
@@ -170,7 +170,7 @@ rather than a folder inside the shell. The split follows
 | `src/App/Backlog.Desktop.UI` | Not a context — app chrome, routes, settings, and the composition root. The one place allowed to see all of them at once |
 
 Making each context a project turns most of the boundary into a reference graph:
-the Inbox, Tasks and Second Brain each reference only their own module's
+the Inbox, Tasks and Devbook each reference only their own module's
 Abstractions, the Dashboard references its own Abstractions plus the two adapters
 it reads providers through and no sibling context at all, and no context
 references another. Where two contexts have to meet — the Inbox routing an item
@@ -182,11 +182,11 @@ that may see both, never a project reference between them.
 There used to be a `Backlog.Desktop.Workspace` project underneath the contexts
 holding where the backlog lives, which repositories are configured and which
 features are on. Being readable by everyone made it the place two contexts could
-meet without either publishing anything: Second Brain read the backlog root and
+meet without either publishing anything: Devbook read the backlog root and
 Tasks read the knowledge-folder resolver, which is not the
 Partnership `.domain/context-map.md` describes. Those four types are now module
 ports — `ITaskStore` in Tasks's Abstractions,
-`IKnowledgeFolderSource` in Second Brain's, `IAppFeatureSettings` in the shared
+`IDevbookFolderSource` in Devbook's, `IAppFeatureSettings` in the shared
 kernel — with the adapters that answer them in
 `Backlog.Infrastructure.FileSystem` and, for tasks themselves,
 `Backlog.Infrastructure.Sqlite`. Where an answer needs more than one context's
@@ -209,7 +209,7 @@ module UI project carries its own, so a component can only reach into another
 context by saying so in writing.
 
 The projects keep their original root namespaces — `Backlog.Desktop.UI.Inbox`,
-`.Tasks`, `.Knowledge` — set explicitly in each
+`.Tasks`, `.Devbook` — set explicitly in each
 `.csproj` and deliberately not matching the project name. The Razor generator
 emits a component's `@using` directives *inside* the component's namespace and
 without a `global::` prefix, so a namespace carrying a second `Backlog` segment

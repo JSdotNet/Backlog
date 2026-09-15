@@ -116,7 +116,7 @@ Narrow enough that the name still gives: it truncates the way the path beside it
 
 `FileViewHeaderLayoutTests` pins the width, and pins that it is scoped here — a status stacked under another status is still a column, so the chapters in the body and the rows of a backlog keep the width they have."
            Code="@PaneCode">
-        <div class="sb-knowledge-pane">
+        <div class="sb-devbook-pane">
             <div class="sb-frame" data-testid="file-header-pane-frame">
                 <FileHeader Name="0002-backlog-module-owns-the-entry-text-language.md"
                             Path=".arc42\adr\0002-backlog-module-owns-the-entry-text-language.md"
@@ -129,7 +129,7 @@ Narrow enough that the name still gives: it truncates the way the path beside it
     </Story>
 
     <Story Name="The record's second tier, on and off"
-           Description="`ShowMetadataFields` is the header's dial over everything that is not the status. Off, the record keeps the status beside the name and drops the rows underneath — which is what a narrow header asks for, and what the knowledge panes ask for: the status is the one part of a `meta` block with a reading behind it, and the rest is the fence again with the fence taken off.
+           Description="`ShowMetadataFields` is the header's dial over everything that is not the status. Off, the record keeps the status beside the name and drops the rows underneath — which is what a narrow header asks for, and what the Devbook panes ask for: the status is the one part of a `meta` block with a reading behind it, and the rest is the fence again with the fence taken off.
 
 The fields tier keeps the record's own treatment either way — the extra-small type, the dim label column, the tight rows — because a status in the header and a status in the body have to read as one thing."
            Code="@FieldsCode">
@@ -339,10 +339,10 @@ Press it — the toggle reports the state it is asking for, and the pane is what
 
     /// <summary>The `.tech` vocabulary, held rather than resolved in the markup: a
     /// fresh object is a changed parameter, and the record would re-render on every
-    /// pass. `KnowledgeStatus.Vocabulary` already returns one instance per folder,
+    /// pass. `DevbookStatus.Vocabulary` already returns one instance per folder,
     /// so this is a name for it rather than a second copy.</summary>
     private static readonly MetadataStatusVocabulary TechVocabulary =
-        KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech);
+        DevbookStatus.Vocabulary(DevbookFolder.Tech);
 
     /// <summary>The file's own block, as a `.tech` chapter writes one. Parsed here
     /// rather than hand-built, because what the header is handed is what
@@ -386,7 +386,7 @@ Press it — the toggle reports the state it is asking for, and the pane is what
         <FileHeader Name="@file.Name"
                     Path="@file.Path"
                     Metadata="@_fileRecord?.Metadata"
-                    Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder)" />
+                    Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder)" />
         """;
 
     private const string LongPathCode = """
@@ -405,7 +405,7 @@ Press it — the toggle reports the state it is asking for, and the pane is what
         <FileHeader Name="@file.Name"
                     Path="@file.Path"
                     Metadata="@_fileRecord?.Metadata"
-                    Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder)"
+                    Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder)"
                     ShowMetadataFields="false" />
         """;
 
@@ -416,18 +416,18 @@ Press it — the toggle reports the state it is asking for, and the pane is what
                     Path="@Path"
                     Kind="@KindValue"
                     Metadata="@_fileRecord?.Metadata"
-                    Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder)"
+                    Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder)"
                     OnStatusChanged="ReportFileStatusAsync" />
         """;
 
     private const string FieldsCode = """
-        @* One dial over everything that is not the status. The knowledge panes set
+        @* One dial over everything that is not the status. The Devbook panes set
            it false: the status is the part of a meta block with a reading behind
            it, and the rest is the fence read back as rows. *@
         <FileHeader Name="@Name"
                     Metadata="@_fileRecord?.Metadata"
-                    Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder)"
-                    ShowMetadataFields="@RenderKnowledgeMetadataFields" />
+                    Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder)"
+                    ShowMetadataFields="@RenderDevbookMetadataFields" />
         """;
 
     private const string EmptyCode = """
@@ -444,7 +444,7 @@ Press it — the toggle reports the state it is asking for, and the pane is what
            own words. *@
         <FileHeader Name="@Name"
                     Metadata="@_fileRecord?.Metadata"
-                    Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder)"
+                    Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder)"
                     OnStatusChanged="ReportFileStatusAsync" />
         """;
 

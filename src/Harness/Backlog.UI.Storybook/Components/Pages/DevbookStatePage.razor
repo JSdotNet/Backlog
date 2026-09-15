@@ -1,0 +1,412 @@
+﻿@page "/devbook/state"
+
+<PageTitle>State in the devbook — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="State"
+           Summary="A subpage of Devbook: `status` is the one field every block must carry, and what it may say depends on which folder the block came from. `DevbookStatus` holds the five vocabularies, `DevbookStatusTone` is the one scale underneath them, and `DevbookFolder` connects a document to its own. Adding state support to a component is one parameter: the folder for the strip that is the devbook&#39;s own, the vocabulary that folder resolves to for the record views, so a surface with words of its own can draw one too. Every behaviour here is gated on that: with no folder or vocabulary given, a status is shown and not judged — no tone, no flag, no control. The vocabularies themselves, and the tone each word maps to, are the rules linked above."
+           Guidelines="@Rules">
+
+    <Story Name="Five vocabularies, one scale, and both forms of a status"
+           Description="Five folders, five vocabularies, one tone scale under all of them. Read a row for one folder's whole vocabulary and a column for the words five folders spell the same tone with.
+
+Both forms are here: `DevbookStatusPill` for a status that is only being shown, and the select for one that can be changed."
+           Code="@ValuesCode">
+        <div class="sb-table-scroll" data-testid="devbook-state-matrix">
+            <table class="sb-table">
+                <thead>
+                    <tr>
+                        <th scope="col">folder</th>
+                        @foreach (var tone in Tones)
+                        {
+                            <th scope="col">
+                                <div class="sb-stack">
+                                    <span>@tone.Name</span>
+                                    <span class="sb-state">@tone.Meaning</span>
+                                </div>
+                            </th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var folder in Folders)
+                    {
+                        <tr data-testid="@($"devbook-state-matrix-{Slug(folder)}")">
+                            <th scope="row">@FolderName(folder)</th>
+                            @foreach (var tone in Tones)
+                            {
+                                <td>
+                                    @foreach (var cell in CellsFor(folder, tone.Tone))
+                                    {
+                                        <div class="sb-row" data-testid="@($"devbook-state-cell-{Slug(folder)}-{cell.Value}")">
+                                            <DevbookStatusPill Status="@cell.Value"
+                                                                 Folder="@folder"
+                                                                 TestId="@($"devbook-state-pill-{Slug(folder)}-{cell.Value}")" />
+                                            <MetadataView Metadata="@cell.Metadata"
+                                                               Vocabulary="@DevbookStatus.Vocabulary(folder)"
+                                                               AriaLabel="@($"{FolderName(folder)} status")"
+                                                               TestId="@($"devbook-state-select-{Slug(folder)}-{cell.Value}")" />
+                                        </div>
+                                    }
+                                </td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </Story>
+
+    <Story Name="The same word, two verdicts, because the folder differs"
+           Description="`active` is a status in `.design` and is not one in `.tech`, where the equivalent rung is `adopted`. The only thing separating the two statements below is `DevbookFolder`, which is why tone is folder-gated rather than guessed from the word.
+
+The folder decides the shape too: read the four cells in two pairs — a select where the folder is known and the value is one of its own, a pill where it is not."
+           Code="@FolderCode">
+        <dl class="sb-grid" data-testid="devbook-state-same-word">
+            @foreach (var verdict in Verdicts)
+            {
+                <div class="sb-stack">
+                    <dt class="sb-label">@verdict.Label</dt>
+                    <dd class="sb-stack">
+                        <CodeView Source="@verdict.Block" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="@($"{verdict.TestId}-source")" />
+                        <MetadataBadge Status="@verdict.Status"
+                                       Folder="@verdict.Folder"
+                                       AriaLabel="@verdict.AriaLabel"
+                                       TestId="@verdict.TestId" />
+                        <p class="sb-state">@verdict.Reading</p>
+                    </dd>
+                </div>
+            }
+        </dl>
+    </Story>
+
+    <Story Name="A status nobody recognises is flagged, not quietly styled"
+           Description="A value in no vocabulary — `activ`, one keystroke from a real one — is flagged rather than styled like every other unknown word, and its `title` names the values that were expected.
+
+It stays the same badge as every other status here, flagged by a dashed border rather than given a tone of its own. `MetadataStatusBadge` is that badge on its own; the record view below it is the same badge inside a record."
+           Code="@UnrecognisedCode">
+        <div class="sb-columns" data-testid="devbook-state-unrecognised">
+            <div class="sb-stack">
+                <p class="sb-label">The block, as written</p>
+                <CodeView Source="@TypoBlock" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="devbook-state-unrecognised-source" />
+                <p class="sb-state" data-testid="devbook-state-unrecognised-check">@TypoSummary</p>
+                <p class="sb-label">The badge on its own, against the .design vocabulary</p>
+                <div class="sb-row">
+                    <MetadataStatusBadge Status="activ"
+                                         Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder.Design)"
+                                         TestId="devbook-state-unrecognised-badge" />
+                </div>
+            </div>
+            <div class="sb-stack">
+                <p class="sb-label">Rendered as a .design chapter</p>
+                <MetadataView Metadata="@TypoMetadata"
+                                   Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder.Design)"
+                                   TestId="devbook-state-unrecognised-view" />
+                <p class="sb-label">The same block with no folder given</p>
+                <MetadataView Metadata="@TypoMetadata"
+                                   TestId="devbook-state-unrecognised-blind" />
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="A folder is one vocabulary, not the only one"
+           Description="A folder is how *this* product scopes a status. What a record actually needs is narrower: which words are allowed, and what each of them looks like. `MetadataStatusVocabulary` is that pair, and it is what `MetadataView`, `MetadataChapterView` and `MetadataFileView` take now — `DevbookStatus.Vocabulary(folder)` for a knowledge surface, and words of its own for anything else.
+
+Which mattered because the field set never was folder-shaped: a field nobody writes is simply absent, and the record already models that. The status was the one thing tying the whole of a record's drawing to five folder names, so a caller outside `.arc42`, `.domain`, `.design`, `.backlog` and `.tech` could not draw a record at all.
+
+`MetadataStatusBadge` is the read-only form of it, and the same badge `DevbookStatusPill` renders — the pill is this component with the folder already looked up. The three below are one vocabulary each: a folder's, a set of words that belong to no folder, and none at all."
+           Code="@VocabularyCode">
+        <dl class="sb-grid" data-testid="devbook-state-vocabulary">
+            <div class="sb-stack">
+                <dt class="sb-label">A folder's, resolved — the same badge the pill draws</dt>
+                <dd class="sb-row">
+                    <MetadataStatusBadge Status="adopted"
+                                         Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder.Tech)"
+                                         TestId="devbook-state-vocabulary-folder" />
+                    <MetadataStatusBadge Status="retired"
+                                         Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder.Tech)" />
+                    <MetadataStatusBadge Status="adoptd"
+                                         Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder.Tech)"
+                                         TestId="devbook-state-vocabulary-typo" />
+                </dd>
+            </div>
+            <div class="sb-stack">
+                <dt class="sb-label">A caller's own words, belonging to no folder</dt>
+                <dd class="sb-row">
+                    <MetadataStatusBadge Status="shipped"
+                                         Vocabulary="@Shipping"
+                                         TestId="devbook-state-vocabulary-own" />
+                    <MetadataStatusBadge Status="rolled-back"
+                                         Vocabulary="@Shipping" />
+                    <MetadataStatusBadge Status="shiped"
+                                         Vocabulary="@Shipping"
+                                         TestId="devbook-state-vocabulary-own-typo" />
+                </dd>
+            </div>
+            <div class="sb-stack">
+                <dt class="sb-label">None — shown, and not judged</dt>
+                <dd class="sb-row">
+                    <MetadataStatusBadge Status="whatever the file said"
+                                         TestId="devbook-state-vocabulary-none" />
+                </dd>
+            </div>
+        </dl>
+    </Story>
+
+    <Story Name="Adding state support to a component"
+           Description="One parameter. Passing a folder down to the badge or the metadata view buys the vocabulary, the tone, the flag on a value in neither, and the status control — the vocabulary offered rather than only checked. The control keeps the reader's choice by itself; a host that wants the change to outlive the page adds `OnStatusChanged`.
+
+Derive the folder rather than asking for it: `DevbookFolders.FromPath` answers from the address a document already carries."
+           Code="@WiringCode">
+        <div class="sb-stack" data-testid="devbook-state-wiring">
+            <p class="sb-label">The path, and the block read out of it</p>
+            <CodeView Source="@WiringSource" Language="razor" AllowCopy="false" CssClass="sb-raw__code" TestId="devbook-state-wiring-source" />
+            <MetadataView Metadata="@BacklogMetadata"
+                               Vocabulary="@DevbookStatus.Vocabulary(DevbookFolders.FromPath(BacklogPath))"
+                               TestId="devbook-state-wiring-view" />
+            <p class="sb-state" data-testid="devbook-state-frompath">@FromPathSummary</p>
+            <p class="sb-state" data-testid="devbook-state-checks">@CheckSummary</p>
+        </div>
+    </Story>
+
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("README.md#status-vocabulary", "The five folders' vocabularies, and what each word means."),
+        new("color-scheme.md#badge-and-chip-tones", "The one tone scale every vocabulary maps onto."),
+        new("color-scheme.md#contrast-rules-wcag-aa-minimum", "The ratio a status pill has to clear.")
+    ];
+
+    /// <summary>One column of the matrix: a tone, and what it means.</summary>
+    private sealed record ToneColumn(DevbookStatusTone Tone, string Meaning)
+    {
+        public string Name => Tone.ToString();
+    }
+
+    /// <summary>One status of one folder, with the block it is drawn from held
+    /// once. Parsed here rather than in the loop so the record handed to the view
+    /// is the same object on every render — a fresh one each time would reseed the
+    /// select and undo a reader mid-click.</summary>
+    private sealed record StatusCell(DevbookFolder Folder, string Value, DevbookStatusTone Tone, MetadataRecord Metadata);
+
+    /// <summary>One cell of the same-word story. The status is held once and read
+    /// twice — as the block on screen and as the badge's parameter — so the source
+    /// shown is provably the source being rendered.</summary>
+    private sealed record Verdict(string Label, DevbookFolder Folder, string Status, string Reading, string TestId)
+    {
+        public string Block => $"status: {Status}";
+
+        // "no folder status" is what FolderName would give the last cell, and an
+        // accessible name is read aloud rather than skimmed.
+        public string AriaLabel => Folder is DevbookFolder.Unknown ? "Status" : $"{FolderName(Folder)} status";
+    }
+
+    private static readonly IReadOnlyList<DevbookFolder> Folders =
+    [
+        DevbookFolder.Arc42,
+        DevbookFolder.Domain,
+        DevbookFolder.Backlog,
+        DevbookFolder.Tech,
+        DevbookFolder.Design
+    ];
+
+    private static readonly IReadOnlyList<ToneColumn> Tones =
+    [
+        new(DevbookStatusTone.Provisional, "written down, not agreed"),
+        new(DevbookStatusTone.Planned, "agreed and waiting"),
+        new(DevbookStatusTone.Active, "live and current"),
+        new(DevbookStatusTone.Complete, "finished"),
+        new(DevbookStatusTone.Attention, "stuck, or being avoided"),
+        new(DevbookStatusTone.Retired, "kept for history only")
+    ];
+
+    /// <summary>Every value of every folder, read out of DevbookStatus rather
+    /// than restated here, so the matrix cannot disagree with the component
+    /// beside it. The pill and the select in a cell are both drawn from this one
+    /// entry, which is what makes them a comparison rather than two claims.</summary>
+    private static readonly IReadOnlyList<StatusCell> Cells =
+    [
+        .. Folders.SelectMany(folder => DevbookStatus.Values(folder).Select(value =>
+            new StatusCell(
+                folder,
+                value,
+                DevbookStatus.Tone(folder, value),
+                MetadataReader.Parse($"status: {value}"))))
+    ];
+
+    private const string TypoBlock = """
+        status: activ
+        related: [".design/design-principles.md"]
+        """;
+
+    private static readonly MetadataRecord TypoMetadata = MetadataReader.Parse(TypoBlock);
+
+    private const string BacklogPath = ".backlog/domain-backlog.md";
+
+    private const string BacklogBlock = """
+        status: in-progress
+        implements: [.domain/tasks/features.md#feature-roadmap-planning]
+        """;
+
+    private static readonly MetadataRecord BacklogMetadata = MetadataReader.Parse(BacklogBlock);
+
+    /// <summary>The four cells of the same-word story, in the order they read: two
+    /// folders that define the word, one that does not, and no folder at all.
+    /// The last one keeps MetadataBadge's two-parameter branch, which is the
+    /// markup this claim is about.</summary>
+    private static readonly IReadOnlyList<Verdict> Verdicts =
+    [
+        new(".design — active is in force", DevbookFolder.Design, "active",
+            "Known, tone Active.", "devbook-state-active-design"),
+
+        new(".tech — the same rung is called adopted", DevbookFolder.Tech, "adopted",
+            "Known, tone Active — a different word for the same place on the scale.",
+            "devbook-state-adopted-tech"),
+
+        new(".tech — active, which .tech does not define", DevbookFolder.Tech, "active",
+            "Flagged. The same word that was fine one cell to the left.",
+            "devbook-state-active-tech"),
+
+        new("No folder — no opinion", DevbookFolder.Unknown, "active",
+            "The markup this component has always rendered.", "devbook-state-active-unknown")
+    ];
+
+    /// <summary>The values of one folder that land on one tone — nearly always
+    /// one, occasionally none, which is the empty cell.</summary>
+    private static IEnumerable<StatusCell> CellsFor(DevbookFolder folder, DevbookStatusTone tone) =>
+        Cells.Where(cell => cell.Folder == folder && cell.Tone == tone);
+
+    /// <summary>The path above the block it holds, because the folder is read off
+    /// the path and the block alone would not show where that came from.</summary>
+    private static string WiringSource => $"{BacklogPath}\n\n{BacklogBlock}";
+
+    private static string TypoSummary =>
+        $"IsKnown(.design, \"activ\") is {DevbookStatus.IsKnown(DevbookFolder.Design, "activ")}. "
+        + $"Expected one of: {string.Join(", ", DevbookStatus.Values(DevbookFolder.Design))}.";
+
+    private static string FromPathSummary =>
+        $"DevbookFolders.FromPath(\"{BacklogPath}\") is "
+        + $"{DevbookFolders.FromPath(BacklogPath)}, so `in-progress` is read against that folder.";
+
+    /// <summary>The two API calls, run rather than tabulated. Each answer is the
+    /// call itself evaluated, so a row cannot end up asking one question and
+    /// printing another.</summary>
+    private static string CheckSummary =>
+        $"IsKnown(.backlog, \"in-progress\") is {DevbookStatus.IsKnown(DevbookFolder.Backlog, "in-progress")}; "
+        + $"IsKnown(.backlog, \"  In-Progress \") is {DevbookStatus.IsKnown(DevbookFolder.Backlog, "  In-Progress ")} — "
+        + "trimmed and case-insensitive; "
+        + $"IsKnown(.backlog, \"adopted\") is {DevbookStatus.IsKnown(DevbookFolder.Backlog, "adopted")} — "
+        + "a real status, in another folder; "
+        + $"IsKnown(no folder, \"done\") is {DevbookStatus.IsKnown(DevbookFolder.Unknown, "done")} — "
+        + "no vocabulary to check against; "
+        + $"Tone(no folder, \"active\") is {DevbookStatus.Tone(DevbookFolder.Unknown, "active")}.";
+
+    private static string Slug(DevbookFolder folder) => folder.ToString().ToLowerInvariant();
+
+    /// <summary>The folder as it is spelt on disk, which is what an author
+    /// recognises — the enum name is an implementation detail.</summary>
+    private static string FolderName(DevbookFolder folder) => folder switch
+    {
+        DevbookFolder.Arc42 => ".arc42",
+        DevbookFolder.Domain => ".domain",
+        DevbookFolder.Backlog => ".backlog",
+        DevbookFolder.Tech => ".tech",
+        DevbookFolder.Design => ".design",
+        _ => "no folder"
+    };
+
+    private const string ValuesCode = """
+        @* The folder's own list, in the order its instructions give. An editor
+           offering a status should offer these and nothing else. *@
+        foreach (var value in DevbookStatus.Values(DevbookFolder.Tech))
+        {
+            // candidate, trial, adopted, hold, retired
+        }
+
+        @* And the axis underneath the five vocabularies, which is what lets one
+           colour mean the same thing in every folder. *@
+        DevbookStatusTone tone = DevbookStatus.Tone(DevbookFolder.Tech, "adopted"); // Active
+        """;
+
+    private const string FolderCode = """
+        @* One answer, asked for two ways. The strip takes the folder, because a
+           knowledge strip is what it is; the record takes the vocabulary the
+           folder resolves to, so a surface with words of its own can draw one too.
+           The tone and the flag follow from whichever was given, and leaving it
+           off is a supported answer rather than a missing one. *@
+        <MetadataBadge Metadata="@metadata" Folder="DevbookFolder.Design" />
+
+        <MetadataView Metadata="@metadata"
+                      Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder.Tech)" />
+
+        @* Passing nothing keeps the flat pill this component always drew. *@
+        <MetadataBadge Status="@status" Related="@relatedIds" />
+        """;
+
+    /// <summary>A vocabulary that is nobody's folder — the point of the story it
+    /// appears in. Held in a field rather than built in the markup for the reason
+    /// <c>DevbookStatus.Vocabulary</c> holds one per folder: a fresh object is a
+    /// changed parameter, and a record would re-render on every pass.</summary>
+    private static readonly MetadataStatusVocabulary Shipping =
+        new(["staged", "shipped", "rolled-back"], status => status switch
+        {
+            "staged" => "ready",
+            "shipped" => "done",
+            _ => "blocked"
+        });
+
+    private const string VocabularyCode = """
+        @* A knowledge surface resolves its folder and hands the answer down. *@
+        <MetadataView Metadata="@metadata"
+                      Vocabulary="@DevbookStatus.Vocabulary(DevbookFolders.FromPath(path))" />
+
+        @* Anything else states its own words, and which badge each one wears. The
+           resolver is only ever asked about a value in the list — the flag on a
+           word in neither belongs to the vocabulary, not to the caller. *@
+        @code {
+            private static readonly MetadataStatusVocabulary Shipping =
+                new(["staged", "shipped", "rolled-back"], status => status switch
+                {
+                    "staged" => "ready",
+                    "shipped" => "done",
+                    _ => "blocked"
+                });
+        }
+
+        <MetadataStatusBadge Status="@release.Status" Vocabulary="@Shipping" />
+        """;
+
+    private const string UnrecognisedCode = """
+        @* A value the vocabulary does not define is flagged by the badge itself:
+           the same badge, a dashed border, and a title naming what was expected.
+           Nothing is passed to ask for it — the vocabulary is what decides. *@
+        <MetadataStatusBadge Status="activ"
+                             Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder.Design)" />
+
+        @* The same answer inside a record, where the status is the headline. *@
+        <MetadataView Metadata="@MetadataReader.Parse("status: activ")"
+                      Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder.Design)" />
+        """;
+
+    private const string WiringCode = """
+        @* Derive the folder from the path rather than asking a caller for it —
+           it is always the first segment, and a parsed reference already carries
+           it on Folder. *@
+        <MetadataView Metadata="@metadata"
+                           Vocabulary="@DevbookStatus.Vocabulary(DevbookFolders.FromPath(documentPath))" />
+
+        @* The same on a whole document, reaching every block in the body. *@
+        <MarkdownView Blocks="@blocks"
+                      RenderDevbookMetadata="true"
+                      DevbookFolder="@DevbookFolders.FromPath(documentPath)" />
+
+        @* The same question the badge asks itself, for a caller that needs the
+           answer before it renders anything. *@
+        if (!DevbookStatus.IsKnown(folder, status))
+        {
+            var expected = string.Join(", ", DevbookStatus.Values(folder));
+            problems.Add($"{path}: status '{status}'. Expected one of: {expected}.");
+        }
+        """;
+}

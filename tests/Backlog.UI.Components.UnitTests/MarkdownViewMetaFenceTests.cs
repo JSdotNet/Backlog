@@ -29,7 +29,7 @@ public sealed class MarkdownViewMetaFenceTests
 
         Assert.NotNull(view.Find("pre.md-code"));
         Assert.Contains("status: adopted", view.Find("pre.md-code code").TextContent, StringComparison.Ordinal);
-        Assert.Empty(view.FindAll("dl.knowledge-fields"));
+        Assert.Empty(view.FindAll("dl.devbook-fields"));
     }
 
     [Fact]
@@ -38,11 +38,11 @@ public sealed class MarkdownViewMetaFenceTests
         using var context = new BunitContext();
 
         var view = Render(context, Document, parameters => parameters
-            .Add(v => v.RenderKnowledgeMetadata, true));
+            .Add(v => v.RenderDevbookMetadata, true));
 
-        Assert.NotNull(view.Find("dl.knowledge-fields"));
+        Assert.NotNull(view.Find("dl.devbook-fields"));
         Assert.Equal("adopted", view.Find(".badge--status").TextContent);
-        Assert.Equal(".tech/technology-graph.md", view.Find("code.knowledge-ref--inert").TextContent);
+        Assert.Equal(".tech/technology-graph.md", view.Find("code.devbook-ref--inert").TextContent);
         Assert.Empty(view.FindAll("pre.md-code"));
 
         // The rest of the document is untouched.
@@ -58,10 +58,10 @@ public sealed class MarkdownViewMetaFenceTests
         using var context = new BunitContext();
 
         var view = Render(context, Document, parameters => parameters
-            .Add(v => v.RenderKnowledgeMetadata, true)
-            .Add(v => v.KnowledgeFolder, KnowledgeFolder.Tech));
+            .Add(v => v.RenderDevbookMetadata, true)
+            .Add(v => v.DevbookFolder, DevbookFolder.Tech));
 
-        var select = view.Find(".knowledge-record__headline .status-editor select");
+        var select = view.Find(".devbook-record__headline .status-editor select");
         Assert.Equal("adopted", select.GetAttribute("value"));
         Assert.Equal(
             ["candidate", "trial", "adopted", "hold", "retired"],
@@ -76,7 +76,7 @@ public sealed class MarkdownViewMetaFenceTests
         using var context = new BunitContext();
 
         var view = Render(context, Document, parameters => parameters
-            .Add(v => v.RenderKnowledgeMetadata, true));
+            .Add(v => v.RenderDevbookMetadata, true));
 
         Assert.Empty(view.FindAll("select"));
 
@@ -89,13 +89,13 @@ public sealed class MarkdownViewMetaFenceTests
     public void A_reference_reports_itself_to_the_host_that_asked_to_hear_about_it()
     {
         using var context = new BunitContext();
-        var followed = new List<KnowledgeReference>();
+        var followed = new List<DevbookReference>();
 
         var view = Render(context, Document, parameters => parameters
-            .Add(v => v.RenderKnowledgeMetadata, true)
-            .Add(v => v.OnKnowledgeNavigate, EventCallback.Factory.Create<KnowledgeReference>(this, followed.Add)));
+            .Add(v => v.RenderDevbookMetadata, true)
+            .Add(v => v.OnDevbookNavigate, EventCallback.Factory.Create<DevbookReference>(this, followed.Add)));
 
-        view.Find("button.knowledge-ref--action").Click();
+        view.Find("button.devbook-ref--action").Click();
 
         Assert.Equal(".tech/technology-graph.md", Assert.Single(followed).Raw);
     }
@@ -106,25 +106,25 @@ public sealed class MarkdownViewMetaFenceTests
         using var context = new BunitContext();
 
         var view = Render(context, Document, parameters => parameters
-            .Add(v => v.RenderKnowledgeMetadata, true)
-            .Add(v => v.KnowledgeHrefFor, reference => $"/knowledge/{reference.Path}"));
+            .Add(v => v.RenderDevbookMetadata, true)
+            .Add(v => v.DevbookHrefFor, reference => $"/knowledge/{reference.Path}"));
 
-        Assert.Equal("/knowledge/.tech/technology-graph.md", view.Find("a.knowledge-ref--link").GetAttribute("href"));
+        Assert.Equal("/knowledge/.tech/technology-graph.md", view.Find("a.devbook-ref--link").GetAttribute("href"));
     }
 
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void A_diagram_fence_is_a_diagram_either_way(bool renderKnowledgeMetadata)
+    public void A_diagram_fence_is_a_diagram_either_way(bool renderDevbookMetadata)
     {
         using var context = new BunitContext();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
 
         var view = Render(context, "```mermaid\ngraph TD;\n  A-->B;\n```\n", parameters => parameters
-            .Add(v => v.RenderKnowledgeMetadata, renderKnowledgeMetadata));
+            .Add(v => v.RenderDevbookMetadata, renderDevbookMetadata));
 
         Assert.NotEmpty(view.FindAll("[data-testid='diagram-view']"));
-        Assert.Empty(view.FindAll("dl.knowledge-fields"));
+        Assert.Empty(view.FindAll("dl.devbook-fields"));
     }
 
     [Fact]
@@ -133,10 +133,10 @@ public sealed class MarkdownViewMetaFenceTests
         using var context = new BunitContext();
 
         var view = Render(context, "```yaml\nstatus: adopted\n```\n", parameters => parameters
-            .Add(v => v.RenderKnowledgeMetadata, true));
+            .Add(v => v.RenderDevbookMetadata, true));
 
         Assert.NotNull(view.Find("pre.md-code"));
-        Assert.Empty(view.FindAll("dl.knowledge-fields"));
+        Assert.Empty(view.FindAll("dl.devbook-fields"));
     }
 
     [Fact]
@@ -148,16 +148,16 @@ public sealed class MarkdownViewMetaFenceTests
         using var context = new BunitContext();
 
         var view = Render(context, Document, parameters => parameters
-            .Add(v => v.RenderKnowledgeMetadata, true));
+            .Add(v => v.RenderDevbookMetadata, true));
 
-        var headline = view.Find(".knowledge-record__headline");
+        var headline = view.Find(".devbook-record__headline");
         Assert.Equal("Shared Technologies", headline.QuerySelector("p.md-heading")?.TextContent);
         Assert.Equal("adopted", headline.QuerySelector(".badge--status")?.TextContent);
 
         // Drawn once each: the heading is not also emitted as its own block, and
         // the fence is not also emitted as a second record.
         Assert.Single(view.FindAll("p.md-heading"));
-        Assert.Single(view.FindAll(".knowledge-record"));
+        Assert.Single(view.FindAll(".devbook-record"));
     }
 
     [Fact]
@@ -166,9 +166,9 @@ public sealed class MarkdownViewMetaFenceTests
         using var context = new BunitContext();
 
         var view = Render(context, Document, parameters => parameters
-            .Add(v => v.RenderKnowledgeMetadata, true));
+            .Add(v => v.RenderDevbookMetadata, true));
 
-        var heading = view.Find(".knowledge-record__headline p.md-heading");
+        var heading = view.Find(".devbook-record__headline p.md-heading");
         Assert.Equal("md-heading md-heading--1", heading.GetAttribute("class"));
         Assert.Equal("heading", heading.GetAttribute("role"));
         Assert.Equal("1", heading.GetAttribute("aria-level"));
@@ -187,10 +187,10 @@ public sealed class MarkdownViewMetaFenceTests
         using var context = new BunitContext();
 
         var view = Render(context, Document, parameters => parameters
-            .Add(v => v.RenderKnowledgeMetadata, true)
+            .Add(v => v.RenderDevbookMetadata, true)
             .Add(v => v.OnAddComment, EventCallback.Factory.Create<int>(this, _ => { })));
 
-        Assert.NotNull(view.Find("[data-block='0'] .knowledge-record__headline p.md-heading"));
+        Assert.NotNull(view.Find("[data-block='0'] .devbook-record__headline p.md-heading"));
         Assert.Empty(view.FindAll("pre.md-code"));
 
         // The fence's own turn in the loop is a no-op rather than a second row.
@@ -199,7 +199,7 @@ public sealed class MarkdownViewMetaFenceTests
         // Still exactly one of each — the heading is not dropped for want of a
         // record to sit in.
         Assert.Single(view.FindAll("p.md-heading"));
-        Assert.Single(view.FindAll(".knowledge-record"));
+        Assert.Single(view.FindAll(".devbook-record"));
     }
 
     [Fact]
@@ -213,7 +213,7 @@ public sealed class MarkdownViewMetaFenceTests
         using var context = new BunitContext();
 
         var view = Render(context, Document, parameters => parameters
-            .Add(v => v.RenderKnowledgeMetadata, true)
+            .Add(v => v.RenderDevbookMetadata, true)
             .Add(v => v.Comments, new MarkdownComment[]
             {
                 new("c0", 0, "About the heading."),
@@ -237,9 +237,9 @@ public sealed class MarkdownViewMetaFenceTests
             status: adopted
             ```
             """, parameters => parameters
-            .Add(v => v.RenderKnowledgeMetadata, true));
+            .Add(v => v.RenderDevbookMetadata, true));
 
-        var headline = view.Find(".knowledge-record__headline");
+        var headline = view.Find(".devbook-record__headline");
         Assert.Single(headline.Children);
         Assert.Equal("adopted", headline.Children[0].TextContent);
     }
@@ -261,9 +261,9 @@ public sealed class MarkdownViewMetaFenceTests
             status: adopted
             ```
             """, parameters => parameters
-            .Add(v => v.RenderKnowledgeMetadata, true));
+            .Add(v => v.RenderDevbookMetadata, true));
 
-        Assert.Empty(view.FindAll(".knowledge-record__headline p.md-heading"));
+        Assert.Empty(view.FindAll(".devbook-record__headline p.md-heading"));
         Assert.Single(view.FindAll("p.md-heading"));
     }
 
@@ -273,12 +273,12 @@ public sealed class MarkdownViewMetaFenceTests
         using var context = new BunitContext();
 
         var view = Render(context, Document, parameters => parameters
-            .Add(v => v.RenderKnowledgeMetadata, true)
-            .Add(v => v.RenderKnowledgeMetadataFields, false));
+            .Add(v => v.RenderDevbookMetadata, true)
+            .Add(v => v.RenderDevbookMetadataFields, false));
 
-        Assert.Equal("adopted", view.Find(".knowledge-record__headline .badge--status").TextContent);
-        Assert.Equal("Shared Technologies", view.Find(".knowledge-record__headline p.md-heading").TextContent);
-        Assert.Empty(view.FindAll("dl.knowledge-fields"));
+        Assert.Equal("adopted", view.Find(".devbook-record__headline .badge--status").TextContent);
+        Assert.Equal("Shared Technologies", view.Find(".devbook-record__headline p.md-heading").TextContent);
+        Assert.Empty(view.FindAll("dl.devbook-fields"));
 
         // And the fence is still not a code block: suppressing the rows is not the
         // same as declining to read the block.
@@ -298,7 +298,7 @@ public sealed class MarkdownViewMetaFenceTests
         context.JSInterop.Mode = JSRuntimeMode.Loose;
 
         var view = Render(context, "```mermaid\ngraph TD;\n  A-->B;\n```\n", parameters => parameters
-            .Add(v => v.RenderKnowledgeMetadata, true));
+            .Add(v => v.RenderDevbookMetadata, true));
 
         Assert.NotNull(view.Find("[data-testid='diagram-view']"));
         Assert.Empty(view.FindAll(".diagram-view__details"));
@@ -313,7 +313,7 @@ public sealed class MarkdownViewMetaFenceTests
         // it. The prose used to run the length of the status beside it.
         using var context = new BunitContext();
 
-        var view = Render(context, Document, p => p.Add(v => v.RenderKnowledgeMetadata, true));
+        var view = Render(context, Document, p => p.Add(v => v.RenderDevbookMetadata, true));
 
         Assert.Contains("md-view--status-column", view.Find(".md-view").ClassList);
     }
@@ -321,14 +321,14 @@ public sealed class MarkdownViewMetaFenceTests
     [Fact]
     public void A_document_with_no_status_in_it_reserves_nothing()
     {
-        // Knowledgeable and still statusless: a chapter with no meta fence draws
+        // Devbookable and still statusless: a chapter with no meta fence draws
         // no pill, and a column held open for one would be a margin of nothing.
         using var context = new BunitContext();
 
         var view = Render(
             context,
             "# A heading\n\nProse with no record in it.",
-            p => p.Add(v => v.RenderKnowledgeMetadata, true));
+            p => p.Add(v => v.RenderDevbookMetadata, true));
 
         Assert.DoesNotContain("md-view--status-column", view.Find(".md-view").ClassList);
     }
@@ -418,7 +418,7 @@ public sealed class MarkdownViewMetaFenceTests
 
         Assert.Contains(
             "margin-inline-end: calc(-1 * var(--md-status-column))",
-            Rule(".md-view--status-column .knowledge-record__headline"),
+            Rule(".md-view--status-column .devbook-record__headline"),
             StringComparison.Ordinal);
 
         Assert.Contains(
@@ -437,11 +437,11 @@ public sealed class MarkdownViewMetaFenceTests
     }
 
     /// <summary>
-    /// The three knowledge panes get this from the one rule, because none of them
+    /// The three Devbook panes get this from the one rule, because none of them
     /// has a rule of its own.
     ///
-    /// <para><c>Arc42KnowledgePanel</c>, <c>DomainKnowledgePanel</c> and
-    /// <c>DesignKnowledgeView</c> all read a file through the same
+    /// <para><c>Arc42DevbookPanel</c>, <c>DomainDevbookPanel</c> and
+    /// <c>DesignDevbookView</c> all read a file through the same
     /// <c>FileView</c> into the same <c>.md-view</c>. A host reserving the column
     /// itself would be a fourth width to find, and the library would no longer own
     /// the one the component draws

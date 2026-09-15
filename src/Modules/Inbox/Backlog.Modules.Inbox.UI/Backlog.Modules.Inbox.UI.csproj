@@ -3,7 +3,7 @@
   <!--
     The Inbox context's UI: what has been captured but not yet decided on, read
     as a To Do-style pane — lists down the side, rows in the middle, the chosen
-    item on the right. Upstream of Tasks and Second Brain
+    item on the right. Upstream of Tasks and Devbook
     (.domain/context-map.md), so it sees its own module's published surface and
     the shared control library and nothing of the two contexts it routes to:
     the join to the backlog is a port in Inbox.Abstractions that an adapter

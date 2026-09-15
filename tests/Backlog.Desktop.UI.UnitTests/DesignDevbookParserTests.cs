@@ -1,0 +1,131 @@
+﻿
+namespace Backlog.Desktop.UI.UnitTests;
+
+public sealed class DesignDevbookParserTests
+{
+    [Fact]
+    public void Parses_design_metadata_sections_tokens_and_diagrams()
+    {
+        using var folder = new TemporaryFolder();
+        var path = Path.Combine(folder.Path, "color-scheme.md");
+        File.WriteAllText(path, """
+# Color scheme
+```meta
+status: approved
+related: [.design/design-principles.md, .arc42/10-quality-requirements.md]
+```
+> Dark mode only.
+
+## Semantic colors
+```meta
+status: active
+```
+
+| Token | Value | Usage |
+| --- | --- | --- |
+| --color-primary | #F2C14E | Focus rings |
+
+```mermaid
+graph TD
+    A[Token] --> B[Component]
+```
+""");
+
+        var file = DesignDevbookParser.ParseFile(folder.Path, path);
+
+        Assert.Equal("Color scheme", file.Title);
+        Assert.Equal("approved", file.Meta.Status);
+
+        // Parsed into references rather than kept as the strings the fence spelled.
+        // That is the whole point of reading the block through the shared reader:
+        // a `related` entry is an address, and the raw path was what the design
+        // pane used to print back at the reader.
+        Assert.Equal(
+            [".design/design-principles.md", ".arc42/10-quality-requirements.md"],
+            file.Meta.Related.Select(reference => reference.Raw));
+        Assert.Equal("Dark mode only.", file.Summary);
+
+        var section = Assert.Single(file.Sections);
+        Assert.Equal("Semantic colors", section.Heading);
+        Assert.Equal("active", section.Meta.Status);
+        Assert.Contains(section.Blocks, block => block is DesignDevbookTable { IsTokenTable: true });
+        Assert.Contains(section.Blocks, block => block is DesignDevbookDiagram { Language: "mermaid" });
+    }
+
+    /// <summary>
+    /// A block that states nothing states nothing. The reader used to answer
+    /// "unknown" for an absent status, which is a word no design file writes and
+    /// which every surface then printed as though the file had.
+    /// </summary>
+    [Fact]
+    public void A_heading_that_carries_no_block_states_no_status()
+    {
+        using var folder = new TemporaryFolder();
+        var path = Path.Combine(folder.Path, "typography-and-layout.md");
+        File.WriteAllText(path, """
+# Typography and layout
+
+## Metadata lines
+
+The record is drawn against its subject.
+""");
+
+        var file = DesignDevbookParser.ParseFile(folder.Path, path);
+
+        Assert.Null(file.Meta.Status);
+        Assert.Null(Assert.Single(file.Sections).Meta.Status);
+    }
+
+    [Fact]
+    public void Keeps_level_two_headings_as_knowledge_sections()
+    {
+        using var folder = new TemporaryFolder();
+        var path = Path.Combine(folder.Path, "design-principles.md");
+        File.WriteAllText(path, """
+# Design principles
+
+## Canonical Markdown
+
+Markdown remains canonical behind the rich text editor.
+
+## Keyboard equivalents
+
+- Drag and drop needs keyboard support.
+""");
+
+        var file = DesignDevbookParser.ParseFile(folder.Path, path);
+
+        Assert.Equal(["Canonical Markdown", "Keyboard equivalents"], file.Sections.Select(section => section.Heading));
+        Assert.IsType<DesignDevbookParagraph>(Assert.Single(file.Sections[0].Blocks));
+        Assert.IsType<DesignDevbookList>(Assert.Single(file.Sections[1].Blocks));
+    }
+
+    // Two facts were here, both about reading order read off a `meta` fence:
+    // that a root document declares its folder's order, and that a chapter's own
+    // block does not get to. They were added when the shared record dropped
+    // `order` while the files still carried it, so `.design` had to parse its own.
+    // `main` has since moved the declaration into the committed `_meta/index.json`
+    // and stripped every `order:` line from the knowledge folders, so there is no
+    // fence left to read and nothing here to assert. What survived the move is
+    // library-level and lives where it belongs: MetadataReaderTests pins that
+    // `order` is recognised and dropped rather than surfacing as an unknown field.
+
+    private sealed class TemporaryFolder : IDisposable
+    {
+        public string Path { get; } = System.IO.Path.Combine(System.IO.Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+
+        public TemporaryFolder()
+        {
+            Directory.CreateDirectory(Path);
+        }
+
+        public void Dispose()
+        {
+            if (Directory.Exists(Path))
+            {
+                Directory.Delete(Path, recursive: true);
+            }
+        }
+    }
+}
+

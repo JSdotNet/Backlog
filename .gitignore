@@ -94,12 +94,19 @@ build/.local/
 # down in docs/deployment/sync.md instead.
 .azure/
 
-# The generated knowledge database and its WAL sidecars. Local ADR 0004 makes the
+# The generated devbook database and its WAL sidecars. Local ADR 0004 makes the
 # derived knowledge layer a build output rather than a committed artifact: it is
 # what stopped two branches editing different chapters from conflicting on a file
 # neither of them authored. Rebuild it with
-# `node tools/knowledge/build-database.mjs`; the authored half — each folder's
+# `node tools/devbook/build-database.mjs`; the authored half — each folder's
 # `_reading-order.json` — stays committed and is what the rebuild reads.
+_meta/devbook.db
+_meta/devbook.db-wal
+_meta/devbook.db-shm
+
+# The name the database had before the Devbook rename. Kept ignored so a
+# `knowledge.db` left on a machine by an earlier build stays out of the index;
+# the reader still serves it until the next build writes `devbook.db`.
 _meta/knowledge.db
 _meta/knowledge.db-wal
 _meta/knowledge.db-shm

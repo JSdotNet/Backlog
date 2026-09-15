@@ -24,8 +24,8 @@ public class ModuleSurfaceTests
     /// across a boundary, so there is no contract for it to publish either.
     ///
     /// <para>Read what is left carefully: this asks that a module <em>that exists</em>
-    /// publishes a contract, not that every context folder holds a module. Second
-    /// Brain and Dev PC Management currently have a <c>.UI</c> project and no
+    /// publishes a contract, not that every context folder holds a module. Devbook
+    /// and Dev PC Management currently have a <c>.UI</c> project and no
     /// domain module at all, and that is a statement about how far each context
     /// has been built rather than a boundary violation. This rule stays silent
     /// about it on purpose; demanding an abstractions project for a module nobody

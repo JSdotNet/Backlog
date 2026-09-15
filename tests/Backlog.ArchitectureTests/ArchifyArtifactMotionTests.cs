@@ -10,7 +10,7 @@ namespace Backlog.ArchitectureTests;
 /// <c>meta.animation</c> is an <c>enum ["trace", "none"]</c> in all five of
 /// Archify's schemas and its default is static, so a specification that says
 /// nothing renders a diagram that never moves. That default is the opposite of
-/// what this repository wants — the knowledge pane shows these artifacts because
+/// what this repository wants — the Devbook pane shows these artifacts because
 /// a traced edge is how a reader follows a flow — and nothing else notices the
 /// difference: a static artifact is a valid, complete, nine-of-nine-checks
 /// artifact. It renders, it exports, it passes every gate Archify has. It just
@@ -37,7 +37,7 @@ public class ArchifyArtifactMotionTests
     /// <c>KNOWLEDGE_FOLDERS</c> in <c>tools/diagrams/archify-artifacts.mjs</c>.
     /// <c>.design</c> has no artifacts today and is listed anyway, so the first
     /// one authored there is covered without anybody remembering this file.</summary>
-    private static readonly string[] KnowledgeFolders = [".arc42", ".domain", ".tech", ".design"];
+    private static readonly string[] DevbookFolders = [".arc42", ".domain", ".tech", ".design"];
 
     /// <summary>The artifact folder beside a chapter.</summary>
     private const string ArtifactFolder = "_archify";
@@ -432,7 +432,7 @@ public class ArchifyArtifactMotionTests
     /// artifacts rendered from them.</summary>
     private static IEnumerable<DirectoryInfo> ArtifactFolders()
     {
-        foreach (var knowledge in KnowledgeFolders)
+        foreach (var knowledge in DevbookFolders)
         {
             var root = new DirectoryInfo(Path.Combine(RepositoryRoot.Root.FullName, knowledge));
             if (!root.Exists) continue;

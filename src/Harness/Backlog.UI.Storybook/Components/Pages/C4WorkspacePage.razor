@@ -110,7 +110,7 @@ That behaviour is the whole safeguard. This reader is a second implementation of
 
     private static readonly DesignGuideline[] Rules =
     [
-        new("component-libraries.md#c4-workspaces", "How a C4 view is expected to behave inside a knowledge section — its own tab, both directions of the reference drawn, and saying what it could not read."),
+        new("component-libraries.md#c4-workspaces", "How a C4 view is expected to behave inside a devbook section — its own tab, both directions of the reference drawn, and saying what it could not read."),
         new("component-libraries.md#diagram-and-graph-strategy", "Which renderer draws which kind of picture, and why a C4 view is the one case this product draws itself."),
         new("accessibility.md#target-sizes-and-text", "Why every pointer gesture here has a control beside it. A box in an SVG is not a focusable target, so clicking to drill in cannot be the only way to drill in."),
         new("color-scheme.md#chart-roles", "One saturated hue, by rule — which is why a C4 level is told apart by weight and glyph here rather than by a hue of its own.")
@@ -211,7 +211,7 @@ That behaviour is the whole safeguard. This reader is a second implementation of
                         }
 
                         shell = component "Shell" "Holds the panes." "Blazor"
-                        knowledge = component "Knowledge" "Draws the knowledge folders." "Razor Class Library"
+                        devbook = component "Devbook" "Draws the knowledge folders." "Razor Class Library"
                         workers = component "Fetch Workers" "Polling and sync." "Background services"
                     }
 
@@ -233,8 +233,8 @@ That behaviour is the whole safeguard. This reader is a second implementation of
                 github = softwareSystem "GitHub" "Issues and webhooks." "External"
 
                 me -> backlog.desktop "Captures and organises work" "local"
-                backlog.desktop.shell -> backlog.desktop.knowledge "Offers the pane"
-                backlog.desktop.workers -> backlog.desktop.knowledge "Delivers captured items"
+                backlog.desktop.shell -> backlog.desktop.devbook "Offers the pane"
+                backlog.desktop.workers -> backlog.desktop.devbook "Delivers captured items"
                 backlog.desktop -> backlog.store "Reads and writes" "file system"
                 backlog.desktop -> github "Syncs issues" "HTTPS"
                 backlog.cloud -> github "Forwards webhooks" "HTTPS"

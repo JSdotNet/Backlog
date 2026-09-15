@@ -5,7 +5,7 @@ namespace Backlog.UI.Components.UnitTests;
 /// <summary>
 /// The ten capture-kind marks.
 ///
-/// <para>The same three properties <c>KnowledgeTypeMarkerTests</c> pins, for
+/// <para>The same three properties <c>DevbookTypeMarkerTests</c> pins, for
 /// the same reasons. It draws something for every value the vocabulary
 /// publishes, so a kind added to the list without a glyph fails rather than
 /// shipping blank. It draws nothing at all for a value it does not know, which

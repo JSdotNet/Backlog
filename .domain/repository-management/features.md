@@ -25,7 +25,7 @@ configured folders, and track when each was last scanned.
 type: sub-feature
 status: draft
 feature-flag: additional-repositories
-related: [.domain/tasks/features.md#multi-repo-targeting, .domain/second-brain/features.md#repository-knowledge-areas]
+related: [.domain/tasks/features.md#multi-repo-targeting, .domain/devbook/features.md#repository-devbook-areas]
 ```
 
 Maintain the working set of repositories the app acts on. Each registered
@@ -68,7 +68,7 @@ placement rather than leaving it colourless.
 ```meta
 type: sub-feature
 status: draft
-related: [.domain/second-brain/features.md#repository-knowledge-areas]
+related: [.domain/devbook/features.md#repository-devbook-areas]
 ```
 
 Decide, per repository, which knowledge folders the product may read and where

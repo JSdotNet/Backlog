@@ -124,7 +124,7 @@ public class TasksRepositoryScopeTests
     // The scope is an ordered set. A plain press replaces it with one repository —
     // or empties it, when that repository was the whole set — which is the single
     // select the strip always had. A modifier press adds or removes one. The first
-    // entry is the anchor: the one the knowledge pane reads, because the pane can
+    // entry is the anchor: the one the Devbook pane reads, because the pane can
     // read one repository's folders and not several, and the repository the reader
     // was already looking at is the one that should not move when they add another.
 

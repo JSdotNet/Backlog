@@ -45,6 +45,6 @@ less means the specification regressed, not that the bar moved.
 
 The specification's `meta` carries `"animation": "trace"`; Archify's default is
 static, and a static artifact passes every check it has. `tools/diagrams/README.md`
-has the full account. `ArchifyArtifactMotionTests` covers the knowledge-chapter
+has the full account. `ArchifyArtifactMotionTests` covers the devbook-chapter
 artifacts under `_archify/`; this folder sits outside the paths it scans, so the
 `deliver` report above is the check.

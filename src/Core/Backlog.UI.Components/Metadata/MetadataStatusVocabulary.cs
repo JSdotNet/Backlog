@@ -6,11 +6,11 @@ namespace Backlog.UI.Components.Metadata;
 /// The status words a surface allows, and how each of them is drawn.
 ///
 /// <para>This is what <see cref="MetadataView"/> used to take a
-/// <c>KnowledgeFolder</c> for. The record itself was never knowledge-shaped — a
+/// <c>DevbookFolder</c> for. The record itself was never devbook-shaped — a
 /// field nobody writes is simply absent, which <see cref="MetadataRecord"/>
 /// already models — but the status was: the view asked
-/// <c>KnowledgeStatus.Values(folder)</c> which words were legal and
-/// <c>KnowledgeStatusBadge.Slug(folder, status)</c> what each of them looked
+/// <c>DevbookStatus.Values(folder)</c> which words were legal and
+/// <c>DevbookStatusBadge.Slug(folder, status)</c> what each of them looked
 /// like, so a caller outside <c>.arc42</c>, <c>.domain</c>, <c>.design</c>,
 /// <c>.backlog</c> and <c>.tech</c> had no way in at all. Handing the vocabulary
 /// down instead means the view knows what a status is worth without knowing what
@@ -26,13 +26,13 @@ namespace Backlog.UI.Components.Metadata;
 ///
 /// <para>Instances are meant to be held, not built per render. A fresh object on
 /// every render is a changed parameter to Blazor, so the knowledge side keeps one
-/// per folder — see <c>KnowledgeStatus.Vocabulary</c>.</para>
+/// per folder — see <c>DevbookStatus.Vocabulary</c>.</para>
 /// </summary>
 public sealed class MetadataStatusVocabulary
 {
     /// <summary>No vocabulary at all: the status is shown and not judged.
     ///
-    /// <para>The counterpart of <c>KnowledgeFolder.Unknown</c>, and the default
+    /// <para>The counterpart of <c>DevbookFolder.Unknown</c>, and the default
     /// every component takes. Nothing is unrecognised against it — there is
     /// nothing to recognise against — so a status drawn through it gets the plain
     /// badge, which is exactly the "no opinion" it means.</para></summary>

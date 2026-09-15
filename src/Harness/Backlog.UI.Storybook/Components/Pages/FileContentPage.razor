@@ -265,7 +265,7 @@ It is an `EmptyState` inside the region rather than a message where the comparis
         var builder = WebApplication.CreateBuilder(args);
 
         builder.AddServiceDefaults();
-        builder.Services.AddKnowledgeReader();
+        builder.Services.AddDevbookReader();
 
         var app = builder.Build();
         app.MapDefaultEndpoints();

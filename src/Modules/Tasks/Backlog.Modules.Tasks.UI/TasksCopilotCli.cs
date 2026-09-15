@@ -10,7 +10,7 @@ namespace Backlog.Desktop.UI.Tasks;
 /// which takes a prompt and a working directory and starts a process. What they
 /// do not share is the prompt: an entry's brief is its markdown, and a knowledge
 /// item's is its metadata and summary. So each context writes its own, and
-/// <c>Knowledge/KnowledgeCopilotCli</c> is this class's opposite number rather
+/// <c>Devbook/DevbookCopilotCli</c> is this class's opposite number rather
 /// than a caller of it.
 /// </para>
 /// </summary>

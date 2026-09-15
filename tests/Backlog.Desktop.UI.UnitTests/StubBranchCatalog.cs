@@ -6,7 +6,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// A branch catalog that reaches no network.
 /// <para>
 /// Shared rather than repeated per file, unlike the <c>NoGitHub</c> stubs beside
-/// it: the settings screen takes this to fill its knowledge-source selector, so
+/// it: the settings screen takes this to fill its devbook-source selector, so
 /// every harness that renders the screen needs one, and every one of them needs
 /// the same thing from it — nothing. A test that is actually about the branch
 /// list sets <see cref="Branches"/>.

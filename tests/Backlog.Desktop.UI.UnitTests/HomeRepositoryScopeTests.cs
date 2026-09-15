@@ -119,7 +119,7 @@ public sealed class HomeRepositoryScopeTests
     //
     // A plain press is the single select the strip always had. With Ctrl (Cmd on a
     // Mac) held it adds or removes one, and the first one taken is the anchor — the
-    // repository the knowledge pane reads, since the pane can read one and not
+    // repository the Devbook pane reads, since the pane can read one and not
     // several. The anchor is marked only once there is a second chip for it to be
     // distinct from; with one chip pressed the markup is what it was before.
 
@@ -191,15 +191,15 @@ public sealed class HomeRepositoryScopeTests
 
         Chips(component)[1].Click();
 
-        // Pinned, so opening Knowledge puts it beside the list rather than in its
+        // Pinned, so opening Devbook puts it beside the list rather than in its
         // place — a pane press is a switch, and the list has to stay for a second
         // repository to have anywhere to be.
         component.WaitForElement("[data-testid='backlog-pane-pin']").Click();
-        component.WaitForElement("[data-testid='knowledge-pane-option']").Click();
+        component.WaitForElement("[data-testid='devbook-pane-option']").Click();
         component.WaitForAssertion(() =>
         {
             Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
-            Assert.Equal("docs", component.FindComponent<KnowledgePane>().Instance.RepositoryAlias);
+            Assert.Equal("docs", component.FindComponent<DevbookPane>().Instance.RepositoryAlias);
         });
 
         Chips(component)[0].Click(new MouseEventArgs { CtrlKey = true });
@@ -208,7 +208,7 @@ public sealed class HomeRepositoryScopeTests
         // adding a repository to the backlog scope must not move the knowledge the reader
         // was already reading beside it.
         component.WaitForAssertion(() =>
-            Assert.Equal("docs", component.FindComponent<KnowledgePane>().Instance.RepositoryAlias));
+            Assert.Equal("docs", component.FindComponent<DevbookPane>().Instance.RepositoryAlias));
     }
 
     [Fact]
@@ -272,7 +272,7 @@ public sealed class HomeRepositoryScopeTests
     //
     // More than one repository is a list affordance: the backlog list is the only
     // pane that can show several. So the scope holds several only while Tasks is on
-    // screen — going to Knowledge, which as an unpinned switch takes the list's
+    // screen — going to Devbook, which as an unpinned switch takes the list's
     // place, narrows the scope to the anchor, and without the list a modified press
     // is an ordinary press.
 
@@ -287,12 +287,12 @@ public sealed class HomeRepositoryScopeTests
         Chips(component)[0].Click(new MouseEventArgs { CtrlKey = true });
         Assert.Equal(["docs", "backlog"], state.SelectedRepositoryAliases);
 
-        GoToKnowledge(component);
+        GoToDevbook(component);
 
         // The anchor, not the latest: docs was taken first, and it is what the
         // knowledge pane would have been reading beside the list.
         component.WaitForAssertion(() => Assert.Equal(["docs"], state.SelectedRepositoryAliases));
-        Assert.Equal("docs", component.FindComponent<KnowledgePane>().Instance.RepositoryAlias);
+        Assert.Equal("docs", component.FindComponent<DevbookPane>().Instance.RepositoryAlias);
     }
 
     [Fact]
@@ -303,7 +303,7 @@ public sealed class HomeRepositoryScopeTests
         var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
 
         Chips(component)[0].Click();
-        GoToKnowledge(component);
+        GoToDevbook(component);
 
         Chips(component)[1].Click(new MouseEventArgs { CtrlKey = true });
 
@@ -311,14 +311,14 @@ public sealed class HomeRepositoryScopeTests
         Assert.DoesNotContain("Ctrl+click", Chips(component)[0].GetAttribute("title"));
     }
 
-    /// <summary>Presses the Knowledge option, which — Tasks being unpinned — puts
-    /// the knowledge pane where the list was.</summary>
-    private static void GoToKnowledge(IRenderedComponent<Home> component)
+    /// <summary>Presses the Devbook option, which — Tasks being unpinned — puts
+    /// the Devbook pane where the list was.</summary>
+    private static void GoToDevbook(IRenderedComponent<Home> component)
     {
-        component.WaitForElement("[data-testid='knowledge-pane-option']").Click();
+        component.WaitForElement("[data-testid='devbook-pane-option']").Click();
         component.WaitForAssertion(() =>
         {
-            Assert.NotEmpty(component.FindAll("[data-testid='knowledge-stack']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']"));
             Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
         });
     }
@@ -500,8 +500,8 @@ public sealed class HomeRepositoryScopeTests
         _ = featureSettings.SetEnabled(DashboardFeatures.Dashboard, true);
         _ = featureSettings.SetEnabled(DevPcFeatures.SystemTools, true);
         _ = featureSettings.SetEnabled(SessionFeatures.Sessions, true);
-        _ = featureSettings.SetEnabled(KnowledgeFeatures.KnowledgeSections, true);
-        _ = featureSettings.SetEnabled(KnowledgeFeatures.RepositoryKnowledge, true);
+        _ = featureSettings.SetEnabled(DevbookFeatures.DevbookSections, true);
+        _ = featureSettings.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
         _ = featureSettings.SetEnabled(AppFeatures.InboxPane, false);
         _ = featureSettings.SetEnabled(AppFeatures.AiAssistant, false);
         _ = featureSettings.SetEnabled(AppFeatures.FeedbackReporting, false);
@@ -516,14 +516,14 @@ public sealed class HomeRepositoryScopeTests
             .. repositories.Select(repository => repository with
             {
                 CloneDirectory = RepositoryRoot.Root.FullName,
-                KnowledgeFolders = KnowledgeFolderSetting.Defaults()
+                DevbookFolders = DevbookFolderSetting.Defaults()
             })
         ]));
 
         configureRepositories?.Invoke(gitHubSettings);
 
         var gitHub = new GitHubIntegration(gitHubSettings, new StubGitHubClient(), new StubProbe());
-        var knowledgeFolderSource = new KnowledgeFolderSource(gitHubSettings, store);
+        var devbookFolderSource = new DevbookFolderSource(gitHubSettings, store);
 
         var context = new BunitContext();
         context.Services.AddSingleton(store);
@@ -541,7 +541,7 @@ public sealed class HomeRepositoryScopeTests
         // only worked with rows in it would fail here, which is the point.
         context.Services.AddSingleton<IAgentSessionSource>(new EmptySessionSource());
         context.Services.AddSingleton<IAppUpdateService, UnsupportedAppUpdateService>();
-        context.Services.AddSingleton<IKnowledgeFolderSource>(knowledgeFolderSource);
+        context.Services.AddSingleton<IDevbookFolderSource>(devbookFolderSource);
         // The Roadmap module the way a host wires it: a real plan document under the
         // same storage root, so the band draws what was stored rather than a fixture.
         context.Services.AddSingleton<IRoadmapPlanning>(sp =>
@@ -552,22 +552,22 @@ public sealed class HomeRepositoryScopeTests
             new Backlog.Infrastructure.FileSystem.Roadmap.RoadmapItemRollupService(
                 TasksTestHost.EntriesFor(sp.GetRequiredService<WorkspaceSettingsStore>()),
                 () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
-        context.Services.AddSingleton<DesignKnowledgeProvider>();
-        context.Services.AddSingleton<TechnologyKnowledgeService>();
+        context.Services.AddSingleton<DesignDevbookProvider>();
+        context.Services.AddSingleton<TechnologyDevbookService>();
         context.Services.AddSingleton<InstructionSourceDiscovery>();
-        context.Services.AddSingleton<KnowledgeMenu>();
-        context.Services.AddSingleton<Arc42KnowledgeStore>();
+        context.Services.AddSingleton<DevbookMenu>();
+        context.Services.AddSingleton<Arc42DevbookStore>();
         context.Services.AddSingleton<IFolderEditorLauncher, UnsupportedFolderEditorLauncher>();
-        context.Services.AddSingleton<KnowledgeFolderOpenService>();
-        context.Services.AddSingleton<KnowledgeScope>();
-        context.Services.AddSingleton<KnowledgeUpdateService>();
+        context.Services.AddSingleton<DevbookFolderOpenService>();
+        context.Services.AddSingleton<DevbookScope>();
+        context.Services.AddSingleton<DevbookUpdateService>();
         context.Services.AddSingleton<IGitHubBranchCatalog>(new StubBranchCatalog());
-        context.Services.AddSingleton<KnowledgeSourceSelection>();
-        context.Services.AddSingleton(new KnowledgeCopilotCli(new UnavailableCopilotCliLauncher()));
+        context.Services.AddSingleton<DevbookSourceSelection>();
+        context.Services.AddSingleton(new DevbookCopilotCli(new UnavailableCopilotCliLauncher()));
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
         // The dashboard takeover, with no provider behind it — see DashboardTestHost.
         _ = context.Services.AddUnavailableDashboard("backlog", "backlog-ide");
-        context.Services.AddScoped(sp => new DomainKnowledgeStore(sp.GetRequiredService<IKnowledgeFolderSource>()));
+        context.Services.AddScoped(sp => new DomainDevbookStore(sp.GetRequiredService<IDevbookFolderSource>()));
         context.Services.AddScoped(sp => TasksTestHost.StateFor(
             sp.GetRequiredService<WorkspaceSettingsStore>(),
             sp.GetRequiredService<GitHubIntegration>(),

@@ -6,14 +6,14 @@ using Backlog.Infrastructure.Sqlite;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Desktop.UI.Inbox;
 using Backlog.Desktop.UI.Tasks;
-using Backlog.Desktop.UI.Knowledge;
+using Backlog.Desktop.UI.Devbook;
 using Backlog.Desktop.UI.AppUpdate;
 using Backlog.Desktop.UI.Shell;
 using Backlog.Modules.DevPc.Abstractions;
 using Backlog.SharedKernel;
 using Backlog.Modules.Tasks;
 using Backlog.Modules.Tasks.Abstractions.Services;
-using Backlog.Modules.Knowledge.Abstractions;
+using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Tasks.Extensions;
 using Backlog.Modules.Roadmap;
 using Backlog.Modules.Roadmap.Abstractions.Services;
@@ -33,7 +33,7 @@ using Backlog.Modules.Dashboard.UI.Extensions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sessions.UI.Extensions;
 using Backlog.Infrastructure.GitHub;
-using Backlog.Infrastructure.Knowledge;
+using Backlog.Infrastructure.Devbook;
 using Backlog.Infrastructure.Sync;
 using Backlog.Infrastructure.Sync.Extensions;
 using Backlog.Infrastructure.Sync.Sessions;
@@ -66,7 +66,7 @@ builder.Services.AddRazorComponents()
 // has to see the other's settings.
 builder.Services.AddSingleton<WorkspaceSettingsStore>();
 
-// Knowledge read from a repository branch, for a repository nobody has cloned.
+// Devbook read from a repository branch, for a repository nobody has cloned.
 // The download half lives in the GitHub adapter and the disk half in the file
 // system one; the cache root arrives as a delegate rather than as the workspace
 // store, because the GitHub adapter may not see that one.
@@ -77,15 +77,15 @@ builder.Services.AddSingleton<IGitHubArchiveClient>(sp => new GitHubArchiveClien
     sp.GetRequiredService<IGitHubCredentialResolver>(),
     sp.GetRequiredService<IHttpClientFactory>().CreateClient(GitHubArchiveHttpClient),
     () => sp.GetRequiredService<GitHubSettingsStore>().Current.ApiEndpoint));
-builder.Services.AddSingleton<IKnowledgeSnapshotCache>(sp => new KnowledgeSnapshotCache(
-    () => sp.GetRequiredService<WorkspaceSettingsStore>().KnowledgeCacheDirectory,
+builder.Services.AddSingleton<IDevbookSnapshotCache>(sp => new DevbookSnapshotCache(
+    () => sp.GetRequiredService<WorkspaceSettingsStore>().DevbookCacheDirectory,
     sp.GetRequiredService<IGitHubArchiveClient>(),
     sp.GetRequiredService<IGitHubBranchCatalog>()));
 
-builder.Services.AddSingleton<IKnowledgeFolderSource>(sp => new KnowledgeFolderSource(
+builder.Services.AddSingleton<IDevbookFolderSource>(sp => new DevbookFolderSource(
     sp.GetRequiredService<GitHubSettingsStore>(),
     sp.GetRequiredService<WorkspaceSettingsStore>(),
-    sp.GetRequiredService<IKnowledgeSnapshotCache>()));
+    sp.GetRequiredService<IDevbookSnapshotCache>()));
 builder.Services.AddSingleton<ITaskStore>(sp => new WorkspaceTaskStore(
     sp.GetRequiredService<WorkspaceSettingsStore>()));
 // How often the list re-reads a store somebody else may have written to. Scoped
@@ -241,7 +241,7 @@ builder.Services.AddHttpClient<IAzureFoundryChatClient, AzureFoundryChatClient>(
 builder.Services.AddScoped<IInboxPlanDrafter, AzureFoundryInboxPlanDrafter>();
 // The embedding deployment beside the chat one. Registered and never called in
 // this change: local ADR 0004's semantic tier is wired and dormant, and the
-// thing that would join it up - writing vectors into _meta/knowledge.db -
+// thing that would join it up - writing vectors into _meta/devbook.db -
 // belongs to the Node generator, which is the only writer that file has.
 builder.Services.AddHttpClient<IAzureFoundryEmbeddingsClient, AzureFoundryEmbeddingsClient>();
 builder.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
@@ -295,45 +295,45 @@ builder.Services.AddTasksAdapters();
 
 builder.Services.AddSingleton<GitHubIntegration>();
 builder.Services.AddSingleton<FeedbackReporter>();
-builder.Services.AddSingleton<DesignKnowledgeProvider>();
-builder.Services.AddSingleton<TechnologyKnowledgeService>();
-builder.Services.AddSingleton<KnowledgeAtlasService>();
+builder.Services.AddSingleton<DesignDevbookProvider>();
+builder.Services.AddSingleton<TechnologyDevbookService>();
+builder.Services.AddSingleton<DevbookAtlasService>();
 // Retrieval, both tiers. Adapters over the generated database rather than over
 // the Markdown: search is the one capability ADR 0004's ladder does not let
 // degrade to a corpus scan, so where there is no database these report that in
 // words instead of answering slowly or answering nothing.
-builder.Services.AddSingleton<IKnowledgeSearch>(sp =>
-    new KnowledgeFullTextSearch(sp.GetRequiredService<IKnowledgeFolderSource>()));
-builder.Services.AddSingleton<IKnowledgeVectorSearch>(sp =>
-    new KnowledgeSemanticSearch(sp.GetRequiredService<IKnowledgeFolderSource>(), KnowledgeEmbeddingModel.Default));
+builder.Services.AddSingleton<IDevbookSearch>(sp =>
+    new DevbookFullTextSearch(sp.GetRequiredService<IDevbookFolderSource>()));
+builder.Services.AddSingleton<IDevbookVectorSearch>(sp =>
+    new DevbookSemanticSearch(sp.GetRequiredService<IDevbookFolderSource>(), DevbookEmbeddingModel.Default));
 builder.Services.AddSingleton<InstructionSourceDiscovery>();
-builder.Services.AddSingleton<KnowledgeMenu>();
-builder.Services.AddSingleton<Arc42KnowledgeStore>();
+builder.Services.AddSingleton<DevbookMenu>();
+builder.Services.AddSingleton<Arc42DevbookStore>();
 // The C4 model beside the architecture chapters. Registered next to the
 // arc42 store because it answers the same scope question against the same
 // clone; it reads its own feature key and hands back nothing when that key
 // is off, so registering it does not turn it on.
-builder.Services.AddSingleton<C4KnowledgeStore>();
-builder.Services.AddSingleton<KnowledgeChapterWriter>();
+builder.Services.AddSingleton<C4DevbookStore>();
+builder.Services.AddSingleton<DevbookChapterWriter>();
 builder.Services.AddSingleton<IFolderEditorLauncher, UnsupportedFolderEditorLauncher>();
-builder.Services.AddSingleton<KnowledgeFolderOpenService>();
+builder.Services.AddSingleton<DevbookFolderOpenService>();
 builder.Services.AddSingleton(_ => TasksCopilotCli.Unavailable);
-builder.Services.AddSingleton(_ => new KnowledgeCopilotCli(new UnavailableCopilotCliLauncher()));
+builder.Services.AddSingleton(_ => new DevbookCopilotCli(new UnavailableCopilotCliLauncher()));
 // The shared diagram component asks for this optionally, so registering it is
 // what switches Archify artifacts on for the harness at all. It takes the same
 // unavailable launcher as its neighbour: this host cannot start a CLI, and
 // pressing the offer says so rather than doing nothing.
 builder.Services.AddSingleton<IDiagramArtifactSource>(sp => new ArchifyDiagramArtifacts(
     sp.GetRequiredService<IAppFeatureSettings>(),
-    sp.GetRequiredService<IKnowledgeFolderSource>(),
+    sp.GetRequiredService<IDevbookFolderSource>(),
     sp.GetRequiredService<GitHubSettingsStore>(),
     new UnavailableCopilotCliLauncher()));
-builder.Services.AddSingleton<KnowledgeScope>();
-builder.Services.AddSingleton<KnowledgeUpdateService>();
+builder.Services.AddSingleton<DevbookScope>();
+builder.Services.AddSingleton<DevbookUpdateService>();
 
-// Shared by the knowledge pane and the settings screen, and a singleton so the
+// Shared by the Devbook pane and the settings screen, and a singleton so the
 // branch list somebody fetched in one is already there in the other.
-builder.Services.AddSingleton<KnowledgeSourceSelection>();
+builder.Services.AddSingleton<DevbookSourceSelection>();
 builder.Services.AddScoped<TasksDesktopState>();
 // The Inbox pane's state, on the same terms as TasksDesktopState and for the
 // same reason: it captures the module's scoped IInboxItems, and a singleton over
@@ -347,7 +347,7 @@ builder.Services.AddScoped<InboxDesktopState>();
 builder.Services.AddScoped<ISaveStatusSource>(sp => sp.GetRequiredService<TasksDesktopState>());
 builder.Services.AddScoped<ToastChannel>();
 builder.Services.AddScoped<IToastChannel>(sp => sp.GetRequiredService<ToastChannel>());
-builder.Services.AddScoped(sp => new DomainKnowledgeStore(sp.GetRequiredService<IKnowledgeFolderSource>()));
+builder.Services.AddScoped(sp => new DomainDevbookStore(sp.GetRequiredService<IDevbookFolderSource>()));
 
 // The web host never distributes or updates the desktop app, so it always
 // reports updates as unsupported.
@@ -459,13 +459,13 @@ static GitHubSettingsStore CreateLocalDevelopmentGitHubSettingsStore(string cont
         new GitHubRepositoryRef(alias, "JSdotNet", "Backlog")
         {
             CloneDirectory = repositoryRoot,
-            KnowledgeFolders = KnowledgeFolderSetting.Defaults()
+            DevbookFolders = DevbookFolderSetting.Defaults()
         }
     ]);
 
-    foreach (var folder in KnowledgeFolderSetting.Defaults())
+    foreach (var folder in DevbookFolderSetting.Defaults())
     {
-        settings.SetKnowledgeFolder(alias, folder.Key, enabled: true, path: null);
+        settings.SetDevbookFolder(alias, folder.Key, enabled: true, path: null);
     }
 
     return settings;

@@ -313,8 +313,8 @@ public sealed class InboxAddPersistsAnItemTests
         _ = featureSettings.SetEnabled(DashboardFeatures.Dashboard, false);
         _ = featureSettings.SetEnabled(DevPcFeatures.SystemTools, false);
         _ = featureSettings.SetEnabled(SessionFeatures.Sessions, false);
-        _ = featureSettings.SetEnabled(KnowledgeFeatures.KnowledgeSections, false);
-        _ = featureSettings.SetEnabled(KnowledgeFeatures.RepositoryKnowledge, false);
+        _ = featureSettings.SetEnabled(DevbookFeatures.DevbookSections, false);
+        _ = featureSettings.SetEnabled(DevbookFeatures.RepositoryDevbook, false);
         _ = featureSettings.SetEnabled(AppFeatures.AiAssistant, false);
         _ = featureSettings.SetEnabled(AppFeatures.FeedbackReporting, false);
         _ = featureSettings.SetEnabled(TasksFeatures.GitHubIntegration, false);
@@ -332,28 +332,28 @@ public sealed class InboxAddPersistsAnItemTests
         context.Services.AddSingleton<IDevToolService, UnsupportedDevToolService>();
         context.Services.AddSingleton<IAgentSessionSource>(new EmptySessionSource());
         context.Services.AddSingleton<IAppUpdateService, UnsupportedAppUpdateService>();
-        context.Services.AddSingleton<IKnowledgeFolderSource>(new KnowledgeFolderSource(gitHubSettings, store));
+        context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(gitHubSettings, store));
         context.Services.AddSingleton<IRoadmapPlanning>(sp =>
             TasksTestHost.PlanningFor(sp.GetRequiredService<WorkspaceSettingsStore>()));
         context.Services.AddSingleton<IRoadmapItemRollup>(sp =>
             new Backlog.Infrastructure.FileSystem.Roadmap.RoadmapItemRollupService(
                 TasksTestHost.EntriesFor(sp.GetRequiredService<WorkspaceSettingsStore>()),
                 () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
-        context.Services.AddSingleton<DesignKnowledgeProvider>();
-        context.Services.AddSingleton<TechnologyKnowledgeService>();
+        context.Services.AddSingleton<DesignDevbookProvider>();
+        context.Services.AddSingleton<TechnologyDevbookService>();
         context.Services.AddSingleton<InstructionSourceDiscovery>();
-        context.Services.AddSingleton<KnowledgeMenu>();
-        context.Services.AddSingleton<Arc42KnowledgeStore>();
+        context.Services.AddSingleton<DevbookMenu>();
+        context.Services.AddSingleton<Arc42DevbookStore>();
         context.Services.AddSingleton<IFolderEditorLauncher, UnsupportedFolderEditorLauncher>();
-        context.Services.AddSingleton<KnowledgeFolderOpenService>();
-        context.Services.AddSingleton<KnowledgeScope>();
-        context.Services.AddSingleton<KnowledgeUpdateService>();
+        context.Services.AddSingleton<DevbookFolderOpenService>();
+        context.Services.AddSingleton<DevbookScope>();
+        context.Services.AddSingleton<DevbookUpdateService>();
         context.Services.AddSingleton<IGitHubBranchCatalog>(new StubBranchCatalog());
-        context.Services.AddSingleton<KnowledgeSourceSelection>();
-        context.Services.AddSingleton(new KnowledgeCopilotCli(new UnavailableCopilotCliLauncher()));
+        context.Services.AddSingleton<DevbookSourceSelection>();
+        context.Services.AddSingleton(new DevbookCopilotCli(new UnavailableCopilotCliLauncher()));
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
         _ = context.Services.AddUnavailableDashboard("backlog", "backlog-ide");
-        context.Services.AddScoped(sp => new DomainKnowledgeStore(sp.GetRequiredService<IKnowledgeFolderSource>()));
+        context.Services.AddScoped(sp => new DomainDevbookStore(sp.GetRequiredService<IDevbookFolderSource>()));
 
         // The halves of Capture the shell needs: the module for the run, the
         // host's choice of where the sources are kept, one adapter a test can

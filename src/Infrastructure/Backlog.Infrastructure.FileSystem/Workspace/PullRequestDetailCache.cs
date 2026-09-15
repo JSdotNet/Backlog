@@ -8,7 +8,7 @@ namespace Backlog.Infrastructure.FileSystem;
 /// merged pull request, under one folder per repository.
 /// <para>
 /// It lives here rather than beside the port for the reason
-/// <see cref="KnowledgeSnapshotCache"/> does: the half that talks to GitHub stays
+/// <see cref="DevbookSnapshotCache"/> does: the half that talks to GitHub stays
 /// in <c>Backlog.Infrastructure.GitHub</c> and may not reach for this one, which
 /// the architecture tests enforce. The cache root arrives as a delegate for the
 /// same reason — it is a workspace setting, and a setting read once at

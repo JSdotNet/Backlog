@@ -53,7 +53,7 @@ public static class InboxEnumMap
     public static string ToWire(RoutingDomain value) => value switch
     {
         RoutingDomain.Tasks => "tasks",
-        RoutingDomain.SecondBrain => "second_brain",
+        RoutingDomain.Devbook => "devbook",
         RoutingDomain.Archive => "archive",
         _ => throw new ArgumentOutOfRangeException(nameof(value))
     };
@@ -88,7 +88,10 @@ public static class InboxEnumMap
     public static RoutingDomain ParseRoutingDomain(string value) => Normalize(value) switch
     {
         "tasks" => RoutingDomain.Tasks,
-        "secondbrain" => RoutingDomain.SecondBrain,
+        "devbook" => RoutingDomain.Devbook,
+        // The wire token the member carried before the context was renamed; nothing
+        // routed there, but a row that did would still be readable rather than thrown on.
+        "secondbrain" => RoutingDomain.Devbook,
         "archive" => RoutingDomain.Archive,
         _ => throw new FormatException($"Unknown routing domain '{value}'.")
     };

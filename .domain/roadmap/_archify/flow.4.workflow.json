@@ -53,12 +53,12 @@
       "sublabel": "supplier"
     },
     {
-      "id": "second-brain",
+      "id": "devbook",
       "lane": "suppliers",
       "col": 5,
       "width": 110,
       "type": "external",
-      "label": "Second Brain",
+      "label": "Devbook",
       "sublabel": "supplier"
     },
     {
@@ -187,7 +187,7 @@
     },
     {
       "id": "brain-tag",
-      "from": "second-brain",
+      "from": "devbook",
       "to": "by-tag",
       "variant": "dashed",
       "role": "async",
@@ -202,7 +202,7 @@
     },
     {
       "id": "brain-name",
-      "from": "second-brain",
+      "from": "devbook",
       "to": "by-name",
       "variant": "dashed",
       "role": "async",

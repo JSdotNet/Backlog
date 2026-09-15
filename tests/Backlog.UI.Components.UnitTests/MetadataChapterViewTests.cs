@@ -56,13 +56,13 @@ public sealed class MetadataChapterViewTests
 
         var chapter = chapterContext.Render<MetadataChapterView>(parameters => parameters
             .Add(view => view.Metadata, MetadataReader.Parse(Block))
-            .Add(view => view.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech))
+            .Add(view => view.Vocabulary, DevbookStatus.Vocabulary(DevbookFolder.Tech))
             .Add(view => view.ShowFields, showFields)
             .Add(view => view.Heading, Heading("The Runtime")));
 
         var record = recordContext.Render<MetadataView>(parameters => parameters
             .Add(view => view.Metadata, MetadataReader.Parse(Block))
-            .Add(view => view.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech))
+            .Add(view => view.Vocabulary, DevbookStatus.Vocabulary(DevbookFolder.Tech))
             .Add(view => view.ShowFields, showFields)
             .Add(view => view.Heading, Heading("The Runtime")));
 
@@ -79,10 +79,10 @@ public sealed class MetadataChapterViewTests
 
         var chapter = context.Render<MetadataChapterView>(parameters => parameters
             .Add(view => view.Metadata, MetadataReader.Parse("status: adopted"))
-            .Add(view => view.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech))
+            .Add(view => view.Vocabulary, DevbookStatus.Vocabulary(DevbookFolder.Tech))
             .Add(view => view.Heading, Heading("The Runtime")));
 
-        var headline = chapter.Find(".knowledge-record__headline");
+        var headline = chapter.Find(".devbook-record__headline");
         Assert.Equal(["p", "label"], headline.Children.Select(child => child.LocalName));
         Assert.Equal("The Runtime", headline.Children[0].TextContent);
     }
@@ -107,34 +107,34 @@ public sealed class MetadataChapterViewTests
     public void The_folder_reaches_the_status_through_the_shape()
     {
         // The plumbing, not the vocabulary: what the select offers is
-        // KnowledgeStatus's and is tested there. What matters here is that a
+        // DevbookStatus's and is tested there. What matters here is that a
         // parameter handed to the shape arrives at the record.
         using var context = new BunitContext();
 
         var chapter = context.Render<MetadataChapterView>(parameters => parameters
             .Add(view => view.Metadata, MetadataReader.Parse("status: adopted"))
-            .Add(view => view.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech))
+            .Add(view => view.Vocabulary, DevbookStatus.Vocabulary(DevbookFolder.Tech))
             .Add(view => view.Heading, Heading("The Runtime")));
 
-        Assert.NotNull(chapter.Find(".knowledge-record__headline .status-editor select"));
+        Assert.NotNull(chapter.Find(".devbook-record__headline .status-editor select"));
     }
 
     [Fact]
     public void A_reader_who_picks_a_status_is_reported_to_the_host()
     {
         // A chapter's status is its own, so the surface wires this per chapter.
-        // Nothing here writes anything: see KnowledgeStatusChange.
+        // Nothing here writes anything: see DevbookStatusChange.
         using var context = new BunitContext();
 
         string? reported = null;
 
         var chapter = context.Render<MetadataChapterView>(parameters => parameters
             .Add(view => view.Metadata, MetadataReader.Parse("status: adopted"))
-            .Add(view => view.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech))
+            .Add(view => view.Vocabulary, DevbookStatus.Vocabulary(DevbookFolder.Tech))
             .Add(view => view.OnStatusChanged, EventCallback.Factory.Create<string?>(this, status => reported = status))
             .Add(view => view.Heading, Heading("The Runtime")));
 
-        chapter.Find(".knowledge-record__headline .status-editor select").Change("hold");
+        chapter.Find(".devbook-record__headline .status-editor select").Change("hold");
 
         Assert.Equal("hold", reported);
     }

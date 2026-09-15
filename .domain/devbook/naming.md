@@ -1,0 +1,189 @@
+# Devbook
+
+```meta
+type: naming
+status: draft
+```
+
+> Canonical ubiquitous-language terms for this bounded context and their
+> aliases. Each term links to where it is modeled (`related`); the surface
+> names it is also known by are recorded in the `aliases` metadata field so a
+> synonym can always be resolved back to one canonical concept.
+
+## Devbook
+
+```meta
+type: term
+status: draft
+aliases: [Devbook, Knowledge, Second Brain, SecondBrain]
+related: [.domain/devbook/domain.md#knowledge-note, .domain/context-map.md#context-map]
+```
+
+The bounded context, and the module, pane, database and tooling named after it.
+Until 2026-09-15 the context was called **Second Brain** and the code was named
+`Knowledge*` (`Backlog.Modules.Knowledge`, `KnowledgePane`, `_meta/knowledge.db`);
+both former names are kept as aliases so a counterpart resolved on an older branch
+still lands here. "Knowledge" also remains the informal shorthand the Inbox uses when
+routing here. What the context *reads* — a repository's `.arc42`, `.domain`, `.tech`
+and `.design` folders — keeps the convention's own name, *knowledge folders*.
+
+## Knowledge Note
+
+```meta
+type: term
+status: draft
+aliases: [KnowledgeNote, Note]
+related: [.domain/devbook/domain.md#knowledge-note]
+```
+
+The durable unit of captured knowledge. The aggregate keeps its name through the
+context rename: a note is knowledge, whichever context holds it.
+
+## PARA Category
+
+```meta
+type: term
+status: draft
+aliases: [PARACategory]
+related: [.domain/devbook/domain.md#para-category]
+```
+
+Organizing dimension (projects, areas, resources, archive). `archive` is the
+persisted archived state for a note.
+
+## Task Link
+
+```meta
+type: term
+status: draft
+aliases: [TaskLink, task_id]
+related: [.domain/devbook/domain.md#task-link, .domain/tasks/naming.md#task]
+```
+
+A reference from a note to a Task by id only, keeping the two contexts
+decoupled. Uses the `task_id` alias of the Tasks context's Task.
+
+## Project Ref
+
+```meta
+type: term
+status: draft
+aliases: [ProjectRef, repo_id]
+related: [.domain/devbook/domain.md#project-ref]
+```
+
+Scopes a note to a repository/project by `repo_id`, aligned with the shared
+repository identifier used across contexts.
+
+## Effort
+
+```meta
+type: term
+status: draft
+aliases: [effort, story points, story-point estimate]
+related: [.domain/devbook/domain.md#knowledge-note, .domain/tasks/naming.md#effort]
+```
+
+The size of a knowledge chapter in **story points**, carried in its `meta` block:
+a non-negative integer, optional, with the same three-valued edges as a Task
+'s effort (absent means "not estimated", `0` is a real estimate, negative is
+rejected). It sizes the knowledge work rather than timing it. Registered and owned
+here; Roadmap Planning reads and totals it across the chapters an item gathers, but
+never sets it.
+
+## Roadmap Contribution
+
+```meta
+type: term
+status: draft
+aliases: [roadmap, roadmap contribution, contributes to]
+related: [.domain/devbook/domain.md#roadmap-contribution, .domain/roadmap/naming.md#roadmap-tag]
+```
+
+The [Roadmap Item](../roadmap/naming.md#roadmap-tag) tags a chapter declares
+it contributes to, listed in its `meta` block's `roadmap` field. **Distinct from a
+`Tag`**: a `Tag` is this context's own `#keyword` for discovery, while a Roadmap
+Contribution names a slug owned by Roadmap Planning. It *names* a roadmap item
+rather than *addressing* a chapter, so it is not a `<path>#<slug>` reference and
+draws no edge in the knowledge graph — it is the thread Roadmap Planning follows
+when it gathers knowledge by tag. Nothing is validated; a slug naming no current
+item is harmless.
+
+## Instruction Set
+
+```meta
+type: term
+status: draft
+aliases: [instructions, agent instructions, working instructions]
+related: [.domain/devbook/domain.md#instruction-review, .domain/devbook/features.md#instruction-set-inventory]
+```
+
+The documents one tool reads as its instructions for a repository: the file it
+loads on every run, the ones it loads when a condition matches, and the skills it
+can reach. One repository carries several instruction sets, one per tool. They are
+the content of the working-instructions knowledge area and belong to the
+repository, not to this product.
+
+## Context Load
+
+```meta
+type: term
+status: draft
+aliases: [context load, always-loaded weight]
+related: [.domain/devbook/features.md#context-load-budget]
+```
+
+What an instruction spends on every agent turn because it is loaded whether or not
+it applies. It is a property of *when* a document is loaded rather than of how long
+it is: a line reached only on the branch that needs it carries almost none.
+
+Distinct from the person's own cost of knowing which document to reach for. That
+one buys human judgement and is spent on purpose, so the two are never summed and
+never traded against each other silently.
+
+## Instruction Finding
+
+```meta
+type: term
+status: draft
+aliases: [finding, proposal]
+related: [.domain/devbook/domain.md#instruction-review]
+```
+
+One reviewed observation about an instruction set: where it is, what kind of
+problem it is, and the change proposed. Always a proposal — a finding never means
+a file was changed, and an accepted one is applied singly with the previous wording
+recoverable.
+
+## Instruction Alignment
+
+```meta
+type: term
+status: draft
+aliases: [alignment, cross-tool alignment]
+related: [.domain/devbook/features.md#cross-tool-alignment-validation]
+```
+
+Two tools' instruction sets stating the same rule for the same repository, each in
+its own agent, skill, and command names.
+
+**Distinct from duplication**, and the distinction is load-bearing. Duplication is
+one meaning stated twice where one place would do, and the fix is to keep one
+place. Alignment is one meaning that deliberately has to be stated in each tool's
+set, and the fix is never to delete one of them — it is to make them agree, or to
+add the rule to the set that is missing it. Documents held in alignment are
+maintained as a pair, and a change to one leaves the other unfinished.
+
+## Saving Evidence
+
+```meta
+type: term
+status: draft
+aliases: [evidence basis]
+related: [.domain/devbook/features.md#saving-evidence]
+```
+
+How a claimed reduction was obtained: read from local agent activity, or measured
+in a controlled before-and-after. It travels with the number so a reader knows what
+the number is worth. It is stated in what agents load rather than in money — no
+billed amount is claimed, and a figure with no basis is not shown.

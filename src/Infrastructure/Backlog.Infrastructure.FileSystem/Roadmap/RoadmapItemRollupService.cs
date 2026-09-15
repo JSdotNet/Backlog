@@ -1,4 +1,4 @@
-using Backlog.Infrastructure.Knowledge;
+using Backlog.Infrastructure.Devbook;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
@@ -9,7 +9,7 @@ namespace Backlog.Infrastructure.FileSystem.Roadmap;
 /// Answers Roadmap Planning's <see cref="IRoadmapItemRollup"/> by reading the two
 /// contexts a roadmap item gathers from: the backlog, through
 /// <see cref="ITaskItems"/>, and the knowledge chapters, through the generated
-/// knowledge index beside the plan - <c>_meta/knowledge.db</c>, or the committed
+/// knowledge index beside the plan - <c>_meta/devbook.db</c>, or the committed
 /// <c>_meta/graph.json</c> where no database has been built.
 /// <para>
 /// The join lives here because only an adapter may see both. The band asks its own
@@ -47,7 +47,7 @@ public sealed class RoadmapItemRollupService : IRoadmapItemRollup
     private IReadOnlyList<KnowledgeGraphNode> ReadGraphNodes() => ReadDatabaseNodes() ?? ReadGraphJsonNodes();
 
     /// <summary>
-    /// The nodes out of the generated <c>_meta/knowledge.db</c>, or
+    /// The nodes out of the generated <c>_meta/devbook.db</c>, or
     /// <see langword="null"/> when there is none to read.
     ///
     /// <para>Local ADR 0004 imagines this saving an 836 KB parse to total a few
@@ -67,7 +67,7 @@ public sealed class RoadmapItemRollupService : IRoadmapItemRollup
     /// </summary>
     private IReadOnlyList<KnowledgeGraphNode>? ReadDatabaseNodes()
     {
-        using var database = KnowledgeDatabase.TryOpen(KnowledgeDatabaseLocation.ForRepositoryRoot(_rootDirectory()));
+        using var database = DevbookDatabase.TryOpen(DevbookDatabaseLocation.ForRepositoryRoot(_rootDirectory()));
         if (database is null) return null;
 
         var roadmap = database.Attributes(RoadmapAttribute);

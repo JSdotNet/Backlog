@@ -66,14 +66,14 @@ public sealed class FeatureStatusIndicatorTests
         // Repository knowledge rather than GitHub integration: the latter moved to
         // Dev when the catalog was regrouped, and a test that quietly follows a
         // status change is testing nothing.
-        _ = features.Store.SetEnabled(KnowledgeFeatures.RepositoryKnowledge, true);
+        _ = features.Store.SetEnabled(DevbookFeatures.RepositoryDevbook, true);
 
         Assert.Equal(
             AppFeatureStatus.Released,
-            Assert.Single(AppFeatures.All, f => f.Key == KnowledgeFeatures.RepositoryKnowledge).Status);
+            Assert.Single(AppFeatures.All, f => f.Key == DevbookFeatures.RepositoryDevbook).Status);
         Assert.Equal(
             string.Empty,
-            AppFeatureStatusBadge.SlugFor(AppFeatures.All, features.Store, KnowledgeFeatures.RepositoryKnowledge));
+            AppFeatureStatusBadge.SlugFor(AppFeatures.All, features.Store, DevbookFeatures.RepositoryDevbook));
     }
 
     /// <summary>A decoration fails quietly. <c>IsEnabled</c> throws for a key no
@@ -191,8 +191,8 @@ public sealed class FeatureStatusIndicatorTests
         context.Services.AddSingleton(new GitHubIntegration(githubSettings, new StubGitHubClient(), new StubProbe()));
         context.Services.AddSingleton<FeedbackReporter>();
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
-        context.Services.AddSingleton<IKnowledgeFolderSource>(new KnowledgeFolderSource(githubSettings, store));
-        context.Services.AddSingleton(new KnowledgeSourceSelection(githubSettings, new StubBranchCatalog()));
+        context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(githubSettings, store));
+        context.Services.AddSingleton(new DevbookSourceSelection(githubSettings, new StubBranchCatalog()));
 
         return new SettingsRenderContext(root, context, context.Render<Settings>());
     }

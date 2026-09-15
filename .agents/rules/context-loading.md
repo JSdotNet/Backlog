@@ -69,17 +69,19 @@ when no reproduction has been written up yet.
 
 ## Context loading by orchestration and agent
 
-- `orch-architecture`, `orch-arc42`, `orch-arc42-content`, `orch-blueprint`, `orch-adr`,
+- `orch-architecture`, `orch-arc42`, `flow-arc42-content`, `orch-blueprint`, `orch-adr`,
   `orch-tdr`, and `architecture:architect` may load `.arc42/` as working context, but
   should load only the chapter(s) relevant to the requested scope.
-- `orch-domain` and `domain-design:domain-architect` may load `.domain/` as
+- `flow-domain` and `domain-design:domain-architect` may load `.domain/` as
   working context, but should load only the relevant bounded-context chapters.
-- `orch-backlog` and other backlog-writing or issue-writing workflows may load
-  `.backlog/` as working context, but should load only the relevant work-item chapters.
-- `orch-tech` may load `.tech/` as working context, plus the
+- Backlog-writing or issue-writing workflows may load `.backlog/` as working context,
+  but should load only the relevant work-item chapters. (`orch-backlog` has no
+  successor in `devbook-flows`; the folder goes with the devbook contract v6, a
+  follow-up.)
+- `flow-tech` may load `.tech/` as working context, plus the
   `.arc42` chapters (solution strategy, deployment view, ADRs) that ground the
   stack choices it records.
-- `orch-design` and `ux-design:ux-designer` may load `.design/` as working
+- `flow-design` and `ux-design:ux-designer` may load `.design/` as working
   context, but should load only the relevant guideline file(s).
 - Non-architecture implementation, bug-fix, package-update, documentation, and UX flows
   should not load `.arc42/` by default. Consult it only when the user explicitly asks
@@ -91,10 +93,11 @@ when no reproduction has been written up yet.
 
 ## Orchestration entrypoints
 
-Every orchestration entrypoint is plugin-provided: the knowledge-folder orchestrations come
-from the `knowledge-base` plugin, and the rest — including `orch-fallback`, for task
-categories with no dedicated `orch-*` skill — come from the `copilot-app` plugin. This
-repository ships no repo-native `orch-*` skills. See `.github/copilot-orch-context.md`.
+Every orchestration entrypoint is plugin-provided: the knowledge-folder flows
+(`flow-arc42-content`, `flow-domain`, `flow-tech`, `flow-design`) come from the
+`devbook-flows` plugin on top of `devbook`, and the rest — including `orch-fallback`, for
+task categories with no dedicated `orch-*` skill — come from the `copilot-app` plugin.
+This repository ships no repo-native `orch-*` skills. See `.github/copilot-orch-context.md`.
 
 ## Runtime and QA context
 

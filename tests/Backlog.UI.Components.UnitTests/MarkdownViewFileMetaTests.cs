@@ -40,13 +40,13 @@ public sealed class MarkdownViewFileMetaTests
         using var context = new BunitContext();
 
         var view = Render(context, Document, parameters => parameters
-            .Add(v => v.RenderKnowledgeMetadata, true));
+            .Add(v => v.RenderDevbookMetadata, true));
 
-        var headline = view.Find(".knowledge-record__headline");
+        var headline = view.Find(".devbook-record__headline");
 
         Assert.Equal("Shared Technologies", headline.QuerySelector("p.md-heading--1")!.TextContent);
         Assert.Equal("adopted", headline.QuerySelector(".badge--status")!.TextContent);
-        Assert.Equal(2, view.FindAll(".knowledge-record").Count);
+        Assert.Equal(2, view.FindAll(".devbook-record").Count);
     }
 
     [Fact]
@@ -55,8 +55,8 @@ public sealed class MarkdownViewFileMetaTests
         using var context = new BunitContext();
 
         var view = Render(context, Document, parameters => parameters
-            .Add(v => v.RenderKnowledgeMetadata, true)
-            .Add(v => v.RenderFileKnowledgeMetadata, false));
+            .Add(v => v.RenderDevbookMetadata, true)
+            .Add(v => v.RenderFileDevbookMetadata, false));
 
         // The title is a plain heading again — and the fence is gone rather than
         // left behind as a listing, which is the record with the reading taken
@@ -67,7 +67,7 @@ public sealed class MarkdownViewFileMetaTests
 
         // The chapter's own record is untouched: one record left, and it is the
         // chapter's.
-        var record = Assert.Single(view.FindAll(".knowledge-record"));
+        var record = Assert.Single(view.FindAll(".devbook-record"));
         Assert.Equal("Hosting", record.QuerySelector("p.md-heading")!.TextContent);
         Assert.Equal("trial", record.QuerySelector(".badge--status")!.TextContent);
     }
@@ -80,10 +80,10 @@ public sealed class MarkdownViewFileMetaTests
         using var context = new BunitContext();
 
         var view = Render(context, Document, parameters => parameters
-            .Add(v => v.RenderFileKnowledgeMetadata, false));
+            .Add(v => v.RenderFileDevbookMetadata, false));
 
         Assert.Equal(2, view.FindAll("pre.md-code").Count);
-        Assert.Empty(view.FindAll(".knowledge-record"));
+        Assert.Empty(view.FindAll(".devbook-record"));
     }
 
     [Fact]
@@ -103,10 +103,10 @@ public sealed class MarkdownViewFileMetaTests
 
             Where it runs.
             """, parameters => parameters
-            .Add(v => v.RenderKnowledgeMetadata, true)
-            .Add(v => v.RenderFileKnowledgeMetadata, false));
+            .Add(v => v.RenderDevbookMetadata, true)
+            .Add(v => v.RenderFileDevbookMetadata, false));
 
-        var record = Assert.Single(view.FindAll(".knowledge-record"));
+        var record = Assert.Single(view.FindAll(".devbook-record"));
         Assert.Equal("Hosting", record.QuerySelector("p.md-heading")!.TextContent);
     }
 
@@ -122,8 +122,8 @@ public sealed class MarkdownViewFileMetaTests
         var view = Render(context, Document, parameters => parameters
             .Add(v => v.Source, Document)
             .Add(v => v.AllowChapterCopy, true)
-            .Add(v => v.RenderKnowledgeMetadata, true)
-            .Add(v => v.RenderFileKnowledgeMetadata, false));
+            .Add(v => v.RenderDevbookMetadata, true)
+            .Add(v => v.RenderFileDevbookMetadata, false));
 
         view.Find("[data-testid='markdown-chapter-copy-0']").Click();
 
@@ -144,8 +144,8 @@ public sealed class MarkdownViewFileMetaTests
         using var context = new BunitContext();
 
         var view = Render(context, Document, parameters => parameters
-            .Add(v => v.RenderKnowledgeMetadata, true)
-            .Add(v => v.RenderFileKnowledgeMetadata, false)
+            .Add(v => v.RenderDevbookMetadata, true)
+            .Add(v => v.RenderFileDevbookMetadata, false)
             .Add(v => v.Comments, new MarkdownComment[]
             {
                 new("c0", 0, "About the title."),

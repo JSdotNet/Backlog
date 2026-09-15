@@ -12,7 +12,7 @@ public static class SidePaneWidth
     /// <summary>
     /// A safety rail, not the real ceiling: the layout caps the pane at the
     /// window width less <c>--workspace-min-width</c>, so on a wide screen the
-    /// knowledge pane can be the wider of the two panes.
+    /// Devbook pane can be the wider of the two panes.
     /// </summary>
     public const double MaxRem = 200;
 

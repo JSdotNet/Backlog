@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Components;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The one thing all four knowledge panels owe the reader now that they show a
+/// The one thing all four Devbook panels owe the reader now that they show a
 /// selected chapter through the shared file view: the file is named once.
 /// <para>
 /// It was reported in exactly that form — two places on one screen showing the

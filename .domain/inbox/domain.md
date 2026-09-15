@@ -18,7 +18,7 @@ The Inbox is the processing queue for all captured input. Items arrive from
 **what happens to items after they arrive** — triage, classification, and
 routing — deciding whether each item becomes a
 [Task](../tasks/domain.md#task), a
-[Knowledge Note](../second-brain/domain.md#knowledge-note), is
+[Knowledge Note](../devbook/domain.md#knowledge-note), is
 deferred, or is archived. It owns no capture sources.
 
 On the desktop the Inbox is its own module (`Backlog.Modules.Inbox`) with its
@@ -91,7 +91,7 @@ type: value-object
 status: draft
 ```
 
-The destination chosen during triage: a target `domain` (tasks, second brain,
+The destination chosen during triage: a target `domain` (tasks, devbook,
 archive), the `repo_ids` the item was assigned when it was routed, the
 `task_ids` of the entries Tasks created for it — one per repository, or one
 when no repository was assigned — and the `routed_at` timestamp. Immutable once
@@ -241,13 +241,13 @@ and then removes the group, so no list is ever deleted by deleting its group.
 ```meta
 type: domain-service
 status: draft
-related: [.domain/tasks/domain.md#task, .domain/second-brain/domain.md#knowledge-note, .arc42/adr/0007-import-reuses-the-entry-text-grammar.md]
+related: [.domain/tasks/domain.md#task, .domain/devbook/domain.md#knowledge-note, .arc42/adr/0007-import-reuses-the-entry-text-grammar.md]
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBacklogTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.CreatePlanTests]
 ```
 
 Coordinates the triage decision for an Inbox Item and the resulting cross-context
 handoff: routing to Tasks (emitting `ItemTriaged` with title, `body_md`,
-`source_url`, tags, `repo_ids`, `source_inbox_id`), routing to Second Brain
+`source_url`, tags, `repo_ids`, `source_inbox_id`), routing to Devbook
 (emitting `ItemTriaged` with title, `body_md`, topic, tags), or setting the item
 to deferred or archived. It lives as a service because routing crosses
 bounded-context boundaries rather than mutating a single aggregate. Invocation
@@ -267,7 +267,7 @@ Two doors lead to Tasks and both end in the same `Routing Target`:
   plan says, because nobody has read them yet; and a plan naming a repository the
   item was not assigned is refused whole before Tasks sees it.
 
-Routing to Second Brain is modelled and not built.
+Routing to Devbook is modelled and not built.
 
 ## Classification
 
@@ -292,7 +292,7 @@ intake/triage or by configured queue-processing rules.
 ```meta
 type: domain-event
 status: draft
-related: [.domain/inbox/domain.md#inbox-item, .domain/tasks/domain.md#task, .domain/second-brain/domain.md#knowledge-note]
+related: [.domain/inbox/domain.md#inbox-item, .domain/tasks/domain.md#task, .domain/devbook/domain.md#knowledge-note]
 ```
 
 Published by `Triage` when an Inbox Item is routed out of the inbox. The route
@@ -301,7 +301,7 @@ shape is stable even though the destination-specific fields differ.
 ### Payload
 
 - `inbox_item_id` - originating Inbox Item identifier.
-- `route` - `tasks` or `second-brain`.
+- `route` - `tasks` or `devbook`.
 - `title` - normalized title.
 - `body_md` - normalized body.
 - `source_url` - the preserved source link, when the capture had one.
@@ -309,7 +309,7 @@ shape is stable even though the destination-specific fields differ.
 - `repo_ids` - targeted repositories when routing to Tasks; one task per entry,
   one untargeted task when empty.
 - `type` - requested task type when routing to Tasks.
-- `topic` - requested knowledge topic when routing to Second Brain.
+- `topic` - requested knowledge topic when routing to Devbook.
 - `source_inbox_id` - preserved source id for traceability.
 - `triaged_at` - time of the routing decision.
 
@@ -317,7 +317,7 @@ shape is stable even though the destination-specific fields differ.
 
 - Tasks, which creates one draft `Task` per targeted repository, each stamped
   with `source_inbox_id`.
-- Second Brain, which creates a `Knowledge Note` (not built).
+- Devbook, which creates a `Knowledge Note` (not built).
 
 ### Published language rules
 

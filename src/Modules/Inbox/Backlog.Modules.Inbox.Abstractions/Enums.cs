@@ -28,12 +28,12 @@ public enum ContentKind
     ClaudeArtifact
 }
 
-/// <summary>Where a triaged item was sent. <see cref="SecondBrain"/> is declared
+/// <summary>Where a triaged item was sent. <see cref="Devbook"/> is declared
 /// because the domain names it and nothing routes there yet — a member the
 /// store can already read is cheaper than a value it would throw on later.</summary>
 public enum RoutingDomain
 {
     Tasks,
-    SecondBrain,
+    Devbook,
     Archive
 }

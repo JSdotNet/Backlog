@@ -116,7 +116,7 @@ The managed model endpoint the product's own AI features call.
   account of kind `AIServices` plus its deployments: three required models, an
   optional balanced model, optional speech transcription, and an optional
   `text-embedding-3-small` deployment behind `includeEmbeddingModel`, each behind a
-  parameter. The embedding deployment is what the knowledge database's semantic
+  parameter. The embedding deployment is what the devbook database's semantic
   tier would call; nothing calls it yet, and the database is correct without it —
   see `.arc42/adr/0004-knowledge-index-is-a-generated-local-database.md`.
   `.github/workflows/deploy-foundry.yml` builds, validates, what-ifs,

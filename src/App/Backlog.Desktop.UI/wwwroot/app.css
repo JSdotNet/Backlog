@@ -471,7 +471,7 @@ h1, h2, h3 {
 
 /*
    The anchor: with several repositories scoped, the first one taken — the one the
-   knowledge pane reads. An underline rather than a weight or a border, because the
+   Devbook pane reads. An underline rather than a weight or a border, because the
    chip must not change size when a second one joins it, and because the chip's
    edges are already spoken for: the fill is selection and the leading rule is
    identity (.chip.repo-mark.chip--active below). The mark exists only alongside
@@ -1226,7 +1226,7 @@ h1, h2, h3 {
 /*
   Pushing and re-checking are actions, not metadata, so they read as controls
   sitting among the badges rather than as badges themselves. Shared with the
-  domain knowledge panel, which carries the same classes for the same reason.
+  domain Devbook panel, which carries the same classes for the same reason.
 */
 .entry-doc__actions {
     display: inline-flex;
@@ -1562,7 +1562,7 @@ h1, h2, h3 {
        every width, and a floor in this step could only argue with it. What the
        rail keeps here is what it has at any width — the option's whole span, which
        even beside the shortest word is about twice the 1.75rem the old side box
-       was left with, and four times it beside Knowledge. */
+       was left with, and four times it beside Devbook. */
     .header-group__pin {
         min-width: 2.75rem;
         padding: 0;
@@ -1725,10 +1725,10 @@ h1, h2, h3 {
     max-width: 640px;
 }
 
-/* The knowledge-folder block carries a rule above it to separate it from the
+/* The devbook-folder block carries a rule above it to separate it from the
    setting it follows. Beside that setting rather than below it, the rule is
    separating nothing. */
-.setting-columns > .knowledge-folders {
+.setting-columns > .devbook-folders {
     margin-top: 0;
     padding-top: 0;
     border-top: 0;
@@ -2021,7 +2021,7 @@ h1, h2, h3 {
 }
 
 .repo-card__primary,
-.knowledge-folder__toggle {
+.devbook-folder__toggle {
     display: inline-flex;
     align-items: center;
     gap: var(--spacing-xs);
@@ -2030,12 +2030,12 @@ h1, h2, h3 {
 }
 
 .repo-card__primary input:focus-visible,
-.knowledge-folder__toggle input:focus-visible {
+.devbook-folder__toggle input:focus-visible {
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: 2px;
 }
 
-.knowledge-folders {
+.devbook-folders {
     margin-top: var(--spacing-md);
     padding-top: var(--spacing-md);
     border-top: var(--border-width) solid var(--color-border);
@@ -2044,20 +2044,20 @@ h1, h2, h3 {
 /* The folder rows are independent of one another, so they column up with
    nothing that has to be kept together; the heading and the note explaining
    the block stay outside the list and keep the full width. */
-.knowledge-folder-list {
+.devbook-folder-list {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(26rem, 100%), 1fr));
     column-gap: var(--spacing-lg);
     align-items: start;
 }
 
-.knowledge-folders__title {
+.devbook-folders__title {
     font-family: var(--font-family-heading);
     font-size: var(--font-size-base);
     margin: 0;
 }
 
-.knowledge-folder {
+.devbook-folder {
     display: grid;
     grid-template-columns: minmax(11rem, 0.6fr) minmax(0, 1fr);
     gap: var(--spacing-xs) var(--spacing-sm);
@@ -2065,7 +2065,7 @@ h1, h2, h3 {
     margin-top: var(--spacing-sm);
 }
 
-/* One day of the working week. The knowledge-folder row's two columns could not
+/* One day of the working week. The devbook-folder row's two columns could not
    carry it: a start and an end are two values, and the third cell would have
    wrapped under the day name instead of standing beside its own start. The rest
    of the row - the label column's width, the gaps, the vertical rhythm - is that
@@ -2079,11 +2079,11 @@ h1, h2, h3 {
     margin-top: var(--spacing-sm);
 }
 
-.knowledge-folder__toggle code {
+.devbook-folder__toggle code {
     color: var(--color-text-disabled);
 }
 
-.knowledge-folder__status {
+.devbook-folder__status {
     grid-column: 2;
     margin: 0;
     font-size: var(--font-size-xs);
@@ -2095,7 +2095,7 @@ h1, h2, h3 {
    section shout as loudly as a broken one. color-error-text is the one semantic
    foreground the palette sanctions, and this is what needs it - the found state
    has no sentence of its own any more, only the badge below. */
-.knowledge-folder__status--error { color: var(--color-error-text); }
+.devbook-folder__status--error { color: var(--color-error-text); }
 
 /* The badge inside the path field. Round, because the row's own control is a
    square gold checkbox immediately to the left and the two must not be read as
@@ -2108,7 +2108,7 @@ h1, h2, h3 {
    painted on the glyph. text-primary on color-success measures 11.9:1 and
    color-error-text on color-error 7.1:1, both well past 4.5:1, and the glyph
    differs between the two states as well so the answer survives without colour. */
-.knowledge-folder__marker {
+.devbook-folder__marker {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -2119,12 +2119,12 @@ h1, h2, h3 {
     line-height: 1;
 }
 
-.knowledge-folder__marker--found {
+.devbook-folder__marker--found {
     background: var(--color-success);
     color: var(--color-text-primary);
 }
 
-.knowledge-folder__marker--missing {
+.devbook-folder__marker--missing {
     background: var(--color-error);
     color: var(--color-error-text);
 }
@@ -2233,7 +2233,7 @@ h1, h2, h3 {
 @media (max-width: 720px) {
     .repo-subpages,
     .repo-card__header,
-    .knowledge-folder,
+    .devbook-folder,
     .working-day,
     .instructions-repository__header,
     .instruction-doc__header {
@@ -2247,7 +2247,7 @@ h1, h2, h3 {
         flex-direction: column;
     }
 
-    .knowledge-folder__status {
+    .devbook-folder__status {
         grid-column: auto;
     }
 }
@@ -2432,7 +2432,7 @@ h1, h2, h3 {
   floor is stated on the width for that reason, and the height floor is only what
   the rail needs to hold its glyph. On paper 3rem x 1rem is the smaller box of the
   two, and in practice the rail is not a box: it is a band as wide as the option
-  it leads — four rem of it for Tasks and eight for Knowledge and its flag, where
+  it leads — four rem of it for Tasks and eight for Devbook and its flag, where
   the side box was never wider than its own 2rem floor. What the rail gives up in
   depth, which is the cell's to reclaim, it takes back in reach.
 */
@@ -4546,7 +4546,7 @@ h1, h2, h3 {
 /* A grid item in `.workspace` now, not a flex child of `.shell`. `flex` is
    ignored on a grid item and stays only because the rule is shared history;
    stretching to the row is what actually sizes it. */
-.knowledge-layout {
+.devbook-layout {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     gap: var(--spacing-xl);
@@ -4558,22 +4558,22 @@ h1, h2, h3 {
     overflow: hidden;
 }
 
-.knowledge-layout--side-open {
+.devbook-layout--side-open {
     /* The pane is only capped by leaving the backlog readable, so the knowledge
        side can be the wider of the two. */
-    grid-template-columns: minmax(0, 1fr) auto minmax(24rem, min(var(--knowledge-panel-width, 36rem), calc(100% - var(--workspace-min-width))));
+    grid-template-columns: minmax(0, 1fr) auto minmax(24rem, min(var(--devbook-panel-width, 36rem), calc(100% - var(--workspace-min-width))));
     gap: var(--spacing-sm);
 }
 
-.knowledge-layout--inbox-before-backlog.knowledge-layout--side-closed {
+.devbook-layout--inbox-before-backlog.devbook-layout--side-closed {
     grid-template-columns: minmax(20rem, 26rem) minmax(0, 1fr);
 }
 
-.knowledge-layout--inbox-before-backlog.knowledge-layout--side-open {
-    grid-template-columns: minmax(20rem, 26rem) minmax(0, 1fr) auto minmax(24rem, min(var(--knowledge-panel-width, 36rem), calc(100% - var(--workspace-min-width))));
+.devbook-layout--inbox-before-backlog.devbook-layout--side-open {
+    grid-template-columns: minmax(20rem, 26rem) minmax(0, 1fr) auto minmax(24rem, min(var(--devbook-panel-width, 36rem), calc(100% - var(--workspace-min-width))));
 }
 
-.knowledge-layout--inbox-before-backlog > .inbox-pane {
+.devbook-layout--inbox-before-backlog > .inbox-pane {
     position: sticky;
     top: var(--spacing-lg);
     align-self: start;
@@ -4585,14 +4585,14 @@ h1, h2, h3 {
     overflow: auto;
 }
 
-.knowledge-layout--side-closed .backlog-workspace {
+.devbook-layout--side-closed .backlog-workspace {
     width: 100%;
 }
 
 .backlog-workspace,
 .side-pane-stack,
-.knowledge-stack,
-.knowledge-pane {
+.devbook-stack,
+.devbook-pane {
     min-width: 0;
 }
 
@@ -4651,7 +4651,7 @@ h1, h2, h3 {
    pane and no longer stays until something replaces it. Nothing else ever wore
    `.import-plan-result`, so the rule went with them. */
 
-.knowledge-pane {
+.devbook-pane {
     overflow: visible;
     padding: var(--spacing-lg);
     border: var(--border-width) solid var(--color-border);
@@ -4660,41 +4660,41 @@ h1, h2, h3 {
     box-shadow: var(--shadow-md);
 }
 
-.knowledge-pane__header {
+.devbook-pane__header {
     display: grid;
     gap: var(--spacing-xs);
     margin-bottom: var(--spacing-md);
 }
 
-/* .knowledge-pane__eyebrow was here until the knowledge panels stopped opening
-   with a "Knowledge base" line and a title of their own. The tab strip names the
-   section and the knowledge menu heads its column with the same word, so the
+/* .devbook-pane__eyebrow was here until the Devbook panels stopped opening
+   with a "Devbook" line and a title of their own. The tab strip names the
+   section and the Devbook menu heads its column with the same word, so the
    eyebrow labelled a pane the reader was already standing in. Nothing renders
    the class now. */
-.knowledge-pane__subtitle,
-.knowledge-pane__source,
-.knowledge-empty,
-.knowledge-concern__header code,
-.knowledge-meta__chip span {
+.devbook-pane__subtitle,
+.devbook-pane__source,
+.devbook-empty,
+.devbook-concern__header code,
+.devbook-meta__chip span {
     color: var(--color-text-secondary);
 }
 
-.knowledge-pane h2,
-.knowledge-concern h3,
-.knowledge-item h4 {
+.devbook-pane h2,
+.devbook-concern h3,
+.devbook-item h4 {
     margin: 0;
 }
 
-.knowledge-pane__subtitle,
-.knowledge-empty p {
+.devbook-pane__subtitle,
+.devbook-empty p {
     margin: 0;
 }
 
-/* .knowledge-pane__count was here until the architecture panel gave up its own
+/* .devbook-pane__count was here until the architecture panel gave up its own
    summary line. The chapters are a list beside it, so a count above that list was
    the list counting itself; the file view names the open chapter, so nothing is
    left for a count to add. Nothing renders the class now. */
-.knowledge-pane__source {
+.devbook-pane__source {
     display: grid;
     gap: var(--spacing-xs);
     padding: var(--spacing-sm) var(--spacing-md);
@@ -4705,7 +4705,7 @@ h1, h2, h3 {
     font-size: var(--font-size-sm);
 }
 
-.knowledge-empty {
+.devbook-empty {
     display: grid;
     gap: var(--spacing-sm);
     padding: var(--spacing-lg);
@@ -4714,16 +4714,16 @@ h1, h2, h3 {
     background: var(--color-background);
 }
 
-.knowledge-concerns,
-.knowledge-items,
-.knowledge-subitems,
-.knowledge-item__body {
+.devbook-concerns,
+.devbook-items,
+.devbook-subitems,
+.devbook-item__body {
     display: grid;
     gap: var(--spacing-md);
 }
 
-.knowledge-concern,
-.knowledge-item {
+.devbook-concern,
+.devbook-item {
     display: grid;
     gap: var(--spacing-md);
     padding: var(--spacing-md);
@@ -4732,15 +4732,15 @@ h1, h2, h3 {
     background: var(--color-background);
 }
 
-.knowledge-concern__header,
-.knowledge-item__header {
+.devbook-concern__header,
+.devbook-item__header {
     display: flex;
     gap: var(--spacing-sm);
     align-items: flex-start;
     justify-content: space-between;
 }
 
-.knowledge-count {
+.devbook-count {
     flex: none;
     padding: var(--spacing-xs) var(--spacing-sm);
     border-radius: 999px;
@@ -4750,11 +4750,11 @@ h1, h2, h3 {
     font-weight: 700;
 }
 
-.knowledge-item {
+.devbook-item {
     border-left: var(--border-width-2) solid var(--color-primary);
 }
 
-.knowledge-item--sub {
+.devbook-item--sub {
     margin-left: var(--spacing-md);
     border-left-color: var(--color-border-strong);
     background: var(--color-background-alt);
@@ -4772,24 +4772,24 @@ h1, h2, h3 {
         padding: var(--spacing-sm) var(--spacing-md);
     }
 
-    .knowledge-layout,
-    .knowledge-layout--side-open {
+    .devbook-layout,
+    .devbook-layout--side-open {
         grid-template-columns: 1fr;
     }
 
-    .knowledge-layout--inbox-before-backlog.knowledge-layout--side-open,
-    .knowledge-layout--inbox-before-backlog.knowledge-layout--side-closed {
+    .devbook-layout--inbox-before-backlog.devbook-layout--side-open,
+    .devbook-layout--inbox-before-backlog.devbook-layout--side-closed {
         grid-template-columns: 1fr;
     }
 
-    .knowledge-layout--inbox-before-backlog > .inbox-pane {
+    .devbook-layout--inbox-before-backlog > .inbox-pane {
         position: static;
         top: auto;
         max-height: none;
     }
 
     .side-pane-stack,
-    .knowledge-pane {
+    .devbook-pane {
         position: static;
         max-height: none;
     }
@@ -4809,23 +4809,23 @@ h1, h2, h3 {
 
        A child combinator because that split is a descendant of this layout too, only
        further down — through the tasks workspace. */
-    .knowledge-layout > .pane-resizer {
+    .devbook-layout > .pane-resizer {
         display: none;
     }
 
     .side-pane-stack,
-    .knowledge-stack {
+    .devbook-stack {
         overflow: visible;
     }
 
-    .knowledge-stack__section {
+    .devbook-stack__section {
         overflow: visible;
     }
 }
 
 /* Picking a knowledge area is navigation, so it stays put; only the section
    below it scrolls. */
-.knowledge-stack {
+.devbook-stack {
     display: flex;
     flex: 1 1 auto;
     flex-direction: column;
@@ -4838,7 +4838,7 @@ h1, h2, h3 {
 /* The section tabs and the atlas toggle on one line. The tabs take the room and
    the toggle takes what it needs at the end; `align-items: center` is what stops
    the pill stretching to the height of the tab row. */
-.knowledge-stack__strip {
+.devbook-stack__strip {
     display: flex;
     flex: 0 0 auto;
     align-items: center;
@@ -4846,7 +4846,7 @@ h1, h2, h3 {
     min-width: 0;
 }
 
-.knowledge-stack__strip > .knowledge-stack__nav {
+.devbook-stack__strip > .devbook-stack__nav {
     flex: 1 1 auto;
     min-width: 0;
 }
@@ -4856,14 +4856,14 @@ h1, h2, h3 {
    the tabs, not a form control, and a bordered input here would out-shout the
    tabs it qualifies. Sized to its content and never allowed to squeeze the tabs,
    with a ceiling so a long branch name truncates instead of taking the row. */
-.knowledge-stack__source {
+.devbook-stack__source {
     flex: 0 0 auto;
     align-self: center;
     max-width: 12rem;
     min-width: 0;
 }
 
-.knowledge-stack__source-select {
+.devbook-stack__source-select {
     max-width: 100%;
     padding: var(--spacing-2xs) var(--spacing-sm);
     border: var(--border-width) solid var(--color-border);
@@ -4876,29 +4876,29 @@ h1, h2, h3 {
     transition: color var(--transition-fast), border-color var(--transition-fast);
 }
 
-.knowledge-stack__source-select:hover {
+.devbook-stack__source-select:hover {
     color: var(--color-text-primary);
     border-color: var(--color-border-strong);
 }
 
-.knowledge-stack__source-select:focus-visible {
+.devbook-stack__source-select:focus-visible {
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: var(--border-width);
 }
 
-.knowledge-stack__source-error {
+.devbook-stack__source-error {
     flex: 0 0 auto;
     align-self: center;
     font-size: var(--font-size-xs);
 }
 
-.knowledge-stack__repositories,
-.knowledge-stack__nav {
+.devbook-stack__repositories,
+.devbook-stack__nav {
     flex: 0 0 auto;
     align-items: flex-start;
 }
 
-.knowledge-stack__section {
+.devbook-stack__section {
     flex: 1 1 auto;
     min-height: 0;
     overflow: auto;
@@ -4907,7 +4907,7 @@ h1, h2, h3 {
     scrollbar-gutter: stable;
 }
 
-.knowledge-stack .knowledge-pane {
+.devbook-stack .devbook-pane {
     position: static;
     max-height: none;
 }
@@ -4924,7 +4924,7 @@ h1, h2, h3 {
     panel below for exactly that reason — a scrollbar on the pane scrolled the
     atlas out of the frame it had just been fitted to.
 */
-.tech-knowledge-pane {
+.tech-devbook-pane {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-md);
@@ -4937,42 +4937,42 @@ h1, h2, h3 {
 /* The pane clips at its own height, so the section around it has nothing left to
    scroll — this only stops it reserving a gutter for a scrollbar that never
    comes. */
-.knowledge-stack__section:has(> .tech-knowledge-pane) {
+.devbook-stack__section:has(> .tech-devbook-pane) {
     overflow: hidden;
     scrollbar-gutter: auto;
 }
 
-.knowledge-stack__section > .tech-knowledge-pane {
+.devbook-stack__section > .tech-devbook-pane {
     max-height: 100%;
     overflow: hidden;
 }
 
-.tech-knowledge-pane > .tabs {
+.tech-devbook-pane > .tabs {
     display: flex;
     flex-direction: column;
     flex: 1 1 auto;
     min-height: 0;
 }
 
-.tech-knowledge-pane .tabs__panels {
+.tech-devbook-pane .tabs__panels {
     flex: 1 1 auto;
     min-height: 0;
     display: flex;
     flex-direction: column;
 }
 
-.tech-knowledge-pane .tabs__panel {
+.tech-devbook-pane .tabs__panel {
     flex: 1 1 auto;
     min-height: 0;
 }
 
 /* The atlas fits. */
-.tech-knowledge-pane [data-testid="technology-graph-panel"] {
+.tech-devbook-pane [data-testid="technology-graph-panel"] {
     overflow: hidden;
 }
 
 /* The layer detail scrolls. */
-.tech-knowledge-pane [data-testid="technology-layers-panel"] {
+.tech-devbook-pane [data-testid="technology-layers-panel"] {
     display: grid;
     align-content: start;
     gap: var(--spacing-md);
@@ -4985,19 +4985,19 @@ h1, h2, h3 {
    a row: the shared grid stacked them, which stretched the button across the
    pane and read as a banner rather than as something to press. The error line
    below spans both columns, because it belongs to the button, not beside it. */
-.tech-knowledge-pane .knowledge-pane__header {
+.tech-devbook-pane .devbook-pane__header {
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     column-gap: var(--spacing-sm);
     margin-bottom: 0;
 }
 
-.tech-knowledge-pane .knowledge-pane__header .knowledge-folder-open-error {
+.tech-devbook-pane .devbook-pane__header .devbook-folder-open-error {
     grid-column: 1 / -1;
 }
 
-.tech-knowledge-pane > .knowledge-pane__header,
-.tech-knowledge-pane > .tech-stats {
+.tech-devbook-pane > .devbook-pane__header,
+.tech-devbook-pane > .tech-stats {
     flex: 0 0 auto;
 }
 
@@ -5154,34 +5154,34 @@ h1, h2, h3 {
     color: var(--color-text-primary);
 }
 
-/* --- Integrated repository knowledge stack -------------------------------- */
+/* --- Integrated repository Devbook stack -------------------------------- */
 
 
-.knowledge-stack__header,
-.knowledge-stack__section > .knowledge-pane,
-.knowledge-stack__section > .design-knowledge,
-.knowledge-stack__section > .domain-knowledge {
+.devbook-stack__header,
+.devbook-stack__section > .devbook-pane,
+.devbook-stack__section > .design-devbook,
+.devbook-stack__section > .domain-devbook {
     border: var(--border-width) solid var(--color-border);
     border-radius: var(--border-radius-lg);
     background: color-mix(in srgb, var(--color-background-alt) 82%, var(--color-background));
     box-shadow: var(--shadow-md);
 }
 
-.knowledge-stack__header {
+.devbook-stack__header {
     display: grid;
     gap: 0.375rem;
     padding: var(--spacing-md);
 }
 
-.knowledge-stack__header h2,
-.knowledge-stack__header p {
+.devbook-stack__header h2,
+.devbook-stack__header p {
     margin: 0;
 }
 
-.knowledge-stack__nav,
-.design-knowledge__nav,
-.domain-knowledge__contexts,
-.knowledge-chapters {
+.devbook-stack__nav,
+.design-devbook__nav,
+.domain-devbook__contexts,
+.devbook-chapters {
     display: flex;
     flex-wrap: wrap;
     gap: var(--spacing-xs);
@@ -5191,13 +5191,13 @@ h1, h2, h3 {
    gap on each item: it separates two lists of the same shape, and the chapters
    above already carry their own spacing. The label is the nav's accessible name,
    so nothing is drawn for it. */
-.knowledge-chapters--c4 {
+.devbook-chapters--c4 {
     margin-top: var(--spacing-sm);
     padding-top: var(--spacing-sm);
     border-top: var(--border-width) solid var(--color-border);
 }
 
-.knowledge-c4-references {
+.devbook-c4-references {
     margin-top: var(--spacing-sm);
 }
 
@@ -5213,22 +5213,22 @@ h1, h2, h3 {
 
 /* What the reader could not be shown. Small and plain: it is a footnote under a
    picture that rendered, not an error that stopped one. */
-.knowledge-problems {
+.devbook-problems {
     margin: var(--spacing-xs) 0 0;
     padding-left: var(--spacing-lg);
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
 }
 
-.knowledge-problems li + li {
+.devbook-problems li + li {
     margin-top: var(--spacing-2xs);
 }
 
-.knowledge-stack__nav a,
-.knowledge-stack__nav-item,
-.design-knowledge__nav-link,
+.devbook-stack__nav a,
+.devbook-stack__nav-item,
+.design-devbook__nav-link,
 .domain-context-tab,
-.knowledge-chapter {
+.devbook-chapter {
     display: inline-flex;
     align-items: center;
     justify-content: space-between;
@@ -5244,36 +5244,36 @@ h1, h2, h3 {
     cursor: pointer;
 }
 
-.knowledge-stack__nav a:hover,
-.knowledge-stack__nav a:focus-visible,
-.knowledge-stack__nav-item:hover,
-.knowledge-stack__nav-item:focus-visible,
-.knowledge-stack__nav-item--active,
-.design-knowledge__nav-link:hover,
-.design-knowledge__nav-link:focus-visible,
+.devbook-stack__nav a:hover,
+.devbook-stack__nav a:focus-visible,
+.devbook-stack__nav-item:hover,
+.devbook-stack__nav-item:focus-visible,
+.devbook-stack__nav-item--active,
+.design-devbook__nav-link:hover,
+.design-devbook__nav-link:focus-visible,
 .domain-context-tab:hover,
 .domain-context-tab:focus-visible,
 .domain-context-tab[aria-pressed="true"],
-.knowledge-chapter:hover,
-.knowledge-chapter:focus-visible {
+.devbook-chapter:hover,
+.devbook-chapter:focus-visible {
     border-color: var(--color-primary);
     color: var(--color-text-primary);
     outline: none;
 }
 
-.knowledge-stack__section > .knowledge-pane,
-.knowledge-stack__section > .design-knowledge,
-.knowledge-stack__section > .domain-knowledge {
+.devbook-stack__section > .devbook-pane,
+.devbook-stack__section > .design-devbook,
+.devbook-stack__section > .domain-devbook {
     position: static;
     max-height: none;
     overflow: visible;
     padding: var(--spacing-md);
 }
 
-.knowledge-stack__section > .knowledge-pane--arc42,
-.knowledge-stack__section > .instructions-knowledge,
-.knowledge-stack__section > .design-knowledge--chapter,
-.knowledge-stack__section > .domain-knowledge {
+.devbook-stack__section > .devbook-pane--arc42,
+.devbook-stack__section > .instructions-devbook,
+.devbook-stack__section > .design-devbook--chapter,
+.devbook-stack__section > .domain-devbook {
     display: flex;
     flex-direction: column;
     max-height: 100%;
@@ -5287,8 +5287,8 @@ h1, h2, h3 {
    Only for a chapter: the folder overview is a stack of documents with no file
    view under it, and capping that would clip the folder against a height nobody
    would be able to scroll. */
-.design-knowledge--chapter .design-knowledge__documents,
-.design-knowledge--chapter .design-document {
+.design-devbook--chapter .design-devbook__documents,
+.design-devbook--chapter .design-document {
     display: flex;
     flex: 1 1 auto;
     flex-direction: column;
@@ -5301,20 +5301,20 @@ h1, h2, h3 {
    asks for when it is the only child, and next to a sibling it is a request for
    more room than there is — which the column then answers by squeezing the file
    to nothing. */
-.design-knowledge--chapter .file-view--fill {
+.design-devbook--chapter .file-view--fill {
     flex: 1 1 auto;
     min-height: 12rem;
     height: auto;
 }
 
-.knowledge-stack__section > .tech-knowledge-pane {
+.devbook-stack__section > .tech-devbook-pane {
     max-height: 100%;
     min-height: 0;
     overflow: auto;
     scrollbar-gutter: stable;
 }
 
-.knowledge-stack__section > .knowledge-pane--arc42 .arc42-knowledge-layout {
+.devbook-stack__section > .devbook-pane--arc42 .arc42-devbook-layout {
     display: flex;
     flex: 1 1 auto;
     flex-direction: column;
@@ -5322,9 +5322,9 @@ h1, h2, h3 {
     overflow: hidden;
 }
 
-.knowledge-stack__section > .knowledge-pane--arc42 .knowledge-document,
-.knowledge-stack__section > .domain-knowledge > .domain-context,
-.knowledge-stack__section > .domain-knowledge > .domain-document {
+.devbook-stack__section > .devbook-pane--arc42 .devbook-document,
+.devbook-stack__section > .domain-devbook > .domain-context,
+.devbook-stack__section > .domain-devbook > .domain-document {
     flex: 1 1 auto;
     max-height: 100%;
     min-height: 0;
@@ -5337,7 +5337,7 @@ h1, h2, h3 {
    body. It used to stop at a fraction of the viewport
    instead, which made the panel taller than the section that was already
    scrolling it and put two scrollbars on the same edge. */
-.instructions-knowledge__repository {
+.instructions-devbook__repository {
     display: flex;
     flex: 1 1 auto;
     flex-direction: column;
@@ -5356,21 +5356,21 @@ h1, h2, h3 {
    flex column by default would change every one of them to fix this one. The
    technology pane threads the same three rules the same way for the same
    reason. */
-.instructions-knowledge__repository > .tabs {
+.instructions-devbook__repository > .tabs {
     display: flex;
     flex: 1 1 auto;
     flex-direction: column;
     min-height: 0;
 }
 
-.instructions-knowledge .tabs__panels {
+.instructions-devbook .tabs__panels {
     display: flex;
     flex: 1 1 auto;
     flex-direction: column;
     min-height: 0;
 }
 
-.instructions-knowledge .tabs__panel {
+.instructions-devbook .tabs__panel {
     display: flex;
     flex: 1 1 auto;
     flex-direction: column;
@@ -5380,18 +5380,18 @@ h1, h2, h3 {
 /* The comparison is the panel's whole content, so it takes the height and
    scrolls itself - the table is longer than the pane whenever the folder has
    more than a handful of files in it. */
-.instructions-knowledge .instruction-reach {
+.instructions-devbook .instruction-reach {
     flex: 1 1 auto;
 }
 
-.instructions-knowledge .instructions-layout {
+.instructions-devbook .instructions-layout {
     flex: 1 1 auto;
     min-height: 0;
 }
 
 /* The document list is navigation beside the file, so it scrolls itself rather
    than growing the panel past the file it sits next to. */
-.instructions-knowledge .instructions-list {
+.instructions-devbook .instructions-list {
     min-height: 0;
     overflow: auto;
 }
@@ -5407,18 +5407,18 @@ h1, h2, h3 {
    query adds no specificity, and the rules above are no less specific than these.
    Same reason the arc42 and domain rules sit where they do. */
 @media (max-width: 72rem) {
-    .knowledge-stack__section > .instructions-knowledge,
-    .instructions-knowledge__repository {
+    .devbook-stack__section > .instructions-devbook,
+    .instructions-devbook__repository {
         max-height: none;
         overflow: visible;
     }
 
-    .instructions-knowledge .file-view__body {
+    .instructions-devbook .file-view__body {
         max-height: min(72vh, 52rem);
     }
 }
 
-.knowledge-stack__body {
+.devbook-stack__body {
     display: grid;
     flex: 1 1 auto;
     grid-template-columns: minmax(10rem, 14rem) minmax(0, 1fr);
@@ -5428,17 +5428,17 @@ h1, h2, h3 {
     overflow: hidden;
 }
 
-.knowledge-stack__body--without-menu {
+.devbook-stack__body--without-menu {
     grid-template-columns: minmax(0, 1fr);
 }
 
-.knowledge-stack__body--without-menu .knowledge-stack__section,
-.knowledge-stack__body--without-menu .tech-knowledge-pane {
+.devbook-stack__body--without-menu .devbook-stack__section,
+.devbook-stack__body--without-menu .tech-devbook-pane {
     width: 100%;
     max-width: none;
 }
 
-.knowledge-stack__menu {
+.devbook-stack__menu {
     position: sticky;
     top: 0;
     display: grid;
@@ -5449,7 +5449,7 @@ h1, h2, h3 {
        starts below the header alone — the roadmap band can sit above it and the
        app-shell footer now sits below it — so a cap measured off the viewport
        overruns the row it is in by however tall those are, and
-       `.knowledge-layout`'s `overflow: hidden` clips the bottom of the menu
+       `.devbook-layout`'s `overflow: hidden` clips the bottom of the menu
        silently. The row is already a sized grid track, so its own height is the
        honest ceiling. */
     max-height: 100%;
@@ -5461,7 +5461,7 @@ h1, h2, h3 {
     box-shadow: var(--shadow-sm);
 }
 
-.knowledge-stack__menu-heading {
+.devbook-stack__menu-heading {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -5476,15 +5476,15 @@ h1, h2, h3 {
 
 
 
-.knowledge-stack__menu-message {
+.devbook-stack__menu-message {
     margin: 0;
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
 }
 
 /* The app's own "open this folder" button. It shares its look with the shared
-   TreeView's `knowledge-menu__open-vscode`, which components.css owns. */
-.knowledge-folder-open {
+   TreeView's `devbook-menu__open-vscode`, which components.css owns. */
+.devbook-folder-open {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -5501,44 +5501,44 @@ h1, h2, h3 {
     cursor: pointer;
 }
 
-.knowledge-folder-open:hover:not(:disabled),
-.knowledge-folder-open:focus-visible {
+.devbook-folder-open:hover:not(:disabled),
+.devbook-folder-open:focus-visible {
     border-color: var(--color-primary);
     background: color-mix(in srgb, var(--color-primary) 24%, transparent);
     outline: none;
 }
 
-.knowledge-folder-open:disabled {
+.devbook-folder-open:disabled {
     cursor: default;
     opacity: 0.58;
 }
 
-.knowledge-stack__menu-error,
-.knowledge-folder-open-error {
+.devbook-stack__menu-error,
+.devbook-folder-open-error {
     margin: 0;
 }
 
 @media (max-width: 900px) {
-    .knowledge-stack__body {
+    .devbook-stack__body {
         grid-template-columns: 1fr;
     }
 
-    .knowledge-stack__menu {
+    .devbook-stack__menu {
         position: static;
         max-height: none;
     }
 }
-.design-knowledge,
-.design-knowledge__documents,
+.design-devbook,
+.design-devbook__documents,
 .design-document,
 .design-section,
-.domain-knowledge,
+.domain-devbook,
 .domain-context,
 .domain-context__documents,
 .domain-document,
-.knowledge-document,
-.arc42-knowledge-layout,
-.tech-knowledge-pane {
+.devbook-document,
+.arc42-devbook-layout,
+.tech-devbook-pane {
     display: grid;
     gap: var(--spacing-md);
 }
@@ -5547,14 +5547,14 @@ h1, h2, h3 {
    is the one knowledge view that does: every other one puts the file through the
    file view, whose body is a scroll box and so is never wider than the pane it is
    in. Without one of its own, the widest thing in a `.design` file sets the width
-   of the whole knowledge pane — a table, or a code span like
+   of the whole Devbook pane — a table, or a code span like
    `DesignTokenTests.Every_colour_the_library_declares_matches_the_value_in_dotdesign`,
    which has nowhere to break and is twice the docked pane. Each subject scrolls
    its own overflow instead, which is the answer the file view already gives this
    same content one level down; the tracks are told they may shrink, because a
    grid track floors at its content's minimum otherwise and the scroll box would
    never get the chance. */
-.design-knowledge__documents,
+.design-devbook__documents,
 .design-document,
 .design-section {
     grid-template-columns: minmax(0, 1fr);
@@ -5571,7 +5571,7 @@ h1, h2, h3 {
    read it than a break mid-token. Paragraphs only — a fenced block and a table
    both scroll themselves already, and both are laid out in columns a break would
    ruin. */
-.knowledge-p code {
+.devbook-p code {
     overflow-wrap: anywhere;
 }
 
@@ -5591,7 +5591,7 @@ h1, h2, h3 {
    path and then the file's own metadata record, and the record already draws the
    name with the status held to the right edge of its line — the split this
    header used to make is now made one level down, inside
-   `.knowledge-record__headline`, where the two things sharing the line share a
+   `.devbook-record__headline`, where the two things sharing the line share a
    parent. Laid out as two rows so the path stays the eyebrow above the name it
    has always been. */
 .design-document__header {
@@ -5602,7 +5602,7 @@ h1, h2, h3 {
 /* The domain document header gave its title and path to the file view that now
    shows the chapter, so for a selected chapter it is left holding only its
    controls — and space-between pins a lone child to the start, which would have
-   walked every state control in the knowledge panes from the right edge to the
+   walked every state control in the Devbook panes from the right edge to the
    left. They stay where the reader has always found them. A header that still
    names its document has two children and is untouched.
 
@@ -5626,7 +5626,7 @@ h1, h2, h3 {
 .domain-section__header h4 {
     margin: 0;
 }
-.domain-knowledge__actions {
+.domain-devbook__actions {
     display: inline-flex;
     flex-wrap: wrap;
     align-items: center;
@@ -5635,14 +5635,14 @@ h1, h2, h3 {
 }
 
 
-.knowledge-status-control {
+.devbook-status-control {
     display: inline-flex;
     flex-wrap: wrap;
     align-items: center;
     gap: var(--spacing-xs);
 }
 
-.knowledge-chapter__button {
+.devbook-chapter__button {
     appearance: none;
     display: inline-flex;
     align-items: center;
@@ -5657,7 +5657,7 @@ h1, h2, h3 {
     cursor: pointer;
 }
 
-.knowledge-chapter__button:focus-visible {
+.devbook-chapter__button:focus-visible {
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: 2px;
 }
@@ -5714,17 +5714,17 @@ h1, h2, h3 {
 /* Bare error text, with no error surface behind it to carry the meaning, so the
    colour is the only thing saying this failed. That is the case color-error-text
    exists for, and the gap the comment here used to describe. */
-.domain-knowledge__action-error {
+.domain-devbook__action-error {
     color: var(--color-error-text);
     font-size: var(--font-size-xs);
 }
 
-/* .knowledge-document__path was here until the architecture panel handed the
+/* .devbook-document__path was here until the architecture panel handed the
    chapter's path to the file view's own header, which sets it as a path rather
    than as an eyebrow — monospaced and right-aligned, because a reader checks one
    segment of a path instead of reading it. Nothing renders the class now. */
 .design-document__file,
-.domain-knowledge__eyebrow {
+.domain-devbook__eyebrow {
     margin: 0 0 var(--spacing-xs);
     color: var(--color-primary-light);
     font-size: var(--font-size-xs);
@@ -5733,11 +5733,11 @@ h1, h2, h3 {
     text-transform: uppercase;
 }
 
-/* .design-knowledge__source and .design-document__summary were here until the
+/* .design-devbook__source and .design-document__summary were here until the
    design pane stopped introducing itself: the first printed an absolute folder
    path above the document, and the second reprinted the file's opening sentences
    just above the file. Nothing renders either class now. */
-.domain-knowledge__state,
+.domain-devbook__state,
 .domain-document__summary {
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
@@ -5749,9 +5749,9 @@ h1, h2, h3 {
     gap: var(--spacing-sm);
 }
 
-/* .knowledge-document was a card here until the architecture chapter moved into
+/* .devbook-document was a card here until the architecture chapter moved into
    the file view, which draws its own edge. The article stayed — it is the scroll
-   container the knowledge stack sizes and the anchor the knowledge menu jumps to
+   container the Devbook stack sizes and the anchor the Devbook menu jumps to
    — but it always holds a file view now, so a card here is a card around a card. */
 .design-token,
 .design-section,
@@ -5782,7 +5782,7 @@ h1, h2, h3 {
 
    Done in the stylesheet and never in the DOM. The file is called "Context Map:
    Backlog" and that is what a screen reader must read, what a copy takes away,
-   and what the heading the knowledge menu matches on still says — text-transform
+   and what the heading the Devbook menu matches on still says — text-transform
    changes the drawing and leaves all three alone. Uppercase loses the shapes a
    reader tracks words by, so the letter-spacing goes back some of what the caps
    took. */
@@ -5797,7 +5797,7 @@ h1, h2, h3 {
     font-family: var(--font-family-mono);
 }
 
-/* .knowledge-pane__summary was here until the architecture panel gave up the
+/* .devbook-pane__summary was here until the architecture panel gave up the
    ADR/TDR, diagram and heading counts it drew above the file. Each is a fact the
    file view now reads from the file itself — the decision records carry their
    state, the diagrams are drawn where their fences are — so a strip of totals
@@ -5807,7 +5807,7 @@ h1, h2, h3 {
    the state row sits above the document rather than beside it: the indicator is
    about the whole chapter, and a save state tucked into a corner of the prose
    reads as belonging to whichever paragraph it landed next to. */
-.knowledge-chapter-editor {
+.devbook-chapter-editor {
     display: grid;
     gap: var(--spacing-sm);
 }
@@ -5823,10 +5823,10 @@ h1, h2, h3 {
    scrolling inside it. min-height:0 is the same bargain one level up, for this
    box as a child of the file view's body.
 
-   Here rather than in the component library because .knowledge-chapter-editor is
+   Here rather than in the component library because .devbook-chapter-editor is
    this app's class: the library styles the editor inside it and knows nothing
    about the wrapper the panels put around one. */
-.knowledge-chapter-editor--fill {
+.devbook-chapter-editor--fill {
     min-height: 0;
     grid-template-rows: auto minmax(0, 1fr);
     /* The gap goes because the row above it is usually not there. Both children
@@ -5850,11 +5850,11 @@ h1, h2, h3 {
    else. Whitespace is not a flex item, so with the padding gone an idle row is
    genuinely zero high, and the indicator that does appear brings its own
    margins with it. */
-.knowledge-chapter-editor--fill .knowledge-chapter-editor__state {
+.devbook-chapter-editor--fill .devbook-chapter-editor__state {
     padding: 0;
 }
 
-.knowledge-chapter-editor--fill .knowledge-chapter-editor__state > * {
+.devbook-chapter-editor--fill .devbook-chapter-editor__state > * {
     margin: var(--spacing-xs) var(--spacing-md);
 }
 
@@ -5862,7 +5862,7 @@ h1, h2, h3 {
    scanning for "did that save" looks where the other status lives. Both children
    render nothing until there is something to say, so the row is zero-height for
    the whole of a chapter nobody has typed into. */
-.knowledge-chapter-editor__state {
+.devbook-chapter-editor__state {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -5870,22 +5870,22 @@ h1, h2, h3 {
     gap: var(--spacing-xs);
 }
 
-/* .knowledge-outline was here until the architecture panel gave up the chapter
+/* .devbook-outline was here until the architecture panel gave up the chapter
    outline strip it drew above the file. The headings it listed are in the body
    the file view now renders, in the order the author wrote them, so a strip of
    them above it was the file's headings read a second time. Nothing renders the
    class now. */
-.knowledge-table-wrap {
+.devbook-table-wrap {
     overflow: auto;
 }
 
-.knowledge-code {
+.devbook-code {
     overflow: auto;
     margin: 0;
     padding: var(--spacing-md);
     border-radius: var(--border-radius-md);
     /* One step up the ramp from the file view it sits in — the same base the
-       .knowledge-document card used to give it, now that the card is the file
+       .devbook-document card used to give it, now that the card is the file
        view's. This was a raw #020617 — a step *below* the old base, inventing a
        fourth surface the palette does not have. */
     background: var(--color-background-alt);
@@ -5896,7 +5896,7 @@ h1, h2, h3 {
 
 
 @media (max-width: 72rem) {
-    .knowledge-stack {
+    .devbook-stack {
         position: static;
         max-height: none;
     }
@@ -6377,7 +6377,7 @@ h1, h2, h3 {
 }
 
 /* --------------------------------------------------------------------------
-   Knowledge atlas
+   Devbook atlas
    --------------------------------------------------------------------------
    The map over a knowledge folder, or over all of them. It takes the section
    body when it is open, so it is a column that fills the room and clips: the
@@ -6385,7 +6385,7 @@ h1, h2, h3 {
    does.
    -------------------------------------------------------------------------- */
 
-.knowledge-atlas {
+.devbook-atlas {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-md);
@@ -6394,12 +6394,12 @@ h1, h2, h3 {
     overflow: hidden;
 }
 
-.knowledge-stack__section--atlas {
+.devbook-stack__section--atlas {
     overflow: hidden;
     scrollbar-gutter: auto;
 }
 
-.knowledge-atlas__header {
+.devbook-atlas__header {
     display: flex;
     flex: 0 0 auto;
     align-items: flex-start;
@@ -6408,20 +6408,20 @@ h1, h2, h3 {
     flex-wrap: wrap;
 }
 
-.knowledge-atlas__heading {
+.devbook-atlas__heading {
     display: grid;
     gap: var(--spacing-2xs);
     min-width: 0;
 }
 
-.knowledge-atlas__heading h3 {
+.devbook-atlas__heading h3 {
     margin: 0;
     font-family: var(--font-family-heading);
     font-size: var(--font-size-lg);
     line-height: var(--line-height-tight);
 }
 
-.knowledge-atlas__kicker {
+.devbook-atlas__kicker {
     margin: 0;
     color: var(--color-text-secondary);
     font-family: var(--font-family-mono);
@@ -6430,13 +6430,13 @@ h1, h2, h3 {
     text-transform: uppercase;
 }
 
-.knowledge-atlas__summary {
+.devbook-atlas__summary {
     margin: 0;
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
 }
 
-.knowledge-atlas > .graph-atlas {
+.devbook-atlas > .graph-atlas {
     flex: 1 1 auto;
     min-height: 0;
 }
@@ -6445,7 +6445,7 @@ h1, h2, h3 {
    header that stays put and one scrolling region under it. What it does not
    share is the atlas's `overflow: hidden` on that region — a graph is drawn to
    fit and a result list is read down. */
-.knowledge-search {
+.devbook-search {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-md);
@@ -6453,7 +6453,7 @@ h1, h2, h3 {
     min-height: 0;
 }
 
-.knowledge-search__header {
+.devbook-search__header {
     display: flex;
     flex: 0 0 auto;
     align-items: flex-end;
@@ -6462,20 +6462,20 @@ h1, h2, h3 {
     flex-wrap: wrap;
 }
 
-.knowledge-search__heading {
+.devbook-search__heading {
     display: grid;
     gap: var(--spacing-2xs);
     min-width: 0;
 }
 
-.knowledge-search__heading h3 {
+.devbook-search__heading h3 {
     margin: 0;
     font-family: var(--font-family-heading);
     font-size: var(--font-size-lg);
     line-height: var(--line-height-tight);
 }
 
-.knowledge-search__kicker {
+.devbook-search__kicker {
     margin: 0;
     color: var(--color-text-secondary);
     font-family: var(--font-family-mono);
@@ -6484,12 +6484,12 @@ h1, h2, h3 {
     text-transform: uppercase;
 }
 
-.knowledge-search__box {
+.devbook-search__box {
     flex: 1 1 18rem;
     max-width: 32rem;
 }
 
-.knowledge-search__results {
+.devbook-search__results {
     flex: 1 1 auto;
     min-height: 0;
     margin: 0;
@@ -6501,7 +6501,7 @@ h1, h2, h3 {
     align-content: start;
 }
 
-.knowledge-search__result {
+.devbook-search__result {
     display: grid;
     gap: var(--spacing-2xs);
     padding: var(--spacing-sm);
@@ -6513,7 +6513,7 @@ h1, h2, h3 {
 /* The whole address block is the control, so the button is a block that fills
    the row rather than a word inside it: the target a reader aims at is the
    chapter, and the chapter is two lines tall. */
-.knowledge-search__open {
+.devbook-search__open {
     display: grid;
     gap: var(--spacing-2xs);
     width: 100%;
@@ -6524,46 +6524,46 @@ h1, h2, h3 {
     cursor: pointer;
 }
 
-.knowledge-search__open:focus-visible {
+.devbook-search__open:focus-visible {
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: var(--border-width-2);
 }
 
-.knowledge-search__result-title {
+.devbook-search__result-title {
     color: var(--color-text-primary);
     font-family: var(--font-family-heading);
     font-size: var(--font-size-sm);
     line-height: var(--line-height-tight);
 }
 
-.knowledge-search__open:hover .knowledge-search__result-title {
+.devbook-search__open:hover .devbook-search__result-title {
     color: var(--color-primary);
 }
 
 /* Monospaced, because it is an address and a reader compares it character by
    character with the one in a `related` field. */
-.knowledge-search__address {
+.devbook-search__address {
     color: var(--color-text-secondary);
     font-family: var(--font-family-mono);
     font-size: var(--font-size-xs);
     overflow-wrap: anywhere;
 }
 
-.knowledge-search__excerpt {
+.devbook-search__excerpt {
     margin: 0;
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
     line-height: var(--line-height-normal);
 }
 
-/* The toggle and the "All knowledge" button sit at the end of the section
+/* The toggle and the "Whole devbook" button sit at the end of the section
    strip and are deliberately quiet: text and a hairline, no fill. The map is
    offered, not advertised. The search toggle wears the same pill for the reason
    the version control does: three differently shaped buttons on one line would
    read as three different kinds of thing. */
-.knowledge-stack__search-toggle,
-.knowledge-stack__atlas-toggle,
-.knowledge-stack__atlas-all {
+.devbook-stack__search-toggle,
+.devbook-stack__atlas-toggle,
+.devbook-stack__atlas-all {
     flex: 0 0 auto;
     align-self: center;
     padding: var(--spacing-2xs) var(--spacing-sm);
@@ -6576,22 +6576,22 @@ h1, h2, h3 {
     transition: color var(--transition-fast), border-color var(--transition-fast);
 }
 
-.knowledge-stack__search-toggle:hover,
-.knowledge-stack__atlas-toggle:hover,
-.knowledge-stack__atlas-all:hover {
+.devbook-stack__search-toggle:hover,
+.devbook-stack__atlas-toggle:hover,
+.devbook-stack__atlas-all:hover {
     color: var(--color-text-primary);
     border-color: var(--color-border-strong);
 }
 
-.knowledge-stack__search-toggle:focus-visible,
-.knowledge-stack__atlas-toggle:focus-visible,
-.knowledge-stack__atlas-all:focus-visible {
+.devbook-stack__search-toggle:focus-visible,
+.devbook-stack__atlas-toggle:focus-visible,
+.devbook-stack__atlas-all:focus-visible {
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: var(--border-width);
 }
 
-.knowledge-stack__search-toggle[aria-expanded="true"],
-.knowledge-stack__atlas-toggle[aria-expanded="true"] {
+.devbook-stack__search-toggle[aria-expanded="true"],
+.devbook-stack__atlas-toggle[aria-expanded="true"] {
     color: var(--color-text-primary);
     border-color: var(--color-border-focus);
 }
@@ -6601,7 +6601,7 @@ h1, h2, h3 {
    line would read as two different kinds of thing. What it does not share is the
    colour when there is something to pull: that is the one state on this strip
    worth catching an eye. */
-.knowledge-stack__update-toggle {
+.devbook-stack__update-toggle {
     flex: 0 0 auto;
     align-self: center;
     padding: var(--spacing-2xs) var(--spacing-sm);
@@ -6614,23 +6614,23 @@ h1, h2, h3 {
     transition: color var(--transition-fast), border-color var(--transition-fast);
 }
 
-.knowledge-stack__update-toggle:hover {
+.devbook-stack__update-toggle:hover {
     color: var(--color-text-primary);
     border-color: var(--color-border-strong);
 }
 
-.knowledge-stack__update-toggle:focus-visible {
+.devbook-stack__update-toggle:focus-visible {
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: var(--border-width);
 }
 
-.knowledge-stack__update-toggle:disabled {
+.devbook-stack__update-toggle:disabled {
     cursor: default;
 }
 
 /* The count sits immediately left of the button and belongs to it, so the gap
    between the two is tighter than the strip's own. */
-.knowledge-stack__update-badge {
+.devbook-stack__update-badge {
     flex: 0 0 auto;
     align-self: center;
     margin-right: calc(-1 * var(--spacing-2xs));
@@ -6646,7 +6646,7 @@ h1, h2, h3 {
 /* One line under the strip, and none at all until somebody has asked: Alert
    renders nothing for an empty message, so the row costs no height while the
    version is unknown. */
-.knowledge-stack__update-status {
+.devbook-stack__update-status {
     margin: 0;
     padding: var(--spacing-2xs) var(--spacing-sm);
     border-bottom: var(--border-width) solid var(--color-border);
@@ -6655,17 +6655,17 @@ h1, h2, h3 {
     overflow-wrap: anywhere;
 }
 
-.knowledge-stack__update-status--ok { color: var(--color-text-secondary); }
-.knowledge-stack__update-status--available { color: var(--color-primary); }
-.knowledge-stack__update-status--blocked { color: var(--color-error-text); }
+.devbook-stack__update-status--ok { color: var(--color-text-secondary); }
+.devbook-stack__update-status--available { color: var(--color-primary); }
+.devbook-stack__update-status--blocked { color: var(--color-error-text); }
 
-.knowledge-atlas-facts {
+.devbook-atlas-facts {
     display: flex;
     flex-wrap: wrap;
     gap: var(--spacing-2xs) var(--spacing-xs);
 }
 
-.knowledge-atlas-note {
+.devbook-atlas-note {
     margin: 0;
     padding: var(--spacing-sm);
     border-left: var(--border-width-2) solid var(--color-border-strong);
@@ -6676,12 +6676,12 @@ h1, h2, h3 {
     line-height: var(--line-height-normal);
 }
 
-.knowledge-atlas-relations {
+.devbook-atlas-relations {
     display: grid;
     gap: var(--spacing-2xs);
 }
 
-.knowledge-atlas-relations__label {
+.devbook-atlas-relations__label {
     color: var(--color-text-secondary);
     font-family: var(--font-family-mono);
     font-size: var(--font-size-xs);
@@ -6689,7 +6689,7 @@ h1, h2, h3 {
     text-transform: uppercase;
 }
 
-.knowledge-atlas-relations > div {
+.devbook-atlas-relations > div {
     display: flex;
     flex-wrap: wrap;
     gap: var(--spacing-2xs) var(--spacing-xs);
@@ -6697,7 +6697,7 @@ h1, h2, h3 {
 
 /* A neighbour is somewhere to go next inside the map, so it reads as a link and
    moves the selection rather than leaving for the document. */
-.knowledge-atlas-relations__link {
+.devbook-atlas-relations__link {
     padding: 0;
     border: 0;
     background: none;
@@ -6708,11 +6708,11 @@ h1, h2, h3 {
     cursor: pointer;
 }
 
-.knowledge-atlas-relations__link:hover {
+.devbook-atlas-relations__link:hover {
     color: var(--color-primary-light);
 }
 
-.knowledge-atlas-relations__link:focus-visible {
+.devbook-atlas-relations__link:focus-visible {
     outline: var(--border-width-2) solid var(--color-border-focus);
     outline-offset: var(--border-width);
 }

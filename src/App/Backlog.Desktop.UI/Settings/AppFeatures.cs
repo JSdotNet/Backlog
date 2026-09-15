@@ -1,7 +1,7 @@
 ﻿using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.DevPc.Abstractions;
-using Backlog.Modules.Knowledge.Abstractions;
+using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Dashboard.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Sync.Abstractions;
@@ -75,32 +75,44 @@ public static class AppFeatures
         new(TasksFeatures.Tasks, "Tasks", "Create, edit, filter, reorder, and store tasks.", AlwaysEnabled: true),
         new(InboxPane, "Inbox pane", "Show the Inbox option and pane in the Home shell.", EnabledByDefault: false, Status: AppFeatureStatus.Dev),
         new(RoadmapFeatures.Roadmap, "Roadmap band", "Show the roadmap band above the panes in the Home shell.", Status: AppFeatureStatus.Dev),
-        new(KnowledgeFeatures.KnowledgeSections, "Knowledge sections", "Show design, architecture, domain, technology, and instruction sections in the knowledge pane and header."),
-        new(KnowledgeFeatures.RepositoryKnowledge, "Repository knowledge", "Show the side pane for repository knowledge."),
+        // The four devbook keys carried the context's former name; the former keys
+        // keep a features.json written before the rename reading as it did.
         new(
-            KnowledgeFeatures.ArchifyDiagrams,
+            DevbookFeatures.DevbookSections,
+            "Devbook sections",
+            "Show design, architecture, domain, technology, and instruction sections in the Devbook pane and header.",
+            FormerKeys: ["knowledge-sections"]),
+        new(
+            DevbookFeatures.RepositoryDevbook,
+            "Devbook",
+            "Show the Devbook side pane for the selected repository.",
+            FormerKeys: ["repository-knowledge"]),
+        new(
+            DevbookFeatures.ArchifyDiagrams,
             "Archify diagrams",
-            "Draw a knowledge chapter's diagrams from their generated Archify artifacts where one exists, and offer to generate the rest. Chapters whose artifact is missing or was authored from an earlier version of the diagram keep their mermaid rendering.",
+            "Draw a devbook chapter's diagrams from their generated Archify artifacts where one exists, and offer to generate the rest. Chapters whose artifact is missing or was authored from an earlier version of the diagram keep their mermaid rendering.",
             EnabledByDefault: false,
             Status: AppFeatureStatus.Dev),
         new(
-            KnowledgeFeatures.C4Diagrams,
+            DevbookFeatures.C4Diagrams,
             "C4 diagrams",
             "Show the C4 model kept beside the architecture chapters in .arc42/_c4/, authored as Structurizr DSL in c4hero. Its views are listed with the chapters, and a chapter that references a view links to it and back.",
             EnabledByDefault: false,
             Status: AppFeatureStatus.Dev),
         new(
-            KnowledgeFeatures.Search,
-            "Knowledge search",
-            "Find the chapter that answers a question across every knowledge area at once. Results name the chapter they came from, so you can open it. A repository whose knowledge index has not been generated says so instead of showing an empty list.",
+            DevbookFeatures.Search,
+            "Devbook search",
+            "Find the chapter that answers a question across every devbook area at once. Results name the chapter they came from, so you can open it. A repository whose devbook database has not been generated says so instead of showing an empty list.",
             EnabledByDefault: false,
-            Status: AppFeatureStatus.Dev),
+            Status: AppFeatureStatus.Dev,
+            FormerKeys: ["knowledge-search"]),
         new(
-            KnowledgeFeatures.SemanticSearch,
-            "Knowledge search by meaning",
-            "Also find chapters that mean what you asked even when they do not use your words, beside the search that matches the words themselves. Needs a knowledge index built with an embedding model; without one, searching by words still answers.",
+            DevbookFeatures.SemanticSearch,
+            "Devbook search by meaning",
+            "Also find chapters that mean what you asked even when they do not use your words, beside the search that matches the words themselves. Needs a devbook database built with an embedding model; without one, searching by words still answers.",
             EnabledByDefault: false,
-            Status: AppFeatureStatus.Dev),
+            Status: AppFeatureStatus.Dev,
+            FormerKeys: ["knowledge-semantic-search"]),
         new(
             DevPcFeatures.SystemTools,
             "System tools",
@@ -124,7 +136,7 @@ public static class AppFeatures
         new(
             TasksFeatures.AdditionalRepositories,
             "Additional repositories",
-            "Configure multiple repositories and switch repository-specific knowledge.",
+            "Configure multiple repositories and switch between their devbooks.",
             Group: AppFeatureGroup.CrossCutting),
         new(
             TasksFeatures.GitHubIntegration,

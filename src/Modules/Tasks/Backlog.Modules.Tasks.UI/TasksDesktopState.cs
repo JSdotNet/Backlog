@@ -243,7 +243,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// into the scope; empty for all configured repositories.
     /// <para>
     /// An ordered set rather than one alias, because the list can be narrowed to
-    /// several repositories at once and the knowledge pane cannot: it reads one
+    /// several repositories at once and the Devbook pane cannot: it reads one
     /// repository's folders. The first entry is the <em>anchor</em> — see
     /// <see cref="AnchorRepositoryAlias"/> — and the order is what makes the anchor
     /// stable: adding a repository never moves the one the reader was already
@@ -255,7 +255,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     private readonly List<string> _selectedRepositoryAliases = [];
 
     /// <summary>The first repository in the scope, or empty when nothing is scoped.
-    /// It is the one the knowledge pane reads and the one a new entry is filed
+    /// It is the one the Devbook pane reads and the one a new entry is filed
     /// under, because every reader that can take one repository and not several
     /// takes this one.</summary>
     public string AnchorRepositoryAlias =>
@@ -267,7 +267,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// A scope of its own rather than a value <see cref="SelectedRepositoryAliases"/>
     /// could hold, because "no repository" is not a repository and every reader of
     /// that set would have to be taught the exception. A sentinel there would be
-    /// handed to the knowledge pane, which answers an unresolvable alias with
+    /// handed to the Devbook pane, which answers an unresolvable alias with
     /// "select a configured repository"; written into a new draft as
     /// <c>`repo:`</c>; and wiped by <see cref="ForgetStaleRepositoryScope"/> on the
     /// next pass, which resolves an alias against settings and finds nothing. A bool

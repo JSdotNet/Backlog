@@ -16,6 +16,6 @@ public enum SplitPaneAnchor
 
     /// <summary>The trailing pane is fixed; the leading one flexes. The arrangement
     /// the shared JS resizer assumes by default, because the app's own right-hand
-    /// knowledge panel has it.</summary>
+    /// Devbook panel has it.</summary>
     End
 }

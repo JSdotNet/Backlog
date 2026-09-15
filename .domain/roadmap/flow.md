@@ -111,7 +111,7 @@ flowchart TD
     Item --> Tagged["By tag:<br/>tasks filed under the tag + chapters whose roadmap list names it"]
     Tasks["Tasks<br/>(supplier)"] -.-> Tagged
     Tasks -.-> Named
-    Brain["Second Brain<br/>(supplier)"] -.-> Tagged
+    Brain["Devbook<br/>(supplier)"] -.-> Tagged
     Brain -.-> Named
     Named --> Dedup["Merge — reached both ways is counted once,<br/>recorded as held by both threads"]
     Tagged --> Dedup
@@ -124,7 +124,7 @@ flowchart TD
 - Gathering happens on the **read** path only, by
   [Roadmap Item Gathering](domain.md#roadmap-item-gathering).
   Nothing is written back — not to the plan, not to a task, not to a chapter — so
-  an unreachable Tasks or Second Brain shrinks a total rather than
+  an unreachable Tasks or Devbook shrinks a total rather than
   corrupting a plan.
 - The two threads are merged, not concatenated. A thing linked **and** tagged is
   one gathered thing, but the result records that it was reached both ways, because

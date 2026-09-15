@@ -38,10 +38,10 @@ related: [".arc42/01-introduction-and-goals.md#requirements-overview"]
 ```
 
 The system is split into independent functional domains (Capture, Inbox, Backlog,
-Roadmap Planning, Second Brain, Monitoring, Technology Stack, Dev PC Management, Sessions,
+Roadmap Planning, Devbook, Monitoring, Technology Stack, Dev PC Management, Sessions,
 Repository Management).
 Each is separately designable and deployable within the desktop client. A thin,
-one-directional pipeline (Capture → Inbox → route to Backlog / Second Brain →
+one-directional pipeline (Capture → Inbox → route to Backlog / Devbook →
 signals to Monitoring) keeps coupling low and lets channels expose a subset of
 domains without owning domain lifecycle rules.
 
@@ -59,7 +59,7 @@ Responsibilities are deliberately pushed to the desktop; the cloud is minimized:
 | YouTube / website / email fetching | Desktop workers | Keep external credentials off the cloud |
 | GitHub issue sync | Desktop (`gh` CLI / API) | Direct calls, no relay needed |
 | Full-text search | Desktop JSON-backed local indexes | Fast local search, no cloud index cost |
-| Backlog / Knowledge CRUD | Desktop local storage | Markdown is canonical |
+| Backlog / Devbook CRUD | Desktop local storage | Markdown is canonical |
 | Sync coordination, webhook forwarding, push, PC registry | Cloud | Cross-device concerns only |
 
 ## Technology Choices

@@ -44,10 +44,10 @@
 @code {
     /// <summary>The BEM block every row class is built from.</summary>
     [Parameter]
-    public string ClassPrefix { get; set; } = "knowledge-menu";
+    public string ClassPrefix { get; set; } = "devbook-menu";
 
     [Parameter]
-    public string HeadingLabel { get; set; } = "Knowledge";
+    public string HeadingLabel { get; set; } = "Devbook";
 
     /// <summary>Whether the tree draws its own heading row. Off for a host that
     /// already names the tree — FolderView has a header of its own, and two
@@ -65,7 +65,7 @@
     public bool IsLoading { get; set; }
 
     [Parameter]
-    public string LoadingMessage { get; set; } = "Loading knowledge menu...";
+    public string LoadingMessage { get; set; } = "Loading devbook menu...";
 
     [Parameter]
     public string EmptyMessage { get; set; } = "No chapters are available for this area.";
@@ -87,7 +87,7 @@
     /// <para>
     /// A function returning a fragment rather than a <c>RenderFragment&lt;TreeNode&gt;</c>,
     /// so a host can answer "nothing for this row" and have nothing rendered — not
-    /// even the wrapper. Half the rows in a knowledge menu are folders with no mark
+    /// even the wrapper. Half the rows in a Devbook menu are folders with no mark
     /// to draw, and an empty span on each of them would be a column of nothing that
     /// every existing markup expectation would have to grow to accommodate.
     /// </para>
@@ -132,10 +132,10 @@
     public Func<TreeNode, string> OpenButtonTitle { get; set; } = static node => $"Open {node.Label} in VS Code";
 
     [Parameter]
-    public string? NavAriaLabel { get; set; } = "Knowledge menu";
+    public string? NavAriaLabel { get; set; } = "Devbook menu";
 
     [Parameter]
-    public string? TreeAriaLabel { get; set; } = "Knowledge chapters";
+    public string? TreeAriaLabel { get; set; } = "Devbook chapters";
 
     [Parameter]
     public string? HeadingTestId { get; set; }

@@ -14,7 +14,7 @@ public sealed class TreeViewTests
 
         var tree = Render(context, expanded: _ => true);
 
-        Assert.Equal("Knowledge chapters", tree.Find("[role='tree']").GetAttribute("aria-label"));
+        Assert.Equal("Devbook chapters", tree.Find("[role='tree']").GetAttribute("aria-label"));
         Assert.Equal("group", tree.Find("[role='tree'] ul").GetAttribute("role"));
 
         var labels = tree.FindAll("[role='treeitem']").Select(item => item.TextContent.Trim()).ToArray();
@@ -102,8 +102,8 @@ public sealed class TreeViewTests
         var folder = tree.FindAll("[role='treeitem']").Single(item => item.TextContent.Contains("Intake", StringComparison.Ordinal));
         var leaf = tree.FindAll("[role='treeitem']").Single(item => item.TextContent.Contains("Domain", StringComparison.Ordinal));
 
-        Assert.Single(folder.QuerySelectorAll(".knowledge-menu__twisty"));
-        Assert.Empty(leaf.QuerySelectorAll(".knowledge-menu__twisty"));
+        Assert.Single(folder.QuerySelectorAll(".devbook-menu__twisty"));
+        Assert.Empty(leaf.QuerySelectorAll(".devbook-menu__twisty"));
     }
 
     [Fact]
@@ -135,7 +135,7 @@ public sealed class TreeViewTests
         tree.Find("[data-testid='open-folder']").Click();
 
         Assert.Same(Root, opened);
-        Assert.Empty(tree.FindAll(".knowledge-menu__row [data-testid='open-folder']"));
+        Assert.Empty(tree.FindAll(".devbook-menu__row [data-testid='open-folder']"));
     }
 
     private static IRenderedComponent<TreeView> Render(

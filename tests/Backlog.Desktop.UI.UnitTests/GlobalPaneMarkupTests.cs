@@ -23,7 +23,7 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("TestId=\"roadmap-pane-option\"", home, StringComparison.Ordinal);
         Assert.Contains("TestId=\"inbox-pane-option\"", home, StringComparison.Ordinal);
         Assert.Contains("TestId=\"backlog-pane-option\"", home, StringComparison.Ordinal);
-        Assert.Contains("TestId=\"knowledge-pane-option\"", home, StringComparison.Ordinal);
+        Assert.Contains("TestId=\"devbook-pane-option\"", home, StringComparison.Ordinal);
 
         // The band leads, because it is the thing highest on screen.
         Assert.True(
@@ -36,7 +36,7 @@ public sealed class GlobalPaneMarkupTests
         // arrangement one level up — its landmark id lives in the Roadmap module.
         Assert.Contains("id=\"inbox-pane\"", NormalizeLineEndings(File.ReadAllText(FindInboxPane())), StringComparison.Ordinal);
         Assert.Contains("id=\"backlog-pane\"", NormalizeLineEndings(File.ReadAllText(FindTasksPane())), StringComparison.Ordinal);
-        Assert.Contains("id=\"repository-knowledge-pane\"", NormalizeLineEndings(File.ReadAllText(FindKnowledgePane())), StringComparison.Ordinal);
+        Assert.Contains("id=\"repository-devbook-pane\"", NormalizeLineEndings(File.ReadAllText(FindDevbookPane())), StringComparison.Ordinal);
         Assert.Contains("aria-controls=\"roadmap-band\"", home, StringComparison.Ordinal);
     }
 
@@ -207,7 +207,7 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("Pressed=\"RoadmapBandVisible\"", home, StringComparison.Ordinal);
         Assert.Contains("Pressed=\"InboxPaneVisible\"", home, StringComparison.Ordinal);
         Assert.Contains("Pressed=\"TasksPaneVisible\"", home, StringComparison.Ordinal);
-        Assert.Contains("Pressed=\"KnowledgePaneVisible\"", home, StringComparison.Ordinal);
+        Assert.Contains("Pressed=\"DevbookPaneVisible\"", home, StringComparison.Ordinal);
 
         // Three panes have the rule and the band does not, so exactly three options
         // are ever disabled by it. A fourth would mean the band had been folded into
@@ -248,7 +248,7 @@ public sealed class GlobalPaneMarkupTests
 
         Assert.Contains("TestId=\"inbox-pane-pin\"", home, StringComparison.Ordinal);
         Assert.Contains("TestId=\"backlog-pane-pin\"", home, StringComparison.Ordinal);
-        Assert.Contains("TestId=\"knowledge-pane-pin\"", home, StringComparison.Ordinal);
+        Assert.Contains("TestId=\"devbook-pane-pin\"", home, StringComparison.Ordinal);
         Assert.DoesNotContain("roadmap-pane-pin", home, StringComparison.Ordinal);
 
         // The cell that holds the pair, and the pin's own two class hooks.
@@ -256,7 +256,7 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("BaseClass=\"header-group__pin\"", home, StringComparison.Ordinal);
         Assert.Contains("PressedCssClass=\"header-group__pin--pinned\"", home, StringComparison.Ordinal);
 
-        foreach (var pane in new[] { "inbox", "backlog", "knowledge" })
+        foreach (var pane in new[] { "inbox", "backlog", "devbook" })
         {
             var option = home.IndexOf($"TestId=\"{pane}-pane-option\"", StringComparison.Ordinal);
             var pin = home.IndexOf($"TestId=\"{pane}-pane-pin\"", StringComparison.Ordinal);
@@ -276,7 +276,7 @@ public sealed class GlobalPaneMarkupTests
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
 
-        foreach (var pane in new[] { "Inbox", "Tasks", "Knowledge" })
+        foreach (var pane in new[] { "Inbox", "Tasks", "Devbook" })
         {
             Assert.Contains($"Pressed=\"@PanePinned(GlobalPane.{pane})\"", home, StringComparison.Ordinal);
             Assert.Contains($"PressedChanged=\"Toggle{pane}Pin\"", home, StringComparison.Ordinal);
@@ -359,7 +359,7 @@ public sealed class GlobalPaneMarkupTests
         // has to be gone rather than merely unreachable — a leftover arm would put a
         // second glyph back in the rail the moment it was edited.
         Assert.DoesNotContain("PinIcon", home, StringComparison.Ordinal);
-        foreach (var pane in new[] { "Inbox", "Tasks", "Knowledge" })
+        foreach (var pane in new[] { "Inbox", "Tasks", "Devbook" })
         {
             Assert.DoesNotContain($"@if (PanePinned(GlobalPane.{pane}))", home, StringComparison.Ordinal);
         }
@@ -491,7 +491,7 @@ public sealed class GlobalPaneMarkupTests
     /// The rail's target is its width, not its height. Height is the half it gives
     /// back: the cell is one bare option tall and the rail takes 1rem of that, where
     /// the side box stood the whole 2.25rem. What it has instead is the option's
-    /// entire width — four rem beside Tasks and eight beside Knowledge and its flag,
+    /// entire width — four rem beside Tasks and eight beside Devbook and its flag,
     /// where the box was never wider than its own 2rem floor. So the rail is shallow
     /// and long where the box was narrow and tall, and a pointer travelling the strip
     /// meets it across the whole of the option rather than at one end of it. The 3rem
@@ -624,7 +624,7 @@ public sealed class GlobalPaneMarkupTests
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
 
-        Assert.Contains("(TasksPaneVisible && RightSidePaneVisible) ? \"knowledge-layout--side-open\"", home, StringComparison.Ordinal);
+        Assert.Contains("(TasksPaneVisible && RightSidePaneVisible) ? \"devbook-layout--side-open\"", home, StringComparison.Ordinal);
         Assert.Contains("side-pane-stack--full", home, StringComparison.Ordinal);
 
         // Tools left the side stack for a full-screen surface of its own, so a
@@ -632,7 +632,7 @@ public sealed class GlobalPaneMarkupTests
         // split must not open for it. Stated on the property rather than on the
         // class the stack used to grow, because the docked modifier is gone.
         Assert.Contains(
-            "private bool RightSidePaneVisible => KnowledgePaneVisible || (InboxPaneVisible && !TasksPaneVisible);",
+            "private bool RightSidePaneVisible => DevbookPaneVisible || (InboxPaneVisible && !TasksPaneVisible);",
             home,
             StringComparison.Ordinal);
         Assert.DoesNotContain("side-pane-stack--right-docked", home, StringComparison.Ordinal);
@@ -663,9 +663,9 @@ public sealed class GlobalPaneMarkupTests
 
         // The pane row keeps the test id the resizer's JavaScript selects on; what
         // changed is that it is no longer the landmark itself.
-        Assert.Contains("<div class=\"knowledge-layout ", home, StringComparison.Ordinal);
-        Assert.DoesNotContain("<main class=\"knowledge-layout", home, StringComparison.Ordinal);
-        Assert.Contains("data-testid=\"knowledge-layout\"", home, StringComparison.Ordinal);
+        Assert.Contains("<div class=\"devbook-layout ", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("<main class=\"devbook-layout", home, StringComparison.Ordinal);
+        Assert.Contains("data-testid=\"devbook-layout\"", home, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -743,7 +743,7 @@ public sealed class GlobalPaneMarkupTests
 
         Assert.Contains("@if (InboxBeforeTasksVisible)", home, StringComparison.Ordinal);
         Assert.Contains("@if (!TasksPaneVisible && InboxPaneVisible)", home, StringComparison.Ordinal);
-        Assert.Contains("knowledge-layout--inbox-before-backlog", home, StringComparison.Ordinal);
+        Assert.Contains("devbook-layout--inbox-before-backlog", home, StringComparison.Ordinal);
 
         var inboxGuardIndex = home.IndexOf("@if (InboxBeforeTasksVisible)", StringComparison.Ordinal);
         var backlogPaneIndex = home.IndexOf("<TasksPane />", StringComparison.Ordinal);
@@ -901,7 +901,7 @@ public sealed class GlobalPaneMarkupTests
     }
 
     [Fact]
-    public void Knowledge_folder_errors_do_not_use_empty_razor_fragment_tags()
+    public void Devbook_folder_errors_do_not_use_empty_razor_fragment_tags()
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
 
@@ -999,7 +999,7 @@ public sealed class GlobalPaneMarkupTests
         Assert.DoesNotContain("<InboxPane Items=", home, StringComparison.Ordinal);
         Assert.DoesNotContain("OnAdd=", home, StringComparison.Ordinal);
         Assert.Contains("<TasksPane />", home, StringComparison.Ordinal);
-        Assert.Contains("<KnowledgePane RepositoryAlias=", home, StringComparison.Ordinal);
+        Assert.Contains("<DevbookPane RepositoryAlias=", home, StringComparison.Ordinal);
 
         // The band and the dashboard are composed on the same terms. Their content
         // belongs to Roadmap and Monitoring; the shell only decides where it goes.
@@ -1011,7 +1011,7 @@ public sealed class GlobalPaneMarkupTests
 
         Assert.DoesNotContain("entry-doc__meta", home, StringComparison.Ordinal);
         Assert.DoesNotContain("inbox-pane__list", home, StringComparison.Ordinal);
-        Assert.DoesNotContain("knowledge-stack__nav", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("devbook-stack__nav", home, StringComparison.Ordinal);
         Assert.DoesNotContain("roadmap-band__content", home, StringComparison.Ordinal);
         Assert.DoesNotContain("dashboard-panel__content", home, StringComparison.Ordinal);
     }
@@ -1143,7 +1143,7 @@ public sealed class GlobalPaneMarkupTests
     private static string RuleFor(string css, string block)
     {
         // Anchored to the start of a line, so `.backlog-workspace {` is not found
-        // inside `.knowledge-layout--side-closed .backlog-workspace {`.
+        // inside `.devbook-layout--side-closed .backlog-workspace {`.
         var start = css.IndexOf($"\n{block}", StringComparison.Ordinal);
         Assert.True(start >= 0, $"`{block}` is not a rule of its own in the stylesheet.");
 
@@ -1296,7 +1296,7 @@ public sealed class GlobalPaneMarkupTests
 
     private static string FindTasksPane() => RepositoryRoot.File("src", "Modules", "Tasks", "Backlog.Modules.Tasks.UI", "TasksPane.razor");
 
-    private static string FindKnowledgePane() => RepositoryRoot.File("src", "Modules", "Knowledge", "Backlog.Modules.Knowledge.UI", "KnowledgePane.razor");
+    private static string FindDevbookPane() => RepositoryRoot.File("src", "Modules", "Devbook", "Backlog.Modules.Devbook.UI", "DevbookPane.razor");
 
     private static string FindAppJs() => RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "wwwroot", "app.js");
 

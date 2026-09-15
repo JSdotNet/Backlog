@@ -1,0 +1,671 @@
+﻿@page "/devbook"
+
+<PageTitle>Metadata — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Metadata"
+           Summary="This repository keeps its own documentation in five folders — `.arc42`, `.domain`, `.backlog`, `.tech` and `.design` — and every addressable heading in them carries a fenced `meta` block. `MetadataView` and `MetadataBadge` read that record and draw it, and each is an addition to a component that was already there. Three subpages go below the record: State, Fields — every kind of metadata on its own, drawn by the smallest component for its value — and Chapter and file, where the two shapes a whole record takes are drawn side by side. What an address in `related`, `depends-on` or `implements` actually is has its own page under Markdown → References, because a reference turns up in the prose of a chapter as well as in its record. Where the record sits and what it may say are the rules linked above."
+           Guidelines="@Rules">
+
+    <Story Name="A chapter is a heading, a record, and prose"
+           Description="The convention, on a sample that is not invented: it is the top of this repository's own `.tech/shared.md`, pasted. A `#` heading opens the file and carries the file-level block; every `##` under it is an addressable chapter and carries its own. The fence language is `meta`, the block sits directly under its heading before any prose, and only `status` is required — every other field is written when it has a value, so an absent field reads as “not stated” and never as “stated as empty”.
+
+Because a block sits under its heading, that is where it is drawn: the pair folds into one record and the status takes the right edge of the heading's line. That is the whole story for a `##` chapter, and every chapter that carries a block shows one.
+
+The file-level block is the exception, and it is showing here only because this is `MarkdownView` on its own — the view has no header to put it in, so it draws it against the title. A reading surface that does have one takes it up there instead: see *File view* → **The file's own block, in the header**.
+
+The status is a control here because this sample is read as `.tech`, and a folder names the values its status may take. Nothing on this page persists anything; a real host adds `OnStatusChanged`."
+           Code="@ConventionCode"
+           Source="@SharedTechSample">
+        <MarkdownStory Source="@SharedTechSample"
+                       RenderDevbookMetadata="true"
+                       DevbookFolder="DevbookFolder.Tech"
+                       TestId="devbook-document" />
+    </Story>
+
+    <Story Name="One block, every field, drawn"
+           Description="Every shape the record draws, on one screen — and the Fields subpage takes them one at a time, with the component that draws each. `related`, `depends-on` and `implements` hold addresses, so they are parsed into references a host can follow; `alternatives` holds plain strings and never becomes a link, whatever a host wires up. `aliases` sits above the baseline of what it qualifies and may be followed where a host can place the term. `kind`, `version` and `effort` draw no visible label, because a classification chip, a `v10.0` and a points badge each say which field they came from — the name stays in the markup for a screen reader. `feature-flag` holds application keys drawn in the feature-badge family: keys, not addresses, so they never become links either.
+
+A field the schema has never heard of — `owner` here — is kept under Extra and drawn under its own name rather than dropped, and the same collection catches a `related` entry that will not parse. A typo is only useful once it is visible.
+
+No file writes a block like this one; it is assembled so every shape is on screen at once. A block that states nothing draws nothing: `MetadataView` renders no element at all, and `related: []` or `issue: null` read back as absent."
+           Code="@RecordCode">
+        <div class="sb-columns" data-testid="devbook-record">
+            <div class="sb-stack">
+                <p class="sb-label">The fence body</p>
+                <CodeView Source="@EveryFieldBlock" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="devbook-record-source" />
+            </div>
+            <div class="sb-stack">
+                <p class="sb-label">MetadataView over the record it parsed to</p>
+                <MetadataView Metadata="@EveryFieldMetadata"
+                                   Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder.Tech)"
+                                   AriaLabel="Chapter metadata"
+                                   TestId="devbook-record-view" />
+                <p class="sb-state" data-testid="devbook-record-plain">@PlainStringSummary</p>
+                <p class="sb-state" data-testid="devbook-record-extra">@ReferenceAndExtraSummary</p>
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="The rows are a component, so the two halves can be drawn apart"
+           Description="Everything the record states except its status is `MetadataFields` — the `dl` and the rows in it. A component of its own because the two halves of a record are not always drawn in the same place.
+
+In a document they are: the status closes the heading it describes and the rows hang under it, which is what `MetadataView` composes above. The file pane cannot do that. Its header is two lines by contract, and the rows are one row per stated field — so a file stating `related` and `depends-on` gave that header four lines, and nothing in the header could truncate its way out, because the rows are the content rather than an overflow of it. So `FileHeader` draws the status in the header and hands these to a strip beneath it, the way it already treats a file&#39;s frontmatter.
+
+Nothing here knows which of the two it is in. The order of the rows and the question each one asks about emptiness are `MetadataView`&#39;s, moved rather than rewritten, so a record renders the same rows in either host — and `HasAny` is asked by the host before it commits to the element that would wrap them, because an empty `dl` is a gap with a gap&#39;s spacing around it."
+           Code="@FieldsCode">
+        <div class="sb-stack" data-testid="devbook-fields">
+            <p class="sb-label">MetadataFields over the same record, with no status and no wrapper</p>
+            <MetadataFields Metadata="@EveryFieldMetadata" TestId="devbook-fields-view" />
+            <p class="sb-state" data-testid="devbook-fields-state">@FieldsSummary</p>
+        </div>
+    </Story>
+
+    <Story Name="A field is a row, and the row is a component"
+           Description="Every field above is the same three elements — a row, the field&#39;s name, and a cell holding whatever its values draw as — and only the cell differs. `MetadataField` is those three elements, and the record renders one per field it has something to say about.
+
+One component means the `dt`/`dd` pairing a screen reader depends on is built once rather than once per field. What a host reuses it for is a record of its own: the row takes a `BaseClass`, a label class and a value class, so a settings panel or a spec sheet can lay out label-and-value pairs without a second implementation of the pair.
+
+It never asks whether there is anything to say. That question belongs to the caller, because only the caller knows what empty means for its own field — an absent list, a blank scalar and an estimate of zero are three different answers, and zero is an estimate that still shows. The `dl` belongs to the record too: a row that brought its own list would break the pairing for every other row.
+
+The last row draws no visible name. Some values say which field they came from without help, and in front of one of those the label is a dimmed word restating what the value already said — so `ShowLabel` hides it. What it does not do is remove it: the `dt` stays in the list wearing `sr-only`, because a value read out with no field name is worse to hear than a name nobody needed to see. The row takes a `--bare` modifier off whatever `BaseClass` it was given, which is what lets the stylesheet give the value the column the hidden label is no longer holding.
+
+The bottom pair is the same two rows pointed at names that are not the library&#39;s, which is the whole of what adopting it costs."
+           Code="@FieldCode">
+        <div class="sb-stack" data-testid="devbook-field-rows">
+            <dl class="devbook-fields">
+                <MetadataField Label="depends-on">
+                    <DevbookReferenceLink Reference="@FieldReference" />
+                </MetadataField>
+                <MetadataField Label="kind">
+                    <code class="devbook-value">framework</code>
+                </MetadataField>
+                <MetadataField Label="effort">
+                    <Badge Kind="effort">5 pts</Badge>
+                </MetadataField>
+                <MetadataField Label="feature-flag" TestId="devbook-field-flag">
+                    <Badge Kind="feature">inbox-pane</Badge>
+                </MetadataField>
+                <MetadataField Label="version" ShowLabel="false" TestId="devbook-field-bare">
+                    <code class="devbook-value">v10.0</code>
+                </MetadataField>
+            </dl>
+            <p class="sb-label">The same rows under a host&#39;s own names</p>
+            <dl class="sb-stack">
+                <MetadataField Label="kind"
+                                    BaseClass="sb-stack"
+                                    LabelCssClass="sb-label"
+                                    ValueCssClass="sb-state">framework</MetadataField>
+                <MetadataField Label="version"
+                                    BaseClass="sb-stack"
+                                    LabelCssClass="sb-label"
+                                    ValueCssClass="sb-state">10.0</MetadataField>
+            </dl>
+        </div>
+    </Story>
+
+    <Story Name="Every field, and which folder writes it"
+           Description="The schema is small, closed and mostly folder-specific: `kind` and `version` describe a technology, `implements` is how a backlog item says what it delivers, `aliases` belongs to the one file per context that names terms.
+
+The middle column is the one that catches people. Three fields hold references — addresses that parse into a path and an optional chapter — and three hold plain strings that are never parsed. Every row carries the line as a file actually writes it: a scalar takes its value bare, and both list kinds take a list.">
+        <dl class="sb-grid" data-testid="devbook-fields">
+            @foreach (var field in Fields)
+            {
+                <div class="sb-stack">
+                    <dt class="sb-label">@field.Name</dt>
+                    <dd class="sb-stack">
+                        <p class="sb-state">@field.Shape — @field.Folders</p>
+                        <CodeView Source="@field.Line" Language="markdown" AllowCopy="false" CssClass="sb-raw__code"
+                                  TestId="@($"devbook-field-{field.Name}-source")" />
+                        <p>@field.Meaning</p>
+                    </dd>
+                </div>
+            }
+        </dl>
+    </Story>
+
+    <Story Name="Nothing renders differently until a host asks"
+           Description="The same document twice, with its source above both. On the left `MarkdownView` has been given nothing new and the `meta` fence is a fenced code block; on the right `RenderDevbookMetadata` and `DevbookFolder` are set, and the fence becomes the record it was written as, folded into the heading above it.
+
+The default is off, which is the whole compatibility story: most text in this product is an entry body somebody typed, and there a fence that happens to say `meta` is a listing like any other.
+
+The seam is one test in front of branches that already existed. An `MdCode` block has three answers where it had two — a metadata record, a diagram where the language names one, and otherwise the code block it always was — and the metadata test runs first, gated on the opt-in."
+           Code="@OptInCode">
+        <div class="sb-stack" data-testid="devbook-opt-in">
+            <div class="sb-stack">
+                <p class="sb-label">The document both columns render</p>
+                <CodeView Source="@ChapterSample.Trim()" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="devbook-opt-in-source" />
+            </div>
+            <div class="sb-columns">
+                <div class="sb-stack">
+                    <p class="sb-label">Default — the fence is a fence</p>
+                    <div data-testid="devbook-opt-in-off">
+                        <MarkdownView Blocks="@ChapterBlocks" />
+                    </div>
+                </div>
+                <div class="sb-stack">
+                    <p class="sb-label">Opted in — the fence is a record</p>
+                    <div data-testid="devbook-opt-in-on">
+                        <MarkdownView Blocks="@ChapterBlocks"
+                                      RenderDevbookMetadata="true"
+                                      DevbookFolder="DevbookFolder.Tech" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="The strip that was already there did not move"
+           Description="The two badges below do not look alike, and that is deliberate. The upper one is the legacy two-parameter form and keeps the markup it had when it was written: one status span carrying `devbook-status--ready`, one `code.devbook-related` per relation, no description list, no link and no control. The lower one is the typed form.
+
+The two are branches kept apart rather than layered, so asking for nothing new gets the old markup and asking for a block, a folder, a resolver or a callback gets the new one. `MetadataBadgeCompatibilityTests` asserts the legacy markup attribute by attribute.
+
+Both are fed from the same block above. The typed status is a control where the legacy one is a word, because naming the folder names the values it may take, so the record offers a `StatusSelector` — drawn as the same badge a read-only status is. `OnStatusChanged` carries the choice out; the line under it reports the last status this page was told about."
+           Code="@CompatibilityCode">
+        <div class="sb-stack" data-testid="devbook-compatibility">
+            <div class="sb-stack">
+                <p class="sb-label">The block both badges were read from</p>
+                <CodeView Source="@RoadmapBlock" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="devbook-compatibility-source" />
+            </div>
+            <div class="sb-stack">
+                <p class="sb-label">Two parameters — frozen markup, the old capsule, deliberately not updated</p>
+                <MetadataBadge Status="@RoadmapMetadata.Status"
+                               Related="@LegacyRelated"
+                               AriaLabel="Entry metadata"
+                               TestId="devbook-legacy-badge" />
+            </div>
+            <div class="sb-stack">
+                <p class="sb-label">The same fields, typed — deliberately the application status badge instead, folder-aware and listened to</p>
+                <MetadataBadge Metadata="@RoadmapMetadata"
+                               Folder="DevbookFolder.Backlog"
+                               OnStatusChanged="HearStatus"
+                               AriaLabel="Entry metadata"
+                               TestId="devbook-typed-badge" />
+                <p class="sb-state" data-testid="devbook-status-heard">@StatusHeard</p>
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="Handing your own heading in"
+           Description="The status shares the heading's line only if the two share a parent, so `HeadingContent` is where a host hands its heading in rather than placing it above. The heading below is the markup `MarkdownView` emits for one, which is what the record's stylesheet expects to sit beside; a host handing in its own element brings that element's margins with it.
+
+Two widths, one sample. At full width the heading fits; at a navigation pane's width it wraps, and what to look for is that the status does not move — it stays on the first line at the right edge. Three things do that together: the line does not wrap, the heading may shrink below its own longest word so it is the item that gives, and the row aligns on first baselines."
+           Code="@ComponentCode">
+        <div class="sb-stack" data-testid="devbook-heading">
+            <div class="sb-stack">
+                <p class="sb-label">The chapter as it is written on disk</p>
+                <CodeView Source="@HowToSource" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="devbook-heading-source" />
+            </div>
+            <div class="sb-stack">
+                <p class="sb-label">Full width — the heading fits</p>
+                <MetadataView Metadata="@TechMetadata"
+                                   Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder.Tech)"
+                                   CssClass="sb-metadata-panel"
+                                   AriaLabel="Chapter metadata"
+                                   TestId="devbook-heading-wide">
+                    <Heading>
+                        <p class="md-heading md-heading--2" role="heading" aria-level="2">@ChapterHeading</p>
+                    </Heading>
+                </MetadataView>
+            </div>
+            <div class="sb-stack sb-narrow">
+                <p class="sb-label">The same record at 28rem — the heading wraps, the status does not move</p>
+                <MetadataView Metadata="@TechMetadata"
+                                   Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder.Tech)"
+                                   CssClass="sb-metadata-panel"
+                                   AriaLabel="Chapter metadata"
+                                   TestId="devbook-heading-narrow">
+                    <Heading>
+                        <p class="md-heading md-heading--2" role="heading" aria-level="2">@LongChapterHeading</p>
+                    </Heading>
+                </MetadataView>
+            </div>
+            <div class="sb-stack">
+                <p class="sb-label">The stylesheet rule that holds the line together</p>
+                <CodeView Source="@WrapCode" Language="razor" AllowCopy="false" CssClass="sb-raw__code" TestId="devbook-heading-css" />
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="Parsing a fence"
+           Description="`Parse` takes the text inside the fence — the caller has already stripped the fence lines — and hands back a `MetadataRecord`. `ParseFence` is the same call with the language check in front of it, so a block that was never metadata comes back `Empty` rather than half-read. `IsMetaBlock` is exposed separately for the case where the answer decides what you render rather than what you parse, which is how `MarkdownView` uses it.
+
+It is hand-rolled rather than handed to a YAML library: this library carries no dependency beyond the Blazor packages, and the block is a flat list of scalars with lists one level deep. It is forgiving — `related: []`, `issue: null`, and inline lists both quoted and bare all read back the same way.
+
+Parse once per block and keep the result; `MarkdownView` holds a small dictionary keyed by block for exactly that. The source beside this story is the whole fence, opening line included, because that line is what `ParseFence` is given."
+           Code="@ParseFenceCode">
+        <div class="sb-columns" data-testid="devbook-fence">
+            <div class="sb-stack">
+                <p class="sb-label">The fence, language and all</p>
+                <CodeView Source="@FencedTechBlock" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="devbook-fence-source" />
+            </div>
+            <div class="sb-stack">
+                <p class="sb-label">ParseFence over that language and that body</p>
+                <MetadataView Metadata="@MetadataReader.ParseFence(MetadataReader.FenceLanguage, TechBlock)"
+                                   TestId="devbook-fence-view" />
+                <p class="sb-state" data-testid="devbook-fence-state">@FenceSummary</p>
+            </div>
+        </div>
+    </Story>
+
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("content-editing.md#knowledge-metadata-blocks", "Which block is drawn where — the file's in a header, a chapter's beside its heading."),
+        new("README.md#status-vocabulary", "The status words a knowledge chapter may carry."),
+        new("color-scheme.md#badge-and-chip-tones", "The tone each status and reference kind is drawn in."),
+        new("content-editing.md#structured-metadata-sigils", "The fenced metadata grammar this block reads."),
+        new("typography-and-layout.md#metadata-lines", "How a record of fields sits above the prose it describes.")
+    ];
+
+    /// <summary>One field of the schema, with the line a file writes it as. The
+    /// line is not decoration: the shape column claims a syntax, and the line is
+    /// what shows it.</summary>
+    private sealed record FieldRow(string Name, string Shape, string Folders, string Line, string Meaning);
+
+    /// <summary>The last status this page was told about, which is what
+    /// OnStatusChanged buys a host over letting the control keep its own.</summary>
+    private string? _heardStatus;
+
+    /// <summary>The top of this repository's own .tech/shared.md, verbatim.</summary>
+    private const string SharedTechSample = """
+        # Shared Technologies
+
+        ```meta
+        status: candidate
+        related: [".tech/technology-graph.md", ".arc42/02-constraints.md#technical-constraints"]
+        ```
+
+        > Technologies used by more than one channel. Every layer file points at these
+        > chapters with `depends-on` instead of redefining them locally.
+
+        ## Markdown
+
+        ```meta
+        status: adopted
+        kind: format
+        related: [".arc42/02-constraints.md#technical-constraints", ".arc42/08-crosscutting-concepts.md#storage-and-sync"]
+        ```
+
+        The canonical storage format for all user content: inbox items, backlog items,
+        knowledge notes, and prompts.
+        """;
+
+    /// <summary>One chapter of .tech/shared.md, used for the on and off pair.</summary>
+    private const string ChapterSample = """
+        ## .NET Runtime
+
+        ```meta
+        status: candidate
+        kind: runtime
+        version: "10.0"
+        alternatives: ["Node.js only", "Rust + Tauri"]
+        ```
+
+        The primary managed runtime for the desktop, mobile, IDE and cloud channels.
+        """;
+
+    private static readonly IReadOnlyList<MdBlock> ChapterBlocks = MarkdownPreview.ParseDocument(ChapterSample);
+
+    /// <summary>Every field at once, which is the one block on these pages that no
+    /// folder would actually write: the schema is folder-specific and half of
+    /// these fields are meaningless together. Values are taken from the real
+    /// blocks they belong to — the .tech/cloud.md chapter, the Backlog Entry term
+    /// in .domain/tasks/naming.md — rather than invented, so every line here is
+    /// a line this repository contains somewhere.</summary>
+    private const string EveryFieldBlock = """
+        status: adopted
+        kind: framework
+        version: "10.0"
+        effort: 5
+        issue: JSdotNet/Backlog#118
+        depends-on: [".tech/shared.md#net-runtime", ".tech/shared.md#c-language"]
+        related: [".arc42/04-solution-strategy.md#thin-cloud-rich-desktop"]
+        implements: [.domain/tasks/features.md#feature-roadmap-planning]
+        feature-flag: [inbox-pane, inbox-filters]
+        aliases: [TaskItem, backlog_entry_id, backlog_item_id]
+        alternatives: ["Azure Functions", "Controller-based ASP.NET Core"]
+        owner: platform-team
+        """;
+
+    private static readonly MetadataRecord EveryFieldMetadata = MetadataReader.Parse(EveryFieldBlock);
+
+    /// <summary>The heading the .tech block below sits under, so the heading story
+    /// can show what a host gets for handing one in.</summary>
+    private const string ChapterHeading = "ASP.NET Core Minimal APIs";
+
+    /// <summary>A heading of the length a real chapter reaches — this one is the
+    /// shape of an arc42 section title — so the narrow render is reviewed against
+    /// something a file would actually contain rather than filler.</summary>
+    private const string LongChapterHeading =
+        "ASP.NET Core Minimal APIs, and the routing conventions the sync service is expected to follow";
+
+    /// <summary>The ASP.NET Core Minimal APIs chapter of this repository's .tech/cloud.md.</summary>
+    private const string TechBlock = """
+        status: candidate
+        kind: framework
+        depends-on: [".tech/shared.md#net-runtime", ".tech/shared.md#c-language"]
+        related: [".arc42/04-solution-strategy.md#thin-cloud-rich-desktop"]
+        alternatives: ["Azure Functions", "Controller-based ASP.NET Core"]
+        """;
+
+    private static readonly MetadataRecord TechMetadata = MetadataReader.Parse(TechBlock);
+
+    /// <summary>The block both badges below are given, shown as the source of
+    /// each. A backlog entry's own metadata, with an address under two different
+    /// relations.</summary>
+    private const string RoadmapBlock = """
+        status: ready
+        implements: [.domain/tasks/features.md#feature-roadmap-planning]
+        related: [.domain/environment/features.md#feature-environment-aware-work-context]
+        """;
+
+    private static readonly MetadataRecord RoadmapMetadata = MetadataReader.Parse(RoadmapBlock);
+
+    /// <summary>What a caller passes today: the addresses as the flat list of
+    /// strings the two-parameter form takes, with the relation each was written
+    /// under lost on the way in — that flattening is half of what this story is
+    /// contrasting. Read off the same block rather than restated beside it, so the
+    /// two badges are provably rendering one source.</summary>
+    private static readonly string[] LegacyRelated =
+        [.. RoadmapMetadata.References.Select(reference => reference.Raw)];
+
+    /// <summary>The chapter as it is written on disk: the heading, then the block
+    /// directly under it. Built from the same two constants the example renders,
+    /// so the source cannot describe a chapter the view is not showing.</summary>
+    private static string HowToSource => $"## {ChapterHeading}\n\n```{MetadataReader.FenceLanguage}\n{TechBlock}\n```";
+
+    /// <summary>The same block with its fence lines. The fence story is about the
+    /// language on the opening fence as much as the body inside it, so the body
+    /// alone would be missing the argument.</summary>
+    private static string FencedTechBlock => $"```{MetadataReader.FenceLanguage}\n{TechBlock}\n```";
+
+    /// <summary>What the language check answers, and what a non-meta fence parses to.</summary>
+    private static string FenceSummary =>
+        $"IsMetaBlock(\"meta\") is {MetadataReader.IsMetaBlock("meta")}; "
+        + $"IsMetaBlock(\"mermaid\") is {MetadataReader.IsMetaBlock("mermaid")}; "
+        + $"the same body through ParseFence(\"mermaid\", …) comes back empty: "
+        + $"{MetadataReader.ParseFence("mermaid", TechBlock).IsEmpty}.";
+
+    /// <summary>What came back under the three plain-string fields. Counted off
+    /// the parsed record rather than off the block, so the claim is the
+    /// component's answer and not a restatement of the source above it.</summary>
+    private static string PlainStringSummary =>
+        $"{EveryFieldMetadata.Aliases.Count} aliases and "
+        + $"{EveryFieldMetadata.Alternatives.Count} strings under alternatives — none parsed, and none a "
+        + "link unless a host can place the term an alias names. "
+        + $"{EveryFieldMetadata.FeatureFlag.Count} feature flags, which are keys rather than words and "
+        + "are never followable at all.";
+
+    private static string ReferenceAndExtraSummary =>
+        $"{EveryFieldMetadata.References.Count} parsed references across related, depends-on and "
+        + $"implements. Kept under Extra: {string.Join(", ", EveryFieldMetadata.Extra.Keys)}.";
+
+    private string StatusHeard => _heardStatus is null
+        ? "Nothing heard yet. Change the status on the badge above."
+        : $"OnStatusChanged last reported: {_heardStatus}.";
+
+    private void HearStatus(string status) => _heardStatus = status;
+
+    private static readonly IReadOnlyList<FieldRow> Fields =
+    [
+        new("status", "scalar", "every folder",
+            "status: adopted",
+            "The only required field, and the only one every folder writes. What it is allowed to say "
+            + "depends on the folder, which is the State subpage."),
+
+        new("related", "references", "every folder",
+            "related: [\".arc42/02-constraints.md#technical-constraints\"]",
+            "What this chapter points at for context, with no claim about order. The general-purpose "
+            + "relation, and the one to reach for when the others do not fit."),
+
+        new("depends-on", "references", ".domain features, .backlog, .tech",
+            "depends-on: [\".tech/shared.md#net-runtime\"]",
+            "What has to land first. Says something stronger than related does, which is why a "
+            + "technology chapter uses it to point at the shared runtime it sits on."),
+
+        new("implements", "references", ".backlog",
+            "implements: [.domain/tasks/features.md#feature-roadmap-planning]",
+            "What a backlog item delivers, addressed into .domain. This is the field that ties a work "
+            + "item to the feature it exists for."),
+
+        new("issue", "scalar", ".backlog, .arc42 decisions",
+            "issue: JSdotNet/Backlog#118",
+            "The tracking issue: a URL, or the owner/repo#number shorthand. Stored exactly as authored "
+            + "— only the URL form can be followed from here, because the shorthand needs a remote "
+            + "this library knows nothing about."),
+
+        new("feature-flag", "application keys", ".domain features",
+            "feature-flag: [inbox-pane, inbox-filters]",
+            "The key or keys of the application feature flag that delivers this chapter in the running "
+            + "product. Plain application identifiers and deliberately not references: the flag lives "
+            + "in the application's own catalog, so there is no chapter to address and no graph edge. "
+            + "An identity link and not a status mapping — how settled the written model is and "
+            + "whether the running behaviour can be relied on are different questions."),
+
+        new("aliases", "qualifiers", ".domain naming",
+            "aliases: [TaskItem, backlog_entry_id, backlog_item_id]",
+            "Surface names one canonical term is also known by. Not addresses — an alias is a word, not "
+            + "a place — but the term one names is modelled somewhere, so a host holding a naming index "
+            + "can make an alias followable where it can place it. Drawn above the baseline of what it "
+            + "qualifies, which is what an alias is doing."),
+
+        new("alternatives", "plain strings", ".tech",
+            "alternatives: [\"Azure Functions\", \"Controller-based ASP.NET Core\"]",
+            "What was weighed against this technology and not adopted. Plain strings because something "
+            + "that was rejected has no chapter to point at."),
+
+        new("kind", "classification", ".tech",
+            "kind: framework",
+            "What kind of thing the entry is — format, runtime, framework, library. A closed vocabulary, "
+            + "which is why it reads as a chip rather than as a value and why its row needs no label."),
+
+        new("version", "scalar", ".tech",
+            "version: \"10.0\"",
+            "The pinned version, as authored. A string rather than a number, because 10.0 is not ten. "
+            + "Drawn with a v in front of it, which is what lets its row drop the visible label.")
+    ];
+
+    private const string ConventionCode = """
+        @* What a chapter of a knowledge folder looks like on disk. The fence is
+           `meta`, it sits directly under its heading, and only `status` is
+           required — every other field is written only when it has a value. *@
+
+        ## Markdown
+
+        ```meta
+        status: adopted
+        kind: format
+        related: [".arc42/02-constraints.md#technical-constraints"]
+        ```
+        """;
+
+    private const string RecordCode = """
+        @* One parameter and one element is the whole of metadata support. The
+           view's own empty rule decides whether anything appears, so a caller
+           that wraps this in its own `if` is duplicating a decision the view
+           already makes correctly. *@
+        <MetadataView Metadata="@metadata" AriaLabel="Chapter metadata" />
+
+        @* Take the record, not the fence body: a component that took the text
+           would parse on every render, and a status plus a list of strings
+           cannot express the other nine fields. *@
+        [Parameter]
+        public MetadataRecord Metadata { get; set; } = MetadataRecord.Empty;
+
+        @* Unknown keys survive under their own name, and so does a `related`
+           entry that would not parse as an address. *@
+        foreach (var (key, values) in metadata.Extra)
+        {
+            Console.WriteLine($"{key}: {string.Join(", ", values)}");
+        }
+        """;
+
+    private const string OptInCode = """
+        @* Off by default. Anywhere that is not reading a knowledge document a
+           `meta` fence is still just a fenced block — which is what every
+           existing caller of this component is already relying on. *@
+        <MarkdownView Blocks="@blocks" />
+
+        @* On, for a document the host knows came out of a knowledge folder. The
+           folder is read off the path, so nothing has to be told it twice. *@
+        <MarkdownView Blocks="@blocks"
+                      RenderDevbookMetadata="true"
+                      DevbookFolder="@DevbookFolders.FromPath(path)" />
+
+        @* Inside MarkdownView: three answers where there were two, and the new
+           one is gated so the other two are reached exactly as often as before. *@
+        case MdCode codeBlock:
+            @if (RenderDevbookMetadata && MetadataReader.IsMetaBlock(codeBlock.Language))
+            {
+                <MetadataView Metadata="@MetadataOf(codeBlock)" Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder)" />
+            }
+            else if (DiagramView.IsDiagram(codeBlock.Language))
+            {
+                <DiagramView Source="@codeBlock.Text" Language="@codeBlock.Language" />
+            }
+            else
+            {
+                <pre class="md-code"><code>@codeBlock.Text</code></pre>
+            }
+            break;
+        """;
+
+    private const string CompatibilityCode = """
+        @* Unchanged, and pinned by MetadataBadgeCompatibilityTests: a status
+           span, a code chip per relation, and nothing else in the markup. *@
+        <MetadataBadge Status="ready" Related="@relatedIds" AriaLabel="Entry metadata" />
+
+        @* Additive. Handing over a parsed block — or a folder, a link resolver,
+           or a callback — is what switches the strip to the typed form, and
+           OnStatusChanged is how the reader's choice leaves the component. *@
+        <MetadataBadge Metadata="@MetadataReader.Parse(fenceBody)"
+                       Folder="DevbookFolder.Backlog"
+                       OnStatusChanged="Persist"
+                       AriaLabel="Entry metadata" />
+        """;
+
+    private const string ComponentCode = """
+        @* ChapterHeader.razor — metadata support, in full. The heading is handed
+           to the view rather than placed above it, which is what puts the status
+           on its line instead of under it. *@
+        <MetadataView Metadata="@Metadata" Vocabulary="@DevbookStatus.Vocabulary(Folder)" AriaLabel="Chapter metadata">
+            <Heading>
+                <h2 class="chapter__title">@Title</h2>
+            </Heading>
+        </MetadataView>
+        """;
+
+    /// <summary>The stylesheet, not a component parameter: nothing about the wrap
+    /// behaviour is wired up at the call site, which is the point. A host hands
+    /// its heading in and the record's own rule does the rest.</summary>
+    private const string WrapCode = """
+        /* components.css — the headline, and why it holds together at any width. */
+        .devbook-record__headline {
+            display: flex;
+            flex-wrap: nowrap;      /* the status cannot be moved off the line */
+            align-items: baseline;  /* so it sits on the heading's *first* line */
+            gap: var(--spacing-xs) var(--spacing-sm);
+            min-width: 0;
+        }
+
+        /* The heading is the item that gives. Without this it would refuse to go
+           narrower than its longest word — a flex item's default minimum is its
+           content size — and push the status out of the row instead of wrapping. */
+        .devbook-record__headline > :not(.badge--status) {
+            min-width: 0;
+        }
+
+        /* Both forms of the status, and neither ever shrinks. One selector
+           reaches the read-only badge and the StatusSelector alike, because both
+           are the same application status badge. */
+        .devbook-record__headline > .badge--status {
+            flex: 0 0 auto;
+        }
+
+        /* Pushed over by an auto margin rather than by growing the heading: the
+           heading keeps flex's default `0 1 auto`, so its box never stretches
+           past its own text. Only when there is a heading to be pushed away from
+           — a headline holding the status alone leaves it where the fields under
+           it start. */
+        .devbook-record__headline > .badge--status:not(:first-child) {
+            margin-inline-start: auto;
+        }
+        """;
+
+    private const string ParseFenceCode = """
+        @* The text inside the fence; the caller has already stripped the fence
+           lines themselves. *@
+        MetadataRecord metadata = MetadataReader.Parse(fenceBody);
+
+        @* Or, when you still hold the language the fence opened with. A block
+           that is not metadata comes back Empty rather than half-read. *@
+        MetadataRecord metadata = MetadataReader.ParseFence(codeBlock.Language, codeBlock.Text);
+
+        @* And when the language decides the branch rather than the parse. *@
+        @if (MetadataReader.IsMetaBlock(codeBlock.Language))
+        {
+            <MetadataView Metadata="@MetadataOf(codeBlock)" />
+        }
+
+        @code {
+            @* Parsed once per block rather than once per render. *@
+            private readonly Dictionary<MdCode, MetadataRecord> _metadata = [];
+
+            private MetadataRecord MetadataOf(MdCode block)
+            {
+                if (_metadata.TryGetValue(block, out var parsed)) return parsed;
+
+                parsed = MetadataReader.ParseFence(block.Language, block.Text);
+                _metadata[block] = parsed;
+                return parsed;
+            }
+        }
+        """;
+
+    /// <summary>One reference for the field-row story, so the row that holds a
+    /// reference is drawn with the component that draws references rather than
+    /// with a stand-in.</summary>
+    private static readonly DevbookReference FieldReference =
+        DevbookReference.Parse(".tech/technology-graph.md#nodes")!;
+
+    private static readonly string FieldsSummary =
+        $"HasAny says {MetadataFields.HasAny(EveryFieldMetadata).ToString().ToLowerInvariant()} for this record, and "
+        + $"{MetadataFields.HasAny(MetadataRecord.Empty).ToString().ToLowerInvariant()} for one that states nothing.";
+
+    private const string FieldsCode = """
+        @* The rows on their own, for a host that draws the status somewhere the
+           rows cannot follow it to. *@
+        <MetadataFields Metadata="@metadata" OnNavigate="@Navigate" HrefFor="@HrefFor" />
+
+        @* Asked before the wrapper is committed to, because a record that states
+           only a status has no rows and an empty `dl` is a gap with a gap's
+           spacing around it. Static for that reason: the answer is needed where
+           there is no component yet. *@
+        @if (MetadataFields.HasAny(metadata))
+        {
+            <div class="file-view__record-fields">
+                <MetadataFields Metadata="@metadata" />
+            </div>
+        }
+        """;
+
+    private const string FieldCode = """
+        <dl class="devbook-fields">
+            <MetadataField Label="kind">
+                <code class="devbook-value">framework</code>
+            </MetadataField>
+            <MetadataField Label="feature-flag" TestId="devbook-feature-flag-tags">
+                <Badge Kind="feature">inbox-pane</Badge>
+            </MetadataField>
+
+            @* ShowLabel hides the name, it does not remove it: the <dt> stays in
+               the list wearing sr-only, and the row takes a --bare modifier off
+               its own BaseClass so the value can have the column back. *@
+            <MetadataField Label="version" ShowLabel="false">
+                <code class="devbook-value">v10.0</code>
+            </MetadataField>
+        </dl>
+        """;
+}

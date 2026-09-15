@@ -15,7 +15,7 @@ related: [".arc42/03-context-and-scope.md#access-channels-scope", ".domain/conte
 ```
 
 Container boundaries below are the deployable/runtime split; the domains they
-serve (Capture, Inbox, Tasks, Roadmap Planning, Second Brain,
+serve (Capture, Inbox, Tasks, Roadmap Planning, Devbook,
 Monitoring, Technology Stack, Dev PC Management, Sessions, Repository Management) are defined in
 `.domain/context-map.md` and each context's own `.domain/<context>/domain.md` —
 this view does not restate domain responsibilities.
@@ -75,7 +75,7 @@ flowchart TB
       InboxQueue["Inbox Queue\n(triage, route)"]
       BacklogSvc["Backlog\n(refine, prioritize)"]
       RoadmapSvc["Roadmap Planning\n(plan, sequence, dependencies)"]
-      KnowledgeSvc["Second Brain\n(PARA, links)"]
+      DevbookSvc["Devbook\n(PARA, links)"]
       MonitoringSvc["Monitoring\n(dashboards, signals)"]
       TechStackSvc["Technology Stack\n(baselines, adoption)"]
       DevPCSvc["Dev PC Management\n(registry, compliance)"]
@@ -84,7 +84,7 @@ flowchart TB
     end
 
     subgraph "IDE Extensions"
-      IDEBrowse["Browse Backlog\n& Knowledge"]
+      IDEBrowse["Browse Backlog\n& Devbook"]
     end
 
     subgraph "Cloud Service (optional)"
@@ -124,8 +124,8 @@ flowchart TB
   EmailWorker -->|IMAP| Email
 
   InboxQueue -->|route| BacklogSvc
-  InboxQueue -->|route| KnowledgeSvc
-  BacklogSvc <-->|embed| KnowledgeSvc
+  InboxQueue -->|route| DevbookSvc
+  BacklogSvc <-->|embed| DevbookSvc
   BacklogSvc -->|signals| MonitoringSvc
   TechStackSvc --> DevPCSvc
   TechStackSvc --> RepoMgmtSvc
@@ -133,7 +133,7 @@ flowchart TB
   DevPCSvc --> MonitoringSvc
 
   IDEBrowse -->|read| BacklogSvc
-  IDEBrowse -->|read| KnowledgeSvc
+  IDEBrowse -->|read| DevbookSvc
 
   BacklogSvc -->|sync issues| GitHub
   RepoMgmtSvc -->|repo metadata| GitHub
@@ -143,7 +143,7 @@ flowchart TB
   GitHubWebhooks -.->|forward| SyncAPI
 
   BacklogSvc --> LocalMD
-  KnowledgeSvc --> LocalMD
+  DevbookSvc --> LocalMD
   InboxQueue --> LocalMD
   BacklogSvc --> JsonIndex
   RepoMgmtSvc --> JsonIndex
@@ -163,7 +163,7 @@ status: active
 related: [".arc42/06-runtime-view.md#task-to-github-issue", ".arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md"]
 ```
 
-Local-first Windows client. Serves Capture, Inbox, Tasks, Roadmap Planning, Second Brain, Monitoring, Technology Stack, Dev PC Management, Sessions, and Repository Management. It runs in two seamless modes: **Standalone** (no cloud) and
+Local-first Windows client. Serves Capture, Inbox, Tasks, Roadmap Planning, Devbook, Monitoring, Technology Stack, Dev PC Management, Sessions, and Repository Management. It runs in two seamless modes: **Standalone** (no cloud) and
 **Connected** (adds cloud sync, phone access, and webhook forwarding).
 
 ```mermaid
@@ -174,7 +174,7 @@ graph TB
     subgraph "Core Services"
       Inbox["Inbox Service\n(capture, triage)"]
       Backlog["Backlog Service\n(browse, edit, route)"]
-      Knowledge["Knowledge Service\n(organize, link)"]
+      Devbook["Devbook Service\n(organize, link)"]
       Monitoring["Monitoring Service\n(signals, dashboards)"]
     end
 
@@ -202,17 +202,17 @@ graph TB
 
   UI --> Inbox
   UI --> Backlog
-  UI --> Knowledge
+  UI --> Devbook
   UI --> Monitoring
 
   Inbox --> LocalStore
   Backlog --> LocalStore
-  Knowledge --> LocalStore
+  Devbook --> LocalStore
   Monitoring --> LocalStore
 
   Inbox --> JsonIndex
   Backlog --> JsonIndex
-  Knowledge --> JsonIndex
+  Devbook --> JsonIndex
 
   YTWorker --> YouTube
   WebWorker --> Websites
@@ -325,7 +325,7 @@ related: [".arc42/06-runtime-view.md#ide-context-aware-capture", ".arc42/06-runt
 
 Repo-aware integrations for VS Code and Visual Studio, plus GitHub Copilot App sessions
 running one local agent process per worktree. These hosts serve Inbox (capture intake),
-Tasks, and Second Brain browsing. Packaging and host APIs are architecture
+Tasks, and Devbook browsing. Packaging and host APIs are architecture
 concerns; domain lifecycle rules stay with the owning domains.
 
 The GitHub Copilot App path is a peer IDE-class host, not a new container: it reuses
@@ -349,7 +349,7 @@ graph TB
   subgraph "Shared Services"
     Capture["Capture Service\n(Selection to Item)"]
     Browse["Backlog Browser\n(Repo-scoped queries)"]
-    KnowBrowser["Knowledge Browser\n(Search & links)"]
+    KnowBrowser["Devbook Browser\n(Search & links)"]
   end
 
   API["Backend API\n(REST + Auth)"]

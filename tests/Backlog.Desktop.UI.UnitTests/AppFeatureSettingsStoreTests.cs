@@ -81,12 +81,12 @@ public sealed class AppFeatureSettingsStoreTests
                 TasksFeatures.Tasks,
                 AppFeatures.InboxPane,
                 RoadmapFeatures.Roadmap,
-                KnowledgeFeatures.KnowledgeSections,
-                KnowledgeFeatures.RepositoryKnowledge,
-                KnowledgeFeatures.ArchifyDiagrams,
-                KnowledgeFeatures.C4Diagrams,
-                KnowledgeFeatures.Search,
-                KnowledgeFeatures.SemanticSearch,
+                DevbookFeatures.DevbookSections,
+                DevbookFeatures.RepositoryDevbook,
+                DevbookFeatures.ArchifyDiagrams,
+                DevbookFeatures.C4Diagrams,
+                DevbookFeatures.Search,
+                DevbookFeatures.SemanticSearch,
                 DevPcFeatures.SystemTools,
                 SessionFeatures.Sessions,
                 DashboardFeatures.Dashboard,
@@ -314,6 +314,49 @@ public sealed class AppFeatureSettingsStoreTests
 
             Assert.False(store.IsEnabled("new-key"));
             Assert.Equal(["new-key"], store.Current.DisabledFeatures);
+        }
+        finally
+        {
+            DeleteSettingsDirectory(path);
+        }
+    }
+
+    /// <summary>
+    /// The Devbook context was called Knowledge, and four of its feature keys
+    /// carried that name into the reader's settings file. A file written before
+    /// the rename must read as the same choices — the pane somebody switched off
+    /// stays off, the search they switched on stays on — and the next save must
+    /// carry only the current keys.
+    /// </summary>
+    [Fact]
+    public void The_devbook_features_read_the_keys_they_were_stored_under_before_the_rename()
+    {
+        var path = NewSettingsPath();
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, JsonSerializer.Serialize(new
+            {
+                disabledFeatures = new[] { "repository-knowledge", "knowledge-sections" },
+                enabledFeatures = new[] { "knowledge-search", "knowledge-semantic-search" }
+            }));
+
+            var store = new AppFeatureSettingsStore(AppFeatures.All, path);
+
+            Assert.False(store.IsEnabled(DevbookFeatures.RepositoryDevbook));
+            Assert.False(store.IsEnabled(DevbookFeatures.DevbookSections));
+            Assert.True(store.IsEnabled(DevbookFeatures.Search));
+            Assert.True(store.IsEnabled(DevbookFeatures.SemanticSearch));
+
+            store.SetEnabled(DevbookFeatures.RepositoryDevbook, enabled: false);
+
+            var saved = File.ReadAllText(path);
+            Assert.Contains("repository-devbook", saved);
+            Assert.Contains("devbook-sections", saved);
+            Assert.Contains("devbook-search", saved);
+            Assert.Contains("devbook-semantic-search", saved);
+            Assert.DoesNotContain("knowledge", saved);
         }
         finally
         {

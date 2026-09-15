@@ -65,9 +65,9 @@ public sealed class MetadataViewTests
 
         var view = context.Render<MetadataView>(parameters => parameters
             .Add(v => v.Metadata, MetadataReader.Parse("status: adopted"))
-            .Add(v => v.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)));
+            .Add(v => v.Vocabulary, DevbookStatus.Vocabulary(DevbookFolder.Tech)));
 
-        var select = view.Find(".knowledge-record__headline .status-editor select");
+        var select = view.Find(".devbook-record__headline .status-editor select");
         Assert.Equal(
             ["candidate", "trial", "adopted", "hold", "retired"],
             select.QuerySelectorAll("option").Select(option => option.GetAttribute("value")));
@@ -99,22 +99,22 @@ public sealed class MetadataViewTests
         // at all and fell through to plain grey, `in-progress` slugged past
         // `.badge--status-inprogress` and missed as well, and the four that did
         // land took a colour that had nothing to do with the folder's tone. Both
-        // forms ask KnowledgeStatusBadge which of the application's states the
+        // forms ask DevbookStatusBadge which of the application's states the
         // word means, so a reader is never told by colour that a status they can
         // change is a different kind of thing from one they cannot.
         using var context = new BunitContext();
 
-        foreach (var folder in Enum.GetValues<KnowledgeFolder>())
+        foreach (var folder in Enum.GetValues<DevbookFolder>())
         {
-            foreach (var status in KnowledgeStatus.Values(folder))
+            foreach (var status in DevbookStatus.Values(folder))
             {
-                var pill = context.Render<KnowledgeStatusPill>(parameters => parameters
+                var pill = context.Render<DevbookStatusPill>(parameters => parameters
                     .Add(p => p.Status, status)
                     .Add(p => p.Folder, folder));
 
                 var view = context.Render<MetadataView>(parameters => parameters
                     .Add(v => v.Metadata, MetadataReader.Parse($"status: {status}"))
-                    .Add(v => v.Vocabulary, KnowledgeStatus.Vocabulary(folder)));
+                    .Add(v => v.Vocabulary, DevbookStatus.Vocabulary(folder)));
 
                 // Every value in the list is one the headline offers, so this is
                 // the select every time — the premise of the comparison, and
@@ -132,10 +132,10 @@ public sealed class MetadataViewTests
                 // folder's own. Every value of every vocabulary has a tone, so a
                 // modifier is always reached — a bare `badge--status` here would
                 // mean a value fell through to "no opinion".
-                var expected = $"badge--status-{KnowledgeStatusBadge.Slug(folder, status)}";
+                var expected = $"badge--status-{DevbookStatusBadge.Slug(folder, status)}";
                 Assert.Contains(expected, wrapper.ClassList);
                 Assert.Contains(expected, pill.Find("span").ClassList);
-                Assert.DoesNotContain("knowledge-status", view.Markup, StringComparison.Ordinal);
+                Assert.DoesNotContain("devbook-status", view.Markup, StringComparison.Ordinal);
             }
         }
     }
@@ -151,7 +151,7 @@ public sealed class MetadataViewTests
             .Add(v => v.Metadata, MetadataReader.Parse("status: adopted")));
 
         Assert.Empty(view.FindAll("select"));
-        Assert.Equal("adopted", view.Find(".knowledge-record__headline .badge--status").TextContent);
+        Assert.Equal("adopted", view.Find(".devbook-record__headline .badge--status").TextContent);
     }
 
     [Fact]
@@ -165,16 +165,16 @@ public sealed class MetadataViewTests
 
         var view = context.Render<MetadataView>(parameters => parameters
             .Add(v => v.Metadata, MetadataReader.Parse("status: shipped"))
-            .Add(v => v.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)));
+            .Add(v => v.Vocabulary, DevbookStatus.Vocabulary(DevbookFolder.Tech)));
 
         var status = view.Find(".badge--status");
-        Assert.Contains("knowledge-status--unrecognised", status.ClassList);
+        Assert.Contains("devbook-status--unrecognised", status.ClassList);
 
         // Flagged on `archived`, the one modifier that spends no colour. Answered
         // before any tone is consulted, so it cannot collide with the `blocked`
         // red an Attention status legitimately wears.
         Assert.Equal(
-            "badge badge--status badge--status-archived knowledge-status--unrecognised",
+            "badge badge--status badge--status-archived devbook-status--unrecognised",
             status.GetAttribute("class"));
         Assert.DoesNotContain("badge--status-blocked", status.ClassList);
         Assert.Contains("candidate, trial, adopted, hold, retired", status.GetAttribute("title"));
@@ -193,7 +193,7 @@ public sealed class MetadataViewTests
 
         var view = context.Render<MetadataView>(parameters => parameters
             .Add(v => v.Metadata, MetadataReader.Parse("status: Adopted"))
-            .Add(v => v.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)));
+            .Add(v => v.Vocabulary, DevbookStatus.Vocabulary(DevbookFolder.Tech)));
 
         Assert.Empty(view.FindAll("select"));
 
@@ -203,7 +203,7 @@ public sealed class MetadataViewTests
         // And it is still not a typo: the tone is the folder's, so the badge is
         // the one `adopted` gets, and nothing is flagged.
         Assert.Contains("badge--status-active", status.ClassList);
-        Assert.DoesNotContain("knowledge-status--unrecognised", status.ClassList);
+        Assert.DoesNotContain("devbook-status--unrecognised", status.ClassList);
     }
 
     [Fact]
@@ -217,11 +217,11 @@ public sealed class MetadataViewTests
 
         var view = context.Render<MetadataView>(parameters => parameters
             .Add(v => v.Metadata, MetadataReader.Parse("kind: format"))
-            .Add(v => v.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)));
+            .Add(v => v.Vocabulary, DevbookStatus.Vocabulary(DevbookFolder.Tech)));
 
         Assert.Empty(view.FindAll("select"));
         Assert.Empty(view.FindAll(".badge--status"));
-        Assert.Empty(view.Find(".knowledge-record__headline").Children);
+        Assert.Empty(view.Find(".devbook-record__headline").Children);
     }
 
     [Fact]
@@ -234,7 +234,7 @@ public sealed class MetadataViewTests
 
         var view = context.Render<MetadataView>(parameters => parameters
             .Add(v => v.Metadata, MetadataReader.Parse("type: design"))
-            .Add(v => v.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Design)));
+            .Add(v => v.Vocabulary, DevbookStatus.Vocabulary(DevbookFolder.Design)));
 
         var select = view.Find(".status-editor select");
 
@@ -273,7 +273,7 @@ public sealed class MetadataViewTests
         var heard = new List<string?>();
         var view = context.Render<MetadataView>(parameters => parameters
             .Add(v => v.Metadata, MetadataReader.Parse("status: active"))
-            .Add(v => v.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Arc42))
+            .Add(v => v.Vocabulary, DevbookStatus.Vocabulary(DevbookFolder.Arc42))
             .Add(v => v.OnStatusChanged, status => heard.Add(status)));
 
         view.Find(".status-editor select").Change(string.Empty);
@@ -300,7 +300,7 @@ public sealed class MetadataViewTests
 
         var view = context.Render<MetadataView>(parameters => parameters
             .Add(v => v.Metadata, MetadataRecord.Empty)
-            .Add(v => v.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Arc42)));
+            .Add(v => v.Vocabulary, DevbookStatus.Vocabulary(DevbookFolder.Arc42)));
 
         Assert.NotEmpty(view.FindAll(".status-editor select"));
     }
@@ -315,7 +315,7 @@ public sealed class MetadataViewTests
 
         var view = context.Render<MetadataView>(parameters => parameters
             .Add(v => v.Metadata, MetadataReader.Parse("status: adopted"))
-            .Add(v => v.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)));
+            .Add(v => v.Vocabulary, DevbookStatus.Vocabulary(DevbookFolder.Tech)));
 
         view.Find(".status-editor select").Change("retired");
 
@@ -336,7 +336,7 @@ public sealed class MetadataViewTests
 
         var view = context.Render<MetadataView>(parameters => parameters
             .Add(v => v.Metadata, MetadataReader.Parse("status: draft"))
-            .Add(v => v.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Backlog))
+            .Add(v => v.Vocabulary, DevbookStatus.Vocabulary(DevbookFolder.Backlog))
             .Add(v => v.OnStatusChanged, EventCallback.Factory.Create<string?>(this, chosen.Add)));
 
         view.Find(".status-editor select").Change("in-progress");
@@ -354,7 +354,7 @@ public sealed class MetadataViewTests
 
         var view = context.Render<MetadataView>(parameters => parameters
             .Add(v => v.Metadata, MetadataReader.Parse("status: draft"))
-            .Add(v => v.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Backlog)));
+            .Add(v => v.Vocabulary, DevbookStatus.Vocabulary(DevbookFolder.Backlog)));
 
         view.Find(".status-editor select").Change("done");
         Assert.Equal("done", view.Find(".status-editor select").GetAttribute("value"));
@@ -376,7 +376,7 @@ public sealed class MetadataViewTests
 
         var view = context.Render<MetadataView>(parameters => parameters
             .Add(v => v.Metadata, block)
-            .Add(v => v.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Backlog)));
+            .Add(v => v.Vocabulary, DevbookStatus.Vocabulary(DevbookFolder.Backlog)));
 
         view.Find(".status-editor select").Change("ready");
 
@@ -395,7 +395,7 @@ public sealed class MetadataViewTests
         var view = context.Render<MetadataView>(parameters => parameters
             .Add(v => v.Metadata, MetadataReader.Parse("related: [\".tech/shared.md#markdown\"]")));
 
-        Assert.Equal("knowledge-ref knowledge-ref--inert", view.Find(".knowledge-fields__value code").GetAttribute("class"));
+        Assert.Equal("devbook-ref devbook-ref--inert", view.Find(".devbook-fields__value code").GetAttribute("class"));
         Assert.Empty(view.FindAll("a"));
         Assert.Empty(view.FindAll("button"));
     }
@@ -409,7 +409,7 @@ public sealed class MetadataViewTests
             .Add(v => v.Metadata, MetadataReader.Parse("related: [\".tech/shared.md#markdown\"]"))
             .Add(v => v.HrefFor, reference => $"/knowledge/{reference.Path}"));
 
-        var link = view.Find("a.knowledge-ref--link");
+        var link = view.Find("a.devbook-ref--link");
         Assert.Equal("/knowledge/.tech/shared.md", link.GetAttribute("href"));
         Assert.Equal(".tech/shared.md#markdown", link.GetAttribute("title"));
         Assert.Empty(view.FindAll("button"));
@@ -419,21 +419,21 @@ public sealed class MetadataViewTests
     public void A_handler_turns_a_reference_into_a_button_that_reports_the_whole_reference()
     {
         using var context = new BunitContext();
-        var followed = new List<KnowledgeReference>();
+        var followed = new List<DevbookReference>();
 
         var view = context.Render<MetadataView>(parameters => parameters
             .Add(v => v.Metadata, MetadataReader.Parse("""
                 related: [".arc42/01-introduction.md"]
                 depends-on: [".tech/shared.md#markdown"]
                 """))
-            .Add(v => v.OnNavigate, EventCallback.Factory.Create<KnowledgeReference>(this, followed.Add)));
+            .Add(v => v.OnNavigate, EventCallback.Factory.Create<DevbookReference>(this, followed.Add)));
 
-        view.FindAll("button.knowledge-ref--action")[1].Click();
+        view.FindAll("button.devbook-ref--action")[1].Click();
 
         var reference = Assert.Single(followed);
         Assert.Equal(".tech/shared.md#markdown", reference.Raw);
         Assert.Equal("markdown", reference.Slug);
-        Assert.Equal(KnowledgeFolder.Tech, reference.Folder);
+        Assert.Equal(DevbookFolder.Tech, reference.Folder);
     }
 
     [Fact]
@@ -444,9 +444,9 @@ public sealed class MetadataViewTests
         var view = context.Render<MetadataView>(parameters => parameters
             .Add(v => v.Metadata, MetadataReader.Parse("related: [\".tech/shared.md\"]"))
             .Add(v => v.HrefFor, _ => "/knowledge/tech")
-            .Add(v => v.OnNavigate, EventCallback.Factory.Create<KnowledgeReference>(this, _ => { })));
+            .Add(v => v.OnNavigate, EventCallback.Factory.Create<DevbookReference>(this, _ => { })));
 
-        Assert.Single(view.FindAll("a.knowledge-ref--link"));
+        Assert.Single(view.FindAll("a.devbook-ref--link"));
         Assert.Empty(view.FindAll("button"));
     }
 
@@ -494,7 +494,7 @@ public sealed class MetadataViewTests
     {
         // An alternative was weighed and rejected, so it was never written up and
         // there is nothing an address could name. HrefFor answers for a
-        // KnowledgeReference and neither of these fields holds one, so offering it
+        // DevbookReference and neither of these fields holds one, so offering it
         // changes nothing — which is the point being pinned.
         using var context = new BunitContext();
 
@@ -503,12 +503,12 @@ public sealed class MetadataViewTests
             .Add(v => v.HrefFor, _ => "/knowledge/anything"));
 
         Assert.Empty(view.FindAll("a"));
-        Assert.Equal("Azure Functions", view.Find("code.knowledge-value").TextContent);
+        Assert.Equal("Azure Functions", view.Find("code.devbook-value").TextContent);
 
         // And not dressed as one either: the pill and the link treatment are
         // both promises this value cannot keep.
-        Assert.Empty(view.FindAll(".knowledge-related"));
-        Assert.Empty(view.FindAll(".knowledge-ref"));
+        Assert.Empty(view.FindAll(".devbook-related"));
+        Assert.Empty(view.FindAll(".devbook-ref"));
     }
 
     [Fact]
@@ -549,7 +549,7 @@ public sealed class MetadataViewTests
                 version: "10.0"
                 effort: 5
                 """))
-            .Add(v => v.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)));
+            .Add(v => v.Vocabulary, DevbookStatus.Vocabulary(DevbookFolder.Tech)));
 
         Assert.Equal(
             ["kind", "version", "effort"],
@@ -559,10 +559,10 @@ public sealed class MetadataViewTests
         Assert.Equal(["related"], view.FindAll("dt:not(.sr-only)").Select(label => label.TextContent));
 
         // The modifier is what lets the stylesheet give the value the column back.
-        Assert.Equal(3, view.FindAll("div.knowledge-fields__row--bare").Count);
+        Assert.Equal(3, view.FindAll("div.devbook-fields__row--bare").Count);
 
         Assert.Equal("framework", view.Find(".badge--kind").TextContent);
-        Assert.Equal("v10.0", view.Find("code.knowledge-value").TextContent);
+        Assert.Equal("v10.0", view.Find("code.devbook-value").TextContent);
         Assert.Equal("5 pts", view.Find(".badge--effort").TextContent);
     }
 
@@ -588,9 +588,9 @@ public sealed class MetadataViewTests
             .Add(v => v.CssClass, "entry-doc__meta")
             .Add(v => v.TestId, "entry-meta"));
 
-        var root = view.Find(".knowledge-record");
-        Assert.Equal("knowledge-record entry-doc__meta", root.GetAttribute("class"));
-        Assert.Equal("Knowledge metadata", root.GetAttribute("aria-label"));
+        var root = view.Find(".devbook-record");
+        Assert.Equal("devbook-record entry-doc__meta", root.GetAttribute("class"));
+        Assert.Equal("Devbook metadata", root.GetAttribute("aria-label"));
         Assert.Equal("entry-meta", root.GetAttribute("data-testid"));
 
         // A bare <div> with a label is a label nothing announces, so the wrapper
@@ -607,7 +607,7 @@ public sealed class MetadataViewTests
             .Add(v => v.Metadata, MetadataReader.Parse("kind: format")));
 
         var fields = view.Find("dl");
-        Assert.Equal("knowledge-fields", fields.GetAttribute("class"));
+        Assert.Equal("devbook-fields", fields.GetAttribute("class"));
 
         // And the label is stated once, on the record. It used to be repeated
         // here, which announced the same block twice under the same name.
@@ -625,7 +625,7 @@ public sealed class MetadataViewTests
                 kind: format
                 """)));
 
-        var headline = view.Find(".knowledge-record__headline");
+        var headline = view.Find(".devbook-record__headline");
         Assert.Equal("adopted", headline.QuerySelector(".badge--status")?.TextContent);
 
         // Once, and without a label in front of it. "status adopted" reads as a
@@ -644,7 +644,7 @@ public sealed class MetadataViewTests
             .Add(v => v.Metadata, MetadataReader.Parse("status: active")));
 
         Assert.Empty(view.FindAll("dl"));
-        Assert.NotNull(view.Find(".knowledge-record__headline .badge--status"));
+        Assert.NotNull(view.Find(".devbook-record__headline .badge--status"));
     }
 
     [Fact]
@@ -656,7 +656,7 @@ public sealed class MetadataViewTests
 
         var view = context.Render<MetadataView>(parameters => parameters
             .Add(v => v.Metadata, MetadataReader.Parse("status: adopted"))
-            .Add(v => v.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech))
+            .Add(v => v.Vocabulary, DevbookStatus.Vocabulary(DevbookFolder.Tech))
             .Add(v => v.Heading, (RenderFragment)(builder =>
             {
                 builder.OpenElement(0, "p");
@@ -667,7 +667,7 @@ public sealed class MetadataViewTests
 
         // Two children and only two, in that order — the heading first, the
         // status second and therefore the one an auto margin can push right.
-        var headline = view.Find(".knowledge-record__headline");
+        var headline = view.Find(".devbook-record__headline");
         Assert.Equal(
             ["p", "label"],
             headline.Children.Select(child => child.LocalName));
@@ -692,7 +692,7 @@ public sealed class MetadataViewTests
                 builder.CloseElement();
             })));
 
-        var headline = view.Find(".knowledge-record__headline");
+        var headline = view.Find(".devbook-record__headline");
         Assert.Equal(["p", "span"], headline.Children.Select(child => child.LocalName));
         Assert.Contains("badge--status", headline.Children[1].ClassList);
     }
@@ -705,7 +705,7 @@ public sealed class MetadataViewTests
         var view = context.Render<MetadataView>(parameters => parameters
             .Add(v => v.Metadata, MetadataReader.Parse("status: active")));
 
-        var headline = view.Find(".knowledge-record__headline");
+        var headline = view.Find(".devbook-record__headline");
         Assert.Single(headline.Children);
         Assert.Equal("active", headline.Children[0].TextContent);
     }
@@ -726,8 +726,8 @@ public sealed class MetadataViewTests
                 """))
             .Add(v => v.ShowFields, false));
 
-        Assert.Equal("adopted", view.Find(".knowledge-record__headline .badge--status").TextContent);
-        Assert.Empty(view.FindAll("dl.knowledge-fields"));
+        Assert.Equal("adopted", view.Find(".devbook-record__headline .badge--status").TextContent);
+        Assert.Empty(view.FindAll("dl.devbook-fields"));
     }
 
     [Fact]
@@ -742,7 +742,7 @@ public sealed class MetadataViewTests
                 aliases: ["inbox"]
                 """)));
 
-        Assert.NotNull(view.Find("dl.knowledge-fields"));
+        Assert.NotNull(view.Find("dl.devbook-fields"));
     }
 
     [Fact]
@@ -779,8 +779,8 @@ public sealed class MetadataViewTests
                 builder.CloseElement();
             })));
 
-        Assert.Equal("Context Map", view.Find(".knowledge-record__headline p.md-heading").TextContent);
-        Assert.Empty(view.FindAll("dl.knowledge-fields"));
+        Assert.Equal("Context Map", view.Find(".devbook-record__headline p.md-heading").TextContent);
+        Assert.Empty(view.FindAll("dl.devbook-fields"));
         Assert.Empty(view.FindAll(".badge--status"));
     }
 
@@ -795,7 +795,7 @@ public sealed class MetadataViewTests
                 effort: 5
                 """)));
 
-        var badge = view.Find("[data-testid=\"knowledge-effort-badge\"]");
+        var badge = view.Find("[data-testid=\"devbook-effort-badge\"]");
         Assert.Contains("badge", badge.ClassList);
         Assert.Equal("5 pts", badge.TextContent.Trim());
 
@@ -815,7 +815,7 @@ public sealed class MetadataViewTests
                 effort: 0
                 """)));
 
-        Assert.Equal("0 pts", view.Find("[data-testid=\"knowledge-effort-badge\"]").TextContent.Trim());
+        Assert.Equal("0 pts", view.Find("[data-testid=\"devbook-effort-badge\"]").TextContent.Trim());
     }
 
     [Fact]
@@ -826,7 +826,7 @@ public sealed class MetadataViewTests
         var view = context.Render<MetadataView>(parameters => parameters
             .Add(v => v.Metadata, MetadataReader.Parse("status: draft\nkind: framework")));
 
-        Assert.Empty(view.FindAll("[data-testid=\"knowledge-effort-badge\"]"));
+        Assert.Empty(view.FindAll("[data-testid=\"devbook-effort-badge\"]"));
         Assert.DoesNotContain("effort", view.FindAll("dt").Select(label => label.TextContent));
     }
 
@@ -846,7 +846,7 @@ public sealed class MetadataViewTests
                 roadmap: [sync-service, mobile-mvp]
                 """)));
 
-        var container = view.Find("[data-testid=\"knowledge-roadmap-tags\"]");
+        var container = view.Find("[data-testid=\"devbook-roadmap-tags\"]");
         Assert.Equal(
             ["sync-service", "mobile-mvp"],
             container.QuerySelectorAll(".badge--feature").Select(badge => badge.TextContent.Trim()));
@@ -865,7 +865,7 @@ public sealed class MetadataViewTests
         var view = context.Render<MetadataView>(parameters => parameters
             .Add(v => v.Metadata, MetadataReader.Parse("status: draft\nkind: framework")));
 
-        Assert.Empty(view.FindAll("[data-testid=\"knowledge-roadmap-tags\"]"));
+        Assert.Empty(view.FindAll("[data-testid=\"devbook-roadmap-tags\"]"));
         Assert.DoesNotContain("roadmap", view.FindAll("dt").Select(label => label.TextContent));
     }
 
@@ -884,7 +884,7 @@ public sealed class MetadataViewTests
                 order: ["shared.md", "backend.md"]
                 kind: framework
                 """))
-            .Add(v => v.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)));
+            .Add(v => v.Vocabulary, DevbookStatus.Vocabulary(DevbookFolder.Tech)));
 
         Assert.Equal(["kind"], view.FindAll("dt").Select(label => label.TextContent));
         Assert.DoesNotContain("shared.md", view.Markup);
@@ -919,10 +919,10 @@ public sealed class MetadataViewTests
                 status: active
                 feature-flag: [inbox-pane, inbox-filters]
                 """))
-            .Add(v => v.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Domain))
+            .Add(v => v.Vocabulary, DevbookStatus.Vocabulary(DevbookFolder.Domain))
             .Add(v => v.HrefFor, reference => "/anywhere"));
 
-        var container = view.Find("[data-testid=\"knowledge-feature-flag-tags\"]");
+        var container = view.Find("[data-testid=\"devbook-feature-flag-tags\"]");
         Assert.Equal(
             ["inbox-pane", "inbox-filters"],
             container.QuerySelectorAll(".badge--feature").Select(badge => badge.TextContent.Trim()));
@@ -948,7 +948,7 @@ public sealed class MetadataViewTests
         var view = context.Render<MetadataView>(parameters => parameters
             .Add(v => v.Metadata, MetadataReader.Parse("status: active\nkind: framework")));
 
-        Assert.Empty(view.FindAll("[data-testid=\"knowledge-feature-flag-tags\"]"));
+        Assert.Empty(view.FindAll("[data-testid=\"devbook-feature-flag-tags\"]"));
         Assert.DoesNotContain("feature-flag", view.FindAll("dt").Select(label => label.TextContent));
     }
 }

@@ -77,9 +77,9 @@
            Description="Each class is a parameter with the default as its value, so a host can replace it or pass null to get the bare element. A null ActionCssClass drops the action wrapper, and DescriptionContent covers the case where the description is more than text."
            Code="@EmptyClassCode">
         <div class="sb-stack">
-            <EmptyState BaseClass="knowledge-empty"
+            <EmptyState BaseClass="devbook-empty"
                         Title="No arc42 folder here yet."
-                        TitleCssClass="knowledge-empty__title"
+                        TitleCssClass="devbook-empty__title"
                         DescriptionCssClass="@(null)"
                         TestId="empty-host-classes"
                         role="status">
@@ -88,7 +88,7 @@
                 </DescriptionContent>
             </EmptyState>
 
-            <EmptyState BaseClass="knowledge-empty"
+            <EmptyState BaseClass="devbook-empty"
                         Title="No instruction source is configured."
                         TitleCssClass="@(null)"
                         ActionCssClass="@(null)"
@@ -291,9 +291,9 @@ Bars inside a table's own cells — the tools pane's placeholder — are the Dat
         """;
 
     private const string EmptyClassCode = """
-        <EmptyState BaseClass="knowledge-empty"
+        <EmptyState BaseClass="devbook-empty"
                     Title="No arc42 folder here yet."
-                    TitleCssClass="knowledge-empty__title"
+                    TitleCssClass="devbook-empty__title"
                     DescriptionCssClass="@(null)"
                     role="status">
             <DescriptionContent>

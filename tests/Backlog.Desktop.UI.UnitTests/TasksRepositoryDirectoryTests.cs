@@ -1,5 +1,5 @@
 using Backlog.Infrastructure.GitHub;
-using Backlog.Modules.Knowledge.Abstractions;
+using Backlog.Modules.Devbook.Abstractions;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
@@ -210,8 +210,8 @@ public sealed class TasksRepositoryDirectoryTests : IDisposable
         Assert.Null(registered.CloneDirectory);
         Assert.Null(registered.Token);
         Assert.Equal(
-            KnowledgeFolderSetting.Defaults().Select(folder => folder.Key),
-            registered.KnowledgeFolders.Select(folder => folder.Key));
+            DevbookFolderSetting.Defaults().Select(folder => folder.Key),
+            registered.DevbookFolders.Select(folder => folder.Key));
     }
 
     private GitHubSettingsStore StoreWith(string configuredLines)

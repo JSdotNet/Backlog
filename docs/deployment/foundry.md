@@ -235,8 +235,8 @@ bearer credential for a metered resource.
 Knowledge search by meaning uses a second deployment on the same endpoint,
 `text-embedding-3-small`, named in the summary when `includeEmbeddingModel` is on.
 
-That name is a coupling, not a coincidence: `KnowledgeEmbeddingModel.Default` in
-`src/Infrastructure/Backlog.Infrastructure.Knowledge/KnowledgeSemanticSearch.cs` is the same
+That name is a coupling, not a coincidence: `DevbookEmbeddingModel.Default` in
+`src/Infrastructure/Backlog.Infrastructure.Devbook/DevbookSemanticSearch.cs` is the same
 literal, and the embeddings client rejects a request that names no deployment. Renaming the
 deployment in `main.bicep` without changing that constant breaks embedding at runtime, and
 no build or test catches it.

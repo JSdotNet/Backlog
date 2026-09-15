@@ -151,7 +151,7 @@ place than "the account record":
 
 So the account row is **not** split across two files. The registry states the *binding*;
 the local file states *how this machine satisfies it*. That is deliberate and follows a
-precedent stated in the code: `SetKnowledgeFolder` (`GitHubSettings.cs:462-476`) keeps
+precedent stated in the code: `SetDevbookFolder` (`GitHubSettings.cs:462-476`) keeps
 the whole knowledge-folder list local rather than splitting one row down the middle,
 because *"splitting one row across two files would make this a two-file write whose
 partial failure leaves an inconsistent row."* The same argument applies here and is why

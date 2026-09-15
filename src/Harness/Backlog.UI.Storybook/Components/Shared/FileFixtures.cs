@@ -202,7 +202,7 @@ internal static class FileFixtures
         component library. The shell owns the window; everything a reader looks
         at is Razor in a WebView.
 
-        ## Knowledge panes
+        ## Devbook panes
 
         A pane shows one folder or one file, and the two use the same furniture
         so that moving between them does not move the header.
@@ -334,7 +334,7 @@ internal static class FileFixtures
 
         Owns the personal backlog and everything projected out of it.
 
-        ## Second Brain
+        ## Devbook
 
         Owns the checked-in knowledge folders.
         """;
@@ -348,7 +348,7 @@ internal static class FileFixtures
 
         Owns the personal backlog and everything projected out of it.
 
-        ## Second Brain
+        ## Devbook
 
         Owns the checked-in knowledge folders and the chapters inside them.
 

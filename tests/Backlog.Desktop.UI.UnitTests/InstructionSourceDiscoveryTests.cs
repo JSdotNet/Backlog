@@ -74,9 +74,9 @@ public sealed class InstructionSourceDiscoveryTests : IDisposable
         var repository = new GitHubRepositoryRef("backlog", "JSdotNet", "Backlog")
         {
             CloneDirectory = _root,
-            KnowledgeFolders =
+            DevbookFolders =
             [
-                .. KnowledgeFolderSetting.Defaults().Select(folder => folder.Key == "instructions"
+                .. DevbookFolderSetting.Defaults().Select(folder => folder.Key == "instructions"
                     ? folder with { Enabled = false }
                     : folder)
             ]

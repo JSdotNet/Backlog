@@ -2,12 +2,12 @@ namespace Backlog.ArchitectureTests;
 
 /// <summary>
 /// Rules for the desktop app's own bounded contexts. Inbox, Tasks
-/// and Second Brain (the Knowledge folder) each have their own UI project now —
+/// and Devbook (the Devbook folder) each have their own UI project now —
 /// <c>src/Modules/&lt;Context&gt;/Backlog.Modules.&lt;Context&gt;.UI</c> — under a Shell
 /// that composes them.
 /// <para>
 /// They used to be three folders in one project, and that is why this class was
-/// written: a folder stops nothing, so nothing kept a knowledge panel from
+/// written: a folder stops nothing, so nothing kept a Devbook panel from
 /// injecting the backlog list except somebody noticing. The split made those
 /// boundaries project references, and a project reference the compiler will not
 /// let you forge. <see cref="ModuleBoundaryTests"/> and
@@ -37,7 +37,7 @@ public class DesktopDomainBoundaryTests
     {
         ["Inbox"] = "src/Modules/Inbox/Backlog.Modules.Inbox.UI",
         ["Tasks"] = "src/Modules/Tasks/Backlog.Modules.Tasks.UI",
-        ["Knowledge"] = "src/Modules/Knowledge/Backlog.Modules.Knowledge.UI"
+        ["Devbook"] = "src/Modules/Devbook/Backlog.Modules.Devbook.UI"
     };
 
     /// <summary>The one area that is not a context: the Shell that composes the
@@ -50,8 +50,8 @@ public class DesktopDomainBoundaryTests
     /// which features were on, which every context was allowed to read. It is
     /// gone, and its absence is the point rather than an omission. A layer every
     /// context may read is a layer every context shares, and sharing it is how
-    /// Tasks came to consume a knowledge-folder resolver and Second
-    /// Brain came to consume the backlog root — two contexts the map calls a
+    /// Tasks came to consume a devbook-folder resolver and Devbook
+    /// came to consume the backlog root — two contexts the map calls a
     /// Partnership, coupled through a project neither owned. What lived there is
     /// now two module ports with adapters behind them in <c>src/Infrastructure</c>:
     /// each context asks its own module, and the adapter holds the join. The rules
@@ -68,7 +68,7 @@ public class DesktopDomainBoundaryTests
     {
         ["Inbox"] = ContextProjects["Inbox"],
         ["Tasks"] = ContextProjects["Tasks"],
-        ["Knowledge"] = ContextProjects["Knowledge"],
+        ["Devbook"] = ContextProjects["Devbook"],
         ["Shell"] = ShellFolder
     };
 
@@ -142,7 +142,7 @@ public class DesktopDomainBoundaryTests
     }
 
     /// <summary>
-    /// Inbox is upstream of both Tasks and Second Brain, and the
+    /// Inbox is upstream of both Tasks and Devbook, and the
     /// two downstream contexts are a Partnership that coordinates by id rather
     /// than by reaching into each other. No pair is exempt: the edge Tasks once
     /// had on the Inbox — a conversion into the Inbox's published item
@@ -157,11 +157,11 @@ public class DesktopDomainBoundaryTests
     /// </summary>
     [Theory]
     [InlineData("Inbox", "Tasks")]
-    [InlineData("Inbox", "Knowledge")]
-    [InlineData("Knowledge", "Tasks")]
-    [InlineData("Knowledge", "Inbox")]
+    [InlineData("Inbox", "Devbook")]
+    [InlineData("Devbook", "Tasks")]
+    [InlineData("Devbook", "Inbox")]
     [InlineData("Tasks", "Inbox")]
-    [InlineData("Tasks", "Knowledge")]
+    [InlineData("Tasks", "Devbook")]
     public void A_context_never_names_another_context(string context, string forbidden)
     {
         var offenders = FilesNaming(context, $"{RootNamespace}.{forbidden}");
@@ -178,7 +178,7 @@ public class DesktopDomainBoundaryTests
     [Theory]
     [InlineData("Inbox")]
     [InlineData("Tasks")]
-    [InlineData("Knowledge")]
+    [InlineData("Devbook")]
     public void Nothing_below_the_shell_depends_on_the_shell(string area)
     {
         var offenders = FilesNaming(area, $"{RootNamespace}.Shell");
@@ -216,7 +216,7 @@ public class DesktopDomainBoundaryTests
     /// component in the project at once.
     /// <para>
     /// The Inbox's own imports name its module's published surface and the
-    /// shared library, and nothing of Tasks or Knowledge — the same line the
+    /// shared library, and nothing of Tasks or Devbook — the same line the
     /// other two hold, now that no context conforms to another's contract in
     /// code.
     /// </para>
@@ -224,7 +224,7 @@ public class DesktopDomainBoundaryTests
     [Theory]
     [InlineData("Inbox")]
     [InlineData("Tasks")]
-    [InlineData("Knowledge")]
+    [InlineData("Devbook")]
     public void A_contexts_own_razor_imports_name_no_other_context(string context)
     {
         var imports = Path.Combine(Folder(ContextProjects[context]), "_Imports.razor");

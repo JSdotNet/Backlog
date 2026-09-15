@@ -2,7 +2,7 @@
     One block of a document, drawn as whatever that block record says it is.
 
     This switch used to live inside MarkdownView as a private fragment, which
-    made it unreachable from anywhere else — and the knowledge panels draw the
+    made it unreachable from anywhere else — and the Devbook panels draw the
     same blocks. Both had grown a copy of it wearing `knowledge-*` classes, and
     the copies had already drifted apart from each other and from this one: a
     paragraph was identical in all three, a diagram was not, and a list item was
@@ -20,7 +20,7 @@
     Only the class hooks the library or a host actually needs are here. A table's
     and a footnote list's inner names are on MarkdownTableView and
     MarkdownFootnotesView instead: nothing renders a knowledge table through this
-    switch — the knowledge panels' tables are different structures rather than an
+    switch — the Devbook panels' tables are different structures rather than an
     MdTable with other class names — so forwarding those hooks would be
     parameters nobody sets on the component every block goes through.
 *@
@@ -65,14 +65,14 @@
         @* A `meta` fence is a record, not a listing — but only where a host has
            said it is reading a knowledge document. Everywhere else the fence is
            still just a fenced block, which is what it has always rendered as. *@
-        @if (RenderKnowledgeMetadata && MetadataReader.IsMetaBlock(codeBlock.Language))
+        @if (RenderDevbookMetadata && MetadataReader.IsMetaBlock(codeBlock.Language))
         {
             <MetadataView Metadata="@MetadataOf(codeBlock)"
-                               Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder)"
-                               ShowFields="@RenderKnowledgeMetadataFields"
-                               CanEditStatus="@CanEditKnowledgeStatus"
-                               OnNavigate="@OnKnowledgeNavigate"
-                               HrefFor="@KnowledgeHrefFor" />
+                               Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder)"
+                               ShowFields="@RenderDevbookMetadataFields"
+                               CanEditStatus="@CanEditDevbookStatus"
+                               OnNavigate="@OnDevbookNavigate"
+                               HrefFor="@DevbookHrefFor" />
         }
         else if (DrawsDiagram(codeBlock.Language))
         {
@@ -163,32 +163,32 @@
     /// it is. Off by default: most markdown in this product is not a knowledge
     /// document, and where it is not, a `meta` fence is only a fenced block.</summary>
     [Parameter]
-    public bool RenderKnowledgeMetadata { get; set; }
+    public bool RenderDevbookMetadata { get; set; }
 
     /// <summary>Whether a metadata record draws everything under the status as
     /// well. Forwarded verbatim to <c>MetadataView.ShowFields</c>.</summary>
     [Parameter]
-    public bool RenderKnowledgeMetadataFields { get; set; } = true;
+    public bool RenderDevbookMetadataFields { get; set; } = true;
 
     /// <summary>Whether a metadata record's status may be changed here.
     /// Forwarded verbatim to <c>MetadataView.CanEditStatus</c>, which draws the
     /// static badge instead of the select when it is false.</summary>
     [Parameter]
-    public bool CanEditKnowledgeStatus { get; set; } = true;
+    public bool CanEditDevbookStatus { get; set; } = true;
 
     /// <summary>Which knowledge folder the document was read from, so a status
     /// can be checked against that folder's vocabulary.</summary>
     [Parameter]
-    public KnowledgeFolder KnowledgeFolder { get; set; } = KnowledgeFolder.Unknown;
+    public DevbookFolder DevbookFolder { get; set; } = DevbookFolder.Unknown;
 
     /// <summary>Raised with the reference a reader activated in a metadata
     /// block.</summary>
     [Parameter]
-    public EventCallback<KnowledgeReference> OnKnowledgeNavigate { get; set; }
+    public EventCallback<DevbookReference> OnDevbookNavigate { get; set; }
 
     /// <summary>Resolves a metadata reference to a link target.</summary>
     [Parameter]
-    public Func<KnowledgeReference, string?>? KnowledgeHrefFor { get; set; }
+    public Func<DevbookReference, string?>? DevbookHrefFor { get; set; }
 
     /// <summary>What a drawn diagram is called in its own caption. Forwarded
     /// verbatim to <c>DiagramView.Title</c>, which shows it only for a language

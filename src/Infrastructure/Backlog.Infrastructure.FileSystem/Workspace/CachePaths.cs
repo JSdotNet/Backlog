@@ -7,7 +7,7 @@ namespace Backlog.Infrastructure.FileSystem;
 /// Turning a name into something a cache can put on disk.
 /// <para>
 /// Promoted out of <see cref="PullRequestDetailCache"/>, where it had already been
-/// copied once into <see cref="KnowledgeSnapshotCache"/>, rather than copied a third
+/// copied once into <see cref="DevbookSnapshotCache"/>, rather than copied a third
 /// time for <see cref="AgentActivityCache"/>. Three caches in one assembly folding
 /// names the same way is one rule; three copies of it is three chances for a cache to
 /// change where it files things and take everything already filed there out of reach

@@ -21,10 +21,10 @@
     Nothing in, nothing out: a block that states no status should not leave an
     empty badge on the line.
 
-    KnowledgeStatusPill is this component with a knowledge folder's vocabulary
+    DevbookStatusPill is this component with a knowledge folder's vocabulary
     already looked up. It was the only shape of this that existed, and it carried
     the folder lookup inside it, which is what kept MetadataView tied to
-    KnowledgeFolder. The pill stays — the folder is a real thing a knowledge
+    DevbookFolder. The pill stays — the folder is a real thing a knowledge
     surface has — and delegates here.
 *@
 
@@ -64,7 +64,7 @@
     /// so nothing a caller passes displaces a class the stylesheet or a test
     /// matches on by exact position.
     ///
-    /// <para>The flag's name is still <c>knowledge-status--unrecognised</c>. It is
+    /// <para>The flag's name is still <c>devbook-status--unrecognised</c>. It is
     /// the hook the stylesheet already has and the one every test matches on, and
     /// renaming a CSS class is a change of its own rather than part of taking the
     /// folder out of the record.</para></summary>
@@ -72,7 +72,7 @@
     {
         get
         {
-            var flag = Vocabulary.IsUnrecognised(Status) ? "knowledge-status--unrecognised" : string.Empty;
+            var flag = Vocabulary.IsUnrecognised(Status) ? "devbook-status--unrecognised" : string.Empty;
 
             if (string.IsNullOrWhiteSpace(CssClass)) return flag.Length == 0 ? null : flag;
 

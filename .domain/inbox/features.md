@@ -123,7 +123,7 @@ enrich items with links to related tasks or knowledge notes. Built today: the
 type: feature
 status: draft
 depends-on: [.domain/inbox/features.md#triage-workflow]
-related: [.domain/tasks/features.md#task-creation, .domain/second-brain/features.md#knowledge-capture]
+related: [.domain/tasks/features.md#task-creation, .domain/devbook/features.md#knowledge-capture]
 ```
 
 Move a triaged item to its destination.
@@ -163,12 +163,12 @@ to the entries the import created, the same outcome as Route to Tasks reached
 through a different door. When no drafter is configured the action stays
 visible, disabled, with its reason.
 
-### Route to Second Brain
+### Route to Devbook
 
 ```meta
 type: sub-feature
 status: draft
-related: [.domain/second-brain/features.md#knowledge-capture]
+related: [.domain/devbook/features.md#knowledge-capture]
 ```
 
 Create a Knowledge Note from the item.

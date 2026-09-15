@@ -37,7 +37,7 @@ public class StorybookOrderTests
     /// it is a borrow, and a borrow is only allowed from a page above.
     ///
     /// <para>Three folders are documented on chapters named for something else:
-    /// <c>Metadata</c> on the Knowledge base pages, because a metadata record is a
+    /// <c>Metadata</c> on the Devbook pages, because a metadata record is a
     /// knowledge chapter's; <c>Tasks</c> on Inputs as well as Task list, because
     /// <c>TaskAction</c> is introduced with the date, time and repeat it sits over;
     /// and <c>Icons</c> on Foundations, because a glyph is a foundation the way a
@@ -55,11 +55,11 @@ public class StorybookOrderTests
         ["Icons"] = ["foundations"],
         ["Inputs"] = ["inputs", "file-field"],
         ["Integrations"] = ["integrations"],
-        ["Knowledge"] = ["knowledge-base", "markdown/references"],
+        ["Devbook"] = ["devbook", "markdown/references"],
         ["Layout"] = ["layout", "file-view", "folder-view"],
         ["Markdown"] = ["markdown", "markdown-document"],
         ["Menus"] = ["menus"],
-        ["Metadata"] = ["knowledge-base"],
+        ["Metadata"] = ["devbook"],
         ["Metrics"] = ["usage-metrics", "productivity"],
         ["Overlays"] = ["overlays"],
         ["Roadmap"] = ["roadmap"],
@@ -81,7 +81,7 @@ public class StorybookOrderTests
         ("selection-bar", "TaskActionGroup", "The slot demo is the composition the backlog arrived at; Task list is its chapter."),
         ("data-table", "ProviderMark", "A cell is a template the caller fills, and the examples fill theirs from Integrations; the table is a content item by kind."),
         ("data-table", "IntegrationStateChip", "A cell is a template the caller fills, and the examples fill theirs from Integrations; the table is a content item by kind."),
-        ("markdown/references", "MetadataView", "The page is about the inline, and a record is the other place a reference appears; Knowledge base is the record's chapter.")
+        ("markdown/references", "MetadataView", "The page is about the inline, and a record is the other place a reference appears; Devbook is the record's chapter.")
     ];
 
     [Fact]

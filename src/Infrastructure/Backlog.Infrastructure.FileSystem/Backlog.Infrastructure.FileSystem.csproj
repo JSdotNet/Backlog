@@ -53,19 +53,19 @@
     <ProjectReference Include="..\..\Modules\Capture\Backlog.Modules.Capture.Abstractions\Backlog.Modules.Capture.Abstractions.csproj" />
     <ProjectReference Include="..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
     <!-- The workspace adapters under Workspace/ answer two module ports over one
-         settings file: Tasks' ITaskStore and Second Brain's
-         IKnowledgeFolderSource. Answering them needs the GitHub repository
+         settings file: Tasks' ITaskStore and Devbook's
+         IDevbookFolderSource. Answering them needs the GitHub repository
          settings as well as the local root, and holding that join is exactly
          what an adapter is for — it is what keeps either context from having to
          see the other. -->
-    <ProjectReference Include="..\..\Modules\Knowledge\Backlog.Modules.Knowledge.Abstractions\Backlog.Modules.Knowledge.Abstractions.csproj" />
+    <ProjectReference Include="..\..\Modules\Devbook\Backlog.Modules.Devbook.Abstractions\Backlog.Modules.Devbook.Abstractions.csproj" />
     <ProjectReference Include="..\Backlog.Infrastructure.GitHub\Backlog.Infrastructure.GitHub.csproj" />
     <!-- For where the task database lives: the settings store shows the path on
          the settings screen, and the Sqlite adapter owns the file name. -->
-    <!-- The read side of the generated knowledge database. The roadmap rollup is
+    <!-- The read side of the generated devbook database. The roadmap rollup is
          a join only an adapter may make, and the knowledge half of it is now a
          few indexed rows rather than a 947 KB document parse. -->
-    <ProjectReference Include="..\Backlog.Infrastructure.Knowledge\Backlog.Infrastructure.Knowledge.csproj" />
+    <ProjectReference Include="..\Backlog.Infrastructure.Devbook\Backlog.Infrastructure.Devbook.csproj" />
     <ProjectReference Include="..\Backlog.Infrastructure.Sqlite\Backlog.Infrastructure.Sqlite.csproj" />
   </ItemGroup>
 

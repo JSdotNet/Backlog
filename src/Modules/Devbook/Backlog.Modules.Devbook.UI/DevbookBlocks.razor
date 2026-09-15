@@ -1,0 +1,131 @@
+@*
+    The design section's blocks, drawn as the shared library draws every block.
+
+    This file used to hold a switch of its own — a paragraph, a list, a quote, a
+    code fence, a diagram and a rule, each hand-written in `knowledge-*` clothes
+    beside an identical one in MarkdownView and a third in DevbookMarkdownView.
+    They had already drifted: the three paragraphs matched and the three diagrams
+    did not. Now each of those records is mapped onto the shared block record it
+    is a subset of and handed to MarkdownBlockView, which wears this section's
+    class names through its per-part hooks. No stylesheet rule moved and no class
+    changed; the markup is the markup this section has always rendered.
+
+    Two arms stay here, because neither is an MdTable or an MdHeading with other
+    class names. A subheading is a real `h5` carrying plain text rather than the
+    read view's `p` with a heading role, and a design table is a grid of *string*
+    cells with a token modifier on its wrapper. Adopting either would mean
+    changing markup, not renaming a class.
+*@
+
+@foreach (var block in Blocks)
+{
+    switch (block)
+    {
+        case DesignDevbookSubheading heading:
+            <h5 class="devbook-subheading">@heading.Text</h5>
+            break;
+        case DesignDevbookTable table:
+            <div class="devbook-table-wrap @(table.IsTokenTable ? "devbook-table-wrap--tokens" : string.Empty)">
+                <table class="devbook-table">
+                    <thead>
+                    <tr>
+                        @foreach (var header in table.Headers)
+                        {
+                            <th>@header</th>
+                        }
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var row in table.Rows)
+                    {
+                        <tr>
+                            @foreach (var cell in row)
+                            {
+                                <td>@cell</td>
+                            }
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+            break;
+        default:
+            // Everything else is the shared record wearing this section's names.
+            // The mapping is per block, so the diagram question is answered from
+            // the record the parser produced rather than from a language
+            // vocabulary this file would then own a second copy of.
+            if (AsSharedBlock(block) is { } shared)
+            {
+                <MarkdownBlockView Block="@shared"
+                                   InlineTarget="@InlineTarget"
+                                   ParagraphCssClass="devbook-p"
+                                   QuoteCssClass="devbook-quote"
+                                   CodeCssClass="devbook-code"
+                                   DividerCssClass="devbook-divider"
+                                   ListCssClass="devbook-list"
+                                   ListItemCssClass="@NoItemClass"
+                                   DiagramTitle="@DiagramName"
+                                   IsDiagram="@(_ => block is DesignDevbookDiagram)" />
+            }
+            break;
+    }
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public IReadOnlyList<DesignDevbookBlock> Blocks { get; set; } = [];
+
+    /// <summary>The name a diagram in this section is captioned with.
+    ///
+    /// <para>Read by nothing, and deliberately still here. It has never reached
+    /// <c>DiagramView</c> — the old switch drew a diagram with no title at all, so
+    /// every design diagram is captioned "Diagram" — and forwarding it now would
+    /// rename every one of them. Renaming them may well be right; it is a visible
+    /// change and not part of moving markup into the library.</para></summary>
+    [Parameter]
+    public string DiagramTitle { get; set; } = "Diagram";
+
+    /// <summary>How a reference written in this prose is drawn, built by the panel
+    /// through <c>DevbookInlineTargets</c>.
+    ///
+    /// <para>Passing nothing was the whole bug in the design section: these blocks
+    /// went straight to the inline renderer with no hook at all, so every link in
+    /// them became an anchor with <c>target="_blank"</c> on a repository path — a
+    /// browser window asking the app's own origin for <c>.design/color-scheme.md</c>.
+    /// The hook is the panel's rather than this component's because only the panel
+    /// knows which file the blocks were parsed out of and what following a
+    /// reference should do.</para></summary>
+    [Parameter]
+    public MarkdownRender.MarkdownInlineTarget? InlineTarget { get; set; }
+
+    /// <summary>What a diagram is actually captioned with, which is
+    /// <c>DiagramView</c>'s own default and not <see cref="DiagramTitle"/>. Named
+    /// rather than written inline so the gap between the two is stated once.</summary>
+    private const string DiagramName = "Diagram";
+
+    /// <summary>A list item here carries no class, so the hook is handed null
+    /// rather than left at the read view's default — which is an empty string and
+    /// would put a `class=" "` on every bullet in the section.</summary>
+    private const string? NoItemClass = null;
+
+    /// <summary>
+    /// This section's block as the shared block record it is a subset of.
+    ///
+    /// <para>A mapping rather than a shared type, because the parsers stay as they
+    /// are: <c>DesignDevbookList</c> holds bare inline runs where <c>MdList</c>
+    /// holds items that may be tasks and may nest, and collapsing the two is its
+    /// own change with its own risks. Null for a record drawn above, which is why
+    /// an arm that is not mapped draws nothing rather than falling through to a
+    /// paragraph.</para>
+    /// </summary>
+    private static MdBlock? AsSharedBlock(DesignDevbookBlock block) => block switch
+    {
+        DesignDevbookParagraph paragraph => new MdParagraph(paragraph.Content),
+        DesignDevbookList list => new MdList(list.Ordered, [.. list.Items.Select(item => new MdListItem(null, item, null))]),
+        DesignDevbookQuote quote => new MdQuote(quote.Content),
+        DesignDevbookCode code => new MdCode(code.Text, code.Language),
+        DesignDevbookDiagram diagram => new MdCode(diagram.Source, diagram.Language),
+        DesignDevbookDivider => new MdDivider(),
+        _ => null
+    };
+}

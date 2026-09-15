@@ -146,12 +146,12 @@
                    strip is the one with the `type` already taken out wherever the
                    heading above it is drawing that same value as a mark. *@
                 <MetadataChapterView Metadata="@ShownMetadataOf(fence)"
-                                     Vocabulary="@KnowledgeStatus.Vocabulary(KnowledgeFolder)"
-                                     ShowFields="@RenderKnowledgeMetadataFields"
-                                     CanEditStatus="@CanEditKnowledgeStatus"
+                                     Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder)"
+                                     ShowFields="@RenderDevbookMetadataFields"
+                                     CanEditStatus="@CanEditDevbookStatus"
                                      OnStatusChanged="status => ReportStatusAsync(index, status)"
-                                     OnNavigate="@OnKnowledgeNavigate"
-                                     HrefFor="@KnowledgeHrefFor"
+                                     OnNavigate="@OnDevbookNavigate"
+                                     HrefFor="@DevbookHrefFor"
                                      Heading="@RenderChapterHead(heading, index)" />
             }
             else
@@ -211,7 +211,7 @@
     /// gutter beside it — is decided before the call and none of it travels
     /// down. What does travel down is the reading: whether a <c>meta</c> fence is
     /// a record, which folder it was read from, and the inline hook. So a block
-    /// drawn here and the same block drawn by a knowledge panel differ in the
+    /// drawn here and the same block drawn by a Devbook panel differ in the
     /// classes they wear and in nothing else.</para>
     ///
     /// <para>Headings come through here too, including the one a chapter head
@@ -230,12 +230,12 @@
                             HeadingMark="@headingMark"
                             OnTaskItemToggled="@OnTaskItemToggled"
                             InlineTarget="@InlineTarget"
-                            RenderKnowledgeMetadata="@RenderKnowledgeMetadata"
-                            RenderKnowledgeMetadataFields="@RenderKnowledgeMetadataFields"
-                            CanEditKnowledgeStatus="@CanEditKnowledgeStatus"
-                            KnowledgeFolder="@KnowledgeFolder"
-                            OnKnowledgeNavigate="@OnKnowledgeNavigate"
-                            KnowledgeHrefFor="@KnowledgeHrefFor" />;
+                            RenderDevbookMetadata="@RenderDevbookMetadata"
+                            RenderDevbookMetadataFields="@RenderDevbookMetadataFields"
+                            CanEditDevbookStatus="@CanEditDevbookStatus"
+                            DevbookFolder="@DevbookFolder"
+                            OnDevbookNavigate="@OnDevbookNavigate"
+                            DevbookHrefFor="@DevbookHrefFor" />;
 
     /// <summary>
     /// The mark a chapter's heading leads with: its own <c>type</c>, drawn as the
@@ -253,7 +253,7 @@
     /// </summary>
     private RenderFragment? ChapterMark(int index) =>
         PairedMetaFence(index) is { } fence
-        && KnowledgeTypeMarkers.MarkedIn(KnowledgeFolder, MetadataOf(fence).Type) is { } type
+        && DevbookTypeMarkers.MarkedIn(DevbookFolder, MetadataOf(fence).Type) is { } type
             ? TypeMark(type)
             : null;
 
@@ -269,8 +269,8 @@
     /// <c>;</c> is what leaves it with nothing to pick up.</para>
     /// </summary>
     private static RenderFragment TypeMark(string type) =>
-        @<KnowledgeTypeMarker Value="@type"
-                              CssClass="knowledge-type-marker--leads"
+        @<DevbookTypeMarker Value="@type"
+                              CssClass="devbook-type-marker--leads"
                               Labelled="true"
                               ShowTooltip="false"
                               TestId="markdown-chapter-type-mark" />;
@@ -295,7 +295,7 @@
     private bool Annotated => CanComment || CanRewrite || Comments.Count > 0 || Proposals.Count > 0;
 
     private string ViewClass =>
-        $"md-view{(Layout is MarkdownCommentLayout.Margin && Annotated ? " md-view--margin" : string.Empty)}{(DrawsKnowledgeStatus ? " md-view--status-column" : string.Empty)}";
+        $"md-view{(Layout is MarkdownCommentLayout.Margin && Annotated ? " md-view--margin" : string.Empty)}{(DrawsDevbookStatus ? " md-view--status-column" : string.Empty)}";
 
     /// <summary>Whether this document draws chapter status, and so owes the
     /// column down its right that the status is read in.
@@ -306,8 +306,8 @@
     /// `meta` fence renders no status however knowledgeable the view is
     /// configured to be — and a column reserved for a status nobody drew is a
     /// margin of nothing.</para></summary>
-    private bool DrawsKnowledgeStatus =>
-        RenderKnowledgeMetadata
+    private bool DrawsDevbookStatus =>
+        RenderDevbookMetadata
         && Blocks.Any(block => block is MdCode fence && MetadataReader.IsMetaBlock(fence.Language));
 
     /// <summary>What the block reserves on its right, said as a class so the
@@ -691,7 +691,7 @@
     /// it is. Off by default: most markdown in this product is not a knowledge
     /// document, and where it is not, a `meta` fence is only a fenced block.</summary>
     [Parameter]
-    public bool RenderKnowledgeMetadata { get; set; }
+    public bool RenderDevbookMetadata { get; set; }
 
     /// <summary>Whether the document's own metadata block — the fence under the
     /// title that opens it — is drawn here at all. On by default, so a host that
@@ -710,7 +710,7 @@
     /// the chapter under it, that heading is in the body, and this says nothing
     /// about it.</para></summary>
     [Parameter]
-    public bool RenderFileKnowledgeMetadata { get; set; } = true;
+    public bool RenderFileDevbookMetadata { get; set; } = true;
 
     /// <summary>Whether a metadata record draws everything under the status as
     /// well. On by default, so nothing that renders one today changes. A surface
@@ -719,7 +719,7 @@
     /// printing them as rows is the fence again with the fence taken off.
     /// Forwarded verbatim to <c>MetadataView.ShowFields</c>.</summary>
     [Parameter]
-    public bool RenderKnowledgeMetadataFields { get; set; } = true;
+    public bool RenderDevbookMetadataFields { get; set; } = true;
 
     /// <summary>Whether a chapter's status may be changed from this view. False
     /// draws the static badge in place of the select — the status is still
@@ -727,17 +727,17 @@
     /// from a repository branch passes false, because the file behind it is a
     /// copy of a commit and an edit would not survive the next fetch.</summary>
     [Parameter]
-    public bool CanEditKnowledgeStatus { get; set; } = true;
+    public bool CanEditDevbookStatus { get; set; } = true;
 
     /// <summary>Which knowledge folder the document was read from, so a status
     /// can be checked against that folder's vocabulary.</summary>
     [Parameter]
-    public KnowledgeFolder KnowledgeFolder { get; set; } = KnowledgeFolder.Unknown;
+    public DevbookFolder DevbookFolder { get; set; } = DevbookFolder.Unknown;
 
     /// <summary>Raised with the reference a reader activated in a metadata
     /// block.</summary>
     [Parameter]
-    public EventCallback<KnowledgeReference> OnKnowledgeNavigate { get; set; }
+    public EventCallback<DevbookReference> OnDevbookNavigate { get; set; }
 
     /// <summary>
     /// The repository-relative path of the knowledge document these blocks were
@@ -752,24 +752,24 @@
     ///
     /// <para>Handing it over also says this <em>is</em> a knowledge document, which
     /// is why it opens the inline hook on its own. The instruction files are read
-    /// in the knowledge pane and carry no <c>meta</c> fence at all, so
-    /// <see cref="RenderKnowledgeMetadata"/> — a question about fences — has
+    /// in the Devbook pane and carry no <c>meta</c> fence at all, so
+    /// <see cref="RenderDevbookMetadata"/> — a question about fences — has
     /// nothing to say about them. Both signals stay opt-in and an entry's body
     /// gives neither, which is what keeps a path in one a path being quoted.</para>
     /// </summary>
     [Parameter]
-    public string? KnowledgeDocumentPath { get; set; }
+    public string? DevbookDocumentPath { get; set; }
 
     /// <summary>Resolves a metadata reference to a link target.</summary>
     [Parameter]
-    public Func<KnowledgeReference, string?>? KnowledgeHrefFor { get; set; }
+    public Func<DevbookReference, string?>? DevbookHrefFor { get; set; }
 
     /// <summary>Raised when a reader picked a different status in the record
     /// beside a chapter's heading. Nothing here writes it — see
-    /// <see cref="KnowledgeStatusChange"/> for what the host is being told and
+    /// <see cref="DevbookStatusChange"/> for what the host is being told and
     /// what it still owns.</summary>
     [Parameter]
-    public EventCallback<KnowledgeStatusChange> OnKnowledgeStatusChanged { get; set; }
+    public EventCallback<DevbookStatusChange> OnDevbookStatusChanged { get; set; }
 
     /// <summary>Parsed metadata blocks, kept per block. A view re-renders far
     /// more often than its blocks change — every comment edit redraws all of
@@ -816,7 +816,7 @@
     /// remark and being handed one to react to were never the same request.
     /// <para>
     /// Checked on every parameter set rather than once on add, because this view
-    /// does not control how a host stores its comments: a knowledge panel mutates
+    /// does not control how a host stores its comments: a Devbook panel mutates
     /// the same list in place and a storybook page replaces it wholesale, and
     /// both have to be noticed the same way. Cheap enough to ask every render —
     /// the list a document carries is never long.
@@ -925,8 +925,8 @@
     /// title when the source is known. Read whether or not the copy button was
     /// asked for: what the change is called does not depend on that.</summary>
     private Task ReportStatusAsync(int index, string? status) =>
-        OnKnowledgeStatusChanged.InvokeAsync(
-            new KnowledgeStatusChange(index, _chapters.TryGetValue(index, out var chapter) ? chapter.Title : null, status));
+        OnDevbookStatusChanged.InvokeAsync(
+            new DevbookStatusChange(index, _chapters.TryGetValue(index, out var chapter) ? chapter.Title : null, status));
 
     private MetadataRecord MetadataOf(MdCode block)
     {
@@ -960,7 +960,7 @@
         if (_shownMetadata.TryGetValue(block, out var shown)) return shown;
 
         var parsed = MetadataOf(block);
-        shown = KnowledgeTypeMarkers.MarkedIn(KnowledgeFolder, parsed.Type) is null
+        shown = DevbookTypeMarkers.MarkedIn(DevbookFolder, parsed.Type) is null
             ? parsed
             : parsed.WithoutType();
 
@@ -983,7 +983,7 @@
     /// currency a reader most needs to see — was the only one that showed its
     /// status as a raw code fence.</para></summary>
     private MdCode? PairedMetaFence(int index) =>
-        RenderKnowledgeMetadata
+        RenderDevbookMetadata
         && !(index == 0 && HoistsFileMetadata)
         && index + 1 < Blocks.Count
         && Blocks[index] is MdHeading
@@ -997,8 +997,8 @@
     /// a view that was never told to read <c>meta</c> fences at all has no records
     /// to hoist and its fence is still a code block.</summary>
     private bool HoistsFileMetadata =>
-        RenderKnowledgeMetadata
-        && !RenderFileKnowledgeMetadata
+        RenderDevbookMetadata
+        && !RenderFileDevbookMetadata
         && MarkdownFileMetadata.OpensWithFileBlock(Blocks);
 
     /// <summary>Whether the block at this index is drawn somewhere other than its
@@ -1054,22 +1054,22 @@
     /// what keeps a code span in an entry's body a code span.
     ///
     /// <para>What the hook then does is
-    /// <see cref="KnowledgeInlineTargets"/>'s, and deliberately not this view's:
+    /// <see cref="DevbookInlineTargets"/>'s, and deliberately not this view's:
     /// the arc42 read-only fallback and the design sections render their own block
     /// trees straight through <see cref="MarkdownRender"/>, and a rule that lived
     /// here would have had to be written a second and third time to reach
     /// them.</para>
     ///
     /// <para>Two signals rather than one because they answer different questions.
-    /// <see cref="RenderKnowledgeMetadata"/> asks whether a <c>meta</c> fence is a
+    /// <see cref="RenderDevbookMetadata"/> asks whether a <c>meta</c> fence is a
     /// record, which the instruction files — read in the same pane, carrying
     /// frontmatter instead — never had an opinion about;
-    /// <see cref="KnowledgeDocumentPath"/> says outright which knowledge document
+    /// <see cref="DevbookDocumentPath"/> says outright which knowledge document
     /// this is. Either is a host stating that the prose here is convention-written
     /// prose. Neither is anything an entry's body says.</para>
     /// </summary>
     private MarkdownRender.MarkdownInlineTarget? InlineTarget =>
-        RenderKnowledgeMetadata || !string.IsNullOrWhiteSpace(KnowledgeDocumentPath)
-            ? KnowledgeInlineTargets.For(KnowledgeDocumentPath, KnowledgeHrefFor, OnKnowledgeNavigate)
+        RenderDevbookMetadata || !string.IsNullOrWhiteSpace(DevbookDocumentPath)
+            ? DevbookInlineTargets.For(DevbookDocumentPath, DevbookHrefFor, OnDevbookNavigate)
             : null;
 }

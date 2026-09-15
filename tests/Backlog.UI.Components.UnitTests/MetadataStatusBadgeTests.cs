@@ -2,11 +2,11 @@ namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
 /// The read-only status badge, and the one thing that must stay true of it: it is
-/// the same element <c>KnowledgeStatusPill</c> has always rendered.
+/// the same element <c>DevbookStatusPill</c> has always rendered.
 ///
 /// <para>The pill was the only shape of this, and it carried the folder lookup
 /// inside it — which is what kept <c>MetadataView</c>'s headline tied to
-/// <c>KnowledgeFolder</c>, because the headline needs the badge, the modifier and
+/// <c>DevbookFolder</c>, because the headline needs the badge, the modifier and
 /// the flag on a word nobody recognises, and all three lived behind a folder. So
 /// the drawing moved here and the pill became the folder lookup over it: one
 /// implementation, and no second opinion about what a status looks like.</para>
@@ -23,21 +23,21 @@ public sealed class MetadataStatusBadgeTests
     {
         using var context = new BunitContext();
 
-        foreach (var folder in Enum.GetValues<KnowledgeFolder>())
+        foreach (var folder in Enum.GetValues<DevbookFolder>())
         {
             // Every word of the folder, plus one that is not — the flagged badge
             // is the most elaborate thing either component emits, so it is the
             // case worth pinning even though the record's headline would draw a
             // select for the others.
-            foreach (var status in KnowledgeStatus.Values(folder).Append("shipped"))
+            foreach (var status in DevbookStatus.Values(folder).Append("shipped"))
             {
-                var pill = context.Render<KnowledgeStatusPill>(parameters => parameters
+                var pill = context.Render<DevbookStatusPill>(parameters => parameters
                     .Add(p => p.Status, status)
                     .Add(p => p.Folder, folder));
 
                 var badge = context.Render<MetadataStatusBadge>(parameters => parameters
                     .Add(b => b.Status, status)
-                    .Add(b => b.Vocabulary, KnowledgeStatus.Vocabulary(folder)));
+                    .Add(b => b.Vocabulary, DevbookStatus.Vocabulary(folder)));
 
                 Assert.Equal(pill.Markup, badge.Markup);
             }
@@ -57,7 +57,7 @@ public sealed class MetadataStatusBadgeTests
 
         var badge = context.Render<MetadataStatusBadge>(parameters => parameters
             .Add(b => b.Status, status)
-            .Add(b => b.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)));
+            .Add(b => b.Vocabulary, DevbookStatus.Vocabulary(DevbookFolder.Tech)));
 
         Assert.Empty(badge.Markup.Trim());
     }
@@ -72,14 +72,14 @@ public sealed class MetadataStatusBadgeTests
 
         var badge = context.Render<MetadataStatusBadge>(parameters => parameters
             .Add(b => b.Status, " Adopted ")
-            .Add(b => b.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)));
+            .Add(b => b.Vocabulary, DevbookStatus.Vocabulary(DevbookFolder.Tech)));
 
         var span = badge.Find("span.badge");
 
         Assert.Equal("Adopted", span.TextContent.Trim());
 
         // Recognised, so no flag — and the modifier the tone gives it.
-        Assert.DoesNotContain("knowledge-status--unrecognised", span.ClassList);
+        Assert.DoesNotContain("devbook-status--unrecognised", span.ClassList);
         Assert.Contains("badge--status-active", span.ClassList);
     }
 
@@ -109,7 +109,7 @@ public sealed class MetadataStatusBadgeTests
 
         var flagged = typo.Find("span.badge");
 
-        Assert.Contains("knowledge-status--unrecognised", flagged.ClassList);
+        Assert.Contains("devbook-status--unrecognised", flagged.ClassList);
         Assert.Contains("badge--status-archived", flagged.ClassList);
         Assert.Equal("Unexpected status. Expected one of: staged, shipped.", flagged.GetAttribute("title"));
     }
@@ -124,13 +124,13 @@ public sealed class MetadataStatusBadgeTests
 
         var badge = context.Render<MetadataStatusBadge>(parameters => parameters
             .Add(b => b.Status, "shipped")
-            .Add(b => b.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech))
+            .Add(b => b.Vocabulary, DevbookStatus.Vocabulary(DevbookFolder.Tech))
             .Add(b => b.CssClass, "host-own")
             .Add(b => b.TestId, "status"));
 
         var span = badge.Find("span.badge");
 
-        Assert.EndsWith("knowledge-status--unrecognised host-own", span.ClassName, StringComparison.Ordinal);
+        Assert.EndsWith("devbook-status--unrecognised host-own", span.ClassName, StringComparison.Ordinal);
         Assert.Equal("status", span.GetAttribute("data-testid"));
     }
 }

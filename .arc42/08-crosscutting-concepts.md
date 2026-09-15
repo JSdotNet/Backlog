@@ -23,11 +23,11 @@ related: [".arc42/02-constraints.md#technical-constraints", ".arc42/06-runtime-v
   Tasks (`tasks`), Roadmap Planning (`roadmap_plan`) and the Inbox (`inbox_items`,
   `inbox_lists`, `inbox_groups`) share the file and not the schema. See
   `.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md`.
-- **Knowledge is the other way round** — a repository's knowledge folders stay
+- **The Devbook is the other way round** — a repository's knowledge folders stay
   markdown-canonical, and only the layer derived from them is a database. The two
   decisions are not in tension: a task is owned by the app, a knowledge chapter is
   owned by the repository and edited outside it. See
-  `.arc42/08-crosscutting-concepts.md#knowledge-index`.
+  `.arc42/08-crosscutting-concepts.md#devbook-database`.
 - **Configurable repo paths** via a repo registry (`config/repos.json`).
 - **Scope-portable dot-folder contract** — `.inbox/`, `.backlog/`, `.brain/` exist at
   workspace, repo, and project levels; shared tags/relationships live in the
@@ -90,7 +90,7 @@ related: [".arc42/02-constraints.md#technical-constraints", ".arc42/06-runtime-v
   context (`session_id`, `worktree_path`, `branch`) without routing credentials
   through the optional Cloud Service.
 - **Copilot capture vs. Copilot session tracking** — capture uses session context to
-  create Inbox/Backlog/Knowledge items, while Dev PC Management tracking is a
+  create Inbox/Backlog/Devbook items, while Dev PC Management tracking is a
   separate compliance/monitoring concern.
 
 ## Task Sync
@@ -242,11 +242,11 @@ rather than something anything here has shown.
   is still keyed on the machine id, which is the thing a rename does not move.
 - **Retention is a 12-month container TTL**, and nothing else removes a record.
 
-## Knowledge Index
+## Devbook Database
 
 ```meta
 status: active
-related: [".arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".arc42/02-constraints.md#technical-constraints", ".domain/second-brain/features.md#repository-knowledge-areas"]
+related: [".arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".arc42/02-constraints.md#technical-constraints", ".domain/devbook/features.md#repository-devbook-areas"]
 ```
 
 How every channel reads the knowledge a repository carries alongside its code.
@@ -255,7 +255,7 @@ How every channel reads the knowledge a repository carries alongside its code.
   chapters, the resolved reading outline, the retrieval indexes and the diagram
   artifact index are all derived. Nothing that is derived is authoritative, and
   nothing that is authored lives only in the derived layer.
-- **One generated SQLite database per knowledge repository**, at `_meta/knowledge.db`
+- **One generated SQLite database per knowledge repository**, at `_meta/devbook.db`
   beside the folders it describes rather than in the workspace root, because an area
   is resolved per registered repository and the app reads repositories it did not
   build.
@@ -292,9 +292,9 @@ How every channel reads the knowledge a repository carries alongside its code.
   MCP server read the same schema rather than each carrying its own markdown parser.
 
 > Implemented on 2026-09-08, with two deliberate gaps. The derived layer is
-> `_meta/knowledge.db`, written by `tools/knowledge/build-database.mjs` and
+> `_meta/devbook.db`, written by `tools/devbook/build-database.mjs` and
 > git-ignored; each knowledge folder carries a committed `_reading-order.json`
-> holding the authored half; and `Backlog.Infrastructure.Knowledge` reads the
+> holding the authored half; and `Backlog.Infrastructure.Devbook` reads the
 > database read-only, down every rung of the ladder above.
 >
 > The gaps are the refresh paths that need the app to start the generator — the
@@ -312,7 +312,7 @@ How every channel reads the knowledge a repository carries alongside its code.
 
 ```meta
 status: proposed
-related: [".arc42/04-solution-strategy.md", ".domain/second-brain/features.md#repository-knowledge-areas", ".domain/dev-pc-management/features.md#copilot-tool-catalog"]
+related: [".arc42/04-solution-strategy.md", ".domain/devbook/features.md#repository-devbook-areas", ".domain/dev-pc-management/features.md#copilot-tool-catalog"]
 ```
 
 - **Optional capabilities are switchable per installation** — repository knowledge,
@@ -395,7 +395,7 @@ latency per project) alongside local queue/backlog health metrics. Telemetry fol
 
 ```meta
 status: active
-related: [".arc42/12-glossary.md", ".domain/inbox/domain.md#inbox-item", ".domain/tasks/domain.md#task", ".domain/second-brain/domain.md#knowledge-note", ".domain/monitoring/domain.md#progress-signal", ".domain/dev-pc-management/domain.md#machine-registry", ".domain/sessions/domain.md#session-log", ".domain/repository-management/domain.md#repository-registry", ".domain/technology-stack/domain.md#technology-registry", ".domain/roadmap/domain.md#roadmap-item-gathering"]
+related: [".arc42/12-glossary.md", ".domain/inbox/domain.md#inbox-item", ".domain/tasks/domain.md#task", ".domain/devbook/domain.md#knowledge-note", ".domain/monitoring/domain.md#progress-signal", ".domain/dev-pc-management/domain.md#machine-registry", ".domain/sessions/domain.md#session-log", ".domain/repository-management/domain.md#repository-registry", ".domain/technology-stack/domain.md#technology-registry", ".domain/roadmap/domain.md#roadmap-item-gathering"]
 ```
 
 The vocabulary exchanged across all applications and domains is owned per
@@ -407,7 +407,7 @@ architectural concern:
 |---|---|
 | **InboxItem** | `.domain/inbox/domain.md#inbox-item` |
 | **TaskItem** (ubiquitous term: Task) | `.domain/tasks/domain.md#task` |
-| **KnowledgeNote** | `.domain/second-brain/domain.md#knowledge-note` |
+| **KnowledgeNote** | `.domain/devbook/domain.md#knowledge-note` |
 | **ProgressSignal** | `.domain/monitoring/domain.md#progress-signal` |
 | **RoutingRule** | Not yet modeled in `.domain` — tracked in `.arc42/11-risks-and-technical-debt.md` |
 | **MachineRegistration** | `.domain/dev-pc-management/domain.md#machine-registry` |

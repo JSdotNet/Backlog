@@ -1,6 +1,6 @@
 ---
 name: naming
-description: Repository-wide file and folder naming conventions for assets outside the knowledge folders, which the knowledge-base plugin governs separately.
+description: Repository-wide file and folder naming conventions for assets outside the knowledge folders, which the devbook plugin governs separately.
 paths:
   - "**"
 ---
@@ -8,7 +8,7 @@ paths:
 # File and folder naming
 
 Naming **inside** the knowledge folders (`.arc42/`, `.domain/`, `.backlog/`,
-`.tech/`, `.design/`, and any `_meta/`) is governed by the `knowledge-base`
+`.tech/`, `.design/`, and any `_meta/`) is governed by the `devbook`
 plugin's `knowledge-naming.instructions.md`. This file covers only the rest of
 the repository.
 

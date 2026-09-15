@@ -232,7 +232,7 @@ public sealed class ArchifyDiagramArtifactsTests
 
     /// <summary>
     /// Two specifications for one diagram is an authoring mistake, and the
-    /// generator says so and refuses. Here it must not: a knowledge pane that
+    /// generator says so and refuses. Here it must not: a Devbook pane that
     /// threw would fail to draw the whole chapter because of a stray file beside
     /// it. The alphabetically first wins, so the wrong answer is at least the
     /// same wrong answer on every machine and in every process.
@@ -531,7 +531,7 @@ public sealed class ArchifyDiagramArtifactsTests
 
     /// <summary>
     /// The regression QA found. Nothing raises an event when a chapter file is
-    /// saved — <c>IKnowledgeFolderSource.Changed</c> is about a folder moving —
+    /// saved — <c>IDevbookFolderSource.Changed</c> is about a folder moving —
     /// so the cached fence map answered for a file that had since been edited:
     /// the new fence hashed to a key the map had never heard of, Find returned
     /// null, and the reader got plain mermaid with no drift alert and no offer.
@@ -695,7 +695,7 @@ file sealed class ArchifyWorkspace : IDisposable
 
     private readonly string _root;
     private readonly FakeAppFeatureSettings _features;
-    private readonly FakeKnowledgeFolderSource _folders;
+    private readonly FakeDevbookFolderSource _folders;
     private readonly GitHubSettingsStore _repositories;
 
     /// <summary>The index as it is being built up, in insertion order, so a test
@@ -718,7 +718,7 @@ file sealed class ArchifyWorkspace : IDisposable
         Directory.CreateDirectory(ArtifactDirectory);
 
         _features = new FakeAppFeatureSettings(archifyDiagrams, copilotCli);
-        _folders = new FakeKnowledgeFolderSource(root);
+        _folders = new FakeDevbookFolderSource(root);
 
         // A store pointed at an empty temp file, so the only scope the adapter can
         // resolve through is the unscoped one the folder source answers.
@@ -860,7 +860,7 @@ file sealed class FakeAppFeatureSettings(bool archifyDiagrams, bool copilotCli) 
 {
     private readonly Dictionary<string, bool> _switches = new(StringComparer.OrdinalIgnoreCase)
     {
-        [KnowledgeFeatures.ArchifyDiagrams] = archifyDiagrams,
+        [DevbookFeatures.ArchifyDiagrams] = archifyDiagrams,
         [AppFeatureKeys.CopilotCli] = copilotCli
     };
 
@@ -890,21 +890,21 @@ file sealed class FakeAppFeatureSettings(bool archifyDiagrams, bool copilotCli) 
 /// <c>.domain</c>, <c>.arc42</c>, <c>.tech</c> and <c>.design</c> — and a folder
 /// that is not in this fixture answers the way a folder nobody configured does.
 /// </summary>
-file sealed class FakeKnowledgeFolderSource(string root) : IKnowledgeFolderSource
+file sealed class FakeDevbookFolderSource(string root) : IDevbookFolderSource
 {
     public event Action? Changed;
 
     public string StorageDirectory => root;
 
-    public IReadOnlyList<KnowledgeFolderSetting> Folders(string? repositoryAlias) => [];
+    public IReadOnlyList<DevbookFolderSetting> Folders(string? repositoryAlias) => [];
 
-    public KnowledgeFolderLocation Resolve(string key, string? repositoryAlias = null)
+    public DevbookFolderLocation Resolve(string key, string? repositoryAlias = null)
     {
         var full = Path.Combine(root, key);
 
         return Directory.Exists(full)
-            ? new KnowledgeFolderLocation(key, true, null, null, null, full, root)
-            : KnowledgeFolderLocation.Unavailable(key, $"{key} is not configured here.");
+            ? new DevbookFolderLocation(key, true, null, null, null, full, root)
+            : DevbookFolderLocation.Unavailable(key, $"{key} is not configured here.");
     }
 
     public void NotifyContentChanged() => Changed?.Invoke();

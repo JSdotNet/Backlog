@@ -124,7 +124,7 @@ classDiagram
   through sync reuses the capture's id as its own.
 - Routing does not embed the target aggregate; it records the destination
   (`domain`, `repo_ids`, `task_ids`) and hands off via `ItemTriaged`. Tasks and
-  Second Brain own the created entities.
+  Devbook own the created entities.
 - Two flags the store keeps beside the item — whether it is replica-backed and
   whether the replica still owes an acknowledgement — are sync bookkeeping for
   the intake and outbox adapters and deliberately not part of the model here.

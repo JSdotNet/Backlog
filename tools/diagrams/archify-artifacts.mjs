@@ -27,7 +27,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..', '..');
 const ARCHIFY = join(REPO, 'tools', 'archify', 'bin', 'archify.mjs');
 
-/** The knowledge folders `KnowledgeFolderSetting.Defaults()` names, which are the
+/** The knowledge folders `DevbookFolderSetting.Defaults()` names, which are the
  *  folders the app resolves chapters out of. A diagram anywhere else is not a
  *  knowledge chapter diagram and is left alone. */
 const KNOWLEDGE_FOLDERS = ['.domain', '.arc42', '.tech', '.design'];

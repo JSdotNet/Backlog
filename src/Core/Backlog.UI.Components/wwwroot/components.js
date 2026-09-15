@@ -1117,7 +1117,7 @@
     const BACKLOG_SINGLE_PANE_MAX_REM = 72;
     const BACKLOG_THREE_PANE_MIN_REM = 96;
     // The app's own knowledge layout, or any SplitPane the library renders.
-    const BACKLOG_PANE_LAYOUT_SELECTOR = '[data-testid="knowledge-layout"], [data-pane-split]';
+    const BACKLOG_PANE_LAYOUT_SELECTOR = '[data-testid="devbook-layout"], [data-pane-split]';
 
     /**
      * Who to tell when a drag settles, one entry per resizable layout.
@@ -1176,7 +1176,7 @@
     /**
      * Which edge the resized pane is anchored to.
      *
-     * The app's knowledge panel sits on the right, so its width is the distance
+     * The app's Devbook panel sits on the right, so its width is the distance
      * from the pointer to the layout's right edge. A SplitPane's bound value is the
      * width of whichever pane its Anchor names, so a start-anchored one measures
      * from the left edge instead. Measuring both the same way made the library's
@@ -1221,7 +1221,7 @@
             owner.invokeMethodAsync('SetGlobalPaneCapacityAsync', capacity);
 
             // Measured per owner, because two layouts on one page do not have the
-            // same room: the shell's knowledge panel may take the window, while a
+            // same room: the shell's Devbook panel may take the window, while a
             // split nested inside it may only take what its own box has left.
             const layout = backlogLayoutForKey(key);
             if (layout) owner.invokeMethodAsync('SetSidePaneMaxWidthAsync', backlogPaneMaxRem(layout));
@@ -1285,7 +1285,7 @@
             width = backlogPaneWidthAt(layout, move.clientX);
             // Both names are set so the app's knowledge layout and the library's
             // SplitPane each read the one their stylesheet knows.
-            layout.style.setProperty('--knowledge-panel-width', `${width}rem`);
+            layout.style.setProperty('--devbook-panel-width', `${width}rem`);
             layout.style.setProperty('--split-pane-fixed', `${width}rem`);
             handle.setAttribute('aria-valuenow', String(width));
         };
@@ -1952,7 +1952,7 @@
 
 
     /*
-        The knowledge atlas: a graph drawn as a place rather than a chart.
+        The Devbook atlas: a graph drawn as a place rather than a chart.
 
         Nodes sit in three dimensions, clustered by group, and the picture is a
         perspective projection of that onto a canvas. Depth is the point — it is
@@ -3053,7 +3053,7 @@
                     chapter reads as a card the diagram is sitting on rather than as
                     part of the page. All three go, and the frame element's own
                     background goes with them in components.css, so what is behind
-                    the drawing is the knowledge pane.
+                    the drawing is the Devbook pane.
 
                     The grid is the one that cannot be reached through a class,
                     because it has none: it is

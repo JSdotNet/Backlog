@@ -52,7 +52,7 @@
     {
       "id": "knowBrowser",
       "type": "backend",
-      "label": "Knowledge Browser",
+      "label": "Devbook Browser",
       "sublabel": "Search & links",
       "pos": [
         460,

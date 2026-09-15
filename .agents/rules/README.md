@@ -18,5 +18,5 @@ A rule fires when a host **reads** a matching file, so authoring a file from scr
 trigger it. Open a sibling first, or read the rule directly. `CLAUDE.md` and
 `.github/copilot-instructions.md` point at the rules by path for the same reason.
 
-Naming inside the knowledge folders stays with the `knowledge-base` plugin's own instruction
+Naming inside the knowledge folders stays with the `devbook` plugin's own instruction
 files; `naming.md` here covers the rest of the repository.

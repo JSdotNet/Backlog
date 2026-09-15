@@ -31,7 +31,7 @@ status: active
 | C4 | Accessible drag-and-drop reorder (list + tree) | Reorder of items and chapters with keyboard parity (see `interaction-guidelines.md#drag-and-drop-reordering`). |
 | C5 | Accessibility (WCAG AA) | Platform a11y semantics must be first-class (see `accessibility.md`). |
 | C6 | Maintenance / license / longevity | Prefer actively maintained, permissively licensed, first-party-aligned options. |
-| C7 | Diagrams, knowledge graphs, and charts | Flow, C4, domain, technology graph, and dashboard visualizations are core knowledge-base surfaces. |
+| C7 | Diagrams, knowledge graphs, and charts | Flow, C4, domain, technology graph, and dashboard visualizations are core Devbook surfaces. |
 
 ## Key Finding: Tokens Are the Shared Layer
 
@@ -185,7 +185,7 @@ Backlog should solve diagrams in layers instead of relying on one component suit
 
 | Need | Choice | Guidance |
 |---|---|---|
-| Flow, C4, sequence, state, class/domain-model diagrams in knowledge Markdown | **Mermaid** | Render fenced `mermaid`/`mmd` blocks directly inside knowledge-base Markdown. Keep Markdown as the canonical source and show the source fallback when rendering fails or assets are unavailable. |
+| Flow, C4, sequence, state, class/domain-model diagrams in knowledge Markdown | **Mermaid** | Render fenced `mermaid`/`mmd` blocks directly inside knowledge-folder Markdown. Keep Markdown as the canonical source and show the source fallback when rendering fails or assets are unavailable. |
 | A considered picture for the diagrams that earn one | **Archify** (generated artifact) | An optional second rendering of a fence somebody has authored a specification for. Never a replacement for Mermaid and never automatic: a fence with no artifact, or whose text has moved on, is drawn by Mermaid. See `#archify-artifacts` below. |
 | A C4 model of the system, beside the chapters rather than inside one | **c4hero** (authoring) + **a first-party renderer** (drawing) | A Structurizr workspace under `.arc42/_c4/`, edited in c4hero and drawn by the app from the DSL. Mermaid drew it first and could not be themed into the shape a C4 view wants — it sizes its own boxes, draws no glyph and writes every colour inline. Additive: it replaces no fence, and the `C4Context`/`C4Container` fences in chapters 03 and 05 stay canonical. See `#c4-workspaces` below. |
 | Technology graph / knowledge graph exploration | **A first-party canvas renderer** | Draw the `.tech` graph as a 3D-projected atlas: one cluster per layer, node size by in-degree, curved edges, and a camera that moves to what is selected. Colour comes from `color-scheme.md#chart-roles` — the palette carries one saturated hue, so an ordinal status reads as a position on that hue's ramp and never as a hue of its own, with shape carrying what the ramp cannot. The keyboard companion below is part of the renderer, not an addition to it. |

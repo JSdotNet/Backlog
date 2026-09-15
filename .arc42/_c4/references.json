@@ -17,7 +17,7 @@
     "    .github/tools/knowledge-meta/graph.mjs resolves a reference against nodes built",
     "    from .md files only, and folderKindForPath treats anything under .arc42/ as",
     "    inside-knowledge — so a .dsl target is an error, not a warning. That generator is",
-    "    an installed copy of the knowledge-base plugin's tooling and must not be edited",
+    "    an installed copy of the devbook plugin's tooling and must not be edited",
     "    here.",
     "",
     "  - A `properties` block in the workspace or on a view would keep the link with the",

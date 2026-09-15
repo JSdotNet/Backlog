@@ -29,7 +29,7 @@ public sealed class C4ExplorationTests
                             "status" "Active"
                         }
                         shell = component "Shell" "Holds the panes" "Blazor"
-                        knowledge = component "Knowledge" "Draws the folders" "Razor"
+                        knowledge = component "Devbook" "Draws the folders" "Razor"
                     }
                     cloud = container "Cloud Service" "Sync" "ASP.NET Core" {
                         properties {

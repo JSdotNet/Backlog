@@ -101,7 +101,7 @@ public sealed class AccountBindingTests : IDisposable
         Assert.Null(store.SetRepositoryToken("backlog", "ghp_repository"));
         Assert.Null(store.SetApiEndpoint("https://ghe.example.internal/api/v3"));
         Assert.Null(store.SetShowRepositoryColours(true));
-        Assert.Null(store.SetKnowledgeFolder("backlog", ".domain", enabled: false, path: null));
+        Assert.Null(store.SetDevbookFolder("backlog", ".domain", enabled: false, path: null));
 
         var reopened = Store();
         Assert.Equal("JSdotNet", reopened.Current.Find("backlog")!.Account);
@@ -256,7 +256,7 @@ public sealed class AccountBindingTests : IDisposable
                   "cloneDirectory": "/tmp/backlog-clone",
                   "token": "ghp_secret",
                   "colour": 3,
-                  "knowledgeFolders": [ { "key": ".domain", "enabled": false, "path": "/tmp/domain" } ]
+                  "devbookFolders": [ { "key": ".domain", "enabled": false, "path": "/tmp/domain" } ]
                 }
               ],
               "apiEndpoint": "https://ghe.example.internal/api/v3"
@@ -276,7 +276,7 @@ public sealed class AccountBindingTests : IDisposable
         Assert.Null(repository.Account);
         Assert.Equal("https://ghe.example.internal/api/v3", store.Current.ApiEndpoint);
 
-        var domain = repository.KnowledgeFolders.Single(f => f.Key == ".domain");
+        var domain = repository.DevbookFolders.Single(f => f.Key == ".domain");
         Assert.False(domain.Enabled);
         Assert.Equal("/tmp/domain", domain.Path);
     }

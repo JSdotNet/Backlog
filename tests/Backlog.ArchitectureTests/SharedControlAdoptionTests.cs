@@ -22,7 +22,7 @@ namespace Backlog.ArchitectureTests;
 /// <para>The second half exists because the first was fully held and the drift
 /// went on anyway: a repository-wide search for raw controls returns nothing,
 /// while the shell had hand-rolled the save-state indicator down to its dot and
-/// its modifiers, and two knowledge panels had hand-rolled badges. None of it
+/// its modifiers, and two Devbook panels had hand-rolled badges. None of it
 /// was a raw control, so no rule saw it.</para>
 ///
 /// <para>Both halves are deliberately narrow. A raw element is only a finding
@@ -105,7 +105,7 @@ public class SharedControlAdoptionTests
     ///
     /// <list type="bullet">
     /// <item><c>badge--gh</c> — the linked GitHub issue and pull request badges,
-    /// in Tasks and in Second Brain. <c>IntegrationLink</c> is what
+    /// in Tasks and in Devbook. <c>IntegrationLink</c> is what
     /// these become, and it draws itself as <c>integration-link</c> rather than
     /// <c>badge--gh</c>, so adopting it is a visual change to both areas at
     /// once. Converting one and leaving the other would put two shapes on the
@@ -153,7 +153,7 @@ public class SharedControlAdoptionTests
     /// count beside a title (<c>Badge</c>).
     ///
     /// <para>Matched as whole words after splitting on <c>-</c>, so
-    /// <c>domain-knowledge__action-error</c> is a finding and
+    /// <c>domain-devbook__action-error</c> is a finding and
     /// <c>tools-inventory__meta</c> is not. Read off the modifier as well as the
     /// element, because the highest-value copies in this repository are written as
     /// modifiers rather than elements — <c>setting__status--error</c> is the
@@ -176,8 +176,8 @@ public class SharedControlAdoptionTests
     /// element's <c>InnerHtml</c> rather than by their own class, so the nesting
     /// is load-bearing. Left whole and deliberately, so the conversion happens
     /// once with the settings screen in front of somebody.</item>
-    /// <item><c>knowledge-folder__status</c> — the same screen and the same
-    /// answer; it is a status line in the settings knowledge-folder rows, with a
+    /// <item><c>devbook-folder__status</c> — the same screen and the same
+    /// answer; it is a status line in the settings devbook-folder rows, with a
     /// <c>data-folder-state</c> attribute that no component takes yet.</item>
     /// <item><c>feature-flag__status</c> — the words "Always available" inside a
     /// <c>Toggle</c>'s own <c>TextContent</c> slot. Not a status line: it says the
@@ -200,7 +200,7 @@ public class SharedControlAdoptionTests
     [
         "chip__count",
         "feature-flag__status",
-        "knowledge-folder__status",
+        "devbook-folder__status",
         "setting__status"
     ];
 

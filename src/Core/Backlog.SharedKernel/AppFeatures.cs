@@ -76,9 +76,11 @@ public enum AppFeatureGroup
 /// second thing to keep in step.
 /// </para>
 /// <para>
-/// <paramref name="FormerKeys"/> is for the one case the rule "a key never
+/// <paramref name="FormerKeys"/> is for the two cases the rule "a key never
 /// changes" cannot cover: a feature that has genuinely become a different
-/// feature, such as three switches folding into one. The key is a persisted
+/// feature, such as three switches folding into one, and a context rename,
+/// where the key carried the context's old name and keeping it would have the
+/// settings file contradict every other name in the product. The key is a persisted
 /// value — it sits in the reader's settings file as a member of the enabled
 /// or disabled set — so a rename on its own would silently undo whatever
 /// they had chosen. Naming the former keys here lets the store read a choice
@@ -115,7 +117,7 @@ public sealed class AppFeatureSettings
 /// <para>
 /// The port is in the shared kernel because every context asks the question and
 /// none of them owns the answer: a pane in Tasks and a panel in
-/// Second Brain both gate on a feature, and neither may reach through the other
+/// Devbook both gate on a feature, and neither may reach through the other
 /// or up into the Shell to find out. What a feature <em>is</em> — its display
 /// name, its description, whether it is on by default — is product copy and
 /// lives with the screen that renders it; the storage of the choice is file IO
@@ -148,8 +150,8 @@ public interface IAppFeatureSettings
 /// The feature keys that belong to no single context.
 /// <para>
 /// Every other key lives with whatever owns the feature — <c>TasksFeatures</c>
-/// in Tasks' abstractions, <c>KnowledgeFeatures</c> in Second
-/// Brain's, <c>DevPcFeatures</c> in Dev PC Management's, and the Shell's own on
+/// in Tasks' abstractions, <c>DevbookFeatures</c> in
+/// Devbook's, <c>DevPcFeatures</c> in Dev PC Management's, and the Shell's own on
 /// the catalog it renders. This class is for the remainder: a key more than one
 /// context gates on, where putting it in either context's abstractions would
 /// make the other context reference it. The shared kernel is the one place all
@@ -158,7 +160,7 @@ public interface IAppFeatureSettings
 /// </summary>
 public static class AppFeatureKeys
 {
-    /// <summary>Tasks starts the CLI from an entry and Second Brain
+    /// <summary>Tasks starts the CLI from an entry and Devbook
     /// starts it from a knowledge chapter. Two contexts, one key.</summary>
     public const string CopilotCli = "copilot-cli";
 }

@@ -175,7 +175,7 @@
     {
       "id": "knowledge",
       "type": "backend",
-      "label": "Knowledge Service",
+      "label": "Devbook Service",
       "sublabel": "organize, link",
       "pos": [
         840,

@@ -923,8 +923,8 @@ public sealed class SettingsDevicesTests
         testContext.Services.AddSingleton(github);
         testContext.Services.AddSingleton<FeedbackReporter>();
         testContext.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
-        testContext.Services.AddSingleton<IKnowledgeFolderSource>(new KnowledgeFolderSource(githubSettings, store));
-        testContext.Services.AddSingleton(new KnowledgeSourceSelection(githubSettings, new StubBranchCatalog()));
+        testContext.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(githubSettings, store));
+        testContext.Services.AddSingleton(new DevbookSourceSelection(githubSettings, new StubBranchCatalog()));
         testContext.Services.AddSingleton<IDeviceCredentialStore>(credentials);
         // Transient, the way AddSyncClient registers it, and counted: the page
         // has to ask for a fresh one after the service URL changes, because the

@@ -15,7 +15,7 @@ related: [.arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md]
 | Depends on (context/module) | DDD pattern | Integration mechanism | Contract | Why |
 |---|---|---|---|---|
 | [Tasks](../tasks/domain.md#task) | OHS + Published Language (Inbox = supplier) | In-process port `IInboxBacklogTarget` (declared in `Backlog.Modules.Inbox.Abstractions`), answered by an infrastructure adapter over Tasks' published `ITaskItems` — not an async event | `.domain/inbox/domain.md#itemtriaged` (realised as `InboxRouteRequestDto`) | Routing an actionable item creates one draft Task per assigned repository, and a drafted plan is imported through Tasks' plan import, without the Inbox seeing Tasks or Tasks seeing the Inbox. |
-| [Second Brain](../second-brain/domain.md#knowledge-note) | OHS + Published Language (Inbox = supplier) | Async `ItemTriaged` event (not built) | `.domain/inbox/domain.md#itemtriaged` | Routing a knowledge item creates a Knowledge Note through the same published language with a different route shape. |
+| [Devbook](../devbook/domain.md#knowledge-note) | OHS + Published Language (Inbox = supplier) | Async `ItemTriaged` event (not built) | `.domain/inbox/domain.md#itemtriaged` | Routing a knowledge item creates a Knowledge Note through the same published language with a different route shape. |
 | Sync (module, not a bounded context) | Customer/Supplier (Inbox = customer of the intake channel) | The desktop sync client hands every `capture`-kind replica document to the `IInboxIntake` port before the task merge, and drains the `IInboxCaptureOutbox` port into the ordinary tasks push as tombstones | `.arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md` | Captures made on the phone or in the IDE reach the desktop, and the phone learns a capture was dealt with, without a second sync path. |
 
 ## Inbound dependents (known)
@@ -30,7 +30,7 @@ related: [.arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md]
 
 - The Inbox is the hub of the capture -> triage -> backlog/knowledge/archive
   pipeline; keep the `ItemTriaged` payload as a published language so Tasks and
-  Second Brain never depend on Inbox internals.
+  Devbook never depend on Inbox internals.
 - The Inbox -> Tasks edge is realised the way the roadmap's cross-context joins
   are: a port in the Inbox's Abstractions, an adapter in `src/Infrastructure`
   that references both published surfaces, and no project reference between

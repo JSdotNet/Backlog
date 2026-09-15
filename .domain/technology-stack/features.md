@@ -75,5 +75,5 @@ related: [.domain/monitoring/features.md#multi-repo-scanning]
 ```
 
 Provide baselines consumed by Dev PC and Repository Management, feed adoption
-data to Monitoring dashboards, link ADRs in Second Brain, and enable Tasks to
+data to Monitoring dashboards, link ADRs in Devbook, and enable Tasks to
 create tech-upgrade tasks from adoption gaps.

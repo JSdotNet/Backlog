@@ -8,7 +8,7 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 /// what happens when the disk will not cooperate.
 /// <para>
 /// Real temp directories rather than a filesystem abstraction, the way
-/// <see cref="KnowledgeSnapshotCacheTests"/> does it and for the same reason — the
+/// <see cref="DevbookSnapshotCacheTests"/> does it and for the same reason — the
 /// behaviour under test <em>is</em> the disk, and a fake would be asserting the
 /// fake.
 /// </para>

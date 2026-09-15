@@ -26,7 +26,7 @@
            announced the same block twice under the same name. *@
         <div class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
             <MetadataView Metadata="@EffectiveMetadata"
-                               Vocabulary="@KnowledgeStatus.Vocabulary(Folder)"
+                               Vocabulary="@DevbookStatus.Vocabulary(Folder)"
                                OnStatusChanged="@OnStatusChanged"
                                OnNavigate="@OnNavigate"
                                HrefFor="@HrefFor"
@@ -39,11 +39,11 @@ else if (HasFields)
     <div class="@ClassValue" aria-label="@AriaLabel" data-testid="@TestId" @attributes="AdditionalAttributes">
         @if (!string.IsNullOrWhiteSpace(Status))
         {
-            <span class="knowledge-status knowledge-status--@Status">@Status</span>
+            <span class="devbook-status devbook-status--@Status">@Status</span>
         }
         @foreach (var related in Related)
         {
-            <code class="knowledge-related">@related</code>
+            <code class="devbook-related">@related</code>
         }
     </div>
 }
@@ -73,7 +73,7 @@ else if (HasFields)
     /// <summary>Which knowledge folder the block came from, so the status can be
     /// read against that folder's vocabulary rather than merely printed.</summary>
     [Parameter]
-    public KnowledgeFolder Folder { get; set; } = KnowledgeFolder.Unknown;
+    public DevbookFolder Folder { get; set; } = DevbookFolder.Unknown;
 
     /// <summary>Raised with the status a reader picked from the headline's
     /// select. Without it a typed caller could watch the control change and
@@ -87,11 +87,11 @@ else if (HasFields)
 
     /// <summary>Raised with the reference a reader activated.</summary>
     [Parameter]
-    public EventCallback<KnowledgeReference> OnNavigate { get; set; }
+    public EventCallback<DevbookReference> OnNavigate { get; set; }
 
     /// <summary>Resolves a reference to a link target.</summary>
     [Parameter]
-    public Func<KnowledgeReference, string?>? HrefFor { get; set; }
+    public Func<DevbookReference, string?>? HrefFor { get; set; }
 
     [Parameter(CaptureUnmatchedValues = true)]
     public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
@@ -101,7 +101,7 @@ else if (HasFields)
     /// <summary>Whether anything asked for more than the strip has always drawn.
     /// While the answer is no, every existing caller keeps the markup it had.</summary>
     private bool Typed => Metadata is not null
-        || Folder is not KnowledgeFolder.Unknown
+        || Folder is not DevbookFolder.Unknown
         || OnStatusChanged.HasDelegate
         || OnNavigate.HasDelegate
         || HrefFor is not null;
@@ -112,8 +112,8 @@ else if (HasFields)
     private MetadataRecord EffectiveMetadata => Metadata ?? new MetadataRecord
     {
         Status = Status,
-        Related = [.. Related.Select(KnowledgeReference.Parse).OfType<KnowledgeReference>()]
+        Related = [.. Related.Select(DevbookReference.Parse).OfType<DevbookReference>()]
     };
 
-    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "knowledge-meta" : $"knowledge-meta {CssClass}";
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "devbook-meta" : $"devbook-meta {CssClass}";
 }

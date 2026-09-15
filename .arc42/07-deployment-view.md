@@ -22,11 +22,11 @@ The desktop app is installed on Windows machines and is the canonical deployment
   row in it; JSON files hold the workspace settings and feature flags, which are
   per-device. A task's content is markdown text inside the database. One file to back
   up, and one to keep off a synced disk.
-- **Repository Knowledge** — knowledge folders are not deployed with the app. They
+- **Repository Devbook** — knowledge folders are not deployed with the app. They
   live in each registered repository's own working copy, wherever the user cloned it,
-  and are read in place; the generated index over them (`_meta/knowledge.db`) is
+  and are read in place; the generated index over them (`_meta/devbook.db`) is
   built beside the folders in that repository rather than under the workspace root.
-  See `.arc42/08-crosscutting-concepts.md#knowledge-index`.
+  See `.arc42/08-crosscutting-concepts.md#devbook-database`.
 - **Local Fetch Workers** — YouTube, website, email, GitHub-sync, and stale-detection
   workers run in-process/background on the desktop.
 - **IDE Extensions** — installed in VS Code / Visual Studio on the same machine; read

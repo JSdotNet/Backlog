@@ -17,7 +17,7 @@ namespace Backlog.UI.Components.UnitTests;
 /// </summary>
 public sealed class SelectSectionTests
 {
-    /// <summary>The shape the real caller hands over — <c>KnowledgeSourceSelection</c>
+    /// <summary>The shape the real caller hands over — <c>DevbookSourceSelection</c>
     /// offers a default, then the branches, then the local clone and the entry that
     /// fetches more. Two of the three unsectioned entries are <em>after</em> the
     /// section, which is the case a rule that hoisted them would get wrong.</summary>

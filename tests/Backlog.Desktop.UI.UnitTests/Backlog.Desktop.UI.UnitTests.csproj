@@ -18,7 +18,7 @@
     <Using Include="Backlog.UI.Components.Feedback" />
 
     <!-- The app is split by bounded context (Inbox, Tasks,
-         Knowledge) under a composing Shell — namespaces that are projects rather
+         Devbook) under a composing Shell — namespaces that are projects rather
          than folders in one. The namespaces did not move with them, so these
          lines are unchanged: each module UI project keeps publishing the
          namespace it always did. Tests sit outside that boundary and check all
@@ -35,11 +35,11 @@
          that never had a folder in Backlog.Desktop.UI, so its types say
          Backlog.Modules.Sessions.Abstractions. -->
     <Using Include="Backlog.Modules.Sessions.Abstractions" />
-    <!-- Second Brain publishes the knowledge-folder port, the configured-folder
+    <!-- Devbook publishes the devbook-folder port, the configured-folder
          format and the location it resolves to. Like Dev PC Management it never
          had a folder in Backlog.Desktop.UI, so its types say
-         Backlog.Modules.Knowledge.Abstractions. -->
-    <Using Include="Backlog.Modules.Knowledge.Abstractions" />
+         Backlog.Modules.Devbook.Abstractions. -->
+    <Using Include="Backlog.Modules.Devbook.Abstractions" />
     <!-- Roadmap Planning now has a domain module, so its feature key and its DTOs
          come from the abstractions project like every other context's; the .UI
          namespace is still imported for the band and the view that maps a plan onto
@@ -57,13 +57,13 @@
          none of them owns the answer. -->
     <Using Include="Backlog.SharedKernel" />
     <!-- The file-system adapters that answer those ports and the workspace ones:
-         the settings and feature stores and the knowledge-folder resolver these
+         the settings and feature stores and the devbook-folder resolver these
          tests drive directly, plus the unsupported folder-editor launcher a
          browser-hosted screen gets. -->
     <Using Include="Backlog.Infrastructure.FileSystem" />
     <Using Include="Backlog.Desktop.UI.Inbox" />
     <Using Include="Backlog.Desktop.UI.Tasks" />
-    <Using Include="Backlog.Desktop.UI.Knowledge" />
+    <Using Include="Backlog.Desktop.UI.Devbook" />
     <Using Include="Backlog.Desktop.UI.Shell" />
     <!-- The self-update port and its result types moved out of the Shell folder
          into AppUpdate/ and took their namespace with them. The settings screen
@@ -89,10 +89,10 @@
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.FileSystem\Backlog.Infrastructure.FileSystem.csproj" />
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Sqlite\Backlog.Infrastructure.Sqlite.csproj" />
     <ProjectReference Include="..\..\src\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
-    <ProjectReference Include="..\..\src\Modules\Knowledge\Backlog.Modules.Knowledge.Abstractions\Backlog.Modules.Knowledge.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Devbook\Backlog.Modules.Devbook.Abstractions\Backlog.Modules.Devbook.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Modules\Inbox\Backlog.Modules.Inbox.UI\Backlog.Modules.Inbox.UI.csproj" />
     <ProjectReference Include="..\..\src\Modules\Tasks\Backlog.Modules.Tasks.UI\Backlog.Modules.Tasks.UI.csproj" />
-    <ProjectReference Include="..\..\src\Modules\Knowledge\Backlog.Modules.Knowledge.UI\Backlog.Modules.Knowledge.UI.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Devbook\Backlog.Modules.Devbook.UI\Backlog.Modules.Devbook.UI.csproj" />
     <ProjectReference Include="..\..\src\Modules\DevPc\Backlog.Modules.DevPc.Abstractions\Backlog.Modules.DevPc.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Modules\Sessions\Backlog.Modules.Sessions.Abstractions\Backlog.Modules.Sessions.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Modules\Sessions\Backlog.Modules.Sessions.UI\Backlog.Modules.Sessions.UI.csproj" />

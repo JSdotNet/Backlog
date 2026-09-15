@@ -65,7 +65,7 @@
     /// turns the status from a word into a value out of a list. See
     /// <see cref="MetadataView.Vocabulary"/> — without one the status still shows,
     /// it is just not judged. A knowledge surface passes
-    /// <c>KnowledgeStatus.Vocabulary(folder)</c>.</summary>
+    /// <c>DevbookStatus.Vocabulary(folder)</c>.</summary>
     [Parameter]
     public MetadataStatusVocabulary Vocabulary { get; set; } = MetadataStatusVocabulary.None;
 
@@ -77,12 +77,12 @@
 
     /// <summary>Raised with the reference a reader activated.</summary>
     [Parameter]
-    public EventCallback<KnowledgeReference> OnNavigate { get; set; }
+    public EventCallback<DevbookReference> OnNavigate { get; set; }
 
     /// <summary>Resolves a reference to a link target; null leaves that reference
     /// as text rather than a broken link.</summary>
     [Parameter]
-    public Func<KnowledgeReference, string?>? HrefFor { get; set; }
+    public Func<DevbookReference, string?>? HrefFor { get; set; }
 
     /// <summary>Whether everything but the status is drawn. On by default, off for
     /// a surface showing the file itself, where those fields are the fence read
@@ -101,7 +101,7 @@
     /// document has always announced itself this way, and a new word here would
     /// rename every record in the product.</summary>
     [Parameter]
-    public string AriaLabel { get; set; } = "Knowledge metadata";
+    public string AriaLabel { get; set; } = "Devbook metadata";
 
     [Parameter]
     public string? CssClass { get; set; }

@@ -51,7 +51,7 @@ public sealed record PullRequestDetail
 /// <para>
 /// The port is declared here and implemented in
 /// <c>Backlog.Infrastructure.FileSystem</c>, which is exactly the arrangement
-/// <see cref="IKnowledgeSnapshotCache"/> already lives on either side of and for
+/// <see cref="IDevbookSnapshotCache"/> already lives on either side of and for
 /// the same reason: a contract phrased in terms of a
 /// <see cref="GitHubRepositoryRef"/> belongs where that type is, while the half
 /// that decides where bytes land on disk belongs with the workspace. The

@@ -10,7 +10,7 @@ namespace Backlog.Infrastructure.FileSystem.Roadmap;
 /// This is the join, and it lives in an adapter on purpose: the backlog UI may not
 /// reach into Roadmap Planning, so it asks its own port and this adapter — which is
 /// allowed to see both — reads the plan through <see cref="IRoadmapPlanning"/> and
-/// hands back the tags in use. The same arrangement <c>KnowledgeFolderSource</c>
+/// hands back the tags in use. The same arrangement <c>DevbookFolderSource</c>
 /// uses to answer two contexts over one lookup.
 /// </para>
 /// </summary>

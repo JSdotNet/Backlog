@@ -46,7 +46,7 @@ public sealed class MetadataViewMarkupTests
 
         var view = context.Render<MetadataView>(parameters => parameters
             .Add(record => record.Metadata, MetadataReader.Parse(EveryShape))
-            .Add(record => record.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Tech)));
+            .Add(record => record.Vocabulary, DevbookStatus.Vocabulary(DevbookFolder.Tech)));
 
         Assert.Equal(Normalize(TechMarkup), Normalize(view.Markup));
     }
@@ -78,7 +78,7 @@ public sealed class MetadataViewMarkupTests
 
         var view = context.Render<MetadataView>(parameters => parameters
             .Add(record => record.Metadata, MetadataReader.Parse(IssueOnly))
-            .Add(record => record.Vocabulary, KnowledgeStatus.Vocabulary(KnowledgeFolder.Backlog)));
+            .Add(record => record.Vocabulary, DevbookStatus.Vocabulary(DevbookFolder.Backlog)));
 
         Assert.Equal(Normalize(IssueMarkup), Normalize(view.Markup));
     }
@@ -142,81 +142,81 @@ public sealed class MetadataViewMarkupTests
     /// <summary>Read as .tech, where the status is one of the folder's own and the
     /// headline offers the select.</summary>
     private const string TechMarkup = """
-<div class="knowledge-record" role="group" aria-label="Knowledge metadata"><div class="knowledge-record__headline"><label class="status-editor badge badge--status badge--status-active"><span class="sr-only">Change status</span>
-    <select class="status-editor__select" value="adopted" aria-label="Change status" title="Change status" blazor:onchange="ID"><option value="candidate">candidate</option><option value="trial">trial</option><option value="adopted" selected>adopted</option><option value="hold">hold</option><option value="retired">retired</option></select></label></div><dl class="knowledge-fields"><div class="knowledge-fields__row"><dt class="knowledge-fields__label">related</dt>
-                    <dd class="knowledge-fields__value"><code class="knowledge-ref knowledge-ref--inert">.arc42/04-solution-strategy.md#thin-cloud-rich-desktop</code></dd></div>
-                <div class="knowledge-fields__row"><dt class="knowledge-fields__label">depends-on</dt>
-                    <dd class="knowledge-fields__value"><code class="knowledge-ref knowledge-ref--inert">.tech/shared.md#net-runtime</code><code class="knowledge-ref knowledge-ref--inert">.tech/shared.md#c-language</code></dd></div>
-                <div class="knowledge-fields__row"><dt class="knowledge-fields__label">implements</dt>
-                    <dd class="knowledge-fields__value"><code class="knowledge-ref knowledge-ref--inert">.domain/tasks/features.md#feature-roadmap-planning</code></dd></div>
-                <div class="knowledge-fields__row"><dt class="knowledge-fields__label">aliases</dt>
-                    <dd class="knowledge-fields__value"><span class="badge badge--alias" title="alias: TaskItem">TaskItem</span><span class="badge badge--alias" title="alias: backlog_entry_id">backlog_entry_id</span></dd></div>
-                <div class="knowledge-fields__row"><dt class="knowledge-fields__label">alternatives</dt>
-                    <dd class="knowledge-fields__value"><code class="knowledge-value">Azure Functions</code><code class="knowledge-value">Controller-based ASP.NET Core</code></dd></div>
-                <div class="knowledge-fields__row knowledge-fields__row--bare"><dt class="knowledge-fields__label sr-only">kind</dt>
-                    <dd class="knowledge-fields__value"><span class="badge badge--kind" title="kind: framework">framework</span></dd></div>
-                <div class="knowledge-fields__row knowledge-fields__row--bare"><dt class="knowledge-fields__label sr-only">version</dt>
-                    <dd class="knowledge-fields__value"><code class="knowledge-value" title="version: 10.0">v10.0</code></dd></div>
-                <div class="knowledge-fields__row"><dt class="knowledge-fields__label">issue</dt>
-                    <dd class="knowledge-fields__value"><span class="integration-link integration-link--inert integration-link--inline" title="JSdotNet/Backlog#118">
+<div class="devbook-record" role="group" aria-label="Devbook metadata"><div class="devbook-record__headline"><label class="status-editor badge badge--status badge--status-active"><span class="sr-only">Change status</span>
+    <select class="status-editor__select" value="adopted" aria-label="Change status" title="Change status" blazor:onchange="ID"><option value="candidate">candidate</option><option value="trial">trial</option><option value="adopted" selected>adopted</option><option value="hold">hold</option><option value="retired">retired</option></select></label></div><dl class="devbook-fields"><div class="devbook-fields__row"><dt class="devbook-fields__label">related</dt>
+                    <dd class="devbook-fields__value"><code class="devbook-ref devbook-ref--inert">.arc42/04-solution-strategy.md#thin-cloud-rich-desktop</code></dd></div>
+                <div class="devbook-fields__row"><dt class="devbook-fields__label">depends-on</dt>
+                    <dd class="devbook-fields__value"><code class="devbook-ref devbook-ref--inert">.tech/shared.md#net-runtime</code><code class="devbook-ref devbook-ref--inert">.tech/shared.md#c-language</code></dd></div>
+                <div class="devbook-fields__row"><dt class="devbook-fields__label">implements</dt>
+                    <dd class="devbook-fields__value"><code class="devbook-ref devbook-ref--inert">.domain/tasks/features.md#feature-roadmap-planning</code></dd></div>
+                <div class="devbook-fields__row"><dt class="devbook-fields__label">aliases</dt>
+                    <dd class="devbook-fields__value"><span class="badge badge--alias" title="alias: TaskItem">TaskItem</span><span class="badge badge--alias" title="alias: backlog_entry_id">backlog_entry_id</span></dd></div>
+                <div class="devbook-fields__row"><dt class="devbook-fields__label">alternatives</dt>
+                    <dd class="devbook-fields__value"><code class="devbook-value">Azure Functions</code><code class="devbook-value">Controller-based ASP.NET Core</code></dd></div>
+                <div class="devbook-fields__row devbook-fields__row--bare"><dt class="devbook-fields__label sr-only">kind</dt>
+                    <dd class="devbook-fields__value"><span class="badge badge--kind" title="kind: framework">framework</span></dd></div>
+                <div class="devbook-fields__row devbook-fields__row--bare"><dt class="devbook-fields__label sr-only">version</dt>
+                    <dd class="devbook-fields__value"><code class="devbook-value" title="version: 10.0">v10.0</code></dd></div>
+                <div class="devbook-fields__row"><dt class="devbook-fields__label">issue</dt>
+                    <dd class="devbook-fields__value"><span class="integration-link integration-link--inert integration-link--inline" title="JSdotNet/Backlog#118">
             <svg class="provider-mark provider-mark--github" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true" focusable="false"><path d="MARK"></path></svg>
 
             <span class="integration-link__label">#118</span><span class="integration-link__repository">JSdotNet/Backlog</span></span></dd></div>
-                <div class="knowledge-fields__row knowledge-fields__row--bare"><dt class="knowledge-fields__label sr-only">effort</dt>
-                    <dd class="knowledge-fields__value"><span class="badge badge--effort" data-testid="knowledge-effort-badge" title="effort: 5 story points">5 pts</span></dd></div>
-                <div class="knowledge-fields__row"><dt class="knowledge-fields__label">roadmap</dt>
-                    <dd class="knowledge-fields__value" data-testid="knowledge-roadmap-tags"><span class="badge badge--feature">sync-service</span><span class="badge badge--feature">mobile-mvp</span></dd></div>
-                <div class="knowledge-fields__row"><dt class="knowledge-fields__label">feature-flag</dt>
-                    <dd class="knowledge-fields__value" data-testid="knowledge-feature-flag-tags"><span class="badge badge--feature">inbox-pane</span><span class="badge badge--feature">inbox-filters</span></dd></div><div class="knowledge-fields__row"><dt class="knowledge-fields__label">owner</dt>
-                    <dd class="knowledge-fields__value"><code class="knowledge-value">platform-team</code></dd></div><div class="knowledge-fields__row"><dt class="knowledge-fields__label">related-typo</dt>
-                    <dd class="knowledge-fields__value"><code class="knowledge-value">not an address</code></dd></div></dl></div>
+                <div class="devbook-fields__row devbook-fields__row--bare"><dt class="devbook-fields__label sr-only">effort</dt>
+                    <dd class="devbook-fields__value"><span class="badge badge--effort" data-testid="devbook-effort-badge" title="effort: 5 story points">5 pts</span></dd></div>
+                <div class="devbook-fields__row"><dt class="devbook-fields__label">roadmap</dt>
+                    <dd class="devbook-fields__value" data-testid="devbook-roadmap-tags"><span class="badge badge--feature">sync-service</span><span class="badge badge--feature">mobile-mvp</span></dd></div>
+                <div class="devbook-fields__row"><dt class="devbook-fields__label">feature-flag</dt>
+                    <dd class="devbook-fields__value" data-testid="devbook-feature-flag-tags"><span class="badge badge--feature">inbox-pane</span><span class="badge badge--feature">inbox-filters</span></dd></div><div class="devbook-fields__row"><dt class="devbook-fields__label">owner</dt>
+                    <dd class="devbook-fields__value"><code class="devbook-value">platform-team</code></dd></div><div class="devbook-fields__row"><dt class="devbook-fields__label">related-typo</dt>
+                    <dd class="devbook-fields__value"><code class="devbook-value">not an address</code></dd></div></dl></div>
 """;
 
     /// <summary>The same block with no folder given: the status is shown and not
     /// judged, so the headline holds the plain badge.</summary>
     private const string FolderBlindMarkup = """
-<div class="knowledge-record" role="group" aria-label="Knowledge metadata"><div class="knowledge-record__headline"><span class="badge badge--status">adopted</span></div><dl class="knowledge-fields"><div class="knowledge-fields__row"><dt class="knowledge-fields__label">related</dt>
-                    <dd class="knowledge-fields__value"><code class="knowledge-ref knowledge-ref--inert">.arc42/04-solution-strategy.md#thin-cloud-rich-desktop</code></dd></div>
-                <div class="knowledge-fields__row"><dt class="knowledge-fields__label">depends-on</dt>
-                    <dd class="knowledge-fields__value"><code class="knowledge-ref knowledge-ref--inert">.tech/shared.md#net-runtime</code><code class="knowledge-ref knowledge-ref--inert">.tech/shared.md#c-language</code></dd></div>
-                <div class="knowledge-fields__row"><dt class="knowledge-fields__label">implements</dt>
-                    <dd class="knowledge-fields__value"><code class="knowledge-ref knowledge-ref--inert">.domain/tasks/features.md#feature-roadmap-planning</code></dd></div>
-                <div class="knowledge-fields__row"><dt class="knowledge-fields__label">aliases</dt>
-                    <dd class="knowledge-fields__value"><span class="badge badge--alias" title="alias: TaskItem">TaskItem</span><span class="badge badge--alias" title="alias: backlog_entry_id">backlog_entry_id</span></dd></div>
-                <div class="knowledge-fields__row"><dt class="knowledge-fields__label">alternatives</dt>
-                    <dd class="knowledge-fields__value"><code class="knowledge-value">Azure Functions</code><code class="knowledge-value">Controller-based ASP.NET Core</code></dd></div>
-                <div class="knowledge-fields__row knowledge-fields__row--bare"><dt class="knowledge-fields__label sr-only">kind</dt>
-                    <dd class="knowledge-fields__value"><span class="badge badge--kind" title="kind: framework">framework</span></dd></div>
-                <div class="knowledge-fields__row knowledge-fields__row--bare"><dt class="knowledge-fields__label sr-only">version</dt>
-                    <dd class="knowledge-fields__value"><code class="knowledge-value" title="version: 10.0">v10.0</code></dd></div>
-                <div class="knowledge-fields__row"><dt class="knowledge-fields__label">issue</dt>
-                    <dd class="knowledge-fields__value"><span class="integration-link integration-link--inert integration-link--inline" title="JSdotNet/Backlog#118">
+<div class="devbook-record" role="group" aria-label="Devbook metadata"><div class="devbook-record__headline"><span class="badge badge--status">adopted</span></div><dl class="devbook-fields"><div class="devbook-fields__row"><dt class="devbook-fields__label">related</dt>
+                    <dd class="devbook-fields__value"><code class="devbook-ref devbook-ref--inert">.arc42/04-solution-strategy.md#thin-cloud-rich-desktop</code></dd></div>
+                <div class="devbook-fields__row"><dt class="devbook-fields__label">depends-on</dt>
+                    <dd class="devbook-fields__value"><code class="devbook-ref devbook-ref--inert">.tech/shared.md#net-runtime</code><code class="devbook-ref devbook-ref--inert">.tech/shared.md#c-language</code></dd></div>
+                <div class="devbook-fields__row"><dt class="devbook-fields__label">implements</dt>
+                    <dd class="devbook-fields__value"><code class="devbook-ref devbook-ref--inert">.domain/tasks/features.md#feature-roadmap-planning</code></dd></div>
+                <div class="devbook-fields__row"><dt class="devbook-fields__label">aliases</dt>
+                    <dd class="devbook-fields__value"><span class="badge badge--alias" title="alias: TaskItem">TaskItem</span><span class="badge badge--alias" title="alias: backlog_entry_id">backlog_entry_id</span></dd></div>
+                <div class="devbook-fields__row"><dt class="devbook-fields__label">alternatives</dt>
+                    <dd class="devbook-fields__value"><code class="devbook-value">Azure Functions</code><code class="devbook-value">Controller-based ASP.NET Core</code></dd></div>
+                <div class="devbook-fields__row devbook-fields__row--bare"><dt class="devbook-fields__label sr-only">kind</dt>
+                    <dd class="devbook-fields__value"><span class="badge badge--kind" title="kind: framework">framework</span></dd></div>
+                <div class="devbook-fields__row devbook-fields__row--bare"><dt class="devbook-fields__label sr-only">version</dt>
+                    <dd class="devbook-fields__value"><code class="devbook-value" title="version: 10.0">v10.0</code></dd></div>
+                <div class="devbook-fields__row"><dt class="devbook-fields__label">issue</dt>
+                    <dd class="devbook-fields__value"><span class="integration-link integration-link--inert integration-link--inline" title="JSdotNet/Backlog#118">
             <svg class="provider-mark provider-mark--github" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true" focusable="false"><path d="MARK"></path></svg>
 
             <span class="integration-link__label">#118</span><span class="integration-link__repository">JSdotNet/Backlog</span></span></dd></div>
-                <div class="knowledge-fields__row knowledge-fields__row--bare"><dt class="knowledge-fields__label sr-only">effort</dt>
-                    <dd class="knowledge-fields__value"><span class="badge badge--effort" data-testid="knowledge-effort-badge" title="effort: 5 story points">5 pts</span></dd></div>
-                <div class="knowledge-fields__row"><dt class="knowledge-fields__label">roadmap</dt>
-                    <dd class="knowledge-fields__value" data-testid="knowledge-roadmap-tags"><span class="badge badge--feature">sync-service</span><span class="badge badge--feature">mobile-mvp</span></dd></div>
-                <div class="knowledge-fields__row"><dt class="knowledge-fields__label">feature-flag</dt>
-                    <dd class="knowledge-fields__value" data-testid="knowledge-feature-flag-tags"><span class="badge badge--feature">inbox-pane</span><span class="badge badge--feature">inbox-filters</span></dd></div><div class="knowledge-fields__row"><dt class="knowledge-fields__label">owner</dt>
-                    <dd class="knowledge-fields__value"><code class="knowledge-value">platform-team</code></dd></div><div class="knowledge-fields__row"><dt class="knowledge-fields__label">related-typo</dt>
-                    <dd class="knowledge-fields__value"><code class="knowledge-value">not an address</code></dd></div></dl></div>
+                <div class="devbook-fields__row devbook-fields__row--bare"><dt class="devbook-fields__label sr-only">effort</dt>
+                    <dd class="devbook-fields__value"><span class="badge badge--effort" data-testid="devbook-effort-badge" title="effort: 5 story points">5 pts</span></dd></div>
+                <div class="devbook-fields__row"><dt class="devbook-fields__label">roadmap</dt>
+                    <dd class="devbook-fields__value" data-testid="devbook-roadmap-tags"><span class="badge badge--feature">sync-service</span><span class="badge badge--feature">mobile-mvp</span></dd></div>
+                <div class="devbook-fields__row"><dt class="devbook-fields__label">feature-flag</dt>
+                    <dd class="devbook-fields__value" data-testid="devbook-feature-flag-tags"><span class="badge badge--feature">inbox-pane</span><span class="badge badge--feature">inbox-filters</span></dd></div><div class="devbook-fields__row"><dt class="devbook-fields__label">owner</dt>
+                    <dd class="devbook-fields__value"><code class="devbook-value">platform-team</code></dd></div><div class="devbook-fields__row"><dt class="devbook-fields__label">related-typo</dt>
+                    <dd class="devbook-fields__value"><code class="devbook-value">not an address</code></dd></div></dl></div>
 """;
 
     /// <summary>One field stated, and the whitespace the ten absent ones leave
     /// behind them inside the description list.</summary>
     private const string IssueMarkup = """
-<div class="knowledge-record" role="group" aria-label="Knowledge metadata"><div class="knowledge-record__headline"><label class="status-editor badge badge--status badge--status-ready"><span class="sr-only">Change status</span>
-    <select class="status-editor__select" value="ready" aria-label="Change status" title="Change status" blazor:onchange="ID"><option value="draft">draft</option><option value="ready" selected>ready</option><option value="in-progress">in-progress</option><option value="done">done</option><option value="blocked">blocked</option></select></label></div><dl class="knowledge-fields">
+<div class="devbook-record" role="group" aria-label="Devbook metadata"><div class="devbook-record__headline"><label class="status-editor badge badge--status badge--status-ready"><span class="sr-only">Change status</span>
+    <select class="status-editor__select" value="ready" aria-label="Change status" title="Change status" blazor:onchange="ID"><option value="draft">draft</option><option value="ready" selected>ready</option><option value="in-progress">in-progress</option><option value="done">done</option><option value="blocked">blocked</option></select></label></div><dl class="devbook-fields">
                 
                 
                 
                 
                 
                 
-                <div class="knowledge-fields__row"><dt class="knowledge-fields__label">issue</dt>
-                    <dd class="knowledge-fields__value"><a class="integration-link integration-link--link integration-link--inline" href="https://github.com/JSdotNet/Backlog/issues/118" target="_blank" rel="noopener" title="https://github.com/JSdotNet/Backlog/issues/118">
+                <div class="devbook-fields__row"><dt class="devbook-fields__label">issue</dt>
+                    <dd class="devbook-fields__value"><a class="integration-link integration-link--link integration-link--inline" href="https://github.com/JSdotNet/Backlog/issues/118" target="_blank" rel="noopener" title="https://github.com/JSdotNet/Backlog/issues/118">
             <svg class="provider-mark provider-mark--github" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true" focusable="false"><path d="MARK"></path></svg>
 
             <span class="integration-link__label">#118</span><span class="integration-link__repository">JSdotNet/Backlog</span></a></dd></div>

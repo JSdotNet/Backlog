@@ -375,7 +375,7 @@ instantly and offline.
 ```meta
 type: feature
 status: draft
-related: [.domain/second-brain/features.md#bi-directional-linking]
+related: [.domain/devbook/features.md#bi-directional-linking]
 ```
 
 Search across title, body, tags, and linked knowledge notes; filter by area
@@ -563,7 +563,7 @@ against the one it replaced from outside the plan no longer resolves.
 type: feature
 status: draft
 feature-flag: ai-assistant
-related: [.domain/second-brain/features.md#repository-knowledge-areas, .domain/productivity/features.md#ai-productivity-tracking]
+related: [.domain/devbook/features.md#repository-devbook-areas, .domain/productivity/features.md#ai-productivity-tracking]
 ```
 
 Ask questions about the work currently in view and get an answer grounded in it.

@@ -4,22 +4,24 @@ namespace Backlog.Desktop.UI.UnitTests;
 public sealed class GlobalPaneSelectionTests
 {
     /// <summary>
-    /// A layout saved before the Backlog bounded context was renamed to Tasks still
-    /// restores.
+    /// A layout saved before a bounded context was renamed still restores: Backlog
+    /// became Tasks, and Knowledge became Devbook.
     /// <para>
     /// The shell persists its open and pinned panes to shell-navigation.json as enum
-    /// member names, so <c>GlobalPane.Tasks</c> was written as "Backlog" by every build
-    /// before the rename. A plain <c>Enum.TryParse</c> rejects that, and the pane is
-    /// then filtered out on restore — the reader opens the app and finds the
-    /// arrangement they left it in quietly gone, which reads as the app forgetting
-    /// rather than as a rename.
+    /// member names, so <c>GlobalPane.Tasks</c> was written as "Backlog" and
+    /// <c>GlobalPane.Devbook</c> as "Knowledge" by every build before the respective
+    /// rename. A plain <c>Enum.TryParse</c> rejects those, and the pane is then
+    /// filtered out on restore — the reader opens the app and finds the arrangement
+    /// they left it in quietly gone, which reads as the app forgetting rather than
+    /// as a rename.
     /// </para>
     /// </summary>
     [Theory]
     [InlineData("Backlog", "Tasks")]
+    [InlineData("Knowledge", "Devbook")]
     [InlineData("Tasks", "Tasks")]
     [InlineData("Inbox", "Inbox")]
-    [InlineData("Knowledge", "Knowledge")]
+    [InlineData("Devbook", "Devbook")]
     public void A_persisted_pane_name_is_read_including_the_name_it_was_saved_under_before_the_rename(
         string persisted, string expected)
     {
@@ -31,6 +33,7 @@ public sealed class GlobalPaneSelectionTests
     [InlineData("")]
     [InlineData("Roadmap")]
     [InlineData("backlog")]
+    [InlineData("knowledge")]
     [InlineData(null)]
     public void A_pane_name_that_names_no_pane_is_refused(string? persisted)
     {
@@ -44,7 +47,7 @@ public sealed class GlobalPaneSelectionTests
 
         Assert.True(selection.IsEnabled(GlobalPane.Tasks));
         Assert.False(selection.IsEnabled(GlobalPane.Inbox));
-        Assert.False(selection.IsEnabled(GlobalPane.Knowledge));
+        Assert.False(selection.IsEnabled(GlobalPane.Devbook));
         Assert.Equal(1, selection.EnabledCount);
         Assert.Equal(3, selection.Capacity);
     }
@@ -62,18 +65,18 @@ public sealed class GlobalPaneSelectionTests
         selection.Toggle(GlobalPane.Inbox);
         Assert.True(selection.IsEnabled(GlobalPane.Inbox));
         Assert.False(selection.IsEnabled(GlobalPane.Tasks));
-        Assert.False(selection.IsEnabled(GlobalPane.Knowledge));
+        Assert.False(selection.IsEnabled(GlobalPane.Devbook));
         Assert.Equal(1, selection.EnabledCount);
 
-        selection.Toggle(GlobalPane.Knowledge);
-        Assert.True(selection.IsEnabled(GlobalPane.Knowledge));
+        selection.Toggle(GlobalPane.Devbook);
+        Assert.True(selection.IsEnabled(GlobalPane.Devbook));
         Assert.False(selection.IsEnabled(GlobalPane.Inbox));
         Assert.False(selection.IsEnabled(GlobalPane.Tasks));
         Assert.Equal(1, selection.EnabledCount);
 
         selection.Toggle(GlobalPane.Tasks);
         Assert.True(selection.IsEnabled(GlobalPane.Tasks));
-        Assert.False(selection.IsEnabled(GlobalPane.Knowledge));
+        Assert.False(selection.IsEnabled(GlobalPane.Devbook));
         Assert.Equal(1, selection.EnabledCount);
     }
 
@@ -83,11 +86,11 @@ public sealed class GlobalPaneSelectionTests
         var selection = new GlobalPaneSelection();
         selection.TrySetCapacity(1);
 
-        var changed = selection.Toggle(GlobalPane.Knowledge);
+        var changed = selection.Toggle(GlobalPane.Devbook);
 
         Assert.True(changed);
         Assert.False(selection.IsEnabled(GlobalPane.Tasks));
-        Assert.True(selection.IsEnabled(GlobalPane.Knowledge));
+        Assert.True(selection.IsEnabled(GlobalPane.Devbook));
         Assert.Equal(1, selection.EnabledCount);
         Assert.True(selection.CanEnable(GlobalPane.Inbox));
     }
@@ -102,10 +105,10 @@ public sealed class GlobalPaneSelectionTests
         var selection = new GlobalPaneSelection(GlobalPane.Inbox, GlobalPane.Tasks);
         selection.TrySetCapacity(2);
 
-        Assert.True(selection.CanEnable(GlobalPane.Knowledge));
-        Assert.True(selection.TrySetEnabled(GlobalPane.Knowledge, enabled: true));
+        Assert.True(selection.CanEnable(GlobalPane.Devbook));
+        Assert.True(selection.TrySetEnabled(GlobalPane.Devbook, enabled: true));
 
-        Assert.True(selection.IsEnabled(GlobalPane.Knowledge));
+        Assert.True(selection.IsEnabled(GlobalPane.Devbook));
         Assert.False(selection.IsEnabled(GlobalPane.Inbox));
         Assert.False(selection.IsEnabled(GlobalPane.Tasks));
         Assert.Equal(1, selection.EnabledCount);
@@ -114,14 +117,14 @@ public sealed class GlobalPaneSelectionTests
     [Fact]
     public void Reducing_capacity_trims_enabled_panes_in_stable_priority_order()
     {
-        var selection = new GlobalPaneSelection(GlobalPane.Inbox, GlobalPane.Tasks, GlobalPane.Knowledge);
+        var selection = new GlobalPaneSelection(GlobalPane.Inbox, GlobalPane.Tasks, GlobalPane.Devbook);
 
         var changed = selection.TrySetCapacity(2);
 
         Assert.True(changed);
         Assert.False(selection.IsEnabled(GlobalPane.Inbox));
         Assert.True(selection.IsEnabled(GlobalPane.Tasks));
-        Assert.True(selection.IsEnabled(GlobalPane.Knowledge));
+        Assert.True(selection.IsEnabled(GlobalPane.Devbook));
         Assert.Equal(2, selection.EnabledCount);
     }
 
@@ -195,11 +198,11 @@ public sealed class GlobalPaneSelectionTests
         var selection = new GlobalPaneSelection(GlobalPane.Inbox, GlobalPane.Tasks);
 
         Assert.True(selection.TrySetPinned(GlobalPane.Tasks, pinned: true));
-        Assert.True(selection.TrySetEnabled(GlobalPane.Knowledge, enabled: true));
+        Assert.True(selection.TrySetEnabled(GlobalPane.Devbook, enabled: true));
 
         Assert.True(selection.IsEnabled(GlobalPane.Tasks));
         Assert.True(selection.IsPinned(GlobalPane.Tasks));
-        Assert.True(selection.IsEnabled(GlobalPane.Knowledge));
+        Assert.True(selection.IsEnabled(GlobalPane.Devbook));
         Assert.False(selection.IsEnabled(GlobalPane.Inbox));
         Assert.Equal(2, selection.EnabledCount);
     }
@@ -212,11 +215,11 @@ public sealed class GlobalPaneSelectionTests
         Assert.True(selection.TrySetPinned(GlobalPane.Inbox, pinned: true));
         Assert.True(selection.TrySetPinned(GlobalPane.Tasks, pinned: true));
 
-        Assert.True(selection.TrySetEnabled(GlobalPane.Knowledge, enabled: true));
+        Assert.True(selection.TrySetEnabled(GlobalPane.Devbook, enabled: true));
 
         Assert.True(selection.IsEnabled(GlobalPane.Inbox));
         Assert.True(selection.IsEnabled(GlobalPane.Tasks));
-        Assert.True(selection.IsEnabled(GlobalPane.Knowledge));
+        Assert.True(selection.IsEnabled(GlobalPane.Devbook));
         Assert.Equal(3, selection.EnabledCount);
     }
 
@@ -234,9 +237,9 @@ public sealed class GlobalPaneSelectionTests
         Assert.True(selection.TrySetPinned(GlobalPane.Inbox, pinned: true));
         Assert.True(selection.TrySetPinned(GlobalPane.Tasks, pinned: true));
 
-        Assert.True(selection.TrySetEnabled(GlobalPane.Knowledge, enabled: true));
+        Assert.True(selection.TrySetEnabled(GlobalPane.Devbook, enabled: true));
 
-        Assert.True(selection.IsEnabled(GlobalPane.Knowledge));
+        Assert.True(selection.IsEnabled(GlobalPane.Devbook));
         Assert.True(selection.IsEnabled(GlobalPane.Tasks));
         Assert.True(selection.IsPinned(GlobalPane.Tasks));
 
@@ -267,9 +270,9 @@ public sealed class GlobalPaneSelectionTests
     {
         var selection = new GlobalPaneSelection(GlobalPane.Tasks);
 
-        Assert.False(selection.CanPin(GlobalPane.Knowledge));
-        Assert.False(selection.TrySetPinned(GlobalPane.Knowledge, pinned: true));
-        Assert.False(selection.IsPinned(GlobalPane.Knowledge));
+        Assert.False(selection.CanPin(GlobalPane.Devbook));
+        Assert.False(selection.TrySetPinned(GlobalPane.Devbook, pinned: true));
+        Assert.False(selection.IsPinned(GlobalPane.Devbook));
 
         Assert.True(selection.CanPin(GlobalPane.Tasks));
     }
@@ -344,7 +347,7 @@ public sealed class GlobalPaneSelectionTests
     [Fact]
     public void Trimming_prefers_the_unpinned_panes()
     {
-        var selection = new GlobalPaneSelection(GlobalPane.Inbox, GlobalPane.Tasks, GlobalPane.Knowledge);
+        var selection = new GlobalPaneSelection(GlobalPane.Inbox, GlobalPane.Tasks, GlobalPane.Devbook);
         Assert.True(selection.TrySetPinned(GlobalPane.Inbox, pinned: true));
 
         Assert.True(selection.TrySetCapacity(2));
@@ -353,7 +356,7 @@ public sealed class GlobalPaneSelectionTests
         // where without the pin Inbox would have.
         Assert.True(selection.IsEnabled(GlobalPane.Inbox));
         Assert.False(selection.IsEnabled(GlobalPane.Tasks));
-        Assert.True(selection.IsEnabled(GlobalPane.Knowledge));
+        Assert.True(selection.IsEnabled(GlobalPane.Devbook));
         Assert.Equal(2, selection.EnabledCount);
     }
 
@@ -365,13 +368,13 @@ public sealed class GlobalPaneSelectionTests
     [Fact]
     public void A_switch_never_leaves_the_shell_empty()
     {
-        var selection = new GlobalPaneSelection(GlobalPane.Inbox, GlobalPane.Tasks, GlobalPane.Knowledge);
+        var selection = new GlobalPaneSelection(GlobalPane.Inbox, GlobalPane.Tasks, GlobalPane.Devbook);
 
         foreach (var capacity in new[] { 1, 2, 3 })
         {
             selection.TrySetCapacity(capacity);
 
-            foreach (var pane in new[] { GlobalPane.Knowledge, GlobalPane.Inbox, GlobalPane.Tasks })
+            foreach (var pane in new[] { GlobalPane.Devbook, GlobalPane.Inbox, GlobalPane.Tasks })
             {
                 selection.TrySetEnabled(pane, enabled: true);
 
@@ -384,13 +387,13 @@ public sealed class GlobalPaneSelectionTests
     [Fact]
     public void A_pane_that_becomes_unavailable_loses_its_pin()
     {
-        var selection = new GlobalPaneSelection(GlobalPane.Tasks, GlobalPane.Knowledge);
-        Assert.True(selection.TrySetPinned(GlobalPane.Knowledge, pinned: true));
+        var selection = new GlobalPaneSelection(GlobalPane.Tasks, GlobalPane.Devbook);
+        Assert.True(selection.TrySetPinned(GlobalPane.Devbook, pinned: true));
 
-        Assert.True(selection.TrySetAvailable(GlobalPane.Knowledge, available: false));
+        Assert.True(selection.TrySetAvailable(GlobalPane.Devbook, available: false));
 
-        Assert.False(selection.IsEnabled(GlobalPane.Knowledge));
-        Assert.False(selection.IsPinned(GlobalPane.Knowledge));
+        Assert.False(selection.IsEnabled(GlobalPane.Devbook));
+        Assert.False(selection.IsPinned(GlobalPane.Devbook));
     }
 
     /// <summary>
@@ -421,7 +424,7 @@ public sealed class GlobalPaneSelectionTests
     [Fact]
     public void Opening_alongside_falls_back_to_a_switch_when_the_viewport_is_full()
     {
-        var selection = new GlobalPaneSelection(GlobalPane.Inbox, GlobalPane.Knowledge);
+        var selection = new GlobalPaneSelection(GlobalPane.Inbox, GlobalPane.Devbook);
         selection.TrySetCapacity(2);
         Assert.True(selection.TrySetPinned(GlobalPane.Inbox, pinned: true));
 
@@ -429,7 +432,7 @@ public sealed class GlobalPaneSelectionTests
 
         Assert.True(selection.IsEnabled(GlobalPane.Tasks));
         Assert.True(selection.IsEnabled(GlobalPane.Inbox));
-        Assert.False(selection.IsEnabled(GlobalPane.Knowledge));
+        Assert.False(selection.IsEnabled(GlobalPane.Devbook));
         Assert.Equal(2, selection.EnabledCount);
     }
 }

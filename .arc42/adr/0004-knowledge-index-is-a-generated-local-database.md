@@ -2,7 +2,7 @@
 
 ```meta
 status: active
-related: [".arc42/02-constraints.md#technical-constraints", ".arc42/08-crosscutting-concepts.md#knowledge-index", ".arc42/07-deployment-view.md#local-deployment-desktop", ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".domain/second-brain/features.md#repository-knowledge-areas", ".tech/tooling.md#knowledge-meta-generator", ".tech/shared.md#sqlite"]
+related: [".arc42/02-constraints.md#technical-constraints", ".arc42/08-crosscutting-concepts.md#devbook-database", ".arc42/07-deployment-view.md#local-deployment-desktop", ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".domain/devbook/features.md#repository-devbook-areas", ".tech/tooling.md#knowledge-meta-generator", ".tech/shared.md#sqlite"]
 issue: null
 ```
 
@@ -12,8 +12,17 @@ Accepted, and built — with the exceptions the note below names rather than
 leaves to be discovered. What is not built is the refresh machinery that was
 never required for correctness, and the semantic tier's one live call.
 
+> **Amended 2026-09-15: Knowledge → Devbook.** The context, module, pane, database
+> and tooling this record is about were renamed: `Backlog.Infrastructure.Knowledge`
+> is `Backlog.Infrastructure.Devbook`, `tools/knowledge/` is `tools/devbook/`,
+> `_meta/knowledge.db` is `_meta/devbook.db`, `knowledge-metadata.yml` is
+> `devbook-metadata.yml`, and the `knowledge-base` plugin is `devbook`. The decision
+> is unchanged, and the file name is kept so that every `ADR 0004` citation in code
+> stays true. The names below are the current ones; the installed generator under
+> `.github/tools/knowledge-meta/` keeps its name because the plugin still ships it so.
+
 > **Implemented, 2026-09-08.** The derived knowledge layer is
-> `_meta/knowledge.db`, generated and git-ignored, and the twelve `_meta/*.json`
+> `_meta/devbook.db`, generated and git-ignored, and the twelve `_meta/*.json`
 > artifacts are out of version control. The authored half moved first, as this
 > record said it had to: each knowledge folder now carries a committed
 > `_reading-order.json` naming its root document and the order of everything
@@ -21,13 +30,15 @@ never required for correctness, and the semantic tier's one live call.
 >
 > **The writer is repo-native, and that is a departure from the wording above.**
 > This record says "the Node generator" as though there were one. There are two:
-> `.github/tools/knowledge-meta/` is an installed copy of the `knowledge-base`
-> plugin's tooling, which `CLAUDE.md` and `.tech/tooling.md#knowledge-meta-generator`
-> both say to re-sync and never edit here — and the installed copy is four plugin
-> releases behind. So `tools/knowledge/build-database.mjs` *imports* that
-> generator's exported seam (`buildGraph`, `parseDocument`, `folderKindForPath`,
-> `discoverScopes`) rather than editing it, exactly as
-> `tools/knowledge/check-metadata.mjs` already does for `validateDocument`. The
+> `.github/tools/knowledge-meta/` is the unchanged install from `knowledge-base`,
+> the `devbook` plugin's predecessor, which `CLAUDE.md` and
+> `.tech/tooling.md#knowledge-meta-generator` both say never to edit here — and
+> that install was already four `knowledge-base` releases behind (measured against
+> `knowledge-base` 0.16.0) before the plugin was renamed; re-syncing it from
+> `devbook` is the contract v6 follow-up. So `tools/devbook/build-database.mjs`
+> *imports* that generator's exported seam (`buildGraph`, `parseDocument`,
+> `folderKindForPath`, `discoverScopes`) rather than editing it, exactly as
+> `tools/devbook/check-metadata.mjs` already does for `validateDocument`. The
 > rule this record actually cares about is unchanged and was the point of the
 > sentence: one Node writer, one implementation of the parse, and no C# that
 > writes to the database. The outline is the one thing not imported, because
@@ -36,12 +47,12 @@ never required for correctness, and the semantic tier's one live call.
 >
 > `node:sqlite` writes it — Node 22 and later ship it with FTS5 compiled in, so
 > the tooling still has no `package.json` and no dependency. Reading is
-> `Backlog.Infrastructure.Knowledge`, its own project so that mobile and the IDE
+> `Backlog.Infrastructure.Devbook`, its own project so that mobile and the IDE
 > extension can take it later without the backlog store coming too, opening
 > `SqliteOpenMode.ReadOnly` — `ReadWriteCreate` would create an empty database
 > where none exists, turning "absent" into "present and empty", which is the one
 > state the ladder has no rung for. All six rungs are implemented and each has a
-> test. The schema is one exported string in `tools/knowledge/knowledge-schema.mjs`
+> test. The schema is one exported string in `tools/devbook/devbook-schema.mjs`
 > and the C# side restates none of it: the contract tests build their fixtures
 > from that text, read at test time, which is the treatment the **Consequences**
 > below ask for and the same shape as the `DiagramSourceHash` pairing.
@@ -49,7 +60,7 @@ never required for correctness, and the semantic tier's one live call.
 > **What CI does with it changed, and in the direction this record predicted.**
 > The drift check in `knowledge-meta.yml` had to be softened to a warning because
 > its output was committed. A build output nothing commits has nothing to conflict
-> on, so `knowledge-metadata.yml` now *blocks* on the database building against the
+> on, so `devbook-metadata.yml` now *blocks* on the database building against the
 > real corpus. That is the merge-churn argument closing the loop rather than a
 > new rule.
 >
@@ -132,9 +143,9 @@ output nobody may rely on.
 
 **On being read, the position has reversed — in this decision's favour.** When
 this was first sketched, two things read the indexes. Now the derived layer is
-load-bearing: `KnowledgeIndexReader` lists a folder without opening a markdown
-file, `LazyKnowledgeList` defers the parse to the one chapter a reader opens,
-`KnowledgeAtlas` draws every folder from `_meta/graph.json`, and the domain,
+load-bearing: `DevbookIndexReader` lists a folder without opening a markdown
+file, `LazyDevbookList` defers the parse to the one chapter a reader opens,
+`DevbookAtlas` draws every folder from `_meta/graph.json`, and the domain,
 arc42, design and technology panels all build from the index.
 `RoadmapItemRollupService` still parses the whole repository graph to total the
 effort behind a roadmap item.
@@ -143,7 +154,7 @@ That work also established the reading discipline this decision depends on, whic
 is therefore not something it has to invent: an entry whose file is newer than the
 index is re-read from its markdown, an unrecognised `schemaVersion` falls back to
 scanning, and a folder with no index behaves exactly as it did before one existed.
-The degradation ladder below is a restatement of what `KnowledgeIndexReader`
+The degradation ladder below is a restatement of what `DevbookIndexReader`
 already does, applied to a different container.
 
 **What JSON still costs, now that it is load-bearing.** A consumer parses a whole
@@ -198,7 +209,7 @@ things nobody authored.
 
 ### One database, not one per scope
 
-`_meta/knowledge.db` at the repository root. A scope becomes `WHERE folder = …`,
+`_meta/devbook.db` at the repository root. A scope becomes `WHERE folder = …`,
 not another file — which is what removes the double serialization the context
 describes, without a consumer having to choose between a scoped file and a
 repository-wide one.
@@ -268,8 +279,8 @@ database. The app reads and never writes — not even to repair a row it can see
 stale.
 
 That rule keeps the parse in one place. The alternative — letting the app
-re-index a file it has just written through `KnowledgeMarkdownStatusWriter` or
-`KnowledgeChapterWriter` — puts a second implementation of `metadata.mjs` in C#
+re-index a file it has just written through `DevbookMarkdownStatusWriter` or
+`DevbookChapterWriter` — puts a second implementation of `metadata.mjs` in C#
 and makes it load-bearing for correctness rather than for speed. That is the drift
 hazard the Archify hash rule already demonstrates, and there is no reason to take
 it twice. A file the app has just edited is simply a *drifted* file, and a drifted
@@ -323,7 +334,7 @@ last is visible to the user:
 | Database current for this file | Serves from the database. |
 | Database present, this file drifted | Reads this file's markdown and serves that — correct content, one file's parse. |
 | Schema version unrecognised | Ignores the database entirely and reads markdown, so a database written by a newer generator can never break an older app. |
-| Database absent, locked or unreadable | Reads markdown. This is the path the knowledge panels take today. |
+| Database absent, locked or unreadable | Reads markdown. This is the path the Devbook panels take today. |
 | Retrieval, no embeddings | Full-text search answers; search by meaning is absent, not broken. |
 | Retrieval, no database at all | **Search is unavailable, and says so.** |
 
@@ -334,7 +345,7 @@ unindexed repository keeps working — its areas open, its chapters render, its
 diagrams draw — and only search is missing until an index exists.
 
 None of this is new, which is most of why the decision is worth taking now rather
-than earlier. `KnowledgeIndexReader` already returns nothing for a folder with no
+than earlier. `DevbookIndexReader` already returns nothing for a folder with no
 index, already refuses a `schemaVersion` it does not recognise, and already
 re-reads an entry whose file is newer than the index it came from; the panels
 already fall back to scanning the directory, because that is what they did before
@@ -344,7 +355,7 @@ to trust what it finds.
 ### Where it lives
 
 In the repository that owns the knowledge folders, not in the workspace root.
-`IKnowledgeFolderSource` resolves an area per registered repository, so the app
+`IDevbookFolderSource` resolves an area per registered repository, so the app
 routinely reads knowledge in repositories it did not build and does not own. A
 database beside the folders travels with them; one in the workspace root would be
 a second place that can disagree about a repository the workspace does not

@@ -41,9 +41,12 @@ treat this file as the source of the gate and pick the skill by category from
 `.agents/rules/context-loading.md`.
 
 This repository ships no repo-native `orch-*` skills. Every entrypoint is plugin-provided:
-the knowledge-folder orchestrations come from `knowledge-base`, and the rest — `orch-fallback`
-included — from `claude-desktop`. The only skill under `.github/skills/` is `pr-jsdotnet`,
-which is a pull-request workflow rather than an orchestration.
+the knowledge-folder flows (`flow-arc42-content`, `flow-domain`, `flow-tech`,
+`flow-design`) come from `devbook-flows`, which sits on the `devbook` plugin (formerly
+`knowledge-base`; `.backlog` has no successor flow until it is dropped with the devbook
+contract v6, a follow-up), and the rest — `orch-fallback` included — from
+`claude-desktop`. The only skill under `.github/skills/` is `pr-jsdotnet`, which is a
+pull-request workflow rather than an orchestration.
 
 `plugins/backlog-tools` is this repository's own plugin, installed on demand rather than
 auto-enabled — see `plugins/backlog-tools/README.md` for install steps in either Claude
@@ -103,9 +106,9 @@ dotnet test Backlog.sln
 `desktop`, `mobile-android`, `ide-vscode-build`, and `ide-vscode-host` use
 `WithExplicitStart()`. Them sitting `NotStarted` is expected, not a failed startup.
 
-## Knowledge indexes
+## Devbook database
 
-The derived knowledge layer is **one generated SQLite database**, `_meta/knowledge.db`,
+The derived knowledge layer is **one generated SQLite database**, `_meta/devbook.db`,
 holding the reference graph, the resolved reading outline, every chapter's text and
 hashes, the FTS5 index and the Archify artifact rows. It is a build output: git-ignored,
 rebuilt per machine, and **absent on a fresh clone until you build it**. Local ADR 0004
@@ -113,7 +116,7 @@ rebuilt per machine, and **absent on a fresh clone until you build it**. Local A
 the reasoning.
 
 ```powershell
-node tools/knowledge/build-database.mjs
+node tools/devbook/build-database.mjs
 ```
 
 The authored half stays committed text: each knowledge folder carries a
@@ -121,24 +124,30 @@ The authored half stays committed text: each knowledge folder carries a
 Edit that by hand when you move a chapter; it is the one part of the layer nobody
 generates.
 
-The desktop Knowledge panels **load from the database at runtime** and degrade in
+The desktop Devbook panels **load from the database at runtime** and degrade in
 defined steps rather than on or off: a current row is served from the database, a file
 that has changed since it was indexed is read from its Markdown, an unrecognised schema
 version is ignored entirely, and an absent or unreadable database falls back to scanning
 the folder — which is what the panels did before any index existed. So browsing always
 works. Search is the one exception: without a database it is unavailable and says so,
 because scanning the corpus per query is a hang rather than a fallback.
-`Backlog.Infrastructure.Knowledge` is the reader; **nothing in C# ever writes to it.**
+`Backlog.Infrastructure.Devbook` is the reader; **nothing in C# ever writes to it.**
 
-`tools/knowledge/build-database.mjs` is repo-native and *imports* the installed
+`tools/devbook/build-database.mjs` is repo-native and *imports* the installed
 generator's exported functions. Everything under `.github/tools/knowledge-meta/`, both
-`knowledge-meta*` workflows, and `build/Update-KnowledgeIndex.ps1` are installed copies
-of the `knowledge-base` plugin's tooling: re-sync them, never edit them here, and never
-hand-edit anything under `_meta/`. The installed generator still writes
+`knowledge-meta*` workflows, and `build/Update-KnowledgeIndex.ps1` are the unchanged
+install from `knowledge-base`, the `devbook` plugin's predecessor: never edit them here,
+and never hand-edit anything under `_meta/`. Re-syncing them from `devbook` is the
+contract v6 follow-up, not something already done. The installed generator still writes
 `_meta/graph.json` and `_meta/index.json`; both are ignored now rather than committed.
 The convention behind all of this is that plugin's
 `knowledge-derived-artifacts.instructions.md`, and where this repository departs from it
-— on format, and on committing — ADR 0004 says so and says why.
+— on format, and on committing — ADR 0004 says so and says why. The plugin's
+`devbook-check` skill replaces its predecessor's `knowledge-base-validate`;
+`update-devbook-index` is this repository's own command and still ships as
+`.claude/commands/update-devbook-index.md`. This repository still authors against the
+installed generator, and adopting the plugin's contract v6 through `devbook-sync` is a
+follow-up.
 
 ## UI components
 

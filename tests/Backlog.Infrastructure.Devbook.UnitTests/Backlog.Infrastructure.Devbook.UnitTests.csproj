@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The reader's own suite. It holds the cross-language contract ADR 0004 names
+    as this change's main risk: every database these tests read is created from
+    the DDL in tools/devbook/devbook-schema.mjs, read from disk at test time,
+    so a column renamed on the writing side fails here rather than in a panel.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Devbook\Backlog.Infrastructure.Devbook.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Backlog.Infrastructure.Devbook" />
+  </ItemGroup>
+
+</Project>

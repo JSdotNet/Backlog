@@ -25,13 +25,13 @@ public sealed class MarkdownListViewTests
 
         var list = context.Render<MarkdownListView>(parameters => parameters
             .Add(view => view.List, Nested)
-            .Add(view => view.ListCssClass, "knowledge-list")
+            .Add(view => view.ListCssClass, "devbook-list")
             .Add(view => view.ItemCssClass, null));
 
         var lists = list.FindAll("ul");
 
         Assert.Equal(2, lists.Count);
-        Assert.All(lists, element => Assert.Equal("knowledge-list", element.GetAttribute("class")));
+        Assert.All(lists, element => Assert.Equal("devbook-list", element.GetAttribute("class")));
         Assert.All(list.FindAll("li"), element => Assert.Null(element.GetAttribute("class")));
     }
 
