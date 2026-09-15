@@ -177,14 +177,14 @@ references nothing.
 For changes confined to the knowledge folders, "healthy" instead means the repository-level
 checks pass:
 
-- Governed Markdown keeps the `meta` blocks required by the `knowledge-base` plugin's
+- Governed Markdown keeps the `meta` blocks required by the `devbook` plugin's
   `knowledge-chapter-metadata.instructions.md`.
 - Instruction files keep valid `applyTo` and `description` frontmatter.
 - Derived `_meta/` artifacts are regenerated rather than hand-edited, and
   `node .github/tools/knowledge-meta/build.mjs --check` passes. Nothing under
   `_meta/` is committed any more, so there is no `git diff` to be clean: what
-  replaces it is `node tools/knowledge/build-database.mjs` building without
-  error, which is a blocking step in `knowledge-metadata.yml`.
+  replaces it is `node tools/devbook/build-database.mjs` building without
+  error, which is a blocking step in `devbook-metadata.yml`.
 
 ## QA Depth
 
@@ -227,11 +227,13 @@ repository had to change for it.
 
 ## Orchestration Skill Sources
 
-This repository ships no repo-native `orch-*` skills. The knowledge-folder orchestrations
-(`orch-arc42-content`, `orch-domain`, `orch-backlog`, `orch-tech`, `orch-design`) come from
-the `knowledge-base` plugin; every other orchestration — including `orch-fallback`, the
-generic entrypoint for task categories with no dedicated `orch-*` skill — comes from the
-`copilot-app` plugin.
+This repository ships no repo-native `orch-*` skills. The knowledge-folder flows
+(`flow-arc42-content`, `flow-domain`, `flow-tech`, `flow-design`) come from the
+`devbook-flows` plugin, which sits on the `devbook` plugin (formerly `knowledge-base`);
+`.backlog` has no successor flow until it is dropped with the devbook contract v6, a
+follow-up. Every other orchestration — including `orch-fallback`, the generic entrypoint
+for task categories with no dedicated `orch-*` skill — comes from the `copilot-app`
+plugin.
 
 The only skill under `.github/skills/` is `pr-jsdotnet`, and it is a pull-request workflow
 rather than an orchestration; see `.github/copilot-instructions.md`.

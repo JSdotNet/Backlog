@@ -62,7 +62,7 @@ The second agent harness this repository supports.
 status: adopted
 type: tool
 depends-on: [".tech/ai-development.md#claude-code", ".tech/ai-development.md#github-copilot-cli"]
-related: [".tech/ai-development.md#agent-skills", ".tech/ai-development.md#knowledge-base-plugin"]
+related: [".tech/ai-development.md#agent-skills", ".tech/ai-development.md#devbook-plugin"]
 ```
 
 The distribution unit for every agent, skill, MCP server, and canvas this
@@ -71,9 +71,9 @@ repository uses.
 - **Used for** — all of it. `.tools/ai-tools.json` records the marketplace
   (`JSdotNet/Copilot`) and the twenty-two plugins with their installed and
   available versions: `claude-desktop`/`copilot-app` (orchestration),
-  `knowledge-base`, `architecture`, `domain-design`, `csharp-coding`, `qa`,
-  `review`, `ux-design`, `product-owner`, `documentation`, `spec-builder`, and
-  the two `jsdotnet-*` guideline servers, among others.
+  `devbook` and `devbook-flows`, `architecture`, `domain-design`, `csharp-coding`,
+  `qa`, `review`, `ux-design`, `product-owner`, `documentation`, `spec-builder`,
+  and the two `jsdotnet-*` guideline servers, among others.
 - **Why** — the conventions are reusable across repositories, so they live in one
   versioned marketplace instead of being copied per repository. This repository
   ships no `orch-*` skill of its own; every orchestration entrypoint is
@@ -202,42 +202,54 @@ Deterministic commands the harness runs around a tool call.
 - **Why** — a hook executes whether or not the model decides to; anything that
   must happen every time belongs here rather than in an instruction file.
 
-## Knowledge Base Plugin
+## Devbook Plugin
 
 ```meta
 status: adopted
 type: tool
 depends-on: [".tech/ai-development.md#claude-code-plugins", ".tech/shared.md#nodejs"]
-related: [".tech/ai-development.md#knowledge-canvas-extension", ".tech/tooling.md#knowledge-meta-generator"]
+related: [".tech/ai-development.md#devbook-canvas-extension", ".tech/tooling.md#knowledge-meta-generator"]
 ```
 
-The plugin that owns the knowledge-folder convention this repository follows.
+The plugin that owns the knowledge-folder convention this repository follows —
+formerly `knowledge-base`, renamed with the Devbook context on 2026-09-15.
 
-- **Used for** — the authoring instructions for `.arc42`, `.domain`, `.backlog`,
-  `.tech`, and `.design`; the per-folder `orch-*` and `capture-*`/`build-*`
-  skills; the `knowledge-canvas` extension; and the `knowledge-meta` generator
-  installed into `.github/tools/`.
+- **Used for** — the authoring instructions for `.arc42`, `.domain`, `.tech`, and
+  `.design` (the `knowledge-*.instructions.md` files keep their names); the
+  `to-spec-*`/`from-spec-*` skills between a chapter and its code; `devbook-sync`
+  and `devbook-check` in place of `update-knowledge-index` and
+  `knowledge-base-validate`; `knowledge-tech-update`; the `devbook-canvas`
+  extension; and the `knowledge-meta` generator installed into `.github/tools/`.
+  The per-folder writing flows moved out: `flow-arc42-content`, `flow-domain`,
+  `flow-tech`, `flow-design` (and `flow-ai` for an `.ai/` folder this repository
+  has not adopted) ship in the companion `devbook-flows` plugin, which depends on
+  this one and on `delivery`. `.backlog` has no flow there, because the plugin's
+  contract v6 drops that folder — this repository still carries `.backlog` and
+  still authors against the installed generator; adopting v6 through
+  `devbook-sync` is a follow-up.
 - **Why** — the convention is reusable across repositories, so it lives in one
   versioned plugin instead of being duplicated per repository.
-- **Sourced from** — `JSdotNet/Copilot:plugins/knowledge-base`.
+- **Sourced from** — `JSdotNet/ai-agent-stack:plugins/devbook`
+  (`claude plugin marketplace add JSdotNet/ai-agent-stack`).
 
-## Knowledge Canvas Extension
+## Devbook Canvas Extension
 
 ```meta
 status: adopted
 type: tool
 depends-on: [".tech/ai-development.md#claude-code-plugins", ".tech/shared.md#nodejs", ".tech/shared.md#mermaid"]
-related: [".tech/ai-development.md#knowledge-base-plugin"]
+related: [".tech/ai-development.md#devbook-plugin"]
 ```
 
-The `knowledge-base` plugin's canvas for viewing knowledge folders.
+The `devbook` plugin's canvas (`devbook-canvas`, formerly `knowledge-canvas`) for
+viewing knowledge folders.
 
 - **Used for** — rendering `.arc42`, `.domain`, `.backlog`, `.tech`, and
   `.design` Markdown with live Mermaid diagrams and a metadata/lint side panel,
   plus the `knowledge-graph` view that walks the derived reference graph.
 - **Why** — the metadata convention is designed for machine reading, so a viewer
   is what makes the graph usable rather than merely stored.
-- **Sourced from** — `JSdotNet/Copilot:plugins/knowledge-base`; installed as a
+- **Sourced from** — `JSdotNet/ai-agent-stack:plugins/devbook`; installed as a
   plugin rather than checked into this repository.
 
 ## Git Worktree Sessions

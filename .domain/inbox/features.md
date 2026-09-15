@@ -100,7 +100,7 @@ related: [.domain/tasks/features.md#task-creation]
 
 Create a Task draft from the item.
 
-### Route to Second Brain
+### Route to Devbook
 
 ```meta
 type: sub-feature

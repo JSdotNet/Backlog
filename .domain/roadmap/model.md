@@ -168,7 +168,7 @@ classDiagram
   which is the point: renaming the title does not touch the tag.
 - `KnowledgeRef` is **an id-shaped reference, not an association**, for the same
   reason as `TaskLink`: the chapter it names lives in
-  [Second Brain](../devbook/model.md), so there is no line to it and no
+  [Devbook](../devbook/model.md), so there is no line to it and no
   navigation through it. Both foreign references may dangle and neither is
   validated.
 - `RoadmapItemGathering` is drawn as a service because the thing it computes is not

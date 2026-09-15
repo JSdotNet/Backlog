@@ -156,8 +156,8 @@ flowchart LR
         Dashboard["Orchestration Dashboard"]:::adopted
         InstructionFiles["Repository Instruction Files"]:::adopted
         Hooks["Claude Code Hooks"]:::adopted
-        KnowledgePlugin["Knowledge Base Plugin"]:::adopted
-        Canvas["Knowledge Canvas Extension"]:::adopted
+        DevbookPlugin["Devbook Plugin"]:::adopted
+        Canvas["Devbook Canvas Extension"]:::adopted
         Worktrees["Git Worktree Sessions"]:::adopted
     end
 
@@ -267,8 +267,8 @@ flowchart LR
     InstructionFiles --> Markdown
     Hooks --> ClaudeCode
     Hooks --> PowerShell
-    KnowledgePlugin --> Plugins
-    KnowledgePlugin --> NodeJS
+    DevbookPlugin --> Plugins
+    DevbookPlugin --> NodeJS
     Canvas --> Plugins
     Canvas --> NodeJS
     Canvas --> Mermaid
@@ -425,7 +425,7 @@ Terms below are the dictionary's; the right-hand column is this repository.
   index rather than from the Markdown, so a stale index draws a stale map.
 
 Full authoring rules: `knowledge-tech.instructions.md` from the
-`knowledge-base` plugin.
+`devbook` plugin.
 
 ## Open questions
 

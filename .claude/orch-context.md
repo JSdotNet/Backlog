@@ -179,12 +179,14 @@ brief wait there is normal. `ui-storybook` waits for nothing, because it referen
 For changes confined to the knowledge folders, "healthy" instead means the repository-level
 checks pass:
 
-- Governed Markdown keeps the `meta` blocks required by the `knowledge-base` plugin's
+- Governed Markdown keeps the `meta` blocks required by the `devbook` plugin's
   `knowledge-chapter-metadata.instructions.md`.
 - Instruction files keep valid `applyTo` and `description` frontmatter.
 - Derived `_meta/` artifacts are regenerated rather than hand-edited, and
-  `node .github/tools/knowledge-meta/build.mjs --check` passes with a clean `git diff` over
-  `*_meta/*.json`.
+  `node .github/tools/knowledge-meta/build.mjs --check` passes. Nothing under
+  `_meta/` is committed any more, so there is no `git diff` to be clean: what
+  replaces it is `node tools/devbook/build-database.mjs` building without
+  error, which is a blocking step in `devbook-metadata.yml`.
 
 ## QA Depth
 

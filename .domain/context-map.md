@@ -22,7 +22,7 @@ status: draft
 | Inbox | Core | It owns triage and the decision point where captured input becomes work, knowledge, deferral, or archive. |
 | Tasks | Core | It owns the durable work model, prioritization, and multi-repository execution planning. |
 | Roadmap Planning | Core | It owns the forward plan — what is intended, when, in what order — and is the only context that holds a dependency between two pieces of planned work. Sequencing intent across repositories is a judgement the product exists to support, not a report over work someone else owns. |
-| Second Brain | Core | It owns durable knowledge linked to work and makes knowledge reusable across projects. |
+| Devbook | Core | It owns durable knowledge linked to work and makes knowledge reusable across projects. |
 | Productivity | Supporting | It turns AI-assisted work activity into personal productivity insight without owning the work items or execution tools. |
 | Environment | Supporting | It provides quick access to named local, cloud, and project environments without becoming the authority for repository or health data. |
 | Monitoring & Dashboard | Supporting | It observes the core flow and turns signals into visibility and follow-up actions rather than owning the work itself. |
@@ -39,7 +39,7 @@ flowchart LR
     Inbox[Inbox]
     Tasks[Tasks]
     Roadmap[Roadmap Planning]
-    Brain[Second Brain]
+    Brain[Devbook]
     Productivity[Productivity]
     Environment[Environment]
     Monitor["Monitoring & Dashboard"]
@@ -96,12 +96,12 @@ flowchart LR
 | Contract owner | Published language / contract | Used by |
 |---|---|---|
 | Capture | `.domain/capture/domain.md#itemcaptured` | Inbox |
-| Inbox | `.domain/inbox/domain.md#itemtriaged` | Tasks, Second Brain |
+| Inbox | `.domain/inbox/domain.md#itemtriaged` | Tasks, Devbook |
 | Tasks | `.domain/tasks/domain.md#statuschanged`, `.domain/tasks/domain.md#taskprojected`, `.domain/tasks/domain.md#taskcompleted` | Monitoring & Dashboard |
 | Tasks | `.domain/tasks/domain.md#aiworklogged` | Productivity |
 | Roadmap Planning | `.domain/roadmap/domain.md#roadmapitemscheduled` | Monitoring & Dashboard |
 | Roadmap Planning | `.domain/roadmap/naming.md#roadmap-item` | Tasks |
-| Roadmap Planning | `.domain/roadmap/naming.md#roadmap-tag` | Tasks, Second Brain |
+| Roadmap Planning | `.domain/roadmap/naming.md#roadmap-tag` | Tasks, Devbook |
 | Monitoring & Dashboard | `.domain/monitoring/domain.md#followupcaptured` | Inbox |
 | Dev PC Management | `.domain/dev-pc-management/domain.md#machinestatuschanged`, `.domain/dev-pc-management/domain.md#complianceupdated` | Monitoring & Dashboard |
 | Productivity | `.domain/productivity/domain.md#productivityrecorded` | Monitoring & Dashboard |
@@ -120,7 +120,7 @@ flowchart LR
   that has no task yet — which is why the plan is stored rather than projected.
   This supersedes the earlier reading, in which the roadmap was a view over
   Tasks.
-- `Tasks` and `Second Brain` are a deliberate `Partnership`: both
+- `Tasks` and `Devbook` are a deliberate `Partnership`: both
   sides keep only foreign ids and the link semantics are coordinated through the
   Cross-Linking service rather than a shared aggregate.
 - `Roadmap Planning` **totals** what it does not **own**. Story-point `effort` is

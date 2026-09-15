@@ -1,4 +1,4 @@
-# Second Brain
+# Devbook
 
 ```meta
 type: domain
@@ -12,7 +12,7 @@ status: draft
 > `value-object`, and `enum`. Value Objects/Enums shared across multiple
 > aggregates get their own chapter at the end instead of being duplicated.
 
-Second Brain is a personal project knowledge base — not a task queue. It
+Devbook is a personal project knowledge base — not a task queue. It
 collects, organizes, and retrieves Knowledge Notes structured with the PARA
 framework (Projects, Areas, Resources, Archive), and links bidirectionally with
 [Tasks](../tasks/domain.md#task) so related
@@ -33,7 +33,7 @@ tasks and other notes are managed through the root; and status advances
 through the note lifecycle (created → organized → linked → archived, with
 restore). `updated_at` moves forward on every change.
 
-A knowledge chapter — this aggregate, and equally any chapter Second Brain renders
+A knowledge chapter — this aggregate, and equally any chapter Devbook renders
 from a repository's knowledge folders — may also carry two pieces of metadata in
 its `meta` block that describe how it relates to planned work. The first is an
 optional `effort`: a size in **story points**, a non-negative integer with exactly
@@ -43,7 +43,7 @@ estimated", `0` is a real zero-point estimate, a negative is rejected, and it
 sizes the knowledge work rather than timing it. The second is a `roadmap` list:
 the [Roadmap Item](../roadmap/domain.md#roadmap-item) tags this chapter declares it
 contributes to, held as a `Roadmap Contribution`. Both are read by Roadmap
-Planning when a Roadmap Item gathers and totals the work behind it; Second Brain
+Planning when a Roadmap Item gathers and totals the work behind it; Devbook
 registers them and owns them, and Roadmap only reads.
 
 The Knowledge Note aggregate has no independently identified child entities;
@@ -199,5 +199,5 @@ status: draft
 
 > Enums used by more than one aggregate in this bounded context.
 
-Second Brain has a single aggregate; `PARA Category` and `Note Source` are
+Devbook has a single aggregate; `PARA Category` and `Note Source` are
 documented under it. This chapter is reserved for future cross-aggregate enums.

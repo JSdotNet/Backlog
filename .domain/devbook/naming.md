@@ -1,4 +1,4 @@
-# Second Brain
+# Devbook
 
 ```meta
 type: naming
@@ -10,6 +10,23 @@ status: draft
 > names it is also known by are recorded in the `aliases` metadata field so a
 > synonym can always be resolved back to one canonical concept.
 
+## Devbook
+
+```meta
+type: term
+status: draft
+aliases: [Devbook, Knowledge, Second Brain, SecondBrain]
+related: [.domain/devbook/domain.md#knowledge-note, .domain/context-map.md#context-map]
+```
+
+The bounded context, and the module, pane, database and tooling named after it.
+Until 2026-09-15 the context was called **Second Brain** and the code was named
+`Knowledge*` (`Backlog.Modules.Knowledge`, `KnowledgePane`, `_meta/knowledge.db`);
+both former names are kept as aliases so a counterpart resolved on an older branch
+still lands here. "Knowledge" also remains the informal shorthand the Inbox uses when
+routing here. What the context *reads* — a repository's `.arc42`, `.domain`, `.tech`
+and `.design` folders — keeps the convention's own name, *knowledge folders*.
+
 ## Knowledge Note
 
 ```meta
@@ -19,8 +36,8 @@ aliases: [KnowledgeNote, Note]
 related: [.domain/devbook/domain.md#knowledge-note]
 ```
 
-The durable unit of captured knowledge. "Second Brain" is the context name;
-"Knowledge" is the informal shorthand the Inbox uses when routing here.
+The durable unit of captured knowledge. The aggregate keeps its name through the
+context rename: a note is knowledge, whichever context holds it.
 
 ## PARA Category
 

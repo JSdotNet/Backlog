@@ -1,4 +1,4 @@
-# Second Brain
+# Devbook
 
 ```meta
 type: features
@@ -73,12 +73,12 @@ Link from tasks to notes (reference or embed inline) and from notes
 back to related tasks or projects, supporting queries that cross both
 domains and embedding knowledge context directly in task details.
 
-## Repository knowledge areas
+## Repository devbook areas
 
 ```meta
 type: feature
 status: draft
-feature-flag: repository-knowledge
+feature-flag: repository-devbook
 related: [.domain/repository-management/features.md#repository-knowledge-folder-settings, .domain/tasks/features.md#search-filter-and-organize]
 ```
 
@@ -97,7 +97,7 @@ screen.
 ```meta
 type: sub-feature
 status: draft
-feature-flag: knowledge-sections
+feature-flag: devbook-sections
 ```
 
 Switch between areas, and between repositories when more than one is registered,
@@ -106,7 +106,7 @@ opt-in, and each can be switched off on its own or pointed at a non-standard
 folder; when none is left on there is nothing to browse and the pane says so
 rather than offering an empty tab strip.
 
-### Rendered knowledge documents
+### Rendered devbook documents
 
 ```meta
 type: sub-feature
@@ -120,12 +120,12 @@ cross-reference may name a chapter in the repository's backlog folder even thoug
 that folder is not a browsable area, and it is read with that folder's own status
 vocabulary rather than as an unknown one.
 
-### Knowledge that stays current
+### A devbook that stays current
 
 ```meta
 type: sub-feature
 status: draft
-related: [.arc42/08-crosscutting-concepts.md#knowledge-index]
+related: [.arc42/08-crosscutting-concepts.md#devbook-database]
 ```
 
 Show what a repository's folders actually say, including when a chapter was
@@ -144,7 +144,7 @@ ready to show something. A chapter edited moments ago is shown from the folder
 itself rather than held back until the prepared view catches up, so what is on
 screen is never older than what is on disk.
 
-### Knowledge on the repository's latest version
+### The devbook on the repository's latest version
 
 ```meta
 type: sub-feature
@@ -179,7 +179,7 @@ and after, by the rule above.
 type: feature
 status: draft
 feature-flag: instruction-optimization
-depends-on: [.domain/devbook/features.md#repository-knowledge-areas]
+depends-on: [.domain/devbook/features.md#repository-devbook-areas]
 related: [.domain/devbook/domain.md#instruction-review, .domain/repository-management/features.md#repository-knowledge-folder-settings]
 ```
 
@@ -313,12 +313,12 @@ activity, or measured in a controlled before-and-after — and express it as a
 reduction in what agents load rather than as money. A figure with no stated basis
 is not shown.
 
-## Knowledge retrieval
+## Devbook retrieval
 
 ```meta
 type: feature
 status: draft
-related: [.domain/devbook/features.md#topic-and-tag-grouping, .domain/devbook/features.md#repository-knowledge-areas, .domain/tasks/features.md#search-filter-and-organize, .arc42/08-crosscutting-concepts.md#knowledge-index]
+related: [.domain/devbook/features.md#topic-and-tag-grouping, .domain/devbook/features.md#repository-devbook-areas, .domain/tasks/features.md#search-filter-and-organize, .arc42/08-crosscutting-concepts.md#devbook-database]
 ```
 
 Find the chapter that answers a question across every area and every note at

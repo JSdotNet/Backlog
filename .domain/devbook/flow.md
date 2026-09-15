@@ -1,4 +1,4 @@
-# Second Brain
+# Devbook
 
 ```meta
 type: flow

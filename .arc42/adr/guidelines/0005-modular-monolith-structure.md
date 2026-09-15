@@ -74,7 +74,7 @@ stable contract, not before.
   web frontend calling module APIs; Backlog renders module screens in-process
   inside the MAUI hosts, so a module publishes Razor components alongside its
   contracts.
-- `Inbox` and `Knowledge` have `.UI` projects (and Knowledge an `.Abstractions`)
+- `Inbox` and `Devbook` have `.UI` projects (and Devbook an `.Abstractions`)
   but no module implementation project yet — their logic still sits in the UI
   layer. That is the shape local ADR 0002 corrected for the Tasks module and
   has not yet corrected here.

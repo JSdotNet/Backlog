@@ -132,7 +132,7 @@ read smaller than the work really is, the item also says **how many gathered
 things carry no estimate**, so a small total that hides a pile of unsized work
 cannot be mistaken for a small pile of work. The plan owns none of these numbers —
 they are registered on the tasks and the chapters, in Tasks and
-Second Brain — and it only reads and adds them.
+Devbook — and it only reads and adds them.
 
 ## Priority planning
 

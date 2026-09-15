@@ -283,7 +283,7 @@ Automated dependency and security updates.
 status: adopted
 type: tool
 depends-on: [".tech/shared.md#nodejs", ".tech/shared.md#json"]
-related: [".tech/ai-development.md#knowledge-base-plugin", ".tech/tooling.md#github-actions"]
+related: [".tech/ai-development.md#devbook-plugin", ".tech/tooling.md#github-actions"]
 ```
 
 The generator that compiles the knowledge folders' `meta` blocks into derived
@@ -292,7 +292,7 @@ indexes.
 - **Used for** — `node .github/tools/knowledge-meta/build.mjs`, producing
   `_meta/graph.json` (the reference graph) and `_meta/index.json` (the reading
   outline) per folder plus a repository-wide rollup. Installed by the
-  `knowledge-base` plugin rather than hand-written here. Since local ADR 0004
+  `devbook` plugin rather than hand-written here. Since local ADR 0004
   neither file is committed: both are ignored, and what this repository reads is
   the database below, built from the same exported seam.
 - **Why** — it is what turns the metadata convention into something queryable,
@@ -321,24 +321,24 @@ indexes.
   because chapter authors write the current schema while the validator knows the
   old one. Re-syncing the generator is what retires both.
 
-## Knowledge Database Writer
+## Devbook Database Writer
 
 ```meta
 status: adopted
 type: tool
 depends-on: [".tech/shared.md#nodejs", ".tech/shared.md#sqlite", ".tech/tooling.md#knowledge-meta-generator"]
-related: [".arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".arc42/08-crosscutting-concepts.md#knowledge-index"]
+related: [".arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".arc42/08-crosscutting-concepts.md#devbook-database"]
 ```
 
 The repo-native writer that compiles the knowledge corpus into one generated
 SQLite database.
 
 - **Used for** — `node tools/devbook/build-database.mjs`, producing
-  `_meta/knowledge.db`: the reference graph, the resolved reading outline, every
+  `_meta/devbook.db`: the reference graph, the resolved reading outline, every
   chapter's text and hashes, the FTS5 index, the Archify artifact rows, and an
   empty embedding table. One database for the repository, so a scope is
   `WHERE folder = ?` rather than another pair of files. It is git-ignored and
-  rebuilt per machine; `Backlog.Infrastructure.Knowledge` reads it read-only and
+  rebuilt per machine; `Backlog.Infrastructure.Devbook` reads it read-only and
   falls back to the Markdown for anything it cannot trust.
 - **Why** — twelve committed JSON artifacts were 1.8 MB of derived output that
   every branch collided on and that CI had already been softened to stop

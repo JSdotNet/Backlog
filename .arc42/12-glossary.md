@@ -28,7 +28,7 @@ status: active
 | **Last-write-wins** | Conflict policy where the most recent edit prevails; new items always create rather than overwrite. |
 | **WoL relay** | Wake-on-LAN relay in the cloud PC registry that can wake a registered sleeping/offline machine. |
 
-For bounded-context names (Capture, Inbox, Second Brain, etc.) and their
+For bounded-context names (Capture, Inbox, Devbook, etc.) and their
 business meaning, see `.domain/context-map.md#subdomain-landscape`.
 
 ## Shared Data Types

@@ -73,7 +73,7 @@ Diagram-as-text notation embedded directly in Markdown.
   `.arc42`, and domain model/flow diagrams in `.domain`.
 - **Why** — diagrams stay version-controlled and reviewable in the same diff as
   the prose they belong to; rendered natively by GitHub and by the app's own
-  knowledge viewer. A mermaid fence stays canonical even where an Archify
+  Devbook viewer. A mermaid fence stays canonical even where an Archify
   artifact renders the same diagram more richly.
 
 ## .NET Runtime

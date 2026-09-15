@@ -21,7 +21,7 @@ related: [.domain/tasks/domain.md#task]
 
 The single work item managed by this context. `task_id` is the form other
 contexts and GitHub use to reference it (see Monitoring and Dev PC Management),
-and the form Second Brain's `TaskLink` uses.
+and the form Devbook's `TaskLink` uses.
 
 The implementation type is `TaskItem` rather than the bare `Task`, which would
 shadow `System.Threading.Tasks.Task` in the module's own namespace and collide

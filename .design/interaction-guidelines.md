@@ -342,7 +342,7 @@ related: [".design/accessibility.md#target-sizes-and-text", ".design/design-prin
 ```
 
 The desktop shell's header switches between a small set of panes — Inbox,
-Backlog, Knowledge — and holds a pin on each pane's own cell, railed along the
+Backlog, Devbook — and holds a pin on each pane's own cell, railed along the
 top edge of that pane's toggle. Pinning a pane here is unrelated to a pinned
 act in `#action-density-and-overflow`: that one exempts a button from overflow
 collapse, this one exempts a pane from being closed by a switch.

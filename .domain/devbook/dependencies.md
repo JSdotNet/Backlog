@@ -1,4 +1,4 @@
-# Second Brain
+# Devbook
 
 ```meta
 type: dependencies
@@ -19,7 +19,7 @@ status: draft
 
 | Consumer (context/module) | DDD pattern | Integration mechanism | Contract | What it relies on |
 |---|---|---|---|---|
-| [Inbox](../inbox/domain.md#inbox-item) | OHS + Published Language (Inbox = supplier) | Publishes `ItemTriaged` (knowledge route) | `.domain/inbox/domain.md#itemtriaged` | Relies on Second Brain creating a Knowledge Note from a triaged item. |
+| [Inbox](../inbox/domain.md#inbox-item) | OHS + Published Language (Inbox = supplier) | Publishes `ItemTriaged` (knowledge route) | `.domain/inbox/domain.md#itemtriaged` | Relies on Devbook creating a Knowledge Note from a triaged item. |
 | [Tasks](../tasks/domain.md#task) | Partnership | Reference/embed read model plus bi-directional link | `.domain/devbook/domain.md#cross-linking` | Relies on note content being embeddable and cross-queryable without sharing aggregates. |
 | [Monitoring](../monitoring/domain.md#progress-signal) | Customer/Supplier (Monitoring = customer) | Knowledge-activity read-side feed | `.domain/devbook/domain.md#knowledge-note` | Knowledge activity contributes to the project health view; progress insights can be captured back as notes. |
 | [Roadmap Planning](../roadmap/domain.md#roadmap-plan) | Customer/Supplier (Roadmap Planning = customer) | Read-side gather by `<path>#<slug>` reference and by roadmap tag | `.domain/devbook/domain.md#knowledge-note` | A Roadmap Item gathers the chapters it references (`knowledge_refs`) and the chapters whose `roadmap` list names its tag, and totals their registered `effort`. Relies on chapters being resolvable by reference or tag and on their `effort`/`roadmap` metadata; reads only, and never writes a chapter or owns an effort value. |

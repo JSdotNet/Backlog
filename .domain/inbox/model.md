@@ -105,4 +105,4 @@ classDiagram
   Inbox on intake — the two are kept distinct on purpose.
 - Routing does not embed the target aggregate; it records the destination
   (`domain`, optional `repo_id`) and hands off via `ItemTriaged`. Tasks and
-  Second Brain own the created entities.
+  Devbook own the created entities.

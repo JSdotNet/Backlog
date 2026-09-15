@@ -104,7 +104,7 @@ Page map — each file here and the storybook pages that show it:
 | File | Storybook pages |
 |---|---|
 | `design-principles.md` | *Foundations* (one dark palette, no light column); *Entry edit* (edits auto-save, no save button); *Integrations* → **AI in the document** (AI attribution) |
-| `color-scheme.md` | *Foundations* → **Colour**, which measures each token's contrast in the live document against the thresholds in `#contrast-rules-wcag-aa-minimum`; `#badge-and-chip-tones` → *Badges* and *Knowledge base* → **State**; `#chart-roles` → *Usage metrics*, *Productivity over time*; `#integration-roles` → the five *Integrations* pages |
+| `color-scheme.md` | *Foundations* → **Colour**, which measures each token's contrast in the live document against the thresholds in `#contrast-rules-wcag-aa-minimum`; `#badge-and-chip-tones` → *Badges* and *Devbook* → **State**; `#chart-roles` → *Usage metrics*, *Productivity over time*; `#integration-roles` → the five *Integrations* pages |
 | `typography-and-layout.md` | *Foundations* → **Typography**, **Spacing**, **Radius and elevation**, **Motion**; `#metadata-lines` → *Task list*, *Integrations* → **References** |
 | `interaction-guidelines.md` | *Feedback* (SaveIndicator, Toast, Alert, EmptyState, Spinner, Skeleton); *Overlays*; *Entry edit* (debounced text save, immediate task-toggle save); `#task-rows` → *Task list*; `#action-density-and-overflow` → *Integrations* → **Density and overflow**; `#timelines-and-roadmaps` → *Roadmap* |
 | `content-editing.md` | *Markdown*, *Markdown document*, *Rich text editing*, *File view*, *Code*, *Entry edit*, *Section comparison*; `#ai-proposals-in-a-document` → *Integrations* → **AI in the document** |
@@ -202,14 +202,14 @@ Files and chapters in `.design` use `status: draft | active | deprecated`
 (`draft` = proposed/unverified, `active` = current binding guidance,
 `deprecated` = superseded). Metadata blocks follow
 `knowledge-chapter-metadata.instructions.md` and
-`knowledge-design.instructions.md` from the `knowledge-base` plugin:
+`knowledge-design.instructions.md` from the `devbook` plugin:
 `related` and `issue` are optional and omitted when empty.
 
 `status` itself is written only while a guideline is **in transition** —
 `draft` — or carries a standing warning — `deprecated`. `active` is the resting
 value, so a guideline that is simply current says so by saying nothing, and the
 field is omitted rather than restated. Absence therefore means `active` here; it
-never means "nobody has decided". The knowledge panels offer **No status** as an
+never means "nobody has decided". The Devbook panels offer **No status** as an
 option wherever that is true, and removing the field leaves the `meta` fence in
 place even when nothing else is left inside it — the fence is what marks a
 heading as an addressable chapter for the index generator.

@@ -137,7 +137,7 @@ registered none. It reports, alongside the total, **how many gathered things
 registered no estimate**, because a total that silently dropped unestimated work
 would read as smaller than the work in front of the person actually is. The item
 owns none of these values — the effort lives on the Tasks and the
-knowledge chapters, registered by Tasks and Second Brain — and the
+knowledge chapters, registered by Tasks and Devbook — and the
 item only reads and adds. The gathering and the totalling are done by
 [Roadmap Item Gathering](#roadmap-item-gathering), because neither
 answer is in the item's own state.
@@ -370,13 +370,13 @@ related: [.domain/roadmap/domain.md#roadmap-plan, .domain/tasks/domain.md#task, 
 ```
 
 Assembles, for one Roadmap Item, everything it reaches across Tasks
-and Second Brain — the task it links and the tasks carrying its tag, the
+and Devbook — the task it links and the tasks carrying its tag, the
 chapters it references and the chapters naming its tag — deduplicates what the two
 threads both reach, and totals the registered story points over the result.
 
 It is a service because none of this is in the item's own state. The Tasks
 Entries filed under its tag live in Tasks; the knowledge chapters
-naming its tag live in Second Brain; and the effort values are registered by those
+naming its tag live in Devbook; and the effort values are registered by those
 contexts, not by the plan. Like
 [Repository Scope Resolution](#repository-scope-resolution), it
 reads foreign data on the read path and holds none of it — so an unreachable

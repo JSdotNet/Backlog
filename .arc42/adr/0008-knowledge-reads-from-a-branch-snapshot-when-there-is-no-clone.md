@@ -1,14 +1,22 @@
-# ADR 0008: Knowledge reads from a cached branch snapshot when there is no clone; only a clone is editable
+# ADR 0008: The Devbook reads from a cached branch snapshot when there is no clone; only a clone is editable
 
 ```meta
 status: proposed
-related: [".arc42/08-crosscutting-concepts.md#storage-and-sync", ".arc42/08-crosscutting-concepts.md#knowledge-index", ".arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".arc42/adr/guidelines/0015-resilience-for-outbound-dependencies.md", ".domain/devbook/features.md#repository-knowledge-areas"]
+related: [".arc42/08-crosscutting-concepts.md#storage-and-sync", ".arc42/08-crosscutting-concepts.md#devbook-database", ".arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".arc42/adr/guidelines/0015-resilience-for-outbound-dependencies.md", ".domain/devbook/features.md#repository-devbook-areas"]
 issue: null
 ```
 
 ## Status
 
 Proposed.
+
+> **Amended 2026-09-15: Knowledge → Devbook.** The context and module this record
+> is about were renamed, and with them the code it names (`KnowledgeSnapshotCache`
+> → `DevbookSnapshotCache`, `knowledgeBranch` → `devbookBranch`,
+> `useLocalKnowledgeFolder` → `useLocalDevbookFolder`, `knowledge-cache` →
+> `devbook-cache`, each with a read fallback for the old persisted value). The
+> decision is unchanged, and the file name is kept so that `ADR 0008` citations in
+> code stay true.
 
 A **local** decision, numbered in the local sequence — not to be confused with
 inherited ADR 0008 under `.arc42/adr/guidelines/`, which this repository did not
@@ -62,7 +70,7 @@ archive and extracted into an app-managed cache folder. The cache location is a
 setting, defaulting beside the per-user settings rather than inside the backlog.
 
 **Resolution never fetches.** A branch nobody has fetched resolves to "not fetched
-yet"; the existing update control in the knowledge pane is what goes and gets it.
+yet"; the existing update control in the Devbook pane is what goes and gets it.
 
 ## Why this, rather than the alternatives
 
@@ -124,13 +132,13 @@ previously-offline workspace acquires a network dependency by upgrading.
 
 - A repository can be registered and read without being cloned, which is the
   point.
-- Knowledge editing now depends on which source is selected, not only on whether
-  a folder exists. `KnowledgeFolderLocation` carries that answer so no caller has
+- Devbook editing now depends on which source is selected, not only on whether
+  a folder exists. `DevbookFolderLocation` carries that answer so no caller has
   to re-derive it, and the writers check it as a backstop.
 - A fifth kind of machine-local state joins the four in
   `08-crosscutting-concepts.md`: the snapshot cache. Like the derived knowledge
   layer, it is regenerated rather than shipped, and is safe to delete.
-- The knowledge panels can now be looking at a commit rather than at a working
+- The Devbook panels can now be looking at a commit rather than at a working
   tree. The scope label names the branch so this is visible rather than inferred.
 - Somebody who edits a clone and expects to see it in a panel reading a branch
   will not, until they push and refetch. The read-only controls are what make

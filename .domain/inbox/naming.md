@@ -73,7 +73,7 @@ related: [.domain/inbox/domain.md#para-lean]
 ```
 
 The PARA drawer an unprocessed item is read under before triage routes it. The
-same four values as Second Brain's `PARA Category`
+same four values as Devbook's `PARA Category`
 (see `.domain/devbook/naming.md`), restated because Inbox is upstream;
 "drawer" is the reader's word for one of them on screen, and "unsorted" is the
 absence of a lean.

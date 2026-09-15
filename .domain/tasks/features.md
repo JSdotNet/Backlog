@@ -547,7 +547,7 @@ against the one it replaced from outside the plan no longer resolves.
 type: feature
 status: draft
 feature-flag: ai-assistant
-related: [.domain/devbook/features.md#repository-knowledge-areas, .domain/productivity/features.md#ai-productivity-tracking]
+related: [.domain/devbook/features.md#repository-devbook-areas, .domain/productivity/features.md#ai-productivity-tracking]
 ```
 
 Ask questions about the work currently in view and get an answer grounded in it.

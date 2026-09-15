@@ -128,8 +128,8 @@ Negative:
 
 Neutral:
 
-- The Second Brain context still has no module — its readers and parsers live in
-  `src/Modules/Knowledge/Backlog.Modules.Knowledge.UI`, which is a UI project
+- The Devbook context still has no module — its readers and parsers live in
+  `src/Modules/Devbook/Backlog.Modules.Devbook.UI`, which is a UI project
   under a module folder rather than a module with a domain behind it. It is a
   Core subdomain in the context map with the same problem this ADR just fixed for
   Tasks, and it is the obvious next extraction.

@@ -201,7 +201,7 @@ Three diagrams here render at `standard`, and not for want of trying:
 | diagram | why |
 | --- | --- |
 | `.domain/context-map.md` #1 | the relationship graph is non-planar — a K3,3 subdivision drawn straight from the fence |
-| `.arc42/05-building-block-view.md` #3 | contains a complete K3,3: `{UI Layer, Local Storage, JSON Indexes}` × `{Inbox Service, Backlog Service, Knowledge Service}` |
+| `.arc42/05-building-block-view.md` #3 | contains a complete K3,3: `{UI Layer, Local Storage, JSON Indexes}` × `{Inbox Service, Backlog Service, Devbook Service}` |
 | `.arc42/05-building-block-view.md` #2 | no proof of impossibility — three residual crossings nobody has managed to remove. See the note below; this one is different from the other two. |
 
 `showcase` raises `composition/proper-crossing` as an error for any crossing

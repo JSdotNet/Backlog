@@ -16,7 +16,7 @@ related: [.domain/context-map.md]
 |---|---|---|---|---|
 | [Repository Management](../repository-management/domain.md#repository-registry) | Customer/Supplier (Roadmap Planning = customer) | Registry lookup by repository alias, on the read path | `.domain/repository-management/naming.md#repository` | Repository Scope aliases resolve to configured repositories so a portfolio plan can be read one project at a time. Roadmap conforms to the registry's identity and never becomes a second authority for what a repository is. |
 | [Tasks](../tasks/domain.md#task) | Partnership | Optional cross-link by foreign id, plus read-side gather by tag | `.domain/tasks/domain.md#task` | A planned item may name the task that executes it, and also gathers every task filed under its tag; over both it totals the tasks' registered effort. Ids only, in both directions; neither side holds the other's aggregate and neither writes to it, and Roadmap reads effort it never registers. |
-| [Second Brain](../devbook/domain.md#knowledge-note) | Customer/Supplier (Roadmap Planning = customer) | Read-side gather by `<path>#<slug>` reference and by tag | `.domain/devbook/domain.md#knowledge-note` | A Roadmap Item gathers the knowledge chapters it references directly (`knowledge_refs`) and the chapters whose own `roadmap` list names its tag, and totals their registered effort. Reads only, on the read path: Roadmap resolves chapters by reference or tag and reads the effort they registered, and never writes a chapter or owns an effort value. |
+| [Devbook](../devbook/domain.md#knowledge-note) | Customer/Supplier (Roadmap Planning = customer) | Read-side gather by `<path>#<slug>` reference and by tag | `.domain/devbook/domain.md#knowledge-note` | A Roadmap Item gathers the knowledge chapters it references directly (`knowledge_refs`) and the chapters whose own `roadmap` list names its tag, and totals their registered effort. Reads only, on the read path: Roadmap resolves chapters by reference or tag and reads the effort they registered, and never writes a chapter or owns an effort value. |
 
 ## Inbound dependents (known)
 
@@ -32,7 +32,7 @@ related: [.domain/context-map.md]
   resolves them, and it does so on the read path — so an unreachable or changed
   registry degrades the reading of a plan, never the plan itself.
 - The Partnership with Tasks is the same shape as the existing
-  Tasks ↔ [Second Brain](../devbook/domain.md#cross-linking)
+  Tasks ↔ [Devbook](../devbook/domain.md#cross-linking)
   relationship: both sides keep only foreign ids, and the link semantics are
   coordinated rather than shared through an aggregate.
 - Gathering and totalling read **foreign registered effort and own none of it.**

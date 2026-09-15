@@ -136,8 +136,8 @@ related: [.domain/devbook/domain.md#para-category]
 ```
 
 The PARA drawer an unprocessed item leans towards — `projects`, `areas`,
-`resources` or `archive` — restated here from Second Brain's `PARA Category`
-because the Inbox sits upstream of Second Brain and may not reference it. A lean
+`resources` or `archive` — restated here from Devbook's `PARA Category`
+because the Inbox sits upstream of Devbook and may not reference it. A lean
 and not a filing: triage is where an item is actually routed, and the lean only
 says which drawer a reader would reach for first, so the queue can be read one
 drawer at a time. Absent means nobody has said, and the queue shows such items
@@ -177,7 +177,7 @@ related: [.domain/tasks/domain.md#task, .domain/devbook/domain.md#knowledge-note
 
 Coordinates the triage decision for an Inbox Item and the resulting cross-context
 handoff: routing to Tasks (emitting `ItemTriaged` with title, type, tags,
-`repo_ids`, `source_inbox_id`), routing to Second Brain (emitting `ItemTriaged`
+`repo_ids`, `source_inbox_id`), routing to Devbook (emitting `ItemTriaged`
 with title, `body_md`, topic, tags), or setting the item to deferred or archived.
 It lives as a service because routing crosses bounded-context boundaries rather
 than mutating a single aggregate. Invocation semantics: command-invoked application service triggered by a human or automated triage decision.
@@ -209,20 +209,20 @@ shape is stable even though the destination-specific fields differ.
 ### Payload
 
 - `inbox_item_id` - originating Inbox Item identifier.
-- `route` - `tasks` or `second-brain`.
+- `route` - `tasks` or `devbook`.
 - `title` - normalized title.
 - `body_md` - normalized body when routing to knowledge.
 - `tags` - final tags after classification.
 - `repo_ids` - targeted repositories when routing to Tasks.
 - `type` - requested task type when routing to Tasks.
-- `topic` - requested knowledge topic when routing to Second Brain.
+- `topic` - requested knowledge topic when routing to Devbook.
 - `source_inbox_id` - preserved source id for traceability.
 - `triaged_at` - time of the routing decision.
 
 ### Consumers
 
 - Tasks, which creates a draft `Task`.
-- Second Brain, which creates a `Knowledge Note`.
+- Devbook, which creates a `Knowledge Note`.
 
 ### Published language rules
 

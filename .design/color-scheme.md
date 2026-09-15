@@ -552,7 +552,7 @@ Rules:
 Knowledge chapters are the largest consumer of this scale: five folders spell
 their lifecycles five different ways, and `README.md#status-vocabulary` maps each
 word onto the tones above. Review surface: storybook → *Badges*, and
-*Knowledge base* → **State**.
+*Devbook* → **State**.
 
 ### Chart roles
 

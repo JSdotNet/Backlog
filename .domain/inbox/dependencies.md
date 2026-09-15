@@ -14,7 +14,7 @@ status: draft
 | Depends on (context/module) | DDD pattern | Integration mechanism | Contract | Why |
 |---|---|---|---|---|
 | [Tasks](../tasks/domain.md#task) | OHS + Published Language (Inbox = supplier) | Async `ItemTriaged` event | `.domain/inbox/domain.md#itemtriaged` | Routing an actionable item creates a Task draft without exposing Inbox internals. |
-| [Second Brain](../devbook/domain.md#knowledge-note) | OHS + Published Language (Inbox = supplier) | Async `ItemTriaged` event | `.domain/inbox/domain.md#itemtriaged` | Routing a knowledge item creates a Knowledge Note through the same published language with a different route shape. |
+| [Devbook](../devbook/domain.md#knowledge-note) | OHS + Published Language (Inbox = supplier) | Async `ItemTriaged` event | `.domain/inbox/domain.md#itemtriaged` | Routing a knowledge item creates a Knowledge Note through the same published language with a different route shape. |
 
 ## Inbound dependents (known)
 
@@ -28,7 +28,7 @@ status: draft
 
 - The Inbox is the hub of the capture -> triage -> backlog/knowledge/archive
   pipeline; keep the `ItemTriaged` payload as a published language so Tasks and
-  Second Brain never depend on Inbox internals.
+  Devbook never depend on Inbox internals.
 - The `.inbox/` folder is global (workspace root), not repo-scoped — all sources
   deliver to one shared inbox regardless of origin.
 - See the follow-up loop in `.domain/monitoring/flow.md#signal-flow` rather than
