@@ -267,11 +267,28 @@ public sealed class SettingsDevbookFolderStatusTests
         public DevbookSnapshot? TryRead(GitHubRepositoryRef repository, string? branch) =>
             _path is null ? null : new DevbookSnapshot("main", "sha-1", DateTimeOffset.UtcNow);
 
+        /// <summary>The index is whatever <see cref="Land"/> put on disk: the
+        /// folder source asks the index, not the disk, whether a folder exists,
+        /// so the stub reports the directories it created.</summary>
+        public DevbookSnapshotIndex? TryReadIndex(GitHubRepositoryRef repository, string? branch)
+        {
+            if (TryRead(repository, branch) is not { } snapshot || _path is null || !Directory.Exists(_path)) return null;
+
+            var entries = Directory.EnumerateDirectories(_path, "*", SearchOption.AllDirectories)
+                .Select(directory => new DevbookSnapshotEntry(Path.GetRelativePath(_path, directory).Replace(Path.DirectorySeparatorChar, '/'), "tree", true))
+                .ToList();
+
+            return new DevbookSnapshotIndex(snapshot, entries, new HashSet<string>(), false);
+        }
+
         public async Task<DevbookSnapshotResult> FetchAsync(GitHubRepositoryRef repository, string? branch, CancellationToken cancellationToken = default)
         {
             _path = await _landed.Task;
             return new DevbookSnapshotResult(TryRead(repository, branch), true, false, null);
         }
+
+        public Task<DevbookSnapshotResult> EnsureAsync(GitHubRepositoryRef repository, string? branch, IReadOnlyCollection<string> selection, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new DevbookSnapshotResult(TryRead(repository, branch), false, false, null));
 
         public Task<DevbookSnapshotResult> CheckAsync(GitHubRepositoryRef repository, string? branch, CancellationToken cancellationToken = default) =>
             Task.FromResult(new DevbookSnapshotResult(TryRead(repository, branch), false, false, null));

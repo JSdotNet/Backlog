@@ -14,24 +14,26 @@ public sealed class TechnologyDevbookService(IDevbookFolderSource source)
         remove => source.Changed -= value;
     }
 
-    public Task<TechnologyDevbookView> ReadAsync(string? repositoryAlias = null, CancellationToken cancellationToken = default)
+    public async Task<TechnologyDevbookView> ReadAsync(string? repositoryAlias = null, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var location = source.Resolve(".tech", repositoryAlias);
+        // Prepared rather than resolved: the graph is every layer file parsed
+        // together, so a branch's technology folder is fetched here, whole, once.
+        var location = await source.PrepareContentAsync(".tech", repositoryAlias, cancellationToken: cancellationToken).ConfigureAwait(false);
         if (!location.Available || location.FullPath is null)
         {
-            return Task.FromResult(TechnologyDevbookView.Unavailable(location));
+            return TechnologyDevbookView.Unavailable(location);
         }
 
         try
         {
-            return Task.FromResult(TechnologyDevbookReader.Read(location));
+            return TechnologyDevbookReader.Read(location);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
-            return Task.FromResult(TechnologyDevbookView.Unavailable(
-                location with { Message = $"Technology could not be read: {ex.Message}" }));
+            return TechnologyDevbookView.Unavailable(
+                location with { Message = $"Technology could not be read: {ex.Message}" });
         }
     }
 

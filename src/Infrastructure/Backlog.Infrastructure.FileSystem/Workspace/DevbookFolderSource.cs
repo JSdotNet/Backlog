@@ -215,12 +215,20 @@ public sealed class DevbookFolderSource : IDevbookFolderSource
     /// Never waits on the network. This runs during every panel load, and a
     /// resolution that blocked on GitHub would put it in front of opening a tab.
     /// What it does do is make sure the network has been <em>asked</em>: a branch
-    /// nobody has fetched starts its download here, in the background, and
-    /// resolves to "fetching" until it lands; a branch on disk is served as it
-    /// is and re-checked against its head on a cadence
-    /// <see cref="DevbookSnapshotAutoFetch"/> owns. Refresh is still never a
-    /// precondition, which is the rule ADR 0004 states for the devbook database
-    /// — it is just no longer something a person has to go and press for.
+    /// nobody has indexed starts its index download here, in the background,
+    /// and resolves to "fetching" until it lands; a branch with an index is
+    /// served from it and re-checked against its head on a cadence
+    /// <see cref="DevbookSnapshotAutoFetch"/> owns. A caller that would rather
+    /// wait than be told "fetching" — the menu — goes through
+    /// <see cref="PrepareListingAsync"/>, which joins that same download. Refresh
+    /// is still never a precondition, which is the rule ADR 0004 states for the
+    /// devbook database — it is just no longer something a person has to press
+    /// for.
+    /// </para>
+    /// <para>
+    /// Whether the folder exists is asked of the index, not the disk: a branch
+    /// whose <c>.arc42</c> has not been fetched yet still <em>has</em> one, and
+    /// the menu lists it from the index before a chapter is here.
     /// </para>
     /// </summary>
     private DevbookFolderLocation ResolveBranch(string key, DevbookFolderSetting folder, GitHubRepositoryRef repository)
@@ -245,7 +253,7 @@ public sealed class DevbookFolderSource : IDevbookFolderSource
         var snapshot = _snapshots.TryRead(repository, branch);
         var fetch = _autoFetch.Ensure(repository, branch, hasSnapshot: snapshot is not null);
 
-        if (snapshot is null)
+        if (snapshot is null || SnapshotTree(repository) is not { } tree)
         {
             // Pending rather than failed while the first download runs: the row
             // and the panel both show it, and both hear the announcement when it
@@ -281,7 +289,174 @@ public sealed class DevbookFolderSource : IDevbookFolderSource
             repository,
             $"{repository.FullName} ({label})",
             root,
-            DevbookSourceKind.Branch);
+            DevbookSourceKind.Branch,
+            tree);
+    }
+
+    public async Task<DevbookFolderLocation> PrepareListingAsync(
+        string key,
+        string? repositoryAlias = null,
+        CancellationToken cancellationToken = default)
+    {
+        var location = Resolve(key, repositoryAlias);
+        if (BranchRepository(location) is not { } repository) return location;
+
+        if (_snapshots!.TryRead(repository, repository.DevbookBranch) is null)
+        {
+            // Resolve has just asked the auto-fetch to take the index, so the
+            // download to wait for is the one already in flight — starting a
+            // second would list the commit twice for one menu. When there is
+            // none, the auto-fetch is sitting on a remembered failure, and that
+            // failure is the answer until the settings change or the interval
+            // passes; asking GitHub again from here would spend the very
+            // requests it exists to ration.
+            if (PendingFetch(repository) is { } inFlight)
+            {
+                await inFlight.WaitAsync(cancellationToken).ConfigureAwait(false);
+            }
+
+            location = Resolve(key, repositoryAlias);
+            if (!location.Available || _snapshots.TryRead(repository, repository.DevbookBranch) is null) return location;
+        }
+
+        // The reading-order files are part of the listing rather than of any
+        // one area: the menu is ordered by them, and a menu drawn without them
+        // would silently fall back to alphabetical. A failure here is exactly
+        // that fallback, so it is not reported as the folder being unavailable.
+        await _snapshots.EnsureAsync(repository, repository.DevbookBranch, ListingFiles, cancellationToken).ConfigureAwait(false);
+
+        return Resolve(key, repositoryAlias);
+    }
+
+    public async Task<DevbookFolderLocation> PrepareContentAsync(
+        string key,
+        string? repositoryAlias = null,
+        IReadOnlyCollection<string>? relativePaths = null,
+        CancellationToken cancellationToken = default)
+    {
+        var location = await PrepareListingAsync(key, repositoryAlias, cancellationToken).ConfigureAwait(false);
+        if (!location.Available || BranchRepository(location) is not { } repository) return location;
+
+        var folder = FolderRelativePath(location.Folder);
+        if (folder is null) return location;
+
+        var selection = relativePaths is null
+            ? new[] { DevbookSnapshotSelection.Subtree(folder), DevbookSnapshotSelection.Exclude(RenderedArtifactsFolder) }
+            : relativePaths.Select(path => WithinFolder(folder, path)).ToArray();
+
+        var result = await _snapshots!.EnsureAsync(repository, repository.DevbookBranch, selection, cancellationToken).ConfigureAwait(false);
+        if (result.Message is null || result.Updated) return location;
+
+        // Nothing landed. What was already here is still readable, so the
+        // folder stays available when it holds anything at all; only a folder
+        // with nothing in it reports the reason, because a reader of an empty
+        // folder would otherwise be told the branch has no chapters.
+        var index = _snapshots.TryReadIndex(repository, repository.DevbookBranch);
+        var holdsSomething = index is not null && index.Fetched.Any(path =>
+            folder.Length == 0 || path.StartsWith(folder + "/", StringComparison.OrdinalIgnoreCase));
+
+        return holdsSomething
+            ? location
+            : DevbookFolderLocation.Unavailable(
+                key,
+                result.Message,
+                repository.FullName,
+                location.Folder,
+                location.FullPath,
+                location.RootPath,
+                location.ScopeLabel,
+                repository.Alias,
+                DevbookSourceKind.Branch);
+    }
+
+    public IDevbookFileTree FileTree(DevbookFolderLocation location)
+    {
+        ArgumentNullException.ThrowIfNull(location);
+
+        return BranchRepository(location) is { } repository && SnapshotTree(repository) is { } tree
+            ? tree
+            : DevbookDiskFileTree.Instance;
+    }
+
+    /// <summary>The files every listing needs, wherever they sit: the authored
+    /// reading order, and the generated titles where a repository commits them.</summary>
+    private static readonly string[] ListingFiles =
+    [
+        DevbookSnapshotSelection.AnyDepth("_reading-order.json"),
+        DevbookSnapshotSelection.AnyDepth("_meta/index.json")
+    ];
+
+    /// <summary>The rendered diagram artifacts beside a chapter. Hundreds of
+    /// kilobytes each and read only when a rendered diagram is shown, so an area
+    /// is fetched without them — they are the bulk of what the archive used to
+    /// carry, and the reason it was slow.</summary>
+    private const string RenderedArtifactsFolder = "_archify";
+
+    /// <summary>The repository behind a branch location, or null when the
+    /// location is a local folder or this composition has no snapshots.</summary>
+    private GitHubRepositoryRef? BranchRepository(DevbookFolderLocation location) =>
+        _snapshots is not null
+        && location.Source is DevbookSourceKind.Branch
+        && !string.IsNullOrWhiteSpace(location.RepositoryAlias)
+            ? _settings.Current.Find(location.RepositoryAlias)
+            : null;
+
+    /// <summary>The last index read, as a tree, so five areas resolving against
+    /// one branch on one load parse its index once rather than five times.</summary>
+    private (string Root, string Sha, DevbookSnapshotFileTree Tree)? _lastTree;
+
+    private DevbookSnapshotFileTree? SnapshotTree(GitHubRepositoryRef repository)
+    {
+        if (_snapshots is null) return null;
+
+        var root = _snapshots.SnapshotPath(repository, repository.DevbookBranch);
+
+        if (_snapshots.TryRead(repository, repository.DevbookBranch) is not { } snapshot) return null;
+
+        var last = _lastTree;
+        if (last is { } cached
+            && string.Equals(cached.Root, root, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(cached.Sha, snapshot.Sha, StringComparison.OrdinalIgnoreCase))
+        {
+            return cached.Tree;
+        }
+
+        if (_snapshots.TryReadIndex(repository, repository.DevbookBranch) is not { } index) return null;
+
+        var tree = new DevbookSnapshotFileTree(root, index.Entries);
+        _lastTree = (root, snapshot.Sha, tree);
+        return tree;
+    }
+
+    /// <summary>Where the folder sits in the repository, <c>/</c>-separated and
+    /// empty at the root — or null for a folder pointed outside the repository
+    /// by an absolute path, which no branch can carry.</summary>
+    private static string? FolderRelativePath(DevbookFolderSetting? folder)
+    {
+        var path = folder?.EffectivePath ?? string.Empty;
+        if (Path.IsPathRooted(path)) return null;
+
+        return DevbookSnapshotSelection.Normalize(path).Trim('/');
+    }
+
+    /// <summary>A caller's folder-relative path as a repository-relative one;
+    /// the any-depth and exclusion forms are already repository-wide and pass
+    /// through.</summary>
+    private static string WithinFolder(string folder, string path)
+    {
+        var trimmed = path.Trim();
+
+        if (trimmed.StartsWith(DevbookSnapshotSelection.AnyDepthPrefix, StringComparison.Ordinal)
+            || trimmed.StartsWith(DevbookSnapshotSelection.ExcludePrefix))
+        {
+            return trimmed;
+        }
+
+        var subtree = trimmed.EndsWith('/');
+        var relative = DevbookSnapshotSelection.Normalize(trimmed).Trim('/');
+        var combined = folder.Length == 0 ? relative : relative.Length == 0 ? folder : $"{folder}/{relative}";
+
+        return subtree ? DevbookSnapshotSelection.Subtree(combined) : combined;
     }
 
     private static DevbookFolderLocation ResolvePath(
@@ -291,8 +466,11 @@ public sealed class DevbookFolderSource : IDevbookFolderSource
         GitHubRepositoryRef? repository,
         string scopeLabel,
         string? rootPath,
-        DevbookSourceKind source = DevbookSourceKind.LocalFolder)
+        DevbookSourceKind source = DevbookSourceKind.LocalFolder,
+        IDevbookFileTree? tree = null)
     {
+        tree ??= DevbookDiskFileTree.Instance;
+
         var path = folder.EffectivePath;
         var fullPath = Path.IsPathRooted(path)
             ? path
@@ -315,7 +493,7 @@ public sealed class DevbookFolderSource : IDevbookFolderSource
                 source: source);
         }
 
-        if (!Directory.Exists(fullPath))
+        if (!tree.DirectoryExists(fullPath))
         {
             // Worth different words when the tree came from a branch: the folder
             // is not missing from somebody's disk, it is missing from the commit,

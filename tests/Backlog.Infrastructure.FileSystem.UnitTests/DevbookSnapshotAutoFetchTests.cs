@@ -212,6 +212,11 @@ public class DevbookSnapshotAutoFetchTests
 
         public DevbookSnapshot? TryRead(GitHubRepositoryRef repository, string? branch) => null;
 
+        public DevbookSnapshotIndex? TryReadIndex(GitHubRepositoryRef repository, string? branch) => null;
+
+        public Task<DevbookSnapshotResult> EnsureAsync(GitHubRepositoryRef repository, string? branch, IReadOnlyCollection<string> selection, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException("The auto-fetch takes the index and nothing else.");
+
         public Task<DevbookSnapshotResult> FetchAsync(GitHubRepositoryRef repository, string? branch, CancellationToken cancellationToken = default)
         {
             var source = new TaskCompletionSource<DevbookSnapshotResult>(TaskCreationOptions.RunContinuationsAsynchronously);

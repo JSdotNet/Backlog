@@ -81,8 +81,14 @@ public sealed class DevbookUpdateService(
 
     /// <summary>
     /// Bring the knowledge up to the latest version — pulling the clone, or
-    /// re-fetching the branch snapshot — then tell the folder source its content
+    /// refreshing the branch's index — then tell the folder source its content
     /// was replaced so every open panel re-reads it.
+    /// <para>
+    /// For a branch, "pull" is the index: the listing of the new commit, with
+    /// every fetched file the commit changed dropped from disk. The chapters
+    /// themselves come back as the panels reload and prepare what they show, so
+    /// a refresh costs one listing plus whatever actually moved, not the tree.
+    /// </para>
     /// </summary>
     public async Task<DevbookUpdateState> PullAsync(string? repositoryAlias, CancellationToken cancellationToken = default)
     {

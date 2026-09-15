@@ -94,9 +94,9 @@ public sealed class C4DevbookStore : IDisposable
     /// when somebody clicks it.
     /// </para>
     /// </summary>
-    public Task<C4Catalog> LoadAsync(string? repositoryAlias = null)
+    public async Task<C4Catalog> LoadAsync(string? repositoryAlias = null)
     {
-        if (!Enabled) return Task.FromResult(C4Catalog.Off);
+        if (!Enabled) return C4Catalog.Off;
 
         var key = repositoryAlias ?? string.Empty;
 
@@ -104,11 +104,18 @@ public sealed class C4DevbookStore : IDisposable
         {
             if (_cached is not null && string.Equals(_cachedFor, key, StringComparison.Ordinal))
             {
-                return Task.FromResult(_cached);
+                return _cached;
             }
         }
 
-        var catalog = Read(repositoryAlias);
+        // Only the workspace folder, not the architecture chapters beside it:
+        // the arc42 store fetches those when its catalog is built, and this
+        // store is read alongside it rather than instead of it.
+        var location = await _folders
+            .PrepareContentAsync(FolderKey, repositoryAlias, [WorkspaceDirectory + "/"])
+            .ConfigureAwait(false);
+
+        var catalog = Read(location);
 
         lock (_gate)
         {
@@ -116,12 +123,11 @@ public sealed class C4DevbookStore : IDisposable
             _cached = catalog;
         }
 
-        return Task.FromResult(catalog);
+        return catalog;
     }
 
-    private C4Catalog Read(string? repositoryAlias)
+    private static C4Catalog Read(DevbookFolderLocation location)
     {
-        var location = _folders.Resolve(FolderKey, repositoryAlias);
         if (!location.Available || location.FullPath is null) return C4Catalog.Off;
 
         var directory = Path.Combine(location.FullPath, WorkspaceDirectory);

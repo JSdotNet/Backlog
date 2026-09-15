@@ -18,7 +18,17 @@ public sealed class DevbookMenu(IDevbookFolderSource source)
         remove => source.Changed -= value;
     }
 
-    public Task<DevbookMenuTree> LoadAsync(
+    /// <summary>
+    /// The rail, area by area.
+    /// <para>
+    /// Each area is <em>listed</em>, never fetched: the source is asked to make
+    /// the folder listable — which for a branch is its index and nothing more —
+    /// and the walk goes through the tree that source hands back rather than
+    /// the disk, so a branch draws its menu before one of its chapters is here.
+    /// The chapters arrive when a panel opens the area.
+    /// </para>
+    /// </summary>
+    public async Task<DevbookMenuTree> LoadAsync(
         IReadOnlyCollection<string> visibleAreaKeys,
         string? repositoryAlias = null,
         CancellationToken cancellationToken = default)
@@ -26,52 +36,53 @@ public sealed class DevbookMenu(IDevbookFolderSource source)
         ArgumentNullException.ThrowIfNull(visibleAreaKeys);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var folders = DevbookFolderSetting.Defaults()
-            .Where(folder => visibleAreaKeys.Contains(AreaKey(folder.Key), StringComparer.Ordinal))
-            .Select(folder => ReadFolder(folder, repositoryAlias, cancellationToken))
-            .ToList();
+        var folders = new List<DevbookMenuNode>();
 
-        return Task.FromResult(new DevbookMenuTree(folders));
+        foreach (var folder in DevbookFolderSetting.Defaults()
+                     .Where(folder => visibleAreaKeys.Contains(AreaKey(folder.Key), StringComparer.Ordinal)))
+        {
+            folders.Add(await ReadFolderAsync(folder, repositoryAlias, cancellationToken).ConfigureAwait(false));
+        }
+
+        return new DevbookMenuTree(folders);
     }
 
-    private DevbookMenuNode ReadFolder(DevbookFolderSetting folder, string? repositoryAlias, CancellationToken cancellationToken)
+    private async Task<DevbookMenuNode> ReadFolderAsync(DevbookFolderSetting folder, string? repositoryAlias, CancellationToken cancellationToken)
     {
         var areaKey = AreaKey(folder.Key);
-        var location = source.Resolve(folder.Key, repositoryAlias);
-
-        if (string.Equals(areaKey, "instructions", StringComparison.OrdinalIgnoreCase))
-        {
-            if (!location.Available || location.FullPath is null)
-            {
-                return new DevbookMenuNode(areaKey, folder.DisplayName, folder.Key, DevbookMenuNodeKind.Folder, areaKey, [], false, location.Message);
-            }
-
-            var roots = EnumerateInstructionRoots(location.FullPath, areaKey, cancellationToken);
-            return new DevbookMenuNode(areaKey, folder.DisplayName, folder.Key, DevbookMenuNodeKind.Folder, areaKey, roots, true);
-        }
+        var location = await source.PrepareListingAsync(folder.Key, repositoryAlias, cancellationToken).ConfigureAwait(false);
 
         if (!location.Available || location.FullPath is null)
         {
             return new DevbookMenuNode(areaKey, folder.DisplayName, folder.Key, DevbookMenuNodeKind.Folder, areaKey, [], false, location.Message);
         }
 
+        var tree = source.FileTree(location);
+
+        if (string.Equals(areaKey, "instructions", StringComparison.OrdinalIgnoreCase))
+        {
+            var roots = EnumerateInstructionRoots(tree, location.FullPath, areaKey, cancellationToken);
+            return new DevbookMenuNode(areaKey, folder.DisplayName, folder.Key, DevbookMenuNodeKind.Folder, areaKey, roots, true);
+        }
+
         // Once per area, not once per directory: the folder's authored order and
         // the generated titles are both read here and handed down the walk.
         var outline = DevbookMenuOutline.Read(location.FullPath);
-        var children = EnumerateChildren(location.FullPath, location.FullPath, areaKey, outline, cancellationToken);
+        var children = EnumerateChildren(tree, location.FullPath, location.FullPath, areaKey, outline, cancellationToken);
         return new DevbookMenuNode(areaKey, folder.DisplayName, folder.Key, DevbookMenuNodeKind.Folder, areaKey, children, true);
     }
 
     private static IReadOnlyList<DevbookMenuNode> EnumerateInstructionRoots(
+        IDevbookFileTree tree,
         string repositoryRoot,
         string areaKey,
         CancellationToken cancellationToken)
     {
         var roots = new List<DevbookMenuNode>();
-        AddInstructionRoot(roots, repositoryRoot, ".github", ".github", areaKey, cancellationToken);
-        AddInstructionRoot(roots, repositoryRoot, ".claude", ".claude", areaKey, cancellationToken);
-        AddInstructionRoot(roots, repositoryRoot, ".agent", ".agent", areaKey, cancellationToken, fallbackRelativePath: ".agents");
-        AddRootInstructionFiles(roots, repositoryRoot, areaKey);
+        AddInstructionRoot(tree, roots, repositoryRoot, ".github", ".github", areaKey, cancellationToken);
+        AddInstructionRoot(tree, roots, repositoryRoot, ".claude", ".claude", areaKey, cancellationToken);
+        AddInstructionRoot(tree, roots, repositoryRoot, ".agent", ".agent", areaKey, cancellationToken, fallbackRelativePath: ".agents");
+        AddRootInstructionFiles(tree, roots, repositoryRoot, areaKey);
         return roots;
     }
 
@@ -86,12 +97,12 @@ public sealed class DevbookMenu(IDevbookFolderSource source)
     /// <para>Last, after the folders: they are the structure, and a handful of
     /// loose files reads as a footnote to it rather than as a peer.</para>
     /// </summary>
-    private static void AddRootInstructionFiles(List<DevbookMenuNode> roots, string repositoryRoot, string areaKey)
+    private static void AddRootInstructionFiles(IDevbookFileTree tree, List<DevbookMenuNode> roots, string repositoryRoot, string areaKey)
     {
         foreach (var name in InstructionSourceDiscovery.RootFileNames)
         {
             var fullPath = Path.Combine(repositoryRoot, name);
-            if (!File.Exists(fullPath)) continue;
+            if (!tree.FileExists(fullPath)) continue;
 
             roots.Add(new DevbookMenuNode(
                 Key(repositoryRoot, fullPath),
@@ -105,6 +116,7 @@ public sealed class DevbookMenu(IDevbookFolderSource source)
     }
 
     private static void AddInstructionRoot(
+        IDevbookFileTree tree,
         List<DevbookMenuNode> roots,
         string repositoryRoot,
         string displayPath,
@@ -115,21 +127,22 @@ public sealed class DevbookMenu(IDevbookFolderSource source)
     {
         var fullPath = Path.Combine(repositoryRoot, relativePath.Replace('/', Path.DirectorySeparatorChar));
         var nodePath = relativePath;
-        if (!Directory.Exists(fullPath) && fallbackRelativePath is not null)
+        if (!tree.DirectoryExists(fullPath) && fallbackRelativePath is not null)
         {
             fullPath = Path.Combine(repositoryRoot, fallbackRelativePath.Replace('/', Path.DirectorySeparatorChar));
-            nodePath = Directory.Exists(fullPath) ? fallbackRelativePath : relativePath;
+            nodePath = tree.DirectoryExists(fullPath) ? fallbackRelativePath : relativePath;
         }
 
-        var available = Directory.Exists(fullPath);
+        var available = tree.DirectoryExists(fullPath);
         var children = available
-            ? EnumerateInstructionChildren(repositoryRoot, fullPath, displayPath, nodePath, areaKey, cancellationToken)
+            ? EnumerateInstructionChildren(tree, repositoryRoot, fullPath, displayPath, nodePath, areaKey, cancellationToken)
             : [];
         roots.Add(new DevbookMenuNode(areaKey, displayPath, displayPath, DevbookMenuNodeKind.Folder, areaKey, children, available));
     }
 
 
     private static IReadOnlyList<DevbookMenuNode> EnumerateInstructionChildren(
+        IDevbookFileTree tree,
         string repositoryRoot,
         string directory,
         string displayRoot,
@@ -139,7 +152,7 @@ public sealed class DevbookMenu(IDevbookFolderSource source)
     {
         // No outline: the instruction area is assembled out of agent folders
         // rather than being a knowledge folder with a reading order of its own.
-        var nodes = EnumerateChildren(repositoryRoot, directory, areaKey, DevbookMenuOutline.None, cancellationToken, includeAllFiles: true);
+        var nodes = EnumerateChildren(tree, repositoryRoot, directory, areaKey, DevbookMenuOutline.None, cancellationToken, includeAllFiles: true);
         return nodes.Select(node => RewriteInstructionPath(node, displayRoot, sourceRoot)).ToList();
     }
 
@@ -159,6 +172,7 @@ public sealed class DevbookMenu(IDevbookFolderSource source)
             ? displayRoot + path[sourceRoot.Length..]
             : path;
     private static IReadOnlyList<DevbookMenuNode> EnumerateChildren(
+        IDevbookFileTree tree,
         string root,
         string directory,
         string areaKey,
@@ -170,18 +184,18 @@ public sealed class DevbookMenu(IDevbookFolderSource source)
 
         try
         {
-            var directories = Directory.EnumerateDirectories(directory)
+            var directories = tree.EnumerateDirectories(directory)
                 .Where(path => !Path.GetFileName(path).StartsWith('_'))
                 .Select(path => (DiskPath: path, Node: new DevbookMenuNode(
                     Key(root, path),
                     Humanize(Path.GetFileName(path)),
-                    DirectoryNodePath(root, path),
+                    DirectoryNodePath(tree, root, path),
                     DevbookMenuNodeKind.Folder,
                     areaKey,
-                    EnumerateChildren(root, path, areaKey, outline, cancellationToken, includeAllFiles),
+                    EnumerateChildren(tree, root, path, areaKey, outline, cancellationToken, includeAllFiles),
                     true)));
 
-            var files = Directory.EnumerateFiles(directory, includeAllFiles ? "*" : "*.md", SearchOption.TopDirectoryOnly)
+            var files = tree.EnumerateFiles(directory, includeAllFiles ? "*" : "*.md")
                 .Where(path => !Path.GetFileName(path).StartsWith('_'))
                 .Where(path => !IsIndexMarkdown(path) || string.Equals(root, directory, StringComparison.OrdinalIgnoreCase))
                 .Select(path => (DiskPath: path, Node: new DevbookMenuNode(
@@ -348,17 +362,17 @@ public sealed class DevbookMenu(IDevbookFolderSource source)
         return node.Path;
     }
 
-    private static string DirectoryNodePath(string root, string directory)
+    private static string DirectoryNodePath(IDevbookFileTree tree, string root, string directory)
     {
-        var indexPath = IndexMarkdownPath(directory);
+        var indexPath = IndexMarkdownPath(tree, directory);
         return indexPath is null ? RelativePath(root, directory) : RelativePath(root, indexPath);
     }
 
-    private static string? IndexMarkdownPath(string directory)
+    private static string? IndexMarkdownPath(IDevbookFileTree tree, string directory)
     {
         try
         {
-            return Directory.EnumerateFiles(directory, "*.md", SearchOption.TopDirectoryOnly)
+            return tree.EnumerateFiles(directory, "*.md")
                 .FirstOrDefault(IsIndexMarkdown);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DirectoryNotFoundException)

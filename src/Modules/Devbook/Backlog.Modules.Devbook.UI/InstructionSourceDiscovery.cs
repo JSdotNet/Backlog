@@ -36,6 +36,25 @@ public sealed class InstructionSourceDiscovery
     public static IReadOnlyList<string> RootFileNames { get; } = ["CLAUDE.md", "AGENTS.md"];
 
     /// <summary>
+    /// What a branch has to carry on disk before this area can be discovered:
+    /// the three agent folders whole, the root files, and every
+    /// <c>AGENTS.md</c> wherever it sits. Spelled in the folder port's selection
+    /// language and handed to <see cref="IDevbookFolderSource.PrepareContentAsync"/>
+    /// by the panel, because the instructions area is the one whose folder is the
+    /// repository root — and "fetch the whole area" would be the whole repository,
+    /// which is exactly the download branch loading exists to avoid.
+    /// </summary>
+    public static IReadOnlyList<string> BranchPaths { get; } =
+    [
+        ".github/",
+        ".claude/",
+        ".agent/",
+        ".agents/",
+        .. RootFileNames,
+        "**/AGENTS.md"
+    ];
+
+    /// <summary>
     /// Reads each repository's instruction documents.
     /// <para>
     /// <paramref name="folders"/> is how a repository read from a branch finds

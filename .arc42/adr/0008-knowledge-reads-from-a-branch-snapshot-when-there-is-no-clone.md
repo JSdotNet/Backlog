@@ -34,6 +34,23 @@ Proposed.
 > pull. The open question below is closed by this; the rest of the decision is
 > unchanged.
 
+> **Amended 2026-09-15, the same day: the snapshot is lazy.** The original
+> decision took the branch as one archive, extracted whole. That was reversed on
+> the owner's call: a snapshot is now the branch's *index* — one listing of every
+> path in the commit — plus the files fetched into it on demand, area by area, as
+> a panel opens them. The menu is drawn from the index before a chapter exists
+> on disk, and the update control refreshes the index rather than the tree. The
+> two amendments compose: what the auto-fetch above starts, re-checks and
+> rations is the *index*, which is why it can afford to run on every resolve;
+> what a reader then needs comes through two preparation calls on the devbook
+> folder port, *listing* — which joins the auto-fetch's download rather than
+> starting its own — and *content*. "Why a snapshot rather than reading files
+> over the API on demand" below is left as written, because its first reason —
+> the readers walk a real directory — still holds and shaped how the lazy
+> version was built; its other reasons are answered in the new section that
+> follows it. The archive client is gone; `IGitHubTreeClient` and the
+> `Prepare*Async` calls are what replaced it.
+
 A **local** decision, numbered in the local sequence — not to be confused with
 inherited ADR 0008 under `.arc42/adr/guidelines/`, which this repository did not
 import. Every reference below to a local ADR by bare number means the local one.
@@ -81,15 +98,24 @@ repository:
 status selectors, the chapter editor, or the folder launchers, and the writers
 refuse if reached anyway.
 
-The snapshot is the repository tree as that branch has it, downloaded as an
-archive and extracted into an app-managed cache folder. The cache location is a
-setting, defaulting beside the per-user settings rather than inside the backlog.
+The snapshot is the branch's **index** — every path the commit contains, taken
+in one call — and, under it, the **files fetched so far**, laid out at the paths
+the index gives them inside an app-managed cache folder. A file is fetched the
+first time a reader asks for the area or the file it is in, and stays until the
+branch moves and changes it. The cache location is a setting, defaulting beside
+the per-user settings rather than inside the backlog.
 
-**Resolution never waits on a fetch.** As first decided, resolution never fetched
-at all and the update control in the Devbook pane was what went and got it; since
-the 2026-09-15 amendment above, resolution starts the fetch itself in the
-background and serves whatever is on disk in the meantime. What it still never
-does is block a panel load on GitHub.
+**Resolution never waits on a fetch; preparation does.** As first decided,
+resolution never fetched at all and the update control in the Devbook pane was
+what went and got it; since the 2026-09-15 amendments above, resolution starts
+the index download itself in the background, answers from the index once there
+is one, and never blocks a panel load on GitHub. The two preparation calls on
+the folder port are what a reader awaits: *listing* waits for the index the
+resolve started (and fetches the reading-order files the menu is ordered by),
+*content* fetches what a reader names — an area's folder, or a handful of
+paths. The Devbook menu prepares the listing; the area stores prepare their
+content; the auto-fetch re-checks the head on its cadence and the update
+control does so on demand. Nothing waits on a pull.
 
 ## Why this, rather than the alternatives
 
@@ -105,6 +131,34 @@ keeps the standalone concept intact.
 are configurable and can be pointed anywhere; the instructions area *is* the
 repository root; the diagram tooling reads `tools/`. "Extract the folders we
 need" is a guess that goes wrong the first time somebody re-points a folder.
+
+**Why the index and the files separately, rather than either alone (amendment).**
+The archive was the wrong unit. It carried the whole repository — source, tools,
+and the rendered diagram artifacts, which in this one are megabytes per area —
+to draw a menu of a few hundred kilobytes of markdown, and it carried nothing at
+all until somebody pressed a button, so a repository configured to read a branch
+looked empty until they did. The index is the cheapest thing that draws a menu:
+one call, small, and it says which folders the commit has without a byte of
+their content. The files are then fetched at the granularity the readers
+actually read at — the area stores parse a whole folder, so an area is fetched
+whole the first time its panel opens; the instructions area is the repository
+root, so it names its agent folders and root files rather than fetching the
+root; the rendered `_archify/` artifacts beside a chapter are left out of an
+area, because nothing reads them until a rendered diagram is shown. The whole
+tree is still the *index's* unit, for the reason above: nothing has to guess
+which folders matter, because listing them all costs nothing.
+
+The readers were not rewritten onto an async file abstraction, which is what the
+first reason for a snapshot was protecting against. They still walk a real
+directory. What changed is one call before each walk — `PrepareContentAsync`,
+a no-op for a local folder — and one seam in the menu, which enumerates through
+an `IDevbookFileTree` so that it can list from the index rather than the disk.
+The rate-limit reason is answered by the shape: one listing per commit and one
+blob per file somebody opened is far fewer calls than the API-per-read design it
+argued against, and files already on disk at the commit's version cost none.
+The offline reason is narrowed rather than lost: what has been opened reads
+offline, which is what the standalone concept in `08-crosscutting-concepts.md`
+now says.
 
 **Why read-only, rather than editing the snapshot and pushing.** An edit to a
 snapshot would be an edit to a copy of a commit — it would survive exactly until
@@ -139,9 +193,11 @@ is no repository folder to sit beside — that is the whole case for the feature
 "Desktop works fully standalone" remains true of everything it was written about:
 the backlog, its tasks, its own knowledge, and any repository with a clone. What
 is now also true is that **a repository configured to read a branch needs the
-network once**, to take the first snapshot. After that it reads offline, and a
-lost connection costs freshness and nothing else — which is the same trade ADR
-0005 records for sync.
+network to list the branch, and the first time each area is opened**. After
+that it reads offline what it has, and a lost connection costs freshness — and
+the areas not yet opened — and nothing else, which is the same trade ADR 0005
+records for sync. A refresh that fails leaves the index and every fetched file as
+they were; a fetch that fails part-way keeps what landed.
 
 The default protects this. A repository with a clone and no stored preference
 reads the clone, so an existing install's behaviour is unchanged and no
@@ -156,7 +212,20 @@ previously-offline workspace acquires a network dependency by upgrading.
   to re-derive it, and the writers check it as a backstop.
 - A fifth kind of machine-local state joins the four in
   `08-crosscutting-concepts.md`: the snapshot cache. Like the derived knowledge
-  layer, it is regenerated rather than shipped, and is safe to delete.
+  layer, it is regenerated rather than shipped, and is safe to delete. On disk it
+  is, per branch, `snapshot.json` (which commit), `index.json` (every path),
+  `fetched.json` (which files are here, at which blob id) and `tree/` (the
+  files) — and the invariant every write keeps is that a file under `tree/` is
+  the indexed commit's version of that path.
+- The devbook folder port grew two calls beside `Resolve`: `PrepareListingAsync`
+  and `PrepareContentAsync`, both defaulting to `Resolve` so a local folder — and
+  every fake predating branch loading — needs nothing. A reader that opens files
+  calls the second before it reads; the menu calls the first. Adding a reader
+  means adding that call, and the read-only branch tests are where its absence
+  shows up.
+- Rendered diagram artifacts (`_archify/`) are not fetched with an area. On a
+  branch, a diagram is drawn from its source; the pre-rendered picture is a
+  clone-only nicety until somebody decides it is worth fetching on demand.
 - The Devbook panels can now be looking at a commit rather than at a working
   tree. The scope label names the branch so this is visible rather than inferred.
 - Somebody who edits a clone and expects to see it in a panel reading a branch
@@ -168,15 +237,19 @@ previously-offline workspace acquires a network dependency by upgrading.
 - ~~**Should a snapshot ever refresh on its own?**~~ Closed 2026-09-15: it does.
   The first fetch starts on the first resolve and the head is re-checked once per
   interval, in the background, which keeps ADR 0004's "refresh is an optimisation,
-  never a precondition" — nothing waits on it — while dropping the manual step. A
-  stale *clone* still makes the old bargain: it is pulled only when somebody
-  presses the control, because a pull touches a working tree somebody may be
-  editing in.
+  never a precondition" — nothing waits on it — while dropping the manual step.
+  What refreshes is the index; a fetched file the new commit changed is dropped
+  and comes back the next time its area is opened. A stale *clone* still makes
+  the old bargain: it is pulled only when somebody presses the control, because
+  a pull touches a working tree somebody may be editing in.
 - **Nothing prunes the cache.** A repository removed from Settings leaves its
   snapshots behind, and a branch selected once and abandoned keeps its tree. The
   folder is safe to delete by hand and the setting says where it is; whether the
   app should tidy it, and on what signal, is not decided here.
-- **Private repositories need a credential** the archive download can resolve.
-  Anonymous download works for a public repository, which is deliberate, but the
-  failure for a private one is a 404 from GitHub rather than a message saying
-  "sign in" — the credential design cannot distinguish the two.
+- **Private repositories need a credential** the transport can resolve. The
+  listing and the blobs go through `IGitHubTransport` like every other call, so
+  a repository bound to an account this machine cannot satisfy fails the way the
+  branch catalog already failed — with the transport's "not configured" reason,
+  which is at least a sentence about signing in. The anonymous public-repository
+  read the archive download allowed is gone with it; whether it is worth a second,
+  credential-less path for public repositories is not decided here.
