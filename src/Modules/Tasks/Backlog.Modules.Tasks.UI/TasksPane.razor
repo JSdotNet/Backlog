@@ -3138,9 +3138,11 @@
             if (present.Remove(section)) ordered.Add(section);
         }
 
-        if (!string.IsNullOrEmpty(State.SelectedRepositoryAlias))
+        // The scoped repositories first, in the order they were scoped, so the
+        // anchor heads the list; then the rest in the order Settings has them.
+        foreach (var alias in State.SelectedRepositoryAliases)
         {
-            Take(State.SelectedRepositoryAlias);
+            Take(alias);
         }
 
         foreach (var repository in State.Repositories)

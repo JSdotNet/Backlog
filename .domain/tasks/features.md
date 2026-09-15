@@ -374,7 +374,10 @@ related: [.domain/second-brain/features.md#bi-directional-linking]
 Search across title, body, tags, and linked knowledge notes; filter by area
 (a self-chosen grouping such as "repos", "projects", or "inbox"), repo, type,
 status, priority, and recency; grouped views; and inline embedding of Second
-Brain content.
+Brain content. The repository scope can hold several repositories at once while
+the list is on screen — the list shows work filed against any of them — and
+narrows back to one when the list is not, since the list is the only surface
+that can show more than one.
 
 ### Manual ordering
 

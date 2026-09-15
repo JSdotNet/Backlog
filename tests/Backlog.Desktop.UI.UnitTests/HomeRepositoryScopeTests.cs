@@ -7,6 +7,7 @@ using AngleSharp.Dom;
 
 using Backlog.Modules.Sessions.UI;
 using Bunit;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -113,6 +114,217 @@ public sealed class HomeRepositoryScopeTests
             Assert.Contains("repo-mark--1", selected.ClassName);
         });
     }
+
+    // --- More than one repository at once ----------------------------------------
+    //
+    // A plain press is the single select the strip always had. With Ctrl (Cmd on a
+    // Mac) held it adds or removes one, and the first one taken is the anchor — the
+    // repository the knowledge pane reads, since the pane can read one and not
+    // several. The anchor is marked only once there is a second chip for it to be
+    // distinct from; with one chip pressed the markup is what it was before.
+
+    [Fact]
+    public void A_plain_press_scopes_to_one_repository_and_a_second_plain_press_replaces_it()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+
+        Chips(component)[0].Click();
+        Assert.Equal(["backlog"], state.SelectedRepositoryAliases);
+
+        Chips(component)[1].Click();
+        Assert.Equal(["docs"], state.SelectedRepositoryAliases);
+
+        // And pressing the one that is alone in the scope clears it, as it always did.
+        Chips(component)[1].Click();
+        Assert.Empty(state.SelectedRepositoryAliases);
+    }
+
+    [Fact]
+    public void A_modified_press_adds_a_repository_beside_the_first()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+
+        Chips(component)[0].Click();
+        Chips(component)[1].Click(new MouseEventArgs { CtrlKey = true });
+
+        Assert.Equal(["backlog", "docs"], state.SelectedRepositoryAliases);
+        component.WaitForAssertion(() =>
+            Assert.All(Chips(component), chip => Assert.Equal("true", chip.GetAttribute("aria-pressed"))));
+    }
+
+    [Fact]
+    public void Cmd_counts_as_the_modifier_too()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+
+        Chips(component)[0].Click();
+        Chips(component)[1].Click(new MouseEventArgs { MetaKey = true });
+
+        Assert.Equal(["backlog", "docs"], state.SelectedRepositoryAliases);
+    }
+
+    [Fact]
+    public void A_modified_press_on_a_scoped_chip_takes_it_back_out()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+
+        Chips(component)[0].Click();
+        Chips(component)[1].Click(new MouseEventArgs { CtrlKey = true });
+        Chips(component)[1].Click(new MouseEventArgs { CtrlKey = true });
+
+        Assert.Equal(["backlog"], state.SelectedRepositoryAliases);
+    }
+
+    [Fact]
+    public void The_knowledge_pane_follows_the_anchor_not_the_latest_press()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+
+        Chips(component)[1].Click();
+
+        // Pinned, so opening Knowledge puts it beside the list rather than in its
+        // place — a pane press is a switch, and the list has to stay for a second
+        // repository to have anywhere to be.
+        component.WaitForElement("[data-testid='backlog-pane-pin']").Click();
+        component.WaitForElement("[data-testid='knowledge-pane-option']").Click();
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
+            Assert.Equal("docs", component.FindComponent<KnowledgePane>().Instance.RepositoryAlias);
+        });
+
+        Chips(component)[0].Click(new MouseEventArgs { CtrlKey = true });
+
+        // Two repositories in the list, and the pane still reading the first one taken:
+        // adding a repository to the backlog scope must not move the knowledge the reader
+        // was already reading beside it.
+        component.WaitForAssertion(() =>
+            Assert.Equal("docs", component.FindComponent<KnowledgePane>().Instance.RepositoryAlias));
+    }
+
+    [Fact]
+    public void The_anchor_is_marked_only_once_there_is_a_second_chip_to_tell_it_from()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+
+        Chips(component)[1].Click();
+
+        // One chip pressed: nothing to be the anchor of, so no mark — the markup
+        // stays what it was before the strip could hold two.
+        component.WaitForAssertion(() =>
+        {
+            var chips = Chips(component);
+            Assert.All(chips, chip => Assert.Null(chip.GetAttribute("aria-current")));
+            Assert.All(chips, chip => Assert.DoesNotContain("chip--anchor", chip.ClassName));
+        });
+
+        Chips(component)[0].Click(new MouseEventArgs { CtrlKey = true });
+
+        component.WaitForAssertion(() =>
+        {
+            var chips = Chips(component);
+            Assert.Equal("true", chips[1].GetAttribute("aria-current"));
+            Assert.Contains("chip--anchor", chips[1].ClassName);
+            Assert.Null(chips[0].GetAttribute("aria-current"));
+            Assert.DoesNotContain("chip--anchor", chips[0].ClassName);
+        });
+    }
+
+    [Fact]
+    public void Removing_the_anchor_hands_the_mark_to_the_next_repository()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+
+        Chips(component)[1].Click();
+        Chips(component)[0].Click(new MouseEventArgs { CtrlKey = true });
+        Chips(component)[1].Click(new MouseEventArgs { CtrlKey = true });
+
+        Assert.Equal(["backlog"], state.SelectedRepositoryAliases);
+        Assert.Equal("backlog", state.AnchorRepositoryAlias);
+    }
+
+    [Fact]
+    public void The_chip_says_how_to_add_one()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+
+        var chips = Chips(component);
+
+        // The modifier is the one thing about the strip nothing on screen shows, so
+        // the chip's own tooltip is where it is written down.
+        Assert.Contains("Ctrl+click", chips[0].GetAttribute("title"));
+    }
+
+    // --- Several only while the list is on screen ------------------------------------
+    //
+    // More than one repository is a list affordance: the backlog list is the only
+    // pane that can show several. So the scope holds several only while Tasks is on
+    // screen — going to Knowledge, which as an unpinned switch takes the list's
+    // place, narrows the scope to the anchor, and without the list a modified press
+    // is an ordinary press.
+
+    [Fact]
+    public void Going_to_knowledge_in_place_of_the_list_narrows_the_scope_to_the_anchor()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+
+        Chips(component)[1].Click();
+        Chips(component)[0].Click(new MouseEventArgs { CtrlKey = true });
+        Assert.Equal(["docs", "backlog"], state.SelectedRepositoryAliases);
+
+        GoToKnowledge(component);
+
+        // The anchor, not the latest: docs was taken first, and it is what the
+        // knowledge pane would have been reading beside the list.
+        component.WaitForAssertion(() => Assert.Equal(["docs"], state.SelectedRepositoryAliases));
+        Assert.Equal("docs", component.FindComponent<KnowledgePane>().Instance.RepositoryAlias);
+    }
+
+    [Fact]
+    public void Without_the_list_a_modified_press_is_an_ordinary_press()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+
+        Chips(component)[0].Click();
+        GoToKnowledge(component);
+
+        Chips(component)[1].Click(new MouseEventArgs { CtrlKey = true });
+
+        Assert.Equal(["docs"], state.SelectedRepositoryAliases);
+        Assert.DoesNotContain("Ctrl+click", Chips(component)[0].GetAttribute("title"));
+    }
+
+    /// <summary>Presses the Knowledge option, which — Tasks being unpinned — puts
+    /// the knowledge pane where the list was.</summary>
+    private static void GoToKnowledge(IRenderedComponent<Home> component)
+    {
+        component.WaitForElement("[data-testid='knowledge-pane-option']").Click();
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='knowledge-stack']"));
+            Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
+        });
+    }
+
+    private static IReadOnlyList<IElement> Chips(IRenderedComponent<Home> component) =>
+        component.WaitForElements("[data-testid='repository-filter-option']");
 
     // --- The repository colour visualization ----------------------------------
     //

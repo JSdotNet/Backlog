@@ -56,7 +56,7 @@ public sealed class TasksPaneFollowDependencyTests
         await link.ClickAsync(new MouseEventArgs());
 
         // The scope that hid it is gone, the row is in the list, and it is open.
-        Assert.Equal(string.Empty, host.State.SelectedRepositoryAlias);
+        Assert.Empty(host.State.SelectedRepositoryAliases);
         Assert.Contains(host.State.FilteredRows, row => row.TaskId == elsewhere.TaskId);
         Assert.Equal(elsewhere.TaskId, host.State.SelectedRow?.TaskId);
         Assert.NotNull(pane.Find($"[data-testid='{RowTestId(elsewhere)}']"));
@@ -111,7 +111,7 @@ public sealed class TasksPaneFollowDependencyTests
 
         await pane.Find(DependencyLink(waiting)).ClickAsync(new MouseEventArgs());
 
-        Assert.Equal(string.Empty, host.State.SelectedRepositoryAlias);
+        Assert.Empty(host.State.SelectedRepositoryAliases);
         Assert.Equal(string.Empty, host.State.SelectedStatusFilterWire);
         Assert.Empty(host.State.SelectedTags);
         Assert.Equal(elsewhere.TaskId, host.State.SelectedRow?.TaskId);

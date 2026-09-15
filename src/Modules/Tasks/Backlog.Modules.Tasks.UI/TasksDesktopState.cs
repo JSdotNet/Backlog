@@ -238,16 +238,35 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
     public string SelectedStatusFilterWire { get; private set; } = string.Empty;
 
-    /// <summary>The repository currently scoping repository-authored backlog and
-    /// knowledge, or empty for all configured repositories.</summary>
-    public string SelectedRepositoryAlias { get; private set; } = string.Empty;
+    /// <summary>
+    /// The repositories currently scoping the backlog, in the order they were taken
+    /// into the scope; empty for all configured repositories.
+    /// <para>
+    /// An ordered set rather than one alias, because the list can be narrowed to
+    /// several repositories at once and the knowledge pane cannot: it reads one
+    /// repository's folders. The first entry is the <em>anchor</em> — see
+    /// <see cref="AnchorRepositoryAlias"/> — and the order is what makes the anchor
+    /// stable: adding a repository never moves the one the reader was already
+    /// reading beside.
+    /// </para>
+    /// </summary>
+    public IReadOnlyList<string> SelectedRepositoryAliases => _selectedRepositoryAliases;
+
+    private readonly List<string> _selectedRepositoryAliases = [];
+
+    /// <summary>The first repository in the scope, or empty when nothing is scoped.
+    /// It is the one the knowledge pane reads and the one a new entry is filed
+    /// under, because every reader that can take one repository and not several
+    /// takes this one.</summary>
+    public string AnchorRepositoryAlias =>
+        _selectedRepositoryAliases.Count > 0 ? _selectedRepositoryAliases[0] : string.Empty;
 
     /// <summary>
     /// True while the view is narrowed to the entries filed against no repository.
     /// <para>
-    /// A scope of its own rather than a value <see cref="SelectedRepositoryAlias"/>
+    /// A scope of its own rather than a value <see cref="SelectedRepositoryAliases"/>
     /// could hold, because "no repository" is not a repository and every reader of
-    /// that alias would have to be taught the exception. A sentinel there would be
+    /// that set would have to be taught the exception. A sentinel there would be
     /// handed to the knowledge pane, which answers an unresolvable alias with
     /// "select a configured repository"; written into a new draft as
     /// <c>`repo:`</c>; and wiped by <see cref="ForgetStaleRepositoryScope"/> on the
@@ -754,29 +773,69 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         ApplyFilter();
     }
 
+    /// <summary>Scopes the backlog to one repository, replacing whatever the scope
+    /// held — or to every repository, when handed nothing or an alias that is not
+    /// configured. The plain press on a scope chip; <see cref="ToggleRepositoryInScope"/>
+    /// is the one with a modifier held.</summary>
     public void SetRepositoryFilter(string? repositoryAlias)
     {
-        var alias = repositoryAlias ?? string.Empty;
-        var repository = alias.Length == 0 ? null : _gitHub.Settings.Current.Find(alias);
-        if (alias.Length > 0 && repository is null)
+        var alias = ResolveAlias(repositoryAlias);
+
+        if (alias.Length == 0
+            ? _selectedRepositoryAliases.Count == 0
+            : _selectedRepositoryAliases is [var only] && string.Equals(only, alias, StringComparison.Ordinal))
         {
-            alias = string.Empty;
-        }
-        else if (repository is not null)
-        {
-            alias = repository.Alias;
+            return;
         }
 
-        if (string.Equals(SelectedRepositoryAlias, alias, StringComparison.Ordinal)) return;
+        _selectedRepositoryAliases.Clear();
+        if (alias.Length > 0) _selectedRepositoryAliases.Add(alias);
 
-        SelectedRepositoryAlias = alias;
         ApplyFilter();
         Changed?.Invoke();
     }
 
+    /// <summary>Takes a repository into the scope beside the ones already there, or
+    /// back out of it when it is there already. Additive in both directions, the
+    /// way <see cref="ToggleTagFilter"/> is: taking the last one out is how the
+    /// reader gets back to every repository. An alias nothing is configured under
+    /// changes nothing, since there is no chip it could correspond to.</summary>
+    public void ToggleRepositoryInScope(string? repositoryAlias)
+    {
+        var alias = ResolveAlias(repositoryAlias);
+        if (alias.Length == 0) return;
+
+        if (!_selectedRepositoryAliases.Remove(alias)) _selectedRepositoryAliases.Add(alias);
+
+        ApplyFilter();
+        Changed?.Invoke();
+    }
+
+    /// <summary>Drops every scoped repository but the anchor. More than one at a
+    /// time is a list affordance — the backlog list is the only reader that can
+    /// show several — so the shell asks for this when that list leaves the screen,
+    /// and the readers still on it get the one repository each of them can take.
+    /// Nothing to do, and nothing announced, with one or none scoped.</summary>
+    public void NarrowRepositoryScopeToAnchor()
+    {
+        if (_selectedRepositoryAliases.Count <= 1) return;
+
+        _selectedRepositoryAliases.RemoveRange(1, _selectedRepositoryAliases.Count - 1);
+
+        ApplyFilter();
+        Changed?.Invoke();
+    }
+
+    /// <summary>The configured spelling of an alias, or empty when nothing is
+    /// configured under it.</summary>
+    private string ResolveAlias(string? repositoryAlias) =>
+        string.IsNullOrEmpty(repositoryAlias)
+            ? string.Empty
+            : _gitHub.Settings.Current.Find(repositoryAlias)?.Alias ?? string.Empty;
+
     /// <summary>Turns the "no repository" scope on or off. See
     /// <see cref="NoRepositoryOnly"/> for why this is a scope of its own and not a
-    /// value <see cref="SelectedRepositoryAlias"/> holds.</summary>
+    /// value <see cref="SelectedRepositoryAliases"/> holds.</summary>
     public void SetNoRepositoryFilter(bool only)
     {
         NoRepositoryOnly = only;
@@ -837,9 +896,9 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
         var widened = false;
 
-        if (SelectedRepositoryAlias.Length > 0 && !RowBelongsToSelectedRepository(row))
+        if (_selectedRepositoryAliases.Count > 0 && !RowBelongsToSelectedRepository(row))
         {
-            SelectedRepositoryAlias = string.Empty;
+            _selectedRepositoryAliases.Clear();
             widened = true;
         }
 
@@ -898,7 +957,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     {
         var row = new EntryRow();
 
-        var seedRepository = SelectedRepositoryAlias.Length > 0 ? SelectedRepositoryAlias : null;
+        var seedRepository = AnchorRepositoryAlias.Length > 0 ? AnchorRepositoryAlias : null;
 
         if (seedRepository is not null)
         {
@@ -2883,7 +2942,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     {
         IEnumerable<EntryRow> rows = Rows;
 
-        if (SelectedRepositoryAlias.Length > 0)
+        if (_selectedRepositoryAliases.Count > 0)
         {
             rows = rows.Where(RowBelongsToSelectedRepository);
         }
@@ -2989,31 +3048,28 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         }
     }
 
-    /// <summary>A row is in the scoped repository when one of its targets names it.
-    /// Any rather than the first, because an entry that targets two repositories
-    /// belongs to both scopes — hiding it from one would be the scope disagreeing
-    /// with the entry's own text.</summary>
+    /// <summary>A row is in the scope when one of its targets names a scoped
+    /// repository. Any rather than the first, because an entry that targets two
+    /// repositories belongs to both scopes — hiding it from one would be the scope
+    /// disagreeing with the entry's own text.</summary>
     private bool RowBelongsToSelectedRepository(EntryRow row) =>
         row.PreviewRepoIds.Any(target =>
             _gitHub.ResolveRepository(target) is { } repository
-            && string.Equals(repository.Alias, SelectedRepositoryAlias, StringComparison.Ordinal));
+            && _selectedRepositoryAliases.Contains(repository.Alias, StringComparer.Ordinal));
 
     /// <summary>A repository stops existing when it is removed from settings, and a
     /// scope pointing at one that is gone would filter the list down to nothing with
-    /// no chip on screen to say why. Dropping back to all repositories is the same
-    /// answer <see cref="SetRepositoryFilter"/> gives an alias it cannot resolve.
+    /// no chip on screen to say why. It leaves the scope on its own and the others
+    /// stay — the reader still has chips pressed for those — which, with one
+    /// repository scoped, is the same answer <see cref="SetRepositoryFilter"/>
+    /// gives an alias it cannot resolve.
     /// <para>
     /// <see cref="NoRepositoryOnly"/> needs no equivalent: it names no repository,
     /// so there is nothing settings can take away from it.
     /// </para>
     /// </summary>
-    private void ForgetStaleRepositoryScope()
-    {
-        if (SelectedRepositoryAlias.Length > 0 && _gitHub.Settings.Current.Find(SelectedRepositoryAlias) is null)
-        {
-            SelectedRepositoryAlias = string.Empty;
-        }
-    }
+    private void ForgetStaleRepositoryScope() =>
+        _selectedRepositoryAliases.RemoveAll(alias => _gitHub.Settings.Current.Find(alias) is null);
 
     /// <summary>
     /// Tags exist for the same reason areas do — somebody typed one — so the group

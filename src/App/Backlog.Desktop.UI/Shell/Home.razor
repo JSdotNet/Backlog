@@ -63,17 +63,26 @@
         <div class="app-header__identity">
             @if (State.Repositories.Count > 0)
             {
+                @* One repository on a plain press, one more with Ctrl held — while the
+                   Tasks pane is on screen; see ScopeRepository below. The anchor — the
+                   first one taken, the one the knowledge pane reads — is marked only
+                   once a second chip is pressed: with one chip there is nothing for it
+                   to be distinct from, and the markup stays exactly what the single
+                   select produced. *@
                 <div class="app-header__repository-scope" role="group" aria-label="Repository scope">
                     @foreach (var repository in State.Repositories)
                     {
-                        var selected = State.SelectedRepositoryAlias == repository.Alias;
+                        var selected = State.SelectedRepositoryAliases.Contains(repository.Alias, StringComparer.Ordinal);
+                        var anchor = selected && State.SelectedRepositoryAliases.Count > 1
+                            && string.Equals(State.AnchorRepositoryAlias, repository.Alias, StringComparison.Ordinal);
                         <ToggleButton BaseClass="chip chip--scope"
-                                      CssClass="@RepositoryMarkClass(repository.Alias)"
+                                      CssClass="@RepositoryScopeChipClass(repository.Alias, anchor)"
                                       PressedCssClass="chip--active"
                                       Pressed="selected"
                                       TestId="repository-filter-option"
-                                      Title="@(selected ? $"Deselect {repository.FullName}" : repository.FullName)"
-                                      PressedChanged="() => ToggleRepositoryScopeAsync(repository.Alias)">
+                                      Title="@RepositoryScopeChipTitle(repository, selected, anchor)"
+                                      aria-current="@(anchor ? "true" : null)"
+                                      OnClick="args => ScopeRepository(repository.Alias, args)">
                             @repository.Alias
                         </ToggleButton>
                     }
@@ -584,7 +593,10 @@
 
                         @if (KnowledgePaneVisible)
                         {
-                            <KnowledgePane RepositoryAlias="@State.SelectedRepositoryAlias" />
+                            @* The anchor and not the whole scope: the pane reads one
+                               repository's folders, and the first one taken is the one
+                               the reader was already reading beside. *@
+                            <KnowledgePane RepositoryAlias="@State.AnchorRepositoryAlias" />
                         }
                     </aside>
                 }
@@ -901,7 +913,7 @@
     /// Brain rather than working it out from folder settings itself.</summary>
     private bool KnowledgePaneOptionVisible =>
         IsFeatureEnabled(KnowledgeFeatures.RepositoryKnowledge)
-        && Knowledge.VisibleAreas(State.SelectedRepositoryAlias).Count > 0;
+        && Knowledge.VisibleAreas(State.AnchorRepositoryAlias).Count > 0;
 
     private bool KnowledgePaneVisible => KnowledgePaneOptionVisible && _globalPanes.IsEnabled(GlobalPane.Knowledge);
 
@@ -1065,9 +1077,29 @@
     /// default pane.</summary>
     private void PersistPaneSelection()
     {
+        KeepRepositoryScopeSingleWithoutTasks();
+
         var enabled = Enum.GetValues<GlobalPane>().Where(_globalPanes.IsEnabled).Select(pane => pane.ToString()).ToArray();
         var pinned = Enum.GetValues<GlobalPane>().Where(_globalPanes.IsPinned).Select(pane => pane.ToString()).ToArray();
         ShellNavigation.SetLastPanes(enabled, pinned);
+    }
+
+    /// <summary>
+    /// The scope holds several repositories only while the Tasks pane is on screen.
+    /// <para>
+    /// Several at once is a list affordance: the backlog list is the only pane that
+    /// can show more than one repository, and the knowledge pane reads exactly one.
+    /// So when the list goes — closed by the reader, or trimmed by a window that no
+    /// longer fits it — the scope drops back to the anchor, and what the knowledge
+    /// pane was reading is what it keeps reading. Called from every path that changes
+    /// which panes are on screen: the toggles and the restore go through
+    /// <see cref="PersistPaneSelection"/>, and the capacity trim calls it itself
+    /// because a trim is deliberately not persisted.
+    /// </para>
+    /// </summary>
+    private void KeepRepositoryScopeSingleWithoutTasks()
+    {
+        if (!TasksPaneVisible) State.NarrowRepositoryScopeToAnchor();
     }
 
     private bool PaneToggleDisabled(GlobalPane pane)
@@ -1174,8 +1206,6 @@
         StateHasChanged();
     });
 
-    /// <summary>The repository scope is global: it narrows the backlog list and,
-    /// through the alias handed to the pane, what knowledge is read beside it.</summary>
     /// <summary>
     /// The repository's identity mark, as classes.
     /// <para>
@@ -1210,12 +1240,59 @@
     /// </summary>
     private void ShowRepositoryColours(bool visible) => _ = State.SetRepositoryColoursVisible(visible);
 
-    private void ToggleRepositoryScopeAsync(string repositoryAlias)
+    /// <summary>
+    /// A press on a scope chip.
+    /// <para>
+    /// The repository scope is global: it narrows the backlog list and, through the
+    /// anchor handed to the pane, what knowledge is read beside it. A plain press is
+    /// the single select the strip always had — this repository, or none when it was
+    /// already alone in the scope. With Ctrl held (Cmd on a Mac) the press adds the
+    /// repository beside the ones already scoped, or takes it back out: the
+    /// convention every file manager has, so it needs no teaching beyond the tooltip.
+    /// A plain press on a chip inside a wider scope narrows to that one, for the
+    /// same reason — that is what a plain click on one of several selected files does.
+    /// </para>
+    /// <para>
+    /// The modifier counts only while the Tasks pane is on screen — see
+    /// <see cref="KeepRepositoryScopeSingleWithoutTasks"/>. Without the list there is
+    /// nothing a second repository could be shown in, so the press is an ordinary one.
+    /// </para>
+    /// </summary>
+    private void ScopeRepository(string repositoryAlias, MouseEventArgs args)
     {
-        var nextAlias = string.Equals(State.SelectedRepositoryAlias, repositoryAlias, StringComparison.Ordinal)
-            ? string.Empty
-            : repositoryAlias;
-        State.SetRepositoryFilter(nextAlias);
+        if ((args.CtrlKey || args.MetaKey) && TasksPaneVisible)
+        {
+            State.ToggleRepositoryInScope(repositoryAlias);
+            return;
+        }
+
+        var alone = State.SelectedRepositoryAliases is [var only]
+            && string.Equals(only, repositoryAlias, StringComparison.Ordinal);
+        State.SetRepositoryFilter(alone ? string.Empty : repositoryAlias);
+    }
+
+    /// <summary>The identity mark, plus the anchor's own class while there is a
+    /// second chip for it to be distinct from.</summary>
+    private string? RepositoryScopeChipClass(string alias, bool anchor)
+    {
+        var mark = RepositoryMarkClass(alias);
+        if (!anchor) return mark;
+
+        return mark is null ? "chip--anchor" : mark + " chip--anchor";
+    }
+
+    /// <summary>What the chip does next, since the modifier is the one thing about
+    /// the strip nothing on screen shows.</summary>
+    private string RepositoryScopeChipTitle(GitHubRepositoryRef repository, bool selected, bool anchor)
+    {
+        // No list, no modifier to name: the chip says what a single select says.
+        if (!TasksPaneVisible) return selected ? $"Deselect {repository.FullName}" : repository.FullName;
+
+        if (!selected) return $"{repository.FullName}. Ctrl+click to add it to the scope";
+        if (State.SelectedRepositoryAliases.Count == 1) return $"Deselect {repository.FullName}";
+
+        var name = anchor ? $"{repository.FullName} — knowledge follows this one" : repository.FullName;
+        return $"{name}. Click to scope to it alone, Ctrl+click to remove it from the scope";
     }
 
     [JSInvokable]
@@ -1255,6 +1332,7 @@
             return Task.CompletedTask;
         }
 
+        KeepRepositoryScopeSingleWithoutTasks();
         StateHasChanged();
         return Task.CompletedTask;
     }

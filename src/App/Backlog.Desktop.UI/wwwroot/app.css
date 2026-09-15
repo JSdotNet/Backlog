@@ -469,6 +469,20 @@ h1, h2, h3 {
     border-color: var(--color-primary);
 }
 
+/*
+   The anchor: with several repositories scoped, the first one taken — the one the
+   knowledge pane reads. An underline rather than a weight or a border, because the
+   chip must not change size when a second one joins it, and because the chip's
+   edges are already spoken for: the fill is selection and the leading rule is
+   identity (.chip.repo-mark.chip--active below). The mark exists only alongside
+   aria-current="true", which is what assistive technology reads instead.
+*/
+.chip--scope.chip--anchor {
+    text-decoration: underline;
+    text-decoration-thickness: var(--border-width-2);
+    text-underline-offset: 0.2em;
+}
+
 /* Room for the repository identity rule, added to the chip's own leading padding so
    a coloured chip is exactly as wide as an uncoloured one beside it. The mark itself
    is the shared .repo-mark utility in components.css. */
