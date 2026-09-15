@@ -5747,6 +5747,27 @@ button.tag-chip__label {
   under the control because that is the order they are read in.
 */
 
+/*
+   The chrome a control draws inside itself — the clock a time input paints at
+   its end, the calendar a date input paints, the picker either one opens, a
+   textarea's resize grip — is the platform's, drawn for whatever `color-scheme`
+   the element has. Undeclared, that is the light scheme, and the working-hours
+   fields showed a near-black clock on a near-black field. Every rule below sets
+   the field's own surface and text; none of them can reach the glyph.
+
+   On the elements rather than on `:root`, which is where a one-theme product
+   would naturally say it: the Archify artifact frame is a transparent iframe
+   pinned to `normal` (see renderArtifact in components.js), and a browser paints
+   an opaque canvas behind any frame whose scheme differs from its embedder's.
+   By element rather than by class for the reason `select option` gives — a host
+   may replace `field__input` outright, and the settings screen does.
+*/
+input,
+select,
+textarea {
+    color-scheme: dark;
+}
+
 .field {
     display: grid;
     gap: var(--spacing-xs);
