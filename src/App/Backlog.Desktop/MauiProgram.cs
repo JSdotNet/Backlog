@@ -29,6 +29,7 @@ using Backlog.Modules.Dashboard.UI.Extensions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sessions.UI.Extensions;
 using Backlog.Infrastructure.AzureFoundry;
+using Backlog.Infrastructure.Capture.Extensions;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.FileSystem;
@@ -141,8 +142,8 @@ public static class MauiProgram
         // The same arrangement for capture: the module brings the run, and the host
         // decides where the monitored sources are kept — its own per-user file
         // beside the choices above, for the same reason theirs are not in
-        // settings.json. No source adapter is registered because none ships yet;
-        // the run says so per enabled source rather than needing one to exist.
+        // settings.json. The source adapters and the delivery come further down,
+        // after the Inbox they deliver into.
         builder.Services.AddSingleton<ICaptureSourceSettings, CaptureSourcesSettingsStore>();
         builder.Services.AddCaptureModule();
 
@@ -170,6 +171,12 @@ public static class MauiProgram
         // an adapter may see both contexts. Scoped, for the reason the roadmap
         // adapters are, and after AddTasksModule() for the same reason.
         builder.Services.AddInboxCrossContextAdapters();
+
+        // The other join the Inbox takes part in: Capture's feed readers and the
+        // delivery that hands what they found to the Inbox's intake, answered by
+        // adapters because neither module may see the other. After
+        // AddInboxModule() for the intake the delivery captures.
+        builder.Services.AddCaptureAdapters();
         // Half of a repository's configuration is workspace data and lives under
         // the backlog folder, so it follows that folder the way the task database
         // and the roadmap plan already do: the root is read per call rather than

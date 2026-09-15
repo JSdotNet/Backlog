@@ -113,6 +113,7 @@ public sealed class HomeKnowledgePaneTests
         context.Services.AddSingleton<ICaptureSourceSettings>(
             new CaptureSourcesSettingsStore(Path.Combine(root, "capture", "capture-sources.json")));
         context.Services.AddCaptureModule();
+        InboxTestHost.AddCaptureDelivery(context.Services);
 
         TasksTestHost.AddToastChannel(context.Services);
         // The Inbox pane the shell now composes: its state over the in-memory

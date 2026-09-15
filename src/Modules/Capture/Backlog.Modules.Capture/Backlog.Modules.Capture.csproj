@@ -4,13 +4,15 @@
     Capture module — the Capture bounded context (.domain/capture).
     Clean architecture, inside out:
       Features/      one vertical slice per use case (command + handler)
-      Ports/         ICaptureSourceAdapter, one per source kind, answered by adapters
+      Ports/         ICaptureSourceAdapter, one per source kind, and ICaptureDelivery,
+                     where a capture goes — both answered in src/Infrastructure
       Services/      the published port, wired to the slices
       Extensions/    AddCaptureModule() composition root for hosts
-    No adapter ships yet: a run over an enabled source reports that, per source,
-    rather than failing. This project may reference the shared kernel and its own
-    Abstractions, and nothing else in the solution. Hosts go the other way: they
-    call the facade and hold the DTOs.
+    The adapters fetch and normalise; every rule — what is new, what a source's
+    line says — is the handler's. A source with no adapter is reported, per
+    source, rather than failing the run. This project may reference the shared
+    kernel and its own Abstractions, and nothing else in the solution. Hosts go
+    the other way: they call the facade and hold the DTOs.
   -->
   <PropertyGroup>
     <RootNamespace>Backlog.Modules.Capture</RootNamespace>

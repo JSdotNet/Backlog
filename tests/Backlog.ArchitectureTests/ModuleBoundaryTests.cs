@@ -378,6 +378,41 @@ public class ModuleBoundaryTests
     }
 
     /// <summary>
+    /// The join between Capture and the Inbox runs through
+    /// <c>Backlog.Infrastructure.Capture</c> and nowhere else: it answers
+    /// Capture's ports — declared in the module implementation, next to the
+    /// handler that owns the rules — and hands what they produce to the Inbox
+    /// through the Inbox's <em>published</em> intake, never its implementation.
+    ///
+    /// <para>The generic rules above already forbid either module seeing the
+    /// adapter or each other. What they cannot say is which surface of the Inbox
+    /// the adapter is allowed to see, and that is the line this draws: the
+    /// delivery is a translation between two contexts, and a translation that
+    /// reached into the Inbox's aggregate would be a second place the Inbox's
+    /// rules could be bypassed. The build would not catch that reference; this
+    /// does.</para>
+    /// </summary>
+    [Fact]
+    public void Backlog_Infrastructure_Capture_answers_captures_ports_through_the_inboxes_published_surface()
+    {
+        const string adapter = "Backlog.Infrastructure.Capture";
+        const string captureModule = "Backlog.Modules.Capture";
+        const string inboxAbstractions = "Backlog.Modules.Inbox.Abstractions";
+        const string inboxModule = "Backlog.Modules.Inbox";
+
+        var projects = Repository.ProjectsUnder("src", "Infrastructure")
+            .ToDictionary(project => Path.GetFileNameWithoutExtension(project.Name), StringComparer.OrdinalIgnoreCase);
+
+        Assert.True(projects.ContainsKey(adapter), $"{adapter} is not under src/Infrastructure any more.");
+
+        var references = Repository.ReferencedProjectNames(projects[adapter]).ToList();
+
+        Assert.Contains(captureModule, references, StringComparer.OrdinalIgnoreCase);
+        Assert.Contains(inboxAbstractions, references, StringComparer.OrdinalIgnoreCase);
+        Assert.DoesNotContain(inboxModule, references, StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
     /// The sessions pane injects the cheap port and only the cheap port.
     ///
     /// <para><c>IAgentSessionSource</c> stats files; <c>IAgentActivitySource</c> reads
