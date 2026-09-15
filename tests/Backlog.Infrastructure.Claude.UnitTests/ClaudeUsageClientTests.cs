@@ -162,7 +162,7 @@ public class ClaudeUsageClientTests
     {
         using var directory = new TemporaryDirectory();
         var settings = new ClaudeSettingsStore(directory.File("claude.json"));
-        settings.SetAdminApiKey("sk-ant-api03-personal-key");
+        settings.SetAdminApiKey(settings.Current.Accounts[0].Id, "sk-ant-api03-personal-key");
 
         var client = new ClaudeUsageClient(new StubTransport(available: true), settings);
 
@@ -174,7 +174,22 @@ public class ClaudeUsageClientTests
     {
         using var directory = new TemporaryDirectory();
         var settings = new ClaudeSettingsStore(directory.File("claude.json"));
-        settings.SetAdminApiKey("sk-ant-admin01-example");
+        settings.SetAdminApiKey(settings.Current.Accounts[0].Id, "sk-ant-admin01-example");
+
+        var client = new ClaudeUsageClient(new StubTransport(available: true), settings);
+
+        Assert.True((await client.GetAvailabilityAsync(TestContext.Current.CancellationToken)).IsAvailable);
+    }
+
+    /// <summary>One organization with a key is enough. A second account somebody has
+    /// added and not filled in yet is not a reason to blank the first one's figures.</summary>
+    [Fact]
+    public async Task Usage_is_available_when_any_account_has_a_key()
+    {
+        using var directory = new TemporaryDirectory();
+        var settings = new ClaudeSettingsStore(directory.File("claude.json"));
+        settings.AddAccount();
+        settings.SetAdminApiKey(settings.Current.Accounts[1].Id, "sk-ant-admin01-second");
 
         var client = new ClaudeUsageClient(new StubTransport(available: true), settings);
 
@@ -191,7 +206,7 @@ public class ClaudeUsageClientTests
         var now = DateTimeOffset.UtcNow;
 
         await Assert.ThrowsAsync<ClaudeException>(() =>
-            client.GetMessageUsageAsync(new ClaudeUsageWindow(now, now.AddDays(-1)), cancellationToken: TestContext.Current.CancellationToken));
+            client.GetMessageUsageAsync(settings.Current.Accounts[0], new ClaudeUsageWindow(now, now.AddDays(-1)), cancellationToken: TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -199,13 +214,15 @@ public class ClaudeUsageClientTests
     {
         using var directory = new TemporaryDirectory();
         var settings = new ClaudeSettingsStore(directory.File("claude.json"));
-        settings.SetAdminApiKey("sk-ant-admin01-example");
-        settings.SetWorkspaceId("wrkspc_01");
+        var id = settings.Current.Accounts[0].Id;
+        settings.SetAdminApiKey(id, "sk-ant-admin01-example");
+        settings.SetWorkspaceId(id, "wrkspc_01");
 
         var transport = new StubTransport(available: true, response: """{ "data": [], "has_more": false }""");
         var client = new ClaudeUsageClient(transport, settings);
 
         await client.GetMessageUsageAsync(
+            settings.Current.Accounts[0],
             new ClaudeUsageWindow(
                 new DateTimeOffset(2026, 8, 1, 0, 0, 0, TimeSpan.Zero),
                 new DateTimeOffset(2026, 8, 8, 0, 0, 0, TimeSpan.Zero)), cancellationToken: TestContext.Current.CancellationToken);
@@ -223,12 +240,12 @@ public class ClaudeUsageClientTests
     {
         using var directory = new TemporaryDirectory();
         var settings = new ClaudeSettingsStore(directory.File("claude.json"));
-        settings.SetAdminApiKey("sk-ant-admin01-example");
+        settings.SetAdminApiKey(settings.Current.Accounts[0].Id, "sk-ant-admin01-example");
 
         var transport = new StubTransport(available: true, response: """{ "data": [], "has_more": false }""");
         var client = new ClaudeUsageClient(transport, settings);
 
-        await client.GetCostAsync(ClaudeUsageWindow.LastDays(7), TestContext.Current.CancellationToken);
+        await client.GetCostAsync(settings.Current.Accounts[0], ClaudeUsageWindow.LastDays(7), TestContext.Current.CancellationToken);
 
         Assert.Contains("bucket_width=1d", Assert.Single(transport.Paths), StringComparison.Ordinal);
     }
@@ -238,7 +255,7 @@ public class ClaudeUsageClientTests
     {
         using var directory = new TemporaryDirectory();
         var settings = new ClaudeSettingsStore(directory.File("claude.json"));
-        settings.SetAdminApiKey("sk-ant-admin01-example");
+        settings.SetAdminApiKey(settings.Current.Accounts[0].Id, "sk-ant-admin01-example");
 
         var transport = new StubTransport(available: true, responses:
         [
@@ -256,11 +273,35 @@ public class ClaudeUsageClientTests
 
         var client = new ClaudeUsageClient(transport, settings);
 
-        var report = await client.GetMessageUsageAsync(ClaudeUsageWindow.LastDays(2), cancellationToken: TestContext.Current.CancellationToken);
+        var report = await client.GetMessageUsageAsync(settings.Current.Accounts[0], ClaudeUsageWindow.LastDays(2), cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(2, report.Buckets.Count);
         Assert.Equal(30, report.Totals.InputTokens);
         Assert.Contains("page=page_2", transport.Paths[1], StringComparison.Ordinal);
+    }
+
+    /// <summary>The workspace filter is the named account's, not the first account's:
+    /// two organizations, two workspaces, and the query for each carries its own.</summary>
+    [Fact]
+    public async Task The_workspace_filter_comes_from_the_account_the_report_was_asked_for()
+    {
+        using var directory = new TemporaryDirectory();
+        var settings = new ClaudeSettingsStore(directory.File("claude.json"));
+        settings.SetAdminApiKey(settings.Current.Accounts[0].Id, "sk-ant-admin01-first");
+        settings.SetWorkspaceId(settings.Current.Accounts[0].Id, "wrkspc_first");
+        settings.AddAccount();
+        settings.SetAdminApiKey(settings.Current.Accounts[1].Id, "sk-ant-admin01-second");
+        settings.SetWorkspaceId(settings.Current.Accounts[1].Id, "wrkspc_second");
+
+        var transport = new StubTransport(available: true, response: """{ "data": [], "has_more": false }""");
+        var client = new ClaudeUsageClient(transport, settings);
+
+        await client.GetCostAsync(settings.Current.Accounts[1], ClaudeUsageWindow.LastDays(7), TestContext.Current.CancellationToken);
+
+        var path = Assert.Single(transport.Paths);
+        Assert.Contains("workspace_ids[]=wrkspc_second", path, StringComparison.Ordinal);
+        Assert.DoesNotContain("wrkspc_first", path, StringComparison.Ordinal);
+        Assert.Equal(settings.Current.Accounts[1].Id, Assert.Single(transport.Accounts).Id);
     }
 
     private sealed class StubTransport : IClaudeTransport
@@ -276,14 +317,17 @@ public class ClaudeUsageClientTests
 
         public List<string> Paths { get; } = [];
 
+        public List<ClaudeAccount> Accounts { get; } = [];
+
         public string Description => "stub";
 
-        public Task<bool> IsAvailableAsync(CancellationToken cancellationToken = default) => Task.FromResult(_available);
+        public Task<bool> IsAvailableAsync(ClaudeAccount account, CancellationToken cancellationToken = default) => Task.FromResult(_available);
 
-        public Task<JsonElement> SendAsync(HttpMethod method, string path, CancellationToken cancellationToken = default)
+        public Task<JsonElement> SendAsync(ClaudeAccount account, HttpMethod method, string path, CancellationToken cancellationToken = default)
         {
             var index = Math.Min(Paths.Count, _responses.Count - 1);
             Paths.Add(path);
+            Accounts.Add(account);
             return Task.FromResult(Parse(_responses[index]));
         }
     }

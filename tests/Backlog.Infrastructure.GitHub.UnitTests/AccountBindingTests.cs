@@ -491,6 +491,34 @@ public sealed class AccountBindingTests : IDisposable
         Assert.Contains("\"credential\": \"GhCli\"", File.ReadAllText(store.SettingsPath), StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// An endpoint is a fact about one account - a login on an Enterprise Server is
+    /// a login on a different API - so it is written on that row and nowhere else,
+    /// and blank means "follow the install".
+    /// </summary>
+    [Fact]
+    public void An_accounts_api_endpoint_is_stored_per_account_and_blank_follows_the_install()
+    {
+        var store = Store();
+        Assert.Null(store.SetAccounts([Account("JSdotNet"), Account("octocat")]));
+
+        Assert.Null(store.SetAccountApiEndpoint("octocat", " https://ghe.example.internal/api/v3/ "));
+        Assert.NotNull(store.SetAccountApiEndpoint("nobody", "https://ghe.example.internal/api/v3"));
+
+        var reopened = Store();
+
+        Assert.Equal("https://ghe.example.internal/api/v3", reopened.Current.Account("octocat")!.ApiEndpoint);
+        Assert.Null(reopened.Current.Account("JSdotNet")!.ApiEndpoint);
+        Assert.Equal(GitHubSettings.DefaultApiEndpoint, reopened.Current.ApiEndpoint);
+
+        // The binding for a user path carries the endpoint with it, which is how a
+        // billing read for that login lands on that host.
+        Assert.Equal("https://ghe.example.internal/api/v3", reopened.Current.AccountForPath("users/octocat/settings/billing").ApiEndpoint);
+
+        Assert.Null(store.SetAccountApiEndpoint("octocat", "   "));
+        Assert.Null(Store().Current.Account("octocat")!.ApiEndpoint);
+    }
+
     /// <summary>A kind this build has never heard of degrades to "ask gh" rather
     /// than refusing to open the file.</summary>
     [Fact]

@@ -802,6 +802,34 @@ public sealed class GitHubSettingsStore
     }
 
     /// <summary>
+    /// Records the API endpoint one account's calls leave for, or clears it so the
+    /// account follows the install-wide one.
+    /// <para>
+    /// Per account because that is where a host lives: a login on a GitHub
+    /// Enterprise Server is a login on a different API, and the usage and billing
+    /// reports for it have to be read there. Null is the ordinary case and means
+    /// "wherever the install goes".
+    /// </para>
+    /// </summary>
+    public string? SetAccountApiEndpoint(string login, string? apiEndpoint)
+    {
+        if (Current.Account(login) is not { } target) return NotAnAccount(login);
+
+        return Save(new GitHubSettings
+        {
+            Repositories = [.. Current.Repositories],
+            ApiEndpoint = Current.ApiEndpoint,
+            ShowRepositoryColours = Current.ShowRepositoryColours,
+            Accounts =
+            [
+                .. Current.Accounts.Select(a => GitHubAccount.IsSameLogin(a.Login, target.Login)
+                    ? a with { ApiEndpoint = CleanEndpoint(apiEndpoint) }
+                    : a)
+            ]
+        });
+    }
+
+    /// <summary>
     /// Forgets one account on this machine.
     /// <para>
     /// The repositories bound to it are deliberately left alone. The binding is

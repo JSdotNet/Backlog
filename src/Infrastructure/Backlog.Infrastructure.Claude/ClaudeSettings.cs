@@ -4,75 +4,44 @@ using System.Text.Json.Serialization;
 namespace Backlog.Infrastructure.Claude;
 
 /// <summary>
-/// What Backlog needs to read an organization's Claude usage: an Admin API key,
-/// and optionally the workspace to narrow reports to.
+/// The Claude organizations Backlog can read usage from, in the order they were
+/// configured.
+/// <para>
+/// Never empty. A fresh install and a file written before accounts existed both
+/// read as one account, so the Settings card always has a card to draw and a
+/// caller never has to special-case "no account" separately from "an account with
+/// nothing in it" — the two are the same state.
+/// </para>
 /// </summary>
 public sealed record ClaudeSettings
 {
-    /// <summary>The Admin API key (<c>sk-ant-admin…</c>). A regular inference key
-    /// cannot read usage reports, however valid it is.</summary>
-    public string? AdminApiKey { get; init; }
+    public IReadOnlyList<ClaudeAccount> Accounts { get; init; } = [new ClaudeAccount()];
 
-    /// <summary>Optional workspace filter, so a single workspace's usage can be
-    /// reported instead of the whole organization.</summary>
-    public string? WorkspaceId { get; init; }
-
-    /// <summary>
-    /// Which actor in the organization is you — the account Anthropic attributes
-    /// Claude Code activity to, usually an email address.
-    /// <para>
-    /// Needed because the Claude Code report is organization-wide and lists every
-    /// actor, while the dashboard is a personal view. There is no endpoint that
-    /// says who an Admin API key belongs to — an admin key belongs to the
-    /// organization, not to a person — so this is the one fact about the
-    /// credential that cannot be discovered from it.
-    /// </para>
-    /// <para>
-    /// Null narrows to nothing rather than to everybody. A dashboard that silently
-    /// showed the whole organization's spend under the heading "your usage" would
-    /// be worse than one that asks for a name.
-    /// </para>
-    /// </summary>
-    public string? Actor { get; init; }
-
-    public string ApiVersion { get; init; } = ClaudeSettingsStore.DefaultApiVersion;
-
-    public string ApiEndpoint { get; init; } = ClaudeSettingsStore.DefaultApiEndpoint;
-
-    /// <summary>
-    /// True when a key is present. Anthropic only issues admin keys to
-    /// organizations, so a configured key is also the practical signal that an
-    /// organization exists behind it.
-    /// </summary>
+    /// <summary>True when any account holds a key.</summary>
     [JsonIgnore]
-    public bool IsConfigured => !string.IsNullOrWhiteSpace(AdminApiKey);
+    public bool IsConfigured => Accounts.Any(account => account.IsConfigured);
 
-    /// <summary>
-    /// True when the key looks like an Admin API key (<c>sk-ant-admin…</c>).
-    /// <para>
-    /// A hint, not a gate. Anthropic accepts three credentials on the usage reports —
-    /// an admin key, an <c>org:admin</c> OAuth token, or a personal or service account
-    /// key that isn't scoped to a workspace — and a workspace-scoped key, which is
-    /// refused, reads exactly like the personal one that isn't. So a false here means
-    /// "worth checking", not "won't work", and Settings says so rather than refusing to
-    /// send it.
-    /// </para>
-    /// </summary>
+    /// <summary>The accounts the dashboard can read a personal figure from: a key
+    /// and an actor each.</summary>
     [JsonIgnore]
-    public bool LooksLikeAdminKey =>
-        !string.IsNullOrWhiteSpace(AdminApiKey)
-        && AdminApiKey.StartsWith("sk-ant-admin", StringComparison.OrdinalIgnoreCase);
+    public IReadOnlyList<ClaudeAccount> ReportingAccounts => [.. Accounts.Where(account => account.CanReportSpend)];
+
+    /// <summary>The account one id names, or null when there is none.</summary>
+    public ClaudeAccount? Account(string? id) =>
+        string.IsNullOrWhiteSpace(id) ? null : Accounts.FirstOrDefault(account => ClaudeAccount.IsSameId(account.Id, id));
 }
 
 /// <summary>
 /// Reads and writes <see cref="ClaudeSettings"/> in the per-user application
-/// folder. The admin key deliberately lives outside the backlog folder so synced
+/// folder. The admin keys deliberately live outside the backlog folder so synced
 /// or committed content never carries credentials.
 /// </summary>
 public sealed class ClaudeSettingsStore
 {
     public const string DefaultApiVersion = "2023-06-01";
     public const string DefaultApiEndpoint = "https://api.anthropic.com";
+
+    private const string NotAnAccount = "That Claude account is no longer configured.";
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -109,22 +78,55 @@ public sealed class ClaudeSettingsStore
     public ClaudeSettings Current { get; private set; }
 
     /// <summary>Where the file lives, shown in Settings so it can be found (and
-    /// so it is obvious the key is not in the backlog folder).</summary>
+    /// so it is obvious the keys are not in the backlog folder).</summary>
     public string SettingsPath => _path;
 
-    public string? SetAdminApiKey(string? adminApiKey) =>
-        Save(Current with { AdminApiKey = adminApiKey });
+    /// <summary>Adds an empty account at the end of the list. The caller finds it
+    /// as the last of <see cref="ClaudeSettings.Accounts"/>.</summary>
+    public string? AddAccount() =>
+        Save(Current with { Accounts = [.. Current.Accounts, new ClaudeAccount()] });
 
-    public string? SetWorkspaceId(string? workspaceId) =>
-        Save(Current with { WorkspaceId = workspaceId });
+    /// <summary>
+    /// Forgets one account, key and all. Removing the last one leaves a blank
+    /// account in its place rather than an empty list, which is the invariant the
+    /// type documents.
+    /// </summary>
+    public string? RemoveAccount(string id)
+    {
+        if (Current.Account(id) is not { } target) return NotAnAccount;
 
-    public string? SetActor(string? actor) =>
-        Save(Current with { Actor = actor });
+        return Save(Current with
+        {
+            Accounts = [.. Current.Accounts.Where(account => !ClaudeAccount.IsSameId(account.Id, target.Id))]
+        });
+    }
 
-    public string? SetApiEndpoint(string? apiEndpoint) =>
-        Save(Current with { ApiEndpoint = apiEndpoint ?? DefaultApiEndpoint });
+    public string? SetDisplayName(string id, string? displayName) =>
+        Update(id, account => account with { DisplayName = displayName });
 
-    public string? ClearAdminApiKey() => SetAdminApiKey(null);
+    public string? SetAdminApiKey(string id, string? adminApiKey) =>
+        Update(id, account => account with { AdminApiKey = adminApiKey });
+
+    public string? SetWorkspaceId(string id, string? workspaceId) =>
+        Update(id, account => account with { WorkspaceId = workspaceId });
+
+    public string? SetActor(string id, string? actor) =>
+        Update(id, account => account with { Actor = actor });
+
+    public string? SetApiEndpoint(string id, string? apiEndpoint) =>
+        Update(id, account => account with { ApiEndpoint = apiEndpoint ?? DefaultApiEndpoint });
+
+    public string? ClearAdminApiKey(string id) => SetAdminApiKey(id, null);
+
+    private string? Update(string id, Func<ClaudeAccount, ClaudeAccount> change)
+    {
+        if (Current.Account(id) is not { } target) return NotAnAccount;
+
+        return Save(Current with
+        {
+            Accounts = [.. Current.Accounts.Select(account => ClaudeAccount.IsSameId(account.Id, target.Id) ? change(account) : account)]
+        });
+    }
 
     private string? Save(ClaudeSettings settings)
     {
@@ -133,7 +135,7 @@ public sealed class ClaudeSettingsStore
         string? error = null;
         try
         {
-            File.WriteAllText(_path, JsonSerializer.Serialize(Current, JsonOptions));
+            File.WriteAllText(_path, JsonSerializer.Serialize(new SettingsFile { Accounts = [.. Current.Accounts] }, JsonOptions));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -148,26 +150,47 @@ public sealed class ClaudeSettingsStore
     {
         try
         {
-            if (!File.Exists(_path)) return new ClaudeSettings();
+            if (!File.Exists(_path)) return Normalize(new ClaudeSettings());
 
-            var settings = JsonSerializer.Deserialize<ClaudeSettings>(File.ReadAllText(_path), JsonOptions);
-            return Normalize(settings ?? new ClaudeSettings());
+            var file = JsonSerializer.Deserialize<SettingsFile>(File.ReadAllText(_path), JsonOptions);
+            return Normalize(file?.ToSettings() ?? new ClaudeSettings());
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
             // A corrupt settings file must never stop the app from opening.
-            return new ClaudeSettings();
+            return Normalize(new ClaudeSettings());
         }
     }
 
-    private static ClaudeSettings Normalize(ClaudeSettings settings) => new()
+    /// <summary>
+    /// Every account as it is stored: trimmed fields, a normalized endpoint, an id
+    /// that is present and unique, and at least one account in the list.
+    /// </summary>
+    private static ClaudeSettings Normalize(ClaudeSettings settings)
     {
-        AdminApiKey = Clean(settings.AdminApiKey),
-        WorkspaceId = Clean(settings.WorkspaceId),
-        Actor = Clean(settings.Actor),
-        ApiVersion = Clean(settings.ApiVersion) ?? DefaultApiVersion,
-        ApiEndpoint = NormalizeEndpoint(settings.ApiEndpoint)
-    };
+        var accounts = new List<ClaudeAccount>();
+
+        foreach (var account in settings.Accounts)
+        {
+            var id = Clean(account.Id);
+            if (id is null || accounts.Any(known => ClaudeAccount.IsSameId(known.Id, id))) id = ClaudeAccount.NewId();
+
+            accounts.Add(new ClaudeAccount
+            {
+                Id = id,
+                DisplayName = Clean(account.DisplayName),
+                AdminApiKey = Clean(account.AdminApiKey),
+                WorkspaceId = Clean(account.WorkspaceId),
+                Actor = Clean(account.Actor),
+                ApiVersion = Clean(account.ApiVersion) ?? DefaultApiVersion,
+                ApiEndpoint = NormalizeEndpoint(account.ApiEndpoint)
+            });
+        }
+
+        if (accounts.Count == 0) accounts.Add(new ClaudeAccount());
+
+        return new ClaudeSettings { Accounts = accounts };
+    }
 
     private static string NormalizeEndpoint(string? endpoint)
     {
@@ -180,4 +203,60 @@ public sealed class ClaudeSettingsStore
     }
 
     private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    /// <summary>
+    /// The file's shape. It carries the flat fields the file had before accounts
+    /// existed so an older <c>claude.json</c> reads as one account with nothing
+    /// lost; they are read, never written back, so the first save moves the file
+    /// to the list shape for good.
+    /// </summary>
+    private sealed class SettingsFile
+    {
+        public List<ClaudeAccount>? Accounts { get; set; }
+
+        // Read-only in practice: a save constructs this with the list alone, and
+        // the condition keeps the null legacy fields out of the file it writes.
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? AdminApiKey { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? WorkspaceId { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? Actor { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? ApiVersion { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? ApiEndpoint { get; set; }
+
+        public ClaudeSettings ToSettings()
+        {
+            if (Accounts is { Count: > 0 }) return new ClaudeSettings { Accounts = Accounts };
+
+            var hasLegacyFields = !string.IsNullOrWhiteSpace(AdminApiKey)
+                || !string.IsNullOrWhiteSpace(WorkspaceId)
+                || !string.IsNullOrWhiteSpace(Actor)
+                || !string.IsNullOrWhiteSpace(ApiVersion)
+                || !string.IsNullOrWhiteSpace(ApiEndpoint);
+
+            return hasLegacyFields
+                ? new ClaudeSettings
+                {
+                    Accounts =
+                    [
+                        new ClaudeAccount
+                        {
+                            AdminApiKey = AdminApiKey,
+                            WorkspaceId = WorkspaceId,
+                            Actor = Actor,
+                            ApiVersion = ApiVersion ?? DefaultApiVersion,
+                            ApiEndpoint = ApiEndpoint ?? DefaultApiEndpoint
+                        }
+                    ]
+                }
+                : new ClaudeSettings();
+        }
+    }
 }

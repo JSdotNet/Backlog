@@ -6,9 +6,16 @@ namespace Backlog.Modules.Dashboard.UI.Adapters;
 
 /// <summary>
 /// Answers <see cref="IClaudeSpendSource"/> from Anthropic's Claude Code analytics,
-/// narrowed to the configured actor.
+/// narrowed to the configured actor of each configured account and added up.
 /// </summary>
 /// <remarks>
+/// <para>
+/// One person, several organizations: a personal Console and an employer's each
+/// issue their own admin key, and the spend is the sum. Every account with a key
+/// and an actor is read; one without either is skipped rather than being allowed
+/// to blank the rest, because a half-filled second card is an ordinary state of
+/// the Settings page rather than a fault.
+/// </para>
 /// <para>
 /// The Claude Code report is the only one of Anthropic's three that carries an
 /// actor, and it carries an estimated cost per model beside it. The organization
@@ -43,7 +50,7 @@ internal sealed class ClaudeSpendSource(IClaudeUsageClient usage, ClaudeSettings
 
         if (!available.IsAvailable) return InsightAvailability.Unavailable(available.Reason);
 
-        if (string.IsNullOrWhiteSpace(settings.Current.Actor))
+        if (settings.Current.ReportingAccounts.Count == 0)
         {
             return InsightAvailability.Unavailable(
                 "Add your Anthropic account in Settings. The Claude Code report covers the whole organization, so "
@@ -58,32 +65,40 @@ internal sealed class ClaudeSpendSource(IClaudeUsageClient usage, ClaudeSettings
         DateOnly to,
         CancellationToken cancellationToken = default)
     {
-        var actor = settings.Current.Actor;
+        var accounts = settings.Current.ReportingAccounts;
 
-        if (string.IsNullOrWhiteSpace(actor)) return SpendReport.Empty;
+        if (accounts.Count == 0) return SpendReport.Empty;
 
         var days = Days(from, to);
         var entries = new List<SpendEntry>();
 
-        foreach (var batch in days.Chunk(MaxConcurrentDays))
+        // Accounts in turn, days in bounded batches within each: the rate limit
+        // is per organization, so fanning accounts out together would not go any
+        // faster where it matters and would burst against each of them at once.
+        foreach (var account in accounts)
         {
-            var reports = await Task
-                .WhenAll(batch.Select(day => ReadDayAsync(day, cancellationToken)))
-                .ConfigureAwait(false);
+            foreach (var batch in days.Chunk(MaxConcurrentDays))
+            {
+                var reports = await Task
+                    .WhenAll(batch.Select(day => ReadDayAsync(account, day, cancellationToken)))
+                    .ConfigureAwait(false);
 
-            entries.AddRange(reports.SelectMany(rows => rows).Where(entry => entry is not null).Select(entry => entry!));
+                entries.AddRange(reports.SelectMany(rows => rows).Where(entry => entry is not null).Select(entry => entry!));
+            }
         }
 
         // Anthropic calls this figure estimated, so the report says so and every
         // part that renders it repeats the word.
         return new SpendReport(entries, Allowance: null, IsEstimate: true);
 
-        async Task<IReadOnlyList<SpendEntry?>> ReadDayAsync(DateOnly day, CancellationToken token)
+        async Task<IReadOnlyList<SpendEntry?>> ReadDayAsync(ClaudeAccount account, DateOnly day, CancellationToken token)
         {
+            var actor = account.Actor!;
+
             ClaudeCodeReport report;
             try
             {
-                report = await usage.GetClaudeCodeUsageAsync(day, token).ConfigureAwait(false);
+                report = await usage.GetClaudeCodeUsageAsync(account, day, token).ConfigureAwait(false);
             }
             catch (ClaudeException)
             {

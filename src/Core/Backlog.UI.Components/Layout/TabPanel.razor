@@ -90,5 +90,24 @@
 
     protected override void OnInitialized() => Parent?.Register(this);
 
+    /// <summary>
+    /// The strip draws each label from the panel while the strip itself renders,
+    /// which is before the panel has taken this render's parameters - so a title
+    /// that changed would show one render late. A changed <see cref="Title"/> asks
+    /// the strip to draw again; the string is compared so it happens once, not on
+    /// every render of a host that re-renders often.
+    /// </summary>
+    protected override void OnParametersSet()
+    {
+        if (_renderedTitle is not null && !string.Equals(_renderedTitle, Title, StringComparison.Ordinal))
+        {
+            Parent?.Refresh();
+        }
+
+        _renderedTitle = Title;
+    }
+
+    private string? _renderedTitle;
+
     public void Dispose() => Parent?.Unregister(this);
 }

@@ -1989,10 +1989,25 @@ h1, h2, h3 {
 
 .repo-card__header {
     display: flex;
+    flex-wrap: wrap;
     align-items: flex-start;
     justify-content: space-between;
     gap: var(--spacing-md);
     margin-bottom: var(--spacing-md);
+}
+
+/* The title side holds an endpoint or a full repository name, which a flex
+   child will not shrink below on its own - so in a narrow column the button
+   beside it was pushed out past the card's edge. Let the text side give way
+   and break, and the button drop under it when even that is not enough. */
+.repo-card__header > div {
+    flex: 1 1 12rem;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.repo-card__header .btn {
+    flex-shrink: 0;
 }
 
 .repo-card__title {

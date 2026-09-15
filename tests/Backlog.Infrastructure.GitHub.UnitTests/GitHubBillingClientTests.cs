@@ -194,13 +194,85 @@ public class GitHubBillingClientTests
         Assert.Contains("gh auth login", availability.Reason, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// Two GitHub accounts are two Copilot bills. Each configured login is read on
+    /// its own user endpoint and the items are added up; the signed-in login is not
+    /// read twice when it is also configured.
+    /// </summary>
+    [Fact]
+    public async Task Every_configured_account_is_read_once_and_the_bills_are_added_up()
+    {
+        var transport = new RoutingTransport()
+            .Returns("users/jsdotnet/settings/billing/ai_credit/usage", OneModel)
+            .Returns("users/j-schepers_innobv/settings/billing/ai_credit/usage", """
+                { "usageItems": [ { "model": "claude-sonnet-4", "netAmount": 2.5, "netQuantity": 50 } ] }
+                """);
+
+        var settings = Settings("JSdotNet/Backlog", accounts: ["JSdotNet", "j-schepers_innobv"]);
+        var client = new GitHubBillingClient(transport, new StubIdentity("jsdotnet"), settings);
+
+        var usage = await client.GetAiCreditUsageAsync(2026, 8, cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(2, usage.Items.Count);
+        Assert.Equal(6.5m, usage.NetAmount);
+        Assert.Equal(GitHubBillingScope.PersonalAccount, usage.Scope);
+        Assert.Equal(1, transport.CallsTo("users/jsdotnet/"));
+        Assert.Equal(1, transport.CallsTo("users/j-schepers_innobv/"));
+
+        var availability = await client.GetAvailabilityAsync(TestContext.Current.CancellationToken);
+        Assert.Contains("j-schepers_innobv", availability.Reason, StringComparison.Ordinal);
+    }
+
+    /// <summary>One account GitHub will not report is a gap in the sum, not a reason
+    /// to blank the account it will.</summary>
+    [Fact]
+    public async Task An_account_github_refuses_leaves_the_others_figures_standing()
+    {
+        var transport = new RoutingTransport()
+            .Returns("users/jsdotnet/settings/billing/ai_credit/usage", OneModel)
+            .Refuses("users/j-schepers_innobv/")
+            .Refuses("organizations/");
+
+        var settings = Settings("JSdotNet/Backlog", accounts: ["j-schepers_innobv"]);
+        var client = new GitHubBillingClient(transport, new StubIdentity("jsdotnet"), settings);
+
+        var usage = await client.GetAiCreditUsageAsync(2026, 8, cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(4.0m, usage.NetAmount);
+    }
+
+    /// <summary>A machine with no <c>gh</c> but a configured account still has a
+    /// login to read billing for.</summary>
+    [Fact]
+    public async Task A_configured_account_is_read_even_when_nobody_is_signed_in()
+    {
+        var transport = new RoutingTransport().Returns("users/j-schepers_innobv/settings/billing/ai_credit/usage", OneModel);
+        var settings = Settings("JSdotNet/Backlog", accounts: ["j-schepers_innobv"]);
+        var client = new GitHubBillingClient(transport, new StubIdentity(null), settings);
+
+        Assert.True((await client.GetAvailabilityAsync(TestContext.Current.CancellationToken)).IsAvailable);
+
+        var usage = await client.GetAiCreditUsageAsync(2026, 8, cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(4.0m, usage.NetAmount);
+    }
+
     private static GitHubBillingClient Client(RoutingTransport transport, string? repositories = "JSdotNet/Backlog") =>
         new(transport, new StubIdentity("jsdotnet"), Settings(repositories));
 
-    private static GitHubSettingsStore Settings(string? repositories)
+    private static GitHubSettingsStore Settings(string? repositories, IReadOnlyList<string>? accounts = null)
     {
         var path = Path.Combine(Path.GetTempPath(), "backlog-billing-tests", Guid.NewGuid().ToString("N"), "github.json");
         var store = new GitHubSettingsStore(path);
+
+        if (accounts is { Count: > 0 })
+        {
+            Assert.Null(store.SetAccounts(accounts.Select(login => new GitHubAccount(login)
+            {
+                Credential = GitHubCredentialKind.PersonalAccessToken,
+                Token = $"ghp_{login}"
+            })));
+        }
 
         if (repositories is null) return store;
 

@@ -211,6 +211,9 @@
         StateHasChanged();
     }
 
+    /// <summary>A registered panel's label changed; draw the strip again.</summary>
+    internal void Refresh() => StateHasChanged();
+
     private void Resize()
     {
         if (_elements.Length != _panels.Count) _elements = new ElementReference[_panels.Count];
