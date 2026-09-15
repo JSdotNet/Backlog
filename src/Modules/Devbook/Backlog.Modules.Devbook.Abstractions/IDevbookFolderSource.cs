@@ -44,8 +44,59 @@ public interface IDevbookFolderSource
     /// named, the storage folder's otherwise.</summary>
     IReadOnlyList<DevbookFolderSetting> Folders(string? repositoryAlias);
 
-    /// <summary>Where one area's folder is, or why it is not available.</summary>
+    /// <summary>Where one area's folder is, or why it is not available.
+    /// Synchronous and offline: it runs on every panel load, and one that
+    /// reached the network would put GitHub in front of opening a tab.</summary>
     DevbookFolderLocation Resolve(string key, string? repositoryAlias = null);
+
+    /// <summary>
+    /// Makes the folder listable, then resolves it.
+    /// <para>
+    /// A local folder is always listable and this is <see cref="Resolve"/>. A
+    /// branch is listable once its index — every path the commit contains, plus
+    /// the reading-order files the menu is built from — is on this machine, so
+    /// the first call for a branch nobody has fetched goes and gets that, and
+    /// nothing else: no chapter is downloaded to draw a menu. Every later call
+    /// answers from disk.
+    /// </para>
+    /// <para>
+    /// A default rather than abstract, because "needs nothing" is what a local
+    /// folder answers and what every fake predating branch loading should keep
+    /// answering.
+    /// </para>
+    /// </summary>
+    Task<DevbookFolderLocation> PrepareListingAsync(string key, string? repositoryAlias = null, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Resolve(key, repositoryAlias));
+
+    /// <summary>
+    /// Puts the files a reader is about to open on disk, then resolves the
+    /// folder.
+    /// <para>
+    /// A local folder has them already. For a branch, the whole area's folder is
+    /// fetched when <paramref name="relativePaths"/> is null — that is what the
+    /// area stores read, and they read it whole — or only what the paths name:
+    /// a file by its folder-relative path, a subtree by a trailing <c>/</c>, a
+    /// file at any depth by a <c>**/</c> prefix. Files already on disk at the
+    /// commit's version are not fetched again, so this is one call for the reader
+    /// to make before every read rather than a step to be remembered.
+    /// </para>
+    /// <para>
+    /// Failure leaves what was on disk readable: the location comes back
+    /// available when the folder already holds something, and unavailable — with
+    /// GitHub's reason — only when it holds nothing at all.
+    /// </para>
+    /// </summary>
+    Task<DevbookFolderLocation> PrepareContentAsync(
+        string key,
+        string? repositoryAlias = null,
+        IReadOnlyCollection<string>? relativePaths = null,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(Resolve(key, repositoryAlias));
+
+    /// <summary>What a resolved folder contains, from whoever knows — the disk
+    /// for a local folder, the branch's index for a snapshot, which lists every
+    /// file whether or not it has been fetched.</summary>
+    IDevbookFileTree FileTree(DevbookFolderLocation location) => DevbookDiskFileTree.Instance;
 }
 
 /// <summary>

@@ -49,11 +49,6 @@ namespace Backlog.Desktop;
 
 public static class MauiProgram
 {
-    /// <summary>Names the client the branch-archive download uses, so it gets a
-    /// handler of its own rather than sharing a general-purpose one whose
-    /// timeout is set for request-response calls.</summary>
-    private const string GitHubArchiveHttpClient = "github-archive";
-
     public static MauiApp CreateMauiApp()
     {
         ConfigureWebView2RemoteDebugging();
@@ -74,19 +69,17 @@ public static class MauiProgram
         builder.Services.AddSingleton<WorkspaceSettingsStore>();
 
         // Devbook read from a repository branch, for a repository nobody has
-        // cloned. The download half lives in the GitHub adapter and the disk
-        // half here; the cache root arrives as a delegate rather than as the
-        // workspace store, because the GitHub adapter may not see this one.
-        builder.Services.AddHttpClient(GitHubArchiveHttpClient);
+        // cloned. The network half — one listing per commit, one blob per file
+        // somebody opens — lives in the GitHub adapter and the disk half here;
+        // the cache root arrives as a delegate rather than as the workspace
+        // store, because the GitHub adapter may not see this one.
         builder.Services.AddSingleton<IGitHubBranchCatalog>(sp => new GitHubBranchCatalog(
             sp.GetRequiredService<ResolvingGitHubTransport>()));
-        builder.Services.AddSingleton<IGitHubArchiveClient>(sp => new GitHubArchiveClient(
-            sp.GetRequiredService<IGitHubCredentialResolver>(),
-            sp.GetRequiredService<IHttpClientFactory>().CreateClient(GitHubArchiveHttpClient),
-            () => sp.GetRequiredService<GitHubSettingsStore>().Current.ApiEndpoint));
+        builder.Services.AddSingleton<IGitHubTreeClient>(sp => new GitHubTreeClient(
+            sp.GetRequiredService<ResolvingGitHubTransport>()));
         builder.Services.AddSingleton<IDevbookSnapshotCache>(sp => new DevbookSnapshotCache(
             () => sp.GetRequiredService<WorkspaceSettingsStore>().DevbookCacheDirectory,
-            sp.GetRequiredService<IGitHubArchiveClient>(),
+            sp.GetRequiredService<IGitHubTreeClient>(),
             sp.GetRequiredService<IGitHubBranchCatalog>()));
 
         builder.Services.AddSingleton<IDevbookFolderSource>(sp => new DevbookFolderSource(

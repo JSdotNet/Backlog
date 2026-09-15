@@ -26,18 +26,21 @@ public sealed class DomainDevbookStore
         remove => source.Changed -= value;
     }
 
-    public Task<DomainDevbookView> LoadAsync(string? repositoryAlias = null, CancellationToken cancellationToken = default)
+    public async Task<DomainDevbookView> LoadAsync(string? repositoryAlias = null, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var location = source.Resolve(".domain", repositoryAlias);
+
+        // Prepared rather than resolved: the view walks every context folder,
+        // so a branch's domain folder is fetched here, whole, once.
+        var location = await source.PrepareContentAsync(".domain", repositoryAlias, cancellationToken: cancellationToken).ConfigureAwait(false);
         if (!location.Available || location.FullPath is null)
         {
-            return Task.FromResult(DomainDevbookView.Unavailable(location.Message ?? "Domain is unavailable."));
+            return DomainDevbookView.Unavailable(location.Message ?? "Domain is unavailable.");
         }
 
         var root = location.FullPath;
         var contextMapPath = Path.Combine(root, "context-map.md");
-        if (!File.Exists(contextMapPath)) return Task.FromResult(DomainDevbookView.Unavailable($"Domain knowledge folder at {root} has no context-map.md."));
+        if (!File.Exists(contextMapPath)) return DomainDevbookView.Unavailable($"Domain knowledge folder at {root} has no context-map.md.");
 
         // The context map is what the panel opens on, so it is the one document
         // worth reading up front. Everything else waits until a context is
@@ -53,7 +56,7 @@ public sealed class DomainDevbookStore
         var contexts = index is null
             ? ReadContexts(root, DevbookReadingOrder.ForFolder(root))
             : ReadContextsFromIndex(index, root);
-        return Task.FromResult(new DomainDevbookView(location.ScopeLabel ?? "storage", location.RootPath ?? root, root, null, contextMap, contexts, location.CanEdit));
+        return new DomainDevbookView(location.ScopeLabel ?? "storage", location.RootPath ?? root, root, null, contextMap, contexts, location.CanEdit);
     }
 
     public Task UpdateStatusAsync(string? repositoryAlias, string itemPath, string status, CancellationToken cancellationToken = default)

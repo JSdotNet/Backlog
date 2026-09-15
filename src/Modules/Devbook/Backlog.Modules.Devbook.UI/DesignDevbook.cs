@@ -31,13 +31,16 @@ public sealed class DesignDevbookProvider(IDevbookFolderSource source)
         remove => source.Changed -= value;
     }
 
-    public Task<DesignDevbookModel> LoadAsync(string? repositoryAlias = null, CancellationToken cancellationToken = default)
+    public async Task<DesignDevbookModel> LoadAsync(string? repositoryAlias = null, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var location = source.Resolve(".design", repositoryAlias);
+
+        // Prepared rather than resolved: the model parses every file in the
+        // folder, so a branch's design folder is fetched here, whole, once.
+        var location = await source.PrepareContentAsync(".design", repositoryAlias, cancellationToken: cancellationToken).ConfigureAwait(false);
         if (!location.Available || location.FullPath is null)
         {
-            return Task.FromResult(DesignDevbookModel.Unavailable(location.Message ?? "Design is unavailable."));
+            return DesignDevbookModel.Unavailable(location.Message ?? "Design is unavailable.");
         }
 
         var folderPath = location.FullPath;
@@ -47,12 +50,12 @@ public sealed class DesignDevbookProvider(IDevbookFolderSource source)
 
         if (files.Count == 0)
         {
-            return Task.FromResult(DesignDevbookModel.Unavailable(
-                $"No Markdown files were found in the Design knowledge folder at {folderPath}."));
+            return DesignDevbookModel.Unavailable(
+                $"No Markdown files were found in the Design knowledge folder at {folderPath}.");
         }
 
         files = OrderFiles(files, folderPath);
-        return Task.FromResult(DesignDevbookModel.Available(location.ScopeLabel ?? "storage", folderPath, files, location.CanEdit));
+        return DesignDevbookModel.Available(location.ScopeLabel ?? "storage", folderPath, files, location.CanEdit);
     }
 
     /// <summary>

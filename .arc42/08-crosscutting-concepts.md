@@ -50,8 +50,9 @@ related: [".arc42/02-constraints.md#technical-constraints", ".arc42/06-runtime-v
   settings (they describe one machine's disk), feature flags (per-device by
   design, so an experiment on one machine is not a change on both), the
   derived knowledge layer (regenerated on the second machine, not shipped to it),
-  and the branch snapshot cache (a verbatim copy of a named commit, refetched on
-  the second machine rather than shipped to it, and safe to delete).
+  and the branch snapshot cache (the index of a named commit plus whichever of
+  its files have been read, refetched on the second machine rather than shipped
+  to it, and safe to delete).
   The roadmap plan is on neither list, and since 2026-09-05 the reason is narrower
   than it was: it is a document row in `backlog.db` rather than a file beside it, so
   it no longer carries the database's file-sync hazard, and the row stamps
@@ -81,9 +82,10 @@ related: [".arc42/02-constraints.md#technical-constraints", ".arc42/06-runtime-v
   See `.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md`.
 - **Desktop works fully standalone**; the cloud connection is purely additive. The
   one qualification is a repository configured to read its knowledge from a branch
-  rather than from a clone: that needs the network once, to take the first
-  snapshot, and reads offline afterwards. A repository with a clone is unaffected,
-  and is what an install with no stored preference reads. See
+  rather than from a clone: that needs the network to list the branch and the
+  first time each area is opened, and what has been opened reads offline
+  afterwards. A repository with a clone is unaffected, and is what an install with
+  no stored preference reads. See
   `.arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md`.
 - **Local credential handling includes Copilot sessions** — desktop workers and
   GitHub Copilot App session adapters both run on the same machine and pass local

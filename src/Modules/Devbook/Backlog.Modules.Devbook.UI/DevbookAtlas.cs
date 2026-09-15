@@ -34,18 +34,48 @@ public sealed class DevbookAtlasService(IDevbookFolderSource source)
         remove => source.Changed -= value;
     }
 
-    public Task<DevbookAtlasGraph> ReadAsync(DevbookAtlasScope scope, string? repositoryAlias = null, CancellationToken cancellationToken = default)
+    public async Task<DevbookAtlasGraph> ReadAsync(DevbookAtlasScope scope, string? repositoryAlias = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(scope);
         cancellationToken.ThrowIfCancellationRequested();
 
+        await PrepareGraphsAsync(scope, repositoryAlias, cancellationToken).ConfigureAwait(false);
+
         try
         {
-            return Task.FromResult(Read(scope, repositoryAlias));
+            return Read(scope, repositoryAlias);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
-            return Task.FromResult(DevbookAtlasGraph.Unavailable(scope, $"The {scope.Label} atlas could not be read: {ex.Message}"));
+            return DevbookAtlasGraph.Unavailable(scope, $"The {scope.Label} atlas could not be read: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// The graph files a branch may carry, fetched before the read looks for
+    /// them. Only the graphs: the atlas is a reading of the generated index,
+    /// not of the chapters, so no chapter is fetched to draw it. A repository
+    /// that does not commit its <c>_meta</c> folder has nothing here to fetch,
+    /// and the read then says the index has not been written, as it always did.
+    /// </summary>
+    private async Task PrepareGraphsAsync(DevbookAtlasScope scope, string? repositoryAlias, CancellationToken cancellationToken)
+    {
+        if (scope.FolderKey is { Length: > 0 } folderKey)
+        {
+            await source.PrepareContentAsync(folderKey, repositoryAlias, ["_meta/graph.json"], cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        // Repository-wide, so one folder is enough to ask through; the first
+        // enabled one is as good as any.
+        foreach (var setting in source.Folders(repositoryAlias))
+        {
+            if (!setting.Enabled) continue;
+
+            var location = await source
+                .PrepareContentAsync(setting.Key, repositoryAlias, ["**/_meta/graph.json"], cancellationToken)
+                .ConfigureAwait(false);
+            if (location.Available) return;
         }
     }
 

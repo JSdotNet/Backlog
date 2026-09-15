@@ -16,7 +16,10 @@ public sealed class Arc42DevbookStore(IDevbookFolderSource source)
 
     public async Task<Arc42DevbookCatalog> LoadAsync(string? repositoryAlias = null)
     {
-        var location = source.Resolve(".arc42", repositoryAlias);
+        // Prepared rather than resolved: the catalog parses every chapter in
+        // the folder, so this is the moment a branch's architecture chapters
+        // are fetched — the whole area, once, and never again until it moves.
+        var location = await source.PrepareContentAsync(".arc42", repositoryAlias).ConfigureAwait(false);
         if (!location.Available || location.FullPath is null)
         {
             return Arc42DevbookCatalog.Missing(location.RootPath ?? location.FullPath ?? string.Empty);

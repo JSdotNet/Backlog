@@ -255,7 +255,7 @@
         {
             try
             {
-                Discover();
+                await DiscoverAsync();
                 await LoadSelectedChapterAsync();
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DirectoryNotFoundException)
@@ -273,7 +273,7 @@
     {
         if (_repositories.Count == 0 || !string.Equals(_loadedRepositoryAlias, RepositoryAlias, StringComparison.Ordinal))
         {
-            Discover();
+            await DiscoverAsync();
         }
 
         // A file picked in the Devbook menu is a request to read that file, so
@@ -284,8 +284,17 @@
         await LoadSelectedChapterAsync();
     }
 
-    private void Discover()
+    private async Task DiscoverAsync()
     {
+        // A branch carries its instruction files on demand, and discovery reads
+        // them off the disk, so the ones it reads are fetched first — the agent
+        // folders and the root files, not the repository. A local folder needs
+        // nothing and this answers at once.
+        if (!string.IsNullOrWhiteSpace(RepositoryAlias))
+        {
+            await Folders.PrepareContentAsync("instructions", RepositoryAlias, InstructionSourceDiscovery.BranchPaths);
+        }
+
         // The folder source is passed for the repository scope only. The storage
         // scope synthesises a repository whose clone directory is the storage
         // root, and asking the source about an alias it has never heard of would
@@ -390,7 +399,7 @@
     /// </summary>
     private async Task OnChapterSavedAsync()
     {
-        Discover();
+        await DiscoverAsync();
         await LoadSelectedChapterAsync();
     }
 

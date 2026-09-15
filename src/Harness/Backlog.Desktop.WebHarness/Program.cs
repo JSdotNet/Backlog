@@ -43,11 +43,6 @@ using Backlog.Desktop.WebHarness;
 using Backlog.Desktop.WebHarness.Components;
 using Backlog.Aspire.ServiceDefaults;
 
-// Names the client the branch-archive download uses, so it gets a handler of its
-// own rather than sharing a general-purpose one whose timeout is set for
-// request-response calls.
-const string GitHubArchiveHttpClient = "github-archive";
-
 // The deployment and API key the harness seeds for the local azure-foundry-test
 // service. The key is a marker, not a credential: it is how a later session
 // recognises a stored configuration as its own seed rather than a person's.
@@ -67,19 +62,17 @@ builder.Services.AddRazorComponents()
 builder.Services.AddSingleton<WorkspaceSettingsStore>();
 
 // Devbook read from a repository branch, for a repository nobody has cloned.
-// The download half lives in the GitHub adapter and the disk half in the file
-// system one; the cache root arrives as a delegate rather than as the workspace
-// store, because the GitHub adapter may not see that one.
-builder.Services.AddHttpClient(GitHubArchiveHttpClient);
+// The network half — one listing per commit, one blob per file somebody opens —
+// lives in the GitHub adapter and the disk half in the file system one; the
+// cache root arrives as a delegate rather than as the workspace store, because
+// the GitHub adapter may not see that one.
 builder.Services.AddSingleton<IGitHubBranchCatalog>(sp => new GitHubBranchCatalog(
     sp.GetRequiredService<ResolvingGitHubTransport>()));
-builder.Services.AddSingleton<IGitHubArchiveClient>(sp => new GitHubArchiveClient(
-    sp.GetRequiredService<IGitHubCredentialResolver>(),
-    sp.GetRequiredService<IHttpClientFactory>().CreateClient(GitHubArchiveHttpClient),
-    () => sp.GetRequiredService<GitHubSettingsStore>().Current.ApiEndpoint));
+builder.Services.AddSingleton<IGitHubTreeClient>(sp => new GitHubTreeClient(
+    sp.GetRequiredService<ResolvingGitHubTransport>()));
 builder.Services.AddSingleton<IDevbookSnapshotCache>(sp => new DevbookSnapshotCache(
     () => sp.GetRequiredService<WorkspaceSettingsStore>().DevbookCacheDirectory,
-    sp.GetRequiredService<IGitHubArchiveClient>(),
+    sp.GetRequiredService<IGitHubTreeClient>(),
     sp.GetRequiredService<IGitHubBranchCatalog>()));
 
 builder.Services.AddSingleton<IDevbookFolderSource>(sp => new DevbookFolderSource(
