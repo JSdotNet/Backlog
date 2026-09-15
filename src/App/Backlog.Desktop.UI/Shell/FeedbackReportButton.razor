@@ -2,6 +2,7 @@
 @inject IJSRuntime JS
 @inject FeedbackReporter Feedback
 @inject IAppFeatureSettings Features
+@inject FeedbackReportChannel Reports
 
 @*
     The "Report issue" trigger and its dialog, self-contained so the trigger and
@@ -162,9 +163,17 @@
     private string? _feedbackScreenshotError;
     private GitHubIssueLink? _feedbackIssueLink;
 
-    protected override void OnInitialized() => Features.Changed += HandleFeaturesChanged;
+    protected override void OnInitialized()
+    {
+        Features.Changed += HandleFeaturesChanged;
+        Reports.Requested += HandleReportRequested;
+    }
 
-    public void Dispose() => Features.Changed -= HandleFeaturesChanged;
+    public void Dispose()
+    {
+        Features.Changed -= HandleFeaturesChanged;
+        Reports.Requested -= HandleReportRequested;
+    }
 
     private void HandleFeaturesChanged() => _ = InvokeAsync(StateHasChanged);
 
@@ -217,6 +226,29 @@
         _feedbackMessage = null;
         _feedbackIssueLink = null;
     }
+
+    /// <summary>
+    /// The dialog opened from somewhere else, with its text already written —
+    /// today the app's error screen, handing over the exception it caught.
+    /// <para>
+    /// The draft replaces whatever was typed rather than appending to it: a
+    /// request arrives because something broke just now, and a half-written
+    /// report about something else is not what the reader is looking at any
+    /// more. A screenshot already attached is kept, on the same reasoning the
+    /// paste path uses — it was attached deliberately. Re-entered through
+    /// InvokeAsync because the channel raises on the caller's thread and nothing
+    /// says that is the renderer's.
+    /// </para>
+    /// </summary>
+    private void HandleReportRequested(FeedbackReportDraft draft) => _ = InvokeAsync(() =>
+    {
+        if (!IsFeatureEnabled(AppFeatures.FeedbackReporting) || _feedbackSubmitting) return;
+
+        _feedbackTitle = draft.Title;
+        _feedbackDetails = draft.Details;
+        OpenFeedbackDialog();
+        StateHasChanged();
+    });
 
     private void CloseFeedbackDialog()
     {

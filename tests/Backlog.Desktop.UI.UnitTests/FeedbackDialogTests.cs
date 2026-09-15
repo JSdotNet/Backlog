@@ -206,6 +206,7 @@ public sealed class FeedbackDialogTests
         context.Services.AddSingleton<IAppUpdateService, UnsupportedAppUpdateService>();
         context.Services.AddSingleton<IAppFeatureSettings>(features);
         context.Services.AddSingleton(new FeedbackReporter(gitHub));
+        context.Services.AddSingleton<FeedbackReportChannel>();
 
         var footer = context.Render<AppFooter>();
         footer.Find("[data-testid='feedback-button']").Click();

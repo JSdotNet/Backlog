@@ -108,6 +108,7 @@ public sealed class AppFooterSaveStateTests
                 new GitHubSettingsStore(Path.Combine(root, "github.json")),
                 new SilentGitHubClient(),
                 new SilentProbe())));
+        context.Services.AddSingleton<FeedbackReportChannel>();
 
         if (status is not null) context.Services.AddSingleton(status);
 

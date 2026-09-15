@@ -2271,6 +2271,48 @@ h1, h2, h3 {
     }
 }
 
+/* --- App error state ------------------------------------------------------- */
+/*
+  What AppErrorBoundary draws in the page's place when the page threw. It takes
+  the slot `.shell` normally fills in the `.app-shell` column — the same
+  `flex: 1 1 auto` and `min-height: 0` pair, for the same reason written on
+  `.shell` above — and centres the library's empty state in it. The state itself
+  is the library's; only its width and the exception line under it are this
+  app's.
+*/
+.app-error {
+    display: grid;
+    place-items: center;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    padding: var(--spacing-xl);
+}
+
+.app-error__state {
+    max-width: 40rem;
+    background: var(--color-background-alt);
+}
+
+.app-error__title {
+    color: var(--color-error-text);
+}
+
+/*
+  The exception's own sentence. A block of its own under the description, in the
+  monospace face because it is quoted rather than written, and allowed to wrap
+  because a message that overflows the panel is a message nobody reads.
+*/
+.app-error__message {
+    display: block;
+    margin-top: var(--spacing-sm);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-primary);
+    overflow-wrap: anywhere;
+    text-align: left;
+}
+
 /* --- Blazor error UI -------------------------------------------------------- */
 
 #blazor-error-ui {

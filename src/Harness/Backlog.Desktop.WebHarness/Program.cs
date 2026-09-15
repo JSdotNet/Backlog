@@ -288,6 +288,12 @@ builder.Services.AddTasksAdapters();
 
 builder.Services.AddSingleton<GitHubIntegration>();
 builder.Services.AddSingleton<FeedbackReporter>();
+// Scoped, unlike the reporter above it: a request to open the Report issue
+// dialog belongs to the circuit that raised it, not to every tab on the harness.
+builder.Services.AddScoped<FeedbackReportChannel>();
+// This assembly's own pages, under Components/Pages: they exist only to be
+// driven — the shipped app has no route that throws on request.
+builder.Services.AddSingleton(new AdditionalRouteAssemblies([typeof(Program).Assembly]));
 builder.Services.AddSingleton<DesignDevbookProvider>();
 builder.Services.AddSingleton<TechnologyDevbookService>();
 builder.Services.AddSingleton<DevbookAtlasService>();

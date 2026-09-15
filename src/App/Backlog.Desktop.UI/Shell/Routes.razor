@@ -1,4 +1,11 @@
-<Router AppAssembly="typeof(Routes).Assembly">
+@inject IServiceProvider Services
+
+@* The harness registers its own assembly, for the one page it carries that the
+   shipped app does not: the sample that throws, so the error screen can be
+   reached on purpose. The MAUI head registers nothing and routes as it always
+   has. Read from the container rather than taken as a parameter — see
+   AdditionalRouteAssemblies for why a parameter cannot carry an assembly here. *@
+<Router AppAssembly="typeof(Routes).Assembly" AdditionalAssemblies="Services.GetService<AdditionalRouteAssemblies>()?.Assemblies">
     <Found Context="routeData">
         <RouteView RouteData="routeData" DefaultLayout="typeof(MainLayout)" />
         <FocusOnNavigate RouteData="routeData" Selector="h1" />
