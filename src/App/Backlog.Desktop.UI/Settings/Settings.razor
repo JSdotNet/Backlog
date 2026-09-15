@@ -505,9 +505,13 @@
                         {
                             <span class="setting__status--error">@_error</span>
                         }
+                        else if (_moved && _copied)
+                        {
+                            <span class="setting__status--ok">Moved. The backlog was copied here and now loads from this folder; the copy in <code>@_previousRoot</code> was left as it was.</span>
+                        }
                         else if (_moved)
                         {
-                            <span class="setting__status--ok">Moved. Entries now load from this folder.</span>
+                            <span class="setting__status--ok">Switched. Entries now load from this folder - nothing was copied.</span>
                         }
                         else
                         {
@@ -515,19 +519,33 @@
                         }
                     </p>
 
+                    @* Two ways to leave a folder, and the field commits the safe one.
+                       Moving takes the backlog along; switching leaves it behind and
+                       reads whatever the other folder holds. Switching used to be the
+                       only way, which is how "Use the default folder" came to empty a
+                       backlog whose database was still sitting on OneDrive. *@
                     <div class="setting__actions">
                         <AppButton Variant="ButtonVariant.None"
                                    data-testid="reset-storage-path"
                                    Disabled="@Store.IsDefaultRoot"
-                                   OnClick="ResetAsync">
-                            Use the default folder
+                                   OnClick="MoveToDefaultAsync">
+                            Move to the default folder
+                        </AppButton>
+                        <AppButton Variant="ButtonVariant.None"
+                                   data-testid="switch-storage-path"
+                                   Disabled="@IsCurrentRootDraft"
+                                   OnClick="SwitchAsync">
+                            Switch without moving
                         </AppButton>
                     </div>
 
                     <p class="setting__note">
-                        Moving the store points the app somewhere new - it does not copy anything.
-                        Entries already written stay in the old folder until you move the files
-                        yourself.
+                        Entering a folder moves the backlog: the database and everything beside it
+                        are copied there, and the app reads from the new folder from then on. The
+                        old folder is left as it was - delete it yourself once you are sure. A
+                        folder that already holds a backlog is never written over. Switch without
+                        moving to open a backlog that already lives in the folder you entered; that
+                        copies nothing.
                     </p>
 
                 </div>
@@ -1885,6 +1903,8 @@
     private string _draftPath = string.Empty;
     private string? _error;
     private bool _moved;
+    private bool _copied;
+    private string _previousRoot = string.Empty;
 
     private string _draftRepos = string.Empty;
     private string? _repoError;
@@ -2238,21 +2258,69 @@
         else if (e.Key == "Escape") _draftPath = Store.RootDirectory;
     }
 
+    /// <summary>What the field commits: the backlog goes along to the folder
+    /// typed in. The store copies before it repoints, and refuses a folder
+    /// that already holds a backlog, so the worst a slip here can do is leave
+    /// everything where it was and say why.</summary>
     private Task ApplyAsync()
     {
         var previous = Store.RootDirectory;
-        _error = Store.TryUseRoot(_draftPath);
-        _moved = _error is null && !string.Equals(previous, Store.RootDirectory, StringComparison.OrdinalIgnoreCase);
+        var move = Store.TryMoveRoot(_draftPath);
 
-        if (_error is null) _draftPath = Store.RootDirectory;
+        RecordRootChange(previous, move.Error, move.CopiedData);
         return Task.CompletedTask;
     }
 
-    private Task ResetAsync()
+    /// <summary>The old behaviour, kept for opening a backlog that already
+    /// lives in the folder: the app is pointed there and nothing is copied.</summary>
+    private Task SwitchAsync()
+    {
+        var previous = Store.RootDirectory;
+        var error = Store.TryUseRoot(_draftPath);
+
+        RecordRootChange(previous, error, copied: false);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// What the status line says after a commit. A commit that changed nothing
+    /// and failed nothing leaves the last outcome standing: Enter in the field
+    /// commits twice in a real browser - the key, then the change event the key
+    /// causes - and the second, no-op commit used to wipe "Moved" off the
+    /// screen before anybody read which folder still holds the old copy.
+    /// </summary>
+    private void RecordRootChange(string previous, string? error, bool copied)
+    {
+        _error = error;
+
+        if (!string.Equals(previous, Store.RootDirectory, StringComparison.OrdinalIgnoreCase))
+        {
+            _moved = true;
+            _copied = copied;
+            _previousRoot = previous;
+        }
+        else if (error is not null)
+        {
+            _moved = false;
+            _copied = false;
+        }
+
+        if (_error is null) _draftPath = Store.RootDirectory;
+    }
+
+    private Task MoveToDefaultAsync()
     {
         _draftPath = Store.DefaultRootDirectory;
         return ApplyAsync();
     }
+
+    /// <summary>Whether the field still names the folder the app is in, in
+    /// which case switching has nothing to switch to.</summary>
+    private bool IsCurrentRootDraft =>
+        string.Equals(
+            Path.TrimEndingDirectorySeparator(_draftPath.Trim()),
+            Path.TrimEndingDirectorySeparator(Store.RootDirectory),
+            StringComparison.OrdinalIgnoreCase);
 
     private void ApplyStorageRepository()
     {
