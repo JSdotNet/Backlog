@@ -108,6 +108,13 @@ public interface IDevbookFolderSource
 /// to show which repository a folder came from wants the name; a caller that
 /// wants the repository itself has the alias to look it up with.
 /// </para>
+/// <para>
+/// <see cref="Pending"/> is true when an unavailable folder is on its way rather
+/// than absent — a branch whose first fetch is running. A caller shows that as
+/// news rather than as an error, and reloads on
+/// <see cref="IDevbookFolderSource.Changed"/> rather than telling anybody to fix
+/// anything.
+/// </para>
 /// </summary>
 public sealed record DevbookFolderLocation(
     string Key,
@@ -119,7 +126,8 @@ public sealed record DevbookFolderLocation(
     string? RootPath = null,
     string? ScopeLabel = null,
     string? RepositoryAlias = null,
-    DevbookSourceKind Source = DevbookSourceKind.LocalFolder)
+    DevbookSourceKind Source = DevbookSourceKind.LocalFolder,
+    bool Pending = false)
 {
     /// <summary>
     /// Whether a caller may write to what it just resolved.
@@ -143,8 +151,9 @@ public sealed record DevbookFolderLocation(
         string? rootPath = null,
         string? scopeLabel = null,
         string? repositoryAlias = null,
-        DevbookSourceKind source = DevbookSourceKind.LocalFolder) =>
-        new(key, false, message, repositoryFullName, folder, fullPath, rootPath, scopeLabel, repositoryAlias, source);
+        DevbookSourceKind source = DevbookSourceKind.LocalFolder,
+        bool pending = false) =>
+        new(key, false, message, repositoryFullName, folder, fullPath, rootPath, scopeLabel, repositoryAlias, source, pending);
 }
 
 /// <summary>

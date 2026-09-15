@@ -18,19 +18,38 @@ Proposed.
 > decision is unchanged, and the file name is kept so that `ADR 0008` citations in
 > code stay true.
 
-> **Amended 2026-09-15: the snapshot is lazy.** The original decision took the
-> branch as one archive, extracted whole, and only when somebody pressed the
-> update control. That was reversed the same day it shipped, on the owner's call:
-> a snapshot is now the branch's *index* — one listing of every path in the
-> commit — plus the files fetched into it on demand, area by area, as a panel
-> opens them. The menu is drawn from the index before a chapter exists on disk,
-> nothing waits on a pull, and the update control refreshes the index rather than
-> the tree. "Why a snapshot rather than reading files over the API on demand"
-> below is left as written, because its first reason — the readers walk a real
-> directory — still holds and shaped how the lazy version was built; its other
-> reasons are answered in the new section that follows it. The archive client is
-> gone; `IGitHubTreeClient` and the two `Prepare*Async` calls on the devbook
-> folder port are what replaced it.
+> **Amended 2026-09-15: resolution fetches on its own.** The decision said
+> *"Resolution never fetches"* and left *"should a snapshot ever refresh on its
+> own?"* open. In practice that put every section of a branch-sourced repository
+> in an error state — *"has not been fetched from main yet"* — until somebody went
+> to the Devbook pane and pressed the update control, and the Settings screen
+> showed five errors for a repository nothing was wrong with. The rule is now
+> **resolution never *waits* on a fetch**: the first resolve of an unfetched branch
+> starts the download in the background and answers "fetching" as news rather
+> than as an error; a snapshot on disk is served at once and re-checked against
+> the branch head at most once per ten minutes; a failure is the adapter's words,
+> remembered for the same interval and forgotten when the repository settings
+> change. `DevbookSnapshotAutoFetch` owns the cadence, and every subscriber to
+> the folder source's `Changed` event hears a landing the way it already heard a
+> pull. The open question below is closed by this; the rest of the decision is
+> unchanged.
+
+> **Amended 2026-09-15, the same day: the snapshot is lazy.** The original
+> decision took the branch as one archive, extracted whole. That was reversed on
+> the owner's call: a snapshot is now the branch's *index* — one listing of every
+> path in the commit — plus the files fetched into it on demand, area by area, as
+> a panel opens them. The menu is drawn from the index before a chapter exists
+> on disk, and the update control refreshes the index rather than the tree. The
+> two amendments compose: what the auto-fetch above starts, re-checks and
+> rations is the *index*, which is why it can afford to run on every resolve;
+> what a reader then needs comes through two preparation calls on the devbook
+> folder port, *listing* — which joins the auto-fetch's download rather than
+> starting its own — and *content*. "Why a snapshot rather than reading files
+> over the API on demand" below is left as written, because its first reason —
+> the readers walk a real directory — still holds and shaped how the lazy
+> version was built; its other reasons are answered in the new section that
+> follows it. The archive client is gone; `IGitHubTreeClient` and the
+> `Prepare*Async` calls are what replaced it.
 
 A **local** decision, numbered in the local sequence — not to be confused with
 inherited ADR 0008 under `.arc42/adr/guidelines/`, which this repository did not
@@ -86,13 +105,17 @@ first time a reader asks for the area or the file it is in, and stays until the
 branch moves and changes it. The cache location is a setting, defaulting beside
 the per-user settings rather than inside the backlog.
 
-**Resolution never fetches; preparation does.** Resolving a folder is offline
-and answers from the index. The two preparation calls on the folder port are
-what reach the network: *listing* fetches the index if there is none (and the
-reading-order files the menu is ordered by), *content* fetches what a reader
-names — an area's folder, or a handful of paths. The Devbook menu prepares the
-listing; the area stores prepare their content; the update control refreshes
-the index when the branch has moved. Nothing waits on a pull.
+**Resolution never waits on a fetch; preparation does.** As first decided,
+resolution never fetched at all and the update control in the Devbook pane was
+what went and got it; since the 2026-09-15 amendments above, resolution starts
+the index download itself in the background, answers from the index once there
+is one, and never blocks a panel load on GitHub. The two preparation calls on
+the folder port are what a reader awaits: *listing* waits for the index the
+resolve started (and fetches the reading-order files the menu is ordered by),
+*content* fetches what a reader names — an area's folder, or a handful of
+paths. The Devbook menu prepares the listing; the area stores prepare their
+content; the auto-fetch re-checks the head on its cadence and the update
+control does so on demand. Nothing waits on a pull.
 
 ## Why this, rather than the alternatives
 
@@ -211,13 +234,14 @@ previously-offline workspace acquires a network dependency by upgrading.
 
 ## Open questions
 
-- **Should a snapshot ever refresh on its own?** Its *index* is taken on its own
-  the first time a branch is listed, because a menu that needed a button press to
-  exist was the complaint that produced the amendment. After that it does not,
-  following ADR 0004's "refresh is an optimisation, never a precondition": a stale
-  index is silent until somebody presses the control, which is the same bargain a
-  stale clone already makes. Checking the branch head on pane open would cost one
-  cheap call and is the obvious next step if staleness turns out to bite.
+- ~~**Should a snapshot ever refresh on its own?**~~ Closed 2026-09-15: it does.
+  The first fetch starts on the first resolve and the head is re-checked once per
+  interval, in the background, which keeps ADR 0004's "refresh is an optimisation,
+  never a precondition" — nothing waits on it — while dropping the manual step.
+  What refreshes is the index; a fetched file the new commit changed is dropped
+  and comes back the next time its area is opened. A stale *clone* still makes
+  the old bargain: it is pulled only when somebody presses the control, because
+  a pull touches a working tree somebody may be editing in.
 - **Nothing prunes the cache.** A repository removed from Settings leaves its
   snapshots behind, and a branch selected once and abandoned keeps its tree. The
   folder is safe to delete by hand and the setting says where it is; whether the

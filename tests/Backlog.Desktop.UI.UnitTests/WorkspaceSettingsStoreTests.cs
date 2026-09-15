@@ -1,3 +1,6 @@
+using Backlog.Infrastructure.Sqlite;
+using Backlog.Modules.Tasks.DomainModels;
+using Microsoft.Data.Sqlite;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
@@ -25,6 +28,10 @@ public sealed class WorkspaceSettingsStoreTests : IDisposable
 
     public void Dispose()
     {
+        // The repositories the move tests open keep pooled handles on their
+        // databases, and a pooled handle is a folder Windows will not delete.
+        SqliteConnection.ClearAllPools();
+
         foreach (var dir in _tempDirs.Where(Directory.Exists))
         {
             try { Directory.Delete(dir, recursive: true); } catch (IOException) { }
@@ -509,6 +516,189 @@ public sealed class WorkspaceSettingsStoreTests : IDisposable
     }
 
     /// <summary>A fake provider that claims one folder and nothing else.</summary>
+    /// <summary>
+    /// The loss this exists for: somebody whose root was on OneDrive pressed
+    /// "Use the default folder" and watched every task disappear, because the
+    /// pointer moved and the database did not. Moving carries it.
+    /// </summary>
+    [Fact]
+    public async Task Moving_carries_the_backlog_along()
+    {
+        var store = Store();
+        var target = TempDir();
+        var task = new TaskItem("Came along", string.Empty, EntryType.Task);
+        await new SqliteTaskRepository(store.RootDirectory).SaveAsync(task, TestContext.Current.CancellationToken);
+
+        var move = store.TryMoveRoot(target);
+
+        Assert.Null(move.Error);
+        Assert.True(move.Moved);
+        Assert.True(move.CopiedData);
+        Assert.Equal(target, store.RootDirectory);
+
+        var arrived = await new SqliteTaskRepository(target).GetAsync(task.Id, TestContext.Current.CancellationToken);
+        Assert.NotNull(arrived);
+        Assert.Equal("Came along", arrived.Title);
+    }
+
+    /// <summary>
+    /// Copied, not moved, and asserted rather than assumed: the person leaving a
+    /// synced folder is the last one whose old copy should vanish under the
+    /// click that rescued it. The screen tells them it is still there.
+    /// </summary>
+    [Fact]
+    public async Task Moving_leaves_the_old_folder_as_it_was()
+    {
+        var store = Store();
+        var previous = store.RootDirectory;
+        var task = new TaskItem("Still here too", string.Empty, EntryType.Task);
+        await new SqliteTaskRepository(previous).SaveAsync(task, TestContext.Current.CancellationToken);
+
+        Assert.Null(store.TryMoveRoot(TempDir()).Error);
+
+        Assert.True(File.Exists(Path.Combine(previous, "backlog.db")));
+        Assert.NotNull(await new SqliteTaskRepository(previous).GetAsync(task.Id, TestContext.Current.CancellationToken));
+    }
+
+    /// <summary>
+    /// The database runs in WAL mode and the repositories keep pooled handles
+    /// on it, so the newest write can sit in the journal rather than the file.
+    /// The pooled connection this test keeps alive is what makes that so; the
+    /// copy has to read through SQLite rather than copy the file to see it.
+    /// </summary>
+    [Fact]
+    public async Task Moving_carries_writes_the_journal_still_holds()
+    {
+        var store = Store();
+        var repository = new SqliteTaskRepository(store.RootDirectory);
+        var first = new TaskItem("First", string.Empty, EntryType.Task);
+        await repository.SaveAsync(first, TestContext.Current.CancellationToken);
+        var latest = new TaskItem("Latest", string.Empty, EntryType.Task);
+        await repository.SaveAsync(latest, TestContext.Current.CancellationToken);
+        var target = TempDir();
+
+        Assert.Null(store.TryMoveRoot(target).Error);
+
+        var titles = (await new SqliteTaskRepository(target).ListAsync(TestContext.Current.CancellationToken))
+            .Select(item => item.Title)
+            .ToList();
+        Assert.Contains("First", titles);
+        Assert.Contains("Latest", titles);
+    }
+
+    /// <summary>
+    /// The root holds more than the database: the inbox folder, the shared
+    /// repository registry under <c>config/</c>, a tools catalog when it was put
+    /// here. Each is somebody's data and comes along; the database's own files
+    /// do not come as raw copies, because the backup already carried the
+    /// database and a stale journal beside it would be read as part of it.
+    /// </summary>
+    [Fact]
+    public async Task Moving_carries_everything_beside_the_database_along()
+    {
+        var store = Store();
+        var target = TempDir();
+        await new SqliteTaskRepository(store.RootDirectory).SaveAsync(new TaskItem("So there is a database", string.Empty, EntryType.Task), TestContext.Current.CancellationToken);
+        File.WriteAllText(Path.Combine(store.InboxDirectory, "capture.md"), "captured");
+        Directory.CreateDirectory(Path.Combine(store.RootDirectory, "config"));
+        File.WriteAllText(Path.Combine(store.RootDirectory, "config", "repos.json"), "[]");
+
+        Assert.Null(store.TryMoveRoot(target).Error);
+
+        Assert.Equal("captured", File.ReadAllText(Path.Combine(target, "_inbox", "capture.md")));
+        Assert.Equal("[]", File.ReadAllText(Path.Combine(target, "config", "repos.json")));
+
+        // The pooled connection the save above left open keeps the journal and
+        // its index beside the source database; neither is a file to copy raw.
+        Assert.False(File.Exists(Path.Combine(target, "backlog.db-wal")));
+        Assert.False(File.Exists(Path.Combine(target, "backlog.db-shm")));
+    }
+
+    /// <summary>
+    /// Which of two backlogs to keep is not a decision a settings field gets to
+    /// make by overwriting one of them. The refusal names the way to open the
+    /// other one instead.
+    /// </summary>
+    [Fact]
+    public async Task Moving_never_writes_over_a_backlog_already_in_the_folder()
+    {
+        var store = Store();
+        var previous = store.RootDirectory;
+        var target = TempDir();
+        await new SqliteTaskRepository(previous).SaveAsync(new TaskItem("Mine", string.Empty, EntryType.Task), TestContext.Current.CancellationToken);
+        var theirs = new TaskItem("Theirs", string.Empty, EntryType.Task);
+        await new SqliteTaskRepository(target).SaveAsync(theirs, TestContext.Current.CancellationToken);
+
+        var move = store.TryMoveRoot(target);
+
+        Assert.False(move.Moved);
+        Assert.NotNull(move.Error);
+        Assert.Contains("already holds a backlog", move.Error, StringComparison.Ordinal);
+        Assert.Contains("switch without moving", move.Error, StringComparison.Ordinal);
+        Assert.Equal(previous, store.RootDirectory);
+
+        var untouched = Assert.Single(await new SqliteTaskRepository(target).ListAsync(TestContext.Current.CancellationToken));
+        Assert.Equal("Theirs", untouched.Title);
+    }
+
+    /// <summary>A first run that has written nothing has nothing to carry, and
+    /// the answer says so rather than claiming a copy that never happened.</summary>
+    [Fact]
+    public void Moving_with_nothing_written_yet_only_points()
+    {
+        var store = Store();
+        var target = TempDir();
+
+        var move = store.TryMoveRoot(target);
+
+        Assert.Null(move.Error);
+        Assert.True(move.Moved);
+        Assert.False(move.CopiedData);
+        Assert.Equal(target, store.RootDirectory);
+        Assert.False(File.Exists(Path.Combine(target, "backlog.db")));
+    }
+
+    [Fact]
+    public void Moving_to_the_folder_it_is_already_in_changes_nothing()
+    {
+        var store = Store();
+        var announced = 0;
+        store.RootChanged += () => announced++;
+
+        var move = store.TryMoveRoot(store.RootDirectory);
+
+        Assert.Null(move.Error);
+        Assert.False(move.CopiedData);
+        Assert.Equal(0, announced);
+    }
+
+    [Fact]
+    public void Moving_is_refused_on_the_same_terms_as_pointing()
+    {
+        var store = Store();
+        var previous = store.RootDirectory;
+
+        var move = store.TryMoveRoot("relative\\folder");
+
+        Assert.False(move.Moved);
+        Assert.Equal(store.TryUseRoot("relative\\folder"), move.Error);
+        Assert.Equal(previous, store.RootDirectory);
+    }
+
+    /// <summary>Pointing is still pointing: the way to open a backlog that
+    /// already lives somewhere else has to keep copying nothing.</summary>
+    [Fact]
+    public async Task Pointing_still_carries_nothing()
+    {
+        var store = Store();
+        var target = TempDir();
+        await new SqliteTaskRepository(store.RootDirectory).SaveAsync(new TaskItem("Stays", string.Empty, EntryType.Task), TestContext.Current.CancellationToken);
+
+        Assert.Null(store.TryUseRoot(target));
+
+        Assert.False(File.Exists(Path.Combine(target, "backlog.db")));
+    }
+
     private static Func<string, SyncedFolderMatch?> Inside(string syncedFolder, string providerName) =>
         root => root.StartsWith(syncedFolder, StringComparison.OrdinalIgnoreCase)
             ? new SyncedFolderMatch(providerName, syncedFolder)

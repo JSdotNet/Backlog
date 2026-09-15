@@ -2096,6 +2096,10 @@ h1, h2, h3 {
    foreground the palette sanctions, and this is what needs it - the found state
    has no sentence of its own any more, only the badge below. */
 .devbook-folder__status--error { color: var(--color-error-text); }
+/* Pending is not an error: the first fetch of a branch is running and the row
+   re-renders when it lands, so it reads one step up from the disabled base
+   rather than in the error foreground. */
+.devbook-folder__status--pending { color: var(--color-text-secondary); font-style: italic; }
 
 /* The badge inside the path field. Round, because the row's own control is a
    square gold checkbox immediately to the left and the two must not be read as

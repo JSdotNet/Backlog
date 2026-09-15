@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Sqlite;
 using Backlog.Modules.Devbook.Abstractions;
+using Microsoft.Data.Sqlite;
 
 namespace Backlog.Infrastructure.FileSystem;
 
@@ -279,9 +280,94 @@ public sealed class WorkspaceSettingsStore
 
     /// <summary>Points the app at a different folder. Returns an error message
     /// when the folder cannot be used, rather than throwing — a bad path typed
-    /// into a settings field is an ordinary thing to do, not an exception.</summary>
+    /// into a settings field is an ordinary thing to do, not an exception.
+    /// <para>
+    /// Only the pointer moves: whatever backlog the new folder already holds is
+    /// what the app reads next, and the one in the old folder stays where it
+    /// is. That is the right thing for opening a backlog that already lives
+    /// somewhere else, and the wrong thing for taking this one along — which
+    /// is what <see cref="TryMoveRoot"/> does.
+    /// </para></summary>
     public string? TryUseRoot(string? path)
     {
+        var error = ResolveRoot(path, out var full);
+        if (error is not null) return error;
+
+        return IsCurrentRoot(full) ? null : PointAt(full);
+    }
+
+    /// <summary>Takes the backlog along to a different folder: copies the
+    /// database and everything else in the folder there first, then points the
+    /// app at it. Everything else, because the root holds more than the
+    /// database — the inbox folder, the shared repository registry under
+    /// <c>config/</c>, a tools catalog when it was put here — and each of
+    /// those is somebody's data that would otherwise be left behind for the
+    /// same reason the database used to be.
+    /// <para>
+    /// The old folder is left as it was rather than emptied. Somebody moving
+    /// off a synced folder is exactly the person whose old copy should not be
+    /// removed by the click that was meant to rescue it — and on Windows the
+    /// pooled connections the repositories keep on the old database would
+    /// refuse the delete anyway. The settings screen says so in its status.
+    /// </para>
+    /// <para>
+    /// A folder that already holds a backlog is never written over. Which of
+    /// two databases to keep is not a decision to make from a settings field;
+    /// the error points at <see cref="TryUseRoot"/> as the way to open that
+    /// one instead.
+    /// </para></summary>
+    public RootMove TryMoveRoot(string? path)
+    {
+        var error = ResolveRoot(path, out var full);
+        if (error is not null) return RootMove.Failed(error);
+
+        if (IsCurrentRoot(full)) return RootMove.Pointed;
+
+        var sourceDatabase = DatabasePath;
+        var targetDatabase = SqliteTaskRepository.DatabasePathFor(full);
+
+        // Nothing written yet means nothing to carry: the move is a plain
+        // repoint, and whatever the folder holds is what the app reads next.
+        if (!File.Exists(sourceDatabase))
+        {
+            var pointError = PointAt(full);
+            return RootMove.Pointed with { Error = pointError };
+        }
+
+        if (File.Exists(targetDatabase))
+        {
+            return RootMove.Failed(
+                "That folder already holds a backlog, so nothing was moved. "
+                + "Move its backlog.db aside first, or switch without moving to use that backlog instead.");
+        }
+
+        try
+        {
+            SqliteDatabaseFile.CopyTo(sourceDatabase, targetDatabase);
+            CopyFolderContents(RootDirectory, full);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException or SqliteException)
+        {
+            return RootMove.Failed($"Couldn't move the backlog: {ex.Message}");
+        }
+
+        var saveError = PointAt(full);
+        // A save failure here is the same one PointAt reports: the move happened
+        // and only remembering it did not, so the answer is the success with
+        // that message attached rather than a failure that undoes nothing.
+        return RootMove.Copied with { Error = saveError };
+    }
+
+    /// <summary>Returns the app to its default per-user folder.</summary>
+    public string? ResetToDefault() => TryUseRoot(DefaultRootDirectory);
+
+    /// <summary>Turns what somebody typed into the folder it names, or says why
+    /// it cannot be one. Makes the folder usable on the way, so a path that
+    /// resolves is a path the app can actually be pointed at.</summary>
+    private static string? ResolveRoot(string? path, out string full)
+    {
+        full = string.Empty;
+
         if (string.IsNullOrWhiteSpace(path)) return "Enter a folder path.";
 
         var trimmed = path.Trim();
@@ -291,7 +377,6 @@ public sealed class WorkspaceSettingsStore
         // never named. Ask for the whole path instead.
         if (!Path.IsPathRooted(trimmed)) return "Use a full path, such as D:\\Notes\\Backlog.";
 
-        string full;
         try
         {
             full = Path.GetFullPath(trimmed);
@@ -312,13 +397,18 @@ public sealed class WorkspaceSettingsStore
             return $"Couldn't use that folder: {ex.Message}";
         }
 
-        if (string.Equals(Path.TrimEndingDirectorySeparator(full),
-                Path.TrimEndingDirectorySeparator(RootDirectory),
-                StringComparison.OrdinalIgnoreCase))
-        {
-            return null;
-        }
+        return null;
+    }
 
+    private bool IsCurrentRoot(string full) =>
+        string.Equals(Path.TrimEndingDirectorySeparator(full),
+            Path.TrimEndingDirectorySeparator(RootDirectory),
+            StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>The repoint itself, once the folder is known to be usable and
+    /// whatever had to be copied into it is there.</summary>
+    private string? PointAt(string full)
+    {
         RootDirectory = full;
         RefreshSyncedRoot();
 
@@ -335,8 +425,43 @@ public sealed class WorkspaceSettingsStore
         return null;
     }
 
-    /// <summary>Returns the app to its default per-user folder.</summary>
-    public string? ResetToDefault() => TryUseRoot(DefaultRootDirectory);
+    /// <summary>Copies everything in the root across except the database and
+    /// the two files SQLite keeps beside it — those went through the backup
+    /// API, and a raw copy of the journal would sit beside a database that no
+    /// longer matches it. Only files the destination does not already have: a
+    /// folder that exists but holds no database is still somebody's folder,
+    /// and nothing in it is replaced. Empty folders come too, so the inbox
+    /// folder is prepared in the new root the way it was in the old one.</summary>
+    private static void CopyFolderContents(string source, string destination)
+    {
+        if (!Directory.Exists(source)) return;
+
+        foreach (var folder in Directory.EnumerateDirectories(source, "*", SearchOption.AllDirectories))
+        {
+            Directory.CreateDirectory(Path.Combine(destination, Path.GetRelativePath(source, folder)));
+        }
+
+        foreach (var file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
+        {
+            var relative = Path.GetRelativePath(source, file);
+            if (IsDatabaseFile(relative)) continue;
+
+            var target = Path.Combine(destination, relative);
+            if (File.Exists(target)) continue;
+
+            var directory = Path.GetDirectoryName(target);
+            if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
+            File.Copy(file, target);
+        }
+    }
+
+    /// <summary>The database at the top of the root, or one of the sidecars
+    /// SQLite writes beside it in WAL mode.</summary>
+    private static bool IsDatabaseFile(string relativePath) =>
+        !relativePath.Contains(Path.DirectorySeparatorChar)
+        && !relativePath.Contains(Path.AltDirectorySeparatorChar)
+        && (string.Equals(relativePath, SqliteTaskRepository.DatabaseFileName, StringComparison.OrdinalIgnoreCase)
+            || relativePath.StartsWith(SqliteTaskRepository.DatabaseFileName + "-", StringComparison.OrdinalIgnoreCase));
 
     /// <summary>Asks the probe about the root the store is now pointing at.
     /// <para>

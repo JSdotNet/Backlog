@@ -11,6 +11,11 @@
     number is already readable; a thirty-row table per tile would bury the tables
     that carry something the reader cannot otherwise get. A host that wants a
     sentence passes Description and gets one for screen readers only.
+
+    The end marker is HTML positioned over the plot, not a circle in it. The plot
+    stretches to its box with preserveAspectRatio="none" — several times wider
+    than tall in a tile — and a circle drawn in the same space stretches with it
+    into a wide ellipse. Percentages track the last point at any size.
 *@
 
 @if (Coordinates.Count >= 2)
@@ -26,15 +31,11 @@
                 <path class="@(Part("area"))" d="@AreaPath" />
             }
             <polyline class="@(Part("line"))" points="@LinePoints" vector-effect="non-scaling-stroke" />
-            @if (ShowEndMarker)
-            {
-                <circle class="@(Part("marker"))"
-                        cx="@Text(Coordinates[^1].X)"
-                        cy="@Text(Coordinates[^1].Y)"
-                        r="4"
-                        vector-effect="non-scaling-stroke" />
-            }
         </svg>
+        @if (ShowEndMarker)
+        {
+            <span class="@(Part("marker"))" style="@MarkerPosition" aria-hidden="true"></span>
+        }
         @if (!string.IsNullOrWhiteSpace(Description))
         {
             <span class="sr-only">@Description</span>
@@ -118,6 +119,11 @@
         + $" L {Text(Coordinates[^1].X)},30 Z";
 
     private string StyleValue => $"--metric-sparkline-height: {Height}";
+
+    /// <summary>The last point as percentages of the box. The x is always the
+    /// right edge; the y is the viewBox row over its thirty-unit height.</summary>
+    private string MarkerPosition =>
+        $"left: {Text(Coordinates[^1].X)}%; top: {Text(Coordinates[^1].Y / 30d * 100d)}%";
 
     private string Part(string name) => $"{BaseClass}__{name}";
 

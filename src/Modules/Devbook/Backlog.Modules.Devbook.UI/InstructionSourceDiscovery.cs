@@ -87,7 +87,7 @@ public sealed class InstructionSourceDiscovery
                 repository,
                 location?.RootPath,
                 [],
-                location?.Message ?? "This repository's branch has not been fetched yet.",
+                location?.Message ?? "This repository's branch is being fetched.",
                 CanEdit: false);
         }
 
