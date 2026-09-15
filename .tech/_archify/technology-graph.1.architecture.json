@@ -372,9 +372,9 @@
       ]
     },
     {
-      "id": "KnowledgePlugin",
+      "id": "DevbookPlugin",
       "type": "backend",
-      "label": "Knowledge Base Plugin",
+      "label": "Devbook Plugin",
       "sublabel": "adopted",
       "tag": "Tooling",
       "pos": [
@@ -389,7 +389,7 @@
     {
       "id": "Canvas",
       "type": "backend",
-      "label": "Knowledge Canvas Extension",
+      "label": "Devbook Canvas Extension",
       "sublabel": "adopted",
       "tag": "Tooling",
       "pos": [
@@ -853,7 +853,7 @@
       "to": "CopilotCli"
     },
     {
-      "from": "KnowledgePlugin",
+      "from": "DevbookPlugin",
       "to": "CopilotCli",
       "fromSide": "left",
       "toSide": "left",
@@ -869,7 +869,7 @@
       ]
     },
     {
-      "from": "KnowledgePlugin",
+      "from": "DevbookPlugin",
       "to": "NodeJS"
     },
     {

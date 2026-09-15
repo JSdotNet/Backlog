@@ -56,14 +56,14 @@
       "checksPassed": 9,
       "checkCount": 9
     },
-    "2c13b4b1fec9691d31f6d98bf658dc8574ba02311e5fa2b1b1820d8ecba6514c": {
+    "2c7903904ce247fe68bd16027492612dad8c7a438f93820db9d11a97082e9124": {
       "chapter": "05-building-block-view.md",
-      "ordinal": 2,
+      "ordinal": 5,
       "type": "architecture",
-      "quality": "standard",
-      "kind": "flowchart",
-      "spec": "05-building-block-view.2.architecture.standard.json",
-      "artifact": "05-building-block-view.2.architecture.standard.html",
+      "quality": "showcase",
+      "kind": "graph",
+      "spec": "05-building-block-view.5.architecture.json",
+      "artifact": "05-building-block-view.5.architecture.html",
       "checksPassed": 9,
       "checkCount": 9
     },
@@ -122,17 +122,6 @@
       "checksPassed": 9,
       "checkCount": 9
     },
-    "7a6ef7464d988a1d09027ec3404d3e5356fbae6df67d654b0504508de38a78a6": {
-      "chapter": "05-building-block-view.md",
-      "ordinal": 3,
-      "type": "architecture",
-      "quality": "standard",
-      "kind": "graph",
-      "spec": "05-building-block-view.3.architecture.standard.json",
-      "artifact": "05-building-block-view.3.architecture.standard.html",
-      "checksPassed": 9,
-      "checkCount": 9
-    },
     "81ef2c8769cf075c17a0e85ba1a69be1303e1bf309087745f8ce64345d1cdad5": {
       "chapter": "07-deployment-view.md",
       "ordinal": 3,
@@ -144,14 +133,25 @@
       "checksPassed": 9,
       "checkCount": 9
     },
-    "ba441e8f0145ea3f8f9dbe5c816cd71985f6e669a67a92445bc89c8051a152ed": {
+    "aaea3d00287912c78b579c52de65cb01c88b57195221977bfd4b5a84e30004fb": {
       "chapter": "05-building-block-view.md",
-      "ordinal": 5,
+      "ordinal": 2,
       "type": "architecture",
-      "quality": "showcase",
+      "quality": "standard",
+      "kind": "flowchart",
+      "spec": "05-building-block-view.2.architecture.standard.json",
+      "artifact": "05-building-block-view.2.architecture.standard.html",
+      "checksPassed": 9,
+      "checkCount": 9
+    },
+    "bbefe1f0cb7b1466153e99ec5fc949ccb25eb99c234a801fffeafa23831334a3": {
+      "chapter": "05-building-block-view.md",
+      "ordinal": 3,
+      "type": "architecture",
+      "quality": "standard",
       "kind": "graph",
-      "spec": "05-building-block-view.5.architecture.json",
-      "artifact": "05-building-block-view.5.architecture.html",
+      "spec": "05-building-block-view.3.architecture.standard.json",
+      "artifact": "05-building-block-view.3.architecture.standard.html",
       "checksPassed": 9,
       "checkCount": 9
     },

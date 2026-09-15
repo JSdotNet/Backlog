@@ -346,7 +346,7 @@
     {
       "id": "knowledgeSvc",
       "type": "backend",
-      "label": "Second Brain",
+      "label": "Devbook",
       "tag": "Desktop App",
       "pos": [
         940,
@@ -360,7 +360,7 @@
     {
       "id": "ideBrowse",
       "type": "frontend",
-      "label": "Browse Backlog & Knowledge",
+      "label": "Browse Backlog & Devbook",
       "tag": "IDE Extensions",
       "pos": [
         940,
@@ -1026,7 +1026,7 @@
         "Inbox Queue — triage, route",
         "Backlog — refine, prioritize",
         "Roadmap Planning — plan, sequence, dependencies",
-        "Second Brain — PARA, links",
+        "Devbook — PARA, links",
         "Monitoring — dashboards, signals",
         "Technology Stack — baselines, adoption",
         "Dev PC Management — registry, compliance",
@@ -1069,7 +1069,7 @@
       "dot": "rose",
       "title": "IDE Extensions",
       "items": [
-        "Browse Backlog & Knowledge"
+        "Browse Backlog & Devbook"
       ]
     }
   ]
