@@ -51,6 +51,10 @@
          ICaptureSourceSettings port. The published surface only: the store
          writes the vocabulary and the DTOs, and never sees a run. -->
     <ProjectReference Include="..\..\Modules\Capture\Backlog.Modules.Capture.Abstractions\Backlog.Modules.Capture.Abstractions.csproj" />
+    <!-- For the name of the tools catalog folder under the root, which the
+         workspace store carries along when the root moves. The published
+         surface only, and only that one constant. -->
+    <ProjectReference Include="..\..\Modules\DevPc\Backlog.Modules.DevPc.Abstractions\Backlog.Modules.DevPc.Abstractions.csproj" />
     <ProjectReference Include="..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
     <!-- The workspace adapters under Workspace/ answer two module ports over one
          settings file: Tasks' ITaskStore and Devbook's

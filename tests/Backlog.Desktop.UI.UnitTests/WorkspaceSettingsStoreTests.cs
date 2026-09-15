@@ -594,7 +594,7 @@ public sealed class WorkspaceSettingsStoreTests : IDisposable
     /// database and a stale journal beside it would be read as part of it.
     /// </summary>
     [Fact]
-    public async Task Moving_carries_everything_beside_the_database_along()
+    public async Task Moving_carries_the_apps_own_folders_beside_the_database_along()
     {
         var store = Store();
         var target = TempDir();
@@ -602,16 +602,55 @@ public sealed class WorkspaceSettingsStoreTests : IDisposable
         File.WriteAllText(Path.Combine(store.InboxDirectory, "capture.md"), "captured");
         Directory.CreateDirectory(Path.Combine(store.RootDirectory, "config"));
         File.WriteAllText(Path.Combine(store.RootDirectory, "config", "repos.json"), "[]");
+        Directory.CreateDirectory(Path.Combine(store.RootDirectory, ".tools", "MY-PC"));
+        File.WriteAllText(Path.Combine(store.RootDirectory, ".tools", "ai-tools.json"), "{}");
+        File.WriteAllText(Path.Combine(store.RootDirectory, ".tools", "MY-PC", "ai-tools.json"), "{}");
 
         Assert.Null(store.TryMoveRoot(target).Error);
 
         Assert.Equal("captured", File.ReadAllText(Path.Combine(target, "_inbox", "capture.md")));
         Assert.Equal("[]", File.ReadAllText(Path.Combine(target, "config", "repos.json")));
+        Assert.Equal("{}", File.ReadAllText(Path.Combine(target, ".tools", "ai-tools.json")));
+        Assert.Equal("{}", File.ReadAllText(Path.Combine(target, ".tools", "MY-PC", "ai-tools.json")));
 
         // The pooled connection the save above left open keeps the journal and
         // its index beside the source database; neither is a file to copy raw.
         Assert.False(File.Exists(Path.Combine(target, "backlog.db-wal")));
         Assert.False(File.Exists(Path.Combine(target, "backlog.db-shm")));
+    }
+
+    /// <summary>
+    /// And nothing else. The default root was the markdown store's folder once,
+    /// and somebody who has used the app that long still has their own notes,
+    /// images and folders beside the database — and the retired
+    /// <c>_backlog</c> and <c>_roadmap</c> folders the app itself left there.
+    /// The move used to take the whole folder, which put all of that in the
+    /// new place too; "move the backlog" means the backlog.
+    /// </summary>
+    [Fact]
+    public async Task Moving_leaves_what_the_person_kept_beside_the_backlog_where_it_was()
+    {
+        var store = Store();
+        var target = TempDir();
+        await new SqliteTaskRepository(store.RootDirectory).SaveAsync(new TaskItem("So there is a database", string.Empty, EntryType.Task), TestContext.Current.CancellationToken);
+        File.WriteAllText(Path.Combine(store.RootDirectory, "Cost.md"), "# my notes");
+        File.WriteAllText(Path.Combine(store.RootDirectory, "image.png"), "png");
+        Directory.CreateDirectory(Path.Combine(store.RootDirectory, "Documents"));
+        File.WriteAllText(Path.Combine(store.RootDirectory, "Documents", "letter.docx"), "docx");
+        Directory.CreateDirectory(Path.Combine(store.RootDirectory, "_backlog"));
+        File.WriteAllText(Path.Combine(store.RootDirectory, "_backlog", "entry.md"), "# old");
+        Directory.CreateDirectory(Path.Combine(store.RootDirectory, "_roadmap"));
+        File.WriteAllText(Path.Combine(store.RootDirectory, "_roadmap", "plan.json"), "{}");
+
+        var move = store.TryMoveRoot(target);
+
+        Assert.Null(move.Error);
+        Assert.True(move.CopiedData);
+        Assert.False(File.Exists(Path.Combine(target, "Cost.md")));
+        Assert.False(File.Exists(Path.Combine(target, "image.png")));
+        Assert.False(Directory.Exists(Path.Combine(target, "Documents")));
+        Assert.False(Directory.Exists(Path.Combine(target, "_backlog")));
+        Assert.False(Directory.Exists(Path.Combine(target, "_roadmap")));
     }
 
     /// <summary>

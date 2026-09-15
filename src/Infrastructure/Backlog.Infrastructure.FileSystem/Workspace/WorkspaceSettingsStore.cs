@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Sqlite;
 using Backlog.Modules.Devbook.Abstractions;
+using Backlog.Modules.DevPc.Abstractions;
 using Microsoft.Data.Sqlite;
 
 namespace Backlog.Infrastructure.FileSystem;
@@ -269,6 +270,23 @@ public sealed class WorkspaceSettingsStore
     /// now and has no folders of its own to make.</summary>
     private const string InboxFolderName = "_inbox";
 
+    /// <summary>The folders in the root that are the app's, beside the
+    /// database: the inbox folder, the shared repository registry, and the
+    /// tools catalog when it was put here. This list is what a move carries
+    /// and the whole of what it carries. The root used to hold one markdown
+    /// file per entry, and a root that old still has that person's own
+    /// notes, folders and images beside the database; copying the folder
+    /// wholesale took all of that to the new place too, which is not what
+    /// "move the backlog" means to the person pressing the button. A folder
+    /// the app wrote that is not named here is one it no longer reads —
+    /// <c>_backlog</c>, <c>_roadmap</c> — and stays behind for the same reason.</summary>
+    internal static readonly string[] OwnedRootFolders =
+    [
+        InboxFolderName,
+        GitHubSettingsStore.RegistryFolderName,
+        DevToolConfigurationPaths.ToolFolderName,
+    ];
+
     /// <summary>Makes a chosen root usable: the folder itself, and the inbox
     /// folder inside it. The task database creates itself on first use, so there
     /// is nothing to prepare for it here.</summary>
@@ -297,12 +315,12 @@ public sealed class WorkspaceSettingsStore
     }
 
     /// <summary>Takes the backlog along to a different folder: copies the
-    /// database and everything else in the folder there first, then points the
-    /// app at it. Everything else, because the root holds more than the
-    /// database — the inbox folder, the shared repository registry under
-    /// <c>config/</c>, a tools catalog when it was put here — and each of
-    /// those is somebody's data that would otherwise be left behind for the
-    /// same reason the database used to be.
+    /// database and the app's own folders beside it there first, then points
+    /// the app at it. The folders too, because the root holds more than the
+    /// database — see <see cref="OwnedRootFolders"/> — and each of those is
+    /// somebody's data that would otherwise be left behind for the same
+    /// reason the database used to be. Only those: whatever else the person
+    /// keeps in the folder is theirs and stays where they put it.
     /// <para>
     /// The old folder is left as it was rather than emptied. Somebody moving
     /// off a synced folder is exactly the person whose old copy should not be
@@ -344,7 +362,7 @@ public sealed class WorkspaceSettingsStore
         try
         {
             SqliteDatabaseFile.CopyTo(sourceDatabase, targetDatabase);
-            CopyFolderContents(RootDirectory, full);
+            CopyOwnedRootFolders(RootDirectory, full);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException or SqliteException)
         {
@@ -425,16 +443,33 @@ public sealed class WorkspaceSettingsStore
         return null;
     }
 
-    /// <summary>Copies everything in the root across except the database and
-    /// the two files SQLite keeps beside it — those went through the backup
-    /// API, and a raw copy of the journal would sit beside a database that no
-    /// longer matches it. Only files the destination does not already have: a
-    /// folder that exists but holds no database is still somebody's folder,
-    /// and nothing in it is replaced. Empty folders come too, so the inbox
-    /// folder is prepared in the new root the way it was in the old one.</summary>
+    /// <summary>Copies the app's own folders — <see cref="OwnedRootFolders"/>,
+    /// each one whole — from one root into another, and nothing else. The
+    /// database is not among them: it goes through the backup API, and a raw
+    /// copy of the journal SQLite keeps beside it would sit next to a database
+    /// that no longer matches it. Only files the destination does not already
+    /// have: a folder that exists but holds no database is still somebody's
+    /// folder, and nothing in it is replaced. Empty folders come too, so the
+    /// inbox folder is prepared in the new root the way it was in the old one.
+    /// <para>
+    /// Internal rather than private because the packaged app's first start
+    /// after this convention has the same copy to make — from the folder its
+    /// installer used to redirect writes into — and should make it the same way.
+    /// </para></summary>
+    internal static void CopyOwnedRootFolders(string source, string destination)
+    {
+        foreach (var name in OwnedRootFolders)
+        {
+            var folder = Path.Combine(source, name);
+            if (!Directory.Exists(folder)) continue;
+
+            CopyFolderContents(folder, Path.Combine(destination, name));
+        }
+    }
+
     private static void CopyFolderContents(string source, string destination)
     {
-        if (!Directory.Exists(source)) return;
+        Directory.CreateDirectory(destination);
 
         foreach (var folder in Directory.EnumerateDirectories(source, "*", SearchOption.AllDirectories))
         {
@@ -443,25 +478,12 @@ public sealed class WorkspaceSettingsStore
 
         foreach (var file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
         {
-            var relative = Path.GetRelativePath(source, file);
-            if (IsDatabaseFile(relative)) continue;
-
-            var target = Path.Combine(destination, relative);
+            var target = Path.Combine(destination, Path.GetRelativePath(source, file));
             if (File.Exists(target)) continue;
 
-            var directory = Path.GetDirectoryName(target);
-            if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
             File.Copy(file, target);
         }
     }
-
-    /// <summary>The database at the top of the root, or one of the sidecars
-    /// SQLite writes beside it in WAL mode.</summary>
-    private static bool IsDatabaseFile(string relativePath) =>
-        !relativePath.Contains(Path.DirectorySeparatorChar)
-        && !relativePath.Contains(Path.AltDirectorySeparatorChar)
-        && (string.Equals(relativePath, SqliteTaskRepository.DatabaseFileName, StringComparison.OrdinalIgnoreCase)
-            || relativePath.StartsWith(SqliteTaskRepository.DatabaseFileName + "-", StringComparison.OrdinalIgnoreCase));
 
     /// <summary>Asks the probe about the root the store is now pointing at.
     /// <para>

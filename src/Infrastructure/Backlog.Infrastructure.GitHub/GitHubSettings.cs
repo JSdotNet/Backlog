@@ -505,7 +505,11 @@ public sealed class GitHubSettingsStore
     /// <see cref="RegistryError"/> says it could not be read, because a file
     /// somebody has to go and look at is worth naming; the ordinary case does not
     /// need the path and does not show it.</summary>
-    public string RegistryPath => Path.Combine(_rootDirectory(), "config", "repos.json");
+    public string RegistryPath => Path.Combine(_rootDirectory(), RegistryFolderName, "repos.json");
+
+    /// <summary>The folder under the workspace root the registry lives in,
+    /// named so the workspace store can carry it along when the root moves.</summary>
+    public const string RegistryFolderName = "config";
 
     /// <summary>Why the shared registry could not be read, or null when it was
     /// read or is simply not there yet. A workspace whose registry is corrupt

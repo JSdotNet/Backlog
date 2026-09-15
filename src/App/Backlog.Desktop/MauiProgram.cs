@@ -53,6 +53,11 @@ public static class MauiProgram
     {
         ConfigureWebView2RemoteDebugging();
 
+        // Before any store exists over the AppData folder: a packaged install
+        // that was writing into its redirected LocalCache until the manifest
+        // opted out finds its state in the folder the app names, not an empty one.
+        var adoption = PackagedAppDataAdoption.Run();
+
         var builder = MauiApp.CreateBuilder();
         builder
             .UseMauiApp<App>()
@@ -427,6 +432,8 @@ public static class MauiProgram
 #endif
 
         var app = builder.Build();
+
+        adoption.Log(app.Services.GetRequiredService<ILoggerFactory>().CreateLogger(typeof(PackagedAppDataAdoption)));
 
         // The background sync loop, asked for once and then left alone. A
         // singleton nobody resolves is a singleton that never runs, and this one
