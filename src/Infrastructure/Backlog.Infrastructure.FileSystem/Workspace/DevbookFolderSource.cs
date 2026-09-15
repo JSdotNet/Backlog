@@ -38,6 +38,14 @@ public sealed class DevbookFolderSource : IDevbookFolderSource
     /// </summary>
     private readonly IDevbookSnapshotCache? _snapshots;
 
+    /// <summary>
+    /// What keeps a branch snapshot present and current on its own. Present
+    /// exactly when <see cref="_snapshots"/> is, because it is the network half
+    /// of the same thing: a cache nothing fills is a cache that reports "not
+    /// fetched" forever, which is what the Settings rows used to show.
+    /// </summary>
+    private readonly DevbookSnapshotAutoFetch? _autoFetch;
+
     public DevbookFolderSource(GitHubSettingsStore settings, WorkspaceSettingsStore store)
         : this(settings, store, useRepositoryFallbackWhenNoAlias: false)
     {
@@ -63,7 +71,9 @@ public sealed class DevbookFolderSource : IDevbookFolderSource
         GitHubSettingsStore settings,
         WorkspaceSettingsStore store,
         bool useRepositoryFallbackWhenNoAlias,
-        IDevbookSnapshotCache? snapshots = null)
+        IDevbookSnapshotCache? snapshots = null,
+        TimeProvider? time = null,
+        TimeSpan? recheckInterval = null)
     {
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(store);
@@ -72,7 +82,23 @@ public sealed class DevbookFolderSource : IDevbookFolderSource
         _store = store;
         _useRepositoryFallbackWhenNoAlias = useRepositoryFallbackWhenNoAlias;
         _snapshots = snapshots;
+
+        if (snapshots is not null)
+        {
+            _autoFetch = new DevbookSnapshotAutoFetch(snapshots, NotifyContentChanged, time, recheckInterval);
+
+            // A settings change may be the very thing a remembered failure was
+            // about — a token added, a branch re-pointed — so the memory goes
+            // with it and the next resolve asks again rather than waiting out
+            // the interval to notice.
+            _settings.Changed += _autoFetch.Forget;
+        }
     }
+
+    /// <summary>The background fetch running for this repository's branch, or
+    /// null. Exposed for tests, which otherwise have nothing to await.</summary>
+    public Task? PendingFetch(GitHubRepositoryRef repository) =>
+        _autoFetch?.InFlight(repository, repository.DevbookBranch);
 
     /// <summary>
     /// Three sources of the same news, so the accessor forwards to two stores and
@@ -186,19 +212,22 @@ public sealed class DevbookFolderSource : IDevbookFolderSource
     /// <summary>
     /// Resolves against the cached copy of the repository's branch.
     /// <para>
-    /// Never fetches. This runs during every panel load, and a resolution that
-    /// reached the network would put GitHub in front of opening a tab — so a
-    /// branch nobody has fetched resolves to "not fetched yet" and the pane's
-    /// existing update control is what goes and gets it. That is the rule ADR
-    /// 0004 states for the devbook database and it holds here for the same
-    /// reason: refresh is an optimisation, never a precondition.
+    /// Never waits on the network. This runs during every panel load, and a
+    /// resolution that blocked on GitHub would put it in front of opening a tab.
+    /// What it does do is make sure the network has been <em>asked</em>: a branch
+    /// nobody has fetched starts its download here, in the background, and
+    /// resolves to "fetching" until it lands; a branch on disk is served as it
+    /// is and re-checked against its head on a cadence
+    /// <see cref="DevbookSnapshotAutoFetch"/> owns. Refresh is still never a
+    /// precondition, which is the rule ADR 0004 states for the devbook database
+    /// — it is just no longer something a person has to go and press for.
     /// </para>
     /// </summary>
     private DevbookFolderLocation ResolveBranch(string key, DevbookFolderSetting folder, GitHubRepositoryRef repository)
     {
         var branch = repository.DevbookBranch;
 
-        if (_snapshots is null)
+        if (_snapshots is null || _autoFetch is null)
         {
             return DevbookFolderLocation.Unavailable(
                 key,
@@ -210,17 +239,36 @@ public sealed class DevbookFolderSource : IDevbookFolderSource
 
         var root = _snapshots.SnapshotPath(repository, branch);
         var label = string.IsNullOrWhiteSpace(branch) ? "its default branch" : branch.Trim();
+        var subject = string.IsNullOrWhiteSpace(branch)
+            ? $"the default branch of {repository.FullName}"
+            : $"{repository.FullName} ({label})";
+        var snapshot = _snapshots.TryRead(repository, branch);
+        var fetch = _autoFetch.Ensure(repository, branch, hasSnapshot: snapshot is not null);
 
-        if (_snapshots.TryRead(repository, branch) is null)
+        if (snapshot is null)
         {
-            return DevbookFolderLocation.Unavailable(
-                key,
-                $"{repository.FullName} has not been fetched from {label} yet.",
-                repository.FullName,
-                folder,
-                rootPath: root,
-                repositoryAlias: repository.Alias,
-                source: DevbookSourceKind.Branch);
+            // Pending rather than failed while the first download runs: the row
+            // and the panel both show it, and both hear the announcement when it
+            // lands. Only a fetch that came back with nothing is an error, and
+            // then the words are GitHub's rather than a paraphrase.
+            return fetch.Failure is null
+                ? DevbookFolderLocation.Unavailable(
+                    key,
+                    $"Fetching {subject} from GitHub…",
+                    repository.FullName,
+                    folder,
+                    rootPath: root,
+                    repositoryAlias: repository.Alias,
+                    source: DevbookSourceKind.Branch,
+                    pending: true)
+                : DevbookFolderLocation.Unavailable(
+                    key,
+                    $"Could not fetch {subject}: {fetch.Failure}",
+                    repository.FullName,
+                    folder,
+                    rootPath: root,
+                    repositoryAlias: repository.Alias,
+                    source: DevbookSourceKind.Branch);
         }
 
         // The scope label names the branch rather than just the repository,

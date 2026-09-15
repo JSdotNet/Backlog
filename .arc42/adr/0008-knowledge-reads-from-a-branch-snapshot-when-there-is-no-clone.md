@@ -18,6 +18,22 @@ Proposed.
 > decision is unchanged, and the file name is kept so that `ADR 0008` citations in
 > code stay true.
 
+> **Amended 2026-09-15: resolution fetches on its own.** The decision said
+> *"Resolution never fetches"* and left *"should a snapshot ever refresh on its
+> own?"* open. In practice that put every section of a branch-sourced repository
+> in an error state — *"has not been fetched from main yet"* — until somebody went
+> to the Devbook pane and pressed the update control, and the Settings screen
+> showed five errors for a repository nothing was wrong with. The rule is now
+> **resolution never *waits* on a fetch**: the first resolve of an unfetched branch
+> starts the download in the background and answers "fetching" as news rather
+> than as an error; a snapshot on disk is served at once and re-checked against
+> the branch head at most once per ten minutes; a failure is the adapter's words,
+> remembered for the same interval and forgotten when the repository settings
+> change. `DevbookSnapshotAutoFetch` owns the cadence, and every subscriber to
+> the folder source's `Changed` event hears a landing the way it already heard a
+> pull. The open question below is closed by this; the rest of the decision is
+> unchanged.
+
 A **local** decision, numbered in the local sequence — not to be confused with
 inherited ADR 0008 under `.arc42/adr/guidelines/`, which this repository did not
 import. Every reference below to a local ADR by bare number means the local one.
@@ -69,8 +85,11 @@ The snapshot is the repository tree as that branch has it, downloaded as an
 archive and extracted into an app-managed cache folder. The cache location is a
 setting, defaulting beside the per-user settings rather than inside the backlog.
 
-**Resolution never fetches.** A branch nobody has fetched resolves to "not fetched
-yet"; the existing update control in the Devbook pane is what goes and gets it.
+**Resolution never waits on a fetch.** As first decided, resolution never fetched
+at all and the update control in the Devbook pane was what went and got it; since
+the 2026-09-15 amendment above, resolution starts the fetch itself in the
+background and serves whatever is on disk in the meantime. What it still never
+does is block a panel load on GitHub.
 
 ## Why this, rather than the alternatives
 
@@ -146,10 +165,13 @@ previously-offline workspace acquires a network dependency by upgrading.
 
 ## Open questions
 
-- **Should a snapshot ever refresh on its own?** It does not today, following
-  ADR 0004's "refresh is an optimisation, never a precondition". A stale snapshot
-  is silent until somebody presses the control, which is the same bargain a stale
-  clone already makes.
+- ~~**Should a snapshot ever refresh on its own?**~~ Closed 2026-09-15: it does.
+  The first fetch starts on the first resolve and the head is re-checked once per
+  interval, in the background, which keeps ADR 0004's "refresh is an optimisation,
+  never a precondition" — nothing waits on it — while dropping the manual step. A
+  stale *clone* still makes the old bargain: it is pulled only when somebody
+  presses the control, because a pull touches a working tree somebody may be
+  editing in.
 - **Nothing prunes the cache.** A repository removed from Settings leaves its
   snapshots behind, and a branch selected once and abandoned keeps its tree. The
   folder is safe to delete by hand and the setting says where it is; whether the
