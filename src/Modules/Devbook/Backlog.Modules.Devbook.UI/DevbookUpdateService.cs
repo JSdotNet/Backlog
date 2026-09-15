@@ -199,7 +199,9 @@ public static class DevbookUpdatePresentation
 {
     /// <summary>What the one button says. "Check now" rather than "Refresh",
     /// because refresh suggests something that would have happened anyway and is
-    /// being hurried along — nothing here checks unless a person asks.</summary>
+    /// being hurried along — a clone is never checked unless a person asks, and a
+    /// branch is re-checked on a cadence the folder source owns, which this
+    /// button cuts short rather than replaces.</summary>
     public static string ActionLabel(DevbookUpdateState state) =>
         state.CanPull ? "Pull latest" : "Check now";
 

@@ -1491,7 +1491,11 @@
                                                            apiece: without it the line reads "at the repository
                                                            root.Architecture knowledge folder was not found at ...". *@
                                                         @(" ")
-                                                        <span class="devbook-folder__status--error">@location.Message</span>
+                                                        @* A branch being fetched for the first time is news, not a
+                                                           fault: nothing here is wrong and nothing needs fixing, so it
+                                                           wears the pending modifier and the row re-renders when the
+                                                           folder source announces the download landed. *@
+                                                        <span class="@(location.Pending ? "devbook-folder__status--pending" : "devbook-folder__status--error")">@location.Message</span>
                                                     }
                                                 }
                                             </p>
@@ -2212,6 +2216,11 @@
         // reachable without anybody pressing anything.
         if (_deviceTokens is not null) _deviceTokens.CredentialRejectedChanged += OnCredentialRejectedChanged;
 
+        // A branch snapshot fetched in the background lands on a thread that is
+        // not this one, and the section rows above are what show "fetching"
+        // until it does - hence the marshal, and hence subscribing at all.
+        DevbookFolders.Changed += OnDevbookFoldersChanged;
+
         _draftDeviceName = StoredDevice?.DeviceName ?? Environment.MachineName;
         _draftPath = Store.RootDirectory;
         _draftStorageRepository = Store.RootRepository?.ToLine() ?? string.Empty;
@@ -2716,6 +2725,7 @@
     {
         null => null,
         { Available: true } => "found",
+        { Pending: true } => "pending",
         _ => "missing"
     };
 
@@ -3937,7 +3947,10 @@
 
         if (_taskSync is not null) _taskSync.Changed -= OnTaskSyncChanged;
         if (_deviceTokens is not null) _deviceTokens.CredentialRejectedChanged -= OnCredentialRejectedChanged;
+        DevbookFolders.Changed -= OnDevbookFoldersChanged;
     }
+
+    private void OnDevbookFoldersChanged() => _ = InvokeAsync(StateHasChanged);
 
     /// <summary>Asks again, so a <c>gh auth login</c> in another window is noticed
     /// without restarting the app. The connection probe is what forgets the CLI's

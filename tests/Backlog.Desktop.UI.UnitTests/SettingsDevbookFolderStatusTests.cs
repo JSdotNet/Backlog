@@ -118,6 +118,32 @@ public sealed class SettingsDevbookFolderStatusTests
         Assert.DoesNotContain("was not found at", status.TextContent, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// A repository read from a branch used to show every section as an error
+    /// until somebody went to the Devbook pane and pressed the update control.
+    /// Now the first render starts the fetch itself: the row says so as news
+    /// rather than as a fault, and re-renders on its own when the download lands.
+    /// </summary>
+    [Fact]
+    public void A_branch_being_fetched_is_shown_as_pending_and_the_row_follows_the_fetch()
+    {
+        var cache = new GatedSnapshotCache();
+        using var settings = RenderSettings(cloneDirectory: CloneDirectory.None, snapshots: cache);
+        OpenRepositoriesTab(settings.Component);
+
+        var status = Status(settings.Component, ".arc42");
+
+        Assert.Equal("pending", status.GetAttribute("data-folder-state"));
+        Assert.Contains("Fetching the default branch of JSdotNet/Backlog", status.TextContent, StringComparison.Ordinal);
+        Assert.NotNull(status.QuerySelector(".devbook-folder__status--pending"));
+        Assert.Null(status.QuerySelector(".devbook-folder__status--error"));
+
+        cache.Land(Path.Combine(settings.Root, "snapshot"), withArchitectureFolder: true);
+
+        settings.Component.WaitForAssertion(() =>
+            Assert.Equal("found", Status(settings.Component, ".arc42").GetAttribute("data-folder-state")));
+    }
+
     [Fact]
     public void A_section_turned_off_is_not_checked_for_a_folder_at_all()
     {
@@ -179,7 +205,7 @@ public sealed class SettingsDevbookFolderStatusTests
     /// and for the one with no folder of its own.</summary>
     private static IElement? Marker(IElement row) => row.QuerySelector("[data-testid='devbook-folder-marker']");
 
-    private static SettingsRenderContext RenderSettings(CloneDirectory cloneDirectory)
+    private static SettingsRenderContext RenderSettings(CloneDirectory cloneDirectory, IDevbookSnapshotCache? snapshots = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-settings-devbook-status-tests", Guid.NewGuid().ToString("n"));
 
@@ -217,10 +243,38 @@ public sealed class SettingsDevbookFolderStatusTests
         context.Services.AddSingleton(new GitHubIntegration(githubSettings, new UnreachableGitHub(), new NotConnectedProbe()));
         context.Services.AddSingleton<FeedbackReporter>();
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
-        context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(githubSettings, store));
+        context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(githubSettings, store, snapshots));
         context.Services.AddSingleton(new DevbookSourceSelection(githubSettings, new StubBranchCatalog()));
 
         return new SettingsRenderContext(root, clone, context, context.Render<Settings>());
+    }
+
+    /// <summary>A snapshot cache whose one fetch waits until the test lands it,
+    /// which is when the tree appears on disk.</summary>
+    private sealed class GatedSnapshotCache : IDevbookSnapshotCache
+    {
+        private readonly TaskCompletionSource<string> _landed = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private volatile string? _path;
+
+        public void Land(string path, bool withArchitectureFolder)
+        {
+            Directory.CreateDirectory(withArchitectureFolder ? Path.Combine(path, ".arc42") : path);
+            _landed.SetResult(path);
+        }
+
+        public string SnapshotPath(GitHubRepositoryRef repository, string? branch) => _path ?? "unfetched";
+
+        public DevbookSnapshot? TryRead(GitHubRepositoryRef repository, string? branch) =>
+            _path is null ? null : new DevbookSnapshot("main", "sha-1", DateTimeOffset.UtcNow);
+
+        public async Task<DevbookSnapshotResult> FetchAsync(GitHubRepositoryRef repository, string? branch, CancellationToken cancellationToken = default)
+        {
+            _path = await _landed.Task;
+            return new DevbookSnapshotResult(TryRead(repository, branch), true, false, null);
+        }
+
+        public Task<DevbookSnapshotResult> CheckAsync(GitHubRepositoryRef repository, string? branch, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new DevbookSnapshotResult(TryRead(repository, branch), false, false, null));
     }
 
     private sealed class UnreachableGitHub : IGitHubClient
