@@ -898,6 +898,124 @@ public sealed class AgentSessionSourceTests : IDisposable
         Assert.All(catalog.Sessions, session => Assert.Equal(AgentSessionOrigin.Local, session.Origin));
     }
 
+    // --- The transcript facts cache ------------------------------------------
+
+    /// <summary>
+    /// The saving the cache exists for, proved the only way a unit test can: the
+    /// remembered facts disagree with the file, and the remembered ones are what
+    /// the row shows. Had the transcript been opened, the count would be one.
+    /// </summary>
+    [Fact]
+    public async Task A_transcript_the_cache_remembers_is_not_opened()
+    {
+        GivenClaudeTranscriptOf(
+            "D--Repos-Backlog",
+            "remembered",
+            Noon.AddHours(-1),
+            """{"type":"user","cwd":"D:\\Repos\\Backlog","gitBranch":"main","message":{"role":"user","content":"one prompt"}}""");
+
+        var transcript = new FileInfo(Path.Combine(ClaudeHome, "projects", "D--Repos-Backlog", "remembered.jsonl"));
+        var facts = new RememberingFacts();
+        facts.Write(
+            transcript.FullName,
+            transcript.Length,
+            new DateTimeOffset(transcript.LastWriteTimeUtc, TimeSpan.Zero),
+            new TranscriptFacts(@"D:\Repos\Elsewhere", "feature/remembered", 42));
+
+        var session = Assert.Single((await ReadAsync(facts)).Sessions);
+
+        Assert.Equal(42, session.TurnCount);
+        Assert.Equal("feature/remembered", session.Branch);
+        Assert.Equal(@"D:\Repos\Elsewhere", session.WorkingFolder);
+    }
+
+    /// <summary>A transcript that grew since it was remembered is read again, and
+    /// what was read replaces what was remembered.</summary>
+    [Fact]
+    public async Task A_transcript_that_changed_since_it_was_remembered_is_read_again()
+    {
+        GivenClaudeTranscriptOf(
+            "D--Repos-Backlog",
+            "grown",
+            Noon.AddHours(-1),
+            """{"type":"user","cwd":"D:\\Repos\\Backlog","gitBranch":"main","message":{"role":"user","content":"one prompt"}}""",
+            """{"type":"user","isSidechain":false,"message":{"role":"user","content":"another"}}""");
+
+        var transcript = new FileInfo(Path.Combine(ClaudeHome, "projects", "D--Repos-Backlog", "grown.jsonl"));
+        var facts = new RememberingFacts();
+
+        // Remembered at a shorter length: the file has been appended to since.
+        facts.Write(
+            transcript.FullName,
+            transcript.Length - 10,
+            new DateTimeOffset(transcript.LastWriteTimeUtc, TimeSpan.Zero),
+            new TranscriptFacts(@"D:\Repos\Backlog", "main", 1));
+
+        var session = Assert.Single((await ReadAsync(facts)).Sessions);
+
+        Assert.Equal(2, session.TurnCount);
+        Assert.Equal(2, facts.TryRead(transcript.FullName, transcript.Length, new DateTimeOffset(transcript.LastWriteTimeUtc, TimeSpan.Zero))!.Turns);
+    }
+
+    [Fact]
+    public async Task A_transcript_read_in_full_is_remembered_for_next_time()
+    {
+        GivenClaudeTranscript("D--Repos-Backlog", "fresh", @"D:\Repos\Backlog", "main", Noon.AddHours(-5));
+
+        var facts = new RememberingFacts();
+        _ = await ReadAsync(facts);
+
+        var transcript = new FileInfo(Path.Combine(ClaudeHome, "projects", "D--Repos-Backlog", "fresh.jsonl"));
+        var remembered = facts.TryRead(transcript.FullName, transcript.Length, new DateTimeOffset(transcript.LastWriteTimeUtc, TimeSpan.Zero));
+
+        Assert.NotNull(remembered);
+        Assert.Equal(@"D:\Repos\Backlog", remembered.Folder);
+        Assert.Equal("main", remembered.Branch);
+        Assert.Null(remembered.Turns);
+    }
+
+    /// <summary>The one outcome that must not be written down: a read cut short by
+    /// the agent holding the file. Its null is honest today and would be a lie
+    /// tomorrow, when the file is readable and still answered from the cache.</summary>
+    [Fact]
+    public async Task An_interrupted_read_is_not_remembered()
+    {
+        GivenClaudeTranscriptOf(
+            "D--Repos-Backlog",
+            "locked",
+            Noon.AddHours(-1),
+            """{"type":"user","cwd":"D:\\Repos\\Backlog","gitBranch":"main","message":{"role":"user","content":"the prompt nobody can read"}}""");
+
+        var transcript = new FileInfo(Path.Combine(ClaudeHome, "projects", "D--Repos-Backlog", "locked.jsonl"));
+        var facts = new RememberingFacts();
+
+        await using (var held = new FileStream(transcript.FullName, FileMode.Open, FileAccess.Read, FileShare.None))
+        {
+            _ = await ReadAsync(facts);
+        }
+
+        Assert.Null(facts.TryRead(transcript.FullName, transcript.Length, new DateTimeOffset(transcript.LastWriteTimeUtc, TimeSpan.Zero)));
+    }
+
+    private Task<AgentSessionCatalog> ReadAsync(ITranscriptFactsCache facts) =>
+        new LocalAgentSessionSource(ClaudeHome, CopilotHome, MachineId, Machine, new FixedClock(Noon), facts)
+            .GetSessionsAsync();
+
+    /// <summary>The facts cache, in memory: the reader's use of the port is what is
+    /// pinned here, and the disk is the file-system project's test.</summary>
+    private sealed class RememberingFacts : ITranscriptFactsCache
+    {
+        private readonly Dictionary<string, TranscriptFacts> _entries = new(StringComparer.OrdinalIgnoreCase);
+
+        public TranscriptFacts? TryRead(string path, long length, DateTimeOffset writtenAt) =>
+            _entries.GetValueOrDefault($"{path}|{length}|{writtenAt.UtcTicks}");
+
+        public void Write(string path, long length, DateTimeOffset writtenAt, TranscriptFacts facts) =>
+            _entries[$"{path}|{length}|{writtenAt.UtcTicks}"] = facts;
+
+        public void Forget() => _entries.Clear();
+    }
+
     private Task<AgentSessionCatalog> ReadAsync() =>
         new LocalAgentSessionSource(ClaudeHome, CopilotHome, MachineId, Machine, new FixedClock(Noon))
             .GetSessionsAsync();

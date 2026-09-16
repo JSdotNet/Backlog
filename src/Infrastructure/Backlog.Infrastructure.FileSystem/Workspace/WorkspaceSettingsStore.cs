@@ -108,6 +108,7 @@ public sealed class WorkspaceSettingsStore
 
         ActivityCacheDirectory = Path.Combine(appData, ActivityCacheFolderName);
         SessionActivityCacheDirectory = Path.Combine(appData, SessionActivityCacheFolderName);
+        SpendCacheDirectory = Path.Combine(appData, SpendCacheFolderName);
 
         // The store owns the location, so it is the store that makes sure the
         // location is usable. This used to happen as a side effect of building a
@@ -238,6 +239,27 @@ public sealed class WorkspaceSettingsStore
     /// </summary>
     public string SessionActivityCacheDirectory { get; }
 
+    /// <summary>
+    /// Where the settled part of the two assistants' spend reports is kept: Claude
+    /// Code days more than a couple of days old, Copilot months more than a few
+    /// days over.
+    /// <para>
+    /// Beside the per-user settings and never under the backlog root, for the reason
+    /// <see cref="ActivityCacheDirectory"/> gives — and with one more thing at stake
+    /// than there: what is in here is money, per model, per day, and a folder of it
+    /// carried into a synced drive is a copy of a billing report somebody did not
+    /// ask to have copied.
+    /// </para>
+    /// <para>
+    /// A third folder rather than a corner of either of the other two, so that each
+    /// cache is one deletion: forgetting a repository's pull requests must not take
+    /// a year of spend with it, and clearing the spend must not touch the
+    /// transcripts. Not configurable, for the reason the activity cache is not — it
+    /// is kilobytes.
+    /// </para>
+    /// </summary>
+    public string SpendCacheDirectory { get; }
+
     private const string DevbookCacheFolderName = "devbook-cache";
 
     /// <summary>The name the default cache folder had while the context was
@@ -249,6 +271,8 @@ public sealed class WorkspaceSettingsStore
     private const string ActivityCacheFolderName = "activity-cache";
 
     private const string SessionActivityCacheFolderName = "session-activity-cache";
+
+    private const string SpendCacheFolderName = "spend-cache";
 
     private static string? Clean(string? path) => string.IsNullOrWhiteSpace(path) ? null : path.Trim();
 

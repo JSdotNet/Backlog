@@ -483,6 +483,264 @@ public class GitHubActivityClientTests
 
     /// <summary>A hundred rows — a full page, which is what tells the walk there may
     /// be another one.</summary>
+    // --- The listing cache ----------------------------------------------------
+
+    /// <summary>
+    /// The saving the listing cache exists for. A window inside what the last walk
+    /// covered starts from that walk's high-water mark, so a row touched before it
+    /// is never read — the stored copy is the answer for that row.
+    /// </summary>
+    [Fact]
+    public async Task A_remembered_listing_is_walked_only_back_to_where_the_last_walk_stopped()
+    {
+        var listings = new RememberingListings();
+        listings.Write(Repository, "jsdotnet", new ActivityListing(
+            [new ListedPullRequest(1, "u", "remembered", At("2026-06-28T10:00:00Z"), At("2026-07-01T10:00:00Z"))],
+            [],
+            new ActivityListingCoverage(From, WalkedThrough: At("2026-08-01T12:00:00Z")),
+            new ActivityListingCoverage(From, WalkedThrough: At("2026-08-01T12:00:00Z"))));
+
+        // Sorted as GitHub sorts it: the row merged since the last walk first, then
+        // one touched before the mark — inside the window, but the walk must not
+        // get that far, because a complete previous walk would already hold it.
+        var transport = new RoutingTransport()
+            .Returns("/pulls?", $"""
+                [
+                  {Pull(5, merged: "2026-08-10T10:00:00Z", updated: "2026-08-10T10:00:00Z")},
+                  {Pull(9, merged: "2026-07-20T10:00:00Z", updated: "2026-07-20T10:00:00Z")}
+                ]
+                """)
+            .Returns("/reviews", "[]");
+
+        var activity = await new GitHubActivityClient(transport, listings: listings)
+            .GetActivityAsync(Repository, From, To, "jsdotnet", TestContext.Current.CancellationToken);
+
+        Assert.Equal([5, 1], activity.PullRequests.Select(pull => pull.Number));
+        Assert.True(activity.ListingComplete);
+        Assert.Equal(1, transport.CallsTo("/pulls?"));
+
+        // And the issues walk asks GitHub for what changed since the mark, minus the
+        // slack, rather than since the window opened.
+        var issues = Assert.Single(transport.Paths.Where(path => path.Contains("/issues?", StringComparison.Ordinal)));
+        Assert.Contains("since=2026-08-01T11%3A55%3A00Z", issues, StringComparison.Ordinal);
+        Assert.Contains("state=all", issues, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A wider window than the listing covers is not a delta. It walks back to its
+    /// own start, which picks up the row the narrower walk was allowed to stop
+    /// before, and the coverage it leaves behind reaches that far.
+    /// </summary>
+    [Fact]
+    public async Task A_window_starting_before_the_coverage_walks_back_to_its_own_start()
+    {
+        var listings = new RememberingListings();
+        listings.Write(Repository, "jsdotnet", new ActivityListing(
+            [],
+            [],
+            new ActivityListingCoverage(CoveredFrom: At("2026-08-01T00:00:00Z"), WalkedThrough: At("2026-08-15T12:00:00Z")),
+            null));
+
+        var transport = new RoutingTransport()
+            .Returns("/pulls?", $"[{Pull(9, merged: "2026-07-20T10:00:00Z", updated: "2026-07-20T10:00:00Z")}]")
+            .Returns("/reviews", "[]");
+
+        var activity = await new GitHubActivityClient(transport, listings: listings)
+            .GetActivityAsync(Repository, From, To, "jsdotnet", TestContext.Current.CancellationToken);
+
+        var pull = Assert.Single(activity.PullRequests);
+        Assert.Equal(9, pull.Number);
+
+        var written = listings.TryRead(Repository, "jsdotnet")!;
+        Assert.Equal(From, written.PullRequestCoverage!.CoveredFrom);
+
+        // Forward never retreats: the newest row this walk saw is older than the
+        // mark the last one left, and the mark stays.
+        Assert.Equal(At("2026-08-15T12:00:00Z"), written.PullRequestCoverage.WalkedThrough);
+    }
+
+    /// <summary>
+    /// The property everything else rests on. A walk that ran out of pages has not
+    /// seen the rows past them, so it keeps what it found and covers only from the
+    /// oldest row it reached — never the window it was asked for. The next read of
+    /// this window walks it again; a narrower window inside what was reached is a
+    /// delta.
+    /// </summary>
+    [Fact]
+    public async Task An_incomplete_walk_keeps_its_rows_and_covers_only_what_it_reached()
+    {
+        var listings = new RememberingListings();
+
+        var transport = new RoutingTransport()
+            .Returns("/pulls?", FullPage(merged: "2026-07-01T10:00:00Z", updated: "2026-07-01T10:00:00Z"))
+            .Returns("/reviews", "[]");
+
+        var activity = await new GitHubActivityClient(transport, listings: listings)
+            .GetActivityAsync(Repository, From, To, "jsdotnet", TestContext.Current.CancellationToken);
+
+        Assert.False(activity.ListingComplete);
+
+        var written = listings.TryRead(Repository, "jsdotnet")!;
+        Assert.NotEmpty(written.PullRequests);
+        Assert.NotNull(written.PullRequestCoverage);
+        Assert.True(written.PullRequestCoverage.CoveredFrom > From);
+        Assert.Equal(At("2026-07-01T10:05:00Z"), written.PullRequestCoverage.CoveredFrom);
+    }
+
+    /// <summary>
+    /// An incomplete walk may not widen what was covered before, either: a delta
+    /// walk that ran out of pages has unread rows between its last page and the
+    /// old mark, and a merge in there would be trusted on the strength of a walk
+    /// that never saw it. Coverage narrows to what this walk proved.
+    /// </summary>
+    [Fact]
+    public async Task An_incomplete_delta_walk_narrows_the_coverage_to_what_it_reached()
+    {
+        var listings = new RememberingListings();
+        listings.Write(Repository, "jsdotnet", new ActivityListing(
+            [],
+            [],
+            new ActivityListingCoverage(From, WalkedThrough: At("2026-06-15T12:00:00Z")),
+            null));
+
+        var transport = new RoutingTransport()
+            .Returns("/pulls?", FullPage(merged: "2026-08-01T10:00:00Z", updated: "2026-08-01T10:00:00Z"))
+            .Returns("/reviews", "[]");
+
+        var activity = await new GitHubActivityClient(transport, listings: listings)
+            .GetActivityAsync(Repository, From, To, "jsdotnet", TestContext.Current.CancellationToken);
+
+        Assert.False(activity.ListingComplete);
+
+        var written = listings.TryRead(Repository, "jsdotnet")!;
+        Assert.Equal(At("2026-08-01T10:05:00Z"), written.PullRequestCoverage!.CoveredFrom);
+        Assert.Equal(At("2026-08-01T10:00:00Z"), written.PullRequestCoverage.WalkedThrough);
+    }
+
+    [Fact]
+    public async Task A_complete_walk_records_the_window_and_the_newest_row_it_saw()
+    {
+        var listings = new RememberingListings();
+
+        var transport = new RoutingTransport()
+            .Returns("/pulls?", $"""
+                [
+                  {Pull(2, merged: null, updated: "2026-08-18T09:00:00Z")},
+                  {Pull(1, merged: "2026-07-01T10:00:00Z", updated: "2026-07-01T10:00:00Z")}
+                ]
+                """)
+            .Returns("/reviews", "[]");
+
+        _ = await new GitHubActivityClient(transport, listings: listings)
+            .GetActivityAsync(Repository, From, To, "jsdotnet", TestContext.Current.CancellationToken);
+
+        var written = listings.TryRead(Repository, "jsdotnet")!;
+        Assert.Equal(new ActivityListingCoverage(From, At("2026-08-18T09:00:00Z")), written.PullRequestCoverage);
+
+        // The open pull request was the newest row and is not a fact yet; only the
+        // merged one is kept.
+        var kept = Assert.Single(written.PullRequests);
+        Assert.Equal(1, kept.Number);
+    }
+
+    /// <summary>
+    /// A merged pull request touched before the window is a fact all the same, and
+    /// keeping it is what lets a later, wider window be a delta rather than a walk.
+    /// It is kept, and it is not reported for this window.
+    /// </summary>
+    [Fact]
+    public async Task A_pull_request_merged_before_the_window_is_kept_but_not_reported()
+    {
+        var listings = new RememberingListings();
+
+        var transport = new RoutingTransport()
+            .Returns("/pulls?", $"[{Pull(3, merged: "2026-05-01T10:00:00Z", updated: "2026-07-03T10:00:00Z")}]")
+            .Returns("/reviews", "[]");
+
+        var activity = await new GitHubActivityClient(transport, listings: listings)
+            .GetActivityAsync(Repository, From, To, "jsdotnet", TestContext.Current.CancellationToken);
+
+        Assert.Empty(activity.PullRequests);
+        Assert.Equal(3, Assert.Single(listings.TryRead(Repository, "jsdotnet")!.PullRequests).Number);
+    }
+
+    /// <summary>
+    /// The one way a stored row stops being true. Reopening touches the issue, so
+    /// it comes back in the walk — open — and the stored closed row goes with it.
+    /// </summary>
+    [Fact]
+    public async Task A_reopened_issue_is_dropped_from_the_listing()
+    {
+        var listings = new RememberingListings();
+        listings.Write(Repository, "jsdotnet", new ActivityListing(
+            [],
+            [
+                new ListedIssue(3, "u", "reopened since", At("2026-07-01T10:00:00Z")),
+                new ListedIssue(4, "u", "still closed", At("2026-07-02T10:00:00Z"))
+            ],
+            null,
+            new ActivityListingCoverage(From, At("2026-08-01T12:00:00Z"))));
+
+        var transport = new RoutingTransport()
+            .Returns("/pulls?", "[]")
+            .Returns("/issues?", """
+                [
+                  { "number": 3, "html_url": "u", "title": "reopened since", "state": "open", "closed_at": null,
+                    "updated_at": "2026-08-10T10:00:00Z" }
+                ]
+                """);
+
+        var activity = await new GitHubActivityClient(transport, listings: listings)
+            .GetActivityAsync(Repository, From, To, "jsdotnet", TestContext.Current.CancellationToken);
+
+        Assert.Equal(4, Assert.Single(activity.Issues).Number);
+        Assert.Equal(4, Assert.Single(listings.TryRead(Repository, "jsdotnet")!.Issues).Number);
+    }
+
+    /// <summary>Without a cache the client is the client it was: every window is a
+    /// full walk from its own start.</summary>
+    [Fact]
+    public async Task Without_a_listing_cache_the_issues_walk_starts_at_the_window()
+    {
+        var transport = new RoutingTransport().Returns("/pulls?", "[]");
+
+        _ = await new GitHubActivityClient(transport)
+            .GetActivityAsync(Repository, From, To, "jsdotnet", TestContext.Current.CancellationToken);
+
+        var issues = Assert.Single(transport.Paths.Where(path => path.Contains("/issues?", StringComparison.Ordinal)));
+        Assert.Contains("since=2026-06-01T00%3A00%3A00Z", issues, StringComparison.Ordinal);
+    }
+
+    private static DateTimeOffset At(string instant) =>
+        DateTimeOffset.Parse(instant, System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>The listing cache, in memory, on the same terms as
+    /// <see cref="RememberingCache"/>: the client's use of the port is what is
+    /// pinned here, and the disk is the file-system project's test.</summary>
+    private sealed class RememberingListings : IActivityListingCache
+    {
+        private readonly Dictionary<string, ActivityListing> _entries = [];
+
+        public ActivityListing? TryRead(GitHubRepositoryRef repository, string author) =>
+            _entries.GetValueOrDefault(Key(repository, author));
+
+        public void Write(GitHubRepositoryRef repository, string author, ActivityListing listing) =>
+            _entries[Key(repository, author)] = listing;
+
+        public void ForgetRepository(GitHubRepositoryRef repository)
+        {
+            foreach (var key in _entries.Keys
+                         .Where(key => key.StartsWith(repository.FullName + "#", StringComparison.Ordinal))
+                         .ToList())
+            {
+                _entries.Remove(key);
+            }
+        }
+
+        private static string Key(GitHubRepositoryRef repository, string author) =>
+            $"{repository.FullName}#{author.ToLowerInvariant()}";
+    }
+
     private static string FullPage(string? merged, string updated) =>
         "[" + string.Join(",", Enumerable.Range(1, 100).Select(number => Pull(number, merged, updated))) + "]";
 

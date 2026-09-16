@@ -279,17 +279,29 @@ public static class MauiProgram
         // settings and never under the backlog root - see ActivityCacheDirectory.
         builder.Services.AddSingleton<IPullRequestDetailCache>(sp => new PullRequestDetailCache(
             () => sp.GetRequiredService<WorkspaceSettingsStore>().ActivityCacheDirectory));
+        // And the listing cache is what keeps it from re-walking the pages that
+        // found those pull requests. Same folder, so forgetting a repository is
+        // one gesture that drops both.
+        builder.Services.AddSingleton<IActivityListingCache>(sp => new ActivityListingCache(
+            () => sp.GetRequiredService<WorkspaceSettingsStore>().ActivityCacheDirectory));
         builder.Services.AddSingleton<IGitHubActivityClient>(sp => new GitHubActivityClient(
             sp.GetRequiredService<ResolvingGitHubTransport>(),
-            sp.GetRequiredService<IPullRequestDetailCache>()));
+            sp.GetRequiredService<IPullRequestDetailCache>(),
+            sp.GetRequiredService<IActivityListingCache>()));
         // Counts only, over the search API, for the stretches of history the
         // detailed client is too expensive to walk.
         builder.Services.AddSingleton<IGitHubActivityBaselineClient>(sp => new GitHubActivityBaselineClient(
             sp.GetRequiredService<ResolvingGitHubTransport>()));
+        // Settled Copilot months and settled Claude days are kept beside each other
+        // under the spend cache - see SpendCacheDirectory for why it is a folder of
+        // its own - so a seven-month trend costs the running month and nothing else.
+        builder.Services.AddSingleton<IAiCreditUsageCache>(sp => new AiCreditUsageCache(
+            () => sp.GetRequiredService<WorkspaceSettingsStore>().SpendCacheDirectory));
         builder.Services.AddSingleton<IGitHubBillingClient>(sp => new GitHubBillingClient(
             sp.GetRequiredService<ResolvingGitHubTransport>(),
             sp.GetRequiredService<IGitHubIdentityClient>(),
-            sp.GetRequiredService<GitHubSettingsStore>()));
+            sp.GetRequiredService<GitHubSettingsStore>(),
+            sp.GetRequiredService<IAiCreditUsageCache>()));
 
         // Claude usage reporting is registered unconditionally; it reports
         // itself unavailable until an Admin API key is configured, and the
@@ -299,6 +311,8 @@ public static class MauiProgram
         builder.Services.AddSingleton<IClaudeUsageClient>(sp => new ClaudeUsageClient(
             sp.GetRequiredService<IClaudeTransport>(),
             sp.GetRequiredService<ClaudeSettingsStore>()));
+        builder.Services.AddSingleton<IClaudeCodeUsageCache>(sp => new ClaudeCodeUsageCache(
+            () => sp.GetRequiredService<WorkspaceSettingsStore>().SpendCacheDirectory));
 
         // The Dashboard module brings its derivations; the adapters beside it decide which
         // providers are behind them. Registered after the provider clients above, which is
@@ -397,6 +411,10 @@ public static class MauiProgram
         // workspace, and a per-machine parse cache travelling to another device is
         // exactly the hazard.
         builder.Services.AddSingleton<IAgentActivityCache>(sp => new AgentActivityCache(
+            () => sp.GetRequiredService<WorkspaceSettingsStore>().SessionActivityCacheDirectory));
+        // The other pass over the same transcripts: the folder, branch and turn count
+        // the session list reads. Same folder, same reasons, forgotten together.
+        builder.Services.AddSingleton<ITranscriptFactsCache>(sp => new TranscriptFactsCache(
             () => sp.GetRequiredService<WorkspaceSettingsStore>().SessionActivityCacheDirectory));
 
         // When those sessions were actually producing, read out of the bodies of the

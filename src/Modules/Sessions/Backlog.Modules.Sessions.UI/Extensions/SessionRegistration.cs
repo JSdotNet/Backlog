@@ -77,9 +77,13 @@ public static class SessionRegistration
     {
         ArgumentNullException.ThrowIfNull(services);
 
+        // GetService for the cache, as AddAgentActivitySource does and for the same
+        // reason: a host that composed none still gets the right list, slower.
         services.AddKeyedSingleton<IAgentSessionSource>(
             LocalSourceKey,
-            (sp, _) => new LocalAgentSessionSource(sp.GetRequiredService<IDeviceIdentitySource>()));
+            (sp, _) => new LocalAgentSessionSource(
+                sp.GetRequiredService<IDeviceIdentitySource>(),
+                sp.GetService<ITranscriptFactsCache>()));
 
         services.AddSingleton<IAgentSessionSource>(sp =>
             new CompositeAgentSessionSource([.. sp.GetKeyedServices<IAgentSessionSource>(KeyedService.AnyKey)]));

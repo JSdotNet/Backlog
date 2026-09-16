@@ -1472,7 +1472,7 @@
                                     <div class="repo-card__section" data-testid="repo-activity-cache">
                                         <h4 class="devbook-folders__title">Dashboard activity</h4>
                                         <p class="setting__note">
-                                            Merged pull requests keep their review, churn and size detail on this machine, so opening the dashboard only fetches the ones it has not seen. Nothing about a merged pull request changes, so the saved copy stays right unless <code>@activeRepo.FullName</code> had its history rewritten.
+                                            Merged pull requests and closed issues are kept on this machine, with each pull request's review, churn and size detail, so opening the dashboard only walks the pages that changed since and fetches the pull requests it has not seen. Nothing about a merged pull request changes, so the saved copy stays right unless <code>@activeRepo.FullName</code> had its history rewritten.
                                         </p>
                                         <p class="setting__status" data-testid="repo-activity-cache-status" role="status">
                                             @ActivityCacheStatus(activeRepo)
@@ -1481,7 +1481,7 @@
                                             <AppButton Variant="ButtonVariant.None"
                                                        data-testid="repo-activity-cache-forget"
                                                        OnClick="() => ForgetActivityCache(activeRepo)">
-                                                Forget this repository's saved pull requests
+                                                Forget this repository's saved pull requests and issues
                                             </AppButton>
                                         </div>
                                     </div>
@@ -2382,6 +2382,7 @@
         _deviceLog = Services.GetService<ILoggerFactory>()?.CreateLogger(GetType());
         _deviceTokens = Services.GetService<SyncTokenProvider>();
         _activityCache = Services.GetService<IPullRequestDetailCache>();
+        _listingCache = Services.GetService<IActivityListingCache>();
         _taskSync = ResolveTaskSync();
 
         // The loop outlives this screen, so what it did while nobody was here is
@@ -2982,6 +2983,13 @@
     /// answers.</summary>
     private IPullRequestDetailCache? _activityCache;
 
+    /// <summary>The listing beside the detail: which pull requests and issues there
+    /// were, kept so the next read walks only what changed. Forgotten with the
+    /// detail rather than on its own, because "forget this repository" means both
+    /// to the person pressing it and a listing without its detail would only save
+    /// the cheaper half of the fetch.</summary>
+    private IActivityListingCache? _listingCache;
+
     /// <summary>Which repositories have been forgotten since this screen opened.
     /// Keyed on the alias, so the message follows the repository rather than
     /// whichever card happens to be open.</summary>
@@ -3000,15 +3008,16 @@
     /// </para></summary>
     private string ActivityCacheStatus(GitHubRepositoryRef repository) =>
         _forgottenActivity.Contains(repository.Alias)
-            ? $"Forgotten. The next dashboard read fetches every pull request's detail in {repository.FullName} again, which takes noticeably longer than usual."
-            : $"A merged pull request's detail never changes, so it is saved after it is read and only new pull requests cost a call. Forgetting it means the next dashboard read fetches every pull request's detail in {repository.FullName} again.";
+            ? $"Forgotten. The next dashboard read walks every page and fetches every pull request's detail in {repository.FullName} again, which takes noticeably longer than usual."
+            : $"A merged pull request's detail never changes, so it is saved after it is read and only new pull requests cost a call. Forgetting it means the next dashboard read walks every page and fetches every pull request's detail in {repository.FullName} again.";
 
-    /// <summary>Drops one repository's saved pull-request detail. Nothing else is
-    /// touched — the other repositories keep theirs, and this one keeps its
-    /// settings.</summary>
+    /// <summary>Drops one repository's saved listing and pull-request detail.
+    /// Nothing else is touched — the other repositories keep theirs, and this one
+    /// keeps its settings.</summary>
     private void ForgetActivityCache(GitHubRepositoryRef repository)
     {
         _activityCache?.ForgetRepository(repository);
+        _listingCache?.ForgetRepository(repository);
         _forgottenActivity.Add(repository.Alias);
     }
 
