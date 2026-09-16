@@ -136,9 +136,11 @@ public static class MauiProgram
         // The same arrangement for capture: the module brings the run, and the host
         // decides where the monitored sources are kept — its own per-user file
         // beside the choices above, for the same reason theirs are not in
-        // settings.json. The source adapters and the delivery come further down,
+        // settings.json — and where what past runs said is kept, a second file
+        // beside it. The source adapters and the delivery come further down,
         // after the Inbox they deliver into.
         builder.Services.AddSingleton<ICaptureSourceSettings, CaptureSourcesSettingsStore>();
+        builder.Services.AddSingleton<ICaptureRunLog, CaptureRunLogStore>();
         builder.Services.AddCaptureModule();
 
         // The two cross-context joins the plan takes part in, each a port a screen
