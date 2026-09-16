@@ -201,6 +201,23 @@ public sealed class GhCliTransportTests
             gh.Transport().SendAsync(HttpMethod.Get, "repos/octo/demo", cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Equal("gh: Not Found (HTTP 404)", exception.Message);
+
+        // And the status, read off that line, so a caller with a plan for one
+        // status has it without parsing the sentence.
+        Assert.Equal(System.Net.HttpStatusCode.NotFound, exception.Status);
+        Assert.True(exception.IsNotFound);
+    }
+
+    [Fact]
+    public async Task A_failure_with_no_status_line_carries_no_status()
+    {
+        using var gh = new GhStub().Fails(1, "gh: could not connect");
+
+        var exception = await Assert.ThrowsAsync<GitHubException>(() =>
+            gh.Transport().SendAsync(HttpMethod.Get, "repos/octo/demo", cancellationToken: TestContext.Current.CancellationToken));
+
+        Assert.Null(exception.Status);
+        Assert.False(exception.IsNotFound);
     }
 
     /// <summary>A CLI that fails and says nothing still has to produce a sentence

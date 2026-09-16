@@ -1,0 +1,140 @@
+@inherits ErrorBoundaryBase
+@implements IDisposable
+@using Microsoft.Extensions.Logging
+@inject ILogger<AppErrorBoundary> Logger
+@inject NavigationManager Navigation
+@inject IAppUpdateService Updates
+@inject IAppFeatureSettings Features
+@inject FeedbackReportChannel Reports
+
+@*
+    What stands between a page that threw and the framework's fatal banner.
+
+    Without this, an unhandled exception anywhere in the routed body reaches the
+    renderer's own handler. In the WebView that handler shows the yellow
+    "An unhandled error has occurred" strip and then drops every message between
+    JavaScript and .NET — no click reaches a handler and no render reaches the
+    screen — so the app is dead behind a banner whose only working control is
+    Reload. The Report issue button in the footer is still drawn and does nothing.
+    The exception itself is printed to a console nobody has open and is otherwise
+    gone.
+
+    So the page is caught here instead, per the page-level row of
+    .design/interaction-guidelines.md#error-states: the whole view is unusable, so
+    it is replaced by a full-page error state with a retry and a way home — and,
+    because this is the one moment a reader most wants to say something is wrong,
+    with the Report issue dialog opened on the exception's own text. The footer is
+    outside this boundary, which is what keeps that dialog reachable.
+
+    The page's content is not re-rendered while the error stands. That is the one
+    rule of an error boundary: a page that throws while rendering would throw
+    again on every attempt, and ErrorBoundaryBase gives up after a hundred and
+    rethrows into the very handler this exists to avoid. Try again re-renders it
+    once, on purpose, and a page that fails again lands back here.
+*@
+
+@if (CurrentException is null)
+{
+    @ChildContent
+}
+else
+{
+    <div class="app-error" data-testid="app-error">
+        @* role="alert" on the state itself: a page-level error is the assertive
+           case in the live-region table of .design/accessibility.md, and the
+           whole panel is the one message, not only its title. *@
+        <EmptyState CssClass="app-error__state"
+                    TestId="app-error-state"
+                    role="alert"
+                    Title="Something went wrong"
+                    TitleCssClass="empty-state__title app-error__title">
+            <Icon>
+                <span aria-hidden="true">⚠</span>
+            </Icon>
+            <DescriptionContent>
+                <text>The page stopped with an error. Trying again re-opens it; if it keeps happening, report it so it can be fixed.</text>
+                @* The exception's own sentence, in its own line rather than
+                   folded into the description: it is evidence, not copy. *@
+                <code class="app-error__message" data-testid="app-error-message">@ErrorMessage</code>
+            </DescriptionContent>
+            <Action>
+                <AppButton Variant="ButtonVariant.Primary" TestId="app-error-retry" OnClick="Recover">Try again</AppButton>
+                @if (Features.IsEnabled(AppFeatures.FeedbackReporting))
+                {
+                    <AppButton Variant="ButtonVariant.Secondary" TestId="app-error-report" OnClick="ReportIssue">Report issue</AppButton>
+                }
+                <AppButton Variant="ButtonVariant.Ghost" TestId="app-error-home" OnClick="GoHome">Go to Home</AppButton>
+            </Action>
+        </EmptyState>
+    </div>
+}
+
+@code {
+    /// <summary>Where the page was when it threw, kept from the moment of the
+    /// error rather than read when the report is written: a reader may have
+    /// navigated by then, and the report is about where it broke.</summary>
+    private string _location = string.Empty;
+    private DateTimeOffset _when;
+
+    private string ErrorMessage =>
+        CurrentException is null ? string.Empty : $"{CurrentException.GetType().Name}: {CurrentException.Message}";
+
+    protected override Task OnErrorAsync(Exception exception)
+    {
+        _location = Navigation.ToBaseRelativePath(Navigation.Uri) is { Length: > 0 } relative ? "/" + relative : "/";
+        _when = DateTimeOffset.UtcNow;
+
+        // Logged here because nothing else will: the renderer's own path prints
+        // it to the WebView console and stops, and this boundary is what keeps
+        // it from getting there.
+        Logger.LogError(exception, "Unhandled error in the page at {Location}", _location);
+
+        return Task.CompletedTask;
+    }
+
+    private void ReportIssue()
+    {
+        if (CurrentException is null) return;
+
+        Reports.Request(UnhandledErrorReport.Draft(CurrentException, _location, Updates.CurrentVersion, _when));
+    }
+
+    /// <summary>
+    /// The navigation escape the design asks for beside the retry.
+    /// <para>
+    /// Home first and recover second — and "second" means after the router has
+    /// actually swapped the body, not after <c>NavigateTo</c> returns. In a live
+    /// circuit the location changes on the far side of a browser round trip,
+    /// and a recovery made before that re-renders the body the layout still
+    /// holds: the page that just failed, which fails again, and the reader who
+    /// asked for Home is looking at the same error over a changed address bar.
+    /// Measured in the harness before this waited. So the recovery is armed here
+    /// and fired by <see cref="RecoverOnceNavigated"/>, which the router's own
+    /// handler runs ahead of because it subscribed first.
+    /// </para>
+    /// <para>
+    /// Already at Home, there may be no location change to wait for, and the
+    /// retry is the same thing anyway.
+    /// </para>
+    /// </summary>
+    private void GoHome()
+    {
+        if (Navigation.ToBaseRelativePath(Navigation.Uri).Length == 0)
+        {
+            Recover();
+            return;
+        }
+
+        Navigation.LocationChanged -= RecoverOnceNavigated;
+        Navigation.LocationChanged += RecoverOnceNavigated;
+        Navigation.NavigateTo("/");
+    }
+
+    private void RecoverOnceNavigated(object? sender, LocationChangedEventArgs e)
+    {
+        Navigation.LocationChanged -= RecoverOnceNavigated;
+        _ = InvokeAsync(Recover);
+    }
+
+    public void Dispose() => Navigation.LocationChanged -= RecoverOnceNavigated;
+}

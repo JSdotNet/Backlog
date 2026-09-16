@@ -315,34 +315,6 @@ public sealed class GitHubSettingsTests
     }
 
     [Fact]
-    public void Storage_knowledge_folder_settings_survive_a_restart()
-    {
-        var directory = Path.Combine(Path.GetTempPath(), "backlog-store-tests", Guid.NewGuid().ToString("n"));
-        var settingsPath = Path.Combine(directory, "settings.json");
-
-        try
-        {
-            var store = new WorkspaceSettingsStore(directory, settingsPath);
-            store.SetDevbookFolder(".tech", enabled: false, path: null);
-            store.SetDevbookFolder(".domain", enabled: true, path: @"knowledge\domain");
-            store.SetDevbookFolder("instructions", enabled: false, path: @"custom\instructions");
-
-            var reopened = new WorkspaceSettingsStore(directory, settingsPath);
-
-            Assert.False(reopened.DevbookFolders.Single(f => f.Key == ".tech").Enabled);
-            Assert.Equal(@"knowledge\domain", reopened.DevbookFolders.Single(f => f.Key == ".domain").Path);
-            Assert.Equal(".arc42", reopened.DevbookFolders.Single(f => f.Key == ".arc42").EffectivePath);
-            var instructions = reopened.DevbookFolders.Single(f => f.Key == "instructions");
-            Assert.False(instructions.Enabled);
-            Assert.Null(instructions.Path);
-        }
-        finally
-        {
-            try { Directory.Delete(directory, recursive: true); } catch (IOException) { }
-        }
-    }
-
-    [Fact]
     public void A_custom_api_endpoint_survives_a_restart()
     {
         var path = Path.Combine(Path.GetTempPath(), "backlog-github-tests", Guid.NewGuid().ToString("n"), "github.json");
@@ -364,8 +336,11 @@ public sealed class GitHubSettingsTests
         }
     }
 
+    /// <summary>A devbook belongs to a repository. With none selected there is
+    /// nothing to resolve, and the location says to pick one rather than
+    /// reading the storage folder as if it were a repository.</summary>
     [Fact]
-    public void Storage_knowledge_source_resolves_without_a_repository_selection()
+    public void Nothing_resolves_without_a_repository_selection()
     {
         var directory = Path.Combine(Path.GetTempPath(), "backlog-store-tests", Guid.NewGuid().ToString("n"));
         var settingsPath = Path.Combine(directory, "settings.json");
@@ -373,17 +348,15 @@ public sealed class GitHubSettingsTests
 
         try
         {
-            Directory.CreateDirectory(Path.Combine(directory, "knowledge", "domain"));
+            Directory.CreateDirectory(Path.Combine(directory, ".domain"));
             var store = new WorkspaceSettingsStore(directory, settingsPath);
-            store.SetDevbookFolder(".domain", enabled: true, path: @"knowledge\domain");
             var source = new DevbookFolderSource(new GitHubSettingsStore(githubPath), store);
 
             var location = source.Resolve(".domain");
 
-            Assert.True(location.Available);
-            Assert.Equal(Path.GetFullPath(Path.Combine(directory, "knowledge", "domain")), location.FullPath);
-            Assert.Equal(directory, location.RootPath);
-            Assert.Equal("storage", location.ScopeLabel);
+            Assert.False(location.Available);
+            Assert.Equal(DevbookFolderSource.NoRepositoryScoped, location.Message);
+            Assert.Empty(source.Folders(null));
         }
         finally
         {

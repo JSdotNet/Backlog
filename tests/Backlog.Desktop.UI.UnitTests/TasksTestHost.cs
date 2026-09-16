@@ -87,9 +87,8 @@ internal static class TasksTestHost
         GitHubIntegration gitHub,
         TasksCopilotCli? copilot = null,
         IRoadmapTagSource? roadmapTags = null,
-        ITasksRefreshSettings? refreshSettings = null,
         IToastChannel? toasts = null) =>
-        new(TaskStoreFor(store), EntriesFor(store), gitHub, copilot, roadmapTags, refreshSettings, toasts);
+        new(TaskStoreFor(store), EntriesFor(store), gitHub, copilot, roadmapTags, toasts);
 
     /// <summary>
     /// The notification channel a screen publishes on and MainLayout's tray reads

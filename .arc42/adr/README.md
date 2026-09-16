@@ -35,6 +35,7 @@ between inherited ADRs 0005 and 0009.
 - **[0007 — Import reuses the entry text grammar; a plan is multi-task entry text](0007-import-reuses-the-entry-text-grammar.md)** *(proposed)*
 - **[0008 — The Devbook reads from a cached branch snapshot when there is no clone; only a clone is editable](0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md)** *(proposed)*
 - **[0009 — Captures are a document kind on the replica; the desktop acknowledges by tombstone](0009-captures-are-a-document-kind-on-the-replica.md)** *(accepted)*
+- **[0010 — A backup is the database committed to a GitHub repository, one way, on a schedule](0010-backup-is-the-database-committed-to-a-repository.md)** *(accepted)*
 
 ## Inherited decisions
 

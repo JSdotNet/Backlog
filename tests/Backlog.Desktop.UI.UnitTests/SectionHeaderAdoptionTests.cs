@@ -156,12 +156,15 @@ public sealed class SectionHeaderAdoptionTests
         context.Services.AddSingleton<IAppUpdateService, UnsupportedAppUpdateService>();
         context.Services.AddSingleton<IAppFeatureSettings>(features);
         context.Services.AddSingleton(new FeedbackReporter(gitHub));
+        context.Services.AddSingleton<FeedbackReportChannel>();
 
         return context;
     }
 
     private sealed class StubGitHubClient : IGitHubClient
     {
+        public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
         public Task<GitHubIssue> CreateIssueAsync(
             GitHubRepositoryRef repository,
             string title,

@@ -19,6 +19,19 @@ Proposed.
 > again into the new folder). The decision is unchanged, and the file name is
 > kept so that `ADR 0008` citations in code stay true.
 
+> **Amended 2026-09-16: the cache defaults under the storage folder.** The
+> decision below said the cache location "defaults beside the per-user settings
+> rather than inside the backlog", on the reasoning that a snapshot has no
+> business in a folder people back up or sync. Both halves of that reasoning
+> moved: the Storage tab now tells people to keep the backlog off synced disks,
+> and local ADR 0010 backs up the database file alone, never the folder. What
+> is left is the machine with a small system drive and a large one for work —
+> and that machine puts its *backlog* on the large drive, so the cache belongs
+> beside it. The default is now `<storage folder>\devbook-cache`, recomputed
+> when the root moves; the override is unchanged. The storage folder's own
+> devbook — the section rows the Storage tab used to carry — was removed in the
+> same change: a devbook belongs to a repository.
+
 > **Amended 2026-09-15: resolution fetches on its own.** The decision said
 > *"Resolution never fetches"* and left *"should a snapshot ever refresh on its
 > own?"* open. In practice that put every section of a branch-sourced repository
@@ -103,8 +116,9 @@ The snapshot is the branch's **index** — every path the commit contains, taken
 in one call — and, under it, the **files fetched so far**, laid out at the paths
 the index gives them inside an app-managed cache folder. A file is fetched the
 first time a reader asks for the area or the file it is in, and stays until the
-branch moves and changes it. The cache location is a setting, defaulting beside
-the per-user settings rather than inside the backlog.
+branch moves and changes it. The cache location is a setting, defaulting under
+the storage folder since the 2026-09-16 amendment above (beside the per-user
+settings before it).
 
 **Resolution never waits on a fetch; preparation does.** As first decided,
 resolution never fetched at all and the update control in the Devbook pane was

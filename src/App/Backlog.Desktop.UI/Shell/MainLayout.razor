@@ -18,7 +18,14 @@
 *@
 
 <div class="app-shell">
-    @Body
+    @* The page, caught. A page that throws lands in the error state this
+       draws instead of in the framework's fatal banner — see AppErrorBoundary
+       for what that banner costs. Only the page is inside it: the footer below
+       carries the Report issue dialog the error state opens, and a boundary
+       around both would take the dialog down with the page. *@
+    <AppErrorBoundary>
+        @Body
+    </AppErrorBoundary>
 
     @* A line of no height whose bottom edge is the footer's top edge, so the tray
        inside it stacks upward off the band without anyone having to know how tall

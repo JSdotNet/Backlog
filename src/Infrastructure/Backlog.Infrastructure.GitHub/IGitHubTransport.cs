@@ -45,7 +45,20 @@ public interface IGitHubTransport
 
 /// <summary>Anything GitHub, the CLI, or the network refused. Carries a message
 /// fit to put in front of a person rather than a stack trace.</summary>
-public sealed class GitHubException(string message, Exception? inner = null) : Exception(message, inner);
+public sealed class GitHubException(string message, Exception? inner = null) : Exception(message, inner)
+{
+    /// <summary>The HTTP status GitHub answered with, when the failure was an
+    /// answer rather than the absence of one. Set by both transports — the
+    /// token one from the response, the CLI one from the <c>HTTP 404</c> line
+    /// <c>gh api</c> writes — so a caller that has a meaning for one status
+    /// can read it without parsing the sentence meant for a person.</summary>
+    public System.Net.HttpStatusCode? Status { get; init; }
+
+    /// <summary>Whether GitHub said the thing asked for is not there. The
+    /// Contents API answers this for a file that has not been committed yet,
+    /// which is the one not-found a caller may have a plan for.</summary>
+    public bool IsNotFound => Status == System.Net.HttpStatusCode.NotFound;
+}
 
 /// <summary>Raised when there is no repository configured, or no way to
 /// authenticate — a settings problem, not a failure.</summary>
