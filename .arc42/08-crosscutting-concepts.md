@@ -32,8 +32,15 @@ related: [".arc42/02-constraints.md#technical-constraints", ".arc42/06-runtime-v
 - **Scope-portable dot-folder contract** — `.inbox/`, `.backlog/`, `.brain/` exist at
   workspace, repo, and project levels; shared tags/relationships live in the
   workspace-root `.tags/` (`tags.json`, `tag-graph.json`).
-- **Optional cloud sync** for multi-device, carrying three kinds of state: the
-  Task aggregate, session records, and the phone's captures. A capture travels as
+- **Optional cloud sync** for multi-device, carrying four kinds of state: the
+  Task aggregate, session records, the phone's captures, and the person's
+  remarks on Devbook chapters. A remark is Devbook's own record — one JSON
+  file per repository in `devbook-annotations/` under the storage folder,
+  moved with the backlog, never the repository's `_meta/devbook.db` and never
+  a table in `backlog.db` — and it travels through a third replica container
+  on the task container's terms
+  (`.arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md`).
+  A capture travels as
   a task-shaped document in the same `tasks` container rather than as a third
   shape, but it carries its own kind token (`type: "capture"`): on the desktop it
   is handed to the Inbox's intake before the task merge and becomes an inbox item
@@ -69,15 +76,16 @@ related: [".arc42/02-constraints.md#technical-constraints", ".arc42/06-runtime-v
   it no longer carries the database's file-sync hazard, and the row stamps
   `updated_at` so it *could* replicate on a task's terms. Whether it should is the
   open question — see `.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md`.
-- **Two containers in the cloud replica** — `tasks` and `sessions`, both
-  partitioned on `/ownerId`. Separate because each wants its own change feed, its
-  own indexing policy, and its own retention, and because serverless billing
-  levies no per-container charge to trade against. Two more beside them,
+- **Three containers in the cloud replica** — `tasks`, `sessions` and
+  `annotations`, all partitioned on `/ownerId`. Separate because each wants its
+  own change feed, its own indexing policy, and its own retention, and because
+  serverless billing levies no per-container charge to trade against. Two more
+  beside them,
   `devices` and `pairingCodes`, hold the device registry; they are not replicas —
   no change feed is read from them — and they are partitioned on `/id`, because
   the read on every token mint has only the device id in hand.
-- **Retention is a store setting, not code.** Container TTL expires task
-  tombstones after 180 days and whole session records after 12 months. Nothing
+- **Retention is a store setting, not code.** Container TTL expires task and
+  annotation tombstones after 180 days and whole session records after 12 months. Nothing
   reaps, so there is no scheduled job to fail silently at exactly the moment
   nobody is watching — which is when a code-based reaper stops running.
 - **The sync service, not the store, keeps a device inside its own data.** The
@@ -124,9 +132,11 @@ is a `Dev`-status feature flag that is off by default. Tombstone expiry is the
 one behaviour here that nothing local can exercise, and it is called out where it
 appears.
 
-Tasks are one of three kinds of state that sync. Session records travel on
+Tasks are one of four kinds of state that sync. Session records travel on
 different terms, covered under
-`.arc42/08-crosscutting-concepts.md#session-record-sync`; the phone's
+`.arc42/08-crosscutting-concepts.md#session-record-sync`; Devbook annotations
+travel on exactly these terms over their own container
+(`.arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md`); the phone's
 captures are not a third shape at all, because a capture is written as a
 task-shaped document in the same `tasks` container the moment it is pushed —
 distinguished by its `capture` kind token, which routes it to the desktop's Inbox

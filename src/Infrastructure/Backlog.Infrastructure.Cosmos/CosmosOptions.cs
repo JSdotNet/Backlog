@@ -54,6 +54,16 @@ public sealed class CosmosOptions
     public string SessionsContainerName { get; set; } = "sessions";
 
     /// <summary>
+    /// The container holding Devbook annotation documents, partitioned on
+    /// <c>/ownerId</c> as well. The third replica container: an annotation is
+    /// edited and deleted like a task, so it carries the task container's
+    /// per-document tombstone TTL (<see cref="AnnotationTombstoneTtlSeconds"/>)
+    /// rather than the session container's whole-record one.
+    /// </summary>
+    [Required(AllowEmptyStrings = false)]
+    public string AnnotationsContainerName { get; set; } = "annotations";
+
+    /// <summary>
     /// The container holding registered devices, partitioned on <c>/id</c> —
     /// the device id, not the owner. The one read on every token mint has only
     /// the device id in hand, and partitioning on the owner would put a
@@ -86,4 +96,11 @@ public sealed class CosmosOptions
     /// </summary>
     [Range(86_400, 63_072_000)]
     public int TaskTombstoneTtlSeconds { get; set; } = 15_552_000;
+
+    /// <summary>How long an annotation tombstone is kept, in seconds — the same
+    /// 180 days as a task's and for the same offline-convergence bound. Its own
+    /// setting so the two retentions can be provisioned apart without a code
+    /// change.</summary>
+    [Range(86_400, 63_072_000)]
+    public int AnnotationTombstoneTtlSeconds { get; set; } = 15_552_000;
 }

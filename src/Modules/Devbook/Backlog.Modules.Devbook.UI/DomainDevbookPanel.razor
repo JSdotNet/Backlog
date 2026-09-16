@@ -152,18 +152,23 @@
     private readonly Dictionary<string, string> _statusErrors = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
-    /// Remarks on a chapter, kept per chapter path and only for as long as the app
-    /// is running.
+    /// Where the remarks on a chapter live: the host's annotation store, or a
+    /// session-scoped one when the host composed none.
     /// <para>
-    /// Deliberately not written anywhere. A comment anchored to a block index needs
-    /// a home that can be re-anchored when the file is edited, and choosing that
-    /// home — a sidecar file beside the chapter, or markers inside it — is a
-    /// decision about a governed knowledge folder rather than a detail of this
-    /// panel. Session-scoped remarks are useful now and commit the repository to
-    /// nothing.
+    /// Resolved from the provider rather than injected, the way the C4 store
+    /// is, so the storybook page and the tests that render this panel with a
+    /// handful of named services keep rendering. A remark used to live in a
+    /// dictionary on this component and went with it when the Router remounted
+    /// the pane; the store is what outlives the panel, and — where the host
+    /// composed replication — the machine.
     /// </para>
     /// </summary>
-    private readonly Dictionary<string, List<MarkdownComment>> _chapterComments = new(StringComparer.OrdinalIgnoreCase);
+    private IDevbookAnnotationStore _annotations = null!;
+
+    /// <summary>The open chapter's remarks as the read view draws them, mapped
+    /// once per change rather than on every render — a fresh list per render is
+    /// a fresh parameter per render, which re-renders every block below it.</summary>
+    private IReadOnlyList<MarkdownComment> _chapterComments = [];
 
     /// <summary>Which of the chapter's headings state a status of their own, and
     /// so which of them the read view is already showing a control for.</summary>
@@ -175,7 +180,6 @@
     private string? _committedUnavailable;
     private bool _committedRead;
     private bool _disposed;
-    private int _nextComment = 1;
     private bool _editing;
     private bool _comparing;
     private string _baselineId = OpenedBaselineId;
@@ -301,6 +305,9 @@
 
         _c4Store = Services.GetService<C4DevbookStore>();
         if (_c4Store is not null) _c4Store.Changed += OnDevbookChanged;
+
+        _annotations = Services.GetService<IDevbookAnnotationStore>() ?? new SessionDevbookAnnotationStore();
+        _annotations.Changed += OnAnnotationsChanged;
     }
 
     protected override async Task OnParametersSetAsync()
@@ -417,6 +424,8 @@
         _chapter = _view is null || document is null
             ? DevbookChapterContent.None
             : await DevbookChapterContent.LoadAsync("domain", _view.RootPath, document.Path, _view.CanEdit);
+
+        RefreshChapterComments();
 
         _statusHeadings = HeadingsWithStatus(_chapter.Text);
 
@@ -624,67 +633,74 @@
             : [opened];
     }
 
-    /// <summary>The remarks on the open chapter. A different chapter's remarks stay
-    /// with that chapter — they are about its blocks and mean nothing against
-    /// another file's.</summary>
-    private IReadOnlyList<MarkdownComment> ChapterComments() =>
-        _chapterDocument is { } document && _chapterComments.TryGetValue(document.Path, out var comments)
-            ? comments
+    /// <summary>The open chapter's remarks, read back from the store. A
+    /// different chapter's remarks stay with that chapter — they are about its
+    /// blocks and mean nothing against another file's.</summary>
+    private void RefreshChapterComments() =>
+        _chapterComments = _chapterDocument is { } document
+            ? DevbookAnnotationComments.Comments(_annotations.List(RepositoryAlias, document.Path))
             : [];
 
+    /// <summary>The store changed under the panel — replication applied what
+    /// another device wrote, or a second panel on the same chapter did. It
+    /// arrives on whichever thread wrote, so the redraw is marshalled.</summary>
+    private void OnAnnotationsChanged()
+    {
+        if (_disposed) return;
+
+        _ = InvokeAsync(() =>
+        {
+            if (_disposed) return;
+
+            RefreshChapterComments();
+            StateHasChanged();
+        });
+    }
+
     /// <summary>
-    /// A remark, where it was asked for — empty, because the read view now opens
-    /// a fresh one straight into its own textarea rather than asking a reader to
+    /// A remark, where it was asked for — empty, because the read view opens a
+    /// fresh one straight into its own textarea rather than asking a reader to
     /// find the Edit button first. The empty body is exactly the signal that
-    /// tells it to.
+    /// tells it to, and the store keeps it as a draft until it is typed into.
     /// </summary>
     private void AddChapterComment(int blockIndex)
     {
         if (_chapterDocument is not { } document) return;
 
-        if (!_chapterComments.TryGetValue(document.Path, out var comments))
-        {
-            comments = [];
-            _chapterComments[document.Path] = comments;
-        }
-
-        comments.Add(new MarkdownComment(
-            $"remark-{_nextComment++}",
-            blockIndex,
-            string.Empty,
-            "You",
-            "just now"));
+        _annotations.Add(RepositoryAlias, document.Path, blockIndex, DevbookAnnotationComments.LocalAuthor);
+        RefreshChapterComments();
     }
 
     /// <summary>Resolved rather than removed, for the reason MarkdownComment
     /// records: the reason a paragraph reads the way it does is usually in the
     /// remark that got it there. See <see cref="DeleteChapterComment"/> for the
     /// remark that should not stick around at all.</summary>
-    private void ResolveChapterComment(string id) =>
-        ReplaceChapterComment(id, comment => comment with { Resolved = !comment.Resolved });
-
-    private void EditChapterComment(MarkdownComment edited) =>
-        ReplaceChapterComment(edited.Id, _ => edited);
-
-    /// <summary>Taken away outright — a stray double-press, or a fresh draft
-    /// Cancel is abandoning rather than saving.</summary>
-    private void DeleteChapterComment(string id)
+    private void ResolveChapterComment(string id)
     {
-        if (_chapterDocument is not { } document) return;
-        if (!_chapterComments.TryGetValue(document.Path, out var comments)) return;
+        if (DevbookAnnotationComments.AnnotationId(id) is not { } annotationId) return;
+        if (_annotations.Find(annotationId) is not { } annotation) return;
 
-        comments.RemoveAll(comment => string.Equals(comment.Id, id, StringComparison.Ordinal));
+        _annotations.SetResolved(annotationId, !annotation.Resolved);
+        RefreshChapterComments();
     }
 
-    private void ReplaceChapterComment(string id, Func<MarkdownComment, MarkdownComment> replace)
+    private void EditChapterComment(MarkdownComment edited)
     {
-        if (_chapterDocument is not { } document) return;
-        if (!_chapterComments.TryGetValue(document.Path, out var comments)) return;
+        if (DevbookAnnotationComments.AnnotationId(edited.Id) is not { } annotationId) return;
 
-        var index = comments.FindIndex(comment => string.Equals(comment.Id, id, StringComparison.Ordinal));
-        if (index < 0) return;
+        _annotations.Edit(annotationId, edited.Body);
+        RefreshChapterComments();
+    }
 
-        comments[index] = replace(comments[index]);
+    /// <summary>Taken away outright — a stray double-press, or a fresh draft
+    /// Cancel is abandoning rather than saving. The store decides whether that
+    /// leaves a tombstone behind for the other devices.</summary>
+    private void DeleteChapterComment(string id)
+    {
+        if (DevbookAnnotationComments.AnnotationId(id) is not { } annotationId) return;
+
+        _annotations.Delete(annotationId);
+        RefreshChapterComments();
     }
 
     /// <summary>
@@ -996,7 +1012,7 @@
                       CanEditDevbookStatus="@CanEdit"
                       OnDevbookStatusChanged="change => ChangeChapterStatusAsync(document, change)"
                       OnDevbookNavigate="NavigateDevbookReferenceAsync"
-                      Comments="@ChapterComments()"
+                      Comments="@_chapterComments"
                       OnAddComment="index => AddChapterComment(index)"
                       OnResolveComment="ResolveChapterComment"
                       OnEditComment="EditChapterComment"
@@ -1360,5 +1376,6 @@
         _disposed = true;
         DomainDevbook.Changed -= OnDevbookChanged;
         if (_c4Store is not null) _c4Store.Changed -= OnDevbookChanged;
+        _annotations.Changed -= OnAnnotationsChanged;
     }
 }
