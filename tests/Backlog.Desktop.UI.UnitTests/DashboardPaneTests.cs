@@ -455,6 +455,53 @@ public class DashboardPaneTests
             StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// The mean is over the counted sessions and the tile says how many that is. A
+    /// figure of 7.5 over 8 of 12 sessions presented as "prompts per session" without the
+    /// denominator would read as a fact about all twelve, four of which said nothing.
+    /// </summary>
+    [Fact]
+    public void The_prompts_tile_shows_the_mean_and_says_how_many_sessions_it_covers()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(new ReadySessionInsights(Insight())));
+
+        var pane = context.Render<DashboardPane>();
+        var tile = Squashed(pane.Find("[data-testid='dashboard-sessions-prompts']").TextContent);
+
+        Assert.Contains("Prompts per session", tile, StringComparison.Ordinal);
+        Assert.Contains("7.5", tile, StringComparison.Ordinal);
+        Assert.Contains("over 8 of 12 sessions", tile, StringComparison.Ordinal);
+        Assert.Contains("Copilot records no prompt count", tile, StringComparison.Ordinal);
+
+        Assert.NotNull(pane.Find("[data-testid='dashboard-sessions-prompts-bars']"));
+    }
+
+    /// <summary>
+    /// Nothing to average is a dash and no chart, not a zero and a flat one. Zero would
+    /// say the person opened sessions and never spoke; the only thing a window of
+    /// uncounted sessions supports is that there was nothing to count from.
+    /// </summary>
+    [Fact]
+    public void A_part_with_no_counted_session_shows_no_prompt_figure_and_no_prompt_chart()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(
+                new ReadySessionInsights(Insight() with
+                {
+                    PromptsPerSession = null,
+                    SessionsWithPrompts = 0,
+                    PromptsPerSessionPerWeek = [new("W33", 0m), new("W34", 0m)]
+                })));
+
+        var pane = context.Render<DashboardPane>();
+        var tile = Squashed(pane.Find("[data-testid='dashboard-sessions-prompts']").TextContent);
+
+        Assert.Contains("—", tile, StringComparison.Ordinal);
+        Assert.DoesNotContain("over 0 of", tile, StringComparison.Ordinal);
+        Assert.Empty(pane.FindAll("[data-testid='dashboard-sessions-prompts-bars']"));
+    }
+
     /// <summary>Seven dated days down, twenty-four hours across, and every hour present
     /// on every row — a row that omitted its quiet hours would render short and read as
     /// "not reported" where the honest answer is zero.</summary>
@@ -1199,6 +1246,13 @@ public class DashboardPaneTests
         {
             Waiting = TimeSpan.FromHours(9),
             IdleAfter = TimeSpan.FromMinutes(5),
+
+            // A fraction, so a tile that rounded to a whole number would show and fail;
+            // and over fewer sessions than the count, because the footnote's whole job
+            // is to say so.
+            PromptsPerSession = 7.5m,
+            SessionsWithPrompts = 8,
+            PromptsPerSessionPerWeek = [new("W33", 6m), new("W34", 9m)],
 
             // Different peaks in different hours, so a tile wired to the wrong record
             // renders a plausible figure and fails rather than passing quietly. 2026-08-19
