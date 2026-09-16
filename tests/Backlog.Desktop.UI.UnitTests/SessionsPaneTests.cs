@@ -1027,6 +1027,127 @@ public sealed class SessionsPaneTests
         Assert.True(string.IsNullOrEmpty(
             pane.Find("[data-testid='sessions-machine-filter'] select").GetAttribute("value")));
 
+    /// <summary>
+    /// The header's repository scope narrows the list to the sessions whose recorded
+    /// repository resolves to a scoped alias — a Copilot <c>owner/name</c> and a
+    /// replicated alias both count — and a session that recorded none is out, which
+    /// is every local Claude session. The badge and the subtitle both say so.
+    /// </summary>
+    [Fact]
+    public void The_repository_scope_keeps_the_sessions_that_recorded_a_scoped_repository()
+    {
+        using var context = Context([.. Sample, Replicated()]);
+
+        var pane = context.Render<SessionsPane>(parameters => parameters
+            .Add(p => p.RepositoryScope, new[] { "backlog" })
+            .Add(p => p.RepositoryAlias, AliasFor));
+
+        pane.Find("[data-testid='sessions-view-all']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            // The local Copilot row for JSdotNet/Backlog and the replicated row that
+            // arrived as "backlog". The running Claude row recorded no repository and
+            // the two other Copilot rows are elsewhere.
+            Assert.Equal("2 of 5 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim());
+
+            var rows = pane.FindAll(".data-table__row");
+            Assert.Equal(2, rows.Count);
+            Assert.DoesNotContain(rows, row => row.TextContent.Contains("keen-bose-667825", StringComparison.Ordinal));
+
+            var subtitle = pane.Find("[data-testid='sessions-subtitle']").TextContent;
+            Assert.Contains("Narrowed to backlog", subtitle, StringComparison.Ordinal);
+            Assert.Contains("Claude records none", subtitle, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void A_scope_holds_several_repositories_and_the_scope_is_applied_before_the_view()
+    {
+        using var context = Context(Sample);
+
+        var pane = context.Render<SessionsPane>(parameters => parameters
+            .Add(p => p.RepositoryScope, new[] { "backlog", "archify" })
+            .Add(p => p.RepositoryAlias, AliasFor));
+
+        // Live: only the stalled Archify session is both in scope and live.
+        pane.WaitForAssertion(() =>
+            Assert.Equal("1 of 4 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim()));
+
+        pane.Find("[data-testid='sessions-view-all']").Click();
+
+        pane.WaitForAssertion(() =>
+            Assert.Equal("2 of 4 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim()));
+    }
+
+    /// <summary>
+    /// A scope nothing matches is an empty list that says why — and it says the
+    /// scope, not the view, because switching to All would not bring anything back.
+    /// </summary>
+    [Fact]
+    public void A_scope_nothing_recorded_explains_itself_rather_than_blaming_the_view()
+    {
+        using var context = Context(Sample);
+
+        var pane = context.Render<SessionsPane>(parameters => parameters
+            .Add(p => p.RepositoryScope, new[] { "docs" })
+            .Add(p => p.RepositoryAlias, AliasFor));
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal("0 of 4 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim());
+            Assert.Contains("No sessions in docs.", pane.Markup, StringComparison.Ordinal);
+            Assert.Contains("Clear the repository scope in the header", pane.Markup, StringComparison.Ordinal);
+        });
+    }
+
+    /// <summary>
+    /// A scope with sessions in it and none of them live: the way back names the
+    /// count in scope, because that is what the other view brings back — not the
+    /// catalog's two hundred.
+    /// </summary>
+    [Fact]
+    public void A_scoped_list_with_nothing_live_offers_the_scoped_count_as_the_way_back()
+    {
+        using var context = Context(Sample);
+
+        var pane = context.Render<SessionsPane>(parameters => parameters
+            .Add(p => p.RepositoryScope, new[] { "backlog" })
+            .Add(p => p.RepositoryAlias, AliasFor));
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal("0 of 4 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim());
+            Assert.Contains("Nothing in backlog is running or stalled. Choose All to see the 1 session recorded there.", pane.Markup, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void An_empty_scope_is_no_scope()
+    {
+        using var context = Context(Sample);
+
+        var pane = context.Render<SessionsPane>(parameters => parameters
+            .Add(p => p.RepositoryScope, Array.Empty<string>())
+            .Add(p => p.RepositoryAlias, AliasFor));
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal("2 of 4 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim());
+            Assert.DoesNotContain("Narrowed to", pane.Find("[data-testid='sessions-subtitle']").TextContent, StringComparison.Ordinal);
+        });
+    }
+
+    /// <summary>What the shell answers for the sample: the configured aliases for
+    /// two of its repositories, by <c>owner/name</c> or by alias, and nothing for
+    /// the rest.</summary>
+    private static string? AliasFor(string? repository) => repository?.ToLowerInvariant() switch
+    {
+        "jsdotnet/backlog" or "backlog" => "backlog",
+        "jsdotnet/archify" or "archify" => "archify",
+        _ => null
+    };
+
     private static BunitContext Context(
         IReadOnlyList<AgentSession> sessions,
         IReadOnlyList<string>? unreadable = null,

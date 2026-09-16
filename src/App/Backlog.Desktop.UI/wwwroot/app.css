@@ -4087,10 +4087,9 @@ h1, h2, h3 {
     grid-template-rows: minmax(0, 1fr);
 }
 
-/* A takeover: Tools, the Dashboard or Sessions, filling everything below the
-   header. The panel inside owns the scrollbar rather than this landmark, so the
-   header — and the control that closes the surface — can never be scrolled out of
-   reach. */
+/* A takeover: Tools or the Dashboard, filling everything below the header. The
+   panel inside owns the scrollbar rather than this landmark, so the header — and
+   the control that closes the surface — can never be scrolled out of reach. */
 .workspace-surface {
     display: flex;
     flex-direction: column;
@@ -4099,12 +4098,40 @@ h1, h2, h3 {
     overflow: hidden;
 }
 
+/* The panel is the scroll container whether it sits in the surface directly or
+   inside one of the Dashboard's tab panels: the tab panel below is the same kind
+   of column as the surface, so the rule reaches the same element either way. */
 .workspace-surface > .tools-panel,
 .workspace-surface > .dashboard-panel,
-.workspace-surface > .sessions-panel {
+.workspace-surface > .sessions-panel,
+.workspace-surface__tabpanel > .dashboard-panel,
+.workspace-surface__tabpanel > .sessions-panel {
     flex: 1 1 auto;
     min-height: 0;
     overflow: auto;
+}
+
+/* The Dashboard's tab strip: Overview beside Sessions. The library's tabs__list
+   draws it; this only fixes it at the top of the column so the panel below takes
+   the rest, and lifts the bottom rule off the panel's own frame. */
+.workspace-surface__tabs {
+    flex: none;
+    margin-bottom: var(--spacing-sm);
+}
+
+/* One tab panel is on screen and the other carries `hidden`. Only the visible one
+   is made a flex column — display on both would override the attribute and put an
+   empty panel in the column beside the live one. */
+.workspace-surface__tabpanel:not([hidden]) {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.workspace-surface__tabpanel:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: -2px;
 }
 
 .roadmap-band {

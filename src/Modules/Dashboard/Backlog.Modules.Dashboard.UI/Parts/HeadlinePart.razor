@@ -80,7 +80,7 @@
         {
             var basis = Scope.IsAllRepositories
                 ? $"Your own work, across every configured repository, over {Scope.Weeks} weeks."
-                : $"Your own work in {Scope.RepositoryAlias}, over {Scope.Weeks} weeks.";
+                : $"Your own work in {Scope.Repositories.Label}, over {Scope.Weeks} weeks.";
 
             return IsReady && !Value!.Complete
                 ? basis + " Some of this window could not be read, so every figure here is a floor."

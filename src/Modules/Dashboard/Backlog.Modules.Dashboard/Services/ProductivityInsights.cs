@@ -158,7 +158,7 @@ public sealed class ProductivityInsights(
         // quarter — a second time for the same answer. The parts say on screen that
         // the machine filter does not reach them; this is the other half of that
         // sentence.
-        var key = "activity|" + (scope.RepositoryAlias ?? "*") + "|" + scope.Weeks;
+        var key = "activity|" + scope.Repositories.Key + "|" + scope.Weeks;
 
         return _cache.GetOrAddAsync(key, async shared =>
         {
@@ -190,7 +190,7 @@ public sealed class ProductivityInsights(
     /// </remarks>
     private Task<ProductivityBaseline?> BaselineForAsync(DashboardScope scope, CancellationToken cancellationToken)
     {
-        var key = "baseline|" + (scope.RepositoryAlias ?? "*") + "|" + scope.Weeks;
+        var key = "baseline|" + scope.Repositories.Key + "|" + scope.Weeks;
 
         return _cache.GetOrAddAsync<ProductivityBaseline?>(key, async shared =>
         {
@@ -232,15 +232,15 @@ public sealed class ProductivityInsights(
     }
 
     /// <summary>
-    /// Which repositories the fetch covers. A focused scope narrows to one; an
-    /// alias that no longer matches anything narrows to nothing rather than
-    /// silently widening back to everything, because a filter that fails open is
-    /// worse than one that shows an empty part.
+    /// Which repositories the fetch covers. A focused scope narrows to the ones in
+    /// focus; an alias that no longer matches anything narrows to nothing rather
+    /// than silently widening back to everything, because a filter that fails open
+    /// is worse than one that shows an empty part.
     /// </summary>
     private IReadOnlyList<DashboardRepository> Scoped(DashboardScope scope) =>
         scope.IsAllRepositories
             ? repositories.Repositories
-            : [.. repositories.Repositories.Where(repository => Matches(repository.Alias, scope.RepositoryAlias))];
+            : [.. repositories.Repositories.Where(repository => scope.Repositories.Contains(repository.Alias))];
 
     private static ProductivityHeadline Headline(ScopedActivity scoped)
     {
@@ -424,7 +424,7 @@ public sealed class ProductivityInsights(
     /// </remarks>
     private async Task<ProductivityTrend> TrendAsync(DashboardScope scope, CancellationToken cancellationToken)
     {
-        var estate = scope with { RepositoryAlias = null };
+        var estate = scope with { Repositories = RepositoryFocus.All };
 
         var activityTask = ActivityForAsync(estate, cancellationToken);
         var baselineTask = BaselineForAsync(estate, cancellationToken);
@@ -471,7 +471,10 @@ public sealed class ProductivityInsights(
             .Where(one => one.Points.Any(point => point.Value > 0m))
             .ToList();
 
-        return new ProductivityTrend(series, scope.RepositoryAlias)
+        // The anchor: the trellis and the spotlight can hold one repository up
+        // against the rest, and the first one taken into focus is the one the
+        // reader was looking at first.
+        return new ProductivityTrend(series, scope.Repositories.Anchor)
         {
             Complete = scoped.Report.Complete
         };

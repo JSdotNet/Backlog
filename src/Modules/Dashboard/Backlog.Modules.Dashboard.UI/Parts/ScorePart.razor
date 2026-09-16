@@ -94,7 +94,7 @@
 
     private string VolumeLabel => Scope.IsAllRepositories
         ? "Volume — every repository"
-        : $"Volume — {Scope.RepositoryAlias}";
+        : $"Volume — {Scope.Repositories.Label}";
 
     /// <summary>
     /// What the figures cover, where full marks came from, and every way in which
