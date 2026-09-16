@@ -471,6 +471,8 @@ public sealed class GitHubPushFlowTests : IDisposable
 
     private sealed class FakeGitHubClient : IGitHubClient
     {
+        public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
         public const string UploadedDownloadUrl = "https://raw.githubusercontent.com/JSdotNet/Backlog/feedback-screenshots/feedback-screenshots/fake.jpg";
 
         public int CreateCount { get; set; }

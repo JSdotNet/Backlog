@@ -1321,7 +1321,15 @@ public sealed class HomeWorkspaceSurfaceTests
         Assert.Null(gitHubSettings.SetRepositories([configuredRepository]));
 
         var gitHub = new GitHubIntegration(gitHubSettings, new StubGitHubClient(), new StubProbe());
-        var devbookFolderSource = new DevbookFolderSource(gitHubSettings, store);
+
+        // The devbook-only composition, which answers an unscoped ask with the
+        // first configured repository. These tests are about the pane surface —
+        // pins, switching, what a relaunch reopens on — and Devbook is the
+        // released pane they do it with; scoping a repository first in every one
+        // of them would be a second gesture about a different thing. The
+        // application hosts compose the other way and offer the pane only once
+        // a repository is scoped; HomeDevbookPaneTests pins that.
+        var devbookFolderSource = new DevbookFolderSource(gitHubSettings);
 
         var context = new BunitContext();
         context.Services.AddSingleton(store);
@@ -1420,6 +1428,8 @@ public sealed class HomeWorkspaceSurfaceTests
 
     private sealed class StubGitHubClient : IGitHubClient
     {
+        public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
         public Task<GitHubIssue> CreateIssueAsync(
             GitHubRepositoryRef repository,
             string title,

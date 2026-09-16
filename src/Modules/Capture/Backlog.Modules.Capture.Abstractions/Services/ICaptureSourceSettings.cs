@@ -5,8 +5,8 @@ namespace Backlog.Modules.Capture.Abstractions.Services;
 /// <summary>
 /// Which sources are watched and what they are pointed at.
 /// <para>
-/// A port on Capture's own surface, the same shape as Tasks'
-/// <c>ITasksRefreshSettings</c>: the settings screen writes it, the run reads it,
+/// A port on Capture's own surface, the same shape as the kernel's
+/// <c>IWorkingHoursSettings</c>: the settings screen writes it, the run reads it,
 /// and the file the answer is kept in is an adapter's business. Neither side
 /// sees the other.
 /// </para>

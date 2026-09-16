@@ -445,19 +445,20 @@ public class DevbookFolderSourceBranchTests : IDisposable
         Assert.Contains("Add a local clone directory", location.Message, StringComparison.Ordinal);
     }
 
-    /// <summary>The storage scope is a real folder somebody owns, and stays
-    /// editable however repositories are configured.</summary>
+    /// <summary>The storage folder is never read as a devbook, however it
+    /// happens to be laid out: an unscoped ask is told to pick a repository.</summary>
     [Fact]
-    public void The_storage_scope_is_unaffected()
+    public void The_storage_folder_is_not_a_scope()
     {
         var workspace = Workspace();
         Directory.CreateDirectory(Path.Combine(workspace.RootDirectory, ".domain"));
 
-        var location = new DevbookFolderSource(Settings(), workspace).Resolve(".domain");
+        var source = new DevbookFolderSource(Settings(), workspace);
+        var location = source.Resolve(".domain");
 
-        Assert.True(location.Available);
-        Assert.Equal(DevbookSourceKind.LocalFolder, location.Source);
-        Assert.True(location.CanEdit);
+        Assert.False(location.Available);
+        Assert.Equal(DevbookFolderSource.NoRepositoryScoped, location.Message);
+        Assert.Empty(source.Folders(null));
     }
 
     public void Dispose()

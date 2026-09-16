@@ -42,14 +42,17 @@ public sealed class DevbookPaneUpdateTests
         Assert.Empty(component.FindAll("[data-testid='devbook-update-status']"));
     }
 
+    /// <summary>No scope has nothing to be behind, and nothing to read either:
+    /// the storage folder is never read as a devbook, so the pane rendered with
+    /// no repository has no sections and no update control.</summary>
     [Fact]
-    public async Task Devbook_kept_in_the_storage_folder_is_offered_no_version_control_at_all()
+    public async Task No_scope_is_offered_no_sections_and_no_version_control_at_all()
     {
         await using var harness = CreateHarness();
 
         var component = harness.RenderWithoutRepository();
 
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".devbook-stack__nav-item")));
+        Assert.Empty(component.FindAll(".devbook-stack__nav-item"));
         Assert.Empty(component.FindAll("[data-testid='devbook-update-action']"));
     }
 

@@ -136,27 +136,22 @@ internal sealed class TasksPaneHost : IDisposable
     public Task OpenAsync(EntryRow row) => State.SelectAsync(row);
 
     /// <summary>
-    /// Runs one act against a second list over the same folder — the other
-    /// machine's copy of the app arriving through a synced folder — and then moves
-    /// the store's timestamp, which is what says the bytes landed.
+    /// Runs one act against a second list over the same folder — another
+    /// device's edits landing through a sync pull, as far as this list can
+    /// tell — so a reload afterwards has something to find.
     /// <para>
-    /// A whole second state rather than a hand-written row, for the reason
-    /// <c>TasksExternalChangePollingTests</c> gives: what is under test is this
-    /// list noticing a write it did not make, and only a real write through the
-    /// module leaves the store the way a real one does.
+    /// A whole second state rather than a hand-written row: what is under test
+    /// is this list re-reading a write it did not make, and only a real write
+    /// through the module leaves the store the way a real one does.
     /// </para>
     /// </summary>
     public async Task FromElsewhereAsync(Func<TasksDesktopState, Task> write)
     {
         var settings = new WorkspaceSettingsStore(StorageRoot, Path.Combine(StorageRoot, "elsewhere.json"));
 
-        using (var elsewhere = TasksTestHost.StateFor(settings, GitHub))
-        {
-            await elsewhere.InitializeAsync();
-            await write(elsewhere);
-        }
-
-        TouchStore();
+        using var elsewhere = TasksTestHost.StateFor(settings, GitHub);
+        await elsewhere.InitializeAsync();
+        await write(elsewhere);
     }
 
     /// <summary>As <see cref="FromElsewhereAsync"/>, for the one act every test
@@ -169,16 +164,6 @@ internal sealed class TasksPaneHost : IDisposable
             elsewhere.BeginEdit(row);
             await elsewhere.EndEditAsync(row);
         });
-
-    /// <summary>What a synced folder does when the other machine's copy arrives:
-    /// the bytes are already there, and the timestamp is what says so. Stamped a
-    /// second into the future because a file written moments ago can otherwise
-    /// carry the timestamp it already had.</summary>
-    public void TouchStore()
-    {
-        var database = Path.Combine(StorageRoot, "backlog.db");
-        File.SetLastWriteTimeUtc(database, File.GetLastWriteTimeUtc(database).AddSeconds(1));
-    }
 
     /// <summary>
     /// Everything this host composed, given back in the order the app gives it
@@ -208,6 +193,8 @@ internal sealed class TasksPaneHost : IDisposable
     /// created is recorded so a test can assert the push actually happened.</summary>
     internal sealed class FakeGitHubClient : IGitHubClient
     {
+        public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
         public string? CreatedRepository { get; private set; }
 
         public string? CreatedTitle { get; private set; }

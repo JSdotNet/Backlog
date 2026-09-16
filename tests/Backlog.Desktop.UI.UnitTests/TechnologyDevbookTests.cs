@@ -15,7 +15,7 @@ public sealed class DevbookFolderSourceTests
         var location = source.Resolve(".tech");
 
         Assert.False(location.Available);
-        Assert.Contains("Configure a repository", location.Message);
+        Assert.Equal(DevbookFolderSource.NoRepositoryScoped, location.Message);
     }
 
     [Fact]

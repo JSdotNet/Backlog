@@ -78,6 +78,42 @@ public class SessionInsightsTests
             () => insights.GetSessionsAsync(DashboardScope.Default));
     }
 
+    /// <summary>
+    /// The stuck-loading race, at this seam. The first read of a profile parses every
+    /// transcript and takes long enough for a reader to move the machine filter while
+    /// it runs. The part cancels its first fetch and asks again; the read is one shared
+    /// entry, so if it ran under the first fetch's token the second would inherit a
+    /// cancellation it never asked for, swallow it as its own, and leave the part on
+    /// Loading with nothing left to wake it.
+    /// </summary>
+    [Fact]
+    public async Task Moving_a_filter_while_the_first_read_is_in_flight_still_answers_the_second_scope()
+    {
+        var gate = new TaskCompletionSource();
+        var source = new StubAssistantSessionSource
+        {
+            Report = Report(Session(Tower, "Claude", Now.AddHours(-3), Now.AddHours(-1), "one")),
+            Gate = gate
+        };
+        var insights = Insights(source);
+
+        using var first = new CancellationTokenSource();
+        using var second = new CancellationTokenSource();
+
+        var everyMachine = insights.GetSessionsAsync(DashboardScope.Default, first.Token);
+        var oneMachine = insights.GetSessionsAsync(DashboardScope.Default with { MachineId = Tower }, second.Token);
+
+        await first.CancelAsync();
+        _ = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => everyMachine);
+
+        gate.SetResult();
+        var result = await oneMachine;
+
+        Assert.True(result.HasValue, result.Availability.Reason);
+        Assert.Equal(1, result.Value!.Sessions);
+        Assert.Equal(1, source.Calls);
+    }
+
     [Fact]
     public async Task A_session_inside_the_window_is_counted_and_its_time_summed()
     {
@@ -1873,10 +1909,20 @@ public class SessionInsightsTests
             return Throw is not null ? Task.FromException<InsightAvailability>(Throw) : Task.FromResult(Availability);
         }
 
-        public Task<AssistantSessionReport> GetSessionsAsync(CancellationToken cancellationToken = default)
+        /// <summary>When set, the report is held back until this completes — and the
+        /// wait honours the token, the way the real readers do between transcripts.</summary>
+        public TaskCompletionSource? Gate { get; init; }
+
+        public async Task<AssistantSessionReport> GetSessionsAsync(CancellationToken cancellationToken = default)
         {
             Calls++;
-            return Task.FromResult(Report);
+
+            if (Gate is not null)
+            {
+                await Gate.Task.WaitAsync(cancellationToken);
+            }
+
+            return Report;
         }
     }
 

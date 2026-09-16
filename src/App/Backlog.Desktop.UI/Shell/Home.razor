@@ -979,9 +979,20 @@
         }
     }
 
-    /// <summary>A pull may have delivered a capture. Reloading the Inbox is a
-    /// database read, and only worth it once the pane has loaded at all — before
-    /// that the first load will read whatever arrived.
+    /// <summary>A pull may have delivered a capture or another device's edits.
+    /// Reloading either pane is a database read, so the Inbox is re-read only
+    /// once it has loaded at all — before that the first load will read
+    /// whatever arrived — and the Tasks pane only when a cycle actually
+    /// applied something it had not applied before. The worker raises this at
+    /// both ends of a cycle and for cycles that changed nothing, and a list
+    /// that started over on every one of those would replace its rows every
+    /// five minutes for no reader's benefit.
+    /// <para>
+    /// The Tasks reload is what the timestamp poll used to do — a pull writes
+    /// the same database the poll watched — and the state keeps that poll's
+    /// guard: a reload that arrives under a live caret is owed rather than
+    /// dropped, and lands when the caret goes.
+    /// </para>
     /// <para>
     /// The task is not awaited — the event is synchronous and the renderer's
     /// dispatcher owns the continuation — so a failure inside it has nowhere
@@ -991,6 +1002,20 @@
     /// </para></summary>
     private void HandleTaskSyncChanged() => _ = InvokeAsync(async () =>
     {
+        if (_taskSync is { IsSyncing: false, LastSummary: { Applied: > 0 } summary } && summary.At != _lastAppliedSyncAt)
+        {
+            _lastAppliedSyncAt = summary.At;
+
+            try
+            {
+                await State.ReloadFromStoreAsync();
+            }
+            catch (Exception ex)
+            {
+                Toasts.Publish(ToastMessage.Error($"The backlog could not be refreshed after a sync: {ex.Message}", TasksReloadErrorTestId));
+            }
+        }
+
         if (!_inboxInitialized) return;
 
         try
@@ -1002,6 +1027,11 @@
             Toasts.Publish(ToastMessage.Error($"The Inbox could not be refreshed after a sync: {ex.Message}", InboxReloadErrorTestId));
         }
     });
+
+    /// <summary>The cycle whose applied changes the Tasks pane last reloaded
+    /// for, so the raise at the end of that same cycle — and every raise for
+    /// a cycle that applied nothing since — reloads it no second time.</summary>
+    private DateTimeOffset? _lastAppliedSyncAt;
 
     /// <summary>Where the two discarded reloads report a failure, for a test
     /// to find and a reader to read.</summary>

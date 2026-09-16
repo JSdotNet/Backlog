@@ -50,8 +50,6 @@ internal sealed class RecordingDevbookFolderSource(IDevbookFolderSource inner, s
         remove => inner.Changed -= value;
     }
 
-    public string StorageDirectory => inner.StorageDirectory;
-
     public IReadOnlyList<DevbookFolderSetting> Folders(string? repositoryAlias) => inner.Folders(repositoryAlias);
 
     public DevbookFolderLocation Resolve(string key, string? repositoryAlias = null)

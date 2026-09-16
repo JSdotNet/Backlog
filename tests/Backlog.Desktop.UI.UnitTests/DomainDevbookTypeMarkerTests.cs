@@ -208,8 +208,13 @@ public sealed class DomainDevbookTypeMarkerTests : IDisposable
     }
 
     [Fact]
-    public void Domain_file_rows_in_the_knowledge_menu_carry_their_file_type()
+    public void The_devbook_menu_draws_no_marks()
     {
+        // The marks belong to the file view alone: the document header and the
+        // chapter headings. A menu row's visible label already says which file it
+        // is, and the glyph beside it was a second column of chrome saying the
+        // same thing — so a `.domain` folder, the one area whose files ever had
+        // a mark, renders every row as plain label.
         using var context = new BunitContext();
 
         var root = DomainMenu();
@@ -219,56 +224,14 @@ public sealed class DomainDevbookTypeMarkerTests : IDisposable
             .Add(view => view.Nodes, root.Children)
             .Add(view => view.IsNodeExpanded, node => node.Kind == DevbookMenuNodeKind.Folder));
 
-        var marks = component.FindAll(".devbook-menu__mark svg");
-
-        // Decorative, unlike the chapter heading's. The row's visible label is the
-        // same fact humanised, and `.design/accessibility.md` hides an icon that
-        // sits beside a label rather than reading the word twice. The heading is
-        // named because the row that stated the type there was taken away; nothing
-        // was taken away here.
-        Assert.All(marks, mark =>
-        {
-            Assert.Equal("true", mark.GetAttribute("aria-hidden"));
-            Assert.Null(mark.GetAttribute("role"));
-            Assert.Null(mark.GetAttribute("aria-label"));
-            Assert.Empty(mark.QuerySelectorAll("title"));
-        });
-
-        // Seven files, seven marks, one each and in the order the rows are drawn —
-        // and the folder row between them has none, because a folder has no file
-        // type to state.
-        Assert.Equal(
-            ["context-map", "domain", "model", "features", "flow", "dependencies", "naming"],
-            marks.Select(TypeOf));
-
-        // And the row reads out exactly as it did before there were marks at all:
-        // the mark is its own element beside the label, it is hidden, and with no
-        // tooltip it brings no text with it. That is what let two navigation tests
-        // that assert on a row's whole text stay as they were written.
-        var contextMapRow = component.FindAll(".devbook-menu__row button")[0];
-        Assert.Equal("Context Map", contextMapRow.TextContent);
-    }
-
-    [Fact]
-    public void Only_the_domain_area_gets_marks()
-    {
-        // `.tech` and `.design` write no `type` of this shape, and `.arc42` writes
-        // filenames that mean something else entirely. A `model.md` under another
-        // area must not pick up the domain model's mark on the strength of its name.
-        using var context = new BunitContext();
-
-        var root = new DevbookMenuNode("tech", "Technology", "tech", DevbookMenuNodeKind.Folder, "tech",
-        [
-            new DevbookMenuNode("model.md", "Model", "model.md", DevbookMenuNodeKind.File, "tech", [], true),
-            new DevbookMenuNode("flow.md", "Flow", "flow.md", DevbookMenuNodeKind.File, "tech", [], true)
-        ], true);
-
-        var component = context.Render<DevbookMenuTreeView>(parameters => parameters
-            .Add(view => view.HeadingLabel, "Technology")
-            .Add(view => view.RootFolder, root)
-            .Add(view => view.Nodes, root.Children));
-
         Assert.Empty(component.FindAll(".devbook-menu__mark"));
+        Assert.Empty(component.FindAll(".devbook-type-marker"));
+
+        // Eight rows — the context map, the folder and its six files — and every
+        // one reads out as its label and nothing else.
+        var rows = component.FindAll(".devbook-menu__row button");
+        Assert.Equal(8, rows.Count);
+        Assert.Equal("Context Map", rows[0].TextContent);
     }
 
     [Fact]

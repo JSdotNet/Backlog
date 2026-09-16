@@ -581,7 +581,7 @@
     /// </summary>
     private Task<DevbookChapterContent> LoadChapterAsync() =>
         _model is { IsAvailable: true } model && SelectedFile is { } file
-            ? DevbookChapterContent.LoadAsync("design", model.FolderPath, file.FileName)
+            ? DevbookChapterContent.LoadAsync("design", model.FolderPath, file.FileName, model.CanEdit)
             : Task.FromResult(DevbookChapterContent.None);
 
     /// <summary>
