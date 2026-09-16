@@ -3,6 +3,7 @@ using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Inbox.Features.ArchiveItem;
 using Backlog.Modules.Inbox.Features.AssignRepositories;
+using Backlog.Modules.Inbox.Features.RenameRepository;
 using Backlog.Modules.Inbox.Features.CaptureItem;
 using Backlog.Modules.Inbox.Features.CreateGroup;
 using Backlog.Modules.Inbox.Features.CreateList;
@@ -34,6 +35,7 @@ internal sealed class InboxItems(
     ICommandHandler<CaptureItemCommand, Result<InboxItemDto>> capture,
     ICommandHandler<SetTagsCommand, Result> setTags,
     ICommandHandler<AssignRepositoriesCommand, Result> assignRepositories,
+    ICommandHandler<RenameRepositoryCommand, Result<int>> renameRepository,
     ICommandHandler<MoveToListCommand, Result> moveToList,
     ICommandHandler<ArchiveItemCommand, Result> archive,
     ICommandHandler<RouteToBacklogCommand, Result<InboxRoutedDto>> routeToBacklog,
@@ -63,6 +65,9 @@ internal sealed class InboxItems(
 
     public Task<Result> AssignRepositoriesAsync(Guid id, IReadOnlyList<string> repoIds, CancellationToken cancellationToken = default) =>
         assignRepositories.Handle(new AssignRepositoriesCommand(id, repoIds), cancellationToken);
+
+    public Task<Result<int>> RenameRepositoryAsync(string oldId, string newId, CancellationToken cancellationToken = default) =>
+        renameRepository.Handle(new RenameRepositoryCommand(oldId, newId), cancellationToken);
 
     public Task<Result> MoveToListAsync(Guid id, Guid? listId, CancellationToken cancellationToken = default) =>
         moveToList.Handle(new MoveToListCommand(id, listId), cancellationToken);

@@ -84,6 +84,21 @@ public interface ITaskItems
     /// </para></summary>
     Task<Result<int>> ReconcileRepositoryIdsAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Re-points every entry that names <paramref name="oldId"/> — in its
+    /// repository assignments or in an issue link — at <paramref name="newId"/>,
+    /// and answers how many entries moved.
+    /// <para>
+    /// The other half of a repository rename. Settings carries the registry row
+    /// across when a line keeps its alias and changes its <c>owner/name</c>; the
+    /// entries that filed themselves against the old coordinate live here, and
+    /// without this call <see cref="ReconcileRepositoryIdsAsync"/> would find the
+    /// old id on the next start and register it back as a directory-less
+    /// repository. Idempotent for the same reason that pass is.
+    /// </para>
+    /// </summary>
+    Task<Result<int>> RenameRepositoryAsync(string oldId, string newId, CancellationToken cancellationToken = default);
+
     /// <summary>Brings in a plan — a block of entry text naming more than one
     /// prompt — and turns it into backlog entries in one step. See
     /// <c>ImportPlanCommand</c> and ADR 0007 for what "brings in" means: the

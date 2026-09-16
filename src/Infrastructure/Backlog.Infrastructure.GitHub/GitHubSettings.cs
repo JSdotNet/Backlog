@@ -378,6 +378,15 @@ public sealed class GitHubSettings
 }
 
 /// <summary>
+/// One repository whose <c>owner/name</c> moved while its alias stayed — the
+/// result of a GitHub rename typed into Settings. <see cref="OldId"/> is the
+/// coordinate every entry filed itself against until now, <see cref="NewId"/>
+/// the one the registry states from here on. Both are registry ids, compared
+/// without regard to case wherever they are matched.
+/// </summary>
+public sealed record RepositoryRename(string OldId, string NewId, string Alias);
+
+/// <summary>
 /// Reads and writes <see cref="GitHubSettings"/> across the two files a
 /// repository is configured in, and is the single façade over both.
 /// <para>
@@ -536,13 +545,48 @@ public sealed class GitHubSettingsStore
     /// <summary>Replaces the configured repositories. Returns an error message
     /// when persisting failed; the in-memory value is updated either way so the
     /// session still works.</summary>
-    public string? SetRepositories(IEnumerable<GitHubRepositoryRef> repositories)
+    public string? SetRepositories(IEnumerable<GitHubRepositoryRef> repositories) =>
+        SetRepositories(repositories, out _);
+
+    /// <summary>
+    /// Replaces the configured repositories and reports which of them were
+    /// renamed on the way.
+    /// <para>
+    /// A rename is a row whose alias is still configured but whose
+    /// <c>owner/name</c> moved — the shape a GitHub rename leaves in the text box
+    /// when somebody edits only the coordinate. The store settles its own half
+    /// here: the row keeps its machine data and its identity choices under the
+    /// new id, and the old id is written to neither file. What it cannot settle
+    /// is the entries that filed themselves against the old id, which live in
+    /// other modules' stores; <paramref name="renames"/> is what lets the caller
+    /// carry those across, and a caller that does not is the one that leaves the
+    /// startup reconcile pass to re-register the old coordinate as a ghost.
+    /// </para>
+    /// </summary>
+    public string? SetRepositories(IEnumerable<GitHubRepositoryRef> repositories, out IReadOnlyList<RepositoryRename> renames)
     {
+        renames = [];
         if (_registryState is RegistryState.Unreadable) return RegistryUnreadable;
 
+        var requested = repositories.ToList();
+        var found = new List<RepositoryRename>();
+        var carried = new List<GitHubRepositoryRef>(requested.Count);
+
+        foreach (var repository in requested)
+        {
+            var existing = ExistingRow(repository, requested);
+            if (existing is not null && !IsSame(existing, repository))
+            {
+                found.Add(new RepositoryRename(existing.FullName, repository.FullName, repository.Alias));
+            }
+
+            carried.Add(PreserveExistingRepositorySettings(repository, existing));
+        }
+
+        renames = found;
         return Save(new GitHubSettings
         {
-            Repositories = NormalizeRepositories([.. repositories.Select(PreserveExistingRepositorySettings)]),
+            Repositories = NormalizeRepositories(carried),
             ApiEndpoint = Current.ApiEndpoint,
             ShowRepositoryColours = Current.ShowRepositoryColours,
             Accounts = [.. Current.Accounts]
@@ -1435,13 +1479,38 @@ public sealed class GitHubSettingsStore
             ExplicitIdOf(row) is { } rowId && string.Equals(rowId, id, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
+    /// The configured row a re-typed line continues, or null for a line that is
+    /// new.
+    /// <para>
+    /// The id wins: a line naming a configured <c>owner/name</c> is that
+    /// repository whatever its alias now says, which is what lets an alias be
+    /// relabelled freely. Failing that, the alias is tried — a line that kept a
+    /// configured alias and moved its coordinate is the same repository under a
+    /// new name on GitHub, not a second one. The alias match is refused when the
+    /// row it finds is still named by its old id elsewhere in the same list:
+    /// then the coordinate has not moved, the alias has, and the line is simply
+    /// a new repository wearing a label somebody else gave up.
+    /// </para>
+    /// </summary>
+    private GitHubRepositoryRef? ExistingRow(GitHubRepositoryRef repository, IReadOnlyList<GitHubRepositoryRef> requested)
+    {
+        if (Current.Repositories.FirstOrDefault(r => IsSame(r, repository)) is { } byId) return byId;
+
+        var byAlias = Current.Repositories.FirstOrDefault(r => string.Equals(r.Alias, repository.Alias, StringComparison.Ordinal));
+        if (byAlias is null) return null;
+
+        return requested.Any(other => IsSame(other, byAlias)) ? null : byAlias;
+    }
+
+    /// <summary>
     /// Carries the machine half of a repository across a re-typed list, keyed on
     /// the id.
     /// <para>
     /// It used to match alias-or-full-name, which meant an alias rename preserved
-    /// a clone directory by luck. Keying on the id preserves it by definition, and
-    /// only a changed <c>owner/name</c> — a genuinely different repository — loses
-    /// it.
+    /// a clone directory by luck. Keying on the id preserves it by definition. A
+    /// changed <c>owner/name</c> under a kept alias is a rename, resolved by
+    /// <see cref="ExistingRow"/>, and carries everything across too — so the only
+    /// line that starts from nothing is one that is new on both counts.
     /// </para>
     /// <para>
     /// The account binding is carried the same way the hue is, and for a reason
@@ -1452,10 +1521,8 @@ public sealed class GitHubSettingsStore
     /// the wrong identity, which is exactly the failure the binding exists to stop.
     /// </para>
     /// </summary>
-    private GitHubRepositoryRef PreserveExistingRepositorySettings(GitHubRepositoryRef repository)
+    private GitHubRepositoryRef PreserveExistingRepositorySettings(GitHubRepositoryRef repository, GitHubRepositoryRef? existing)
     {
-        var existing = Current.Repositories.FirstOrDefault(r => IsSame(r, repository));
-
         if (existing is null)
         {
             return repository with
