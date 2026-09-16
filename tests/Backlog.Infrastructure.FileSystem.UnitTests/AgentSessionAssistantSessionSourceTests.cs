@@ -31,6 +31,23 @@ public class AgentSessionAssistantSessionSourceTests
     }
 
     /// <summary>
+    /// The count crosses unchanged, and so does its absence. The Sessions context
+    /// already refuses to write 0 for a transcript with nothing to count, and the seam
+    /// must not undo that by defaulting: a null arriving here is a null leaving.
+    /// </summary>
+    [Theory]
+    [InlineData(12)]
+    [InlineData(null)]
+    public async Task A_turn_count_arrives_as_the_prompt_count_null_included(int? turns)
+    {
+        var source = Source(Session("claude-1", AgentSessionKind.Claude, AgentSessionState.Finished, turns));
+
+        var session = Assert.Single((await source.GetSessionsAsync()).Sessions);
+
+        Assert.Equal(turns, session.Prompts);
+    }
+
+    /// <summary>
     /// The label comes from the Sessions context rather than from a switch here, so a
     /// third assistant appears on the dashboard the day it appears in the session list.
     /// </summary>
@@ -91,7 +108,7 @@ public class AgentSessionAssistantSessionSourceTests
     private static AgentSessionAssistantSessionSource Source(params AgentSession[] sessions) =>
         new(new StubAgentSessionSource(new AgentSessionCatalog(sessions, [], sessions.Length)));
 
-    private static AgentSession Session(string id, AgentSessionKind kind, AgentSessionState state) =>
+    private static AgentSession Session(string id, AgentSessionKind kind, AgentSessionState state, int? turns = null) =>
         new(
             Id: id,
             Kind: kind,
@@ -105,12 +122,10 @@ public class AgentSessionAssistantSessionSourceTests
             LastActivityAt: Noon.AddHours(-1),
             State: state,
 
-            // The two fields the session record grew for ADR 0005's whitelist. This
-            // adapter maps a session onto the Dashboard's own type and passes neither
-            // through yet, which is why they are stated here and asserted nowhere:
-            // the constructor requires them, and this file is not where that mapping
-            // is decided.
-            TurnCount: null,
+            // The turn count crosses the seam as the Dashboard's prompt count and is
+            // asserted above; the origin is the one field this adapter still passes
+            // nothing of, because no figure on the dashboard reads it.
+            TurnCount: turns,
             Origin: AgentSessionOrigin.Local);
 
     private sealed class StubAgentSessionSource(AgentSessionCatalog catalog) : IAgentSessionSource

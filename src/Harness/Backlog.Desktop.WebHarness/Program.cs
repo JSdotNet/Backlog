@@ -1,5 +1,4 @@
 using Backlog.Infrastructure.AzureFoundry;
-using Backlog.Infrastructure.AzureFoundry.Extensions;
 using Backlog.Infrastructure.Capture.Extensions;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.FileSystem;
@@ -36,6 +35,7 @@ using Backlog.Modules.Sessions.UI.Extensions;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Devbook;
 using Backlog.Infrastructure.Sync;
+using Backlog.Infrastructure.Sync.Annotations;
 using Backlog.Infrastructure.Sync.Extensions;
 using Backlog.Infrastructure.Sync.Sessions;
 using Backlog.UI.Components.Diagrams;
@@ -213,6 +213,13 @@ builder.Services.AddSessionSyncStores(
     Environment.GetEnvironmentVariable("BACKLOG_DESKTOP_SESSION_SYNC_PATH") is { Length: > 0 } sessionSyncFolder
         ? sessionSyncFolder
         : Path.Combine(builder.Environment.ContentRootPath, "obj", "local-development"));
+// Annotation replication's progress file, scoped and overridable the same way
+// and for the same reason: two harnesses sharing an annotation watermark would
+// each skip what the other had pushed.
+builder.Services.AddAnnotationSyncStore(
+    Environment.GetEnvironmentVariable("BACKLOG_DESKTOP_ANNOTATION_SYNC_PATH") is { Length: > 0 } annotationSyncFolder
+        ? annotationSyncFolder
+        : Path.Combine(builder.Environment.ContentRootPath, "obj", "local-development"));
 // Where the sync service is, resolved the way the desktop head resolves it so the
 // Settings page behaves the same here: a URL entered there, then BACKLOG_SYNC_URL,
 // then "https+http://sync", which Aspire service discovery rewrites to this
@@ -231,8 +238,9 @@ builder.Services.AddSingleton<SyncServiceEndpoint>();
 builder.Services.AddSyncClient(SyncServiceAddress);
 builder.Services.AddTaskSyncClient(SyncServiceAddress);
 builder.Services.AddSingleton(_ => CreateLocalDevelopmentAzureFoundrySettingsStore(builder.Environment.ContentRootPath));
-// On its own pipeline, sized for a chat completion rather than the host's
-// defaults - see AzureFoundryRegistration for the crash it ends.
+// The chat client's pipeline is the adapter's own, sized for a completion rather
+// than for the service-to-service defaults AddServiceDefaults puts on every other
+// client — see AzureFoundryRegistration.
 builder.Services.AddAzureFoundryChatClient();
 // The Inbox's plan drafter over the same chat client. Scoped, like the other
 // port adapters the Inbox module takes: the handler that asks for it is
@@ -334,6 +342,11 @@ builder.Services.AddSingleton<Arc42DevbookStore>();
 // is off, so registering it does not turn it on.
 builder.Services.AddSingleton<C4DevbookStore>();
 builder.Services.AddSingleton<DevbookChapterWriter>();
+// A person's remarks on Devbook chapters, under the storage folder with the rest
+// of the person's data and following the root the way the inbox store does.
+// Composed the same way in src/App/Backlog.Desktop/MauiProgram.cs.
+builder.Services.AddSingleton<IDevbookAnnotationStore>(sp =>
+    new DevbookAnnotationStore(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
 builder.Services.AddSingleton<IFolderEditorLauncher, UnsupportedFolderEditorLauncher>();
 builder.Services.AddSingleton<DevbookFolderOpenService>();
 builder.Services.AddSingleton(_ => TasksCopilotCli.Unavailable);
@@ -387,6 +400,11 @@ builder.Services.AddAgentSessionSource();
 // head can have a task database and no session readers; it answers to the same
 // Sync switch as the task loop.
 builder.Services.AddSessionSyncClient(SyncServiceAddress);
+
+// Annotation replication, the third exchange over the same token pipeline, on
+// the same terms as the session one above and composed the same way in
+// src/App/Backlog.Desktop/MauiProgram.cs.
+builder.Services.AddAnnotationSyncClient(SyncServiceAddress);
 
 // What a transcript's parsed runs are kept in, so an activity read parses only the
 // transcripts that have changed. Beside the per-user settings and never under the
@@ -443,6 +461,9 @@ _ = app.Services.GetRequiredService<TaskSyncWorker>();
 // switchable features would have to run whenever either was on, and would give the
 // two one shared error to report.
 _ = app.Services.GetRequiredService<SessionSyncWorker>();
+
+// And annotation replication's loop, the third sibling, on the same terms.
+_ = app.Services.GetRequiredService<AnnotationSyncWorker>();
 
 // And the backup loop, on the same terms: a timer that only existed while the
 // Storage tab was open would miss every slot it was set for.

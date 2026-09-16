@@ -157,16 +157,16 @@ public sealed class AzureFoundryChatClientTests : IDisposable
         Assert.EndsWith("...", ex.Message);
     }
 
-    /// <summary>The pipeline the host puts on this client reports its own
-    /// timeout as Polly's exception, not as HttpClient's cancellation. It is a
-    /// bad answer like a bad status, and the callers catch this client's
-    /// exception for those — the one that travelled past them as Polly's took
-    /// the Home page down to the error boundary.</summary>
+    /// <summary>The resilience pipeline on the client reports its budget
+    /// running out as Polly's own exception, not as the cancellation the
+    /// callers were written for. It is the client's to translate: a slow
+    /// answer is one of the ways a completion fails, and the callers already
+    /// show every <see cref="AzureFoundryException"/> as a toast or a failed
+    /// plan rather than letting it reach the error boundary.</summary>
     [Fact]
     public async Task A_pipeline_timeout_is_reported_as_a_foundry_failure()
     {
-        var client = BuildConfiguredClient(new RecordingHandler(_ =>
-            throw new TimeoutRejectedException("The operation didn't complete within the allowed timeout of '00:00:30'.")));
+        var client = BuildConfiguredClient(new RecordingHandler(_ => throw new TimeoutRejectedException()));
 
         var ex = await Assert.ThrowsAsync<AzureFoundryException>(() =>
             client.AskAsync(new AzureFoundryChatRequest("content", "question"), TestContext.Current.CancellationToken));

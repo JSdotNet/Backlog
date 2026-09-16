@@ -6,10 +6,14 @@
     drop the last chip, Escape to close — behave the same for a mouse user and a
     screen reader user.
 
-    The one thing the browser decides on its own is which of those keys keep
-    their default. components.js swallows Up/Down/Enter/Escape on
-    `.tag-select__input` at the keydown, by class, because a decision the server
-    makes arrives one key too late — see OnKeyDownAsync.
+    Two things the browser decides on its own, both in components.js and both
+    by class. Which of those keys keep their default: it swallows
+    Up/Down/Enter/Escape on `.tag-select__input` at the keydown, because a
+    decision the server makes arrives one key too late — see OnKeyDownAsync.
+    And where the open list lands: when `.tag-select__list` is rendered past
+    the bottom of the nearest scroll container, that container is scrolled so
+    the list shows, because a popup in a column's clipped overflow is one
+    option and a scrollbar.
 
     An option may name a section it belongs to, and the open list draws those
     sections. Three things about how, because none of them is the obvious choice:

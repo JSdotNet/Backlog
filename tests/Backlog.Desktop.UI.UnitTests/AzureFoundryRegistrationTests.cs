@@ -1,98 +1,94 @@
-using System.Net;
 using Backlog.Infrastructure.AzureFoundry;
-using Backlog.Infrastructure.AzureFoundry.Extensions;
+
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Http.Resilience;
 using Microsoft.Extensions.Options;
-using Polly;
-using Polly.Retry;
-using Polly.Timeout;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// What a host gets for calling <c>AddAzureFoundryChatClient()</c>: the typed
-/// chat client on a pipeline sized for a chat completion, asserted the way a
-/// host finds out — by building the provider and reading the options back
-/// under the name the standard handler registers them.
+/// What a host gets for calling <c>AddAzureFoundryChatClient()</c>, asserted the
+/// way the Capture registration is: the options read back under the name the
+/// handler registers them, and the handler chain walked the way a request
+/// travels.
 /// </summary>
-public sealed class AzureFoundryRegistrationTests
+public sealed class AzureFoundryRegistrationTests : IDisposable
 {
-    /// <summary>The host's defaults — a ten-second attempt, three retries and
-    /// thirty seconds in all — are a web service's budget, not a model's. An
-    /// answer regularly runs past ten seconds, every retry re-sends the whole
-    /// prompt, and the thirty-second cap is the timeout that stopped the Home
-    /// page. This client's own budget is one long attempt.</summary>
+    private readonly List<string> _paths = [];
+
+    public void Dispose()
+    {
+        foreach (var path in _paths)
+        {
+            var directory = Path.GetDirectoryName(path);
+            if (directory is null) continue;
+
+            try { Directory.Delete(directory, recursive: true); } catch (IOException) { }
+        }
+    }
+
     [Fact]
-    public void The_chat_client_pipeline_is_sized_for_a_chat_completion()
+    public void The_chat_client_resolves_as_the_foundry_client()
     {
         var services = new ServiceCollection();
         services.AddSingleton(new AzureFoundrySettingsStore(NewSettingsPath()));
+        services.AddAzureFoundryChatClient();
+
+        using var provider = services.BuildServiceProvider(new ServiceProviderOptions
+        {
+            ValidateOnBuild = true,
+            ValidateScopes = true
+        });
+
+        Assert.IsType<AzureFoundryChatClient>(provider.GetRequiredService<IAzureFoundryChatClient>());
+    }
+
+    /// <summary>The standard pipeline's defaults — ten seconds an attempt,
+    /// thirty in all — are sized for a service answering a service. A chat
+    /// completion over a screen of tasks routinely takes longer than the
+    /// attempt, so every answer was cut off, re-sent and cut off again until
+    /// the total ran out. One answer gets the whole budget.</summary>
+    [Fact]
+    public void The_chat_client_waits_two_minutes_for_one_answer()
+    {
+        var services = new ServiceCollection();
         services.AddAzureFoundryChatClient();
 
         using var provider = services.BuildServiceProvider();
         var options = provider.GetRequiredService<IOptionsMonitor<HttpStandardResilienceOptions>>()
-            .Get($"{AzureFoundryHttpClients.Chat}-standard");
+            .Get($"{nameof(IAzureFoundryChatClient)}-standard");
 
-        Assert.Equal(1, options.Retry.MaxRetryAttempts);
-        Assert.Equal(AzureFoundryRegistration.AttemptTimeout, options.AttemptTimeout.Timeout);
-        Assert.Equal(AzureFoundryRegistration.TotalTimeout, options.TotalRequestTimeout.Timeout);
-        Assert.True(options.TotalRequestTimeout.Timeout >= options.AttemptTimeout.Timeout);
-        Assert.True(options.CircuitBreaker.SamplingDuration >= options.AttemptTimeout.Timeout * 2);
-        Assert.True(options.AttemptTimeout.Timeout >= TimeSpan.FromSeconds(60));
-    }
-
-    /// <summary>A retry is for a refusal that cost nothing — a connection that
-    /// never opened, a 429, a 503. An attempt that timed out already spent the
-    /// prompt once and the reader's patience with it; sending it again would
-    /// double both, so the timeout is the one transient failure the retry
-    /// leaves alone.</summary>
-    [Fact]
-    public async Task The_chat_client_retries_a_refusal_but_not_a_timed_out_attempt()
-    {
-        var services = new ServiceCollection();
-        services.AddSingleton(new AzureFoundrySettingsStore(NewSettingsPath()));
-        services.AddAzureFoundryChatClient();
-
-        using var provider = services.BuildServiceProvider();
-        var retry = provider.GetRequiredService<IOptionsMonitor<HttpStandardResilienceOptions>>()
-            .Get($"{AzureFoundryHttpClients.Chat}-standard")
-            .Retry;
-
-        Assert.False(await ShouldRetry(retry, Outcome.FromException<HttpResponseMessage>(new TimeoutRejectedException())));
-        Assert.True(await ShouldRetry(retry, Outcome.FromException<HttpResponseMessage>(new HttpRequestException("refused"))));
-        using var tooMany = new HttpResponseMessage(HttpStatusCode.TooManyRequests);
-        Assert.True(await ShouldRetry(retry, Outcome.FromResult(tooMany)));
-        using var unavailable = new HttpResponseMessage(HttpStatusCode.ServiceUnavailable);
-        Assert.True(await ShouldRetry(retry, Outcome.FromResult(unavailable)));
-        using var badRequest = new HttpResponseMessage(HttpStatusCode.BadRequest);
-        Assert.False(await ShouldRetry(retry, Outcome.FromResult(badRequest)));
+        Assert.Equal(AzureFoundryRegistration.AnswerBudget, options.AttemptTimeout.Timeout);
+        Assert.Equal(AzureFoundryRegistration.AnswerBudget, options.TotalRequestTimeout.Timeout);
+        Assert.Equal(TimeSpan.FromMinutes(2), AzureFoundryRegistration.AnswerBudget);
     }
 
     /// <summary>Both hosts call <c>AddServiceDefaults()</c>, which puts the
-    /// standard pipeline on every client. This project's own must replace that
-    /// one rather than sit inside it — two pipelines would be the outer one's
-    /// thirty seconds over the inner one's minutes, which is the crash again.</summary>
+    /// standard pipeline on every client. This one must replace it rather than
+    /// sit inside it: the outer pipeline's thirty seconds would still be the
+    /// one that fires.</summary>
     [Fact]
     public void The_chat_client_carries_one_resilience_handler_even_under_the_hosts_defaults()
     {
         var services = new ServiceCollection();
         services.ConfigureHttpClientDefaults(http => http.AddStandardResilienceHandler());
-        services.AddSingleton(new AzureFoundrySettingsStore(NewSettingsPath()));
         services.AddAzureFoundryChatClient();
 
         using var provider = services.BuildServiceProvider();
-        var chain = HandlerChain(provider.GetRequiredService<IHttpMessageHandlerFactory>().CreateHandler(AzureFoundryHttpClients.Chat));
+        var chain = HandlerChain(provider.GetRequiredService<IHttpMessageHandlerFactory>().CreateHandler(nameof(IAzureFoundryChatClient)));
 
         Assert.Single(chain.OfType<ResilienceHandler>());
-        Assert.IsType<AzureFoundryChatClient>(provider.GetRequiredService<IAzureFoundryChatClient>());
     }
 
-    private static ValueTask<bool> ShouldRetry(HttpRetryStrategyOptions retry, Outcome<HttpResponseMessage> outcome) =>
-        retry.ShouldHandle(new RetryPredicateArguments<HttpResponseMessage>(ResilienceContextPool.Shared.Get(), outcome, 0));
+    private string NewSettingsPath()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "backlog-foundry-registration", Guid.NewGuid().ToString("n"), "azure-foundry.json");
+        _paths.Add(path);
+        return path;
+    }
 
-    /// <summary>The handlers from the outermost to the primary handler last —
-    /// walked the way a request travels.</summary>
+    /// <summary>The factory's handler, the additional handlers in order, and
+    /// the primary handler last — walked the way a request travels.</summary>
     private static List<HttpMessageHandler> HandlerChain(HttpMessageHandler handler)
     {
         var chain = new List<HttpMessageHandler>();
@@ -104,7 +100,4 @@ public sealed class AzureFoundryRegistrationTests
 
         return chain;
     }
-
-    private static string NewSettingsPath() =>
-        Path.Combine(Path.GetTempPath(), "backlog-foundry-registration", Guid.NewGuid().ToString("n"), "azure-foundry.json");
 }

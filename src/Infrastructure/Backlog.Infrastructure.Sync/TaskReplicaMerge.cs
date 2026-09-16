@@ -96,7 +96,8 @@ public readonly record struct TaskMergeOutcome(int Applied, int Skipped);
 public sealed class TaskReplicaMerge(
     ITaskRepository tasks,
     IInboxIntake? inbox = null,
-    ILogger<TaskReplicaMerge>? log = null)
+    ILogger<TaskReplicaMerge>? log = null,
+    SyncActivityLog? activity = null)
 {
     /// <summary>The kind token the service writes on a capture document. Three
     /// literals, not a reference: the service's <c>CaptureInboxItemCommandHandler</c>
@@ -116,6 +117,14 @@ public sealed class TaskReplicaMerge(
     /// than left null so the skip path below cannot itself be the thing that
     /// throws. A host that has logging gets it injected.</summary>
     private readonly ILogger _log = log ?? NullLogger<TaskReplicaMerge>.Instance;
+
+    /// <summary>Where a document that was actually written is recorded by name,
+    /// or null on a head with nowhere to show one. Recorded here and not by the
+    /// session that pulled the page, because this is the one place that knows
+    /// the difference between a document that arrived and one that was kept —
+    /// an echo of this device's own push arrives too, and a log that listed it
+    /// as received would say the backlog moved when it did not.</summary>
+    private readonly SyncActivityLog? _activity = activity;
 
     /// <summary>
     /// Whether <paramref name="inbound"/> is the later of two records for the
@@ -414,9 +423,21 @@ public sealed class TaskReplicaMerge(
             // Received and Withdrawn wrote something; AlreadyKnown and Ignored
             // are the capture's echo or replay, and a replayed page writes
             // nothing — the same idempotency the task path keeps below.
-            return outcome is InboxIntakeOutcome.Received or InboxIntakeOutcome.Withdrawn
-                ? ApplyOutcome.Written
-                : ApplyOutcome.Held;
+            switch (outcome)
+            {
+                case InboxIntakeOutcome.Received:
+                    _activity?.Record(
+                        SyncDirection.Received, SyncItemKind.Capture, record.Change.Id.ToString("D"), record.Change.Task.Title);
+                    return ApplyOutcome.Written;
+
+                case InboxIntakeOutcome.Withdrawn:
+                    _activity?.Record(
+                        SyncDirection.Received, SyncItemKind.Capture, record.Change.Id.ToString("D"), record.Change.Task.Title, "withdrawn");
+                    return ApplyOutcome.Written;
+
+                default:
+                    return ApplyOutcome.Held;
+            }
         }
 
         var local = await _tasks
@@ -447,6 +468,10 @@ public sealed class TaskReplicaMerge(
         }
 
         await _tasks.SaveAsync(task, cancellationToken).ConfigureAwait(false);
+
+        _activity?.Record(
+            SyncDirection.Received, SyncItemKind.Task, task.Id.ToString("D"), task.Title,
+            task.DeletedAt is null ? null : "deleted");
 
         return ApplyOutcome.Written;
     }

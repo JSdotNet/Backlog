@@ -125,6 +125,31 @@ cross-reference may name a chapter in the repository's backlog folder even thoug
 that folder is not a browsable area, and it is read with that folder's own status
 vocabulary rather than as an unknown one.
 
+### Remarks on a chapter
+
+```meta
+type: sub-feature
+status: active
+related: [.arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md, .arc42/08-crosscutting-concepts.md#storage-and-sync]
+```
+
+Let a reader leave a remark against one block of a chapter while reading it —
+a question, a flag, a note to self — beside the prose rather than inside it,
+and keep it. A remark belongs to the person, not to the repository: it is kept
+by the app, moves with the person's backlog, reaches their other devices
+through sync, and is never written into the repository's knowledge folders —
+which is what lets a reader remark on a chapter read from a branch nobody can
+edit. A remark can be resolved, which keeps it visible and quiet, or deleted.
+
+This is a different thing from the devbook convention's own note, the
+`annotation` fence written into a chapter for a review to read: that is a
+shared repository artefact with its own lifecycle. Turning a private remark
+into one is a possible later step, not something the app does today.
+
+A remark is anchored to the block it was left on. When the chapter changes
+above it the anchor can point at the wrong block; the remark is then shown at
+the end of the chapter rather than lost, and re-anchoring it is not yet solved.
+
 ### A devbook that stays current
 
 ```meta

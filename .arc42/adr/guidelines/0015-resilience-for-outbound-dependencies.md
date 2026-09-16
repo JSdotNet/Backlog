@@ -79,9 +79,10 @@ primary-path result.
   (`Backlog.Infrastructure.AzureFoundry`, `AzureFoundryRegistration`) goes the
   other way for the opposite reason: a chat completion regularly takes longer
   than the standard 10 s attempt, and every retry re-sends and re-pays the
-  prompt, so it gets one 90 s attempt, 120 s in all, and a single retry that
-  follows only a refusal that cost nothing — never a timed-out attempt. Under
-  the defaults the 30 s total timeout surfaced as Polly's
+  prompt, so one answer gets the whole two-minute budget — attempt and total
+  are equal, so a slow answer is waited for once rather than retried into the
+  budget, while a fast 429 or 503 is still retried inside it. Under the
+  defaults the 30 s total timeout surfaced as Polly's
   `TimeoutRejectedException` in the Home page's Ask handler and took the page
   down; the client now translates every transport failure into its own
   `AzureFoundryException` at the adapter boundary, which is the other half of

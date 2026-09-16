@@ -6,13 +6,15 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Backlog.Infrastructure.FileSystem.Inbox;
 
 /// <summary>
-/// The cross-context join routing takes part in, answered by an adapter that
+/// The cross-context joins the Inbox takes part in, answered by adapters that
 /// may see both contexts: an inbox item becomes backlog entries
-/// (<see cref="IInboxBacklogTarget"/> over <see cref="ITaskItems"/>).
+/// (<see cref="IInboxBacklogTarget"/> over <see cref="ITaskItems"/>), and the
+/// backlog's tags are offered to the inbox's picker
+/// (<see cref="IBacklogTagSource"/> over the same port).
 /// <para>
 /// Registered here — in one place both hosts call — so the lifetime cannot
-/// drift between the desktop app and the web harness. The adapter captures a
-/// service the Tasks module registers as <c>Scoped</c>, so it must be
+/// drift between the desktop app and the web harness. Both adapters capture a
+/// service the Tasks module registers as <c>Scoped</c>, so they must be
 /// <c>Scoped</c> too: a singleton over a scoped dependency is a captive
 /// dependency that a validating root provider refuses to build.
 /// </para>
@@ -26,14 +28,15 @@ namespace Backlog.Infrastructure.FileSystem.Inbox;
 public static class InboxCrossContextAdapterRegistration
 {
     /// <summary>
-    /// Registers the inbox cross-context adapter. Call after
-    /// <c>AddTasksModule</c>, which supplies the scoped port it captures.
+    /// Registers the inbox cross-context adapters. Call after
+    /// <c>AddTasksModule</c>, which supplies the scoped port they capture.
     /// </summary>
     public static IServiceCollection AddInboxCrossContextAdapters(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddScoped<IInboxBacklogTarget, InboxBacklogTarget>();
+        services.AddScoped<IBacklogTagSource, InboxBacklogTagSource>();
 
         return services;
     }

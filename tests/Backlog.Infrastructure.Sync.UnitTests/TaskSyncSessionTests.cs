@@ -493,6 +493,95 @@ public sealed class TaskSyncSessionTests
         Assert.Single(fixture.Handler.Requests);
     }
 
+    // --- What the log says moved -----------------------------------------------
+
+    /// <summary>
+    /// Every task the replica accepted is written down as sent, by title, and a
+    /// tombstone says so. After acceptance and not before: a batch the service
+    /// refused never left, and a log that listed it would be the one thing on
+    /// screen saying the opposite of what the watermark says.
+    /// </summary>
+    [Fact]
+    public async Task Each_accepted_task_is_recorded_as_sent_with_its_title()
+    {
+        var store = new InMemoryTaskStore();
+        store.Seed(TaskChanges.Task("Write the release notes", Noon));
+        store.Seed(TaskChanges.Task("Old draft", Noon.AddHours(1), deletedAt: Noon.AddHours(1)));
+
+        var activity = new SyncActivityLog();
+
+        using var fixture = Fixture.Create(store, new InMemoryTaskSyncStateStore(), new FakeTimeProvider(Noon.AddHours(6)),
+            (_, _) => StubHttpMessageHandler.Json(HttpStatusCode.OK, """{"accepted":2}"""),
+            activity);
+
+        await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
+
+        var entries = activity.Snapshot();
+        Assert.Equal(2, entries.Count);
+        Assert.All(entries, entry => Assert.Equal(SyncDirection.Sent, entry.Direction));
+        Assert.All(entries, entry => Assert.Equal(SyncItemKind.Task, entry.Kind));
+
+        var live = Assert.Single(entries, entry => entry.Title == "Write the release notes");
+        Assert.Null(live.Note);
+
+        var tombstone = Assert.Single(entries, entry => entry.Title == "Old draft");
+        Assert.Equal("deleted", tombstone.Note);
+    }
+
+    [Fact]
+    public async Task A_push_the_replica_refused_records_nothing_as_sent()
+    {
+        var store = new InMemoryTaskStore();
+        store.Seed(TaskChanges.Task("Never accepted", Noon));
+
+        var activity = new SyncActivityLog();
+
+        using var fixture = Fixture.Create(store, new InMemoryTaskSyncStateStore(), new FakeTimeProvider(Noon),
+            (_, _) => StubHttpMessageHandler.Problem(
+                HttpStatusCode.ServiceUnavailable, SyncErrorCodes.ReplicaUnavailable, "The replica is not reachable yet."),
+            activity);
+
+        await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
+
+        Assert.Empty(activity.Snapshot());
+    }
+
+    /// <summary>
+    /// What arrives is recorded as received only when it was kept. A replayed
+    /// page — the same change pulled twice, which a cursor saved after the apply
+    /// makes an ordinary event — writes nothing the second time and so is listed
+    /// once, because the log is "what changed here" and not "what came down the
+    /// wire".
+    /// </summary>
+    [Fact]
+    public async Task A_pulled_task_is_recorded_as_received_once_even_when_its_page_is_replayed()
+    {
+        var store = new InMemoryTaskStore();
+        var state = new InMemoryTaskSyncStateStore();
+        var change = TaskChanges.Change("From the other machine", Noon);
+        var activity = new SyncActivityLog();
+
+        var body = JsonSerializer.Serialize(new
+        {
+            tasks = new[] { new { change, deviceId = Guid.NewGuid(), serverTimestamp = 100L } },
+            since = "cursor-1",
+            hasMore = false
+        });
+
+        using var fixture = Fixture.Create(store, state, new FakeTimeProvider(Noon),
+            (_, _) => StubHttpMessageHandler.Json(HttpStatusCode.OK, body),
+            activity);
+
+        await fixture.Session.PullAsync(TestContext.Current.CancellationToken);
+        await fixture.Session.PullAsync(TestContext.Current.CancellationToken);
+
+        var entry = Assert.Single(activity.Snapshot());
+        Assert.Equal(SyncDirection.Received, entry.Direction);
+        Assert.Equal(SyncItemKind.Task, entry.Kind);
+        Assert.Equal("From the other machine", entry.Title);
+        Assert.Equal(change.Id.ToString("D"), entry.Id);
+    }
+
     /// <summary>The changes a push actually put on the wire, read back through
     /// the contract rather than matched inside the JSON. A substring check cannot
     /// tell a tombstone from a live task — the field that carries one is null on
@@ -528,7 +617,8 @@ public sealed class TaskSyncSessionTests
             InMemoryTaskStore tasks,
             ITaskSyncStateStore state,
             TimeProvider time,
-            Func<HttpRequestMessage, int, HttpResponseMessage> respond)
+            Func<HttpRequestMessage, int, HttpResponseMessage> respond,
+            SyncActivityLog? activity = null)
         {
             var bodies = new List<string>();
             var queries = new List<string>();
@@ -548,10 +638,11 @@ public sealed class TaskSyncSessionTests
 
             var session = new TaskSyncSession(
                 new TaskSyncClient(http),
-                new TaskReplicaMerge(tasks),
+                new TaskReplicaMerge(tasks, activity: activity),
                 tasks,
                 state,
-                time);
+                time,
+                activity: activity);
 
             return new Fixture(http, handler, session, bodies, queries);
         }

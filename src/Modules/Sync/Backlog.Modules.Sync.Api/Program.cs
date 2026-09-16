@@ -82,6 +82,7 @@ sync.MapDeviceEndpoints();
 sync.MapInboxEndpoints();
 sync.MapTaskSyncEndpoints();
 sync.MapSessionSyncEndpoints();
+sync.MapAnnotationSyncEndpoints();
 
 // The service saying what it is. No owner, no data, nothing to protect.
 app.MapGet("/", () => Results.Ok(new { service = "Backlog Sync", role = "thin sync layer" }))

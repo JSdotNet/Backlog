@@ -142,20 +142,38 @@ public sealed class AzureFoundryChatClient(HttpClient httpClient, AzureFoundrySe
         };
         httpRequest.Headers.Add("api-key", settings.ApiKey);
 
-        // The transport's failures become this client's here, at the boundary,
-        // so a caller catching AzureFoundryException has caught every way an
-        // answer fails to be one. Three exceptions stand for "no answer": the
-        // endpoint could not be reached at all; the resilience pipeline the
-        // host puts on this client ran out its own timeout, which Polly reports
-        // as its rejection rather than as a cancellation; and HttpClient's own
-        // timeout, which is a cancellation on a token the caller never
-        // cancelled. The first Polly one to reach a page handler that knew only
-        // the other two took the whole page down to the error boundary. A
-        // genuine caller cancellation is not a bad answer and travels as itself.
-        HttpResponseMessage response;
+        using var response = await SendAsync(httpRequest, cancellationToken).ConfigureAwait(false);
+        var payload = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new AzureFoundryException($"Azure Foundry returned {(int)response.StatusCode}: {TrimForMessage(payload)}");
+        }
+
+        var completion = JsonSerializer.Deserialize<ChatCompletionResponse>(payload, JsonOptions);
+        var answer = completion?.Choices.FirstOrDefault()?.Message.Content;
+        if (string.IsNullOrWhiteSpace(answer))
+        {
+            throw new AzureFoundryException("Azure Foundry returned an empty answer.");
+        }
+
+        return answer.Trim();
+    }
+
+    /// <summary>The send, with the transport's failures translated into this
+    /// client's, so a caller catching <see cref="AzureFoundryException"/> has
+    /// caught every way an answer fails to be one. Three exceptions stand for
+    /// "no answer": the endpoint could not be reached at all; the pipeline's
+    /// budget (<see cref="AzureFoundryRegistration"/> sets it) ran out, which
+    /// Polly reports as its own exception rather than as a cancellation; and
+    /// HttpClient's own timeout, which is a cancellation on a token the caller
+    /// never cancelled. The first Polly one to reach a page handler written for
+    /// the other two took the whole page down to the error boundary. A genuine
+    /// caller cancellation is not a bad answer and travels as itself.</summary>
+    private async Task<HttpResponseMessage> SendAsync(HttpRequestMessage httpRequest, CancellationToken cancellationToken)
+    {
         try
         {
-            response = await httpClient.SendAsync(httpRequest, cancellationToken).ConfigureAwait(false);
+            return await httpClient.SendAsync(httpRequest, cancellationToken).ConfigureAwait(false);
         }
         catch (HttpRequestException ex)
         {
@@ -169,25 +187,6 @@ public sealed class AzureFoundryChatClient(HttpClient httpClient, AzureFoundrySe
         {
             throw new AzureFoundryException(TimedOutMessage, ex);
         }
-
-        string payload;
-        using (response)
-        {
-            payload = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-            if (!response.IsSuccessStatusCode)
-            {
-                throw new AzureFoundryException($"Azure Foundry returned {(int)response.StatusCode}: {TrimForMessage(payload)}");
-            }
-        }
-
-        var completion = JsonSerializer.Deserialize<ChatCompletionResponse>(payload, JsonOptions);
-        var answer = completion?.Choices.FirstOrDefault()?.Message.Content;
-        if (string.IsNullOrWhiteSpace(answer))
-        {
-            throw new AzureFoundryException("Azure Foundry returned an empty answer.");
-        }
-
-        return answer.Trim();
     }
 
     /// <summary>
