@@ -1028,6 +1028,16 @@ public sealed class GlobalPaneMarkupTests
     /// scrolling the list to reach the bottom of the entry next to it.
     /// </para>
     /// <para>
+    /// The halves themselves are the library's: <c>SplitPane</c> gives each one
+    /// <c>overflow: auto</c>, and that is what scrolls the list column. The list
+    /// inside it must not be a second scroller. It used to declare one, and since
+    /// the half is a block that hands the list its content height, the list was a
+    /// scroll container that never scrolled — which is the one thing a sticky
+    /// child cannot survive, because it measures against its nearest scroll
+    /// container. The bulk bar and the add-entry row both stick to the half, and
+    /// both scrolled straight out of view while the list claimed the job.
+    /// </para>
+    /// <para>
     /// The pane half scrolls one box deeper than the list's does: the panel fills the
     /// height it is given so the body inside it can, and a box that both stretched
     /// its child and scrolled it is a box that could do neither.
@@ -1037,17 +1047,59 @@ public sealed class GlobalPaneMarkupTests
     public void Each_half_of_the_backlog_split_scrolls_on_its_own()
     {
         var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
+        var components = NormalizeLineEndings(File.ReadAllText(FindComponentsCss()));
 
         Assert.Contains(".backlog-list {", css, StringComparison.Ordinal);
         Assert.Contains(".entry-detail {", css, StringComparison.Ordinal);
 
-        foreach (var block in new[] { ".backlog-list {", ".entry-detail__panel {" })
-        {
-            var start = css.IndexOf(block, StringComparison.Ordinal);
-            var rules = css[start..css.IndexOf('}', start)];
+        var halves = Block(components, ".split-pane__start,\n.split-pane__end {");
+        Assert.Contains("overflow: auto;", halves, StringComparison.Ordinal);
+        Assert.Contains("min-height: 0;", halves, StringComparison.Ordinal);
 
-            Assert.Contains("overflow-y: auto;", rules, StringComparison.Ordinal);
-            Assert.Contains("min-height: 0;", rules, StringComparison.Ordinal);
+        var list = Block(css, ".backlog-list {");
+        Assert.DoesNotContain("overflow", list, StringComparison.Ordinal);
+        Assert.Contains("min-height: 0;", list, StringComparison.Ordinal);
+
+        var panel = Block(css, ".entry-detail__panel {");
+        Assert.Contains("overflow-y: auto;", panel, StringComparison.Ordinal);
+        Assert.Contains("min-height: 0;", panel, StringComparison.Ordinal);
+
+        static string Block(string sheet, string selector)
+        {
+            var start = sheet.IndexOf(selector, StringComparison.Ordinal);
+            Assert.True(start >= 0, $"{selector} should be declared.");
+            return sheet[start..sheet.IndexOf('}', start)];
+        }
+    }
+
+    /// <summary>
+    /// The two controls that stick to the list half, and the edge each holds. The
+    /// bulk bar takes the top so the count and the way out of a selection stay in
+    /// reach; the add-entry row takes the bottom so a column longer than the window
+    /// never hides the one control that adds to it. Both are asserted together with
+    /// the rule above because both are dead the moment the list becomes a scroller.
+    /// </summary>
+    [Fact]
+    public void The_bulk_bar_and_the_add_entry_row_stick_to_the_list_half()
+    {
+        var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
+
+        var bar = Block(css, ".backlog-bulk-bar {");
+        Assert.Contains("position: sticky;", bar, StringComparison.Ordinal);
+        Assert.Contains("top: 0;", bar, StringComparison.Ordinal);
+
+        var row = Block(css, ".entry-add-row {");
+        Assert.Contains("position: sticky;", row, StringComparison.Ordinal);
+        Assert.Contains("bottom: 0;", row, StringComparison.Ordinal);
+        // Its buttons are transparent by design, so the row itself has to paint,
+        // or the rows sliding under it read straight through the strip.
+        Assert.Contains("background: var(--color-background);", row, StringComparison.Ordinal);
+
+        static string Block(string sheet, string selector)
+        {
+            var start = sheet.IndexOf(selector, StringComparison.Ordinal);
+            Assert.True(start >= 0, $"{selector} should be declared.");
+            return sheet[start..sheet.IndexOf('}', start)];
         }
     }
 
@@ -1276,6 +1328,8 @@ public sealed class GlobalPaneMarkupTests
     }
 
     private static string FindAppCss() => RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "wwwroot", "app.css");
+
+    private static string FindComponentsCss() => RepositoryRoot.File("src", "Core", "Backlog.UI.Components", "wwwroot", "components.css");
 
     private static string FindHomeRazor() => RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "Shell", "Home.razor");
 
