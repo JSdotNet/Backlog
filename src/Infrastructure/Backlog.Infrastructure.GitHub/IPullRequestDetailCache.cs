@@ -43,6 +43,10 @@ public sealed record PullRequestDetail
     /// <summary>False when the size could not be read, in which case both numbers
     /// above are zero and mean nothing.</summary>
     public bool SizeKnown { get; init; }
+
+    /// <summary>Every commit on the pull request. Read with the size, so meaningful
+    /// exactly when <see cref="SizeKnown"/>.</summary>
+    public int Commits { get; init; }
 }
 
 /// <summary>

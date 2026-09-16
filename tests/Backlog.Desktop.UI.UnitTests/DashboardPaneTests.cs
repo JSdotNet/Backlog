@@ -1275,7 +1275,7 @@ public class DashboardPaneTests
         var pane = context.Render<DashboardPane>();
         var note = Squashed(pane.Find("[data-testid='dashboard-score-note']").TextContent);
 
-        Assert.Contains("a quarter above your own best four weeks", note, StringComparison.Ordinal);
+        Assert.Contains("Full marks for volume is a quarter above your own best four weeks", note, StringComparison.Ordinal);
 
         // The figure it works out to, the record behind it, and when that record was
         // set — all three, because any two of them leave the third unarguable.
@@ -1286,50 +1286,97 @@ public class DashboardPaneTests
     }
 
     /// <summary>
-    /// No history, no target, and three of the seven inputs simply absent. A reader
-    /// who cannot see that throughput dropped out reads what is left as a score of
-    /// everything.
+    /// No history, no target, and the volume card simply empty. A reader who cannot
+    /// see that volume dropped out reads the quality score as the score of
+    /// everything — so the note says it, and the card itself says it rather than
+    /// claiming it was scored from inputs the view does not show.
     /// </summary>
     [Fact]
     public void The_score_note_says_when_volume_is_not_being_scored()
     {
         using var context = Context(configure: services =>
             services.AddSingleton<IProductivityInsights>(
-                new ReadyProductivityInsights(Score() with { Target = null })));
+                new ReadyProductivityInsights(Score() with
+                {
+                    Target = null,
+                    Volume = ProductivityScore.Empty
+                })));
 
         var pane = context.Render<DashboardPane>();
         var note = Squashed(pane.Find("[data-testid='dashboard-score-note']").TextContent);
 
-        Assert.Contains(
-            "Merged pull requests, issues closed and assistant sessions are not being scored",
-            note,
-            StringComparison.Ordinal);
+        Assert.Contains("Volume is not being scored", note, StringComparison.Ordinal);
         Assert.Contains("could not be read, or there is not enough of it yet", note, StringComparison.Ordinal);
+
+        var volume = Squashed(pane.Find("[data-testid='dashboard-score-volume']").TextContent);
+
+        Assert.Contains("Not scored: there is no history to set a target from", volume, StringComparison.Ordinal);
+        Assert.DoesNotContain("inputs this view does not show", volume, StringComparison.Ordinal);
+
+        // And the other card is untouched by it.
+        var quality = Squashed(pane.Find("[data-testid='dashboard-score-quality']").TextContent);
+
+        Assert.Contains("First review within a day", quality, StringComparison.Ordinal);
     }
 
     /// <summary>
-    /// The sessions input refuses two of the surface's three dimensions and is worth
-    /// the least of the seven, and all of that is said permanently rather than
-    /// conditionally: the conditions are invisible from the card, so a reader could
-    /// not tell a missing sentence from an absent caveat.
+    /// The split on screen: two cards, each with its own composition, and no
+    /// sessions row on either — the note says where sessions went, permanently,
+    /// because a reader of the previous version will look for the row.
     /// </summary>
     [Fact]
-    public void The_score_note_refuses_the_repository_dimension_for_sessions()
+    public void The_score_part_draws_volume_and_quality_as_two_cards()
     {
         using var context = Context(configure: services =>
             services.AddSingleton<IProductivityInsights>(new ReadyProductivityInsights(Score())));
 
         var pane = context.Render<DashboardPane>();
+
+        var volume = Squashed(pane.Find("[data-testid='dashboard-score-volume']").TextContent);
+        var quality = Squashed(pane.Find("[data-testid='dashboard-score-quality']").TextContent);
+
+        Assert.Contains("Volume", volume, StringComparison.Ordinal);
+        Assert.Contains("Pull requests merged", volume, StringComparison.Ordinal);
+        Assert.Contains("Issues closed", volume, StringComparison.Ordinal);
+        Assert.DoesNotContain("First review within a day", volume, StringComparison.Ordinal);
+
+        Assert.Contains("Quality", quality, StringComparison.Ordinal);
+        Assert.Contains("First review within a day", quality, StringComparison.Ordinal);
+        Assert.Contains("Merged touching 10 files or fewer", quality, StringComparison.Ordinal);
+        Assert.DoesNotContain("Pull requests merged", quality, StringComparison.Ordinal);
+
+        Assert.DoesNotContain("Assistant sessions", volume + quality, StringComparison.Ordinal);
+
         var note = Squashed(pane.Find("[data-testid='dashboard-score-note']").TextContent);
 
+        Assert.Contains("Assistant sessions are scored in neither", note, StringComparison.Ordinal);
         Assert.Contains("count effort rather than output", note, StringComparison.Ordinal);
-        // Not a weight count. The card renormalises the shares over the inputs that
-        // actually had something to read, so a note naming a fixed denominator
-        // contradicts the percentage printed beside the row whenever one drops out.
-        Assert.Contains("carry the least weight here", note, StringComparison.Ordinal);
-        Assert.Contains("rises when another input", note, StringComparison.Ordinal);
-        Assert.Contains("while one repository is in focus", note, StringComparison.Ordinal);
-        Assert.Contains("machine filter does not move this figure", note, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The rework part carries the two figures the reviewers wrote down, and the
+    /// headline the median commit count with the population it was taken over.
+    /// </summary>
+    [Fact]
+    public void Review_rounds_change_requests_and_commits_per_pull_request_reach_the_screen()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<IProductivityInsights>(new ReadyProductivityInsights(Score())));
+
+        var pane = context.Render<DashboardPane>();
+
+        var rounds = Squashed(pane.Find("[data-testid='dashboard-rework-rounds']").TextContent);
+        var requested = Squashed(pane.Find("[data-testid='dashboard-rework-changes-requested']").TextContent);
+        var commits = Squashed(pane.Find("[data-testid='dashboard-headline-commits']").TextContent);
+
+        Assert.Contains("Review rounds", rounds, StringComparison.Ordinal);
+        Assert.Contains("41", rounds, StringComparison.Ordinal);
+        Assert.Contains("Changes requested", requested, StringComparison.Ordinal);
+        Assert.Contains("7", requested, StringComparison.Ordinal);
+
+        Assert.Contains("Commits per pull request", commits, StringComparison.Ordinal);
+        Assert.Contains("4", commits, StringComparison.Ordinal);
+        Assert.Contains("Median, across 290 pull requests whose detail was read", commits, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -1356,21 +1403,25 @@ public class DashboardPaneTests
     }
 
     /// <summary>
-    /// A score with the whole composition behind it: the three volume inputs read
-    /// against the reader's own record, and the four proportions.
+    /// The two scores with their whole compositions behind them: the two volume
+    /// inputs read against the reader's own record, and the four proportions.
     /// </summary>
     private static ProductivityScoreInsight Score() =>
         new(
-            72m,
-            [
-                new ProductivityScoreInput("Pull requests merged", 304m, 380m, 3m),
-                new ProductivityScoreInput("Issues closed", 72m, 90m, 2m),
-                new ProductivityScoreInput("First review within a day", 40m, 50m, 2m),
-                new ProductivityScoreInput("Merged without post-review churn", 30m, 50m, 1m),
-                new ProductivityScoreInput("Merged under 400 changed lines", 20m, 44m, 1m),
-                new ProductivityScoreInput("Merged touching 10 files or fewer", 24m, 44m, 1m),
-                new ProductivityScoreInput("Assistant sessions", 40m, 75m, 1m)
-            ])
+            new ProductivityScore(
+                80m,
+                [
+                    new ProductivityScoreInput("Pull requests merged", 304m, 380m, 3m),
+                    new ProductivityScoreInput("Issues closed", 72m, 90m, 2m)
+                ]),
+            new ProductivityScore(
+                66m,
+                [
+                    new ProductivityScoreInput("First review within a day", 40m, 50m, 2m),
+                    new ProductivityScoreInput("Merged without post-review churn", 30m, 50m, 1m),
+                    new ProductivityScoreInput("Merged under 400 changed lines", 20m, 44m, 1m),
+                    new ProductivityScoreInput("Merged touching 10 files or fewer", 24m, 44m, 1m)
+                ]))
         {
             Target = new ProductivityTarget(
                 new DateTimeOffset(2026, 5, 12, 0, 0, 0, TimeSpan.Zero),
@@ -1392,7 +1443,9 @@ public class DashboardPaneTests
             Task.FromResult(InsightResult<ProductivityHeadline>.Ready(
                 new ProductivityHeadline(304, 72, 0.2m, TimeSpan.FromHours(5), [], [], [])
                 {
-                    Complete = score.Complete
+                    Complete = score.Complete,
+                    MedianCommitsPerPullRequest = 4,
+                    PullRequestsWithCommitCount = 290
                 }));
 
         public Task<InsightResult<ProductivityScoreInsight>> GetScoreAsync(
@@ -1417,7 +1470,9 @@ public class DashboardPaneTests
             Task.FromResult(InsightResult<ReworkInsight>.Ready(
                 new ReworkInsight(6, 30, 12, 2, 9, true, [new InsightPoint("W34", 3m)], [])
                 {
-                    Complete = score.Complete
+                    Complete = score.Complete,
+                    ReviewRounds = 41,
+                    ChangesRequested = 7
                 }));
 
         public void Invalidate(DashboardScope scope)
