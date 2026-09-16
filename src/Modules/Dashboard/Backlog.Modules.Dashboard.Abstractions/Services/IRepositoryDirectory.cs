@@ -2,7 +2,7 @@ namespace Backlog.Modules.Dashboard.Abstractions.Services;
 
 /// <summary>One repository the filter can offer.</summary>
 /// <param name="Alias">The short name a person recognises, and what
-/// <see cref="DashboardScope.RepositoryAlias"/> holds.</param>
+/// <see cref="DashboardScope.Repositories"/> holds.</param>
 /// <param name="FullName">The <c>owner/name</c> form, which is what a provider
 /// call needs.</param>
 public sealed record DashboardRepository(string Alias, string FullName);

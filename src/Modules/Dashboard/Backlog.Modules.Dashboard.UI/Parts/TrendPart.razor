@@ -74,7 +74,7 @@
     {
         get
         {
-            var basis = Scope.RepositoryAlias is { } alias
+            var basis = Scope.Repositories.Anchor is { } alias
                 ? $"Every repository stays on screen so {alias} can be read against the rest."
                 : "One panel per repository that reported anything, on a shared scale.";
 

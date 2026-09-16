@@ -136,7 +136,7 @@ public abstract class DashboardPartBase<T> : ComponentBase, IDisposable
     /// </summary>
     private DashboardScope Relevant(DashboardScope scope) => scope with
     {
-        RepositoryAlias = FollowsRepository ? scope.RepositoryAlias : null,
+        Repositories = FollowsRepository ? scope.Repositories : RepositoryFocus.All,
         MachineId = FollowsMachine ? scope.MachineId : null,
         Period = FollowsWindow ? scope.Period : DashboardScope.Default.Period
     };

@@ -324,6 +324,15 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// off.</summary>
     public int? RepositoryColourFor(string? repository) => _gitHub.Settings.Current.VisibleColourFor(repository);
 
+    /// <summary>
+    /// The configured alias for a repository named the way a session names one —
+    /// <c>owner/name</c>, or the alias itself where a record arrived that way — or
+    /// null for a repository this workspace does not know and for no name at all.
+    /// The same lookup the hue goes through, so the two answers cannot name
+    /// different repositories for one row.
+    /// </summary>
+    public string? RepositoryAliasFor(string? repository) => _gitHub.Settings.Current.Find(repository)?.Alias;
+
     /// <summary>Whether the repository identity hues are being drawn. The shell's header
     /// carries the control, so the shell has to be able to read the state it is
     /// showing.</summary>

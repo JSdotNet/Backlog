@@ -555,7 +555,7 @@ public class SessionInsightsTests
         });
 
         var everywhere = await ValueOf(insights, DashboardScope.Default);
-        var focused = await ValueOf(insights, DashboardScope.Default with { RepositoryAlias = "backlog" });
+        var focused = await ValueOf(insights, DashboardScope.Default with { Repositories = RepositoryFocus.Of("backlog") });
 
         Assert.Equal(everywhere.SessionsPerWeek, focused.SessionsPerWeek);
 

@@ -26,8 +26,8 @@ public static class SessionFeatures
     /// <para>
     /// One key for the whole area rather than one per column or per grouping. The
     /// repository's guidance asks for coarse-grained flags over scattered low-level
-    /// toggles, and the two things this gates — whether the header offers the
-    /// surface, and whether the surface may be shown — are the same question asked
+    /// toggles, and the two things this gates — whether the dashboard offers the
+    /// tab, and whether the list may be shown — are the same question asked
     /// twice.
     /// </para></summary>
     public const string Sessions = "sessions";

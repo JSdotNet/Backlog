@@ -107,23 +107,31 @@ public class DashboardPaneTests
         });
     }
 
+    /// <summary>
+    /// The repository is the shell's to choose: the header carries one scope for the
+    /// whole screen, and a second select here was two repository filters on one
+    /// screen answering differently. So the pane offers no repository control, and
+    /// with nothing handed in it reads every repository.
+    /// </summary>
     [Fact]
-    public void The_filter_offers_every_configured_repository_and_an_all_repositories_option()
+    public void The_pane_offers_no_repository_control_and_reads_all_repositories_by_default()
     {
-        using var context = Context();
+        var productivity = new RecordingProductivityInsights();
+
+        using var context = Context(configure: services =>
+            services.AddSingleton<IProductivityInsights>(productivity));
 
         var pane = context.Render<DashboardPane>();
-        var options = pane.FindAll("[data-testid='dashboard-repository-filter'] option");
 
-        Assert.Equal(3, options.Count);
-        Assert.Equal("All repositories", options[0].TextContent);
-        Assert.Contains(options, option => option.TextContent == "JSdotNet/backlog");
-        Assert.Contains(options, option => option.TextContent == "JSdotNet/backlog-ide");
+        Assert.Empty(pane.FindAll("[data-testid='dashboard-repository-filter']"));
+        Assert.DoesNotContain("All repositories", pane.Markup, StringComparison.Ordinal);
+        Assert.All(productivity.Scopes, scope => Assert.True(scope.IsAllRepositories));
     }
 
     /// <summary>
-    /// Choosing a repository has to reach the parts, or the filter is a control that
-    /// silently drives half a page — which is the usual way a dashboard goes stale.
+    /// The repository handed in has to reach the parts, or the header's scope is a
+    /// control that silently drives half a page — which is the usual way a dashboard
+    /// goes stale.
     /// </summary>
     [Fact]
     public void Focusing_a_repository_reaches_the_productivity_parts()
@@ -134,9 +142,49 @@ public class DashboardPaneTests
             services.AddSingleton<IProductivityInsights>(productivity));
 
         var pane = context.Render<DashboardPane>();
-        pane.Find("[data-testid='dashboard-repository-filter'] select").Change("backlog-ide");
+        FocusRepository(pane, "backlog-ide");
 
-        Assert.Contains("backlog-ide", productivity.Scopes.Select(scope => scope.RepositoryAlias));
+        Assert.Contains(productivity.Scopes, scope => scope.Repositories.Contains("backlog-ide") && !scope.IsAllRepositories);
+    }
+
+    /// <summary>
+    /// The header's scope holds several repositories at once, and the parts get the
+    /// whole set in the order it was taken — the anchor first, because the trend
+    /// holds that one up against the rest.
+    /// </summary>
+    [Fact]
+    public void Several_repositories_reach_the_parts_as_one_focus_in_the_order_taken()
+    {
+        var productivity = new RecordingProductivityInsights();
+
+        using var context = Context(configure: services =>
+            services.AddSingleton<IProductivityInsights>(productivity));
+
+        var pane = context.Render<DashboardPane>();
+        FocusRepository(pane, "backlog-ide", "backlog");
+
+        var focus = productivity.Scopes[^1].Repositories;
+        Assert.Equal(["backlog-ide", "backlog"], focus.Aliases);
+        Assert.Equal("backlog-ide", focus.Anchor);
+    }
+
+    /// <summary>
+    /// A cleared scope is an empty list, and the pane reads it as all repositories
+    /// rather than as a focus on nothing.
+    /// </summary>
+    [Fact]
+    public void An_empty_scope_reads_as_all_repositories()
+    {
+        var productivity = new RecordingProductivityInsights();
+
+        using var context = Context(configure: services =>
+            services.AddSingleton<IProductivityInsights>(productivity));
+
+        var pane = context.Render<DashboardPane>();
+        FocusRepository(pane, "backlog-ide");
+        FocusRepository(pane);
+
+        Assert.True(productivity.Scopes[^1].IsAllRepositories);
     }
 
     /// <summary>
@@ -154,7 +202,7 @@ public class DashboardPaneTests
         var pane = context.Render<DashboardPane>();
         var afterFirstRender = costs.Calls;
 
-        pane.Find("[data-testid='dashboard-repository-filter'] select").Change("backlog-ide");
+        FocusRepository(pane, "backlog-ide");
 
         Assert.Equal(afterFirstRender, costs.Calls);
     }
@@ -173,7 +221,7 @@ public class DashboardPaneTests
         var cost = pane.Find("[data-testid='dashboard-cost']");
 
         Assert.Contains(
-            "neither the repository filter nor the machine filter above changes anything in this section",
+            "neither the repository scope in the header nor the machine filter above changes anything in this section",
             Squashed(cost.TextContent),
             StringComparison.Ordinal);
     }
@@ -214,7 +262,7 @@ public class DashboardPaneTests
         // section used to give for it named the wrong assistant.
         Assert.Contains(
             "Only Copilot records a repository against a session, so filtering by one would hide "
-            + "Claude's half of the picture; the repository filter above does not change this section",
+            + "Claude's half of the picture; the repository scope in the header does not change this section",
             Squashed(sessions.TextContent),
             StringComparison.Ordinal);
     }
@@ -351,7 +399,7 @@ public class DashboardPaneTests
         var pane = context.Render<DashboardPane>();
         var afterFirstRender = sessions.Scopes.Count;
 
-        pane.Find("[data-testid='dashboard-repository-filter'] select").Change("backlog-ide");
+        FocusRepository(pane, "backlog-ide");
 
         Assert.Equal(afterFirstRender, sessions.Scopes.Count);
     }
@@ -1494,7 +1542,8 @@ public class DashboardPaneTests
         // Every control on the panel is accounted for, by name and then by count. The
         // count is the part that bites: a control added later without a reason lands
         // here rather than on screen unnoticed.
-        Assert.Single(pane.FindAll("[data-testid='dashboard-repository-filter'] select"));
+        // No repository select: the header's scope is the repository control.
+        Assert.Empty(pane.FindAll("[data-testid='dashboard-repository-filter']"));
         Assert.Single(pane.FindAll("[data-testid='dashboard-machine-filter'] select"));
         Assert.Equal(2, pane.FindAll("[data-testid='dashboard-window-filter'] button").Count);
         Assert.Equal(8, pane.FindAll("[data-testid$='-refresh']").Count);
@@ -1502,8 +1551,8 @@ public class DashboardPaneTests
 
         var controls = pane.FindAll("button, select, input, textarea");
 
-        // One close, two filter selects, two window buttons, eight refreshes.
-        Assert.Equal(1 + 2 + 2 + 8, controls.Count);
+        // One close, one filter select, two window buttons, eight refreshes.
+        Assert.Equal(1 + 1 + 2 + 8, controls.Count);
     }
 
     /// <summary>
@@ -1519,14 +1568,14 @@ public class DashboardPaneTests
             services.AddSingleton<IProductivityInsights>(productivity));
 
         var first = context.Render<DashboardPane>();
-        first.Find("[data-testid='dashboard-repository-filter'] select").Change("backlog-ide");
+        first.Find("[data-testid='dashboard-machine-filter'] select").Change(DashboardTestHost.MachineId);
 
         productivity.Scopes.Clear();
 
         var second = context.Render<DashboardPane>();
         _ = second;
 
-        Assert.All(productivity.Scopes, scope => Assert.True(scope.IsAllRepositories));
+        Assert.All(productivity.Scopes, scope => Assert.True(scope.IsAllMachines));
     }
 
     [Fact]
@@ -1574,6 +1623,12 @@ public class DashboardPaneTests
         SectionHeaderAdoptionTests.AssertPaneHeaderActions(header, "dashboard-panel");
         Assert.NotNull(header.QuerySelector(".dashboard-panel__header-actions button"));
     }
+
+    /// <summary>What the shell does when a scope chip is pressed: hands the pane its
+    /// scope through the parameter. The pane has no control of its own to press,
+    /// which is the point of these tests going through the parameter.</summary>
+    private static void FocusRepository(IRenderedComponent<DashboardPane> pane, params string[] aliases) =>
+        pane.Render(parameters => parameters.Add(p => p.RepositoryAliases, aliases));
 
     private static BunitContext Context(Action<IServiceCollection>? configure = null)
     {

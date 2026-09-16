@@ -126,7 +126,7 @@ public class ProductivityInsightsTests
         var source = new StubActivitySource();
         var insights = Insights(source);
 
-        _ = await insights.GetHeadlineAsync(new DashboardScope("backlog-ide"), TestContext.Current.CancellationToken);
+        _ = await insights.GetHeadlineAsync(new DashboardScope(RepositoryFocus.Of("backlog-ide")), TestContext.Current.CancellationToken);
 
         var asked = Assert.Single(source.Requested);
         Assert.Equal("backlog-ide", asked.Alias);
@@ -142,7 +142,7 @@ public class ProductivityInsightsTests
         var source = new StubActivitySource();
         var insights = Insights(source);
 
-        _ = await insights.GetHeadlineAsync(new DashboardScope("deleted-repo"), TestContext.Current.CancellationToken);
+        _ = await insights.GetHeadlineAsync(new DashboardScope(RepositoryFocus.Of("deleted-repo")), TestContext.Current.CancellationToken);
 
         Assert.Empty(source.Requested);
     }
@@ -275,7 +275,7 @@ public class ProductivityInsightsTests
 
         // A different focus is a different question — a repository's own record is
         // not the estate's — so it does go out again.
-        _ = await insights.GetScoreAsync(new DashboardScope("backlog-ide"), TestContext.Current.CancellationToken);
+        _ = await insights.GetScoreAsync(new DashboardScope(RepositoryFocus.Of("backlog-ide")), TestContext.Current.CancellationToken);
 
         Assert.Equal(2, baseline.Calls);
     }
@@ -419,7 +419,7 @@ public class ProductivityInsightsTests
         var sessions = new StubSessionInsights { Sessions = 40, PerWeek = PerWeek() };
 
         var score = await Insights(new StubActivitySource(), sessions: sessions)
-            .GetScoreAsync(new DashboardScope("backlog-ide"), TestContext.Current.CancellationToken);
+            .GetScoreAsync(new DashboardScope(RepositoryFocus.Of("backlog-ide")), TestContext.Current.CancellationToken);
 
         Assert.Empty(sessions.Scopes);
         Assert.DoesNotContain(score.Value!.Inputs, input => input.Label == "Assistant sessions");
@@ -463,7 +463,7 @@ public class ProductivityInsightsTests
         };
 
         var trend = await Insights(source)
-            .GetTrendAsync(new DashboardScope("backlog-ide"), TestContext.Current.CancellationToken);
+            .GetTrendAsync(new DashboardScope(RepositoryFocus.Of("backlog-ide")), TestContext.Current.CancellationToken);
 
         Assert.True(trend.HasValue);
         Assert.Equal(3, trend.Value!.ByRepository.Count);

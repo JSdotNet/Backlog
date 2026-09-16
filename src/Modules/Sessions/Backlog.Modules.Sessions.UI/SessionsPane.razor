@@ -15,7 +15,8 @@
     Like the tools pane, it owns its own loading: the list is the pane's subject, and
     a shell holding it would be holding state about a context it only makes room for.
     The shell decides *whether* there is a sessions pane — the feature flag and the
-    header toggle stay there — and this decides what is in one.
+    tab it opens on, beside the dashboard's overview, stay there — and this decides
+    what is in one.
 
     Two things this pane deliberately is not:
 
@@ -52,6 +53,19 @@
     and it is named and ordered the way Group by environment names and orders its
     sections — the same derivation, so the two cannot disagree. Like Show, it comes
     back to "All machines" on every open.
+
+    The shell's repository scope reaches this list too — the same chips that narrow
+    the task list and the dashboard's overview — and it is the one filter this pane
+    does not own a control for, because the control is in the header. It is a
+    subtraction with a cost the other filters do not have: only a session whose
+    agent recorded its repository can be matched to one, and Claude records none
+    (see .domain/sessions — a repository read off a folder path is a guess, and the
+    log never fills a gap the agent left). So a scoped list holds Copilot's sessions
+    and the replicated ones that arrived with an alias, and says so on the subtitle
+    rather than letting a reader conclude Claude ran nothing. What a recorded
+    repository is called on the wire — an owner/name, or an alias — is the shell's
+    to resolve, which is why the mapping is handed in beside the scope the way the
+    hue is.
 
     Two subtractions, two lines, and they must not be confused for each other. The
     subtitle says what the *reading* left out — the cap, and its numbers are the
@@ -384,6 +398,24 @@
     public Func<string?, int?>? RepositoryColour { get; set; }
 
     /// <summary>
+    /// The repositories the shell has scoped, by alias, in the order taken; empty
+    /// for all of them. Read on every render: the chips can move while the list is
+    /// open, and the list follows them the way the dashboard's parts do.
+    /// </summary>
+    [Parameter]
+    public IReadOnlyList<string> RepositoryScope { get; set; } = [];
+
+    /// <summary>
+    /// What a session's recorded repository is called here — the configured alias
+    /// for an <c>owner/name</c> or for an alias that arrived on the wire, or null
+    /// for a repository this workspace does not know and for a session that
+    /// recorded none. The shell's to answer, for the reason <see cref="RepositoryColour"/>
+    /// is: the pane knows nothing about the repository list and should not have to.
+    /// </summary>
+    [Parameter]
+    public Func<string?, string?>? RepositoryAlias { get; set; }
+
+    /// <summary>
     /// The repository cell, plus its identity mark when the host placed it.
     /// <para>
     /// On the cell that names the repository rather than down the whole row: a row
@@ -502,12 +534,31 @@
     /// <summary>The rows the filters admit, before any grouping. Environment, then
     /// view, then grouping: neither narrowing reorders, so which of the two goes first
     /// changes nothing, and the grouping never sees what either left out.</summary>
+    /// <summary>Whether the header has narrowed the list to some repositories.</summary>
+    private bool Scoped => RepositoryScope.Count > 0;
+
+    private string ScopeLabel => string.Join(", ", RepositoryScope);
+
+    /// <summary>A session in the scope: one whose recorded repository the shell
+    /// resolves to a scoped alias. Without a recorded repository there is nothing
+    /// to resolve, and the session is out — an absence, not a guess.</summary>
+    private bool InScope(AgentSession session) =>
+        !Scoped
+        || (RepositoryAlias?.Invoke(session.Repository) is { } alias
+            && RepositoryScope.Contains(alias, StringComparer.OrdinalIgnoreCase));
+
+    /// <summary>The catalog after the header's scope and before this pane's own
+    /// filters: the scope decides which rows exist here at all, the way it does on
+    /// the task list.</summary>
+    private IReadOnlyList<AgentSession> ScopedSessions =>
+        Scoped ? [.. _catalog.Sessions.Where(InScope)] : _catalog.Sessions;
+
     private IReadOnlyList<AgentSession> Visible =>
-        AgentSessionViews.Of(AgentSessionEnvironments.On(_catalog.Sessions, _environmentId), _view);
+        AgentSessionViews.Of(AgentSessionEnvironments.On(ScopedSessions, _environmentId), _view);
 
     /// <summary>How many sessions the chosen environment has a record of, whatever
     /// the view. The number the empty state offers a reader as the way back out.</summary>
-    private int OnEnvironment => AgentSessionEnvironments.On(_catalog.Sessions, _environmentId).Count;
+    private int OnEnvironment => AgentSessionEnvironments.On(ScopedSessions, _environmentId).Count;
 
     /// <summary>
     /// The sections to render, derived from the module's own grouping rather than
@@ -553,9 +604,22 @@
     /// The badge is where the view's own subtraction is reported.
     /// </para>
     /// </summary>
-    private string Subtitle => _catalog.Capped
-        ? $"The {Total} most recent of {_catalog.Discovered} sessions this PC has a record of, most recently active first."
-        : "The sessions this PC has a record of, most recently active first.";
+    /// <summary>The reading's own line, plus — while the header has narrowed the
+    /// list — the one thing about that narrowing a reader cannot see from the
+    /// rows: why the Claude sessions are not among them.</summary>
+    private string Subtitle
+    {
+        get
+        {
+            var reading = _catalog.Capped
+                ? $"The {Total} most recent of {_catalog.Discovered} sessions this PC has a record of, most recently active first."
+                : "The sessions this PC has a record of, most recently active first.";
+
+            return Scoped
+                ? $"{reading} Narrowed to {ScopeLabel}: a session whose agent recorded no repository is left out, and Claude records none."
+                : reading;
+        }
+    }
 
     /// <summary>
     /// Nothing on this machine, or nothing this view admits — two different facts,
@@ -564,9 +628,11 @@
     /// </summary>
     private string EmptyMessage => Total == 0
         ? "No sessions on this PC."
-        : EnvironmentName is null
-            ? "No live sessions right now."
-            : $"No live sessions on {EnvironmentName} right now.";
+        : Scoped && ScopedSessions.Count == 0
+            ? $"No sessions in {ScopeLabel}."
+            : EnvironmentName is null
+                ? "No live sessions right now."
+                : $"No live sessions on {EnvironmentName} right now.";
 
     /// <summary>The description names both states out loud, and names the way back
     /// out. "Live" in the title above is only checkable if the sentence under it
@@ -581,13 +647,17 @@
     /// </para></summary>
     private string EmptyDescription => Total == 0
         ? "Neither Claude nor Copilot has left a session record in this profile yet."
+        : Scoped && ScopedSessions.Count == 0
+            ? "Only a session whose agent recorded its repository can be matched to the scope, and Claude records none. Clear the repository scope in the header to see every session."
         : EnvironmentName is null
-            ? Total == 1
-                ? $"Nothing is running or stalled on this PC. Choose {AllLabel} to see the 1 session it has a record of."
-                : $"Nothing is running or stalled on this PC. Choose {AllLabel} to see the {Total} sessions it has a record of."
-            : OnEnvironment == 1
-                ? $"Nothing on {EnvironmentName} is running or stalled. Choose {AllLabel} to see the 1 session recorded there."
-                : $"Nothing on {EnvironmentName} is running or stalled. Choose {AllLabel} to see the {OnEnvironment} sessions recorded there.";
+            ? Scoped
+                // The way back names the scoped count, not the catalog's: the
+                // other view brings back the sessions in scope and no more.
+                ? $"Nothing in {ScopeLabel} is running or stalled. Choose {AllLabel} to see the {SessionCount(ScopedSessions.Count)} recorded there."
+                : $"Nothing is running or stalled on this PC. Choose {AllLabel} to see the {SessionCount(Total)} it has a record of."
+            : $"Nothing on {EnvironmentName} is running or stalled. Choose {AllLabel} to see the {SessionCount(OnEnvironment)} recorded there.";
+
+    private static string SessionCount(int count) => count == 1 ? "1 session" : $"{count} sessions";
 
     /// <summary>The other view's own word, read from the module rather than written
     /// out here. This is the one sentence in the product that names a view in prose,

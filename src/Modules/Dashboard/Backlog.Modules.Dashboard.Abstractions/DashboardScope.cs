@@ -16,7 +16,7 @@ public enum DashboardPeriod
 }
 
 /// <summary>
-/// What the dashboard is currently looking at: one repository or all of them, one
+/// What the dashboard is currently looking at: some repositories or all of them, one
 /// machine or all of them, over one of the two windows.
 /// <para>
 /// This is query state, not a preference. Nothing persists it — closing the
@@ -24,12 +24,17 @@ public enum DashboardPeriod
 /// there is no saved arrangement to get out of step with the code.
 /// </para>
 /// <para>
-/// <see cref="RepositoryAlias"/> is null for "all repositories" and
-/// <see cref="MachineId"/> is null for "all machines". A null is the absence of a
-/// focus rather than a special repository or machine called all, so a part that
-/// scopes by one of them can branch on it and a part that cannot scope at all —
-/// every cost part, and every GitHub-backed part where the machine is concerned —
-/// can ignore it without pretending.
+/// <see cref="Repositories"/> is <see cref="RepositoryFocus.All"/> for "all
+/// repositories" and <see cref="MachineId"/> is null for "all machines". Each is
+/// the absence of a focus rather than a special repository or machine called all,
+/// so a part that scopes by one of them can branch on it and a part that cannot
+/// scope at all — every cost part, and every GitHub-backed part where the machine
+/// is concerned — can ignore it without pretending.
+/// </para>
+/// <para>
+/// The repositories are a set, not one alias, because the focus is the shell's
+/// repository scope and that scope takes several at once. A part that can only
+/// name one takes the set's anchor.
 /// </para>
 /// <para>
 /// The two focuses are independent and neither part of the surface honours both.
@@ -40,12 +45,11 @@ public enum DashboardPeriod
 /// </para>
 /// <para>
 /// <see cref="MachineId"/> is appended last on purpose: it keeps every existing
-/// positional construction — <c>new DashboardScope("backlog-ide")</c> — meaning what
-/// it already meant.
+/// positional construction meaning what it already meant.
 /// </para>
 /// </summary>
 public sealed record DashboardScope(
-    string? RepositoryAlias = null,
+    RepositoryFocus? Repositories = null,
     DashboardPeriod Period = DashboardPeriod.TwelveWeeks,
     string? MachineId = null)
 {
@@ -53,8 +57,12 @@ public sealed record DashboardScope(
     /// quarter.</summary>
     public static DashboardScope Default { get; } = new();
 
-    /// <summary>True when no single repository is in focus.</summary>
-    public bool IsAllRepositories => string.IsNullOrWhiteSpace(RepositoryAlias);
+    /// <summary>The repositories in focus. Never null: a caller that passes none
+    /// gets <see cref="RepositoryFocus.All"/>, so "not narrowed" has one spelling.</summary>
+    public RepositoryFocus Repositories { get; init; } = Repositories ?? RepositoryFocus.All;
+
+    /// <summary>True when no repository is in focus.</summary>
+    public bool IsAllRepositories => Repositories.IsAll;
 
     /// <summary>True when no single machine is in focus.</summary>
     public bool IsAllMachines => string.IsNullOrWhiteSpace(MachineId);
