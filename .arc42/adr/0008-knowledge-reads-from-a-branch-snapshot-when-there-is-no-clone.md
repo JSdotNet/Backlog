@@ -13,10 +13,11 @@ Proposed.
 > **Amended 2026-09-15: Knowledge → Devbook.** The context and module this record
 > is about were renamed, and with them the code it names (`KnowledgeSnapshotCache`
 > → `DevbookSnapshotCache`, `knowledgeBranch` → `devbookBranch`,
-> `useLocalKnowledgeFolder` → `useLocalDevbookFolder`, `knowledge-cache` →
-> `devbook-cache`, each with a read fallback for the old persisted value). The
-> decision is unchanged, and the file name is kept so that `ADR 0008` citations in
-> code stay true.
+> `useLocalKnowledgeFolder` → `useLocalDevbookFolder`, each with a read fallback
+> for the old persisted value; the default cache folder `knowledge-cache` →
+> `devbook-cache` with no fallback — snapshots are disposable and are fetched
+> again into the new folder). The decision is unchanged, and the file name is
+> kept so that `ADR 0008` citations in code stay true.
 
 > **Amended 2026-09-16: the cache defaults under the storage folder.** The
 > decision below said the cache location "defaults beside the per-user settings

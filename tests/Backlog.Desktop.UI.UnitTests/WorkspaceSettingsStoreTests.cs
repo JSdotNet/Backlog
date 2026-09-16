@@ -441,6 +441,25 @@ public sealed class WorkspaceSettingsStoreTests : IDisposable
     }
 
     /// <summary>
+    /// A <c>knowledge-cache</c> left over from before the rename does not pull the
+    /// default back to the old name: snapshots are disposable and get fetched again
+    /// into <c>devbook-cache</c>. The old folder is left for its owner to delete.
+    /// </summary>
+    [Fact]
+    public void A_cache_folder_from_before_the_rename_is_ignored()
+    {
+        var appData = TempDir();
+        Directory.CreateDirectory(Path.Combine(appData, "knowledge-cache"));
+
+        var store = new WorkspaceSettingsStore(appData, Path.Combine(appData, "settings.json"));
+
+        Assert.Equal(Path.Combine(store.RootDirectory, "devbook-cache"), store.DefaultDevbookCacheDirectory);
+        Assert.Equal(store.DefaultDevbookCacheDirectory, store.DevbookCacheDirectory);
+        Assert.True(store.IsDefaultDevbookCacheDirectory);
+        Assert.True(Directory.Exists(Path.Combine(appData, "knowledge-cache")));
+    }
+
+    /// <summary>
     /// The half of R9 the corrected copy does not reach. The instruction that put
     /// somebody's backlog on OneDrive is gone from the Storage screen, but a root
     /// already inside a synced folder stays there until somebody moves it — so the
