@@ -1,0 +1,57 @@
+@page "/dev/unhandled-error"
+@using Backlog.UI.Components.Buttons
+@using Backlog.UI.Components.Layout
+
+@*
+    A page whose only purpose is to break, so the app's error screen can be
+    reached on purpose. The shipped app has no route that throws on request —
+    and should not — which is why this lives in the harness and reaches the
+    router only through the assembly App.razor hands over.
+
+    Two ways to fail, because the boundary treats them differently. A handler
+    that throws is the ordinary case: the page is fine until a click, and
+    "Try again" brings it straight back. A page that throws while rendering is
+    the one an error boundary has to be careful with — every attempt to draw it
+    fails again — so "Try again" lands back on the error screen and "Go to Home"
+    is the way out. The render failure is asked for with a query string so that
+    the page can still be opened normally.
+*@
+
+<PageTitle>Unhandled error sample</PageTitle>
+
+<div class="shell">
+    <SectionHeader Title="Unhandled error sample" />
+
+    <p>
+        Development-only. Each control below throws an exception the page does not
+        handle, which is what the app's error screen exists to catch.
+    </p>
+
+    <ButtonGroup>
+        <AppButton TestId="sample-throw-handler" OnClick="ThrowFromHandler">Throw from a click handler</AppButton>
+        <AppButton TestId="sample-throw-async" OnClick="ThrowFromAsyncHandler">Throw after an await</AppButton>
+        <AppButton TestId="sample-throw-render" OnClick="@(() => Navigation.NavigateTo("/dev/unhandled-error?render=throw"))">Throw while rendering</AppButton>
+    </ButtonGroup>
+
+    @if (Render == "throw")
+    {
+        throw new InvalidOperationException("The sample page threw while rendering.");
+    }
+</div>
+
+@code {
+    [Inject]
+    private NavigationManager Navigation { get; set; } = default!;
+
+    [SupplyParameterFromQuery(Name = "render")]
+    public string? Render { get; set; }
+
+    private static void ThrowFromHandler() =>
+        throw new InvalidOperationException("The sample page threw from a click handler.");
+
+    private static async Task ThrowFromAsyncHandler()
+    {
+        await Task.Yield();
+        throw new InvalidOperationException("The sample page threw after an await.");
+    }
+}
