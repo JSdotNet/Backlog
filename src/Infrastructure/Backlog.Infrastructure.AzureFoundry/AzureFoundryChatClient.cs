@@ -46,6 +46,16 @@ public sealed class AzureFoundryChatClient(HttpClient httpClient, AzureFoundrySe
     /// shows it as the disabled control's reason, so the two cannot disagree.</summary>
     internal const string PlanNotConfiguredMessage = "Configure Azure Foundry in Settings to create plans.";
 
+    /// <summary>The sentence a request fails with when no answer came back in
+    /// time — the pipeline's timeout and HttpClient's own read the same to the
+    /// person asking. Shared with the Inbox's drafter, which keeps a catch of
+    /// its own for a client that is not this one.</summary>
+    internal const string TimedOutMessage = "Azure Foundry did not answer before the request timed out.";
+
+    /// <summary>The sentence for an endpoint that could not be reached at all,
+    /// with the transport's own words after it: refused, unresolved, reset.</summary>
+    internal static string CouldNotReachMessage(string detail) => $"Could not reach Azure Foundry: {detail}";
+
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     public async Task<AzureFoundryChatResponse> AskAsync(AzureFoundryChatRequest request, CancellationToken cancellationToken = default)
@@ -149,21 +159,33 @@ public sealed class AzureFoundryChatClient(HttpClient httpClient, AzureFoundrySe
         return answer.Trim();
     }
 
-    /// <summary>The send, with the one failure the pipeline throws in its own
-    /// words translated. Its budget (<see cref="AzureFoundryRegistration"/>
-    /// sets it) running out is Polly's exception, not the cancellation
-    /// HttpClient's own timeout would be; a slow answer is one of the ways a
-    /// completion fails, so it is translated here beside the other failures
-    /// rather than caught by every caller.</summary>
+    /// <summary>The send, with the transport's failures translated into this
+    /// client's, so a caller catching <see cref="AzureFoundryException"/> has
+    /// caught every way an answer fails to be one. Three exceptions stand for
+    /// "no answer": the endpoint could not be reached at all; the pipeline's
+    /// budget (<see cref="AzureFoundryRegistration"/> sets it) ran out, which
+    /// Polly reports as its own exception rather than as a cancellation; and
+    /// HttpClient's own timeout, which is a cancellation on a token the caller
+    /// never cancelled. The first Polly one to reach a page handler written for
+    /// the other two took the whole page down to the error boundary. A genuine
+    /// caller cancellation is not a bad answer and travels as itself.</summary>
     private async Task<HttpResponseMessage> SendAsync(HttpRequestMessage httpRequest, CancellationToken cancellationToken)
     {
         try
         {
             return await httpClient.SendAsync(httpRequest, cancellationToken).ConfigureAwait(false);
         }
-        catch (TimeoutRejectedException)
+        catch (HttpRequestException ex)
         {
-            throw new AzureFoundryException("Azure Foundry did not answer before the request timed out.");
+            throw new AzureFoundryException(CouldNotReachMessage(ex.Message), ex);
+        }
+        catch (TimeoutRejectedException ex)
+        {
+            throw new AzureFoundryException(TimedOutMessage, ex);
+        }
+        catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new AzureFoundryException(TimedOutMessage, ex);
         }
     }
 
@@ -215,6 +237,13 @@ public sealed class AzureFoundryException : Exception
 {
     public AzureFoundryException(string message)
         : base(message)
+    {
+    }
+
+    /// <summary>A transport failure in this client's words, with the transport's
+    /// own exception kept underneath for a log to read.</summary>
+    public AzureFoundryException(string message, Exception innerException)
+        : base(message, innerException)
     {
     }
 }

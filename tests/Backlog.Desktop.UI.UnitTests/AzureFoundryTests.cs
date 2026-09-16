@@ -171,7 +171,70 @@ public sealed class AzureFoundryChatClientTests : IDisposable
         var ex = await Assert.ThrowsAsync<AzureFoundryException>(() =>
             client.AskAsync(new AzureFoundryChatRequest("content", "question"), TestContext.Current.CancellationToken));
 
-        Assert.Contains("timed out", ex.Message);
+        Assert.Equal("Azure Foundry did not answer before the request timed out.", ex.Message);
+        Assert.IsType<TimeoutRejectedException>(ex.InnerException);
+    }
+
+    /// <summary>Same failure on the plan route: both calls complete through
+    /// the one method, so a translation that covered only the question would
+    /// leave the Inbox's plan button with the exception the page just lost.</summary>
+    [Fact]
+    public async Task A_pipeline_timeout_on_a_plan_request_is_reported_as_a_foundry_failure()
+    {
+        var client = BuildConfiguredClient(new RecordingHandler(_ =>
+            throw new TimeoutRejectedException("The operation didn't complete within the allowed timeout of '00:00:30'.")));
+
+        var ex = await Assert.ThrowsAsync<AzureFoundryException>(() =>
+            client.DraftPlanAsync(new AzureFoundryPlanRequest("Fix the login page", "", null, "text", [], [], "fix-login"), TestContext.Current.CancellationToken));
+
+        Assert.Equal("Azure Foundry did not answer before the request timed out.", ex.Message);
+    }
+
+    /// <summary>HttpClient's own timeout is a cancellation on a token the caller
+    /// never cancelled. That is the same bad answer in a different exception.</summary>
+    [Fact]
+    public async Task The_clients_own_timeout_is_reported_as_a_foundry_failure_when_the_caller_did_not_cancel()
+    {
+        var client = BuildConfiguredClient(new RecordingHandler(_ =>
+            throw new TaskCanceledException("The request was canceled due to the configured HttpClient.Timeout of 100 seconds elapsing.")));
+        using var callerCancellation = new CancellationTokenSource();
+
+        var ex = await Assert.ThrowsAsync<AzureFoundryException>(() =>
+            client.AskAsync(new AzureFoundryChatRequest("content", "question"), callerCancellation.Token));
+
+        Assert.Equal("Azure Foundry did not answer before the request timed out.", ex.Message);
+    }
+
+    /// <summary>The endpoint could not be reached at all: refused, unresolved,
+    /// reset. HttpClient throws rather than answering, and the caller hears it
+    /// in the same exception as every other refusal.</summary>
+    [Fact]
+    public async Task An_unreachable_endpoint_is_reported_as_a_foundry_failure()
+    {
+        var client = BuildConfiguredClient(new RecordingHandler(_ =>
+            throw new HttpRequestException("No connection could be made because the target machine actively refused it.")));
+
+        var ex = await Assert.ThrowsAsync<AzureFoundryException>(() =>
+            client.AskAsync(new AzureFoundryChatRequest("content", "question"), TestContext.Current.CancellationToken));
+
+        Assert.Equal("Could not reach Azure Foundry: No connection could be made because the target machine actively refused it.", ex.Message);
+        Assert.IsType<HttpRequestException>(ex.InnerException);
+    }
+
+    /// <summary>The caller's own cancellation is not dressed up as a failed
+    /// answer: it propagates so whoever asked can tell they stopped it.</summary>
+    [Fact]
+    public async Task The_callers_cancellation_propagates_through_the_transport()
+    {
+        using var callerCancellation = new CancellationTokenSource();
+        var client = BuildConfiguredClient(new RecordingHandler(_ =>
+        {
+            callerCancellation.Cancel();
+            throw new OperationCanceledException(callerCancellation.Token);
+        }));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            client.AskAsync(new AzureFoundryChatRequest("content", "question"), callerCancellation.Token));
     }
 
     /// <summary>The plan request travels the same route with the same header as
