@@ -235,6 +235,8 @@ public sealed class FeedbackDialogTests
 
     private sealed class RecordingGitHubClient : IGitHubClient
     {
+        public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
         public string? CreatedTitle { get; private set; }
         public string? CreatedBody { get; private set; }
         public string? UploadedPath { get; private set; }

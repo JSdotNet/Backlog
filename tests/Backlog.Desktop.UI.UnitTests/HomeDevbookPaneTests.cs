@@ -17,14 +17,14 @@ public sealed class HomeDevbookPaneTests
         harness.Context.JSInterop.Mode = JSRuntimeMode.Loose;
 
         var component = harness.Context.Render<Home>();
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='devbook-pane-option']")));
 
-        // Waited for rather than found: the pane option and the repository chips
-        // are gated on different things — the option on which knowledge areas are
-        // visible, the chips on the repositories the shared state loads — so the
-        // option being on screen says nothing about the chip beside it.
-        component.WaitForElement("[data-testid='repository-filter-option']").Click();
-        var devbookButton = component.Find("[data-testid='devbook-pane-option']");
+        // The option is offered only once a repository is scoped: a devbook
+        // belongs to a repository, and the storage folder is never read as one.
+        component.WaitForElement("[data-testid='repository-filter-option']");
+        Assert.Empty(component.FindAll("[data-testid='devbook-pane-option']"));
+
+        component.Find("[data-testid='repository-filter-option']").Click();
+        var devbookButton = component.WaitForElement("[data-testid='devbook-pane-option']");
         devbookButton.Click();
 
         component.WaitForAssertion(() =>
@@ -160,6 +160,8 @@ public sealed class HomeDevbookPaneTests
 
     private sealed class StubGitHubClient : IGitHubClient
     {
+        public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
         public Task<GitHubIssue> CreateIssueAsync(
             GitHubRepositoryRef repository,
             string title,

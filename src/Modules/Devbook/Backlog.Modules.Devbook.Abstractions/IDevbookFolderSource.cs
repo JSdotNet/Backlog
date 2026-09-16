@@ -4,20 +4,21 @@ namespace Backlog.Modules.Devbook.Abstractions;
 /// Answers "where does this knowledge area live right now?" for a repository
 /// scope, and "which folders are configured for that scope?".
 /// <para>
-/// The answer is stitched together from two settings files — a repository's
-/// configured folders when a scope is named, the local storage folder's when one
-/// is not — and stitching them is exactly what Devbook must not have to
-/// know. Reaching for the backlog's root store to find out would make this
+/// The answer comes from the repository settings and from wherever a branch
+/// snapshot is cached, and knowing either is exactly what Devbook must not have
+/// to. Reaching for the backlog's root store to find out would make this
 /// context depend on Tasks, which <c>.domain/context-map.md</c>
 /// calls a Partnership that coordinates by id rather than by reaching across.
 /// The adapter that implements this port sees both; the panels see only this.
+/// An unscoped question — no repository alias — is answered with no folders and
+/// a location that says to pick one, unless the composition chose a fallback.
 /// </para>
 /// </summary>
 public interface IDevbookFolderSource
 {
-    /// <summary>Raised when a folder, a repository or the storage root moves, or
-    /// when a folder's content was replaced under it, so open panels can
-    /// reload.</summary>
+    /// <summary>Raised when a folder or a repository moves, when the snapshot
+    /// cache does, or when a folder's content was replaced under it, so open
+    /// panels can reload.</summary>
     event Action? Changed;
 
     /// <summary>
@@ -35,13 +36,8 @@ public interface IDevbookFolderSource
     /// </summary>
     void NotifyContentChanged();
 
-    /// <summary>Where the folders resolve against when no repository is scoped.
-    /// A panel needs it to present the storage folder as a source alongside the
-    /// configured repositories; it is a path and nothing more.</summary>
-    string StorageDirectory { get; }
-
     /// <summary>The configured folders for a scope: the repository's when one is
-    /// named, the storage folder's otherwise.</summary>
+    /// named, none otherwise.</summary>
     IReadOnlyList<DevbookFolderSetting> Folders(string? repositoryAlias);
 
     /// <summary>Where one area's folder is, or why it is not available.
@@ -168,15 +164,14 @@ public sealed record DevbookFolderLocation(
 /// </para>
 /// <para>
 /// <see cref="LocalFolder"/> is the default on <see cref="DevbookFolderLocation"/>
-/// so that every construction predating branch loading — the storage-folder
-/// scope, and the test fakes — keeps meaning what it meant: a real folder
-/// somebody may edit.
+/// so that every construction predating branch loading — the test fakes —
+/// keeps meaning what it meant: a real folder somebody may edit.
 /// </para>
 /// </summary>
 public enum DevbookSourceKind
 {
-    /// <summary>A working folder on this machine: a clone, or the storage folder.
-    /// Readable and writable.</summary>
+    /// <summary>A working folder on this machine: a clone. Readable and
+    /// writable.</summary>
     LocalFolder,
 
     /// <summary>A snapshot of a repository branch, fetched and cached. Readable

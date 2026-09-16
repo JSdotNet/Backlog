@@ -599,18 +599,21 @@ status: deprecated
 related: [.arc42/06-runtime-view.md#state-sync-and-webhook-forwarding, .domain/tasks/features.md#multi-device-sync, .arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md]
 ```
 
-Deprecated. Superseded by [Multi-device sync](#multi-device-sync).
+Deprecated, and removed from the product on 2026-09-16. Superseded by
+[Multi-device sync](#multi-device-sync).
 
-Automatically refresh when another process or device modifies the shared backlog,
-keeping changes synchronized across machines accessing the same data. Enable or
-disable this feature and configure the refresh interval in Settings → Storage.
+This automatically refreshed the backlog when another process or device modified
+the shared backlog file, and could be switched off or slowed down in Settings →
+Storage. Neither the setting nor the check exists any more.
 
-This was an interim mechanism, and it does not work. It assumes two machines can
+It was an interim mechanism, and it did not work. It assumed two machines could
 share one backlog through a shared folder, which was true while a task was its
 own markdown file and stopped being true when the store became a single binary
 database. Pointing the workspace root at a file-sync product produced conflicted
 copies of that database and silently reverted committed edits. Polling it more
-often does not help: the corruption is in the sharing, not in the staleness.
+often did not help: the corruption was in the sharing, not in the staleness.
+What the check also happened to do — show a synced change in the task list
+without reopening the app — is now done by the sync itself.
 
 ## Multi-device sync
 
@@ -628,7 +631,10 @@ of the tasks and never becomes the authority for them.
 
 Working offline is the ordinary case, not a degraded one. Every task can be
 created, edited, completed, and deleted with no connectivity; the only thing
-connectivity buys is that the other machine finds out sooner.
+connectivity buys is that the other machine finds out sooner. When it does, the
+task list shows what arrived without the app being reopened — except under an
+entry that is being edited, where the change waits until the editing is done
+rather than replacing the text under the caret.
 
 When the same task was edited in two places, the later edit wins whole. This is
 deliberate and it does lose the other edit — the alternative, merging field by
@@ -676,6 +682,34 @@ token and scoping every query to it, not one the cloud store enforces on its own
 **Deferred:** the owner's devices and outstanding pairing codes are held in
 memory rather than durably, so a restart of the sync service unpairs every
 device until the Cosmos-backed store lands.
+
+## Backup to a repository
+
+```meta
+type: feature
+related: [.domain/tasks/features.md#multi-device-sync, .domain/repository-management/features.md, .arc42/adr/0010-backup-is-the-database-committed-to-a-repository.md, .arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md]
+```
+
+Keep a copy of the backlog somewhere other than the machine it lives on, by
+committing it to a GitHub repository the person names. A backup is the whole
+backlog as one file — the same file the app reads — committed at a fixed place in
+that repository, so every earlier backup is in the repository's history and the
+newest is always at the same address. A backup that would commit exactly what the
+repository already holds is skipped rather than recorded as a change.
+
+Backups run on a schedule — every day at a time, or every week on a day at a
+time — and on demand from Settings → Storage, which also says when the last
+backup ran, whether it committed anything, and when the next one is due. A
+scheduled backup missed while the app was closed is taken shortly after the app
+next opens.
+
+A backup is one-way. Nothing about it ever changes the backlog on the machine:
+getting a backup back is a decision the person makes and carries out by hand,
+never something the app does on its own. That is what keeps a backup from
+becoming the shared-folder arrangement that
+[Refresh from shared storage](#refresh-from-shared-storage) records the cost of.
+It is also not [Multi-device sync](#multi-device-sync): a backup is a copy that
+leaves and stays behind, while sync is a live copy that comes back.
 
 ## Roadmap planning
 

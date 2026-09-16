@@ -64,3 +64,8 @@ public sealed record GitHubFeedbackScreenshot(
 
 /// <summary>A file committed to a repository through the Contents API.</summary>
 public sealed record GitHubUploadedFile(string Path, string DownloadUrl);
+
+/// <summary>The outcome of <see cref="IGitHubClient.CommitFileAsync"/>:
+/// <see cref="Committed"/> is false when GitHub already held these exact bytes
+/// and nothing was written. <see cref="Sha"/> is the blob's id either way.</summary>
+public sealed record GitHubCommittedFile(string Path, string Sha, bool Committed);

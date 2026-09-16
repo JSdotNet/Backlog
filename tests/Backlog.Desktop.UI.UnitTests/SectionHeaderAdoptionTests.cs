@@ -162,6 +162,8 @@ public sealed class SectionHeaderAdoptionTests
 
     private sealed class StubGitHubClient : IGitHubClient
     {
+        public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
         public Task<GitHubIssue> CreateIssueAsync(
             GitHubRepositoryRef repository,
             string title,

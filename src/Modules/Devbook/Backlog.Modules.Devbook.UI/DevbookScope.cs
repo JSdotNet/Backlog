@@ -10,9 +10,8 @@ namespace Backlog.Desktop.UI.Devbook;
 /// <para>
 /// The shell needs that answer to decide whether the Devbook option is worth
 /// offering at all, and it should not have to know that the answer comes from
-/// repository devbook-folder settings falling back to the storage folder.
-/// Asking Devbook a question is the boundary; computing it in the shell was
-/// the leak.
+/// repository devbook-folder settings. Asking Devbook a question is the
+/// boundary; computing it in the shell was the leak.
 /// </para>
 /// </summary>
 public sealed class DevbookScope(GitHubSettingsStore repositories, IDevbookFolderSource folders, IAppFeatureSettings features)
@@ -24,18 +23,23 @@ public sealed class DevbookScope(GitHubSettingsStore repositories, IDevbookFolde
         string.IsNullOrWhiteSpace(repositoryAlias) ? null : repositories.Current.Find(repositoryAlias);
 
     /// <summary>The knowledge folders in play: the repository's when one is
-    /// scoped, the storage folder's otherwise. Which of the two it is, and where
-    /// the storage folder is, is the port's business — this context never learns
-    /// that half the answer comes from where the backlog is kept.</summary>
+    /// scoped, none otherwise — a devbook belongs to a repository. The port
+    /// answers, so this context never learns where a snapshot is kept.</summary>
     public IReadOnlyList<DevbookFolderSetting> Folders(string? repositoryAlias) =>
         folders.Folders(repositoryAlias);
 
     /// <summary>The sections that actually have something behind them, or none
-    /// at all while Devbook sections are turned off.</summary>
-    public IReadOnlyList<DevbookArea> VisibleAreas(string? repositoryAlias) =>
-        features.IsEnabled(DevbookFeatures.DevbookSections)
-            ? DevbookAreaCatalog.VisibleAreas(Folders(repositoryAlias))
-            : [];
+    /// at all while Devbook sections are turned off — or while nothing is
+    /// scoped. The second case is asked here rather than left to the catalog,
+    /// because the catalog normalises whatever it is handed against the
+    /// defaults, and "no folders" would come back as "every folder".</summary>
+    public IReadOnlyList<DevbookArea> VisibleAreas(string? repositoryAlias)
+    {
+        if (!features.IsEnabled(DevbookFeatures.DevbookSections)) return [];
+
+        var folders = Folders(repositoryAlias);
+        return folders.Count == 0 ? [] : DevbookAreaCatalog.VisibleAreas(folders);
+    }
 
     /// <summary>
     /// Whether the pane offers to search this devbook.

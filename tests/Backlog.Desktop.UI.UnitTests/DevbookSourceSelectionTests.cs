@@ -36,10 +36,10 @@ public sealed class DevbookSourceSelectionTests : IDisposable
 
     // --- What it offers -------------------------------------------------------
 
-    /// <summary>The storage folder is nobody's repository and nobody's branch, so
-    /// the pane leaves the control out rather than showing one option.</summary>
+    /// <summary>No scope is nobody's repository and nobody's branch, so the pane
+    /// leaves the control out rather than showing one option.</summary>
     [Fact]
-    public void The_storage_scope_has_no_source_to_choose()
+    public void No_scope_has_no_source_to_choose()
     {
         var selection = Selection(Settings());
 

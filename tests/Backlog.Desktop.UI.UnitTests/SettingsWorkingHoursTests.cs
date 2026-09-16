@@ -193,8 +193,6 @@ public sealed class SettingsWorkingHoursTests
         var context = new BunitContext();
         context.Services.AddSingleton(store);
         context.Services.AddSingleton<IAppFeatureSettings>(features);
-        context.Services.AddSingleton<ITasksRefreshSettings>(
-            new TasksRefreshSettingsStore(Path.Combine(root, "refresh", "refresh.json")));
         context.Services.AddSingleton<IWorkingHoursSettings>(workingWeek);
         context.Services.AddSingleton<ICaptureSourceSettings>(
             new CaptureSourcesSettingsStore(Path.Combine(root, "capture", "capture-sources.json")));
@@ -211,6 +209,8 @@ public sealed class SettingsWorkingHoursTests
 
     private sealed class NoGitHub : IGitHubClient
     {
+        public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
         public Task<GitHubIssue> CreateIssueAsync(
             GitHubRepositoryRef repository,
             string title,

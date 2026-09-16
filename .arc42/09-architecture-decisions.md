@@ -137,10 +137,11 @@ related: [".arc42/04-solution-strategy.md"]
   JWT, not by the partition key: the managed identity is account-scoped and can see
   every partition.
   Also settles the local file name: it stays `backlog.db` on every device, because
-  a per-device name trades a visible failure for two silently divergent backlogs
-  and would disable the external-change polling the second machine currently
-  depends on. Detecting a root inside a sync provider's folder is the named
-  mitigation instead.
+  a per-device name trades a visible failure for two silently divergent backlogs.
+  Detecting a root inside a sync provider's folder is the named mitigation
+  instead. Amended on 2026-09-16: the external-change poll that record leaned on
+  for cross-device freshness is retired — the Storage tab warns against the shared
+  folder it watched, and a sync pull now reloads the Tasks pane directly.
 - **[ADR 0006 — Additive, idempotent bootstrapping is the local store's migration mechanism](adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md)**
   *(proposed)*: names the mechanism the SQLite adapter has been using unlabelled for
   three schema changes — additive `ALTER TABLE` guarded by `PRAGMA table_info`, plus
@@ -157,3 +158,18 @@ related: [".arc42/04-solution-strategy.md"]
   not a format of its own, so `EntryTextParser` stays the only grammar the product has
   to parse and a plan stays hand-editable. Upload and paste feed one path, and `after:`
   across a fresh batch is resolved by Import in two passes rather than by the parser.
+- **[ADR 0008 — The Devbook reads from a cached branch snapshot when there is no clone; only a clone is editable](adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md)**
+  *(proposed)*: a repository nobody has cloned is read from a cached snapshot of its
+  branch, fetched file by file as readers ask, and never edited there. Amended on
+  2026-09-16: the snapshot cache defaults under the storage folder rather than
+  beside the per-user settings, so a backlog moved to another disk takes it along;
+  the override stays.
+- **[ADR 0009 — Captures are a document kind on the replica; the desktop acknowledges by tombstone](adr/0009-captures-are-a-document-kind-on-the-replica.md)**
+  *(accepted)*: a phone capture is a task-shaped document with its own kind token in
+  the `tasks` container, and routing it on the desktop tombstones it there.
+- **[ADR 0010 — A backup is the database committed to a GitHub repository, one way, on a schedule](adr/0010-backup-is-the-database-committed-to-a-repository.md)**
+  *(accepted)*: one consistent copy of `backlog.db`, taken through SQLite's backup
+  API, replaces `backlog/backlog.db` on the named repository's default branch on a
+  daily or weekly schedule or on demand; an unchanged database makes no commit,
+  and nothing ever reads the repository back. The database and only the database,
+  because local ADR 0003 makes that the whole of the backlog.
