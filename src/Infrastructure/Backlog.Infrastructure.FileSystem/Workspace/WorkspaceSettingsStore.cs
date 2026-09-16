@@ -240,12 +240,6 @@ public sealed class WorkspaceSettingsStore
 
     private const string DevbookCacheFolderName = "devbook-cache";
 
-    /// <summary>The name the default cache folder had while the context was
-    /// called Knowledge. Still honoured as the default on a machine that has it
-    /// and no <see cref="DevbookCacheFolderName"/> beside it — see
-    /// <see cref="ResolveDefaultDevbookCacheDirectory"/>.</summary>
-    private const string LegacyDevbookCacheFolderName = "knowledge-cache";
-
     private const string ActivityCacheFolderName = "activity-cache";
 
     private const string SessionActivityCacheFolderName = "session-activity-cache";
@@ -612,28 +606,12 @@ public sealed class WorkspaceSettingsStore
     }
 
     /// <summary>
-    /// The folder branch snapshots go to when nobody has chosen one.
-    /// <para>
-    /// <c>devbook-cache</c>, except on a machine that already has a
-    /// <c>knowledge-cache</c> from before the rename and no <c>devbook-cache</c>
-    /// beside it — there the old folder stays the default. The snapshots inside
-    /// it are disposable, so nothing would be lost by starting a fresh folder;
-    /// what would be lost is the fetch that filled it, and a rename is not a
-    /// reason to re-download every registered repository's tree. Keeping the
-    /// old folder as the default also keeps
-    /// <see cref="IsDefaultDevbookCacheDirectory"/> true, so the settings screen
-    /// still shows the field empty rather than a path nobody typed. Once the old
-    /// folder is gone the new name takes over for good.
-    /// </para>
+    /// The folder branch snapshots go to when nobody has chosen one. A
+    /// <c>knowledge-cache</c> left over from before the rename is not looked at:
+    /// snapshots are disposable and are fetched again into the new folder.
     /// </summary>
-    private static string ResolveDefaultDevbookCacheDirectory(string appData)
-    {
-        var current = Path.Combine(appData, DevbookCacheFolderName);
-        if (Directory.Exists(current)) return current;
-
-        var legacy = Path.Combine(appData, LegacyDevbookCacheFolderName);
-        return Directory.Exists(legacy) ? legacy : current;
-    }
+    private static string ResolveDefaultDevbookCacheDirectory(string appData) =>
+        Path.Combine(appData, DevbookCacheFolderName);
 
     private string? SaveSettings(string saveFailureMessage)
     {

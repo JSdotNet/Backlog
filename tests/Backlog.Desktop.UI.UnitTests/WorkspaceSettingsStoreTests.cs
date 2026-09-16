@@ -367,27 +367,22 @@ public sealed class WorkspaceSettingsStoreTests : IDisposable
     }
 
     /// <summary>
-    /// A machine that filled a <c>knowledge-cache</c> before the rename keeps
-    /// using it as the default rather than re-fetching every snapshot into a new
-    /// folder — and because it is still the default, the settings screen still
-    /// shows the field empty.
+    /// A <c>knowledge-cache</c> left over from before the rename does not pull the
+    /// default back to the old name: snapshots are disposable and get fetched again
+    /// into <c>devbook-cache</c>. The old folder is left for its owner to delete.
     /// </summary>
     [Fact]
-    public void A_cache_folder_from_before_the_rename_stays_the_default_until_a_new_one_exists()
+    public void A_cache_folder_from_before_the_rename_is_ignored()
     {
         var appData = TempDir();
         Directory.CreateDirectory(Path.Combine(appData, "knowledge-cache"));
 
         var store = new WorkspaceSettingsStore(appData, Path.Combine(appData, "settings.json"));
 
-        Assert.Equal(Path.Combine(appData, "knowledge-cache"), store.DefaultDevbookCacheDirectory);
+        Assert.Equal(Path.Combine(appData, "devbook-cache"), store.DefaultDevbookCacheDirectory);
         Assert.Equal(store.DefaultDevbookCacheDirectory, store.DevbookCacheDirectory);
         Assert.True(store.IsDefaultDevbookCacheDirectory);
-
-        Directory.CreateDirectory(Path.Combine(appData, "devbook-cache"));
-        var reopened = new WorkspaceSettingsStore(appData, Path.Combine(appData, "settings.json"));
-
-        Assert.Equal(Path.Combine(appData, "devbook-cache"), reopened.DefaultDevbookCacheDirectory);
+        Assert.True(Directory.Exists(Path.Combine(appData, "knowledge-cache")));
     }
 
     /// <summary>
