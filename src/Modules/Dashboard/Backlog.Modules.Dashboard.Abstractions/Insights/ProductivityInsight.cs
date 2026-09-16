@@ -56,6 +56,23 @@ public sealed record ProductivityHeadline(
     /// </summary>
     public bool Complete { get; init; } = true;
 
+    /// <summary>
+    /// How many commits a merged pull request carried, at the median — or null when no
+    /// pull request's detail could be read.
+    /// <para>
+    /// The median rather than the mean, on <see cref="MedianReviewTurnaround"/>'s
+    /// reasoning: one long-lived branch squashed late would drag a mean past anything
+    /// the other pull requests look like. Over <see cref="PullRequestsWithCommitCount"/>
+    /// rather than over every merge, because the count comes off the same detail call
+    /// as the size and a pull request whose detail was not read has no commit count
+    /// rather than a count of zero.
+    /// </para>
+    /// </summary>
+    public int? MedianCommitsPerPullRequest { get; init; }
+
+    /// <summary>How many merged pull requests the median above was taken over.</summary>
+    public int PullRequestsWithCommitCount { get; init; }
+
     public static ProductivityHeadline Empty { get; } = new(0, 0, 0m, null, [], [], []);
 }
 
@@ -84,6 +101,18 @@ public sealed record ReworkInsight(
     /// pull request was inspected, this one about whether every pull request in the
     /// window arrived at all.</summary>
     public bool Complete { get; init; } = true;
+
+    /// <summary>
+    /// Review verdicts submitted across the reviewed pull requests — approvals and
+    /// change requests, never bare comments. Summed rather than averaged, on
+    /// <see cref="CommitsAfterFirstReview"/>'s precedent: the tile beside it says how
+    /// many pull requests were reviewed, and a reader can divide.
+    /// </summary>
+    public int ReviewRounds { get; init; }
+
+    /// <summary>How many of those verdicts asked for changes. The one review outcome
+    /// that means rework was requested rather than merely happened.</summary>
+    public int ChangesRequested { get; init; }
 
     /// <summary>
     /// Pull requests whose branch was synced with its base at least once — the
@@ -153,8 +182,31 @@ public sealed record ProductivityTarget(
     int MergedPullRequests,
     decimal FullMarks);
 
-/// <summary>The score, and what it is made of.</summary>
-public sealed record ProductivityScoreInsight(decimal Value, IReadOnlyList<ProductivityScoreInput> Inputs)
+/// <summary>One of the two scores, and what it is made of.</summary>
+public sealed record ProductivityScore(decimal Value, IReadOnlyList<ProductivityScoreInput> Inputs)
+{
+    public static ProductivityScore Empty { get; } = new(0m, []);
+}
+
+/// <summary>
+/// The two scores, kept apart all the way to the screen.
+/// <para>
+/// Two rather than one, and that is the decision this record carries. The volume
+/// inputs are counts read against the reader's own record — a bar that moves with
+/// them, so a quiet fortnight reads low and a record month reads high. The quality
+/// inputs are proportions of the pull requests that could have counted — a bar that
+/// never moves. One number over both could fall because less shipped or because
+/// what shipped came back from review, and a reader could not tell which; that was
+/// the whole of what made the single figure unreadable. Assistant sessions are in
+/// neither: they count effort rather than output, and a score that rose with the
+/// hours an assistant ran was measuring the wrong thing.
+/// </para>
+/// </summary>
+/// <param name="Volume">Merged pull requests and closed issues against the reader's
+/// own best block. Its inputs are absent when there is no history to set a bar from.</param>
+/// <param name="Quality">Review promptness, freedom from churn and the two size
+/// measures, each a proportion of what could have counted.</param>
+public sealed record ProductivityScoreInsight(ProductivityScore Volume, ProductivityScore Quality)
 {
     /// <summary>The block full marks was derived from, or null when there is no
     /// history to derive one from — because it could not be read, or because there is
@@ -171,7 +223,11 @@ public sealed record ProductivityScoreInsight(decimal Value, IReadOnlyList<Produ
     /// counted input a floor.</summary>
     public bool Complete { get; init; } = true;
 
-    public static ProductivityScoreInsight Empty { get; } = new(0m, []);
+    /// <summary>Whether either score has anything behind it. A window nothing could
+    /// read is an absence; a zero over real inputs is a reading.</summary>
+    public bool HasInputs => Volume.Inputs.Count > 0 || Quality.Inputs.Count > 0;
+
+    public static ProductivityScoreInsight Empty { get; } = new(ProductivityScore.Empty, ProductivityScore.Empty);
 }
 
 /// <summary>

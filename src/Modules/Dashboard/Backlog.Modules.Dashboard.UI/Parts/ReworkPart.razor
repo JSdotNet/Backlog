@@ -3,12 +3,13 @@
     happened to a pull request after somebody had already reviewed it — and
     conflicted syncs, what it cost to keep the branch current with its base.
 
-    Churn is three measures, all read from GitHub rather than inferred — commits
-    whose time is after the first review, force pushes after it, and files touched
-    on both sides of it. The denominator is pull requests that were reviewed at
-    all, never every merge: a pull request nobody reviewed cannot have churned after
-    a review, and counting it as clean would let a quarter of unreviewed merges read
-    as a quarter of good ones.
+    Churn is five measures, all read from GitHub rather than inferred — commits
+    whose time is after the first review, force pushes after it, files touched on
+    both sides of it, and the two the reviewers themselves wrote down: how many
+    verdicts they submitted and how many of those asked for changes. The denominator
+    is pull requests that were reviewed at all, never every merge: a pull request
+    nobody reviewed cannot have churned after a review, and counting it as clean
+    would let a quarter of unreviewed merges read as a quarter of good ones.
 
     Syncs have their own denominator on the same principle: pull requests whose
     branch was merged with its base at all. A branch that never synced did not
@@ -52,6 +53,17 @@
                                 Value="@MetricFormat.Compact(Value!.FilesRetouched)"
                                 Footnote="@(Value!.ChurnComplete ? null : "At least — some commits were not inspected")"
                                 TestId="dashboard-rework-files" />
+                    @* Verdicts, never comments: a review of state COMMENTED is a
+                       conversation, and counting it here would make every conversation
+                       look like a round of rework. *@
+                    <MetricTile Label="Review rounds"
+                                Value="@MetricFormat.Compact(Value!.ReviewRounds)"
+                                Footnote="Approvals and change requests, across reviewed pull requests"
+                                TestId="dashboard-rework-rounds" />
+                    <MetricTile Label="Changes requested"
+                                Value="@MetricFormat.Compact(Value!.ChangesRequested)"
+                                Footnote="Of those rounds"
+                                TestId="dashboard-rework-changes-requested" />
                 </MetricGrid>
             }
 
@@ -111,7 +123,7 @@
         get
         {
             var basis = "Commits, force pushes and files touched after the first review,"
-                + " and syncs with the base branch that resolved a conflict.";
+                + " the review verdicts themselves, and syncs with the base branch that resolved a conflict.";
 
             if (IsReady && !Value!.ChurnComplete)
             {

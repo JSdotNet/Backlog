@@ -44,6 +44,7 @@ public class PullRequestDetailCacheTests : IDisposable
             ChangedLines = 260,
             ChangedFiles = 11,
             SizeKnown = true,
+            Commits = 9,
             SyncMerges = 3,
             ConflictedSyncMerges = 1,
             SyncsKnown = true
@@ -62,6 +63,7 @@ public class PullRequestDetailCacheTests : IDisposable
         Assert.Equal(260, read.ChangedLines);
         Assert.Equal(11, read.ChangedFiles);
         Assert.True(read.SizeKnown);
+        Assert.Equal(9, read.Commits);
         Assert.Equal(3, read.SyncMerges);
         Assert.Equal(1, read.ConflictedSyncMerges);
         Assert.True(read.SyncsKnown);
@@ -123,14 +125,15 @@ public class PullRequestDetailCacheTests : IDisposable
         cache.Write(Backlog, 5, new PullRequestDetail { ChurnComplete = true, SizeKnown = true });
 
         var path = OnlyEntry();
-        File.WriteAllText(path, File.ReadAllText(path).Replace("\"version\": 2", "\"version\": 1", StringComparison.Ordinal));
+        File.WriteAllText(path, File.ReadAllText(path).Replace("\"version\": 4", "\"version\": 3", StringComparison.Ordinal));
 
         Assert.Null(cache.TryRead(Backlog, 5));
     }
 
     /// <summary>
     /// The case the version exists for, in the shape it actually took. An entry
-    /// from before the sync fields carries no <c>syncsKnown</c>, and tolerant
+    /// from before the sync fields — a version 3, written by the branch that took
+    /// that number for the commit count — carries no <c>syncsKnown</c>, and tolerant
     /// deserialization would read that as "the commits could not be listed" — a
     /// claim nothing ever established, and one that would keep the pull request
     /// out of the sync figures forever rather than for one more fetch.
@@ -144,7 +147,7 @@ public class PullRequestDetailCacheTests : IDisposable
         var path = OnlyEntry();
         File.WriteAllText(path, """
             {
-              "version": 1,
+              "version": 3,
               "firstReviewedAt": null,
               "reviewRounds": 0,
               "changesRequested": 0,
@@ -154,6 +157,7 @@ public class PullRequestDetailCacheTests : IDisposable
               "churnComplete": true,
               "changedLines": 12,
               "changedFiles": 1,
+              "commits": 4,
               "sizeKnown": true
             }
             """);

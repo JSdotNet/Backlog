@@ -7,16 +7,24 @@ using Backlog.UI.Components.Metrics;
 namespace Backlog.Modules.Dashboard.UnitTests;
 
 /// <summary>
-/// The score, its inputs, and the one duplication in this module that is worth a
-/// test of its own.
+/// The two scores, their inputs, and the one duplication in this module that is
+/// worth a test of its own.
 /// </summary>
 /// <remarks>
+/// <para>
 /// The defect these were rewritten for was on screen and unmissable: full marks
 /// came from two per-week constants, so a reader who had merged 441 pull requests
 /// in four weeks was shown "441 of 6" and five of eight weight points were pinned
 /// permanently at full. Several of the tests below exist only to make sure no
 /// version of that survives — a constant, a target smaller than the reading, or a
 /// bar the reader is already standing on.
+/// </para>
+/// <para>
+/// The second defect was quieter: one figure over counts and proportions together
+/// could fall for two unrelated reasons and say which for neither. The split tests
+/// below hold the two compositions apart — a volume input never appears under
+/// quality, a quality input never under volume, and sessions under neither.
+/// </para>
 /// </remarks>
 public class ProductivityScoringTests
 {
@@ -27,43 +35,83 @@ public class ProductivityScoringTests
     /// </summary>
     private const int BestBlockMerged = 304;
 
-    private static ProductivityTargets Record(decimal merged = 76m, decimal closed = 18m, decimal sessions = 11m) =>
-        new(merged, closed, sessions);
+    private static ProductivityTargets Record(decimal merged = 76m, decimal closed = 18m) =>
+        new(merged, closed);
 
     /// <summary>
     /// The module restates the metrics library's formula because a module may not
     /// reference a UI library. This is the assertion that keeps the restatement
-    /// honest: the score card renders from the inputs and lets the component do the
+    /// honest: the score cards render from the inputs and let the component do the
     /// arithmetic, while the trend chart renders from the module's own figure, so if
     /// these two ever disagree the same window shows two different scores.
     /// </summary>
-    /// <remarks>
-    /// The later rows carry the widened composition — the two size inputs and the
-    /// sessions one — because a formula that agreed over four inputs and drifted over
-    /// seven would be a formula that agreed over the shape nobody ships.
-    /// </remarks>
     [Theory]
-    [InlineData(0, 0, -1)]
-    [InlineData(3, 12, -1)]
-    [InlineData(9, 30, -1)]
-    [InlineData(18, 30, -1)]
-    [InlineData(9, 30, 0)]
-    [InlineData(18, 30, 44)]
-    [InlineData(441, 72, 300)]
-    public void The_modules_score_agrees_with_the_component_librarys(int merged, int closed, int sessions)
+    [InlineData(0, 0)]
+    [InlineData(3, 12)]
+    [InlineData(9, 30)]
+    [InlineData(18, 30)]
+    [InlineData(441, 72)]
+    public void The_modules_score_agrees_with_the_component_librarys(int merged, int closed)
     {
-        var inputs = ProductivityScoring.InputsFor(
-            [.. Enumerable.Range(1, merged).Select(number => Merged(number, churned: number % 3 == 0))],
-            [.. Enumerable.Range(1, closed).Select(Closed)],
-            weeks: 12,
-            Record(),
-            sessions < 0 ? null : sessions);
-
-        var library = inputs
-            .Select(input => new MetricScoreComponent(input.Label, input.Value, input.Max, input.Weight))
+        var pullRequests = Enumerable.Range(1, merged)
+            .Select(number => Merged(number, churned: number % 3 == 0) with
+            {
+                SizeKnown = number % 5 != 0,
+                ChangedLines = number * 30,
+                ChangedFiles = number % 12
+            })
             .ToList();
 
-        Assert.Equal(MetricScoring.Score(library), ProductivityScoring.Score(inputs));
+        var volume = ProductivityScoring.VolumeInputsFor(
+            pullRequests,
+            [.. Enumerable.Range(1, closed).Select(Closed)],
+            weeks: 12,
+            Record());
+
+        var quality = ProductivityScoring.QualityInputsFor(pullRequests);
+
+        foreach (var inputs in new[] { volume, quality })
+        {
+            var library = inputs
+                .Select(input => new MetricScoreComponent(input.Label, input.Value, input.Max, input.Weight))
+                .ToList();
+
+            Assert.Equal(MetricScoring.Score(library), ProductivityScoring.Score(inputs));
+        }
+    }
+
+    /// <summary>
+    /// The split itself. A volume input is a count against the reader's record; a
+    /// quality input is a proportion of the window. Neither composition may carry the
+    /// other's, and neither may carry sessions.
+    /// </summary>
+    [Fact]
+    public void Volume_and_quality_are_two_compositions_that_share_no_input()
+    {
+        var pullRequests = Enumerable.Range(1, 10)
+            .Select(number => Merged(number, churned: number % 2 == 0) with
+            {
+                SizeKnown = true,
+                ChangedLines = 100,
+                ChangedFiles = 3
+            })
+            .ToList();
+
+        var volume = ProductivityScoring.VolumeInputsFor(pullRequests, [Closed(1)], weeks: 4, Record());
+        var quality = ProductivityScoring.QualityInputsFor(pullRequests);
+
+        Assert.Equal(["Pull requests merged", "Issues closed"], volume.Select(input => input.Label));
+        Assert.Equal(
+            [
+                "First review within a day",
+                "Merged without post-review churn",
+                "Merged under 400 changed lines",
+                "Merged touching 10 files or fewer"
+            ],
+            quality.Select(input => input.Label));
+
+        Assert.Empty(volume.Select(input => input.Label).Intersect(quality.Select(input => input.Label)));
+        Assert.DoesNotContain(volume.Concat(quality), input => input.Label.Contains("session", StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>
@@ -73,7 +121,7 @@ public class ProductivityScoringTests
     [Fact]
     public void Full_marks_is_the_readers_own_best_block_rather_than_a_constant()
     {
-        var inputs = ProductivityScoring.InputsFor([], [], weeks: 4, Record());
+        var inputs = ProductivityScoring.VolumeInputsFor([], [], weeks: 4, Record());
 
         var merged = Assert.Single(inputs, input => input.Label == "Pull requests merged");
 
@@ -97,7 +145,7 @@ public class ProductivityScoringTests
     [Fact]
     public void A_reader_at_their_own_record_does_not_score_full_marks()
     {
-        var inputs = ProductivityScoring.InputsFor(
+        var inputs = ProductivityScoring.VolumeInputsFor(
             [.. Enumerable.Range(1, BestBlockMerged).Select(number => Merged(number, churned: false, reviewed: false))],
             [],
             weeks: 4,
@@ -113,13 +161,13 @@ public class ProductivityScoringTests
     [Fact]
     public void Beating_your_own_record_moves_the_reading_without_reaching_the_bar()
     {
-        var atRecord = ProductivityScoring.InputsFor(
+        var atRecord = ProductivityScoring.VolumeInputsFor(
             [.. Enumerable.Range(1, BestBlockMerged).Select(number => Merged(number, churned: false, reviewed: false))],
             [],
             weeks: 4,
             Record());
 
-        var past = ProductivityScoring.InputsFor(
+        var past = ProductivityScoring.VolumeInputsFor(
             [.. Enumerable.Range(1, 350).Select(number => Merged(number, churned: false, reviewed: false))],
             [],
             weeks: 4,
@@ -133,91 +181,41 @@ public class ProductivityScoringTests
     }
 
     /// <summary>
-    /// No history, no target — and no constant standing in for one. The proportions
-    /// still score, so the card stays readable rather than going blank.
+    /// No history, no target — and no constant standing in for one. The volume
+    /// composition empties; the quality one, which never needed a target, is
+    /// untouched, so the card stays readable rather than going blank.
     /// </summary>
     [Fact]
-    public void No_baseline_drops_the_volume_inputs_rather_than_inventing_a_target()
+    public void No_baseline_empties_volume_rather_than_inventing_a_target()
     {
-        var inputs = ProductivityScoring.InputsFor(
-            [Merged(1, churned: false), Merged(2, churned: true)],
-            [Closed(1)],
-            weeks: 4,
-            targets: null,
-            sessions: 9);
+        var pullRequests = new[] { Merged(1, churned: false), Merged(2, churned: true) };
 
-        Assert.DoesNotContain(inputs, input => input.Label == "Pull requests merged");
-        Assert.DoesNotContain(inputs, input => input.Label == "Issues closed");
-        Assert.DoesNotContain(inputs, input => input.Label == "Assistant sessions");
+        var volume = ProductivityScoring.VolumeInputsFor(pullRequests, [Closed(1)], weeks: 4, targets: null);
+        var quality = ProductivityScoring.QualityInputsFor(pullRequests);
 
-        // ...and what is left is the four proportions, which never needed a target.
-        Assert.Contains(inputs, input => input.Label == "First review within a day");
-        Assert.Contains(inputs, input => input.Label == "Merged without post-review churn");
+        Assert.Empty(volume);
+
+        Assert.Contains(quality, input => input.Label == "First review within a day");
+        Assert.Contains(quality, input => input.Label == "Merged without post-review churn");
     }
 
     /// <summary>
     /// A reader with no history at all must not be scored as having failed to reach
-    /// a target of nothing. An empty history is an absent input, which the weight
-    /// normalisation absorbs, rather than a zero one, which would drag the score down
-    /// for an absence of evidence.
+    /// a target of nothing. An empty history is an absent composition, which scores
+    /// as nothing rather than as zero of something.
     /// </summary>
     [Fact]
     public void An_empty_history_is_no_baseline_rather_than_a_zero_one()
     {
         var pullRequests = new[] { Merged(1, churned: false), Merged(2, churned: false) };
 
-        var empty = ProductivityScoring.InputsFor(pullRequests, [], weeks: 4, ProductivityTargets.None, sessions: 0);
+        var volume = ProductivityScoring.VolumeInputsFor(pullRequests, [], weeks: 4, ProductivityTargets.None);
 
-        Assert.DoesNotContain(empty, input => input.Label == "Pull requests merged");
-        Assert.DoesNotContain(empty, input => input.Label == "Assistant sessions");
+        Assert.Empty(volume);
 
-        // Two clean, promptly reviewed merges score the same with no history as they
-        // would if the volume inputs had never existed. A zeroed baseline would have
-        // halved the figure.
-        Assert.Equal(
-            ProductivityScoring.Score([.. empty.Where(input => input.Max > 0m)]),
-            ProductivityScoring.Score(empty));
-        Assert.Equal(100m, ProductivityScoring.Score(empty));
-    }
-
-    [Fact]
-    public void Sessions_are_scored_against_the_readers_own_best_block_of_sessions()
-    {
-        // Twenty sessions in the best four weeks is five a week.
-        var inputs = ProductivityScoring.InputsFor(
-            [],
-            [],
-            weeks: 4,
-            Record(merged: 0m, closed: 0m, sessions: 5m),
-            sessions: 20);
-
-        var ran = Assert.Single(inputs, input => input.Label == "Assistant sessions");
-
-        Assert.Equal(20m, ran.Value);
-        Assert.Equal(25m, ran.Max);
-        Assert.Equal(0.8m, ran.Normalized);
-
-        // The lowest weight on the card. A session counts effort, not output.
-        Assert.Equal(1m, ran.Weight);
-    }
-
-    /// <summary>
-    /// No assistant records which repository a session was for, so a focused reader
-    /// is handed no sessions figure at all rather than a whole-machine one dressed up
-    /// as one repository's. Absent, not zero: zero would claim they ran none.
-    /// </summary>
-    [Fact]
-    public void Sessions_are_left_out_when_one_repository_is_in_focus()
-    {
-        var focused = ProductivityScoring.InputsFor([], [], weeks: 4, Record(), sessions: null);
-
-        Assert.DoesNotContain(focused, input => input.Label == "Assistant sessions");
-
-        // And the same call with a figure does carry one, so the absence above is the
-        // null rather than the target.
-        Assert.Contains(
-            ProductivityScoring.InputsFor([], [], weeks: 4, Record(), sessions: 0),
-            input => input.Label == "Assistant sessions");
+        // Two clean, promptly reviewed merges score full marks on quality whatever
+        // the history says — the two are independent, which is the point of the split.
+        Assert.Equal(100m, ProductivityScoring.Score(ProductivityScoring.QualityInputsFor(pullRequests)));
     }
 
     /// <summary>
@@ -238,7 +236,7 @@ public class ProductivityScoringTests
             })
             .ToList();
 
-        var inputs = ProductivityScoring.InputsFor(pullRequests, [], weeks: 4, Record());
+        var inputs = ProductivityScoring.QualityInputsFor(pullRequests);
 
         var lines = Assert.Single(inputs, input => input.Label.Contains("changed lines", StringComparison.Ordinal));
         var files = Assert.Single(inputs, input => input.Label.Contains("files or fewer", StringComparison.Ordinal));
@@ -257,20 +255,17 @@ public class ProductivityScoringTests
     [Fact]
     public void Nothing_readable_leaves_both_size_inputs_out()
     {
-        var inputs = ProductivityScoring.InputsFor(
-            [.. Enumerable.Range(1, 6).Select(number => Merged(number, churned: false))],
-            [],
-            weeks: 4,
-            Record());
+        var inputs = ProductivityScoring.QualityInputsFor(
+            [.. Enumerable.Range(1, 6).Select(number => Merged(number, churned: false))]);
 
         Assert.DoesNotContain(inputs, input => input.Label.Contains("changed lines", StringComparison.Ordinal));
         Assert.DoesNotContain(inputs, input => input.Label.Contains("files or fewer", StringComparison.Ordinal));
     }
 
     /// <summary>
-    /// Seven inputs weighted 3-2-2-1-1-1-1 add to eleven, and every one of them at
-    /// full marks is still 100 — the normalisation does not have to be rebalanced
-    /// because three inputs were added to it.
+    /// Volume weighted 3-2 adds to five and quality 2-1-1-1 to five, and every input
+    /// at full marks is still 100 on each — the normalisation does not have to be
+    /// rebalanced because the composition was split.
     /// </summary>
     [Fact]
     public void The_weights_still_normalise_by_their_total()
@@ -285,16 +280,21 @@ public class ProductivityScoringTests
             })
             .ToList();
 
-        var inputs = ProductivityScoring.InputsFor(
+        var volume = ProductivityScoring.VolumeInputsFor(
             pullRequests,
             [.. Enumerable.Range(1, 10).Select(Closed)],
             weeks: 4,
-            Record(merged: 1m, closed: 1m, sessions: 1m),
-            sessions: 10);
+            Record(merged: 1m, closed: 1m));
 
-        Assert.Equal(7, inputs.Count);
-        Assert.Equal(11m, inputs.Sum(input => input.Weight));
-        Assert.Equal(100m, ProductivityScoring.Score(inputs));
+        var quality = ProductivityScoring.QualityInputsFor(pullRequests);
+
+        Assert.Equal(2, volume.Count);
+        Assert.Equal(5m, volume.Sum(input => input.Weight));
+        Assert.Equal(100m, ProductivityScoring.Score(volume));
+
+        Assert.Equal(4, quality.Count);
+        Assert.Equal(5m, quality.Sum(input => input.Weight));
+        Assert.Equal(100m, ProductivityScoring.Score(quality));
     }
 
     /// <summary>
@@ -311,12 +311,11 @@ public class ProductivityScoringTests
     public void The_reading_column_can_never_exceed_its_max()
     {
         // The window is itself the best block, which is what the grid guarantees.
-        var inputs = ProductivityScoring.InputsFor(
+        var inputs = ProductivityScoring.VolumeInputsFor(
             [.. Enumerable.Range(1, 441).Select(number => Merged(number, churned: number % 4 == 0))],
             [.. Enumerable.Range(1, 72).Select(Closed)],
             weeks: 4,
-            Record(merged: 441m / 4m, closed: 72m / 4m, sessions: 300m / 4m),
-            sessions: 300);
+            Record(merged: 441m / 4m, closed: 72m / 4m));
 
         Assert.All(inputs, input => Assert.True(
             input.Value <= input.Max,
@@ -334,15 +333,9 @@ public class ProductivityScoringTests
         // Nothing was reviewed, so review promptness and freedom from churn have no
         // evidence either way. Scoring that silence as zero would drag the figure
         // down for an absence rather than for a result.
-        var inputs = ProductivityScoring.InputsFor(
-            [Merged(1, churned: false, reviewed: false)],
-            [],
-            weeks: 4,
-            Record());
+        var inputs = ProductivityScoring.QualityInputsFor([Merged(1, churned: false, reviewed: false)]);
 
-        Assert.Equal(2, inputs.Count);
-        Assert.DoesNotContain(inputs, input => input.Label.Contains("review", StringComparison.OrdinalIgnoreCase));
-        Assert.DoesNotContain(inputs, input => input.Label.Contains("churn", StringComparison.OrdinalIgnoreCase));
+        Assert.Empty(inputs);
     }
 
     /// <summary>
@@ -358,8 +351,8 @@ public class ProductivityScoringTests
         // A record of six merges in the best four weeks: one and a half a week.
         var record = Record(merged: 1.5m);
 
-        var overFourWeeks = ProductivityScoring.InputsFor(merged, [], weeks: 4, record);
-        var overTwelveWeeks = ProductivityScoring.InputsFor(merged, [], weeks: 12, record);
+        var overFourWeeks = ProductivityScoring.VolumeInputsFor(merged, [], weeks: 4, record);
+        var overTwelveWeeks = ProductivityScoring.VolumeInputsFor(merged, [], weeks: 12, record);
 
         var four = Assert.Single(overFourWeeks, input => input.Label == "Pull requests merged");
         var twelve = Assert.Single(overTwelveWeeks, input => input.Label == "Pull requests merged");
@@ -384,9 +377,10 @@ public class ProductivityScoringTests
     [Fact]
     public void A_window_with_no_activity_scores_zero_rather_than_dividing_by_it()
     {
-        var inputs = ProductivityScoring.InputsFor([], [], weeks: 12);
+        var inputs = ProductivityScoring.VolumeInputsFor([], [], weeks: 12);
 
         Assert.Equal(0m, ProductivityScoring.Score(inputs));
+        Assert.Equal(0m, ProductivityScoring.Score(ProductivityScoring.QualityInputsFor([])));
     }
 
     [Fact]
@@ -402,6 +396,19 @@ public class ProductivityScoringTests
         Assert.Equal(75m, ProductivityScoring.Score(inputs));
     }
 
+    /// <summary>The figure and its composition travel together, so a card cannot
+    /// show one without the other.</summary>
+    [Fact]
+    public void A_score_carries_the_inputs_it_was_computed_from()
+    {
+        var inputs = ProductivityScoring.QualityInputsFor([Merged(1, churned: false), Merged(2, churned: true)]);
+
+        var score = ProductivityScoring.ScoreOf(inputs);
+
+        Assert.Same(inputs, score.Inputs);
+        Assert.Equal(ProductivityScoring.Score(inputs), score.Value);
+    }
+
     // --- Conflicted syncs --------------------------------------------------------
 
     /// <summary>
@@ -413,17 +420,14 @@ public class ProductivityScoringTests
     [Fact]
     public void Merged_without_a_conflicted_sync_is_a_proportion_of_the_pull_requests_that_synced()
     {
-        var inputs = ProductivityScoring.InputsFor(
+        var inputs = ProductivityScoring.QualityInputsFor(
             [
                 Merged(1, churned: false, syncs: 2, conflicted: 1),
                 Merged(2, churned: false, syncs: 1, conflicted: 0),
                 Merged(3, churned: false, syncs: 3, conflicted: 0),
                 Merged(4, churned: false, syncs: 0, conflicted: 0),
                 Merged(5, churned: false, syncs: 0, conflicted: 0, syncsKnown: false)
-            ],
-            [],
-            weeks: 4,
-            Record());
+            ]);
 
         var input = Assert.Single(inputs, input => input.Label == "Merged without a conflicted sync");
         Assert.Equal(2m, input.Value);
@@ -436,11 +440,7 @@ public class ProductivityScoringTests
     [Fact]
     public void A_window_with_no_synced_branch_has_no_conflict_input()
     {
-        var inputs = ProductivityScoring.InputsFor(
-            [Merged(1, churned: false), Merged(2, churned: true)],
-            [],
-            weeks: 4,
-            Record());
+        var inputs = ProductivityScoring.QualityInputsFor([Merged(1, churned: false), Merged(2, churned: true)]);
 
         Assert.DoesNotContain(inputs, input => input.Label == "Merged without a conflicted sync");
     }

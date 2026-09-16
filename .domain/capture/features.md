@@ -77,12 +77,16 @@ feature-flag: inbox-pane
 
 The reader runs the monitors on demand from the Inbox, without waiting for a
 schedule. Which sources are watched — YouTube, website, email — and what each
-one looks at (channels, URLs, senders) is set under Settings › Capture and
-kept on the machine; a source is off until switched on. A run answers per
-source: how many new captures it delivered, or that no `Source Adapter` exists
-for it yet, so a source that cannot be watched says so instead of silently
-finding nothing. With no source switched on, the run points at the settings
-that would change that.
+one looks at (channels, URLs, senders) is set in a folded Sources panel on the
+same Inbox pane, beside the button that runs them, and kept on the machine; a
+source is off until switched on. A run answers per source: how many new
+captures it delivered, or that no `Source Adapter` exists for it yet, so a
+source that cannot be watched says so instead of silently finding nothing.
+With no source switched on, the run points at the panel that would change
+that. Each source's row also carries when it was last looked at and how many
+new captures that run delivered, and a log of the runs before it — the same
+per-source line each run reported, kept on the machine as a bounded window
+rather than an archive.
 
 ### YouTube monitor
 

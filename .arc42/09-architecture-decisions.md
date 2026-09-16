@@ -173,3 +173,10 @@ related: [".arc42/04-solution-strategy.md"]
   daily or weekly schedule or on demand; an unchanged database makes no commit,
   and nothing ever reads the repository back. The database and only the database,
   because local ADR 0003 makes that the whole of the backlog.
+- **[ADR 0011 — Devbook annotations are the person's data, in a Backlog-owned store, replicated through a third container](adr/0011-devbook-annotations-are-a-third-replica-container.md)**
+  *(accepted)*: a remark left on a Devbook chapter lives in one JSON file per
+  repository under the storage folder — never in the repository's generated
+  `_meta/devbook.db`, never in `backlog.db` — behind a port the panels and
+  replication share, and travels between the person's desktops through a third
+  replica container, `annotations`, on the task container's last-write-wins and
+  tombstone terms.

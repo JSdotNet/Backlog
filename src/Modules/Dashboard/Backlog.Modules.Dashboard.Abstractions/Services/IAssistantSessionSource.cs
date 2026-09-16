@@ -52,6 +52,23 @@ public sealed record AssistantSession(
     /// </para>
     /// </summary>
     public string Id { get; init; } = string.Empty;
+
+    /// <summary>
+    /// How many prompts the person sent in this session, where the source could count
+    /// them, and null where it could not.
+    /// <para>
+    /// Null and never 0 standing in for absent. Only one of the two assistants leaves a
+    /// transcript this can be counted from, so a figure that treated a missing count as
+    /// zero would halve the average with sessions that said nothing about it. Anything
+    /// that averages these skips the nulls, and says how many it skipped.
+    /// </para>
+    /// <para>
+    /// An init property beside <see cref="Id"/> for the reason that one is: the
+    /// positional constructor is the shape every fixture builds, and most of them have
+    /// no opinion about this.
+    /// </para>
+    /// </summary>
+    public int? Prompts { get; init; }
 }
 
 /// <summary>

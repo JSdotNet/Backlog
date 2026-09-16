@@ -460,7 +460,7 @@ public class GitHubActivityClientTests
 
             // Registered after the more specific routes, so it answers the pull
             // request itself rather than one of its sub-resources.
-            .Returns("/pulls/1", """{ "additions": 120, "deletions": 30, "changed_files": 7 }""");
+            .Returns("/pulls/1", """{ "additions": 120, "deletions": 30, "changed_files": 7, "commits": 5 }""");
 
         var activity = await new GitHubActivityClient(transport)
             .GetActivityAsync(Repository, From, To, "jsdotnet", TestContext.Current.CancellationToken);
@@ -469,6 +469,10 @@ public class GitHubActivityClientTests
         Assert.True(pull.SizeKnown);
         Assert.Equal(150, pull.ChangedLines);
         Assert.Equal(7, pull.ChangedFiles);
+
+        // Off the same response, so it costs no call and is known exactly when the
+        // size is.
+        Assert.Equal(5, pull.Commits);
         Assert.True(activity.DetailComplete);
     }
 
@@ -501,7 +505,7 @@ public class GitHubActivityClientTests
     public async Task A_pull_request_already_in_the_cache_is_not_fetched_again()
     {
         var cache = new RememberingCache();
-        cache.Write(Repository, 1, new PullRequestDetail { ChurnComplete = true, SizeKnown = true, ChangedLines = 42 });
+        cache.Write(Repository, 1, new PullRequestDetail { ChurnComplete = true, SizeKnown = true, ChangedLines = 42, Commits = 6 });
 
         var transport = new RoutingTransport()
             .Returns("/pulls?", $"[{Pull(1, merged: "2026-07-05T10:00:00Z", updated: "2026-07-05T10:00:00Z")}]");
@@ -511,6 +515,7 @@ public class GitHubActivityClientTests
 
         var pull = Assert.Single(activity.PullRequests);
         Assert.Equal(42, pull.ChangedLines);
+        Assert.Equal(6, pull.Commits);
 
         // The whole point: the listing still happened, and nothing per-pull-request did.
         Assert.Equal(1, transport.CallsTo("/pulls?"));
@@ -560,7 +565,7 @@ public class GitHubActivityClientTests
         var transport = new RoutingTransport()
             .Returns("/pulls?", $"[{Pull(1, merged: "2026-07-05T10:00:00Z", updated: "2026-07-05T10:00:00Z")}]")
             .Returns("/reviews", "[]")
-            .Returns("/pulls/1", """{ "additions": 10, "deletions": 5, "changed_files": 2 }""");
+            .Returns("/pulls/1", """{ "additions": 10, "deletions": 5, "changed_files": 2, "commits": 3 }""");
 
         _ = await new GitHubActivityClient(transport, cache)
             .GetActivityAsync(Repository, From, To, "jsdotnet", TestContext.Current.CancellationToken);
@@ -569,6 +574,7 @@ public class GitHubActivityClientTests
         Assert.NotNull(remembered);
         Assert.Equal(15, remembered.ChangedLines);
         Assert.True(remembered.SizeKnown);
+        Assert.Equal(3, remembered.Commits);
         Assert.True(remembered.SyncsKnown);
     }
 

@@ -335,11 +335,117 @@ public class ProductivityInsightsTests
         Assert.True(score.HasValue);
         Assert.Null(score.Value!.Target);
 
-        // The volume inputs are gone, rather than scored against a target of nothing.
-        Assert.DoesNotContain(score.Value.Inputs, input => input.Label == "Pull requests merged");
+        // The volume card is empty, rather than scored against a target of nothing.
+        Assert.Empty(score.Value.Volume.Inputs);
 
-        // And what could still be judged still is.
-        Assert.Contains(score.Value.Inputs, input => input.Label == "First review within a day");
+        // And what could still be judged still is — on the other card.
+        Assert.Contains(score.Value.Quality.Inputs, input => input.Label == "First review within a day");
+        Assert.True(score.Value.HasInputs);
+    }
+
+    /// <summary>
+    /// The split reaches the port: the volume card carries the two counts, the
+    /// quality card the four proportions, and no session figure is fetched or scored
+    /// for either. The insights service no longer takes a session port at all, which
+    /// the constructor asserts more firmly than any test could.
+    /// </summary>
+    [Fact]
+    public async Task The_score_is_two_cards_and_neither_counts_sessions()
+    {
+        var source = new StubActivitySource
+        {
+            Report = new ActivityReport(
+                [Merged(1, reviewed: true, churned: false), Merged(2, reviewed: true, churned: true)],
+                [Closed(1)])
+        };
+
+        var score = await Insights(source, new StubBaselineSource { MergedPerBlock = 8, ClosedPerBlock = 4 })
+            .GetScoreAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
+
+        Assert.True(score.HasValue);
+        Assert.Equal(["Pull requests merged", "Issues closed"], score.Value!.Volume.Inputs.Select(input => input.Label));
+        Assert.Equal(
+            ["First review within a day", "Merged without post-review churn"],
+            score.Value.Quality.Inputs.Select(input => input.Label));
+
+        Assert.DoesNotContain(
+            score.Value.Volume.Inputs.Concat(score.Value.Quality.Inputs),
+            input => input.Label.Contains("session", StringComparison.OrdinalIgnoreCase));
+
+        // Each card's figure is its own composition's, not the other's.
+        Assert.Equal(ProductivityScoring.Score(score.Value.Volume.Inputs), score.Value.Volume.Value);
+        Assert.Equal(ProductivityScoring.Score(score.Value.Quality.Inputs), score.Value.Quality.Value);
+        Assert.NotEqual(score.Value.Volume.Value, score.Value.Quality.Value);
+    }
+
+    /// <summary>
+    /// The commit count comes off the same detail call as the size, so a pull request
+    /// whose detail was not read has no count rather than a count of zero — and is
+    /// left out of the median instead of dragging it to the floor.
+    /// </summary>
+    [Fact]
+    public async Task The_median_commit_count_is_over_pull_requests_whose_detail_was_read()
+    {
+        var source = new StubActivitySource
+        {
+            Report = new ActivityReport(
+                [
+                    Merged(1, reviewed: false, churned: false) with { SizeKnown = true, Commits = 9 },
+                    Merged(2, reviewed: false, churned: false) with { SizeKnown = true, Commits = 2 },
+                    Merged(3, reviewed: false, churned: false) with { SizeKnown = true, Commits = 4 },
+                    Merged(4, reviewed: false, churned: false) with { SizeKnown = true, Commits = 30 },
+                    Merged(5, reviewed: false, churned: false) with { SizeKnown = false, Commits = 0 }
+                ],
+                [])
+        };
+
+        var headline = await Insights(source).GetHeadlineAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
+
+        // Sorted, 2 4 9 30: the lower middle is 4, and the unread fifth is not a 0
+        // in front of them.
+        Assert.Equal(4, headline.Value!.MedianCommitsPerPullRequest);
+        Assert.Equal(4, headline.Value.PullRequestsWithCommitCount);
+        Assert.Equal(5, headline.Value.PullRequestsMerged);
+    }
+
+    [Fact]
+    public async Task No_readable_detail_gives_no_median_rather_than_a_zero_one()
+    {
+        var source = new StubActivitySource
+        {
+            Report = new ActivityReport([Merged(1, reviewed: false, churned: false)], [])
+        };
+
+        var headline = await Insights(source).GetHeadlineAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
+
+        Assert.Null(headline.Value!.MedianCommitsPerPullRequest);
+        Assert.Equal(0, headline.Value.PullRequestsWithCommitCount);
+    }
+
+    /// <summary>
+    /// Review rounds and change requests are summed over the reviewed pull requests,
+    /// on the same denominator as every other rework figure. An unreviewed merge has
+    /// no rounds to add, and adding its zero would be counting it as reviewed.
+    /// </summary>
+    [Fact]
+    public async Task Review_rounds_and_change_requests_are_summed_over_reviewed_pull_requests()
+    {
+        var source = new StubActivitySource
+        {
+            Report = new ActivityReport(
+                [
+                    Merged(1, reviewed: true, churned: true) with { ReviewRounds = 3, ChangesRequested = 2 },
+                    Merged(2, reviewed: true, churned: false) with { ReviewRounds = 1, ChangesRequested = 0 },
+                    Merged(3, reviewed: false, churned: false)
+                ],
+                [])
+        };
+
+        var rework = await Insights(source).GetReworkAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
+
+        Assert.Equal(4, rework.Value!.ReviewRounds);
+        Assert.Equal(2, rework.Value.ChangesRequested);
+        Assert.Equal(2, rework.Value.PullRequestsReviewed);
     }
 
     /// <summary>
@@ -366,79 +472,6 @@ public class ProductivityInsightsTests
         Assert.False(headline.Value!.Complete);
         Assert.False(rework.Value!.Complete);
         Assert.False(trend.Value!.Complete);
-    }
-
-    /// <summary>
-    /// <c>ScorePart.FollowsMachine</c> is false, and this is what makes that literally
-    /// true rather than merely undisplayed: the sessions figure behind the score is
-    /// read across every machine whatever the filter above it says.
-    /// </summary>
-    [Fact]
-    public async Task The_score_reads_every_machine_even_under_a_machine_focus()
-    {
-        var sessions = new StubSessionInsights { Sessions = 40, PerWeek = PerWeek() };
-
-        _ = await Insights(new StubActivitySource(), sessions: sessions)
-            .GetScoreAsync(
-                DashboardScope.Default with { MachineId = "tower" },
-                TestContext.Current.CancellationToken);
-
-        Assert.NotEmpty(sessions.Scopes);
-        Assert.All(sessions.Scopes, scope => Assert.Null(scope.MachineId));
-    }
-
-    /// <summary>
-    /// The sessions figure is the reader's own best four weeks of sessions, on the
-    /// same footing as the two GitHub volumes — one a week is a target for somebody
-    /// who runs one a week and an insult to somebody who runs forty.
-    /// </summary>
-    [Fact]
-    public async Task The_sessions_input_is_scored_against_the_readers_own_best_four_weeks()
-    {
-        var sessions = new StubSessionInsights { Sessions = 40, PerWeek = PerWeek() };
-
-        var score = await Insights(new StubActivitySource(), sessions: sessions)
-            .GetScoreAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
-
-        var input = Assert.Single(score.Value!.Inputs, one => one.Label == "Assistant sessions");
-
-        // The best four weeks hold twenty, which is five a week; over a quarter, a
-        // quarter above that is seventy-five.
-        Assert.Equal(40m, input.Value);
-        Assert.Equal(75m, input.Max);
-    }
-
-    /// <summary>
-    /// No assistant records which repository a session was for, so a focused reader
-    /// gets no sessions input at all — the source is not even asked, because there is
-    /// no answer it could give that would belong to one repository.
-    /// </summary>
-    [Fact]
-    public async Task Sessions_are_left_out_of_the_score_when_one_repository_is_in_focus()
-    {
-        var sessions = new StubSessionInsights { Sessions = 40, PerWeek = PerWeek() };
-
-        var score = await Insights(new StubActivitySource(), sessions: sessions)
-            .GetScoreAsync(new DashboardScope("backlog-ide"), TestContext.Current.CancellationToken);
-
-        Assert.Empty(sessions.Scopes);
-        Assert.DoesNotContain(score.Value!.Inputs, input => input.Label == "Assistant sessions");
-    }
-
-    /// <summary>
-    /// A source that refuses omits the input rather than failing the score, and
-    /// rather than scoring the reader as having run nothing.
-    /// </summary>
-    [Fact]
-    public async Task A_session_source_that_refuses_leaves_the_input_out_rather_than_scoring_a_zero()
-    {
-        var sessions = new StubSessionInsights { Refusal = "No assistant folder on this machine." };
-
-        var score = await Insights(new StubActivitySource(), sessions: sessions)
-            .GetScoreAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
-
-        Assert.True(score.HasValue);
-        Assert.DoesNotContain(score.Value!.Inputs, input => input.Label == "Assistant sessions");
     }
 
     /// <summary>
@@ -517,29 +550,20 @@ public class ProductivityInsightsTests
             series => Assert.All(series.Points, point => Assert.True(point.Value < 100m)));
     }
 
-    /// <summary>Twelve weeks of sessions whose busiest four hold twenty.</summary>
-    private static IReadOnlyList<InsightPoint> PerWeek() =>
-    [
-        .. Enumerable.Range(0, 12).Select(index =>
-            new InsightPoint("W" + index, index < 4 ? 1m : index < 8 ? 2m : 5m))
-    ];
-
     /// <summary>
     /// The whole derivation over doubles. Every collaborator has a default that
     /// answers nothing rather than refusing, so a test names only the one it is
-    /// about — a baseline test does not have to describe a session source, and none
-    /// of the tests that predate either of them had to learn about them.
+    /// about — a rework test does not have to describe a baseline, and none of the
+    /// tests that predate it had to learn about it.
     /// </summary>
     private static ProductivityInsights Insights(
         IActivitySource source,
         IActivityBaselineSource? baseline = null,
-        ISessionInsights? sessions = null,
         IRepositoryDirectory? repositories = null) =>
         new(
             source,
             baseline ?? new StubBaselineSource(),
             repositories ?? new StubRepositoryDirectory(),
-            sessions ?? new StubSessionInsights(),
             new FixedClock(Now));
 
     /// <summary>
@@ -595,6 +619,9 @@ public class ProductivityInsightsTests
         };
     }
 
+    private static ActivityIssue Closed(int number) =>
+        new("backlog", number, Now.AddDays(-number));
+
     private static ActivityPullRequest Turnaround(int number, TimeSpan turnaround) =>
         Merged(number, reviewed: true, churned: false) with { ReviewTurnaround = turnaround };
 
@@ -647,37 +674,6 @@ public class ProductivityInsightsTests
                     MergedPerBlock,
                     ClosedPerBlock))],
                 Complete));
-        }
-    }
-
-    /// <summary>
-    /// Sessions, as the score sees them. Records the scopes it was asked for, which
-    /// is how the machine-blanking claim is asserted rather than described.
-    /// </summary>
-    private sealed class StubSessionInsights : ISessionInsights
-    {
-        public int Sessions { get; init; }
-
-        public IReadOnlyList<InsightPoint> PerWeek { get; init; } = [];
-
-        public string? Refusal { get; init; }
-
-        public List<DashboardScope> Scopes { get; } = [];
-
-        public Task<InsightResult<AssistantSessionsInsight>> GetSessionsAsync(
-            DashboardScope scope,
-            CancellationToken cancellationToken = default)
-        {
-            Scopes.Add(scope);
-
-            return Task.FromResult(Refusal is not null
-                ? InsightResult<AssistantSessionsInsight>.Unavailable(Refusal)
-                : InsightResult<AssistantSessionsInsight>.Ready(
-                    AssistantSessionsInsight.Empty with { Sessions = Sessions, SessionsPerWeek = PerWeek }));
-        }
-
-        public void Invalidate()
-        {
         }
     }
 

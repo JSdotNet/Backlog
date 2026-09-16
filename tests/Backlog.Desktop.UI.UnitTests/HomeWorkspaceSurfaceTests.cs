@@ -1384,6 +1384,8 @@ public sealed class HomeWorkspaceSurfaceTests
         // picks where its sources are kept, the same as the application hosts do.
         context.Services.AddSingleton<ICaptureSourceSettings>(
             new CaptureSourcesSettingsStore(Path.Combine(root, "capture", "capture-sources.json")));
+        context.Services.AddSingleton<ICaptureRunLog>(
+            new CaptureRunLogStore(Path.Combine(root, "capture", "capture-runs.json")));
         context.Services.AddCaptureModule();
         InboxTestHost.AddCaptureDelivery(context.Services);
 

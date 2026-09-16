@@ -554,7 +554,7 @@
             <div class="devbook-layout @((TasksPaneVisible && RightSidePaneVisible) ? "devbook-layout--side-open" : "devbook-layout--side-closed") @(InboxBeforeTasksVisible ? "devbook-layout--inbox-before-backlog" : string.Empty)" style="--devbook-panel-width: @_devbookPanelWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)rem" data-testid="devbook-layout">
                 @if (InboxBeforeTasksVisible)
                 {
-                    <InboxPane OnCapture="RunCaptureAsync" CaptureRunning="_captureRunning" CaptureMessage="@_captureMessage" />
+                    @InboxPaneContent
                 }
 
                 @if (TasksPaneVisible)
@@ -588,7 +588,7 @@
                     <aside @key=@("side-pane-stack") class="side-pane-stack @(TasksPaneVisible ? string.Empty : "side-pane-stack--full")" data-testid="side-pane-stack" aria-label="Tasks side panes">
                         @if (!TasksPaneVisible && InboxPaneVisible)
                         {
-                            <InboxPane OnCapture="RunCaptureAsync" CaptureRunning="_captureRunning" CaptureMessage="@_captureMessage" />
+                            @InboxPaneContent
                         }
 
                         @if (DevbookPaneVisible)
@@ -868,15 +868,12 @@
         }
         catch (AzureFoundryException ex)
         {
+            // The one exception the client throws for every way an answer fails
+            // to be one: a bad status, an endpoint that could not be reached, and
+            // a request that ran out of time - the pipeline's timeout included,
+            // which used to arrive here as Polly's own exception, past the two
+            // transport catches this handler kept, and stop the whole page.
             Toasts.Publish(ToastMessage.Error(ex.Message, AiErrorTestId));
-        }
-        catch (HttpRequestException ex)
-        {
-            Toasts.Publish(ToastMessage.Error($"Azure Foundry could not be reached: {ex.Message}", AiErrorTestId));
-        }
-        catch (TaskCanceledException)
-        {
-            Toasts.Publish(ToastMessage.Error("Azure Foundry did not answer before the request timed out.", AiErrorTestId));
         }
         finally
         {
@@ -1047,6 +1044,27 @@
     private bool _captureRunning;
     private string? _captureMessage;
 
+    /// <summary>Whether the sources panel on the Inbox pane is open. Held
+    /// here for the same reason the run's result is: the pane re-mounts when
+    /// it changes slot, and a panel that snapped shut on that would be one the
+    /// reader has to keep reopening.</summary>
+    private bool _captureSourcesOpen;
+
+    /// <summary>
+    /// The Inbox pane as this shell composes it, once, for both slots it can
+    /// sit in: the Capture button answered by <see cref="RunCaptureAsync"/>,
+    /// and the Capture context's own sources panel in the pane's sources slot.
+    /// The pane draws that slot without naming what is in it, so the Inbox
+    /// stays free of Capture's types while its button and its switches sit
+    /// together on screen.
+    /// </summary>
+    private RenderFragment InboxPaneContent =>
+        @<InboxPane OnCapture="RunCaptureAsync" CaptureRunning="_captureRunning" CaptureMessage="@_captureMessage">
+            <Sources>
+                <CaptureSourcesPanel Expanded="_captureSourcesOpen" ExpandedChanged="open => _captureSourcesOpen = open" />
+            </Sources>
+        </InboxPane>;
+
     /// <summary>
     /// The Inbox's Capture, answered: one run over the sources switched on in
     /// Settings, reported back as a sentence the pane can print — and, when the
@@ -1102,15 +1120,16 @@
         }
     }
 
-    /// <summary>A run's result in one line. Nothing enabled points at the tab
-    /// that would change that; otherwise each source's own sentence — which
-    /// already carries that source's count — and, when there was more than one
-    /// source, the total, so a reader is not left adding up.</summary>
+    /// <summary>A run's result in one line. Nothing enabled points at the
+    /// panel that would change that — it is on the same pane, under this line;
+    /// otherwise each source's own sentence — which already carries that
+    /// source's count — and, when there was more than one source, the total,
+    /// so a reader is not left adding up.</summary>
     private static string Describe(CaptureRunResultDto run)
     {
         if (run.NothingEnabled)
         {
-            return "No capture sources are enabled. Turn one on under Settings › Capture.";
+            return "No capture sources are enabled. Open Sources below and switch one on.";
         }
 
         var sources = string.Join(" ", run.Sources.Select(source => source.Message));

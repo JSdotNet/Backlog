@@ -1,4 +1,4 @@
-﻿using Backlog.Infrastructure.Copilot;
+using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.GitHub;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
@@ -571,6 +571,66 @@ public sealed class DomainDevbookPanelTests : IDisposable
         component.WaitForAssertion(() => Assert.Empty(component.FindAll(".md-block-row[data-block='2'] .md-comment")));
     }
 
+    /// <summary>
+    /// The reason there is a store at all. A remark used to live in a dictionary
+    /// on this component and went with it when the Router remounted the pane —
+    /// Settings and back, and it was gone. With the host's store registered, a
+    /// second panel over the same chapter reads the remark the first one wrote.
+    /// </summary>
+    [Fact]
+    public async Task A_remark_outlives_the_panel_when_the_host_keeps_a_store()
+    {
+        var store = new SessionDevbookAnnotationStore();
+        await using var harness = CreateHarness(annotations: store);
+
+        var first = harness.Render(ContextMapPath);
+        first.WaitForAssertion(() => Assert.NotEmpty(first.FindAll("[data-testid^='markdown-comment-']")));
+
+        await first.Find("[data-testid='markdown-comment-2']").ClickAsync(new());
+        first.WaitForAssertion(() => Assert.NotEmpty(first.FindAll(".md-comment__edit textarea")));
+        first.Find(".md-comment__edit textarea").Input("Still here after Settings.");
+        first.Find(".md-comment__edit-actions [data-testid^='markdown-comment-save-']").Click();
+        first.WaitForAssertion(() => Assert.NotEmpty(first.FindAll(".md-block-row[data-block='2'] .md-comment__body")));
+
+        // The Router remounting the pane: this panel is gone, a new one is drawn.
+        await harness.Context.DisposeComponentsAsync();
+
+        var second = harness.Render(ContextMapPath);
+
+        second.WaitForAssertion(() =>
+            Assert.Contains("Still here after Settings.", second.Find(".md-block-row[data-block='2'] .md-comment__body").TextContent, StringComparison.Ordinal));
+
+        // And it is filed against this repository and this chapter, which is
+        // what lets another device find it.
+        var stored = Assert.Single(store.List(harness.RepositoryAlias, ContextMapPath));
+        Assert.Equal(2, stored.BlockIndex);
+        Assert.Equal("Still here after Settings.", stored.Body);
+    }
+
+    /// <summary>A remark another device left arrives through the store rather
+    /// than through the panel, so the panel has to notice the store changing
+    /// under it — which is what replication looks like from here.</summary>
+    [Fact]
+    public async Task A_remark_applied_from_elsewhere_appears_without_a_reload()
+    {
+        var store = new SessionDevbookAnnotationStore();
+        await using var harness = CreateHarness(annotations: store);
+
+        var component = harness.Render(ContextMapPath);
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid^='markdown-comment-']")));
+
+        var elsewhere = new DateTimeOffset(2026, 9, 16, 9, 0, 0, TimeSpan.Zero);
+        store.Apply(new DevbookAnnotation(
+            Guid.NewGuid(), harness.RepositoryAlias, ContextMapPath, 2, "From the laptop.", "DEV-LAPTOP", elsewhere, elsewhere));
+
+        component.WaitForAssertion(() =>
+        {
+            var comment = component.Find(".md-block-row[data-block='2'] .md-comment");
+            Assert.Contains("From the laptop.", comment.QuerySelector(".md-comment__body")!.TextContent, StringComparison.Ordinal);
+            Assert.Equal("DEV-LAPTOP", comment.QuerySelector(".md-comment__author")!.TextContent.Trim());
+        });
+    }
+
     [Fact]
     public async Task A_chapter_whose_folder_is_not_there_offers_no_way_in()
     {
@@ -868,7 +928,7 @@ public sealed class DomainDevbookPanelTests : IDisposable
             []);
     }
 
-    private Harness CreateHarness(StubGitFileHistory? history = null, bool diagramChapter = false)
+    private Harness CreateHarness(StubGitFileHistory? history = null, bool diagramChapter = false, IDevbookAnnotationStore? annotations = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-domain-panel-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(Path.Combine(root, ".domain"));
@@ -906,6 +966,11 @@ public sealed class DomainDevbookPanelTests : IDisposable
         context.Services.AddSingleton(sp => new DomainDevbookStore(sp.GetRequiredService<IDevbookFolderSource>()));
         context.Services.AddSingleton(new DevbookCopilotCli(new UnavailableCopilotCliLauncher()));
         context.Services.AddSingleton<DevbookChapterWriter>();
+
+        // Only where a test is about remarks outliving the panel: without one
+        // the panel falls back to its own session-scoped store, which is what
+        // every other test here renders against.
+        if (annotations is not null) context.Services.AddSingleton(annotations);
 
         // Nothing in these folders has ever been committed, so the default answer
         // is the honest one. A test comparing against a commit brings its own.

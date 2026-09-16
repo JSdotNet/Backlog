@@ -59,6 +59,10 @@ public sealed record GitHubReviewedPullRequest(
     /// </summary>
     public bool SizeKnown { get; init; }
 
+    /// <summary>Every commit on the pull request. Read off the same call as the size,
+    /// so meaningful exactly when <see cref="SizeKnown"/>.</summary>
+    public int Commits { get; init; }
+
     /// <summary>Merge commits on the branch — each one a sync with the base branch
     /// (or, rarely, with another branch). Meaningless unless
     /// <see cref="SyncsKnown"/>.</summary>
@@ -503,6 +507,7 @@ public sealed class GitHubActivityClient(
                 ChangedLines = remembered.ChangedLines,
                 ChangedFiles = remembered.ChangedFiles,
                 SizeKnown = remembered.SizeKnown,
+                Commits = remembered.Commits,
                 SyncMerges = remembered.SyncMerges,
                 ConflictedSyncMerges = remembered.ConflictedSyncMerges,
                 SyncsKnown = remembered.SyncsKnown
@@ -523,6 +528,7 @@ public sealed class GitHubActivityClient(
             ChangedLines = read.ChangedLines,
             ChangedFiles = read.ChangedFiles,
             SizeKnown = read.SizeKnown,
+            Commits = read.Commits,
             SyncMerges = read.SyncMerges,
             ConflictedSyncMerges = read.ConflictedSyncMerges,
             SyncsKnown = read.SyncsKnown
@@ -606,6 +612,7 @@ public sealed class GitHubActivityClient(
                 ChangedLines = size.Lines,
                 ChangedFiles = size.Files,
                 SizeKnown = size.Known,
+                Commits = size.Commits,
                 SyncMerges = syncs.Merges,
                 ConflictedSyncMerges = syncs.Conflicted,
                 SyncsKnown = commitsRefusal is null
@@ -656,6 +663,7 @@ public sealed class GitHubActivityClient(
             ChangedLines = size.Lines,
             ChangedFiles = size.Files,
             SizeKnown = size.Known,
+            Commits = size.Commits,
             SyncMerges = syncs.Merges,
             ConflictedSyncMerges = syncs.Conflicted,
             SyncsKnown = true
@@ -750,7 +758,7 @@ public sealed class GitHubActivityClient(
     /// in as a very small pull request and pull every size figure down.
     /// </para>
     /// </summary>
-    private async Task<(int Lines, int Files, bool Known)> ReadSizeAsync(
+    private async Task<(int Lines, int Files, int Commits, bool Known)> ReadSizeAsync(
         string path,
         CancellationToken cancellationToken)
     {
@@ -760,16 +768,19 @@ public sealed class GitHubActivityClient(
                 .SendAsync(HttpMethod.Get, path, body: null, cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
 
-            if (response.ValueKind != JsonValueKind.Object) return (0, 0, false);
+            if (response.ValueKind != JsonValueKind.Object) return (0, 0, 0, false);
 
+            // The commit count rides on the same response as the size, so it costs
+            // nothing to carry and is known exactly when the size is.
             return (
                 Number(response, "additions") + Number(response, "deletions"),
                 Number(response, "changed_files"),
+                Number(response, "commits"),
                 true);
         }
         catch (GitHubException)
         {
-            return (0, 0, false);
+            return (0, 0, 0, false);
         }
     }
 

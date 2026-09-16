@@ -38,8 +38,21 @@ public sealed class PullRequestDetailCache(Func<string> cacheRoot) : IPullReques
     /// would read as <c>SyncsKnown = false</c>, and the pull request would sit
     /// out of the sync figures forever instead of being read once more.
     /// </para>
+    /// <para>
+    /// 3 added the commit count. An older entry would read it as zero, which is a
+    /// pull request with no commits — a thing that cannot merge — so it is a miss.
+    /// It skips 2 because a sibling branch took 2 for the sync-merge fields, and two
+    /// branches under one number is the silent-zero this constant exists to prevent:
+    /// the cache folder is shared by every checkout on a machine, and a reader that
+    /// accepted the other's entries read every commit count as zero.
+    /// </para>
+    /// <para>
+    /// 4 is the two branches merged: the commit count and the sync-merge fields in
+    /// one shape. A 2 has no commit count and a 3 has no sync fields, so each is a
+    /// miss for the same reason the other was.
+    /// </para>
     /// </summary>
-    private const int Version = 2;
+    private const int Version = 4;
 
     private readonly Func<string> _cacheRoot = cacheRoot ?? throw new ArgumentNullException(nameof(cacheRoot));
 
@@ -70,6 +83,7 @@ public sealed class PullRequestDetailCache(Func<string> cacheRoot) : IPullReques
                 ChangedLines = stored.ChangedLines,
                 ChangedFiles = stored.ChangedFiles,
                 SizeKnown = stored.SizeKnown,
+                Commits = stored.Commits,
                 SyncMerges = stored.SyncMerges,
                 ConflictedSyncMerges = stored.ConflictedSyncMerges,
                 SyncsKnown = stored.SyncsKnown
@@ -109,6 +123,7 @@ public sealed class PullRequestDetailCache(Func<string> cacheRoot) : IPullReques
                     ChangedLines = detail.ChangedLines,
                     ChangedFiles = detail.ChangedFiles,
                     SizeKnown = detail.SizeKnown,
+                    Commits = detail.Commits,
                     SyncMerges = detail.SyncMerges,
                     ConflictedSyncMerges = detail.ConflictedSyncMerges,
                     SyncsKnown = detail.SyncsKnown
@@ -171,6 +186,8 @@ public sealed class PullRequestDetailCache(Func<string> cacheRoot) : IPullReques
         public int ChangedLines { get; init; }
 
         public int ChangedFiles { get; init; }
+
+        public int Commits { get; init; }
 
         public bool SizeKnown { get; init; }
 

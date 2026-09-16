@@ -117,6 +117,24 @@ public sealed class AppFeatureSettingsStoreTests
             Assert.Equal(section.Group, feature.Group)));
     }
 
+    /// <summary>Maturity and the default switch are two decisions, and graduating
+    /// a feature is meant to be one of them at a time. C4 and Archify diagrams were
+    /// judged finished on 2026-09-16 and lost their badge, but stay opt-in until
+    /// somebody decides otherwise; Sync moved one step, from not usable to worth
+    /// trying. Pinned so that the next graduation is a deliberate edit here too,
+    /// not a side effect of tidying the catalog.</summary>
+    [Theory]
+    [InlineData(DevbookFeatures.C4Diagrams, AppFeatureStatus.Released, false)]
+    [InlineData(DevbookFeatures.ArchifyDiagrams, AppFeatureStatus.Released, false)]
+    [InlineData(SyncFeatures.Sync, AppFeatureStatus.Beta, false)]
+    public void Graduated_features_keep_their_maturity_and_default_apart(string key, AppFeatureStatus status, bool enabledByDefault)
+    {
+        var feature = Assert.Single(AppFeatures.All, feature => feature.Key == key);
+
+        Assert.Equal(status, feature.Status);
+        Assert.Equal(enabledByDefault, feature.EnabledByDefault);
+    }
+
     [Fact]
     public void Usage_metrics_stays_off_until_it_is_asked_for()
     {

@@ -110,6 +110,8 @@ internal sealed class GitHubActivitySource(
                 ChangedLines = pr.ChangedLines,
                 ChangedFiles = pr.ChangedFiles,
                 SizeKnown = pr.SizeKnown,
+                Commits = pr.Commits,
+                ChangesRequested = pr.ChangesRequested,
                 SyncMerges = pr.SyncMerges,
                 ConflictedSyncMerges = pr.ConflictedSyncMerges,
                 SyncsKnown = pr.SyncsKnown

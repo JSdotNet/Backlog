@@ -5,8 +5,13 @@ var app = builder.Build();
 
 app.MapGet("/", () => Results.Ok(new { service = "Backlog Azure Foundry local test service" }));
 
-app.MapPost("/openai/deployments/{deployment}/chat/completions", (string deployment, AzureFoundryChatCompletionRequest request) =>
+app.MapPost("/openai/deployments/{deployment}/chat/completions", async (string deployment, AzureFoundryChatCompletionRequest request, CancellationToken cancellationToken) =>
 {
+    // A slow model on request - delay:15s in the question - so the desktop
+    // client's timeout budget can be exercised from the browser.
+    var delay = LocalAzureFoundryCompletion.RequestedDelay(request.Messages);
+    if (delay > TimeSpan.Zero) await Task.Delay(delay, cancellationToken);
+
     var answer = LocalAzureFoundryCompletion.CreateAnswer(request.Messages);
 
     return Results.Ok(new

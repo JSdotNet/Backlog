@@ -994,8 +994,12 @@ public sealed class GlobalPaneMarkupTests
         // module for them, and a shell handing them down would be a shell that
         // knows what an inbox item looks like. What the shell does pass is the
         // Capture button's three parameters - the run belongs to the Capture
-        // context, which the Inbox never sees - and nothing else.
-        Assert.Contains("<InboxPane OnCapture=\"RunCaptureAsync\" CaptureRunning=\"_captureRunning\" CaptureMessage=\"@_captureMessage\" />", home, StringComparison.Ordinal);
+        // context, which the Inbox never sees - and, in the pane's sources
+        // slot, that context's own panel: composed here, so the Inbox draws a
+        // region it cannot name, and nothing else.
+        Assert.Contains("<InboxPane OnCapture=\"RunCaptureAsync\" CaptureRunning=\"_captureRunning\" CaptureMessage=\"@_captureMessage\">", home, StringComparison.Ordinal);
+        Assert.Contains("<Sources>", home, StringComparison.Ordinal);
+        Assert.Contains("<CaptureSourcesPanel Expanded=", home, StringComparison.Ordinal);
         Assert.DoesNotContain("<InboxPane Items=", home, StringComparison.Ordinal);
         Assert.DoesNotContain("OnAdd=", home, StringComparison.Ordinal);
         Assert.Contains("<TasksPane />", home, StringComparison.Ordinal);

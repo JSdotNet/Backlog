@@ -1109,6 +1109,52 @@
         event.preventDefault();
     });
 
+    // The picker's open list is positioned under its control and is as tall as
+    // fourteen rem of options. The control is often the last thing in a column
+    // that scrolls — the inbox's detail, an entry's editor — and a popup that
+    // opens past that column's bottom edge is drawn into its overflow, which the
+    // column clips: the reader sees one option and a scrollbar. Scrolling the
+    // column the moment the list is rendered is what a reader would do by hand,
+    // and a list that already fits moves nothing.
+    //
+    // The nearest scroll container only, and not `scrollIntoView`: that walks
+    // every ancestor and scrolls `overflow: hidden` boxes too — the workspace is
+    // one — and a hidden box a popup has scrolled has no scrollbar to put it
+    // back. With no scroll container above the list there is nothing to do; an
+    // absolute box past the bottom of a page is reachable by the page's own
+    // scrollbar already.
+    //
+    // A DOM observer rather than interop from the component: the list is rendered
+    // a server round-trip after the focus that opens it, so the component would
+    // have to call back after every render to know when to ask, and the picker
+    // deliberately has no interop of its own. This watches every subtree
+    // mutation on the page and does nothing on all but the one it is for, which
+    // is cheap: the check is one class test per added element.
+    const TAG_SELECT_LIST_CLASS = 'tag-select__list';
+
+    const revealTagSelectList = (list) => {
+        let container = list.parentElement;
+        while (container && container !== document.body) {
+            const overflowY = getComputedStyle(container).overflowY;
+            if (overflowY === 'auto' || overflowY === 'scroll') break;
+            container = container.parentElement;
+        }
+        if (!container || container === document.body) return;
+
+        const overshoot = list.getBoundingClientRect().bottom - container.getBoundingClientRect().bottom;
+        if (overshoot > 0) container.scrollTop += overshoot;
+    };
+
+    new MutationObserver((records) => {
+        for (const record of records) {
+            for (const node of record.addedNodes) {
+                if (node instanceof Element && node.classList.contains(TAG_SELECT_LIST_CLASS)) {
+                    revealTagSelectList(node);
+                }
+            }
+        }
+    }).observe(document.documentElement, { childList: true, subtree: true });
+
     // The side pane is resized by dragging its edge. Pointer capture and the live
     // width both belong in the browser; C# only hears the settled value, so a drag
     // costs one interop call instead of one per frame.

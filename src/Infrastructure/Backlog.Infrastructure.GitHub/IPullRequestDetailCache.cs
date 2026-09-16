@@ -44,6 +44,10 @@ public sealed record PullRequestDetail
     /// above are zero and mean nothing.</summary>
     public bool SizeKnown { get; init; }
 
+    /// <summary>Every commit on the pull request. Read with the size, so meaningful
+    /// exactly when <see cref="SizeKnown"/>.</summary>
+    public int Commits { get; init; }
+
     /// <summary>Merge commits on the branch: syncs with the base branch.</summary>
     public int SyncMerges { get; init; }
 
