@@ -242,6 +242,42 @@ public sealed class RunCaptureCommandHandlerTests
         Assert.Equal(2, result.Value.TotalNewItems);
     }
 
+    /// <summary>The run is written down as it is reported — one entry per
+    /// source it looked at, with that source's count and line — so the panel's
+    /// "last capture" reads the same sentence the pane showed.</summary>
+    [Fact]
+    public async Task The_run_is_written_to_the_log_as_it_was_reported()
+    {
+        var settings = new FakeSettings();
+        settings.SetEnabled(CaptureSourceKind.YouTube, true);
+        settings.SetEnabled(CaptureSourceKind.Website, true);
+        var log = new FakeLog();
+        var handler = Handler(settings, new FakeDelivery(), log, new RecordingAdapter(CaptureSourceKind.YouTube, Entry("a"), Entry("b")));
+
+        var result = await handler.Handle(new RunCaptureCommand(), TestContext.Current.CancellationToken);
+
+        var run = Assert.Single(log.Recorded);
+        Assert.Same(result.Value, run);
+        Assert.Equal(Now, run.RanAt);
+        Assert.Collection(
+            run.Sources,
+            youtube => Assert.Equal((CaptureSourceKind.YouTube, 2, "YouTube: 2 new items."), (youtube.Kind, youtube.NewItems, youtube.Message)),
+            website => Assert.Equal((CaptureSourceKind.Website, 0), (website.Kind, website.NewItems)));
+    }
+
+    /// <summary>An empty run is still a run that happened; the log gets it
+    /// and keeps nothing per source, since no source was looked at.</summary>
+    [Fact]
+    public async Task A_run_with_nothing_enabled_is_still_written_down_as_empty()
+    {
+        var log = new FakeLog();
+        var handler = Handler(new FakeSettings(), new FakeDelivery(), log);
+
+        await handler.Handle(new RunCaptureCommand(), TestContext.Current.CancellationToken);
+
+        Assert.True(Assert.Single(log.Recorded).NothingEnabled);
+    }
+
     [Fact]
     public async Task Cancellation_ends_the_run_rather_than_becoming_a_sources_line()
     {
@@ -255,7 +291,29 @@ public sealed class RunCaptureCommandHandlerTests
     }
 
     private static RunCaptureCommandHandler Handler(ICaptureSourceSettings settings, ICaptureDelivery delivery, params ICaptureSourceAdapter[] adapters) =>
-        new(settings, adapters, delivery, new FakeTimeProvider(Now));
+        Handler(settings, delivery, new FakeLog(), adapters);
+
+    private static RunCaptureCommandHandler Handler(ICaptureSourceSettings settings, ICaptureDelivery delivery, ICaptureRunLog log, params ICaptureSourceAdapter[] adapters) =>
+        new(settings, adapters, delivery, log, new FakeTimeProvider(Now));
+
+    /// <summary>The log as a list of what was handed to it. Reading it back
+    /// per source is the store's business and is tested with the store.</summary>
+    private sealed class FakeLog : ICaptureRunLog
+    {
+        public event Action? Changed
+        {
+            add { }
+            remove { }
+        }
+
+        public List<CaptureRunResultDto> Recorded { get; } = [];
+
+        public CaptureRunLogEntry? LastRunFor(CaptureSourceKind kind) => null;
+
+        public IReadOnlyList<CaptureRunLogEntry> EntriesFor(CaptureSourceKind kind) => [];
+
+        public void Record(CaptureRunResultDto run) => Recorded.Add(run);
+    }
 
     private static CapturedEntry Entry(string id) =>
         new(id, $"Entry {id}", $"https://example.org/{id}", null, Now.AddHours(-1));

@@ -1,6 +1,7 @@
 @*
-    The four figures a reader looks for first: what shipped, what closed, how much
-    came back after review, and how long a review took to arrive.
+    The five figures a reader looks for first: what shipped, what closed, how much
+    came back after review, how long a review took to arrive, and how many commits
+    a pull request carried.
 
     Every tile carries the part's status rather than the part hiding behind one
     status of its own, which is what lets the grid stay on screen while it loads
@@ -51,6 +52,17 @@
                     Status="Status"
                     StatusMessage="@StatusMessage"
                     TestId="dashboard-headline-turnaround" />
+        @* The median, and the population it was taken over, because the two differ
+           whenever a pull request's detail could not be read: that one still merged
+           and still counts above, but it has no commit count rather than a count of
+           zero, and a footnote that named "merged" here would be claiming a
+           population the median never saw. *@
+        <MetricTile Label="Commits per pull request"
+                    Value="@(IsReady ? CommitsValue : null)"
+                    Footnote="@(IsReady ? CommitsFootnote : null)"
+                    Status="Status"
+                    StatusMessage="@StatusMessage"
+                    TestId="dashboard-headline-commits" />
     </MetricGrid>
 </PartFrame>
 
@@ -75,6 +87,14 @@
                 : basis;
         }
     }
+
+    private string CommitsValue => Value!.MedianCommitsPerPullRequest is { } median
+        ? MetricFormat.Compact(median)
+        : "—";
+
+    private string CommitsFootnote => Value!.MedianCommitsPerPullRequest is null
+        ? "No pull request's detail could be read"
+        : $"Median, across {Value!.PullRequestsWithCommitCount} pull requests whose detail was read";
 
     protected override Task<InsightResult<ProductivityHeadline>> FetchAsync(CancellationToken cancellationToken) =>
         Insights.GetHeadlineAsync(Scope, cancellationToken);

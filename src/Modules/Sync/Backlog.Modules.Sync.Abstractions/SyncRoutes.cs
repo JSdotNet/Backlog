@@ -49,6 +49,12 @@ public static class SyncRoutes
     /// over the second container .arc42/adr/0005 §Storage declares.</summary>
     public const string Sessions = "/sessions";
 
+    /// <summary>The annotation replica: POST pushes a batch of this device's
+    /// remarks on Devbook chapters, GET pulls the owner's annotation feed from a
+    /// cursor. Bearer, and the same two-halves-one-route shape as
+    /// <see cref="Tasks"/>, over the third replica container.</summary>
+    public const string Annotations = "/annotations";
+
     /// <summary>Route template for acknowledging one capture. Bearer. Use
     /// <see cref="AcknowledgeInboxItemFor"/> to build a concrete URL.</summary>
     public const string AcknowledgeInboxItem = "/inbox/{id:guid}/ack";

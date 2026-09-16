@@ -1,4 +1,6 @@
 ﻿@implements IDisposable
+@using Backlog.Infrastructure.Sync
+@using Backlog.Infrastructure.Sync.Sessions
 @inject IAppUpdateService Updates
 @inject IServiceProvider Services
 
@@ -6,8 +8,11 @@
     The app-shell footer, mounted once by MainLayout and therefore outside every
     routed page. It carries the two controls that are not about the page in front
     of you — which build this window is running, and how to say that something in
-    it is wrong — and, between them, the one thing on the band that changes while
-    you look at it: whether the window is saving.
+    it is wrong — and, between them, the two things on the band that change while
+    you look at it: whether the window is saving, and what the cloud sync loops
+    last did. The sync phrase opens a window listing what moved and which way,
+    which is the log a person reaches for when a count alone does not explain
+    what changed.
 
     Both used to live in Home's header, in among the repository scope, the view
     switcher and the pane strip — a region that is entirely about the work on
@@ -55,6 +60,28 @@
             <text>Worktree <code data-testid="app-workspace">@_workspace.Marker</code></text>
         }
     </AppButton>
+
+    @* What replication last did, in one phrase, and the way into the list of
+       what it moved. Quiet until the first cycle: before that there is nothing
+       to say and nothing behind the window, and a band that is now on every
+       route stays quiet on a machine that does not replicate at all.
+
+       Before the status slot rather than after it, so the phrase's changing
+       width — "Syncing…" is shorter than a count with a clock — is spent on the
+       slot's auto margin rather than walking Report issue about. *@
+    @if (_syncState.HasSomethingToShow)
+    {
+        <AppButton BaseClass="header-util app-sync"
+                   CssClass="@(_syncState.Error is null ? null : "app-sync--failed")"
+                   Variant="ButtonVariant.None"
+                   TestId="app-sync"
+                   title="@(_syncState.Error ?? "Open sync activity")"
+                   aria-label="@SyncActivityPresentation.ControlLabel(_syncState)"
+                   data-sync-state="@SyncStateToken"
+                   OnClick="OpenSyncWindow">
+            @SyncActivityPresentation.Label(_syncState)
+        </AppButton>
+    }
 
     @* The save state, beside the version rather than out at the right edge,
        because the auto margin lives here now. That is the whole reason this
@@ -159,6 +186,92 @@
     </ChildContent>
 </Modal>
 
+@* The sync activity window: what the loops last did, in numbers, and then
+   what they moved, by name and direction. A sibling of the band for the same
+   reason the update window is. It wears the update dialog's shape rather than
+   one of its own — the two are the same kind of window opened from the same
+   band, and a third dialog shape in the app would be a third thing to keep
+   aligned. *@
+<Modal Open="_syncWindowOpen"
+       OpenChanged="value => { if (!value) _syncWindowOpen = false; }"
+       Element="section"
+       BaseClass="app-update-dialog sync-activity-dialog"
+       BackdropCssClass="app-update-backdrop"
+       BackdropRole="presentation"
+       UseBodyWrapper="false"
+       CloseOnBackdropClick="true"
+       TestId="sync-activity-dialog"
+       aria-labelledby="sync-activity-title"
+       aria-describedby="sync-activity-description">
+    <Header>
+        <SectionHeader BaseClass="app-update-dialog__header"
+                       TextCssClass=""
+                       EyebrowCssClass="app-update-dialog__eyebrow"
+                       TitleCssClass=""
+                       ActionsCssClass=""
+                       Eyebrow="Cloud sync"
+                       TitleId="sync-activity-title"
+                       Title="Sync activity">
+            <Actions>
+                <IconButton AriaLabel="Close sync activity" CssClass="btn--ghost" OnClick="() => _syncWindowOpen = false">x</IconButton>
+            </Actions>
+        </SectionHeader>
+    </Header>
+    <ChildContent>
+        <p id="sync-activity-description" class="app-update-dialog__description">
+            What this window has sent to the cloud and received from it since it opened. Received counts only what changed something here; this device's own echo is not listed.
+        </p>
+
+        @* The per-loop totals, one line each, so the two loops' last cycles can
+           be read apart — a session line that stopped moving while the task
+           line kept going is a fact the folded footer phrase cannot show. *@
+        <div class="sync-activity__totals" data-testid="sync-activity-totals">
+            @if (SyncActivityPresentation.TaskLine(_taskSync?.LastSummary) is { } taskLine)
+            {
+                <p data-testid="sync-activity-tasks">@taskLine</p>
+            }
+            @if (SyncActivityPresentation.SessionLine(_sessionSync?.LastSummary) is { } sessionLine)
+            {
+                <p data-testid="sync-activity-sessions">@sessionLine</p>
+            }
+        </div>
+
+        <Alert Message="@_syncState.Error" BaseClass="app-error-message" TestId="sync-activity-error" Role="status" />
+
+        <div class="app-update-dialog__actions">
+            <AppButton Variant="ButtonVariant.Secondary"
+                       TestId="sync-activity-sync-now"
+                       Busy="@_syncState.Syncing"
+                       BusyLabel="Syncing"
+                       OnClick="RequestSyncNow">
+                Sync now
+            </AppButton>
+        </div>
+
+        @if (_syncEntries.Count == 0)
+        {
+            <EmptyState Title="Nothing has moved yet"
+                        Description="Entries appear here as tasks, captures and sessions travel in either direction."
+                        TestId="sync-activity-none" />
+        }
+        else
+        {
+            <ol class="sync-activity__list" data-testid="sync-activity-list" aria-label="Documents synced, newest first">
+                @foreach (var entry in _syncEntries)
+                {
+                    <li class="sync-activity__entry" data-direction="@entry.Direction.ToString().ToLowerInvariant()" data-kind="@entry.Kind.ToString().ToLowerInvariant()">
+                        <time class="sync-activity__time" datetime="@entry.At.ToString("o")">@SyncActivityPresentation.Stamp(entry.At)</time>
+                        <span class="sync-activity__direction">@SyncActivityPresentation.Direction(entry.Direction)</span>
+                        <span class="sync-activity__kind">@SyncActivityPresentation.Kind(entry.Kind)</span>
+                        <span class="sync-activity__title" title="@entry.Id">@entry.Title@if (entry.Note is not null)
+                            {<span class="sync-activity__note"> · @entry.Note</span>}</span>
+                    </li>
+                }
+            </ol>
+        }
+    </ChildContent>
+</Modal>
+
 @code {
     // Null in an installed build, where no host registers one and the footer
     // shows the version instead.
@@ -175,7 +288,37 @@
     private bool _appUpdateReady;
     private bool _appUpdateWindowOpen;
 
+    // The two replication loops, or null in a host that composes neither —
+    // every installed build with sync switched off, and every test that does not
+    // register them. The footer reads their state and asks for a cycle; it never
+    // learns what a cycle does.
+    private TaskSyncWorker? _taskSync;
+    private SessionSyncWorker? _sessionSync;
+
+    // What the loops moved, by name. Null where the host composed no sync
+    // client at all; empty where it did and nothing has travelled yet.
+    private SyncActivityLog? _syncActivity;
+
+    // Both re-read on every raise rather than on render, so a render that
+    // happens for another reason — a save settling — draws the same reading a
+    // sync raise would have. The snapshot is the log's copy, taken once per
+    // raise rather than once per render: rendering the list is the common case
+    // and copying five hundred entries for each of them is not free.
+    private SyncFooterState _syncState = new(false, 0, 0, null, null);
+    private IReadOnlyList<SyncActivityEntry> _syncEntries = [];
+
+    private bool _syncWindowOpen;
+
     private bool _updateBusy => _checkingForAppUpdate || _installingAppUpdate;
+
+    // One token a test or a stylesheet can key on, rather than parsing the
+    // phrase back out of the band.
+    private string SyncStateToken => _syncState switch
+    {
+        { Syncing: true } => "syncing",
+        { Error: not null } => "failed",
+        _ => "synced",
+    };
 
     private string VersionControlLabel => _workspace is null
         ? AppUpdatePresentation.VersionWindowLabel(Updates.CurrentVersion)
@@ -195,6 +338,34 @@
         // indicator rather than no window at all.
         _saveStatus = Services.GetService<ISaveStatusSource>();
         if (_saveStatus is not null) _saveStatus.Changed += OnSaveStatusChanged;
+
+        // The loops, resolved the way Home and Settings resolve them: not a plain
+        // GetService, because AddTaskSyncClient registers the worker and
+        // deliberately registers no state store, so on a head that chose none the
+        // worker is registered and unconstructable and asking for it throws
+        // rather than answering null. That head is "does not replicate", not
+        // "broken", and its footer is the footer without a sync phrase.
+        _taskSync = ResolveOptional<TaskSyncWorker>();
+        _sessionSync = ResolveOptional<SessionSyncWorker>();
+        _syncActivity = Services.GetService<SyncActivityLog>();
+
+        if (_taskSync is not null) _taskSync.Changed += OnSyncChanged;
+        if (_sessionSync is not null) _sessionSync.Changed += OnSyncChanged;
+        if (_syncActivity is not null) _syncActivity.Changed += OnSyncChanged;
+
+        ReadSync();
+    }
+
+    private T? ResolveOptional<T>() where T : class
+    {
+        try
+        {
+            return Services.GetService<T>();
+        }
+        catch (InvalidOperationException)
+        {
+            return null;
+        }
     }
 
     // The hop onto the renderer is mandatory rather than defensive: Changed is
@@ -203,9 +374,40 @@
     // thread. Same idiom as TasksPane.HandleStateChanged.
     private void OnSaveStatusChanged() => _ = InvokeAsync(StateHasChanged);
 
+    // Same hop, same reason: a worker raises from the thread pool at both ends
+    // of a cycle, and the log raises from whichever thread recorded the entry.
+    // The reading is taken on the renderer's side so the state and the list the
+    // band draws were read together.
+    private void OnSyncChanged() => _ = InvokeAsync(() =>
+    {
+        ReadSync();
+        StateHasChanged();
+    });
+
+    private void ReadSync()
+    {
+        _syncState = SyncFooterState.From(_taskSync, _sessionSync);
+        _syncEntries = _syncActivity?.Snapshot() ?? [];
+    }
+
+    private void OpenSyncWindow() => _syncWindowOpen = true;
+
+    // Both loops, and neither is awaited: RequestSync hands the exchange to the
+    // thread pool and returns, and what happened arrives through Changed. A
+    // loop whose gates are shut declines quietly, which is the right answer
+    // for a button that says "now" rather than "whether".
+    private void RequestSyncNow()
+    {
+        _taskSync?.RequestSync();
+        _sessionSync?.RequestSync();
+    }
+
     public void Dispose()
     {
         if (_saveStatus is not null) _saveStatus.Changed -= OnSaveStatusChanged;
+        if (_taskSync is not null) _taskSync.Changed -= OnSyncChanged;
+        if (_sessionSync is not null) _sessionSync.Changed -= OnSyncChanged;
+        if (_syncActivity is not null) _syncActivity.Changed -= OnSyncChanged;
     }
 
     private void OpenUpdateWindow() => _appUpdateWindowOpen = true;

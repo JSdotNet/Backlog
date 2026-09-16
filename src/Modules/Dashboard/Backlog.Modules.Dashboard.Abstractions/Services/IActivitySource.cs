@@ -40,6 +40,16 @@ public sealed record ActivityPullRequest(
     /// still happened, and its zero must not be averaged in as a very small one.</summary>
     public bool SizeKnown { get; init; }
 
+    /// <summary>Every commit on the pull request, before and after any review. Read
+    /// off the same call as the size, so it is meaningful exactly when
+    /// <see cref="SizeKnown"/> — and zero without it is not a pull request with no
+    /// commits, which cannot merge.</summary>
+    public int Commits { get; init; }
+
+    /// <summary>How many review verdicts asked for changes. Zero for a pull request
+    /// nobody reviewed, which is the honest count rather than a stand-in.</summary>
+    public int ChangesRequested { get; init; }
+
     /// <summary>True when anything happened after the first review — the
     /// definition of rework this dashboard uses.</summary>
     public bool HasChurn => CommitsAfterFirstReview > 0 || ForcePushesAfterFirstReview > 0;

@@ -105,6 +105,36 @@ internal static class SyncRequestLimits
     /// worth relying on, and this is well past anything a person types and well
     /// short of anything that would trouble the store.</summary>
     internal const int MaximumBranch = 255;
+
+    /// <summary>
+    /// The most annotation changes one push may carry — the same number as the
+    /// other two containers, for the same reason: a page is a unit of work
+    /// against the store, and the device batches at 200.
+    /// </summary>
+    internal const int MaximumPushAnnotations = 500;
+
+    /// <summary>
+    /// The most an annotation push body may weigh: 4 MB. Every field of an
+    /// annotation is bounded below, so <see cref="MaximumPushAnnotations"/>
+    /// remarks cannot honestly reach this; the count cap bounds what reaches
+    /// the store, and this bounds what reaches the parser.
+    /// </summary>
+    internal const long AnnotationPushBodyBytes = 4L * 1024 * 1024;
+
+    /// <summary>How long a chapter path may be. A repository-relative path,
+    /// never an absolute one, so this is generous for any knowledge folder and
+    /// far short of anything that would trouble the store.</summary>
+    internal const int MaximumChapterPath = 1_024;
+
+    /// <summary>How long an annotation's author label may be. A machine name
+    /// or a person's name, which is what <see cref="MaximumMachineName"/> also
+    /// bounds.</summary>
+    internal const int MaximumAnnotationAuthor = 255;
+
+    /// <summary>How long a remark's body may be. Generous for a review note
+    /// — several paragraphs — and nowhere near the two-megabyte document
+    /// ceiling that is the failure this keeps off the store.</summary>
+    internal const int MaximumAnnotationBody = 8_000;
 }
 
 

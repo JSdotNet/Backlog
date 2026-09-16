@@ -358,6 +358,95 @@ h1, h2, h3 {
     justify-content: flex-start;
 }
 
+/* --- Sync activity --------------------------------------------------------- */
+/*
+  The sync phrase wears `.header-util` like the version beside it, so the two
+  read as one row of quiet utilities. Only the type is the phrase's own: the
+  arrows and counts are tabular so "↑3 ↓12" and "↑12 ↓3" are the same width and
+  the band does not breathe as the numbers change. A failed cycle borrows the
+  error text colour and nothing louder — the workers say a failed result is
+  not an alarm, and a laptop on a train would otherwise see red every five
+  minutes.
+*/
+.app-sync {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.app-sync--failed {
+    color: var(--color-error-text);
+}
+
+.sync-activity__totals {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-variant-numeric: tabular-nums;
+}
+
+.sync-activity__totals p {
+    margin: 0;
+}
+
+/* One row per document, in columns that line up: the clock, the direction, the
+   kind, then the title taking what is left. The list is the reason the window
+   exists, so it gets the scroll rather than the dialog: a republish of a whole
+   backlog fills it to `Capacity`, and the totals and the button above it must
+   stay where they are while a reader scrolls the rows. */
+.sync-activity__list {
+    display: grid;
+    grid-template-columns: max-content max-content max-content minmax(0, 1fr);
+    column-gap: var(--spacing-md);
+    row-gap: var(--spacing-xs);
+    align-items: baseline;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    max-height: 18rem;
+    overflow-y: auto;
+    font-size: var(--font-size-sm);
+}
+
+.sync-activity__entry {
+    display: grid;
+    grid-template-columns: subgrid;
+    grid-column: 1 / -1;
+}
+
+.sync-activity__time {
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+}
+
+.sync-activity__direction,
+.sync-activity__kind {
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+}
+
+/* The direction column is the one a reader scans, so it takes the one colour
+   difference in the list: what left is the primary tint, what arrived is the
+   default ink. Both keep the arrow and the word, so the tint is never the only
+   thing saying which way. */
+.sync-activity__entry[data-direction="sent"] .sync-activity__direction {
+    color: var(--color-primary);
+}
+
+.sync-activity__title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sync-activity__note {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
 .app-update-dialog__description code {
     color: var(--color-text-primary);
     font-family: var(--font-family-mono);
@@ -2891,6 +2980,129 @@ h1, h2, h3 {
     font-size: var(--font-size-sm);
 }
 
+/* --- Capture sources ---------------------------------------------------- */
+/*
+   The sources panel the shell folds into the Inbox pane's sources slot: a
+   library FoldControl wearing capture-sources beside its own fold class, so
+   the trigger and the chevron are the library's and only the region inside is
+   styled here. Folded, it is one line; open, it is a card per source with the
+   same flag-row switch the feature flags use, the library's textarea under it,
+   and the last run's line with the log beneath. Every colour is a token.
+*/
+.inbox-pane__sources {
+    min-width: 0;
+}
+
+.capture-sources .fold__trigger {
+    font-size: var(--font-size-sm);
+}
+
+.capture-sources__label {
+    font-weight: 700;
+}
+
+.capture-sources__summary {
+    margin-left: var(--spacing-xs);
+    color: var(--color-text-secondary);
+}
+
+.capture-sources__body {
+    display: grid;
+    gap: var(--spacing-md);
+    padding-top: var(--spacing-xs);
+}
+
+.capture-sources__description,
+.capture-sources__note {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.capture-sources__note code {
+    overflow-wrap: anywhere;
+}
+
+/* One source: switch, targets, last run. The card border is the flag row's;
+   the rest sits inside the same box so a source reads as one thing. */
+.capture-sources__source {
+    display: grid;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background);
+}
+
+.capture-sources__source > .feature-flag {
+    padding: 0;
+    border: none;
+    background: transparent;
+}
+
+.capture-sources__targets .field__input {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    resize: vertical;
+}
+
+/* The last run and the way into the log, on one line; the button keeps its
+   width and the line takes the rest. */
+.capture-sources__run {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+}
+
+.capture-sources__last-run {
+    margin: 0;
+    min-width: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+/* The log: newest first, each run on its own line — when, how many, what it
+   said. A list rather than a table because the message is the width. */
+.capture-sources__log {
+    display: grid;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: var(--spacing-sm);
+    list-style: none;
+    font-size: var(--font-size-xs);
+    font-family: var(--font-family-mono);
+    color: var(--color-text-secondary);
+    background: color-mix(in srgb, var(--color-text-primary) 3%, transparent);
+    border-radius: var(--border-radius-sm);
+    max-height: 14rem;
+    overflow-y: auto;
+}
+
+.capture-sources__log-entry {
+    display: grid;
+    grid-template-columns: auto auto 1fr;
+    gap: var(--spacing-sm);
+    align-items: baseline;
+}
+
+.capture-sources__log-when {
+    white-space: nowrap;
+}
+
+.capture-sources__log-new {
+    white-space: nowrap;
+    color: var(--color-text-primary);
+}
+
+.capture-sources__log-text {
+    overflow-wrap: anywhere;
+}
+
+.capture-sources__log-empty {
+    font-family: var(--font-family-base);
+}
+
 .inbox-pane__add-form {
     display: grid;
     gap: var(--spacing-md);
@@ -4693,10 +4905,17 @@ h1, h2, h3 {
     grid-template-columns: minmax(20rem, 26rem) minmax(0, 1fr) auto minmax(24rem, min(var(--devbook-panel-width, 36rem), calc(100% - var(--workspace-min-width))));
 }
 
+/* Stretched to the row rather than sized by its contents. It used to
+   `align-self: start` and measure its own height, capped at the row: with a
+   short queue the pane stopped a third of the way down and the detail column —
+   which scrolls on its own and takes the pane's height — had no height to give
+   a picker's popup, so the list opened into the column's overflow and was cut
+   off at the pane's edge. The row is a sized track, so filling it is what gives
+   the columns their height and leaves the space below the pane to the pane. */
 .devbook-layout--inbox-before-backlog > .inbox-pane {
     position: sticky;
     top: var(--spacing-lg);
-    align-self: start;
+    align-self: stretch;
     /* The pane row no longer starts below the header alone — the roadmap band can
        sit above it — so a cap measured off the viewport overflows by however tall
        the band is. The row is already a sized grid track, so its own height is the
@@ -4742,6 +4961,16 @@ h1, h2, h3 {
     top: auto;
     max-height: none;
     overflow: auto;
+}
+
+/* The inbox on its own — the backlog hidden — is the whole row, and the stack
+   it sits in is already stretched to that row. The pane grows to fill it for
+   the reason the sticky variant above stretches: a pane sized by a short queue
+   left the rest of the window empty and its detail column with no room for a
+   picker's popup. With another pane in the stack the inbox keeps its content
+   height and shares the column, as before. */
+.side-pane-stack--full > .inbox-pane {
+    flex: 1 1 auto;
 }
 
 /* A column, so the split inside it inherits the height instead of measuring its

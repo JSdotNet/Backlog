@@ -18,61 +18,30 @@
     component owns the buttons, the text, and nothing in between.
 *@
 
-<div class="@ClassValue" data-testid="@TestId">
-    <div class="markdown-editor__toolbar" role="toolbar" aria-label="@ToolbarLabel" aria-controls="@_surfaceId">
-        @foreach (var group in Actions)
-        {
-            <div class="markdown-editor__group" role="group">
-                @foreach (var action in group)
-                {
-                    <button type="button"
-                            class="markdown-editor__button"
-                            data-testid="@($"markdown-editor-{action.Id}")"
-                            title="@action.Title"
-                            aria-label="@action.Title"
-                            disabled="@Disabled"
-                            @onclick="() => ApplyAsync(action.Id)">
-                        <span class="@action.GlyphClass" aria-hidden="true">@action.Glyph</span>
-                    </button>
-                }
-            </div>
-        }
+@if (string.IsNullOrWhiteSpace(Label))
+{
+    @Editor
+}
+else
+{
+    @* The same `field` layout TextArea draws around itself, with the whole
+       editor standing where the box would. The label points at the textarea and
+       not at the frame: the frame is what the reader sees the name over, but the
+       textarea is what focus lands in and what a screen reader names. *@
+    <div class="field">
+        <label class="field__label" for="@InputId">@Label</label>
+        @Editor
     </div>
-
-    <div @ref="_surface" class="markdown-editor__surface" id="@_surfaceId">
-        @* The highlight layer sits behind the textarea, in the same box with the
-           same metrics, and the text on top is transparent apart from its caret.
-           A textarea cannot colour its own content — that is the whole reason
-           this pattern exists — and the alternative, a contenteditable, is the
-           bargain the page next door explains why this does not take.
-
-           aria-hidden because it is the same text twice: a screen reader that
-           read both would read the body twice over. The textarea is the one
-           that is real. *@
-        <pre class="markdown-editor__highlight" aria-hidden="true"><code>@RenderHighlight</code></pre>
-
-        @* The blur handler rides TextArea's unmatched attributes down onto the
-           textarea itself. Putting it on a wrapper instead would mean waiting for
-           focus to leave a box focus never enters, and the flush would never
-           come. *@
-        <TextArea Value="@Value"
-                  ValueChanged="OnTypedAsync"
-                  AriaLabel="@AriaLabel"
-                  Rows="@Rows"
-                  AutoGrow="@AutoGrow"
-                  Disabled="@Disabled"
-                  Bare="true"
-                  GrowCssClass="markdown-editor__grow"
-                  InputCssClass="markdown-editor__input"
-                  TestId="@SurfaceTestId"
-                  @onblur="OnBlur" />
-    </div>
-</div>
+}
 
 @implements IAsyncDisposable
 
 @code {
     private readonly string _surfaceId = "markdown-editor-" + Guid.NewGuid().ToString("N");
+
+    /// <summary>The textarea's id: the host's when it gave one, else derived from
+    /// the surface's so a <see cref="Label"/> has something to point at.</summary>
+    private string InputId => string.IsNullOrWhiteSpace(Id) ? _surfaceId + "-input" : Id;
     private ElementReference _surface;
     private bool _watching;
 
@@ -127,6 +96,30 @@
     [Parameter]
     public EventCallback OnBlur { get; set; }
 
+    /// <summary>
+    /// A visible name over the editor, the way <c>TextArea</c> shows one over its
+    /// box: the editor takes the box's place inside the same <c>field</c> layout,
+    /// and the label is wired to the textarea, so it is what a screen reader says
+    /// and what <see cref="AriaLabel"/> would otherwise have said.
+    /// <para>
+    /// For an editor standing in a form beside other labelled fields — a dialog
+    /// asking for a title and some notes. An editor that is the whole surface (a
+    /// file view, a task body opened in place) has no neighbours to line up with
+    /// and keeps <see cref="AriaLabel"/> instead.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public string? Label { get; set; }
+
+    /// <summary>The textarea's <c>id</c>, for a host that wants to address it —
+    /// a label of its own, a focus restore. Generated when absent.</summary>
+    [Parameter]
+    public string? Id { get; set; }
+
+    /// <summary>The textarea's accessible name when there is no <see cref="Label"/>
+    /// to be it. Ignored when a label is set — a visible label that named one
+    /// thing and an aria-label that named another would give the same box two
+    /// names.</summary>
     [Parameter]
     public string? AriaLabel { get; set; } = "Markdown source";
 
@@ -314,4 +307,62 @@
         {
         }
     }
+
+    /// <summary>The editor itself — toolbar over surface — as one fragment, so
+    /// it can stand alone or inside the labelled <c>field</c> above without
+    /// being written twice.</summary>
+    private RenderFragment Editor =>
+        @<text>
+        <div class="@ClassValue" data-testid="@TestId">
+            <div class="markdown-editor__toolbar" role="toolbar" aria-label="@ToolbarLabel" aria-controls="@_surfaceId">
+                @foreach (var group in Actions)
+                {
+                    <div class="markdown-editor__group" role="group">
+                        @foreach (var action in group)
+                        {
+                            <button type="button"
+                                    class="markdown-editor__button"
+                                    data-testid="@($"markdown-editor-{action.Id}")"
+                                    title="@action.Title"
+                                    aria-label="@action.Title"
+                                    disabled="@Disabled"
+                                    @onclick="() => ApplyAsync(action.Id)">
+                                <span class="@action.GlyphClass" aria-hidden="true">@action.Glyph</span>
+                            </button>
+                        }
+                    </div>
+                }
+            </div>
+
+            <div @ref="_surface" class="markdown-editor__surface" id="@_surfaceId">
+                @* The highlight layer sits behind the textarea, in the same box with the
+                   same metrics, and the text on top is transparent apart from its caret.
+                   A textarea cannot colour its own content — that is the whole reason
+                   this pattern exists — and the alternative, a contenteditable, is the
+                   bargain the page next door explains why this does not take.
+
+                   aria-hidden because it is the same text twice: a screen reader that
+                   read both would read the body twice over. The textarea is the one
+                   that is real. *@
+                <pre class="markdown-editor__highlight" aria-hidden="true"><code>@RenderHighlight</code></pre>
+
+                @* The blur handler rides TextArea's unmatched attributes down onto the
+                   textarea itself. Putting it on a wrapper instead would mean waiting for
+                   focus to leave a box focus never enters, and the flush would never
+                   come. *@
+                <TextArea Value="@Value"
+                          ValueChanged="OnTypedAsync"
+                          Id="@InputId"
+                          AriaLabel="@(string.IsNullOrWhiteSpace(Label) ? AriaLabel : null)"
+                          Rows="@Rows"
+                          AutoGrow="@AutoGrow"
+                          Disabled="@Disabled"
+                          Bare="true"
+                          GrowCssClass="markdown-editor__grow"
+                          InputCssClass="markdown-editor__input"
+                          TestId="@SurfaceTestId"
+                          @onblur="OnBlur" />
+            </div>
+        </div>
+        </text>;
 }

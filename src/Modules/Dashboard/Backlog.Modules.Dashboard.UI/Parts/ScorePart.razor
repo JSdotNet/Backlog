@@ -1,11 +1,19 @@
 @*
-    The productivity score, and — the part that earns it — what it is made of.
+    The two productivity scores, and — the part that earns them — what each is
+    made of.
 
     A score is a claim, not a measurement. Nobody can check "68" against anything,
     so a bare score is either taken on faith or ignored, and it is usually ignored.
     Handing the component the inputs rather than the number turns it into an
     argument somebody can join: a reader who thinks throughput is over-weighted can
-    see it is worth three of the eleven and say so.
+    see it is worth three of the five and say so.
+
+    Two cards rather than one, because one was unreadable. The old figure folded
+    counts read against a moving bar together with proportions read against a fixed
+    one, so it could fall because less shipped or because what shipped came back
+    from review, and nothing on the card said which. Volume is the counts, against
+    your own record; Quality is the proportions, against the window itself. They
+    answer different questions and are drawn apart so they can be read apart.
 
     The same reasoning is why the note names the target. Showing "441 of 6" was the
     defect this part was rebuilt for, and the fix is not simply a bigger denominator
@@ -14,10 +22,11 @@
     was merged in them. A target nobody can see is exactly as unarguable as the
     constant it replaced.
 
-    The note also says what is NOT being scored, in the three ways that can happen:
-    when there is no history to set a target from, when the window itself came back
-    truncated, and — permanently, because the condition is invisible from here — the
-    two things the sessions input refuses to be.
+    The note also says what is NOT being scored, in the two ways that can happen:
+    when there is no history to set a volume target from, and when the window itself
+    came back truncated. Assistant sessions are scored in neither card — they count
+    effort rather than output — and the note says that too, because a reader of the
+    previous version will look for the row.
 
     Value is deliberately not passed. MetricScore works the figure out from the
     inputs it is given, so the number on screen cannot drift from the composition
@@ -33,18 +42,40 @@
            Busy="Status == MetricStatusKind.Loading"
            OnRefresh="RefreshAsync"
            TestId="dashboard-score">
-    <MetricScore Label="@Label"
-                 Components="@Inputs"
-                 Bands="Bands"
-                 Status="Status"
-                 StatusMessage="@StatusMessage"
-                 Footnote="@Footnote"
-                 TestId="dashboard-score-card" />
+    <div class="dashboard-part__stack">
+        @* The volume card carries the part's status, so a part that is loading or
+           refused shows one status rather than the same sentence twice. The quality
+           card is drawn only once there is something to draw: an empty composition
+           under a status message would be a second empty state under the first.
+
+           Once the part is ready, each card gets its own status, because either
+           composition can be empty on its own — volume with no history to set a bar
+           from, quality with nothing reviewed or sized. Left on Ready, the component
+           would say the number was "scored from inputs this view does not show",
+           which is the opposite of what happened: nothing was scored at all. *@
+        <MetricScore Label="@VolumeLabel"
+                     Components="@VolumeInputs"
+                     Bands="Bands"
+                     Status="@CardStatus(VolumeInputs)"
+                     StatusMessage="@(IsReady ? VolumeEmpty : StatusMessage)"
+                     Footnote="@VolumeFootnote"
+                     TestId="dashboard-score-volume" />
+        @if (IsReady)
+        {
+            <MetricScore Label="Quality"
+                         Components="@QualityInputs"
+                         Bands="Bands"
+                         Status="@CardStatus(QualityInputs)"
+                         StatusMessage="@QualityEmpty"
+                         Footnote="@QualityFootnote"
+                         TestId="dashboard-score-quality" />
+        }
+    </div>
 </PartFrame>
 
 @code {
     /// <summary>
-    /// The bands the score is read against — floors only, so there are no ceilings
+    /// The bands the scores are read against — floors only, so there are no ceilings
     /// to keep in step with the next band up.
     /// <para>
     /// Product copy rather than domain, which is why they live in the part and not
@@ -61,9 +92,9 @@
         new("Exceptional", 85m)
     ];
 
-    private string Label => Scope.IsAllRepositories
-        ? "Productivity score — every repository"
-        : $"Productivity score — {Scope.Repositories.Label}";
+    private string VolumeLabel => Scope.IsAllRepositories
+        ? "Volume — every repository"
+        : $"Volume — {Scope.Repositories.Label}";
 
     /// <summary>
     /// What the figures cover, where full marks came from, and every way in which
@@ -75,7 +106,9 @@
     {
         get
         {
-            var note = $"Over {Scope.Weeks} weeks. Up to seven inputs, weighted, normalised to 100.";
+            var note = $"Over {Scope.Weeks} weeks. Two scores, each weighted and normalised to 100:"
+                + " volume is what you shipped against your own record, quality is how much of it"
+                + " was reviewed promptly, merged clean and kept small.";
 
             if (IsReady)
             {
@@ -84,7 +117,7 @@
                 if (!Value!.Complete)
                 {
                     note += " Some of this window could not be read, so every count here is a floor"
-                        + " and the score is read from floors.";
+                        + " and both scores are read from floors.";
                 }
             }
 
@@ -97,14 +130,14 @@
 
     /// <summary>
     /// Where full marks came from, named with the block that set it — or, when
-    /// nothing set it, the admission that three of the inputs are not being scored
-    /// at all.
+    /// nothing set it, the admission that the volume card is not being scored at
+    /// all.
     /// </summary>
     /// <remarks>
-    /// The absence has to be said out loud rather than left as a shorter list of
-    /// rows. A reader who cannot see that throughput dropped out reads the remaining
-    /// score as a score of everything, which is a quieter version of the same
-    /// dishonesty the fixed target was.
+    /// The absence has to be said out loud rather than left as an empty card. A
+    /// reader who cannot see that volume dropped out reads the quality score as the
+    /// score of everything, which is a quieter version of the same dishonesty the
+    /// fixed target was.
     /// </remarks>
     private string TargetSentence
     {
@@ -112,12 +145,12 @@
         {
             if (Value!.Target is not { } target)
             {
-                return "Merged pull requests, issues closed and assistant sessions are not being scored:"
+                return "Volume is not being scored:"
                     + " your own history could not be read, or there is not enough of it yet,"
                     + " and there is no figure worth inventing in its place.";
             }
 
-            var sentence = $"Full marks is a quarter above your own best four weeks —"
+            var sentence = $"Full marks for volume is a quarter above your own best four weeks —"
                 + $" {DashboardFormat.Whole(target.FullMarks)} merged pull requests over this window,"
                 + $" from the {target.MergedPullRequests} you merged between"
                 + $" {DashboardFormat.Day(target.From)} and {DashboardFormat.Day(target.To)}.";
@@ -130,33 +163,46 @@
     }
 
     /// <summary>
-    /// What the sessions input is and is not. Permanent rather than conditional, on
-    /// the sessions part's own precedent: the conditions it describes are invisible
-    /// from the card, so a reader could not tell a missing sentence from an absent
-    /// caveat.
+    /// Why there is no sessions row. Permanent rather than conditional, because a
+    /// reader of the previous version will look for it, and a missing row is
+    /// indistinguishable from a row that dropped out for lack of data.
     /// </summary>
-    private string SessionsRefusal =>
-        "Assistant sessions count effort rather than output, so they carry the least weight here."
-        + " The share beside the row is what it is actually worth, which rises when another input"
-        + " has nothing to read and drops out."
-        + " No assistant records which repository a session was for, so they are left out of the score"
-        + " entirely while one repository is in focus, and the machine filter does not move this figure"
-        + " either — it is read across every machine.";
+    private const string SessionsRefusal =
+        "Assistant sessions are scored in neither: they count effort rather than output,"
+        + " and are read in their own section below.";
 
     /// <summary>
-    /// The footnote covers the targets now as well as the weights. It was true of
-    /// the weights alone only while the targets were constants nobody could see; a
+    /// The footnote covers the targets as well as the weights. It was true of the
+    /// weights alone only while the targets were constants nobody could see; a
     /// target derived from the reader's own record is exactly the kind of judgement
     /// this sentence exists to invite an argument about.
     /// </summary>
-    private const string Footnote =
+    private const string VolumeFootnote =
         "Weights and targets are a starting position. They are on screen because they are arguable.";
 
-    private IReadOnlyList<MetricScoreComponent> Inputs =>
-        IsReady
-            ? [.. Value!.Inputs.Select(input =>
-                new MetricScoreComponent(input.Label, input.Value, input.Max, input.Weight))]
-            : [];
+    private const string QualityFootnote =
+        "Each input is a share of the pull requests that could have counted. Weights are arguable.";
+
+    /// <summary>The part's own status until it is ready; then the card's, which is
+    /// empty exactly when its composition is.</summary>
+    private MetricStatusKind CardStatus(IReadOnlyList<MetricScoreComponent> inputs) =>
+        IsReady && inputs.Count == 0 ? MetricStatusKind.Empty : Status;
+
+    private const string VolumeEmpty =
+        "Not scored: there is no history to set a target from.";
+
+    private const string QualityEmpty =
+        "Not scored: nothing in this window was reviewed or had its size read.";
+
+    private IReadOnlyList<MetricScoreComponent> VolumeInputs =>
+        IsReady ? Components(Value!.Volume) : [];
+
+    private IReadOnlyList<MetricScoreComponent> QualityInputs =>
+        IsReady ? Components(Value!.Quality) : [];
+
+    private static IReadOnlyList<MetricScoreComponent> Components(ProductivityScore score) =>
+        [.. score.Inputs.Select(input =>
+            new MetricScoreComponent(input.Label, input.Value, input.Max, input.Weight))];
 
     protected override Task<InsightResult<ProductivityScoreInsight>> FetchAsync(CancellationToken cancellationToken) =>
         Insights.GetScoreAsync(Scope, cancellationToken);
@@ -166,10 +212,10 @@
     /// that any of the measures could read. A score of zero over real inputs is a
     /// score, not an absence, and it renders as one.
     /// </summary>
-    protected override bool IsEmpty(ProductivityScoreInsight value) => value.Inputs.Count == 0;
+    protected override bool IsEmpty(ProductivityScoreInsight value) => !value.HasInputs;
 
     protected override string EmptyMessage =>
-        "Nothing happened in this window that any of the seven inputs could read.";
+        "Nothing happened in this window that any of the six inputs could read.";
 
     protected override void InvalidateSource() => Insights.Invalidate(Scope);
 }

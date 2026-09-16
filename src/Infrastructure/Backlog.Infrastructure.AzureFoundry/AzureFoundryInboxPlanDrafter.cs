@@ -65,9 +65,10 @@ public sealed class AzureFoundryInboxPlanDrafter(IAzureFoundryChatClient chat, A
         catch (HttpRequestException ex)
         {
             // The endpoint could not be reached at all: refused, unresolved,
-            // reset. HttpClient throws rather than answering, and the pane must
-            // show it the way it shows a bad status, not tear down the circuit.
-            return InboxErrors.PlanFailed($"Could not reach Azure Foundry: {ex.Message}");
+            // reset. AzureFoundryChatClient says this in its own exception now;
+            // the catch stays for a client that is not that one, and says it in
+            // the same words so the pane cannot show two.
+            return InboxErrors.PlanFailed(AzureFoundryChatClient.CouldNotReachMessage(ex.Message));
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
@@ -75,7 +76,7 @@ public sealed class AzureFoundryInboxPlanDrafter(IAzureFoundryChatClient chat, A
             // is not the caller's. A genuine caller cancellation is not a bad
             // answer and propagates; anything else thrown is a bug, not a bad
             // answer, and is left to surface.
-            return InboxErrors.PlanFailed("Azure Foundry did not answer before the request timed out.");
+            return InboxErrors.PlanFailed(AzureFoundryChatClient.TimedOutMessage);
         }
     }
 }

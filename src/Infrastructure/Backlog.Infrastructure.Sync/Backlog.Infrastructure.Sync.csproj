@@ -58,6 +58,11 @@
          composes unchanged. An adapter seeing a published surface is the normal
          direction. -->
     <ProjectReference Include="..\..\Modules\Inbox\Backlog.Modules.Inbox.Abstractions\Backlog.Modules.Inbox.Abstractions.csproj" />
+    <!-- Devbook's annotation port and record: the annotation exchange pushes what
+         the store changed and applies what other devices did through the same
+         port the panels use. Published surface only, taken as optional so a head
+         with no annotation store composes unchanged. -->
+    <ProjectReference Include="..\..\Modules\Devbook\Backlog.Modules.Devbook.Abstractions\Backlog.Modules.Devbook.Abstractions.csproj" />
     <!-- The published surface only, and deliberately not the Sessions .UI project
          that holds the local readers. Session replication reads AgentSession off
          whatever answers IAgentSessionSource and hands replicated records back as a

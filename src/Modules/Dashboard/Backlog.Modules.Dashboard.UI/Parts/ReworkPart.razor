@@ -2,12 +2,13 @@
     Rework, which on this dashboard means post-review churn: what happened to a
     pull request after somebody had already reviewed it.
 
-    Three measures, all read from GitHub rather than inferred — commits whose time
-    is after the first review, force pushes after it, and files touched on both
-    sides of it. The denominator throughout is pull requests that were reviewed at
-    all, never every merge: a pull request nobody reviewed cannot have churned after
-    a review, and counting it as clean would let a quarter of unreviewed merges read
-    as a quarter of good ones.
+    Five measures, all read from GitHub rather than inferred — commits whose time
+    is after the first review, force pushes after it, files touched on both sides
+    of it, and the two the reviewers themselves wrote down: how many verdicts they
+    submitted and how many of those asked for changes. The denominator throughout
+    is pull requests that were reviewed at all, never every merge: a pull request
+    nobody reviewed cannot have churned after a review, and counting it as clean
+    would let a quarter of unreviewed merges read as a quarter of good ones.
 
     When the per-commit inspection hit its cap, the note says the files figure is a
     floor. A capped number presented as a total is how a dashboard quietly stops
@@ -40,6 +41,17 @@
                             Value="@MetricFormat.Compact(Value!.FilesRetouched)"
                             Footnote="@(Value!.ChurnComplete ? null : "At least — some commits were not inspected")"
                             TestId="dashboard-rework-files" />
+                @* Verdicts, never comments: a review of state COMMENTED is a
+                   conversation, and counting it here would make every conversation
+                   look like a round of rework. *@
+                <MetricTile Label="Review rounds"
+                            Value="@MetricFormat.Compact(Value!.ReviewRounds)"
+                            Footnote="Approvals and change requests, across reviewed pull requests"
+                            TestId="dashboard-rework-rounds" />
+                <MetricTile Label="Changes requested"
+                            Value="@MetricFormat.Compact(Value!.ChangesRequested)"
+                            Footnote="Of those rounds"
+                            TestId="dashboard-rework-changes-requested" />
             </MetricGrid>
 
             <MetricBars Points="@Churned"
@@ -76,7 +88,8 @@
     {
         get
         {
-            var basis = "Commits, force pushes and files touched after the first review.";
+            var basis = "Commits, force pushes and files touched after the first review,"
+                + " and the review verdicts themselves.";
 
             if (IsReady && !Value!.ChurnComplete)
             {

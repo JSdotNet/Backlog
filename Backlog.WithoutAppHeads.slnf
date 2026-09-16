@@ -26,6 +26,7 @@
       "src\\Modules\\Dashboard\\Backlog.Modules.Dashboard.UI\\Backlog.Modules.Dashboard.UI.csproj",
       "src\\Modules\\Dashboard\\Backlog.Modules.Dashboard\\Backlog.Modules.Dashboard.csproj",
       "src\\Modules\\Capture\\Backlog.Modules.Capture.Abstractions\\Backlog.Modules.Capture.Abstractions.csproj",
+      "src\\Modules\\Capture\\Backlog.Modules.Capture.UI\\Backlog.Modules.Capture.UI.csproj",
       "src\\Modules\\Capture\\Backlog.Modules.Capture\\Backlog.Modules.Capture.csproj",
       "src\\Modules\\DevPc\\Backlog.Modules.DevPc.Abstractions\\Backlog.Modules.DevPc.Abstractions.csproj",
       "src\\Modules\\DevPc\\Backlog.Modules.DevPc.UI\\Backlog.Modules.DevPc.UI.csproj",

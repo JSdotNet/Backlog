@@ -128,6 +128,27 @@ public sealed class AzureFoundryPlanFixtureTests
         Assert.DoesNotContain("`prompt`", answer, StringComparison.Ordinal);
     }
 
+    /// <summary>The slow-model switch: a marker in the question holds the
+    /// answer, nothing holds it by default, and a request for longer than the
+    /// harness allows gets the ceiling rather than the request. This is what
+    /// lets the desktop client's timeout budget be walked from the browser.</summary>
+    [Theory]
+    [InlineData("Content:\nItem\n\nQuestion:\nWhat matters?", 0)]
+    [InlineData("Content:\nItem\n\nQuestion:\ndelay:15s What matters?", 15)]
+    [InlineData("Content:\nItem\n\nQuestion:\nWhat matters? DELAY:2S", 2)]
+    [InlineData("Content:\nItem\n\nQuestion:\ndelay:999s What matters?", 180)]
+    [InlineData("Content:\nItem\n\nQuestion:\nnodelay:15s and undelay:3sx", 0)]
+    public void A_delay_marker_in_the_question_holds_the_answer(string userPrompt, int expectedSeconds)
+    {
+        var delay = LocalAzureFoundryCompletion.RequestedDelay(
+        [
+            new AzureFoundryChatMessage("system", "You answer questions about the supplied Backlog content."),
+            new AzureFoundryChatMessage("user", userPrompt)
+        ]);
+
+        Assert.Equal(TimeSpan.FromSeconds(expectedSeconds), delay);
+    }
+
     private static AzureFoundryPlanRequest Request(IReadOnlyList<string> repositories) => new(
         "Fix the login page",
         "The login page 500s on submit.",
