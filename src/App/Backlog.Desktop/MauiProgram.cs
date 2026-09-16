@@ -260,7 +260,10 @@ public static class MauiProgram
         builder.Services.AddSyncClient(SyncServiceAddress);
         builder.Services.AddTaskSyncClient(SyncServiceAddress);
         builder.Services.AddSingleton<AzureFoundrySettingsStore>();
-        builder.Services.AddHttpClient<IAzureFoundryChatClient, AzureFoundryChatClient>();
+        // The chat client's pipeline is the adapter's own, sized for a completion
+        // rather than for the service-to-service defaults AddServiceDefaults
+        // puts on every other client — see AzureFoundryRegistration.
+        builder.Services.AddAzureFoundryChatClient();
         // The Inbox's plan drafter over the same chat client. Singleton here, where
         // the web harness registers it Scoped, because that is the lifetime the
         // chain above it actually has in this host: InboxDesktopState is a
