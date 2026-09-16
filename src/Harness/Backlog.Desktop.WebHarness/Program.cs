@@ -118,11 +118,13 @@ builder.Services.AddSingleton<IRoadmapPlanRepository>(sp =>
 builder.Services.AddRoadmapModule();
 
 // The same arrangement for capture: the module brings the run, and the host picks
-// where the monitored sources are kept. Scoped to the content root like the
-// harness's other settings files, so a session here never rewrites the real
-// per-user choice.
+// where the monitored sources are kept and where what past runs said is kept.
+// Both scoped to the content root like the harness's other settings files, so a
+// session here never rewrites the real per-user choice or its log.
 builder.Services.AddSingleton<ICaptureSourceSettings>(
     _ => CreateLocalDevelopmentCaptureSourcesSettingsStore(builder.Environment.ContentRootPath));
+builder.Services.AddSingleton<ICaptureRunLog>(
+    _ => CreateLocalDevelopmentCaptureRunLogStore(builder.Environment.ContentRootPath));
 builder.Services.AddCaptureModule();
 
 // The two cross-context joins the plan takes part in, answered by adapters that may
@@ -604,6 +606,17 @@ static CaptureSourcesSettingsStore CreateLocalDevelopmentCaptureSourcesSettingsS
     }
 
     return new CaptureSourcesSettingsStore(settingsPath);
+}
+
+static CaptureRunLogStore CreateLocalDevelopmentCaptureRunLogStore(string contentRootPath)
+{
+    var logPath = Environment.GetEnvironmentVariable("BACKLOG_CAPTURE_RUN_LOG_PATH");
+    if (string.IsNullOrWhiteSpace(logPath))
+    {
+        logPath = Path.Combine(contentRootPath, "obj", "local-development", "capture-runs.json");
+    }
+
+    return new CaptureRunLogStore(logPath);
 }
 
 static DeviceIdentityStore CreateLocalDevelopmentDeviceIdentityStore(string contentRootPath)

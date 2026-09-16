@@ -30,11 +30,18 @@ public sealed record RunCaptureCommand;
 /// after it. A delivery failing part-way is the same, with the count so far
 /// kept: those items did land, and the pane refreshes on the count.
 /// </para>
+/// <para>
+/// Every run is written to the <see cref="ICaptureRunLog"/> as it is
+/// reported, so "when was this source last looked at, and what did it find"
+/// is answered from the same lines the pane showed. The run never reads the
+/// log back: what is new is decided by id at delivery, not by remembering.
+/// </para>
 /// </summary>
 public sealed class RunCaptureCommandHandler(
     ICaptureSourceSettings settings,
     IEnumerable<ICaptureSourceAdapter> adapters,
     ICaptureDelivery delivery,
+    ICaptureRunLog log,
     TimeProvider clock) : ICommandHandler<RunCaptureCommand, Result<CaptureRunResultDto>>
 {
     public async Task<Result<CaptureRunResultDto>> Handle(RunCaptureCommand command, CancellationToken cancellationToken = default)
@@ -47,7 +54,10 @@ public sealed class RunCaptureCommandHandler(
             results.Add(await RunSourceAsync(source, cancellationToken));
         }
 
-        return Result.Success(new CaptureRunResultDto(results, clock.GetUtcNow()));
+        var run = new CaptureRunResultDto(results, clock.GetUtcNow());
+        log.Record(run);
+
+        return Result.Success(run);
     }
 
     private async Task<CaptureRunSourceResult> RunSourceAsync(MonitoredSource source, CancellationToken cancellationToken)

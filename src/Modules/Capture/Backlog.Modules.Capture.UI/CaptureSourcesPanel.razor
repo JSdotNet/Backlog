@@ -1,0 +1,265 @@
+@implements IDisposable
+@inject ICaptureSourceSettings Settings
+@inject ICaptureRunLog Log
+
+@*
+    The sources panel: which sources the Inbox's Capture button looks at, what
+    each one is pointed at, when each was last looked at, and what that run
+    said. It used to be a tab under Settings; it is here now because the button
+    it configures is on the Inbox pane, and a switch three screens away from
+    the thing it switches is a switch nobody finds.
+
+    Folded by default. The pane is for triage, and the sources are set once and
+    then left alone; the trigger's label carries how many are on so a folded
+    panel still answers the first question. Who holds the fold is the host's
+    business — the shell keeps it across the pane re-mounting when it changes
+    slot, for the reason it keeps the run's result.
+
+    Each source is one block: the switch, the targets, and the last run — when,
+    and how many new items — with a Log button that opens the runs before it.
+    The switch and the targets commit the moment they change, with no save
+    button, the way every setting in the app commits; the store's refusal is
+    the field's own error line. The log is read, never written, from here: the
+    run writes it, and the panel redraws when it does.
+
+    The Inbox pane never sees this component. It offers a slot and the shell
+    fills it, so the Inbox stays free of Capture's types the way the module
+    boundary tests require.
+*@
+
+<FoldControl CssClass="capture-sources"
+             Expanded="@Expanded"
+             ExpandedChanged="ExpandedChanged"
+             TestId="capture-sources-toggle"
+             AriaLabel="Capture sources">
+    <LabelContent>
+        <span class="capture-sources__label">Sources</span>
+        <span class="capture-sources__summary" data-testid="capture-sources-summary">@EnabledSummary</span>
+    </LabelContent>
+    <ChildContent>
+        <div class="capture-sources__body" data-testid="capture-sources">
+            <p class="capture-sources__description">
+                What Capture looks at when it is pressed. Nothing is watched until you
+                switch it on here.
+            </p>
+
+            @foreach (var kind in CaptureSourceKinds.Monitorable)
+            {
+                var slug = CaptureSourceKinds.Slug(kind);
+                var source = Settings.Current.For(kind);
+                var lastRun = Log.LastRunFor(kind);
+                var logOpen = _openLogs.Contains(kind);
+                var logId = $"capture-source-{slug}-log";
+
+                <div class="capture-sources__source" data-testid="@($"capture-source-{slug}")">
+                    @* The same shape as the feature flags: the whole row is a
+                       label, and the switch saves the moment it flips. *@
+                    <Toggle NativeCheckbox="true"
+                            BaseClass="feature-flag"
+                            TextCssClass="feature-flag__content"
+                            LabelCssClass="feature-flag__title"
+                            DescriptionCssClass="feature-flag__description"
+                            Label="@CaptureSourceKinds.Label(kind)"
+                            Description="@Description(kind)"
+                            Checked="@source.Enabled"
+                            CheckedChanged="enabled => SetEnabled(kind, enabled)"
+                            data-testid="@($"capture-source-{slug}-enabled")" />
+
+                    @* One target per line, committed on change. The library's
+                       own field, help line and error line: the help says what
+                       the row is in force as, the error is the store's refusal. *@
+                    <TextArea AutoGrow="false"
+                              CssClass="capture-sources__targets"
+                              Label="@TargetsLabel(kind)"
+                              Id="@($"capture-source-{slug}-targets")"
+                              TestId="@($"capture-source-{slug}-targets")"
+                              Rows="3"
+                              spellcheck="false"
+                              autocomplete="off"
+                              Placeholder="@TargetsPlaceholder(kind)"
+                              HelpText="@Summary(kind)"
+                              ErrorMessage="@_errors.GetValueOrDefault(kind)"
+                              Value="@_drafts.GetValueOrDefault(kind, string.Empty)"
+                              ValueChanged="value => _drafts[kind] = value"
+                              @onchange="() => ApplyTargets(kind)" />
+
+                    @* The last run, and the way into the ones before it. A
+                       status: the line is replaced by the next run, not stacked. *@
+                    <div class="capture-sources__run">
+                        <p class="capture-sources__last-run" data-testid="@($"capture-source-{slug}-last-run")" role="status">
+                            @if (lastRun is null)
+                            {
+                                <span>Never captured.</span>
+                            }
+                            else
+                            {
+                                <span>Last capture </span>
+                                <time datetime="@lastRun.RanAt.ToString("o", CultureInfo.InvariantCulture)">@When(lastRun.RanAt)</time>
+                                <span> · @NewItems(lastRun.NewItems)</span>
+                            }
+                        </p>
+                        <AppButton Variant="ButtonVariant.Ghost"
+                                   Size="ButtonSize.Small"
+                                   TestId="@($"capture-source-{slug}-log-toggle")"
+                                   aria-expanded="@(logOpen ? "true" : "false")"
+                                   aria-controls="@logId"
+                                   OnClick="() => ToggleLog(kind)">@(logOpen ? "Hide log" : "Log")</AppButton>
+                    </div>
+
+                    @if (logOpen)
+                    {
+                        var entries = Log.EntriesFor(kind);
+
+                        <ol class="capture-sources__log" id="@logId" data-testid="@logId" aria-label="@($"{CaptureSourceKinds.Label(kind)} capture log")">
+                            @if (entries.Count == 0)
+                            {
+                                <li class="capture-sources__log-empty">No runs have looked at @CaptureSourceKinds.Label(kind) yet.</li>
+                            }
+                            @foreach (var entry in entries)
+                            {
+                                <li class="capture-sources__log-entry">
+                                    <time class="capture-sources__log-when" datetime="@entry.RanAt.ToString("o", CultureInfo.InvariantCulture)">@When(entry.RanAt)</time>
+                                    <span class="capture-sources__log-new">@NewItems(entry.NewItems)</span>
+                                    <span class="capture-sources__log-text">@entry.Message</span>
+                                </li>
+                            }
+                        </ol>
+                    }
+                </div>
+            }
+
+            <p class="capture-sources__note">
+                Kept in <code>@Settings.SettingsPath</code>, beside the app's other
+                per-user choices rather than in the backlog folder. Addresses and channels
+                only - never a password or a key.
+            </p>
+        </div>
+    </ChildContent>
+</FoldControl>
+
+@code {
+    /// <summary>Whether the panel is open. Held by the host so it survives the
+    /// pane re-mounting; the panel only asks to change it.</summary>
+    [Parameter]
+    public bool Expanded { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> ExpandedChanged { get; set; }
+
+    private readonly Dictionary<CaptureSourceKind, string> _drafts = [];
+    private readonly Dictionary<CaptureSourceKind, string?> _errors = [];
+    private readonly HashSet<CaptureSourceKind> _openLogs = [];
+
+    protected override void OnInitialized()
+    {
+        SyncDrafts();
+        Settings.Changed += HandleChanged;
+        Log.Changed += HandleChanged;
+    }
+
+    /// <summary>"2 of 3 on" on the trigger, so a folded panel still says
+    /// whether Capture will do anything.</summary>
+    private string EnabledSummary
+    {
+        get
+        {
+            var on = Settings.Current.Enabled.Count;
+            var all = CaptureSourceKinds.Monitorable.Count;
+
+            return on == 0 ? "none on" : $"{on} of {all} on";
+        }
+    }
+
+    /// <summary>Turns a source on or off with the targets it already has rather
+    /// than the ones in the field: a half-typed address is not a choice.</summary>
+    private void SetEnabled(CaptureSourceKind kind, bool enabled) =>
+        _errors[kind] = Settings.SetEnabled(kind, enabled);
+
+    /// <summary>Commits the field on change, one target per line, with blanks
+    /// dropped and the field put back to exactly what was stored.</summary>
+    private void ApplyTargets(CaptureSourceKind kind)
+    {
+        var lines = _drafts.GetValueOrDefault(kind, string.Empty)
+            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        _errors[kind] = Settings.SetTargets(kind, lines);
+        SyncDrafts();
+    }
+
+    private void SyncDrafts()
+    {
+        foreach (var kind in CaptureSourceKinds.Monitorable)
+        {
+            _drafts[kind] = string.Join('\n', Settings.Current.For(kind).Targets);
+        }
+    }
+
+    private void ToggleLog(CaptureSourceKind kind)
+    {
+        if (!_openLogs.Remove(kind)) _openLogs.Add(kind);
+    }
+
+    /// <summary>What the row is in force as, said in words: off, on with nothing
+    /// to look at, or on and looking at so many.</summary>
+    private string Summary(CaptureSourceKind kind)
+    {
+        var source = Settings.Current.For(kind);
+        var label = CaptureSourceKinds.Label(kind);
+
+        if (!source.Enabled) return $"Off. {label} is not looked at.";
+        if (source.Targets.Count == 0) return "On, but pointed at nothing yet - add at least one above.";
+
+        return source.Targets.Count == 1
+            ? $"On. Looking at 1 {TargetNoun(kind)}."
+            : $"On. Looking at {source.Targets.Count} {TargetNoun(kind)}s.";
+    }
+
+    /// <summary>Local time, the way the Inbox rows date themselves; the
+    /// machine-readable instant rides on the element's datetime.</summary>
+    private static string When(DateTimeOffset at) =>
+        at.ToLocalTime().ToString("d MMM yyyy HH:mm", CultureInfo.InvariantCulture);
+
+    private static string NewItems(int count) => count == 1 ? "1 new item" : $"{count} new items";
+
+    private static string Description(CaptureSourceKind kind) => kind switch
+    {
+        CaptureSourceKind.YouTube => "New videos on the channels listed below.",
+        CaptureSourceKind.Website => "Changes to the pages listed below.",
+        CaptureSourceKind.Email => "Newsletters and summaries from the senders listed below.",
+        _ => string.Empty
+    };
+
+    private static string TargetsLabel(CaptureSourceKind kind) => kind switch
+    {
+        CaptureSourceKind.YouTube => "Channels - one URL per line",
+        CaptureSourceKind.Website => "Pages - one URL per line",
+        CaptureSourceKind.Email => "Senders - one address per line",
+        _ => "Targets - one per line"
+    };
+
+    private static string TargetsPlaceholder(CaptureSourceKind kind) => kind switch
+    {
+        CaptureSourceKind.YouTube => "https://www.youtube.com/@channel",
+        CaptureSourceKind.Website => "https://example.com/blog",
+        CaptureSourceKind.Email => "newsletter@example.com",
+        _ => string.Empty
+    };
+
+    private static string TargetNoun(CaptureSourceKind kind) => kind switch
+    {
+        CaptureSourceKind.YouTube => "channel",
+        CaptureSourceKind.Website => "page",
+        CaptureSourceKind.Email => "sender",
+        _ => "target"
+    };
+
+    /// <summary>Both stores raise from whichever thread wrote them — the run
+    /// log from the run's — and the render is marshalled onto the renderer's.</summary>
+    private void HandleChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        Settings.Changed -= HandleChanged;
+        Log.Changed -= HandleChanged;
+    }
+}

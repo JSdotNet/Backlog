@@ -2980,6 +2980,129 @@ h1, h2, h3 {
     font-size: var(--font-size-sm);
 }
 
+/* --- Capture sources ---------------------------------------------------- */
+/*
+   The sources panel the shell folds into the Inbox pane's sources slot: a
+   library FoldControl wearing capture-sources beside its own fold class, so
+   the trigger and the chevron are the library's and only the region inside is
+   styled here. Folded, it is one line; open, it is a card per source with the
+   same flag-row switch the feature flags use, the library's textarea under it,
+   and the last run's line with the log beneath. Every colour is a token.
+*/
+.inbox-pane__sources {
+    min-width: 0;
+}
+
+.capture-sources .fold__trigger {
+    font-size: var(--font-size-sm);
+}
+
+.capture-sources__label {
+    font-weight: 700;
+}
+
+.capture-sources__summary {
+    margin-left: var(--spacing-xs);
+    color: var(--color-text-secondary);
+}
+
+.capture-sources__body {
+    display: grid;
+    gap: var(--spacing-md);
+    padding-top: var(--spacing-xs);
+}
+
+.capture-sources__description,
+.capture-sources__note {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.capture-sources__note code {
+    overflow-wrap: anywhere;
+}
+
+/* One source: switch, targets, last run. The card border is the flag row's;
+   the rest sits inside the same box so a source reads as one thing. */
+.capture-sources__source {
+    display: grid;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background);
+}
+
+.capture-sources__source > .feature-flag {
+    padding: 0;
+    border: none;
+    background: transparent;
+}
+
+.capture-sources__targets .field__input {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    resize: vertical;
+}
+
+/* The last run and the way into the log, on one line; the button keeps its
+   width and the line takes the rest. */
+.capture-sources__run {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+}
+
+.capture-sources__last-run {
+    margin: 0;
+    min-width: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+/* The log: newest first, each run on its own line — when, how many, what it
+   said. A list rather than a table because the message is the width. */
+.capture-sources__log {
+    display: grid;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: var(--spacing-sm);
+    list-style: none;
+    font-size: var(--font-size-xs);
+    font-family: var(--font-family-mono);
+    color: var(--color-text-secondary);
+    background: color-mix(in srgb, var(--color-text-primary) 3%, transparent);
+    border-radius: var(--border-radius-sm);
+    max-height: 14rem;
+    overflow-y: auto;
+}
+
+.capture-sources__log-entry {
+    display: grid;
+    grid-template-columns: auto auto 1fr;
+    gap: var(--spacing-sm);
+    align-items: baseline;
+}
+
+.capture-sources__log-when {
+    white-space: nowrap;
+}
+
+.capture-sources__log-new {
+    white-space: nowrap;
+    color: var(--color-text-primary);
+}
+
+.capture-sources__log-text {
+    overflow-wrap: anywhere;
+}
+
+.capture-sources__log-empty {
+    font-family: var(--font-family-base);
+}
+
 .inbox-pane__add-form {
     display: grid;
     gap: var(--spacing-md);

@@ -43,6 +43,7 @@
     <ProjectReference Include="..\..\Modules\Sessions\Backlog.Modules.Sessions.UI\Backlog.Modules.Sessions.UI.csproj" />
     <ProjectReference Include="..\..\Modules\Roadmap\Backlog.Modules.Roadmap.UI\Backlog.Modules.Roadmap.UI.csproj" />
     <ProjectReference Include="..\..\Modules\Dashboard\Backlog.Modules.Dashboard.UI\Backlog.Modules.Dashboard.UI.csproj" />
+    <ProjectReference Include="..\..\Modules\Capture\Backlog.Modules.Capture.UI\Backlog.Modules.Capture.UI.csproj" />
     <!-- Four published surfaces, for the feature catalog and nothing else. The
          catalog gathers keys that belong to the contexts they are features of,
          so the shell that renders the list of switches names them where they are
@@ -54,7 +55,7 @@
     <ProjectReference Include="..\..\Modules\Sessions\Backlog.Modules.Sessions.Abstractions\Backlog.Modules.Sessions.Abstractions.csproj" />
     <ProjectReference Include="..\..\Modules\Dashboard\Backlog.Modules.Dashboard.Abstractions\Backlog.Modules.Dashboard.Abstractions.csproj" />
     <!-- Capture's published surface: the runner the Inbox's Capture button is
-         answered with, and the settings port the Capture tab writes. The
+         answered with; the sources panel on the Inbox pane is Capture.UI's. The
          implementation stays with the hosts, which compose it. -->
     <ProjectReference Include="..\..\Modules\Capture\Backlog.Modules.Capture.Abstractions\Backlog.Modules.Capture.Abstractions.csproj" />
     <!-- Sync's published surface, for the same reason as the four above and one
