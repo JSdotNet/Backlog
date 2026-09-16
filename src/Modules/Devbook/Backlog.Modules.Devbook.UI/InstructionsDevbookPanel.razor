@@ -18,12 +18,12 @@
     {
         <EmptyState BaseClass="devbook-empty"
                     TestId="instructions-empty-state"
-                    Title="No instruction source is configured."
+                    Title="@(string.IsNullOrWhiteSpace(RepositoryAlias) ? "Select a repository to read its instructions." : "No instruction source is configured.")"
                     TitleCssClass="@(null)"
                     ActionCssClass="@(null)"
                     role="status">
             <Action>
-                <a href="settings">Open storage settings</a>
+                <a href="settings">Open repository settings</a>
             </Action>
         </EmptyState>
     }
@@ -127,7 +127,7 @@
                                       DevbookDocumentPath="@DocumentPath(selectedDocument)"
                                       OnDevbookNavigate="NavigateDevbookReferenceAsync"
                                       CanEdit="@(_chapter.Chapter is { CanEdit: true })"
-                                      Editing="@_editing"
+                                      Editing="@(_editing && _chapter.Chapter is { CanEdit: true })"
                                       EditingChanged="OnEditingChangedAsync"
                                       EditBodyContent="@(_chapter.Chapter is null ? null : ChapterEditor(selectedDocument))" />
                         }
@@ -219,12 +219,13 @@
 
     private InstructionRepositoryView? ActiveRepository => ActiveRepositoryIn(_repositories, RepositoryAlias);
 
-    /// <summary>The view for an alias out of a discovered list. Static so the
-    /// discovery hop can ask it of the list it has just built, before that list
-    /// is the panel's.</summary>
+    /// <summary>The view for an alias out of a discovered list, or null for no
+    /// alias — instructions are a repository's, and the storage scope is not one.
+    /// Static so the discovery hop can ask it of the list it has just built,
+    /// before that list is the panel's.</summary>
     private static InstructionRepositoryView? ActiveRepositoryIn(IReadOnlyList<InstructionRepositoryView> repositories, string? alias) =>
         string.IsNullOrWhiteSpace(alias)
-            ? repositories.FirstOrDefault(r => string.Equals(r.Repository.Alias, "storage", StringComparison.Ordinal))
+            ? null
             : repositories.FirstOrDefault(r => string.Equals(r.Repository.Alias, alias, StringComparison.Ordinal));
 
     private InstructionDocument? SelectedDocument => ResolveSelectedDocument();
@@ -294,28 +295,30 @@
         // A branch carries its instruction files on demand, and discovery reads
         // them off the disk, so the ones it reads are fetched first — the agent
         // folders and the root files, not the repository. A local folder needs
-        // nothing and this answers at once.
-        if (!string.IsNullOrWhiteSpace(RepositoryAlias))
+        // nothing and this answers at once. No scope means nothing to discover:
+        // instructions are a repository's, and there is no repository.
+        var alias = RepositoryAlias;
+        if (string.IsNullOrWhiteSpace(alias))
         {
-            await Folders.PrepareContentAsync("instructions", RepositoryAlias, InstructionSourceDiscovery.BranchPaths);
+            _repositories = [];
+            _loadedRepositoryAlias = alias;
+            _tree = [];
+            _userContext = await Task.Run(() => UserContextSources.Read(null));
+            ReadTheFolder();
+            return;
         }
 
-        // The folder source is passed for the repository scope only. The storage
-        // scope synthesises a repository whose clone directory is the storage
-        // root, and asking the source about an alias it has never heard of would
-        // resolve nothing.
-        //
+        await Folders.PrepareContentAsync("instructions", alias, InstructionSourceDiscovery.BranchPaths);
+
         // Only the repository on screen. This used to discover every configured
         // repository and then read one of them, which walked every other clone
         // on the machine for a panel that names a single alias — and it did so
         // on the dispatcher, so the whole walk sat between the click and the
         // paint. The reads are disk work with nothing of the component's in them,
         // which is what makes a thread-pool hop safe here.
-        var alias = RepositoryAlias;
-        List<GitHubRepositoryRef> repositories = string.IsNullOrWhiteSpace(alias)
-            ? [StorageInstructionRepository()]
-            : [.. Repositories.Current.Repositories.Where(repository => string.Equals(repository.Alias, alias, StringComparison.Ordinal))];
-        var folders = string.IsNullOrWhiteSpace(alias) ? null : Folders;
+        List<GitHubRepositoryRef> repositories =
+            [.. Repositories.Current.Repositories.Where(repository => string.Equals(repository.Alias, alias, StringComparison.Ordinal))];
+        var folders = Folders;
 
         var (discovered, tree, userContext) = await Task.Run(() =>
         {
@@ -407,7 +410,7 @@
 
         _chapterDocument = document;
         _chapter = ActiveRepository is { } repository && document is not null
-            ? await DevbookChapterContent.LoadAsync("instructions", repository.LocalRoot, document.RelativePath)
+            ? await DevbookChapterContent.LoadAsync("instructions", repository.LocalRoot, document.RelativePath, repository.CanEdit)
             : DevbookChapterContent.None;
     }
 
@@ -514,12 +517,6 @@
     /// becoming a control that goes nowhere.</summary>
     private Task NavigateDevbookReferenceAsync(DevbookReference reference) =>
         DevbookChapterLink.From(reference) is { } target ? OnNavigateToChapter.InvokeAsync(target) : Task.CompletedTask;
-
-    private GitHubRepositoryRef StorageInstructionRepository() => new("storage", "Storage", "Folder")
-    {
-        CloneDirectory = Folders.StorageDirectory,
-        DevbookFolders = [.. Folders.Folders(null)]
-    };
 
     private InstructionDocument? ResolveSelectedDocument()
     {

@@ -912,8 +912,6 @@ public sealed class SettingsDevicesTests
 
         testContext.Services.AddSingleton(store);
         testContext.Services.AddSingleton<IAppFeatureSettings>(features);
-        testContext.Services.AddSingleton<ITasksRefreshSettings>(
-            new TasksRefreshSettingsStore(Path.Combine(root, "refresh", "refresh.json")));
         testContext.Services.AddSingleton<IWorkingHoursSettings>(
             new WorkingHoursSettingsStore(Path.Combine(root, "working-hours", "working-hours.json")));
         testContext.Services.AddSingleton<ICaptureSourceSettings>(
@@ -1168,6 +1166,8 @@ public sealed class SettingsDevicesTests
 
     private sealed class StubGitHubClient : IGitHubClient
     {
+        public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
         public Task<GitHubIssue> CreateIssueAsync(
             GitHubRepositoryRef repository,
             string title,

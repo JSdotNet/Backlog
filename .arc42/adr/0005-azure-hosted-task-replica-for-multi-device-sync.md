@@ -101,6 +101,20 @@ is still on screen.
 > locally at all** — the Cosmos emulator does not honour TTL, so that number is
 > deployed-only behaviour rather than something a test or a QA run here has
 > shown.
+>
+> **Amended, 2026-09-16 — the external-change poll is retired.** *The database
+> filename* below argued against a per-device name partly because it "would
+> disable the only cross-device freshness the product has": `TasksDesktopState`
+> polling the database's timestamp for a second machine writing through a
+> synced folder. That poll, and its "Pick up changes from disk" setting, are
+> gone. Its one reason was the shared folder this record exists to replace and
+> the Storage tab now warns against, and it was also — by accident of writing
+> the same file — what made a sync pull show up in the Tasks pane. The shell
+> now reloads the pane when `TaskSyncWorker` reports a cycle that applied
+> something, keeping the poll's one guard: a reload that arrives under a live
+> caret is owed and lands when the caret goes. A second machine on a shared
+> folder sees nothing until restart, which is the arrangement, not a regression
+> in it. The filename argument stands on its other two legs.
 
 A **local** decision, numbered in the local sequence — not to be confused with
 inherited ADR 0005 (modular monolith structure) under `.arc42/adr/guidelines/`.
@@ -633,12 +647,13 @@ failure than the one it prevents. It is a less visible one.
 Three further things make it the wrong change to make first:
 
 - **It would disable the only cross-device freshness the product has.**
-  `TasksDesktopState` polls the newest timestamp across `backlog.db` and its two
-  sidecars for exactly one reason, which its own summary states: two machines can
-  share one `backlog.db` through a synced folder, and the second has no way to be
-  told about the first one's writes. A per-device name leaves that watcher
-  watching a file no other machine ever writes. Until the sync service ships, the
-  shared file is what makes the second machine see anything at all.
+  *(Retired 2026-09-16 — see the amendment under Status.)* `TasksDesktopState`
+  polled the newest timestamp across `backlog.db` and its two sidecars for
+  exactly one reason, which its own summary stated: two machines could share one
+  `backlog.db` through a synced folder, and the second had no way to be told
+  about the first one's writes. A per-device name would have left that watcher
+  watching a file no other machine ever writes. The poll is gone now, so this
+  leg of the argument is gone with it.
 - **It needs a device identity, and the product should have exactly one.** The
   pairing registration credential above is it. `Environment.MachineName` exists
   today and is the obvious shortcut, but a machine can be renamed and two machines
@@ -803,8 +818,7 @@ Neutral:
   canonical means for a task. ADR 0003 stands.
 - The database file keeps the name `backlog.db` on every device, so nothing that
   reads a workspace root by that name changes: `WorkspaceSettingsStore.DatabasePath`,
-  the external-change poller and its sidecar watch, and the tests that pin the
-  path all stand as written.
+  local ADR 0010's backup, and the tests that pin the path all stand as written.
 
 ## Open questions
 

@@ -1306,11 +1306,25 @@ button.badge:hover {
     visibility: hidden;
 }
 
+/*
+  `anywhere` rather than `break-word`, and it matters. Both break a word that
+  cannot fit, and at the same place, so nothing on screen changes for ordinary
+  text. What differs is intrinsic sizing: `break-word` keeps a long unbroken
+  token — a file path in a pasted stack trace — out of the min-content width,
+  so the replica reports a track as wide as the token and the grid overflows its
+  host by the difference, which is how a bug report's own exception text pushed
+  the Details field past the edge of the Report issue dialog. `anywhere` counts
+  the break, and the track stays the width the host gave it. `min-width: 0` on
+  the same two boxes is the other half of the same fix: a grid item's automatic
+  minimum is its min-content width, so without it the item would still refuse
+  to shrink into the track that `anywhere` made narrow.
+*/
 .grow-wrap > textarea,
 .grow-wrap::after {
     grid-area: 1 / 1 / 2 / 2;
     font: inherit;
-    overflow-wrap: break-word;
+    overflow-wrap: anywhere;
+    min-width: 0;
     padding: 0;
     border: none;
 }

@@ -111,7 +111,7 @@ public sealed class TokenTransport : IGitHubTransport
 
             if (!response.IsSuccessStatusCode)
             {
-                throw new GitHubException(Describe(response.StatusCode, payload));
+                throw new GitHubException(Describe(response.StatusCode, payload)) { Status = response.StatusCode };
             }
 
             if (payload.Length == 0) return JsonDocument.Parse("null").RootElement.Clone();

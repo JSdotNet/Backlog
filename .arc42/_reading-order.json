@@ -18,7 +18,8 @@
         "0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md",
         "0007-import-reuses-the-entry-text-grammar.md",
         "0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md",
-        "0009-captures-are-a-document-kind-on-the-replica.md"
+        "0009-captures-are-a-document-kind-on-the-replica.md",
+        "0010-backup-is-the-database-committed-to-a-repository.md"
       ]
     },
     ".arc42/adr/guidelines": {
@@ -43,8 +44,10 @@
       ]
     },
     ".arc42/tdr": {
-      "root": null,
-      "order": []
+      "root": "README.md",
+      "order": [
+        "0001-archify-artifacts-are-invisible-on-a-branch-snapshot.md"
+      ]
     }
   }
 }

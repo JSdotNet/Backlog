@@ -206,6 +206,7 @@ public sealed class FeedbackDialogTests
         context.Services.AddSingleton<IAppUpdateService, UnsupportedAppUpdateService>();
         context.Services.AddSingleton<IAppFeatureSettings>(features);
         context.Services.AddSingleton(new FeedbackReporter(gitHub));
+        context.Services.AddSingleton<FeedbackReportChannel>();
 
         var footer = context.Render<AppFooter>();
         footer.Find("[data-testid='feedback-button']").Click();
@@ -235,6 +236,8 @@ public sealed class FeedbackDialogTests
 
     private sealed class RecordingGitHubClient : IGitHubClient
     {
+        public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
         public string? CreatedTitle { get; private set; }
         public string? CreatedBody { get; private set; }
         public string? UploadedPath { get; private set; }

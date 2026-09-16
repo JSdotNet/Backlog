@@ -63,6 +63,65 @@ public class AppUpdateTests
     }
 
     [Fact]
+    public void An_available_update_names_the_version_it_would_install()
+    {
+        var result = AppUpdateCheckResult.Available(availableVersion: "0.1.65.0");
+
+        Assert.Equal("0.1.65.0", result.AvailableVersion);
+        Assert.Equal("Version 0.1.65.0 is available.", result.Message);
+        Assert.True(result.UpdateReady);
+    }
+
+    [Fact]
+    public void A_required_update_names_the_version_it_would_install()
+    {
+        var result = AppUpdateCheckResult.Required(availableVersion: "0.1.65.0");
+
+        Assert.Equal("0.1.65.0", result.AvailableVersion);
+        Assert.Equal("Version 0.1.65.0 is a required update.", result.Message);
+        Assert.True(result.UpdateReady);
+    }
+
+    [Fact]
+    public void An_update_whose_version_is_unknown_is_still_reported()
+    {
+        var result = AppUpdateCheckResult.Available();
+
+        Assert.Null(result.AvailableVersion);
+        Assert.Equal("An update is available.", result.Message);
+        Assert.True(result.UpdateReady);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void A_blank_version_counts_as_unknown(string version)
+    {
+        var result = AppUpdateCheckResult.Available(availableVersion: version);
+
+        Assert.Null(result.AvailableVersion);
+        Assert.Equal("An update is available.", result.Message);
+    }
+
+    [Fact]
+    public void A_padded_version_is_trimmed()
+    {
+        var result = AppUpdateCheckResult.Required(availableVersion: " 0.1.65.0 ");
+
+        Assert.Equal("0.1.65.0", result.AvailableVersion);
+        Assert.Contains("Version 0.1.65.0", result.Message);
+    }
+
+    [Fact]
+    public void A_custom_message_still_carries_the_version()
+    {
+        var result = AppUpdateCheckResult.Available("Grab it while it is hot.", "0.1.65.0");
+
+        Assert.Equal("Grab it while it is hot.", result.Message);
+        Assert.Equal("0.1.65.0", result.AvailableVersion);
+    }
+
+    [Fact]
     public void An_install_in_progress_reports_started()
     {
         var result = AppUpdateInstallResult.InProgress();
@@ -82,6 +141,134 @@ public class AppUpdateTests
 
         Assert.False(result.Started);
         Assert.False(string.IsNullOrWhiteSpace(result.Message));
+    }
+}
+
+/// <summary>
+/// The version the update window names comes from the published .appinstaller,
+/// so the parser must read what the release workflow writes and shrug at anything
+/// else: a bad manifest means "version unknown", never a failed check.
+/// </summary>
+public class AppInstallerManifestTests
+{
+    private const string ReleaseManifest = """
+        <?xml version="1.0" encoding="utf-8"?>
+        <AppInstaller
+            xmlns="http://schemas.microsoft.com/appx/appinstaller/2018"
+            Uri="https://github.com/JSdotNet/Backlog/releases/latest/download/Backlog.Desktop.appinstaller"
+            Version="0.1.65.0">
+
+          <MainPackage
+              Name="JSdotNet.Backlog"
+              Publisher="CN=JSdotNet"
+              Version="0.1.65.0"
+              ProcessorArchitecture="x64"
+              Uri="https://github.com/JSdotNet/Backlog/releases/download/v0.1.65/Backlog.Desktop_0.1.65.0_x64.msix" />
+
+          <UpdateSettings>
+            <OnLaunch HoursBetweenUpdateChecks="8" ShowPrompt="true" />
+            <AutomaticBackgroundTask />
+          </UpdateSettings>
+
+        </AppInstaller>
+        """;
+
+    [Fact]
+    public void The_release_manifest_names_its_package_version()
+    {
+        Assert.Equal("0.1.65.0", AppInstallerManifest.ReadPackageVersion(ReleaseManifest));
+    }
+
+    [Fact]
+    public void The_package_version_wins_over_the_manifest_version()
+    {
+        const string xml = """
+            <AppInstaller xmlns="http://schemas.microsoft.com/appx/appinstaller/2018" Version="9.9.9.9">
+              <MainPackage Name="n" Publisher="p" Version="0.1.65.0" Uri="https://example.test/a.msix" />
+            </AppInstaller>
+            """;
+
+        Assert.Equal("0.1.65.0", AppInstallerManifest.ReadPackageVersion(xml));
+    }
+
+    [Fact]
+    public void A_bundle_manifest_is_read_the_same_way()
+    {
+        const string xml = """
+            <AppInstaller xmlns="http://schemas.microsoft.com/appx/appinstaller/2017" Version="1.0.0.0">
+              <MainBundle Name="n" Publisher="p" Version="1.2.3.0" Uri="https://example.test/a.msixbundle" />
+            </AppInstaller>
+            """;
+
+        Assert.Equal("1.2.3.0", AppInstallerManifest.ReadPackageVersion(xml));
+    }
+
+    [Fact]
+    public void A_newer_schema_namespace_is_not_a_problem()
+    {
+        const string xml = """
+            <AppInstaller xmlns="http://schemas.microsoft.com/appx/appinstaller/2021" Version="1.0.0.0">
+              <MainPackage Name="n" Publisher="p" Version="1.2.3.0" Uri="https://example.test/a.msix" />
+            </AppInstaller>
+            """;
+
+        Assert.Equal("1.2.3.0", AppInstallerManifest.ReadPackageVersion(xml));
+    }
+
+    [Fact]
+    public void A_padded_version_attribute_is_trimmed()
+    {
+        const string xml = """
+            <AppInstaller xmlns="http://schemas.microsoft.com/appx/appinstaller/2018" Version="1.0.0.0">
+              <MainPackage Name="n" Publisher="p" Version=" 1.2.3.0 " Uri="https://example.test/a.msix" />
+            </AppInstaller>
+            """;
+
+        Assert.Equal("1.2.3.0", AppInstallerManifest.ReadPackageVersion(xml));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("not xml at all")]
+    [InlineData("<AppInstaller><MainPackage Version=\"1.0\"")]
+    public void Nothing_readable_means_version_unknown_not_an_exception(string? xml)
+    {
+        Assert.Null(AppInstallerManifest.ReadPackageVersion(xml));
+    }
+
+    [Fact]
+    public void A_document_that_is_not_a_manifest_yields_no_version()
+    {
+        const string xml = """<html><body>404 Not Found</body></html>""";
+
+        Assert.Null(AppInstallerManifest.ReadPackageVersion(xml));
+    }
+
+    [Fact]
+    public void A_manifest_without_a_package_version_yields_no_version()
+    {
+        const string xml = """
+            <AppInstaller xmlns="http://schemas.microsoft.com/appx/appinstaller/2018" Version="1.0.0.0">
+              <MainPackage Name="n" Publisher="p" Uri="https://example.test/a.msix" />
+            </AppInstaller>
+            """;
+
+        Assert.Null(AppInstallerManifest.ReadPackageVersion(xml));
+    }
+
+    [Fact]
+    public void A_manifest_with_a_dtd_is_refused_rather_than_expanded()
+    {
+        const string xml = """
+            <!DOCTYPE AppInstaller [<!ENTITY v "1.2.3.0">]>
+            <AppInstaller xmlns="http://schemas.microsoft.com/appx/appinstaller/2018" Version="1.0.0.0">
+              <MainPackage Name="n" Publisher="p" Version="&v;" Uri="https://example.test/a.msix" />
+            </AppInstaller>
+            """;
+
+        Assert.Null(AppInstallerManifest.ReadPackageVersion(xml));
     }
 }
 

@@ -255,6 +255,29 @@ public class DashboardPaneTests
     }
 
     /// <summary>
+    /// Moving a filter starts the next fetch before it cancels the last one. The order
+    /// matters because the sessions read is one shared entry behind the module's cache
+    /// that stops when its last waiter leaves: withdrawn first and joined second, a
+    /// twelve-week parse that was nearly done would be thrown away and started again
+    /// from nothing, on the very gesture — a filter moved during the first load — that
+    /// this ordering exists for.
+    /// </summary>
+    [Fact]
+    public void Moving_a_filter_joins_the_next_fetch_before_it_withdraws_the_last()
+    {
+        var sessions = new TokenOrderSessionInsights();
+
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(sessions));
+
+        var pane = context.Render<DashboardPane>();
+        pane.Find("[data-testid='dashboard-machine-filter'] select").Change(DashboardTestHost.MachineId);
+
+        Assert.True(sessions.Calls >= 2, "The filter change never reached the sessions part.");
+        Assert.DoesNotContain(true, sessions.PredecessorWithdrawnOnArrival);
+    }
+
+    /// <summary>
     /// GitHub does not report which machine a pull request was worked from, so moving
     /// the machine filter must not send the productivity parts back to it. Four parts
     /// re-fetching a quarter's churn for an answer that cannot have changed is a few
@@ -1659,6 +1682,37 @@ public class DashboardPaneTests
             CancellationToken cancellationToken = default)
         {
             Scopes.Add(scope);
+            return Task.FromResult(InsightResult<AssistantSessionsInsight>.Unavailable("Not configured."));
+        }
+
+        public void Invalidate()
+        {
+        }
+    }
+
+    /// <summary>Records, for every fetch, whether the fetch before it had already been
+    /// cancelled by the time this one arrived.</summary>
+    private sealed class TokenOrderSessionInsights : ISessionInsights
+    {
+        private CancellationToken? _previous;
+
+        public int Calls { get; private set; }
+
+        public List<bool> PredecessorWithdrawnOnArrival { get; } = [];
+
+        public Task<InsightResult<AssistantSessionsInsight>> GetSessionsAsync(
+            DashboardScope scope,
+            CancellationToken cancellationToken = default)
+        {
+            Calls++;
+
+            if (_previous is { } previous)
+            {
+                PredecessorWithdrawnOnArrival.Add(previous.IsCancellationRequested);
+            }
+
+            _previous = cancellationToken;
+
             return Task.FromResult(InsightResult<AssistantSessionsInsight>.Unavailable("Not configured."));
         }
 

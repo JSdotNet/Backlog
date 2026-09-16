@@ -4,20 +4,17 @@ using Backlog.Modules.Devbook.Abstractions;
 namespace Backlog.Infrastructure.FileSystem;
 
 /// <summary>
-/// Resolves configured knowledge folders to local directories. Repository-scoped
-/// knowledge uses the GitHub repository settings; the global view uses the
-/// workspace settings.
+/// Resolves a repository's configured knowledge folders to local directories —
+/// its clone, or the cached snapshot of its branch.
 /// <para>
-/// This is the join, and it lives here on purpose. Answering "where does this
-/// folder live?" needs both the repository settings and the workspace root, and
-/// neither context may see the other; an adapter may see both, which is what an
-/// adapter is for. Two module ports are served from this one engine so the
-/// resolution rules exist once: Devbook takes it as
-/// <see cref="IDevbookFolderSource"/>, Tasks through
-/// <see cref="WorkspaceTaskStore"/> — which asks only for the storage root,
-/// because <c>.backlog</c> is not a knowledge folder. Tasks keeps
-/// its entries in the workspace, not in a configured section of somebody's
-/// repository.
+/// A devbook belongs to a repository. The storage folder used to carry one of
+/// its own, read whenever no repository was scoped; it no longer does, so an
+/// unscoped question has one honest answer — no folders, and a location that
+/// says to pick a repository — except in the composition that asks for the
+/// first configured repository instead. This still lives in the adapter rather
+/// than in Devbook because resolving a branch needs the snapshot cache, whose
+/// root the workspace settings own, and the workspace root moving is still
+/// news the panels reload on.
 /// </para>
 /// </summary>
 public sealed class DevbookFolderSource : IDevbookFolderSource
@@ -56,9 +53,8 @@ public sealed class DevbookFolderSource : IDevbookFolderSource
     {
     }
 
-    /// <summary>The devbook-only composition: nothing has told this source
-    /// where the workspace is, so an unscoped question falls back to the first
-    /// configured repository rather than to a storage folder nobody chose.</summary>
+    /// <summary>The devbook-only composition: an unscoped question falls back
+    /// to the first configured repository rather than answering nothing.</summary>
     public DevbookFolderSource(GitHubSettingsStore settings)
         : this(
             settings,
@@ -127,51 +123,36 @@ public sealed class DevbookFolderSource : IDevbookFolderSource
 
     public void NotifyContentChanged() => _contentChanged?.Invoke();
 
-    public string StorageDirectory => _store.RootDirectory;
+    /// <summary>What an unscoped question is told, and by every location an
+    /// unscoped resolve answers with.</summary>
+    public const string NoRepositoryScoped = "Select a repository to read its devbook.";
 
     public IReadOnlyList<DevbookFolderSetting> Folders(string? repositoryAlias)
     {
-        if (string.IsNullOrWhiteSpace(repositoryAlias)) return _store.DevbookFolders;
+        var alias = string.IsNullOrWhiteSpace(repositoryAlias) ? FallbackAlias() : repositoryAlias;
+        if (alias is null) return [];
 
-        return _settings.Current.Find(repositoryAlias) is { } repository
-            ? repository.DevbookFolders
-            : _store.DevbookFolders;
+        return _settings.Current.Find(alias)?.DevbookFolders ?? [];
     }
 
     public DevbookFolderLocation Resolve(string key, string? repositoryAlias = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
 
-        if (!string.IsNullOrWhiteSpace(repositoryAlias)) return ResolveRepository(key, repositoryAlias);
+        var alias = string.IsNullOrWhiteSpace(repositoryAlias) ? FallbackAlias() : repositoryAlias;
 
-        if (!_useRepositoryFallbackWhenNoAlias) return ResolveStorage(key);
-
-        return _settings.Current.Repositories.Count > 0
-            ? ResolveRepository(key, _settings.Current.Repositories[0].Alias)
-            : DevbookFolderLocation.Unavailable(key, "Configure a repository before opening the devbook.");
+        return alias is null
+            ? DevbookFolderLocation.Unavailable(key, NoRepositoryScoped)
+            : ResolveRepository(key, alias);
     }
 
-    private DevbookFolderLocation ResolveStorage(string key)
-    {
-        var folder = _store.DevbookFolders.FirstOrDefault(f => string.Equals(f.Key, key, StringComparison.OrdinalIgnoreCase));
-        if (folder is null)
-        {
-            return DevbookFolderLocation.Unavailable(
-                key,
-                $"Storage has no {key} knowledge-folder setting.");
-        }
-
-        if (!folder.Enabled)
-        {
-            return DevbookFolderLocation.Unavailable(
-                key,
-                $"{folder.DisplayName} knowledge folder is turned off for storage.",
-                folder: folder,
-                rootPath: _store.RootDirectory);
-        }
-
-        return ResolvePath(key, folder, _store.RootDirectory, null, "storage", _store.RootDirectory);
-    }
+    /// <summary>The repository an unscoped question is answered for, or null
+    /// when it is answered for none: the first configured one in the
+    /// devbook-only composition, nothing everywhere else.</summary>
+    private string? FallbackAlias() =>
+        _useRepositoryFallbackWhenNoAlias && _settings.Current.Repositories.Count > 0
+            ? _settings.Current.Repositories[0].Alias
+            : null;
 
     private DevbookFolderLocation ResolveRepository(string key, string repositoryAlias)
     {
