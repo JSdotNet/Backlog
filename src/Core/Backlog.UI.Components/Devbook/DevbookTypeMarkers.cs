@@ -8,10 +8,10 @@ namespace Backlog.UI.Components.Devbook;
 /// <para>Two sets, because the two questions are different ones. A
 /// <c>.domain</c> file states a <c>type</c> under its <c>#</c> title saying what
 /// kind of file it is, and every <c>##</c> chapter in it states a <c>type</c>
-/// saying what kind of thing the chapter describes. A Devbook tree row is a
-/// file and can only ever ask the first; a chapter heading can only ever ask the
-/// second. <see cref="All"/> is the flat union, and it is a union rather than a
-/// pair of lookups because all eighteen values are distinct strings — so one
+/// saying what kind of thing the chapter describes. A document's header can
+/// only ever ask the first; a chapter heading can only ever ask the second.
+/// <see cref="All"/> is the flat union, and it is a union rather than a pair
+/// of lookups because all eighteen values are distinct strings — so one
 /// component takes a raw <c>type</c> value and never has to be told which
 /// question it came from.</para>
 ///

@@ -402,7 +402,7 @@
         _chapterSaveError = null;
         _chapter = _view is null || document is null
             ? DevbookChapterContent.None
-            : await DevbookChapterContent.LoadAsync("domain", _view.RootPath, document.Path);
+            : await DevbookChapterContent.LoadAsync("domain", _view.RootPath, document.Path, _view.CanEdit);
 
         _statusHeadings = HeadingsWithStatus(_chapter.Text);
 
