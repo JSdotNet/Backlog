@@ -43,7 +43,8 @@ public class PullRequestDetailCacheTests : IDisposable
             ChurnComplete = true,
             ChangedLines = 260,
             ChangedFiles = 11,
-            SizeKnown = true
+            SizeKnown = true,
+            Commits = 9
         });
 
         var read = cache.TryRead(Backlog, 412);
@@ -59,6 +60,7 @@ public class PullRequestDetailCacheTests : IDisposable
         Assert.Equal(260, read.ChangedLines);
         Assert.Equal(11, read.ChangedFiles);
         Assert.True(read.SizeKnown);
+        Assert.Equal(9, read.Commits);
     }
 
     /// <summary>
@@ -117,7 +119,7 @@ public class PullRequestDetailCacheTests : IDisposable
         cache.Write(Backlog, 5, new PullRequestDetail { ChurnComplete = true, SizeKnown = true });
 
         var path = OnlyEntry();
-        File.WriteAllText(path, File.ReadAllText(path).Replace("\"version\": 1", "\"version\": 0", StringComparison.Ordinal));
+        File.WriteAllText(path, File.ReadAllText(path).Replace("\"version\": 3", "\"version\": 2", StringComparison.Ordinal));
 
         Assert.Null(cache.TryRead(Backlog, 5));
     }
