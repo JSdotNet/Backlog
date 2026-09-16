@@ -687,6 +687,7 @@ device until the Cosmos-backed store lands.
 
 ```meta
 type: feature
+status: draft
 related: [.domain/tasks/features.md#multi-device-sync, .domain/repository-management/features.md, .arc42/adr/0010-backup-is-the-database-committed-to-a-repository.md, .arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md]
 ```
 
