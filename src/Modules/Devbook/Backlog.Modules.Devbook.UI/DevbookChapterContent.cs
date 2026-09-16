@@ -36,13 +36,21 @@ internal sealed record DevbookChapterContent(DevbookChapterRef? Chapter, string?
         CancellationToken cancellationToken = default) =>
         LoadAsync(DevbookChapterResolver.TryResolve(areaKey, location, selection), cancellationToken);
 
-    /// <summary>Loads against a root a store already holds.</summary>
+    /// <summary>Loads against a root a store already holds.
+    /// <para>
+    /// <paramref name="canEdit"/> is the store's answer to whether that root may be
+    /// written to, and a caller that holds a read model holds it. Left to default
+    /// here, a chapter read out of a branch snapshot arrived marked editable —
+    /// the store had said read-only, the status control was hidden on that word,
+    /// and the edit control beside it was offered anyway.
+    /// </para></summary>
     internal static Task<DevbookChapterContent> LoadAsync(
         string areaKey,
         string? rootPath,
         string? selection,
+        bool canEdit = true,
         CancellationToken cancellationToken = default) =>
-        LoadAsync(DevbookChapterResolver.TryResolve(areaKey, rootPath, selection), cancellationToken);
+        LoadAsync(DevbookChapterResolver.TryResolve(areaKey, rootPath, selection, canEdit: canEdit), cancellationToken);
 
     private static async Task<DevbookChapterContent> LoadAsync(DevbookChapterRef? chapter, CancellationToken cancellationToken)
     {

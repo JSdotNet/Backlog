@@ -127,7 +127,7 @@
                                       DevbookDocumentPath="@DocumentPath(selectedDocument)"
                                       OnDevbookNavigate="NavigateDevbookReferenceAsync"
                                       CanEdit="@(_chapter.Chapter is { CanEdit: true })"
-                                      Editing="@_editing"
+                                      Editing="@(_editing && _chapter.Chapter is { CanEdit: true })"
                                       EditingChanged="OnEditingChangedAsync"
                                       EditBodyContent="@(_chapter.Chapter is null ? null : ChapterEditor(selectedDocument))" />
                         }
@@ -384,7 +384,7 @@
 
         _chapterDocument = document;
         _chapter = ActiveRepository is { } repository && document is not null
-            ? await DevbookChapterContent.LoadAsync("instructions", repository.LocalRoot, document.RelativePath)
+            ? await DevbookChapterContent.LoadAsync("instructions", repository.LocalRoot, document.RelativePath, repository.CanEdit)
             : DevbookChapterContent.None;
     }
 
