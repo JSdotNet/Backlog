@@ -103,6 +103,21 @@ Line prefixes toggle as a block: applied to every line the selection touches or 
         </div>
     </Story>
 
+    <Story Name="In a form, with a label"
+           Code="@LabelCode"
+           Description="`Label` puts a visible name over the editor, laid out the way TextArea lays out its own — the editor takes the box's place inside the same `field` grid, so it lines up with the labelled fields beside it. The label is wired to the textarea, not the frame: that is what focus lands in and what a screen reader names, and while a label is set `AriaLabel` is dropped so the box does not carry two names.
+
+For an editor standing in a form — a dialog asking for a title and some notes. An editor that is the whole surface keeps `AriaLabel` instead.">
+        <div class="sb-stack" data-testid="rich-text-labelled">
+            <TextField Label="Title" Value="@_labelledTitle" ValueChanged="v => _labelledTitle = v" TestId="rich-text-labelled-title" />
+            <MarkdownEditor Label="Notes"
+                            Value="@_labelledNotes"
+                            ValueChanged="v => _labelledNotes = v"
+                            Rows="4"
+                            TestId="rich-text-labelled-notes" />
+        </div>
+    </Story>
+
     <Story Name="The toolbar is an accelerator, never the only way in"
            Code="@DisabledCode"
            Description="Everything the buttons do can be typed, and that matters more than it sounds. It is what makes the editor work when interop fails — a WebView that has not finished starting, a prerendered page, a disconnected circuit — and a failed click leaves the text exactly as it was rather than half-applied. It is also what keeps the component honest: a toolbar that could do something the source cannot express would have invented a syntax the parser does not read.
@@ -192,6 +207,8 @@ Disabled, the box and every button go together. A toolbar over a field nobody ca
 
     private string _source = InitialSource;
     private string _toggleSource = ToggleSample;
+    private string _labelledTitle = "Ask about the trial length";
+    private string _labelledNotes = "Before Friday, and in writing.";
     private IReadOnlyList<MdBlock> _blocks = MarkdownPreview.ParseDocument(InitialSource);
 
     private void OnChanged(string value)
@@ -252,6 +269,12 @@ Disabled, the box and every button go together. A toolbar over a field nobody ca
                         TestId="rich-text-toggle" />
 
         <MarkdownView Blocks="@MarkdownPreview.ParseDocument(_source)" />
+        """;
+
+    private const string LabelCode = """
+        @* Beside a labelled TextField, and laid out the same way. *@
+        <TextField Label="Title" Value="@title" ValueChanged="v => title = v" />
+        <MarkdownEditor Label="Notes" Value="@notes" ValueChanged="v => notes = v" Rows="4" />
         """;
 
     private const string DisabledCode = """
