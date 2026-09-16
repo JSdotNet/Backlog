@@ -868,15 +868,12 @@
         }
         catch (AzureFoundryException ex)
         {
+            // The one exception the client throws for every way an answer fails
+            // to be one: a bad status, an endpoint that could not be reached, and
+            // a request that ran out of time - the pipeline's timeout included,
+            // which used to arrive here as Polly's own exception, past the two
+            // transport catches this handler kept, and stop the whole page.
             Toasts.Publish(ToastMessage.Error(ex.Message, AiErrorTestId));
-        }
-        catch (HttpRequestException ex)
-        {
-            Toasts.Publish(ToastMessage.Error($"Azure Foundry could not be reached: {ex.Message}", AiErrorTestId));
-        }
-        catch (TaskCanceledException)
-        {
-            Toasts.Publish(ToastMessage.Error("Azure Foundry did not answer before the request timed out.", AiErrorTestId));
         }
         finally
         {

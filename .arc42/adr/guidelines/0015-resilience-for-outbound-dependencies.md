@@ -40,8 +40,8 @@ primary-path result.
   gets Polly's standard pipeline — timeout, retry with jittered backoff, and
   circuit breaker — without per-adapter wiring.
 - The adapters registered through `AddHttpClient` therefore inherit it:
-  `AzureFoundryChatClient`, `ClaudeAdminTransport`, and the mobile
-  `CloudSyncClient`.
+  `ClaudeAdminTransport`, the sync clients, and the mobile `CloudSyncClient`.
+  `AzureFoundryChatClient` used to, and now carries its own — see below.
 - `CopilotCliLauncher` is not an HTTP adapter — it launches a CLI process. The
   resilience pipeline does not reach it; process timeouts and cancellation are
   its equivalent obligation.
@@ -67,13 +67,23 @@ primary-path result.
   total, and Gateway connection mode. The mandatory-timeout rule is met; what is
   not is the circuit breaker, which the SDK has no equivalent for, and the retry
   is the SDK's 429-only policy rather than the standard pipeline's transient set.
-- **One HTTP adapter now sets a purposeful per-dependency timeout; the rest still
-  inherit the standard handler's defaults.** The named `capture-feeds` client in
-  `Backlog.Infrastructure.Capture` (`FeedFetcher`) configures its own pipeline —
-  1 retry, a 10 s attempt timeout, 15 s total — rather than the standard
+- **Two HTTP adapters now set a purposeful per-dependency pipeline; the rest
+  still inherit the standard handler's defaults.** The named `capture-feeds`
+  client in `Backlog.Infrastructure.Capture` (`FeedFetcher`) configures its own
+  — 1 retry, a 10 s attempt timeout, 15 s total — rather than the standard
   handler's, and the response body read is bounded by the same clock so a slow
   body cannot outlast the timeout that stopped the headers. The reason is where
   the call runs: capture is triggered by a button press on the user's own
   machine, so a hung request is a hung UI, not a background retry nobody is
-  watching.
+  watching. The `azure-foundry-chat` client
+  (`Backlog.Infrastructure.AzureFoundry`, `AzureFoundryRegistration`) goes the
+  other way for the opposite reason: a chat completion regularly takes longer
+  than the standard 10 s attempt, and every retry re-sends and re-pays the
+  prompt, so it gets one 90 s attempt, 120 s in all, and a single retry that
+  follows only a refusal that cost nothing — never a timed-out attempt. Under
+  the defaults the 30 s total timeout surfaced as Polly's
+  `TimeoutRejectedException` in the Home page's Ask handler and took the page
+  down; the client now translates every transport failure into its own
+  `AzureFoundryException` at the adapter boundary, which is the other half of
+  the same fix.
 - Circuit-breaker state changes are not surfaced as metrics.

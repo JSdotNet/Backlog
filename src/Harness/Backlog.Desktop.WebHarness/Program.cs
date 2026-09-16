@@ -1,4 +1,5 @@
 using Backlog.Infrastructure.AzureFoundry;
+using Backlog.Infrastructure.AzureFoundry.Extensions;
 using Backlog.Infrastructure.Capture.Extensions;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.FileSystem;
@@ -230,7 +231,9 @@ builder.Services.AddSingleton<SyncServiceEndpoint>();
 builder.Services.AddSyncClient(SyncServiceAddress);
 builder.Services.AddTaskSyncClient(SyncServiceAddress);
 builder.Services.AddSingleton(_ => CreateLocalDevelopmentAzureFoundrySettingsStore(builder.Environment.ContentRootPath));
-builder.Services.AddHttpClient<IAzureFoundryChatClient, AzureFoundryChatClient>();
+// On its own pipeline, sized for a chat completion rather than the host's
+// defaults - see AzureFoundryRegistration for the crash it ends.
+builder.Services.AddAzureFoundryChatClient();
 // The Inbox's plan drafter over the same chat client. Scoped, like the other
 // port adapters the Inbox module takes: the handler that asks for it is
 // scoped, and the typed client behind it is transient either way.

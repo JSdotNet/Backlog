@@ -29,6 +29,7 @@ using Backlog.Modules.Dashboard.UI.Extensions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sessions.UI.Extensions;
 using Backlog.Infrastructure.AzureFoundry;
+using Backlog.Infrastructure.AzureFoundry.Extensions;
 using Backlog.Infrastructure.Capture.Extensions;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.Copilot;
@@ -253,7 +254,9 @@ public static class MauiProgram
         builder.Services.AddSyncClient(SyncServiceAddress);
         builder.Services.AddTaskSyncClient(SyncServiceAddress);
         builder.Services.AddSingleton<AzureFoundrySettingsStore>();
-        builder.Services.AddHttpClient<IAzureFoundryChatClient, AzureFoundryChatClient>();
+        // On its own pipeline, sized for a chat completion rather than the
+        // host's defaults - see AzureFoundryRegistration for the crash it ends.
+        builder.Services.AddAzureFoundryChatClient();
         // The Inbox's plan drafter over the same chat client. Singleton here, where
         // the web harness registers it Scoped, because that is the lifetime the
         // chain above it actually has in this host: InboxDesktopState is a

@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace Backlog.AzureFoundry.TestService;
 
@@ -9,7 +10,7 @@ namespace Backlog.AzureFoundry.TestService;
 /// gets an echo of the question and the content, and a plan request gets a
 /// plan that Tasks' import can read as it stands.
 /// </summary>
-public static class LocalAzureFoundryCompletion
+public static partial class LocalAzureFoundryCompletion
 {
     /// <summary>
     /// The first line of the desktop's plan prompt, the sentence a plan request
@@ -20,6 +21,37 @@ public static class LocalAzureFoundryCompletion
     /// Backlog.ArchitectureTests holds the two copies equal.
     /// </summary>
     public const string PlanPromptMarker = "You write Backlog import plans.";
+
+    /// <summary>The longest a request may ask the stand-in to hold its answer.
+    /// Past the desktop client's whole budget, so the budget itself can be
+    /// walked into from the browser; not unbounded, so a typo cannot park a
+    /// request for an hour.</summary>
+    public static readonly TimeSpan MaxDelay = TimeSpan.FromSeconds(180);
+
+    /// <summary>
+    /// How long the stand-in should take to answer: <c>delay:15s</c> anywhere
+    /// in the user message asks for fifteen seconds, nothing asks for none.
+    /// A real model takes its time, and the one path this harness could not
+    /// exercise before was the slow answer — the desktop client's pipeline once
+    /// cut every attempt at ten seconds and stopped the page at thirty, and no
+    /// instant answer would ever have shown it.
+    /// </summary>
+    public static TimeSpan RequestedDelay(IReadOnlyList<AzureFoundryChatMessage> messages)
+    {
+        ArgumentNullException.ThrowIfNull(messages);
+
+        var userPrompt = messages.LastOrDefault(message => string.Equals(message.Role, "user", StringComparison.OrdinalIgnoreCase))?.Content;
+        if (string.IsNullOrEmpty(userPrompt)) return TimeSpan.Zero;
+
+        var match = DelayMarker().Match(userPrompt);
+        if (!match.Success || !int.TryParse(match.Groups["seconds"].Value, out var seconds)) return TimeSpan.Zero;
+
+        var requested = TimeSpan.FromSeconds(seconds);
+        return requested > MaxDelay ? MaxDelay : requested;
+    }
+
+    [GeneratedRegex(@"\bdelay:(?<seconds>\d{1,3})s\b", RegexOptions.IgnoreCase)]
+    private static partial Regex DelayMarker();
 
     public static string CreateAnswer(IReadOnlyList<AzureFoundryChatMessage> messages)
     {

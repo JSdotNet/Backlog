@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Polly.Timeout;
 
 namespace Backlog.Infrastructure.AzureFoundry;
 
@@ -44,6 +45,16 @@ public sealed class AzureFoundryChatClient(HttpClient httpClient, AzureFoundrySe
     /// configured. Shared with <see cref="AzureFoundryInboxPlanDrafter"/>, which
     /// shows it as the disabled control's reason, so the two cannot disagree.</summary>
     internal const string PlanNotConfiguredMessage = "Configure Azure Foundry in Settings to create plans.";
+
+    /// <summary>The sentence a request fails with when no answer came back in
+    /// time — the pipeline's timeout and HttpClient's own read the same to the
+    /// person asking. Shared with the Inbox's drafter, which keeps a catch of
+    /// its own for a client that is not this one.</summary>
+    internal const string TimedOutMessage = "Azure Foundry did not answer before the request timed out.";
+
+    /// <summary>The sentence for an endpoint that could not be reached at all,
+    /// with the transport's own words after it: refused, unresolved, reset.</summary>
+    internal static string CouldNotReachMessage(string detail) => $"Could not reach Azure Foundry: {detail}";
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -131,11 +142,42 @@ public sealed class AzureFoundryChatClient(HttpClient httpClient, AzureFoundrySe
         };
         httpRequest.Headers.Add("api-key", settings.ApiKey);
 
-        using var response = await httpClient.SendAsync(httpRequest, cancellationToken).ConfigureAwait(false);
-        var payload = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-        if (!response.IsSuccessStatusCode)
+        // The transport's failures become this client's here, at the boundary,
+        // so a caller catching AzureFoundryException has caught every way an
+        // answer fails to be one. Three exceptions stand for "no answer": the
+        // endpoint could not be reached at all; the resilience pipeline the
+        // host puts on this client ran out its own timeout, which Polly reports
+        // as its rejection rather than as a cancellation; and HttpClient's own
+        // timeout, which is a cancellation on a token the caller never
+        // cancelled. The first Polly one to reach a page handler that knew only
+        // the other two took the whole page down to the error boundary. A
+        // genuine caller cancellation is not a bad answer and travels as itself.
+        HttpResponseMessage response;
+        try
         {
-            throw new AzureFoundryException($"Azure Foundry returned {(int)response.StatusCode}: {TrimForMessage(payload)}");
+            response = await httpClient.SendAsync(httpRequest, cancellationToken).ConfigureAwait(false);
+        }
+        catch (HttpRequestException ex)
+        {
+            throw new AzureFoundryException(CouldNotReachMessage(ex.Message), ex);
+        }
+        catch (TimeoutRejectedException ex)
+        {
+            throw new AzureFoundryException(TimedOutMessage, ex);
+        }
+        catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new AzureFoundryException(TimedOutMessage, ex);
+        }
+
+        string payload;
+        using (response)
+        {
+            payload = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new AzureFoundryException($"Azure Foundry returned {(int)response.StatusCode}: {TrimForMessage(payload)}");
+            }
         }
 
         var completion = JsonSerializer.Deserialize<ChatCompletionResponse>(payload, JsonOptions);
@@ -196,6 +238,13 @@ public sealed class AzureFoundryException : Exception
 {
     public AzureFoundryException(string message)
         : base(message)
+    {
+    }
+
+    /// <summary>A transport failure in this client's words, with the transport's
+    /// own exception kept underneath for a log to read.</summary>
+    public AzureFoundryException(string message, Exception innerException)
+        : base(message, innerException)
     {
     }
 }
