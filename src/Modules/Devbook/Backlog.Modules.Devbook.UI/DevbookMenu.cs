@@ -58,18 +58,26 @@ public sealed class DevbookMenu(IDevbookFolderSource source)
         }
 
         var tree = source.FileTree(location);
+        var fullPath = location.FullPath;
 
-        if (string.Equals(areaKey, "instructions", StringComparison.OrdinalIgnoreCase))
+        // The walk itself on the pool. It is a directory listing plus one read of
+        // the outline per area, which is small — but the pane awaits it on the
+        // dispatcher, and in the desktop host that is the UI thread, so even a
+        // small walk there is a pane that opens a beat late.
+        return await Task.Run(() =>
         {
-            var roots = EnumerateInstructionRoots(tree, location.FullPath, areaKey, cancellationToken);
-            return new DevbookMenuNode(areaKey, folder.DisplayName, folder.Key, DevbookMenuNodeKind.Folder, areaKey, roots, true);
-        }
+            if (string.Equals(areaKey, "instructions", StringComparison.OrdinalIgnoreCase))
+            {
+                var roots = EnumerateInstructionRoots(tree, fullPath, areaKey, cancellationToken);
+                return new DevbookMenuNode(areaKey, folder.DisplayName, folder.Key, DevbookMenuNodeKind.Folder, areaKey, roots, true);
+            }
 
-        // Once per area, not once per directory: the folder's authored order and
-        // the generated titles are both read here and handed down the walk.
-        var outline = DevbookMenuOutline.Read(location.FullPath);
-        var children = EnumerateChildren(tree, location.FullPath, location.FullPath, areaKey, outline, cancellationToken);
-        return new DevbookMenuNode(areaKey, folder.DisplayName, folder.Key, DevbookMenuNodeKind.Folder, areaKey, children, true);
+            // Once per area, not once per directory: the folder's authored order and
+            // the generated titles are both read here and handed down the walk.
+            var outline = DevbookMenuOutline.Read(fullPath);
+            var children = EnumerateChildren(tree, fullPath, fullPath, areaKey, outline, cancellationToken);
+            return new DevbookMenuNode(areaKey, folder.DisplayName, folder.Key, DevbookMenuNodeKind.Folder, areaKey, children, true);
+        }, cancellationToken).ConfigureAwait(false);
     }
 
     private static IReadOnlyList<DevbookMenuNode> EnumerateInstructionRoots(

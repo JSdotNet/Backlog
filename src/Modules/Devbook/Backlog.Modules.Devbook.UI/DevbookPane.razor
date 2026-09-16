@@ -266,6 +266,7 @@
     private async void OnDevbookChanged() =>
         await InvokeAsync(async () =>
         {
+            _visibleAreas = null;
             _updateState = DevbookUpdateState.NotChecked;
             _folderOpenError = null;
             await ReloadMenuAsync();
@@ -276,11 +277,30 @@
 
     protected override async Task OnParametersSetAsync()
     {
+        _visibleAreas = null;
         ForgetUpdateStateOnScopeChange();
         await RefreshMenuAsync();
     }
 
-    private IReadOnlyList<DevbookArea> VisibleAreas => Scope.VisibleAreas(RepositoryAlias);
+    /// <summary>The answer is forgotten once the render that used it is on
+    /// screen, so the next render asks the scope once rather than once per row.</summary>
+    protected override void OnAfterRender(bool firstRender) => _visibleAreas = null;
+
+    /// <summary>
+    /// The sections this scope shows, asked of the scope once per render.
+    /// <para>
+    /// The scope answers from settings — a lookup, a normalisation, a set and a
+    /// list — and this pane asks on the way to nearly everything: which section is
+    /// active, which chapter is selected, and through those, the class and the
+    /// selected state of every row in the menu, twice. That was a few hundred
+    /// identical answers per render. It is dropped after each render and on every
+    /// parameter set and folder change, which are the only moments the settings
+    /// behind it can have moved.
+    /// </para>
+    /// </summary>
+    private IReadOnlyList<DevbookArea> VisibleAreas => _visibleAreas ??= Scope.VisibleAreas(RepositoryAlias);
+
+    private IReadOnlyList<DevbookArea>? _visibleAreas;
 
     private string? ActiveRepositoryAlias => Scope.Repository(RepositoryAlias)?.Alias;
 

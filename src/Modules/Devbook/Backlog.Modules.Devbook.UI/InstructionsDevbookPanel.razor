@@ -217,10 +217,15 @@
     [Parameter]
     public EventCallback<DevbookChapterLink> OnNavigateToChapter { get; set; }
 
-    private InstructionRepositoryView? ActiveRepository =>
-        string.IsNullOrWhiteSpace(RepositoryAlias)
-            ? _repositories.FirstOrDefault(r => string.Equals(r.Repository.Alias, "storage", StringComparison.Ordinal))
-            : _repositories.FirstOrDefault(r => string.Equals(r.Repository.Alias, RepositoryAlias, StringComparison.Ordinal));
+    private InstructionRepositoryView? ActiveRepository => ActiveRepositoryIn(_repositories, RepositoryAlias);
+
+    /// <summary>The view for an alias out of a discovered list. Static so the
+    /// discovery hop can ask it of the list it has just built, before that list
+    /// is the panel's.</summary>
+    private static InstructionRepositoryView? ActiveRepositoryIn(IReadOnlyList<InstructionRepositoryView> repositories, string? alias) =>
+        string.IsNullOrWhiteSpace(alias)
+            ? repositories.FirstOrDefault(r => string.Equals(r.Repository.Alias, "storage", StringComparison.Ordinal))
+            : repositories.FirstOrDefault(r => string.Equals(r.Repository.Alias, alias, StringComparison.Ordinal));
 
     private InstructionDocument? SelectedDocument => ResolveSelectedDocument();
 
@@ -299,12 +304,30 @@
         // scope synthesises a repository whose clone directory is the storage
         // root, and asking the source about an alias it has never heard of would
         // resolve nothing.
-        _repositories = string.IsNullOrWhiteSpace(RepositoryAlias)
-            ? InstructionSources.Discover([StorageInstructionRepository()])
-            : InstructionSources.Discover(Repositories.Current.Repositories, Folders);
-        _loadedRepositoryAlias = RepositoryAlias;
-        _tree = InstructionPathTree.Read(ActiveRepository?.LocalRoot);
-        _userContext = UserContextSources.Read(ActiveRepository?.LocalRoot);
+        //
+        // Only the repository on screen. This used to discover every configured
+        // repository and then read one of them, which walked every other clone
+        // on the machine for a panel that names a single alias — and it did so
+        // on the dispatcher, so the whole walk sat between the click and the
+        // paint. The reads are disk work with nothing of the component's in them,
+        // which is what makes a thread-pool hop safe here.
+        var alias = RepositoryAlias;
+        List<GitHubRepositoryRef> repositories = string.IsNullOrWhiteSpace(alias)
+            ? [StorageInstructionRepository()]
+            : [.. Repositories.Current.Repositories.Where(repository => string.Equals(repository.Alias, alias, StringComparison.Ordinal))];
+        var folders = string.IsNullOrWhiteSpace(alias) ? null : Folders;
+
+        var (discovered, tree, userContext) = await Task.Run(() =>
+        {
+            var views = InstructionSources.Discover(repositories, folders);
+            var root = ActiveRepositoryIn(views, alias)?.LocalRoot;
+            return (views, InstructionPathTree.Read(root), UserContextSources.Read(root));
+        });
+
+        _repositories = discovered;
+        _loadedRepositoryAlias = alias;
+        _tree = tree;
+        _userContext = userContext;
         ReadTheFolder();
     }
 

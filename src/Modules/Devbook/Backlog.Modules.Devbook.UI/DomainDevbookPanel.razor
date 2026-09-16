@@ -17,8 +17,13 @@
 *@
 
 <section class="domain-devbook @(Compact ? "domain-devbook--compact" : string.Empty)" data-testid="domain-devbook-panel" aria-label="Domain area">
-    @if (_view is null)
+    @if (_view is null || _reading)
     {
+        @* Also while a context's documents are being read for the render that
+           comes next. The lists are lazy so that the load does not parse the
+           corpus; drawing one before it is read would parse it here, on the
+           thread that draws — which is what MaterializeSelectionAsync exists to
+           keep off it. *@
         <Alert Message="Loading the domain area..." BaseClass="domain-devbook__state" Role="status" />
     }
     else if (_view.Error is not null)
@@ -258,6 +263,11 @@
             if (string.IsNullOrWhiteSpace(SelectedPath) || _view is null) return null;
             if (PathMatches(_view.ContextMap.Path, SelectedPath)) return _view.ContextMap;
 
+            // A folder's path names no document, and saying so here rather than
+            // by searching is what keeps a context selection from reading every
+            // context nobody owns the path for.
+            if (!NamesADocument(SelectedPath)) return null;
+
             return CandidateContexts(_view, SelectedPath)
                 .SelectMany(context => context.Documents)
                 .FirstOrDefault(document => PathMatches(document.Path, SelectedPath));
@@ -310,6 +320,10 @@
         // reload path at all — so this is the only place that branch would get it.
         _c4 = _c4Store is null ? C4Catalog.Off : await _c4Store.LoadAsync(RepositoryAlias);
 
+        // Before the selection is derived, because deriving it searches the same
+        // documents the render will then draw — and both would otherwise read
+        // them on this thread.
+        await MaterializeSelectionAsync();
         SelectDefaultContext();
 
         await LoadSelectedChapterAsync();
@@ -481,6 +495,7 @@
         _view = await DomainDevbook.LoadAsync(RepositoryAlias);
         _c4 = _c4Store is null ? C4Catalog.Off : await _c4Store.LoadAsync(RepositoryAlias);
         _loadedRepositoryAlias = RepositoryAlias;
+        await MaterializeSelectionAsync();
         await LoadSelectedChapterAsync(force: true);
     }
 
@@ -772,7 +787,89 @@
     private bool IsEditedChapter(DomainDevbookDocument document) =>
         _chapter.Chapter is not null && ReferenceEquals(document, _chapterDocument);
 
-    private void SelectContext(DomainDevbookContext? context) => _selectedContextSlug = context?.Slug;
+    /// <summary>A context tab. Its documents are read before the render that
+    /// draws them, on the pool, rather than inside it: the list is lazy so that
+    /// the load does not parse the corpus, and a lazy list first enumerated by the
+    /// renderer is a parse on the dispatcher — the thread the desktop host draws
+    /// with.</summary>
+    private async Task SelectContext(DomainDevbookContext? context)
+    {
+        _selectedContextSlug = context?.Slug;
+        if (context is not null) await ReadAsync([context]);
+    }
+
+    /// <summary>
+    /// Reads what the next render and the selection will enumerate, off the
+    /// dispatcher: the documents of every context the host's path could be in —
+    /// which is what <see cref="SelectedDocument"/> searches — and of the context
+    /// whose tab is pressed.
+    /// <para>
+    /// Completes synchronously when there is nothing left to read, and that is
+    /// what keeps a parameter set that changed nothing from costing a render: a
+    /// list already read is a list, and the renderer only pauses at an await that
+    /// has not finished.
+    /// </para>
+    /// </summary>
+    private Task MaterializeSelectionAsync()
+    {
+        if (_view is null) return Task.CompletedTask;
+
+        var contexts = new List<DomainDevbookContext>();
+
+        // The context map is answered before any context is searched, so it
+        // reads none of them — the same order SelectedDocument asks in.
+        if (!string.IsNullOrWhiteSpace(SelectedPath)
+            && NamesADocument(SelectedPath)
+            && !PathMatches(_view.ContextMap.Path, SelectedPath))
+        {
+            contexts.AddRange(CandidateContexts(_view, SelectedPath));
+        }
+
+        // The tab that will be pressed once the selection is derived — the one the
+        // path names, or the one already pressed — without deriving it here.
+        var slug = !string.IsNullOrWhiteSpace(SelectedPath)
+            ? _view.Contexts.FirstOrDefault(context => OwnsPath(context.Slug, SelectedPath))?.Slug ?? _selectedContextSlug
+            : _selectedContextSlug;
+        if (_view.Contexts.FirstOrDefault(context => string.Equals(context.Slug, slug, StringComparison.Ordinal)) is { } pressed)
+        {
+            contexts.Add(pressed);
+        }
+
+        return ReadAsync(contexts);
+    }
+
+    /// <summary>Whether a selection can name a chapter at all. Every document in
+    /// the folder is a Markdown file, so a path without the extension is a
+    /// folder's, and no document has to be read to know it matches none.</summary>
+    private static bool NamesADocument(string selectedPath) =>
+        NormalizePath(selectedPath).EndsWith(".md", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsRead(DomainDevbookContext context) =>
+        context.Documents is not LazyDevbookList<DomainDevbookDocument> { IsMaterialized: false };
+
+    /// <summary>The read itself, on the pool, behind the loading line: the render
+    /// that the pending task lets through must not touch the lists it is
+    /// reading.</summary>
+    private async Task ReadAsync(IReadOnlyList<DomainDevbookContext> contexts)
+    {
+        var unread = contexts.Where(context => !IsRead(context)).Distinct().ToList();
+        if (unread.Count == 0) return;
+
+        _reading = true;
+        try
+        {
+            await Task.Run(() =>
+            {
+                foreach (var context in unread) _ = context.Documents.Count;
+            });
+        }
+        finally
+        {
+            _reading = false;
+        }
+    }
+
+    private bool _reading;
 
     private static bool PathMatches(string candidate, string selectedPath)
     {

@@ -21,14 +21,32 @@ namespace Backlog.Desktop.UI.Devbook;
 /// Devbook pane. The Markdown files remain canonical; this service only builds
 /// a read model for display.
 /// </summary>
-public sealed class DesignDevbookProvider(IDevbookFolderSource source)
+public sealed class DesignDevbookProvider : IDisposable
 {
+    private readonly IDevbookFolderSource _source;
+
+    /// <summary>Every file parsed so far, kept while it stays as it was on disk —
+    /// see <see cref="DevbookFileCache{T}"/>. The design view is disposed with its
+    /// tab and asks for the folder again on the way back.</summary>
+    private readonly DevbookFileCache<DesignDevbookFile> _files = new();
+
+    public DesignDevbookProvider(IDevbookFolderSource source)
+    {
+        _source = source;
+        _source.Changed += _files.Clear;
+    }
+
+    /// <summary>Lets go of the folder source. The store is a singleton and so is
+    /// the source, so nothing leaks in the app — but a host that tears its
+    /// container down, as the tests do, must find no handler left behind.</summary>
+    public void Dispose() => _source.Changed -= _files.Clear;
+
     /// <summary>Re-published from the folder source so an open panel can reload
     /// when the configured folder moves.</summary>
     public event Action? Changed
     {
-        add => source.Changed += value;
-        remove => source.Changed -= value;
+        add => _source.Changed += value;
+        remove => _source.Changed -= value;
     }
 
     public async Task<DesignDevbookModel> LoadAsync(string? repositoryAlias = null, CancellationToken cancellationToken = default)
@@ -37,16 +55,22 @@ public sealed class DesignDevbookProvider(IDevbookFolderSource source)
 
         // Prepared rather than resolved: the model parses every file in the
         // folder, so a branch's design folder is fetched here, whole, once.
-        var location = await source.PrepareContentAsync(".design", repositoryAlias, cancellationToken: cancellationToken).ConfigureAwait(false);
+        var location = await _source.PrepareContentAsync(".design", repositoryAlias, cancellationToken: cancellationToken).ConfigureAwait(false);
         if (!location.Available || location.FullPath is null)
         {
             return DesignDevbookModel.Unavailable(location.Message ?? "Design is unavailable.");
         }
 
         var folderPath = location.FullPath;
-        var files = Directory.EnumerateFiles(folderPath, "*.md", SearchOption.TopDirectoryOnly)
-            .Select(path => DesignDevbookParser.ParseFile(folderPath, path))
-            .ToList();
+
+        // Off the dispatcher, which in the desktop host is the UI thread: the
+        // parse is the whole folder, and it should not sit between a click on the
+        // Design tab and the pane painting its loading line.
+        var files = await Task.Run(
+            () => Directory.EnumerateFiles(folderPath, "*.md", SearchOption.TopDirectoryOnly)
+                .Select(path => _files.GetOrAdd(path, () => DesignDevbookParser.ParseFile(folderPath, path)))
+                .ToList(),
+            cancellationToken).ConfigureAwait(false);
 
         if (files.Count == 0)
         {
@@ -75,7 +99,7 @@ public sealed class DesignDevbookProvider(IDevbookFolderSource source)
         if (string.IsNullOrWhiteSpace(itemPath)) throw new ArgumentException("Devbook item path is required.", nameof(itemPath));
         if (string.IsNullOrWhiteSpace(status)) throw new ArgumentException("Status is required.", nameof(status));
 
-        var location = source.Resolve(".design", repositoryAlias);
+        var location = _source.Resolve(".design", repositoryAlias);
         var folderPath = location.WritablePath("Design");
 
         DevbookMarkdownStatusWriter.UpdateStatus(folderPath, itemPath, ".design/", status);
@@ -96,7 +120,7 @@ public sealed class DesignDevbookProvider(IDevbookFolderSource source)
         cancellationToken.ThrowIfCancellationRequested();
         if (string.IsNullOrWhiteSpace(itemPath)) throw new ArgumentException("Devbook item path is required.", nameof(itemPath));
 
-        var location = source.Resolve(".design", repositoryAlias);
+        var location = _source.Resolve(".design", repositoryAlias);
         var folderPath = location.WritablePath("Design");
 
         DevbookMarkdownStatusWriter.RemoveStatus(folderPath, itemPath, ".design/");
