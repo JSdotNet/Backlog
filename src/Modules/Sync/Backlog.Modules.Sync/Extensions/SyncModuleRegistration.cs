@@ -6,8 +6,10 @@ using Backlog.Modules.Sync.Features.DescribeOwner;
 using Backlog.Modules.Sync.Features.IssueDeviceToken;
 using Backlog.Modules.Sync.Features.IssuePairingCode;
 using Backlog.Modules.Sync.Features.ListInbox;
+using Backlog.Modules.Sync.Features.PullAnnotations;
 using Backlog.Modules.Sync.Features.PullSessions;
 using Backlog.Modules.Sync.Features.PullTasks;
+using Backlog.Modules.Sync.Features.PushAnnotations;
 using Backlog.Modules.Sync.Features.PushSessions;
 using Backlog.Modules.Sync.Features.PushTasks;
 using Backlog.Modules.Sync.Features.RedeemPairingCode;
@@ -48,6 +50,8 @@ public static class SyncModuleRegistration
         services.AddScoped<IQueryHandler<PullTasksQuery, Result<PullTasksResponse>>, PullTasksQueryHandler>();
         services.AddScoped<ICommandHandler<PushSessionsCommand, Result<PushSessionsResponse>>, PushSessionsCommandHandler>();
         services.AddScoped<IQueryHandler<PullSessionsQuery, Result<PullSessionsResponse>>, PullSessionsQueryHandler>();
+        services.AddScoped<ICommandHandler<PushAnnotationsCommand, Result<PushAnnotationsResponse>>, PushAnnotationsCommandHandler>();
+        services.AddScoped<IQueryHandler<PullAnnotationsQuery, Result<PullAnnotationsResponse>>, PullAnnotationsQueryHandler>();
         services.AddScoped<IQueryHandler<ListInboxQuery, Result<IReadOnlyList<InboxItem>>>, ListInboxQueryHandler>();
         services.AddScoped<ICommandHandler<CaptureInboxItemCommand, Result<InboxItem>>, CaptureInboxItemCommandHandler>();
         services.AddScoped<ICommandHandler<AcknowledgeInboxItemCommand, Result>, AcknowledgeInboxItemCommandHandler>();
@@ -66,6 +70,7 @@ public static class SyncModuleRegistration
         services.TryAddSingleton<IPairingCodeStore, InMemoryPairingCodeStore>();
         services.TryAddSingleton<ITaskReplica, InMemoryTaskReplica>();
         services.TryAddSingleton<ISessionReplica, InMemorySessionReplica>();
+        services.TryAddSingleton<IAnnotationReplica, InMemoryAnnotationReplica>();
 
         return services;
     }

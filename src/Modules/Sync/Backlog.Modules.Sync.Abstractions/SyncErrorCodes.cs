@@ -77,6 +77,23 @@ public static class SyncErrorCodes
     /// </para></summary>
     public const string SessionTooLarge = "sync.session_too_large";
 
+    /// <summary>More annotation changes in one push than the service will take.
+    /// Its own code for the reason <see cref="SessionBatchTooLarge"/> has one: a
+    /// device told only "too large" would not know which of its pushes to make
+    /// smaller.</summary>
+    public const string AnnotationBatchTooLarge = "sync.annotation_batch_too_large";
+
+    /// <summary>An annotation the service will not store — no repository alias
+    /// or chapter path, a negative block index, or a field longer than the
+    /// bounds allow. Refused at the edge and for the whole batch, so the
+    /// device's watermark never moves past a remark nobody stored.</summary>
+    public const string AnnotationInvalid = "sync.annotation_invalid";
+
+    /// <summary>One annotation is larger than the store will take. Mapped to
+    /// 413 for the reason <see cref="TaskTooLarge"/> is: a retry cannot help,
+    /// so it has to be visible as the caller's to fix.</summary>
+    public const string AnnotationTooLarge = "sync.annotation_too_large";
+
     /// <summary>The <c>since</c> cursor is not one this service minted — wrong
     /// prefix, not base64, or a signature that does not verify. Mapped to 400:
     /// the caller sent something that is not a cursor, and the fix is to drop it

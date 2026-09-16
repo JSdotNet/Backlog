@@ -35,6 +35,7 @@ var cosmos = builder.AddAzureCosmosDB("cosmos")
 var cosmosDatabase = cosmos.AddCosmosDatabase("backlog");
 cosmosDatabase.AddContainer("tasks", "/ownerId");
 cosmosDatabase.AddContainer("sessions", "/ownerId");
+cosmosDatabase.AddContainer("annotations", "/ownerId");
 cosmosDatabase.AddContainer("devices", "/id");
 cosmosDatabase.AddContainer("pairingCodes", "/id");
 

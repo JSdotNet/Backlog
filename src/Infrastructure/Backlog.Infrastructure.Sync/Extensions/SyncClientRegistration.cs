@@ -1,4 +1,6 @@
+using Backlog.Infrastructure.Sync.Annotations;
 using Backlog.Infrastructure.Sync.Sessions;
+using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
 
@@ -320,6 +322,70 @@ public static class SyncClientRegistration
         // worker would be a second timer, and two timers are the overlapping
         // cycles its own guard exists to prevent.
         services.TryAddSingleton<SessionSyncWorker>();
+
+        return services;
+    }
+
+    /// <summary>Where <see cref="AddAnnotationSyncStore"/> puts this device's
+    /// annotation-replication progress inside the folder it is given.</summary>
+    private const string AnnotationSyncStateFileName = "annotation-sync-state.json";
+
+    /// <summary>
+    /// The one file annotation replication keeps, inside <paramref name="folderPath"/>
+    /// — the same per-user, per-installation folder the task and session
+    /// progress files sit in, and never the workspace root, for the reason
+    /// <see cref="AddSessionSyncStores"/> gives. One file rather than two because
+    /// the records themselves live in the Devbook annotation store the host
+    /// composes; only the progress is replication's own. <c>TryAdd</c>, so a
+    /// host or a test that has already chosen its store keeps it.
+    /// </summary>
+    public static IServiceCollection AddAnnotationSyncStore(this IServiceCollection services, string folderPath)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentException.ThrowIfNullOrWhiteSpace(folderPath);
+
+        services.TryAddSingleton<IAnnotationSyncStateStore>(
+            _ => new FileAnnotationSyncStateStore(Path.Combine(folderPath, AnnotationSyncStateFileName)));
+
+        return services;
+    }
+
+    /// <summary>
+    /// Adds annotation replication on top of <see cref="AddSyncClient"/>: the
+    /// replica client, the merge, the exchange and the loop that runs it.
+    /// <para>
+    /// Call it after <see cref="AddSyncClient"/> and against the same address.
+    /// Opt-in for the reason the other two are: it takes an
+    /// <see cref="IDevbookAnnotationStore"/>, which is the desktop's to compose,
+    /// and an <see cref="IAnnotationSyncStateStore"/>, which
+    /// <see cref="AddAnnotationSyncStore"/> supplies; a head with neither is not
+    /// a head that forgot them. The loop is a singleton with a timer inside it,
+    /// so a head that calls this must resolve <see cref="AnnotationSyncWorker"/>
+    /// once after <c>Build()</c> or nothing ever runs.
+    /// </para>
+    /// </summary>
+    public static IServiceCollection AddAnnotationSyncClient(this IServiceCollection services, Uri baseAddress)
+    {
+        ArgumentNullException.ThrowIfNull(baseAddress);
+        return services.AddAnnotationSyncClient(_ => baseAddress);
+    }
+
+    /// <summary>The per-client-address form of <see cref="AddAnnotationSyncClient(IServiceCollection, Uri)"/>;
+    /// pass the same callback <see cref="AddSyncClient(IServiceCollection, Func{IServiceProvider, Uri})"/> got.</summary>
+    public static IServiceCollection AddAnnotationSyncClient(this IServiceCollection services, Func<IServiceProvider, Uri> baseAddress)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(baseAddress);
+
+        services.AddHttpClient<AnnotationSyncClient>((sp, client) => client.BaseAddress = baseAddress(sp))
+            .AddHttpMessageHandler<SyncAuthenticationHandler>();
+
+        // Transient over the typed client above, for the reason the task merge
+        // and session are; the state they share is the host's store.
+        services.TryAddTransient<AnnotationReplicaMerge>();
+        services.TryAddTransient<AnnotationSyncSession>();
+
+        services.TryAddSingleton<AnnotationSyncWorker>();
 
         return services;
     }
