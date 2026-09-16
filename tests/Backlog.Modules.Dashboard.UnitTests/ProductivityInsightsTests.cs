@@ -566,6 +566,39 @@ public class ProductivityInsightsTests
             repositories ?? new StubRepositoryDirectory(),
             new FixedClock(Now));
 
+    /// <summary>
+    /// The sync figures share the rework answer but not its denominator: every pull
+    /// request whose branch synced counts, reviewed or not, and one whose commits
+    /// could not be read counts for nothing rather than as a clean sync.
+    /// </summary>
+    [Fact]
+    public async Task Rework_counts_conflicted_syncs_over_the_pull_requests_that_synced()
+    {
+        var source = new StubActivitySource
+        {
+            Report = new ActivityReport(
+                [
+                    Merged(1, reviewed: true, churned: false) with { SyncMerges = 2, ConflictedSyncMerges = 1, SyncsKnown = true },
+                    Merged(2, reviewed: false, churned: false) with { SyncMerges = 1, ConflictedSyncMerges = 1, SyncsKnown = true },
+                    Merged(3, reviewed: false, churned: false) with { SyncMerges = 3, ConflictedSyncMerges = 0, SyncsKnown = true },
+                    Merged(4, reviewed: false, churned: false),
+                    Merged(5, reviewed: false, churned: false) with { SyncMerges = 0, SyncsKnown = false }
+                ],
+                [])
+        };
+
+        var rework = await Insights(source).GetReworkAsync(DashboardScope.Default, TestContext.Current.CancellationToken);
+
+        Assert.True(rework.HasValue);
+        Assert.Equal(3, rework.Value!.PullRequestsSynced);
+        Assert.Equal(2, rework.Value.PullRequestsWithConflictedSync);
+        Assert.Equal(6, rework.Value.SyncMerges);
+        Assert.Equal(2, rework.Value.ConflictedSyncMerges);
+
+        // And the churn denominator is untouched by any of it.
+        Assert.Equal(1, rework.Value.PullRequestsReviewed);
+    }
+
     private static ActivityPullRequest Merged(int number, bool reviewed, bool churned)
     {
         var mergedAt = Now.AddDays(-number);
@@ -581,7 +614,8 @@ public class ProductivityInsightsTests
             FilesRetouched: churned ? 2 : 0,
             ChurnComplete: true)
         {
-            ReviewTurnaround = reviewed ? TimeSpan.FromHours(6) : null
+            ReviewTurnaround = reviewed ? TimeSpan.FromHours(6) : null,
+            SyncsKnown = true
         };
     }
 

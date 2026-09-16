@@ -33,7 +33,10 @@ public sealed class PullRequestDetailCache(Func<string> cacheRoot) : IPullReques
     /// before the size fields existed would deserialize to
     /// <c>SizeKnown = false</c> and read as "the size could not be fetched" —
     /// which is a claim about GitHub that nothing ever established. Reading such
-    /// an entry as a miss costs one fetch and states nothing untrue.
+    /// an entry as a miss costs one fetch and states nothing untrue. Version 2
+    /// added the sync-merge fields, for exactly that reason: a version-1 entry
+    /// would read as <c>SyncsKnown = false</c>, and the pull request would sit
+    /// out of the sync figures forever instead of being read once more.
     /// </para>
     /// <para>
     /// 3 added the commit count. An older entry would read it as zero, which is a
@@ -43,8 +46,13 @@ public sealed class PullRequestDetailCache(Func<string> cacheRoot) : IPullReques
     /// the cache folder is shared by every checkout on a machine, and a reader that
     /// accepted the other's entries read every commit count as zero.
     /// </para>
+    /// <para>
+    /// 4 is the two branches merged: the commit count and the sync-merge fields in
+    /// one shape. A 2 has no commit count and a 3 has no sync fields, so each is a
+    /// miss for the same reason the other was.
+    /// </para>
     /// </summary>
-    private const int Version = 3;
+    private const int Version = 4;
 
     private readonly Func<string> _cacheRoot = cacheRoot ?? throw new ArgumentNullException(nameof(cacheRoot));
 
@@ -75,7 +83,10 @@ public sealed class PullRequestDetailCache(Func<string> cacheRoot) : IPullReques
                 ChangedLines = stored.ChangedLines,
                 ChangedFiles = stored.ChangedFiles,
                 SizeKnown = stored.SizeKnown,
-                Commits = stored.Commits
+                Commits = stored.Commits,
+                SyncMerges = stored.SyncMerges,
+                ConflictedSyncMerges = stored.ConflictedSyncMerges,
+                SyncsKnown = stored.SyncsKnown
             };
         }
         catch (Exception exception) when (exception is JsonException or IOException or UnauthorizedAccessException)
@@ -112,7 +123,10 @@ public sealed class PullRequestDetailCache(Func<string> cacheRoot) : IPullReques
                     ChangedLines = detail.ChangedLines,
                     ChangedFiles = detail.ChangedFiles,
                     SizeKnown = detail.SizeKnown,
-                    Commits = detail.Commits
+                    Commits = detail.Commits,
+                    SyncMerges = detail.SyncMerges,
+                    ConflictedSyncMerges = detail.ConflictedSyncMerges,
+                    SyncsKnown = detail.SyncsKnown
                 },
                 JsonOptions));
         }
@@ -176,5 +190,11 @@ public sealed class PullRequestDetailCache(Func<string> cacheRoot) : IPullReques
         public int Commits { get; init; }
 
         public bool SizeKnown { get; init; }
+
+        public int SyncMerges { get; init; }
+
+        public int ConflictedSyncMerges { get; init; }
+
+        public bool SyncsKnown { get; init; }
     }
 }

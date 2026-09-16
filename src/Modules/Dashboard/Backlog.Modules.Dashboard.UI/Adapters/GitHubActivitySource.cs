@@ -111,7 +111,10 @@ internal sealed class GitHubActivitySource(
                 ChangedFiles = pr.ChangedFiles,
                 SizeKnown = pr.SizeKnown,
                 Commits = pr.Commits,
-                ChangesRequested = pr.ChangesRequested
+                ChangesRequested = pr.ChangesRequested,
+                SyncMerges = pr.SyncMerges,
+                ConflictedSyncMerges = pr.ConflictedSyncMerges,
+                SyncsKnown = pr.SyncsKnown
             }));
 
             issues.AddRange(report.Issues.Select(issue =>

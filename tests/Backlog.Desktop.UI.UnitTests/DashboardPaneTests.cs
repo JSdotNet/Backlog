@@ -1506,7 +1506,7 @@ public class DashboardPaneTests
 
     /// <summary>
     /// The two scores with their whole compositions behind them: the two volume
-    /// inputs read against the reader's own record, and the four proportions.
+    /// inputs read against the reader's own record, and the five proportions.
     /// </summary>
     private static ProductivityScoreInsight Score() =>
         new(
@@ -1521,6 +1521,7 @@ public class DashboardPaneTests
                 [
                     new ProductivityScoreInput("First review within a day", 40m, 50m, 2m),
                     new ProductivityScoreInput("Merged without post-review churn", 30m, 50m, 1m),
+                    new ProductivityScoreInput("Merged without a conflicted sync", 60m, 132m, 1m),
                     new ProductivityScoreInput("Merged under 400 changed lines", 20m, 44m, 1m),
                     new ProductivityScoreInput("Merged touching 10 files or fewer", 24m, 44m, 1m)
                 ]))
@@ -1537,7 +1538,7 @@ public class DashboardPaneTests
     /// figures can be read rather than only their unavailable state. Every part gets
     /// the same completeness flag, because it is one report behind all four.
     /// </summary>
-    private sealed class ReadyProductivityInsights(ProductivityScoreInsight score) : IProductivityInsights
+    private sealed class ReadyProductivityInsights(ProductivityScoreInsight score, ReworkInsight? rework = null) : IProductivityInsights
     {
         public Task<InsightResult<ProductivityHeadline>> GetHeadlineAsync(
             DashboardScope scope,
@@ -1570,7 +1571,13 @@ public class DashboardPaneTests
             DashboardScope scope,
             CancellationToken cancellationToken = default) =>
             Task.FromResult(InsightResult<ReworkInsight>.Ready(
-                new ReworkInsight(6, 30, 12, 2, 9, true, [new InsightPoint("W34", 3m)], [])
+                (rework ?? new ReworkInsight(6, 30, 12, 2, 9, true, [new InsightPoint("W34", 3m)], [])
+                {
+                    PullRequestsSynced = 14,
+                    PullRequestsWithConflictedSync = 3,
+                    SyncMerges = 21,
+                    ConflictedSyncMerges = 4
+                }) with
                 {
                     Complete = score.Complete,
                     ReviewRounds = 41,
@@ -1580,6 +1587,60 @@ public class DashboardPaneTests
         public void Invalidate(DashboardScope scope)
         {
         }
+    }
+
+    /// <summary>
+    /// The second kind of rework, beside the first: conflicted syncs with the base
+    /// branch, over the pull requests that synced at all. The denominator is on the
+    /// tile because "3" means nothing without knowing whether it is 3 of 14 or 3 of
+    /// 300, and the conflicted-merge count says it is a floor, because it is.
+    /// </summary>
+    [Fact]
+    public void The_rework_part_shows_conflicted_syncs_over_the_pull_requests_that_synced()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<IProductivityInsights>(new ReadyProductivityInsights(Score())));
+
+        var pane = context.Render<DashboardPane>();
+
+        var conflicted = Squashed(pane.Find("[data-testid='dashboard-rework-conflicted']").TextContent);
+        Assert.Contains("3", conflicted, StringComparison.Ordinal);
+        Assert.Contains("of 14 synced", conflicted, StringComparison.Ordinal);
+
+        Assert.Contains("21", pane.Find("[data-testid='dashboard-rework-syncs']").TextContent, StringComparison.Ordinal);
+
+        var conflicts = Squashed(pane.Find("[data-testid='dashboard-rework-conflicts']").TextContent);
+        Assert.Contains("4", conflicts, StringComparison.Ordinal);
+        Assert.Contains("At least", conflicts, StringComparison.Ordinal);
+
+        // The churn grid is still there beside it; neither kind hides the other.
+        Assert.NotEmpty(pane.FindAll("[data-testid='dashboard-rework-tiles']"));
+    }
+
+    /// <summary>
+    /// A window nobody reviewed is not an empty window when its branches synced.
+    /// Zero conflicts over twelve syncs is a result, and it renders as one — with
+    /// the churn grid absent rather than reading "0 of 0 reviewed".
+    /// </summary>
+    [Fact]
+    public void An_unreviewed_window_with_synced_branches_still_shows_its_syncs()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<IProductivityInsights>(new ReadyProductivityInsights(
+                Score(),
+                new ReworkInsight(0, 0, 0, 0, 0, true, [], [])
+                {
+                    PullRequestsSynced = 12,
+                    PullRequestsWithConflictedSync = 0,
+                    SyncMerges = 15,
+                    ConflictedSyncMerges = 0
+                })));
+
+        var pane = context.Render<DashboardPane>();
+
+        Assert.Contains("of 12 synced", Squashed(pane.Find("[data-testid='dashboard-rework-conflicted']").TextContent), StringComparison.Ordinal);
+        Assert.Empty(pane.FindAll("[data-testid='dashboard-rework-tiles']"));
+        Assert.Empty(pane.FindAll("[data-testid='dashboard-rework-status']"));
     }
 
     /// <summary>Markup wraps a note across several source lines, so the text arrives

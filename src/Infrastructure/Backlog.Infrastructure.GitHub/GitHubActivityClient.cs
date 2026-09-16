@@ -1,5 +1,7 @@
+using System.Runtime.ExceptionServices;
 using System.Globalization;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace Backlog.Infrastructure.GitHub;
 
@@ -60,6 +62,29 @@ public sealed record GitHubReviewedPullRequest(
     /// <summary>Every commit on the pull request. Read off the same call as the size,
     /// so meaningful exactly when <see cref="SizeKnown"/>.</summary>
     public int Commits { get; init; }
+
+    /// <summary>Merge commits on the branch — each one a sync with the base branch
+    /// (or, rarely, with another branch). Meaningless unless
+    /// <see cref="SyncsKnown"/>.</summary>
+    public int SyncMerges { get; init; }
+
+    /// <summary>
+    /// How many of <see cref="SyncMerges"/> say they resolved a conflict.
+    /// <para>
+    /// GitHub keeps no record of a conflict once the merge that resolved it is
+    /// committed, so this is read from the merge commit's own message. Git writes
+    /// a <c>Conflicts:</c> trailer into it, which survives a <c>--no-edit</c>
+    /// commit, and a merge somebody wrote up by hand names what conflicted; a merge
+    /// whose message says nothing reads as clean, so this is a floor.
+    /// </para>
+    /// </summary>
+    public int ConflictedSyncMerges { get; init; }
+
+    /// <summary>Whether the branch's commits were actually read. False and zero,
+    /// rather than absent, for the reason <see cref="SizeKnown"/> is: a pull
+    /// request whose commits could not be listed still merged, and its zero must
+    /// not be counted as a clean sync.</summary>
+    public bool SyncsKnown { get; init; }
 }
 
 /// <summary>One closed issue. Pull requests are excluded — GitHub's issues
@@ -88,9 +113,11 @@ public sealed record GitHubRepositoryActivity(
     public bool ListingComplete { get; init; } = true;
 
     /// <summary>
-    /// Whether every listed pull request's size could be read. False when at least
-    /// one of them has <c>SizeKnown</c> false, so a size average knows it is
-    /// missing rows rather than averaging in zeroes.
+    /// Whether every listed pull request's size and commits could be read. False
+    /// when at least one of them has <c>SizeKnown</c> or <c>SyncsKnown</c> false,
+    /// so a size average knows it is missing rows rather than averaging in zeroes,
+    /// and a sync proportion knows it is missing pull requests rather than counting
+    /// them as never synced.
     /// </summary>
     public bool DetailComplete { get; init; } = true;
 }
@@ -243,7 +270,7 @@ public sealed class GitHubActivityClient(
             closed.Issues)
         {
             ListingComplete = listing.Complete,
-            DetailComplete = listing.PullRequests.All(pull => pull.SizeKnown)
+            DetailComplete = listing.PullRequests.All(pull => pull.SizeKnown && pull.SyncsKnown)
         };
     }
 
@@ -480,7 +507,10 @@ public sealed class GitHubActivityClient(
                 ChangedLines = remembered.ChangedLines,
                 ChangedFiles = remembered.ChangedFiles,
                 SizeKnown = remembered.SizeKnown,
-                Commits = remembered.Commits
+                Commits = remembered.Commits,
+                SyncMerges = remembered.SyncMerges,
+                ConflictedSyncMerges = remembered.ConflictedSyncMerges,
+                SyncsKnown = remembered.SyncsKnown
             };
         }
 
@@ -498,7 +528,10 @@ public sealed class GitHubActivityClient(
             ChangedLines = read.ChangedLines,
             ChangedFiles = read.ChangedFiles,
             SizeKnown = read.SizeKnown,
-            Commits = read.Commits
+            Commits = read.Commits,
+            SyncMerges = read.SyncMerges,
+            ConflictedSyncMerges = read.ConflictedSyncMerges,
+            SyncsKnown = read.SyncsKnown
         });
 
         return read;
@@ -518,17 +551,27 @@ public sealed class GitHubActivityClient(
         // Issued alongside the reviews rather than after them. The size lives on
         // the pull request itself, which the listing does not carry, so it costs a
         // call — but it costs no wall clock, because the reviews call is already in
-        // flight and this one waits beside it.
+        // flight and this one waits beside it. The commits go out in the same
+        // breath: they used to wait for the reviews, because only a reviewed pull
+        // request had an "after the review" to look in, but the branch's sync
+        // merges are on every pull request whether anybody reviewed it or not.
         var reviewsCall = ReadArrayAsync(
             $"{prefix}/pulls/{pullRequest.Number}/reviews?per_page={PageSize}",
             cancellationToken);
 
         var sizeCall = ReadSizeAsync($"{prefix}/pulls/{pullRequest.Number}", cancellationToken);
 
-        await Task.WhenAll(reviewsCall, sizeCall).ConfigureAwait(false);
+        var commitsCall = ReadCommitsAsync(
+            $"{prefix}/pulls/{pullRequest.Number}/commits?per_page={PageSize}",
+            cancellationToken);
+
+        await Task.WhenAll(reviewsCall, sizeCall, commitsCall).ConfigureAwait(false);
 
         var reviews = await reviewsCall.ConfigureAwait(false);
         var size = await sizeCall.ConfigureAwait(false);
+        var (commits, commitsRefusal) = await commitsCall.ConfigureAwait(false);
+
+        var syncs = CountSyncMerges(commits);
 
         // A review of state COMMENTED is a comment, not a verdict, and counting it
         // as a round would make every conversation look like rework.
@@ -547,8 +590,11 @@ public sealed class GitHubActivityClient(
         if (firstReviewedAt is null)
         {
             // Nothing was reviewed, so there is no "after the review" to look in.
-            // Two calls saved per unreviewed pull request, and the record says
-            // plainly that it had no review rather than that it had no churn.
+            // The timeline call is saved, and the record says plainly that it had
+            // no review rather than that it had no churn. A refused commits call
+            // is not fatal here — the churn figures need nothing from it — so it
+            // reads as syncs unknown rather than as a pull request that never
+            // synced.
             return new GitHubReviewedPullRequest(
                 pullRequest.Number,
                 pullRequest.Url,
@@ -566,13 +612,18 @@ public sealed class GitHubActivityClient(
                 ChangedLines = size.Lines,
                 ChangedFiles = size.Files,
                 SizeKnown = size.Known,
-                Commits = size.Commits
+                Commits = size.Commits,
+                SyncMerges = syncs.Merges,
+                ConflictedSyncMerges = syncs.Conflicted,
+                SyncsKnown = commitsRefusal is null
             };
         }
 
-        var commits = await ReadArrayAsync(
-            $"{prefix}/pulls/{pullRequest.Number}/commits?per_page={PageSize}",
-            cancellationToken).ConfigureAwait(false);
+        // A reviewed pull request's churn is counted from its commits, and a
+        // repository whose commits cannot be listed is a repository this client
+        // cannot answer for — the same refusal it has always been, only raised
+        // after the calls beside it finished rather than before they started.
+        commitsRefusal?.Throw();
 
         var dated = commits
             .Select(commit => (Sha: String(commit, "sha"), At: CommitInstant(commit)))
@@ -612,9 +663,91 @@ public sealed class GitHubActivityClient(
             ChangedLines = size.Lines,
             ChangedFiles = size.Files,
             SizeKnown = size.Known,
-            Commits = size.Commits
+            Commits = size.Commits,
+            SyncMerges = syncs.Merges,
+            ConflictedSyncMerges = syncs.Conflicted,
+            SyncsKnown = true
         };
     }
+
+    /// <summary>
+    /// One pull request's commits, or the refusal that stood in for them.
+    /// <para>
+    /// The refusal is handed back rather than thrown because what it means depends
+    /// on something the caller has not learned yet: for an unreviewed pull request
+    /// it costs only the sync figures, for a reviewed one it costs the churn
+    /// figures too, and only the reviews say which. Captured rather than caught
+    /// and re-thrown so that the stack it is eventually raised with is the one it
+    /// was raised with.
+    /// </para>
+    /// </summary>
+    private async Task<(List<JsonElement> Commits, ExceptionDispatchInfo? Refusal)> ReadCommitsAsync(
+        string path,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return (await ReadArrayAsync(path, cancellationToken).ConfigureAwait(false), null);
+        }
+        catch (GitHubException exception)
+        {
+            return ([], ExceptionDispatchInfo.Capture(exception));
+        }
+    }
+
+    /// <summary>
+    /// The merge commits among a pull request's commits, and how many of them say
+    /// they resolved a conflict.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A commit with two parents on a pull request branch is a sync — the base
+    /// branch merged in, almost always. GitHub has no record of whether that sync
+    /// conflicted once it is committed, so the message is the evidence: git's own
+    /// <c>Conflicts:</c> trailer, which a <c>--no-edit</c> commit keeps, or a
+    /// hand-written body that says what conflicted. A merge whose message is silent
+    /// reads as clean, which makes the conflicted count a floor rather than a
+    /// total.
+    /// </para>
+    /// <para>
+    /// The one thing the match refuses is a message that says there was no
+    /// conflict. It is the phrase a person reaches for when a merge went cleanly
+    /// and they want to say so, and counting it would turn every reassurance
+    /// into its opposite.
+    /// </para>
+    /// </remarks>
+    private static (int Merges, int Conflicted) CountSyncMerges(IReadOnlyList<JsonElement> commits)
+    {
+        var merges = 0;
+        var conflicted = 0;
+
+        foreach (var commit in commits)
+        {
+            if (!commit.TryGetProperty("parents", out var parents)
+                || parents.ValueKind != JsonValueKind.Array
+                || parents.GetArrayLength() < 2)
+            {
+                continue;
+            }
+
+            merges++;
+
+            if (commit.TryGetProperty("commit", out var detail) && MentionsConflict(String(detail, "message"))) conflicted++;
+        }
+
+        return (merges, conflicted);
+    }
+
+    private static bool MentionsConflict(string? message) =>
+        message is not null
+        && ConflictMention.IsMatch(message)
+        && !ConflictDenial.IsMatch(message);
+
+    private static readonly Regex ConflictMention = new(@"\bconflict", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+    private static readonly Regex ConflictDenial = new(
+        @"\b(no|without|zero)\s+(merge\s+)?conflicts?\b",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     /// <summary>
     /// How big one pull request's diff is, from the pull request itself.

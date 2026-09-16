@@ -114,6 +114,25 @@ public sealed record ReworkInsight(
     /// that means rework was requested rather than merely happened.</summary>
     public int ChangesRequested { get; init; }
 
+    /// <summary>
+    /// Pull requests whose branch was synced with its base at least once — the
+    /// denominator of the conflict figures, on the same principle as
+    /// <see cref="PullRequestsReviewed"/>: a branch that never synced cannot have
+    /// hit a conflict syncing, and counting it as clean would let a window of
+    /// short-lived branches read as a window of clean merges.
+    /// </summary>
+    public int PullRequestsSynced { get; init; }
+
+    /// <summary>Of those, how many resolved a conflict in at least one sync.</summary>
+    public int PullRequestsWithConflictedSync { get; init; }
+
+    /// <summary>Every sync merge across the synced pull requests.</summary>
+    public int SyncMerges { get; init; }
+
+    /// <summary>How many of those syncs resolved a conflict. A floor: a merge
+    /// whose message is silent reads as clean.</summary>
+    public int ConflictedSyncMerges { get; init; }
+
     public static ReworkInsight Empty { get; } = new(0, 0, 0, 0, 0, true, [], []);
 
     /// <summary>Churned pull requests as a fraction of those that were reviewed

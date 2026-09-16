@@ -108,7 +108,7 @@
         {
             var note = $"Over {Scope.Weeks} weeks. Two scores, each weighted and normalised to 100:"
                 + " volume is what you shipped against your own record, quality is how much of it"
-                + " was reviewed promptly, merged clean and kept small.";
+                + " was reviewed promptly, merged clean, synced without a conflict and kept small.";
 
             if (IsReady)
             {
@@ -215,7 +215,7 @@
     protected override bool IsEmpty(ProductivityScoreInsight value) => !value.HasInputs;
 
     protected override string EmptyMessage =>
-        "Nothing happened in this window that any of the six inputs could read.";
+        "Nothing happened in this window that any of the seven inputs could read.";
 
     protected override void InvalidateSource() => Insights.Invalidate(Scope);
 }

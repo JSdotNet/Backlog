@@ -51,7 +51,8 @@ internal sealed record ProductivityTargets(
 /// inputs — merged, closed — are counts, and a count needs something to be counted
 /// against; that something is the reader's own record rather than a number
 /// somebody picked, and it moves. The quality inputs — review promptness, freedom
-/// from churn, and the two size measures — are PROPORTIONS of an eligible set: full
+/// from churn, freedom from conflicted syncs, and the two size measures — are
+/// PROPORTIONS of an eligible set: full
 /// marks is however many pull requests could have counted, so they move with the
 /// window's own volume and can never pin dishonestly. Folding the two into one
 /// figure was what made the old score unreadable: it could fall because less shipped
@@ -150,8 +151,8 @@ internal static class ProductivityScoring
     }
 
     /// <summary>
-    /// The quality inputs behind a score for one window of activity: up to four
-    /// proportions, weighted 2-1-1-1.
+    /// The quality inputs behind a score for one window of activity: up to five
+    /// proportions, weighted 2-1-1-1-1.
     /// </summary>
     /// <remarks>
     /// An input whose eligible set is empty is left out rather than scored as zero.
@@ -173,6 +174,12 @@ internal static class ProductivityScoring
         // what could be read, and the card shows that denominator.
         var sized = pullRequests.Where(pr => pr.SizeKnown).ToList();
 
+        // Only the pull requests whose branch was synced with its base at all. A
+        // branch that never synced cannot have hit a conflict syncing, and one
+        // whose commits could not be read has nothing to say either way; both
+        // stay out of the numerator and the denominator alike.
+        var synced = pullRequests.Where(pr => pr.WasSynced).ToList();
+
         var candidates = new List<ProductivityScoreInput>
         {
             new(
@@ -184,6 +191,11 @@ internal static class ProductivityScoring
                 "Merged without post-review churn",
                 reviewed.Count(pr => !pr.HasChurn),
                 reviewed.Count,
+                1m),
+            new(
+                "Merged without a conflicted sync",
+                synced.Count(pr => !pr.HasConflictedSync),
+                synced.Count,
                 1m),
             new(
                 $"Merged under {SmallChangedLines} changed lines",

@@ -484,15 +484,24 @@ public sealed class ProductivityInsights(
     /// The churn figures, and the repositories they came from.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The denominator is pull requests that were reviewed at all, not every merged
     /// one. A pull request nobody reviewed cannot have churned after a review, and
     /// counting it as clean would let a quarter of unreviewed merges read as a
     /// quarter of good ones.
+    /// </para>
+    /// <para>
+    /// The sync figures have their own denominator on the same principle: pull
+    /// requests whose branch was synced with its base at all, and whose commits were
+    /// read to say so. A branch that never needed a sync did not avoid a conflict, it
+    /// never risked one.
+    /// </para>
     /// </remarks>
     private static ReworkInsight Rework(ScopedActivity scoped)
     {
         var reviewed = scoped.Report.PullRequests.Where(pr => pr.FirstReviewedAt is not null).ToList();
         var churned = reviewed.Where(pr => pr.HasChurn).ToList();
+        var synced = scoped.Report.PullRequests.Where(pr => pr.WasSynced).ToList();
 
         var byRepository = reviewed
             .GroupBy(pr => pr.RepositoryAlias, StringComparer.OrdinalIgnoreCase)
@@ -516,7 +525,11 @@ public sealed class ProductivityInsights(
         {
             Complete = scoped.Report.Complete,
             ReviewRounds = reviewed.Sum(pr => pr.ReviewRounds),
-            ChangesRequested = reviewed.Sum(pr => pr.ChangesRequested)
+            ChangesRequested = reviewed.Sum(pr => pr.ChangesRequested),
+            PullRequestsSynced = synced.Count,
+            PullRequestsWithConflictedSync = synced.Count(pr => pr.HasConflictedSync),
+            SyncMerges = synced.Sum(pr => pr.SyncMerges),
+            ConflictedSyncMerges = synced.Sum(pr => pr.ConflictedSyncMerges)
         };
     }
 
