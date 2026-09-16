@@ -46,9 +46,13 @@ public sealed class TaskSyncSession
     private readonly TaskReplicaMerge _merge;
     private readonly ITaskRepository _tasks;
     private readonly ITaskSyncStateStore _state;
+    private readonly IDeviceCredentialStore _credentials;
     private readonly TimeProvider _time;
     private readonly IInboxCaptureOutbox? _outbox;
 
+    /// <param name="credentials">Whose device this is. Read before every push
+    /// and pull to check the progress in <paramref name="state"/> belongs to the
+    /// same owner and device — see <see cref="ReconcileIdentity"/>.</param>
     /// <param name="outbox">The Inbox's acknowledgements waiting to leave this
     /// machine, or null on a head that has no inbox store. Optional by
     /// construction, so the mobile head composes exactly as it did.</param>
@@ -57,6 +61,7 @@ public sealed class TaskSyncSession
         TaskReplicaMerge merge,
         ITaskRepository tasks,
         ITaskSyncStateStore state,
+        IDeviceCredentialStore credentials,
         TimeProvider time,
         IInboxCaptureOutbox? outbox = null)
     {
@@ -64,14 +69,52 @@ public sealed class TaskSyncSession
         ArgumentNullException.ThrowIfNull(merge);
         ArgumentNullException.ThrowIfNull(tasks);
         ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(credentials);
         ArgumentNullException.ThrowIfNull(time);
 
         _client = client;
         _merge = merge;
         _tasks = tasks;
         _state = state;
+        _credentials = credentials;
         _time = time;
         _outbox = outbox;
+    }
+
+    /// <summary>
+    /// Starts the progress over when it was recorded for a different identity.
+    /// <para>
+    /// The watermark says what one owner's replica has accepted from this
+    /// device, and the cursor is signed for one owner. Neither survives the
+    /// device becoming somebody else — which is what forgetting the credential and
+    /// registering or pairing again does — yet the file that holds them is not
+    /// tied to the credential and used to sit untouched through it. The result
+    /// was a device that joined a new owner, re-sent only what it had edited
+    /// since, and left the new replica without everything it had pushed to the old
+    /// one: a second machine pairing in saw a fraction of the first one's tasks
+    /// and none of its sessions, with nothing anywhere to say why.
+    /// </para>
+    /// <para>
+    /// The cursor half healed itself — the service refuses a cursor signed for
+    /// another owner and the pull starts over — which is exactly why the push half
+    /// went unnoticed. Both are reset here so the two cannot disagree again, and a
+    /// state with no identity recorded at all is reset too: it predates this
+    /// check, and a watermark of unknown provenance is the gap, not a saving.
+    /// </para>
+    /// <para>
+    /// Called at the top of both halves rather than once in
+    /// <see cref="SyncAsync"/>, because a caller may run either alone and the
+    /// invariant is the state's, not the exchange's.
+    /// </para>
+    /// </summary>
+    private void ReconcileIdentity()
+    {
+        if (_credentials.Current is not { } me) return;
+
+        var state = _state.Current;
+        if (state.OwnerId == me.OwnerId && state.DeviceId == me.DeviceId) return;
+
+        _state.Save(new TaskSyncState(DateTimeOffset.MinValue, null, me.OwnerId, me.DeviceId));
     }
 
     /// <summary>
@@ -121,6 +164,8 @@ public sealed class TaskSyncSession
     /// </summary>
     public async Task<Result<TaskSyncSummary>> PushAsync(CancellationToken cancellationToken = default)
     {
+        ReconcileIdentity();
+
         var watermark = _state.Current.PushWatermark;
 
         var pending = (await _tasks.ListChangedSinceAsync(watermark, cancellationToken).ConfigureAwait(false))
@@ -215,6 +260,8 @@ public sealed class TaskSyncSession
     /// </summary>
     public async Task<Result<TaskSyncSummary>> PullAsync(CancellationToken cancellationToken = default)
     {
+        ReconcileIdentity();
+
         var cursor = _state.Current.PullCursor;
         var pulled = 0;
         var applied = 0;
@@ -266,22 +313,38 @@ public sealed class TaskSyncSession
     }
 
     /// <summary>
-    /// Push, then pull.
+    /// Pull, then push.
     /// <para>
-    /// In that order because the pull is what tells this device it is up to date,
-    /// and a pull that ran first would say so while local work was still
-    /// unsent. A push that fails stops the exchange rather than being followed by
-    /// a pull: the failure is almost always the service being unreachable, and a
-    /// second call to say the same thing is a second thing for a person to read.
+    /// In that order because the replica takes whatever reaches it last, whole
+    /// document by whole document, and asks nothing about the stamps it carries.
+    /// A device whose copy of a task is behind — one returning from a week away,
+    /// one asked to republish everything, one that has just joined an owner with a
+    /// backlog already on the replica — would, pushing first, put its stale copy
+    /// on top of the newer one and then pull back its own echo, and the other
+    /// machine's edit would be gone before this one had ever seen it. Pulling
+    /// first hands the merge the newer document while the local copy still reads
+    /// as unsent, so <see cref="TaskReplicaMerge"/> keeps a genuine local edit and
+    /// takes a genuinely newer remote one, and what is then pushed is the result.
+    /// </para>
+    /// <para>
+    /// It used to be the other way round, on the ground that the pull is what tells
+    /// the device it is up to date and should not say so while work is unsent. The
+    /// summary is built after both halves and says what each did, so that reading
+    /// was never at risk; the order of the wire traffic was, for the reason above.
+    /// </para>
+    /// <para>
+    /// A pull that fails stops the exchange rather than being followed by a push:
+    /// the failure is almost always the service being unreachable, and a second
+    /// call to say the same thing is a second thing for a person to read.
     /// </para>
     /// </summary>
     public async Task<Result<TaskSyncSummary>> SyncAsync(CancellationToken cancellationToken = default)
     {
-        var push = await PushAsync(cancellationToken).ConfigureAwait(false);
-        if (push.IsFailure) return push;
-
         var pull = await PullAsync(cancellationToken).ConfigureAwait(false);
         if (pull.IsFailure) return pull;
+
+        var push = await PushAsync(cancellationToken).ConfigureAwait(false);
+        if (push.IsFailure) return push;
 
         return Result.Success(new TaskSyncSummary(
             push.Value.Pushed,

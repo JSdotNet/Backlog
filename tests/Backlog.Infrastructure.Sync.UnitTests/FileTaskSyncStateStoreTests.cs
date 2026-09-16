@@ -27,6 +27,43 @@ public sealed class FileTaskSyncStateStoreTests : IDisposable
         Assert.Equal("cursor-1", reopened.Current.PullCursor);
     }
 
+    /// <summary>Whose progress it is travels with it, so the next run can tell a
+    /// watermark written under a former owner from its own.</summary>
+    [Fact]
+    public void The_identity_the_progress_was_recorded_under_is_read_back()
+    {
+        var path = Path.Combine(_root, "task-sync-state.json");
+        var owner = Guid.NewGuid();
+        var device = Guid.NewGuid();
+
+        new FileTaskSyncStateStore(path).Save(new TaskSyncState(Noon, "cursor-1", owner, device));
+
+        var reopened = new FileTaskSyncStateStore(path);
+
+        Assert.Equal(owner, reopened.Current.OwnerId);
+        Assert.Equal(device, reopened.Current.DeviceId);
+    }
+
+    /// <summary>A file written before the identity was recorded reads as progress
+    /// of unknown provenance - null on both - which the exchange treats as "not
+    /// mine" and starts over from. Never as a parse failure: the marks in it are
+    /// still well-formed, and "got nowhere" would be the same answer by a worse
+    /// route.</summary>
+    [Fact]
+    public void A_file_from_before_the_identity_was_recorded_reads_with_none()
+    {
+        var path = Path.Combine(_root, "task-sync-state.json");
+        Directory.CreateDirectory(_root);
+        File.WriteAllText(path, """{"pushWatermark":"2026-09-07T12:00:00+00:00","pullCursor":"cursor-1"}""");
+
+        var store = new FileTaskSyncStateStore(path);
+
+        Assert.Equal(Noon, store.Current.PushWatermark);
+        Assert.Equal("cursor-1", store.Current.PullCursor);
+        Assert.Null(store.Current.OwnerId);
+        Assert.Null(store.Current.DeviceId);
+    }
+
     [Fact]
     public void Saving_raises_changed_and_moves_current()
     {

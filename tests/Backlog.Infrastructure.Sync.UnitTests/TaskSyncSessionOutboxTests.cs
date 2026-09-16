@@ -202,6 +202,11 @@ public sealed class TaskSyncSessionOutboxTests
                 new TaskReplicaMerge(tasks),
                 tasks,
                 state,
+                new InMemoryDeviceCredentialStore(new DeviceCredential(
+                    Guid.Parse("11111111-1111-1111-1111-111111111111"),
+                    Guid.Parse("22222222-2222-2222-2222-222222222222"),
+                    "Workshop PC",
+                    "a-registration-credential")),
                 new FakeTimeProvider(Noon.AddHours(6)),
                 outbox);
 

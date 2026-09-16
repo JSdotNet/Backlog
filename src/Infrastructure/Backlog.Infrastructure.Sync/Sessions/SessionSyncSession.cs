@@ -126,6 +126,8 @@ public sealed class SessionSyncSession
     /// </summary>
     public async Task<Result<SessionSyncSummary>> PushAsync(CancellationToken cancellationToken = default)
     {
+        ReconcileIdentity();
+
         var watermark = _state.Current.PushWatermark;
 
         var catalog = await _sessions.GetSessionsAsync(cancellationToken).ConfigureAwait(false);
@@ -202,6 +204,8 @@ public sealed class SessionSyncSession
     /// </summary>
     public async Task<Result<SessionSyncSummary>> PullAsync(CancellationToken cancellationToken = default)
     {
+        ReconcileIdentity();
+
         var cursor = _state.Current.PullCursor;
         var self = _credentials.Current?.DeviceId;
         var pulled = 0;
@@ -253,23 +257,22 @@ public sealed class SessionSyncSession
     }
 
     /// <summary>
-    /// Push, then pull.
-    /// <para>
-    /// In that order because the pull is what tells this device it is up to date,
-    /// and a pull that ran first would say so while this machine's own sessions
-    /// were still unsent. A push that fails stops the exchange rather than being
-    /// followed by a pull: the failure is almost always the service being
-    /// unreachable, and a second call to say the same thing is a second thing for
-    /// a person to read.
-    /// </para>
+    /// Pull, then push — the same order as <c>TaskSyncSession.SyncAsync</c>, and
+    /// for the same reason there rather than one of its own: session records
+    /// merge by identity on the way in and this device's own are dropped, so the
+    /// order changes nothing for them, but two loops that ran their halves in
+    /// opposite orders would be two things to reason about where one will do. A
+    /// pull that fails stops the exchange rather than being followed by a push:
+    /// the failure is almost always the service being unreachable, and a second
+    /// call to say the same thing is a second thing for a person to read.
     /// </summary>
     public async Task<Result<SessionSyncSummary>> SyncAsync(CancellationToken cancellationToken = default)
     {
-        var push = await PushAsync(cancellationToken).ConfigureAwait(false);
-        if (push.IsFailure) return push;
-
         var pull = await PullAsync(cancellationToken).ConfigureAwait(false);
         if (pull.IsFailure) return pull;
+
+        var push = await PushAsync(cancellationToken).ConfigureAwait(false);
+        if (push.IsFailure) return push;
 
         return Result.Success(new SessionSyncSummary(
             push.Value.Pushed,
@@ -283,6 +286,26 @@ public sealed class SessionSyncSession
     /// anything about the owner's records, so starting over loses nothing but the
     /// position — and a record that arrives twice lands on the row it already
     /// wrote.</summary>
+    /// <summary>
+    /// Starts the progress over when it was recorded for a different identity —
+    /// the same check, for the same reason, as <c>TaskSyncSession.ReconcileIdentity</c>.
+    /// This is the half that showed first: a device that forgot its credential and
+    /// registered again kept a watermark at the newest session it had ever pushed,
+    /// so the new owner was sent nothing older than that, and the second machine
+    /// pairing in saw none of the first one's sessions while the first saw all of
+    /// the second's. A state with no identity recorded predates the check and is
+    /// reset too.
+    /// </summary>
+    private void ReconcileIdentity()
+    {
+        if (_credentials.Current is not { } me) return;
+
+        var state = _state.Current;
+        if (state.OwnerId == me.OwnerId && state.DeviceId == me.DeviceId) return;
+
+        _state.Save(new SessionSyncState(DateTimeOffset.MinValue, null, me.OwnerId, me.DeviceId));
+    }
+
     private static bool Retired(string code) =>
         code is SyncErrorCodes.SyncCursorExpired or SyncErrorCodes.SyncCursorMalformed;
 

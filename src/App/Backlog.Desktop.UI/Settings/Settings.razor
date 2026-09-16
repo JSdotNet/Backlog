@@ -47,6 +47,7 @@
 @using Backlog.Modules.Sync.Abstractions
 @using Backlog.Modules.Sync.Abstractions.DataTransferObjects
 @using Backlog.Infrastructure.Sync
+@using Backlog.Infrastructure.Sync.Sessions
 @* Capture's published surface, for the Capture tab: the vocabulary of sources
    and the settings port the tab writes. *@
 @using Backlog.Modules.Capture.Abstractions
@@ -1821,6 +1822,50 @@
                     </section>
                 }
 
+                @* The session loop's card, shown on the same terms as the task
+                   loop's. It has less to offer - session records merge by identity
+                   on the way in, so there is no rehydrate to ask for - and one thing
+                   it must: a way to send every record again. A device that registered
+                   again used to keep the old owner's watermark and never re-send what
+                   that owner already had, and the only cure was a file to delete by
+                   hand. The exchange resets itself across that line now; the button
+                   is for the person whose second machine still shows nothing. *@
+                @if (SyncEnabled && _sessionSync is not null && StoredDevice is not null && !DeviceNoLongerRegistered)
+                {
+                    <section class="setting" data-testid="devices-session-sync" aria-label="Sync sessions">
+                        <h2 class="setting__title">Sync sessions</h2>
+                        <p class="setting__body">
+                            Runs on its own every few minutes. Sends this machine's Claude and Copilot session records and brings back what the other devices reported. Only the metadata: never a prompt, a transcript, a working folder, or a session's title.
+                        </p>
+
+                        <div class="setting__actions">
+                            <AppButton TestId="devices-session-sync-now"
+                                       Busy="@_sessionSync.IsSyncing"
+                                       OnClick="SyncSessions">
+                                Sync now
+                            </AppButton>
+                        </div>
+
+                        <p class="setting__status" data-testid="devices-session-sync-result">@SessionSyncSummaryLine</p>
+
+                        <p class="setting__note">
+                            Start over, if another device shows none of this machine's sessions:
+                        </p>
+
+                        <div class="setting__actions">
+                            <AppButton TestId="devices-session-sync-republish"
+                                       Disabled="@_sessionSync.IsSyncing"
+                                       OnClick="() => _syncResetPending = SyncReset.RepublishSessions">
+                                Republish every session
+                            </AppButton>
+                        </div>
+
+                        <p class="setting__note" data-testid="devices-session-sync-state-path">
+                            How far this device has got is kept in <code>@_sessionSync.StorePath</code>.
+                        </p>
+                    </section>
+                }
+
                 @if (StoredDevice is null || DeviceNoLongerRegistered)
                 {
                     <section class="setting" data-testid="devices-register" aria-label="Register this device">
@@ -2383,11 +2428,13 @@
         _deviceTokens = Services.GetService<SyncTokenProvider>();
         _activityCache = Services.GetService<IPullRequestDetailCache>();
         _taskSync = ResolveTaskSync();
+        _sessionSync = ResolveSessionSync();
 
         // The loop outlives this screen, so what it did while nobody was here is
         // already on it - and what it does while somebody is here has to reach
         // the page, because otherwise the line below the button never moves.
         if (_taskSync is not null) _taskSync.Changed += OnTaskSyncChanged;
+        if (_sessionSync is not null) _sessionSync.Changed += OnSessionSyncChanged;
 
         // A background sync is what usually hears the refusal first, on a thread
         // that is not this one - hence the marshal in the handler. That
@@ -3555,6 +3602,10 @@
     /// </para></summary>
     private TaskSyncWorker? _taskSync;
 
+    /// <summary>The session loop, on the same terms as <see cref="_taskSync"/>:
+    /// null on a head that composed none, and hidden with it.</summary>
+    private SessionSyncWorker? _sessionSync;
+
     /// <summary>Optional, like the two above and for the same reason: a test
     /// rendering this screen to ask about storage should not have to compose a
     /// logging stack to reach a panel it never opens.</summary>
@@ -3571,6 +3622,10 @@
     /// where it thought this device had got to.</summary>
     private enum SyncReset
     {
+        /// <summary>Forget how far this device has pushed its session records,
+        /// and send every one of them again.</summary>
+        RepublishSessions,
+
         /// <summary>Forget how far this device has pushed, and send everything
         /// again.</summary>
         Republish,
@@ -3620,10 +3675,15 @@
             + (summary.Skipped > 0 ? $" {summary.Skipped} could not be read by this build." : string.Empty)
         : "This device has not synced yet.";
 
+    private string SessionSyncSummaryLine => _sessionSync?.LastSummary is { } summary
+        ? $"Sent {summary.Pushed}, received {summary.Pulled}, kept {summary.Applied}."
+        : "This device has not synced its sessions yet.";
+
     private string SyncResetTitle => _syncResetPending switch
     {
         SyncReset.Republish => "Republish everything?",
         SyncReset.Rehydrate => "Rehydrate from scratch?",
+        SyncReset.RepublishSessions => "Republish every session?",
         _ => string.Empty
     };
 
@@ -3636,6 +3696,8 @@
             "Every task on this machine, deleted ones included, will be sent to the cloud again. Nothing is lost: the other devices keep whichever version was edited last. It may take a while on a slow connection.",
         SyncReset.Rehydrate =>
             "This device will read every change the other devices have ever made, from the beginning, and apply the ones it does not already have. Nothing on this machine is deleted. It may take a while on a slow connection.",
+        SyncReset.RepublishSessions =>
+            "Every Claude and Copilot session record on this machine will be sent to the cloud again - the metadata only, as always. Nothing is lost: the other devices keep one record per session. It may take a while on a slow connection.",
         _ => string.Empty
     };
 
@@ -3643,6 +3705,7 @@
     {
         SyncReset.Republish => "Republish",
         SyncReset.Rehydrate => "Rehydrate",
+        SyncReset.RepublishSessions => "Republish",
         _ => "Confirm"
     };
 
@@ -3828,6 +3891,20 @@
     /// after <c>Build()</c>, because a loop that only existed while somebody had
     /// this tab open would be a loop that runs when it is least needed.
     /// </para></summary>
+    /// <inheritdoc cref="ResolveTaskSync"/>
+    private SessionSyncWorker? ResolveSessionSync()
+    {
+        try
+        {
+            return Services.GetService<SessionSyncWorker>();
+        }
+        catch (InvalidOperationException ex)
+        {
+            _deviceLog?.LogWarning(ex, "The session sync loop is registered but could not be built; the sessions card is hidden.");
+            return null;
+        }
+    }
+
     private TaskSyncWorker? ResolveTaskSync()
     {
         try
@@ -3866,6 +3943,19 @@
         _taskSync.RequestSync();
     }
 
+    /// <inheritdoc cref="SyncTasks"/>
+    private void SyncSessions()
+    {
+        if (_sessionSync is null)
+        {
+            ReportDeviceOutcome("Cloud sync is not configured in this build.", failed: true);
+            return;
+        }
+
+        _devicesMessage = null;
+        _sessionSync.RequestSync();
+    }
+
     /// <summary>Carries out whichever starting-over question was answered yes.
     /// Both are one call on the worker: the reset is written to the state file
     /// and a cycle is asked for, so a request that lands during an exchange still
@@ -3875,18 +3965,23 @@
         var pending = _syncResetPending;
         _syncResetPending = null;
 
-        if (_taskSync is null || pending is null) return;
+        if (pending is null) return;
 
         switch (pending)
         {
-            case SyncReset.Republish:
+            case SyncReset.Republish when _taskSync is not null:
                 _taskSync.RepublishEverything();
                 ReportDeviceOutcome("Republishing every task on this machine.", failed: false);
                 break;
 
-            case SyncReset.Rehydrate:
+            case SyncReset.Rehydrate when _taskSync is not null:
                 _taskSync.RehydrateFromScratch();
                 ReportDeviceOutcome("Reading every change from the beginning.", failed: false);
+                break;
+
+            case SyncReset.RepublishSessions when _sessionSync is not null:
+                _sessionSync.RepublishEverything();
+                ReportDeviceOutcome("Republishing every session record on this machine.", failed: false);
                 break;
 
             default:
@@ -3909,6 +4004,17 @@
     /// pressed the button to try again.
     /// </para>
     /// </summary>
+    /// <inheritdoc cref="OnTaskSyncChanged"/>
+    private void OnSessionSyncChanged() => _ = InvokeAsync(() =>
+    {
+        if (_sessionSync is { IsSyncing: false, LastError: { } failure })
+        {
+            ReportDeviceOutcome(failure, failed: true);
+        }
+
+        StateHasChanged();
+    });
+
     private void OnTaskSyncChanged() => _ = InvokeAsync(() =>
     {
         if (_taskSync is { IsSyncing: false, LastError: { } failure })
@@ -4150,6 +4256,7 @@
         _pairingCodeCountdown?.Dispose();
 
         if (_taskSync is not null) _taskSync.Changed -= OnTaskSyncChanged;
+        if (_sessionSync is not null) _sessionSync.Changed -= OnSessionSyncChanged;
         if (_deviceTokens is not null) _deviceTokens.CredentialRejectedChanged -= OnCredentialRejectedChanged;
         DevbookFolders.Changed -= OnDevbookFoldersChanged;
     }

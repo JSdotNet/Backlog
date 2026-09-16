@@ -4,6 +4,7 @@ using System.Text.Json;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks;
+using Backlog.Modules.Tasks.Services;
 using Backlog.Modules.Tasks.DomainModels;
 
 using Microsoft.Extensions.Time.Testing;
@@ -35,6 +36,12 @@ public sealed class TaskSyncWorkerTests
         Guid.Parse("22222222-2222-2222-2222-222222222222"),
         "Workshop PC",
         "a-registration-credential");
+
+    /// <summary>Progress recorded for <see cref="Paired"/>. A seeded state with no
+    /// identity is started over on the first cycle by design, so a test seeding
+    /// progress it wants kept has to say whose it is.</summary>
+    private static TaskSyncState Mine(DateTimeOffset watermark, string? cursor) =>
+        new(watermark, cursor, Paired.OwnerId, Paired.DeviceId);
 
     // --- The two gates --------------------------------------------------------
 
@@ -337,7 +344,7 @@ public sealed class TaskSyncWorkerTests
             },
             // Everything on this machine has already been accepted, so an
             // ordinary cycle has nothing at all to send.
-            initialState: new TaskSyncState(Noon.AddHours(1), "cursor-1"));
+            initialState: Mine(Noon.AddHours(1), "cursor-1"));
 
         var caughtUp = fixture.NextCycle();
         fixture.Clock.Advance(TaskSyncWorker.FirstCycleDelay);
@@ -356,6 +363,86 @@ public sealed class TaskSyncWorkerTests
 
         Assert.Equal(3, sent.Count);
         Assert.Equal(Noon.AddMinutes(2), sent.Single(change => change.Id == deleted).DeletedAt);
+    }
+
+    // --- A write on this machine ------------------------------------------------
+
+    /// <summary>
+    /// A local write runs a cycle after the settle delay rather than on the next
+    /// tick. Five minutes is the window in which two machines can edit one task
+    /// without either knowing; a push a few seconds after the edit is what closes
+    /// it. Asserted against the tick as well: the cycle must come from the write,
+    /// not from a schedule that happened to be due.
+    /// </summary>
+    [Fact]
+    public async Task A_local_write_runs_a_cycle_after_the_settle_delay_and_not_on_the_tick()
+    {
+        using var fixture = Fixture.Create(featureOn: true, paired: true);
+
+        var first = fixture.NextCycle();
+        fixture.Clock.Advance(TaskSyncWorker.FirstCycleDelay);
+        await first.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+        Assert.Empty(fixture.PushedBodies);
+
+        fixture.Tasks.Seed(TaskChanges.Task("Just typed", Noon.AddMinutes(1)));
+        fixture.Changes.Raise();
+
+        // Not yet: the delay has not elapsed, and the tick is minutes away.
+        fixture.Clock.Advance(TaskSyncWorker.ChangeSettleDelay - TimeSpan.FromMilliseconds(1));
+        Assert.Empty(fixture.PushedBodies);
+
+        var settled = fixture.NextCycle();
+        fixture.Clock.Advance(TimeSpan.FromMilliseconds(1));
+        await settled.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+
+        Assert.Equal("Just typed", Assert.Single(Pushed(Assert.Single(fixture.PushedBodies))).Task.Title);
+        Assert.True(fixture.Clock.GetUtcNow() < Noon + TaskSyncWorker.FirstCycleDelay + TaskSyncWorker.CyclePeriod);
+    }
+
+    /// <summary>A burst of writes is one cycle, after the last of them. Somebody
+    /// typing saves on a debounce of its own, and a cycle per save would be the
+    /// radio on for the whole of the typing.</summary>
+    [Fact]
+    public async Task Writes_arriving_together_run_one_cycle_after_the_last()
+    {
+        using var fixture = Fixture.Create(featureOn: true, paired: true);
+
+        var first = fixture.NextCycle();
+        fixture.Clock.Advance(TaskSyncWorker.FirstCycleDelay);
+        await first.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+
+        fixture.Tasks.Seed(TaskChanges.Task("First keystroke", Noon.AddMinutes(1)));
+        fixture.Changes.Raise();
+        fixture.Clock.Advance(TaskSyncWorker.ChangeSettleDelay / 2);
+
+        fixture.Tasks.Seed(TaskChanges.Task("Second keystroke", Noon.AddMinutes(2)));
+        fixture.Changes.Raise();
+        fixture.Clock.Advance(TaskSyncWorker.ChangeSettleDelay / 2);
+
+        // The first write's delay has elapsed, but the second pushed it back.
+        Assert.Empty(fixture.PushedBodies);
+
+        var settled = fixture.NextCycle();
+        fixture.Clock.Advance(TaskSyncWorker.ChangeSettleDelay / 2);
+        await settled.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+
+        Assert.Equal(2, Pushed(Assert.Single(fixture.PushedBodies)).Count);
+    }
+
+    /// <summary>A write on a device that is not replicating - feature off, or no
+    /// credential - arms nothing. The cycle it would start declines to run, and
+    /// a timer for that is noise.</summary>
+    [Fact]
+    public void A_local_write_on_an_unpaired_device_arms_nothing()
+    {
+        using var fixture = Fixture.Create(featureOn: true, paired: false);
+
+        fixture.Tasks.Seed(TaskChanges.Task("Kept here", Noon));
+        fixture.Changes.Raise();
+        fixture.Clock.Advance(Fixture.WellPastSeveralCycles);
+
+        Assert.Empty(fixture.Handler.Requests);
+        Assert.Equal(0, fixture.SessionsResolved);
     }
 
     /// <summary>
@@ -379,7 +466,7 @@ public sealed class TaskSyncWorkerTests
         using var fixture = Fixture.Create(
             featureOn: true,
             paired: true,
-            initialState: new TaskSyncState(Noon.AddHours(1), "cursor-1"),
+            initialState: Mine(Noon.AddHours(1), "cursor-1"),
             // A pull carrying the stored cursor is caught up and gets nothing,
             // which is exactly the hole a rehydrate has to dig this machine out
             // of. Only a pull with no cursor on it replays the feed.
@@ -431,7 +518,7 @@ public sealed class TaskSyncWorkerTests
                 tasks.Seed(TaskChanges.Task("Pushed long ago", Noon));
                 tasks.Seed(TaskChanges.Task("Changed since", Noon.AddMinutes(1)));
             },
-            initialState: new TaskSyncState(Noon, null));
+            initialState: Mine(Noon, null));
 
         // Two, because the reset is carried out by the cycle after the one it
         // interrupts.
@@ -473,7 +560,7 @@ public sealed class TaskSyncWorkerTests
             featureOn: true,
             paired: true,
             gated: true,
-            initialState: new TaskSyncState(Noon.AddHours(1), "cursor-0"),
+            initialState: Mine(Noon.AddHours(1), "cursor-0"),
             respond: (request, _) =>
             {
                 if (request.Method == HttpMethod.Post)
@@ -570,10 +657,17 @@ public sealed class TaskSyncWorkerTests
                 features,
                 credentials,
                 state,
-                clock);
+                clock,
+                changes: Changes);
         }
 
         public TaskSyncWorker Worker { get; }
+
+        /// <summary>What the host's repository would raise on a local write. The
+        /// in-memory store here raises nothing of its own, so a test that wants a
+        /// write announced raises this by hand - which is also what keeps the
+        /// tests above, none of which are about the signal, exactly as they were.</summary>
+        public TaskChangeSignal Changes { get; } = new();
 
         public StubHttpMessageHandler Handler { get; }
 
@@ -715,9 +809,10 @@ public sealed class TaskSyncWorkerTests
 
             return new TaskSyncSession(
                 new TaskSyncClient(_http),
-                new TaskReplicaMerge(_repository),
+                new TaskReplicaMerge(_repository, changes: Changes),
                 _repository,
                 State,
+                Credentials,
                 Clock);
         }
     }

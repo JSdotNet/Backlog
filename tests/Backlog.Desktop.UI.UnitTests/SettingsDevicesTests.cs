@@ -7,6 +7,9 @@ using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Claude;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Sync;
+using Backlog.Infrastructure.Sync.Sessions;
+using Backlog.Modules.Sessions.Abstractions;
+using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Tasks;
 using Backlog.Modules.Tasks.Abstractions;
@@ -370,6 +373,54 @@ public sealed class SettingsDevicesTests
 
         context.Component.WaitForAssertion(() =>
             Assert.Contains(context.SyncState.Saved, state => state.PullCursor is null));
+    }
+
+    // --- The session loop's card ----------------------------------------------
+
+    /// <summary>The session loop gets a card on the same terms as the task loop:
+    /// paired, recognised, and composed by the host. A head that composed none
+    /// - which is every test above - shows nothing.</summary>
+    [Fact]
+    public void The_sessions_card_is_shown_only_where_the_host_composed_the_loop()
+    {
+        using var without = RenderSettings(syncEnabled: true, paired: true);
+        OpenDevicesTab(without.Component);
+        without.Component.WaitForAssertion(() =>
+            Assert.Single(without.Component.FindAll("[data-testid='devices-sync']")));
+        Assert.Empty(without.Component.FindAll("[data-testid='devices-session-sync']"));
+
+        using var with = RenderSettings(syncEnabled: true, paired: true, registerSessionSync: true);
+        OpenDevicesTab(with.Component);
+        with.Component.WaitForAssertion(() =>
+            Assert.Single(with.Component.FindAll("[data-testid='devices-session-sync']")));
+    }
+
+    /// <summary>Republishing sessions forgets how far this device has pushed
+    /// them, asked first and asserted against the states the store was given -
+    /// for the reason <see cref="ForgetfulTaskSyncStateStore.Saved"/> gives.</summary>
+    [Fact]
+    public void Republishing_sessions_is_asked_first_and_then_resets_the_watermark()
+    {
+        using var context = RenderSettings(syncEnabled: true, paired: true, registerSessionSync: true);
+
+        OpenDevicesTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='devices-session-sync-republish']")));
+
+        context.Component.Find("[data-testid='devices-session-sync-republish']").Click();
+
+        context.Component.WaitForAssertion(() =>
+            Assert.Contains(
+                "session record",
+                context.Component.Find("[data-testid='devices-sync-reset-dialog']").TextContent,
+                StringComparison.OrdinalIgnoreCase));
+
+        Assert.DoesNotContain(context.SessionSyncState!.Saved, state => state.PushWatermark == DateTimeOffset.MinValue);
+
+        context.Component.Find("[data-testid='devices-sync-reset-confirm']").Click();
+
+        context.Component.WaitForAssertion(() =>
+            Assert.Contains(context.SessionSyncState.Saved, state => state.PushWatermark == DateTimeOffset.MinValue));
     }
 
     // --- A credential the service no longer knows ----------------------------
@@ -853,6 +904,7 @@ public sealed class SettingsDevicesTests
         bool syncEnabled,
         bool paired = false,
         bool registerTaskSync = true,
+        bool registerSessionSync = false,
         bool sessionMissingItsStore = false,
         Func<HttpRequestMessage, int, HttpResponseMessage>? respond = null,
         bool withTokenPipeline = false,
@@ -966,6 +1018,7 @@ public sealed class SettingsDevicesTests
                 new TaskReplicaMerge(tasks),
                 tasks,
                 syncState,
+                credentials,
                 TimeProvider.System));
 
             // Registered by its factory rather than as an instance in the
@@ -982,9 +1035,37 @@ public sealed class SettingsDevicesTests
                 new FakeTimeProvider()));
         }
 
+        // The session loop, on the same footing as the task loop above and only
+        // when a test asks: most of this screen's tests are not about it, and a
+        // card they did not ask for is a card their selectors could trip on.
+        var sessionSyncState = new ForgetfulSessionSyncStateStore(
+            new SessionSyncState(DateTimeOffset.UnixEpoch, "cursor-1", Owner, Device));
+
+        if (registerSessionSync)
+        {
+            testContext.Services.AddSingleton(_ => new SessionSyncSession(
+                new SessionSyncClient(http),
+                new OneSessionSource(),
+                new NoAliases(),
+                sessionSyncState,
+                new ForgetfulReplicatedSessionStore(),
+                credentials,
+                TimeProvider.System));
+
+            testContext.Services.AddSingleton(sp => new SessionSyncWorker(
+                sp,
+                features,
+                credentials,
+                sessionSyncState,
+                new FakeTimeProvider()));
+        }
+
         var component = testContext.Render<Settings>();
         return new SettingsRenderContext(
-            root, testContext, component, credentials, service, http, syncState, tokens, tokenServices, syncSettings, pairingClientsResolved);
+            root, testContext, component, credentials, service, http, syncState, tokens, tokenServices, syncSettings, pairingClientsResolved)
+        {
+            SessionSyncState = sessionSyncState
+        };
     }
 
     private sealed class Counter
@@ -1005,6 +1086,8 @@ public sealed class SettingsDevicesTests
         SyncServiceSettingsStore? SyncSettings = null,
         Counter? PairingClientsResolved = null) : IDisposable
     {
+        public ForgetfulSessionSyncStateStore? SessionSyncState { get; init; }
+
         public void Dispose()
         {
             TestContext.Dispose();
@@ -1066,6 +1149,13 @@ public sealed class SettingsDevicesTests
                 return Json(
                     HttpStatusCode.OK,
                     $$"""{"accessToken":"a-token","expiresAt":"{{DateTimeOffset.UtcNow.AddMinutes(30):O}}","tokenType":"Bearer"}""");
+            }
+
+            if (path.EndsWith("/sessions", StringComparison.Ordinal))
+            {
+                return request.Method == HttpMethod.Post
+                    ? Json(HttpStatusCode.OK, """{"accepted":1}""")
+                    : Json(HttpStatusCode.OK, """{"sessions":[],"since":"cursor-1","hasMore":false}""");
             }
 
             // One route, two directions: the method is what tells them apart, the
@@ -1164,6 +1254,77 @@ public sealed class SettingsDevicesTests
             Current = state;
             Changed?.Invoke();
         }
+    }
+
+    /// <inheritdoc cref="ForgetfulTaskSyncStateStore"/>
+    internal sealed class ForgetfulSessionSyncStateStore(SessionSyncState? initial = null) : ISessionSyncStateStore
+    {
+        private readonly List<SessionSyncState> _saved = [];
+
+        public event Action? Changed;
+
+        public SessionSyncState Current { get; private set; } = initial ?? new(DateTimeOffset.MinValue, null);
+
+        public string StorePath => "in memory";
+
+        public IReadOnlyList<SessionSyncState> Saved
+        {
+            get { lock (_saved) return [.. _saved]; }
+        }
+
+        public void Save(SessionSyncState state)
+        {
+            lock (_saved) _saved.Add(state);
+
+            Current = state;
+            Changed?.Invoke();
+        }
+    }
+
+    private sealed class ForgetfulReplicatedSessionStore : IReplicatedSessionStore
+    {
+        public event Action? Changed;
+
+        public ReplicatedSessions Current { get; private set; } = ReplicatedSessions.Empty;
+
+        public string StorePath => "in memory";
+
+        public void Save(IReadOnlyList<SessionRecordEntry> entries)
+        {
+            Current = new ReplicatedSessions([.. Current.Entries, .. entries], Current.Dropped);
+            Changed?.Invoke();
+        }
+    }
+
+    /// <summary>One local session, active now, so a push has exactly one record
+    /// to send and the reported count is a number a test can name.</summary>
+    private sealed class OneSessionSource : IAgentSessionSource
+    {
+        public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(new AgentSessionCatalog(
+                [
+                    new AgentSession(
+                        "session-1",
+                        AgentSessionKind.Claude,
+                        "this-machine",
+                        "This machine",
+                        "Untitled",
+                        @"C:\work\backlog",
+                        null,
+                        null,
+                        DateTimeOffset.UtcNow.AddMinutes(-30),
+                        DateTimeOffset.UtcNow,
+                        AgentSessionState.Running,
+                        null,
+                        AgentSessionOrigin.Local)
+                ],
+                [],
+                1));
+    }
+
+    private sealed class NoAliases : ISessionRepositoryAliases
+    {
+        public string? AliasFor(string repository) => null;
     }
 
     private sealed class StubGitHubClient : IGitHubClient

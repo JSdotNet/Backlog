@@ -1,5 +1,6 @@
 using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.DomainModels;
+using Backlog.Modules.Tasks.Services;
 
 namespace Backlog.Infrastructure.Sqlite.UnitTests;
 
@@ -31,6 +32,37 @@ public sealed class RootedSqliteTaskRepositoryTests : IDisposable
 
         Assert.True(File.Exists(Path.Combine(_first, "backlog.db")));
         Assert.False(File.Exists(Path.Combine(_second, "backlog.db")));
+    }
+
+    /// <summary>A save is announced after it has landed, so a listener that reads
+    /// the store on the signal finds the row. This is the one repository every
+    /// head registers, which is what makes it the one place to raise it.</summary>
+    [Fact]
+    public async Task A_save_raises_the_change_signal_once_the_row_is_there()
+    {
+        var signal = new TaskChangeSignal();
+        var repository = new RootedSqliteTaskRepository(() => _root, signal);
+        var task = new TaskItem("Announced", string.Empty, EntryType.Task);
+
+        TaskItem? seenOnSignal = null;
+        signal.Changed += () => seenOnSignal = repository.GetAsync(task.Id, TestContext.Current.CancellationToken).GetAwaiter().GetResult();
+
+        await repository.SaveAsync(task, TestContext.Current.CancellationToken);
+
+        Assert.NotNull(seenOnSignal);
+        Assert.Equal("Announced", seenOnSignal.Title);
+    }
+
+    /// <summary>And without a signal - a head or a test that composed none - a
+    /// save is just a save.</summary>
+    [Fact]
+    public async Task A_repository_without_a_signal_saves_as_before()
+    {
+        var repository = new RootedSqliteTaskRepository(() => _root);
+
+        await repository.SaveAsync(new TaskItem("Quiet", string.Empty, EntryType.Task), TestContext.Current.CancellationToken);
+
+        Assert.Single(await repository.ListAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]
