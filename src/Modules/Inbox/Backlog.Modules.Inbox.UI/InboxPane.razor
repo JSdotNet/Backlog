@@ -35,10 +35,16 @@
     context, and the run's outcome comes back as a sentence so the pane never
     learns that context's types either.
 
+    The sources Capture looks at are configured on this pane too, because a
+    switch three screens from its button is a switch nobody finds — but not by
+    this pane. It offers a slot under the run's result line and the shell fills
+    it with the Capture context's own panel, so the pane draws a region it
+    cannot name, the same way it raises a run it cannot describe.
+
     The old pane took its items from the shell, which is why the shell knew what
-    an inbox item looked like. This one asks its own module; the three
-    parameters it does take are the Capture button's, and the shell renders it
-    with those alone.
+    an inbox item looked like. This one asks its own module; the four
+    parameters it does take are the Capture button's and its sources slot, and
+    the shell renders it with those alone.
 *@
 
 <section @key=@("inbox-pane") class="inbox-pane" id="inbox-pane" aria-labelledby="inbox-pane-title" data-testid="inbox-pane">
@@ -86,6 +92,17 @@
            Role="status"
            TestId="inbox-pane-capture-result" />
 
+    @* The sources slot: whatever the host puts here sits between the run's
+       line and the columns, folded or not as the host's content decides. No
+       wrapper when it is empty, for the reason the result line has none — a
+       flex column leaves no gap behind an absent child. *@
+    @if (Sources is not null)
+    {
+        <div class="inbox-pane__sources" data-testid="inbox-pane-sources">
+            @Sources
+        </div>
+    }
+
     <div class="inbox-pane__body" data-testid="inbox-pane-body">
         <InboxSideMenu State="State" />
 
@@ -129,12 +146,18 @@
                            Id="inbox-pane-add-title"
                            TestId="inbox-pane-add-title"
                            autocomplete="off" />
-                <TextArea Label="Notes"
-                          Value="@_notes"
-                          ValueChanged="v => _notes = v"
-                          Rows="4"
-                          AutoGrow="false"
-                          TestId="inbox-pane-add-notes" />
+                @* MarkdownEditor rather than a plain TextArea: the notes land in
+                   BodyMd and the detail pane reads them back as markdown, so the
+                   box they are written in should offer the same formatting every
+                   other body in the product gets — a list is a button, not a
+                   convention the reader has to know. Label rather than AriaLabel
+                   because this stands in a form beside a labelled title. *@
+                <MarkdownEditor Label="Notes"
+                                Value="@_notes"
+                                ValueChanged="v => _notes = v"
+                                Id="inbox-pane-add-notes-input"
+                                Rows="4"
+                                TestId="inbox-pane-add-notes" />
             </div>
         </ChildContent>
         <Footer>
@@ -163,6 +186,13 @@
     /// host reads the run and writes the line.</summary>
     [Parameter]
     public string? CaptureMessage { get; set; }
+
+    /// <summary>What configures the sources Capture looks at, rendered under
+    /// the run's line. A fragment rather than a component so the pane never
+    /// names the Capture context — the host decides what goes here, and
+    /// nothing when there is nothing to configure.</summary>
+    [Parameter]
+    public RenderFragment? Sources { get; set; }
 
     private bool _addOpen;
     private string _title = string.Empty;

@@ -22,7 +22,10 @@
     repository is a decision the module records, not something this component
     holds. Repositories come from the settings store — the same list the Tasks
     pane and the Repositories screen read — so what is chosen here is something
-    the backlog can actually target.
+    the backlog can actually target. Tags come from both sides of the join: the
+    inbox's own items and, through the state's port, the words the backlog
+    already files entries under — so a tag used there is a pick here rather
+    than a retype.
 *@
 
 <div class="inbox-pane__column inbox-pane__column--detail" data-testid="inbox-pane-column-detail">

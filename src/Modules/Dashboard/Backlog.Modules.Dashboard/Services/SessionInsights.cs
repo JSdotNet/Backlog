@@ -193,6 +193,14 @@ public sealed class SessionInsights(
 
         var recorded = scopedActivity.Select(session => session.Id).ToHashSet(StringComparer.Ordinal);
 
+        // The sessions the mean is over. Null is "nothing to count from", never zero, so
+        // it leaves the denominator as well as the numerator — see the contract's
+        // Prompts. Filtered once here so the tile and the columns cannot be over two
+        // different populations.
+        var counted = scoped.Where(session => session.Prompts is not null).ToList();
+
+        var buckets = WeekBuckets.Buckets(from, to);
+
         return new AssistantSessionsInsight(
             scoped.Count,
             Sum(active),
@@ -209,9 +217,19 @@ public sealed class SessionInsights(
             // moved rather than a mark in each, and the part says that beside the
             // columns.
             SessionsPerWeek = WeekBuckets.Count(
-                WeekBuckets.Buckets(from, to),
+                buckets,
                 scoped,
                 session => session.LastActivityAt),
+            PromptsPerSession = MeanPrompts(counted),
+            SessionsWithPrompts = counted.Count,
+            // Same buckets and the same instant as the series above, so a column here is
+            // the same sessions as the column beside it there. A week with nothing
+            // counted is a zero point rather than a gap, on the rework rate's precedent.
+            PromptsPerSessionPerWeek = WeekBuckets.Reduce(
+                buckets,
+                counted,
+                session => session.LastActivityAt,
+                inWeek => MeanPrompts(inWeek) ?? 0m),
             Waiting = Sum(waiting),
             MostSessionsAtOnce = Busiest(active),
             MostAgentsAtOnce = Busiest(agents),
@@ -220,6 +238,17 @@ public sealed class SessionInsights(
             IdleAfter = reading.Activity.IdleAfter
         };
     }
+
+    /// <summary>
+    /// The mean prompt count over sessions that all carry one, or null when there are
+    /// none. Callers hand this the already-filtered list, so a null count reaching it
+    /// is a programming error rather than a session to skip — and it is written that
+    /// way so the two places it is used cannot filter differently.
+    /// </summary>
+    private static decimal? MeanPrompts(IReadOnlyList<AssistantSession> counted) =>
+        counted.Count == 0
+            ? null
+            : (decimal)counted.Sum(session => session.Prompts!.Value) / counted.Count;
 
     /// <summary>
     /// The busiest cell of a sweep, or null when the sweep found nothing.

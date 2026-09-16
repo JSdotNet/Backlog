@@ -1,0 +1,17 @@
+@* Capture UI: the sources panel on the Inbox pane.
+
+   Every Backlog.* import is written as @@using global::Backlog.Something, for
+   the reason Roadmap.UI's imports give: this project's root namespace is
+   Backlog.Modules.Capture.UI, the Razor generator emits these directives inside
+   that namespace without a global:: prefix, and a bare "Backlog" binds to
+   Backlog.Modules the moment the reference closure declares one of that shape —
+   which Backlog.Modules.Capture.Abstractions is. *@
+@using global::Backlog.Modules.Capture.Abstractions
+@using global::Backlog.Modules.Capture.Abstractions.DataTransferObjects
+@using global::Backlog.Modules.Capture.Abstractions.Services
+@using global::Backlog.UI.Components.Buttons
+@using global::Backlog.UI.Components.Inputs
+@using global::Backlog.UI.Components.Layout
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Web
+@using System.Globalization

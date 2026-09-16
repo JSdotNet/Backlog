@@ -35,8 +35,16 @@ public sealed class PullRequestDetailCache(Func<string> cacheRoot) : IPullReques
     /// which is a claim about GitHub that nothing ever established. Reading such
     /// an entry as a miss costs one fetch and states nothing untrue.
     /// </para>
+    /// <para>
+    /// 3 added the commit count. An older entry would read it as zero, which is a
+    /// pull request with no commits — a thing that cannot merge — so it is a miss.
+    /// It skips 2 because a sibling branch took 2 for the sync-merge fields, and two
+    /// branches under one number is the silent-zero this constant exists to prevent:
+    /// the cache folder is shared by every checkout on a machine, and a reader that
+    /// accepted the other's entries read every commit count as zero.
+    /// </para>
     /// </summary>
-    private const int Version = 1;
+    private const int Version = 3;
 
     private readonly Func<string> _cacheRoot = cacheRoot ?? throw new ArgumentNullException(nameof(cacheRoot));
 
@@ -66,7 +74,8 @@ public sealed class PullRequestDetailCache(Func<string> cacheRoot) : IPullReques
                 ChurnComplete = stored.ChurnComplete,
                 ChangedLines = stored.ChangedLines,
                 ChangedFiles = stored.ChangedFiles,
-                SizeKnown = stored.SizeKnown
+                SizeKnown = stored.SizeKnown,
+                Commits = stored.Commits
             };
         }
         catch (Exception exception) when (exception is JsonException or IOException or UnauthorizedAccessException)
@@ -102,7 +111,8 @@ public sealed class PullRequestDetailCache(Func<string> cacheRoot) : IPullReques
                     ChurnComplete = detail.ChurnComplete,
                     ChangedLines = detail.ChangedLines,
                     ChangedFiles = detail.ChangedFiles,
-                    SizeKnown = detail.SizeKnown
+                    SizeKnown = detail.SizeKnown,
+                    Commits = detail.Commits
                 },
                 JsonOptions));
         }
@@ -162,6 +172,8 @@ public sealed class PullRequestDetailCache(Func<string> cacheRoot) : IPullReques
         public int ChangedLines { get; init; }
 
         public int ChangedFiles { get; init; }
+
+        public int Commits { get; init; }
 
         public bool SizeKnown { get; init; }
     }

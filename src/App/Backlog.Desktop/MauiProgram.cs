@@ -37,6 +37,7 @@ using Backlog.Infrastructure.Sqlite;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Devbook;
 using Backlog.Infrastructure.Sync;
+using Backlog.Infrastructure.Sync.Annotations;
 using Backlog.Infrastructure.Sync.Extensions;
 using Backlog.Infrastructure.Sync.Sessions;
 using Backlog.UI.Components.Feedback;
@@ -136,9 +137,11 @@ public static class MauiProgram
         // The same arrangement for capture: the module brings the run, and the host
         // decides where the monitored sources are kept — its own per-user file
         // beside the choices above, for the same reason theirs are not in
-        // settings.json. The source adapters and the delivery come further down,
+        // settings.json — and where what past runs said is kept, a second file
+        // beside it. The source adapters and the delivery come further down,
         // after the Inbox they deliver into.
         builder.Services.AddSingleton<ICaptureSourceSettings, CaptureSourcesSettingsStore>();
+        builder.Services.AddSingleton<ICaptureRunLog, CaptureRunLogStore>();
         builder.Services.AddCaptureModule();
 
         // The two cross-context joins the plan takes part in, each a port a screen
@@ -227,6 +230,12 @@ public static class MauiProgram
         builder.Services.AddSessionSyncStores(Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "Backlog"));
+        // And annotation replication's progress file, in that same folder for the
+        // same reasons. The remarks themselves are the Devbook annotation store's,
+        // under the storage folder with the rest of the person's data.
+        builder.Services.AddAnnotationSyncStore(Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Backlog"));
         // What the last backup did, in that same folder and for the same reason:
         // per-installation bookkeeping, never the workspace root. The worker
         // reads the repository and the schedule off the workspace settings and
@@ -253,7 +262,10 @@ public static class MauiProgram
         builder.Services.AddSyncClient(SyncServiceAddress);
         builder.Services.AddTaskSyncClient(SyncServiceAddress);
         builder.Services.AddSingleton<AzureFoundrySettingsStore>();
-        builder.Services.AddHttpClient<IAzureFoundryChatClient, AzureFoundryChatClient>();
+        // The chat client's pipeline is the adapter's own, sized for a completion
+        // rather than for the service-to-service defaults AddServiceDefaults
+        // puts on every other client — see AzureFoundryRegistration.
+        builder.Services.AddAzureFoundryChatClient();
         // The Inbox's plan drafter over the same chat client. Singleton here, where
         // the web harness registers it Scoped, because that is the lifetime the
         // chain above it actually has in this host: InboxDesktopState is a
@@ -390,6 +402,13 @@ public static class MauiProgram
         builder.Services.AddSingleton<C4DevbookStore>();
         builder.Services.AddSingleton<DevbookChapterWriter>();
         builder.Services.AddSingleton(sp => new DomainDevbookStore(sp.GetRequiredService<IDevbookFolderSource>()));
+        // A person's remarks on Devbook chapters: one JSON file per repository
+        // under the storage folder, following the root the way the inbox store
+        // does so a moved backlog takes its remarks along. The panels resolve this
+        // by interface and fall back to a session-scoped store when it is absent,
+        // which is why leaving this line out would not fail — it would only forget.
+        builder.Services.AddSingleton<IDevbookAnnotationStore>(sp =>
+            new DevbookAnnotationStore(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
 
         // The MSIX head can manage its own updates when packaged; it degrades to
         // an "unsupported" report when running unpackaged (e.g. Debug), so this is
@@ -413,6 +432,13 @@ public static class MauiProgram
         // its own call because a head can have a task database and no session
         // readers; it answers to the same Sync switch as the task loop.
         builder.Services.AddSessionSyncClient(SyncServiceAddress);
+
+        // Annotation replication, the third exchange over the same token pipeline:
+        // it pushes what the annotation store above changed and applies what the
+        // other desktops did. Its own call for the reason the session one is —
+        // a head can have a task database and no Devbook — and it answers to the
+        // same Sync switch as the other two loops.
+        builder.Services.AddAnnotationSyncClient(SyncServiceAddress);
 
         // What a transcript's parsed runs are kept in, so an activity read parses only
         // the transcripts that have changed. Beside the per-user settings and never
@@ -477,6 +503,9 @@ public static class MauiProgram
         // independently switchable features would have to run whenever either was
         // on, and would give the two one shared error to report.
         _ = app.Services.GetRequiredService<SessionSyncWorker>();
+
+        // And annotation replication's loop, the third sibling, on the same terms.
+        _ = app.Services.GetRequiredService<AnnotationSyncWorker>();
 
         // And the backup loop, on the same terms: a timer that only existed
         // while the Storage tab was open would miss every slot it was set for.

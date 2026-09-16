@@ -48,17 +48,23 @@ public sealed class TaskSyncSession
     private readonly ITaskSyncStateStore _state;
     private readonly TimeProvider _time;
     private readonly IInboxCaptureOutbox? _outbox;
+    private readonly SyncActivityLog? _activity;
 
     /// <param name="outbox">The Inbox's acknowledgements waiting to leave this
     /// machine, or null on a head that has no inbox store. Optional by
     /// construction, so the mobile head composes exactly as it did.</param>
+    /// <param name="activity">Where each document that leaves is written down
+    /// by name, or null on a head with nothing to show one in. What arrives is
+    /// recorded by the merge, which is the one that knows whether it was
+    /// kept.</param>
     public TaskSyncSession(
         TaskSyncClient client,
         TaskReplicaMerge merge,
         ITaskRepository tasks,
         ITaskSyncStateStore state,
         TimeProvider time,
-        IInboxCaptureOutbox? outbox = null)
+        IInboxCaptureOutbox? outbox = null,
+        SyncActivityLog? activity = null)
     {
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(merge);
@@ -72,6 +78,7 @@ public sealed class TaskSyncSession
         _state = state;
         _time = time;
         _outbox = outbox;
+        _activity = activity;
     }
 
     /// <summary>
@@ -138,6 +145,15 @@ public sealed class TaskSyncSession
 
             pushed += response.Value.Accepted;
 
+            // After the service accepted the batch and not before: the log says
+            // what left, and a batch the replica refused never did.
+            foreach (var task in batch)
+            {
+                _activity?.Record(
+                    SyncDirection.Sent, SyncItemKind.Task, task.Id.ToString("D"), task.Title,
+                    task.DeletedAt is null ? null : "deleted");
+            }
+
             if (WatermarkAfter(batch, final: start + batch.Count >= pending.Count) is { } advanced)
             {
                 _state.Save(_state.Current with { PushWatermark = advanced });
@@ -165,6 +181,12 @@ public sealed class TaskSyncSession
                 if (response.IsFailure) return Result.Failure<TaskSyncSummary>(response.Error);
 
                 pushed += response.Value.Accepted;
+
+                foreach (var ack in batch)
+                {
+                    _activity?.Record(
+                        SyncDirection.Sent, SyncItemKind.Capture, ack.CaptureId.ToString("D"), ack.Title, "acknowledged");
+                }
 
                 await _outbox
                     .MarkSentAsync([.. batch.Select(ack => ack.CaptureId)], cancellationToken)
