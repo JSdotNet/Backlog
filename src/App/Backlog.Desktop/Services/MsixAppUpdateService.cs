@@ -32,12 +32,22 @@ public sealed class MsixAppUpdateService : IAppUpdateService
     private const string UnpackagedMessage =
         "Updates are managed by however you started this build. This unpackaged run updates when you rebuild or reinstall it.";
 
+    /// <summary>
+    /// How long the update check waits for the update source's manifest before
+    /// settling for "an update is available" without naming its version.
+    /// </summary>
+    private static readonly TimeSpan ManifestTimeout = TimeSpan.FromSeconds(10);
+
     private readonly ILogger<MsixAppUpdateService>? _logger;
+    private readonly IHttpClientFactory? _httpClientFactory;
     private readonly bool _isPackaged;
 
-    public MsixAppUpdateService(ILogger<MsixAppUpdateService>? logger = null)
+    public MsixAppUpdateService(
+        ILogger<MsixAppUpdateService>? logger = null,
+        IHttpClientFactory? httpClientFactory = null)
     {
         _logger = logger;
+        _httpClientFactory = httpClientFactory;
         _isPackaged = DetectPackaged();
         CurrentVersion = ReadCurrentVersion();
     }
@@ -69,12 +79,19 @@ public sealed class MsixAppUpdateService : IAppUpdateService
 
             var result = await package.CheckUpdateAvailabilityAsync().AsTask(ct).ConfigureAwait(false);
 
+            // The availability result is a bare yes/no; the version that "yes" refers
+            // to is only in the .appinstaller at the update source, so read it once we
+            // know there is something to name.
+            var availableVersion = result.Availability is PackageUpdateAvailability.Available or PackageUpdateAvailability.Required
+                ? await ReadAvailableVersionAsync(ct).ConfigureAwait(false)
+                : null;
+
             return result.Availability switch
             {
                 PackageUpdateAvailability.Available =>
-                    AppUpdateCheckResult.Available(),
+                    AppUpdateCheckResult.Available(availableVersion: availableVersion),
                 PackageUpdateAvailability.Required =>
-                    AppUpdateCheckResult.Required("A required update is available. Install it to keep the app working."),
+                    RequiredWithInstallHint(availableVersion),
                 PackageUpdateAvailability.NoUpdates =>
                     AppUpdateCheckResult.UpToDate(),
                 PackageUpdateAvailability.Error =>
@@ -122,6 +139,48 @@ public sealed class MsixAppUpdateService : IAppUpdateService
         {
             _logger?.LogWarning(ex, "Update install failed.");
             return AppUpdateInstallResult.Failed("Installing the update failed. Try again, or reinstall from the latest release.");
+        }
+    }
+
+    private static AppUpdateCheckResult RequiredWithInstallHint(string? availableVersion)
+    {
+        var result = AppUpdateCheckResult.Required(availableVersion: availableVersion);
+        return result with { Message = result.Message + " Install it to keep the app working." };
+    }
+
+    /// <summary>
+    /// The version the update source currently advertises, read from the
+    /// <c>.appinstaller</c> this install came from. Best effort: any failure —
+    /// no update source, offline, a slow or malformed manifest — yields null and
+    /// the check still reports the update, just without naming its version.
+    /// </summary>
+    private async Task<string?> ReadAvailableVersionAsync(CancellationToken ct)
+    {
+        try
+        {
+            var appInstaller = Package.Current.GetAppInstallerInfo();
+            if (appInstaller?.Uri is null)
+            {
+                return null;
+            }
+
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeout.CancelAfter(ManifestTimeout);
+
+            // A factory-created client is safe to dispose per call: the handler stays
+            // pooled. The bare fallback only matters outside the app's DI container.
+            using var client = _httpClientFactory?.CreateClient(nameof(MsixAppUpdateService)) ?? new HttpClient();
+            var manifest = await client.GetStringAsync(appInstaller.Uri, timeout.Token).ConfigureAwait(false);
+            var version = AppInstallerManifest.ReadPackageVersion(manifest);
+
+            // The manifest lags the availability API only briefly, but claiming the
+            // running version is "available" would read as nonsense — leave it unnamed.
+            return string.Equals(version, CurrentVersion, StringComparison.Ordinal) ? null : version;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+        {
+            _logger?.LogDebug(ex, "Could not read the available version from the App Installer manifest.");
+            return null;
         }
     }
 #else

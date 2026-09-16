@@ -31,11 +31,21 @@ public enum AppUpdateAvailability
 
 /// <summary>
 /// The result of asking "is there an update?". Pure data: an availability plus a
-/// human-readable message the UI can show verbatim.
+/// human-readable message the UI can show verbatim, and — when the platform could
+/// tell — the version the update would install.
 /// </summary>
 /// <param name="Availability">What the check found.</param>
 /// <param name="Message">A short, user-facing explanation of the outcome.</param>
-public sealed record AppUpdateCheckResult(AppUpdateAvailability Availability, string Message)
+/// <param name="AvailableVersion">
+/// The version of the newer build when the check could read it; null when no update
+/// exists or the platform only knows that one does. The MSIX availability API answers
+/// yes/no, so this comes from the update source's manifest and may be missing even
+/// when <see cref="UpdateReady"/> is true.
+/// </param>
+public sealed record AppUpdateCheckResult(
+    AppUpdateAvailability Availability,
+    string Message,
+    string? AvailableVersion = null)
 {
     /// <summary>True when an update exists and can be installed (available or required).</summary>
     public bool UpdateReady =>
@@ -44,11 +54,30 @@ public sealed record AppUpdateCheckResult(AppUpdateAvailability Availability, st
     public static AppUpdateCheckResult UpToDate(string? message = null) =>
         new(AppUpdateAvailability.UpToDate, message ?? "You are on the latest version.");
 
-    public static AppUpdateCheckResult Available(string? message = null) =>
-        new(AppUpdateAvailability.Available, message ?? "An update is available.");
+    /// <param name="message">Custom wording; the default names the version when one is known.</param>
+    /// <param name="availableVersion">The newer build's version, when the check could read it.</param>
+    public static AppUpdateCheckResult Available(string? message = null, string? availableVersion = null)
+    {
+        var version = NormalizeVersion(availableVersion);
+        return new(
+            AppUpdateAvailability.Available,
+            message ?? (version is null ? "An update is available." : $"Version {version} is available."),
+            version);
+    }
 
-    public static AppUpdateCheckResult Required(string? message = null) =>
-        new(AppUpdateAvailability.Required, message ?? "A required update is available.");
+    /// <param name="message">Custom wording; the default names the version when one is known.</param>
+    /// <param name="availableVersion">The newer build's version, when the check could read it.</param>
+    public static AppUpdateCheckResult Required(string? message = null, string? availableVersion = null)
+    {
+        var version = NormalizeVersion(availableVersion);
+        return new(
+            AppUpdateAvailability.Required,
+            message ?? (version is null ? "A required update is available." : $"Version {version} is a required update."),
+            version);
+    }
+
+    private static string? NormalizeVersion(string? version) =>
+        string.IsNullOrWhiteSpace(version) ? null : version.Trim();
 
     public static AppUpdateCheckResult Unsupported(string message) =>
         new(AppUpdateAvailability.Unsupported, message);
