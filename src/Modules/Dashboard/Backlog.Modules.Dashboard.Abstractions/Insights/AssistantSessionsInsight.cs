@@ -132,6 +132,47 @@ public sealed record AssistantSessionsInsight(
     public IReadOnlyList<InsightPoint> SessionsPerWeek { get; init; } = [];
 
     /// <summary>
+    /// The mean number of prompts a person sent per session, over the sessions in the
+    /// window that carry a count — or null when none of them does.
+    /// <para>
+    /// Over the counted sessions only. A session without a count is skipped rather than
+    /// averaged in as zero, because the null on the record means "nothing to count
+    /// from" and not "nobody spoke": on a real profile one assistant records a count and
+    /// the other never does, so treating the gap as zero would halve the figure with
+    /// sessions that said nothing about it. <see cref="SessionsWithPrompts"/> travels
+    /// beside this so the surface can say how many of <see cref="Sessions"/> the mean
+    /// actually covers.
+    /// </para>
+    /// <para>
+    /// Null rather than zero when there is nothing to average, for the same reason a
+    /// session's own count is: zero is a claim about what happened, and a window with
+    /// no counted session supports no claim at all.
+    /// </para>
+    /// </summary>
+    public decimal? PromptsPerSession { get; init; }
+
+    /// <summary>
+    /// How many of <see cref="Sessions"/> carried a prompt count and so contributed to
+    /// <see cref="PromptsPerSession"/>. The denominator, carried so the sentence under
+    /// the tile can name it rather than leaving a reader to assume the mean covers every
+    /// session in the count beside it.
+    /// </summary>
+    public int SessionsWithPrompts { get; init; }
+
+    /// <summary>
+    /// The mean prompts per counted session in each ISO week of the window, oldest first
+    /// and one point per week, bucketed exactly as <see cref="SessionsPerWeek"/> is —
+    /// on the week the session last moved.
+    /// <para>
+    /// A week with no counted session is a zero point rather than a missing one, on the
+    /// rule the sessions series is drawn under and the rework rate's precedent: an axis
+    /// with a gap in it draws the weeks either side as consecutive. The part says beside
+    /// the columns what a zero means here.
+    /// </para>
+    /// </summary>
+    public IReadOnlyList<InsightPoint> PromptsPerSessionPerWeek { get; init; } = [];
+
+    /// <summary>
     /// Time inside the window in which a run had ended and the next thing to happen was
     /// a person — the queue this installation put on the reader's own attention.
     /// <para>
