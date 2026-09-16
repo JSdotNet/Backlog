@@ -29,10 +29,10 @@ public sealed class DevbookUpdateService(
     /// <summary>
     /// Whether this scope has a latest version at all.
     /// <para>
-    /// Devbook kept in the storage folder is nobody's clone and nobody's
-    /// branch — there is no remote to be behind and nothing to fetch — so it is
-    /// answered here rather than by a check that would only fail, and the pane
-    /// leaves the control out instead of showing one that never works.
+    /// No scope is nobody's clone and nobody's branch — there is no remote to
+    /// be behind and nothing to fetch — so it is answered here rather than by a
+    /// check that would only fail, and the pane leaves the control out instead
+    /// of showing one that never works.
     /// </para>
     /// <para>
     /// A repository with no clone used to be answered the same way. It is not

@@ -23,12 +23,16 @@ namespace Backlog.Infrastructure.GitHub.UnitTests;
 /// </remarks>
 internal sealed class RoutingTransport : IGitHubTransport
 {
-    private readonly List<(string Fragment, Func<string> Answer)> _routes = [];
+    private readonly List<(HttpMethod? Method, string Fragment, Func<string> Answer)> _routes = [];
 
     public string Description => "stub";
 
     /// <summary>Every path asked for, in order.</summary>
     public List<string> Paths { get; } = [];
+
+    /// <summary>Every body sent, serialised, in the order of <see cref="Paths"/>;
+    /// null where a call sent none. For the cases where what was sent is the point.</summary>
+    public List<string?> Bodies { get; } = [];
 
     /// <summary>The API version each call asked for, in order. Null means the caller
     /// left the transport's default alone.</summary>
@@ -39,7 +43,15 @@ internal sealed class RoutingTransport : IGitHubTransport
     /// <summary>Answers any path containing <paramref name="fragment"/> with this JSON.</summary>
     public RoutingTransport Returns(string fragment, string json)
     {
-        _routes.Add((fragment, () => json));
+        _routes.Add((null, fragment, () => json));
+        return this;
+    }
+
+    /// <summary>As <see cref="Returns(string, string)"/>, for one method only —
+    /// the Contents API is read and written at the same path.</summary>
+    public RoutingTransport Returns(HttpMethod method, string fragment, string json)
+    {
+        _routes.Add((method, fragment, () => json));
         return this;
     }
 
@@ -47,7 +59,15 @@ internal sealed class RoutingTransport : IGitHubTransport
     /// GitHub refuses an endpoint the credential cannot reach.</summary>
     public RoutingTransport Refuses(string fragment, string message = "GitHub refused the request.")
     {
-        _routes.Add((fragment, () => throw new GitHubException(message)));
+        _routes.Add((null, fragment, () => throw new GitHubException(message)));
+        return this;
+    }
+
+    /// <summary>Refuses one method at a path with a status, the way a transport
+    /// reports a 404 for a file that is not there yet.</summary>
+    public RoutingTransport Refuses(HttpMethod method, string fragment, System.Net.HttpStatusCode status, string message = "GitHub refused the request.")
+    {
+        _routes.Add((method, fragment, () => throw new GitHubException(message) { Status = status }));
         return this;
     }
 
@@ -63,9 +83,11 @@ internal sealed class RoutingTransport : IGitHubTransport
     {
         Paths.Add(path);
         ApiVersions.Add(apiVersion);
+        Bodies.Add(body is null ? null : JsonSerializer.Serialize(body));
 
-        foreach (var (fragment, answer) in _routes)
+        foreach (var (routeMethod, fragment, answer) in _routes)
         {
+            if (routeMethod is not null && routeMethod != method) continue;
             if (!path.Contains(fragment, StringComparison.OrdinalIgnoreCase)) continue;
 
             try

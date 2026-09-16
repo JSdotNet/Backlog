@@ -642,8 +642,6 @@ file sealed class CountingDevbookFolderSource(IDevbookFolderSource inner) : IDev
 
     public int SubscriberCount { get; private set; }
 
-    public string StorageDirectory => inner.StorageDirectory;
-
     public IReadOnlyList<DevbookFolderSetting> Folders(string? repositoryAlias) => inner.Folders(repositoryAlias);
 
     public DevbookFolderLocation Resolve(string key, string? repositoryAlias = null) => inner.Resolve(key, repositoryAlias);

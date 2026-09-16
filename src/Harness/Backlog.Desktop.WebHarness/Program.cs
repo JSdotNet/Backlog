@@ -81,11 +81,6 @@ builder.Services.AddSingleton<IDevbookFolderSource>(sp => new DevbookFolderSourc
     sp.GetRequiredService<IDevbookSnapshotCache>()));
 builder.Services.AddSingleton<ITaskStore>(sp => new WorkspaceTaskStore(
     sp.GetRequiredService<WorkspaceSettingsStore>()));
-// How often the list re-reads a store somebody else may have written to. Scoped
-// to the content root like the harness's other settings files, so a session here
-// never rewrites the real per-user choice.
-builder.Services.AddSingleton<ITasksRefreshSettings>(
-    _ => CreateLocalDevelopmentRefreshSettingsStore(builder.Environment.ContentRootPath));
 // Which hours the reader means to be working — written on the settings screen,
 // read by the dashboard to shade a grid. Scoped to the content root like the
 // harness's other settings files, so a session here never rewrites the real
@@ -205,6 +200,14 @@ builder.Services.AddSingleton<ITaskSyncStateStore>(_ => TaskSyncStateStoreFactor
 // the other had pushed - silently, because nothing about that fails. A folder
 // rather than a path, because two stores is an implementation detail of the
 // exchange and where they live is not.
+// What the last backup did, scoped to this harness's content root like the sync
+// state above and for the same reason: a shared file would let two harnesses
+// count each other's backups as their own.
+builder.Services.AddSingleton<IBackupStateStore>(_ => new FileBackupStateStore(
+    Environment.GetEnvironmentVariable("BACKLOG_DESKTOP_BACKUP_STATE_PATH") is { Length: > 0 } backupStatePath
+        ? backupStatePath
+        : Path.Combine(builder.Environment.ContentRootPath, "obj", "local-development", "backup-state.json")));
+builder.Services.AddSingleton<BackupWorker>();
 builder.Services.AddSessionSyncStores(
     Environment.GetEnvironmentVariable("BACKLOG_DESKTOP_SESSION_SYNC_PATH") is { Length: > 0 } sessionSyncFolder
         ? sessionSyncFolder
@@ -420,6 +423,10 @@ _ = app.Services.GetRequiredService<TaskSyncWorker>();
 // two one shared error to report.
 _ = app.Services.GetRequiredService<SessionSyncWorker>();
 
+// And the backup loop, on the same terms: a timer that only existed while the
+// Storage tab was open would miss every slot it was set for.
+_ = app.Services.GetRequiredService<BackupWorker>();
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error");
@@ -533,17 +540,6 @@ static AppFeatureSettingsStore CreateLocalDevelopmentFeatureSettingsStore(string
     }
 
     return new AppFeatureSettingsStore(AppFeatures.All, settingsPath);
-}
-
-static TasksRefreshSettingsStore CreateLocalDevelopmentRefreshSettingsStore(string contentRootPath)
-{
-    var settingsPath = Environment.GetEnvironmentVariable("BACKLOG_REFRESH_SETTINGS_PATH");
-    if (string.IsNullOrWhiteSpace(settingsPath))
-    {
-        settingsPath = Path.Combine(contentRootPath, "obj", "local-development", "refresh.settings.json");
-    }
-
-    return new TasksRefreshSettingsStore(settingsPath);
 }
 
 static WorkingHoursSettingsStore CreateLocalDevelopmentWorkingHoursSettingsStore(string contentRootPath)

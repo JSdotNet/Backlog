@@ -405,17 +405,37 @@ public sealed class TokenTransportTests
     private static GitHubAccount TokenAccount(string login, string token) =>
         new(login) { Credential = GitHubCredentialKind.PersonalAccessToken, Token = token };
 
+    /// <summary>A refusal carries GitHub's status as well as a sentence, so a
+    /// caller with a plan for "not found" — the Contents API answers it for a
+    /// file not yet committed — can read it without parsing the sentence.</summary>
+    [Fact]
+    public async Task A_refusal_carries_the_status_github_answered_with()
+    {
+        var handler = new RecordingHandler { Status = HttpStatusCode.NotFound };
+        var transport = new TokenTransport(StubCredentialResolver.WithToken(), () => GitHubSettings.DefaultApiEndpoint, new HttpClient(handler));
+
+        var refused = await Assert.ThrowsAsync<GitHubException>(() =>
+            transport.SendAsync(HttpMethod.Get, "repos/octo/demo/contents/backlog/backlog.db", cancellationToken: TestContext.Current.CancellationToken));
+
+        Assert.Equal(HttpStatusCode.NotFound, refused.Status);
+        Assert.True(refused.IsNotFound);
+    }
+
     private sealed class RecordingHandler : HttpMessageHandler
     {
         public HttpRequestMessage? Request { get; private set; }
 
         public int RequestCount { get; private set; }
 
+        /// <summary>What every request is answered with; OK unless a test
+        /// wants a refusal.</summary>
+        public HttpStatusCode Status { get; init; } = HttpStatusCode.OK;
+
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             RequestCount++;
             Request = request;
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            return Task.FromResult(new HttpResponseMessage(Status)
             {
                 Content = new StringContent("{}", Encoding.UTF8, "application/json")
             });

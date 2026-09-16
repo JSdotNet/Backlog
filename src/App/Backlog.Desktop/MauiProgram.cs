@@ -93,10 +93,6 @@ public static class MauiProgram
             sp.GetRequiredService<IDevbookSnapshotCache>()));
         builder.Services.AddSingleton<ITaskStore>(sp => new WorkspaceTaskStore(
             sp.GetRequiredService<WorkspaceSettingsStore>()));
-        // How often the list re-reads a store somebody else may have written to.
-        // Its own per-user file beside the feature choices, for the same reason
-        // theirs is not in settings.json.
-        builder.Services.AddSingleton<ITasksRefreshSettings, TasksRefreshSettingsStore>();
         // Which hours the reader means to be working. A kernel port rather than a
         // dashboard one: the settings screen writes it and the dashboard shades a
         // grid with it, and neither may reach through the other. Its own per-user
@@ -231,6 +227,16 @@ public static class MauiProgram
         builder.Services.AddSessionSyncStores(Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "Backlog"));
+        // What the last backup did, in that same folder and for the same reason:
+        // per-installation bookkeeping, never the workspace root. The worker
+        // reads the repository and the schedule off the workspace settings and
+        // uploads through the same GitHub client the feedback dialog commits
+        // screenshots with.
+        builder.Services.AddSingleton<IBackupStateStore>(_ => new FileBackupStateStore(Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Backlog",
+            "backup-state.json")));
+        builder.Services.AddSingleton<BackupWorker>();
         // Where the sync service is, asked per client rather than fixed here.
         // Under the AppHost it is "https+http://sync", which the service discovery
         // AddServiceDefaults wired up rewrites to this run's sync resource - ports
@@ -453,6 +459,10 @@ public static class MauiProgram
         // independently switchable features would have to run whenever either was
         // on, and would give the two one shared error to report.
         _ = app.Services.GetRequiredService<SessionSyncWorker>();
+
+        // And the backup loop, on the same terms: a timer that only existed
+        // while the Storage tab was open would miss every slot it was set for.
+        _ = app.Services.GetRequiredService<BackupWorker>();
 
         return app;
     }

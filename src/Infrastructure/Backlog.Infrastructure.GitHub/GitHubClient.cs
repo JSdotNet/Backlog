@@ -34,6 +34,21 @@ public interface IGitHubClient
         byte[] content,
         string commitMessage,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Puts <paramref name="content"/> at <paramref name="path"/> on the
+    /// repository's default branch, replacing what is there. The counterpart of
+    /// <see cref="UploadFileAsync"/> for a file that is written again and again
+    /// rather than once: that one creates and is refused a second time, because
+    /// the Contents API wants the blob it is replacing named; this one asks for
+    /// it first. A file GitHub already holds with exactly this content is left
+    /// alone — the answer says so — because a commit that changes nothing is
+    /// history nobody asked for.</summary>
+    Task<GitHubCommittedFile> CommitFileAsync(
+        GitHubRepositoryRef repository,
+        string path,
+        byte[] content,
+        string commitMessage,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -159,6 +174,92 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
         }
 
         return new GitHubUploadedFile(path, downloadUrl);
+    }
+
+    public async Task<GitHubCommittedFile> CommitFileAsync(
+        GitHubRepositoryRef repository,
+        string path,
+        byte[] content,
+        string commitMessage,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+        ArgumentNullException.ThrowIfNull(content);
+
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            throw new GitHubException("A committed file needs a path.");
+        }
+
+        // Segment by segment, so a path with folders in it stays a path with
+        // folders in it. Escaping the whole thing would send the slashes as
+        // %2F, which names one file with a slash in its name.
+        var resource = $"repos/{repository.Owner}/{repository.Name}/contents/"
+            + string.Join('/', path.Split('/', StringSplitOptions.RemoveEmptyEntries).Select(Uri.EscapeDataString));
+
+        string? existingSha = null;
+        try
+        {
+            var existing = await transport.SendAsync(HttpMethod.Get, resource, body: null, cancellationToken: cancellationToken);
+            existingSha = existing.ValueKind == JsonValueKind.Object ? String(existing, "sha") : null;
+        }
+        catch (GitHubException ex) when (ex.IsNotFound)
+        {
+            // Not committed yet. A missing repository answers the same status,
+            // and is told apart by the PUT below failing with GitHub's words
+            // for it rather than by guessing here.
+        }
+
+        var blobSha = GitBlobSha(content);
+        if (string.Equals(existingSha, blobSha, StringComparison.OrdinalIgnoreCase))
+        {
+            return new GitHubCommittedFile(path, blobSha, Committed: false);
+        }
+
+        var payload = new Dictionary<string, object?>
+        {
+            ["message"] = commitMessage,
+            ["content"] = Convert.ToBase64String(content)
+        };
+        if (existingSha is not null) payload["sha"] = existingSha;
+
+        JsonElement response;
+        try
+        {
+            response = await transport.SendAsync(HttpMethod.Put, resource, payload, cancellationToken: cancellationToken);
+        }
+        catch (GitHubException ex) when (ex.IsNotFound)
+        {
+            // The file not being there was handled above, so a not-found on the
+            // write is the repository: the token transport already says so in
+            // these words, and the CLI one says "gh: Not Found (HTTP 404)".
+            throw new GitHubException(
+                "GitHub couldn't find that repository — check the owner/repo and that the signed-in account can write to it.",
+                ex)
+            {
+                Status = ex.Status
+            };
+        }
+
+        var committedSha = response.TryGetProperty("content", out var contentElement)
+            && contentElement.ValueKind == JsonValueKind.Object
+            ? String(contentElement, "sha")
+            : null;
+
+        return new GitHubCommittedFile(path, committedSha ?? blobSha, Committed: true);
+    }
+
+    /// <summary>The id git gives a blob with these bytes — SHA-1 over
+    /// <c>blob {length}\0</c> and the bytes — which is what the Contents API
+    /// reports as a file's <c>sha</c>. Computing it here is what lets an
+    /// unchanged file be recognised from one GET rather than a download.</summary>
+    internal static string GitBlobSha(byte[] content)
+    {
+        var header = System.Text.Encoding.ASCII.GetBytes($"blob {content.Length}\0");
+        using var sha1 = System.Security.Cryptography.IncrementalHash.CreateHash(System.Security.Cryptography.HashAlgorithmName.SHA1);
+        sha1.AppendData(header);
+        sha1.AppendData(content);
+        return Convert.ToHexStringLower(sha1.GetHashAndReset());
     }
 
     /// <summary>Creates <paramref name="branch"/> off the repository's default

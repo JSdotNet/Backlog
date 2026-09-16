@@ -1,6 +1,9 @@
 using System.Diagnostics;
+using System.Globalization;
+using System.Net;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace Backlog.Infrastructure.GitHub;
 
@@ -23,7 +26,7 @@ namespace Backlog.Infrastructure.GitHub;
 /// property this class exists for.
 /// </para>
 /// </summary>
-public sealed class GhCliTransport : IGitHubTransport
+public sealed partial class GhCliTransport : IGitHubTransport
 {
     private readonly string _executable;
     private bool? _available;
@@ -108,7 +111,10 @@ public sealed class GhCliTransport : IGitHubTransport
             var message = result.StandardError.Trim();
             throw new GitHubException(message.Length == 0
                 ? $"The GitHub CLI failed on {method.Method} {path}."
-                : message);
+                : message)
+            {
+                Status = StatusFrom(message)
+            };
         }
 
         try
@@ -121,6 +127,21 @@ public sealed class GhCliTransport : IGitHubTransport
             throw new GitHubException("The GitHub CLI returned something that wasn't JSON.", ex);
         }
     }
+
+    /// <summary>The status <c>gh api</c> reports on its own error line —
+    /// <c>gh: Not Found (HTTP 404)</c> — or null when the line has none, which
+    /// is what a CLI that could not run at all writes.</summary>
+    private static HttpStatusCode? StatusFrom(string standardError)
+    {
+        var match = HttpStatusLine().Match(standardError);
+        if (!match.Success) return null;
+
+        var status = int.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture);
+        return Enum.IsDefined(typeof(HttpStatusCode), status) ? (HttpStatusCode)status : null;
+    }
+
+    [GeneratedRegex(@"\(HTTP (\d{3})\)")]
+    private static partial Regex HttpStatusLine();
 
     private async Task<ProcessResult> RunAsync(
         IReadOnlyList<string> arguments,
