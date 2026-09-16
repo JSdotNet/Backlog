@@ -70,6 +70,13 @@ public static class SyncClientRegistration
 
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton<SyncTokenProvider>();
+
+        // One log for everything that replicates, registered with the client
+        // both task and session sync sit on rather than with either of them:
+        // the footer that reads it wants one list, in time order, of what moved
+        // — not one per kind. Its logger and clock are optional parameters, so
+        // a host that composes neither still gets a log that works.
+        services.TryAddSingleton<SyncActivityLog>();
         services.TryAddTransient<SyncAuthenticationHandler>();
 
         // devices/register, devices/pair and devices/token are anonymous, and
