@@ -66,7 +66,9 @@ Microsoft Store listing and no custom update server.
   the app header is itself the on-demand control: activating it checks, and an
   "Install update" action appears when a newer build is found, backed by
   `PackageManager.CheckUpdateAvailabilityAsync` and
-  `AddPackageByAppInstallerFileAsync`.
+  `AddPackageByAppInstallerFileAsync`. The availability check is yes/no only, so
+  the window names the newer version by reading `MainPackage/@Version` from the
+  published `.appinstaller` — best effort, falling back to an unnamed update.
 - **Trust** — the certificate is self-signed for personal-scope use, so it must
   be trusted on the target machine before the first install.
 - **Where the data lives** — a packaged app's `%LOCALAPPDATA%` writes are

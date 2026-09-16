@@ -209,4 +209,8 @@ The XML manifest that turns a bare MSIX into an updatable install.
   `build/New-AppInstaller.ps1` during the release workflow. Its own `Uri` points
   at the `latest` release download (stable), while `MainPackage/@Uri` points at
   the tagged release asset; `Name`, `Publisher`, and `ProcessorArchitecture` are
-  kept identical to the signed MSIX.
+  kept identical to the signed MSIX. The app reads the same manifest back after a
+  positive update check — `PackageManager` only answers whether an update exists —
+  so the update window can name the version it would install
+  (`MainPackage/@Version`, via `AppInstallerManifest`); when the manifest is
+  unreachable the update is still offered, just unnamed.
