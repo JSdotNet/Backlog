@@ -43,7 +43,10 @@ public class PullRequestDetailCacheTests : IDisposable
             ChurnComplete = true,
             ChangedLines = 260,
             ChangedFiles = 11,
-            SizeKnown = true
+            SizeKnown = true,
+            SyncMerges = 3,
+            ConflictedSyncMerges = 1,
+            SyncsKnown = true
         });
 
         var read = cache.TryRead(Backlog, 412);
@@ -59,6 +62,9 @@ public class PullRequestDetailCacheTests : IDisposable
         Assert.Equal(260, read.ChangedLines);
         Assert.Equal(11, read.ChangedFiles);
         Assert.True(read.SizeKnown);
+        Assert.Equal(3, read.SyncMerges);
+        Assert.Equal(1, read.ConflictedSyncMerges);
+        Assert.True(read.SyncsKnown);
     }
 
     /// <summary>
@@ -117,7 +123,40 @@ public class PullRequestDetailCacheTests : IDisposable
         cache.Write(Backlog, 5, new PullRequestDetail { ChurnComplete = true, SizeKnown = true });
 
         var path = OnlyEntry();
-        File.WriteAllText(path, File.ReadAllText(path).Replace("\"version\": 1", "\"version\": 0", StringComparison.Ordinal));
+        File.WriteAllText(path, File.ReadAllText(path).Replace("\"version\": 2", "\"version\": 1", StringComparison.Ordinal));
+
+        Assert.Null(cache.TryRead(Backlog, 5));
+    }
+
+    /// <summary>
+    /// The case the version exists for, in the shape it actually took. An entry
+    /// from before the sync fields carries no <c>syncsKnown</c>, and tolerant
+    /// deserialization would read that as "the commits could not be listed" — a
+    /// claim nothing ever established, and one that would keep the pull request
+    /// out of the sync figures forever rather than for one more fetch.
+    /// </summary>
+    [Fact]
+    public void An_entry_from_before_the_sync_fields_is_a_miss_rather_than_a_pull_request_that_never_synced()
+    {
+        var cache = Cache();
+        cache.Write(Backlog, 5, new PullRequestDetail { ChurnComplete = true, SizeKnown = true, SyncsKnown = true });
+
+        var path = OnlyEntry();
+        File.WriteAllText(path, """
+            {
+              "version": 1,
+              "firstReviewedAt": null,
+              "reviewRounds": 0,
+              "changesRequested": 0,
+              "commitsAfterFirstReview": 0,
+              "forcePushesAfterFirstReview": 0,
+              "filesRetouched": 0,
+              "churnComplete": true,
+              "changedLines": 12,
+              "changedFiles": 1,
+              "sizeKnown": true
+            }
+            """);
 
         Assert.Null(cache.TryRead(Backlog, 5));
     }

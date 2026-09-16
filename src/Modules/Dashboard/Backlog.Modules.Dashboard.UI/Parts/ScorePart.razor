@@ -75,7 +75,7 @@
     {
         get
         {
-            var note = $"Over {Scope.Weeks} weeks. Up to seven inputs, weighted, normalised to 100.";
+            var note = $"Over {Scope.Weeks} weeks. Up to eight inputs, weighted, normalised to 100.";
 
             if (IsReady)
             {
@@ -169,7 +169,7 @@
     protected override bool IsEmpty(ProductivityScoreInsight value) => value.Inputs.Count == 0;
 
     protected override string EmptyMessage =>
-        "Nothing happened in this window that any of the seven inputs could read.";
+        "Nothing happened in this window that any of the eight inputs could read.";
 
     protected override void InvalidateSource() => Insights.Invalidate(Scope);
 }

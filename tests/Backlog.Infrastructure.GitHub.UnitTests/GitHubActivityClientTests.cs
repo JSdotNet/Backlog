@@ -81,12 +81,14 @@ public class GitHubActivityClientTests
     }
 
     /// <summary>
-    /// An unreviewed pull request has no "after the review" to look in, so the two
-    /// extra calls are not made — and the record says it had no review rather than
-    /// that it had no churn, which are different claims.
+    /// An unreviewed pull request has no "after the review" to look in, so the
+    /// timeline is not read — and the record says it had no review rather than
+    /// that it had no churn, which are different claims. Its commits are still
+    /// listed, once, because the branch's sync merges are there whether anybody
+    /// reviewed it or not.
     /// </summary>
     [Fact]
-    public async Task An_unreviewed_pull_request_costs_no_extra_calls_and_reports_no_review()
+    public async Task An_unreviewed_pull_request_skips_the_timeline_and_reports_no_review()
     {
         var transport = new RoutingTransport()
             .Returns("/pulls?", $"[{Pull(1, merged: "2026-07-05T10:00:00Z", updated: "2026-07-05T10:00:00Z")}]")
@@ -99,8 +101,96 @@ public class GitHubActivityClientTests
         Assert.Null(pull.FirstReviewedAt);
         Assert.Null(pull.ReviewTurnaround);
         Assert.Equal(0, pull.CommitsAfterFirstReview);
-        Assert.Equal(0, transport.CallsTo("/commits"));
+        Assert.Equal(1, transport.CallsTo("/pulls/1/commits"));
         Assert.Equal(0, transport.CallsTo("/timeline"));
+        Assert.True(pull.SyncsKnown);
+        Assert.Equal(0, pull.SyncMerges);
+    }
+
+    // --- Sync merges -----------------------------------------------------------
+
+    /// <summary>
+    /// A two-parent commit on the branch is a sync with its base. Whether it
+    /// conflicted is only in its message: git's own <c>Conflicts:</c> trailer, which
+    /// a <c>--no-edit</c> commit keeps, or a body somebody wrote that names what
+    /// conflicted. A merge that says nothing reads as clean, and one that says there
+    /// was no conflict reads as clean too — it is the sentence a person writes when
+    /// a merge went well, and counting it would turn every reassurance into its
+    /// opposite.
+    /// </summary>
+    [Fact]
+    public async Task Merge_commits_on_the_branch_are_syncs_and_only_their_messages_say_which_conflicted()
+    {
+        var transport = new RoutingTransport()
+            .Returns("/pulls?", $"[{Pull(1, merged: "2026-07-10T10:00:00Z", updated: "2026-07-10T10:00:00Z")}]")
+            .Returns("/reviews", "[]")
+            .Returns("/pulls/1/commits", """
+                [
+                  { "sha": "aaa", "parents": [ { "sha": "p1" } ],
+                    "commit": { "message": "Add the thing", "committer": { "date": "2026-07-02T09:00:00Z" } } },
+                  { "sha": "bbb", "parents": [ { "sha": "aaa" }, { "sha": "main1" } ],
+                    "commit": { "message": "Merge origin/main into claude/thing\n\n# Conflicts:\n#\tsrc/Thing.cs", "committer": { "date": "2026-07-03T09:00:00Z" } } },
+                  { "sha": "ccc", "parents": [ { "sha": "bbb" }, { "sha": "main2" } ],
+                    "commit": { "message": "Merge origin/main into claude/thing\n\nThing.cs conflicted: main renamed the field this branch reads.", "committer": { "date": "2026-07-05T09:00:00Z" } } },
+                  { "sha": "ddd", "parents": [ { "sha": "ccc" }, { "sha": "main3" } ],
+                    "commit": { "message": "Merge origin/main into claude/thing", "committer": { "date": "2026-07-07T09:00:00Z" } } },
+                  { "sha": "eee", "parents": [ { "sha": "ddd" }, { "sha": "main4" } ],
+                    "commit": { "message": "Merge origin/main into claude/thing\n\nNo conflicts, main only touched docs.", "committer": { "date": "2026-07-09T09:00:00Z" } } }
+                ]
+                """)
+            .Returns("/pulls/1", """{ "additions": 10, "deletions": 5, "changed_files": 2 }""");
+
+        var activity = await new GitHubActivityClient(transport)
+            .GetActivityAsync(Repository, From, To, "jsdotnet", TestContext.Current.CancellationToken);
+
+        var pull = Assert.Single(activity.PullRequests);
+        Assert.True(pull.SyncsKnown);
+        Assert.Equal(4, pull.SyncMerges);
+        Assert.Equal(2, pull.ConflictedSyncMerges);
+        Assert.True(activity.DetailComplete);
+    }
+
+    /// <summary>
+    /// The commits of an unreviewed pull request feed nothing but the sync figures,
+    /// so a refusal there costs those figures and not the pull request: it stays in
+    /// the listing with its syncs declared unknown, and the repository says its
+    /// detail is incomplete. Zero would be a claim — "never synced" — that nothing
+    /// established.
+    /// </summary>
+    [Fact]
+    public async Task A_refused_commits_listing_leaves_an_unreviewed_pull_requests_syncs_unknown()
+    {
+        var transport = new RoutingTransport()
+            .Returns("/pulls?", $"[{Pull(1, merged: "2026-07-05T10:00:00Z", updated: "2026-07-05T10:00:00Z")}]")
+            .Returns("/reviews", "[]")
+            .Refuses("/pulls/1/commits")
+            .Returns("/pulls/1", """{ "additions": 10, "deletions": 5, "changed_files": 2 }""");
+
+        var activity = await new GitHubActivityClient(transport)
+            .GetActivityAsync(Repository, From, To, "jsdotnet", TestContext.Current.CancellationToken);
+
+        var pull = Assert.Single(activity.PullRequests);
+        Assert.False(pull.SyncsKnown);
+        Assert.Equal(0, pull.SyncMerges);
+        Assert.True(pull.SizeKnown);
+        Assert.False(activity.DetailComplete);
+    }
+
+    /// <summary>
+    /// A reviewed pull request's churn is counted from the same commits, so there
+    /// the refusal is what it always was: the repository cannot be answered for.
+    /// Reading the commits earlier did not make that failure quieter.
+    /// </summary>
+    [Fact]
+    public async Task A_refused_commits_listing_still_fails_a_reviewed_pull_request()
+    {
+        var transport = new RoutingTransport()
+            .Returns("/pulls?", $"[{Pull(1, merged: "2026-07-05T10:00:00Z", updated: "2026-07-05T10:00:00Z")}]")
+            .Returns("/reviews", """[{ "state": "APPROVED", "submitted_at": "2026-07-03T09:00:00Z" }]""")
+            .Refuses("/pulls/1/commits");
+
+        await Assert.ThrowsAsync<GitHubException>(() => new GitHubActivityClient(transport)
+            .GetActivityAsync(Repository, From, To, "jsdotnet", TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -479,6 +569,45 @@ public class GitHubActivityClientTests
         Assert.NotNull(remembered);
         Assert.Equal(15, remembered.ChangedLines);
         Assert.True(remembered.SizeKnown);
+        Assert.True(remembered.SyncsKnown);
+    }
+
+    /// <summary>The sync figures ride the cache both ways, unknown included — a
+    /// remembered "could not be read" must not come back as "never synced".</summary>
+    [Fact]
+    public async Task Remembered_sync_figures_come_back_as_they_were_stored()
+    {
+        var cache = new RememberingCache();
+        cache.Write(Repository, 1, new PullRequestDetail
+        {
+            ChurnComplete = true,
+            SizeKnown = true,
+            SyncMerges = 3,
+            ConflictedSyncMerges = 1,
+            SyncsKnown = true
+        });
+        cache.Write(Repository, 2, new PullRequestDetail { ChurnComplete = true, SizeKnown = true, SyncsKnown = false });
+
+        var transport = new RoutingTransport()
+            .Returns("/pulls?", $"""
+                [
+                  {Pull(1, merged: "2026-07-05T10:00:00Z", updated: "2026-07-05T10:00:00Z")},
+                  {Pull(2, merged: "2026-07-06T10:00:00Z", updated: "2026-07-06T10:00:00Z")}
+                ]
+                """);
+
+        var activity = await new GitHubActivityClient(transport, cache)
+            .GetActivityAsync(Repository, From, To, "jsdotnet", TestContext.Current.CancellationToken);
+
+        var synced = Assert.Single(activity.PullRequests, pull => pull.Number == 1);
+        Assert.Equal(3, synced.SyncMerges);
+        Assert.Equal(1, synced.ConflictedSyncMerges);
+        Assert.True(synced.SyncsKnown);
+
+        var unknown = Assert.Single(activity.PullRequests, pull => pull.Number == 2);
+        Assert.False(unknown.SyncsKnown);
+        Assert.False(activity.DetailComplete);
+        Assert.Equal(0, transport.CallsTo("/commits"));
     }
 
     /// <summary>A hundred rows — a full page, which is what tells the walk there may

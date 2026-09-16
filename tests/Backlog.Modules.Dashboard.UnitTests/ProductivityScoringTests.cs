@@ -402,7 +402,56 @@ public class ProductivityScoringTests
         Assert.Equal(75m, ProductivityScoring.Score(inputs));
     }
 
-    private static ActivityPullRequest Merged(int number, bool churned, bool reviewed = true)
+    // --- Conflicted syncs --------------------------------------------------------
+
+    /// <summary>
+    /// The conflict input is a proportion of the pull requests whose branch was
+    /// synced with its base at all. A branch that never synced did not avoid a
+    /// conflict, it never risked one, and one whose commits could not be read has
+    /// nothing to say — both stay out of the numerator and the denominator alike.
+    /// </summary>
+    [Fact]
+    public void Merged_without_a_conflicted_sync_is_a_proportion_of_the_pull_requests_that_synced()
+    {
+        var inputs = ProductivityScoring.InputsFor(
+            [
+                Merged(1, churned: false, syncs: 2, conflicted: 1),
+                Merged(2, churned: false, syncs: 1, conflicted: 0),
+                Merged(3, churned: false, syncs: 3, conflicted: 0),
+                Merged(4, churned: false, syncs: 0, conflicted: 0),
+                Merged(5, churned: false, syncs: 0, conflicted: 0, syncsKnown: false)
+            ],
+            [],
+            weeks: 4,
+            Record());
+
+        var input = Assert.Single(inputs, input => input.Label == "Merged without a conflicted sync");
+        Assert.Equal(2m, input.Value);
+        Assert.Equal(3m, input.Max);
+        Assert.Equal(1m, input.Weight);
+    }
+
+    /// <summary>A window in which no branch synced has nothing to say about
+    /// conflicts, and says nothing rather than scoring a nil.</summary>
+    [Fact]
+    public void A_window_with_no_synced_branch_has_no_conflict_input()
+    {
+        var inputs = ProductivityScoring.InputsFor(
+            [Merged(1, churned: false), Merged(2, churned: true)],
+            [],
+            weeks: 4,
+            Record());
+
+        Assert.DoesNotContain(inputs, input => input.Label == "Merged without a conflicted sync");
+    }
+
+    private static ActivityPullRequest Merged(
+        int number,
+        bool churned,
+        bool reviewed = true,
+        int syncs = 0,
+        int conflicted = 0,
+        bool syncsKnown = true)
     {
         var mergedAt = new DateTimeOffset(2026, 6, 1, 12, 0, 0, TimeSpan.Zero).AddDays(number);
 
@@ -417,7 +466,10 @@ public class ProductivityScoringTests
             FilesRetouched: churned ? 1 : 0,
             ChurnComplete: true)
         {
-            ReviewTurnaround = reviewed ? TimeSpan.FromHours(number % 48) : null
+            ReviewTurnaround = reviewed ? TimeSpan.FromHours(number % 48) : null,
+            SyncMerges = syncs,
+            ConflictedSyncMerges = conflicted,
+            SyncsKnown = syncsKnown
         };
     }
 
