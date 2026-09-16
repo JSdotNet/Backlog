@@ -5,6 +5,7 @@ using Backlog.Infrastructure.AzureFoundry;
 using Backlog.AzureFoundry.TestService;
 using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 using Backlog.SharedKernel.Results;
+using Polly.Timeout;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
@@ -154,6 +155,23 @@ public sealed class AzureFoundryChatClientTests : IDisposable
 
         Assert.Contains("Azure Foundry returned 400", ex.Message);
         Assert.EndsWith("...", ex.Message);
+    }
+
+    /// <summary>The resilience pipeline on the client reports its budget
+    /// running out as Polly's own exception, not as the cancellation the
+    /// callers were written for. It is the client's to translate: a slow
+    /// answer is one of the ways a completion fails, and the callers already
+    /// show every <see cref="AzureFoundryException"/> as a toast or a failed
+    /// plan rather than letting it reach the error boundary.</summary>
+    [Fact]
+    public async Task A_pipeline_timeout_is_reported_as_a_foundry_failure()
+    {
+        var client = BuildConfiguredClient(new RecordingHandler(_ => throw new TimeoutRejectedException()));
+
+        var ex = await Assert.ThrowsAsync<AzureFoundryException>(() =>
+            client.AskAsync(new AzureFoundryChatRequest("content", "question"), TestContext.Current.CancellationToken));
+
+        Assert.Contains("timed out", ex.Message);
     }
 
     /// <summary>The plan request travels the same route with the same header as

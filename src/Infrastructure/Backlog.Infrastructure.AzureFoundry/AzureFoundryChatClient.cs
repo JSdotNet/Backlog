@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Polly.Timeout;
 
 namespace Backlog.Infrastructure.AzureFoundry;
 
@@ -131,7 +132,7 @@ public sealed class AzureFoundryChatClient(HttpClient httpClient, AzureFoundrySe
         };
         httpRequest.Headers.Add("api-key", settings.ApiKey);
 
-        using var response = await httpClient.SendAsync(httpRequest, cancellationToken).ConfigureAwait(false);
+        using var response = await SendAsync(httpRequest, cancellationToken).ConfigureAwait(false);
         var payload = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)
         {
@@ -146,6 +147,24 @@ public sealed class AzureFoundryChatClient(HttpClient httpClient, AzureFoundrySe
         }
 
         return answer.Trim();
+    }
+
+    /// <summary>The send, with the one failure the pipeline throws in its own
+    /// words translated. Its budget (<see cref="AzureFoundryRegistration"/>
+    /// sets it) running out is Polly's exception, not the cancellation
+    /// HttpClient's own timeout would be; a slow answer is one of the ways a
+    /// completion fails, so it is translated here beside the other failures
+    /// rather than caught by every caller.</summary>
+    private async Task<HttpResponseMessage> SendAsync(HttpRequestMessage httpRequest, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await httpClient.SendAsync(httpRequest, cancellationToken).ConfigureAwait(false);
+        }
+        catch (TimeoutRejectedException)
+        {
+            throw new AzureFoundryException("Azure Foundry did not answer before the request timed out.");
+        }
     }
 
     /// <summary>
