@@ -44,8 +44,10 @@
       ]
     },
     ".arc42/tdr": {
-      "root": null,
-      "order": []
+      "root": "README.md",
+      "order": [
+        "0001-archify-artifacts-are-invisible-on-a-branch-snapshot.md"
+      ]
     }
   }
 }
