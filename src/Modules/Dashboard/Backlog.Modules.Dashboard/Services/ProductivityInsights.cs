@@ -162,16 +162,16 @@ public sealed class ProductivityInsights(
         // sentence.
         var key = "activity|" + (scope.RepositoryAlias ?? "*") + "|" + scope.Weeks;
 
-        return _cache.GetOrAddAsync(key, async () =>
+        return _cache.GetOrAddAsync(key, async shared =>
         {
             var scoped = Scoped(scope);
 
             var report = await activity
-                .GetActivityAsync(scoped, from, to, cancellationToken)
+                .GetActivityAsync(scoped, from, to, shared)
                 .ConfigureAwait(false);
 
             return new ScopedActivity(report, WeekBuckets.Buckets(from, to), scoped, scope);
-        });
+        }, cancellationToken);
     }
 
     /// <summary>
@@ -194,12 +194,12 @@ public sealed class ProductivityInsights(
     {
         var key = "baseline|" + (scope.RepositoryAlias ?? "*") + "|" + scope.Weeks;
 
-        return _cache.GetOrAddAsync<ProductivityBaseline?>(key, async () =>
+        return _cache.GetOrAddAsync<ProductivityBaseline?>(key, async shared =>
         {
             try
             {
                 var answer = await baseline
-                    .GetBaselineAsync(Scoped(scope), Blocks(), cancellationToken)
+                    .GetBaselineAsync(Scoped(scope), Blocks(), shared)
                     .ConfigureAwait(false);
 
                 return ProductivityBaseline.From(answer, BaselineBlockWeeks);
@@ -212,7 +212,7 @@ public sealed class ProductivityInsights(
             {
                 return null;
             }
-        });
+        }, cancellationToken);
     }
 
     /// <summary>The block grid, oldest first, ending at the moment the reader is
