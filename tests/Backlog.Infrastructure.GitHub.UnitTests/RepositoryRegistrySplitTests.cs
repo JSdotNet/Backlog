@@ -100,6 +100,99 @@ public class RepositoryRegistrySplitTests : IDisposable
         Assert.Equal("ghp_secret", reopened.Current.Find("bl")!.Token);
     }
 
+    /// <summary>
+    /// The other rename: the coordinate moves and the alias stays, which is what
+    /// a repository renamed on GitHub looks like once somebody edits the line.
+    /// Everything the row held — both halves — is under the new id afterwards,
+    /// and the old id is in neither file, so nothing is left for a later pass to
+    /// mistake for a second repository.
+    /// </summary>
+    [Fact]
+    public void A_changed_owner_name_under_a_kept_alias_is_a_rename_that_carries_everything()
+    {
+        var clone = Path.Combine(_root, "clone");
+
+        var store = Store();
+        Assert.Null(store.SetRepositories([Repository("backlog", "Backlog")]));
+        Assert.Null(store.SetCloneDirectory("backlog", clone));
+        Assert.Null(store.SetRepositoryToken("backlog", "ghp_secret"));
+        Assert.Null(store.SetRepositoryColour("backlog", 3));
+        Assert.Null(store.SetDevbookSource("backlog", "docs", useLocalFolder: false));
+
+        var (repositories, errors) = GitHubSettings.ParseText("backlog = JSdotNet/Backlog-renamed");
+        Assert.Empty(errors);
+        Assert.Null(store.SetRepositories(repositories, out var renames));
+
+        var rename = Assert.Single(renames);
+        Assert.Equal(("JSdotNet/Backlog", "JSdotNet/Backlog-renamed", "backlog"), (rename.OldId, rename.NewId, rename.Alias));
+
+        var reopened = Store();
+        var renamed = Assert.Single(reopened.Current.Repositories);
+        Assert.Equal("JSdotNet/Backlog-renamed", renamed.FullName);
+        Assert.Equal(clone, renamed.CloneDirectory);
+        Assert.Equal("ghp_secret", renamed.Token);
+        Assert.Equal(3, renamed.Colour);
+        Assert.Equal("docs", renamed.DevbookBranch);
+
+        Assert.DoesNotContain("JSdotNet/Backlog\"", File.ReadAllText(store.RegistryPath), StringComparison.Ordinal);
+        Assert.DoesNotContain("JSdotNet/Backlog\"", File.ReadAllText(store.SettingsPath), StringComparison.Ordinal);
+    }
+
+    /// <summary>The line that only relabels reports nothing: the id did not move,
+    /// so there is nothing for the entries to follow.</summary>
+    [Fact]
+    public void An_alias_relabel_alone_is_not_reported_as_a_rename()
+    {
+        var store = Store();
+        Assert.Null(store.SetRepositories([Repository("backlog", "Backlog")]));
+
+        var (repositories, _) = GitHubSettings.ParseText("bl = JSdotNet/Backlog");
+        Assert.Null(store.SetRepositories(repositories, out var renames));
+
+        Assert.Empty(renames);
+    }
+
+    /// <summary>
+    /// Two lines that swap labels are two relabels, not a rename plus a new
+    /// repository: each old id is still in the list under the other alias, so
+    /// the alias match is refused and both rows keep their own machine half.
+    /// </summary>
+    [Fact]
+    public void Swapping_two_aliases_renames_nothing_and_each_row_keeps_its_own_clone()
+    {
+        var backlogClone = Path.Combine(_root, "backlog");
+        var docsClone = Path.Combine(_root, "docs");
+
+        var store = Store();
+        Assert.Null(store.SetRepositories([Repository("backlog", "Backlog"), Repository("docs", "Docs")]));
+        Assert.Null(store.SetCloneDirectory("backlog", backlogClone));
+        Assert.Null(store.SetCloneDirectory("docs", docsClone));
+
+        var (repositories, _) = GitHubSettings.ParseText("docs = JSdotNet/Backlog\nbacklog = JSdotNet/Docs");
+        Assert.Null(store.SetRepositories(repositories, out var renames));
+
+        Assert.Empty(renames);
+        Assert.Equal(backlogClone, store.Current.Find("docs")!.CloneDirectory);
+        Assert.Equal(docsClone, store.Current.Find("backlog")!.CloneDirectory);
+    }
+
+    /// <summary>A line that reuses a label somebody removed, for a repository
+    /// nobody has configured, is new: there is no row under that alias to
+    /// continue. Stated so the alias fallback is seen to need a live row.</summary>
+    [Fact]
+    public void A_new_line_under_a_free_alias_starts_from_nothing()
+    {
+        var store = Store();
+        Assert.Null(store.SetRepositories([Repository("backlog", "Backlog")]));
+        Assert.Null(store.SetCloneDirectory("backlog", Path.Combine(_root, "clone")));
+
+        var (repositories, _) = GitHubSettings.ParseText("JSdotNet/Backlog\nother = Someone/Other");
+        Assert.Null(store.SetRepositories(repositories, out var renames));
+
+        Assert.Empty(renames);
+        Assert.Null(store.Current.Find("other")!.CloneDirectory);
+    }
+
     [Fact]
     public void A_token_never_reaches_the_shared_registry()
     {

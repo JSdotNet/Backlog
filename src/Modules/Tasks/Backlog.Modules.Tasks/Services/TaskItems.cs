@@ -5,6 +5,7 @@ using Backlog.Modules.Tasks.Features.ImportPlan;
 using Backlog.Modules.Tasks.Features.LinkTaskToIssue;
 using Backlog.Modules.Tasks.Features.ListTasks;
 using Backlog.Modules.Tasks.Features.ReconcileRepositoryIds;
+using Backlog.Modules.Tasks.Features.RenameRepository;
 using Backlog.Modules.Tasks.Features.RecordTaskUsage;
 using Backlog.Modules.Tasks.Features.ReorderTasks;
 using Backlog.Modules.Tasks.Features.SaveTaskFromText;
@@ -26,7 +27,8 @@ internal sealed class TaskItems(
     ICommandHandler<ReorderTasksCommand> reorder,
     ICommandHandler<RecordTaskUsageCommand> recordUsage,
     ICommandHandler<ImportPlanCommand, Result<ImportPlanResultDto>> importPlan,
-    ICommandHandler<ReconcileRepositoryIdsCommand, Result<int>> reconcileRepositoryIds) : ITaskItems
+    ICommandHandler<ReconcileRepositoryIdsCommand, Result<int>> reconcileRepositoryIds,
+    ICommandHandler<RenameRepositoryCommand, Result<int>> renameRepository) : ITaskItems
 {
     public Task<IReadOnlyList<TaskItemDto>> ListAsync(CancellationToken cancellationToken = default) =>
         list.Handle(new ListTasksQuery(), cancellationToken);
@@ -58,6 +60,9 @@ internal sealed class TaskItems(
 
     public Task<Result<int>> ReconcileRepositoryIdsAsync(CancellationToken cancellationToken = default) =>
         reconcileRepositoryIds.Handle(new ReconcileRepositoryIdsCommand(), cancellationToken);
+
+    public Task<Result<int>> RenameRepositoryAsync(string oldId, string newId, CancellationToken cancellationToken = default) =>
+        renameRepository.Handle(new RenameRepositoryCommand(oldId, newId), cancellationToken);
 
     public Task<Result<ImportPlanResultDto>> ImportPlanAsync(
         string rawText,

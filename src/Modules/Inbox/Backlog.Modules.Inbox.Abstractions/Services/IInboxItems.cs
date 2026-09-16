@@ -41,6 +41,11 @@ public interface IInboxItems
     /// <summary>Replaces the repositories the item will be routed to.</summary>
     Task<Result> AssignRepositoriesAsync(Guid id, IReadOnlyList<string> repoIds, CancellationToken cancellationToken = default);
 
+    /// <summary>Re-points every item assigned to <paramref name="oldId"/> at
+    /// <paramref name="newId"/> after a repository rename, and answers how many
+    /// moved. Routing records are left as written. Idempotent.</summary>
+    Task<Result<int>> RenameRepositoryAsync(string oldId, string newId, CancellationToken cancellationToken = default);
+
     /// <summary>Files the item in a list, or back in the unfiled inbox with
     /// null. Filing is not triage: it is allowed in every state, archived
     /// included.</summary>

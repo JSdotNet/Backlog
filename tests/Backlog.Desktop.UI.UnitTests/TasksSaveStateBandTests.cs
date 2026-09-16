@@ -291,6 +291,9 @@ public sealed class TasksSaveStateBandTests : IDisposable
         public Task<Result<int>> ReconcileRepositoryIdsAsync(CancellationToken cancellationToken = default) =>
             inner.ReconcileRepositoryIdsAsync(cancellationToken);
 
+        public Task<Result<int>> RenameRepositoryAsync(string oldId, string newId, CancellationToken cancellationToken = default) =>
+            inner.RenameRepositoryAsync(oldId, newId, cancellationToken);
+
         public Task<Result<ImportPlanResultDto>> ImportPlanAsync(
             string rawText,
             string? defaultRepo = null,

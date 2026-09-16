@@ -37,6 +37,7 @@
 @using Backlog.SharedKernel.Results
 @using Backlog.Modules.Tasks.Abstractions
 @using Backlog.Modules.Tasks.Abstractions.Services
+@using Backlog.Modules.Inbox.Abstractions.Services
 @using Backlog.Modules.Devbook.Abstractions
 @* Said in writing, which is the rule this project's _Imports.razor states for
    reaching into a context. The devbook-source control is Devbook's, and
@@ -1191,6 +1192,13 @@
                       @onchange="ApplyRepositories" />
 
             <p class="setting__status" id="github-repos-status" data-testid="github-repos-status" role="status">
+                @if (_repoRenameNote is not null)
+                {
+                    @* Said once, on the save that did it, and beside the ordinary
+                       summary rather than instead of it: a rename is a result to
+                       report, not an error to clear. *@
+                    <span data-testid="github-repos-rename-note">@_repoRenameNote</span>
+                }
                 @if (_repoError is not null)
                 {
                     <span class="setting__status--error">@_repoError</span>
@@ -2025,6 +2033,10 @@
 
     private string _draftRepos = string.Empty;
     private string? _repoError;
+
+    /// <summary>What the last save of the repositories text renamed, and how
+    /// many entries followed — or null when it renamed nothing.</summary>
+    private string? _repoRenameNote;
     private string _draftStorageRepository = string.Empty;
     private string? _storageRepositoryError;
     private string? _backupScheduleError;
@@ -2876,17 +2888,67 @@
 
     /// <summary>Commits the repository list. Lines that aren't repositories are
     /// reported and skipped rather than throwing away the ones around them —
-    /// a half-typed line is an ordinary thing to have in a text box.</summary>
-    private void ApplyRepositories()
+    /// a half-typed line is an ordinary thing to have in a text box.
+    /// <para>
+    /// A line that kept its alias and changed its <c>owner/name</c> is a rename,
+    /// and the store carries the row across by itself. The entries that filed
+    /// themselves against the old id live in the Tasks and Inbox stores, so they
+    /// are carried here, one call per module — without it the next start's
+    /// reconcile pass would register the old id back as a ghost repository.
+    /// </para></summary>
+    private async Task ApplyRepositories()
     {
         var (repositories, errors) = GitHubSettings.ParseText(_draftRepos);
         var messages = new List<string>(errors);
 
-        var saveError = GitHub.Settings.SetRepositories(repositories);
+        var saveError = GitHub.Settings.SetRepositories(repositories, out var renames);
         if (saveError is not null) messages.Add(saveError);
         _repoError = messages.Count > 0 ? string.Join(" ", messages) : null;
         _draftRepos = RepositorySettingsText();
         SyncRepositoryDrafts();
+
+        _repoRenameNote = renames.Count == 0 ? null : await FollowRenamesAsync(renames);
+    }
+
+    /// <summary>
+    /// Re-points the entries and inbox items that named each renamed repository
+    /// by its old id, and words what happened for the status line.
+    /// <para>
+    /// The two modules are optional here — a host that composes Settings without
+    /// them (the storybook, a unit test) has nothing to carry — so each is
+    /// resolved rather than injected, as the sync services above are. A module
+    /// that refuses is reported in the same sentence rather than swallowed: the
+    /// registry has already moved on, and an entry left behind is exactly the
+    /// thing somebody would want to know about.
+    /// </para>
+    /// </summary>
+    private async Task<string> FollowRenamesAsync(IReadOnlyList<RepositoryRename> renames)
+    {
+        var tasks = Services.GetService<ITaskItems>();
+        var inbox = Services.GetService<IInboxItems>();
+        var sentences = new List<string>(renames.Count);
+
+        foreach (var rename in renames)
+        {
+            var entries = tasks is null ? 0 : await CountOrReport(tasks.RenameRepositoryAsync(rename.OldId, rename.NewId), "Entries");
+            var items = inbox is null ? 0 : await CountOrReport(inbox.RenameRepositoryAsync(rename.OldId, rename.NewId), "Inbox items");
+
+            sentences.Add($"Renamed {rename.OldId} to {rename.NewId}; {Plural(entries, "entry", "entries")} and {Plural(items, "inbox item", "inbox items")} followed it.");
+        }
+
+        return string.Join(" ", sentences);
+
+        async Task<int> CountOrReport(Task<Result<int>> rewrite, string what)
+        {
+            var result = await rewrite;
+            if (result.IsSuccess) return result.Value;
+
+            var message = $"{what} could not follow the rename: {result.Error.Message}";
+            _repoError = _repoError is null ? message : $"{_repoError} {message}";
+            return 0;
+        }
+
+        static string Plural(int count, string one, string many) => $"{count} {(count == 1 ? one : many)}";
     }
 
 
