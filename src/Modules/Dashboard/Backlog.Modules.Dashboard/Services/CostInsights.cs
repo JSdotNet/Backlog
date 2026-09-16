@@ -75,24 +75,24 @@ public sealed class CostInsights(
         var key = keyPrefix + "|" + window.From.ToString("O", CultureInfo.InvariantCulture)
             + "|" + window.To.ToString("O", CultureInfo.InvariantCulture);
 
-        var both = await _cache.GetOrAddAsync(key, async () =>
+        var both = await _cache.GetOrAddAsync(key, async shared =>
         {
             var claudeReport = ReadAsync(
                 claude.GetAvailabilityAsync,
                 token => claude.GetSpendAsync(window.From, window.To, token),
-                cancellationToken);
+                shared);
 
             var copilotReport = ReadAsync(
                 copilot.GetAvailabilityAsync,
                 token => copilot.GetSpendAsync(window.From, window.To, token),
-                cancellationToken);
+                shared);
 
             // Concurrently: they share no credential and no endpoint, so there is
             // no reason the slower one should decide when the faster one is read.
             await Task.WhenAll(claudeReport, copilotReport).ConfigureAwait(false);
 
             return (Claude: await claudeReport.ConfigureAwait(false), Copilot: await copilotReport.ConfigureAwait(false));
-        }).ConfigureAwait(false);
+        }, cancellationToken).ConfigureAwait(false);
 
         if (both.Claude.Report is null && both.Copilot.Report is null)
         {

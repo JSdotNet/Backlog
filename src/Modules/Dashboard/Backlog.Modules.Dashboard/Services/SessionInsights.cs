@@ -80,7 +80,7 @@ public sealed class SessionInsights(
 
         try
         {
-            var reading = await _cache.GetOrAddAsync(CacheKey, () => ReadAsync(cancellationToken)).ConfigureAwait(false);
+            var reading = await _cache.GetOrAddAsync(CacheKey, ReadAsync, cancellationToken).ConfigureAwait(false);
 
             return reading.Report is { } report
                 ? InsightResult<AssistantSessionsInsight>.Ready(Derive(reading, report, scope))
