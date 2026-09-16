@@ -4666,10 +4666,17 @@ h1, h2, h3 {
     grid-template-columns: minmax(20rem, 26rem) minmax(0, 1fr) auto minmax(24rem, min(var(--devbook-panel-width, 36rem), calc(100% - var(--workspace-min-width))));
 }
 
+/* Stretched to the row rather than sized by its contents. It used to
+   `align-self: start` and measure its own height, capped at the row: with a
+   short queue the pane stopped a third of the way down and the detail column —
+   which scrolls on its own and takes the pane's height — had no height to give
+   a picker's popup, so the list opened into the column's overflow and was cut
+   off at the pane's edge. The row is a sized track, so filling it is what gives
+   the columns their height and leaves the space below the pane to the pane. */
 .devbook-layout--inbox-before-backlog > .inbox-pane {
     position: sticky;
     top: var(--spacing-lg);
-    align-self: start;
+    align-self: stretch;
     /* The pane row no longer starts below the header alone — the roadmap band can
        sit above it — so a cap measured off the viewport overflows by however tall
        the band is. The row is already a sized grid track, so its own height is the
@@ -4715,6 +4722,16 @@ h1, h2, h3 {
     top: auto;
     max-height: none;
     overflow: auto;
+}
+
+/* The inbox on its own — the backlog hidden — is the whole row, and the stack
+   it sits in is already stretched to that row. The pane grows to fill it for
+   the reason the sticky variant above stretches: a pane sized by a short queue
+   left the rest of the window empty and its detail column with no room for a
+   picker's popup. With another pane in the stack the inbox keeps its content
+   height and shares the column, as before. */
+.side-pane-stack--full > .inbox-pane {
+    flex: 1 1 auto;
 }
 
 /* A column, so the split inside it inherits the height instead of measuring its
