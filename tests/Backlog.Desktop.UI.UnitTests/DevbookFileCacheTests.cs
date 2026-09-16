@@ -108,20 +108,20 @@ public sealed class DevbookFileCacheTests : IDisposable
         Write(".domain/inbox/domain.md", "# Inbox\n```meta\nstatus: active\n```\n\n> Quick capture.\n");
         var (store, _) = DomainStore();
 
-        var initial = await store.LoadAsync("backlog");
+        var initial = await store.LoadAsync("backlog", TestContext.Current.CancellationToken);
         var initialDocuments = Assert.Single(initial.Contexts).Documents.ToList();
-        var again = await store.LoadAsync("backlog");
+        var again = await store.LoadAsync("backlog", TestContext.Current.CancellationToken);
 
         Assert.Same(initial.ContextMap, again.ContextMap);
         Assert.Equal(initialDocuments, Assert.Single(again.Contexts).Documents, ReferenceEqualityComparer.Instance);
 
         File.WriteAllText(features, "# Inbox\n```meta\nstatus: active\n```\n\n## Capture\n\nMore text than before.\n");
-        var afterSave = await store.LoadAsync("backlog");
+        var afterSave = await store.LoadAsync("backlog", TestContext.Current.CancellationToken);
         var revised = Assert.Single(afterSave.Contexts).Documents.ToList();
 
         Assert.Same(initial.ContextMap, afterSave.ContextMap);
         Assert.Equal(initialDocuments.Count, revised.Count);
-        Assert.Single(revised.Where(document => !initialDocuments.Contains(document, ReferenceEqualityComparer.Instance)));
+        Assert.Single(revised, document => !initialDocuments.Contains(document, ReferenceEqualityComparer.Instance));
     }
 
     private (Arc42DevbookStore Store, DevbookFolderSource Source) Arc42Store()

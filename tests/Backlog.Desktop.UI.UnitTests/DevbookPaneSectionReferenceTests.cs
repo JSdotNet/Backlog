@@ -32,7 +32,7 @@ public sealed class DevbookPaneSectionReferenceTests : IDisposable
         await using var harness = CreateHarness();
 
         var component = harness.Render();
-        component.Find("#tab-design").Click();
+        await ClickTabAsync(component, "design");
 
         // The chapter's own file view, not the section around it: the panel renders
         // that section the moment it exists and fills it once the folder has been
@@ -53,7 +53,7 @@ public sealed class DevbookPaneSectionReferenceTests : IDisposable
         await using var harness = CreateHarness();
 
         var component = harness.Render();
-        component.Find("#tab-instructions").Click();
+        await ClickTabAsync(component, "instructions");
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='instructions-document']")));
 
         // An instruction file's own folder is not a section, and it links into the
@@ -69,7 +69,7 @@ public sealed class DevbookPaneSectionReferenceTests : IDisposable
         await using var harness = CreateHarness();
 
         var component = harness.Render();
-        component.Find("#tab-tech").Click();
+        await ClickTabAsync(component, "tech");
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='technology-layers-tab']")));
         component.Find("[data-testid='technology-layers-tab']").Click();
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='technology-node']")));
@@ -90,7 +90,7 @@ public sealed class DevbookPaneSectionReferenceTests : IDisposable
         await using var harness = CreateHarness();
 
         var component = harness.Render();
-        component.Find($"#tab-{section}").Click();
+        await ClickTabAsync(component, section);
 
         if (section == "tech")
         {
@@ -109,6 +109,20 @@ public sealed class DevbookPaneSectionReferenceTests : IDisposable
             component.FindAll("a").Select(anchor => anchor.GetAttribute("href")),
             href => href is not null && href.StartsWith('.'));
     }
+
+    /// <summary>
+    /// Presses a section tab straight after the pane rendered, while its menu
+    /// and its opening section are still loading on the thread pool.
+    /// <para>
+    /// Find and click in one dispatch, as bUnit advises: those loads land as
+    /// renders between a <c>Find</c> on the test thread and the click that
+    /// follows, and the strip redraws on each, so the handler the found tab
+    /// carried is gone by the time the click reaches the renderer. On the
+    /// renderer's own dispatcher nothing renders in between.
+    /// </para>
+    /// </summary>
+    private static Task ClickTabAsync(IRenderedComponent<DevbookPane> component, string section) =>
+        component.InvokeAsync(() => component.Find($"#tab-{section}").Click());
 
     /// <summary>The reference as the reader meets it, found by the path on its
     /// title rather than by position: a chapter holds several, and which one is
