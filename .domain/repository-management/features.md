@@ -36,6 +36,35 @@ by naming that alias, and an entry without one falls back to the primary
 repository. Registering more than one repository is itself an opt-in capability,
 so a single-repository setup stays uncluttered.
 
+### Following a repository rename
+
+```meta
+type: sub-feature
+status: draft
+related: [.domain/repository-management/domain.md#repository, .domain/tasks/features.md#multi-repo-targeting, .domain/inbox/features.md#per-item-triage-actions]
+```
+
+Let a repository that was renamed on GitHub stay the same repository in the
+product. A registered repository is identified by its owner and name, and that is
+also what every entry and inbox item filed against it records — so a change of
+name would otherwise read as a second repository, and everything filed against
+the old name would be left pointing at a coordinate nobody is configured for.
+
+Changing a registered repository's owner or name while keeping its alias is a
+rename, not a replacement. The repository keeps everything that was decided
+about it — its clone directory, colour, account, and knowledge-folder settings —
+under the new name, and the old name is forgotten. Every entry and inbox item
+that named the old repository follows it to the new one, including an entry's
+links to issues it created there; an inbox item's record of where it was routed
+is left as written, because that is the record of a decision already taken. The
+working set then reports what happened and how many entries and inbox items
+followed, and a later start finds nothing left over from the old name.
+
+Two edits look similar and are not renames. Relabelling the alias alone changes
+nothing about which repository is meant, so nothing has to follow it. Swapping
+two aliases between two registered repositories is two relabels: each
+repository keeps its own settings, and no entry moves.
+
 ### Repository identity colour
 
 ```meta
