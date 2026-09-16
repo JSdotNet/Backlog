@@ -579,6 +579,29 @@ public sealed class InboxPaneTests
         Assert.NotEmpty(pane.FindAll("[data-testid='inbox-pane-add-notes']"));
     }
 
+    /// <summary>The notes land in <c>BodyMd</c> and the detail pane reads them
+    /// back as markdown, so the box they are written in is the shared markdown
+    /// editor — a formatting toolbar over the source — rather than a plain
+    /// textarea. Labelled "Notes", and the label is the textarea's own name.</summary>
+    [Fact]
+    public async Task Notes_are_written_in_the_markdown_editor()
+    {
+        using var harness = Harness.Create();
+
+        var pane = await harness.RenderAsync();
+        await pane.Find("[data-testid='inbox-pane-add']").ClickAsync(new());
+
+        var notes = pane.Find("[data-testid='inbox-pane-add-notes']");
+        Assert.Contains("markdown-editor", notes.ClassList);
+        Assert.NotEmpty(notes.QuerySelectorAll("[role='toolbar'] button"));
+        Assert.NotNull(notes.QuerySelector("[data-testid='markdown-editor-bullet']"));
+
+        var textarea = notes.QuerySelector("textarea");
+        Assert.NotNull(textarea);
+        var label = pane.Find($"label[for='{textarea.GetAttribute("id")}']");
+        Assert.Equal("Notes", label.TextContent);
+    }
+
     /// <summary>The module refuses an item without a title, so the dialog does
     /// not offer to try.</summary>
     [Fact]

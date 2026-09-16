@@ -129,12 +129,18 @@
                            Id="inbox-pane-add-title"
                            TestId="inbox-pane-add-title"
                            autocomplete="off" />
-                <TextArea Label="Notes"
-                          Value="@_notes"
-                          ValueChanged="v => _notes = v"
-                          Rows="4"
-                          AutoGrow="false"
-                          TestId="inbox-pane-add-notes" />
+                @* MarkdownEditor rather than a plain TextArea: the notes land in
+                   BodyMd and the detail pane reads them back as markdown, so the
+                   box they are written in should offer the same formatting every
+                   other body in the product gets — a list is a button, not a
+                   convention the reader has to know. Label rather than AriaLabel
+                   because this stands in a form beside a labelled title. *@
+                <MarkdownEditor Label="Notes"
+                                Value="@_notes"
+                                ValueChanged="v => _notes = v"
+                                Id="inbox-pane-add-notes-input"
+                                Rows="4"
+                                TestId="inbox-pane-add-notes" />
             </div>
         </ChildContent>
         <Footer>
