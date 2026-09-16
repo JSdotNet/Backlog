@@ -227,7 +227,7 @@ list a person already reads rather than shown apart from it.
 The same two qualifications apply as above, and a third this half carries alone.
 Nothing is provisioned in Azure
 (`.arc42/07-deployment-view.md#provisioning-and-delivery`), and the desktop half
-is behind the one `Dev`-status `sync` feature flag, off by default, that also
+is behind the one `Beta`-status `sync` feature flag, off by default, that also
 gates pairing and the task loop. Until 2026-09-14 it had a flag of its own,
 `session-sync`, on the argument that wanting one backlog on two machines is not
 the same as wanting a record of what the assistants did to leave either of them;
