@@ -114,14 +114,33 @@ public interface IGitHubBillingClient
 /// <c>users/{login}</c> path binds to that login's own credential and endpoint
 /// through the transport, so a second account on another host is read there.
 /// </para>
+/// <para>
+/// <paramref name="months"/> is why a seven-month trend costs one call rather
+/// than seven. A month that ended more than <see cref="SettlementDays"/> ago is
+/// read once per login and remembered; only the running month, and the one just
+/// ended while GitHub is still metering it, are asked for again. Optional
+/// because it is an optimization, and <paramref name="time"/> exists only to say
+/// which months those are — a test pins it, a host leaves it on the wall clock.
+/// </para>
 /// </remarks>
 public sealed class GitHubBillingClient(
     IGitHubTransport transport,
     IGitHubIdentityClient identity,
-    GitHubSettingsStore settings) : IGitHubBillingClient
+    GitHubSettingsStore settings,
+    IAiCreditUsageCache? months = null,
+    TimeProvider? time = null) : IGitHubBillingClient
 {
     /// <summary>The version the billing usage reports live on.</summary>
     internal const string BillingApiVersion = "2026-03-10";
+
+    /// <summary>
+    /// How many days past its end a month has to be before its report is treated as
+    /// final. GitHub's usage metering lags the usage by hours, not days, and the
+    /// first of a month is when the previous one is most likely still being closed
+    /// out; three days is comfortably past that and costs one extra month of calls
+    /// for three days in thirty.
+    /// </summary>
+    internal const int SettlementDays = 3;
 
     /// <summary>
     /// GitHub's billing reports amounts without naming a currency; the enhanced
@@ -186,7 +205,7 @@ public sealed class GitHubBillingClient(
         {
             try
             {
-                read.Add(await ReadLoginAsync(login, query, cancellationToken).ConfigureAwait(false));
+                read.Add(await ReadOrRecallAsync(login, year, month, day, query, cancellationToken).ConfigureAwait(false));
             }
             catch (GitHubException ex)
             {
@@ -230,6 +249,45 @@ public sealed class GitHubBillingClient(
         }
 
         return logins;
+    }
+
+    /// <summary>
+    /// Whether a month's report can no longer change: it ended at least
+    /// <see cref="SettlementDays"/> days ago, by the clock this client was given.
+    /// </summary>
+    private bool IsSettled(int year, int month)
+    {
+        var today = DateOnly.FromDateTime((time ?? TimeProvider.System).GetUtcNow().UtcDateTime);
+        var settledOn = new DateOnly(year, month, 1).AddMonths(1).AddDays(SettlementDays);
+
+        return today >= settledOn;
+    }
+
+    /// <summary>
+    /// One login's month: from the cache when the month is settled and it is
+    /// there, and from GitHub when it is not — written back only when settled, so
+    /// a running month's figure is never frozen mid-way.
+    /// </summary>
+    private async Task<GitHubAiCreditUsage> ReadOrRecallAsync(
+        string login,
+        int year,
+        int month,
+        int? day,
+        string query,
+        CancellationToken cancellationToken)
+    {
+        // A single day of a month is a different report from the month, and not
+        // one the dashboard asks for; it goes straight to GitHub rather than
+        // teaching the cache a second shape.
+        var settled = day is null && months is not null && IsSettled(year, month);
+
+        if (settled && months!.TryRead(login, year, month) is { } remembered) return remembered;
+
+        var read = await ReadLoginAsync(login, query, cancellationToken).ConfigureAwait(false);
+
+        if (settled) months!.Write(login, year, month, read);
+
+        return read;
     }
 
     /// <summary>One login's search: its own plan, then each configured organization

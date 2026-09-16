@@ -45,14 +45,25 @@ related: [".arc42/02-constraints.md#technical-constraints", ".arc42/06-runtime-v
   last-write-wins**. Session records do not reconcile at all — only the machine
   that ran a session writes records for it, so there is never a second version to
   discard and the lost-edit failure mode does not reach them.
-- **Five kinds of state deliberately stay on the machine** — agent transcripts
+- **Six kinds of state deliberately stay on the machine** — agent transcripts
   (the sanitization boundary that lets session records travel at all), workspace
   settings (they describe one machine's disk), feature flags (per-device by
   design, so an experiment on one machine is not a change on both), the
   derived knowledge layer (regenerated on the second machine, not shipped to it),
-  and the branch snapshot cache (the index of a named commit plus whichever of
+  the branch snapshot cache (the index of a named commit plus whichever of
   its files have been read, refetched on the second machine rather than shipped
-  to it, and safe to delete).
+  to it, and safe to delete), and the dashboard's settled-fact caches (three
+  folders beside the per-user settings — `activity-cache` for the merged pull
+  requests, closed issues and per-pull-request detail a listing walk found,
+  `spend-cache` for Claude Code days and Copilot months that are over, and
+  `session-activity-cache` for what a pass over this machine's own transcripts
+  established; each is a copy of a provider's answer about something that cannot
+  change again, keyed per author, login, actor or file so a second identity
+  never reads the first's, refetched rather than shipped, and safe to delete —
+  and none of them may sit under the workspace root, because a per-machine
+  cache carried by a file-sync product is the hazard
+  `.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md` exists to
+  remove).
   The roadmap plan is on neither list, and since 2026-09-05 the reason is narrower
   than it was: it is a document row in `backlog.db` rather than a file beside it, so
   it no longer carries the database's file-sync hazard, and the row stamps

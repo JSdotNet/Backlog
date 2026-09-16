@@ -257,6 +257,137 @@ public class GitHubBillingClientTests
         Assert.Equal(4.0m, usage.NetAmount);
     }
 
+    // --- The month cache ------------------------------------------------------
+
+    /// <summary>Today, for these tests: the 20th of September. August ended more
+    /// than three days ago and is settled; September is still running.</summary>
+    private static readonly DateTimeOffset Today = new(2026, 9, 20, 9, 0, 0, TimeSpan.Zero);
+
+    [Fact]
+    public async Task A_settled_month_already_in_the_cache_is_not_fetched_again()
+    {
+        var months = new RememberingMonths();
+        months.Write("jsdotnet", 2026, 8, new GitHubAiCreditUsage(
+            [new GitHubAiCreditUsageItem("copilot", "sku", "gpt-5", "credit", 0.04m, 300, 12m, 200, 8m, 100, 4m)],
+            GitHubBillingScope.PersonalAccount));
+
+        var transport = new RoutingTransport().Returns("/ai_credit/usage", OneModel);
+
+        var usage = await Client(transport, months: months, now: Today)
+            .GetAiCreditUsageAsync(2026, 8, cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(4.0m, usage.NetAmount);
+        Assert.Equal(GitHubBillingScope.PersonalAccount, usage.Scope);
+        Assert.Equal(0, transport.CallsTo("/ai_credit/usage"));
+    }
+
+    [Fact]
+    public async Task A_settled_month_read_from_GitHub_is_remembered_for_next_time()
+    {
+        var months = new RememberingMonths();
+        var transport = new RoutingTransport().Returns("/ai_credit/usage", OneModel);
+
+        _ = await Client(transport, months: months, now: Today)
+            .GetAiCreditUsageAsync(2026, 8, cancellationToken: TestContext.Current.CancellationToken);
+
+        var remembered = months.TryRead("jsdotnet", 2026, 8);
+        Assert.NotNull(remembered);
+        Assert.Equal(4.0m, remembered.NetAmount);
+    }
+
+    /// <summary>
+    /// The month that is still running is asked for every time and never written,
+    /// however many times it is read: a figure that moves every hour must not be
+    /// frozen at whatever it had reached.
+    /// </summary>
+    [Fact]
+    public async Task The_running_month_is_fetched_every_time_and_never_remembered()
+    {
+        var months = new RememberingMonths();
+        var transport = new RoutingTransport().Returns("/ai_credit/usage", OneModel);
+        var client = Client(transport, months: months, now: Today);
+
+        _ = await client.GetAiCreditUsageAsync(2026, 9, cancellationToken: TestContext.Current.CancellationToken);
+        _ = await client.GetAiCreditUsageAsync(2026, 9, cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(2, transport.CallsTo("/ai_credit/usage"));
+        Assert.Null(months.TryRead("jsdotnet", 2026, 9));
+    }
+
+    /// <summary>The month just ended is not settled until GitHub has had a few days
+    /// to close it out: on the 2nd of September, August is still fetched.</summary>
+    [Fact]
+    public async Task The_month_just_ended_is_not_settled_until_the_grace_days_have_passed()
+    {
+        var months = new RememberingMonths();
+        var transport = new RoutingTransport().Returns("/ai_credit/usage", OneModel);
+
+        _ = await Client(transport, months: months, now: new DateTimeOffset(2026, 9, 2, 9, 0, 0, TimeSpan.Zero))
+            .GetAiCreditUsageAsync(2026, 8, cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, transport.CallsTo("/ai_credit/usage"));
+        Assert.Null(months.TryRead("jsdotnet", 2026, 8));
+    }
+
+    /// <summary>A single day of a settled month is a different report from the
+    /// month, and goes to GitHub rather than being answered with the month.</summary>
+    [Fact]
+    public async Task A_single_day_bypasses_the_month_cache()
+    {
+        var months = new RememberingMonths();
+        months.Write("jsdotnet", 2026, 8, GitHubAiCreditUsage.Empty);
+
+        var transport = new RoutingTransport().Returns("/ai_credit/usage", OneModel);
+
+        var usage = await Client(transport, months: months, now: Today)
+            .GetAiCreditUsageAsync(2026, 8, day: 12, cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(4.0m, usage.NetAmount);
+        Assert.Equal(1, transport.CallsTo("/ai_credit/usage"));
+    }
+
+    /// <summary>Per login: a second account's month is its own entry, and the
+    /// signed-in login's remembered month does not answer for it.</summary>
+    [Fact]
+    public async Task Each_login_has_its_own_remembered_month()
+    {
+        var months = new RememberingMonths();
+        months.Write("jsdotnet", 2026, 8, GitHubAiCreditUsage.Empty);
+
+        var transport = new RoutingTransport().Returns("users/j-schepers_innobv/", OneModel);
+        var settings = Settings("JSdotNet/Backlog", accounts: ["j-schepers_innobv"]);
+        var client = new GitHubBillingClient(transport, new StubIdentity("jsdotnet"), settings, months, new FixedClock(Today));
+
+        var usage = await client.GetAiCreditUsageAsync(2026, 8, cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(4.0m, usage.NetAmount);
+        Assert.Equal(1, transport.CallsTo("/ai_credit/usage"));
+        Assert.NotNull(months.TryRead("j-schepers_innobv", 2026, 8));
+    }
+
+    private static GitHubBillingClient Client(RoutingTransport transport, IAiCreditUsageCache months, DateTimeOffset now) =>
+        new(transport, new StubIdentity("jsdotnet"), Settings("JSdotNet/Backlog"), months, new FixedClock(now));
+
+    private sealed class FixedClock(DateTimeOffset now) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => now;
+    }
+
+    /// <summary>The month cache, in memory: what is pinned here is the client's use
+    /// of the port, and the disk is the file-system project's test.</summary>
+    private sealed class RememberingMonths : IAiCreditUsageCache
+    {
+        private readonly Dictionary<string, GitHubAiCreditUsage> _entries = [];
+
+        public GitHubAiCreditUsage? TryRead(string login, int year, int month) =>
+            _entries.GetValueOrDefault($"{login.ToLowerInvariant()}/{year}-{month}");
+
+        public void Write(string login, int year, int month, GitHubAiCreditUsage usage) =>
+            _entries[$"{login.ToLowerInvariant()}/{year}-{month}"] = usage;
+
+        public void Forget() => _entries.Clear();
+    }
+
     private static GitHubBillingClient Client(RoutingTransport transport, string? repositories = "JSdotNet/Backlog") =>
         new(transport, new StubIdentity("jsdotnet"), Settings(repositories));
 

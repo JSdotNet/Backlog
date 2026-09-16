@@ -59,6 +59,20 @@ public sealed class SettingsActivityCacheTests
         Assert.Equal("JSdotNet/Backlog", forgotten);
     }
 
+    /// <summary>One gesture, both caches. A listing kept after its detail was
+    /// forgotten would save only the cheaper half of the next fetch, and a person
+    /// who pressed "forget" would not know there was a second thing to forget.</summary>
+    [Fact]
+    public void ForgettingDropsTheListingWithTheDetail()
+    {
+        using var settings = RenderSettings();
+        OpenRepositoriesTab(settings.Component);
+
+        settings.Component.Find("[data-testid='repo-activity-cache-forget']").Click();
+
+        Assert.Equal(["JSdotNet/Backlog"], settings.Listings.Forgotten);
+    }
+
     [Fact]
     public void TheOtherRepositoryIsForgottenOnlyWhenItsOwnCardAsks()
     {
@@ -125,8 +139,24 @@ public sealed class SettingsActivityCacheTests
         context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(githubSettings, store));
         context.Services.AddSingleton(new DevbookSourceSelection(githubSettings, new StubBranchCatalog()));
         context.Services.AddSingleton<IPullRequestDetailCache>(cache);
+        var listings = new RecordingListingCache();
+        context.Services.AddSingleton<IActivityListingCache>(listings);
 
-        return new SettingsRenderContext(root, context, context.Render<Settings>(), cache);
+        return new SettingsRenderContext(root, context, context.Render<Settings>(), cache, listings);
+    }
+
+    /// <summary>The listing port beside the detail one, recording the same thing.</summary>
+    private sealed class RecordingListingCache : IActivityListingCache
+    {
+        public List<string> Forgotten { get; } = [];
+
+        public ActivityListing? TryRead(GitHubRepositoryRef repository, string author) => null;
+
+        public void Write(GitHubRepositoryRef repository, string author, ActivityListing listing)
+        {
+        }
+
+        public void ForgetRepository(GitHubRepositoryRef repository) => Forgotten.Add(repository.FullName);
     }
 
     /// <summary>The port, recording what it was asked to drop. What is being pinned
@@ -189,7 +219,8 @@ public sealed class SettingsActivityCacheTests
         string Root,
         BunitContext TestContext,
         IRenderedComponent<Settings> Component,
-        RecordingDetailCache Cache) : IDisposable
+        RecordingDetailCache Cache,
+        RecordingListingCache Listings) : IDisposable
     {
         public void Dispose()
         {
