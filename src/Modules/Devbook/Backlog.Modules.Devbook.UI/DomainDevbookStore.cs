@@ -4,14 +4,26 @@ using Backlog.Modules.Devbook.Abstractions;
 
 namespace Backlog.Desktop.UI.Devbook;
 
-public sealed class DomainDevbookStore
+public sealed class DomainDevbookStore : IDisposable
 {
     private readonly IDevbookFolderSource source;
+
+    /// <summary>Every document parsed so far, kept while its file stays as it
+    /// was — see <see cref="DevbookFileCache{T}"/>. The index already spares this
+    /// store the corpus on load; this spares it the same context's six files on
+    /// every return to the Domain tab, and the context map on every load.</summary>
+    private readonly DevbookFileCache<DomainDevbookDocument> _documents = new();
 
     public DomainDevbookStore(IDevbookFolderSource source)
     {
         this.source = source;
+        this.source.Changed += _documents.Clear;
     }
+
+    /// <summary>Lets go of the folder source. The store is a singleton and so is
+    /// the source, so nothing leaks in the app — but a host that tears its
+    /// container down, as the tests do, must find no handler left behind.</summary>
+    public void Dispose() => source.Changed -= _documents.Clear;
 
     private static readonly Regex Heading = new("^(#{1,6})[ \\t]+(.+?)\\s*$", RegexOptions.Compiled);
     private static readonly Regex Fence = new("^```(?<lang>[A-Za-z0-9_-]*)\\s*$", RegexOptions.Compiled);
@@ -42,21 +54,26 @@ public sealed class DomainDevbookStore
         var contextMapPath = Path.Combine(root, "context-map.md");
         if (!File.Exists(contextMapPath)) return DomainDevbookView.Unavailable($"Domain knowledge folder at {root} has no context-map.md.");
 
-        // The context map is what the panel opens on, so it is the one document
-        // worth reading up front. Everything else waits until a context is
-        // selected — see ReadContextsFromIndex.
-        var contextMap = ReadDocument(contextMapPath, root, DomainDevbookDocumentKind.ContextMap);
-        // Two readers of the same index, deliberately: DevbookReadingOrder
-        // answers "in what order?" for a scan that still opens every file, and
-        // is what .tech and .design also ask. This asks the fuller question —
-        // what is in the folder, and what does the index already know about it —
-        // so the files behind the answer never have to be opened at all. The
-        // scan is the fallback for a folder with no readable index.
-        var index = DevbookIndexDocument.TryRead(root);
-        var contexts = index is null
-            ? ReadContexts(root, DevbookReadingOrder.ForFolder(root))
-            : ReadContextsFromIndex(index, root);
-        return new DomainDevbookView(location.ScopeLabel ?? "storage", location.RootPath ?? root, root, null, contextMap, contexts, location.CanEdit);
+        // On the pool: the caller is a component whose continuation is the
+        // dispatcher, and in the desktop host that is the UI thread.
+        return await Task.Run(() =>
+        {
+            // The context map is what the panel opens on, so it is the one document
+            // worth reading up front. Everything else waits until a context is
+            // selected — see ReadContextsFromIndex.
+            var contextMap = ReadDocument(contextMapPath, root, DomainDevbookDocumentKind.ContextMap);
+            // Two readers of the same index, deliberately: DevbookReadingOrder
+            // answers "in what order?" for a scan that still opens every file, and
+            // is what .tech and .design also ask. This asks the fuller question —
+            // what is in the folder, and what does the index already know about it —
+            // so the files behind the answer never have to be opened at all. The
+            // scan is the fallback for a folder with no readable index.
+            var index = DevbookIndexDocument.TryRead(root);
+            var contexts = index is null
+                ? ReadContexts(root, DevbookReadingOrder.ForFolder(root))
+                : ReadContextsFromIndex(index, root);
+            return new DomainDevbookView(location.ScopeLabel ?? "storage", location.RootPath ?? root, root, null, contextMap, contexts, location.CanEdit);
+        }, cancellationToken).ConfigureAwait(false);
     }
 
     public Task UpdateStatusAsync(string? repositoryAlias, string itemPath, string status, CancellationToken cancellationToken = default)
@@ -110,7 +127,7 @@ public sealed class DomainDevbookStore
     /// ones actually touched.
     /// </para>
     /// </summary>
-    private static IReadOnlyList<DomainDevbookContext> ReadContextsFromIndex(DevbookIndexDocument index, string root)
+    private IReadOnlyList<DomainDevbookContext> ReadContextsFromIndex(DevbookIndexDocument index, string root)
     {
         var contexts = new List<DomainDevbookContext>();
 
@@ -138,13 +155,13 @@ public sealed class DomainDevbookStore
         return contexts;
     }
 
-    private static IReadOnlyList<DomainDevbookDocument> ReadIndexedDocuments(DevbookIndexDocument index, string root, IReadOnlyList<DevbookIndexEntry> files) =>
+    private IReadOnlyList<DomainDevbookDocument> ReadIndexedDocuments(DevbookIndexDocument index, string root, IReadOnlyList<DevbookIndexEntry> files) =>
         [.. files.Where(index.Exists).Select(file => ReadDocument(index.FullPath(file), root, KindFromFile(file.Name)))];
 
     private static string FirstNonEmpty(params string?[] candidates) =>
         candidates.FirstOrDefault(candidate => !string.IsNullOrWhiteSpace(candidate)) ?? string.Empty;
 
-    private static IReadOnlyList<DomainDevbookContext> ReadContexts(string root, IReadOnlyList<string> orderedSlugs)
+    private IReadOnlyList<DomainDevbookContext> ReadContexts(string root, IReadOnlyList<string> orderedSlugs)
     {
         var dirs = Directory.EnumerateDirectories(root)
             .Where(p => !Path.GetFileName(p).StartsWith('_')).Select(p => new { Slug = Path.GetFileName(p), Path = p })
@@ -153,7 +170,7 @@ public sealed class DomainDevbookStore
         return [.. orderedSlugs.Concat(dirs.Keys.Order(StringComparer.OrdinalIgnoreCase)).Distinct(StringComparer.OrdinalIgnoreCase).Where(dirs.ContainsKey).Select(slug => ReadContext(slug, dirs[slug], root))];
     }
 
-    private static DomainDevbookContext ReadContext(string slug, string path, string root)
+    private DomainDevbookContext ReadContext(string slug, string path, string root)
     {
         var docs = EnumerateContextDocuments(path).Select(p => ReadDocument(p, root, KindFromFile(Path.GetFileName(p)))).ToList();
         var domain = docs.FirstOrDefault(d => d.Kind == DomainDevbookDocumentKind.Domain) ?? docs.FirstOrDefault();
@@ -173,7 +190,10 @@ public sealed class DomainDevbookStore
             .ThenBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase)];
     }
 
-    private static DomainDevbookDocument ReadDocument(string path, string root, DomainDevbookDocumentKind kind)
+    private DomainDevbookDocument ReadDocument(string path, string root, DomainDevbookDocumentKind kind) =>
+        _documents.GetOrAdd(path, () => ParseDocument(path, root, kind));
+
+    private static DomainDevbookDocument ParseDocument(string path, string root, DomainDevbookDocumentKind kind)
     {
         var relative = ".domain/" + Path.GetRelativePath(root, path).Replace(Path.DirectorySeparatorChar, '/');
         var lines = File.ReadAllText(path).Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');

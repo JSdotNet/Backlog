@@ -16,8 +16,11 @@ public sealed class InstructionsDevbookPanelTests
         var component = harness.Context.Render<InstructionsDevbookPanel>(parameters => parameters
             .Add(parameter => parameter.RepositoryAlias, "backlog"));
 
-        Assert.Contains("Instructions", component.Markup, StringComparison.Ordinal);
-        Assert.NotEmpty(component.FindAll("[data-testid='instructions-document']"));
+        component.WaitForAssertion(() =>
+        {
+            Assert.Contains("Instructions", component.Markup, StringComparison.Ordinal);
+            Assert.NotEmpty(component.FindAll("[data-testid='instructions-document']"));
+        });
     }
 
     /// <summary>
@@ -253,6 +256,9 @@ public sealed class InstructionsDevbookPanelTests
         // Clicked on the render it was found in. The chapter behind the opening
         // file loads asynchronously, and a click issued across that render is
         // dispatched to a handler the tab strip no longer has.
+        // Discovery reads the clone on the thread pool now, so the strip is not
+        // there on the first render; wait for it before pressing.
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='instructions-reach-tab']")));
         await component.InvokeAsync(() => component.Find("[data-testid='instructions-reach-tab']").Click());
 
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='instructions-reach-view']")));
@@ -276,6 +282,9 @@ public sealed class InstructionsDevbookPanelTests
         var component = harness.Context.Render<InstructionsDevbookPanel>(parameters => parameters
             .Add(parameter => parameter.RepositoryAlias, "backlog"));
 
+        // Discovery reads the clone on the thread pool now, so the strip is not
+        // there on the first render; wait for it before pressing.
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='instructions-reach-tab']")));
         await component.InvokeAsync(() => component.Find("[data-testid='instructions-reach-tab']").Click());
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='instructions-reach-view']")));
 
@@ -319,6 +328,9 @@ public sealed class InstructionsDevbookPanelTests
         var component = harness.Context.Render<InstructionsDevbookPanel>(parameters => parameters
             .Add(parameter => parameter.RepositoryAlias, "backlog"));
 
+        // Discovery reads the clone on the thread pool now, so the strip is not
+        // there on the first render; wait for it before pressing.
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='instructions-reach-tab']")));
         await component.InvokeAsync(() => component.Find("[data-testid='instructions-reach-tab']").Click());
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='instructions-reach-view']")));
 
@@ -348,6 +360,9 @@ public sealed class InstructionsDevbookPanelTests
         var component = harness.Context.Render<InstructionsDevbookPanel>(parameters => parameters
             .Add(parameter => parameter.RepositoryAlias, "backlog"));
 
+        // Discovery reads the clone on the thread pool now, so the strip is not
+        // there on the first render; wait for it before pressing.
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='instructions-reach-tab']")));
         await component.InvokeAsync(() => component.Find("[data-testid='instructions-reach-tab']").Click());
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='instructions-reach-view']")));
 
@@ -377,6 +392,9 @@ public sealed class InstructionsDevbookPanelTests
         var component = harness.Context.Render<InstructionsDevbookPanel>(parameters => parameters
             .Add(parameter => parameter.RepositoryAlias, "backlog"));
 
+        // Discovery reads the clone on the thread pool now, so the strip is not
+        // there on the first render; wait for it before pressing.
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='instructions-reach-tab']")));
         await component.InvokeAsync(() => component.Find("[data-testid='instructions-reach-tab']").Click());
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='instructions-reach-view']")));
 
@@ -420,8 +438,11 @@ public sealed class InstructionsDevbookPanelTests
         var component = harness.Context.Render<InstructionsDevbookPanel>(parameters => parameters
             .Add(parameter => parameter.RepositoryAlias, "backlog"));
 
-        Assert.Single(component.FindAll("[data-testid='instructions-files-tab']"));
-        Assert.Single(component.FindAll("[data-testid='instructions-reach-tab']"));
+        component.WaitForAssertion(() =>
+        {
+            Assert.Single(component.FindAll("[data-testid='instructions-files-tab']"));
+            Assert.Single(component.FindAll("[data-testid='instructions-reach-tab']"));
+        });
         Assert.Empty(component.FindAll("[data-testid='instructions-reach-view']"));
     }
 
@@ -438,6 +459,9 @@ public sealed class InstructionsDevbookPanelTests
         var component = harness.Context.Render<InstructionsDevbookPanel>(parameters => parameters
             .Add(parameter => parameter.RepositoryAlias, "backlog"));
 
+        // Discovery reads the clone on the thread pool now, so the strip is not
+        // there on the first render; wait for it before pressing.
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='instructions-reach-tab']")));
         await component.InvokeAsync(() => component.Find("[data-testid='instructions-reach-tab']").Click());
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='instructions-reach-view']")));
 

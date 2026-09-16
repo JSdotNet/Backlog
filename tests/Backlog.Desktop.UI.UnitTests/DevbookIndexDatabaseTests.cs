@@ -144,6 +144,52 @@ public sealed class DevbookIndexDatabaseTests : IDisposable
     /// <paramref name="withDatabase"/> says otherwise — a database describing them,
     /// built from the writer's own DDL.
     /// </summary>
+    /// <summary>
+    /// One pane load asks for the same folder's index several times over — the
+    /// menu outline, then the area's store, then again on the next tab — so the
+    /// answer is remembered against the database file and re-read only when that
+    /// file changes. A rebuild is the one thing that changes it.
+    /// </summary>
+    [Fact]
+    public void The_index_is_read_once_until_the_database_changes()
+    {
+        var folder = Arrange();
+
+        var first = DevbookIndexDocument.TryRead(folder);
+        var second = DevbookIndexDocument.TryRead(folder);
+
+        Assert.NotNull(first);
+        Assert.Same(first, second);
+
+        // A rebuild, as far as the stamp can tell: the file grows. Grown by more
+        // than a page rather than by one small row, so the check is on the size
+        // and not on how finely the filesystem records a write time.
+        var databasePath = Path.Combine(_root, "_meta", "devbook.db");
+        // The reader's pooled connection would keep the write in the WAL file
+        // rather than the database itself; the generator never writes into a
+        // file a reader holds either — it renames a new one over it.
+        SqliteConnection.ClearAllPools();
+        using (var connection = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = databasePath }.ToString()))
+        {
+            connection.Open();
+            Execute(connection, $"""
+                INSERT INTO outline_entry (scope, parent_id, ordinal, type, name, path, title, status, kind, is_root)
+                VALUES ('{Scope}', 1, 2, 'file', 'model.md', '.domain/inbox/model.md', 'Model', 'draft', 'domain', 0)
+                """);
+            Execute(connection, $"""
+                INSERT INTO chapter (path, folder, slug, level, title, status, line, text, search_text, content_hash, source_hash, size, mtime)
+                VALUES ('.domain/inbox/model.md', 'domain', 'slug', 1, 'Model', 'draft', 1, '{new string('x', 20_000)}', 'text', 'aa', 'bb', 1, 1)
+                """);
+            SqliteConnection.ClearPool(connection);
+        }
+
+        var third = DevbookIndexDocument.TryRead(folder);
+
+        Assert.NotNull(third);
+        Assert.NotSame(first, third);
+        Assert.Equal([ChapterPath, SecondPath, ".domain/inbox/model.md"], third.Files.Select(entry => entry.Path));
+    }
+
     private string Arrange(bool withDatabase = true, int? schemaVersion = null)
     {
         var folder = Path.Combine(_root, Scope);

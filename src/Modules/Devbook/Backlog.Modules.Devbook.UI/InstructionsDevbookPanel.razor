@@ -217,10 +217,16 @@
     [Parameter]
     public EventCallback<DevbookChapterLink> OnNavigateToChapter { get; set; }
 
-    private InstructionRepositoryView? ActiveRepository =>
-        string.IsNullOrWhiteSpace(RepositoryAlias)
+    private InstructionRepositoryView? ActiveRepository => ActiveRepositoryIn(_repositories, RepositoryAlias);
+
+    /// <summary>The view for an alias out of a discovered list, or null for no
+    /// alias — instructions are a repository's, and the storage scope is not one.
+    /// Static so the discovery hop can ask it of the list it has just built,
+    /// before that list is the panel's.</summary>
+    private static InstructionRepositoryView? ActiveRepositoryIn(IReadOnlyList<InstructionRepositoryView> repositories, string? alias) =>
+        string.IsNullOrWhiteSpace(alias)
             ? null
-            : _repositories.FirstOrDefault(r => string.Equals(r.Repository.Alias, RepositoryAlias, StringComparison.Ordinal));
+            : repositories.FirstOrDefault(r => string.Equals(r.Repository.Alias, alias, StringComparison.Ordinal));
 
     private InstructionDocument? SelectedDocument => ResolveSelectedDocument();
 
@@ -291,18 +297,40 @@
         // folders and the root files, not the repository. A local folder needs
         // nothing and this answers at once. No scope means nothing to discover:
         // instructions are a repository's, and there is no repository.
-        if (string.IsNullOrWhiteSpace(RepositoryAlias))
+        var alias = RepositoryAlias;
+        if (string.IsNullOrWhiteSpace(alias))
         {
             _repositories = [];
+            _loadedRepositoryAlias = alias;
+            _tree = [];
+            _userContext = await Task.Run(() => UserContextSources.Read(null));
+            ReadTheFolder();
+            return;
         }
-        else
+
+        await Folders.PrepareContentAsync("instructions", alias, InstructionSourceDiscovery.BranchPaths);
+
+        // Only the repository on screen. This used to discover every configured
+        // repository and then read one of them, which walked every other clone
+        // on the machine for a panel that names a single alias — and it did so
+        // on the dispatcher, so the whole walk sat between the click and the
+        // paint. The reads are disk work with nothing of the component's in them,
+        // which is what makes a thread-pool hop safe here.
+        List<GitHubRepositoryRef> repositories =
+            [.. Repositories.Current.Repositories.Where(repository => string.Equals(repository.Alias, alias, StringComparison.Ordinal))];
+        var folders = Folders;
+
+        var (discovered, tree, userContext) = await Task.Run(() =>
         {
-            await Folders.PrepareContentAsync("instructions", RepositoryAlias, InstructionSourceDiscovery.BranchPaths);
-            _repositories = InstructionSources.Discover(Repositories.Current.Repositories, Folders);
-        }
-        _loadedRepositoryAlias = RepositoryAlias;
-        _tree = InstructionPathTree.Read(ActiveRepository?.LocalRoot);
-        _userContext = UserContextSources.Read(ActiveRepository?.LocalRoot);
+            var views = InstructionSources.Discover(repositories, folders);
+            var root = ActiveRepositoryIn(views, alias)?.LocalRoot;
+            return (views, InstructionPathTree.Read(root), UserContextSources.Read(root));
+        });
+
+        _repositories = discovered;
+        _loadedRepositoryAlias = alias;
+        _tree = tree;
+        _userContext = userContext;
         ReadTheFolder();
     }
 

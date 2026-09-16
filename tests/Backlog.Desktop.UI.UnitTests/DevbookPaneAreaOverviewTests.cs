@@ -159,7 +159,9 @@ public sealed class DevbookPaneAreaOverviewTests : IDisposable
         // header and the diagrams are in the chapter.
         Assert.Empty(component.FindAll("nav[aria-label='arc42 chapters']"));
         Assert.Empty(component.FindAll("[data-testid='arc42-chapter-option']"));
-        Assert.NotEmpty(component.FindAll(".devbook-menu__item"));
+        // The menu loads on its own, beside the panel, so the chapter can be on
+        // screen a beat before the rows are.
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".devbook-menu__item")));
     }
 
     /// <summary>Puts the pane on Design. Two sections are enabled so the section
