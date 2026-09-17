@@ -26,12 +26,15 @@
     group it was pointed at, Foundry account included. Never run it against a
     shared group; remove the sync resources by hand instead.
 
-    The sync tier needs one secret in the shell before it runs, in every mode:
-    SYNC_TOKEN_SIGNING_KEY, the base64 HMAC key (32 bytes or more) the sync service
-    signs device tokens with. azd reads it from the process environment when it
-    substitutes infra/sync/main.parameters.json. It is deliberately never passed to
-    `azd env set`, which would write it to .azure/<env>/.env on disk. Mint one as
-    docs/deployment/sync.md describes.
+    The sync tier needs one secret in the process environment before it runs, in
+    every mode: SYNC_TOKEN_SIGNING_KEY, the base64 HMAC key (32 bytes or more) the
+    sync service signs device tokens with. azd reads it from there when it
+    substitutes infra/sync/main.parameters.json. The script fills it in when the
+    shell does not: from the secret already on the deployed container app, so a
+    re-run keeps its key, or freshly minted on a first deploy. Set it in the
+    shell yourself only to rotate it. It is deliberately never passed to
+    `azd env set`, which would write it to .azure/<env>/.env on disk, and never
+    printed.
 
 .PARAMETER Component
     Which component to act on: foundry, sync, or all. Defaults to all.
@@ -164,34 +167,111 @@ interactively:
     Write-Host "Signed in as $($account.user) on '$($account.name)'." -ForegroundColor DarkGray
 }
 
-function Assert-SyncTokenSigningKey {
+function Assert-SyncTokenSigningKeyShape([string] $Key, [string] $Origin) {
     <#
         The same check the Deploy Sync workflow's first step makes, and the same
-        rule the service enforces on start: base64, at least 32 bytes decoded. It
-        runs before azd is touched so a missing key fails with its name rather
-        than as an azd prompt that would save whatever was typed into
-        .azure/<env>/.env. Only the shape is ever reported; the value is not.
+        rule the service enforces on start: base64, at least 32 bytes decoded.
+        Only the shape is ever reported; the value is not.
     #>
-    $key = $env:SYNC_TOKEN_SIGNING_KEY
-    if (-not $key) {
-        throw @"
-SYNC_TOKEN_SIGNING_KEY is not set in this shell. The sync service signs device
-tokens with it and refuses to start without one. Mint a key as described in
-docs/deployment/sync.md and set it for this session only:
-
-    `$env:SYNC_TOKEN_SIGNING_KEY = '<base64 key>'
-"@
-    }
-
     try {
-        $bytes = [Convert]::FromBase64String($key)
+        $bytes = [Convert]::FromBase64String($Key)
     }
     catch {
-        throw 'SYNC_TOKEN_SIGNING_KEY is not valid base64. Mint one as docs/deployment/sync.md describes.'
+        throw "SYNC_TOKEN_SIGNING_KEY ($Origin) is not valid base64. Mint one as docs/deployment/sync.md describes."
     }
 
     if ($bytes.Length -lt 32) {
-        throw "SYNC_TOKEN_SIGNING_KEY decodes to $($bytes.Length) bytes; the sync service requires at least 32. Mint one as docs/deployment/sync.md describes."
+        throw "SYNC_TOKEN_SIGNING_KEY ($Origin) decodes to $($bytes.Length) bytes; the sync service requires at least 32. Mint one as docs/deployment/sync.md describes."
+    }
+}
+
+function Get-DeployedSyncApp([string] $ResourceGroup, [string] $Subscription, [string] $Environment) {
+    <#
+        The container app the previous provision of this azd environment created,
+        found by the tags azd itself matches on, so it follows -SyncEnvironment
+        rather than a hard-coded name. Nothing deployed yet means $null.
+    #>
+    # Filtered here rather than in --query: the hyphenated tag keys need quoting
+    # inside the JMESPath, and that quoting does not survive the az.cmd shim.
+    $apps = az containerapp list `
+        --resource-group $ResourceGroup `
+        --subscription $Subscription `
+        --query '[].{name:name, tags:tags}' `
+        --only-show-errors `
+        --output json 2>$null
+    if ($LASTEXITCODE -ne 0 -or -not $apps) { return $null }
+
+    $names = @($apps | ConvertFrom-Json | Where-Object {
+            $_.tags -and $_.tags.'azd-env-name' -eq $Environment -and $_.tags.'azd-service-name' -eq 'sync'
+        } | ForEach-Object name)
+    if ($names.Count -eq 0) { return $null }
+    if ($names.Count -gt 1) {
+        throw "Resource group '$ResourceGroup' holds $($names.Count) sync container apps tagged for environment '$Environment' ($($names -join ', ')); expected one."
+    }
+    return $names[0]
+}
+
+function Resolve-SyncTokenSigningKey {
+    <#
+        Puts SYNC_TOKEN_SIGNING_KEY into the process environment, where azd reads
+        it when it substitutes infra/sync/main.parameters.json. It runs before azd
+        is touched so a bad key fails with its name rather than as an azd prompt
+        that would save whatever was typed into .azure/<env>/.env.
+
+        Three sources, in order:
+
+          1. The shell. Set it yourself to rotate, or to deploy a key you chose.
+          2. The deployed container app's own secret. A re-run of an existing
+             deployment keeps its key, so no device token is invalidated and
+             nothing has to be pasted between sessions.
+          3. Freshly minted, when nothing is deployed yet. The provision makes it
+             the app's secret; copy it from there into the GitHub environment
+             secret, or the next workflow run rotates it.
+
+        In every case the value lives in this process only. It is never printed,
+        never written to disk, and never passed to `azd env set`.
+    #>
+    if ($env:SYNC_TOKEN_SIGNING_KEY) {
+        Assert-SyncTokenSigningKeyShape -Key $env:SYNC_TOKEN_SIGNING_KEY -Origin 'from the shell'
+        Write-Host 'Using SYNC_TOKEN_SIGNING_KEY from the shell.' -ForegroundColor DarkGray
+        return
+    }
+
+    $app = Get-DeployedSyncApp -ResourceGroup $SyncResourceGroup -Subscription $SubscriptionId -Environment $SyncEnvironment
+    if ($app) {
+        # `az containerapp secret show` returns the value to a principal that can
+        # already write the app - the same trust as redeploying it with any key.
+        $key = az containerapp secret show `
+            --name $app `
+            --resource-group $SyncResourceGroup `
+            --subscription $SubscriptionId `
+            --secret-name 'sync-token-signing-key' `
+            --query value `
+            --only-show-errors `
+            --output tsv 2>$null
+        if ($LASTEXITCODE -ne 0 -or -not $key) {
+            throw @"
+SYNC_TOKEN_SIGNING_KEY is not set in this shell, and the deployed sync app '$app'
+did not return its 'sync-token-signing-key' secret. Either grant yourself write
+access to the app, or set the key for this session only:
+
+    `$env:SYNC_TOKEN_SIGNING_KEY = '<base64 key>'
+"@
+        }
+
+        Assert-SyncTokenSigningKeyShape -Key $key -Origin "read from container app '$app'"
+        $env:SYNC_TOKEN_SIGNING_KEY = $key
+        Write-Host "Using the signing key already deployed on container app '$app'." -ForegroundColor DarkGray
+        return
+    }
+
+    $bytes = [byte[]]::new(32)
+    [System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+    $env:SYNC_TOKEN_SIGNING_KEY = [Convert]::ToBase64String($bytes)
+    Write-Host "No sync app is deployed for environment '$SyncEnvironment' yet; minted a new signing key for this session." -ForegroundColor DarkGray
+    if ($Mode -eq 'deploy') {
+        Write-Host '  After the deploy, copy it into the GitHub secret SYNC_TOKEN_SIGNING_KEY (environment backlog-sync) with:' -ForegroundColor DarkGray
+        Write-Host "    az containerapp secret show --name <sync app> --resource-group $SyncResourceGroup --subscription $SubscriptionId --secret-name sync-token-signing-key --query value --output tsv" -ForegroundColor DarkGray
     }
 }
 
@@ -308,10 +388,10 @@ function Deploy-Sync {
     }
 
     Assert-Tool -Name 'azd' -Install 'winget install Microsoft.Azd'
+    Assert-ResourceGroup -Name $SyncResourceGroup -Subscription $SubscriptionId
     # Every mode, the preview included: azd resolves the parameter file before
     # it knows whether it is going to change anything.
-    Assert-SyncTokenSigningKey
-    Assert-ResourceGroup -Name $SyncResourceGroup -Subscription $SubscriptionId
+    Resolve-SyncTokenSigningKey
 
     Push-Location $repositoryRoot
     try {

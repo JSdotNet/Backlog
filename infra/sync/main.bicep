@@ -40,7 +40,7 @@ param taskTombstoneTtlSeconds int = 15552000
 @description('Seconds a session record survives in the sessions container. ADR 0005 fixes this at 12 months.')
 param sessionRetentionSeconds int = 31536000
 
-@description('Seconds an annotation tombstone survives in the annotations container. Local ADR 0011 keeps it at the task tombstone's 180 days.')
+@description('Seconds an annotation tombstone survives in the annotations container. Local ADR 0011 keeps it at the same 180 days as a task tombstone.')
 param annotationTombstoneTtlSeconds int = 15552000
 
 @description('Days Log Analytics keeps ingested telemetry. Application observability only — no domain data reaches this workspace.')
