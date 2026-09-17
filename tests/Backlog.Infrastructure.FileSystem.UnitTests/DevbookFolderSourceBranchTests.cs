@@ -288,9 +288,17 @@ public class DevbookFolderSourceBranchTests : IDisposable
         await source.PrepareListingAsync(".arc42", "backlog", TestContext.Current.CancellationToken);
 
         Assert.True(location.Available);
-        Assert.Equal(1, cache.Fetches);
+        // The re-check is registered before Resolve returns, so its presence
+        // can be asserted at once. Its first line runs on a pool thread the
+        // listing never waits for, so the fetch count cannot be: a runner slow
+        // to schedule that thread would read 0 here. Settle waits for it, and
+        // the gate has held the fetch open through the second listing, so 1
+        // after Settle still proves that listing started no fetch of its own.
+        Assert.NotNull(source.PendingFetch(settings.Current.Find("backlog")!));
 
         await Settle(source, settings, cache);
+
+        Assert.Equal(1, cache.Fetches);
     }
 
     /// <summary>The area, whole, and without the rendered diagram artifacts
