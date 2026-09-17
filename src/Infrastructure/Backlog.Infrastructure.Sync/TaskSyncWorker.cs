@@ -83,6 +83,14 @@ public sealed class TaskSyncWorker : IDisposable
     /// usable on screen or says too much - a path, a header, the shape of the
     /// service - so the detail goes to the log and the sentence goes here.
     /// </para>
+    /// <para>
+    /// Which presumes the host has a log. For a while the installed desktop
+    /// build did not - its only provider was compiled out of release - and a
+    /// second PC showed this sentence with nothing anywhere to say why. The
+    /// desktop head now writes a file (<c>AddFileLogging</c>), and the Settings
+    /// page points at it from beside this sentence; a new head that composes
+    /// these workers owes its person the same.
+    /// </para>
     /// </summary>
     public const string UnexpectedFailure = "The sync service could not be reached. Try again in a moment.";
 

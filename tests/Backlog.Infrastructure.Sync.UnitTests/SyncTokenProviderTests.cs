@@ -4,6 +4,8 @@ using System.Net;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
 
+using Polly.Timeout;
+
 namespace Backlog.Infrastructure.Sync.UnitTests;
 
 /// <summary>
@@ -91,6 +93,23 @@ public sealed class SyncTokenProviderTests
             (_, _) => throw new HttpRequestException("No route to host."));
 
         Assert.Null(await fixture.Provider.GetAccessTokenAsync(TestContext.Current.CancellationToken));
+    }
+
+    /// <summary>
+    /// A token request that hung until the host's resilience pipeline gave up
+    /// ends in Polly's exception rather than HttpClient's. It runs inside the
+    /// authentication handler of every other request, so left uncaught it would
+    /// take the whole sync cycle down with a sentence that names no cause.
+    /// </summary>
+    [Fact]
+    public async Task A_service_that_did_not_answer_in_time_yields_no_token_rather_than_an_exception()
+    {
+        using var fixture = Fixture.Create(
+            new InMemoryDeviceCredentialStore(Paired),
+            (_, _) => throw new TimeoutRejectedException("The operation didn't complete within the allowed timeout of '00:00:30'."));
+
+        Assert.Null(await fixture.Provider.GetAccessTokenAsync(TestContext.Current.CancellationToken));
+        Assert.False(fixture.Provider.CredentialRejected);
     }
 
     /// <summary>
