@@ -2,6 +2,9 @@ using System.Net;
 
 using Backlog.Modules.Sync.Abstractions;
 
+using Polly.CircuitBreaker;
+using Polly.Timeout;
+
 namespace Backlog.Infrastructure.Sync.UnitTests;
 
 /// <summary>
@@ -134,6 +137,39 @@ public sealed class DevicePairingClientTests
         Assert.True(result.IsFailure);
         Assert.Equal(DevicePairingClient.UnreachableCode, result.Error.Code);
         Assert.Null(store.Current);
+    }
+
+    /// <summary>
+    /// The resilience pipeline a host puts on the client does not fail with an
+    /// <see cref="HttpRequestException"/> when it gives up: a call that hung until
+    /// the total timeout ends in Polly's own exception, and a circuit held open
+    /// in another. Both are the service not answering, and both are results — the
+    /// alternative is the catch-all in every worker, which says nothing.
+    /// </summary>
+    [Fact]
+    public async Task A_service_that_did_not_answer_in_time_reports_itself_rather_than_throwing()
+    {
+        var store = new InMemoryDeviceCredentialStore();
+        using var fixture = Fixture.Create(store, (_, _) => throw new TimeoutRejectedException("The operation didn't complete within the allowed timeout of '00:00:30'."));
+
+        var result = await fixture.Client.RegisterAsync("Workshop PC", TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(DevicePairingClient.UnreachableCode, result.Error.Code);
+        Assert.Equal("The sync service did not answer in time.", result.Error.Message);
+    }
+
+    [Fact]
+    public async Task A_circuit_held_open_reports_itself_rather_than_throwing()
+    {
+        var store = new InMemoryDeviceCredentialStore();
+        using var fixture = Fixture.Create(store, (_, _) => throw new BrokenCircuitException("The circuit is now open and is not allowing calls."));
+
+        var result = await fixture.Client.RegisterAsync("Workshop PC", TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(DevicePairingClient.UnreachableCode, result.Error.Code);
+        Assert.StartsWith("The sync service could not be reached: ", result.Error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

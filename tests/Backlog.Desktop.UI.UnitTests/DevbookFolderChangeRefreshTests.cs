@@ -544,6 +544,7 @@ file sealed class DevbookWorkspace : IDisposable
         context.Services.AddSingleton(new DevbookCopilotCli(new UnavailableCopilotCliLauncher()));
         context.Services.AddSingleton<IGitFileHistoryService>(new StubGitFileHistory());
         context.Services.AddSingleton<DesignDevbookProvider>();
+        context.Services.AddSingleton<AiDevbookProvider>();
         context.Services.AddSingleton(sp => new DomainDevbookStore(sp.GetRequiredService<IDevbookFolderSource>()));
         context.Services.AddSingleton<Arc42DevbookStore>();
         context.Services.AddSingleton(new InstructionSourceDiscovery());

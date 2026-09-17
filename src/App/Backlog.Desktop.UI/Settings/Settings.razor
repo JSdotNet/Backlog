@@ -32,6 +32,7 @@
 @namespace Backlog.Desktop.UI.Shell
 @using System.Globalization
 @using Backlog.Infrastructure.FileSystem
+@using Backlog.Infrastructure.FileSystem.Logging
 @using Backlog.Infrastructure.Claude
 @using Backlog.SharedKernel
 @using Backlog.SharedKernel.Results
@@ -1806,6 +1807,10 @@
 
                         <p class="setting__note" data-testid="devices-sync-state-path">
                             How far this device has got is kept in <code>@_taskSync.StorePath</code>.
+                            @if (_logs is not null)
+                            {
+                                <text>A cycle that failed for a reason the sentence above does not give is written out in full under <code>@_logs.Directory</code>.</text>
+                            }
                         </p>
                     </section>
                 }
@@ -2294,6 +2299,7 @@
         _listingCache = Services.GetService<IActivityListingCache>();
         _taskSync = ResolveTaskSync();
         _backup = ResolveBackup();
+        _logs = Services.GetService<AppLogLocation>();
 
         // The loop outlives this screen, so what it did while nobody was here is
         // already on it - and what it does while somebody is here has to reach
@@ -3498,6 +3504,12 @@
     /// to read what the last one did.
     /// </para></summary>
     private TaskSyncWorker? _taskSync;
+
+    /// <summary>Where the desktop head writes its log file, so the Sync tasks
+    /// card can point at it: the worker's sentence for an unplanned failure
+    /// names no cause, and the file is where the cause went. Optional because
+    /// only a host that keeps a file registers it.</summary>
+    private AppLogLocation? _logs;
 
     /// <summary>Optional, like the two above and for the same reason: a test
     /// rendering this screen to ask about storage should not have to compose a

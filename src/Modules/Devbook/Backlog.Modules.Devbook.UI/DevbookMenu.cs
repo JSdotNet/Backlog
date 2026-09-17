@@ -249,6 +249,7 @@ public sealed class DevbookMenu(IDevbookFolderSource source)
         ".arc42" => "arc42",
         ".tech" => "tech",
         ".design" => "design",
+        ".ai" => "ai",
         "instructions" => "instructions",
         _ => folderKey.TrimStart('.').ToLowerInvariant()
     };
@@ -358,6 +359,15 @@ public sealed class DevbookMenu(IDevbookFolderSource source)
                 && string.Equals(node.Path, "context-map.md", StringComparison.OrdinalIgnoreCase))
             {
                 return "00-context-map.md";
+            }
+
+            // `.ai` declares no order: its root is the adoption map by convention
+            // and its stage files are numbered, so the map goes ahead of `01-` and
+            // `concepts.md` falls in after the flow on its own name.
+            if (string.Equals(areaKey, "ai", StringComparison.OrdinalIgnoreCase)
+                && string.Equals(node.Path, DocumentDevbookFolder.Ai.RootDocument, StringComparison.OrdinalIgnoreCase))
+            {
+                return "00-" + DocumentDevbookFolder.Ai.RootDocument;
             }
 
             if (string.Equals(areaKey, "arc42", StringComparison.OrdinalIgnoreCase))

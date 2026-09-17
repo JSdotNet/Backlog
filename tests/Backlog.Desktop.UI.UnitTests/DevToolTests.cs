@@ -620,6 +620,28 @@ public class ClaudeToolOutputTests
         Assert.Equal("1.0.0", Assert.Single(plugins).Value.Version);
     }
 
+    /// <summary>The listing repeats a plugin id once per scope it is installed
+    /// at — a user install and a dozen project installs, each with its own
+    /// pointer into the cache. The plugin list keeps one entry per id; this read
+    /// keeps every pointer, because a project still on last year's folder is the
+    /// one a delete must not reach.</summary>
+    [Fact]
+    public void Every_install_path_is_counted_across_scopes_and_separators()
+    {
+        var paths = DevToolOutput.ParseClaudePluginInstallPaths("""
+            [
+              { "id": "devbook@jsdotnet-devbook", "version": "1.0.1", "scope": "user", "installPath": "C:\\Users\\me\\.claude\\plugins\\cache\\jsdotnet-devbook\\devbook\\1.0.1" },
+              { "id": "devbook@jsdotnet-devbook", "version": "1.0.0", "scope": "project", "installPath": "C:\\Users\\me\\.claude\\plugins\\cache\\jsdotnet-devbook\\devbook\\1.0.0" },
+              { "id": "devbook@jsdotnet-devbook", "version": "1.0.0", "scope": "project", "installPath": "c:/users/me/.claude/plugins/cache/jsdotnet-devbook/devbook/1.0.0/" },
+              { "id": "qa@jsdotnet-ai-plugins", "version": "0.4.0" }
+            ]
+            """);
+
+        Assert.Equal(2, paths.Count);
+        Assert.Equal(1, paths[DevToolCache.NormalizePath(@"C:\Users\me\.claude\plugins\cache\jsdotnet-devbook\devbook\1.0.1")]);
+        Assert.Equal(2, paths[DevToolCache.NormalizePath(@"C:\Users\me\.claude\plugins\cache\jsdotnet-devbook\devbook\1.0.0")]);
+    }
+
     [Fact]
     public void Configured_marketplaces_are_read_by_name()
     {
@@ -2087,4 +2109,106 @@ public class DevToolVersionAuthorityTests
         Hosts = state.Host,
         HostStates = [state]
     };
+}
+
+/// <summary>
+/// Claude's plugin cache, read without one on disk: the folder layout an id
+/// maps to, and which of a plugin's version folders an install still points at.
+/// </summary>
+public class DevToolCacheTests
+{
+    [Fact]
+    public void A_plugin_id_names_its_folder_under_the_marketplace()
+    {
+        var directory = DevToolCache.PluginDirectory(@"C:\Users\me\.claude\plugins\cache", "devbook@jsdotnet-devbook");
+
+        Assert.Equal(Path.Combine(@"C:\Users\me\.claude\plugins\cache", "jsdotnet-devbook", "devbook"), directory);
+    }
+
+    /// <summary>An id is what a hand-edited catalog spelled. One half carrying a
+    /// separator would name a folder outside the plugin's own, and the delete
+    /// behind this is recursive.</summary>
+    [Theory]
+    [InlineData("devbook")]
+    [InlineData("@jsdotnet-devbook")]
+    [InlineData("devbook@")]
+    [InlineData("..@jsdotnet-devbook")]
+    [InlineData("devbook@../other")]
+    [InlineData("dev\\book@jsdotnet-devbook")]
+    public void An_id_that_does_not_name_one_folder_names_nothing(string pluginId)
+    {
+        Assert.Null(DevToolCache.PluginDirectory(@"C:\cache", pluginId));
+    }
+
+    [Theory]
+    [InlineData("1.0.0", true)]
+    [InlineData("0.12.0-beta", true)]
+    [InlineData("..", false)]
+    [InlineData(".", false)]
+    [InlineData("", false)]
+    [InlineData("1.0.0/..", false)]
+    [InlineData("..\\1.0.0", false)]
+    [InlineData(" 1.0.0", false)]
+    public void Only_a_plain_folder_name_is_a_version_to_delete(string version, bool expected)
+    {
+        Assert.Equal(expected, DevToolCache.IsPlainFolderName(version));
+    }
+
+    [Fact]
+    public void Versions_are_read_against_the_install_paths_oldest_first()
+    {
+        var installs = new Dictionary<string, int>
+        {
+            [DevToolCache.NormalizePath(@"C:\cache\jsdotnet-devbook\devbook\1.0.0")] = 17,
+            [DevToolCache.NormalizePath(@"C:\cache\jsdotnet-devbook\devbook\1.0.1")] = 1
+        };
+
+        var cached = DevToolCache.Describe(
+            [
+                @"C:\cache\jsdotnet-devbook\devbook\1.1.0",
+                @"C:\cache\jsdotnet-devbook\devbook\1.0.1",
+                @"C:\cache\jsdotnet-devbook\devbook\0.9.0",
+                @"C:\cache\jsdotnet-devbook\devbook\1.0.0"
+            ],
+            installs);
+
+        Assert.Equal(["0.9.0", "1.0.0", "1.0.1", "1.1.0"], cached.Select(version => version.Version));
+        Assert.Equal([0, 17, 1, 0], cached.Select(version => version.Installs));
+        Assert.Equal([false, true, true, false], cached.Select(version => version.InUse));
+        Assert.Equal(@"C:\cache\jsdotnet-devbook\devbook\1.1.0", cached[3].Path);
+    }
+
+    /// <summary>0.9.0 before 0.11.0: a folder name is a version, and ordinal
+    /// order would put the older one last.</summary>
+    [Fact]
+    public void Versions_order_numerically_not_ordinally()
+    {
+        var cached = DevToolCache.Describe([@"C:\c\p\0.11.0", @"C:\c\p\0.9.0"], new Dictionary<string, int>());
+
+        Assert.Equal(["0.9.0", "0.11.0"], cached.Select(version => version.Version));
+    }
+
+    [Fact]
+    public void A_path_compares_the_same_whichever_way_it_was_spelled()
+    {
+        Assert.Equal(
+            DevToolCache.NormalizePath(@"C:\Users\Me\.claude\plugins\cache\m\p\1.0.0"),
+            DevToolCache.NormalizePath("c:/users/me/.claude/plugins/cache/m/p/1.0.0/"));
+    }
+
+    [Fact]
+    public void Stale_versions_are_the_ones_nothing_points_at()
+    {
+        var tool = new DevToolInfo("plugin:devbook", DevToolKind.Plugin, "devbook", "source", true, true, "1.0.1", "1.0.1", "Configured plugin")
+        {
+            CachedVersions =
+            [
+                new DevToolCachedVersion("1.0.0", @"C:\c\1.0.0", Installs: 0),
+                new DevToolCachedVersion("1.0.1", @"C:\c\1.0.1", Installs: 1),
+                new DevToolCachedVersion("1.1.0", @"C:\c\1.1.0", Installs: 0)
+            ]
+        };
+
+        Assert.Equal(["1.0.0", "1.1.0"], tool.StaleCachedVersions.Select(version => version.Version));
+    }
 }

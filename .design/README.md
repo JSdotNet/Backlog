@@ -215,6 +215,8 @@ place even when nothing else is left inside it — the fence is what marks a
 heading as an addressable chapter for the index generator.
 
 The same reading applies in `.arc42` and `.domain`, and deliberately does not in
-`.tech` or `.backlog`: there the field is a position on an adoption ladder or a
-work state, every value is a claim the reader needs, and an absent one could not
-be told apart from `candidate` or from untracked. Those two keep it required.
+`.tech`, `.ai` or `.backlog`: there the field is a position on an adoption
+ladder or a work state, every value is a claim the reader needs, and an absent
+one could not be told apart from `candidate` or from untracked. Those three keep
+it required. `.ai` rates a way of working on the same five-word ladder `.tech`
+rates a technology on, so one adoption vocabulary reads in both folders.

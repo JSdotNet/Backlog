@@ -595,6 +595,7 @@ internal static class TechnologyDevbookReader
         "design" => "Design",
         "backlog" => "Backlog",
         "tech" => "Technology",
+        "ai" => "AI",
         null or "" => "External reference",
         _ => char.ToUpperInvariant(folder[0]) + folder[1..]
     };

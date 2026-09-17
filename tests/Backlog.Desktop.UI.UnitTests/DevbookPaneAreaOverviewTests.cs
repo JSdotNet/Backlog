@@ -92,9 +92,9 @@ public sealed class DevbookPaneAreaOverviewTests : IDisposable
         // Every file, not the first of them, and each subject carrying the status
         // its own fence states. That is the reading the folder is opened for, and
         // it is the one thing in this section the menu cannot give.
-        Assert.Equal(2, component.FindAll(".design-document").Count);
-        Assert.Equal(2, component.FindAll(".design-devbook__nav-link").Count);
-        Assert.NotEmpty(component.FindAll(".design-section .devbook-record__headline .badge--status"));
+        Assert.Equal(2, component.FindAll(".folder-document").Count);
+        Assert.Equal(2, component.FindAll(".folder-devbook__nav-link").Count);
+        Assert.NotEmpty(component.FindAll(".folder-section .devbook-record__headline .badge--status"));
         Assert.Empty(component.FindAll("[data-testid='design-chapter-file']"));
     }
 
@@ -217,6 +217,7 @@ public sealed class DevbookPaneAreaOverviewTests : IDisposable
         context.Services.AddSingleton<IAppFeatureSettings>(features);
         context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(gitHub, settings));
         context.Services.AddSingleton<DesignDevbookProvider>();
+        context.Services.AddSingleton<AiDevbookProvider>();
         context.Services.AddSingleton<Arc42DevbookStore>();
         context.Services.AddSingleton(new DevbookCopilotCli(new UnavailableCopilotCliLauncher()));
         context.Services.AddSingleton<DevbookChapterWriter>();

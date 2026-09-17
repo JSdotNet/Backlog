@@ -15,8 +15,8 @@ public static class DevbookFeatures
     /// <summary>Show the side pane for repository knowledge.</summary>
     public const string RepositoryDevbook = "repository-devbook";
 
-    /// <summary>Show the design, architecture, domain, technology and
-    /// instruction sections in the Devbook pane and header.</summary>
+    /// <summary>Show the design, architecture, domain, technology, AI adoption
+    /// and instruction sections in the Devbook pane and header.</summary>
     public const string DevbookSections = "devbook-sections";
 
     /// <summary>Draw a chapter diagram from its generated Archify artifact where

@@ -79,6 +79,11 @@
     <!-- The named "sync-token" client and the typed pairing client, plus the
          DelegatingHandler pipeline that keeps the two apart. -->
     <PackageReference Include="Microsoft.Extensions.Http" />
+    <!-- What the host's resilience pipeline throws when it gives up on a call —
+         a total timeout, an open circuit. SyncHttp turns those into results the
+         way it does HttpRequestException; without the types it cannot name them,
+         and they fall through to every worker's catch-all. -->
+    <PackageReference Include="Polly.Core" />
     <!-- DPAPI. The registration credential is a long-lived secret, so it is
          never written as plaintext next to the app's other settings; on Windows
          the OS ties the envelope to the signed-in user. -->

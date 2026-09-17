@@ -31,7 +31,7 @@ graph TD
 ```
 """);
 
-        var file = DesignDevbookParser.ParseFile(folder.Path, path);
+        var file = DocumentDevbookParser.ParseFile(folder.Path, path);
 
         Assert.Equal("Color scheme", file.Title);
         Assert.Equal("approved", file.Meta.Status);
@@ -48,8 +48,8 @@ graph TD
         var section = Assert.Single(file.Sections);
         Assert.Equal("Semantic colors", section.Heading);
         Assert.Equal("active", section.Meta.Status);
-        Assert.Contains(section.Blocks, block => block is DesignDevbookTable { IsTokenTable: true });
-        Assert.Contains(section.Blocks, block => block is DesignDevbookDiagram { Language: "mermaid" });
+        Assert.Contains(section.Blocks, block => block is DocumentDevbookTable { IsTokenTable: true });
+        Assert.Contains(section.Blocks, block => block is DocumentDevbookDiagram { Language: "mermaid" });
     }
 
     /// <summary>
@@ -70,7 +70,7 @@ graph TD
 The record is drawn against its subject.
 """);
 
-        var file = DesignDevbookParser.ParseFile(folder.Path, path);
+        var file = DocumentDevbookParser.ParseFile(folder.Path, path);
 
         Assert.Null(file.Meta.Status);
         Assert.Null(Assert.Single(file.Sections).Meta.Status);
@@ -93,11 +93,11 @@ Markdown remains canonical behind the rich text editor.
 - Drag and drop needs keyboard support.
 """);
 
-        var file = DesignDevbookParser.ParseFile(folder.Path, path);
+        var file = DocumentDevbookParser.ParseFile(folder.Path, path);
 
         Assert.Equal(["Canonical Markdown", "Keyboard equivalents"], file.Sections.Select(section => section.Heading));
-        Assert.IsType<DesignDevbookParagraph>(Assert.Single(file.Sections[0].Blocks));
-        Assert.IsType<DesignDevbookList>(Assert.Single(file.Sections[1].Blocks));
+        Assert.IsType<DocumentDevbookParagraph>(Assert.Single(file.Sections[0].Blocks));
+        Assert.IsType<DocumentDevbookList>(Assert.Single(file.Sections[1].Blocks));
     }
 
     // Two facts were here, both about reading order read off a `meta` fence:

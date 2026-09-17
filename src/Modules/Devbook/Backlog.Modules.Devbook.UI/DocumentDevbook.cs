@@ -10,31 +10,44 @@ using Backlog.Modules.Devbook.Abstractions;
 // each predating the shared pair — so an unqualified name here would silently
 // have resolved to the neighbour rather than to the library. `MetadataRecord`
 // and `MetadataReader` collide with nothing, so the aliases the collision needed
-// are gone. Design is still the first of the three readers to read a block
+// are gone. This is still the first of the three readers to read a block
 // through the library; moving the other two is their own change.
 using Backlog.UI.Components.Metadata;
 
 namespace Backlog.Desktop.UI.Devbook;
 
 /// <summary>
-/// Loads the repository's `.design` knowledge folder for the desktop wide-screen
-/// Devbook pane. The Markdown files remain canonical; this service only builds
-/// a read model for display.
+/// Loads one document-shaped devbook folder — see <see cref="DocumentDevbookFolder"/>
+/// — for the desktop wide-screen Devbook pane. The Markdown files remain
+/// canonical; this service only builds a read model for display.
+/// <para>
+/// Abstract, with one sealed subclass per folder, rather than one class
+/// registered twice: the view for a folder asks the container for that folder's
+/// provider by type, which is how a <c>@inject</c> names it, and a keyed
+/// registration would have moved the folder's name out of the type and into a
+/// string beside every injection. The subclasses carry nothing but the folder.
+/// </para>
 /// </summary>
-public sealed class DesignDevbookProvider : IDisposable
+public abstract class DocumentDevbookProvider : IDisposable
 {
     private readonly IDevbookFolderSource _source;
 
     /// <summary>Every file parsed so far, kept while it stays as it was on disk —
-    /// see <see cref="DevbookFileCache{T}"/>. The design view is disposed with its
-    /// tab and asks for the folder again on the way back.</summary>
-    private readonly DevbookFileCache<DesignDevbookFile> _files = new();
+    /// see <see cref="DevbookFileCache{T}"/>. The view is disposed with its tab
+    /// and asks for the folder again on the way back.</summary>
+    private readonly DevbookFileCache<DocumentDevbookFile> _files = new();
 
-    public DesignDevbookProvider(IDevbookFolderSource source)
+    protected DocumentDevbookProvider(IDevbookFolderSource source, DocumentDevbookFolder folder)
     {
+        ArgumentNullException.ThrowIfNull(folder);
         _source = source;
+        Folder = folder;
         _source.Changed += _files.Clear;
     }
+
+    /// <summary>Which folder this provider reads. The view takes everything it
+    /// says about the folder — its name, its vocabulary, its root — from here.</summary>
+    public DocumentDevbookFolder Folder { get; }
 
     /// <summary>Lets go of the folder source. The store is a singleton and so is
     /// the source, so nothing leaks in the app — but a host that tears its
@@ -49,37 +62,37 @@ public sealed class DesignDevbookProvider : IDisposable
         remove => _source.Changed -= value;
     }
 
-    public async Task<DesignDevbookModel> LoadAsync(string? repositoryAlias = null, CancellationToken cancellationToken = default)
+    public async Task<DocumentDevbookModel> LoadAsync(string? repositoryAlias = null, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
         // Prepared rather than resolved: the model parses every file in the
-        // folder, so a branch's design folder is fetched here, whole, once.
-        var location = await _source.PrepareContentAsync(".design", repositoryAlias, cancellationToken: cancellationToken).ConfigureAwait(false);
+        // folder, so a branch's folder is fetched here, whole, once.
+        var location = await _source.PrepareContentAsync(Folder.Key, repositoryAlias, cancellationToken: cancellationToken).ConfigureAwait(false);
         if (!location.Available || location.FullPath is null)
         {
-            return DesignDevbookModel.Unavailable(location.Message ?? "Design is unavailable.");
+            return DocumentDevbookModel.Unavailable(location.Message ?? $"{Folder.DisplayName} is unavailable.");
         }
 
         var folderPath = location.FullPath;
 
         // Off the dispatcher, which in the desktop host is the UI thread: the
         // parse is the whole folder, and it should not sit between a click on the
-        // Design tab and the pane painting its loading line.
+        // area's tab and the pane painting its loading line.
         var files = await Task.Run(
             () => Directory.EnumerateFiles(folderPath, "*.md", SearchOption.TopDirectoryOnly)
-                .Select(path => _files.GetOrAdd(path, () => DesignDevbookParser.ParseFile(folderPath, path)))
+                .Select(path => _files.GetOrAdd(path, () => DocumentDevbookParser.ParseFile(folderPath, path, Folder.AreaKey)))
                 .ToList(),
             cancellationToken).ConfigureAwait(false);
 
         if (files.Count == 0)
         {
-            return DesignDevbookModel.Unavailable(
-                $"No Markdown files were found in the Design knowledge folder at {folderPath}.");
+            return DocumentDevbookModel.Unavailable(
+                $"No Markdown files were found in the {Folder.DisplayName} knowledge folder at {folderPath}.");
         }
 
         files = OrderFiles(files, folderPath);
-        return DesignDevbookModel.Available(location.ScopeLabel ?? "storage", folderPath, files, location.CanEdit);
+        return DocumentDevbookModel.Available(location.ScopeLabel ?? "storage", folderPath, files, location.CanEdit);
     }
 
     /// <summary>
@@ -99,10 +112,10 @@ public sealed class DesignDevbookProvider : IDisposable
         if (string.IsNullOrWhiteSpace(itemPath)) throw new ArgumentException("Devbook item path is required.", nameof(itemPath));
         if (string.IsNullOrWhiteSpace(status)) throw new ArgumentException("Status is required.", nameof(status));
 
-        var location = _source.Resolve(".design", repositoryAlias);
-        var folderPath = location.WritablePath("Design");
+        var location = _source.Resolve(Folder.Key, repositoryAlias);
+        var folderPath = location.WritablePath(Folder.DisplayName);
 
-        DevbookMarkdownStatusWriter.UpdateStatus(folderPath, itemPath, ".design/", status);
+        DevbookMarkdownStatusWriter.UpdateStatus(folderPath, itemPath, Folder.PathPrefix, status);
         return Task.CompletedTask;
     }
 
@@ -110,7 +123,9 @@ public sealed class DesignDevbookProvider : IDisposable
     /// Remove the item's <c>status</c> field, leaving its <c>meta</c> fence and
     /// every other field intact. <c>.design</c> states a status only while a
     /// guideline is unsettled or superseded; a guideline that is simply current
-    /// says so by saying nothing.
+    /// says so by saying nothing. Offered for every folder this provider reads
+    /// and only ever reached in one whose vocabulary allows an absent status —
+    /// <c>.ai</c> requires one, and its record view offers no way to clear it.
     ///
     /// <para>A separate method rather than <see cref="UpdateStatusAsync"/> taking a
     /// null — see the same method on the domain store for why.</para>
@@ -120,31 +135,34 @@ public sealed class DesignDevbookProvider : IDisposable
         cancellationToken.ThrowIfCancellationRequested();
         if (string.IsNullOrWhiteSpace(itemPath)) throw new ArgumentException("Devbook item path is required.", nameof(itemPath));
 
-        var location = _source.Resolve(".design", repositoryAlias);
-        var folderPath = location.WritablePath("Design");
+        var location = _source.Resolve(Folder.Key, repositoryAlias);
+        var folderPath = location.WritablePath(Folder.DisplayName);
 
-        DevbookMarkdownStatusWriter.RemoveStatus(folderPath, itemPath, ".design/");
+        DevbookMarkdownStatusWriter.RemoveStatus(folderPath, itemPath, Folder.PathPrefix);
         return Task.CompletedTask;
     }
 
     /// <summary>
-    /// The folder in reading order: the README first, then the siblings in the
-    /// order the folder's committed <c>_meta/index.json</c> records, then anything
-    /// the index does not mention, alphabetically.
+    /// The folder in reading order: the root document first, then the siblings
+    /// in the order the folder's <c>_reading-order.json</c> records, then anything
+    /// it does not mention, alphabetically.
     ///
     /// <para>The order used to be read off the README's own <c>meta</c> fence. It
     /// is not metadata about a chapter — it is a directory listing — so it now
-    /// lives in the index that describes the directory, which is also the one
-    /// place the generator and the pane can agree on it.</para>
+    /// lives in the declaration that describes the directory, which is also the
+    /// one place the generator and the pane can agree on it. A folder that
+    /// declares nothing — <c>.ai</c>, whose stage files are numbered — gets its
+    /// root ahead of the alphabet and nothing else, which for numbered files is
+    /// the flow.</para>
     /// </summary>
-    private static List<DesignDevbookFile> OrderFiles(List<DesignDevbookFile> files, string folderPath)
+    private List<DocumentDevbookFile> OrderFiles(List<DocumentDevbookFile> files, string folderPath)
     {
         var byName = files.ToDictionary(f => f.FileName, StringComparer.OrdinalIgnoreCase);
-        var ordered = new List<DesignDevbookFile>();
+        var ordered = new List<DocumentDevbookFile>();
 
-        if (byName.TryGetValue("README.md", out var readme))
+        if (byName.TryGetValue(Folder.RootDocument, out var root))
         {
-            ordered.Add(readme);
+            ordered.Add(root);
             foreach (var fileName in DevbookReadingOrder.ForFolder(folderPath))
             {
                 if (byName.TryGetValue(fileName, out var file) && !ordered.Contains(file))
@@ -162,14 +180,30 @@ public sealed class DesignDevbookProvider : IDisposable
     }
 }
 
-public static class DesignDevbookParser
+/// <summary>
+/// The design folder's provider. Nothing but the folder; see the base class.
+/// </summary>
+public sealed class DesignDevbookProvider(IDevbookFolderSource source)
+    : DocumentDevbookProvider(source, DocumentDevbookFolder.Design);
+
+/// <summary>
+/// The AI adoption record's provider. Nothing but the folder; see the base class.
+/// </summary>
+public sealed class AiDevbookProvider(IDevbookFolderSource source)
+    : DocumentDevbookProvider(source, DocumentDevbookFolder.Ai);
+
+public static class DocumentDevbookParser
 {
     private static readonly Regex HeadingRegex = new(@"^(#{1,6})[ \t]+(.+)$", RegexOptions.Compiled);
     private static readonly Regex OrderedListRegex = new(@"^[ \t]*\d+[.)][ \t]+(.+)$", RegexOptions.Compiled);
     private static readonly Regex UnorderedListRegex = new(@"^[ \t]*[-*][ \t]+(.+)$", RegexOptions.Compiled);
     private static readonly Regex TableSeparatorRegex = new(@"^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$", RegexOptions.Compiled);
 
-    public static DesignDevbookFile ParseFile(string folderPath, string path)
+    /// <summary>
+    /// One file, parsed. <paramref name="areaKey"/> prefixes the anchors the
+    /// sections get, so two folders' overviews on one page never share an id.
+    /// </summary>
+    public static DocumentDevbookFile ParseFile(string folderPath, string path, string areaKey = "design")
     {
         var fileName = Path.GetFileName(path);
         var lines = File.ReadAllText(path).Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
@@ -193,7 +227,7 @@ public static class DesignDevbookParser
             index++;
         }
 
-        var sections = new List<DesignDevbookSection>();
+        var sections = new List<DocumentDevbookSection>();
         while (index < lines.Length)
         {
             if (!TryParseHeading(lines[index], out var sectionHeading) || sectionHeading.Level != 2)
@@ -213,14 +247,14 @@ public static class DesignDevbookParser
             }
 
             var blocks = ParseBlocks(lines[bodyStart..index]);
-            sections.Add(new DesignDevbookSection(
+            sections.Add(new DocumentDevbookSection(
                 sectionHeading.Text,
-                AnchorFor(fileName, sectionHeading.Text),
+                AnchorFor(areaKey, fileName, sectionHeading.Text),
                 sectionMeta,
                 blocks));
         }
 
-        return new DesignDevbookFile(
+        return new DocumentDevbookFile(
             fileName,
             title,
             string.Join(' ', summaryLines).Trim(),
@@ -228,16 +262,16 @@ public static class DesignDevbookParser
             sections);
     }
 
-    private static IReadOnlyList<DesignDevbookBlock> ParseBlocks(string[] lines)
+    private static IReadOnlyList<DocumentDevbookBlock> ParseBlocks(string[] lines)
     {
-        var blocks = new List<DesignDevbookBlock>();
+        var blocks = new List<DocumentDevbookBlock>();
         var paragraph = new List<string>();
         var index = 0;
 
         void FlushParagraph()
         {
             if (paragraph.Count == 0) return;
-            blocks.Add(new DesignDevbookParagraph(MarkdownPreview.ParseInlines(string.Join(" ", paragraph))));
+            blocks.Add(new DocumentDevbookParagraph(MarkdownPreview.ParseInlines(string.Join(" ", paragraph))));
             paragraph.Clear();
         }
 
@@ -271,8 +305,8 @@ public static class DesignDevbookParser
 
                 var source = string.Join('\n', code).TrimEnd();
                 blocks.Add(IsDiagramLanguage(language)
-                    ? new DesignDevbookDiagram(language, source)
-                    : new DesignDevbookCode(language, source));
+                    ? new DocumentDevbookDiagram(language, source)
+                    : new DocumentDevbookCode(language, source));
                 continue;
             }
 
@@ -293,7 +327,7 @@ public static class DesignDevbookParser
             if (TryParseHeading(line, out var heading) && heading.Level >= 3)
             {
                 FlushParagraph();
-                blocks.Add(new DesignDevbookSubheading(heading.Level, heading.Text));
+                blocks.Add(new DocumentDevbookSubheading(heading.Level, heading.Text));
                 index++;
                 continue;
             }
@@ -301,7 +335,7 @@ public static class DesignDevbookParser
             if (trimmed.StartsWith("> ", StringComparison.Ordinal))
             {
                 FlushParagraph();
-                blocks.Add(new DesignDevbookQuote(MarkdownPreview.ParseInlines(trimmed[2..])));
+                blocks.Add(new DocumentDevbookQuote(MarkdownPreview.ParseInlines(trimmed[2..])));
                 index++;
                 continue;
             }
@@ -309,7 +343,7 @@ public static class DesignDevbookParser
             if (trimmed is "---" or "***" or "___")
             {
                 FlushParagraph();
-                blocks.Add(new DesignDevbookDivider());
+                blocks.Add(new DocumentDevbookDivider());
                 index++;
                 continue;
             }
@@ -329,9 +363,9 @@ public static class DesignDevbookParser
         return blocks;
     }
 
-    private static bool TryParseList(string[] lines, ref int index, out DesignDevbookList list)
+    private static bool TryParseList(string[] lines, ref int index, out DocumentDevbookList list)
     {
-        list = new DesignDevbookList(false, []);
+        list = new DocumentDevbookList(false, []);
         var ordered = OrderedListRegex.Match(lines[index]).Success;
         var unordered = UnorderedListRegex.Match(lines[index]).Success;
         if (!ordered && !unordered) return false;
@@ -346,16 +380,16 @@ public static class DesignDevbookParser
             index++;
         }
 
-        list = new DesignDevbookList(ordered, items);
+        list = new DocumentDevbookList(ordered, items);
         return true;
     }
 
-    private static DesignDevbookTable ParseTable(List<string> tableLines)
+    private static DocumentDevbookTable ParseTable(List<string> tableLines)
     {
         var headers = SplitTableRow(tableLines[0]);
         var rows = tableLines.Skip(2).Select(SplitTableRow).Where(row => row.Count > 0).ToList();
         var isTokenTable = headers.Any(h => string.Equals(h, "Token", StringComparison.OrdinalIgnoreCase));
-        return new DesignDevbookTable(headers, rows, isTokenTable);
+        return new DocumentDevbookTable(headers, rows, isTokenTable);
     }
 
     private static List<string> SplitTableRow(string line)
@@ -427,41 +461,41 @@ public static class DesignDevbookParser
         return true;
     }
 
-    private static string AnchorFor(string fileName, string heading)
+    private static string AnchorFor(string areaKey, string fileName, string heading)
     {
         var slug = Regex.Replace(heading.ToLowerInvariant(), @"[^a-z0-9\s-]", string.Empty);
         slug = Regex.Replace(slug, @"\s+", "-").Trim('-');
-        return $"design-{Path.GetFileNameWithoutExtension(fileName).ToLowerInvariant()}-{slug}";
+        return $"{areaKey}-{Path.GetFileNameWithoutExtension(fileName).ToLowerInvariant()}-{slug}";
     }
 
     private readonly record struct ParsedHeading(int Level, string Text);
 }
 
-public sealed record DesignDevbookModel(
+public sealed record DocumentDevbookModel(
     bool IsAvailable,
     string? RepositoryName,
     string? FolderPath,
-    IReadOnlyList<DesignDevbookFile> Files,
+    IReadOnlyList<DocumentDevbookFile> Files,
     string Message,
     bool CanEdit = true)
 {
-    public static DesignDevbookModel Available(
+    public static DocumentDevbookModel Available(
         string repositoryName,
         string folderPath,
-        IReadOnlyList<DesignDevbookFile> files,
+        IReadOnlyList<DocumentDevbookFile> files,
         bool canEdit = true) =>
         new(true, repositoryName, folderPath, files, string.Empty, canEdit);
 
-    public static DesignDevbookModel Unavailable(string message) =>
+    public static DocumentDevbookModel Unavailable(string message) =>
         new(false, null, null, [], message);
 }
 
-public sealed record DesignDevbookFile(
+public sealed record DocumentDevbookFile(
     string FileName,
     string Title,
     string Summary,
     MetadataRecord Meta,
-    IReadOnlyList<DesignDevbookSection> Sections)
+    IReadOnlyList<DocumentDevbookSection> Sections)
 {
     // ReadingOrder was here, read off this file's own `meta` fence. It existed for
     // one round: the shared record had dropped `order` and the fences still carried
@@ -470,38 +504,38 @@ public sealed record DesignDevbookFile(
     // better home for a directory listing than a chapter's metadata, so the parse
     // has nothing left to read and `DevbookReadingOrder.ForFolder` answers instead.
 
-    public IEnumerable<DesignDevbookTable> TokenTables =>
-        Sections.SelectMany(section => section.Blocks.OfType<DesignDevbookTable>()).Where(table => table.IsTokenTable);
+    public IEnumerable<DocumentDevbookTable> TokenTables =>
+        Sections.SelectMany(section => section.Blocks.OfType<DocumentDevbookTable>()).Where(table => table.IsTokenTable);
 }
 
-public sealed record DesignDevbookSection(
+public sealed record DocumentDevbookSection(
     string Heading,
     string Anchor,
     MetadataRecord Meta,
-    IReadOnlyList<DesignDevbookBlock> Blocks);
+    IReadOnlyList<DocumentDevbookBlock> Blocks);
 
-// DesignDevbookMeta was here: a second reader for the `meta` fence, keeping a
+// DocumentDevbookMeta was here: a second reader for the `meta` fence, keeping a
 // flat dictionary of strings and answering "unknown" for a status no file had
 // stated. Both were visible to the reader — `related` reached the pane as raw
 // paths because nothing had parsed them into references, and a chapter that said
 // nothing was labelled with a word the folder does not define. The shared
 // MetadataRecord is the one record now.
 
-public abstract record DesignDevbookBlock;
+public abstract record DocumentDevbookBlock;
 
-public sealed record DesignDevbookSubheading(int Level, string Text) : DesignDevbookBlock;
+public sealed record DocumentDevbookSubheading(int Level, string Text) : DocumentDevbookBlock;
 
-public sealed record DesignDevbookParagraph(IReadOnlyList<MdInline> Content) : DesignDevbookBlock;
+public sealed record DocumentDevbookParagraph(IReadOnlyList<MdInline> Content) : DocumentDevbookBlock;
 
-public sealed record DesignDevbookList(bool Ordered, IReadOnlyList<IReadOnlyList<MdInline>> Items) : DesignDevbookBlock;
+public sealed record DocumentDevbookList(bool Ordered, IReadOnlyList<IReadOnlyList<MdInline>> Items) : DocumentDevbookBlock;
 
-public sealed record DesignDevbookTable(IReadOnlyList<string> Headers, IReadOnlyList<IReadOnlyList<string>> Rows, bool IsTokenTable) : DesignDevbookBlock;
+public sealed record DocumentDevbookTable(IReadOnlyList<string> Headers, IReadOnlyList<IReadOnlyList<string>> Rows, bool IsTokenTable) : DocumentDevbookBlock;
 
-public sealed record DesignDevbookQuote(IReadOnlyList<MdInline> Content) : DesignDevbookBlock;
+public sealed record DocumentDevbookQuote(IReadOnlyList<MdInline> Content) : DocumentDevbookBlock;
 
-public sealed record DesignDevbookCode(string Language, string Text) : DesignDevbookBlock;
+public sealed record DocumentDevbookCode(string Language, string Text) : DocumentDevbookBlock;
 
-public sealed record DesignDevbookDiagram(string Language, string Source) : DesignDevbookBlock;
+public sealed record DocumentDevbookDiagram(string Language, string Source) : DocumentDevbookBlock;
 
-public sealed record DesignDevbookDivider : DesignDevbookBlock;
+public sealed record DocumentDevbookDivider : DocumentDevbookBlock;
 

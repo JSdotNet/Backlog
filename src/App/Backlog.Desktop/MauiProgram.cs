@@ -21,6 +21,7 @@ using Backlog.Modules.Capture.Abstractions.Services;
 using Backlog.Modules.Capture.Extensions;
 using Backlog.Infrastructure.FileSystem.Dashboard;
 using Backlog.Infrastructure.FileSystem.Inbox;
+using Backlog.Infrastructure.FileSystem.Logging;
 using Backlog.Infrastructure.FileSystem.Roadmap;
 using Backlog.Infrastructure.Sqlite.Inbox;
 using Backlog.Infrastructure.Sqlite.Roadmap;
@@ -69,6 +70,19 @@ public static class MauiProgram
 
         builder.Services.AddMauiBlazorWebView();
         builder.AddServiceDefaults();
+        // The one log sink an installed build has. The sync and backup workers
+        // catch whatever a cycle throws, put one sentence on screen and write the
+        // exception to the log - and until this line the installed app had no
+        // log, only the Debug provider below, which is compiled out of it. A
+        // second PC reporting "could not be reached, try again in a moment" with
+        // nothing anywhere to say why is what this fixes. Under the workspace's
+        // own app-data folder - Backlog.Debug for a debug head, Backlog for the
+        // installed one - so a checkout run beside the installed app never writes
+        // into its file; the Settings page says where.
+        builder.Logging.AddFileLogging(Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            WorkspaceSettingsStore.DefaultAppDataFolderName,
+            "logs"));
         // The workspace settings file, and the two module ports the adapters
         // over it answer. The knowledge resolver is what both ports share, so
         // neither context has to see the other's settings.
@@ -352,6 +366,7 @@ public static class MauiProgram
         // the footer's dialog to open through it.
         builder.Services.AddSingleton<FeedbackReportChannel>();
         builder.Services.AddSingleton<DesignDevbookProvider>();
+        builder.Services.AddSingleton<AiDevbookProvider>();
         builder.Services.AddSingleton<TechnologyDevbookService>();
         builder.Services.AddSingleton<DevbookAtlasService>();
         // Retrieval, both tiers. Adapters over the generated database rather than
