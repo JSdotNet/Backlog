@@ -5508,7 +5508,7 @@ h1, h2, h3 {
 
 .devbook-stack__header,
 .devbook-stack__section > .devbook-pane,
-.devbook-stack__section > .design-devbook,
+.devbook-stack__section > .folder-devbook,
 .devbook-stack__section > .domain-devbook {
     border: var(--border-width) solid var(--color-border);
     border-radius: var(--border-radius-lg);
@@ -5528,7 +5528,7 @@ h1, h2, h3 {
 }
 
 .devbook-stack__nav,
-.design-devbook__nav,
+.folder-devbook__nav,
 .domain-devbook__contexts,
 .devbook-chapters {
     display: flex;
@@ -5575,7 +5575,7 @@ h1, h2, h3 {
 
 .devbook-stack__nav a,
 .devbook-stack__nav-item,
-.design-devbook__nav-link,
+.folder-devbook__nav-link,
 .domain-context-tab,
 .devbook-chapter {
     display: inline-flex;
@@ -5598,8 +5598,8 @@ h1, h2, h3 {
 .devbook-stack__nav-item:hover,
 .devbook-stack__nav-item:focus-visible,
 .devbook-stack__nav-item--active,
-.design-devbook__nav-link:hover,
-.design-devbook__nav-link:focus-visible,
+.folder-devbook__nav-link:hover,
+.folder-devbook__nav-link:focus-visible,
 .domain-context-tab:hover,
 .domain-context-tab:focus-visible,
 .domain-context-tab[aria-pressed="true"],
@@ -5611,7 +5611,7 @@ h1, h2, h3 {
 }
 
 .devbook-stack__section > .devbook-pane,
-.devbook-stack__section > .design-devbook,
+.devbook-stack__section > .folder-devbook,
 .devbook-stack__section > .domain-devbook {
     position: static;
     max-height: none;
@@ -5621,7 +5621,7 @@ h1, h2, h3 {
 
 .devbook-stack__section > .devbook-pane--arc42,
 .devbook-stack__section > .instructions-devbook,
-.devbook-stack__section > .design-devbook--chapter,
+.devbook-stack__section > .folder-devbook--chapter,
 .devbook-stack__section > .domain-devbook {
     display: flex;
     flex-direction: column;
@@ -5630,14 +5630,19 @@ h1, h2, h3 {
     overflow: hidden;
 }
 
-/* A selected design chapter is a file, and a file scrolls in the file view. The
+/* The `folder-*` family is the document-folder view — one view for `.design`
+   and `.ai`, told which folder it is drawing — so nothing below names a folder;
+   the token strip is the exception and keeps its `design-` prefix because only a
+   design file writes a Token table.
+
+   A selected chapter is a file, and a file scrolls in the file view. The
    pane stops at the section's height and every wrapper between it and the file
    view stops growing, so the one scrollbar left on that edge is the body's own.
    Only for a chapter: the folder overview is a stack of documents with no file
    view under it, and capping that would clip the folder against a height nobody
    would be able to scroll. */
-.design-devbook--chapter .design-devbook__documents,
-.design-devbook--chapter .design-document {
+.folder-devbook--chapter .folder-devbook__documents,
+.folder-devbook--chapter .folder-document {
     display: flex;
     flex: 1 1 auto;
     flex-direction: column;
@@ -5650,7 +5655,7 @@ h1, h2, h3 {
    asks for when it is the only child, and next to a sibling it is a request for
    more room than there is — which the column then answers by squeezing the file
    to nothing. */
-.design-devbook--chapter .file-view--fill {
+.folder-devbook--chapter .file-view--fill {
     flex: 1 1 auto;
     min-height: 12rem;
     height: auto;
@@ -5877,10 +5882,10 @@ h1, h2, h3 {
         max-height: none;
     }
 }
-.design-devbook,
-.design-devbook__documents,
-.design-document,
-.design-section,
+.folder-devbook,
+.folder-devbook__documents,
+.folder-document,
+.folder-section,
 .domain-devbook,
 .domain-context,
 .domain-context__documents,
@@ -5892,7 +5897,7 @@ h1, h2, h3 {
     gap: var(--spacing-md);
 }
 
-/* The design overview renders its documents' blocks straight into the page, and
+/* The folder overview renders its documents' blocks straight into the page, and
    is the one knowledge view that does: every other one puts the file through the
    file view, whose body is a scroll box and so is never wider than the pane it is
    in. Without one of its own, the widest thing in a `.design` file sets the width
@@ -5903,13 +5908,13 @@ h1, h2, h3 {
    same content one level down; the tracks are told they may shrink, because a
    grid track floors at its content's minimum otherwise and the scroll box would
    never get the chance. */
-.design-devbook__documents,
-.design-document,
-.design-section {
+.folder-devbook__documents,
+.folder-document,
+.folder-section {
     grid-template-columns: minmax(0, 1fr);
 }
 
-.design-section {
+.folder-section {
     overflow-x: auto;
 }
 
@@ -5924,7 +5929,7 @@ h1, h2, h3 {
     overflow-wrap: anywhere;
 }
 
-.design-section__header,
+.folder-section__header,
 .domain-context__header,
 .domain-document__header,
 .domain-section__header,
@@ -5936,14 +5941,14 @@ h1, h2, h3 {
     gap: var(--spacing-md);
 }
 
-/* The design document header stacks instead of splitting. It holds the file's
+/* The folder view's document header stacks instead of splitting. It holds the file's
    path and then the file's own metadata record, and the record already draws the
    name with the status held to the right edge of its line — the split this
    header used to make is now made one level down, inside
    `.devbook-record__headline`, where the two things sharing the line share a
    parent. Laid out as two rows so the path stays the eyebrow above the name it
    has always been. */
-.design-document__header {
+.folder-document__header {
     display: grid;
     gap: var(--spacing-2xs);
 }
@@ -5955,7 +5960,7 @@ h1, h2, h3 {
    left. They stay where the reader has always found them. A header that still
    names its document has two children and is untouched.
 
-   Domain is the last one that needs this. The design pane's header renders only
+   Domain is the last one that needs this. The folder view's header renders only
    when it names the file, so it never has a lone child; and the arc42 pane no
    longer has a document header at all, having given the state and the relation
    count to the file view along with everything else it used to draw above it. */
@@ -5966,10 +5971,10 @@ h1, h2, h3 {
 /* A heading handed to a knowledge record arrives with the block margins it has
    as a block of its own, and left alone they push the status off the line the
    record exists to share. The shared stylesheet resets the markdown heading the
-   file view hands over; these are the design pane's own `h3` and `h4`. */
-.design-document__header h3,
-.design-section__header h4,
-.design-section__record h4,
+   file view hands over; these are the folder view's own `h3` and `h4`. */
+.folder-document__header h3,
+.folder-section__header h4,
+.folder-section__record h4,
 .domain-context__header h3,
 .domain-document__header h3,
 .domain-section__header h4 {
@@ -6072,7 +6077,7 @@ h1, h2, h3 {
    chapter's path to the file view's own header, which sets it as a path rather
    than as an eyebrow — monospaced and right-aligned, because a reader checks one
    segment of a path instead of reading it. Nothing renders the class now. */
-.design-document__file,
+.folder-document__file,
 .domain-devbook__eyebrow {
     margin: 0 0 var(--spacing-xs);
     color: var(--color-primary-light);
@@ -6082,7 +6087,7 @@ h1, h2, h3 {
     text-transform: uppercase;
 }
 
-/* .design-devbook__source and .design-document__summary were here until the
+/* .folder-devbook__source and .folder-document__summary were here until the
    design pane stopped introducing itself: the first printed an absolute folder
    path above the document, and the second reprinted the file's opening sentences
    just above the file. Nothing renders either class now. */
@@ -6103,7 +6108,7 @@ h1, h2, h3 {
    container the Devbook stack sizes and the anchor the Devbook menu jumps to
    — but it always holds a file view now, so a card here is a card around a card. */
 .design-token,
-.design-section,
+.folder-section,
 .domain-document,
 .tech-node {
     padding: var(--spacing-md);

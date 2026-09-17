@@ -77,7 +77,7 @@ public sealed class DevbookStackLayoutTests
     {
         var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
 
-        var cardRuleStart = css.IndexOf(".design-token,\n.design-section,\n.domain-document,\n", StringComparison.Ordinal);
+        var cardRuleStart = css.IndexOf(".design-token,\n.folder-section,\n.domain-document,\n", StringComparison.Ordinal);
         Assert.True(cardRuleStart >= 0, "The knowledge card rule should still exist for the documents that are lists of files rather than one file.");
 
         var cardRuleEnd = css.IndexOf("}\n", cardRuleStart, StringComparison.Ordinal);

@@ -85,6 +85,7 @@ public sealed class HomeDevbookPaneTests
                 TasksTestHost.EntriesFor(sp.GetRequiredService<WorkspaceSettingsStore>()),
                 () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
         context.Services.AddSingleton<DesignDevbookProvider>();
+        context.Services.AddSingleton<AiDevbookProvider>();
         context.Services.AddSingleton<TechnologyDevbookService>();
         context.Services.AddSingleton<InstructionSourceDiscovery>();
         context.Services.AddSingleton<DevbookMenu>();

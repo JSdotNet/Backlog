@@ -348,10 +348,11 @@
     /// The row that opens a whole knowledge folder at once, above the chapters —
     /// or nothing, for an area whose panel has no such reading.
     /// <para>
-    /// Only <c>.design</c>. Its panel draws every file of the folder stacked, each
-    /// subject's status beside its own heading, and that is the reading a design
-    /// folder is opened as a folder for; the other areas draw one chapter, and a
-    /// row promising a folder view they do not have would go nowhere. The Domain
+    /// Only the document-shaped folders, <c>.design</c> and <c>.ai</c>. Their
+    /// panel draws every file of the folder stacked, each subject's status beside
+    /// its own heading, and that is the reading such a folder is opened as a
+    /// folder for; the other areas draw one chapter, and a row promising a folder
+    /// view they do not have would go nowhere. The Domain
     /// panel draws a folder whole too, but the folder it draws is a bounded
     /// context — a row the tree already has.
     /// </para>
@@ -365,7 +366,7 @@
     /// </para>
     /// </summary>
     private static DevbookMenuNode? AreaOverviewRow(DevbookMenuNode? root) =>
-        root is { Available: true, AreaKey: "design" } ? root with { Label = "All documents", Children = [] } : null;
+        root is { Available: true, AreaKey: "design" or "ai" } ? root with { Label = "All documents", Children = [] } : null;
 
     /// <summary>Whether this row is that one, asked of a node the menu handed
     /// back.</summary>
@@ -904,6 +905,7 @@
                are not: the target is a repository path either way and the selection
                this pane holds is the same selection. *@
             "design" => @<DesignDevbookView RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" OnNavigateToChapter="SelectChapter" />,
+            "ai" => @<AiDevbookView RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" OnNavigateToChapter="SelectChapter" />,
             "arc42" => @<Arc42DevbookPanel RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" SelectedC4View="@_selectedC4View" OnNavigateToChapter="SelectChapter" />,
             "domain" => @<DomainDevbookPanel Compact="true" RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" OnNavigateToChapter="SelectChapter" />,
             "tech" => @<TechnologyDevbookPanel RepositoryAlias="@ActiveRepositoryAlias" OnNavigateToChapter="SelectChapter" />,

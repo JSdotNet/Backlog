@@ -8,7 +8,7 @@ paths:
 # File and folder naming
 
 Naming **inside** the knowledge folders (`.arc42/`, `.domain/`, `.backlog/`,
-`.tech/`, `.design/`, and any `_meta/`) is governed by the `devbook`
+`.tech/`, `.design/`, `.ai/`, and any `_meta/`) is governed by the `devbook`
 plugin's `knowledge-naming.instructions.md`. This file covers only the rest of
 the repository.
 

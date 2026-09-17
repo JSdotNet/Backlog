@@ -11,7 +11,8 @@ public static class DevbookAreaCatalog
         new("domain", "Domain"),
         new("arc42", "Architecture"),
         new("tech", "Technology"),
-        new("design", "Design")
+        new("design", "Design"),
+        new("ai", "AI")
     ];
 
     public static IReadOnlyList<DevbookArea> VisibleAreas(IEnumerable<DevbookFolderSetting> folders)
@@ -66,6 +67,7 @@ public static class DevbookAreaCatalog
         ".arc42" => "arc42",
         ".tech" => "tech",
         ".design" => "design",
+        ".ai" => "ai",
         _ => folder.Key.TrimStart('.').ToLowerInvariant()
     };
 }

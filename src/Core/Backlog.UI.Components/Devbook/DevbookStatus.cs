@@ -3,7 +3,7 @@ using Backlog.UI.Components.Metadata;
 namespace Backlog.UI.Components.Devbook;
 
 /// <summary>
-/// One visual scale behind five vocabularies.
+/// One visual scale behind six folders' vocabularies.
 ///
 /// <para>Each knowledge folder names its lifecycle in its own words — <c>.tech</c>
 /// runs a tech-radar ladder, <c>.backlog</c> tracks task progress, <c>.arc42</c>
@@ -72,6 +72,7 @@ public static class DevbookStatus
         DevbookFolder.Design => DesignVocabulary,
         DevbookFolder.Backlog => BacklogVocabulary,
         DevbookFolder.Tech => TechVocabulary,
+        DevbookFolder.Ai => AiVocabulary,
         _ => MetadataStatusVocabulary.None
     };
 
@@ -84,6 +85,11 @@ public static class DevbookStatus
     private static readonly MetadataStatusVocabulary DesignVocabulary = For(DevbookFolder.Design);
     private static readonly MetadataStatusVocabulary BacklogVocabulary = For(DevbookFolder.Backlog);
     private static readonly MetadataStatusVocabulary TechVocabulary = For(DevbookFolder.Tech);
+
+    // Its own instance although its list and its tones are `.tech`'s, for the
+    // reason the comment above gives: the vocabulary answers for a folder, and
+    // handing `.ai` the `.tech` object would make a badge report the wrong one.
+    private static readonly MetadataStatusVocabulary AiVocabulary = For(DevbookFolder.Ai);
 
     /// <summary>The folder's values, with the tone-to-badge mapping as the
     /// resolver. The resolver is only ever asked about a value the vocabulary
@@ -101,10 +107,10 @@ public static class DevbookStatus
     /// how settled the writing is, and <c>active</c> is a resting value — content
     /// that is simply current says nothing by saying nothing, so the field is worth
     /// writing only while a chapter is in transition or carries a standing warning.
-    /// In <c>.tech</c> it is a position on an adoption ladder and in
-    /// <c>.backlog</c> a work state; there every value is a claim the reader needs,
-    /// and an absent one would be indistinguishable from <c>candidate</c> or from
-    /// untracked. So those two keep it required.</para>
+    /// In <c>.tech</c> and <c>.ai</c> it is a position on an adoption ladder and
+    /// in <c>.backlog</c> a work state; there every value is a claim the reader
+    /// needs, and an absent one would be indistinguishable from <c>candidate</c>
+    /// or from untracked. So those three keep it required.</para>
     /// </summary>
     private static bool AllowsNone(DevbookFolder folder) => folder switch
     {
@@ -139,7 +145,10 @@ public static class DevbookStatus
         DevbookFolder.Arc42 or DevbookFolder.Domain => StandingValues,
         DevbookFolder.Design => DesignValues,
         DevbookFolder.Backlog => BacklogValues,
-        DevbookFolder.Tech => TechValues,
+        // `.ai` rates a way of working with a technology on the ladder `.tech`
+        // rates the technology on — deliberately the same five words, so a
+        // reader learns one adoption vocabulary and applies it in both folders.
+        DevbookFolder.Tech or DevbookFolder.Ai => TechValues,
         _ => []
     };
 
@@ -190,7 +199,7 @@ public static class DevbookStatus
                 "blocked" => DevbookStatusTone.Attention,
                 _ => DevbookStatusTone.Unknown
             },
-            DevbookFolder.Tech => value switch
+            DevbookFolder.Tech or DevbookFolder.Ai => value switch
             {
                 // A candidate is named but unproven and a trial is being run:
                 // the ladder puts candidate first, but the trial is the one that

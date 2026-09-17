@@ -325,6 +325,7 @@ builder.Services.AddScoped<FeedbackReportChannel>();
 // driven — the shipped app has no route that throws on request.
 builder.Services.AddSingleton(new AdditionalRouteAssemblies([typeof(Program).Assembly]));
 builder.Services.AddSingleton<DesignDevbookProvider>();
+builder.Services.AddSingleton<AiDevbookProvider>();
 builder.Services.AddSingleton<TechnologyDevbookService>();
 builder.Services.AddSingleton<DevbookAtlasService>();
 // Retrieval, both tiers. Adapters over the generated database rather than over

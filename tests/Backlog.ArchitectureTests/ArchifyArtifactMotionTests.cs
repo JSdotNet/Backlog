@@ -35,9 +35,10 @@ public class ArchifyArtifactMotionTests
 {
     /// <summary>The knowledge folders that hold chapter artifacts, mirroring
     /// <c>KNOWLEDGE_FOLDERS</c> in <c>tools/diagrams/archify-artifacts.mjs</c>.
-    /// <c>.design</c> has no artifacts today and is listed anyway, so the first
-    /// one authored there is covered without anybody remembering this file.</summary>
-    private static readonly string[] DevbookFolders = [".arc42", ".domain", ".tech", ".design"];
+    /// <c>.design</c> has no artifacts today and <c>.ai</c> is not adopted here
+    /// yet; both are listed anyway, so the first one authored there is covered
+    /// without anybody remembering this file.</summary>
+    private static readonly string[] DevbookFolders = [".arc42", ".domain", ".tech", ".design", ".ai"];
 
     /// <summary>The artifact folder beside a chapter.</summary>
     private const string ArtifactFolder = "_archify";
