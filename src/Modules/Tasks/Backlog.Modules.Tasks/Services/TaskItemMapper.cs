@@ -33,5 +33,6 @@ internal static class TaskItemMapper
         entry.Effort,
         [.. entry.RepoIds],
         entry.ImportPlanId,
-        entry.ImportItemId);
+        entry.ImportItemId,
+        entry.CreatedAt);
 }

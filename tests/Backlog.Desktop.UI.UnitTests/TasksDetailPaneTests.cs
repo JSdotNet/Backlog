@@ -1342,4 +1342,77 @@ public sealed class TasksDetailPaneTests
         Assert.Same(row, host.State.SelectedRow);
         Assert.NotEmpty(pane.FindAll("[data-testid='entry-detail']"));
     }
+
+    // --- Created -----------------------------------------------------------
+
+    /// <summary>
+    /// The pane says when the entry was created, and says it in the footer.
+    /// <para>
+    /// Not a <c>RawText</c> assertion for once, and deliberately: the stamp is
+    /// the one fact on this pane that is <em>not</em> in the text. It is a column
+    /// the aggregate writes at birth, so there is no token to type and nothing a
+    /// reader can change — which is why it is a <c>time</c> element rather than a
+    /// <c>TaskAction</c> row, and why it stands with close and delete, the other
+    /// things about the entry as a whole. The machine-readable attribute is
+    /// asserted against the row's own stamp rather than a literal, because the
+    /// module stamps with the clock and the words are culture-formatted.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task The_pane_says_when_the_entry_was_created()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync("# Provision the box\n`task`\n");
+
+        var pane = host.Render();
+        var created = pane.Find("[data-testid='entry-created']");
+
+        Assert.NotNull(row.CreatedAt);
+        Assert.Equal(row.CreatedAt.Value.ToString("o"), created.GetAttribute("datetime"));
+        Assert.StartsWith("Created ", created.TextContent.Trim(), StringComparison.Ordinal);
+        Assert.NotNull(created.Closest(".entry-detail__footer"));
+    }
+
+    /// <summary>Editing the entry does not move the stamp. A rename restamps
+    /// <c>UpdatedAt</c> and rewrites the text; the creation time is neither, so
+    /// the pane still says what it said before the edit.</summary>
+    [Fact]
+    public async Task Editing_the_entry_leaves_the_creation_stamp_where_it_was()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync("# Provision the box\n`task`\n");
+        var before = row.CreatedAt;
+
+        var pane = host.Render();
+        await pane.Find("[data-testid='entry-panel-title']").ClickAsync(new());
+        var field = pane.Find("[data-testid='entry-panel-rename']");
+        await field.InputAsync(new() { Value = "Provision the new box" });
+        await field.KeyDownAsync(new KeyboardEventArgs { Key = "Enter" });
+
+        pane.WaitForAssertion(() =>
+            Assert.Contains("# Provision the new box", row.RawText, StringComparison.Ordinal));
+
+        Assert.Equal(before, row.CreatedAt);
+        Assert.Equal(
+            before!.Value.ToString("o"),
+            pane.Find("[data-testid='entry-created']").GetAttribute("datetime"));
+    }
+
+    /// <summary>A row that has never been saved has no stamp to show: the module
+    /// stamps on the first save, and a pane that printed the clock for an unsaved
+    /// row would be inventing the fact it is about to record.</summary>
+    [Fact]
+    public async Task An_unsaved_entry_shows_no_creation_stamp()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        host.State.NewRow();
+        var row = host.State.Rows[^1];
+        await host.OpenAsync(row);
+
+        var pane = host.Render();
+
+        Assert.False(row.IsPersisted);
+        Assert.NotEmpty(pane.FindAll("[data-testid='entry-detail']"));
+        Assert.Empty(pane.FindAll("[data-testid='entry-created']"));
+    }
 }

@@ -2639,6 +2639,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         row.SubItemCount = entry.TotalSubItems;
         row.CompletedSubItemCount = entry.CompletedSubItems;
         row.IssueLink = TasksIssues.FindLink(entry);
+        row.CreatedAt = entry.CreatedAt;
 
         // Re-derive the canonical text from the just-saved entry so the editor
         // reflects any graceful corrections (e.g. an unknown status token that
@@ -3065,6 +3066,12 @@ public sealed class EntryRow
     public string? CopilotError { get; set; }
 
     public bool IsPersisted => Id.HasValue;
+
+    /// <summary>When the entry was first saved, or null until it has been. Not a
+    /// preview like the fields above: there is no token for it in the text and
+    /// nothing a reader can type to move it, so it is read straight off the entry
+    /// and never off the parse.</summary>
+    public DateTimeOffset? CreatedAt { get; set; }
 
     /// <summary>True for rows the app only reads. Every task is editable today;
     /// this property is reserved for future sources that truly cannot be written

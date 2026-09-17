@@ -2027,6 +2027,21 @@
                                       AriaLabel="Delete entry"
                                       OnClick="() => OnDeleteTaskAsync(row)" />
 
+                        @* When the entry was created. In the footer because it is a
+                           fact about the entry as a whole and not a field of it: the
+                           module stamps it on the first save and nothing a reader
+                           types can move it, so it is a `time` rather than a
+                           TaskAction row with nothing to set. Local time in words,
+                           the instant in the attribute, and absent until the entry
+                           has been saved — an unsaved row has no birth to report. *@
+                        @if (row.CreatedAt is { } createdAt)
+                        {
+                            <time class="entry-detail__created"
+                                  data-testid="entry-created"
+                                  datetime="@createdAt.ToString("o", CultureInfo.InvariantCulture)"
+                                  title="@FormatCreatedAtInFull(createdAt)">Created @FormatCreatedAt(createdAt)</time>
+                        }
+
                         <IconButton BaseClass="entry-detail__close"
                                     TestId="close-entry-button"
                                     AriaLabel="Close this entry"
@@ -3218,6 +3233,17 @@
 
     private static string? FormatReminder(DateTime? remindAt) =>
         remindAt?.ToString("g", CultureInfo.CurrentCulture);
+
+    /// <summary>The creation stamp as the reminder above is said: short date,
+    /// short time, in the reader's culture and their clock. Stored in UTC, shown
+    /// in local time, because "created at 14:22" means the 14:22 they remember.</summary>
+    private static string FormatCreatedAt(DateTimeOffset createdAt) =>
+        createdAt.ToLocalTime().ToString("g", CultureInfo.CurrentCulture);
+
+    /// <summary>The same instant in full, for the pointer: the weekday and the
+    /// seconds the short form leaves off.</summary>
+    private static string FormatCreatedAtInFull(DateTimeOffset createdAt) =>
+        createdAt.ToLocalTime().ToString("F", CultureInfo.CurrentCulture);
 
     /// <summary>A repeat said in words. Named shapes get their name because
     /// "Weekly" is what a person would have said; an interval falls back to
