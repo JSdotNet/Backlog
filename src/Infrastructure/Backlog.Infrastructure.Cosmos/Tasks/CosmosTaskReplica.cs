@@ -78,34 +78,131 @@ internal sealed class CosmosTaskReplica : ITaskReplica
         var partition = new PartitionKey(ReplicaDocumentSerialization.Key(scope.OwnerId.Value));
         var accepted = 0;
 
-        // One request per document rather than a transactional batch. The batch
+        // One document at a time rather than a transactional batch. The batch
         // is capped at a hundred operations and is all-or-nothing, and a push
         // from a device that has been offline for a week is neither: a single
         // unlucky document must not send the other four hundred back.
         foreach (var change in changes)
         {
+            if (await WriteIfLaterAsync(container, partition, scope, change, cancellationToken))
+            {
+                accepted++;
+            }
+        }
+
+        return accepted;
+    }
+
+    /// <summary>How often one document is re-read and re-tried after another
+    /// writer got in between the read and the write. Two of one person's
+    /// devices pushing the same task in the same instant is the only way to
+    /// need a second attempt at all.</summary>
+    private const int WriteAttempts = 3;
+
+    /// <summary>
+    /// Writes one change unless the document held is already at least that
+    /// version, and says whether it did.
+    /// <para>
+    /// Read, compare, then write against the etag the read returned — never a
+    /// blind upsert. A blind upsert let a device's echo of a version it had
+    /// pulled overwrite the tombstone or the edit another device had pushed
+    /// since; <see cref="TaskChangePrecedence"/> carries that story and the
+    /// rule. The etag closes the gap between the read and the write: a version
+    /// that landed in between fails the precondition, and the document is read
+    /// again and compared again rather than either copy winning by timing. A
+    /// document that is not there yet is created rather than upserted for the
+    /// same reason — a create that finds one is the same race, and is retried
+    /// the same way.
+    /// </para>
+    /// <para>
+    /// A document this service cannot read back — no payload, an id that is not
+    /// a GUID — is written over: it is not one this service wrote, and holding
+    /// a push back for it would leave that id stuck for ever.
+    /// </para>
+    /// </summary>
+    private async Task<bool> WriteIfLaterAsync(
+        Container container,
+        PartitionKey partition,
+        OwnerScope scope,
+        TaskChange change,
+        CancellationToken cancellationToken)
+    {
+        var id = ReplicaDocumentSerialization.Key(change.Id);
+
+        for (var attempt = 1; attempt <= WriteAttempts; attempt++)
+        {
+            TaskDocument? held = null;
+            string? etag = null;
+
             try
             {
-                await container.UpsertItemAsync(
-                    TaskDocumentFactory.From(scope, change, _options),
-                    partition,
-                    cancellationToken: cancellationToken);
-
-                accepted++;
+                var read = await container.ReadItemAsync<TaskDocument>(id, partition, cancellationToken: cancellationToken);
+                held = read.Resource;
+                etag = read.ETag;
+            }
+            catch (CosmosException failure) when (failure.StatusCode is HttpStatusCode.NotFound)
+            {
+                // Nothing held: the ordinary case for a new task.
             }
             catch (CosmosException failure)
             {
-                // Every CosmosException, not only the ones that mean "not there
-                // yet". A 413 or a 429 that outlived the SDK's retries would
-                // otherwise leave this method as an unclassified 500 with no
-                // code on it (inherited ADR 0017) — and the batch carrying that
-                // document would fail on every run for ever, so the push
+                throw Fault(failure);
+            }
+
+            if (held is not null
+                && TaskDocumentFactory.ToRecord(held) is { } stored
+                && !TaskChangePrecedence.Supersedes(change, stored.Change))
+            {
+                return false;
+            }
+
+            var document = TaskDocumentFactory.From(scope, change, _options);
+
+            try
+            {
+                if (held is null)
+                {
+                    await container.CreateItemAsync(document, partition, cancellationToken: cancellationToken);
+                }
+                else
+                {
+                    await container.ReplaceItemAsync(
+                        document,
+                        id,
+                        partition,
+                        new ItemRequestOptions { IfMatchEtag = etag },
+                        cancellationToken);
+                }
+
+                return true;
+            }
+            catch (CosmosException failure) when (failure.StatusCode is HttpStatusCode.PreconditionFailed or HttpStatusCode.Conflict)
+            {
+                // Another writer landed between the read and the write. Go
+                // round again: the next read sees their version and the
+                // comparison decides, which is the whole point of not having
+                // let timing decide here.
+                _log.LogDebug(
+                    "Task {TaskId} changed under a push from device {DeviceId}; re-reading (attempt {Attempt} of {Attempts}).",
+                    change.Id, scope.DeviceId.Value, attempt, WriteAttempts);
+            }
+            catch (CosmosException failure)
+            {
+                // Every other CosmosException, not only the ones that mean "not
+                // there yet". A 413 or a 429 that outlived the SDK's retries
+                // would otherwise leave this method as an unclassified 500 with
+                // no code on it (inherited ADR 0017) — and the batch carrying
+                // that document would fail on every run for ever, so the push
                 // watermark would never advance past it again.
                 throw Fault(failure);
             }
         }
 
-        return accepted;
+        // Contended on every attempt. Busy rather than a silent drop, so the
+        // device's watermark stays put and it sends the batch again next run.
+        throw new SyncReplicaException(
+            SyncErrorCodes.ReplicaBusy,
+            "The task replica is busy. Try again shortly.");
     }
 
     public async Task<TaskReplicaPage> ReadChanges(

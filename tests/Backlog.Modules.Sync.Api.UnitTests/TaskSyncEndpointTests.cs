@@ -56,6 +56,37 @@ public class TaskSyncEndpointTests : IDisposable
         Assert.False(string.IsNullOrWhiteSpace(pulled.Since));
     }
 
+    /// <summary>
+    /// The bug a deleted plan kept coming back through. The desktop deletes and
+    /// pushes the tombstone; the laptop, which pulled the live task days ago and
+    /// has not synced since, wakes up and pushes first — everything it received
+    /// sits above its watermark exactly as its own edits do. The replica has to
+    /// keep the tombstone, answer with the honest count, and hand the laptop the
+    /// deletion when it pulls.
+    /// </summary>
+    [Fact]
+    public async Task A_stale_copy_pushed_after_a_tombstone_is_refused_and_the_deletion_still_travels()
+    {
+        var (desktop, laptop) = await PairedDevices();
+
+        var id = Guid.CreateVersion7();
+        var imported = new DateTimeOffset(2026, 9, 14, 17, 53, 22, TimeSpan.Zero);
+        var deleted = new DateTimeOffset(2026, 9, 17, 21, 55, 5, TimeSpan.Zero);
+        var live = new TaskChange(id, imported, DeletedAt: null, TaskSyncClientExtensions.Payload("Expose a Backlog MCP server"));
+
+        await desktop.PushChanges([live]);
+        var laptopCursor = (await laptop.PullTasks()).Since;
+
+        await desktop.PushChanges([live with { UpdatedAt = deleted, DeletedAt = deleted }]);
+
+        var echoed = await laptop.PushChanges([live]);
+        Assert.Equal(0, (await echoed.Content.ReadFromJsonAsync<PushTasksResponse>(Cancellation))!.Accepted);
+
+        var arrived = Assert.Single((await laptop.PullTasks(laptopCursor)).Tasks);
+        Assert.Equal(id, arrived.Change.Id);
+        Assert.Equal(deleted, arrived.Change.DeletedAt);
+    }
+
     /// <summary>The device id comes back with the change so a client can drop
     /// its own echo instead of re-applying what it just pushed. It is the token's
     /// device, never anything the body said.</summary>
@@ -565,10 +596,10 @@ internal static class TaskSyncClientExtensions
     private static CancellationToken Cancellation => TestContext.Current.CancellationToken;
 
     internal static Task<HttpResponseMessage> PushTask(this HttpClient client, Guid id, string title) =>
-        client.PostAsJsonAsync(
-            SyncRoutes.Absolute(SyncRoutes.Tasks),
-            new PushTasksRequest([new TaskChange(id, DateTimeOffset.UtcNow, DeletedAt: null, Payload(title))]),
-            Cancellation);
+        client.PushChanges([new TaskChange(id, DateTimeOffset.UtcNow, DeletedAt: null, Payload(title))]);
+
+    internal static Task<HttpResponseMessage> PushChanges(this HttpClient client, IReadOnlyList<TaskChange> changes) =>
+        client.PostAsJsonAsync(SyncRoutes.Absolute(SyncRoutes.Tasks), new PushTasksRequest(changes), Cancellation);
 
     internal static async Task<PullTasksResponse> PullTasks(this HttpClient client, string? since = null)
     {

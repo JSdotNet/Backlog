@@ -355,6 +355,17 @@ public sealed class TaskReplicaMerge(
     /// never offers that document again, so no amount of syncing closes it.
     /// </para>
     /// <para>
+    /// This leans on the replica never moving a document backwards. Every
+    /// device echoes what it pulled on its next push — a received row sits
+    /// above the watermark exactly as an edit does — and a replica that took
+    /// the echo would hand this device an <em>older</em> copy of a row it had
+    /// already pushed, which this rule then applies: a pushed tombstone came
+    /// back as the live task, a pushed edit as the version before it. The
+    /// service refuses such a push (<c>TaskChangePrecedence</c>), so the older
+    /// document this branch accepts is one the replica ordered after this
+    /// device's own, never a stale copy of it.
+    /// </para>
+    /// <para>
     /// <b>The one exception is an un-pushed local edit</b> — a local
     /// <c>UpdatedAt</c> above <paramref name="pushWatermark"/>, which means this
     /// device changed the task and has not sent it. That edit wins on its own

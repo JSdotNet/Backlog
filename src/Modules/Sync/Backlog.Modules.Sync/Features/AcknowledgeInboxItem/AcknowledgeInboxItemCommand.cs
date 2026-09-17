@@ -54,7 +54,14 @@ public sealed class AcknowledgeInboxItemCommandHandler(ITaskReplica replica, Tim
                 "No capture with that id is waiting for this owner."));
         }
 
+        // Never earlier than the capture's own stamp. The replica refuses a
+        // write that does not supersede the version it holds (TaskChangePrecedence),
+        // and the capture was stamped by the phone's clock: a phone running
+        // ahead of this service would otherwise have its acknowledgement
+        // silently dropped and the capture stay in every inbox.
         var now = clock.GetUtcNow();
+        if (now <= found.Change.UpdatedAt) now = found.Change.UpdatedAt.AddTicks(1);
+
         var acknowledged = found.Change with { UpdatedAt = now, DeletedAt = now };
 
         await replica.Upsert(command.Scope, [acknowledged], cancellationToken);
