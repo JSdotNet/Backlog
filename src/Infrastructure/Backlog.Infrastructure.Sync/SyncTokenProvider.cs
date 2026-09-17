@@ -4,6 +4,8 @@ using System.Net.Http.Json;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 
+using Polly;
+
 namespace Backlog.Infrastructure.Sync;
 
 /// <summary>
@@ -241,7 +243,13 @@ public sealed class SyncTokenProvider : IDisposable
 
             return _token;
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !cancellationToken.IsCancellationRequested)
+        // ExecutionRejectedException is the resilience pipeline giving up — a
+        // total timeout, an open circuit — and this request runs inside the
+        // authentication handler of every other one, so left to propagate it
+        // would take the whole exchange down as an unplanned failure. See
+        // SyncHttp for the same clause on the data calls.
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or ExecutionRejectedException
+            && !cancellationToken.IsCancellationRequested)
         {
             Invalidate();
             return null;
