@@ -768,6 +768,23 @@ public sealed record DevToolInfo(
     /// answer it always had.</para></summary>
     public bool Installable { get; init; } = true;
 
+    /// <summary>Every version of this plugin sitting in Claude's plugin cache,
+    /// oldest first, or empty for a row that has no cache — every kind but a
+    /// Claude plugin, and a Claude plugin on a host that cannot look.
+    ///
+    /// <para>Init-only with a default, for the reason <see cref="Hosts"/> is.
+    /// Claude's is the one cache that keeps a folder per version: Copilot clones
+    /// a plugin into one folder and updates it in place, so a Copilot-only row
+    /// has nothing to list here and does not.</para></summary>
+    public IReadOnlyList<DevToolCachedVersion> CachedVersions { get; init; } = [];
+
+    /// <summary>The cached versions no install points at any more — the ones
+    /// a Remove is offered for. Everything else in <see cref="CachedVersions"/>
+    /// is what some install loads, and the way off an old one of those is an
+    /// update, not a delete.</summary>
+    public IReadOnlyList<DevToolCachedVersion> StaleCachedVersions =>
+        CachedVersions.Where(cached => !cached.InUse).ToArray();
+
     public bool UpdateAvailable => HostStates.Count > 0
         ? HostStates.Any(state => state.ReportsUpdate)
         : VersionDiffers(InstalledVersion, AvailableVersion);
@@ -2960,6 +2977,33 @@ public interface IDevToolService
     /// a console host and a test both have to be able to call.
     /// </para></summary>
     Task<DevToolActionResult> ImportAsync(string json, CancellationToken ct = default);
+
+    /// <summary>
+    /// Deletes one version of one plugin out of Claude's plugin cache.
+    ///
+    /// <para>Refused, not honoured, for a version some install still points at:
+    /// the folder is what that install loads, and deleting it does not move the
+    /// install on to a newer one — it breaks it. The row already says which
+    /// versions are in use, and this is the port keeping the same promise when
+    /// the screen is not the caller.</para>
+    /// </summary>
+    /// <param name="key">The plugin row's key, as <see cref="DevToolInfo.Key"/>
+    /// carries it.</param>
+    /// <param name="version">The cached version's folder name, as
+    /// <see cref="DevToolCachedVersion.Version"/> carries it.</param>
+    Task<DevToolActionResult> RemoveCachedVersionAsync(string key, string version, CancellationToken ct = default);
+
+    /// <summary>
+    /// Deletes every cached version nothing points at, across the whole cache
+    /// rather than only the plugins in the catalog.
+    ///
+    /// <para>The whole cache, because a folder left behind by a plugin — or a
+    /// marketplace — that is no longer in the catalog is exactly as stale as one
+    /// beside a row, and the row-by-row Remove can never reach it. The rule is
+    /// the same one <see cref="RemoveCachedVersionAsync"/> keeps: a folder with an
+    /// install behind it is not touched.</para>
+    /// </summary>
+    Task<DevToolActionResult> RemoveStaleCacheAsync(CancellationToken ct = default);
 }
 
 public sealed class UnsupportedDevToolService : IDevToolService
@@ -2996,5 +3040,11 @@ public sealed class UnsupportedDevToolService : IDevToolService
         Task.FromResult(DevToolActionResult.Failed(Message));
 
     public Task<DevToolActionResult> ImportAsync(string json, CancellationToken ct = default) =>
+        Task.FromResult(DevToolActionResult.Failed(Message));
+
+    public Task<DevToolActionResult> RemoveCachedVersionAsync(string key, string version, CancellationToken ct = default) =>
+        Task.FromResult(DevToolActionResult.Failed(Message));
+
+    public Task<DevToolActionResult> RemoveStaleCacheAsync(CancellationToken ct = default) =>
         Task.FromResult(DevToolActionResult.Failed(Message));
 }

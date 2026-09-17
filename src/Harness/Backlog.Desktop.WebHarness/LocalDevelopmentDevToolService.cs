@@ -56,6 +56,13 @@ public sealed class LocalDevelopmentDevToolService : IDevToolService
     /// </summary>
     private readonly Dictionary<string, bool> _enabled = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>Which cached versions have been removed this session, as
+    /// <c>key|version</c>, for the same reason as the two above: the catalog's
+    /// <c>cachedVersions</c> is sample data, nothing on disk is deleted, and a
+    /// Remove that reported success and left the chip on screen would be the one
+    /// shape a browser test here could not tell from a broken one.</summary>
+    private readonly HashSet<string> _removedCache = new(StringComparer.OrdinalIgnoreCase);
+
     public LocalDevelopmentDevToolService(ITaskStore store)
     {
         _store = store;
@@ -118,8 +125,9 @@ public sealed class LocalDevelopmentDevToolService : IDevToolService
             var hosts = DevToolConfiguration.ParseHosts(plugin);
             var installedVersion = VersionOr(plugin, "installedVersion", enabled ? "configured" : "disabled");
             var availableVersion = VersionOr(plugin, "availableVersion", "catalog");
+            var key = DevToolConfiguration.KeyFor(DevToolKind.Plugin, name);
             tools.Add(new DevToolInfo(
-                DevToolConfiguration.KeyFor(DevToolKind.Plugin, name),
+                key,
                 DevToolKind.Plugin,
                 name,
                 GetString(plugin, "source"),
@@ -130,7 +138,8 @@ public sealed class LocalDevelopmentDevToolService : IDevToolService
                 enabled ? "Configured from local JSON" : DisabledStatus)
             {
                 Hosts = hosts,
-                HostStates = HostStates(hosts, enabled, installedVersion, availableVersion)
+                HostStates = HostStates(hosts, enabled, installedVersion, availableVersion),
+                CachedVersions = CachedVersions(plugin, key)
             });
         }
 
@@ -262,6 +271,78 @@ public sealed class LocalDevelopmentDevToolService : IDevToolService
         EditCatalogAsync(
             paths => DevToolConfiguration.ImportCatalogAsync(paths, json, ct),
             paths => $"The catalog at {paths.CatalogPath} was replaced. The previous one is beside it as .bak.");
+
+    /// <summary>Forgets one sample cached version for the session. The same
+    /// refusal the desktop head gives for a version in use, because the port
+    /// promises it and a harness that honoured the delete would be the one
+    /// place the promise could be seen not to hold.</summary>
+    public async Task<DevToolActionResult> RemoveCachedVersionAsync(string key, string version, CancellationToken ct = default)
+    {
+        var catalog = await ListAsync(ct).ConfigureAwait(false);
+        var tool = catalog.Tools.FirstOrDefault(tool => tool.Key.Equals(key, StringComparison.OrdinalIgnoreCase));
+        var cached = tool?.CachedVersions.FirstOrDefault(cached => cached.Version.Equals(version, StringComparison.OrdinalIgnoreCase));
+
+        if (tool is null || cached is null)
+        {
+            return DevToolActionResult.Failed($"{version} is not in Claude's plugin cache.");
+        }
+
+        if (cached.InUse)
+        {
+            return DevToolActionResult.Failed($"{tool.Name} {version} is still in use. Update those installs first; deleting the folder would break them.");
+        }
+
+        _removedCache.Add(CacheKey(key, version));
+        return DevToolActionResult.Ok($"Removed {tool.Name} {version} from Claude's plugin cache.");
+    }
+
+    public async Task<DevToolActionResult> RemoveStaleCacheAsync(CancellationToken ct = default)
+    {
+        var catalog = await ListAsync(ct).ConfigureAwait(false);
+        var removed = 0;
+
+        foreach (var tool in catalog.Tools)
+        {
+            foreach (var cached in tool.StaleCachedVersions)
+            {
+                _removedCache.Add(CacheKey(tool.Key, cached.Version));
+                removed++;
+            }
+        }
+
+        return DevToolActionResult.Ok(removed switch
+        {
+            0 => "Nothing in Claude's plugin cache was stale.",
+            1 => "Removed 1 stale version from Claude's plugin cache.",
+            _ => $"Removed {removed} stale versions from Claude's plugin cache."
+        });
+    }
+
+    private static string CacheKey(string key, string version) => $"{key}|{version}";
+
+    /// <summary>The entry's <c>cachedVersions</c> — <c>{ "version", "installs" }</c>
+    /// objects, or bare version strings for one nothing uses — less whatever this
+    /// session removed. Sample data, like the two versions beside it: the harness
+    /// has no Claude cache to walk, and the pane's cache chips are a browser
+    /// surface this is the only way to reach.</summary>
+    private IReadOnlyList<DevToolCachedVersion> CachedVersions(JsonNode plugin, string key)
+    {
+        var versions = new List<DevToolCachedVersion>();
+
+        foreach (var node in GetArray(plugin, "cachedVersions"))
+        {
+            var version = node is JsonValue ? node.GetValue<string>() : GetString(node, "version");
+            if (string.IsNullOrWhiteSpace(version) || _removedCache.Contains(CacheKey(key, version)))
+            {
+                continue;
+            }
+
+            var installs = node is JsonObject && node["installs"] is { } count ? count.GetValue<int>() : 0;
+            versions.Add(new DevToolCachedVersion(version, $"~/.claude/plugins/cache/sample/{key}/{version}", installs));
+        }
+
+        return versions;
+    }
 
     /// <summary>The same wrapper the desktop host uses, for the same reason:
     /// <c>.tools</c> is a folder on somebody's disk, so a refused write is an
