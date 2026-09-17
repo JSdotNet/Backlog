@@ -1119,6 +1119,17 @@ h1, h2, h3 {
     margin-top: var(--spacing-xs);
 }
 
+/* When the entry was created: a fact, not a control, so it is set in the same
+   muted small type as the meta reading hint and sits between delete and close
+   without competing with either. */
+.entry-detail__created {
+    margin-right: var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    line-height: var(--line-height-normal);
+    white-space: nowrap;
+}
+
 .entry-detail__close {
     display: inline-flex;
     align-items: center;

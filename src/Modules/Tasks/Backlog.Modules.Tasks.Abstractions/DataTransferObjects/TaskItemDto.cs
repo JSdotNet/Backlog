@@ -35,9 +35,18 @@ namespace Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 /// comment warns about: nothing outside the module reads either one yet, a
 /// tombstoned task never reaches a read that produces this record — so
 /// <c>DeletedAt</c> could only ever be null — and this record is a projection for
-/// the screens rather than a copy of the aggregate, omitting <c>CreatedAt</c>,
-/// <c>SourceInboxId</c>, and the usage history as well, so it is not what a sync
+/// the screens rather than a copy of the aggregate, omitting
+/// <c>SourceInboxId</c> and the usage history as well, so it is not what a sync
 /// payload would be built from either.
+/// </para>
+/// <para>
+/// <paramref name="CreatedAt"/> is the one stamp that is published, and on the
+/// same terms as the two above: read from its own column, never rebuilt from
+/// the text, and so not reached by the round-trip rule. It is here because the
+/// detail pane says when an entry was created, which is the first thing outside
+/// the module to want a stamp. Nullable only so that a caller building a record
+/// by hand — a test, a projection — is not made to invent a birth time; the
+/// mapper always sets it, and a screen treats null as "not saved yet".
 /// </para>
 /// </summary>
 public sealed record TaskItemDto(
@@ -63,7 +72,8 @@ public sealed record TaskItemDto(
     int? Effort = null,
     IReadOnlyList<string>? RepoIds = null,
     string? ImportPlanId = null,
-    string? ImportItemId = null);
+    string? ImportItemId = null,
+    DateTimeOffset? CreatedAt = null);
 
 /// <summary>Where an entry has been projected to outside this system — today a
 /// GitHub issue. Kept as data rather than a typed link so the module does not
