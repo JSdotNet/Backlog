@@ -94,6 +94,36 @@ public class AnnotationSyncEndpointTests : IDisposable
         Assert.Equal(SyncErrorCodes.SyncCursorNotYours, problem?.Code);
     }
 
+    /// <summary>
+    /// The bug the task replica had, on the third container. The desktop
+    /// resolves a remark and pushes the tombstone; the laptop, which pulled the
+    /// live remark days ago and has not synced since, wakes up and pushes first
+    /// — everything it received sits above its watermark exactly as its own
+    /// edits do. The replica has to keep the tombstone, answer with the honest
+    /// count, and hand the laptop the deletion when it pulls.
+    /// </summary>
+    [Fact]
+    public async Task A_stale_copy_pushed_after_a_tombstone_is_refused_and_the_deletion_still_travels()
+    {
+        var (desktop, laptop) = await PairedDevices();
+
+        var id = Guid.CreateVersion7();
+        var written = new DateTimeOffset(2026, 9, 14, 17, 53, 22, TimeSpan.Zero);
+        var deleted = new DateTimeOffset(2026, 9, 17, 21, 55, 5, TimeSpan.Zero);
+        var live = new AnnotationChange(id, written, DeletedAt: null, Payload("Say which team owns this."));
+
+        await desktop.PushChanges([live]);
+        var laptopCursor = (await laptop.PullAnnotations()).Since;
+
+        await desktop.PushChanges([live with { UpdatedAt = deleted, DeletedAt = deleted }]);
+
+        var echoed = await laptop.PushChanges([live]);
+        Assert.Equal(0, (await echoed.Content.ReadFromJsonAsync<PushAnnotationsResponse>(Cancellation))!.Accepted);
+
+        var arrived = Assert.Single((await laptop.PullAnnotations(laptopCursor)).Annotations);
+        Assert.Equal(id, arrived.Change.Id);
+        Assert.Equal(deleted, arrived.Change.DeletedAt);
+    }
     [Fact]
     public async Task A_tombstone_travels_like_any_other_change()
     {
@@ -203,10 +233,10 @@ internal static class AnnotationSyncClientExtensions
     private static CancellationToken Cancellation => TestContext.Current.CancellationToken;
 
     internal static Task<HttpResponseMessage> PushAnnotation(this HttpClient client, Guid id, string body) =>
-        client.PostAsJsonAsync(
-            SyncRoutes.Absolute(SyncRoutes.Annotations),
-            new PushAnnotationsRequest([new AnnotationChange(id, DateTimeOffset.UtcNow, DeletedAt: null, AnnotationSyncEndpointTests.Payload(body))]),
-            Cancellation);
+        client.PushChanges([new AnnotationChange(id, DateTimeOffset.UtcNow, DeletedAt: null, AnnotationSyncEndpointTests.Payload(body))]);
+
+    internal static Task<HttpResponseMessage> PushChanges(this HttpClient client, IReadOnlyList<AnnotationChange> changes) =>
+        client.PostAsJsonAsync(SyncRoutes.Absolute(SyncRoutes.Annotations), new PushAnnotationsRequest(changes), Cancellation);
 
     internal static async Task<PullAnnotationsResponse> PullAnnotations(this HttpClient client, string? since = null)
     {
