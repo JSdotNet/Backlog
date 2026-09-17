@@ -15,7 +15,13 @@ public enum DevbookFolder
     Domain,
     Backlog,
     Tech,
-    Design
+    Design,
+
+    /// <summary>The AI adoption record — how the project develops <em>with</em> AI,
+    /// stage by stage. It rates a way of working on the same ladder <see cref="Tech"/>
+    /// rates a technology on, which is deliberate and is the one thing a reader
+    /// has to know to read either.</summary>
+    Ai
 }
 
 /// <summary>
@@ -50,6 +56,7 @@ public static class DevbookFolders
             ".backlog" => DevbookFolder.Backlog,
             ".tech" => DevbookFolder.Tech,
             ".design" => DevbookFolder.Design,
+            ".ai" => DevbookFolder.Ai,
             _ => DevbookFolder.Unknown
         };
     }

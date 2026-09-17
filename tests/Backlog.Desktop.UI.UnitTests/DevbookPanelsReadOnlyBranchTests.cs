@@ -180,6 +180,7 @@ public sealed class DevbookPanelsReadOnlyBranchTests : IDisposable
 
         var (context, folders) = Context(root, source);
         context.Services.AddSingleton<DesignDevbookProvider>();
+        context.Services.AddSingleton<AiDevbookProvider>();
 
         return new Harness(context, folders);
     }

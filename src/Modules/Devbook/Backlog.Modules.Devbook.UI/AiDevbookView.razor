@@ -1,0 +1,29 @@
+@inject AiDevbookProvider AiDevbook
+
+@*
+    The AI section of the pane: the repository's `.ai` adoption record — how the
+    project develops with AI, one file per stage of its flow, each chapter rated
+    on the `.tech` ladder. It is a flat folder of documents with `##` chapters,
+    which is exactly the shape DocumentDevbookView draws, so this wrapper adds
+    nothing but the folder: the injection names the AI provider by type, and the
+    provider carries the folder. The same shape as DesignDevbookView, for the
+    same reason.
+*@
+<DocumentDevbookView Provider="@AiDevbook"
+                     RepositoryAlias="@RepositoryAlias"
+                     SelectedPath="@SelectedPath"
+                     OnNavigateToChapter="@OnNavigateToChapter" />
+
+@code {
+    [Parameter]
+    public string? RepositoryAlias { get; set; }
+
+    [Parameter]
+    public string? SelectedPath { get; set; }
+
+    /// <summary>Raised when a reader follows a reference out of an AI adoption
+    /// chapter — most often into `.tech`, which is where a chapter's
+    /// `depends-on` points; see <see cref="DocumentDevbookView.OnNavigateToChapter"/>.</summary>
+    [Parameter]
+    public EventCallback<DevbookChapterLink> OnNavigateToChapter { get; set; }
+}

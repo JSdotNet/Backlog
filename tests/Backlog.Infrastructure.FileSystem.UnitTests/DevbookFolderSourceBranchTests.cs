@@ -288,9 +288,15 @@ public class DevbookFolderSourceBranchTests : IDisposable
         await source.PrepareListingAsync(".arc42", "backlog", TestContext.Current.CancellationToken);
 
         Assert.True(location.Available);
-        Assert.Equal(1, cache.Fetches);
 
+        // Counted after the re-check has landed, not before: the listing returns
+        // without waiting for it, and the re-check runs on the pool, so read
+        // early the count is whatever the scheduler got round to — 0 on a busy
+        // CI runner. Settle only releases the one fetch already in flight, so
+        // "one, not two" is the same claim after it as before.
         await Settle(source, settings, cache);
+
+        Assert.Equal(1, cache.Fetches);
     }
 
     /// <summary>The area, whole, and without the rendered diagram artifacts

@@ -366,6 +366,7 @@ public static class MauiProgram
         // the footer's dialog to open through it.
         builder.Services.AddSingleton<FeedbackReportChannel>();
         builder.Services.AddSingleton<DesignDevbookProvider>();
+        builder.Services.AddSingleton<AiDevbookProvider>();
         builder.Services.AddSingleton<TechnologyDevbookService>();
         builder.Services.AddSingleton<DevbookAtlasService>();
         // Retrieval, both tiers. Adapters over the generated database rather than

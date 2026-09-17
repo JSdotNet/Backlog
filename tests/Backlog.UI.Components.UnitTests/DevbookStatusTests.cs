@@ -2,7 +2,7 @@ namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
 /// Each folder's vocabulary is fixed by its own instructions file, and the tone
-/// is the one axis all five share. Both are pinned here: a folder quietly losing
+/// is the one axis all six share. Both are pinned here: a folder quietly losing
 /// a value stops a real status being recognised, and a tone drifting makes two
 /// folders disagree about what a colour means.
 /// </summary>
@@ -14,6 +14,9 @@ public sealed class DevbookStatusTests
     [InlineData(DevbookFolder.Design, "draft,active,deprecated")]
     [InlineData(DevbookFolder.Backlog, "draft,ready,in-progress,done,blocked")]
     [InlineData(DevbookFolder.Tech, "candidate,trial,adopted,hold,retired")]
+    // The same five words as `.tech`, by design: `devbook-ai.md` reuses the
+    // ladder so a reader learns one adoption vocabulary for both folders.
+    [InlineData(DevbookFolder.Ai, "candidate,trial,adopted,hold,retired")]
     public void Each_folder_carries_exactly_the_vocabulary_its_instructions_define(DevbookFolder folder, string expected)
     {
         Assert.Equal(expected.Split(','), DevbookStatus.Values(folder));
@@ -48,6 +51,11 @@ public sealed class DevbookStatusTests
     [InlineData(DevbookFolder.Tech, "adopted", DevbookStatusTone.Active)]
     [InlineData(DevbookFolder.Tech, "hold", DevbookStatusTone.Attention)]
     [InlineData(DevbookFolder.Tech, "retired", DevbookStatusTone.Retired)]
+    [InlineData(DevbookFolder.Ai, "candidate", DevbookStatusTone.Planned)]
+    [InlineData(DevbookFolder.Ai, "trial", DevbookStatusTone.Provisional)]
+    [InlineData(DevbookFolder.Ai, "adopted", DevbookStatusTone.Active)]
+    [InlineData(DevbookFolder.Ai, "hold", DevbookStatusTone.Attention)]
+    [InlineData(DevbookFolder.Ai, "retired", DevbookStatusTone.Retired)]
     public void Every_value_of_every_vocabulary_maps_onto_the_shared_scale(
         DevbookFolder folder,
         string status,
@@ -67,6 +75,46 @@ public sealed class DevbookStatusTests
 
         Assert.False(DevbookStatus.IsKnown(DevbookFolder.Design, "proposed"));
         Assert.Equal(DevbookStatusTone.Unknown, DevbookStatus.Tone(DevbookFolder.Design, "proposed"));
+
+        // `.ai` rates a way of working, not how settled the writing is: the
+        // editorial `draft` and `active` are typos there, as they are in `.tech`.
+        Assert.False(DevbookStatus.IsKnown(DevbookFolder.Ai, "active"));
+        Assert.Equal(DevbookStatusTone.Unknown, DevbookStatus.Tone(DevbookFolder.Ai, "draft"));
+    }
+
+    /// <summary>
+    /// A rating has no resting value. In <c>.ai</c> as in <c>.tech</c> an absent
+    /// status is not "current", it is unrated, so the vocabulary must not offer
+    /// the "No status" row the editorial folders get.
+    /// </summary>
+    [Theory]
+    [InlineData(DevbookFolder.Tech)]
+    [InlineData(DevbookFolder.Ai)]
+    [InlineData(DevbookFolder.Backlog)]
+    public void An_adoption_or_work_status_is_required(DevbookFolder folder)
+    {
+        Assert.False(DevbookStatus.Vocabulary(folder).AllowsNone);
+    }
+
+    [Theory]
+    [InlineData(DevbookFolder.Arc42)]
+    [InlineData(DevbookFolder.Domain)]
+    [InlineData(DevbookFolder.Design)]
+    public void An_editorial_status_may_be_left_unstated(DevbookFolder folder)
+    {
+        Assert.True(DevbookStatus.Vocabulary(folder).AllowsNone);
+    }
+
+    /// <summary>
+    /// One vocabulary object per folder even where two folders share a word
+    /// list: a record view is handed the vocabulary and nothing else, and a
+    /// badge drawn from a borrowed one would answer for the wrong folder.
+    /// </summary>
+    [Fact]
+    public void The_ai_folder_has_a_vocabulary_of_its_own_although_it_shares_tech_s_words()
+    {
+        Assert.NotSame(DevbookStatus.Vocabulary(DevbookFolder.Tech), DevbookStatus.Vocabulary(DevbookFolder.Ai));
+        Assert.Equal(DevbookStatus.Values(DevbookFolder.Tech), DevbookStatus.Values(DevbookFolder.Ai));
     }
 
     [Fact]

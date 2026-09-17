@@ -30,7 +30,7 @@ const ARCHIFY = join(REPO, 'tools', 'archify', 'bin', 'archify.mjs');
 /** The knowledge folders `DevbookFolderSetting.Defaults()` names, which are the
  *  folders the app resolves chapters out of. A diagram anywhere else is not a
  *  knowledge chapter diagram and is left alone. */
-const KNOWLEDGE_FOLDERS = ['.domain', '.arc42', '.tech', '.design'];
+const KNOWLEDGE_FOLDERS = ['.domain', '.arc42', '.tech', '.design', '.ai'];
 
 /** The artifact folder beside a chapter. Underscore-prefixed so it sorts away from
  *  the chapters and reads as machinery rather than as content — the knowledge
