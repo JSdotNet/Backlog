@@ -189,6 +189,7 @@ public sealed class DevToolService : IDevToolService
         var claudeMarketplaces = (IReadOnlySet<string>)new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var claudePlugins = (IReadOnlyDictionary<string, DevToolOutput.ClaudePluginState>)
             new Dictionary<string, DevToolOutput.ClaudePluginState>(StringComparer.OrdinalIgnoreCase);
+        var claudeInstallPaths = (IReadOnlyDictionary<string, int>)new Dictionary<string, int>();
 
         if (claudeCli is null)
         {
@@ -220,7 +221,7 @@ public sealed class DevToolService : IDevToolService
                 }
             }
 
-            claudePlugins = await GetInstalledClaudePluginsAsync(claudeCli, log, ct).ConfigureAwait(false);
+            (claudePlugins, claudeInstallPaths) = await GetInstalledClaudePluginsAsync(claudeCli, log, ct).ConfigureAwait(false);
         }
 
         var defaultMarketplace = DevToolConfiguration.DefaultMarketplaceName(root);
@@ -271,6 +272,7 @@ public sealed class DevToolService : IDevToolService
                 installedPlugins,
                 claudeCli,
                 claudePlugins,
+                claudeInstallPaths,
                 defaultMarketplace,
                 refreshed,
                 log,
@@ -358,6 +360,7 @@ public sealed class DevToolService : IDevToolService
         IReadOnlyDictionary<string, string> installedPlugins,
         string? claudeCli,
         IReadOnlyDictionary<string, DevToolOutput.ClaudePluginState> claudePlugins,
+        IReadOnlyDictionary<string, int> claudeInstallPaths,
         string? defaultMarketplace,
         RefreshState refreshed,
         CommandLog log,
@@ -369,6 +372,7 @@ public sealed class DevToolService : IDevToolService
         var repositoryBacked = IsRepositoryBacked(plugin);
         var states = new List<DevToolHostState>();
         var notes = new List<string>();
+        IReadOnlyList<DevToolCachedVersion> cachedVersions = [];
 
         // Looked up once and shared. A Claude plugin's source is the same
         // owner/repo:path shorthand the Copilot entry carries, so the published
@@ -465,6 +469,11 @@ public sealed class DevToolService : IDevToolService
                     notes.Add($"The {marketplace} marketplace was not refreshed, so Claude's published version is unknown.");
                 }
 
+                // Read whether or not Claude says the plugin is installed. A plugin
+                // that was uninstalled leaves every version it ever had in the
+                // cache, and those are the stalest folders of all.
+                cachedVersions = ReadCachedVersions(pluginId, claudeInstallPaths);
+
                 states.Add(new DevToolHostState(
                     DevToolHosts.Claude,
                     state is not null,
@@ -495,8 +504,41 @@ public sealed class DevToolService : IDevToolService
             AggregateStatus(enabled, states, notes, string.IsNullOrWhiteSpace(kind) ? "plugin" : kind))
         {
             Hosts = hosts,
-            HostStates = states
+            HostStates = states,
+            CachedVersions = cachedVersions
         };
+    }
+
+    /// <summary>Where Claude keeps its config — and under it, its plugin cache.
+    /// The same override the CLI honours, so a machine that moved its config
+    /// folder is read where it actually is rather than where the default
+    /// would be.</summary>
+    private static string ClaudeConfigDirectory =>
+        Environment.GetEnvironmentVariable("CLAUDE_CONFIG_DIR") is { Length: > 0 } configured
+            ? configured
+            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude");
+
+    private static string ClaudeCacheRoot => DevToolCache.CacheRoot(ClaudeConfigDirectory);
+
+    /// <summary>The versions of one plugin sitting in Claude's cache, read
+    /// against what the listing said is installed. Empty for a plugin with no
+    /// cache folder, and empty — rather than a failed listing — when the folder
+    /// cannot be read: the cache is a detail of the row, not the row.</summary>
+    private static IReadOnlyList<DevToolCachedVersion> ReadCachedVersions(string pluginId, IReadOnlyDictionary<string, int> installPaths)
+    {
+        if (DevToolCache.PluginDirectory(ClaudeCacheRoot, pluginId) is not { } directory || !Directory.Exists(directory))
+        {
+            return [];
+        }
+
+        try
+        {
+            return DevToolCache.Describe(Directory.EnumerateDirectories(directory), installPaths);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return [];
+        }
     }
 
     /// <summary>
@@ -899,6 +941,171 @@ public sealed class DevToolService : IDevToolService
             paths => DevToolConfiguration.ImportCatalogAsync(paths, json, ct),
             paths => $"The catalog at {paths.CatalogPath} was replaced. The previous one is beside it as .bak.");
 
+    public async Task<DevToolActionResult> RemoveCachedVersionAsync(string key, string version, CancellationToken ct = default)
+    {
+        var log = new CommandLog();
+        var result = await RemoveCachedVersionCoreAsync(key, version, log, ct).ConfigureAwait(false);
+
+        return result with { Commands = log.Commands };
+    }
+
+    private async Task<DevToolActionResult> RemoveCachedVersionCoreAsync(string key, string version, CommandLog log, CancellationToken ct)
+    {
+        if (DevToolConfiguration.KindOf(key) is not DevToolKind.Plugin)
+        {
+            return DevToolActionResult.Failed("Only a plugin has a cache to clear.");
+        }
+
+        // The version arrives from a row that read it off a folder name, but the
+        // port cannot know that: anything with a separator in it would name a
+        // folder outside the plugin's own, and the delete below is recursive.
+        if (!DevToolCache.IsPlainFolderName(version))
+        {
+            return DevToolActionResult.Failed($"'{version}' is not a cached version.");
+        }
+
+        var configPaths = ConfigurationPaths;
+        if (!DevToolConfiguration.CatalogExists(configPaths))
+        {
+            return DevToolActionResult.Failed($"Tool catalog was not found at {configPaths.CatalogPath}.");
+        }
+
+        var root = (await DevToolConfiguration.ReadAsync(configPaths, ct).ConfigureAwait(false)).Root;
+        if (FindToolNode(root, key) is not { } plugin)
+        {
+            return DevToolActionResult.Failed("That tool is no longer in the config.");
+        }
+
+        var name = GetRequiredString(plugin, "name");
+        if (ClaudePluginIdFor(plugin, name, DevToolConfiguration.DefaultMarketplaceName(root)) is not { } pluginId)
+        {
+            return DevToolActionResult.Failed(NoMarketplace);
+        }
+
+        if (DevToolCache.PluginDirectory(ClaudeCacheRoot, pluginId) is not { } pluginDirectory)
+        {
+            return DevToolActionResult.Failed($"{pluginId} does not name a cache folder.");
+        }
+
+        var directory = Path.Combine(pluginDirectory, version);
+        if (!Directory.Exists(directory))
+        {
+            return DevToolActionResult.Failed($"{pluginId} {version} is not in Claude's plugin cache.");
+        }
+
+        // Asked again rather than trusted from the row. The row's "in use" is as
+        // old as the last check, and an install made since — a project scope
+        // registered in another window — is exactly the one a stale answer would
+        // delete out from under.
+        if (await ResolveClaudeCliAsync(log, ct).ConfigureAwait(false) is not { } claudeCli)
+        {
+            return DevToolActionResult.Failed(ClaudeCliMissing);
+        }
+
+        var listing = await GetInstalledClaudePluginsAsync(claudeCli, log, ct).ConfigureAwait(false);
+        var installs = listing.InstallPaths.GetValueOrDefault(DevToolCache.NormalizePath(directory));
+        if (installs > 0)
+        {
+            return DevToolActionResult.Failed(
+                $"{pluginId} {version} is still in use by {Installs(installs)}. Update those installs first; deleting the folder would break them.");
+        }
+
+        try
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger?.LogWarning(ex, "Could not delete cached plugin version {Directory}.", directory);
+            return DevToolActionResult.Failed($"{pluginId} {version} could not be removed from the cache: {ex.Message}");
+        }
+
+        return DevToolActionResult.Ok($"Removed {pluginId} {version} from Claude's plugin cache.");
+    }
+
+    public async Task<DevToolActionResult> RemoveStaleCacheAsync(CancellationToken ct = default)
+    {
+        var log = new CommandLog();
+        var result = await RemoveStaleCacheCoreAsync(log, ct).ConfigureAwait(false);
+
+        return result with { Commands = log.Commands };
+    }
+
+    /// <summary>
+    /// The whole cache walked — every marketplace, every plugin, every version —
+    /// and every version folder no install points at deleted.
+    ///
+    /// <para>Not driven by the catalog, deliberately. The cache on a machine that
+    /// has been through a marketplace rename holds a whole tree under the old
+    /// marketplace's name that no row will ever describe, and those folders are
+    /// the ones nothing else can reach.</para>
+    /// </summary>
+    private async Task<DevToolActionResult> RemoveStaleCacheCoreAsync(CommandLog log, CancellationToken ct)
+    {
+        var cacheRoot = ClaudeCacheRoot;
+        if (!Directory.Exists(cacheRoot))
+        {
+            return DevToolActionResult.Ok("Claude's plugin cache is empty.");
+        }
+
+        if (await ResolveClaudeCliAsync(log, ct).ConfigureAwait(false) is not { } claudeCli)
+        {
+            return DevToolActionResult.Failed(ClaudeCliMissing);
+        }
+
+        var listing = await GetInstalledClaudePluginsAsync(claudeCli, log, ct).ConfigureAwait(false);
+        var removed = 0;
+        var failed = new List<string>();
+
+        try
+        {
+            foreach (var marketplace in Directory.EnumerateDirectories(cacheRoot))
+            {
+                foreach (var plugin in Directory.EnumerateDirectories(marketplace))
+                {
+                    foreach (var cached in DevToolCache.Describe(Directory.EnumerateDirectories(plugin), listing.InstallPaths))
+                    {
+                        ct.ThrowIfCancellationRequested();
+
+                        if (cached.InUse)
+                        {
+                            continue;
+                        }
+
+                        try
+                        {
+                            Directory.Delete(cached.Path, recursive: true);
+                            removed++;
+                        }
+                        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                        {
+                            _logger?.LogWarning(ex, "Could not delete cached plugin version {Directory}.", cached.Path);
+                            failed.Add($"{Path.GetFileName(plugin)}@{Path.GetFileName(marketplace)} {cached.Version}");
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger?.LogWarning(ex, "Could not walk Claude's plugin cache at {Directory}.", cacheRoot);
+            return DevToolActionResult.Failed($"Claude's plugin cache could not be read: {ex.Message}");
+        }
+
+        var summary = removed switch
+        {
+            0 => "Nothing in Claude's plugin cache was stale.",
+            1 => "Removed 1 stale version from Claude's plugin cache.",
+            _ => $"Removed {removed} stale versions from Claude's plugin cache."
+        };
+
+        return failed.Count == 0
+            ? DevToolActionResult.Ok(summary)
+            : DevToolActionResult.Failed($"{summary} Could not remove: {string.Join(", ", failed)}.");
+    }
+
+    private static string Installs(int count) => count == 1 ? "1 install" : $"{count} installs";
+
     /// <summary>
     /// The four catalog edits share one shape: delegate to the shared writer, and
     /// turn everything it can refuse into a message the pane can put on its status
@@ -1123,7 +1330,7 @@ public sealed class DevToolService : IDevToolService
             return DevToolActionResult.Failed(NoMarketplace);
         }
 
-        var installed = await GetInstalledClaudePluginsAsync(cli, log, ct).ConfigureAwait(false);
+        var installed = (await GetInstalledClaudePluginsAsync(cli, log, ct).ConfigureAwait(false)).Plugins;
         var state = installed.GetValueOrDefault(pluginId);
         var enabled = GetBool(plugin, "enabled");
 
@@ -2394,7 +2601,7 @@ public sealed class DevToolService : IDevToolService
     /// failed. A failure is not thrown here the way the Copilot listing throws:
     /// every Claude row can still say something useful without it, and the command
     /// log already carries whatever the CLI printed.</summary>
-    private static async Task<IReadOnlyDictionary<string, DevToolOutput.ClaudePluginState>> GetInstalledClaudePluginsAsync(
+    private static async Task<ClaudeInstallListing> GetInstalledClaudePluginsAsync(
         string cli,
         CommandLog log,
         CancellationToken ct)
@@ -2402,9 +2609,21 @@ public sealed class DevToolService : IDevToolService
         var result = await RunAsync(DevToolCommands.ClaudePluginList(cli), log, ct).ConfigureAwait(false);
 
         return result.ExitCode == 0
-            ? DevToolOutput.ParseClaudePluginList(result.Output)
-            : new Dictionary<string, DevToolOutput.ClaudePluginState>(StringComparer.OrdinalIgnoreCase);
+            ? new ClaudeInstallListing(
+                DevToolOutput.ParseClaudePluginList(result.Output),
+                DevToolOutput.ParseClaudePluginInstallPaths(result.Output))
+            : new ClaudeInstallListing(
+                new Dictionary<string, DevToolOutput.ClaudePluginState>(StringComparer.OrdinalIgnoreCase),
+                new Dictionary<string, int>());
     }
+
+    /// <summary>One <c>plugin list</c> run, read twice: what is installed per
+    /// plugin id, and which cache folders every install at every scope points
+    /// at. Both come out of the same body, and running it twice for the two
+    /// would be two chances for the answers to disagree.</summary>
+    private sealed record ClaudeInstallListing(
+        IReadOnlyDictionary<string, DevToolOutput.ClaudePluginState> Plugins,
+        IReadOnlyDictionary<string, int> InstallPaths);
 
     /// <inheritdoc cref="GetInstalledClaudePluginsAsync" />
     private static async Task<IReadOnlySet<string>> GetClaudeMarketplacesAsync(string cli, CommandLog log, CancellationToken ct)

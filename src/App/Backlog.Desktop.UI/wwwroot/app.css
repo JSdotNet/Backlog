@@ -3916,6 +3916,58 @@ h1, h2, h3 {
     overflow-wrap: anywhere;
 }
 
+/* What Claude has kept of a plugin: one chip per cached version, under the row.
+   A stale chip carries its own small Remove; a chip some install still loads
+   carries none and says so. The line wraps rather than scrolls, because the
+   plugin this exists for had three versions cached and a narrow pane. */
+.tools-inventory__cache {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+    margin-top: var(--spacing-xs);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.tools-inventory__cache-label {
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.tools-inventory__cache-version {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: 999px;
+    padding: 0.1rem 0.5rem;
+    font-family: var(--font-family-mono);
+    white-space: nowrap;
+}
+
+.tools-inventory__cache-version--in-use {
+    color: var(--color-text-primary);
+}
+
+.tools-inventory__cache-use {
+    font-family: var(--font-family-base);
+    font-style: italic;
+}
+
+/* The chip's own Remove, shrunk to the chip: the library's small ghost button
+   is sized for a toolbar, and inside a pill of one word it doubled the pill's
+   height. Only the padding and the size are overridden; it stays the same
+   control, with the same focus ring and the same disabled state. */
+.tools-inventory__cache-remove {
+    padding: 0 0.3rem;
+    min-height: 0;
+    font-size: var(--font-size-xs);
+    font-family: var(--font-family-base);
+    line-height: 1.4;
+}
+
 /* The tick on a row nothing can check. The library's checkbox wearing one extra
    rule: the actions cell is the narrowest column in the table, and a two-word
    label that wraps there makes the row twice as tall as the fifty around it.
