@@ -49,13 +49,14 @@ public sealed class InMemoryTaskReplica : ITaskReplica
         ArgumentNullException.ThrowIfNull(changes);
 
         var partition = _byOwner.GetOrAdd(scope.OwnerId, _ => new OwnerPartition());
+        var accepted = 0;
 
         foreach (var change in changes)
         {
-            partition.Write(change, scope.DeviceId.Value);
+            if (partition.Write(change, scope.DeviceId.Value)) accepted++;
         }
 
-        return Task.FromResult(changes.Count);
+        return Task.FromResult(accepted);
     }
 
     public Task<TaskReplicaPage> ReadChanges(
@@ -114,14 +115,29 @@ public sealed class InMemoryTaskReplica : ITaskReplica
         private readonly Dictionary<Guid, StoredDocument> _documents = [];
         private long _sequence;
 
-        internal void Write(TaskChange change, Guid deviceId)
+        /// <summary>Writes the change unless the document held is already at
+        /// least this version, and says whether it did.</summary>
+        internal bool Write(TaskChange change, Guid deviceId)
         {
             lock (_gate)
             {
-                // Whole-document last-write-wins: the arriving version replaces
-                // whatever was there, and re-writing a document moves it to the
-                // end of the feed exactly as a Cosmos upsert restamps `_ts`.
+                // A stale copy — a device echoing a version it pulled, or an
+                // edit stamped before the one already here — is dropped whole:
+                // it does not replace the document and does not move it in the
+                // feed, so a device that was caught up is not handed it as a
+                // change. TaskChangePrecedence says what stale means.
+                if (_documents.TryGetValue(change.Id, out var held)
+                    && !TaskChangePrecedence.Supersedes(change, held.Change))
+                {
+                    return false;
+                }
+
+                // Whole-document last-write-wins among the versions that get
+                // this far: the arriving version replaces whatever was there,
+                // and re-writing a document moves it to the end of the feed
+                // exactly as a Cosmos upsert restamps `_ts`.
                 _documents[change.Id] = new StoredDocument(change, deviceId, ++_sequence);
+                return true;
             }
         }
 
