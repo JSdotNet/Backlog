@@ -19,8 +19,13 @@ public sealed record PushAnnotationsCommand(OwnerScope Scope, IReadOnlyList<Anno
 /// <summary>
 /// Writes the batch and says how much of it was taken. No per-change outcome
 /// and no merge: an annotation document is the unit of last-write-wins, the
-/// replica keeps whichever version arrived last and the desktop reconciles, so
-/// this handler deliberately does not look inside a payload.
+/// replica keeps the later version and the desktop reconciles, so this handler
+/// deliberately does not look inside a payload. "Later" is the replica's call
+/// (<see cref="AnnotationChangePrecedence"/>), which is why
+/// <see cref="PushAnnotationsResponse.Accepted"/> can be short of the batch: a
+/// device re-sending a version the replica has already moved past — its echo
+/// of what it pulled — is answered with a smaller count rather than an error,
+/// because there is nothing for it to do about it.
 /// </summary>
 public sealed class PushAnnotationsCommandHandler(IAnnotationReplica replica)
     : ICommandHandler<PushAnnotationsCommand, Result<PushAnnotationsResponse>>

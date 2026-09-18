@@ -24,8 +24,11 @@ namespace Backlog.Modules.Sync.Ports;
 public interface IAnnotationReplica
 {
     /// <summary>Writes a batch of changes and answers how many were taken.
-    /// Whole-document last-write-wins, so there is nothing to reject and nothing
-    /// to merge; the scope's device id is stamped on each so a client can
+    /// Whole-document last-write-wins with one refusal and no merge: a change
+    /// that is not a later version than the document already held — by
+    /// <see cref="AnnotationChangePrecedence"/> — is dropped whole, neither
+    /// written nor counted, so a push can never move a document backwards. The
+    /// scope's device id is stamped on each one written so a client can
     /// recognise its own echo on the way back.</summary>
     Task<int> Upsert(OwnerScope scope, IReadOnlyList<AnnotationChange> changes, CancellationToken cancellationToken = default);
 

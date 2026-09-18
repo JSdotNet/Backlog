@@ -66,19 +66,112 @@ internal sealed class CosmosAnnotationReplica : IAnnotationReplica
         var partition = new PartitionKey(ReplicaDocumentSerialization.Key(scope.OwnerId.Value));
         var accepted = 0;
 
-        // One request per document rather than a transactional batch, for the
+        // One document at a time rather than a transactional batch, for the
         // reason the task replica gives: a single unlucky document must not
         // send the rest of the batch back.
         foreach (var change in changes)
         {
+            if (await WriteIfLaterAsync(container, partition, scope, change, cancellationToken))
+            {
+                accepted++;
+            }
+        }
+
+        return accepted;
+    }
+
+    /// <summary>How often one document is re-read and re-tried after another
+    /// writer got in between the read and the write. Two of one person's
+    /// desktops pushing the same remark in the same instant is the only way to
+    /// need a second attempt at all.</summary>
+    private const int WriteAttempts = 3;
+
+    /// <summary>
+    /// Writes one change unless the document held is already at least that
+    /// version, and says whether it did.
+    /// <para>
+    /// Read, compare, then write against the etag the read returned — never a
+    /// blind upsert. A blind upsert let a device's echo of a version it had
+    /// pulled overwrite the tombstone or the edit another device had pushed
+    /// since; <see cref="AnnotationChangePrecedence"/> carries that story and
+    /// the rule. The etag closes the gap between the read and the write: a
+    /// version that landed in between fails the precondition, and the document
+    /// is read again and compared again rather than either copy winning by
+    /// timing. A document that is not there yet is created rather than
+    /// upserted for the same reason — a create that finds one is the same
+    /// race, and is retried the same way.
+    /// </para>
+    /// <para>
+    /// A document this service cannot read back — no payload, an id that is not
+    /// a GUID — is written over: it is not one this service wrote, and holding
+    /// a push back for it would leave that id stuck for ever.
+    /// </para>
+    /// </summary>
+    private async Task<bool> WriteIfLaterAsync(
+        Container container,
+        PartitionKey partition,
+        OwnerScope scope,
+        AnnotationChange change,
+        CancellationToken cancellationToken)
+    {
+        var id = ReplicaDocumentSerialization.Key(change.Id);
+
+        for (var attempt = 1; attempt <= WriteAttempts; attempt++)
+        {
+            AnnotationDocument? held = null;
+            string? etag = null;
+
             try
             {
-                await container.UpsertItemAsync(
-                    AnnotationDocumentFactory.From(scope, change, _options),
-                    partition,
-                    cancellationToken: cancellationToken);
+                var read = await container.ReadItemAsync<AnnotationDocument>(id, partition, cancellationToken: cancellationToken);
+                held = read.Resource;
+                etag = read.ETag;
+            }
+            catch (CosmosException failure) when (failure.StatusCode is HttpStatusCode.NotFound)
+            {
+                // Nothing held: the ordinary case for a new remark.
+            }
+            catch (CosmosException failure)
+            {
+                throw Fault(failure);
+            }
 
-                accepted++;
+            if (held is not null
+                && AnnotationDocumentFactory.ToRecord(held) is { } stored
+                && !AnnotationChangePrecedence.Supersedes(change, stored.Change))
+            {
+                return false;
+            }
+
+            var document = AnnotationDocumentFactory.From(scope, change, _options);
+
+            try
+            {
+                if (held is null)
+                {
+                    await container.CreateItemAsync(document, partition, cancellationToken: cancellationToken);
+                }
+                else
+                {
+                    await container.ReplaceItemAsync(
+                        document,
+                        id,
+                        partition,
+                        new ItemRequestOptions { IfMatchEtag = etag },
+                        cancellationToken);
+                }
+
+                return true;
+            }
+            catch (CosmosException failure) when (failure.StatusCode is HttpStatusCode.PreconditionFailed or HttpStatusCode.Conflict)
+            {
+                // Another writer landed between the read and the write. Go
+                // round again: the next read sees their version and the
+                // comparison decides, which is the whole point of not having
+                // let timing decide here.
+                _log.LogDebug(
+                    "Annotation {AnnotationId} changed under a push from device {DeviceId}; re-reading (attempt {Attempt} of {Attempts}).",
+                    change.Id, scope.DeviceId.Value, attempt, WriteAttempts);
             }
             catch (CosmosException failure)
             {
@@ -86,7 +179,11 @@ internal sealed class CosmosAnnotationReplica : IAnnotationReplica
             }
         }
 
-        return accepted;
+        // Contended on every attempt. Busy rather than a silent drop, so the
+        // device's watermark stays put and it sends the batch again next run.
+        throw new SyncReplicaException(
+            SyncErrorCodes.ReplicaBusy,
+            "The annotation replica is busy. Try again shortly.");
     }
 
     public async Task<AnnotationReplicaPage> ReadChanges(

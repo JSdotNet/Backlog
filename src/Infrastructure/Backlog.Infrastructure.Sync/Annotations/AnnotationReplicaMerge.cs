@@ -141,6 +141,16 @@ public sealed class AnnotationReplicaMerge
         // Older than the local copy, so it may only overwrite one this device
         // has already sent. Everything above the watermark is due to be pushed
         // and will win there.
+        //
+        // This leans on the replica never moving a document backwards. Every
+        // device echoes what it pulled on its next push — a received remark
+        // sits above the watermark exactly as an edit does — and a replica
+        // that took the echo would hand this device an *older* copy of a remark
+        // it had already pushed, which this branch then applies: a pushed
+        // tombstone came back as the live remark, a pushed edit as the version
+        // before it. The service refuses such a push (AnnotationChangePrecedence
+        // in the Sync module), so the older document this branch accepts is one
+        // the replica ordered after this device's own, never a stale copy of it.
         return local.UpdatedAt <= pushWatermark;
     }
 

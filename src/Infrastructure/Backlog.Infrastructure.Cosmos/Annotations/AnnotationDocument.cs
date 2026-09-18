@@ -51,8 +51,12 @@ internal sealed class AnnotationDocument
     [JsonPropertyName("_ts")]
     public long Timestamp { get; set; }
 
-    /// <summary>Cosmos's version tag; mapped so it round-trips, never used for
-    /// concurrency.</summary>
+    /// <summary>Cosmos's version tag. The write path reads it off the response
+    /// rather than from here, and uses it only to notice that another device
+    /// wrote between its read and its write — a race that is re-read and
+    /// re-compared, never surfaced as an error (see
+    /// <c>CosmosAnnotationReplica.WriteIfLaterAsync</c>). Mapped so it
+    /// round-trips rather than being dropped and rewritten as null.</summary>
     [JsonPropertyName("_etag")]
     public string? ETag { get; set; }
 }

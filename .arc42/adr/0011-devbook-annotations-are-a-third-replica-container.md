@@ -12,6 +12,33 @@ issue: null
 Accepted, and built: the store, the port, the third replica container, its
 endpoints and the desktop exchange landed together on 2026-09-16.
 
+> **Amended, 2026-09-18 — a push may never move a document backwards.** The
+> replica this record copied from local ADR 0005 kept whichever copy of an
+> annotation arrived last, and that let a device's *echo* win — the defect the
+> task replica was amended for on the same day, and the same defect here,
+> because the annotation exchange is the task exchange's copy. Every device
+> pushes everything above its own watermark, and a document it received on a
+> pull sits above that watermark exactly as an edit does — so each device
+> re-sends what it pulled, once, on its next push. When the other desktop had
+> resolved, deleted or reworded the remark in between, the echo replaced the
+> tombstone or the edit at the replica, and the first desktop then took the
+> older copy back over its own pushed one, because the merge treats the replica
+> as authoritative for anything a device has already sent. A deleted remark
+> came back on both desktops; an edit reverted to the version the other had
+> pulled. Both annotation adapters now refuse a pushed copy that is not a later
+> version than the one held — later by `updated_at`, a tombstone beating the
+> live copy it replaced on a tie, an identical pair changing nothing
+> (`AnnotationChangePrecedence` in the Sync module, a copy of the task rule
+> rather than a shared one, on this record's terms; the Cosmos adapter reads,
+> compares, and writes against the etag, re-reading on a race rather than
+> letting timing decide). The push response's `accepted` count is honest about
+> it, and the client already treats a short count as nothing to act on. What
+> this costs is the one race arrival order was chosen for: two desktops editing
+> one remark in the same interval now resolve to the later-*stamped* edit rather
+> than the later-*uploaded* one, so a skewed clock can pick the winner. Both
+> orderings lose one edit in that race; only arrival order also lost every
+> deletion. `_ts` still orders the feed and the merge's tiebreaks are unchanged.
+
 A **local** decision, numbered in the local sequence. It **extends** local ADR
 0005 — a third replica container beside `tasks` and `sessions`, on that
 record's terms — and **leaves local ADR 0004 intact**: the generated
@@ -141,7 +168,11 @@ their own progress file (`annotation-sync-state.json`, per-user, never the
 workspace root). The merge's rules are the task merge's exactly — replica
 stamp, then device stamp, then device id within a page; against the local copy,
 newer wins and an unsent local edit is kept — because two devices have to agree
-on them. The worker is a third sibling of the other two loops rather than a
+on them. **Amended 2026-09-18:** the rule "an older copy may overwrite one this
+device has already sent" holds only because the replica accepts a pushed copy
+only when it is a later version than the one it holds, by `updated_at` and then
+by tombstone; see the amendment note under **Status** for why arrival order
+alone could not. The worker is a third sibling of the other two loops rather than a
 third exchange inside one, for the whole of the reasoning `SessionSyncWorker`
 records, staggered eleven seconds behind the app's start so three exchanges do
 not fire into the same moment. It answers to the one `sync` feature switch and
