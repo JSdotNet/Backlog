@@ -75,6 +75,107 @@ public sealed class ImportPlanTests
         Assert.Equal(["some-existing-real-id"], Assert.Single(result.Entries).DependsOn!);
     }
 
+    /// <summary>A plan brought in over two sittings is still one plan. The second
+    /// document names a step only the first one wrote an <c>id:</c> for, and that
+    /// step is in the store under the same plan — so the wait resolves to it
+    /// rather than being written through as a slug nothing can find.</summary>
+    [Fact]
+    public async Task A_dependency_on_a_step_an_earlier_import_created_resolves_to_its_real_id()
+    {
+        var store = new InMemoryTaskRepository();
+
+        var first = await Import(store, "# Task sync endpoints\n`prompt` `#myplan` `id:sync-tasks`\n");
+        var syncTasksId = Assert.Single(first.Entries).Id;
+
+        // Finished, so the re-import below leaves it standing rather than clearing
+        // it as not-yet-started — which is also the realistic shape: the second
+        // half of a plan is written once the first half has been done.
+        store.Entries[syncTasksId].SetStatus(EntryStatus.Done);
+
+        var second = await Import(store, "# First deployment\n`prompt` `#myplan` `id:first-deploy` `after:sync-tasks`\n");
+
+        var firstDeploy = Assert.Single(second.Entries);
+        Assert.Equal([syncTasksId.ToString()], firstDeploy.DependsOn!);
+    }
+
+    /// <summary>The case that was actually on screen: a batch whose entries did
+    /// not all share a tag has no plan id, but the entry naming the step still
+    /// wears the plan's tag itself. That tag is what the earlier import stored as
+    /// its plan id, so it is enough to say which plan's <c>sync-tasks</c> is meant.</summary>
+    [Fact]
+    public async Task A_dependency_in_a_batch_with_no_shared_tag_resolves_through_the_entrys_own_tag()
+    {
+        var store = new InMemoryTaskRepository();
+
+        var first = await Import(store, "# Task sync endpoints\n`prompt` `#local-sync-storage` `id:sync-tasks`\n");
+        var syncTasksId = Assert.Single(first.Entries).Id;
+        store.Entries[syncTasksId].SetStatus(EntryStatus.Done);
+
+        const string batch =
+            "# First deployment\n`prompt` `#local-sync-storage` `id:first-deploy` `after:sync-tasks`\n\n"
+            + "# A stray fragment\n`prompt`\n";
+
+        var second = await Import(store, batch);
+
+        var firstDeploy = Assert.Single(second.Entries, e => e.Title == "First deployment");
+        Assert.Null(firstDeploy.ImportPlanId);
+        Assert.Equal([syncTasksId.ToString()], firstDeploy.DependsOn!);
+    }
+
+    /// <summary>Two plans both own a <c>review-plan</c> step and the asking entry
+    /// belongs to neither. Picking one would chain the entry to another plan's
+    /// work, so the value is left as written — the honest failure.</summary>
+    [Fact]
+    public async Task A_dependency_naming_a_slug_two_plans_both_own_is_left_as_written()
+    {
+        var store = new InMemoryTaskRepository();
+
+        await Import(store, "# Review plan A\n`prompt` `#plan-a` `id:review-plan` `!in-progress`\n");
+        await Import(store, "# Review plan B\n`prompt` `#plan-b` `id:review-plan` `!in-progress`\n");
+
+        var result = await Import(store, "# Something else\n`prompt` `#plan-c` `after:review-plan`\n");
+
+        Assert.Equal(["review-plan"], Assert.Single(result.Entries).DependsOn!);
+    }
+
+    /// <summary>A slug only one entry in the whole store goes by is that entry,
+    /// whichever plan it sits under: there is nothing to confuse it with.</summary>
+    [Fact]
+    public async Task A_dependency_naming_a_slug_only_one_entry_carries_resolves_across_plans()
+    {
+        var store = new InMemoryTaskRepository();
+
+        var first = await Import(store, "# Provision the box\n`prompt` `#infra` `id:provision` `!in-progress`\n");
+        var provisionId = Assert.Single(first.Entries).Id;
+
+        var result = await Import(store, "# Deploy on it\n`prompt` `#app` `after:provision`\n");
+
+        Assert.Equal([provisionId.ToString()], Assert.Single(result.Entries).DependsOn!);
+    }
+
+    /// <summary>A same-document <c>id:</c> still wins over a stored one: the
+    /// document is the version of the plan being brought in, and the entry it
+    /// names is the one this run writes.</summary>
+    [Fact]
+    public async Task A_same_document_id_wins_over_a_stored_one()
+    {
+        var store = new InMemoryTaskRepository();
+
+        var first = await Import(store, "# Old step\n`prompt` `#other` `id:step` `!in-progress`\n");
+        var oldId = Assert.Single(first.Entries).Id;
+
+        const string plan =
+            "# New step\n`prompt` `#myplan` `id:step`\n\n"
+            + "# Next\n`prompt` `#myplan` `id:next` `after:step`\n";
+
+        var result = await Import(store, plan);
+
+        var newStep = Assert.Single(result.Entries, e => e.Title == "New step");
+        var next = Assert.Single(result.Entries, e => e.Title == "Next");
+        Assert.Equal([newStep.Id.ToString()], next.DependsOn!);
+        Assert.NotEqual(oldId, newStep.Id);
+    }
+
     /// <summary>
     /// A plan states what each of its entries is, not only that it is a prompt.
     /// The type token is read off each entry's own metadata line, so one plan can

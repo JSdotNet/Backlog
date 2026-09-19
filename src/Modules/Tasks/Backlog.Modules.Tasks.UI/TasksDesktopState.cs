@@ -1544,6 +1544,38 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     public async Task ChangeDependsOnAsync(EntryRow row, IEnumerable<string>? dependsOn) =>
         await RewriteMetadataAsync(row, EntryTextParser.WithDependsOn(row.RawText, dependsOn));
 
+    /// <summary>
+    /// What a row waits on, as real ids wherever the text's <c>after:</c> values
+    /// can be read as one.
+    /// <para>
+    /// <see cref="EntryRow.PreviewDependsOn"/> is the text as written, and an
+    /// import that named a step from an earlier sitting wrote its local
+    /// <c>id:</c> through unresolved (see <see cref="DependencyResolution"/>).
+    /// Everything that reads a dependency — the list's chain, the pane's
+    /// "Waiting for", the picker's chips — reads this instead, so a stored slug
+    /// still names the entry it meant; and the picker writes what it read, so
+    /// the first edit heals the text. A value nothing here can name comes
+    /// through as written, and still blocks.
+    /// </para>
+    /// </summary>
+    public IReadOnlyList<string> ResolvedDependsOn(EntryRow row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        var dependsOn = row.PreviewDependsOn;
+        if (dependsOn.Count == 0) return dependsOn;
+
+        return DependencyResolution.ResolveAll(dependsOn, DependencyCandidates(), row.ImportPlanId, row.PreviewTags);
+    }
+
+    /// <summary>Every persisted row as the resolver sees it. Built per call
+    /// rather than cached: the rows change under every save, and a chain is read
+    /// a handful of times per render, not per keystroke.</summary>
+    private List<DependencyResolution.Candidate> DependencyCandidates() =>
+        [.. Rows
+            .Where(row => row.Id is not null)
+            .Select(row => new DependencyResolution.Candidate(row.Id!.Value, row.PreviewImportItemId, row.ImportPlanId))];
+
     /// <summary>Attaches a place, or detaches what was attached. A path and never a
     /// copy, and one place and never a list — both decisions live on
     /// <see cref="Attachment"/>, which also turns a blank path into "nothing
@@ -2640,6 +2672,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         row.CompletedSubItemCount = entry.CompletedSubItems;
         row.IssueLink = TasksIssues.FindLink(entry);
         row.CreatedAt = entry.CreatedAt;
+        row.ImportPlanId = entry.ImportPlanId;
 
         // Re-derive the canonical text from the just-saved entry so the editor
         // reflects any graceful corrections (e.g. an unknown status token that
@@ -3066,6 +3099,20 @@ public sealed class EntryRow
     public string? CopilotError { get; set; }
 
     public bool IsPersisted => Id.HasValue;
+
+    /// <summary>The plan this entry was imported as part of, or null. Read off the
+    /// entry rather than the parse, like <see cref="CreatedAt"/>: the plan id is
+    /// the tag the whole import shared, and nothing in this entry's own text says
+    /// which of its tags that was.</summary>
+    public string? ImportPlanId { get; set; }
+
+    /// <summary>The local <c>id:</c> this entry goes by inside its plan, or null.
+    /// A preview like the scheduling fields, because the token is in the text and
+    /// a reader can type one.</summary>
+    public string? PreviewImportItemId
+    {
+        get { Render(); return _parsed!.ImportItemId; }
+    }
 
     /// <summary>When the entry was first saved, or null until it has been. Not a
     /// preview like the fields above: there is no token for it in the text and
