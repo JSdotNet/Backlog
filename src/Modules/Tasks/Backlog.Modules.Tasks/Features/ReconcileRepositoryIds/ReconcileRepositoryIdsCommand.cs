@@ -1,4 +1,5 @@
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Tasks.DomainModels;
 using Backlog.SharedKernel.Handlers;
 using Backlog.SharedKernel.Results;
 
@@ -11,6 +12,16 @@ namespace Backlog.Modules.Tasks.Features.ReconcileRepositoryIds;
 /// change holds a mixture: aliases from the text path, <c>owner/name</c> from
 /// every pushed entry, and whatever casing somebody typed. This is the one pass
 /// that settles it, run at startup and after the workspace root moves.
+/// </para>
+/// <para>
+/// It is also how a repository rename applied on another install reaches this
+/// one. The registry remembers the coordinate a row used to have, so an entry
+/// still naming it resolves to the row it became — and this pass rewrites the
+/// entry, its issue links included, exactly as the rename itself would have.
+/// Which is why the rewrite goes through <c>TaskItem.RenameRepository</c>
+/// rather than replacing the list: an issue link is filed against a coordinate
+/// too, and a pass that moved the assignment and left the link would leave the
+/// entry half-renamed.
 /// </para>
 /// <para>
 /// No parameters, and no version column or row-rewrite machinery anywhere behind
@@ -55,14 +66,11 @@ public sealed class ReconcileRepositoryIdsCommandHandler(ITaskRepository entries
 
         foreach (var entry in stored)
         {
-            var reconciled = Reconcile(entry.RepoIds, canonical);
-
             // Written only when something actually moved. A second run over a
             // reconciled workspace is a pure read, which is what makes the pass
             // safe to put on every start rather than behind a once-flag.
-            if (reconciled.SequenceEqual(entry.RepoIds, StringComparer.Ordinal)) continue;
+            if (!Reconcile(entry, canonical)) continue;
 
-            entry.SetRepoIds(reconciled);
             await entries.SaveAsync(entry, cancellationToken);
             changed++;
         }
@@ -70,15 +78,36 @@ public sealed class ReconcileRepositoryIdsCommandHandler(ITaskRepository entries
         return changed;
     }
 
-    /// <summary>De-duplicates after canonicalising, for the reason the resolver
-    /// does: before the registry has spoken, two casings of one repository are
-    /// genuinely two strings.</summary>
-    private List<string> Reconcile(IReadOnlyList<string> stored, Dictionary<string, string> canonical) =>
-    [
-        .. stored
-            .Select(value => Memoized(value, canonical))
+    /// <summary>
+    /// Moves every value the entry names — an assignment or an issue link — to
+    /// its canonical form, and answers whether anything moved.
+    /// <para>
+    /// One rename per distinct stored value, which de-duplicates for the reason
+    /// the resolver does: before the registry has spoken, two casings of one
+    /// repository are genuinely two strings, and after it both land on the one
+    /// spelling and collapse into one assignment.
+    /// </para>
+    /// </summary>
+    private bool Reconcile(TaskItem entry, Dictionary<string, string> canonical)
+    {
+        var moved = false;
+
+        var named = entry.RepoIds
+            .Concat(entry.ProjectionRefs.Select(link => link.RepoId))
             .Distinct(StringComparer.Ordinal)
-    ];
+            .ToList();
+
+        foreach (var value in named)
+        {
+            var answer = Memoized(value, canonical);
+            if (string.Equals(answer, value, StringComparison.Ordinal)) continue;
+            if (string.IsNullOrWhiteSpace(value)) continue;
+
+            moved |= entry.RenameRepository(value.Trim(), answer);
+        }
+
+        return moved;
+    }
 
     private string Memoized(string value, Dictionary<string, string> canonical)
     {
