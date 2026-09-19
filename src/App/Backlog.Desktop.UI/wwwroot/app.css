@@ -508,9 +508,9 @@ h1, h2, h3 {
 /* The one group in the bar that is not a filter. It keeps its room for the same
    reason the scopes do, and more strongly: it is the only way into the selection
    gutter and the only way back out of the mode, so a chip squeezed out of view
-   would strand a reader inside it. Pinned before the status group's auto margin,
-   so it sits with the scopes on the left rather than drifting to the right
-   edge. */
+   would strand a reader inside it. First in the markup and pinned before the
+   status group's auto margin, so it leads the scopes on the left rather than
+   drifting to the right edge. */
 .filter-group--select {
     flex: 0 0 auto;
 }
