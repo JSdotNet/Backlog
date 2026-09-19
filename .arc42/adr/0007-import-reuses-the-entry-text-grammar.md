@@ -83,9 +83,12 @@ block, and gets back one segment per entry the plan describes.
 ### `after:` resolution scope for a fresh batch: two passes, in Import, not in the parser
 
 Within one imported document, `after:<value>` first tries to match another
-entry's `id:` token in the *same document*; only if nothing matches is it
-treated as a real, already-existing `task_id`, exactly as it always is
-outside Import. This is the general local-id rule
+entry's `id:` token in the *same document*; failing that, the `id:` a stored
+entry was imported under — the same plan's first, then a plan the entry is
+tagged with, then any stored entry when exactly one carries the id, so a plan
+brought in over two sittings still chains and an ambiguous id is left alone
+rather than guessed; only if nothing matches is it treated as a real,
+already-existing `task_id`, exactly as it always is outside Import. This is the general local-id rule
 `.design/content-editing.md#scheduling-and-dependency-tokens` already states
 for any pasted batch — Import is not a special case of it, it is the case the
 rule was written for.
