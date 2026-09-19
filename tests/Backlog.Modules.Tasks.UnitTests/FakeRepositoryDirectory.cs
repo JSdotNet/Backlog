@@ -45,6 +45,12 @@ internal sealed class FakeRepositoryDirectory : IRepositoryDirectory
 
     public List<string> Resolved { get; } = [];
 
+    /// <summary>The coordinates the registry remembers renaming away, each to
+    /// the coordinate it became — what the real adapter reads out of the
+    /// registry's rename record. An id nothing holds is looked up here before
+    /// it is given up on, as the real one does.</summary>
+    public Dictionary<string, string> Renamed { get; } = new(StringComparer.OrdinalIgnoreCase);
+
     public List<string> Registered { get; } = [];
 
     public IReadOnlyList<TasksRepositoryRef> Repositories => _repositories;
@@ -83,10 +89,12 @@ internal sealed class FakeRepositoryDirectory : IRepositoryDirectory
     /// is an alias and is matched exactly.</summary>
     private TasksRepositoryRef? Find(string name) =>
         name.Contains('/', StringComparison.Ordinal)
-            ? _repositories.FirstOrDefault(repository =>
-                string.Equals(repository.Id, name.Trim(), StringComparison.OrdinalIgnoreCase))
+            ? ById(name.Trim()) ?? (Renamed.TryGetValue(name.Trim(), out var became) ? ById(became) : null)
             : _repositories.FirstOrDefault(repository =>
                 string.Equals(repository.Alias, Normalize(name), StringComparison.Ordinal));
+
+    private TasksRepositoryRef? ById(string id) =>
+        _repositories.FirstOrDefault(repository => string.Equals(repository.Id, id, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>The same lower-cased trim the real adapter applies, so a test
     /// asserting on an alias asserts on the form the workspace stores.</summary>

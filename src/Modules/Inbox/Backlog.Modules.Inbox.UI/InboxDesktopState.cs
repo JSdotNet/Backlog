@@ -248,8 +248,38 @@ public sealed class InboxDesktopState
     /// then loads. Called by the shell when the pane first shows; idempotent.</summary>
     public async Task InitializeAsync()
     {
+        await FollowRepositoryRenamesAsync();
         await _inbox.EnsureDefaultOrganizerAsync();
         await ReloadAsync();
+    }
+
+    /// <summary>
+    /// Re-points every item still filed against a coordinate the registry
+    /// remembers renaming away — the Inbox's half of what the Tasks reconcile
+    /// pass does for entries on every start.
+    /// <para>
+    /// Here because a rename applied on another install reaches this one as a
+    /// record in the shared registry, not as a call into this module, and inbox
+    /// items do not travel by the sync service at all: nothing but this pass
+    /// would ever move them. Idempotent, like the rename it repeats — once no
+    /// item names the old id, every run is a pure read — and a store that will
+    /// not answer must not be the reason the inbox will not open, so a refusal
+    /// is left for the next start rather than surfaced.
+    /// </para>
+    /// </summary>
+    private async Task FollowRepositoryRenamesAsync()
+    {
+        foreach (var rename in _gitHubSettings.Current.Renames)
+        {
+            try
+            {
+                _ = await _inbox.RenameRepositoryAsync(rename.OldId, rename.NewId);
+            }
+            catch (Exception)
+            {
+                // Left for the next start, as the Tasks pass leaves its own.
+            }
+        }
     }
 
     /// <summary>Re-reads the snapshot and keeps whatever view state still makes

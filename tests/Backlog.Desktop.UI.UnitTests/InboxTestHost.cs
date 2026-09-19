@@ -239,8 +239,15 @@ internal sealed class FakeInboxItems : IInboxItems
     public Task<Result> AssignRepositoriesAsync(Guid id, IReadOnlyList<string> repoIds, CancellationToken cancellationToken = default) =>
         Update(id, item => item with { RepoIds = repoIds });
 
-    public Task<Result<int>> RenameRepositoryAsync(string oldId, string newId, CancellationToken cancellationToken = default) =>
-        Task.FromResult(Result.Success(0));
+    /// <summary>Every rename asked of the store, in order: the pass on start
+    /// that follows the registry's record is asserted against this.</summary>
+    public List<(string OldId, string NewId)> Renames { get; } = [];
+
+    public Task<Result<int>> RenameRepositoryAsync(string oldId, string newId, CancellationToken cancellationToken = default)
+    {
+        Renames.Add((oldId, newId));
+        return Task.FromResult(Result.Success(0));
+    }
 
     public Task<Result> MoveToListAsync(Guid id, Guid? listId, CancellationToken cancellationToken = default)
     {

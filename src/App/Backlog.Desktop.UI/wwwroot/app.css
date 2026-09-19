@@ -1967,6 +1967,14 @@ h1, h2, h3 {
     overflow-wrap: anywhere;
 }
 
+/* A status line is often two sentences in two spans - a note about the last
+   save, then the standing summary. The compiler drops the whitespace between
+   them, so the gap is stated here rather than as a space the markup cannot
+   keep. */
+.setting__status > span + span {
+    margin-left: 0.35em;
+}
+
 .setting__status--error { color: var(--color-error-text); }
 .setting__status--ok { color: var(--color-success-text); }
 
@@ -2140,6 +2148,16 @@ h1, h2, h3 {
 
 .repo-card__header .btn {
     flex-shrink: 0;
+}
+
+/* The two buttons on the header's right - Rename, then Remove - sit as one
+   group, and the group is exempt from the give-way rule above: it is the
+   text side that shrinks, and the buttons that hold their size. */
+.repo-card__header > .repo-card__actions {
+    display: flex;
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
 }
 
 .repo-card__title {

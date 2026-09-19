@@ -16,60 +16,62 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// A repository renamed on GitHub, applied by editing its line in Settings. The
-/// store carries its own row; what this page owes on top is the call into each
-/// module that holds entries filed against the old id, and a sentence saying
-/// what it did. Asserted against the recorded calls and the status line, because
-/// a page that saved the new id and told nobody would leave every entry pointing
-/// at a coordinate the next start re-registers as a ghost.
+/// A repository renamed on GitHub, applied from its card in Settings. The store
+/// carries its own row and records the move; what this page owes on top is the
+/// call into each module that holds entries filed against the old id, and a
+/// sentence on the card saying what it did. Asserted against the recorded calls
+/// and the card, because a page that saved the new id and told nobody would
+/// leave every entry pointing at a coordinate until the next start's pass.
 /// </summary>
 public sealed class SettingsRepositoryRenameTests
 {
     [Fact]
-    public void Changing_only_the_owner_name_re_points_entries_and_inbox_items_and_says_so()
+    public void Renaming_from_the_card_re_points_entries_and_inbox_items_and_says_so()
     {
         using var settings = RenderSettings(entriesMoved: 12, itemsMoved: 1);
         OpenRepositoriesTab(settings.Component);
 
-        Retype(settings.Component, "backlog = JSdotNet/Backlog-renamed\ndocs = JSdotNet/Docs");
+        Rename(settings.Component, "JSdotNet/Backlog-renamed");
 
         Assert.Equal([("JSdotNet/Backlog", "JSdotNet/Backlog-renamed")], settings.Tasks.Renames);
         Assert.Equal([("JSdotNet/Backlog", "JSdotNet/Backlog-renamed")], settings.Inbox.Renames);
         Assert.Equal(
             "Renamed JSdotNet/Backlog to JSdotNet/Backlog-renamed; 12 entries and 1 inbox item followed it.",
-            settings.Component.Find("[data-testid='github-repos-rename-note']").TextContent.Trim());
+            settings.Component.Find("[data-testid='repo-rename-note']").TextContent.Trim());
+        Assert.Equal("JSdotNet/Backlog-renamed", settings.Component.Find(".repo-card__title").TextContent.Trim());
+        Assert.Equal("JSdotNet/Backlog-renamed", settings.GitHub.Current.Find("backlog")!.FullName);
+        Assert.Empty(settings.Component.FindAll("[data-testid='repo-rename']"));
         Assert.Empty(settings.Component.FindAll(".setting__status--error"));
     }
 
+    /// <summary>The Rename control sits before Remove: the one that keeps
+    /// everything, then the one that keeps nothing.</summary>
     [Fact]
-    public void Relabelling_an_alias_calls_neither_module_and_shows_no_note()
+    public void Rename_sits_before_Remove_on_the_card()
     {
         using var settings = RenderSettings();
         OpenRepositoriesTab(settings.Component);
 
-        Retype(settings.Component, "bl = JSdotNet/Backlog\ndocs = JSdotNet/Docs");
+        var buttons = settings.Component.FindAll(".repo-card__actions button");
 
-        Assert.Empty(settings.Tasks.Renames);
-        Assert.Empty(settings.Inbox.Renames);
-        Assert.Empty(settings.Component.FindAll("[data-testid='github-repos-rename-note']"));
+        Assert.Equal(["Rename", "Remove repository"], buttons.Select(button => button.TextContent.Trim()));
     }
 
-    /// <summary>The note is about the save that did the renaming. The next save
-    /// that renames nothing clears it, so a stale sentence never sits under the
-    /// box describing an earlier edit.</summary>
+    /// <summary>A refusal from the store is the form's to show and leaves the
+    /// form open with nothing renamed: a name to correct, not a rename that
+    /// half happened.</summary>
     [Fact]
-    public void The_note_clears_on_the_next_save_that_renames_nothing()
+    public void A_name_that_is_not_a_coordinate_is_refused_on_the_form_and_renames_nothing()
     {
-        using var settings = RenderSettings(entriesMoved: 1);
+        using var settings = RenderSettings();
         OpenRepositoriesTab(settings.Component);
 
-        Retype(settings.Component, "backlog = JSdotNet/Backlog-renamed\ndocs = JSdotNet/Docs");
-        Assert.NotEmpty(settings.Component.FindAll("[data-testid='github-repos-rename-note']"));
+        Rename(settings.Component, "not-a-repository");
 
-        Retype(settings.Component, "backlog = JSdotNet/Backlog-renamed\ndocs = JSdotNet/Docs\nother = Someone/Other");
-
-        Assert.Empty(settings.Component.FindAll("[data-testid='github-repos-rename-note']"));
-        Assert.Single(settings.Tasks.Renames);
+        Assert.Equal(GitHubSettingsStore.RenameNotACoordinate, settings.Component.Find("[data-testid='repo-rename-status'] .setting__status--error").TextContent.Trim());
+        Assert.NotEmpty(settings.Component.FindAll("[data-testid='repo-rename']"));
+        Assert.Empty(settings.Tasks.Renames);
+        Assert.Equal("JSdotNet/Backlog", settings.GitHub.Current.Find("backlog")!.FullName);
     }
 
     /// <summary>A module that refuses is reported, not swallowed: the registry has
@@ -80,10 +82,50 @@ public sealed class SettingsRepositoryRenameTests
         using var settings = RenderSettings(tasksRefuse: true);
         OpenRepositoriesTab(settings.Component);
 
-        Retype(settings.Component, "backlog = JSdotNet/Backlog-renamed\ndocs = JSdotNet/Docs");
+        Rename(settings.Component, "JSdotNet/Backlog-renamed");
 
         Assert.Contains("could not follow", settings.Component.Find(".setting__status--error").TextContent, StringComparison.Ordinal);
         Assert.Equal("JSdotNet/Backlog-renamed", settings.GitHub.Current.Find("backlog")!.FullName);
+    }
+
+    /// <summary>
+    /// The text box does not rename. Changing a line's <c>owner/name</c> there
+    /// is a removed repository beside a new one, so neither module is called
+    /// and nothing is recorded — and the one edit that reads like a rename earns
+    /// a sentence pointing at the control that is one.
+    /// </summary>
+    [Fact]
+    public void Retyping_an_owner_name_in_the_list_renames_nothing_and_points_at_Rename()
+    {
+        using var settings = RenderSettings();
+        OpenRepositoriesTab(settings.Component);
+
+        Retype(settings.Component, "backlog = JSdotNet/Backlog-renamed\ndocs = JSdotNet/Docs");
+
+        Assert.Empty(settings.Tasks.Renames);
+        Assert.Empty(settings.Inbox.Renames);
+        Assert.Empty(settings.GitHub.Current.Renames);
+        Assert.Contains("use Rename on its card", settings.Component.Find("[data-testid='github-repos-replaced-hint']").TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Relabelling_an_alias_calls_neither_module_and_shows_no_hint()
+    {
+        using var settings = RenderSettings();
+        OpenRepositoriesTab(settings.Component);
+
+        Retype(settings.Component, "bl = JSdotNet/Backlog\ndocs = JSdotNet/Docs");
+
+        Assert.Empty(settings.Tasks.Renames);
+        Assert.Empty(settings.Inbox.Renames);
+        Assert.Empty(settings.Component.FindAll("[data-testid='github-repos-replaced-hint']"));
+    }
+
+    private static void Rename(IRenderedComponent<Settings> component, string newName)
+    {
+        component.Find("[data-testid='rename-repository-button']").Click();
+        component.Find("[data-testid='repo-rename-input']").Input(newName);
+        component.Find("[data-testid='repo-rename-apply']").Click();
     }
 
     private static void Retype(IRenderedComponent<Settings> component, string text)
