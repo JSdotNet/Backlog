@@ -10,6 +10,7 @@ using System.Globalization;
 using Backlog.UI.Components.Badges;
 using Backlog.UI.Components.Feedback;
 using Backlog.UI.Components.Markdown;
+using Backlog.UI.Components.Tasks;
 
 namespace Backlog.Desktop.UI.Tasks;
 
@@ -250,6 +251,37 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// </para>
     /// </summary>
     public bool NoRepositoryOnly { get; private set; }
+
+    /// <summary>
+    /// True while the view is narrowed to the entries that are not waiting on
+    /// anything: open, and with every step they named finished.
+    /// <para>
+    /// The domain's readiness (<c>.domain/tasks/naming.md#readiness</c>), asked as
+    /// a scope. "Ready" is the answer this keeps, and it is not the <c>ready</c>
+    /// status two groups to the right: status is recorded, readiness is concluded
+    /// from <c>after:</c>, and a row can be <c>!ready</c> and still waiting. That
+    /// is why the chip says what it keeps in the row's own words — "Waiting for"
+    /// is the line it takes out of view — rather than reusing a word the bar
+    /// already means something else by.
+    /// </para>
+    /// <para>
+    /// A finished row is out too. It is not waiting, but readiness has three
+    /// answers and done is its own, and the question a reader presses this to ask
+    /// is what they could pick up now. Composes with every other scope the way
+    /// My Day and "no repository" do.
+    /// </para>
+    /// </summary>
+    public bool NotWaitingOnly { get; private set; }
+
+    /// <summary>Whether a row is open and waiting on nothing — the rows
+    /// <see cref="NotWaitingOnly"/> keeps. Read by the chip for its count, and
+    /// answered from <see cref="TaskChain"/> over every row the store holds
+    /// rather than worked out here again, so the chip, the filter and the
+    /// "Waiting for" line on the row are one derivation. Rebuilt on every
+    /// <see cref="ApplyFilter"/>, which every change to the rows passes through.</summary>
+    public bool IsNotWaiting(EntryRow row) => _readyTaskIds.Contains(row.TaskId);
+
+    private HashSet<string> _readyTaskIds = new(StringComparer.Ordinal);
 
     private readonly HashSet<string> _selectedTags = new(StringComparer.OrdinalIgnoreCase);
 
@@ -820,6 +852,14 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         ApplyFilter();
     }
 
+    /// <summary>Turns the "not waiting" scope on or off. See
+    /// <see cref="NotWaitingOnly"/> for what it keeps and why done is out.</summary>
+    public void SetNotWaitingFilter(bool only)
+    {
+        NotWaitingOnly = only;
+        ApplyFilter();
+    }
+
     /// <summary>Adds a tag to the selection, or takes it back out when it is
     /// already there. Bare and lower-cased the way the parser stores one;
     /// <see cref="UntaggedTag"/> asks for the entries with no tags. Additive in
@@ -889,6 +929,15 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         if (NoRepositoryOnly && RepositoryFor(row) is not null)
         {
             NoRepositoryOnly = false;
+            widened = true;
+        }
+
+        // The scope most likely to be the one in the way here: a "waiting for"
+        // name is followed off a blocked row, and the step it names may well be
+        // waiting on something itself.
+        if (NotWaitingOnly && !IsNotWaiting(row))
+        {
+            NotWaitingOnly = false;
             widened = true;
         }
 
@@ -2712,6 +2761,8 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
     private void ApplyFilter()
     {
+        _readyTaskIds = ReadyTaskIds();
+
         IEnumerable<EntryRow> rows = Rows;
 
         if (_selectedRepositoryAliases.Count > 0)
@@ -2741,6 +2792,15 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         if (NoRepositoryOnly)
         {
             rows = rows.Where(x => RepositoryFor(x) is null);
+        }
+
+        // And the "not waiting" scope, on the same terms again. Asked of the
+        // readiness derived over every row rather than over what is in view, for
+        // the reason the pane hands TaskListView the whole store as its universe:
+        // a wait on an entry the repository scope hid is still a wait.
+        if (NotWaitingOnly)
+        {
+            rows = rows.Where(IsNotWaiting);
         }
 
         if (!string.IsNullOrWhiteSpace(SelectedStatusFilterWire))
@@ -2882,6 +2942,35 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// pressed, so they still appear under the tag, they are just not the work.
     /// </para>
     /// </summary>
+    /// <summary>
+    /// The ids of every row that is open and waiting on nothing, derived over the
+    /// whole store.
+    /// <para>
+    /// <see cref="TaskChain.Resolve"/> is asked rather than re-implemented: it is
+    /// the one place that knows an unresolvable id still blocks and that done wins
+    /// over what a row once waited for, and a second walk here would be the day
+    /// the chip and the row's "Waiting for" line disagree. The rows are handed
+    /// over with only what the derivation reads — id, whether they are done, and
+    /// what they wait on as <see cref="ResolvedDependsOn"/> reads it — because a
+    /// title is not a fact readiness turns on.
+    /// </para>
+    /// </summary>
+    private HashSet<string> ReadyTaskIds()
+    {
+        var tasks = Rows
+            .Select(row => new TaskRow(
+                row.TaskId,
+                string.Empty,
+                Done: row.PreviewStatus is EntryStatus.Done,
+                DependsOn: ResolvedDependsOn(row)))
+            .ToList();
+
+        return TaskChain.Resolve(tasks)
+            .Where(status => status.Readiness is TaskReadiness.Ready)
+            .Select(status => status.Id)
+            .ToHashSet(StringComparer.Ordinal);
+    }
+
     private void RebuildTagFilters(IReadOnlyList<EntryRow> scopedRows)
     {
         var live = scopedRows.Where(row => !IsFinished(row)).ToList();
