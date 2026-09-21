@@ -82,6 +82,41 @@
                    group is built from what people typed and sits in the middle.
                    Status narrows what is already in view, so it sits on the right. *@
                 <div class="filter-bar">
+                    @* First on the bar, and its own container rather than a third
+                       chip in the scope group beside it. Everything after it is a
+                       filter — the scopes, a pressable multi-select of tags, and
+                       one radiogroup of statuses — and this changes nothing about
+                       which rows are in view: it changes what the rows offer.
+                       Inside the status radiogroup it would be announced as a
+                       third status to filter by, which is the one thing it is
+                       not; inside the scope or tag group it would read as one
+                       more way of narrowing the list.
+
+                       A ToggleButton wearing the same chip classes, because it is
+                       the same gesture as My Day and No repo: a state that stays
+                       on until it is pressed again, with aria-pressed saying so.
+                       Matching their shape is also what gives it their focus ring
+                       rather than a second one written here.
+
+                       Escape belongs to this container rather than to the pane —
+                       see OnSelectionBarKeyDown for what stopped it being wider —
+                       and it leaves the mode outright rather than closing a group
+                       first: innermost-first is a rule about where the reader is
+                       standing, and from up here the open group may be scrolled
+                       out of view behind the rows. Two presses with nothing
+                       visibly happening on the first is not a hierarchy, it is a
+                       key that looks stuck. *@
+                    <div class="filter-group filter-group--select" @onkeydown="OnSelectionChipKeyDown">
+                        <ToggleButton BaseClass="chip chip--filter chip--scope"
+                                      PressedCssClass="chip--active"
+                                      Pressed="@State.SelectionMode"
+                                      TestId="bulk-select-toggle"
+                                      Title="@(State.SelectionMode ? "Stop picking tasks" : "Pick tasks to act on in bulk")"
+                                      PressedChanged="OnSelectionModeChanged">
+                            Select
+                        </ToggleButton>
+                    </div>
+
                     @* Two scopes rather than one of a set, so each holds a state of
                        its own: both narrow whatever the repository scope, the tags
                        and the status have already left in view instead of replacing
@@ -161,40 +196,6 @@
                             }
                         </div>
                     }
-
-                    @* Its own container, and deliberately not one of the groups
-                       either side of it. Both of those are sets of filters — a
-                       pressable multi-select of tags, and one radiogroup of
-                       statuses — and this changes nothing about which rows are in
-                       view: it changes what the rows offer. Inside the status
-                       radiogroup it would be announced as a third status to filter
-                       by, which is the one thing it is not; inside the tag group it
-                       would read as a tag.
-
-                       A ToggleButton wearing the same chip classes, because it is
-                       the same gesture as My Day and No repo: a state that stays
-                       on until it is pressed again, with aria-pressed saying so.
-                       Matching their shape is also what gives it their focus ring
-                       rather than a second one written here.
-
-                       Escape belongs to this container rather than to the pane —
-                       see OnSelectionBarKeyDown for what stopped it being wider —
-                       and it leaves the mode outright rather than closing a group
-                       first: innermost-first is a rule about where the reader is
-                       standing, and from up here the open group may be scrolled
-                       out of view behind the rows. Two presses with nothing
-                       visibly happening on the first is not a hierarchy, it is a
-                       key that looks stuck. *@
-                    <div class="filter-group filter-group--select" @onkeydown="OnSelectionChipKeyDown">
-                        <ToggleButton BaseClass="chip chip--filter chip--scope"
-                                      PressedCssClass="chip--active"
-                                      Pressed="@State.SelectionMode"
-                                      TestId="bulk-select-toggle"
-                                      Title="@(State.SelectionMode ? "Stop picking tasks" : "Pick tasks to act on in bulk")"
-                                      PressedChanged="OnSelectionModeChanged">
-                            Select
-                        </ToggleButton>
-                    </div>
 
                     <div class="filter-group filter-group--status" role="radiogroup" aria-label="Filter by status">
                         @foreach (var filter in State.StatusFilters)
