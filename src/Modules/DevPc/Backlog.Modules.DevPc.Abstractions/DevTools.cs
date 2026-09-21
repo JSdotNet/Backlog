@@ -474,6 +474,27 @@ public sealed record DevToolApplication(
     public DevToolCommandSpec? Install { get; init; }
 
     /// <summary>
+    /// What answers which version this machine <em>should</em> have, for
+    /// <see cref="DevToolProvider.Command"/> — or nothing, which is every entry
+    /// there was before the property existed.
+    ///
+    /// <para>The other providers get their Available column from a package
+    /// manager; a declared command has none to ask, so its column always read
+    /// "unknown" and the row could never say "update available". An entry that
+    /// can answer the question itself — a deployed service compared against the
+    /// repository it is built from — declares the command that answers it here.</para>
+    ///
+    /// <para>Declaring it changes how <see cref="Detect"/> is read as well: both
+    /// commands' output is taken verbatim, first line as printed, rather than
+    /// through the dotted-version reader. An entry that supplies its own available
+    /// side owns the vocabulary of both columns, and the case this exists for
+    /// prints commit shas, in which the version reader sees no version at all.
+    /// <see cref="DevToolCommandSpec.Expect"/> on the detect command still wins —
+    /// a checklist row has no version on either side to compare.</para>
+    /// </summary>
+    public DevToolCommandSpec? Available { get; init; }
+
+    /// <summary>
     /// Which of a package's installers the install is to take, for a package
     /// whose manifest publishes more than one. Nothing means the entry did not
     /// say, which leaves the choice where it has always been: with winget.
@@ -1648,6 +1669,7 @@ public static class DevToolConfiguration
             Probe = ReadCommandSpec(entry["probe"]),
             Detect = ReadCommandSpec(entry["detect"]),
             Install = ReadCommandSpec(entry["install"]),
+            Available = ReadCommandSpec(entry["available"]),
             InstallerType = GetOptionalString(entry, "installerType"),
             Acknowledged = GetBool(entry, "acknowledged"),
             DeclaredProvider = declaredProvider,

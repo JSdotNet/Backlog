@@ -1816,7 +1816,12 @@ public sealed class DevToolService : IDevToolService
                 continue;
             }
 
-            probes[application.Id] = await ProbeCommandAsync(spec, log, ct).ConfigureAwait(false);
+            // Only a command row can declare its own available side, and only
+            // its own detect is read against it — a winget row's cross-check
+            // probe has a package manager answering its Available column already.
+            var available = application.Provider is DevToolProvider.Command ? application.Available : null;
+
+            probes[application.Id] = await ProbeCommandAsync(spec, available, log, ct).ConfigureAwait(false);
         }
 
         return new ApplicationInventory(
@@ -1933,7 +1938,11 @@ public sealed class DevToolService : IDevToolService
     /// the row equal to itself and read as up to date whether or not the machine
     /// had done the thing.</para>
     /// </summary>
-    private static async Task<CommandProbe> ProbeCommandAsync(DevToolCommandSpec spec, CommandLog log, CancellationToken ct)
+    private static async Task<CommandProbe> ProbeCommandAsync(
+        DevToolCommandSpec spec,
+        DevToolCommandSpec? available,
+        CommandLog log,
+        CancellationToken ct)
     {
         var result = await RunAsync(spec, log, ct).ConfigureAwait(false);
 
@@ -1943,6 +1952,11 @@ public sealed class DevToolService : IDevToolService
                 result.Output.Contains(spec.Expect, StringComparison.OrdinalIgnoreCase),
                 DevToolOutput.NoVersion,
                 DevToolOutput.NoVersion);
+        }
+
+        if (available is not null)
+        {
+            return await ProbeDeclaredAvailableAsync(result, available, log, ct).ConfigureAwait(false);
         }
 
         if (result.ExitCode != 0)
@@ -1958,6 +1972,40 @@ public sealed class DevToolService : IDevToolService
             true,
             DevToolOutput.ParseVersionProbe(result.Output) ?? DevToolOutput.Installed,
             DevToolOutput.Unknown);
+    }
+
+    /// <summary>
+    /// The row that answers its own Available column
+    /// (<see cref="DevToolApplication.Available"/>).
+    ///
+    /// <para>Both sides are read as printed rather than through the version
+    /// reader, and the available command runs even when detect failed: a service
+    /// that is not reachable is "not installed" opposite the build it should be
+    /// running, which is exactly the row that earns an Install. An available
+    /// command that fails or prints nothing leaves the column "unknown", which
+    /// the pane renders as a lookup that did not happen rather than as a row
+    /// that is current.</para>
+    /// </summary>
+    private static async Task<CommandProbe> ProbeDeclaredAvailableAsync(
+        CommandResult detect,
+        DevToolCommandSpec available,
+        CommandLog log,
+        CancellationToken ct)
+    {
+        var wanted = await RunAsync(available, log, ct).ConfigureAwait(false);
+        var availableVersion = wanted.ExitCode == 0
+            ? DevToolOutput.ParseVerbatimProbe(wanted.Output) ?? DevToolOutput.Unknown
+            : DevToolOutput.Unknown;
+
+        if (detect.ExitCode != 0)
+        {
+            return new CommandProbe(false, DevToolOutput.NotInstalled, availableVersion);
+        }
+
+        return new CommandProbe(
+            true,
+            DevToolOutput.ParseVerbatimProbe(detect.Output) ?? DevToolOutput.Installed,
+            availableVersion);
     }
 
     /// <summary>One application entry as one row, through whichever mechanism it
