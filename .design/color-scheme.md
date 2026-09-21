@@ -329,7 +329,7 @@ restriction is a list rather than a single surface. Exactly these may use one:
 | Consumer | Mark |
 |---|---|
 | Roadmap band label and its bars | the band painting below |
-| Repository scope filter chip in the app header | the identity edge below |
+| Repository scope filter chip in the app header | the identity edge below, along the chip's bottom |
 | An entry row whose area resolves to a repository | the identity edge below |
 | An agent session row under such an entry | the identity edge below |
 | The repository cell of a row in the Sessions area | the identity edge below |
@@ -389,12 +389,19 @@ against these surfaces rather than picked for looks.
 
 ### The identity edge
 
-Off the roadmap the hue is **additive only**: a 4px rule down the leading edge of a
+Off the roadmap the hue is **additive only**: a 4px rule along one edge of a
 control that was already there, painted as an inset shadow rather than a border so
 the element's own box, padding and alignment are untouched. Nothing is tinted,
 nothing is recoloured, and every surface, border and text token the control already
 wore stays exactly as it was. A chip that read correctly before the repository had a
-colour reads identically after it, with a stripe down its left edge.
+colour reads identically after it, with a stripe along its edge.
+
+Which edge is the control's to choose, and it chooses the one nothing else is
+using. A row takes its leading edge. The header's scope chips, fused into one
+strip, take the bottom: fused, their leading edges are the hairlines between them,
+and a 4px rule against a 1px hairline read as a thick border on some chips and not
+others — the shape of the group arguing with the mark. The bottom is free there,
+because the anchor's mark is an underline under the word rather than on the box.
 
 That restraint is the whole reason the set may leave the roadmap. A band is a region
 of a chart and can afford a 24% wash; a filter chip and an entry row sit inside dense
@@ -423,7 +430,8 @@ owes.
 selected chip would measure 1:1 and disappear. The edge is therefore separated from
 that fill by a 1px seam in `color-background`, which clears 3:1 on both sides
 (11.15:1 against `color-band-1`, 11.15:1 against `color-primary`). The seam is drawn
-only on the active chip, because it is the only place two sanctioned colours meet.
+only on the active chip, because it is the only place two sanctioned colours meet;
+it runs along whichever edge the mark took.
 
 Rules:
 

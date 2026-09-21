@@ -54,6 +54,38 @@ public sealed class HomeRepositoryScopeTests
         Assert.NotNull(component.Find(".app-header__identity [aria-label='Repository scope']"));
     }
 
+    /// <summary>
+    /// The scope is a fused group, because a fused group is what this header draws
+    /// where several options can be on at once — and with Ctrl held, several
+    /// repositories can. It is the shared ButtonGroup rather than a div wearing the
+    /// group role, so the role and the label are the component's, and it wears the
+    /// same <c>header-group</c> shape the sections strip does. The chips inside keep
+    /// their chip classes: the active fill, the identity edge and the anchor mark all
+    /// key on those, and they are exactly what a fused chip must not lose.
+    /// </summary>
+    [Fact]
+    public void The_scope_is_a_fused_group_of_chips()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+
+        var group = component.Find(".app-header__identity [aria-label='Repository scope']");
+
+        Assert.Equal("group", group.GetAttribute("role"));
+        Assert.Contains("btn-group", group.ClassList);
+        Assert.Contains("header-group", group.ClassList);
+        Assert.DoesNotContain("header-group--loose", group.ClassList);
+
+        var chips = component.WaitForElements("[data-testid='repository-filter-option']");
+        Assert.All(chips, chip =>
+        {
+            // A direct child, because the fused hairlines key on `> .chip + .chip`.
+            Assert.Equal("Repository scope", chip.ParentElement?.GetAttribute("aria-label"));
+            Assert.Contains("chip", chip.ClassList);
+            Assert.Contains("chip--scope", chip.ClassList);
+        });
+    }
+
     [Fact]
     public void Each_scope_chip_carries_its_repositorys_mark()
     {
@@ -192,11 +224,10 @@ public sealed class HomeRepositoryScopeTests
 
         Chips(component)[1].Click();
 
-        // Pinned, so opening Devbook puts it beside the list rather than in its
-        // place — a pane press is a switch, and the list has to stay for a second
-        // repository to have anywhere to be.
-        component.WaitForElement("[data-testid='backlog-pane-pin']").Click();
-        component.WaitForElement("[data-testid='devbook-pane-option']").Click();
+        // With Ctrl, so opening Devbook puts it beside the list rather than in its
+        // place — a plain pane press is a switch, and the list has to stay for a
+        // second repository to have anywhere to be.
+        component.WaitForElement("[data-testid='devbook-pane-option']").Click(new MouseEventArgs { CtrlKey = true });
         component.WaitForAssertion(() =>
         {
             Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
@@ -384,7 +415,7 @@ public sealed class HomeRepositoryScopeTests
     //
     // More than one repository is a list affordance: the backlog list is the only
     // pane that can show several. So the scope holds several only while Tasks is on
-    // screen — going to Devbook, which as an unpinned switch takes the list's
+    // screen — going to Devbook, which as a plain switch takes the list's
     // place, narrows the scope to the anchor, and without the list a modified press
     // is an ordinary press.
 
@@ -423,8 +454,8 @@ public sealed class HomeRepositoryScopeTests
         Assert.DoesNotContain("Ctrl+click", Chips(component)[0].GetAttribute("title"));
     }
 
-    /// <summary>Presses the Devbook option, which — Tasks being unpinned — puts
-    /// the Devbook pane where the list was.</summary>
+    /// <summary>Presses the Devbook option, which — a plain press being a switch —
+    /// puts the Devbook pane where the list was.</summary>
     private static void GoToDevbook(IRenderedComponent<Home> component)
     {
         component.WaitForElement("[data-testid='devbook-pane-option']").Click();

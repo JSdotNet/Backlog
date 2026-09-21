@@ -124,7 +124,7 @@
         <Story Name="Iconography"
                Description="The glyph at three of the sizes on the scale: 12 for an indicator beside a label, 16 inline with text, 20 inside a button. The drawing does not change with the size and the ink is not its own — the size is an explicit width and height rather than a type scale, and the colour is inherited from whatever the glyph is sitting in, which is why the rows below are one colour and the page decides which.
 
-                            What a host does with a glyph is the host's, not the library's. The desktop header's section rail reads the chevron's direction as a pane's pinned state — up while the pane is loose, turned half a turn down once pinned — and it both lifts the glyph a pixel toward the top edge and turns it in its own stylesheet, so neither the lift nor the turn is drawn here. Drawing them would mean this page restyling a component to show a state the library does not ship."
+                            What a host does with a glyph is the host's, not the library's. A host that reads the chevron's direction as a state of its own — up for one, turned half a turn down for the other — lifts and turns it in its own stylesheet, so neither a lift nor a turn is drawn here. Drawing them would mean this page restyling a component to show a state the library does not ship."
                Code="@IconCode">
             <div class="sb-stack">
                 @foreach (var size in IconSizes)

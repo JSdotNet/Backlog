@@ -345,23 +345,46 @@ related: [".design/accessibility.md#target-sizes-and-text", ".design/design-prin
 ```
 
 The desktop shell's header switches between a small set of panes — Inbox,
-Backlog, Devbook — and holds a pin on each pane's own cell, railed along the
-top edge of that pane's toggle. Pinning a pane here is unrelated to a pinned
-act in `#action-density-and-overflow`: that one exempts a button from overflow
-collapse, this one exempts a pane from being closed by a switch.
+Tasks, Devbook — through one option per pane in a fused strip. Several panes
+can be on screen at once, and the strip says so with its shape (see
+`#group-shape-says-cardinality`); the reader asks for a second one with the
+modifier, the same convention as the repository scope beside it
+(`#modifier-click-scope`). Each pane used to carry a pin, railed along its
+option's top edge, that held it through a switch. The pin was a second control
+on every option for what one modifier on the option itself says, and it is gone.
+The roadmap band is not a pane: its toggle stands beside the strip, loose, and
+follows none of the rules below — it is on or off, and no pane press touches it.
 
 | Rule | Requirement |
 |---|---|
-| Switching is exclusive | Opening a pane MUST close every other open pane the reader has not pinned. |
-| Pin requires an open pane | A pin control MUST only be available on a pane that is already open; a closed pane cannot be pinned. |
-| Unpinning never closes | Removing a pin MUST NOT itself close the pane — it only withdraws the pane's claim on the *next* switch. |
-| The requested pane always wins | Where pinned panes would leave no room for the pane just requested, the requested pane MUST open and the pane(s) it displaces MUST be unpinned as they close, rather than the request being refused. |
-| At least one pane stays open | The shell MUST NOT render with zero panes open; the sole remaining pane's own toggle is disabled rather than left clickable and refused. |
-| Pin state is visible without relying on colour | A pinned pane's control MUST be visually distinct from an unpinned one through more than colour alone (see `accessibility.md`). |
-| The pin belongs to an edge, not a side | A pin control MUST read as part of its pane's own cell and MUST NOT be drawn as a vertical element beside the pane's toggle. Its pinned indication takes the cell's top or bottom edge — the one the toggle's selected state does not already use, so pinned and selected stay separable in all four combinations. |
+| Switching is exclusive | A plain press on a closed pane MUST open it and close every other open pane. |
+| Beside, with the modifier | A press on a closed pane with Ctrl (Cmd on macOS) held MUST open it beside the open panes. Where the viewport cannot hold one more, the pane asked for MUST open and only as many panes as it needs room for MUST close — the first open ones in the strip's stable order — rather than the request being refused or turned into a switch. |
+| A press on an open pane closes it | With or without the modifier: "this one too" has no meaning for a pane already on screen. |
+| At least one pane stays open | The shell MUST NOT render with zero panes open; the sole remaining pane's own option is disabled rather than left clickable and refused. |
+| The modifier is named where it works | The option's tooltip MUST name the modifier while the viewport fits a second pane, since nothing else on screen does, and MUST NOT name it in a window that fits one — a modifier press there is the switch a plain press would be, and offering it would be a control lying about itself. |
+| Narrowing trims in the stable order | When the viewport loses room, panes MUST close first-in-order first, so the same arrangement always narrows the same way. |
 
 No review surface: the header strip is application chrome specific to the
 desktop shell, not a shared-library component, so it carries no storybook page.
+
+## Group Shape Says Cardinality
+
+```meta
+status: active
+related: [".design/interaction-guidelines.md#workspace-panes", ".design/interaction-guidelines.md#modifier-click-scope"]
+```
+
+A group of pressable options in application chrome is drawn in one of two
+shapes, and the shape is how many of its options can be on at once — the one
+thing about a group a reader can see before pressing anything.
+
+| Rule | Requirement |
+|---|---|
+| Fused means several | A group whose options can be on together — the desktop header's repository scope, its panes strip — MUST draw its members flush inside one border with hairlines between them. |
+| Loose means one | A group whose options are exclusive — the desktop header's surface switcher — MUST draw its members as standalone bordered controls with a gap between them, and MUST NOT fuse them. |
+| Not one of a set at all | A control that is simply on or off and belongs to no set — the desktop header's roadmap band toggle — MUST stand alone in the loose shape rather than sit fused among options it does not switch with. Inside a fused strip it would read as one more of them and behave as none of them. |
+| Still one group | A loose group is still one `role="group"` with one label and one tab sequence; only the drawing changes. |
+| Selected on the edge it has | A fused option carries its selected state on the strip's shared bottom edge (an underline beside the tint); a loose option, having no strip, carries it on its own border. Neither is colour alone. |
 
 ## Action Density and Overflow
 

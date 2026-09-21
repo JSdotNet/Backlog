@@ -14,10 +14,13 @@ internal enum GlobalPane
 /// At least one available pane always stays on-screen so the shell never renders empty.
 /// The viewport decides how many panes may be shown at the same time.
 /// <para>
-/// Switching to a pane is exclusive: it closes every pane the reader did not pin.
-/// A pin is the reader saying "keep this one, whatever I look at next", which is why
-/// it only ever describes a pane that is already open — every mutator that closes a
-/// pane drops its pin with it.
+/// Switching to a pane is exclusive: it closes every other pane. Opening a pane
+/// beside the ones already on screen is a separate act — <see cref="TryOpenBeside"/>,
+/// the modifier-click convention the repository scope in the header already follows —
+/// and where the viewport has no room for one more, the pane asked for wins and the
+/// first open pane in the stable order makes way. It used to be a pin on each pane
+/// that held it through a switch; the pin was a second control on every option for
+/// what one modifier on the option itself now says.
 /// </para>
 /// </summary>
 internal sealed class GlobalPaneSelection
@@ -35,7 +38,6 @@ internal sealed class GlobalPaneSelection
 
     private readonly HashSet<GlobalPane> _enabled;
     private readonly HashSet<GlobalPane> _available = [.. KnownPanes];
-    private readonly HashSet<GlobalPane> _pinned = [];
     private int _capacity = KnownPaneOrder.Length;
 
     public GlobalPaneSelection()
@@ -92,33 +94,13 @@ internal sealed class GlobalPaneSelection
     public bool CanDisable(GlobalPane pane) => IsEnabled(pane) && EnabledAvailableCount > 1;
 
     /// <summary>Opening a pane always succeeds, because it makes its own room: a
-    /// switch closes what the reader did not pin. Only an unavailable pane refuses.</summary>
+    /// switch closes the rest. Only an unavailable pane refuses.</summary>
     public bool CanEnable(GlobalPane pane) => IsKnownPane(pane) && _available.Contains(pane);
 
-    public bool IsPinned(GlobalPane pane) => IsKnownPane(pane) && _pinned.Contains(pane);
-
-    /// <summary>A pin keeps an open pane through a switch, so there has to be one on
-    /// screen to keep — and room for a second pane for it to be kept beside.</summary>
-    public bool CanPin(GlobalPane pane) => IsEnabled(pane) && _capacity > 1;
-
-    public bool TrySetPinned(GlobalPane pane, bool pinned)
-    {
-        if (!IsKnownPane(pane))
-        {
-            return false;
-        }
-
-        // Unpinning is always allowed and never closes anything: it withdraws a
-        // promise about the next switch rather than acting on this one.
-        if (!pinned)
-        {
-            return _pinned.Remove(pane);
-        }
-
-        return CanPin(pane) && _pinned.Add(pane);
-    }
-
-    public bool TogglePin(GlobalPane pane) => TrySetPinned(pane, !IsPinned(pane));
+    /// <summary>Whether "beside" can mean anything: a window that fits one pane at a
+    /// time has nowhere to put a second, so a request to open beside is a switch
+    /// there and the header names no modifier.</summary>
+    public bool TakesSeveral => _capacity > 1;
 
     public bool TrySetCapacity(int capacity)
     {
@@ -160,7 +142,6 @@ internal sealed class GlobalPaneSelection
         }
 
         _enabled.Remove(pane);
-        _pinned.Remove(pane);
         return true;
     }
 
@@ -183,30 +164,41 @@ internal sealed class GlobalPaneSelection
         return true;
     }
 
-    /// <summary>Opens <paramref name="pane"/> as the pane the reader asked for: every
-    /// open pane they did not pin makes way for it.</summary>
-    private void SwitchTo(GlobalPane pane)
+    /// <summary>Opens a pane beside the ones already on screen, as the reader asked
+    /// with the modifier held. Unlike <see cref="TryOpenAlongside"/> a full viewport
+    /// does not turn this into a switch: the reader asked to keep what is open, so
+    /// only as many panes go as the one more needs room for — the first open ones in
+    /// the stable order, which is the order <see cref="TrimToCapacity"/> takes them in.</summary>
+    public bool TryOpenBeside(GlobalPane pane)
     {
-        _enabled.RemoveWhere(open => open != pane && !_pinned.Contains(open));
-
-        // A pin is a preference and the pane just asked for is a request, so where
-        // the viewport cannot hold both the request wins and the oldest pin goes.
-        foreach (var survivor in KnownPaneOrder)
+        if (!IsKnownPane(pane) || !_available.Contains(pane) || _enabled.Contains(pane))
         {
-            if (EnabledAvailableCount + 1 <= _capacity)
+            return false;
+        }
+
+        _enabled.Add(pane);
+
+        foreach (var open in KnownPaneOrder)
+        {
+            if (EnabledAvailableCount <= _capacity)
             {
                 break;
             }
 
-            if (survivor == pane || !_enabled.Contains(survivor))
+            if (open != pane)
             {
-                continue;
+                _enabled.Remove(open);
             }
-
-            _enabled.Remove(survivor);
-            _pinned.Remove(survivor);
         }
 
+        return true;
+    }
+
+    /// <summary>Opens <paramref name="pane"/> as the pane the reader asked for: every
+    /// other open pane makes way for it.</summary>
+    private void SwitchTo(GlobalPane pane)
+    {
+        _enabled.RemoveWhere(open => open != pane);
         _enabled.Add(pane);
     }
 
@@ -250,19 +242,15 @@ internal sealed class GlobalPaneSelection
         {
             _enabled.Add(DefaultPane());
         }
-
-        // A pin only ever describes an open pane, so whatever just left the selection
-        // — an unavailable pane included — leaves its pin behind.
-        _pinned.IntersectWith(_enabled);
     }
 
-    /// <summary>Drops panes until the viewport holds what is left, taking the ones the
-    /// reader did not pin first and unpinning whatever it has to take after that.</summary>
+    /// <summary>Drops panes until the viewport holds what is left, first in the stable
+    /// order first.</summary>
     private void TrimToCapacity()
     {
         while (EnabledAvailableCount > _capacity)
         {
-            if ((FirstEnabled(pinned: false) ?? FirstEnabled(pinned: true)) is not { } victim)
+            if (KnownPaneOrder.Where(_enabled.Contains).Cast<GlobalPane?>().FirstOrDefault() is not { } victim)
             {
                 break;
             }
@@ -271,14 +259,7 @@ internal sealed class GlobalPaneSelection
             {
                 break;
             }
-
-            _pinned.Remove(victim);
         }
-
-        GlobalPane? FirstEnabled(bool pinned) => KnownPaneOrder
-            .Where(p => _enabled.Contains(p) && _pinned.Contains(p) == pinned)
-            .Cast<GlobalPane?>()
-            .FirstOrDefault();
     }
 
     private GlobalPane DefaultPane()

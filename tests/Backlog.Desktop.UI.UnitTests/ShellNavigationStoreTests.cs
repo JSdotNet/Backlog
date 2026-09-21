@@ -22,7 +22,6 @@ public sealed class ShellNavigationStoreTests
 
             Assert.Null(store.LastSurface);
             Assert.Empty(store.LastEnabledPanes);
-            Assert.Empty(store.LastPinnedPanes);
             Assert.Equal(path, store.SettingsPath);
         }
         finally
@@ -40,12 +39,11 @@ public sealed class ShellNavigationStoreTests
         {
             var store = new ShellNavigationStore(path);
 
-            store.SetLastPanes(["Devbook"], []);
+            store.SetLastPanes(["Devbook"]);
 
             var restarted = new ShellNavigationStore(path);
 
             Assert.Equal(["Devbook"], restarted.LastEnabledPanes);
-            Assert.Empty(restarted.LastPinnedPanes);
         }
         finally
         {
@@ -53,21 +51,37 @@ public sealed class ShellNavigationStoreTests
         }
     }
 
+    /// <summary>
+    /// The header used to hold a pin on each pane, and the file carried the pinned
+    /// subset under its own key. Pins are gone — a modifier on the option itself now
+    /// says "this one too" — so a file from before still reads, the open panes come
+    /// back, and the next save writes it without the key rather than carrying dead
+    /// state forward.
+    /// </summary>
     [Fact]
-    public void Pinned_panes_survive_a_restart_too()
+    public void A_file_from_before_pins_left_still_reads_and_is_rewritten_without_them()
     {
         var path = NewSettingsPath();
 
         try
         {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, """
+                {
+                  "lastSurface": "Workspace",
+                  "lastEnabledPanes": ["Backlog", "Devbook"],
+                  "lastPinnedPanes": ["Backlog"]
+                }
+                """);
+
             var store = new ShellNavigationStore(path);
 
-            store.SetLastPanes(["Backlog", "Devbook"], ["Backlog"]);
+            Assert.Equal(["Backlog", "Devbook"], store.LastEnabledPanes);
 
-            var restarted = new ShellNavigationStore(path);
+            store.SetLastPanes(["Devbook"]);
 
-            Assert.Equal(["Backlog", "Devbook"], restarted.LastEnabledPanes);
-            Assert.Equal(["Backlog"], restarted.LastPinnedPanes);
+            using var document = JsonDocument.Parse(File.ReadAllText(path));
+            Assert.False(document.RootElement.TryGetProperty("lastPinnedPanes", out _));
         }
         finally
         {
@@ -90,7 +104,7 @@ public sealed class ShellNavigationStoreTests
         {
             var store = new ShellNavigationStore(path);
 
-            store.SetLastPanes(["Devbook"], []);
+            store.SetLastPanes(["Devbook"]);
             store.SetLastSurface("Dashboard");
 
             Assert.Equal("Dashboard", store.LastSurface);
@@ -124,11 +138,11 @@ public sealed class ShellNavigationStoreTests
         try
         {
             var store = new ShellNavigationStore(path);
-            store.SetLastPanes(["Devbook"], []);
+            store.SetLastPanes(["Devbook"]);
 
             var changes = 0;
             store.Changed += () => changes++;
-            store.SetLastPanes(["Devbook"], []);
+            store.SetLastPanes(["Devbook"]);
 
             Assert.Equal(0, changes);
         }
@@ -220,7 +234,6 @@ public sealed class ShellNavigationStoreTests
 
             Assert.Null(store.LastSurface);
             Assert.Empty(store.LastEnabledPanes);
-            Assert.Empty(store.LastPinnedPanes);
         }
         finally
         {
@@ -253,7 +266,7 @@ public sealed class ShellNavigationStoreTests
         {
             var store = new ShellNavigationStore(path);
             store.SetLastSurface("Tools");
-            store.SetLastPanes(["Backlog", "Devbook"], ["Backlog"]);
+            store.SetLastPanes(["Backlog", "Devbook"]);
 
             using var document = JsonDocument.Parse(File.ReadAllText(path));
 
@@ -261,9 +274,6 @@ public sealed class ShellNavigationStoreTests
             Assert.Equal(
                 ["Backlog", "Devbook"],
                 document.RootElement.GetProperty("lastEnabledPanes").EnumerateArray().Select(e => e.GetString()));
-            Assert.Equal(
-                ["Backlog"],
-                document.RootElement.GetProperty("lastPinnedPanes").EnumerateArray().Select(e => e.GetString()));
         }
         finally
         {
