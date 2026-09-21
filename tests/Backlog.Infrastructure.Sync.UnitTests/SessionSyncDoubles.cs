@@ -115,7 +115,8 @@ internal static class AgentSessions
         DateTimeOffset? startedAt = null,
         DateTimeOffset? lastActivityAt = null,
         int? turnCount = 7,
-        AgentSessionOrigin origin = AgentSessionOrigin.Local) =>
+        AgentSessionOrigin origin = AgentSessionOrigin.Local,
+        string? resolvedRepository = null) =>
         new(
             id,
             kind,
@@ -129,7 +130,10 @@ internal static class AgentSessions
             lastActivityAt ?? new DateTimeOffset(2026, 9, 7, 12, 0, 0, TimeSpan.Zero),
             AgentSessionState.Running,
             turnCount,
-            origin);
+            origin)
+        {
+            ResolvedRepository = resolvedRepository
+        };
 }
 
 /// <summary>Wire records to pull, built the same way.</summary>
@@ -145,7 +149,8 @@ internal static class SessionRecords
         DateTimeOffset? startedAt = null,
         DateTimeOffset? lastActivityAt = null,
         int? turnCount = 3,
-        long serverTimestamp = 1) =>
+        long serverTimestamp = 1,
+        string? resolvedRepositoryAlias = null) =>
         new(
             new SessionRecord(
                 sessionId,
@@ -156,7 +161,8 @@ internal static class SessionRecords
                 startedAt,
                 lastActivityAt ?? new DateTimeOffset(2026, 9, 7, 12, 0, 0, TimeSpan.Zero),
                 turnCount,
-                0),
+                0,
+                resolvedRepositoryAlias),
             machineId,
             serverTimestamp);
 }

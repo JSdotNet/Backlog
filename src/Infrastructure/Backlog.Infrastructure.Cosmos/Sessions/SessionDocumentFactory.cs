@@ -52,6 +52,7 @@ internal static class SessionDocumentFactory
             LastActivityAt = record.LastActivityAt,
             TurnCount = record.TurnCount,
             DurationSeconds = record.DurationSeconds,
+            ResolvedRepositoryAlias = record.ResolvedRepositoryAlias,
         };
 
     /// <summary>
@@ -83,7 +84,8 @@ internal static class SessionDocumentFactory
                 document.StartedAt,
                 document.LastActivityAt,
                 document.TurnCount,
-                document.DurationSeconds),
+                document.DurationSeconds,
+                document.ResolvedRepositoryAlias),
             machineId,
             document.Timestamp);
     }

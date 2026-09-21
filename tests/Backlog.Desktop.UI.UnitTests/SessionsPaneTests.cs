@@ -1030,8 +1030,9 @@ public sealed class SessionsPaneTests
     /// <summary>
     /// The header's repository scope narrows the list to the sessions whose recorded
     /// repository resolves to a scoped alias — a Copilot <c>owner/name</c> and a
-    /// replicated alias both count — and a session that recorded none is out, which
-    /// is every local Claude session. The badge and the subtitle both say so.
+    /// replicated alias both count — and a session that recorded none and was
+    /// placed nowhere is out, which is a local Claude session outside every
+    /// registered clone. The badge and the subtitle both say so.
     /// </summary>
     [Fact]
     public void The_repository_scope_keeps_the_sessions_that_recorded_a_scoped_repository()
@@ -1048,7 +1049,7 @@ public sealed class SessionsPaneTests
         {
             // The local Copilot row for JSdotNet/Backlog and the replicated row that
             // arrived as "backlog". The running Claude row recorded no repository and
-            // the two other Copilot rows are elsewhere.
+            // was not placed in a clone; the two other Copilot rows are elsewhere.
             Assert.Equal("2 of 5 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim());
 
             var rows = pane.FindAll(".data-table__row");
@@ -1057,8 +1058,79 @@ public sealed class SessionsPaneTests
 
             var subtitle = pane.Find("[data-testid='sessions-subtitle']").TextContent;
             Assert.Contains("Narrowed to backlog", subtitle, StringComparison.Ordinal);
-            Assert.Contains("Claude records none", subtitle, StringComparison.Ordinal);
+            Assert.Contains("one with neither is left out", subtitle, StringComparison.Ordinal);
         });
+    }
+
+    /// <summary>
+    /// The other way in. A Claude session recorded no repository but its working
+    /// folder lies inside the clone registered as Backlog, so the source placed it
+    /// there — and the scope admits it on that basis, running and all. The cell
+    /// shows the placed repository, marked as placed rather than recorded, and the
+    /// title says so in words.
+    /// </summary>
+    [Fact]
+    public void The_repository_scope_also_keeps_a_session_placed_in_a_scoped_clone()
+    {
+        var placed = Sample[0] with { ResolvedRepository = "JSdotNet/Backlog" };
+
+        using var context = Context([placed, .. Sample.Skip(1)]);
+
+        var pane = context.Render<SessionsPane>(parameters => parameters
+            .Add(p => p.RepositoryScope, new[] { "backlog" })
+            .Add(p => p.RepositoryAlias, AliasFor));
+
+        pane.WaitForAssertion(() =>
+        {
+            // Live: the running Claude row is now in scope.
+            Assert.Equal("1 of 4 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim());
+
+            var row = Assert.Single(pane.FindAll(".data-table__row"));
+            Assert.Contains("keen-bose-667825", row.TextContent, StringComparison.Ordinal);
+
+            var cell = row.QuerySelector(".sessions-table__repository")!;
+            Assert.Equal("JSdotNet/Backlog", cell.TextContent.Trim());
+            Assert.Contains("sessions-table__repository--resolved", cell.ClassName, StringComparison.Ordinal);
+            Assert.Contains("The agent recorded no repository", cell.GetAttribute("title"), StringComparison.Ordinal);
+        });
+
+        pane.Find("[data-testid='sessions-view-all']").Click();
+
+        // And All: the placed Claude row beside the recorded Copilot row.
+        pane.WaitForAssertion(() =>
+            Assert.Equal("2 of 4 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim()));
+    }
+
+    /// <summary>
+    /// What the agent recorded outranks what the product placed, on the cell and
+    /// on the scope alike: a session recorded in Archify and placed in Backlog is
+    /// shown as Archify, unmarked — and it is in either scope, because both are
+    /// true of it and neither overwrites the other.
+    /// </summary>
+    [Fact]
+    public void A_recorded_repository_is_shown_over_a_placed_one_and_either_scopes()
+    {
+        var both = Sample[3] with { ResolvedRepository = "JSdotNet/Backlog" };
+
+        using var context = Context([both]);
+
+        var pane = context.Render<SessionsPane>(parameters => parameters
+            .Add(p => p.RepositoryScope, new[] { "backlog" })
+            .Add(p => p.RepositoryAlias, AliasFor));
+
+        pane.WaitForAssertion(() =>
+        {
+            var cell = pane.Find(".sessions-table__repository");
+            Assert.Equal("JSdotNet/Archify", cell.TextContent.Trim());
+            Assert.DoesNotContain("sessions-table__repository--resolved", cell.ClassName, StringComparison.Ordinal);
+            Assert.Equal("JSdotNet/Archify", cell.GetAttribute("title"));
+        });
+
+        pane.Render(parameters => parameters
+            .Add(p => p.RepositoryScope, new[] { "archify" }));
+
+        pane.WaitForAssertion(() =>
+            Assert.Equal("1 session", pane.Find("[data-testid='sessions-count']").TextContent.Trim()));
     }
 
     [Fact]
@@ -1097,6 +1169,7 @@ public sealed class SessionsPaneTests
         {
             Assert.Equal("0 of 4 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim());
             Assert.Contains("No sessions in docs.", pane.Markup, StringComparison.Ordinal);
+            Assert.Contains("Claude records none, so its sessions need the clone", pane.Markup, StringComparison.Ordinal);
             Assert.Contains("Clear the repository scope in the header", pane.Markup, StringComparison.Ordinal);
         });
     }

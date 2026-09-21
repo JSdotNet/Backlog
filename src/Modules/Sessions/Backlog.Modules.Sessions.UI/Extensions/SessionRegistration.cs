@@ -79,11 +79,17 @@ public static class SessionRegistration
 
         // GetService for the cache, as AddAgentActivitySource does and for the same
         // reason: a host that composed none still gets the right list, slower.
+        // ISessionRepositoryResolver is the host's to supply, beside the transcript
+        // facts cache: it reads the registered repositories, which live behind an
+        // adapter this module may not reference (ModuleBoundaryTests). Optional for
+        // the same reason the cache is — a head without a repository list places
+        // no session anywhere, which is the true answer there.
         services.AddKeyedSingleton<IAgentSessionSource>(
             LocalSourceKey,
             (sp, _) => new LocalAgentSessionSource(
                 sp.GetRequiredService<IDeviceIdentitySource>(),
-                sp.GetService<ITranscriptFactsCache>()));
+                sp.GetService<ITranscriptFactsCache>(),
+                sp.GetService<ISessionRepositoryResolver>()));
 
         services.AddSingleton<IAgentSessionSource>(sp =>
             new CompositeAgentSessionSource([.. sp.GetKeyedServices<IAgentSessionSource>(KeyedService.AnyKey)]));

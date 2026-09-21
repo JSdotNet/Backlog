@@ -214,7 +214,46 @@ public sealed record AgentSession(
     DateTimeOffset LastActivityAt,
     AgentSessionState State,
     int? TurnCount,
-    AgentSessionOrigin Origin);
+    AgentSessionOrigin Origin)
+{
+    /// <summary>
+    /// The repository this product places the session in — <c>owner/name</c>, from
+    /// the working folder lying inside a registered repository's clone — or null
+    /// where no registered clone contains it.
+    /// <para>
+    /// <b>A second field, never written into <see cref="Repository"/>.</b> That one
+    /// is what the agent said; this one is what this product worked out, and the
+    /// two must stay tellable apart because they fail differently. A recorded
+    /// repository is a fact about the session. A resolved one is a fact about this
+    /// machine's Repositories screen — that somebody registered a clone at a folder
+    /// the session happened to be under — and it is exactly as good as that
+    /// registration. Folding it into the recorded field would have every surface
+    /// treat the two with one confidence, which is the outcome
+    /// <c>.domain/sessions/domain.md#working-location</c> forbids when it says a
+    /// guessed repository is indistinguishable from a recorded one.
+    /// </para>
+    /// <para>
+    /// Not a guess in that sense, which is why it exists at all. The rule there is
+    /// against reading a repository off a path leaf: <c>D:\Repos\Backlog</c> does
+    /// not say which of GitHub's several <c>Backlog</c>s it is a clone of. This is
+    /// a lookup against a fact the product already holds — a clone directory the
+    /// person registered against an <c>owner/name</c> — and the folder is either
+    /// under it or not. Claude records no repository in anything it writes, so
+    /// without this a header scoped to one repository hides every Claude session
+    /// on the machine, running ones included; see <see cref="ISessionRepositoryResolver"/>.
+    /// </para>
+    /// <para>
+    /// Resolved where the session is read, because only the machine that ran the
+    /// session has both the folder and the clone it lies under, and carried on the
+    /// wire from there: a replicated record has no folder to resolve from and holds
+    /// whatever its origin resolved. An <c>init</c> property rather than a
+    /// positional parameter, so the readers construct what they read and the source
+    /// stamps this afterwards — the same shape as <see cref="Origin"/>, a fact
+    /// about how this device sees the session rather than one the agent wrote.
+    /// </para>
+    /// </summary>
+    public string? ResolvedRepository { get; init; }
+}
 
 /// <summary>
 /// How many sessions a source will describe per agent.

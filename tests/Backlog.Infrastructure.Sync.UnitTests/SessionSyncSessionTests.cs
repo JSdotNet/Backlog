@@ -38,7 +38,7 @@ public sealed class SessionSyncSessionTests
 
     /// <summary>
     /// <strong>The one test this whole slice exists to keep passing.</strong>
-    /// .arc42/adr/0005 §Session records permits ten fields to leave a machine and
+    /// .arc42/adr/0005 §Session records permits eleven fields to leave a machine and
     /// says a whitelist and a filter fail in opposite directions. This asserts over
     /// the bytes that went out, not over the DTO: a test on the record would go on
     /// passing if somebody widened the wire contract, which is exactly the change
@@ -68,7 +68,7 @@ public sealed class SessionSyncSessionTests
 
     /// <summary>
     /// The other half of the same rule, said as a whitelist rather than as a list
-    /// of things that must be absent: these nine property names and no others.
+    /// of things that must be absent: these ten property names and no others.
     /// A field added to the wire fails here even if nobody thought to write a test
     /// naming it, which is the only form of this assertion that keeps working
     /// against a change nobody anticipated.
@@ -93,6 +93,7 @@ public sealed class SessionSyncSessionTests
                 "lastActivityAt",
                 "machineName",
                 "repositoryAlias",
+                "resolvedRepositoryAlias",
                 "sessionId",
                 "startedAt",
                 "turnCount"
@@ -101,7 +102,7 @@ public sealed class SessionSyncSessionTests
     }
 
     /// <summary>
-    /// The tenth whitelisted field is the machine id, and the pushing device does
+    /// The eleventh whitelisted field is the machine id, and the pushing device does
     /// not send it: the service stamps it from the token. There is no field to set,
     /// which is what makes "a caller may only write records stamped with its own
     /// machine id" hold by construction.
@@ -190,6 +191,60 @@ public sealed class SessionSyncSessionTests
 
         Assert.Equal(JsonValueKind.Null, fixture.PushedRecord().GetProperty("repositoryAlias").ValueKind);
         Assert.DoesNotContain("backlog", fixture.LastBody, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // --- The resolved repository ---------------------------------------------
+
+    /// <summary>
+    /// The repository the source placed the session in travels in its own field,
+    /// under the same alias-or-coordinate rule as the recorded one — and the
+    /// recorded field stays null, because the agent still recorded nothing. The
+    /// folder it was resolved from does not travel.
+    /// </summary>
+    [Fact]
+    public async Task A_resolved_repository_travels_beside_the_recorded_one_as_its_alias()
+    {
+        using var fixture = Fixture.Create(
+            sessions:
+            [
+                AgentSessions.Local(
+                    repository: null,
+                    workingFolder: @"C:\Users\jane\repos\backlog\.claude\worktrees\x",
+                    resolvedRepository: "jsdotnet/backlog")
+            ],
+            aliases: new Dictionary<string, string> { ["jsdotnet/backlog"] = "bl" });
+
+        await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
+
+        var record = fixture.PushedRecord();
+        Assert.Equal(JsonValueKind.Null, record.GetProperty("repositoryAlias").ValueKind);
+        Assert.Equal("bl", record.GetProperty("resolvedRepositoryAlias").GetString());
+        Assert.DoesNotContain("worktrees", fixture.LastBody, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task An_unconfigured_resolved_repository_travels_as_its_coordinate()
+    {
+        using var fixture = Fixture.Create(sessions: [AgentSessions.Local(resolvedRepository: "jsdotnet/backlog")]);
+
+        await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal("jsdotnet/backlog", fixture.PushedRecord().GetProperty("resolvedRepositoryAlias").GetString());
+    }
+
+    /// <summary>A record from another machine holds what that machine resolved
+    /// — there is no folder here to resolve it from again — and an older record
+    /// without the field reads as unresolved rather than failing.</summary>
+    [Fact]
+    public void A_replicated_record_keeps_the_resolved_repository_it_arrived_with()
+    {
+        Assert.Equal(
+            "backlog",
+            SessionRecordMapping.ToSession(
+                SessionRecords.Entry(OtherDevice, repositoryAlias: null, resolvedRepositoryAlias: "backlog"),
+                Noon).ResolvedRepository);
+
+        Assert.Null(SessionRecordMapping.ToSession(SessionRecords.Entry(OtherDevice), Noon).ResolvedRepository);
     }
 
     // --- Turn count and duration ----------------------------------------------
