@@ -30,9 +30,12 @@ internal sealed class SettingsRepositoryDirectory(GitHubSettingsStore settings) 
             new TasksRepositoryRef(repository.Alias, repository.Owner, repository.Name))];
 
     /// <summary>
-    /// Dispatches on shape rather than trying one match and falling back to the
-    /// other — the same rule <see cref="GitHubSettings.Find"/> now carries, said
-    /// in the same order, because two spellings of one rule is one too many.
+    /// <see cref="GitHubSettings.Find"/>'s rule, asked of the store itself: a
+    /// name with a <c>/</c> is an id, anything else an alias, and an id the
+    /// registry remembers renaming away answers with the repository it became.
+    /// That last part is what lets the startup reconcile pass carry an entry
+    /// across a rename applied on another install, whichever of the registry
+    /// and the entry reached this machine first.
     /// <para>
     /// There is deliberately no bare-name fallback onto <c>Name</c>. A configured
     /// line with no explicit alias already takes the repository name <em>as</em>
@@ -135,16 +138,12 @@ internal sealed class SettingsRepositoryDirectory(GitHubSettingsStore settings) 
     /// regard to case, anything else against the alias exactly — both sides of
     /// that comparison having been through the same normalization, the stored one
     /// when it was configured and this one just now.</summary>
-    private GitHubRepositoryRef? Find(string name)
-    {
-        if (name.Contains('/', StringComparison.Ordinal))
-        {
-            return settings.Current.Repositories.FirstOrDefault(repository =>
-                string.Equals(repository.FullName, name.Trim(), StringComparison.OrdinalIgnoreCase));
-        }
-
-        var alias = GitHubRepositoryRef.NormalizeAlias(name);
-        return settings.Current.Repositories.FirstOrDefault(repository =>
-            string.Equals(repository.Alias, alias, StringComparison.Ordinal));
-    }
+    /// <summary>
+    /// The store's own lookup, rather than a copy of its shape dispatch: the
+    /// store is where an id a rename retired still resolves to the row it
+    /// became, and the reconcile pass that keeps entries current after a rename
+    /// asks through here. A second spelling of the rule would have to learn
+    /// about renames separately, and would not.
+    /// </summary>
+    private GitHubRepositoryRef? Find(string name) => settings.Current.Find(name);
 }

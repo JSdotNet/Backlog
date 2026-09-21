@@ -1186,12 +1186,14 @@
                       @onchange="ApplyRepositories" />
 
             <p class="setting__status" id="github-repos-status" data-testid="github-repos-status" role="status">
-                @if (_repoRenameNote is not null)
+                @if (_repoReplacedHint is not null)
                 {
                     @* Said once, on the save that did it, and beside the ordinary
-                       summary rather than instead of it: a rename is a result to
-                       report, not an error to clear. *@
-                    <span data-testid="github-repos-rename-note">@_repoRenameNote </span>
+                       summary rather than instead of it. Not an error — the save
+                       went through — but the one edit in this box that reads like a
+                       rename and is not one deserves a sentence pointing at the
+                       control that is. *@
+                    <span data-testid="github-repos-replaced-hint">@_repoReplacedHint </span>
                 }
                 @if (_repoError is not null)
                 {
@@ -1268,14 +1270,80 @@
                                 <p class="repo-card__meta">
                                     Area <code>@("@" + activeRepo.Alias)</code>
                                 </p>
+                                @if (_renameNoteAlias == activeRepo.Alias && _renameNote is not null)
+                                {
+                                    @* Said once, on the card it concerns, beside the
+                                       name it now carries: a rename is a result to
+                                       report, not an error to clear. *@
+                                    <p class="setting__status" data-testid="repo-rename-note" role="status">@_renameNote</p>
+                                }
                             </div>
 
-                            <AppButton Variant="ButtonVariant.None"
-                                       data-testid="remove-repository-button"
-                                       OnClick="() => RemoveRepository(activeRepo)">
-                                Remove repository
-                            </AppButton>
+                            @* Rename before Remove, in the order somebody reaching
+                               for one of them would want to meet them: the one that
+                               keeps everything, then the one that keeps nothing. *@
+                            <div class="repo-card__actions">
+                                <AppButton Variant="ButtonVariant.None"
+                                           data-testid="rename-repository-button"
+                                           OnClick="() => BeginRename(activeRepo)">
+                                    Rename
+                                </AppButton>
+                                <AppButton Variant="ButtonVariant.None"
+                                           data-testid="remove-repository-button"
+                                           OnClick="() => RemoveRepository(activeRepo)">
+                                    Remove repository
+                                </AppButton>
+                            </div>
                         </header>
+
+                        @if (_renamingAlias == activeRepo.Alias)
+                        {
+                            @* A rename is asked for by name rather than read out of
+                               the repositories box above, because the box cannot tell
+                               a rename from a replacement — and for a line written
+                               without an alias of its own, the two are the same edit.
+                               Asked for here, the repository keeps its clone directory,
+                               colour, account and devbook settings under the new name,
+                               and every entry and inbox item filed against the old
+                               name follows it. *@
+                            <div class="repo-card__section" data-testid="repo-rename">
+                                <TextField Bare="true"
+                                           LabelCssClass="setting__label"
+                                           InputCssClass="@SettingInputClass(_renameError)"
+                                           Label="@($"New name for {activeRepo.FullName}")"
+                                           Id="@($"rename-{activeRepo.Alias}")"
+                                           data-testid="repo-rename-input"
+                                           spellcheck="false"
+                                           autocomplete="off"
+                                           aria-describedby="@($"rename-status-{activeRepo.Alias}")"
+                                           Placeholder="owner/repo"
+                                           Value="@_renameDraft"
+                                           ValueChanged="value => _renameDraft = value"
+                                           @onkeydown="e => OnRenameKeyDownAsync(e, activeRepo)" />
+                                <p class="setting__status" id="@($"rename-status-{activeRepo.Alias}")" data-testid="repo-rename-status" role="status">
+                                    @if (_renameError is not null)
+                                    {
+                                        <span class="setting__status--error">@_renameError</span>
+                                    }
+                                    else
+                                    {
+                                        <span>The repository keeps its settings under the new name, and every entry and inbox item filed against <code>@activeRepo.FullName</code> follows it.</span>
+                                    }
+                                </p>
+                                <div class="setting__actions">
+                                    <AppButton Variant="ButtonVariant.None"
+                                               data-testid="repo-rename-apply"
+                                               OnClick="() => ApplyRenameAsync(activeRepo)">
+                                        Rename repository
+                                    </AppButton>
+                                    <AppButton Variant="ButtonVariant.None"
+                                               data-testid="repo-rename-cancel"
+                                               OnClick="CancelRename">
+                                        Cancel
+                                    </AppButton>
+                                </div>
+                            </div>
+                        }
 
                         @* Which colour this repository wears everywhere it appears —
                            the filter above the backlog, its roadmap band, its entries
@@ -1957,9 +2025,23 @@
     private string _draftRepos = string.Empty;
     private string? _repoError;
 
-    /// <summary>What the last save of the repositories text renamed, and how
-    /// many entries followed — or null when it renamed nothing.</summary>
-    private string? _repoRenameNote;
+    /// <summary>The sentence pointing at Rename after a save of the repositories
+    /// text that both removed a repository and added one — or null when the last
+    /// save did no such thing.</summary>
+    private string? _repoReplacedHint;
+
+    /// <summary>The alias of the repository whose rename form is open, or null
+    /// while none is. One at a time: the form sits on the card, and a card shows
+    /// one repository.</summary>
+    private string? _renamingAlias;
+    private string _renameDraft = string.Empty;
+    private string? _renameError;
+
+    /// <summary>What the last rename did — the new name, and how many entries
+    /// and inbox items followed — and which repository it was, so the sentence
+    /// shows on that card alone.</summary>
+    private string? _renameNote;
+    private string? _renameNoteAlias;
     private string _draftStorageRepository = string.Empty;
     private string? _storageRepositoryError;
     private string? _backupScheduleError;
@@ -2726,53 +2808,109 @@
     /// reported and skipped rather than throwing away the ones around them —
     /// a half-typed line is an ordinary thing to have in a text box.
     /// <para>
-    /// A line that kept its alias and changed its <c>owner/name</c> is a rename,
-    /// and the store carries the row across by itself. The entries that filed
-    /// themselves against the old id live in the Tasks and Inbox stores, so they
-    /// are carried here, one call per module — without it the next start's
-    /// reconcile pass would register the old id back as a ghost repository.
+    /// The box cannot rename: rows are continued by id, so a line whose
+    /// <c>owner/name</c> changed is a removed repository beside a new one. A save
+    /// that did both is the shape a rename typed here would take, so it is the
+    /// one save that earns a sentence pointing at the Rename control — after the
+    /// fact, because refusing the edit would refuse every genuine swap too.
     /// </para></summary>
-    private async Task ApplyRepositories()
+    private void ApplyRepositories()
     {
         var (repositories, errors) = GitHubSettings.ParseText(_draftRepos);
         var messages = new List<string>(errors);
+        var before = GitHub.Settings.Current.Repositories.Select(r => r.FullName).ToList();
 
-        var saveError = GitHub.Settings.SetRepositories(repositories, out var renames);
+        var saveError = GitHub.Settings.SetRepositories(repositories);
         if (saveError is not null) messages.Add(saveError);
         _repoError = messages.Count > 0 ? string.Join(" ", messages) : null;
         _draftRepos = RepositorySettingsText();
         SyncRepositoryDrafts();
 
-        _repoRenameNote = renames.Count == 0 ? null : await FollowRenamesAsync(renames);
+        var after = GitHub.Settings.Current.Repositories.Select(r => r.FullName).ToList();
+        var removed = before.Where(id => !after.Contains(id, StringComparer.OrdinalIgnoreCase)).ToList();
+        var added = after.Where(id => !before.Contains(id, StringComparer.OrdinalIgnoreCase)).ToList();
+
+        _repoReplacedHint = removed.Count > 0 && added.Count > 0
+            ? $"Removed {string.Join(", ", removed)} and added {string.Join(", ", added)}. To rename a repository and keep its settings and entries, use Rename on its card."
+            : null;
+    }
+
+    private void BeginRename(GitHubRepositoryRef repository)
+    {
+        _renamingAlias = repository.Alias;
+        _renameDraft = repository.FullName;
+        _renameError = null;
+    }
+
+    private void CancelRename()
+    {
+        _renamingAlias = null;
+        _renameDraft = string.Empty;
+        _renameError = null;
+    }
+
+    private async Task OnRenameKeyDownAsync(KeyboardEventArgs e, GitHubRepositoryRef repository)
+    {
+        if (e.Key == "Enter") await ApplyRenameAsync(repository);
+        else if (e.Key == "Escape") CancelRename();
     }
 
     /// <summary>
-    /// Re-points the entries and inbox items that named each renamed repository
-    /// by its old id, and words what happened for the status line.
+    /// Applies the rename the form asks for: the store moves its row and records
+    /// the move, and the entries and inbox items filed against the old id are
+    /// carried across here, one call per module. The registry's record means the
+    /// next start would carry them anyway; doing it now is what lets the card say
+    /// how many followed, and what spares the working set a session pointing at
+    /// a coordinate the registry no longer lists.
+    /// <para>
+    /// A refusal from the store is the form's to show and leaves the form open:
+    /// a name that is not a coordinate, or is taken, is a thing to correct, not
+    /// a thing to have tried. Idempotent against the second commit an Enter key
+    /// can raise, because a form that has closed has nothing left to apply.
+    /// </para>
+    /// </summary>
+    private async Task ApplyRenameAsync(GitHubRepositoryRef repository)
+    {
+        if (_renamingAlias != repository.Alias) return;
+
+        var error = GitHub.Settings.RenameRepository(repository.Alias, _renameDraft, out var rename);
+        if (rename is null)
+        {
+            _renameError = error;
+            return;
+        }
+
+        _repoError = error;
+        _draftRepos = RepositorySettingsText();
+        SyncRepositoryDrafts();
+        CancelRename();
+
+        _renameNote = await FollowRenameAsync(rename);
+        _renameNoteAlias = repository.Alias;
+    }
+
+    /// <summary>
+    /// Re-points the entries and inbox items that named the renamed repository
+    /// by its old id, and words what happened for the card.
     /// <para>
     /// The two modules are optional here — a host that composes Settings without
     /// them (the storybook, a unit test) has nothing to carry — so each is
     /// resolved rather than injected, as the sync services above are. A module
-    /// that refuses is reported in the same sentence rather than swallowed: the
+    /// that refuses is reported in the same breath rather than swallowed: the
     /// registry has already moved on, and an entry left behind is exactly the
-    /// thing somebody would want to know about.
+    /// thing somebody would want to know about — though the next start's pass
+    /// will try it again.
     /// </para>
     /// </summary>
-    private async Task<string> FollowRenamesAsync(IReadOnlyList<RepositoryRename> renames)
+    private async Task<string> FollowRenameAsync(RepositoryRename rename)
     {
         var tasks = Services.GetService<ITaskItems>();
         var inbox = Services.GetService<IInboxItems>();
-        var sentences = new List<string>(renames.Count);
 
-        foreach (var rename in renames)
-        {
-            var entries = tasks is null ? 0 : await CountOrReport(tasks.RenameRepositoryAsync(rename.OldId, rename.NewId), "Entries");
-            var items = inbox is null ? 0 : await CountOrReport(inbox.RenameRepositoryAsync(rename.OldId, rename.NewId), "Inbox items");
+        var entries = tasks is null ? 0 : await CountOrReport(tasks.RenameRepositoryAsync(rename.OldId, rename.NewId), "Entries");
+        var items = inbox is null ? 0 : await CountOrReport(inbox.RenameRepositoryAsync(rename.OldId, rename.NewId), "Inbox items");
 
-            sentences.Add($"Renamed {rename.OldId} to {rename.NewId}; {Plural(entries, "entry", "entries")} and {Plural(items, "inbox item", "inbox items")} followed it.");
-        }
-
-        return string.Join(" ", sentences);
+        return $"Renamed {rename.OldId} to {rename.NewId}; {Plural(entries, "entry", "entries")} and {Plural(items, "inbox item", "inbox items")} followed it.";
 
         async Task<int> CountOrReport(Task<Result<int>> rewrite, string what)
         {

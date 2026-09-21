@@ -15,6 +15,30 @@ public sealed class InboxDesktopStateTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "backlog-inbox-state-tests", Guid.NewGuid().ToString("n"));
 
+    /// <summary>
+    /// A rename applied on another install reaches this one as a record in the
+    /// shared registry, and inbox items do not travel by the sync service — so
+    /// the pass on start is the only thing that would ever move them. Every
+    /// remembered rename is replayed in order, oldest first, which is what
+    /// carries an item through two renames to where the second one went.
+    /// </summary>
+    [Fact]
+    public async Task Starting_replays_the_registry_rename_record_over_the_inbox()
+    {
+        var inbox = new FakeInboxItems();
+        var settings = new GitHubSettingsStore(Path.Combine(_root, "github.json"));
+        Assert.Null(settings.SetRepositories([new GitHubRepositoryRef("backlog", "JSdotNet", "Backlog")]));
+        Assert.Null(settings.RenameRepository("backlog", "JSdotNet/Backlog-2", out _));
+        Assert.Null(settings.RenameRepository("backlog", "Someone/Backlog-3", out _));
+        var state = new InboxDesktopState(inbox, settings);
+
+        await state.InitializeAsync();
+
+        Assert.Equal(
+            [("JSdotNet/Backlog", "JSdotNet/Backlog-2"), ("JSdotNet/Backlog-2", "Someone/Backlog-3")],
+            inbox.Renames);
+    }
+
     [Fact]
     public async Task An_older_reload_that_finishes_after_a_newer_one_is_ignored()
     {

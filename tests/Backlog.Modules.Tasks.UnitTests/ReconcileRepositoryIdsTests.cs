@@ -162,6 +162,51 @@ public class ReconcileRepositoryIdsTests
         Assert.Equal(["JSdotNet/Backlog"], store.Entries.Single().RepoIds);
     }
 
+    /// <summary>
+    /// An issue link is filed against a coordinate too. The pass moves it with
+    /// the assignment, because an entry whose chip says one repository and whose
+    /// link says another is half-renamed — and a link naming a coordinate no
+    /// assignment names any more is still a link to follow.
+    /// </summary>
+    [Fact]
+    public async Task An_issue_link_follows_the_repository_with_the_assignment()
+    {
+        var store = StoreWith(["backlog"]);
+        store.Entries.Single().AddProjectionRef(new ProjectionRef("backlog", "42", "issue"));
+        store.Entries.Single().AddProjectionRef(new ProjectionRef("jsdotnet/docs", "7", "issue"));
+        var directory = new FakeRepositoryDirectory([Backlog, Docs]);
+
+        var changed = await Reconcile(store, directory);
+
+        Assert.Equal(1, changed);
+        var entry = store.Entries.Single();
+        Assert.Equal(["JSdotNet/Backlog"], entry.RepoIds);
+        Assert.Equal(["JSdotNet/Backlog", "JSdotNet/Docs"], entry.ProjectionRefs.Select(link => link.RepoId));
+    }
+
+    /// <summary>
+    /// A rename applied on another install reaches this one as a record in the
+    /// shared registry, possibly before the re-pointed entries do. An entry still
+    /// naming the old coordinate resolves to the repository it became, and is
+    /// moved — rather than the old coordinate being read as a repository nobody
+    /// has and registered back as a ghost beside the new one.
+    /// </summary>
+    [Fact]
+    public async Task An_id_the_registry_remembers_renaming_moves_to_the_repository_it_became()
+    {
+        var store = StoreWith(["JSdotNet/Backlog-old"]);
+        store.Entries.Single().AddProjectionRef(new ProjectionRef("JSdotNet/Backlog-old", "42", "issue"));
+        var directory = new FakeRepositoryDirectory([Backlog]);
+        directory.Renamed["JSdotNet/Backlog-old"] = "JSdotNet/Backlog";
+
+        var changed = await Reconcile(store, directory);
+
+        Assert.Equal(1, changed);
+        Assert.Equal(["JSdotNet/Backlog"], store.Entries.Single().RepoIds);
+        Assert.Equal(["JSdotNet/Backlog"], store.Entries.Single().ProjectionRefs.Select(link => link.RepoId));
+        Assert.Empty(directory.Registered);
+    }
+
     private static async Task<int> Reconcile(InMemoryTaskRepository store, FakeRepositoryDirectory directory)
     {
         var result = await new ReconcileRepositoryIdsCommandHandler(store, directory)

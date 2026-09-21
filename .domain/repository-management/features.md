@@ -50,15 +50,35 @@ also what every entry and inbox item filed against it records — so a change of
 name would otherwise read as a second repository, and everything filed against
 the old name would be left pointing at a coordinate nobody is configured for.
 
-Changing a registered repository's owner or name while keeping its alias is a
-rename, not a replacement. The repository keeps everything that was decided
-about it — its clone directory, colour, account, and knowledge-folder settings —
-under the new name, and the old name is forgotten. Every entry and inbox item
-that named the old repository follows it to the new one, including an entry's
-links to issues it created there; an inbox item's record of where it was routed
-is left as written, because that is the record of a decision already taken. The
-working set then reports what happened and how many entries and inbox items
-followed, and a later start finds nothing left over from the old name.
+A rename is asked for on the repository itself, by giving it its new owner and
+name; it is never inferred from the registered list. A list cannot tell a rename
+from a replacement, and for a repository registered without an alias of its own
+— whose alias simply is its name — the two edits are the same edit. So editing
+the list is registering and removing, and a change of owner or name made there
+is a removed repository beside a new one; the working set says so and points at
+the rename, which is the edit that keeps things.
+
+Renamed, the repository keeps everything that was decided about it — its clone
+directory, colour, account, and knowledge-folder settings — under the new name,
+and the old name is no longer a registered repository. Every entry and inbox
+item that named the old repository follows it to the new one, including an
+entry's links to issues it created there; an inbox item's record of where it was
+routed is left as written, because that is the record of a decision already
+taken. The working set reports what happened and how many entries and inbox
+items followed. A new name that is not a repository coordinate, is the name the
+repository already has, or is the name of another registered repository is
+refused: merging two repositories is not a rename.
+
+The registered list also remembers each rename — the old name, the new one, and
+when — so that the old name keeps meaning the repository it became wherever it
+is still written. The list and the entries reach another workspace of the same
+person by different routes and in no fixed order, and an entry that still names
+the old repository must not read as naming a repository nobody has. A workspace
+that receives the renamed list before the re-pointed entries follows the rename
+itself on its next start, and a name given up twice is followed to where the
+second rename put it. The memory of a rename is kept until its old name is
+registered again: a repository re-created under a name once given up is that
+new repository, not the old one.
 
 Two edits look similar and are not renames. Relabelling the alias alone changes
 nothing about which repository is meant, so nothing has to follow it. Swapping
