@@ -588,6 +588,104 @@ public sealed class AgentSessionSourceTests : IDisposable
     }
 
     /// <summary>
+    /// The cap is the inventory's shape and not a count's. The Dashboard asked this
+    /// source with no horizon and counted what came back, and every machine with more
+    /// than a hundred sessions per agent in twelve weeks showed exactly 200 — the page
+    /// size, presented as a total. A reading since a horizon is everything inside it,
+    /// however many that is, and is not capped by the per-agent limit at all.
+    /// </summary>
+    [Fact]
+    public async Task A_reading_since_a_horizon_is_every_claude_session_inside_it_and_not_the_newest_hundred()
+    {
+        const int inside = AgentSessionLimits.PerAgent + 25;
+
+        for (var index = 0; index < inside; index++)
+        {
+            GivenClaudeTranscript("D--Repos-Backlog", $"session-{index:000}", @"D:\Repos\Backlog", "main", Noon.AddHours(-index));
+        }
+
+        // One the horizon excludes, so the reading is "since" and not "everything".
+        GivenClaudeTranscript("D--Repos-Backlog", "ancient", @"D:\Repos\Backlog", "main", Noon.AddDays(-30));
+
+        var catalog = await ReadAsync(AgentSessionQuery.Since(Noon.AddDays(-7)));
+
+        Assert.Equal(inside, catalog.Sessions.Count);
+        Assert.Equal(inside, catalog.Discovered);
+        Assert.False(catalog.Capped);
+        Assert.DoesNotContain(catalog.Sessions, session => session.Id == "ancient");
+    }
+
+    [Fact]
+    public async Task A_reading_since_a_horizon_is_every_copilot_session_inside_it_and_not_the_newest_hundred()
+    {
+        const int inside = AgentSessionLimits.PerAgent + 25;
+
+        for (var index = 0; index < inside; index++)
+        {
+            GivenCopilotSession(
+                $"copilot-{index:000}",
+                @"D:\Repos\Backlog",
+                "JSdotNet/Backlog",
+                "main",
+                Noon.AddDays(-2),
+                Noon.AddHours(-index),
+                descriptorWritten: Noon.AddHours(-index));
+        }
+
+        GivenCopilotSession(
+            "ancient",
+            @"D:\Repos\Backlog",
+            "JSdotNet/Backlog",
+            "main",
+            Noon.AddDays(-31),
+            Noon.AddDays(-30),
+            descriptorWritten: Noon.AddDays(-30));
+
+        var catalog = await ReadAsync(AgentSessionQuery.Since(Noon.AddDays(-7)));
+
+        Assert.Equal(inside, catalog.Sessions.Count);
+        Assert.Equal(inside, catalog.Discovered);
+        Assert.False(catalog.Capped);
+        Assert.DoesNotContain(catalog.Sessions, session => session.Id == "ancient");
+    }
+
+    /// <summary>A file's timestamp is the instant the horizon is decided on, and a
+    /// transcript written exactly at the horizon is inside it — a window's start is
+    /// closed, and a reading that excluded it would disagree with the surface's own
+    /// scoping by one session on the boundary.</summary>
+    [Fact]
+    public async Task A_transcript_written_exactly_at_the_horizon_is_inside_it()
+    {
+        var horizon = Noon.AddDays(-7);
+
+        GivenClaudeTranscript("D--Repos-Backlog", "on-the-edge", @"D:\Repos\Backlog", "main", horizon);
+        GivenClaudeTranscript("D--Repos-Backlog", "just-before", @"D:\Repos\Backlog", "main", horizon.AddSeconds(-1));
+
+        var catalog = await ReadAsync(AgentSessionQuery.Since(horizon));
+
+        var session = Assert.Single(catalog.Sessions);
+        Assert.Equal("on-the-edge", session.Id);
+    }
+
+    /// <summary>The parameterless read is the inventory's reading, exactly as before:
+    /// a caller that never learned about horizons gets the newest per agent.</summary>
+    [Fact]
+    public async Task The_parameterless_read_is_the_newest_per_agent()
+    {
+        for (var index = 0; index < AgentSessionLimits.PerAgent + 1; index++)
+        {
+            GivenClaudeTranscript("D--Repos-Backlog", $"session-{index:000}", @"D:\Repos\Backlog", "main", Noon.AddMinutes(-index));
+        }
+
+        var plain = await ReadAsync();
+        var newest = await ReadAsync(AgentSessionQuery.Newest);
+
+        Assert.Equal(AgentSessionLimits.PerAgent, plain.Sessions.Count);
+        Assert.Equal(plain.Sessions.Select(session => session.Id), newest.Sessions.Select(session => session.Id));
+        Assert.True(plain.Capped);
+    }
+
+    /// <summary>
     /// The turn count is how many prompts the person sent, and this fixture is built
     /// so that every cheaper way of arriving at a number gets a different one.
     /// <para>
@@ -1019,6 +1117,10 @@ public sealed class AgentSessionSourceTests : IDisposable
     private Task<AgentSessionCatalog> ReadAsync() =>
         new LocalAgentSessionSource(ClaudeHome, CopilotHome, MachineId, Machine, new FixedClock(Noon))
             .GetSessionsAsync();
+
+    private Task<AgentSessionCatalog> ReadAsync(AgentSessionQuery query) =>
+        new LocalAgentSessionSource(ClaudeHome, CopilotHome, MachineId, Machine, new FixedClock(Noon))
+            .GetSessionsAsync(query);
 
     private void GivenClaudeLiveSession(
         string id,

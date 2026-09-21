@@ -1267,6 +1267,9 @@ public sealed class SessionsPaneTests
         IReadOnlyList<string> unreadable,
         int discovered) : IAgentSessionSource
     {
+        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) =>
+            GetSessionsAsync(cancellationToken);
+
         internal int Reads { get; private set; }
 
         public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default)
@@ -1281,6 +1284,9 @@ public sealed class SessionsPaneTests
     /// about what a refresh does to a choice the new reading no longer offers.</summary>
     private sealed class ChangingSessionSource(IReadOnlyList<AgentSession> sessions) : IAgentSessionSource
     {
+        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) =>
+            GetSessionsAsync(cancellationToken);
+
         internal IReadOnlyList<AgentSession> Sessions { get; set; } = sessions;
 
         public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>

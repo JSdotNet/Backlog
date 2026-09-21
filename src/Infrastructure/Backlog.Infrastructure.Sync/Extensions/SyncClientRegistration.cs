@@ -231,8 +231,13 @@ public static class SyncClientRegistration
 
         services.TryAddSingleton<ISessionSyncStateStore>(
             _ => new FileSessionSyncStateStore(Path.Combine(folderPath, SessionSyncStateFileName)));
+        // The store measures its retention against a clock; a host that composed no
+        // other clock gets the system one, and one that did keeps its own.
+        services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton<IReplicatedSessionStore>(
-            _ => new FileReplicatedSessionStore(Path.Combine(folderPath, ReplicatedSessionsFileName)));
+            provider => new FileReplicatedSessionStore(
+                Path.Combine(folderPath, ReplicatedSessionsFileName),
+                provider.GetRequiredService<TimeProvider>()));
 
         return services;
     }

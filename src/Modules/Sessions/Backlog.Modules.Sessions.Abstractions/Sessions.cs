@@ -239,6 +239,64 @@ public static class AgentSessionLimits
 {
     /// <summary>The most recent this many sessions from each agent.</summary>
     public const int PerAgent = 100;
+
+    /// <summary>
+    /// How far back a reading <see cref="AgentSessionQuery.Since"/> a horizon is
+    /// promised to reach on every source, whatever the per-agent cap.
+    /// <para>
+    /// The cap is the right shape for a list and the wrong one for a count. A surface
+    /// that asks "how many sessions ran in the last twelve weeks" and is answered with
+    /// the newest hundred per agent reads a page size back as a total — 200 on every
+    /// machine, which is what the Dashboard showed. So a reading can be asked for
+    /// everything since a horizon instead, and this is the horizon a source that keeps
+    /// somebody else's records has to keep them for: a store that retained less would
+    /// answer the same question short for every other machine.
+    /// </para>
+    /// <para>
+    /// Twelve weeks because that is the longest period the Dashboard offers. The
+    /// Dashboard cannot name this constant — its module may not see this one — so the
+    /// two are paired by this sentence and by <c>SessionInsights.Horizon</c>'s.
+    /// </para>
+    /// </summary>
+    public static readonly TimeSpan History = TimeSpan.FromDays(7 * 12);
+}
+
+/// <summary>
+/// How much of an environment's history one reading describes.
+/// <para>
+/// Two shapes and no third. <see cref="Newest"/> is the inventory's: the most recent
+/// <see cref="AgentSessionLimits.PerAgent"/> from each agent, which is a list a person
+/// can scroll and a read a profile of hundreds can afford on every refresh.
+/// <see cref="Since"/> is the count's: every session whose last activity is at or after
+/// a horizon, with no cap at all, because a figure derived from a capped list is a
+/// floor pretending to be a total. A reading answered <c>Since</c> is never
+/// <see cref="AgentSessionCatalog.Capped"/> by the per-agent limit — only by a source
+/// that does not hold records as far back as it was asked.
+/// </para>
+/// <para>
+/// A record with a factory per shape rather than a nullable parameter on the port, so a
+/// caller reads what it asked for and a source cannot mistake "no horizon" for "since
+/// forever".
+/// </para>
+/// </summary>
+public sealed record AgentSessionQuery
+{
+    private AgentSessionQuery(DateTimeOffset? horizon) => Horizon = horizon;
+
+    /// <summary>The most recent <see cref="AgentSessionLimits.PerAgent"/> sessions from
+    /// each agent, and how many there were before the cap.</summary>
+    public static AgentSessionQuery Newest { get; } = new(horizon: null);
+
+    /// <summary>Every session whose last activity is at or after
+    /// <paramref name="horizon"/>, uncapped.</summary>
+    public static AgentSessionQuery Since(DateTimeOffset horizon) => new(horizon);
+
+    /// <summary>The horizon, or null for the newest-per-agent shape.</summary>
+    public DateTimeOffset? Horizon { get; }
+
+    /// <summary>Whether this is the newest-per-agent shape. The other is
+    /// <see cref="Horizon"/> being set.</summary>
+    public bool IsNewest => Horizon is null;
 }
 
 /// <summary>
@@ -252,11 +310,14 @@ public static class AgentSessionLimits
 /// half as the whole.
 /// </para>
 /// </summary>
-/// <param name="Sessions">What the source will describe, up to
-/// <see cref="AgentSessionLimits.PerAgent"/> from each agent.</param>
+/// <param name="Sessions">What the source will describe: up to
+/// <see cref="AgentSessionLimits.PerAgent"/> from each agent for
+/// <see cref="AgentSessionQuery.Newest"/>, everything at or after the horizon for
+/// <see cref="AgentSessionQuery.Since"/>.</param>
 /// <param name="Unreadable">The sources that could not be read, by name.</param>
 /// <param name="Discovered">
-/// How many sessions existed, before the cap. Sessions and not files: an agent can
+/// How many sessions existed that the query asked about, before any cap — the same as
+/// the list's length for a horizon reading a source could reach. Sessions and not files: an agent can
 /// file one session twice — a live marker beside its own transcript, or a transcript
 /// under two project folders after the session's cwd changed — and both halves of
 /// this number collapse those before counting, so it does not mean one thing for
@@ -284,7 +345,13 @@ public sealed record AgentSessionCatalog(
 /// </summary>
 public interface IAgentSessionSource
 {
+    /// <summary>The inventory's reading: <see cref="AgentSessionQuery.Newest"/>.</summary>
     Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>The reading <paramref name="query"/> names. Two members rather than a
+    /// defaulted parameter so an implementation has to say what it does with a horizon
+    /// instead of quietly answering the capped list to a question about a window.</summary>
+    Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default);
 }
 
 /// <summary>Which sessions the reader wants in front of them at all.</summary>

@@ -1,6 +1,8 @@
 using Backlog.Infrastructure.Sync.Sessions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 
+using Microsoft.Extensions.Time.Testing;
+
 namespace Backlog.Infrastructure.Sync.UnitTests;
 
 /// <summary>
@@ -20,6 +22,11 @@ public sealed class FileReplicatedSessionStoreTests
 
     private static readonly Guid Desktop = Guid.Parse("44444444-4444-4444-4444-444444444444");
 
+    /// <summary>An instant far enough past every fixture record that the history
+    /// retains none of them, so the facts about the count cap are about the count cap
+    /// alone. The facts about the history read at <see cref="Noon"/> instead.</summary>
+    private static readonly DateTimeOffset Later = Noon + ReplicatedSessionLimits.History + TimeSpan.FromDays(1);
+
     /// <summary>
     /// A session pushed again with a later reading replaces the earlier one rather
     /// than sitting beside it. The feed is a log of readings, not of events, so two
@@ -34,7 +41,8 @@ public sealed class FileReplicatedSessionStoreTests
             [
                 SessionRecords.Entry(Laptop, sessionId: "one", lastActivityAt: Noon, serverTimestamp: 1),
                 SessionRecords.Entry(Laptop, sessionId: "one", lastActivityAt: Noon.AddMinutes(5), serverTimestamp: 2)
-            ]);
+            ],
+            Later);
 
         var kept = Assert.Single(merged.Entries);
 
@@ -57,7 +65,8 @@ public sealed class FileReplicatedSessionStoreTests
                 SessionRecords.Entry(Laptop, sessionId: "shared", agentKind: "claude"),
                 SessionRecords.Entry(Laptop, sessionId: "shared", agentKind: "copilot"),
                 SessionRecords.Entry(Desktop, sessionId: "shared", agentKind: "claude")
-            ]);
+            ],
+            Later);
 
         Assert.Equal(3, merged.Entries.Count);
     }
@@ -80,7 +89,7 @@ public sealed class FileReplicatedSessionStoreTests
 
         var quiet = SessionRecords.Entry(Desktop, sessionId: "desktop-1");
 
-        var merged = FileReplicatedSessionStore.Merge(ReplicatedSessions.Empty, [.. busy, quiet]);
+        var merged = FileReplicatedSessionStore.Merge(ReplicatedSessions.Empty, [.. busy, quiet], Later);
 
         Assert.Equal(ReplicatedSessionLimits.PerEnvironmentPerAgent + 1, merged.Entries.Count);
         Assert.Contains(merged.Entries, entry => entry.Record.SessionId == "desktop-1");
@@ -100,7 +109,7 @@ public sealed class FileReplicatedSessionStoreTests
                 lastActivityAt: Noon.AddMinutes(index)))
             .ToList();
 
-        var merged = FileReplicatedSessionStore.Merge(ReplicatedSessions.Empty, entries);
+        var merged = FileReplicatedSessionStore.Merge(ReplicatedSessions.Empty, entries, Later);
 
         Assert.DoesNotContain(merged.Entries, entry => entry.Record.SessionId == "session-0");
     }
@@ -115,9 +124,76 @@ public sealed class FileReplicatedSessionStoreTests
     {
         var merged = FileReplicatedSessionStore.Merge(
             new ReplicatedSessions([], Dropped: 7),
-            [SessionRecords.Entry(Laptop)]);
+            [SessionRecords.Entry(Laptop)],
+            Later);
 
         Assert.Equal(7, merged.Dropped);
+    }
+
+    /// <summary>
+    /// The count cap never cuts into the history. A machine that ran more than the
+    /// cap's worth of sessions inside twelve weeks keeps every one of them here, or
+    /// the Dashboard's count for that machine would be the cap — the "200" this store
+    /// used to answer on every busy machine.
+    /// </summary>
+    [Fact]
+    public void Everything_inside_the_history_is_kept_whatever_the_cap()
+    {
+        const int inside = ReplicatedSessionLimits.PerEnvironmentPerAgent + 40;
+
+        var recent = Enumerable
+            .Range(0, inside)
+            .Select(index => SessionRecords.Entry(Laptop, sessionId: $"laptop-{index}", lastActivityAt: Noon.AddHours(-index)))
+            .ToList();
+
+        var merged = FileReplicatedSessionStore.Merge(ReplicatedSessions.Empty, recent, Noon);
+
+        Assert.Equal(inside, merged.Entries.Count);
+        Assert.Equal(0, merged.Dropped);
+    }
+
+    /// <summary>
+    /// And the history never cuts into the count: a quiet machine's newest hundred
+    /// stay, however old, so the inventory still has its list to show for a machine
+    /// that has done nothing this quarter.
+    /// </summary>
+    [Fact]
+    public void The_newest_records_are_kept_whatever_the_history()
+    {
+        var old = Enumerable
+            .Range(0, ReplicatedSessionLimits.PerEnvironmentPerAgent + 5)
+            .Select(index => SessionRecords.Entry(
+                Laptop,
+                sessionId: $"laptop-{index}",
+                lastActivityAt: Noon - ReplicatedSessionLimits.History - TimeSpan.FromDays(index + 1)))
+            .ToList();
+
+        var merged = FileReplicatedSessionStore.Merge(ReplicatedSessions.Empty, old, Noon);
+
+        Assert.Equal(ReplicatedSessionLimits.PerEnvironmentPerAgent, merged.Entries.Count);
+        Assert.Equal(5, merged.Dropped);
+        Assert.Contains(merged.Entries, entry => entry.Record.SessionId == "laptop-0");
+    }
+
+    /// <summary>A record active exactly at the edge of the history is inside it: the
+    /// Dashboard's window is closed at its start, and a store that dropped the boundary
+    /// record would answer a count one short of the window's own scoping.</summary>
+    [Fact]
+    public void A_record_exactly_at_the_edge_of_the_history_is_inside_it()
+    {
+        var edge = Noon - ReplicatedSessionLimits.History;
+
+        var entries = Enumerable
+            .Range(0, ReplicatedSessionLimits.PerEnvironmentPerAgent)
+            .Select(index => SessionRecords.Entry(Laptop, sessionId: $"laptop-{index}", lastActivityAt: Noon.AddMinutes(-index)))
+            .Append(SessionRecords.Entry(Laptop, sessionId: "edge", lastActivityAt: edge))
+            .Append(SessionRecords.Entry(Laptop, sessionId: "beyond", lastActivityAt: edge.AddSeconds(-1)))
+            .ToList();
+
+        var merged = FileReplicatedSessionStore.Merge(ReplicatedSessions.Empty, entries, Noon);
+
+        Assert.Contains(merged.Entries, entry => entry.Record.SessionId == "edge");
+        Assert.DoesNotContain(merged.Entries, entry => entry.Record.SessionId == "beyond");
     }
 
     /// <summary>
@@ -132,10 +208,10 @@ public sealed class FileReplicatedSessionStoreTests
 
         try
         {
-            var store = new FileReplicatedSessionStore(path);
+            var store = new FileReplicatedSessionStore(path, new FakeTimeProvider(Noon));
             store.Save([SessionRecords.Entry(Laptop, sessionId: "one", machineName: "Kitchen laptop")]);
 
-            var reopened = new FileReplicatedSessionStore(path);
+            var reopened = new FileReplicatedSessionStore(path, new FakeTimeProvider(Noon));
             var kept = Assert.Single(reopened.Current.Entries);
 
             Assert.Equal("one", kept.Record.SessionId);
@@ -165,7 +241,7 @@ public sealed class FileReplicatedSessionStoreTests
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             File.WriteAllText(path, "{ this is not json");
 
-            var store = new FileReplicatedSessionStore(path);
+            var store = new FileReplicatedSessionStore(path, new FakeTimeProvider(Noon));
 
             Assert.Empty(store.Current.Entries);
         }

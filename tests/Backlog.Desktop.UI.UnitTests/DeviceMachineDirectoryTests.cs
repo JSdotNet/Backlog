@@ -1,3 +1,4 @@
+using Backlog.Modules.Dashboard.Abstractions;
 using Backlog.Modules.Dashboard.Abstractions.Insights;
 using Backlog.Modules.Dashboard.Abstractions.Services;
 using Backlog.Modules.Dashboard.UI.Adapters;
@@ -121,7 +122,7 @@ public sealed class DeviceMachineDirectoryTests
     [Fact]
     public async Task A_source_that_cannot_answer_still_leaves_this_device_on_the_list()
     {
-        var directory = new DeviceMachineDirectory(new StubIdentity(), new ThrowingSessionSource());
+        var directory = new DeviceMachineDirectory(new StubIdentity(), new ThrowingSessionSource(), new FixedClock(Noon));
 
         var machines = await directory.GetMachinesAsync(TestContext.Current.CancellationToken);
 
@@ -143,8 +144,24 @@ public sealed class DeviceMachineDirectoryTests
             () => directory.GetMachinesAsync(cancelled.Token));
     }
 
+    /// <summary>
+    /// The options are read as far back as the figures they narrow, and no further: a
+    /// machine every record of which is older than the widest period would be an option
+    /// that can only empty the surface.
+    /// </summary>
+    [Fact]
+    public async Task The_source_is_asked_back_to_the_dashboards_own_horizon()
+    {
+        var source = new StubSessionSource([Session("laptop", "DEV-LAPTOP")]);
+        var directory = new DeviceMachineDirectory(new StubIdentity(), source, new FixedClock(Noon));
+
+        _ = await directory.GetMachinesAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(Noon - DashboardScope.Horizon, Assert.Single(source.Horizons));
+    }
+
     private static DeviceMachineDirectory Directory(params AssistantSession[] sessions) =>
-        new(new StubIdentity(), new StubSessionSource(sessions));
+        new(new StubIdentity(), new StubSessionSource(sessions), new FixedClock(Noon));
 
     private static AssistantSession Session(string machineId, string machineName) =>
         new(machineId, machineName, "Claude", Noon.AddHours(-2), Noon);
@@ -154,16 +171,24 @@ public sealed class DeviceMachineDirectoryTests
         public DeviceIdentity Current { get; } = new(ThisDevice, "DEV-TOWER");
     }
 
+    private sealed class FixedClock(DateTimeOffset now) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => now;
+    }
+
     private sealed class StubSessionSource(IReadOnlyList<AssistantSession> sessions) : IAssistantSessionSource
     {
+        public List<DateTimeOffset> Horizons { get; } = [];
+
         public Task<InsightAvailability> GetAvailabilityAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(InsightAvailability.Available);
 
-        public Task<AssistantSessionReport> GetSessionsAsync(CancellationToken cancellationToken = default)
+        public Task<AssistantSessionReport> GetSessionsAsync(DateTimeOffset since, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            Horizons.Add(since);
 
-            return Task.FromResult(new AssistantSessionReport(sessions, [], false, 100));
+            return Task.FromResult(new AssistantSessionReport(sessions, [], false));
         }
     }
 
@@ -172,7 +197,7 @@ public sealed class DeviceMachineDirectoryTests
         public Task<InsightAvailability> GetAvailabilityAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(InsightAvailability.Available);
 
-        public Task<AssistantSessionReport> GetSessionsAsync(CancellationToken cancellationToken = default) =>
+        public Task<AssistantSessionReport> GetSessionsAsync(DateTimeOffset since, CancellationToken cancellationToken = default) =>
             throw new IOException("The replicated session store could not be read.");
     }
 }

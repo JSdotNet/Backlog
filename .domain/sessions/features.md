@@ -267,11 +267,19 @@ related: [.domain/sessions/naming.md#session-limit]
 
 An environment can hold hundreds of session records — enough that reading all of
 them costs real time and showing all of them buries the handful that are running. A
-reading therefore describes the most recent sessions per agent, and when it does, it
-states how many exist.
+reading for a list therefore describes the most recent sessions per agent, and when
+it does, it states how many exist.
 
 Per agent rather than overall, so the agent that happens to keep more history cannot
 crowd the other one out of a list whose whole point is showing both.
+
+A reading for a count takes the other shape: everything since a horizon, with no
+limit. A count over the most recent hundred per agent is the limit wearing a
+total's clothes — every busy machine reads "200" — so a consumer that counts asks
+since a horizon and gets every session inside it, and every source keeps records at
+least as far back as the longest horizon a consumer can ask for
+(`.domain/sessions/naming.md#session-history`). A source that cannot reach the
+horizon it was asked still says so.
 
 ## Session activity enrichment
 

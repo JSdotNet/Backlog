@@ -263,6 +263,27 @@ public sealed class SessionSyncSessionTests
     }
 
     /// <summary>
+    /// And the source is asked since the watermark rather than for its inventory. The
+    /// inventory is the newest hundred per agent, and a push selecting from it ships
+    /// at most a hundred per agent however many moved: the hundred-and-first session
+    /// this machine ran since the last cycle would never leave it, and every other
+    /// machine's count for this one would stop at the cap.
+    /// </summary>
+    [Fact]
+    public async Task The_source_is_read_since_the_watermark_and_not_as_the_capped_inventory()
+    {
+        using var fixture = Fixture.Create(
+            sessions: [AgentSessions.Local(id: "new", lastActivityAt: Noon.AddMinutes(10))],
+            state: Mine(Noon, null));
+
+        await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
+
+        var query = Assert.Single(fixture.Source.Queries);
+        Assert.False(query.IsNewest);
+        Assert.Equal(Noon, query.Horizon);
+    }
+
+    /// <summary>
     /// The watermark advances to the last stamp that was accepted and never to
     /// "now". A session that takes a turn while a batch is in flight carries a
     /// stamp between the two, and a watermark set to now would step over it — the
@@ -557,6 +578,7 @@ public sealed class SessionSyncSessionTests
             InMemorySessionSyncStateStore state,
             InMemoryReplicatedSessionStore replica,
             FakeTimeProvider clock,
+            StubAgentSessionSource source,
             List<string> bodies,
             List<string> queries)
         {
@@ -568,6 +590,7 @@ public sealed class SessionSyncSessionTests
             State = state;
             Replica = replica;
             Clock = clock;
+            Source = source;
             Queries = queries;
         }
 
@@ -585,6 +608,10 @@ public sealed class SessionSyncSessionTests
         public InMemoryReplicatedSessionStore Replica { get; }
 
         public FakeTimeProvider Clock { get; }
+
+        /// <summary>The local session source, so a test can read which query the
+        /// push asked it.</summary>
+        public StubAgentSessionSource Source { get; }
 
         public string LastBody => _bodies.Count == 0 ? string.Empty : _bodies[^1];
 
@@ -627,9 +654,11 @@ public sealed class SessionSyncSessionTests
                 "Workshop PC",
                 "a-registration-credential"));
 
+            var source = new StubAgentSessionSource(sessions ?? []);
+
             var session = new SessionSyncSession(
                 new SessionSyncClient(http),
-                new StubAgentSessionSource(sessions ?? []),
+                source,
                 new StubSessionRepositoryAliases(aliases),
                 stateStore,
                 replica,
@@ -637,7 +666,7 @@ public sealed class SessionSyncSessionTests
                 clock,
                 activity);
 
-            return new Fixture(http, handler, session, stateStore, replica, clock, bodies, queries);
+            return new Fixture(http, handler, session, stateStore, replica, clock, source, bodies, queries);
         }
 
         /// <summary>The single record in the last push body. Every test using it

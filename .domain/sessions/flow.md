@@ -84,9 +84,10 @@ sequenceDiagram
 - **Liveness is assessed last, per session, against one clock.** A single clock per
   reading is what makes two sessions in the same list comparable; assessing each
   against its own would let one row be stale relative to another.
-- **How many exist travels back with what was described.** The reading may stop at the
-  most recent sessions per agent, so the count of what it found is part of the answer
-  rather than something the reader has to go and check.
+- **How many exist travels back with what was described.** A reading for a list may
+  stop at the most recent sessions per agent, so the count of what it found is part of
+  the answer rather than something the reader has to go and check. A reading since a
+  horizon stops nowhere inside it, which is what makes it the shape a count reads.
 
 ## How optional session activity reporting works
 

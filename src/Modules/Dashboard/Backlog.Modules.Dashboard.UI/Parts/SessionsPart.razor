@@ -330,9 +330,12 @@
 
             if (!IsReady) return basis;
 
+            // No per-assistant number any more: the read is everything inside the
+            // period, and this sentence is for the source that could not reach that far
+            // back — not for a cap the read no longer has.
             if (Value!.Capped)
             {
-                basis += $" Only the newest {Value!.CapPerAssistant} sessions per assistant were read, "
+                basis += " Not every session in this period could be read, "
                     + "so these figures are a floor, the weekly columns included.";
             }
 

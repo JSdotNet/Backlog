@@ -70,9 +70,17 @@ internal sealed class StubAgentSessionSource(params AgentSession[] sessions) : I
 {
     public int Reads { get; private set; }
 
-    public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default)
+    /// <summary>What each read asked for, so a test can pin that the push reads
+    /// since its watermark rather than the capped inventory.</summary>
+    public List<AgentSessionQuery> Queries { get; } = [];
+
+    public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
+        GetSessionsAsync(AgentSessionQuery.Newest, cancellationToken);
+
+    public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default)
     {
         Reads++;
+        Queries.Add(query);
 
         return Task.FromResult(new AgentSessionCatalog(sessions, [], sessions.Length));
     }

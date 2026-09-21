@@ -185,6 +185,85 @@ public sealed class ReplicatedAgentSessionSourceTests
         Assert.True(catalog.Capped);
     }
 
+    /// <summary>
+    /// The store retains more than the inventory shows — everything inside the
+    /// history as well as the newest hundred — and the inventory's shape is cut back
+    /// to the cap here, per environment per agent, so the pane sees the same list it
+    /// always did. The cut is counted into Discovered on the same principle as the
+    /// store's own drops.
+    /// </summary>
+    [Fact]
+    public async Task The_newest_reading_is_cut_back_to_the_cap_per_environment_per_agent()
+    {
+        var entries = Enumerable
+            .Range(0, ReplicatedSessionLimits.PerEnvironmentPerAgent + 30)
+            .Select(index => SessionRecords.Entry(Laptop, sessionId: $"laptop-{index}", lastActivityAt: Noon.AddHours(-index)))
+            .ToArray();
+
+        var catalog = await Source(entries).GetSessionsAsync(AgentSessionQuery.Newest, TestContext.Current.CancellationToken);
+
+        Assert.Equal(ReplicatedSessionLimits.PerEnvironmentPerAgent, catalog.Sessions.Count);
+        Assert.Equal(entries.Length, catalog.Discovered);
+        Assert.True(catalog.Capped);
+        Assert.Contains(catalog.Sessions, session => session.Id == "laptop-0");
+        Assert.DoesNotContain(catalog.Sessions, session => session.Id == $"laptop-{entries.Length - 1}");
+    }
+
+    /// <summary>
+    /// A reading since a horizon is everything held at or after it, however many
+    /// that is per machine. This is the Dashboard's read, and the reason the store
+    /// retains by history: the machine in the screenshot that started this had run
+    /// well over a hundred sessions per agent in twelve weeks and read "200".
+    /// </summary>
+    [Fact]
+    public async Task A_reading_since_a_horizon_is_everything_inside_it_and_is_not_capped()
+    {
+        const int inside = ReplicatedSessionLimits.PerEnvironmentPerAgent + 30;
+
+        var entries = Enumerable
+            .Range(0, inside)
+            .Select(index => SessionRecords.Entry(Laptop, sessionId: $"laptop-{index}", lastActivityAt: Noon.AddHours(-index)))
+            .Append(SessionRecords.Entry(Laptop, sessionId: "older", lastActivityAt: Noon.AddDays(-30)))
+            .ToArray();
+
+        var catalog = await Source(entries).GetSessionsAsync(
+            AgentSessionQuery.Since(Noon.AddDays(-7)),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(inside, catalog.Sessions.Count);
+        Assert.Equal(inside, catalog.Discovered);
+        Assert.False(catalog.Capped);
+        Assert.DoesNotContain(catalog.Sessions, session => session.Id == "older");
+    }
+
+    /// <summary>
+    /// What earlier merges discarded lies beyond the history, so a horizon inside the
+    /// history was kept whole and is not capped by it; a horizon reaching past the
+    /// history is, because the store cannot say what it discarded back there.
+    /// </summary>
+    [Fact]
+    public async Task Discards_beyond_the_history_only_cap_a_reading_that_reaches_past_it()
+    {
+        var source = new ReplicatedAgentSessionSource(
+            new StubReplicatedStore(new ReplicatedSessions([SessionRecords.Entry(Laptop, lastActivityAt: Noon.AddDays(-1))], Dropped: 4)),
+            new StubFeatureSettings(enabled: true),
+            new FakeTimeProvider(Noon));
+
+        var inside = await source.GetSessionsAsync(
+            AgentSessionQuery.Since(Noon - ReplicatedSessionLimits.History),
+            TestContext.Current.CancellationToken);
+
+        var beyond = await source.GetSessionsAsync(
+            AgentSessionQuery.Since(Noon - ReplicatedSessionLimits.History - TimeSpan.FromDays(1)),
+            TestContext.Current.CancellationToken);
+
+        Assert.False(inside.Capped);
+        Assert.Equal(1, inside.Discovered);
+
+        Assert.True(beyond.Capped);
+        Assert.Equal(5, beyond.Discovered);
+    }
+
     /// <summary>A source over a fixed set of records, read at
     /// <see cref="Noon"/> with the feature on.</summary>
     private static ReplicatedAgentSessionSource Source(params SessionRecordEntry[] entries) =>
