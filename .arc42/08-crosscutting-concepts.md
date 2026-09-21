@@ -178,6 +178,20 @@ sequenceDiagram
 - **Whole-document resolution**, matching how the aggregate is already persisted
   everywhere else. A per-field merge would invent a reconciliation the domain has
   no rule for.
+- **A local write is pushed within seconds, not on the next tick.** The
+  five-minute schedule is the budget for a quiet machine; it is also the whole of
+  the window in which two machines can edit one task without either knowing, and
+  whole-document resolution drops one side when they do. The repository announces
+  every local write and the loop runs a cycle a few seconds after the last one,
+  so the window is seconds wide. A document applied from the replica is written
+  through the same repository and is deliberately not announced.
+- **Progress belongs to one identity.** The push watermark says what one owner's
+  replica has accepted from one device, and the pull cursor is signed for one
+  owner. Both are recorded with the owner and device ids they were written under,
+  and a device whose credential names a different pair — one that forgot its
+  registration and registered or paired again — starts both from nothing. Carrying
+  them across that line is how a second machine came to see a fraction of the
+  first one's tasks and none of its sessions, with nothing anywhere to say why.
 - **Pairing, not accounts.** A first device generates an `ownerId`; a second is
   paired with a short code entered once, out of band. Each holds its own
   registration credential in the OS credential store and exchanges it for a

@@ -117,6 +117,14 @@ public sealed class SessionSyncWorker : IDisposable
     /// <see cref="IsSyncing"/> reports.</summary>
     private int _cycleInFlight;
 
+    /// <summary>Set by <see cref="RepublishEverything"/>, consumed by the cycle
+    /// that carries it out - the same arrangement as
+    /// <c>TaskSyncWorker._pendingRepublish</c>, and for the same reason: a reset
+    /// written to the store while a cycle is in flight would be overwritten by
+    /// that cycle's own advance of the watermark, so it is recorded here and
+    /// applied by the next cycle before it reads anything.</summary>
+    private int _pendingRepublish;
+
     private ITimer? _timer;
     private bool _disposed;
 
@@ -192,6 +200,31 @@ public sealed class SessionSyncWorker : IDisposable
     /// </para>
     /// </summary>
     public void RequestSync() => _ = RequestSyncAsync();
+
+    /// <summary>
+    /// Forgets how far this device has pushed, so the next cycle offers every
+    /// local session record again.
+    /// <para>
+    /// The counterpart of <c>TaskSyncWorker.RepublishEverything</c>, and it exists
+    /// for the same replica-is-disposable reason plus one that showed first here:
+    /// a device that had registered again under a new owner kept the old owner's
+    /// watermark and never re-sent what that owner had already been given. The
+    /// exchange now resets itself across an identity change, but a person whose
+    /// second machine shows none of the first one's sessions still needs one button
+    /// to press that does not involve deleting a file by hand.
+    /// </para>
+    /// <para>
+    /// Safe: the replica keeps one record per session and the pull merges by
+    /// identity, so a record sent a second time lands where it already is. What it
+    /// costs is one long cycle. Recorded rather than written, and applied by the
+    /// cycle - see <see cref="_pendingRepublish"/>.
+    /// </para>
+    /// </summary>
+    public void RepublishEverything()
+    {
+        Volatile.Write(ref _pendingRepublish, 1);
+        RequestSync();
+    }
 
     /// <summary>Stops the loop, cancels whatever cycle is in flight, and lets go of
     /// both stores. Unsubscribing matters more than stopping the timer does: a
@@ -342,6 +375,11 @@ public sealed class SessionSyncWorker : IDisposable
 
         try
         {
+            // Inside the guard and before anything is read, so a reset asked for
+            // while another cycle held the guard is applied by this one rather
+            // than trampled by it.
+            ApplyPendingResets();
+
             var session = ResolveSession();
 
             // A head that composed no session has no sessions to replicate, which
@@ -376,7 +414,20 @@ public sealed class SessionSyncWorker : IDisposable
         {
             Volatile.Write(ref _cycleInFlight, 0);
             Changed?.Invoke();
+
+            // A reset that arrived while this cycle held the guard is still
+            // pending: the RequestSync it came with was turned away. Now the guard
+            // is free, so it runs. It cannot spin: the cycle it starts consumes the
+            // flag before it reads anything.
+            if (Volatile.Read(ref _pendingRepublish) == 1) RequestSync();
         }
+    }
+
+    private void ApplyPendingResets()
+    {
+        if (Interlocked.Exchange(ref _pendingRepublish, 0) != 1) return;
+
+        _state.Save(_state.Current with { PushWatermark = DateTimeOffset.MinValue });
     }
 
     /// <summary>

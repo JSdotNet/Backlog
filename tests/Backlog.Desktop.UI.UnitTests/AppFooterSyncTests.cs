@@ -216,6 +216,7 @@ public sealed class AppFooterSyncTests
             new TaskReplicaMerge(tasks, activity: activity),
             tasks,
             state,
+            credentials,
             TimeProvider.System,
             activity: activity));
 

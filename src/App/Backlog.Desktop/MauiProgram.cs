@@ -136,8 +136,14 @@ public static class MauiProgram
         // decides which adapter is behind them. The repository follows the
         // storage folder rather than being pinned to wherever it was at startup,
         // because somebody can move their backlog while the app is open.
+        // The change signal is the module's singleton, registered by AddTasksModule
+        // below; the repository resolves it lazily here, so line order between the
+        // two does not matter. It is what lets the sync loop push an edit seconds
+        // after it is saved rather than on its five-minute tick.
         builder.Services.AddSingleton<ITaskRepository>(sp =>
-            new RootedSqliteTaskRepository(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
+            new RootedSqliteTaskRepository(
+                () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory,
+                sp.GetService<ITaskChangeSignal>()));
         builder.Services.AddTasksModule();
 
         // The same arrangement for the plan: the Roadmap module brings its use

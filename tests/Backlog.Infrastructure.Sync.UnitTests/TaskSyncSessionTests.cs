@@ -19,6 +19,20 @@ public sealed class TaskSyncSessionTests
 {
     private static readonly DateTimeOffset Noon = new(2026, 9, 7, 12, 0, 0, TimeSpan.Zero);
 
+    private static readonly Guid ThisOwner = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private static readonly Guid ThisDevice = Guid.Parse("22222222-2222-2222-2222-222222222222");
+    private static readonly Guid AnotherOwner = Guid.Parse("33333333-3333-3333-3333-333333333333");
+
+    /// <summary>The device every fixture is unless a test says otherwise.</summary>
+    private static readonly DeviceCredential Paired = new(ThisOwner, ThisDevice, "Workshop PC", "a-registration-credential");
+
+    /// <summary>Progress recorded for the fixture's own identity, which is what
+    /// every seeded watermark or cursor below means unless the test is about
+    /// the identity itself: a state with none recorded is reset on first use, by
+    /// design, and a test seeding one wants it kept.</summary>
+    private static TaskSyncState Mine(DateTimeOffset watermark, string? cursor) =>
+        new(watermark, cursor, ThisOwner, ThisDevice);
+
     /// <summary>
     /// The watermark goes to the highest stamp that was accepted, and not to the
     /// clock. A task saved while the batch was in flight carries a stamp between
@@ -56,7 +70,7 @@ public sealed class TaskSyncSessionTests
         store.Seed(TaskChanges.Task("Already sent", Noon));
         store.Seed(TaskChanges.Task("Edited since", Noon.AddHours(2)));
 
-        var state = new InMemoryTaskSyncStateStore(new TaskSyncState(Noon.AddHours(1), null));
+        var state = new InMemoryTaskSyncStateStore(Mine(Noon.AddHours(1), null));
 
         using var fixture = Fixture.Create(store, state, new FakeTimeProvider(Noon.AddHours(6)),
             (_, _) => StubHttpMessageHandler.Json(HttpStatusCode.OK, """{"accepted":1}"""));
@@ -219,7 +233,7 @@ public sealed class TaskSyncSessionTests
         var store = new InMemoryTaskStore();
         store.Seed(TaskChanges.Task("Never accepted", Noon));
 
-        var state = new InMemoryTaskSyncStateStore();
+        var state = new InMemoryTaskSyncStateStore(Mine(DateTimeOffset.MinValue, null));
 
         using var fixture = Fixture.Create(store, state, new FakeTimeProvider(Noon),
             (_, _) => StubHttpMessageHandler.Problem(
@@ -271,7 +285,7 @@ public sealed class TaskSyncSessionTests
     public async Task Every_page_saves_its_cursor()
     {
         var store = new InMemoryTaskStore();
-        var state = new InMemoryTaskSyncStateStore();
+        var state = new InMemoryTaskSyncStateStore(Mine(DateTimeOffset.MinValue, null));
 
         using var fixture = Fixture.Create(store, state, new FakeTimeProvider(Noon), (_, index) => index switch
         {
@@ -300,7 +314,7 @@ public sealed class TaskSyncSessionTests
     public async Task An_expired_cursor_is_dropped_and_the_pull_starts_over()
     {
         var store = new InMemoryTaskStore();
-        var state = new InMemoryTaskSyncStateStore(new TaskSyncState(Noon, "a-cursor-the-store-forgot"));
+        var state = new InMemoryTaskSyncStateStore(Mine(Noon, "a-cursor-the-store-forgot"));
 
         using var fixture = Fixture.Create(store, state, new FakeTimeProvider(Noon), (_, index) => index switch
         {
@@ -330,7 +344,7 @@ public sealed class TaskSyncSessionTests
     public async Task A_malformed_cursor_is_dropped_and_the_pull_starts_over()
     {
         var store = new InMemoryTaskStore();
-        var state = new InMemoryTaskSyncStateStore(new TaskSyncState(Noon, "not-a-cursor"));
+        var state = new InMemoryTaskSyncStateStore(Mine(Noon, "not-a-cursor"));
 
         using var fixture = Fixture.Create(store, state, new FakeTimeProvider(Noon), (_, index) => index switch
         {
@@ -350,7 +364,7 @@ public sealed class TaskSyncSessionTests
     public async Task Starting_over_is_tried_once_and_not_in_a_loop()
     {
         var store = new InMemoryTaskStore();
-        var state = new InMemoryTaskSyncStateStore(new TaskSyncState(Noon, "a-cursor-the-store-forgot"));
+        var state = new InMemoryTaskSyncStateStore(Mine(Noon, "a-cursor-the-store-forgot"));
 
         using var fixture = Fixture.Create(store, state, new FakeTimeProvider(Noon), (_, _) =>
             StubHttpMessageHandler.Problem(
@@ -373,7 +387,7 @@ public sealed class TaskSyncSessionTests
     public async Task A_cursor_belonging_to_somebody_else_is_not_swallowed()
     {
         var store = new InMemoryTaskStore();
-        var state = new InMemoryTaskSyncStateStore(new TaskSyncState(Noon, "somebody-elses-cursor"));
+        var state = new InMemoryTaskSyncStateStore(Mine(Noon, "somebody-elses-cursor"));
 
         using var fixture = Fixture.Create(store, state, new FakeTimeProvider(Noon), (_, _) =>
             StubHttpMessageHandler.Problem(
@@ -452,7 +466,8 @@ public sealed class TaskSyncSessionTests
 
     /// <summary>Push first: the pull is what tells the device it is up to date,
     /// and a pull that ran first would say so while local work was still
-    /// unsent.</summary>
+    /// unsent. Safe, because the replica refuses a stale push rather than taking
+    /// it - see <c>TaskSyncSession.SyncAsync</c>.</summary>
     [Fact]
     public async Task Syncing_pushes_before_it_pulls()
     {
@@ -491,6 +506,103 @@ public sealed class TaskSyncSessionTests
 
         Assert.True(result.IsFailure);
         Assert.Single(fixture.Handler.Requests);
+    }
+
+    // --- Whose progress this is -----------------------------------------------
+
+    /// <summary>
+    /// A watermark recorded under another owner is not this device's progress
+    /// any more. Forgetting the credential and registering again makes a new
+    /// device under a new owner, and that owner's replica has been sent nothing;
+    /// a watermark carried across would re-send only what was edited since, and
+    /// the second machine to pair in would see a fraction of the backlog with
+    /// nothing anywhere to say why. So the push starts from nothing, and the
+    /// state records whose it now is.
+    /// </summary>
+    [Fact]
+    public async Task Progress_recorded_for_another_owner_is_started_over()
+    {
+        var store = new InMemoryTaskStore();
+        store.Seed(TaskChanges.Task("Sent to the old owner", Noon));
+        store.Seed(TaskChanges.Task("Edited since", Noon.AddHours(2)));
+
+        var state = new InMemoryTaskSyncStateStore(
+            new TaskSyncState(Noon.AddHours(1), "the-old-owners-cursor", AnotherOwner, ThisDevice));
+
+        using var fixture = Fixture.Create(store, state, new FakeTimeProvider(Noon.AddHours(3)),
+            (_, _) => StubHttpMessageHandler.Json(HttpStatusCode.OK, """{"accepted":2}"""));
+
+        var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(2, result.Value.Pushed);
+        Assert.Equal(ThisOwner, state.Current.OwnerId);
+        Assert.Equal(ThisDevice, state.Current.DeviceId);
+        Assert.Null(state.Current.PullCursor);
+    }
+
+    /// <summary>The same for a state that names no identity at all - the file a
+    /// device wrote before it recorded one. It is reset rather than adopted: a
+    /// one-time republish costs bandwidth, and a watermark of unknown provenance
+    /// is exactly the gap the identity exists to close.</summary>
+    [Fact]
+    public async Task Progress_with_no_recorded_identity_is_started_over_and_stamped()
+    {
+        var store = new InMemoryTaskStore();
+        store.Seed(TaskChanges.Task("Before the watermark", Noon));
+
+        var state = new InMemoryTaskSyncStateStore(new TaskSyncState(Noon.AddHours(1), "some-cursor"));
+
+        using var fixture = Fixture.Create(store, state, new FakeTimeProvider(Noon.AddHours(3)),
+            (_, _) => StubHttpMessageHandler.Json(HttpStatusCode.OK, """{"accepted":1}"""));
+
+        var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, result.Value.Pushed);
+        Assert.Equal(ThisOwner, state.Current.OwnerId);
+        Assert.Equal(ThisDevice, state.Current.DeviceId);
+    }
+
+    /// <summary>And progress recorded for this very identity is kept, which is
+    /// every ordinary cycle: the check must cost nothing when nothing changed.</summary>
+    [Fact]
+    public async Task Progress_recorded_for_this_identity_is_kept()
+    {
+        var store = new InMemoryTaskStore();
+        store.Seed(TaskChanges.Task("Already sent", Noon));
+        store.Seed(TaskChanges.Task("Edited since", Noon.AddHours(2)));
+
+        var state = new InMemoryTaskSyncStateStore(Mine(Noon.AddHours(1), "cursor-1"));
+
+        using var fixture = Fixture.Create(store, state, new FakeTimeProvider(Noon.AddHours(3)),
+            (_, _) => StubHttpMessageHandler.Json(HttpStatusCode.OK, """{"accepted":1}"""));
+
+        var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, result.Value.Pushed);
+        Assert.Equal("cursor-1", state.Current.PullCursor);
+        Assert.Equal("Edited since", Assert.Single(Pushed(fixture.Bodies[0])).Task.Title);
+    }
+
+    /// <summary>The pull side too: a cursor signed for another owner is dropped
+    /// here before the service ever sees it, and the feed is read from the
+    /// beginning. The service would have refused it anyway, and that refusal
+    /// hid the push half of the same problem for as long as it did.</summary>
+    [Fact]
+    public async Task A_cursor_recorded_for_another_owner_is_not_sent()
+    {
+        var state = new InMemoryTaskSyncStateStore(
+            new TaskSyncState(Noon, "the-old-owners-cursor", AnotherOwner, ThisDevice));
+
+        using var fixture = Fixture.Create(new InMemoryTaskStore(), state, new FakeTimeProvider(Noon),
+            (_, _) => StubHttpMessageHandler.Json(HttpStatusCode.OK, """{"tasks":[],"since":"cursor-fresh","hasMore":false}"""));
+
+        var result = await fixture.Session.PullAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        Assert.DoesNotContain("the-old-owners-cursor", Assert.Single(fixture.Queries), StringComparison.Ordinal);
+        Assert.Equal("cursor-fresh", state.Current.PullCursor);
+        Assert.Equal(ThisOwner, state.Current.OwnerId);
     }
 
     // --- What the log says moved -----------------------------------------------
@@ -618,7 +730,8 @@ public sealed class TaskSyncSessionTests
             ITaskSyncStateStore state,
             TimeProvider time,
             Func<HttpRequestMessage, int, HttpResponseMessage> respond,
-            SyncActivityLog? activity = null)
+            SyncActivityLog? activity = null,
+            DeviceCredential? credential = null)
         {
             var bodies = new List<string>();
             var queries = new List<string>();
@@ -641,6 +754,7 @@ public sealed class TaskSyncSessionTests
                 new TaskReplicaMerge(tasks, activity: activity),
                 tasks,
                 state,
+                new InMemoryDeviceCredentialStore(credential ?? Paired),
                 time,
                 activity: activity);
 

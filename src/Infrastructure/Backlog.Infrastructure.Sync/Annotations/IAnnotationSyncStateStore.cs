@@ -4,9 +4,15 @@ namespace Backlog.Infrastructure.Sync.Annotations;
 /// How far this device has got in each direction of annotation replication —
 /// <see cref="TaskSyncState"/>'s two values over the third feed, under the same
 /// rules: the watermark advances to what was accepted and never to "now", and a
-/// null cursor means "from the beginning".
+/// null cursor means "from the beginning" — and, for the same reason as there,
+/// the owner and device the progress was recorded under, so a device that
+/// registers again starts this feed over as well.
 /// </summary>
-public sealed record AnnotationSyncState(DateTimeOffset PushWatermark, string? PullCursor);
+public sealed record AnnotationSyncState(
+    DateTimeOffset PushWatermark,
+    string? PullCursor,
+    Guid? OwnerId = null,
+    Guid? DeviceId = null);
 
 /// <summary>
 /// Where this device keeps its annotation-replication progress between runs.

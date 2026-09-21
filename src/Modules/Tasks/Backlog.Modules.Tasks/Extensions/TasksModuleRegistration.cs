@@ -13,6 +13,7 @@ using Backlog.Modules.Tasks.Services;
 using Backlog.SharedKernel.Handlers;
 using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Backlog.Modules.Tasks.Extensions;
 
@@ -32,6 +33,12 @@ public static class TasksModuleRegistration
     public static IServiceCollection AddTasksModule(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
+
+        // The repository is the host's, but the signal its adapter raises is the
+        // module's: one singleton, so the repository that raises it and the loop
+        // that hears it are talking about the same event. TryAdd so a test that
+        // composed its own keeps it.
+        services.TryAddSingleton<ITaskChangeSignal, TaskChangeSignal>();
 
         services.AddScoped<IQueryHandler<ListTasksQuery, IReadOnlyList<TaskItemDto>>, ListTasksQueryHandler>();
         services.AddScoped<ICommandHandler<SaveTaskFromTextCommand, Result<SavedTaskDto>>, SaveTaskFromTextCommandHandler>();

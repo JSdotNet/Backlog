@@ -46,10 +46,14 @@ public sealed class TaskSyncSession
     private readonly TaskReplicaMerge _merge;
     private readonly ITaskRepository _tasks;
     private readonly ITaskSyncStateStore _state;
+    private readonly IDeviceCredentialStore _credentials;
     private readonly TimeProvider _time;
     private readonly IInboxCaptureOutbox? _outbox;
     private readonly SyncActivityLog? _activity;
 
+    /// <param name="credentials">Whose device this is. Read before every push
+    /// and pull to check the progress in <paramref name="state"/> belongs to the
+    /// same owner and device — see <see cref="ReconcileIdentity"/>.</param>
     /// <param name="outbox">The Inbox's acknowledgements waiting to leave this
     /// machine, or null on a head that has no inbox store. Optional by
     /// construction, so the mobile head composes exactly as it did.</param>
@@ -62,6 +66,7 @@ public sealed class TaskSyncSession
         TaskReplicaMerge merge,
         ITaskRepository tasks,
         ITaskSyncStateStore state,
+        IDeviceCredentialStore credentials,
         TimeProvider time,
         IInboxCaptureOutbox? outbox = null,
         SyncActivityLog? activity = null)
@@ -70,15 +75,53 @@ public sealed class TaskSyncSession
         ArgumentNullException.ThrowIfNull(merge);
         ArgumentNullException.ThrowIfNull(tasks);
         ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(credentials);
         ArgumentNullException.ThrowIfNull(time);
 
         _client = client;
         _merge = merge;
         _tasks = tasks;
         _state = state;
+        _credentials = credentials;
         _time = time;
         _outbox = outbox;
         _activity = activity;
+    }
+
+    /// <summary>
+    /// Starts the progress over when it was recorded for a different identity.
+    /// <para>
+    /// The watermark says what one owner's replica has accepted from this
+    /// device, and the cursor is signed for one owner. Neither survives the
+    /// device becoming somebody else — which is what forgetting the credential and
+    /// registering or pairing again does — yet the file that holds them is not
+    /// tied to the credential and used to sit untouched through it. The result
+    /// was a device that joined a new owner, re-sent only what it had edited
+    /// since, and left the new replica without everything it had pushed to the old
+    /// one: a second machine pairing in saw a fraction of the first one's tasks
+    /// and none of its sessions, with nothing anywhere to say why.
+    /// </para>
+    /// <para>
+    /// The cursor half healed itself — the service refuses a cursor signed for
+    /// another owner and the pull starts over — which is exactly why the push half
+    /// went unnoticed. Both are reset here so the two cannot disagree again, and a
+    /// state with no identity recorded at all is reset too: it predates this
+    /// check, and a watermark of unknown provenance is the gap, not a saving.
+    /// </para>
+    /// <para>
+    /// Called at the top of both halves rather than once in
+    /// <see cref="SyncAsync"/>, because a caller may run either alone and the
+    /// invariant is the state's, not the exchange's.
+    /// </para>
+    /// </summary>
+    private void ReconcileIdentity()
+    {
+        if (_credentials.Current is not { } me) return;
+
+        var state = _state.Current;
+        if (state.OwnerId == me.OwnerId && state.DeviceId == me.DeviceId) return;
+
+        _state.Save(new TaskSyncState(DateTimeOffset.MinValue, null, me.OwnerId, me.DeviceId));
     }
 
     /// <summary>
@@ -128,6 +171,8 @@ public sealed class TaskSyncSession
     /// </summary>
     public async Task<Result<TaskSyncSummary>> PushAsync(CancellationToken cancellationToken = default)
     {
+        ReconcileIdentity();
+
         var watermark = _state.Current.PushWatermark;
 
         var pending = (await _tasks.ListChangedSinceAsync(watermark, cancellationToken).ConfigureAwait(false))
@@ -237,6 +282,8 @@ public sealed class TaskSyncSession
     /// </summary>
     public async Task<Result<TaskSyncSummary>> PullAsync(CancellationToken cancellationToken = default)
     {
+        ReconcileIdentity();
+
         var cursor = _state.Current.PullCursor;
         var pulled = 0;
         var applied = 0;
@@ -295,6 +342,15 @@ public sealed class TaskSyncSession
     /// unsent. A push that fails stops the exchange rather than being followed by
     /// a pull: the failure is almost always the service being unreachable, and a
     /// second call to say the same thing is a second thing for a person to read.
+    /// </para>
+    /// <para>
+    /// The order is safe because the replica refuses a stale push
+    /// (<c>TaskChangePrecedence</c>): a device holding an older copy of a task
+    /// the other machine has since edited sends it, is refused, and takes the
+    /// newer document on the pull that follows. Before the replica compared
+    /// stamps this order let the stale copy land on top of the newer one, which
+    /// is what pulling first would have prevented; the refusal makes the order a
+    /// matter of what the summary reads rather than of what survives.
     /// </para>
     /// </summary>
     public async Task<Result<TaskSyncSummary>> SyncAsync(CancellationToken cancellationToken = default)

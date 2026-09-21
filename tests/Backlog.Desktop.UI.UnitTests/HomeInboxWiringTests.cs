@@ -251,7 +251,7 @@ public sealed class HomeInboxWiringTests
             context.Services.AddSingleton<IDeviceCredentialStore>(credentials);
             context.Services.AddSingleton<ITaskSyncStateStore>(syncState);
             context.Services.AddSingleton(_ => new TaskSyncSession(
-                new TaskSyncClient(http), new TaskReplicaMerge(tasks), tasks, syncState, TimeProvider.System));
+                new TaskSyncClient(http), new TaskReplicaMerge(tasks), tasks, syncState, credentials, TimeProvider.System));
             context.Services.AddSingleton(sp => new TaskSyncWorker(
                 sp, featureSettings, credentials, syncState, new FakeTimeProvider()));
         }

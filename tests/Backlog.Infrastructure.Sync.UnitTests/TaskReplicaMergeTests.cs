@@ -1,6 +1,8 @@
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
+using Backlog.Modules.Tasks;
 using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.DomainModels;
+using Backlog.Modules.Tasks.Services;
 
 namespace Backlog.Infrastructure.Sync.UnitTests;
 
@@ -459,6 +461,57 @@ public sealed class TaskReplicaMergeTests
         Assert.Equal("in_progress", payload.Status);
         Assert.Equal("task", payload.Type);
         Assert.Equal("medium", payload.Priority);
+    }
+
+    // --- What a pulled write is not ---------------------------------------------
+
+    /// <summary>
+    /// A document applied from the replica is written through the same repository
+    /// a person's edit goes through, and that repository announces every write.
+    /// The merge silences the announcement around its own writes: heard as a
+    /// local change, every cycle that received anything would start another on
+    /// its heels. Asserted through a repository that raises the signal the way
+    /// the host's does.
+    /// </summary>
+    [Fact]
+    public async Task Applying_a_pulled_document_does_not_announce_a_local_change()
+    {
+        var signal = new TaskChangeSignal();
+        var heard = 0;
+        signal.Changed += () => heard++;
+
+        var store = new AnnouncingTaskStore(new InMemoryTaskStore(), signal);
+        var merge = new TaskReplicaMerge(store, changes: signal);
+
+        var page = new[] { TaskChanges.Record(TaskChanges.Change("From the other machine", Noon), Guid.NewGuid(), serverTimestamp: 100) };
+
+        var outcome = await merge.ApplyAsync(page, DateTimeOffset.MinValue, TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, outcome.Applied);
+        Assert.Equal(0, heard);
+
+        // The same repository, written to by anybody else, is still heard.
+        await store.SaveAsync(TaskChanges.Task("Typed here", Noon.AddMinutes(1)), TestContext.Current.CancellationToken);
+        Assert.Equal(1, heard);
+    }
+
+    /// <summary>What the host's <c>RootedSqliteTaskRepository</c> does: the store,
+    /// plus a raise after every save.</summary>
+    private sealed class AnnouncingTaskStore(InMemoryTaskStore inner, ITaskChangeSignal signal) : ITaskRepository
+    {
+        public async Task SaveAsync(TaskItem task, CancellationToken cancellationToken = default)
+        {
+            await inner.SaveAsync(task, cancellationToken);
+            signal.Raise();
+        }
+
+        public Task<TaskItem?> GetAsync(Guid id, CancellationToken cancellationToken = default) => inner.GetAsync(id, cancellationToken);
+
+        public Task<TaskItem?> GetIncludingDeletedAsync(Guid id, CancellationToken cancellationToken = default) => inner.GetIncludingDeletedAsync(id, cancellationToken);
+
+        public Task<IReadOnlyList<TaskItem>> ListAsync(CancellationToken cancellationToken = default) => inner.ListAsync(cancellationToken);
+
+        public Task<IReadOnlyList<TaskItem>> ListChangedSinceAsync(DateTimeOffset since, CancellationToken cancellationToken = default) => inner.ListChangedSinceAsync(since, cancellationToken);
     }
 }
 

@@ -1,6 +1,7 @@
 using System.Net;
 
 using Backlog.Infrastructure.Sync.Sessions;
+using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sync.Abstractions;
 
 using Microsoft.Extensions.Time.Testing;
@@ -159,6 +160,50 @@ public sealed class SessionSyncWorkerTests
         Assert.NotEqual(TaskSyncWorker.FirstCycleDelay, SessionSyncWorker.FirstCycleDelay);
     }
 
+    // --- Starting over ---------------------------------------------------------
+
+    /// <summary>
+    /// Forgetting the watermark offers every local session again. The one button
+    /// a person whose second machine shows none of the first one's sessions can
+    /// press - the task loop has had it from the start, and sessions had nothing
+    /// but a file to delete by hand.
+    /// </summary>
+    [Fact]
+    public async Task Republishing_offers_every_local_session_again()
+    {
+        var pushed = new List<string>();
+
+        using var fixture = Fixture.Create(
+            featureOn: true,
+            paired: true,
+            sessions: [AgentSessions.Local(id: "already-sent", lastActivityAt: Noon.AddMinutes(-10))],
+            // Everything this machine has was accepted under this very identity, so
+            // an ordinary cycle has nothing to send.
+            initialState: new SessionSyncState(Noon, "cursor-1", Paired.OwnerId, Paired.DeviceId),
+            respond: (request, _) =>
+            {
+                if (request.Method == HttpMethod.Post && request.Content is not null)
+                {
+                    pushed.Add(request.Content.ReadAsStringAsync(TestContext.Current.CancellationToken).GetAwaiter().GetResult());
+                    return StubHttpMessageHandler.Json(HttpStatusCode.OK, """{"accepted":1}""");
+                }
+
+                return StubHttpMessageHandler.Json(HttpStatusCode.OK, """{"sessions":[],"since":"cursor-1","hasMore":false}""");
+            });
+
+        var caughtUp = fixture.NextCycle();
+        fixture.Clock.Advance(SessionSyncWorker.FirstCycleDelay);
+        await caughtUp.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+        Assert.Empty(pushed);
+
+        var republished = fixture.NextCycle();
+        fixture.Worker.RepublishEverything();
+        await republished.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+
+        Assert.Contains("\"already-sent\"", Assert.Single(pushed), StringComparison.Ordinal);
+        Assert.Equal(1, fixture.Worker.LastSummary?.Pushed);
+    }
+
     private sealed class Fixture : IDisposable
     {
         /// <summary>How long a test waits for work it has already caused before
@@ -173,6 +218,7 @@ public sealed class SessionSyncWorkerTests
 
         private readonly HttpClient _http;
         private readonly bool _compose;
+        private readonly AgentSession[] _sessions;
         private int _sessionsResolved;
 
         private Fixture(
@@ -182,10 +228,12 @@ public sealed class SessionSyncWorkerTests
             StubFeatureSettings features,
             InMemoryDeviceCredentialStore credentials,
             FakeTimeProvider clock,
-            bool compose)
+            bool compose,
+            AgentSession[] sessions)
         {
             _http = http;
             _compose = compose;
+            _sessions = sessions;
 
             Handler = handler;
             State = state;
@@ -219,7 +267,9 @@ public sealed class SessionSyncWorkerTests
             bool featureOn,
             bool paired,
             bool compose = true,
-            Func<HttpRequestMessage, int, HttpResponseMessage>? respond = null)
+            Func<HttpRequestMessage, int, HttpResponseMessage>? respond = null,
+            SessionSyncState? initialState = null,
+            AgentSession[]? sessions = null)
         {
             var handler = new StubHttpMessageHandler((request, index) =>
             {
@@ -237,11 +287,12 @@ public sealed class SessionSyncWorkerTests
             return new Fixture(
                 http,
                 handler,
-                new InMemorySessionSyncStateStore(),
+                new InMemorySessionSyncStateStore(initialState),
                 new StubFeatureSettings(featureOn),
                 paired ? new InMemoryDeviceCredentialStore(Paired) : new InMemoryDeviceCredentialStore(),
                 new FakeTimeProvider(Noon),
-                compose);
+                compose,
+                sessions ?? []);
         }
 
         /// <summary>
@@ -284,7 +335,7 @@ public sealed class SessionSyncWorkerTests
 
             return new SessionSyncSession(
                 new SessionSyncClient(_http),
-                new StubAgentSessionSource(),
+                new StubAgentSessionSource(_sessions),
                 new StubSessionRepositoryAliases(),
                 State,
                 new InMemoryReplicatedSessionStore(),

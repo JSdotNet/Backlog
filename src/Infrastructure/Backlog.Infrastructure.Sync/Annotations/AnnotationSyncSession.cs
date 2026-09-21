@@ -28,26 +28,46 @@ public sealed class AnnotationSyncSession
     private readonly AnnotationReplicaMerge _merge;
     private readonly IDevbookAnnotationStore _store;
     private readonly IAnnotationSyncStateStore _state;
+    private readonly IDeviceCredentialStore _credentials;
     private readonly TimeProvider _time;
 
+    /// <param name="credentials">Whose device this is, checked against the
+    /// recorded progress before either half runs — see <see cref="ReconcileIdentity"/>.</param>
     public AnnotationSyncSession(
         AnnotationSyncClient client,
         AnnotationReplicaMerge merge,
         IDevbookAnnotationStore store,
         IAnnotationSyncStateStore state,
+        IDeviceCredentialStore credentials,
         TimeProvider time)
     {
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(merge);
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(credentials);
         ArgumentNullException.ThrowIfNull(time);
 
         _client = client;
         _merge = merge;
         _store = store;
         _state = state;
+        _credentials = credentials;
         _time = time;
+    }
+
+    /// <summary>Starts the progress over when it was recorded for a different
+    /// identity — the check <c>TaskSyncSession.ReconcileIdentity</c> explains,
+    /// applied to the third feed so a device that registers again does not carry
+    /// the old owner's annotation watermark into the new one.</summary>
+    private void ReconcileIdentity()
+    {
+        if (_credentials.Current is not { } me) return;
+
+        var state = _state.Current;
+        if (state.OwnerId == me.OwnerId && state.DeviceId == me.DeviceId) return;
+
+        _state.Save(new AnnotationSyncState(DateTimeOffset.MinValue, null, me.OwnerId, me.DeviceId));
     }
 
     /// <summary>
@@ -59,6 +79,8 @@ public sealed class AnnotationSyncSession
     /// </summary>
     public async Task<Result<AnnotationSyncSummary>> PushAsync(CancellationToken cancellationToken = default)
     {
+        ReconcileIdentity();
+
         var watermark = _state.Current.PushWatermark;
         var pending = _store.ListChangedSince(watermark);
         var pushed = 0;
@@ -92,6 +114,8 @@ public sealed class AnnotationSyncSession
     /// </summary>
     public async Task<Result<AnnotationSyncSummary>> PullAsync(CancellationToken cancellationToken = default)
     {
+        ReconcileIdentity();
+
         var cursor = _state.Current.PullCursor;
         var pulled = 0;
         var applied = 0;
