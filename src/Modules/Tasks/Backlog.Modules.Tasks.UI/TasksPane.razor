@@ -735,7 +735,7 @@
             StepCount: row.PreviewSubItems.Count,
             Note: row.HasExpandableContent,
             Tags: row.PreviewMetadataTags,
-            DependsOn: row.PreviewDependsOn)
+            DependsOn: State.ResolvedDependsOn(row))
         {
             RepeatLabel = FormatRepeat(row.PreviewRecurrence)
         })];
@@ -2761,7 +2761,7 @@
                            out of TagMultiSelect, its options the other entries in view
                            and its chips this entry's own ids. *@
                         <TagMultiSelect Options="@DependencyOptions(row)"
-                                        SelectedValues="@row.PreviewDependsOn"
+                                        SelectedValues="@State.ResolvedDependsOn(row)"
                                         SelectedValuesChanged="ids => State.ChangeDependsOnAsync(row, ids)"
                                         Placeholder="Add an entry"
                                         CssClass="entry-doc__schedule-depends"
@@ -3192,12 +3192,16 @@
         return ordered;
     }
 
-    /// <summary>What the entry is waiting for, said by title. An id naming
-    /// nothing in view is shown as the id rather than dropped — it still blocks,
-    /// and a waiting line that quietly omitted it would read as a shorter wait
-    /// than the entry actually has.</summary>
+    /// <summary>What the entry is waiting for, said by title. Read through
+    /// <see cref="TasksDesktopState.ResolvedDependsOn"/> so a plan's local id
+    /// names the entry it was imported as. An id naming nothing even then is
+    /// shown as the id rather than dropped — it still blocks, and a waiting line
+    /// that quietly omitted it would read as a shorter wait than the entry
+    /// actually has — but marked as not found: a bare slug reads like a name,
+    /// and the reader was left asking which entry "sync-tasks" was when the
+    /// answer was none.</summary>
     private string FormatDependencies(EntryRow row) =>
-        string.Join(", ", row.PreviewDependsOn.Select(DependencyLabel));
+        string.Join(", ", State.ResolvedDependsOn(row).Select(DependencyLabel));
 
     /// <summary>Why this entry cannot be followed up yet, or null when it can.
     /// <para>
@@ -3222,7 +3226,7 @@
             candidate.Id is { } candidateId
             && string.Equals(candidateId.ToString(), id, StringComparison.OrdinalIgnoreCase)) is { } match
             ? (string.IsNullOrWhiteSpace(match.PreviewTitle) ? "Untitled" : match.PreviewTitle)
-            : id;
+            : $"{id} (not found)";
 
     // What a date is called, and in what language, belongs to whatever is showing
     // it — TaskAction and TaskRow both take an already-formatted string precisely

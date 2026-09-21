@@ -438,16 +438,67 @@ public sealed class EntryScheduleControlsTests
 
     /// <summary>An id naming nothing in view still blocks, and still shows. Quietly
     /// dropping it would make a chain report a shorter wait than it has, which is
-    /// the one failure that looks exactly like success.</summary>
+    /// the one failure that looks exactly like success. It is shown as what it is,
+    /// though — a bare slug reads like a name, and a reader was left asking which
+    /// entry it was when the answer was none.</summary>
     [Fact]
-    public async Task An_unresolvable_dependency_is_shown_as_its_id()
+    public async Task An_unresolvable_dependency_is_shown_as_its_id_and_marked_not_found()
     {
         using var host = await TasksPaneHost.CreateAsync();
         var row = await host.WriteEntryAsync(
             "# Deploy SpecManager\n`task` `after:a1b2c3`\n\nShip it.\n");
 
         Assert.Equal(["a1b2c3"], row.PreviewDependsOn);
-        Assert.Contains("a1b2c3", host.Render().Find("[data-testid='entry-action-depends']").TextContent, StringComparison.Ordinal);
+        Assert.Contains("a1b2c3 (not found)", host.Render().Find("[data-testid='entry-action-depends']").TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>An <c>after:</c> written as a plan's local id — what an import
+    /// leaves behind when the step it names came in an earlier sitting — still
+    /// names the entry that goes by that <c>id:</c>. The pane says its title, and
+    /// the chain sees that it is done, so the wait is over rather than stuck on a
+    /// slug nothing could look up.</summary>
+    [Fact]
+    public async Task A_dependency_written_as_a_local_id_names_the_entry_imported_under_it()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var step = await host.WriteEntryAsync("# Task sync endpoints\n`task` `id:sync-tasks` `!done`\n\nShipped.\n");
+        var waiting = await host.WriteEntryAsync("# First deployment\n`task` `after:sync-tasks`\n\nDeploy it.\n");
+
+        // The text is left as written — resolution is a reading, not a rewrite.
+        Assert.Equal(["sync-tasks"], waiting.PreviewDependsOn);
+        Assert.Equal([step.Id!.Value.ToString()], host.State.ResolvedDependsOn(waiting));
+
+        var pane = host.Render();
+        var control = pane.Find("[data-testid='entry-action-depends']").TextContent;
+
+        Assert.Contains("Task sync endpoints", control, StringComparison.Ordinal);
+        Assert.DoesNotContain("not found", control, StringComparison.Ordinal);
+
+        // The list row agrees: a done predecessor does not block, whichever way
+        // it was spelled.
+        Assert.Empty(pane.FindAll($"[data-task-id='{waiting.TaskId}'].task-item--blocked"));
+    }
+
+    /// <summary>The picker reads the resolved set and writes back what it read, so
+    /// the first edit of a chain that was stored as slugs leaves real ids behind.</summary>
+    [Fact]
+    public async Task Editing_a_dependency_stored_as_a_local_id_writes_the_real_id_back()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var step = await host.WriteEntryAsync("# Task sync endpoints\n`task` `id:sync-tasks`\n\nShip it.\n");
+        var other = await host.WriteEntryAsync("# Provision the box\n`task`\n\nGet a machine.\n");
+        var waiting = await host.WriteEntryAsync("# First deployment\n`task` `after:sync-tasks`\n\nDeploy it.\n");
+
+        var pane = host.Render();
+        await pane.Find("[data-testid='entry-action-depends-set']").ClickAsync(new());
+        await pane.Find("[data-testid='entry-depends-select'] input").FocusAsync(new());
+
+        var option = pane.FindAll("[data-testid='entry-depends-select'] [role='option']")
+            .Single(candidate => candidate.TextContent == "Provision the box");
+        await option.ClickAsync(new());
+
+        Assert.Equal([step.Id!.Value.ToString(), other.Id!.Value.ToString()], waiting.PreviewDependsOn);
+        Assert.DoesNotContain("after:sync-tasks", waiting.RawText, StringComparison.Ordinal);
     }
 
     [Fact]
