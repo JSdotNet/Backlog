@@ -388,9 +388,21 @@
     /// </summary>
     private async Task RefreshAsync(string? selectedPath = null)
     {
-        _catalog = await Devbook.LoadAsync(RepositoryAlias);
-        _c4 = _c4Store is null ? C4Catalog.Off : await _c4Store.LoadAsync(RepositoryAlias);
-        _loadedRepositoryAlias = RepositoryAlias;
+        // Both reads are asked for the alias taken before the first await and
+        // stamped from it, never from the parameter after: the stores read off
+        // the renderer's thread, so a scope switch can land while they are out,
+        // and a refresh stamped from the new parameter would label the old
+        // scope's chapters as the new one's — and the guard in
+        // OnParametersSetAsync would then never ask again. A refresh the scope
+        // has moved on from is dropped; the switch's own load has the answer.
+        var alias = RepositoryAlias;
+        var catalog = await Devbook.LoadAsync(alias);
+        var c4 = _c4Store is null ? C4Catalog.Off : await _c4Store.LoadAsync(alias);
+        if (!string.Equals(alias, RepositoryAlias, StringComparison.Ordinal)) return;
+
+        _catalog = catalog;
+        _c4 = c4;
+        _loadedRepositoryAlias = alias;
 
         // A workspace that is gone must not stay selected. The explorer holds the view
         // and re-resolves it against whatever loaded, so only the workspace is checked

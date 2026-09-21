@@ -148,11 +148,30 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore
     {
         ArgumentNullException.ThrowIfNull(body);
 
-        Mutate(id, annotation => annotation with { Body = body, UpdatedAt = _time.GetUtcNow() });
+        Mutate(id, annotation => annotation with { Body = body, UpdatedAt = Stamp(annotation) });
     }
 
     public void SetResolved(Guid id, bool resolved) =>
-        Mutate(id, annotation => annotation with { Resolved = resolved, UpdatedAt = _time.GetUtcNow() });
+        Mutate(id, annotation => annotation with { Resolved = resolved, UpdatedAt = Stamp(annotation) });
+
+    /// <summary>
+    /// The stamp a local change lands with: now, unless the copy being changed
+    /// already carries a later one — then one tick past it.
+    /// <para>
+    /// The replica keeps whichever copy is stamped later, and stamps come from
+    /// each device's own clock. A copy that arrived from a machine whose clock
+    /// runs ahead is stamped in this machine's future; an edit of it stamped
+    /// "now" here would compare older than the copy it edits, be refused as
+    /// stale, and be lost with nothing said. A change made here is by
+    /// definition later than the copy it was made to, so its stamp says so
+    /// whatever the clocks think.
+    /// </para>
+    /// </summary>
+    private DateTimeOffset Stamp(DevbookAnnotation annotation)
+    {
+        var now = _time.GetUtcNow();
+        return now > annotation.UpdatedAt ? now : annotation.UpdatedAt.AddTicks(1);
+    }
 
     public void Delete(Guid id)
     {
@@ -172,8 +191,8 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore
             }
             else
             {
-                var now = _time.GetUtcNow();
-                Put(annotation with { DeletedAt = now, UpdatedAt = now });
+                var at = Stamp(annotation);
+                Put(annotation with { DeletedAt = at, UpdatedAt = at });
             }
         }
 

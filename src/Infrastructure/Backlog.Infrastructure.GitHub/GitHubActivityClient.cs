@@ -473,10 +473,14 @@ public sealed class GitHubActivityClient(
     /// One pull request's detail, from the cache when it is there and from GitHub
     /// when it is not.
     /// <para>
-    /// Only what was actually fetched is written back. A cached entry that came
-    /// back is not rewritten, because it would be rewritten identically — the
-    /// whole reason this is cacheable is that a merged pull request's answer does
-    /// not move.
+    /// Only what was actually fetched, whole, is written back. A cached entry
+    /// that came back is not rewritten, because it would be rewritten
+    /// identically — the whole reason this is cacheable is that a merged pull
+    /// request's answer does not move. A read GitHub refused in part is not
+    /// written either, for the same reason turned around: the cache has no age,
+    /// so a refusal remembered would be served for as long as the repository is
+    /// configured, and the rate limit that refused one open would keep every
+    /// later open reporting a floor.
     /// </para>
     /// </summary>
     private async Task<GitHubReviewedPullRequest> ReadOrRecallAsync(
@@ -515,6 +519,8 @@ public sealed class GitHubActivityClient(
         }
 
         var read = await ReadChurnAsync(repository, pullRequest, cancellationToken).ConfigureAwait(false);
+
+        if (!read.SizeKnown || !read.SyncsKnown) return read;
 
         details?.Write(repository, read.Number, new PullRequestDetail
         {

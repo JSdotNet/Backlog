@@ -904,11 +904,44 @@ public static partial class DevToolOutput
     /// warnings and login prompts to the same stream, and those are not a reason
     /// to throw out of a listing.</para>
     /// </summary>
-    private static IEnumerable<JsonElement> EnumerateJsonArray(string json)
+    private static IEnumerable<JsonElement> EnumerateJsonArray(string json) => ParseJsonArray(json) ?? [];
+
+    /// <summary>
+    /// <see cref="ParseClaudePluginInstallPaths" /> for a caller that is about
+    /// to delete on the strength of the answer: <see langword="false" /> when the
+    /// body was not a JSON listing at all, rather than an empty map that reads as
+    /// "nothing installed anywhere".
+    ///
+    /// <para>The two are opposite answers to the one question the cache delete
+    /// asks. An empty listing means every cached folder is stale and may go; a
+    /// listing that could not be read means nothing is known about any of them,
+    /// and a delete built on it would take the folders every install points at
+    /// along with the rest. An update notice printed ahead of the JSON, a CLI
+    /// that exited non-zero, a config directory the app resolved differently
+    /// from the shell — each is a body this cannot read, and each has to be a
+    /// refusal, not an all-clear.</para>
+    /// </summary>
+    public static bool TryParseClaudePluginInstallPaths(string json, out IReadOnlyDictionary<string, int> installPaths)
+    {
+        if (ParseJsonArray(json) is null)
+        {
+            installPaths = new Dictionary<string, int>(StringComparer.Ordinal);
+            return false;
+        }
+
+        installPaths = ParseClaudePluginInstallPaths(json);
+        return true;
+    }
+
+    /// <summary>The entries of the array a body carries, or <see langword="null" />
+    /// when the body is not JSON, or is JSON with no array anywhere in it —
+    /// the distinction <see cref="TryParseClaudePluginInstallPaths" /> exists
+    /// for. Every other reader takes the null as an empty listing.</summary>
+    private static IReadOnlyList<JsonElement>? ParseJsonArray(string json)
     {
         if (string.IsNullOrWhiteSpace(json))
         {
-            return [];
+            return null;
         }
 
         JsonDocument document;
@@ -918,7 +951,7 @@ public static partial class DevToolOutput
         }
         catch (JsonException)
         {
-            return [];
+            return null;
         }
 
         using (document)
@@ -939,7 +972,7 @@ public static partial class DevToolOutput
                 }
             }
 
-            return [];
+            return null;
         }
     }
 

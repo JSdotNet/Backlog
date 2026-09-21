@@ -118,10 +118,10 @@ public static partial class LocalAzureFoundryCompletion
 
             if (plan.Length > 0) plan.Append('\n');
             plan.Append($"# {item}: step one\n");
-            plan.Append($"`prompt` `!draft` `#{planTag}` `id:{first}`{repoToken} `effort:2`\n\n");
+            plan.Append($"`prompt` `!draft` `+{planTag}` `id:{first}`{repoToken} `effort:2`\n\n");
             plan.Append($"Backlog plan item {first} of plan {planTag}.\n\n");
             plan.Append($"# {item}: step two\n");
-            plan.Append($"`prompt` `!draft` `#{planTag}` `id:{second}` `after:{first}`{repoToken} `effort:3`\n\n");
+            plan.Append($"`prompt` `!draft` `+{planTag}` `id:{second}` `after:{first}`{repoToken} `effort:3`\n\n");
             plan.Append($"Backlog plan item {second} of plan {planTag}.\n");
         }
 

@@ -19,7 +19,7 @@ mechanics; do not invent syntax beyond it.
 
 - **Source material.** Path(s) to the agreed `.domain` feature chapter, `.backlog`
   Epic/Story, ADR, or — if nothing is written down yet — the planning notes given inline.
-- **Plan subject.** What the batch delivers; derives the shared `#tag`.
+- **Plan subject.** What the batch delivers; derives the shared `+tag`.
 - **Target repositories.** One or more repository names the prompts target. Do not check
   whether a name is already registered in Backlog — Import auto-registers an unknown one.
 - **Output.** A file path, or "paste it here" — ask if neither is stated.
@@ -28,7 +28,9 @@ mechanics; do not invent syntax beyond it.
 
 1. Read the source material in full, following any `depends-on`/prerequisite references it
    names, so ordering is grounded in what is agreed rather than guessed.
-2. Derive the plan's `#tag`: one slug from the plan subject. Reuse the exact same slug if
+2. Derive the plan's `+tag`: one slug from the plan subject, written with the `+` sigil
+   Backlog stores plan tags under (a `#slug` is a general tag and a different plan from
+   the `+slug` the app's picker offers). Reuse the exact same slug if
    this plan is later regenerated, so Backlog's re-import recognizes it as a new version
    of this plan — clearing the entries nobody has started yet — instead of a second plan.
 3. Break the work into ordered entries, one per unit of work. Every entry is exactly one
@@ -76,7 +78,7 @@ mechanics; do not invent syntax beyond it.
    stable slug from its title, reused verbatim when the plan is regenerated, since it is
    how Backlog recognizes an entry already under way or already finished; `after:<id>`
    once per prerequisite, including across repositories and across kinds; the shared
-   `#tag`; and only the `*priority`, `@area` or `due:` the source material actually
+   `+tag`; and only the `*priority`, `@area` or `due:` the source material actually
    implies.
 4. Close every plan with two entries, in this order and last in the document. Never omit
    either, however small the plan.
@@ -105,7 +107,7 @@ mechanics; do not invent syntax beyond it.
 
 - One Markdown document; every entry's body precedes its `##`/`- [ ]` sub-items.
 - Every entry is `prompt` or `task` and states `!ready`, an `effort:`, an `id:`, and the
-  plan's shared `#tag`; every prompt also states `repo:` and opens with the marker line,
+  plan's shared `+tag`; every prompt also states `repo:` and opens with the marker line,
   then the session-name line.
 - No prompt contains a manual step in any form — no `Manual:` sub-item, no "ask the user
   to…" instruction — and no task contains instructions for an AI.

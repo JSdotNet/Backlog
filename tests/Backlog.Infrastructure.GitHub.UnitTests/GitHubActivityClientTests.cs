@@ -578,6 +578,30 @@ public class GitHubActivityClientTests
         Assert.True(remembered.SyncsKnown);
     }
 
+    /// <summary>
+    /// A refusal is not a fact about the pull request. The cache has no age —
+    /// a merged pull request's size never changes, so an entry is kept until
+    /// the repository is forgotten — which is exactly why a size that could not
+    /// be read must not be written into it: remembered, the rate limit that
+    /// refused one read would keep every later open reporting a floor for ever.
+    /// </summary>
+    [Fact]
+    public async Task A_pull_request_whose_detail_could_not_be_read_is_not_remembered()
+    {
+        var cache = new RememberingCache();
+
+        var transport = new RoutingTransport()
+            .Returns("/pulls?", $"[{Pull(1, merged: "2026-07-05T10:00:00Z", updated: "2026-07-05T10:00:00Z")}]")
+            .Returns("/reviews", "[]")
+            .Refuses("/pulls/1");
+
+        var activity = await new GitHubActivityClient(transport, cache)
+            .GetActivityAsync(Repository, From, To, "jsdotnet", TestContext.Current.CancellationToken);
+
+        Assert.False(Assert.Single(activity.PullRequests).SizeKnown);
+        Assert.Null(cache.TryRead(Repository, 1));
+    }
+
     /// <summary>The sync figures ride the cache both ways, unknown included — a
     /// remembered "could not be read" must not come back as "never synced".</summary>
     [Fact]

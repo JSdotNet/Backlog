@@ -38,12 +38,12 @@ public sealed class AzureFoundryPlanFixtureTests
 
         const string expected =
             "# Fix the login page: step one\n" +
-            "`prompt` `!draft` `#fix-login` `id:step-1` `repo:acme/web` `effort:2`\n" +
+            "`prompt` `!draft` `+fix-login` `id:step-1` `repo:acme/web` `effort:2`\n" +
             "\n" +
             "Backlog plan item step-1 of plan fix-login.\n" +
             "\n" +
             "# Fix the login page: step two\n" +
-            "`prompt` `!draft` `#fix-login` `id:step-2` `after:step-1` `repo:acme/web` `effort:3`\n" +
+            "`prompt` `!draft` `+fix-login` `id:step-2` `after:step-1` `repo:acme/web` `effort:3`\n" +
             "\n" +
             "Backlog plan item step-2 of plan fix-login.\n";
 
@@ -60,8 +60,8 @@ public sealed class AzureFoundryPlanFixtureTests
         ]);
 
         Assert.DoesNotContain("repo:", answer, StringComparison.Ordinal);
-        Assert.Contains("`prompt` `!draft` `#fix-login` `id:step-1` `effort:2`", answer, StringComparison.Ordinal);
-        Assert.Contains("`prompt` `!draft` `#fix-login` `id:step-2` `after:step-1` `effort:3`", answer, StringComparison.Ordinal);
+        Assert.Contains("`prompt` `!draft` `+fix-login` `id:step-1` `effort:2`", answer, StringComparison.Ordinal);
+        Assert.Contains("`prompt` `!draft` `+fix-login` `id:step-2` `after:step-1` `effort:3`", answer, StringComparison.Ordinal);
     }
 
     /// <summary>Two repositories, two pairs — and four distinct ids, because the
@@ -103,7 +103,7 @@ public sealed class AzureFoundryPlanFixtureTests
         {
             Assert.Equal(EntryType.Prompt, entry.Type);
             Assert.Equal(EntryStatus.Draft, entry.Status);
-            Assert.Contains("fix-login", entry.Tags);
+            Assert.Contains("+fix-login", entry.Tags);
             Assert.Equal(["acme/web"], entry.RepoIds);
             Assert.NotNull(entry.ImportItemId);
             Assert.NotNull(entry.Effort);

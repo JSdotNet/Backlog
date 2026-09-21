@@ -17,7 +17,14 @@ namespace Backlog.Infrastructure.Sync;
 /// documents this build could not read. They are left in the replica and the
 /// exchange carries on, so the count is the only thing that says it happened.
 /// </para></summary>
-public sealed record TaskSyncSummary(int Pushed, int Pulled, int Applied, int Skipped, DateTimeOffset At);
+public sealed record TaskSyncSummary(int Pushed, int Pulled, int Applied, int Skipped, DateTimeOffset At)
+{
+    /// <summary>Tasks offered in a push the replica did not take, because it
+    /// already held a later version. Never healthy either: the task stamps an
+    /// edit past the copy it edits, so a refusal means two devices really did
+    /// edit the same task, and this device's edit is the one that lost.</summary>
+    public int Refused { get; init; }
+}
 
 /// <summary>
 /// One exchange with the replica: push what changed here, pull what changed
@@ -134,6 +141,7 @@ public sealed class TaskSyncSession
             .ToList();
 
         var pushed = 0;
+        var refused = 0;
 
         for (var start = 0; start < pending.Count; start += PushBatchSize)
         {
@@ -143,15 +151,23 @@ public sealed class TaskSyncSession
             var response = await _client.PushAsync(changes, cancellationToken).ConfigureAwait(false);
             if (response.IsFailure) return Result.Failure<TaskSyncSummary>(response.Error);
 
+            // A 200 with fewer accepted than sent is the replica keeping a later
+            // version of the rest. The response does not say which, and the
+            // watermark still moves past them — offered again they would be
+            // refused again — so the count is where the loss is said.
+            var refusedInBatch = Math.Max(0, batch.Count - response.Value.Accepted);
             pushed += response.Value.Accepted;
+            refused += refusedInBatch;
 
-            // After the service accepted the batch and not before: the log says
-            // what left, and a batch the replica refused never did.
+            // After the service answered and not before: the log says what left,
+            // and a batch the replica rejected outright never did. A batch it
+            // took in part is logged with the shortfall on every line, because
+            // the response cannot say which of them stayed behind.
             foreach (var task in batch)
             {
                 _activity?.Record(
                     SyncDirection.Sent, SyncItemKind.Task, task.Id.ToString("D"), task.Title,
-                    task.DeletedAt is null ? null : "deleted");
+                    SentNote(task.DeletedAt is null ? null : "deleted", refusedInBatch, batch.Count));
             }
 
             if (WatermarkAfter(batch, final: start + batch.Count >= pending.Count) is { } advanced)
@@ -194,7 +210,18 @@ public sealed class TaskSyncSession
             }
         }
 
-        return Result.Success(new TaskSyncSummary(pushed, 0, 0, 0, _time.GetUtcNow()));
+        return Result.Success(new TaskSyncSummary(pushed, 0, 0, 0, _time.GetUtcNow()) { Refused = refused });
+    }
+
+    /// <summary>The note a sent task's log line carries: what was already known
+    /// about it, and — when the replica took the batch only in part — how much
+    /// of the batch it did not take, since the response cannot say which.</summary>
+    private static string? SentNote(string? note, int refusedInBatch, int batchCount)
+    {
+        if (refusedInBatch == 0) return note;
+
+        var shortfall = $"{refusedInBatch} of {batchCount} in this batch refused as stale";
+        return note is null ? shortfall : $"{note}; {shortfall}";
     }
 
     /// <summary>
