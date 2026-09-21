@@ -68,7 +68,7 @@
             // produced, not from a language list: this parser reads every `c4*`
             // fence as a diagram and the library's own vocabulary does not, so a
             // c4 block asked the library would come back a code listing.
-            if (AsSharedBlock(block) is { } shared)
+            if (SharedBlock(block) is { } shared)
             {
                 <MarkdownBlockView Block="@shared"
                                    InlineTarget="@InlineTarget"
@@ -79,7 +79,7 @@
                                    ListCssClass="devbook-list"
                                    ListItemCssClass="@NoItemClass"
                                    DiagramTitle="@DiagramName"
-                                   IsDiagram="@(_ => block is DevbookDiagramBlock)" />
+                                   IsDiagram="@(block is DevbookDiagramBlock ? IsDiagramBlock : IsNotDiagramBlock)" />
             }
             break;
     }
@@ -115,6 +115,40 @@
     /// rather than left at the read view's default — which is an empty string and
     /// would put a `class=" "` on every bullet in the document.</summary>
     private const string? NoItemClass = null;
+
+    /// <summary>The two answers the diagram hook can give, as two delegates
+    /// rather than a lambda per block per render. A lambda is a new object each
+    /// time, and a new object in a parameter is a changed parameter, which
+    /// re-rendered every block view on every render of this one.</summary>
+    private static readonly Func<string?, bool> IsDiagramBlock = _ => true;
+
+    private static readonly Func<string?, bool> IsNotDiagramBlock = _ => false;
+
+    /// <summary>The shared record for each block of the current
+    /// <see cref="Blocks"/>, mapped once per list rather than once per render —
+    /// the same reason as the delegates above. Keyed on the list's identity: the
+    /// parsers hand back a new list when a chapter is re-read, and the same one
+    /// while it is not.</summary>
+    private IReadOnlyList<DevbookBlock>? _mappedBlocks;
+
+    private Dictionary<DevbookBlock, MdBlock?> _shared = new(ReferenceEqualityComparer.Instance);
+
+    private MdBlock? SharedBlock(DevbookBlock block)
+    {
+        if (!ReferenceEquals(_mappedBlocks, Blocks))
+        {
+            _mappedBlocks = Blocks;
+            _shared = new Dictionary<DevbookBlock, MdBlock?>(Blocks.Count, ReferenceEqualityComparer.Instance);
+        }
+
+        if (!_shared.TryGetValue(block, out var shared))
+        {
+            shared = AsSharedBlock(block);
+            _shared[block] = shared;
+        }
+
+        return shared;
+    }
 
     /// <summary>
     /// This document's block as the shared block record it is a subset of.

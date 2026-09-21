@@ -1393,6 +1393,124 @@ public sealed class ToolsPaneTests
         Assert.NotNull(header.QuerySelector(".tools-panel__header-actions .tools-panel__count"));
     }
 
+    /// <summary>
+    /// What a plugin row says about Claude's cache: every version, which of them
+    /// something still loads, and a Remove on exactly the ones nothing does.
+    ///
+    /// <para>The in-use chip having no button is the point. A person clearing
+    /// "old versions" by hand deletes the folder a project scope still points
+    /// at, and that does not move the project on — it breaks it.</para>
+    /// </summary>
+    [Fact]
+    public void A_plugin_row_lists_its_cached_versions_and_offers_remove_only_on_the_stale_ones()
+    {
+        var service = FakeDevToolService.With(CachedPlugin(
+            new DevToolCachedVersion("1.0.0", @"C:\Users\me\.claude\plugins\cache\jsdotnet-devbook\devbook\1.0.0", Installs: 17),
+            new DevToolCachedVersion("1.0.1", @"C:\Users\me\.claude\plugins\cache\jsdotnet-devbook\devbook\1.0.1", Installs: 1),
+            new DevToolCachedVersion("1.1.0", @"C:\Users\me\.claude\plugins\cache\jsdotnet-devbook\devbook\1.1.0", Installs: 0)));
+        using var context = Context(service);
+
+        var pane = context.Render<ToolsPane>();
+
+        var chips = pane.FindAll("[data-testid='tools-row-cache-version']");
+        Assert.Equal(["1.0.0", "1.0.1", "1.1.0"], chips.Select(chip => chip.GetAttribute("data-version")));
+        Assert.Equal(["true", "true", "false"], chips.Select(chip => chip.GetAttribute("data-in-use")));
+        Assert.Contains("in use by 17 installs", chips[0].TextContent, StringComparison.Ordinal);
+        Assert.Contains("in use", chips[1].TextContent, StringComparison.Ordinal);
+        Assert.Contains("stale", chips[2].TextContent, StringComparison.Ordinal);
+
+        var remove = Assert.Single(pane.FindAll("[data-testid='tools-row-cache-remove']"));
+        Assert.Equal("Remove cached 1.1.0 of devbook", remove.GetAttribute("aria-label"));
+        Assert.Contains("Clear stale cache (1)", pane.Find("[data-testid='tools-cache-clear']").TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_row_with_nothing_cached_draws_no_cache_line_and_no_clear_button()
+    {
+        using var context = Context(FakeDevToolService.With(Tool("plugin:architecture", "architecture")));
+
+        var pane = context.Render<ToolsPane>();
+
+        Assert.Empty(pane.FindAll("[data-testid='tools-row-cache']"));
+        Assert.Empty(pane.FindAll("[data-testid='tools-cache-clear']"));
+    }
+
+    [Fact]
+    public void A_cache_with_nothing_stale_is_listed_but_offers_nothing_to_clear()
+    {
+        using var context = Context(FakeDevToolService.With(CachedPlugin(
+            new DevToolCachedVersion("1.0.1", @"C:\cache\devbook\1.0.1", Installs: 1))));
+
+        var pane = context.Render<ToolsPane>();
+
+        Assert.NotNull(pane.Find("[data-testid='tools-row-cache']"));
+        Assert.Empty(pane.FindAll("[data-testid='tools-row-cache-remove']"));
+        Assert.Empty(pane.FindAll("[data-testid='tools-cache-clear']"));
+    }
+
+    [Fact]
+    public void Removing_a_cached_version_names_the_row_and_the_version_and_re_reads()
+    {
+        var service = FakeDevToolService.With(CachedPlugin(
+            new DevToolCachedVersion("1.0.0", @"C:\cache\devbook\1.0.0", Installs: 0),
+            new DevToolCachedVersion("1.0.1", @"C:\cache\devbook\1.0.1", Installs: 1)));
+        using var context = Context(service);
+
+        var pane = context.Render<ToolsPane>();
+        var readsBefore = service.Reads;
+        pane.Find("[data-testid='tools-row-cache-remove']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(("plugin:devbook", "1.0.0"), Assert.Single(service.CacheRemovals));
+            Assert.Equal(readsBefore + 1, service.Reads);
+        });
+    }
+
+    [Fact]
+    public void Clearing_the_stale_cache_calls_the_port_once_and_re_reads()
+    {
+        var service = FakeDevToolService.With(CachedPlugin(
+            new DevToolCachedVersion("1.0.0", @"C:\cache\devbook\1.0.0", Installs: 0),
+            new DevToolCachedVersion("1.0.1", @"C:\cache\devbook\1.0.1", Installs: 0)));
+        using var context = Context(service);
+
+        var pane = context.Render<ToolsPane>();
+        var readsBefore = service.Reads;
+        pane.Find("[data-testid='tools-cache-clear']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(1, service.StaleCacheClears);
+            Assert.Equal(readsBefore + 1, service.Reads);
+        });
+    }
+
+    /// <summary>A refused delete keeps the port's reason on the status line and
+    /// does not re-read — the same rule every catalog edit keeps, because a
+    /// refresh would replace the reason with "showing tools from".</summary>
+    [Fact]
+    public void A_refused_cache_removal_keeps_the_reason_and_does_not_re_read()
+    {
+        var service = FakeDevToolService.With(CachedPlugin(
+            new DevToolCachedVersion("1.0.0", @"C:\cache\devbook\1.0.0", Installs: 0))) with { Succeeds = false };
+        using var context = Context(service);
+
+        var pane = context.Render<ToolsPane>();
+        var readsBefore = service.Reads;
+        pane.Find("[data-testid='tools-row-cache-remove']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Single(service.CacheRemovals);
+            Assert.Contains(FakeDevToolService.RefusalMessage, pane.Find(".tools-panel__message").TextContent, StringComparison.Ordinal);
+        });
+        Assert.Equal(readsBefore, service.Reads);
+    }
+
+    private static DevToolInfo CachedPlugin(params DevToolCachedVersion[] cached) =>
+        Tool("plugin:devbook", "devbook") with { CachedVersions = cached };
+
     private static BunitContext Context(IDevToolService service)
     {
         var context = new BunitContext();
@@ -1626,6 +1744,24 @@ public sealed class ToolsPaneTests
             Imported.Add(json);
             return Answer();
         }
+
+        public Task<DevToolActionResult> RemoveCachedVersionAsync(string key, string version, CancellationToken ct = default)
+        {
+            CacheRemovals.Add((key, version));
+            return Answer();
+        }
+
+        public Task<DevToolActionResult> RemoveStaleCacheAsync(CancellationToken ct = default)
+        {
+            StaleCacheClears++;
+            return Answer();
+        }
+
+        /// <summary>Every cached version the pane asked to delete, with the row
+        /// it belongs to.</summary>
+        public List<(string Key, string Version)> CacheRemovals { get; } = [];
+
+        public int StaleCacheClears { get; private set; }
 
         private Task<DevToolActionResult> Answer() => Task.FromResult(
             Succeeds ? DevToolActionResult.Ok("Done.") : DevToolActionResult.Failed(RefusalMessage));

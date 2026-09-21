@@ -76,6 +76,14 @@
     -->
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.11" />
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.9.0" />
+    <!--
+      ILoggingBuilder and its filters, for the file log the installed desktop
+      build keeps (Backlog.Infrastructure.FileSystem). The MAUI heads carry the
+      package in their framework already; the library that registers the provider
+      has to name it.
+    -->
+    <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.11" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="10.0.11" />
 
     <!--
@@ -104,6 +112,14 @@
     <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.18.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.18.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.18.0" />
+    <!--
+      The exceptions the standard resilience handler ends a call with when it gives
+      up — a total timeout, an open circuit. Backlog.Infrastructure.Sync catches
+      them where it catches HttpRequestException, so a sync cycle that waited out
+      the pipeline is a failed result with a sentence rather than the catch-all.
+      The version is the one Microsoft.Extensions.Http.Resilience above resolves.
+    -->
+    <PackageVersion Include="Polly.Core" Version="8.6.6" />
     <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="10.0.11" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.0" />
     <PackageVersion Include="xunit.v3" Version="4.0.0" />

@@ -4,7 +4,13 @@ using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Capture.Abstractions.Services;
 using Backlog.Modules.Capture.Extensions;
+using Backlog.Infrastructure.Sync;
+using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Tasks.DomainModels;
+using Microsoft.Extensions.Time.Testing;
+using System.Net;
+using System.Net.Http.Json;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -60,6 +66,33 @@ public sealed class HomeInboxWiringTests
         Assert.NotEmpty(component.FindAll("[data-testid='inbox-pane']"));
         Assert.Contains("Inbox", harness.ShellNavigation.LastEnabledPanes);
         Assert.Contains("Tasks", harness.ShellNavigation.LastEnabledPanes);
+    }
+
+    /// <summary>
+    /// The other writer from outside the pane: a sync pull lands another
+    /// device's task in the same database. The timestamp poll that used to
+    /// notice it is gone, so the shell has to hear the worker and reload the
+    /// pane — and only when a cycle applied something, since the worker raises
+    /// at both ends of every cycle including the ones that changed nothing.
+    /// </summary>
+    [Fact]
+    public async Task A_sync_pull_that_applies_a_task_reloads_the_tasks_pane()
+    {
+        var pulled = new TaskItem("Pulled from the other machine", string.Empty, EntryType.Task);
+        using var harness = CreateHarness(inboxOpenOnStart: false, pull: pulled);
+        harness.ShellNavigation.SetLastPanes(["Tasks"], []);
+
+        var component = Render(harness);
+        var state = State(harness);
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']")));
+        Assert.Empty(state.Rows);
+
+        var worker = harness.Context.Services.GetRequiredService<TaskSyncWorker>();
+        worker.RequestSync();
+
+        component.WaitForAssertion(
+            () => Assert.Contains(state.Rows, row => row.PreviewTitle == "Pulled from the other machine"),
+            TimeSpan.FromSeconds(10));
     }
 
     [Fact]
@@ -124,7 +157,7 @@ public sealed class HomeInboxWiringTests
     /// would put extra chrome or a network call in the way off too. The Inbox
     /// ships behind a Dev flag, so a test about it has to turn it on first.
     /// </summary>
-    private static Harness CreateHarness(bool inboxOpenOnStart = true)
+    private static Harness CreateHarness(bool inboxOpenOnStart = true, TaskItem? pull = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-inbox-wiring-tests", Guid.NewGuid().ToString("n"));
         var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
@@ -169,6 +202,7 @@ public sealed class HomeInboxWiringTests
                 TasksTestHost.EntriesFor(sp.GetRequiredService<WorkspaceSettingsStore>()),
                 () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
         context.Services.AddSingleton<DesignDevbookProvider>();
+        context.Services.AddSingleton<AiDevbookProvider>();
         context.Services.AddSingleton<TechnologyDevbookService>();
         context.Services.AddSingleton<InstructionSourceDiscovery>();
         context.Services.AddSingleton<DevbookMenu>();
@@ -189,6 +223,8 @@ public sealed class HomeInboxWiringTests
         // picks where its sources are kept, the same as the application hosts do.
         context.Services.AddSingleton<ICaptureSourceSettings>(
             new CaptureSourcesSettingsStore(Path.Combine(root, "capture", "capture-sources.json")));
+        context.Services.AddSingleton<ICaptureRunLog>(
+            new CaptureRunLogStore(Path.Combine(root, "capture", "capture-runs.json")));
         context.Services.AddCaptureModule();
         InboxTestHost.AddCaptureDelivery(context.Services);
 
@@ -198,6 +234,27 @@ public sealed class HomeInboxWiringTests
             sp.GetRequiredService<GitHubIntegration>(),
             TasksCopilotCli.Unavailable));
         var inbox = InboxTestHost.AddInboxState(context.Services);
+
+        // A task sync worker over a scripted replica that hands back one task,
+        // writing through the same repository the pane reads. The real session
+        // and the real worker, for the reason SettingsDevicesTests composes
+        // them: what is under test is the shell hearing what the exchange did.
+        if (pull is not null)
+        {
+            _ = featureSettings.SetEnabled(SyncFeatures.Sync, true);
+            var credentials = new InMemoryDeviceCredentialStore(
+                new DeviceCredential(Guid.NewGuid(), Guid.NewGuid(), "Workshop PC", "a-registration-credential"));
+            var http = new HttpClient(new OnePullReplica(pull)) { BaseAddress = new Uri("https://sync.test") };
+            var tasks = TasksTestHost.RepositoryFor(store);
+            var syncState = new SettingsDevicesTests.ForgetfulTaskSyncStateStore();
+
+            context.Services.AddSingleton<IDeviceCredentialStore>(credentials);
+            context.Services.AddSingleton<ITaskSyncStateStore>(syncState);
+            context.Services.AddSingleton(_ => new TaskSyncSession(
+                new TaskSyncClient(http), new TaskReplicaMerge(tasks), tasks, syncState, credentials, TimeProvider.System));
+            context.Services.AddSingleton(sp => new TaskSyncWorker(
+                sp, featureSettings, credentials, syncState, new FakeTimeProvider()));
+        }
 
         return new Harness(root, context, shellNavigation, TasksTestHost.EntriesFor(store), inbox);
     }
@@ -223,6 +280,35 @@ public sealed class HomeInboxWiringTests
         }
     }
 
+    /// <summary>A replica with one task to give: every push is accepted and
+    /// the first pull hands the task back, on a cursor that then stays put.</summary>
+    private sealed class OnePullReplica(TaskItem task) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            if (request.Method == HttpMethod.Post)
+            {
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = JsonContent.Create(new { accepted = 0 })
+                });
+            }
+
+            var firstPull = !request.RequestUri!.Query.Contains("since=cursor-1", StringComparison.Ordinal);
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonContent.Create(new
+                {
+                    tasks = firstPull
+                        ? new[] { new { change = TaskReplicaMerge.ToChange(task), deviceId = Guid.NewGuid(), serverTimestamp = 100L } }
+                        : [],
+                    since = "cursor-1",
+                    hasMore = false
+                })
+            });
+        }
+    }
+
     private sealed class EmptySessionSource : IAgentSessionSource
     {
         public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
@@ -240,6 +326,8 @@ public sealed class HomeInboxWiringTests
 
     private sealed class StubGitHubClient : IGitHubClient
     {
+        public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
         public Task<GitHubIssue> CreateIssueAsync(
             GitHubRepositoryRef repository,
             string title,

@@ -269,19 +269,20 @@ public sealed class WorkspaceSettingsStoreTests : IDisposable
     }
 
     /// <summary>
-    /// A settings file written while <c>.backlog</c> was still a devbook
-    /// section must keep opening the app. The row names a section that no longer
-    /// exists, so it is dropped — silently, because there is nothing the reader
-    /// could usefully do about a setting for a section they can no longer see.
+    /// The storage folder used to carry a devbook of its own, configured as rows
+    /// in this file. A file that still has them — under either name the rows
+    /// were ever written under — must keep opening the app, and the next save
+    /// must drop them: there is nothing left that reads them.
     /// </summary>
     [Fact]
-    public void A_retired_knowledge_folder_row_is_dropped_rather_than_read()
+    public void Storage_devbook_rows_from_an_older_file_are_ignored_and_dropped_on_save()
     {
         var appData = TempDir();
         var settingsPath = Path.Combine(appData, "settings.json");
         Directory.CreateDirectory(appData);
         File.WriteAllText(settingsPath, """
             {
+              "knowledgeFolders": [ { "key": ".domain", "enabled": false, "path": null } ],
               "devbookFolders": [
                 { "key": ".backlog", "enabled": true, "path": "docs/.backlog" },
                 { "key": ".domain", "enabled": false, "path": "docs/.domain" }
@@ -290,20 +291,21 @@ public sealed class WorkspaceSettingsStoreTests : IDisposable
             """);
 
         var store = new WorkspaceSettingsStore(appData, settingsPath);
+        Assert.Null(store.TrySetRepository("JSdotNet/Notes"));
 
-        Assert.DoesNotContain(".backlog", store.DevbookFolders.Select(folder => folder.Key));
-        var domain = store.DevbookFolders.Single(folder => folder.Key == ".domain");
-        Assert.False(domain.Enabled);
-        Assert.Equal("docs/.domain", domain.EffectivePath);
+        var saved = File.ReadAllText(settingsPath);
+        Assert.DoesNotContain("devbookFolders", saved);
+        Assert.DoesNotContain("knowledgeFolders", saved);
+        Assert.Contains("\"rootRepository\"", saved);
     }
 
     /// <summary>
-    /// The JSON keys are the property names, so renaming the context renamed the
-    /// keys. A settings file written before the rename must read as the same
-    /// choices, and the next save must carry only the current keys.
+    /// The JSON key for the cache folder is the property name, so renaming the
+    /// context renamed it. A settings file written before the rename must read
+    /// as the same choice, and the next save must carry only the current key.
     /// </summary>
     [Fact]
-    public void A_settings_file_written_under_the_knowledge_names_reads_the_same_choices_and_is_rewritten()
+    public void A_settings_file_written_under_the_knowledge_name_reads_the_same_cache_choice_and_is_rewritten()
     {
         var appData = TempDir();
         var settingsPath = Path.Combine(appData, "settings.json");
@@ -311,83 +313,150 @@ public sealed class WorkspaceSettingsStoreTests : IDisposable
         Directory.CreateDirectory(appData);
         File.WriteAllText(settingsPath, $$"""
             {
-              "knowledgeFolders": [
-                { "key": ".domain", "enabled": false, "path": "docs/.domain" }
-              ],
               "knowledgeCacheDirectory": {{System.Text.Json.JsonSerializer.Serialize(chosenCache)}}
             }
             """);
 
         var store = new WorkspaceSettingsStore(appData, settingsPath);
 
-        Assert.False(store.DevbookFolders.Single(folder => folder.Key == ".domain").Enabled);
         Assert.Equal(chosenCache, store.DevbookCacheDirectory);
         Assert.False(store.IsDefaultDevbookCacheDirectory);
 
-        Assert.Null(store.SetDevbookFolder(".tech", enabled: false, path: null));
+        Assert.Null(store.TrySetRepository("JSdotNet/Notes"));
 
         var saved = File.ReadAllText(settingsPath);
-        Assert.Contains("\"devbookFolders\"", saved);
         Assert.Contains("\"devbookCacheDirectory\"", saved);
-        Assert.DoesNotContain("knowledgeFolders", saved);
         Assert.DoesNotContain("knowledgeCacheDirectory", saved);
 
         var reopened = new WorkspaceSettingsStore(appData, settingsPath);
-        Assert.False(reopened.DevbookFolders.Single(folder => folder.Key == ".domain").Enabled);
-        Assert.False(reopened.DevbookFolders.Single(folder => folder.Key == ".tech").Enabled);
         Assert.Equal(chosenCache, reopened.DevbookCacheDirectory);
     }
 
+    /// <summary>Snapshots go under the storage folder until somebody says
+    /// otherwise, and the settings screen shows the field empty while they do.</summary>
     [Fact]
-    public void A_settings_file_carrying_both_names_prefers_the_current_one()
+    public void The_default_cache_folder_sits_under_the_storage_folder()
+    {
+        var store = Store();
+
+        Assert.Equal(Path.Combine(store.RootDirectory, "devbook-cache"), store.DefaultDevbookCacheDirectory);
+        Assert.Equal(store.DefaultDevbookCacheDirectory, store.DevbookCacheDirectory);
+        Assert.True(store.IsDefaultDevbookCacheDirectory);
+    }
+
+    /// <summary>
+    /// The default follows the folder: move the backlog and the default cache
+    /// location moves with it, without the old one being copied — a snapshot
+    /// refills. A folder somebody chose stays exactly where they put it.
+    /// </summary>
+    [Fact]
+    public void Moving_the_backlog_moves_the_default_cache_location_and_leaves_a_chosen_one_alone()
+    {
+        var store = Store();
+        var target = Path.Combine(TempDir(), "moved");
+
+        Assert.Null(store.TryUseRoot(target));
+
+        Assert.Equal(Path.Combine(Path.GetFullPath(target), "devbook-cache"), store.DevbookCacheDirectory);
+        Assert.True(store.IsDefaultDevbookCacheDirectory);
+
+        var chosen = Path.Combine(TempDir(), "snapshots");
+        Assert.Null(store.SetDevbookCacheDirectory(chosen));
+        Assert.Null(store.TryUseRoot(Path.Combine(TempDir(), "moved-again")));
+
+        Assert.Equal(Path.GetFullPath(chosen), store.DevbookCacheDirectory);
+        Assert.False(store.IsDefaultDevbookCacheDirectory);
+    }
+
+    /// <summary>Typing the default path is choosing the default rather than
+    /// pinning it: the field shows empty again, and a later move takes the
+    /// default along.</summary>
+    [Fact]
+    public void Typing_the_default_cache_path_reads_as_no_override()
+    {
+        var store = Store();
+        Assert.Null(store.SetDevbookCacheDirectory(Path.Combine(TempDir(), "elsewhere")));
+        Assert.False(store.IsDefaultDevbookCacheDirectory);
+
+        Assert.Null(store.SetDevbookCacheDirectory(store.DefaultDevbookCacheDirectory));
+
+        Assert.True(store.IsDefaultDevbookCacheDirectory);
+    }
+
+    // --- The backup schedule ------------------------------------------------
+
+    /// <summary>Off until chosen, and remembered — cadence, time and day — across
+    /// a restart. Written even while off, so the time somebody set before
+    /// switching the schedule off is still there when they switch it back on.</summary>
+    [Fact]
+    public void The_backup_schedule_survives_a_restart()
+    {
+        var appData = TempDir();
+        var settingsPath = Path.Combine(appData, "settings.json");
+
+        var store = new WorkspaceSettingsStore(appData, settingsPath);
+        Assert.Equal(BackupSchedule.Off, store.BackupSchedule);
+
+        var chosen = new BackupSchedule(BackupCadence.Weekly, new TimeOnly(7, 30), DayOfWeek.Sunday);
+        Assert.Null(store.SetBackupSchedule(chosen));
+        Assert.Null(store.SetBackupSchedule(chosen with { Cadence = BackupCadence.Off }));
+
+        var reopened = new WorkspaceSettingsStore(appData, settingsPath);
+        Assert.Equal(chosen with { Cadence = BackupCadence.Off }, reopened.BackupSchedule);
+    }
+
+    /// <summary>The worker re-arms on the announcement, so the repository and
+    /// the schedule both announce — and clearing the repository announces too,
+    /// because that is a timer that has to stop.</summary>
+    [Fact]
+    public void Backup_settings_announce_every_change()
+    {
+        var store = Store();
+        var raised = 0;
+        store.BackupChanged += () => raised++;
+
+        Assert.Null(store.TrySetRepository("JSdotNet/Notes"));
+        Assert.Null(store.SetBackupSchedule(BackupSchedule.Off with { Cadence = BackupCadence.Daily }));
+        Assert.Null(store.SetBackupSchedule(BackupSchedule.Off with { Cadence = BackupCadence.Daily }));
+        Assert.Null(store.ClearRepository());
+
+        Assert.Equal(3, raised);
+    }
+
+    /// <summary>A hand-edited schedule that does not read as one means off, not
+    /// a settings file the app refuses to open.</summary>
+    [Fact]
+    public void An_unreadable_backup_schedule_reads_as_off()
     {
         var appData = TempDir();
         var settingsPath = Path.Combine(appData, "settings.json");
         Directory.CreateDirectory(appData);
         File.WriteAllText(settingsPath, """
-            {
-              "knowledgeFolders": [ { "key": ".domain", "enabled": false, "path": null } ],
-              "devbookFolders": [ { "key": ".domain", "enabled": true, "path": null } ]
-            }
+            { "backupSchedule": { "cadence": "fortnightly", "at": "noon", "day": "Someday" } }
             """);
 
         var store = new WorkspaceSettingsStore(appData, settingsPath);
 
-        Assert.True(store.DevbookFolders.Single(folder => folder.Key == ".domain").Enabled);
-    }
-
-    /// <summary>A fresh machine caches snapshots under the current folder name.</summary>
-    [Fact]
-    public void The_default_cache_folder_carries_the_current_name_on_a_fresh_machine()
-    {
-        var store = Store();
-
-        Assert.Equal("devbook-cache", Path.GetFileName(store.DefaultDevbookCacheDirectory));
-        Assert.True(store.IsDefaultDevbookCacheDirectory);
+        Assert.Equal(BackupSchedule.Off, store.BackupSchedule);
     }
 
     /// <summary>
-    /// A machine that filled a <c>knowledge-cache</c> before the rename keeps
-    /// using it as the default rather than re-fetching every snapshot into a new
-    /// folder — and because it is still the default, the settings screen still
-    /// shows the field empty.
+    /// A <c>knowledge-cache</c> left over from before the rename does not pull the
+    /// default back to the old name: snapshots are disposable and get fetched again
+    /// into <c>devbook-cache</c>. The old folder is left for its owner to delete.
     /// </summary>
     [Fact]
-    public void A_cache_folder_from_before_the_rename_stays_the_default_until_a_new_one_exists()
+    public void A_cache_folder_from_before_the_rename_is_ignored()
     {
         var appData = TempDir();
         Directory.CreateDirectory(Path.Combine(appData, "knowledge-cache"));
 
         var store = new WorkspaceSettingsStore(appData, Path.Combine(appData, "settings.json"));
 
-        Assert.Equal(Path.Combine(appData, "knowledge-cache"), store.DefaultDevbookCacheDirectory);
+        Assert.Equal(Path.Combine(store.RootDirectory, "devbook-cache"), store.DefaultDevbookCacheDirectory);
         Assert.Equal(store.DefaultDevbookCacheDirectory, store.DevbookCacheDirectory);
         Assert.True(store.IsDefaultDevbookCacheDirectory);
-
-        Directory.CreateDirectory(Path.Combine(appData, "devbook-cache"));
-        var reopened = new WorkspaceSettingsStore(appData, Path.Combine(appData, "settings.json"));
-
-        Assert.Equal(Path.Combine(appData, "devbook-cache"), reopened.DefaultDevbookCacheDirectory);
+        Assert.True(Directory.Exists(Path.Combine(appData, "knowledge-cache")));
     }
 
     /// <summary>

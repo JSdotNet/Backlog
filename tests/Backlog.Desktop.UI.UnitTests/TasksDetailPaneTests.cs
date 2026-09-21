@@ -135,28 +135,21 @@ public sealed class TasksDetailPaneTests
         Assert.Null(host.State.SelectedRow);
     }
 
-    // --- The pane and the refresh beside it --------------------------------
+    // --- The pane and a reload beside it -----------------------------------
 
     /// <summary>
-    /// The reported failure: press Markdown on the open entry, and a moment later
-    /// the pane beside the list has closed itself.
+    /// A reload somebody else asked for — the Inbox routing an item, a sync
+    /// pull landing — builds a new <c>EntryRow</c> for every entry. The pane
+    /// beside the list used to close on that, because its selection was held
+    /// by object and the object was gone; it is re-found by id now, so the
+    /// entry stays open as the instance the list is drawing.
     /// <para>
-    /// The press is a save — the reading is remembered as a <c>view:</c> token on
-    /// the entry — and a save moves the store's timestamp exactly as another
-    /// machine's write would. The check for another machine's edits therefore read
-    /// this list's own save back as somebody else's, started over, and built a new
-    /// <c>EntryRow</c> for every entry; the selection was held by object, so the
-    /// entry the reader was reading was no longer any row in the list.
-    /// </para>
-    /// <para>
-    /// The ticks are driven directly rather than waited out, for the reason
-    /// <see cref="TasksExternalChangePollingTests"/> gives. Two of them, because the
-    /// report is about the pane a few seconds after the press rather than about the
-    /// instant of it.
+    /// Two reloads, because the report this guards was about the pane a few
+    /// seconds after a press rather than about the instant of it.
     /// </para>
     /// </summary>
     [Fact]
-    public async Task Pressing_the_markdown_tab_leaves_the_entry_open_across_the_checks_that_follow()
+    public async Task Pressing_the_markdown_tab_leaves_the_entry_open_across_the_reloads_that_follow()
     {
         using var host = await TasksPaneHost.CreateAsync();
         var row = await host.WriteEntryAsync(WithSteps);
@@ -165,8 +158,8 @@ public sealed class TasksDetailPaneTests
         var pane = host.Render();
         await pane.Find("[data-testid='entry-view-notes']").ClickAsync(new());
 
-        await host.State.CheckForExternalChangesAsync();
-        await host.State.CheckForExternalChangesAsync();
+        await host.State.ReloadFromStoreAsync();
+        await host.State.ReloadFromStoreAsync();
         pane.Render();
 
         var open = host.State.SelectedRow;
@@ -176,9 +169,8 @@ public sealed class TasksDetailPaneTests
         Assert.Single(pane.FindAll("[data-testid='entry-detail']"));
     }
 
-    /// <summary>The other reading, and back again. Every press writes the token, so
-    /// every press is a save — which makes moving between the two readings the
-    /// quickest way to take several of these checks in a row.</summary>
+    /// <summary>The other reading, and back again, with a reload after every
+    /// press — the quickest way to take several of them in a row.</summary>
     [Fact]
     public async Task Moving_between_the_two_readings_leaves_the_entry_open()
     {
@@ -192,7 +184,7 @@ public sealed class TasksDetailPaneTests
         {
             await pane.Find($"[data-testid='{view}']").ClickAsync(new());
 
-            await host.State.CheckForExternalChangesAsync();
+            await host.State.ReloadFromStoreAsync();
             pane.Render();
 
             Assert.NotNull(host.State.SelectedRow);
@@ -203,9 +195,9 @@ public sealed class TasksDetailPaneTests
     }
 
     /// <summary>
-    /// And typing in the markdown block, which is the same fact arriving on the
-    /// debounce rather than on a press: prose saves 750ms after the last keystroke,
-    /// and that save moved the store's timestamp too.
+    /// And typing in the markdown block: prose saves 750ms after the last
+    /// keystroke, and a reload that lands once that save has is a reload like
+    /// any other — the entry stays open.
     /// <para>
     /// The debounce is waited out rather than stood in for, because what is under
     /// test is the save nobody asked for — the one a reader gets by typing and then
@@ -213,7 +205,7 @@ public sealed class TasksDetailPaneTests
     /// </para>
     /// </summary>
     [Fact]
-    public async Task Typing_in_the_markdown_block_leaves_the_entry_open_across_the_checks_that_follow()
+    public async Task Typing_in_the_markdown_block_leaves_the_entry_open_across_the_reloads_that_follow()
     {
         using var host = await TasksPaneHost.CreateAsync();
         var row = await host.WriteEntryAsync("# Just prose\n`task` `!ready`\n\nAll of it is a paragraph.\n");
@@ -230,8 +222,8 @@ public sealed class TasksDetailPaneTests
         // text was typed.
         pane.WaitForAssertion(() => Assert.Equal(1, row.SubItemCount), TimeSpan.FromSeconds(5));
 
-        await host.State.CheckForExternalChangesAsync();
-        await host.State.CheckForExternalChangesAsync();
+        await host.State.ReloadFromStoreAsync();
+        await host.State.ReloadFromStoreAsync();
         pane.Render();
 
         var open = host.State.SelectedRow;
@@ -257,10 +249,10 @@ public sealed class TasksDetailPaneTests
         var openedId = row.Id;
 
         await host.WriteFromElsewhereAsync("# Written on the other machine\n`task` `!ready`\n");
-        await host.State.CheckForExternalChangesAsync();
+        await host.State.ReloadFromStoreAsync();
 
         // The other machine's entry really did arrive, so this is a reload and not
-        // a tick that decided to do nothing.
+        // a call that decided to do nothing.
         Assert.Equal(2, host.State.Rows.Count);
 
         var open = host.State.SelectedRow;
@@ -268,6 +260,32 @@ public sealed class TasksDetailPaneTests
         Assert.Equal(openedId, open!.Id);
         Assert.NotSame(row, open);
         Assert.Contains(host.State.FilteredRows, candidate => ReferenceEquals(candidate, open));
+    }
+
+    /// <summary>
+    /// A reload that arrives while the raw hatch is open is owed, not dropped:
+    /// nothing replaces the rows under the caret, and the moment the editor
+    /// closes the other machine's entry is on screen without anybody asking
+    /// again. This is what "the change lands once you are done" means.
+    /// </summary>
+    [Fact]
+    public async Task A_reload_under_an_open_editor_waits_for_the_editor_to_close()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync("# Provision the box\n`task` `!ready`\n");
+
+        host.State.BeginEdit(row);
+
+        await host.WriteFromElsewhereAsync("# Written on the other machine\n`task` `!ready`\n");
+        await host.State.ReloadFromStoreAsync();
+
+        Assert.Single(host.State.Rows);
+        Assert.True(host.State.ReloadIsDeferred);
+
+        await host.State.EndEditAsync(row);
+
+        Assert.Equal(2, host.State.Rows.Count);
+        Assert.False(host.State.ReloadIsDeferred);
     }
 
     // --- Where "New entry" sits --------------------------------------------
@@ -1323,5 +1341,78 @@ public sealed class TasksDetailPaneTests
         Assert.Contains("# Ship the sync spike", row.RawText, StringComparison.Ordinal);
         Assert.Same(row, host.State.SelectedRow);
         Assert.NotEmpty(pane.FindAll("[data-testid='entry-detail']"));
+    }
+
+    // --- Created -----------------------------------------------------------
+
+    /// <summary>
+    /// The pane says when the entry was created, and says it in the footer.
+    /// <para>
+    /// Not a <c>RawText</c> assertion for once, and deliberately: the stamp is
+    /// the one fact on this pane that is <em>not</em> in the text. It is a column
+    /// the aggregate writes at birth, so there is no token to type and nothing a
+    /// reader can change — which is why it is a <c>time</c> element rather than a
+    /// <c>TaskAction</c> row, and why it stands with close and delete, the other
+    /// things about the entry as a whole. The machine-readable attribute is
+    /// asserted against the row's own stamp rather than a literal, because the
+    /// module stamps with the clock and the words are culture-formatted.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task The_pane_says_when_the_entry_was_created()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync("# Provision the box\n`task`\n");
+
+        var pane = host.Render();
+        var created = pane.Find("[data-testid='entry-created']");
+
+        Assert.NotNull(row.CreatedAt);
+        Assert.Equal(row.CreatedAt.Value.ToString("o"), created.GetAttribute("datetime"));
+        Assert.StartsWith("Created ", created.TextContent.Trim(), StringComparison.Ordinal);
+        Assert.NotNull(created.Closest(".entry-detail__footer"));
+    }
+
+    /// <summary>Editing the entry does not move the stamp. A rename restamps
+    /// <c>UpdatedAt</c> and rewrites the text; the creation time is neither, so
+    /// the pane still says what it said before the edit.</summary>
+    [Fact]
+    public async Task Editing_the_entry_leaves_the_creation_stamp_where_it_was()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync("# Provision the box\n`task`\n");
+        var before = row.CreatedAt;
+
+        var pane = host.Render();
+        await pane.Find("[data-testid='entry-panel-title']").ClickAsync(new());
+        var field = pane.Find("[data-testid='entry-panel-rename']");
+        await field.InputAsync(new() { Value = "Provision the new box" });
+        await field.KeyDownAsync(new KeyboardEventArgs { Key = "Enter" });
+
+        pane.WaitForAssertion(() =>
+            Assert.Contains("# Provision the new box", row.RawText, StringComparison.Ordinal));
+
+        Assert.Equal(before, row.CreatedAt);
+        Assert.Equal(
+            before!.Value.ToString("o"),
+            pane.Find("[data-testid='entry-created']").GetAttribute("datetime"));
+    }
+
+    /// <summary>A row that has never been saved has no stamp to show: the module
+    /// stamps on the first save, and a pane that printed the clock for an unsaved
+    /// row would be inventing the fact it is about to record.</summary>
+    [Fact]
+    public async Task An_unsaved_entry_shows_no_creation_stamp()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        host.State.NewRow();
+        var row = host.State.Rows[^1];
+        await host.OpenAsync(row);
+
+        var pane = host.Render();
+
+        Assert.False(row.IsPersisted);
+        Assert.NotEmpty(pane.FindAll("[data-testid='entry-detail']"));
+        Assert.Empty(pane.FindAll("[data-testid='entry-created']"));
     }
 }

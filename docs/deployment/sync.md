@@ -298,8 +298,8 @@ secret rather than a Key Vault read:
 - **No round-trip on cold start.** The app scales to zero; a Key Vault call on every
   start would be paid on every first request for one secret.
 
-Locally, `build/Deploy-Azure.ps1` makes the same check and reads the same variable from
-your shell — see *Run locally*.
+Locally, `build/Deploy-Azure.ps1` makes the same check on the same variable, and fills
+it in from the deployed app's secret when the shell has not set it — see *Run locally*.
 
 **Rotation.** Set a new value on the GitHub secret (or in the shell) and run a
 `provision`. What that invalidates, and what each device does about it:
@@ -456,17 +456,30 @@ change before it changes it.
 `build/Deploy-Azure.ps1` wraps this. A local run uses your own sign-in, so of the
 prerequisites only 1 and 5 apply — and the script's default `-SyncResourceGroup` is
 `JS-AI`, the group Foundry already lives in, so on the Sponsorship subscription nothing
-needs creating. The signing key comes from your shell, set for the session only:
+needs creating. The signing key is resolved into the process environment before `azd`
+runs, in every mode — `azd` resolves the parameter file before it knows whether it is
+going to change anything — from the first of these that applies:
 
-```powershell
-$env:SYNC_TOKEN_SIGNING_KEY = '<base64 key from prerequisite 5>'
-```
+1. **Your shell.** Set it for the session only to rotate the key, or to deploy one you
+   chose. The script checks the shape the way the workflow does and stops by name when it
+   is wrong.
 
-The script checks it the way the workflow does and stops by name when it is missing or
-the wrong shape, in every mode — `azd` resolves the parameter file before it knows
-whether it is going to change anything. Do **not** `azd env set` it: that writes the
-value to `.azure/backlog-sync/.env` on disk, where `azd env get-values` would print it
-back. The process environment is the only place it belongs.
+   ```powershell
+   $env:SYNC_TOKEN_SIGNING_KEY = '<base64 key from prerequisite 5>'
+   ```
+
+2. **The deployed app.** When the shell has nothing, the script finds the container app
+   the environment already provisioned (by its `azd-env-name` and `azd-service-name`
+   tags) and reads its `sync-token-signing-key` secret back. A re-run keeps its key, so
+   no device token is invalidated and nothing has to be pasted between sessions.
+
+3. **Freshly minted,** when nothing is deployed yet. The provision makes it the app's
+   secret; copy it from there into the GitHub environment secret with the command the
+   script prints, or the next workflow run rotates it.
+
+The value stays in the process: the script never prints it and never `azd env set`s
+it — that would write it to `.azure/backlog-sync/.env` on disk, where
+`azd env get-values` would print it back.
 
 Its default component is `all`; pass `-Component sync` to deploy the sync tier alone:
 

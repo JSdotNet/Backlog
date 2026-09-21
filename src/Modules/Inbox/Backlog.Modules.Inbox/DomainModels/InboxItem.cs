@@ -217,6 +217,31 @@ public sealed class InboxItem
         Touch();
     }
 
+    /// <summary>
+    /// Follows a repository that was renamed on GitHub: an assignment to
+    /// <paramref name="oldId"/> becomes one to <paramref name="newId"/>. Answers
+    /// whether anything moved, so a caller can count and skip the write when
+    /// nothing did.
+    /// <para>
+    /// The assignment only. <see cref="Routing"/> is the record of where the
+    /// item went and is never edited — see <see cref="RoutingTarget"/>. Ids match
+    /// the way the registry matches them, without regard to case, and the list is
+    /// de-duplicated afterwards as <see cref="SetRepoIds"/> would.
+    /// </para>
+    /// </summary>
+    public bool RenameRepository(string oldId, string newId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(oldId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(newId);
+
+        if (!_repoIds.Any(id => string.Equals(id, oldId, StringComparison.OrdinalIgnoreCase))) return false;
+
+        SetRepoIds(_repoIds
+            .Select(id => string.Equals(id, oldId, StringComparison.OrdinalIgnoreCase) ? newId : id)
+            .ToList());
+        return true;
+    }
+
     /// <summary>Files the item in a list, or back in the unfiled inbox. Allowed
     /// in every state, archived included: filing is not triage, and a person
     /// tidying an archive is not reopening anything.</summary>

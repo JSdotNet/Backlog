@@ -61,7 +61,13 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("TestId=\"workspace-surface-option\"", home, StringComparison.Ordinal);
         Assert.Contains("TestId=\"tools-toggle-button\"", home, StringComparison.Ordinal);
         Assert.Contains("TestId=\"dashboard-toggle-button\"", home, StringComparison.Ordinal);
-        Assert.Contains("TestId=\"sessions-toggle-button\"", home, StringComparison.Ordinal);
+
+        // Sessions is a tab of the Dashboard surface, not a segment: one segment
+        // for the surface, and the strip inside it chooses the view.
+        Assert.DoesNotContain("TestId=\"sessions-toggle-button\"", home, StringComparison.Ordinal);
+        Assert.Contains("ListTestId=\"dashboard-tabs\"", home, StringComparison.Ordinal);
+        Assert.Contains("TabTestId=\"dashboard-overview-tab\"", home, StringComparison.Ordinal);
+        Assert.Contains("TabTestId=\"dashboard-sessions-tab\"", home, StringComparison.Ordinal);
 
         // Workspace leads, because it is the surface the reader starts on and the
         // one the other two return to.
@@ -75,10 +81,8 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("PressedChanged=\"CloseSurface\"", home, StringComparison.Ordinal);
         Assert.Contains("PressedChanged=\"ToggleTools\"", home, StringComparison.Ordinal);
         Assert.Contains("PressedChanged=\"ToggleDashboard\"", home, StringComparison.Ordinal);
-        Assert.Contains("PressedChanged=\"ToggleSessions\"", home, StringComparison.Ordinal);
         Assert.DoesNotContain("aria-expanded=\"@(ToolsVisible", home, StringComparison.Ordinal);
         Assert.DoesNotContain("aria-expanded=\"@(DashboardVisible", home, StringComparison.Ordinal);
-        Assert.DoesNotContain("aria-expanded=\"@(SessionsVisible", home, StringComparison.Ordinal);
         // Written out, not bound to the bool: Blazor renders a true bool attribute
         // as `aria-expanded=""` and drops it when false, and aria-expanded accepts
         // neither.
@@ -92,6 +96,13 @@ public sealed class GlobalPaneMarkupTests
         // The Workspace segment points at a landmark, so the workspace main needs
         // the id the other two panes already have.
         Assert.Contains("id=\"workspace\"", home, StringComparison.Ordinal);
+
+        // The sections strip is a workspace control, so it renders with the
+        // workspace and not beside a takeover it cannot act on.
+        var sectionsStrip = home.IndexOf("TestId=\"global-pane-multiselect\"", StringComparison.Ordinal);
+        var sectionsGate = home.LastIndexOf("@if (WorkspaceVisible)", sectionsStrip, StringComparison.Ordinal);
+        Assert.True(sectionsGate >= 0 && sectionsGate > home.IndexOf("TestId=\"workspace-surface-switcher\"", StringComparison.Ordinal),
+            "The sections strip renders only while the workspace is on screen.");
     }
 
     /// <summary>
@@ -639,9 +650,10 @@ public sealed class GlobalPaneMarkupTests
     }
 
     /// <summary>
-    /// Tools, the Dashboard and Sessions are takeovers, not panes. Each is the
-    /// page's single <c>main</c> landmark while it is open, which is only true as
-    /// long as the branches stay mutually exclusive in the markup.
+    /// Tools and the Dashboard are takeovers, not panes. Each is the page's single
+    /// <c>main</c> landmark while it is open, which is only true as long as the
+    /// branches stay mutually exclusive in the markup. The session list is inside
+    /// the Dashboard's landmark, as a tab, and has no branch of its own.
     /// </summary>
     [Fact]
     public void Only_one_surface_renders_and_it_owns_the_main_landmark()
@@ -650,16 +662,16 @@ public sealed class GlobalPaneMarkupTests
 
         Assert.Contains("@if (ToolsVisible)", home, StringComparison.Ordinal);
         Assert.Contains("else if (DashboardVisible)", home, StringComparison.Ordinal);
-        Assert.Contains("else if (SessionsVisible)", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("SessionsVisible", home, StringComparison.Ordinal);
         Assert.Contains("data-testid=\"tools-surface\"", home, StringComparison.Ordinal);
         Assert.Contains("data-testid=\"dashboard-surface\"", home, StringComparison.Ordinal);
-        Assert.Contains("data-testid=\"sessions-surface\"", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-testid=\"sessions-surface\"", home, StringComparison.Ordinal);
         Assert.Contains("data-testid=\"workspace\"", home, StringComparison.Ordinal);
 
         // One landmark per branch, and the branches are exclusive, so the page has
         // exactly one. Two <main> elements is the failure this counts, which is why
-        // the number rises with each takeover rather than being loosened to "some".
-        Assert.Equal(4, CountOccurrences(home, "<main class="));
+        // the number moves with each takeover rather than being loosened to "some".
+        Assert.Equal(3, CountOccurrences(home, "<main class="));
 
         // The pane row keeps the test id the resizer's JavaScript selects on; what
         // changed is that it is no longer the landmark itself.
@@ -994,8 +1006,12 @@ public sealed class GlobalPaneMarkupTests
         // module for them, and a shell handing them down would be a shell that
         // knows what an inbox item looks like. What the shell does pass is the
         // Capture button's three parameters - the run belongs to the Capture
-        // context, which the Inbox never sees - and nothing else.
-        Assert.Contains("<InboxPane OnCapture=\"RunCaptureAsync\" CaptureRunning=\"_captureRunning\" CaptureMessage=\"@_captureMessage\" />", home, StringComparison.Ordinal);
+        // context, which the Inbox never sees - and, in the pane's sources
+        // slot, that context's own panel: composed here, so the Inbox draws a
+        // region it cannot name, and nothing else.
+        Assert.Contains("<InboxPane OnCapture=\"RunCaptureAsync\" CaptureRunning=\"_captureRunning\" CaptureMessage=\"@_captureMessage\">", home, StringComparison.Ordinal);
+        Assert.Contains("<Sources>", home, StringComparison.Ordinal);
+        Assert.Contains("<CaptureSourcesPanel Expanded=", home, StringComparison.Ordinal);
         Assert.DoesNotContain("<InboxPane Items=", home, StringComparison.Ordinal);
         Assert.DoesNotContain("OnAdd=", home, StringComparison.Ordinal);
         Assert.Contains("<TasksPane />", home, StringComparison.Ordinal);
@@ -1028,6 +1044,16 @@ public sealed class GlobalPaneMarkupTests
     /// scrolling the list to reach the bottom of the entry next to it.
     /// </para>
     /// <para>
+    /// The halves themselves are the library's: <c>SplitPane</c> gives each one
+    /// <c>overflow: auto</c>, and that is what scrolls the list column. The list
+    /// inside it must not be a second scroller. It used to declare one, and since
+    /// the half is a block that hands the list its content height, the list was a
+    /// scroll container that never scrolled — which is the one thing a sticky
+    /// child cannot survive, because it measures against its nearest scroll
+    /// container. The bulk bar and the add-entry row both stick to the half, and
+    /// both scrolled straight out of view while the list claimed the job.
+    /// </para>
+    /// <para>
     /// The pane half scrolls one box deeper than the list's does: the panel fills the
     /// height it is given so the body inside it can, and a box that both stretched
     /// its child and scrolled it is a box that could do neither.
@@ -1037,17 +1063,59 @@ public sealed class GlobalPaneMarkupTests
     public void Each_half_of_the_backlog_split_scrolls_on_its_own()
     {
         var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
+        var components = NormalizeLineEndings(File.ReadAllText(FindComponentsCss()));
 
         Assert.Contains(".backlog-list {", css, StringComparison.Ordinal);
         Assert.Contains(".entry-detail {", css, StringComparison.Ordinal);
 
-        foreach (var block in new[] { ".backlog-list {", ".entry-detail__panel {" })
-        {
-            var start = css.IndexOf(block, StringComparison.Ordinal);
-            var rules = css[start..css.IndexOf('}', start)];
+        var halves = Block(components, ".split-pane__start,\n.split-pane__end {");
+        Assert.Contains("overflow: auto;", halves, StringComparison.Ordinal);
+        Assert.Contains("min-height: 0;", halves, StringComparison.Ordinal);
 
-            Assert.Contains("overflow-y: auto;", rules, StringComparison.Ordinal);
-            Assert.Contains("min-height: 0;", rules, StringComparison.Ordinal);
+        var list = Block(css, ".backlog-list {");
+        Assert.DoesNotContain("overflow", list, StringComparison.Ordinal);
+        Assert.Contains("min-height: 0;", list, StringComparison.Ordinal);
+
+        var panel = Block(css, ".entry-detail__panel {");
+        Assert.Contains("overflow-y: auto;", panel, StringComparison.Ordinal);
+        Assert.Contains("min-height: 0;", panel, StringComparison.Ordinal);
+
+        static string Block(string sheet, string selector)
+        {
+            var start = sheet.IndexOf(selector, StringComparison.Ordinal);
+            Assert.True(start >= 0, $"{selector} should be declared.");
+            return sheet[start..sheet.IndexOf('}', start)];
+        }
+    }
+
+    /// <summary>
+    /// The two controls that stick to the list half, and the edge each holds. The
+    /// bulk bar takes the top so the count and the way out of a selection stay in
+    /// reach; the add-entry row takes the bottom so a column longer than the window
+    /// never hides the one control that adds to it. Both are asserted together with
+    /// the rule above because both are dead the moment the list becomes a scroller.
+    /// </summary>
+    [Fact]
+    public void The_bulk_bar_and_the_add_entry_row_stick_to_the_list_half()
+    {
+        var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
+
+        var bar = Block(css, ".backlog-bulk-bar {");
+        Assert.Contains("position: sticky;", bar, StringComparison.Ordinal);
+        Assert.Contains("top: 0;", bar, StringComparison.Ordinal);
+
+        var row = Block(css, ".entry-add-row {");
+        Assert.Contains("position: sticky;", row, StringComparison.Ordinal);
+        Assert.Contains("bottom: 0;", row, StringComparison.Ordinal);
+        // Its buttons are transparent by design, so the row itself has to paint,
+        // or the rows sliding under it read straight through the strip.
+        Assert.Contains("background: var(--color-background);", row, StringComparison.Ordinal);
+
+        static string Block(string sheet, string selector)
+        {
+            var start = sheet.IndexOf(selector, StringComparison.Ordinal);
+            Assert.True(start >= 0, $"{selector} should be declared.");
+            return sheet[start..sheet.IndexOf('}', start)];
         }
     }
 
@@ -1276,6 +1344,8 @@ public sealed class GlobalPaneMarkupTests
     }
 
     private static string FindAppCss() => RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "wwwroot", "app.css");
+
+    private static string FindComponentsCss() => RepositoryRoot.File("src", "Core", "Backlog.UI.Components", "wwwroot", "components.css");
 
     private static string FindHomeRazor() => RepositoryRoot.File("src", "App", "Backlog.Desktop.UI", "Shell", "Home.razor");
 

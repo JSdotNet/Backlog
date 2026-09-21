@@ -35,9 +35,17 @@ public class RepositoryRegistrySplitTests : IDisposable
 
     private string LocalPath(string install = "install-1") => Path.Combine(_root, install, "github.json");
 
-    private GitHubSettingsStore Store(string install = "install-1") => new(LocalPath(install), () => WorkspaceRoot);
+    private GitHubSettingsStore Store(string install = "install-1", TimeProvider? clock = null) =>
+        new(LocalPath(install), () => WorkspaceRoot, clock);
 
     private static GitHubRepositoryRef Repository(string alias, string name) => new(alias, "JSdotNet", name);
+
+    /// <summary>A clock that stands still, so the stamp a rename record carries
+    /// can be read back exactly.</summary>
+    private sealed class FixedClock(DateTimeOffset now) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => now;
+    }
 
     // --- The split itself -----------------------------------------------------
 
@@ -98,6 +106,153 @@ public class RepositoryRegistrySplitTests : IDisposable
         Assert.Null(reopened.Current.Find("backlog"));
         Assert.Equal(clone, reopened.Current.Find("bl")!.CloneDirectory);
         Assert.Equal("ghp_secret", reopened.Current.Find("bl")!.Token);
+    }
+
+    /// <summary>
+    /// The other rename: the coordinate moves and the alias stays, which is what
+    /// a repository renamed on GitHub looks like. Asked for by name rather than
+    /// typed into the list. Everything the row held — both halves — is under the
+    /// new id afterwards, the old id is a row in neither file, and the registry
+    /// remembers the move so nothing is left for a later pass to mistake for a
+    /// second repository.
+    /// </summary>
+    [Fact]
+    public void Renaming_a_repository_carries_everything_and_records_the_move()
+    {
+        var clone = Path.Combine(_root, "clone");
+        var clock = new FixedClock(new DateTimeOffset(2026, 9, 18, 10, 0, 0, TimeSpan.Zero));
+
+        var store = Store(clock: clock);
+        Assert.Null(store.SetRepositories([Repository("backlog", "Backlog")]));
+        Assert.Null(store.SetCloneDirectory("backlog", clone));
+        Assert.Null(store.SetRepositoryToken("backlog", "ghp_secret"));
+        Assert.Null(store.SetRepositoryColour("backlog", 3));
+        Assert.Null(store.SetDevbookSource("backlog", "docs", useLocalFolder: false));
+
+        Assert.Null(store.RenameRepository("backlog", "JSdotNet/Backlog-renamed", out var rename));
+
+        Assert.NotNull(rename);
+        Assert.Equal(("JSdotNet/Backlog", "JSdotNet/Backlog-renamed", clock.GetUtcNow()), (rename.OldId, rename.NewId, rename.At));
+
+        var reopened = Store();
+        var renamed = Assert.Single(reopened.Current.Repositories);
+        Assert.Equal("JSdotNet/Backlog-renamed", renamed.FullName);
+        Assert.Equal("backlog", renamed.Alias);
+        Assert.Equal(clone, renamed.CloneDirectory);
+        Assert.Equal("ghp_secret", renamed.Token);
+        Assert.Equal(3, renamed.Colour);
+        Assert.Equal("docs", renamed.DevbookBranch);
+
+        Assert.Equal([rename], reopened.Current.Renames);
+        Assert.DoesNotContain("\"id\": \"JSdotNet/Backlog\"", File.ReadAllText(store.RegistryPath), StringComparison.Ordinal);
+        Assert.DoesNotContain("JSdotNet/Backlog\"", File.ReadAllText(store.SettingsPath), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The record is what lets the old coordinate keep resolving: an entry that
+    /// still names it — on this install, or on one the registry reached before
+    /// the entries did — finds the repository it became, through as many renames
+    /// as it has been through. A row always wins over a record, so a repository
+    /// re-created under a retired name is that repository, and the spent record
+    /// is dropped on the save that re-created it.
+    /// </summary>
+    [Fact]
+    public void An_old_id_resolves_to_the_repository_it_became_until_the_name_is_configured_again()
+    {
+        var store = Store();
+        Assert.Null(store.SetRepositories([Repository("backlog", "Backlog")]));
+        Assert.Null(store.RenameRepository("backlog", "JSdotNet/Backlog-2", out _));
+        Assert.Null(store.RenameRepository("backlog", "Someone/Backlog-3", out _));
+
+        Assert.Equal("Someone/Backlog-3", store.Current.Find("JSdotNet/Backlog")!.FullName);
+        Assert.Equal("Someone/Backlog-3", store.Current.Find("jsdotnet/backlog-2")!.FullName);
+        Assert.Equal("Someone/Backlog-3", Store().Current.Find("JSdotNet/Backlog")!.FullName);
+
+        var (repositories, _) = GitHubSettings.ParseText("backlog3 = Someone/Backlog-3\nJSdotNet/Backlog");
+        Assert.Null(store.SetRepositories(repositories));
+
+        Assert.Equal("JSdotNet/Backlog", store.Current.Find("JSdotNet/Backlog")!.FullName);
+        var kept = Assert.Single(store.Current.Renames);
+        Assert.Equal(("JSdotNet/Backlog-2", "Someone/Backlog-3"), (kept.OldId, kept.NewId));
+    }
+
+    [Fact]
+    public void A_rename_is_refused_for_a_non_coordinate_the_same_name_or_a_taken_one()
+    {
+        var store = Store();
+        Assert.Null(store.SetRepositories([Repository("backlog", "Backlog"), Repository("docs", "Docs")]));
+
+        Assert.Equal(GitHubSettingsStore.RenameNotACoordinate, store.RenameRepository("backlog", "just-a-name", out var rename));
+        Assert.Null(rename);
+        Assert.Equal(GitHubSettingsStore.RenameUnchanged, store.RenameRepository("backlog", "jsdotnet/backlog", out _));
+        Assert.Equal(GitHubSettingsStore.RenameTaken, store.RenameRepository("backlog", "JSdotNet/Docs", out _));
+        Assert.Equal("That repository is no longer configured.", store.RenameRepository("nobody", "JSdotNet/Other", out _));
+
+        Assert.Empty(store.Current.Renames);
+        Assert.Equal("JSdotNet/Backlog", store.Current.Find("backlog")!.FullName);
+    }
+
+    /// <summary>
+    /// The text box does not rename. A line that kept its alias and changed its
+    /// coordinate is a removed repository beside a new one — because for a line
+    /// written without an alias of its own, which is most of them, the alias
+    /// <em>is</em> the name and there is nothing to keep. So nothing is carried,
+    /// and nothing is recorded: the same edit means the same thing whichever
+    /// way the line was written.
+    /// </summary>
+    [Fact]
+    public void A_changed_owner_name_typed_into_the_list_is_a_new_repository_not_a_rename()
+    {
+        var store = Store();
+        Assert.Null(store.SetRepositories([Repository("backlog", "Backlog")]));
+        Assert.Null(store.SetCloneDirectory("backlog", Path.Combine(_root, "clone")));
+
+        var (repositories, errors) = GitHubSettings.ParseText("backlog = JSdotNet/Backlog-renamed");
+        Assert.Empty(errors);
+        Assert.Null(store.SetRepositories(repositories));
+
+        var replaced = Assert.Single(store.Current.Repositories);
+        Assert.Equal("JSdotNet/Backlog-renamed", replaced.FullName);
+        Assert.Null(replaced.CloneDirectory);
+        Assert.Empty(store.Current.Renames);
+        Assert.Null(store.Current.Find("JSdotNet/Backlog"));
+    }
+
+    /// <summary>Two lines that swap labels are two relabels: each old id is
+    /// still in the list under the other alias, so both rows keep their own
+    /// machine half.</summary>
+    [Fact]
+    public void Swapping_two_aliases_relabels_and_each_row_keeps_its_own_clone()
+    {
+        var backlogClone = Path.Combine(_root, "backlog");
+        var docsClone = Path.Combine(_root, "docs");
+
+        var store = Store();
+        Assert.Null(store.SetRepositories([Repository("backlog", "Backlog"), Repository("docs", "Docs")]));
+        Assert.Null(store.SetCloneDirectory("backlog", backlogClone));
+        Assert.Null(store.SetCloneDirectory("docs", docsClone));
+
+        var (repositories, _) = GitHubSettings.ParseText("docs = JSdotNet/Backlog\nbacklog = JSdotNet/Docs");
+        Assert.Null(store.SetRepositories(repositories));
+
+        Assert.Equal(backlogClone, store.Current.Find("docs")!.CloneDirectory);
+        Assert.Equal(docsClone, store.Current.Find("backlog")!.CloneDirectory);
+    }
+
+    /// <summary>A registry written before renames existed reads exactly as it
+    /// did, and one nobody has renamed anything in is written exactly as it
+    /// was: the record appears in the file only once there is one.</summary>
+    [Fact]
+    public void The_record_is_absent_from_the_file_until_there_is_one()
+    {
+        var store = Store();
+        Assert.Null(store.SetRepositories([Repository("backlog", "Backlog")]));
+
+        Assert.DoesNotContain("renames", File.ReadAllText(store.RegistryPath), StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(Store().Current.Renames);
+
+        Assert.Null(store.RenameRepository("backlog", "JSdotNet/Backlog-2", out _));
+        Assert.Contains("\"renames\"", File.ReadAllText(store.RegistryPath), StringComparison.Ordinal);
     }
 
     [Fact]

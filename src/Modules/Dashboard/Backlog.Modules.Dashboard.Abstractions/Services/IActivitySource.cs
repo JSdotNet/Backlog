@@ -40,9 +40,40 @@ public sealed record ActivityPullRequest(
     /// still happened, and its zero must not be averaged in as a very small one.</summary>
     public bool SizeKnown { get; init; }
 
+    /// <summary>Every commit on the pull request, before and after any review. Read
+    /// off the same call as the size, so it is meaningful exactly when
+    /// <see cref="SizeKnown"/> — and zero without it is not a pull request with no
+    /// commits, which cannot merge.</summary>
+    public int Commits { get; init; }
+
+    /// <summary>How many review verdicts asked for changes. Zero for a pull request
+    /// nobody reviewed, which is the honest count rather than a stand-in.</summary>
+    public int ChangesRequested { get; init; }
+
+    /// <summary>Merge commits on the branch — syncs with the base branch.
+    /// Meaningless unless <see cref="SyncsKnown"/>.</summary>
+    public int SyncMerges { get; init; }
+
+    /// <summary>How many of those syncs say they resolved a conflict. A floor: a
+    /// merge whose message is silent reads as clean.</summary>
+    public int ConflictedSyncMerges { get; init; }
+
+    /// <summary>Whether the branch's commits were actually read. False and zero
+    /// rather than absent, for the reason <see cref="SizeKnown"/> is: the pull
+    /// request still merged, and its zero must not count as a clean sync.</summary>
+    public bool SyncsKnown { get; init; }
+
     /// <summary>True when anything happened after the first review — the
     /// definition of rework this dashboard uses.</summary>
     public bool HasChurn => CommitsAfterFirstReview > 0 || ForcePushesAfterFirstReview > 0;
+
+    /// <summary>True when the branch was synced with its base at least once and
+    /// the commits were read to say so.</summary>
+    public bool WasSynced => SyncsKnown && SyncMerges > 0;
+
+    /// <summary>True when at least one sync resolved a conflict — the second kind
+    /// of rework this dashboard counts, the integration kind.</summary>
+    public bool HasConflictedSync => SyncsKnown && ConflictedSyncMerges > 0;
 }
 
 /// <summary>One closed issue of the person's own.</summary>

@@ -28,19 +28,26 @@
     choose between. The `.shell` class on the wrapper is the older name and stays,
     because it is what every layout rule in app.css is written against.
 
-    There are four, and exactly one of them renders: the workspace, which is the
-    roadmap band above the global panes; the tools surface; the dashboard; and the
-    session list. The last three are takeovers — Dev PC Management, the Dashboard
-    and Sessions are whole domains, and opening one means the reader has stopped
-    looking at the backlog, so it takes the screen and hides every other domain
-    concern rather than docking beside them. Whichever branch renders owns the
-    page's single <main> landmark.
+    There are three, and exactly one of them renders: the workspace, which is the
+    roadmap band above the global panes; the tools surface; and the dashboard,
+    which holds the session list as its second tab. The last two are takeovers —
+    Dev PC Management and the Dashboard are whole domains, and opening one means
+    the reader has stopped looking at the backlog, so it takes the screen and hides
+    every other domain concern rather than docking beside them. Whichever branch
+    renders owns the page's single <main> landmark.
+
+    The header follows the surface. Every control in it acts on something, and a
+    control whose something is off screen is a dead button: the sections strip
+    configures the workspace, the GitHub check refreshes the task list, and Ask AI
+    answers from the entries in view — so each of them renders only while what it
+    acts on does. The surface switcher and the identity region stay, because they
+    are true of the screen whatever is on it.
 
     What is inside a surface is not the shell's business: Inbox, Backlog
     Management, Devbook, Roadmap, Dev PC Management, Sessions and the
     Dashboard each render themselves from their own project, and the only thing
     that crosses between them here is the repository scope handed to the knowledge
-    pane and the triaged item handed back from the inbox.
+    pane and the dashboard, and the triaged item handed back from the inbox.
 *@
 
 <div class="shell shell--wide">
@@ -64,8 +71,8 @@
             @if (State.Repositories.Count > 0)
             {
                 @* One repository on a plain press, one more with Ctrl held — while the
-                   Tasks pane is on screen; see ScopeRepository below. The anchor — the
-                   first one taken, the one the Devbook pane reads — is marked only
+                   task list or the dashboard is on screen; see ScopeRepository below.
+                   The anchor — the first one taken, the one Devbook reads — is marked only
                    once a second chip is pressed: with one chip there is nothing for it
                    to be distinct from, and the markup stays exactly what the single
                    select produced. *@
@@ -131,7 +138,7 @@
            number). Two shared ButtonGroups make that difference visible; one
            undifferentiated row of pills could not. *@
         <nav class="app-header__nav" aria-label="Workspace views">
-            @* One field with four states, in markup that finally says so.
+            @* One field with three states, in markup that finally says so.
                WorkspaceSurface has always been a single enum precisely because a
                takeover cannot coexist with the workspace or with another
                takeover — but the header rendered independent buttons carrying
@@ -178,35 +185,27 @@
                         </ToggleButton>
                     }
 
-                    @if (IsFeatureEnabled(DashboardFeatures.Dashboard))
+                    @* One segment for two features. The Dashboard surface holds the
+                       Sessions module's list as its second tab, so the segment is
+                       offered while either has something to show; which tabs the
+                       surface then offers is decided on the surface, below. The
+                       segment points at the surface landmark rather than at either
+                       pane, because which pane is in front is the tab strip's answer
+                       and not this control's. Sessions used to have a segment of its
+                       own here, and its feature flag now gates its tab instead. *@
+                    @if (DashboardSurfaceOffered)
                     {
                         <ToggleButton BaseClass="header-group__option"
                                       PressedCssClass="header-group__option--selected"
                                       Pressed="DashboardVisible"
                                       id="dashboard-toggle-button"
                                       TestId="dashboard-toggle-button"
-                                      aria-controls="dashboard-pane"
+                                      aria-controls="dashboard-surface"
                                       PressedChanged="ToggleDashboard">
                             Dashboard
                             <FeatureStatusBadge Status="@FeatureStatusSlug(DashboardFeatures.Dashboard)"
                                                 Title="@FeatureStatusTitle(DashboardFeatures.Dashboard)"
                                                 TestId="dashboard-feature-status" />
-                        </ToggleButton>
-                    }
-
-                    @if (IsFeatureEnabled(SessionFeatures.Sessions))
-                    {
-                        <ToggleButton BaseClass="header-group__option"
-                                      PressedCssClass="header-group__option--selected"
-                                      Pressed="SessionsVisible"
-                                      id="sessions-toggle-button"
-                                      TestId="sessions-toggle-button"
-                                      aria-controls="sessions-pane"
-                                      PressedChanged="ToggleSessions">
-                            Sessions
-                            <FeatureStatusBadge Status="@FeatureStatusSlug(SessionFeatures.Sessions)"
-                                                Title="@FeatureStatusTitle(SessionFeatures.Sessions)"
-                                                TestId="sessions-feature-status" />
                         </ToggleButton>
                     }
                 </ButtonGroup>
@@ -230,148 +229,156 @@
                so its role and label come from the component and its test id reaches
                the DOM through TestId. Its options stay aria-pressed toggles:
                several sections are on screen at once, so this is a multi-select and
-               not a tab strip. It stays live during a takeover on purpose — the
-               pane selection deliberately lives outside WorkspaceSurface so it
-               survives a round trip, which means these configure the workspace the
-               reader is about to come back to. *@
-            <ButtonGroup CssClass="header-group header-group--sections"
-                         AriaLabel="Visible sections"
-                         TestId="global-pane-multiselect">
-                @if (RoadmapPaneOptionVisible)
-                {
-                    <ToggleButton BaseClass="header-group__option"
-                                  PressedCssClass="header-group__option--selected"
-                                  Pressed="RoadmapBandVisible"
-                                  id="roadmap-pane-option"
-                                  TestId="roadmap-pane-option"
-                                  aria-controls="roadmap-band"
-                                  PressedChanged="ToggleRoadmapBand">
-                        Roadmap
-                        <FeatureStatusBadge Status="@FeatureStatusSlug(RoadmapFeatures.Roadmap)"
-                                            Title="@FeatureStatusTitle(RoadmapFeatures.Roadmap)"
-                                            TestId="roadmap-feature-status" />
-                    </ToggleButton>
-                }
+               not a tab strip.
 
-                @* A pane and its pin are one cell, the pin first: it rails along the
-                   option's top edge, so leading the cell keeps DOM order, reading order
-                   and tab order the same one. Switching to a section closes the panes
-                   the reader did not pin, so the pin is the only way to ask for two at
-                   once — which is why it sits on the option rather than somewhere else
-                   in the chrome. It used to stand beside the option, where its pinned
-                   fill read as a vertical strip down the option's side (#283); the top
-                   edge is also the one edge the option's selected underline does not
-                   already own. The rail takes its height out of the cell rather than on
-                   top of it, so a cell with a pin measures exactly what a bare option
-                   measures and this group sits level with the surface switcher beside
-                   it. The band has no pin because it takes no width from the panes and
-                   so has nothing to be saved from.
+               Only while the workspace is on screen. It used to stay up during a
+               takeover, on the argument that it configured the workspace the reader
+               was about to come back to — but a press on it changed nothing the
+               reader could see, and a row of buttons that do nothing reads as broken
+               rather than as forward planning. The pane selection still lives
+               outside WorkspaceSurface and still survives the round trip; only the
+               strip that shows it goes, and it comes back exactly as it was. *@
+            @if (WorkspaceVisible)
+            {
+                <ButtonGroup CssClass="header-group header-group--sections"
+                             AriaLabel="Visible sections"
+                             TestId="global-pane-multiselect">
+                    @if (RoadmapPaneOptionVisible)
+                    {
+                        <ToggleButton BaseClass="header-group__option"
+                                      PressedCssClass="header-group__option--selected"
+                                      Pressed="RoadmapBandVisible"
+                                      id="roadmap-pane-option"
+                                      TestId="roadmap-pane-option"
+                                      aria-controls="roadmap-band"
+                                      PressedChanged="ToggleRoadmapBand">
+                            Roadmap
+                            <FeatureStatusBadge Status="@FeatureStatusSlug(RoadmapFeatures.Roadmap)"
+                                                Title="@FeatureStatusTitle(RoadmapFeatures.Roadmap)"
+                                                TestId="roadmap-feature-status" />
+                        </ToggleButton>
+                    }
 
-                   The glyph is the library's, and it hides itself: ToggleButton drops
-                   child content straight into the button with no wrapper, so a glyph
-                   that named itself would be announced after the AriaLabel below
-                   rather than instead of it.
+                    @* A pane and its pin are one cell, the pin first: it rails along the
+                       option's top edge, so leading the cell keeps DOM order, reading order
+                       and tab order the same one. Switching to a section closes the panes
+                       the reader did not pin, so the pin is the only way to ask for two at
+                       once — which is why it sits on the option rather than somewhere else
+                       in the chrome. It used to stand beside the option, where its pinned
+                       fill read as a vertical strip down the option's side (#283); the top
+                       edge is also the one edge the option's selected underline does not
+                       already own. The rail takes its height out of the cell rather than on
+                       top of it, so a cell with a pin measures exactly what a bare option
+                       measures and this group sits level with the surface switcher beside
+                       it. The band has no pin because it takes no width from the panes and
+                       so has nothing to be saved from.
 
-                   One glyph in both states, and its direction is the state: the
-                   chevron points up while the pane is loose, at the edge the rail
-                   runs along, so the control asks to be pushed; once pinned the
-                   stylesheet turns it half a turn to point down, so it asks to be
-                   pushed back. Which state a drawing stands for is this header's
-                   reading and not the library's — that is why ChevronUpIcon ships
-                   no Pinned parameter — but the reading is now carried by an angle
-                   rather than by choosing between two components, so it belongs in
-                   the sheet with the pixel of lift beside it rather than in a branch
-                   here. header-group__pin-glyph is the hook that rule is keyed on;
-                   CssClass is the library's own way of handing it over, and a rule
-                   keyed on the component's self-named class would take hold of any
-                   chevron a later caller put in this rail as well. *@
-                @if (InboxPaneOptionVisible)
-                {
+                       The glyph is the library's, and it hides itself: ToggleButton drops
+                       child content straight into the button with no wrapper, so a glyph
+                       that named itself would be announced after the AriaLabel below
+                       rather than instead of it.
+
+                       One glyph in both states, and its direction is the state: the
+                       chevron points up while the pane is loose, at the edge the rail
+                       runs along, so the control asks to be pushed; once pinned the
+                       stylesheet turns it half a turn to point down, so it asks to be
+                       pushed back. Which state a drawing stands for is this header's
+                       reading and not the library's — that is why ChevronUpIcon ships
+                       no Pinned parameter — but the reading is now carried by an angle
+                       rather than by choosing between two components, so it belongs in
+                       the sheet with the pixel of lift beside it rather than in a branch
+                       here. header-group__pin-glyph is the hook that rule is keyed on;
+                       CssClass is the library's own way of handing it over, and a rule
+                       keyed on the component's self-named class would take hold of any
+                       chevron a later caller put in this rail as well. *@
+                    @if (InboxPaneOptionVisible)
+                    {
+                        <span class="header-group__pane">
+                            <ToggleButton BaseClass="header-group__pin"
+                                          PressedCssClass="header-group__pin--pinned"
+                                          Pressed="@PanePinned(GlobalPane.Inbox)"
+                                          TestId="inbox-pane-pin"
+                                          aria-controls="inbox-pane"
+                                          Disabled="@PinToggleDisabled(GlobalPane.Inbox)"
+                                          AriaLabel="@PinLabel(GlobalPane.Inbox, "Inbox")"
+                                          Title="@PinTitle(GlobalPane.Inbox, "Inbox")"
+                                          PressedChanged="ToggleInboxPin">
+                                <ChevronUpIcon Size="12" CssClass="header-group__pin-glyph" />
+                            </ToggleButton>
+
+                            <ToggleButton BaseClass="header-group__option"
+                                          PressedCssClass="header-group__option--selected"
+                                          Pressed="InboxPaneVisible"
+                                          id="inbox-pane-option"
+                                          TestId="inbox-pane-option"
+                                          aria-controls="inbox-pane"
+                                          Disabled="@PaneToggleDisabled(GlobalPane.Inbox)"
+                                          PressedChanged="ToggleInboxPane">
+                                Inbox
+                                <FeatureStatusBadge Status="@FeatureStatusSlug(AppFeatures.InboxPane)"
+                                                    Title="@FeatureStatusTitle(AppFeatures.InboxPane)"
+                                                    TestId="inbox-feature-status" />
+                            </ToggleButton>
+                        </span>
+                    }
+
                     <span class="header-group__pane">
                         <ToggleButton BaseClass="header-group__pin"
                                       PressedCssClass="header-group__pin--pinned"
-                                      Pressed="@PanePinned(GlobalPane.Inbox)"
-                                      TestId="inbox-pane-pin"
-                                      aria-controls="inbox-pane"
-                                      Disabled="@PinToggleDisabled(GlobalPane.Inbox)"
-                                      AriaLabel="@PinLabel(GlobalPane.Inbox, "Inbox")"
-                                      Title="@PinTitle(GlobalPane.Inbox, "Inbox")"
-                                      PressedChanged="ToggleInboxPin">
+                                      Pressed="@PanePinned(GlobalPane.Tasks)"
+                                      TestId="backlog-pane-pin"
+                                      aria-controls="backlog-pane"
+                                      Disabled="@PinToggleDisabled(GlobalPane.Tasks)"
+                                      AriaLabel="@PinLabel(GlobalPane.Tasks, "Tasks")"
+                                      Title="@PinTitle(GlobalPane.Tasks, "Tasks")"
+                                      PressedChanged="ToggleTasksPin">
                             <ChevronUpIcon Size="12" CssClass="header-group__pin-glyph" />
                         </ToggleButton>
 
                         <ToggleButton BaseClass="header-group__option"
                                       PressedCssClass="header-group__option--selected"
-                                      Pressed="InboxPaneVisible"
-                                      id="inbox-pane-option"
-                                      TestId="inbox-pane-option"
-                                      aria-controls="inbox-pane"
-                                      Disabled="@PaneToggleDisabled(GlobalPane.Inbox)"
-                                      PressedChanged="ToggleInboxPane">
-                            Inbox
-                            <FeatureStatusBadge Status="@FeatureStatusSlug(AppFeatures.InboxPane)"
-                                                Title="@FeatureStatusTitle(AppFeatures.InboxPane)"
-                                                TestId="inbox-feature-status" />
+                                      Pressed="TasksPaneVisible"
+                                      id="backlog-pane-option"
+                                      TestId="backlog-pane-option"
+                                      aria-controls="backlog-pane"
+                                      Disabled="@PaneToggleDisabled(GlobalPane.Tasks)"
+                                      PressedChanged="ToggleTasksPane">
+                            Tasks
                         </ToggleButton>
                     </span>
-                }
 
-                <span class="header-group__pane">
-                    <ToggleButton BaseClass="header-group__pin"
-                                  PressedCssClass="header-group__pin--pinned"
-                                  Pressed="@PanePinned(GlobalPane.Tasks)"
-                                  TestId="backlog-pane-pin"
-                                  aria-controls="backlog-pane"
-                                  Disabled="@PinToggleDisabled(GlobalPane.Tasks)"
-                                  AriaLabel="@PinLabel(GlobalPane.Tasks, "Tasks")"
-                                  Title="@PinTitle(GlobalPane.Tasks, "Tasks")"
-                                  PressedChanged="ToggleTasksPin">
-                        <ChevronUpIcon Size="12" CssClass="header-group__pin-glyph" />
-                    </ToggleButton>
+                    @if (DevbookPaneOptionVisible)
+                    {
+                        <span class="header-group__pane">
+                            <ToggleButton BaseClass="header-group__pin"
+                                          PressedCssClass="header-group__pin--pinned"
+                                          Pressed="@PanePinned(GlobalPane.Devbook)"
+                                          TestId="devbook-pane-pin"
+                                          aria-controls="repository-devbook-pane"
+                                          Disabled="@PinToggleDisabled(GlobalPane.Devbook)"
+                                          AriaLabel="@PinLabel(GlobalPane.Devbook, "Devbook")"
+                                          Title="@PinTitle(GlobalPane.Devbook, "Devbook")"
+                                          PressedChanged="ToggleDevbookPin">
+                                <ChevronUpIcon Size="12" CssClass="header-group__pin-glyph" />
+                            </ToggleButton>
 
-                    <ToggleButton BaseClass="header-group__option"
-                                  PressedCssClass="header-group__option--selected"
-                                  Pressed="TasksPaneVisible"
-                                  id="backlog-pane-option"
-                                  TestId="backlog-pane-option"
-                                  aria-controls="backlog-pane"
-                                  Disabled="@PaneToggleDisabled(GlobalPane.Tasks)"
-                                  PressedChanged="ToggleTasksPane">
-                        Tasks
-                    </ToggleButton>
-                </span>
-
-                @if (DevbookPaneOptionVisible)
-                {
-                    <span class="header-group__pane">
-                        <ToggleButton BaseClass="header-group__pin"
-                                      PressedCssClass="header-group__pin--pinned"
-                                      Pressed="@PanePinned(GlobalPane.Devbook)"
-                                      TestId="devbook-pane-pin"
-                                      aria-controls="repository-devbook-pane"
-                                      Disabled="@PinToggleDisabled(GlobalPane.Devbook)"
-                                      AriaLabel="@PinLabel(GlobalPane.Devbook, "Devbook")"
-                                      Title="@PinTitle(GlobalPane.Devbook, "Devbook")"
-                                      PressedChanged="ToggleDevbookPin">
-                            <ChevronUpIcon Size="12" CssClass="header-group__pin-glyph" />
-                        </ToggleButton>
-
-                        <ToggleButton BaseClass="header-group__option"
-                                      PressedCssClass="header-group__option--selected"
-                                      Pressed="DevbookPaneVisible"
-                                      id="devbook-pane-option"
-                                      TestId="devbook-pane-option"
-                                      aria-controls="repository-devbook-pane"
-                                      Disabled="@PaneToggleDisabled(GlobalPane.Devbook)"
-                                      PressedChanged="ToggleDevbookPane">
-                            Devbook
-                            <FeatureStatusBadge Status="@FeatureStatusSlug(DevbookFeatures.RepositoryDevbook)"
-                                                Title="@FeatureStatusTitle(DevbookFeatures.RepositoryDevbook)"
-                                                TestId="devbook-feature-status" />
-                        </ToggleButton>
-                    </span>
-                }
-            </ButtonGroup>
+                            <ToggleButton BaseClass="header-group__option"
+                                          PressedCssClass="header-group__option--selected"
+                                          Pressed="DevbookPaneVisible"
+                                          id="devbook-pane-option"
+                                          TestId="devbook-pane-option"
+                                          aria-controls="repository-devbook-pane"
+                                          Disabled="@PaneToggleDisabled(GlobalPane.Devbook)"
+                                          PressedChanged="ToggleDevbookPane">
+                                Devbook
+                                <FeatureStatusBadge Status="@FeatureStatusSlug(DevbookFeatures.RepositoryDevbook)"
+                                                    Title="@FeatureStatusTitle(DevbookFeatures.RepositoryDevbook)"
+                                                    TestId="devbook-feature-status" />
+                            </ToggleButton>
+                        </span>
+                    }
+                </ButtonGroup>
+            }
         </nav>
 
         @* Region C — how the workspace is doing. Ambient rather than actionable,
@@ -387,8 +394,11 @@
         <div class="app-header__status">
             @* Monitoring is a deliberate act, not a background poll: the backlog has
                to open instantly and offline, so nothing here waits on GitHub until
-               somebody asks it to. *@
-            @if (IsFeatureEnabled(TasksFeatures.GitHubIntegration) && State.GitHubConfigured && State.HasLinkedRows)
+               somebody asks it to.
+
+               Only while the task list is on screen — the list is what a check
+               refreshes, and the dashboard fetches from GitHub on its own. *@
+            @if (TasksListOnScreen && IsFeatureEnabled(TasksFeatures.GitHubIntegration) && State.GitHubConfigured && State.HasLinkedRows)
             {
                 <IconButton BaseClass="icon-link"
                             id="github-sync-button"
@@ -409,7 +419,11 @@
            a single control is what lets it mean something instead of becoming the
            header's wallpaper — which is what the old all-gold row had made it. *@
         <div class="app-header__utilities">
-            @if (IsFeatureEnabled(AppFeatures.AiAssistant))
+            @* Offered while there is content to ask about. The panel answers from the
+               task rows in view — see BuildAiContent — so with the list off screen it
+               would be answering about entries the reader cannot see, and the button
+               that opens it would be a button that opens nothing about this screen. *@
+            @if (AiAssistantOffered)
             {
                 @* A disclosure, not a pressed state: this opens a panel beside the
                    content, so it carries aria-expanded and stays AppButton rather
@@ -445,7 +459,10 @@
         </div>
     </header>
 
-    @if (IsFeatureEnabled(AppFeatures.AiAssistant) && _aiExpanded)
+    @* Gated the way its button is: the panel follows the list it reads from, and
+       comes back open if the reader left it open, because _aiExpanded is not
+       touched by a takeover. *@
+    @if (AiAssistantOffered && _aiExpanded)
     {
         <section class="ai-panel" id="ai-assistant-panel" data-testid="ai-assistant-panel" aria-labelledby="ai-assistant-title">
             @* The library's section header. This one stays a div: the panel is
@@ -520,24 +537,71 @@
     }
     else if (DashboardVisible)
     {
+        @* Two views of one surface: the Dashboard module's overview and the
+           Sessions module's list. Composed here rather than inside either pane,
+           because the panes belong to two bounded contexts and neither should
+           reference the other's project to draw a strip above itself — which
+           surfaces exist and how they are arranged is exactly the shell's job.
+           Each pane keeps its own header and its own ✕, so a tab is not a second
+           place to close the surface from.
+
+           The strip renders only when there are two tabs to choose between. Each
+           tab is gated on its own feature, and with one feature off the surface
+           is that feature's pane on its own — a tab strip with one tab is the
+           same dead control the surface switcher refuses to be. *@
         <main class="workspace-surface"
+              id="dashboard-surface"
               data-testid="dashboard-surface"
               tabindex="-1"
               @ref="_surfaceElement"
               @onkeydown="OnSurfaceKeyDown"
               aria-label="Dashboard">
-            <DashboardPane OnClose="CloseSurface" />
-        </main>
-    }
-    else if (SessionsVisible)
-    {
-        <main class="workspace-surface"
-              data-testid="sessions-surface"
-              tabindex="-1"
-              @ref="_surfaceElement"
-              @onkeydown="OnSurfaceKeyDown"
-              aria-label="Sessions">
-            <SessionsPane OnClose="CloseSurface" RepositoryColour="@RepositoryColourFor" />
+            @if (DashboardTabsVisible)
+            {
+                @* Bare, so the strip and the panels sit directly in the landmark and
+                   the panel — not a wrapper — is the flex child the surface's scroll
+                   rule reaches. The list keeps the library's own class beside this
+                   surface's, so it takes the shared tab styling and only its place
+                   in the column from app.css. *@
+                <Tabs Bare="true"
+                      ListElement="nav"
+                      ListCssClass="tabs__list workspace-surface__tabs"
+                      ListTestId="dashboard-tabs"
+                      AriaLabel="Dashboard views"
+                      ActiveId="@DashboardTabId(ActiveDashboardTab)"
+                      ActiveIdChanged="ChooseDashboardTab">
+                    <TabPanel Id="@DashboardTabId(DashboardTab.Overview)"
+                              Title="Overview"
+                              BaseClass="workspace-surface__tabpanel"
+                              TabTestId="dashboard-overview-tab"
+                              TestId="dashboard-overview-tabpanel">
+                        @DashboardOverview
+                    </TabPanel>
+                    <TabPanel Id="@DashboardTabId(DashboardTab.Sessions)"
+                              Title="Sessions"
+                              BaseClass="workspace-surface__tabpanel"
+                              TabTestId="dashboard-sessions-tab"
+                              TestId="dashboard-sessions-tabpanel">
+                        <TitleContent>
+                            Sessions
+                            <FeatureStatusBadge Status="@FeatureStatusSlug(SessionFeatures.Sessions)"
+                                                Title="@FeatureStatusTitle(SessionFeatures.Sessions)"
+                                                TestId="sessions-feature-status" />
+                        </TitleContent>
+                        <ChildContent>
+                            @SessionsList
+                        </ChildContent>
+                    </TabPanel>
+                </Tabs>
+            }
+            else if (SessionsTabOffered)
+            {
+                @SessionsList
+            }
+            else
+            {
+                @DashboardOverview
+            }
         </main>
     }
     else
@@ -554,7 +618,7 @@
             <div class="devbook-layout @((TasksPaneVisible && RightSidePaneVisible) ? "devbook-layout--side-open" : "devbook-layout--side-closed") @(InboxBeforeTasksVisible ? "devbook-layout--inbox-before-backlog" : string.Empty)" style="--devbook-panel-width: @_devbookPanelWidthRem.ToString(System.Globalization.CultureInfo.InvariantCulture)rem" data-testid="devbook-layout">
                 @if (InboxBeforeTasksVisible)
                 {
-                    <InboxPane OnCapture="RunCaptureAsync" CaptureRunning="_captureRunning" CaptureMessage="@_captureMessage" />
+                    @InboxPaneContent
                 }
 
                 @if (TasksPaneVisible)
@@ -588,7 +652,7 @@
                     <aside @key=@("side-pane-stack") class="side-pane-stack @(TasksPaneVisible ? string.Empty : "side-pane-stack--full")" data-testid="side-pane-stack" aria-label="Tasks side panes">
                         @if (!TasksPaneVisible && InboxPaneVisible)
                         {
-                            <InboxPane OnCapture="RunCaptureAsync" CaptureRunning="_captureRunning" CaptureMessage="@_captureMessage" />
+                            @InboxPaneContent
                         }
 
                         @if (DevbookPaneVisible)
@@ -607,6 +671,13 @@
 
 @code {
     private WorkspaceSurface _surface = WorkspaceSurface.Workspace;
+
+    // Which of the Dashboard's views is in front. Kept when the surface closes,
+    // for the same reason the pane selection is: coming back to the dashboard is
+    // coming back to where the reader was, not to the first tab. It is written to
+    // the navigation file with the surface — see WorkspaceSurfaceNames — so a
+    // relaunch lands on it too.
+    private DashboardTab _dashboardTab = DashboardTab.Overview;
     private bool _aiExpanded;
     private GlobalPaneSelection _globalPanes = new();
     private double _devbookPanelWidthRem = SidePaneWidth.DefaultRem;
@@ -651,10 +722,11 @@
     {
         // Reopen on the surface the reader was last looking at rather than
         // always defaulting to the workspace panes. An unrecognised or absent
-        // value — first launch included — leaves the field default in place.
-        if (Enum.TryParse<WorkspaceSurface>(ShellNavigation.LastSurface, out var restoredSurface))
+        // value — first launch included — leaves the field defaults in place.
+        if (WorkspaceSurfaceNames.TryParse(ShellNavigation.LastSurface, out var restoredSurface, out var restoredTab))
         {
             _surface = restoredSurface;
+            _dashboardTab = restoredTab;
         }
 
         // Same restore for which panes were open, and which of those were
@@ -783,16 +855,44 @@
     /// <summary>Whether the dashboard is on screen. The same shape as
     /// <see cref="ToolsVisible"/>, and mutually exclusive with it by construction
     /// rather than by a rule written here: both read the one surface field.</summary>
-    private bool DashboardVisible => _surface == WorkspaceSurface.Dashboard && IsFeatureEnabled(DashboardFeatures.Dashboard);
+    private bool DashboardVisible => _surface == WorkspaceSurface.Dashboard && DashboardSurfaceOffered;
 
-    /// <summary>Whether the session list is on screen. The same shape again, for a
-    /// third context: the flag it reads is Sessions', not the Shell's, because the
-    /// pane is that context's too.</summary>
-    private bool SessionsVisible => _surface == WorkspaceSurface.Sessions && IsFeatureEnabled(SessionFeatures.Sessions);
+    /// <summary>Whether the Dashboard surface has anything to show. Two features
+    /// share the surface — the overview is the Dashboard's and the session list is
+    /// Sessions' — so the surface exists while either does, and each tab answers
+    /// for itself below. The flag Sessions reads is its own, not the shell's,
+    /// because the pane is that context's too.</summary>
+    private bool DashboardSurfaceOffered => OverviewTabOffered || SessionsTabOffered;
+
+    private bool OverviewTabOffered => IsFeatureEnabled(DashboardFeatures.Dashboard);
+
+    private bool SessionsTabOffered => IsFeatureEnabled(SessionFeatures.Sessions);
+
+    /// <summary>Whether there is a strip to draw: two tabs, or no strip.</summary>
+    private bool DashboardTabsVisible => OverviewTabOffered && SessionsTabOffered;
+
+    /// <summary>The tab in front, with the feature read first: a remembered
+    /// Sessions tab whose feature has since gone off shows the overview, and keeps
+    /// the field as it was for when the feature comes back.</summary>
+    private DashboardTab ActiveDashboardTab =>
+        _dashboardTab == DashboardTab.Sessions && !SessionsTabOffered ? DashboardTab.Overview : _dashboardTab;
 
     /// <summary>Whether the panes are on screen. Anything that is not a takeover
     /// is the workspace, including a surface whose feature has been switched off.</summary>
-    private bool WorkspaceVisible => !ToolsVisible && !DashboardVisible && !SessionsVisible;
+    private bool WorkspaceVisible => !ToolsVisible && !DashboardVisible;
+
+    /// <summary>Whether the task list is in front of the reader — on screen in the
+    /// workspace, not merely selected underneath a takeover. The GitHub check and
+    /// Ask AI both act on the list, and both are offered on this answer.</summary>
+    private bool TasksListOnScreen => WorkspaceVisible && TasksPaneVisible;
+
+    /// <summary>Whether what is on screen can show several repositories at once:
+    /// the task list, or the Dashboard — both of its tabs take the whole scope.
+    /// Devbook reads one, and Tools reads none, so on those a chip is a single
+    /// select and the scope is kept to its anchor.</summary>
+    private bool RepositoryScopeTakesSeveral => TasksListOnScreen || DashboardVisible;
+
+    private bool AiAssistantOffered => IsFeatureEnabled(AppFeatures.AiAssistant) && TasksListOnScreen;
 
     /// <summary>Whether the surface switcher is offered at all. It needs something
     /// to switch to: with every takeover feature off its only member would be the
@@ -800,9 +900,7 @@
     /// in it. Each takeover keeps its own segment gated on its own feature, so this
     /// is the "is there a segment beyond Workspace" question and nothing more.</summary>
     private bool SurfaceSwitcherVisible =>
-        IsFeatureEnabled(DevPcFeatures.SystemTools)
-        || IsFeatureEnabled(DashboardFeatures.Dashboard)
-        || IsFeatureEnabled(SessionFeatures.Sessions);
+        IsFeatureEnabled(DevPcFeatures.SystemTools) || DashboardSurfaceOffered;
 
     /// <summary>Whether the Roadmap option is offered at all. The same two-level
     /// split as <see cref="InboxPaneOptionVisible"/>: the feature decides whether
@@ -829,8 +927,6 @@
 
     private void ToggleDashboard() => ToggleSurface(WorkspaceSurface.Dashboard);
 
-    private void ToggleSessions() => ToggleSurface(WorkspaceSurface.Sessions);
-
     /// <summary>Opens a surface, or returns to the workspace if it was already the
     /// one on screen. Assigning rather than flipping a flag is what makes the
     /// takeovers exclusive: opening one is the same act as closing the other.</summary>
@@ -838,7 +934,8 @@
     {
         _surface = _surface == surface ? WorkspaceSurface.Workspace : surface;
         _focusSurfacePending = _surface != WorkspaceSurface.Workspace;
-        ShellNavigation.SetLastSurface(_surface.ToString());
+        RememberSurface();
+        KeepRepositoryScopeSingleWhereOnlyOneFits();
     }
 
     /// <summary>Back to the panes. The pane selection was never touched, so there
@@ -846,8 +943,40 @@
     private void CloseSurface()
     {
         _surface = WorkspaceSurface.Workspace;
-        ShellNavigation.SetLastSurface(_surface.ToString());
+        RememberSurface();
+        KeepRepositoryScopeSingleWhereOnlyOneFits();
     }
+
+    /// <summary>The strip's press. The id is the enum name in lower case, which is
+    /// what <see cref="DashboardTabId"/> hands the strip; an id this build does not
+    /// know is ignored rather than guessed at.</summary>
+    private void ChooseDashboardTab(string id)
+    {
+        if (!Enum.TryParse<DashboardTab>(id, ignoreCase: true, out var tab) || !Enum.IsDefined(tab)) return;
+
+        _dashboardTab = tab;
+        RememberSurface();
+    }
+
+    private static string DashboardTabId(DashboardTab tab) => tab.ToString().ToLowerInvariant();
+
+    /// <summary>What the reader is looking at, written for the next fresh shell
+    /// instance. The tab travels with the surface, so a reader on the sessions
+    /// list reopens on the sessions list.</summary>
+    private void RememberSurface() =>
+        ShellNavigation.SetLastSurface(WorkspaceSurfaceNames.Name(_surface, ActiveDashboardTab));
+
+    /// <summary>The two Dashboard views, each written once. The surface renders one
+    /// of them inside a tab or on its own depending on how many are offered, and a
+    /// pane written twice in the markup would be two places to keep in step.</summary>
+    private RenderFragment DashboardOverview =>
+        @<DashboardPane OnClose="CloseSurface" RepositoryAliases="@State.SelectedRepositoryAliases" />;
+
+    private RenderFragment SessionsList =>
+        @<SessionsPane OnClose="CloseSurface"
+                       RepositoryScope="@State.SelectedRepositoryAliases"
+                       RepositoryAlias="@RepositoryAliasFor"
+                       RepositoryColour="@RepositoryColourFor" />;
 
     private void OnSurfaceKeyDown(KeyboardEventArgs e)
     {
@@ -868,15 +997,12 @@
         }
         catch (AzureFoundryException ex)
         {
+            // The one exception the client throws for every way an answer fails
+            // to be one: a bad status, an endpoint that could not be reached, and
+            // a request that ran out of time - the pipeline's timeout included,
+            // which used to arrive here as Polly's own exception, past the two
+            // transport catches this handler kept, and stop the whole page.
             Toasts.Publish(ToastMessage.Error(ex.Message, AiErrorTestId));
-        }
-        catch (HttpRequestException ex)
-        {
-            Toasts.Publish(ToastMessage.Error($"Azure Foundry could not be reached: {ex.Message}", AiErrorTestId));
-        }
-        catch (TaskCanceledException)
-        {
-            Toasts.Publish(ToastMessage.Error("Azure Foundry did not answer before the request timed out.", AiErrorTestId));
         }
         finally
         {
@@ -979,9 +1105,20 @@
         }
     }
 
-    /// <summary>A pull may have delivered a capture. Reloading the Inbox is a
-    /// database read, and only worth it once the pane has loaded at all — before
-    /// that the first load will read whatever arrived.
+    /// <summary>A pull may have delivered a capture or another device's edits.
+    /// Reloading either pane is a database read, so the Inbox is re-read only
+    /// once it has loaded at all — before that the first load will read
+    /// whatever arrived — and the Tasks pane only when a cycle actually
+    /// applied something it had not applied before. The worker raises this at
+    /// both ends of a cycle and for cycles that changed nothing, and a list
+    /// that started over on every one of those would replace its rows every
+    /// five minutes for no reader's benefit.
+    /// <para>
+    /// The Tasks reload is what the timestamp poll used to do — a pull writes
+    /// the same database the poll watched — and the state keeps that poll's
+    /// guard: a reload that arrives under a live caret is owed rather than
+    /// dropped, and lands when the caret goes.
+    /// </para>
     /// <para>
     /// The task is not awaited — the event is synchronous and the renderer's
     /// dispatcher owns the continuation — so a failure inside it has nowhere
@@ -991,6 +1128,20 @@
     /// </para></summary>
     private void HandleTaskSyncChanged() => _ = InvokeAsync(async () =>
     {
+        if (_taskSync is { IsSyncing: false, LastSummary: { Applied: > 0 } summary } && summary.At != _lastAppliedSyncAt)
+        {
+            _lastAppliedSyncAt = summary.At;
+
+            try
+            {
+                await State.ReloadFromStoreAsync();
+            }
+            catch (Exception ex)
+            {
+                Toasts.Publish(ToastMessage.Error($"The backlog could not be refreshed after a sync: {ex.Message}", TasksReloadErrorTestId));
+            }
+        }
+
         if (!_inboxInitialized) return;
 
         try
@@ -1002,6 +1153,11 @@
             Toasts.Publish(ToastMessage.Error($"The Inbox could not be refreshed after a sync: {ex.Message}", InboxReloadErrorTestId));
         }
     });
+
+    /// <summary>The cycle whose applied changes the Tasks pane last reloaded
+    /// for, so the raise at the end of that same cycle — and every raise for
+    /// a cycle that applied nothing since — reloads it no second time.</summary>
+    private DateTimeOffset? _lastAppliedSyncAt;
 
     /// <summary>Where the two discarded reloads report a failure, for a test
     /// to find and a reader to read.</summary>
@@ -1016,6 +1172,27 @@
     /// answered here at all — the pane files it through its own module.</summary>
     private bool _captureRunning;
     private string? _captureMessage;
+
+    /// <summary>Whether the sources panel on the Inbox pane is open. Held
+    /// here for the same reason the run's result is: the pane re-mounts when
+    /// it changes slot, and a panel that snapped shut on that would be one the
+    /// reader has to keep reopening.</summary>
+    private bool _captureSourcesOpen;
+
+    /// <summary>
+    /// The Inbox pane as this shell composes it, once, for both slots it can
+    /// sit in: the Capture button answered by <see cref="RunCaptureAsync"/>,
+    /// and the Capture context's own sources panel in the pane's sources slot.
+    /// The pane draws that slot without naming what is in it, so the Inbox
+    /// stays free of Capture's types while its button and its switches sit
+    /// together on screen.
+    /// </summary>
+    private RenderFragment InboxPaneContent =>
+        @<InboxPane OnCapture="RunCaptureAsync" CaptureRunning="_captureRunning" CaptureMessage="@_captureMessage">
+            <Sources>
+                <CaptureSourcesPanel Expanded="_captureSourcesOpen" ExpandedChanged="open => _captureSourcesOpen = open" />
+            </Sources>
+        </InboxPane>;
 
     /// <summary>
     /// The Inbox's Capture, answered: one run over the sources switched on in
@@ -1072,15 +1249,16 @@
         }
     }
 
-    /// <summary>A run's result in one line. Nothing enabled points at the tab
-    /// that would change that; otherwise each source's own sentence — which
-    /// already carries that source's count — and, when there was more than one
-    /// source, the total, so a reader is not left adding up.</summary>
+    /// <summary>A run's result in one line. Nothing enabled points at the
+    /// panel that would change that — it is on the same pane, under this line;
+    /// otherwise each source's own sentence — which already carries that
+    /// source's count — and, when there was more than one source, the total,
+    /// so a reader is not left adding up.</summary>
     private static string Describe(CaptureRunResultDto run)
     {
         if (run.NothingEnabled)
         {
-            return "No capture sources are enabled. Turn one on under Settings › Capture.";
+            return "No capture sources are enabled. Open Sources below and switch one on.";
         }
 
         var sources = string.Join(" ", run.Sources.Select(source => source.Message));
@@ -1106,7 +1284,7 @@
     /// default pane.</summary>
     private void PersistPaneSelection()
     {
-        KeepRepositoryScopeSingleWithoutTasks();
+        KeepRepositoryScopeSingleWhereOnlyOneFits();
 
         var enabled = Enum.GetValues<GlobalPane>().Where(_globalPanes.IsEnabled).Select(pane => pane.ToString()).ToArray();
         var pinned = Enum.GetValues<GlobalPane>().Where(_globalPanes.IsPinned).Select(pane => pane.ToString()).ToArray();
@@ -1114,21 +1292,23 @@
     }
 
     /// <summary>
-    /// The scope holds several repositories only while the Tasks pane is on screen.
+    /// The scope holds several repositories only while something on screen can show
+    /// several — see <see cref="RepositoryScopeTakesSeveral"/>.
     /// <para>
-    /// Several at once is a list affordance: the backlog list is the only pane that
-    /// can show more than one repository, and the Devbook pane reads exactly one.
-    /// So when the list goes — closed by the reader, or trimmed by a window that no
-    /// longer fits it — the scope drops back to the anchor, and what the Devbook
-    /// pane was reading is what it keeps reading. Called from every path that changes
-    /// which panes are on screen: the toggles and the restore go through
-    /// <see cref="PersistPaneSelection"/>, and the capacity trim calls it itself
-    /// because a trim is deliberately not persisted.
+    /// Several at once is a list affordance: the backlog list and the dashboard can
+    /// show more than one repository, and the Devbook pane reads exactly one. So
+    /// when the list goes — closed by the reader, trimmed by a window that no longer
+    /// fits it, or left behind for a surface that reads one — the scope drops back
+    /// to the anchor, and what the Devbook pane was reading is what it keeps
+    /// reading. Called from every path that changes what is on screen: the pane
+    /// toggles and the restore go through <see cref="PersistPaneSelection"/>, the
+    /// surface switches call it themselves, and so does the capacity trim, because
+    /// a trim is deliberately not persisted.
     /// </para>
     /// </summary>
-    private void KeepRepositoryScopeSingleWithoutTasks()
+    private void KeepRepositoryScopeSingleWhereOnlyOneFits()
     {
-        if (!TasksPaneVisible) State.NarrowRepositoryScopeToAnchor();
+        if (!RepositoryScopeTakesSeveral) State.NarrowRepositoryScopeToAnchor();
     }
 
     private bool PaneToggleDisabled(GlobalPane pane)
@@ -1257,6 +1437,14 @@
     private int? RepositoryColourFor(string? repository) => State.RepositoryColourFor(repository);
 
     /// <summary>
+    /// The alias a session's recorded repository goes by here — the sessions list
+    /// matches the header's scope through this, and the scope is aliases. Null for a
+    /// repository this workspace has not configured, and for a session that recorded
+    /// none; the pane treats both as out of any scope.
+    /// </summary>
+    private string? RepositoryAliasFor(string? repository) => State.RepositoryAliasFor(repository);
+
+    /// <summary>
     /// Shows or hides the repository identity hues across every surface.
     /// <para>
     /// The state class writes it, because the settings store is where the hue itself is
@@ -1282,14 +1470,15 @@
     /// same reason — that is what a plain click on one of several selected files does.
     /// </para>
     /// <para>
-    /// The modifier counts only while the Tasks pane is on screen — see
-    /// <see cref="KeepRepositoryScopeSingleWithoutTasks"/>. Without the list there is
-    /// nothing a second repository could be shown in, so the press is an ordinary one.
+    /// The modifier counts only while what is on screen can show several — the task
+    /// list, or the Dashboard; see <see cref="RepositoryScopeTakesSeveral"/>. Without
+    /// one of those there is nothing a second repository could be shown in, so the
+    /// press is an ordinary one.
     /// </para>
     /// </summary>
     private void ScopeRepository(string repositoryAlias, MouseEventArgs args)
     {
-        if ((args.CtrlKey || args.MetaKey) && TasksPaneVisible)
+        if ((args.CtrlKey || args.MetaKey) && RepositoryScopeTakesSeveral)
         {
             State.ToggleRepositoryInScope(repositoryAlias);
             return;
@@ -1314,8 +1503,9 @@
     /// the strip nothing on screen shows.</summary>
     private string RepositoryScopeChipTitle(GitHubRepositoryRef repository, bool selected, bool anchor)
     {
-        // No list, no modifier to name: the chip says what a single select says.
-        if (!TasksPaneVisible) return selected ? $"Deselect {repository.FullName}" : repository.FullName;
+        // Nothing to show several in, no modifier to name: the chip says what a
+        // single select says.
+        if (!RepositoryScopeTakesSeveral) return selected ? $"Deselect {repository.FullName}" : repository.FullName;
 
         if (!selected) return $"{repository.FullName}. Ctrl+click to add it to the scope";
         if (State.SelectedRepositoryAliases.Count == 1) return $"Deselect {repository.FullName}";
@@ -1361,7 +1551,7 @@
             return Task.CompletedTask;
         }
 
-        KeepRepositoryScopeSingleWithoutTasks();
+        KeepRepositoryScopeSingleWhereOnlyOneFits();
         StateHasChanged();
         return Task.CompletedTask;
     }

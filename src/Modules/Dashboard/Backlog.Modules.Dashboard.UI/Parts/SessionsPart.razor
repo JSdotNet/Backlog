@@ -94,6 +94,15 @@
     reading a chart that never claimed to. A capped read makes the columns a floor
     exactly as it makes the tiles one, and the note says that too.
 
+    Prompts per session is the one figure here that comes off a session's record rather
+    than its activity stream, which is what lets it cover the machines that replicated
+    their sessions as well as this one — the count is on ADR 0005's whitelist and travels
+    with the record. It is a mean over the sessions that carry a count, and only Claude
+    records one, so the tile says how many of the sessions beside it that is rather than
+    letting a mean over eight read as a fact about twelve. A second column chart puts the
+    same mean on the sessions chart's buckets, week by week, so a reader can see whether
+    sessions are getting longer or shorter in prompts rather than only how many there were.
+
     The breakdown appears only when there is more than one row, on the Rework part's
     precedent: a one-row table of the thing already named in the filter is a
     restatement, not a comparison.
@@ -130,6 +139,15 @@
                             Value="@DashboardFormat.Duration(Value!.Waiting)"
                             Footnote="@WaitingFootnote"
                             TestId="dashboard-sessions-waiting" />
+                @* A mean over the sessions that carry a count, and the footnote names
+                   how many that is. Only Claude records one, so a mean that treated the
+                   rest as zero would be half the size of the figure the transcripts
+                   support — and a mean shown without its denominator would read as a
+                   fact about every session in the tile beside it. *@
+                <MetricTile Label="Prompts per session"
+                            Value="@Prompts(Value!.PromptsPerSession)"
+                            Footnote="@PromptsFootnote"
+                            TestId="dashboard-sessions-prompts" />
                 @* The instant rather than "two hours ago". A relative figure would need
                    a clock in a component that otherwise reads none, and would go stale
                    on screen while the surface sat open. *@
@@ -169,6 +187,22 @@
                             HighlightLast="true"
                             FormatValue="MetricFormat.Compact"
                             TestId="dashboard-sessions-bars" />
+            }
+
+            @* Drawn only when some session in the window was counted, on the tile's
+               rule rather than the chart above's: an axis of zeros under a tile that
+               says "—" would be the chart claiming the zero the tile refused to. The
+               columns share the sessions chart's buckets, so a column here is the same
+               sessions as the column beside it there. *@
+            @if (Value!.SessionsWithPrompts > 0 && Value!.PromptsPerSessionPerWeek.Count > 0)
+            {
+                <MetricBars Points="@PromptsPerWeek"
+                            Label="@PromptsPerWeekLabel"
+                            BucketHeading="Week"
+                            ValueHeading="Prompts per session"
+                            HighlightLast="true"
+                            FormatValue="MetricFormat.Score"
+                            TestId="dashboard-sessions-prompts-bars" />
             }
 
             @* Empty when nothing in the scoped set left a parsable record, and 168 cells
@@ -330,6 +364,53 @@
     /// </summary>
     private const string PerWeekLabel =
         "Sessions per week, counted in the week they last moved — one that ran across two weeks appears once";
+
+    /// <summary>The prompt series, on the same terms as the one above it.</summary>
+    private IReadOnlyList<MetricPoint> PromptsPerWeek =>
+        IsReady
+            ? [.. Value!.PromptsPerSessionPerWeek.Select(point => new MetricPoint(point.Label, point.Value))]
+            : [];
+
+    /// <summary>
+    /// What a column is here, and what a zero is. The bucketing is the sessions chart's,
+    /// so that sentence is not repeated; what is new is that a column is a mean over the
+    /// counted sessions in its week and a week without one is drawn as zero — which is
+    /// the one place on this part a zero stands for "nothing to count", and the caption
+    /// is where that has to be said.
+    /// </summary>
+    private const string PromptsPerWeekLabel =
+        "Prompts per session by week, averaged over the sessions that carry a count and "
+        + "placed in the week they last moved — a week with no counted session shows as zero";
+
+    /// <summary>
+    /// The mean to one decimal, or a dash. Not <see cref="MetricFormat.Compact"/>: that
+    /// keeps two decimals under the compacting threshold, and "7.50 prompts" claims a
+    /// precision a mean over eight sessions does not have.
+    /// </summary>
+    private static string Prompts(decimal? mean) =>
+        mean is { } value ? MetricFormat.Score(value) : "—";
+
+    /// <summary>
+    /// Whose figure it is and how many sessions it covers. The denominator is the
+    /// sentence that matters: without it, a mean over eight sessions sits under a tile
+    /// counting twelve and reads as a fact about all of them.
+    /// </summary>
+    private string PromptsFootnote
+    {
+        get
+        {
+            // "Prompt" rather than "message you sent", on the waiting tile's precedent:
+            // the reader excludes tool results and injected skill text, and does not
+            // tell a typed prompt from one an SDK sent on your behalf.
+            const string whose = "Counted from Claude's transcripts — one per prompt, tool results and "
+                + "injected skill text excluded. Copilot records no prompt count, so its sessions are "
+                + "left out rather than counted as zero.";
+
+            return IsReady && Value!.SessionsWithPrompts > 0
+                ? $"Averaged over {Value!.SessionsWithPrompts} of {Value!.Sessions} sessions. {whose}"
+                : whose;
+        }
+    }
 
     /// <summary>
     /// The grid as the chart component wants it: one series per day, each carrying all

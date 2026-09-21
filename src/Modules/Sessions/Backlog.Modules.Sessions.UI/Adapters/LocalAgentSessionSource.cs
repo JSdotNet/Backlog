@@ -50,14 +50,17 @@ internal sealed class LocalAgentSessionSource : IAgentSessionSource
     private readonly CopilotSessionReader _copilot;
 
     /// <summary>What a host composes: the two agents' own folders in the profile of
-    /// whoever is signed in, this device's identity, and the wall clock.</summary>
-    internal LocalAgentSessionSource(IDeviceIdentitySource identity)
+    /// whoever is signed in, this device's identity, the wall clock, and — when the
+    /// host has one — the cache that spares the Claude reader a pass over every
+    /// transcript it has already read.</summary>
+    internal LocalAgentSessionSource(IDeviceIdentitySource identity, ITranscriptFactsCache? facts = null)
         : this(
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude"),
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".copilot"),
             IdOf(identity),
             identity.Current.Name,
-            TimeProvider.System)
+            TimeProvider.System,
+            facts)
     {
     }
 
@@ -69,9 +72,10 @@ internal sealed class LocalAgentSessionSource : IAgentSessionSource
         string copilotHome,
         string environmentId,
         string environment,
-        TimeProvider clock)
+        TimeProvider clock,
+        ITranscriptFactsCache? facts = null)
     {
-        _claude = new ClaudeSessionReader(claudeHome, environmentId, environment, clock);
+        _claude = new ClaudeSessionReader(claudeHome, environmentId, environment, clock, facts);
         _copilot = new CopilotSessionReader(copilotHome, environmentId, environment, clock);
     }
 

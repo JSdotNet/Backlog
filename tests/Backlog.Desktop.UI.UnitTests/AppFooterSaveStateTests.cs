@@ -108,6 +108,7 @@ public sealed class AppFooterSaveStateTests
                 new GitHubSettingsStore(Path.Combine(root, "github.json")),
                 new SilentGitHubClient(),
                 new SilentProbe())));
+        context.Services.AddSingleton<FeedbackReportChannel>();
 
         if (status is not null) context.Services.AddSingleton(status);
 
@@ -131,6 +132,8 @@ public sealed class AppFooterSaveStateTests
 
     private sealed class SilentGitHubClient : IGitHubClient
     {
+        public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
         public Task<GitHubIssue> CreateIssueAsync(GitHubRepositoryRef repository, string title, string? body, IEnumerable<string>? labels = null, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 

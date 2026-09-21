@@ -35,6 +35,7 @@ using Backlog.Modules.Sessions.UI.Extensions;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Devbook;
 using Backlog.Infrastructure.Sync;
+using Backlog.Infrastructure.Sync.Annotations;
 using Backlog.Infrastructure.Sync.Extensions;
 using Backlog.Infrastructure.Sync.Sessions;
 using Backlog.UI.Components.Diagrams;
@@ -81,11 +82,6 @@ builder.Services.AddSingleton<IDevbookFolderSource>(sp => new DevbookFolderSourc
     sp.GetRequiredService<IDevbookSnapshotCache>()));
 builder.Services.AddSingleton<ITaskStore>(sp => new WorkspaceTaskStore(
     sp.GetRequiredService<WorkspaceSettingsStore>()));
-// How often the list re-reads a store somebody else may have written to. Scoped
-// to the content root like the harness's other settings files, so a session here
-// never rewrites the real per-user choice.
-builder.Services.AddSingleton<ITasksRefreshSettings>(
-    _ => CreateLocalDevelopmentRefreshSettingsStore(builder.Environment.ContentRootPath));
 // Which hours the reader means to be working — written on the settings screen,
 // read by the dashboard to shade a grid. Scoped to the content root like the
 // harness's other settings files, so a session here never rewrites the real
@@ -128,11 +124,13 @@ builder.Services.AddSingleton<IRoadmapPlanRepository>(sp =>
 builder.Services.AddRoadmapModule();
 
 // The same arrangement for capture: the module brings the run, and the host picks
-// where the monitored sources are kept. Scoped to the content root like the
-// harness's other settings files, so a session here never rewrites the real
-// per-user choice.
+// where the monitored sources are kept and where what past runs said is kept.
+// Both scoped to the content root like the harness's other settings files, so a
+// session here never rewrites the real per-user choice or its log.
 builder.Services.AddSingleton<ICaptureSourceSettings>(
     _ => CreateLocalDevelopmentCaptureSourcesSettingsStore(builder.Environment.ContentRootPath));
+builder.Services.AddSingleton<ICaptureRunLog>(
+    _ => CreateLocalDevelopmentCaptureRunLogStore(builder.Environment.ContentRootPath));
 builder.Services.AddCaptureModule();
 
 // The two cross-context joins the plan takes part in, answered by adapters that may
@@ -211,9 +209,24 @@ builder.Services.AddSingleton<ITaskSyncStateStore>(_ => TaskSyncStateStoreFactor
 // the other had pushed - silently, because nothing about that fails. A folder
 // rather than a path, because two stores is an implementation detail of the
 // exchange and where they live is not.
+// What the last backup did, scoped to this harness's content root like the sync
+// state above and for the same reason: a shared file would let two harnesses
+// count each other's backups as their own.
+builder.Services.AddSingleton<IBackupStateStore>(_ => new FileBackupStateStore(
+    Environment.GetEnvironmentVariable("BACKLOG_DESKTOP_BACKUP_STATE_PATH") is { Length: > 0 } backupStatePath
+        ? backupStatePath
+        : Path.Combine(builder.Environment.ContentRootPath, "obj", "local-development", "backup-state.json")));
+builder.Services.AddSingleton<BackupWorker>();
 builder.Services.AddSessionSyncStores(
     Environment.GetEnvironmentVariable("BACKLOG_DESKTOP_SESSION_SYNC_PATH") is { Length: > 0 } sessionSyncFolder
         ? sessionSyncFolder
+        : Path.Combine(builder.Environment.ContentRootPath, "obj", "local-development"));
+// Annotation replication's progress file, scoped and overridable the same way
+// and for the same reason: two harnesses sharing an annotation watermark would
+// each skip what the other had pushed.
+builder.Services.AddAnnotationSyncStore(
+    Environment.GetEnvironmentVariable("BACKLOG_DESKTOP_ANNOTATION_SYNC_PATH") is { Length: > 0 } annotationSyncFolder
+        ? annotationSyncFolder
         : Path.Combine(builder.Environment.ContentRootPath, "obj", "local-development"));
 // Where the sync service is, resolved the way the desktop head resolves it so the
 // Settings page behaves the same here: a URL entered there, then BACKLOG_SYNC_URL,
@@ -233,7 +246,10 @@ builder.Services.AddSingleton<SyncServiceEndpoint>();
 builder.Services.AddSyncClient(SyncServiceAddress);
 builder.Services.AddTaskSyncClient(SyncServiceAddress);
 builder.Services.AddSingleton(_ => CreateLocalDevelopmentAzureFoundrySettingsStore(builder.Environment.ContentRootPath));
-builder.Services.AddHttpClient<IAzureFoundryChatClient, AzureFoundryChatClient>();
+// The chat client's pipeline is the adapter's own, sized for a completion rather
+// than for the service-to-service defaults AddServiceDefaults puts on every other
+// client — see AzureFoundryRegistration.
+builder.Services.AddAzureFoundryChatClient();
 // The Inbox's plan drafter over the same chat client. Scoped, like the other
 // port adapters the Inbox module takes: the handler that asks for it is
 // scoped, and the typed client behind it is transient either way.
@@ -258,17 +274,29 @@ builder.Services.AddSingleton<IGitHubIdentityClient>(sp => new GitHubIdentityCli
 // under the backlog root - see ActivityCacheDirectory.
 builder.Services.AddSingleton<IPullRequestDetailCache>(sp => new PullRequestDetailCache(
     () => sp.GetRequiredService<WorkspaceSettingsStore>().ActivityCacheDirectory));
+// And the listing cache is what keeps it from re-walking the pages that found
+// those pull requests. Same folder, so forgetting a repository is one gesture
+// that drops both.
+builder.Services.AddSingleton<IActivityListingCache>(sp => new ActivityListingCache(
+    () => sp.GetRequiredService<WorkspaceSettingsStore>().ActivityCacheDirectory));
 builder.Services.AddSingleton<IGitHubActivityClient>(sp => new GitHubActivityClient(
     sp.GetRequiredService<ResolvingGitHubTransport>(),
-    sp.GetRequiredService<IPullRequestDetailCache>()));
+    sp.GetRequiredService<IPullRequestDetailCache>(),
+    sp.GetRequiredService<IActivityListingCache>()));
 // Counts only, over the search API, for the stretches of history the detailed
 // client is too expensive to walk.
 builder.Services.AddSingleton<IGitHubActivityBaselineClient>(sp => new GitHubActivityBaselineClient(
     sp.GetRequiredService<ResolvingGitHubTransport>()));
+// Settled Copilot months and settled Claude days are kept beside each other
+// under the spend cache - see SpendCacheDirectory for why it is a folder of its
+// own - so a seven-month trend costs the running month and nothing else.
+builder.Services.AddSingleton<IAiCreditUsageCache>(sp => new AiCreditUsageCache(
+    () => sp.GetRequiredService<WorkspaceSettingsStore>().SpendCacheDirectory));
 builder.Services.AddSingleton<IGitHubBillingClient>(sp => new GitHubBillingClient(
     sp.GetRequiredService<ResolvingGitHubTransport>(),
     sp.GetRequiredService<IGitHubIdentityClient>(),
-    sp.GetRequiredService<GitHubSettingsStore>()));
+    sp.GetRequiredService<GitHubSettingsStore>(),
+    sp.GetRequiredService<IAiCreditUsageCache>()));
 
 // Claude usage reporting reports itself unavailable until an Admin API key is
 // configured, so it is safe to register unconditionally.
@@ -277,6 +305,8 @@ builder.Services.AddHttpClient<IClaudeTransport, ClaudeAdminTransport>();
 builder.Services.AddSingleton<IClaudeUsageClient>(sp => new ClaudeUsageClient(
     sp.GetRequiredService<IClaudeTransport>(),
     sp.GetRequiredService<ClaudeSettingsStore>()));
+builder.Services.AddSingleton<IClaudeCodeUsageCache>(sp => new ClaudeCodeUsageCache(
+    () => sp.GetRequiredService<WorkspaceSettingsStore>().SpendCacheDirectory));
 
 // The Dashboard module brings its derivations; the adapters beside it decide which
 // providers are behind them. Registered after the provider clients above, which is
@@ -294,7 +324,14 @@ builder.Services.AddTasksAdapters();
 
 builder.Services.AddSingleton<GitHubIntegration>();
 builder.Services.AddSingleton<FeedbackReporter>();
+// Scoped, unlike the reporter above it: a request to open the Report issue
+// dialog belongs to the circuit that raised it, not to every tab on the harness.
+builder.Services.AddScoped<FeedbackReportChannel>();
+// This assembly's own pages, under Components/Pages: they exist only to be
+// driven — the shipped app has no route that throws on request.
+builder.Services.AddSingleton(new AdditionalRouteAssemblies([typeof(Program).Assembly]));
 builder.Services.AddSingleton<DesignDevbookProvider>();
+builder.Services.AddSingleton<AiDevbookProvider>();
 builder.Services.AddSingleton<TechnologyDevbookService>();
 builder.Services.AddSingleton<DevbookAtlasService>();
 // Retrieval, both tiers. Adapters over the generated database rather than over
@@ -314,6 +351,11 @@ builder.Services.AddSingleton<Arc42DevbookStore>();
 // is off, so registering it does not turn it on.
 builder.Services.AddSingleton<C4DevbookStore>();
 builder.Services.AddSingleton<DevbookChapterWriter>();
+// A person's remarks on Devbook chapters, under the storage folder with the rest
+// of the person's data and following the root the way the inbox store does.
+// Composed the same way in src/App/Backlog.Desktop/MauiProgram.cs.
+builder.Services.AddSingleton<IDevbookAnnotationStore>(sp =>
+    new DevbookAnnotationStore(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
 builder.Services.AddSingleton<IFolderEditorLauncher, UnsupportedFolderEditorLauncher>();
 builder.Services.AddSingleton<DevbookFolderOpenService>();
 builder.Services.AddSingleton(_ => TasksCopilotCli.Unavailable);
@@ -368,11 +410,20 @@ builder.Services.AddAgentSessionSource();
 // Sync switch as the task loop.
 builder.Services.AddSessionSyncClient(SyncServiceAddress);
 
+// Annotation replication, the third exchange over the same token pipeline, on
+// the same terms as the session one above and composed the same way in
+// src/App/Backlog.Desktop/MauiProgram.cs.
+builder.Services.AddAnnotationSyncClient(SyncServiceAddress);
+
 // What a transcript's parsed runs are kept in, so an activity read parses only the
 // transcripts that have changed. Beside the per-user settings and never under the
 // backlog root - see ActivityCacheDirectory: ADR 0005 syncs the workspace, and a
 // per-machine parse cache travelling to another device is exactly the hazard.
 builder.Services.AddSingleton<IAgentActivityCache>(sp => new AgentActivityCache(
+    () => sp.GetRequiredService<WorkspaceSettingsStore>().SessionActivityCacheDirectory));
+// The other pass over the same transcripts: the folder, branch and turn count the
+// session list reads. Same folder, same reasons, forgotten together.
+builder.Services.AddSingleton<ITranscriptFactsCache>(sp => new TranscriptFactsCache(
     () => sp.GetRequiredService<WorkspaceSettingsStore>().SessionActivityCacheDirectory));
 
 // When those sessions were actually producing, read out of the bodies of the
@@ -419,6 +470,13 @@ _ = app.Services.GetRequiredService<TaskSyncWorker>();
 // switchable features would have to run whenever either was on, and would give the
 // two one shared error to report.
 _ = app.Services.GetRequiredService<SessionSyncWorker>();
+
+// And annotation replication's loop, the third sibling, on the same terms.
+_ = app.Services.GetRequiredService<AnnotationSyncWorker>();
+
+// And the backup loop, on the same terms: a timer that only existed while the
+// Storage tab was open would miss every slot it was set for.
+_ = app.Services.GetRequiredService<BackupWorker>();
 
 if (!app.Environment.IsDevelopment())
 {
@@ -535,17 +593,6 @@ static AppFeatureSettingsStore CreateLocalDevelopmentFeatureSettingsStore(string
     return new AppFeatureSettingsStore(AppFeatures.All, settingsPath);
 }
 
-static TasksRefreshSettingsStore CreateLocalDevelopmentRefreshSettingsStore(string contentRootPath)
-{
-    var settingsPath = Environment.GetEnvironmentVariable("BACKLOG_REFRESH_SETTINGS_PATH");
-    if (string.IsNullOrWhiteSpace(settingsPath))
-    {
-        settingsPath = Path.Combine(contentRootPath, "obj", "local-development", "refresh.settings.json");
-    }
-
-    return new TasksRefreshSettingsStore(settingsPath);
-}
-
 static WorkingHoursSettingsStore CreateLocalDevelopmentWorkingHoursSettingsStore(string contentRootPath)
 {
     var settingsPath = Environment.GetEnvironmentVariable("BACKLOG_WORKING_HOURS_SETTINGS_PATH");
@@ -566,6 +613,17 @@ static CaptureSourcesSettingsStore CreateLocalDevelopmentCaptureSourcesSettingsS
     }
 
     return new CaptureSourcesSettingsStore(settingsPath);
+}
+
+static CaptureRunLogStore CreateLocalDevelopmentCaptureRunLogStore(string contentRootPath)
+{
+    var logPath = Environment.GetEnvironmentVariable("BACKLOG_CAPTURE_RUN_LOG_PATH");
+    if (string.IsNullOrWhiteSpace(logPath))
+    {
+        logPath = Path.Combine(contentRootPath, "obj", "local-development", "capture-runs.json");
+    }
+
+    return new CaptureRunLogStore(logPath);
 }
 
 static DeviceIdentityStore CreateLocalDevelopmentDeviceIdentityStore(string contentRootPath)

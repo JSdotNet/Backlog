@@ -8,7 +8,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// The pane asks its port and renders the answer. What is asserted here is the part
 /// that is the pane's own: that it opens on the live sessions and says so in both
 /// numbers, that the grouping control rearranges the rows without removing any
-/// while the view is the control that does remove them, that a source which could
+/// while the view and the environment are the controls that do remove them, that a source which could
 /// not be read is named rather than swallowed, and that "no sessions", "nothing
 /// live" and "could not read" do not look alike.
 /// <para>
@@ -343,6 +343,264 @@ public sealed class SessionsPaneTests
 
         second.WaitForAssertion(() =>
             Assert.Equal("true", second.Find("[data-testid='sessions-view-live']").GetAttribute("aria-pressed")));
+    }
+
+    // --- The environment ---------------------------------------------------
+
+    /// <summary>
+    /// The select offers every environment the reading holds a record of, headed by
+    /// the way out of it. Read off the whole catalog and not the view: the pane
+    /// opens on Live, and DEV-LAPTOP's only session is finished, so an option list
+    /// derived from the rows on screen would be missing the machine a reader most
+    /// plausibly opened this to look for.
+    /// </summary>
+    [Fact]
+    public void The_environment_select_offers_every_machine_with_a_record()
+    {
+        using var context = Context(Sample);
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            var options = pane.FindAll("[data-testid='sessions-machine-filter'] option");
+
+            Assert.Equal(
+                ["All machines", "DEV-LAPTOP", "DEV-TOWER"],
+                options.Select(option => option.TextContent.Trim()));
+
+            // The value is the id and the label is the name, which is the whole
+            // reason a session carries both.
+            Assert.Equal(["", "laptop", "tower"], options.Select(option => option.GetAttribute("value")));
+        });
+    }
+
+    [Fact]
+    public void All_environments_is_where_the_pane_opens()
+    {
+        using var context = Context(Sample);
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            AssertAllEnvironments(pane);
+
+            // Nothing narrowed by machine yet: the two rows hidden are the view's
+            // doing alone, and the count is the one Live over four has always said.
+            Assert.Equal("2 of 4 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim());
+        });
+    }
+
+    /// <summary>
+    /// Narrowing to one machine keeps only its rows, and the badge names both
+    /// numbers — the total is still the catalog's, because the reader's own
+    /// subtraction is stated beside it rather than folded into it.
+    /// </summary>
+    [Fact]
+    public void Choosing_an_environment_keeps_only_its_rows_and_says_how_many_of_how_many()
+    {
+        using var context = Context(Sample);
+
+        var pane = context.Render<SessionsPane>();
+
+        ShowAll(pane);
+        pane.Find("[data-testid='sessions-machine-filter'] select").Change("laptop");
+
+        pane.WaitForAssertion(() =>
+        {
+            var row = Assert.Single(pane.FindAll(".data-table__row"));
+
+            Assert.Contains("JSdotNet/Project-Guidelines-MCP", row.TextContent);
+            Assert.Equal("1 of 4 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim());
+        });
+    }
+
+    /// <summary>
+    /// The two filters compose, and the badge reports what the two together left
+    /// out. Live on DEV-TOWER is the running and the stalled session; the finished
+    /// one on the same machine and everything on the laptop are gone.
+    /// </summary>
+    [Fact]
+    public void The_environment_and_the_view_narrow_together()
+    {
+        using var context = Context(Sample);
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='sessions-machine-filter'] select")));
+        pane.Find("[data-testid='sessions-machine-filter'] select").Change("tower");
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(2, pane.FindAll(".data-table__row").Count);
+            Assert.Equal("2 of 4 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim());
+        });
+
+        pane.Find("[data-testid='sessions-view-all']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(3, pane.FindAll(".data-table__row").Count);
+            Assert.Equal("3 of 4 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim());
+        });
+    }
+
+    [Fact]
+    public void Choosing_all_environments_again_widens_the_list_back_out()
+    {
+        using var context = Context(Sample);
+
+        var pane = context.Render<SessionsPane>();
+
+        ShowAll(pane);
+        pane.Find("[data-testid='sessions-machine-filter'] select").Change("laptop");
+        pane.WaitForAssertion(() => Assert.Single(pane.FindAll(".data-table__row")));
+
+        // The empty option's value, which is what a select hands back for it.
+        pane.Find("[data-testid='sessions-machine-filter'] select").Change("");
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(4, pane.FindAll(".data-table__row").Count);
+            Assert.Equal("4 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim());
+        });
+    }
+
+    /// <summary>
+    /// Grouping still removes none, with the environment narrowed. The invariant the
+    /// count carries is that Group by never hides a row, and a second filter beside
+    /// Show must not give the grouping a way to look like it does.
+    /// </summary>
+    [Fact]
+    public void Grouping_moves_a_narrowed_lists_rows_and_removes_none()
+    {
+        using var context = Context(Sample);
+
+        var pane = context.Render<SessionsPane>();
+
+        ShowAll(pane);
+        pane.Find("[data-testid='sessions-machine-filter'] select").Change("tower");
+        pane.WaitForAssertion(() => Assert.Equal(3, pane.FindAll(".data-table__row").Count));
+
+        foreach (var grouping in new[] { "environment", "type", "none" })
+        {
+            pane.Find($"[data-testid='sessions-group-{grouping}']").Click();
+
+            pane.WaitForAssertion(() =>
+            {
+                Assert.Equal(3, pane.FindAll(".data-table__row").Count);
+                Assert.Equal("3 of 4 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim());
+            });
+        }
+
+        // And the one section a narrowed list grouped by environment has is the
+        // environment it was narrowed to, under the name the option had.
+        pane.Find("[data-testid='sessions-group-environment']").Click();
+        pane.WaitForAssertion(() =>
+            Assert.Equal("DEV-TOWER", Assert.Single(pane.FindAll(".data-table__group-name")).TextContent.Trim()));
+    }
+
+    /// <summary>
+    /// Live on a machine with nothing live is an empty list, and the empty state
+    /// names the machine and the way back out — counting that machine's sessions,
+    /// not the PC's. "No sessions on this PC" over a catalog of four would be
+    /// blaming the machine for the reader's own two filters.
+    /// </summary>
+    [Fact]
+    public void An_environment_with_nothing_live_says_so_and_names_the_way_back_out()
+    {
+        using var context = Context(Sample);
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='sessions-machine-filter'] select")));
+        pane.Find("[data-testid='sessions-machine-filter'] select").Change("laptop");
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Empty(pane.FindAll(".data-table__row"));
+            Assert.Equal("0 of 4 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim());
+
+            Assert.Contains("No live sessions on DEV-LAPTOP right now.", pane.Markup);
+            Assert.Contains("Nothing on DEV-LAPTOP is running or stalled. Choose All to see the 1 session recorded there.", pane.Markup);
+            Assert.DoesNotContain("No sessions on this PC.", pane.Markup);
+        });
+    }
+
+    [Fact]
+    public void Reopening_the_pane_opens_on_all_environments_again()
+    {
+        using var context = Context(Sample);
+
+        var first = context.Render<SessionsPane>();
+
+        first.WaitForAssertion(() => Assert.NotEmpty(first.FindAll("[data-testid='sessions-machine-filter'] select")));
+        first.Find("[data-testid='sessions-machine-filter'] select").Change("tower");
+        first.WaitForAssertion(() =>
+            Assert.Equal("tower", first.Find("[data-testid='sessions-machine-filter'] select").GetAttribute("value")));
+
+        var second = context.Render<SessionsPane>();
+
+        second.WaitForAssertion(() =>
+        {
+            AssertAllEnvironments(second);
+            Assert.Equal("2 of 4 sessions", second.Find("[data-testid='sessions-count']").TextContent.Trim());
+        });
+    }
+
+    /// <summary>
+    /// A re-read can lose the environment the list was narrowed to. Left in place,
+    /// the select would show "All machines" — no option matches — over a list
+    /// narrowed to a machine that is no longer offered, which is the control lying
+    /// about what it is doing. The pane widens back out instead.
+    /// </summary>
+    [Fact]
+    public void A_refresh_that_loses_the_chosen_environment_widens_back_out()
+    {
+        var source = new ChangingSessionSource(Sample);
+        using var context = Context(source);
+
+        var pane = context.Render<SessionsPane>();
+
+        ShowAll(pane);
+        pane.Find("[data-testid='sessions-machine-filter'] select").Change("laptop");
+        pane.WaitForAssertion(() => Assert.Single(pane.FindAll(".data-table__row")));
+
+        // The laptop's only record has aged past the cap.
+        source.Sessions = [Sample[0], Sample[1], Sample[3]];
+        pane.Find("[data-testid='sessions-refresh']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            AssertAllEnvironments(pane);
+            Assert.Equal(3, pane.FindAll(".data-table__row").Count);
+            Assert.Equal("3 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim());
+            Assert.DoesNotContain("DEV-LAPTOP", pane.Find("[data-testid='sessions-machine-filter']").TextContent);
+        });
+    }
+
+    /// <summary>
+    /// A replicated record's machine is an option like any other, keyed on its sync
+    /// device id, so a reader can narrow to the laptop's sessions from the tower.
+    /// </summary>
+    [Fact]
+    public void A_machine_that_only_reported_is_an_environment_to_narrow_to()
+    {
+        using var context = Context([Sample[0], Replicated()]);
+
+        var pane = context.Render<SessionsPane>();
+
+        ShowAll(pane);
+        pane.Find("[data-testid='sessions-machine-filter'] select").Change("8f3d5c11-0b7a-4e2d-9c61-2a4f7d0e5b83");
+
+        pane.WaitForAssertion(() =>
+        {
+            var row = Assert.Single(pane.FindAll(".data-table__row"));
+
+            Assert.NotNull(row.QuerySelector("[data-testid='sessions-origin']"));
+            Assert.Equal("1 of 2 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim());
+        });
     }
 
     /// <summary>
@@ -759,6 +1017,137 @@ public sealed class SessionsPaneTests
             Assert.Equal("true", pane.Find("[data-testid='sessions-view-all']").GetAttribute("aria-pressed")));
     }
 
+    /// <summary>
+    /// The machine select is on "All machines". Blazor leaves the
+    /// <c>value</c> attribute off a select whose current value is null, so "not
+    /// narrowed" is an absent attribute as much as an empty one, and a test that
+    /// asked for the empty string alone would be asserting a rendering detail.
+    /// </summary>
+    private static void AssertAllEnvironments(IRenderedComponent<SessionsPane> pane) =>
+        Assert.True(string.IsNullOrEmpty(
+            pane.Find("[data-testid='sessions-machine-filter'] select").GetAttribute("value")));
+
+    /// <summary>
+    /// The header's repository scope narrows the list to the sessions whose recorded
+    /// repository resolves to a scoped alias — a Copilot <c>owner/name</c> and a
+    /// replicated alias both count — and a session that recorded none is out, which
+    /// is every local Claude session. The badge and the subtitle both say so.
+    /// </summary>
+    [Fact]
+    public void The_repository_scope_keeps_the_sessions_that_recorded_a_scoped_repository()
+    {
+        using var context = Context([.. Sample, Replicated()]);
+
+        var pane = context.Render<SessionsPane>(parameters => parameters
+            .Add(p => p.RepositoryScope, new[] { "backlog" })
+            .Add(p => p.RepositoryAlias, AliasFor));
+
+        pane.Find("[data-testid='sessions-view-all']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            // The local Copilot row for JSdotNet/Backlog and the replicated row that
+            // arrived as "backlog". The running Claude row recorded no repository and
+            // the two other Copilot rows are elsewhere.
+            Assert.Equal("2 of 5 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim());
+
+            var rows = pane.FindAll(".data-table__row");
+            Assert.Equal(2, rows.Count);
+            Assert.DoesNotContain(rows, row => row.TextContent.Contains("keen-bose-667825", StringComparison.Ordinal));
+
+            var subtitle = pane.Find("[data-testid='sessions-subtitle']").TextContent;
+            Assert.Contains("Narrowed to backlog", subtitle, StringComparison.Ordinal);
+            Assert.Contains("Claude records none", subtitle, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void A_scope_holds_several_repositories_and_the_scope_is_applied_before_the_view()
+    {
+        using var context = Context(Sample);
+
+        var pane = context.Render<SessionsPane>(parameters => parameters
+            .Add(p => p.RepositoryScope, new[] { "backlog", "archify" })
+            .Add(p => p.RepositoryAlias, AliasFor));
+
+        // Live: only the stalled Archify session is both in scope and live.
+        pane.WaitForAssertion(() =>
+            Assert.Equal("1 of 4 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim()));
+
+        pane.Find("[data-testid='sessions-view-all']").Click();
+
+        pane.WaitForAssertion(() =>
+            Assert.Equal("2 of 4 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim()));
+    }
+
+    /// <summary>
+    /// A scope nothing matches is an empty list that says why — and it says the
+    /// scope, not the view, because switching to All would not bring anything back.
+    /// </summary>
+    [Fact]
+    public void A_scope_nothing_recorded_explains_itself_rather_than_blaming_the_view()
+    {
+        using var context = Context(Sample);
+
+        var pane = context.Render<SessionsPane>(parameters => parameters
+            .Add(p => p.RepositoryScope, new[] { "docs" })
+            .Add(p => p.RepositoryAlias, AliasFor));
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal("0 of 4 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim());
+            Assert.Contains("No sessions in docs.", pane.Markup, StringComparison.Ordinal);
+            Assert.Contains("Clear the repository scope in the header", pane.Markup, StringComparison.Ordinal);
+        });
+    }
+
+    /// <summary>
+    /// A scope with sessions in it and none of them live: the way back names the
+    /// count in scope, because that is what the other view brings back — not the
+    /// catalog's two hundred.
+    /// </summary>
+    [Fact]
+    public void A_scoped_list_with_nothing_live_offers_the_scoped_count_as_the_way_back()
+    {
+        using var context = Context(Sample);
+
+        var pane = context.Render<SessionsPane>(parameters => parameters
+            .Add(p => p.RepositoryScope, new[] { "backlog" })
+            .Add(p => p.RepositoryAlias, AliasFor));
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal("0 of 4 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim());
+            Assert.Contains("Nothing in backlog is running or stalled. Choose All to see the 1 session recorded there.", pane.Markup, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void An_empty_scope_is_no_scope()
+    {
+        using var context = Context(Sample);
+
+        var pane = context.Render<SessionsPane>(parameters => parameters
+            .Add(p => p.RepositoryScope, Array.Empty<string>())
+            .Add(p => p.RepositoryAlias, AliasFor));
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal("2 of 4 sessions", pane.Find("[data-testid='sessions-count']").TextContent.Trim());
+            Assert.DoesNotContain("Narrowed to", pane.Find("[data-testid='sessions-subtitle']").TextContent, StringComparison.Ordinal);
+        });
+    }
+
+    /// <summary>What the shell answers for the sample: the configured aliases for
+    /// two of its repositories, by <c>owner/name</c> or by alias, and nothing for
+    /// the rest.</summary>
+    private static string? AliasFor(string? repository) => repository?.ToLowerInvariant() switch
+    {
+        "jsdotnet/backlog" or "backlog" => "backlog",
+        "jsdotnet/archify" or "archify" => "archify",
+        _ => null
+    };
+
     private static BunitContext Context(
         IReadOnlyList<AgentSession> sessions,
         IReadOnlyList<string>? unreadable = null,
@@ -886,5 +1275,15 @@ public sealed class SessionsPaneTests
 
             return Task.FromResult(new AgentSessionCatalog(sessions, unreadable, discovered));
         }
+    }
+
+    /// <summary>A source whose answer can change between reads, for the one test
+    /// about what a refresh does to a choice the new reading no longer offers.</summary>
+    private sealed class ChangingSessionSource(IReadOnlyList<AgentSession> sessions) : IAgentSessionSource
+    {
+        internal IReadOnlyList<AgentSession> Sessions { get; set; } = sessions;
+
+        public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(new AgentSessionCatalog(Sessions, [], Sessions.Count));
     }
 }

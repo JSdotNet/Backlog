@@ -425,7 +425,7 @@ public sealed class SessionSyncSessionTests
     /// second call to say the same thing is a second thing for a person to
     /// read.</summary>
     [Fact]
-    public async Task A_failed_pull_stops_the_exchange()
+    public async Task A_failed_push_stops_the_exchange()
     {
         using var fixture = Fixture.Create(
             sessions: [AgentSessions.Local()],
@@ -434,21 +434,7 @@ public sealed class SessionSyncSessionTests
         var result = await fixture.Session.SyncAsync(TestContext.Current.CancellationToken);
 
         Assert.True(result.IsFailure);
-        Assert.Equal(HttpMethod.Get, Assert.Single(fixture.Handler.Requests).Method);
-    }
-
-    /// <summary>Pull, then push - the same order as the task exchange, so the two
-    /// loops are one thing to reason about.</summary>
-    [Fact]
-    public async Task Syncing_pulls_before_it_pushes()
-    {
-        using var fixture = Fixture.Create(sessions: [AgentSessions.Local()]);
-
-        var result = await fixture.Session.SyncAsync(TestContext.Current.CancellationToken);
-
-        Assert.True(result.IsSuccess);
-        Assert.Equal(HttpMethod.Get, fixture.Handler.Requests[0].Method);
-        Assert.Equal(HttpMethod.Post, fixture.Handler.Requests[1].Method);
+        Assert.Single(fixture.Handler.Requests);
     }
 
     // --- Whose progress this is -----------------------------------------------
@@ -492,6 +478,51 @@ public sealed class SessionSyncSessionTests
 
         Assert.Contains("\"old\"", fixture.LastBody, StringComparison.Ordinal);
         Assert.Equal(ThisOwner, fixture.State.Current.OwnerId);
+    }
+
+    // --- What the log says moved -----------------------------------------------
+
+    /// <summary>
+    /// A sent record is named in the log by the local session's title. The
+    /// record on the wire carries no title — the whitelist leaves it behind on
+    /// purpose — but the log is this machine's and the title never leaves it.
+    /// </summary>
+    [Fact]
+    public async Task A_pushed_session_is_recorded_as_sent_under_its_local_title()
+    {
+        var activity = new SyncActivityLog();
+        using var fixture = Fixture.Create(sessions: [AgentSessions.Local(title: "Fix the pairing dialog")], activity: activity);
+
+        await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
+
+        var entry = Assert.Single(activity.Snapshot());
+        Assert.Equal(SyncDirection.Sent, entry.Direction);
+        Assert.Equal(SyncItemKind.Session, entry.Kind);
+        Assert.Equal("session-1", entry.Id);
+        Assert.Equal("Fix the pairing dialog", entry.Title);
+    }
+
+    /// <summary>What arrives is named by where it ran, since that is all the
+    /// record says and the thing a person wants to know about a session that is
+    /// not theirs — and the device's own echo, which is dropped, is not listed
+    /// as received either.</summary>
+    [Fact]
+    public async Task A_pulled_session_is_recorded_as_received_by_machine_and_the_echo_is_not()
+    {
+        var activity = new SyncActivityLog();
+        using var fixture = Fixture.Create(
+            respond: (request, _) => request.Method == HttpMethod.Get
+                ? Page(Entry(ThisDevice, "mine") + "," + Entry(OtherDevice, "theirs"), "cursor-1", hasMore: false)
+                : StubHttpMessageHandler.Json(HttpStatusCode.OK, """{"accepted":0}"""),
+            activity: activity);
+
+        await fixture.Session.PullAsync(TestContext.Current.CancellationToken);
+
+        var entry = Assert.Single(activity.Snapshot());
+        Assert.Equal(SyncDirection.Received, entry.Direction);
+        Assert.Equal(SyncItemKind.Session, entry.Kind);
+        Assert.Equal("theirs", entry.Id);
+        Assert.Equal("claude session on Laptop · backlog on main", entry.Title);
     }
 
     // --- Fixture ---------------------------------------------------------------
@@ -561,7 +592,8 @@ public sealed class SessionSyncSessionTests
             AgentSession[]? sessions = null,
             Dictionary<string, string>? aliases = null,
             SessionSyncState? state = null,
-            Func<HttpRequestMessage, int, HttpResponseMessage>? respond = null)
+            Func<HttpRequestMessage, int, HttpResponseMessage>? respond = null,
+            SyncActivityLog? activity = null)
         {
             var bodies = new List<string>();
             var queries = new List<string>();
@@ -602,7 +634,8 @@ public sealed class SessionSyncSessionTests
                 stateStore,
                 replica,
                 credentials,
-                clock);
+                clock,
+                activity);
 
             return new Fixture(http, handler, session, stateStore, replica, clock, bodies, queries);
         }

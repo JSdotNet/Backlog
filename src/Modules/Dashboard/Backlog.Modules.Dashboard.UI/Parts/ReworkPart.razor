@@ -1,13 +1,21 @@
 @*
-    Rework, which on this dashboard means post-review churn: what happened to a
-    pull request after somebody had already reviewed it.
+    Rework, in the two shapes this dashboard can count it: post-review churn — what
+    happened to a pull request after somebody had already reviewed it — and
+    conflicted syncs, what it cost to keep the branch current with its base.
 
-    Three measures, all read from GitHub rather than inferred — commits whose time
-    is after the first review, force pushes after it, and files touched on both
-    sides of it. The denominator throughout is pull requests that were reviewed at
-    all, never every merge: a pull request nobody reviewed cannot have churned after
-    a review, and counting it as clean would let a quarter of unreviewed merges read
-    as a quarter of good ones.
+    Churn is five measures, all read from GitHub rather than inferred — commits
+    whose time is after the first review, force pushes after it, files touched on
+    both sides of it, and the two the reviewers themselves wrote down: how many
+    verdicts they submitted and how many of those asked for changes. The denominator
+    is pull requests that were reviewed at all, never every merge: a pull request
+    nobody reviewed cannot have churned after a review, and counting it as clean
+    would let a quarter of unreviewed merges read as a quarter of good ones.
+
+    Syncs have their own denominator on the same principle: pull requests whose
+    branch was merged with its base at all. A branch that never synced did not
+    avoid a conflict, it never risked one. Whether a sync conflicted is read from
+    the merge commit's own message, because GitHub keeps no record of it once the
+    merge is committed — so a silent merge reads as clean and the figure is a floor.
 
     When the per-commit inspection hit its cap, the note says the files figure is a
     floor. A capped number presented as a total is how a dashboard quietly stops
@@ -24,44 +32,82 @@
     @if (IsReady)
     {
         <div class="dashboard-part__stack">
-            <MetricGrid Label="Post-review churn" MinColumnWidth="12rem" TestId="dashboard-rework-tiles">
-                <MetricTile Label="Pull requests that churned"
-                            Value="@MetricFormat.Compact(Value!.PullRequestsWithChurn)"
-                            Unit="@($"of {Value!.PullRequestsReviewed} reviewed")"
-                            Emphasis="true"
-                            TestId="dashboard-rework-count" />
-                <MetricTile Label="Commits after first review"
-                            Value="@MetricFormat.Compact(Value!.CommitsAfterFirstReview)"
-                            TestId="dashboard-rework-commits" />
-                <MetricTile Label="Force pushes after first review"
-                            Value="@MetricFormat.Compact(Value!.ForcePushesAfterFirstReview)"
-                            TestId="dashboard-rework-forcepushes" />
-                <MetricTile Label="Files touched again"
-                            Value="@MetricFormat.Compact(Value!.FilesRetouched)"
-                            Footnote="@(Value!.ChurnComplete ? null : "At least — some commits were not inspected")"
-                            TestId="dashboard-rework-files" />
-            </MetricGrid>
-
-            <MetricBars Points="@Churned"
-                        Label="Pull requests that churned, per week"
-                        BucketHeading="Week"
-                        ValueHeading="Churned"
-                        HighlightLast="true"
-                        FormatValue="MetricFormat.Compact"
-                        TestId="dashboard-rework-bars" />
-
-            @* Only when there is more than one repository in the answer. A
-               one-row breakdown of the repository already named in the filter is a
-               restatement, not a comparison. *@
-            @if (Value!.ByRepository.Count > 1)
+            @* Each grid answers for its own denominator, so a window where nothing
+               was reviewed still shows its syncs, and one where nothing synced still
+               shows its churn. *@
+            @if (Value!.PullRequestsReviewed > 0)
             {
-                <MetricBreakdown Rows="@ByRepository"
-                                 Label="Churn by repository"
-                                 NameHeading="Repository"
-                                 TokensHeading="Commits after review"
-                                 ShareOf="MetricShareOf.Tokens"
-                                 ShowTotal="true"
-                                 TestId="dashboard-rework-breakdown" />
+                <MetricGrid Label="Post-review churn" MinColumnWidth="12rem" TestId="dashboard-rework-tiles">
+                    <MetricTile Label="Pull requests that churned"
+                                Value="@MetricFormat.Compact(Value!.PullRequestsWithChurn)"
+                                Unit="@($"of {Value!.PullRequestsReviewed} reviewed")"
+                                Emphasis="true"
+                                TestId="dashboard-rework-count" />
+                    <MetricTile Label="Commits after first review"
+                                Value="@MetricFormat.Compact(Value!.CommitsAfterFirstReview)"
+                                TestId="dashboard-rework-commits" />
+                    <MetricTile Label="Force pushes after first review"
+                                Value="@MetricFormat.Compact(Value!.ForcePushesAfterFirstReview)"
+                                TestId="dashboard-rework-forcepushes" />
+                    <MetricTile Label="Files touched again"
+                                Value="@MetricFormat.Compact(Value!.FilesRetouched)"
+                                Footnote="@(Value!.ChurnComplete ? null : "At least — some commits were not inspected")"
+                                TestId="dashboard-rework-files" />
+                    @* Verdicts, never comments: a review of state COMMENTED is a
+                       conversation, and counting it here would make every conversation
+                       look like a round of rework. *@
+                    <MetricTile Label="Review rounds"
+                                Value="@MetricFormat.Compact(Value!.ReviewRounds)"
+                                Footnote="Approvals and change requests, across reviewed pull requests"
+                                TestId="dashboard-rework-rounds" />
+                    <MetricTile Label="Changes requested"
+                                Value="@MetricFormat.Compact(Value!.ChangesRequested)"
+                                Footnote="Of those rounds"
+                                TestId="dashboard-rework-changes-requested" />
+                </MetricGrid>
+            }
+
+            @if (Value!.PullRequestsSynced > 0)
+            {
+                <MetricGrid Label="Syncs with the base branch" MinColumnWidth="12rem" TestId="dashboard-rework-sync-tiles">
+                    <MetricTile Label="Pull requests with a conflicted sync"
+                                Value="@MetricFormat.Compact(Value!.PullRequestsWithConflictedSync)"
+                                Unit="@($"of {Value!.PullRequestsSynced} synced")"
+                                Emphasis="true"
+                                TestId="dashboard-rework-conflicted" />
+                    <MetricTile Label="Sync merges"
+                                Value="@MetricFormat.Compact(Value!.SyncMerges)"
+                                TestId="dashboard-rework-syncs" />
+                    <MetricTile Label="Syncs that resolved a conflict"
+                                Value="@MetricFormat.Compact(Value!.ConflictedSyncMerges)"
+                                Footnote="At least — read from each merge's own message"
+                                TestId="dashboard-rework-conflicts" />
+                </MetricGrid>
+            }
+
+            @if (Value!.PullRequestsReviewed > 0)
+            {
+                <MetricBars Points="@Churned"
+                            Label="Pull requests that churned, per week"
+                            BucketHeading="Week"
+                            ValueHeading="Churned"
+                            HighlightLast="true"
+                            FormatValue="MetricFormat.Compact"
+                            TestId="dashboard-rework-bars" />
+
+                @* Only when there is more than one repository in the answer. A
+                   one-row breakdown of the repository already named in the filter is a
+                   restatement, not a comparison. *@
+                @if (Value!.ByRepository.Count > 1)
+                {
+                    <MetricBreakdown Rows="@ByRepository"
+                                     Label="Churn by repository"
+                                     NameHeading="Repository"
+                                     TokensHeading="Commits after review"
+                                     ShareOf="MetricShareOf.Tokens"
+                                     ShowTotal="true"
+                                     TestId="dashboard-rework-breakdown" />
+                }
             }
         </div>
     }
@@ -76,7 +122,8 @@
     {
         get
         {
-            var basis = "Commits, force pushes and files touched after the first review.";
+            var basis = "Commits, force pushes and files touched after the first review,"
+                + " the review verdicts themselves, and syncs with the base branch that resolved a conflict.";
 
             if (IsReady && !Value!.ChurnComplete)
             {
@@ -111,15 +158,18 @@
         Insights.GetReworkAsync(Scope, cancellationToken);
 
     /// <summary>
-    /// Empty when nothing was reviewed. Zero churn over twenty reviewed pull
-    /// requests is a result and renders as one — it is the answer this part exists
-    /// to be able to give.
+    /// Empty when nothing was reviewed and nothing was synced. Zero churn over
+    /// twenty reviewed pull requests is a result and renders as one — it is the
+    /// answer this part exists to be able to give — and so is zero conflicts over
+    /// twenty synced branches.
     /// </summary>
-    protected override bool IsEmpty(ReworkInsight value) => value.PullRequestsReviewed == 0;
+    protected override bool IsEmpty(ReworkInsight value) =>
+        value.PullRequestsReviewed == 0 && value.PullRequestsSynced == 0;
 
     protected override string EmptyMessage =>
-        "No pull request in this window was reviewed, so there is no post-review churn to report. "
-        + "That is not the same as none: work nobody reviewed cannot come back from a review.";
+        "No pull request in this window was reviewed or synced with its base branch, so there is no rework to report. "
+        + "That is not the same as none: work nobody reviewed cannot come back from a review, "
+        + "and a branch that never synced never risked a conflict.";
 
     protected override void InvalidateSource() => Insights.Invalidate(Scope);
 }

@@ -24,17 +24,16 @@ namespace Backlog.Modules.Dashboard.Services;
 /// </para>
 /// <para>
 /// The baseline is the exception to that, and deliberately so. It is a second
-/// source, and it can only remove the three volume inputs from the score — the four
-/// proportions still score without it. So a baseline that refuses is swallowed here
-/// rather than turned into an unavailable part: a readable card missing its
-/// throughput row is worth more to a reader than a sentence where the card was.
+/// source, and it can only empty the volume score — the quality score's proportions
+/// never needed it. So a baseline that refuses is swallowed here rather than turned
+/// into an unavailable part: a readable card missing its volume half is worth more
+/// to a reader than a sentence where the card was.
 /// </para>
 /// </remarks>
 public sealed class ProductivityInsights(
     IActivitySource activity,
     IActivityBaselineSource baseline,
     IRepositoryDirectory repositories,
-    ISessionInsights sessions,
     TimeProvider time) : IProductivityInsights
 {
     /// <summary>
@@ -106,9 +105,8 @@ public sealed class ProductivityInsights(
     /// <summary>
     /// The one shape all four parts share: ask whether the source can answer, then
     /// derive. Each derivation decides for itself what it has to fetch — the score
-    /// wants a baseline and the sessions figure beside the window, the trend wants
-    /// the unfocused window — but none of them has to repeat the availability check
-    /// or the failure contract.
+    /// wants a baseline beside the window, the trend wants the unfocused window — but
+    /// none of them has to repeat the availability check or the failure contract.
     /// </summary>
     private async Task<InsightResult<T>> DeriveAsync<T>(
         DashboardScope scope,
@@ -160,18 +158,18 @@ public sealed class ProductivityInsights(
         // quarter — a second time for the same answer. The parts say on screen that
         // the machine filter does not reach them; this is the other half of that
         // sentence.
-        var key = "activity|" + (scope.RepositoryAlias ?? "*") + "|" + scope.Weeks;
+        var key = "activity|" + scope.Repositories.Key + "|" + scope.Weeks;
 
-        return _cache.GetOrAddAsync(key, async () =>
+        return _cache.GetOrAddAsync(key, async shared =>
         {
             var scoped = Scoped(scope);
 
             var report = await activity
-                .GetActivityAsync(scoped, from, to, cancellationToken)
+                .GetActivityAsync(scoped, from, to, shared)
                 .ConfigureAwait(false);
 
             return new ScopedActivity(report, WeekBuckets.Buckets(from, to), scoped, scope);
-        });
+        }, cancellationToken);
     }
 
     /// <summary>
@@ -192,14 +190,14 @@ public sealed class ProductivityInsights(
     /// </remarks>
     private Task<ProductivityBaseline?> BaselineForAsync(DashboardScope scope, CancellationToken cancellationToken)
     {
-        var key = "baseline|" + (scope.RepositoryAlias ?? "*") + "|" + scope.Weeks;
+        var key = "baseline|" + scope.Repositories.Key + "|" + scope.Weeks;
 
-        return _cache.GetOrAddAsync<ProductivityBaseline?>(key, async () =>
+        return _cache.GetOrAddAsync<ProductivityBaseline?>(key, async shared =>
         {
             try
             {
                 var answer = await baseline
-                    .GetBaselineAsync(Scoped(scope), Blocks(), cancellationToken)
+                    .GetBaselineAsync(Scoped(scope), Blocks(), shared)
                     .ConfigureAwait(false);
 
                 return ProductivityBaseline.From(answer, BaselineBlockWeeks);
@@ -212,7 +210,7 @@ public sealed class ProductivityInsights(
             {
                 return null;
             }
-        });
+        }, cancellationToken);
     }
 
     /// <summary>The block grid, oldest first, ending at the moment the reader is
@@ -234,15 +232,15 @@ public sealed class ProductivityInsights(
     }
 
     /// <summary>
-    /// Which repositories the fetch covers. A focused scope narrows to one; an
-    /// alias that no longer matches anything narrows to nothing rather than
-    /// silently widening back to everything, because a filter that fails open is
-    /// worse than one that shows an empty part.
+    /// Which repositories the fetch covers. A focused scope narrows to the ones in
+    /// focus; an alias that no longer matches anything narrows to nothing rather
+    /// than silently widening back to everything, because a filter that fails open
+    /// is worse than one that shows an empty part.
     /// </summary>
     private IReadOnlyList<DashboardRepository> Scoped(DashboardScope scope) =>
         scope.IsAllRepositories
             ? repositories.Repositories
-            : [.. repositories.Repositories.Where(repository => Matches(repository.Alias, scope.RepositoryAlias))];
+            : [.. repositories.Repositories.Where(repository => scope.Repositories.Contains(repository.Alias))];
 
     private static ProductivityHeadline Headline(ScopedActivity scoped)
     {
@@ -262,8 +260,27 @@ public sealed class ProductivityInsights(
                 pr => pr.MergedAt,
                 bucket => bucket.Count == 0 ? 0m : (decimal)bucket.Count(pr => pr.HasChurn) / bucket.Count))
         {
-            Complete = scoped.Report.Complete
+            Complete = scoped.Report.Complete,
+            MedianCommitsPerPullRequest = MedianCommits(pullRequests),
+            PullRequestsWithCommitCount = pullRequests.Count(pr => pr.SizeKnown)
         };
+    }
+
+    /// <summary>
+    /// The median commit count over the pull requests whose detail was read, on
+    /// <see cref="MedianTurnaround"/>'s rule: lower middle for even counts, null over
+    /// nothing. A pull request with no detail has no count rather than a count of
+    /// zero, so it is left out of the population instead of pulling the middle down.
+    /// </summary>
+    private static int? MedianCommits(IReadOnlyList<ActivityPullRequest> pullRequests)
+    {
+        var counts = pullRequests
+            .Where(pr => pr.SizeKnown)
+            .Select(pr => pr.Commits)
+            .OrderBy(count => count)
+            .ToList();
+
+        return counts.Count == 0 ? null : counts[(counts.Count - 1) / 2];
     }
 
     /// <summary>
@@ -284,11 +301,11 @@ public sealed class ProductivityInsights(
     }
 
     /// <summary>
-    /// The score: the window's activity read against the reader's own record, with
-    /// the sessions figure beside it when the surface is entitled to score one.
+    /// The two scores: the window's volume read against the reader's own record, and
+    /// its quality read against itself.
     /// </summary>
     /// <remarks>
-    /// The three fetches go out together rather than one after another. The baseline
+    /// The two fetches go out together rather than one after another. The baseline
     /// is a different provider call from the activity report and neither waits on the
     /// other, so awaiting them in sequence would add a round trip to the slowest part
     /// on the surface for nothing.
@@ -297,121 +314,33 @@ public sealed class ProductivityInsights(
     {
         var activityTask = ActivityForAsync(scope, cancellationToken);
         var baselineTask = BaselineForAsync(scope, cancellationToken);
-        var sessionsTask = SessionsForAsync(scope, cancellationToken);
 
-        await Task.WhenAll(activityTask, baselineTask, sessionsTask).ConfigureAwait(false);
+        await Task.WhenAll(activityTask, baselineTask).ConfigureAwait(false);
 
         var scoped = await activityTask.ConfigureAwait(false);
         var record = await baselineTask.ConfigureAwait(false);
-        var ran = await sessionsTask.ConfigureAwait(false);
 
         var targets = new ProductivityTargets(
             record?.MergedPerWeek ?? 0m,
-            record?.ClosedPerWeek ?? 0m,
-            ran?.BestPerWeek ?? 0m);
+            record?.ClosedPerWeek ?? 0m);
 
-        var inputs = ProductivityScoring.InputsFor(
+        var volume = ProductivityScoring.VolumeInputsFor(
             scoped.Report.PullRequests,
             scoped.Report.Issues,
             scope.Weeks,
-            targets,
-            ran?.Sessions);
+            targets);
 
-        return new ProductivityScoreInsight(ProductivityScoring.Score(inputs), inputs)
+        var quality = ProductivityScoring.QualityInputsFor(scoped.Report.PullRequests);
+
+        return new ProductivityScoreInsight(
+            ProductivityScoring.ScoreOf(volume),
+            ProductivityScoring.ScoreOf(quality))
         {
             Target = record?.TargetFor(scope.Weeks),
             TargetComplete = record?.Complete ?? true,
             Complete = scoped.Report.Complete
         };
     }
-
-    /// <summary>
-    /// How many sessions the window held, and the best four weeks of them.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// Absent under a repository focus, and that refusal is the same one
-    /// <c>DashboardPane</c> and <c>SessionsPart</c> already make: no assistant records
-    /// which repository a session was for, so scoring one against a single repository
-    /// would claim a whole-machine figure belongs to it. A surface that refuses the
-    /// dimension in two places and honours it in a third is a surface contradicting
-    /// itself.
-    /// </para>
-    /// <para>
-    /// The machine focus is blanked rather than honoured, so <c>ScorePart</c>'s
-    /// <c>FollowsMachine = false</c> stays literally true: the score reads every
-    /// machine, whatever the filter above it says.
-    /// </para>
-    /// <para>
-    /// The best block comes off the quarter's weekly series rather than off the
-    /// half-year the GitHub baseline can reach, because this port answers for one
-    /// window at a time and a quarter is the widest one it offers. So the sessions
-    /// record is the best four weeks of the last twelve — narrower history than the
-    /// other two volume inputs get, and worth knowing when reading the input.
-    /// </para>
-    /// <para>
-    /// A session source that refuses returns null rather than zero, which drops the
-    /// input rather than scoring the reader as having run nothing.
-    /// </para>
-    /// </remarks>
-    private async Task<SessionVolume?> SessionsForAsync(DashboardScope scope, CancellationToken cancellationToken)
-    {
-        if (!scope.IsAllRepositories) return null;
-
-        try
-        {
-            var everyMachine = scope with { MachineId = null };
-
-            var window = await sessions.GetSessionsAsync(everyMachine, cancellationToken).ConfigureAwait(false);
-
-            if (!window.HasValue) return null;
-
-            var quarter = everyMachine.Period == DashboardPeriod.TwelveWeeks
-                ? window
-                : await sessions
-                    .GetSessionsAsync(everyMachine with { Period = DashboardPeriod.TwelveWeeks }, cancellationToken)
-                    .ConfigureAwait(false);
-
-            return new SessionVolume(
-                window.Value!.Sessions,
-                quarter.HasValue ? BestBlockPerWeek(quarter.Value!.SessionsPerWeek) : 0m);
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception)
-        {
-            return null;
-        }
-    }
-
-    /// <summary>
-    /// The busiest four consecutive weeks of a weekly series, as a rate per week.
-    /// Blocks are cut back from the most recent week so the last block ends where the
-    /// series does, which is the same anchoring the GitHub grid uses.
-    /// </summary>
-    private static decimal BestBlockPerWeek(IReadOnlyList<InsightPoint> perWeek)
-    {
-        if (perWeek is null || perWeek.Count < BaselineBlockWeeks) return 0m;
-
-        var best = 0m;
-
-        for (var end = perWeek.Count; end >= BaselineBlockWeeks; end -= BaselineBlockWeeks)
-        {
-            var block = 0m;
-
-            for (var index = end - BaselineBlockWeeks; index < end; index++) block += perWeek[index].Value;
-
-            if (block > best) best = block;
-        }
-
-        return best / BaselineBlockWeeks;
-    }
-
-    /// <summary>How many sessions the window held, and what the reader's best four
-    /// weeks of sessions works out to per week.</summary>
-    private sealed record SessionVolume(int Sessions, decimal BestPerWeek);
 
     /// <summary>
     /// The reader's own record, in the shape the scoring wants it.
@@ -487,15 +416,15 @@ public sealed class ProductivityInsights(
     /// and destroy the only comparison the spotlight exists to draw.
     /// </para>
     /// <para>
-    /// Sessions are not in this composition and cannot be: no assistant records a
-    /// repository against a session, so there is no per-repository session count to
-    /// score. A point here is therefore not a slice of the card's number, and the
-    /// part says so beside the chart.
+    /// The volume score alone, never the quality one. A week holds one or two pull
+    /// requests, and a proportion over two is a coin toss drawn as a trend — so a
+    /// point here is the volume card's measure cut to one week, and the part says
+    /// so beside the chart.
     /// </para>
     /// </remarks>
     private async Task<ProductivityTrend> TrendAsync(DashboardScope scope, CancellationToken cancellationToken)
     {
-        var estate = scope with { RepositoryAlias = null };
+        var estate = scope with { Repositories = RepositoryFocus.All };
 
         var activityTask = ActivityForAsync(estate, cancellationToken);
         var baselineTask = BaselineForAsync(estate, cancellationToken);
@@ -507,8 +436,7 @@ public sealed class ProductivityInsights(
 
         var targets = new ProductivityTargets(
             record?.MergedPerWeek ?? 0m,
-            record?.ClosedPerWeek ?? 0m,
-            SessionsPerWeek: 0m);
+            record?.ClosedPerWeek ?? 0m);
 
         var series = scoped.Repositories
             .Select(repository =>
@@ -524,7 +452,11 @@ public sealed class ProductivityInsights(
                 var points = scoped.Buckets
                     .Select(bucket => new InsightPoint(
                         bucket.Label,
-                        ProductivityScoring.Score(ProductivityScoring.InputsFor(
+                        // The volume score alone. A week holds one or two pull requests,
+                        // and a proportion over two is a coin toss drawn as a trend; the
+                        // count against a shared target is the one figure a week can
+                        // carry honestly.
+                        ProductivityScoring.Score(ProductivityScoring.VolumeInputsFor(
                             [.. pullRequests.Where(pr => WeekBuckets.Of(pr.MergedAt).Key == bucket.Key)],
                             [.. issues.Where(issue => WeekBuckets.Of(issue.ClosedAt).Key == bucket.Key)],
                             weeks: 1,
@@ -539,7 +471,10 @@ public sealed class ProductivityInsights(
             .Where(one => one.Points.Any(point => point.Value > 0m))
             .ToList();
 
-        return new ProductivityTrend(series, scope.RepositoryAlias)
+        // The anchor: the trellis and the spotlight can hold one repository up
+        // against the rest, and the first one taken into focus is the one the
+        // reader was looking at first.
+        return new ProductivityTrend(series, scope.Repositories.Anchor)
         {
             Complete = scoped.Report.Complete
         };
@@ -549,15 +484,24 @@ public sealed class ProductivityInsights(
     /// The churn figures, and the repositories they came from.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The denominator is pull requests that were reviewed at all, not every merged
     /// one. A pull request nobody reviewed cannot have churned after a review, and
     /// counting it as clean would let a quarter of unreviewed merges read as a
     /// quarter of good ones.
+    /// </para>
+    /// <para>
+    /// The sync figures have their own denominator on the same principle: pull
+    /// requests whose branch was synced with its base at all, and whose commits were
+    /// read to say so. A branch that never needed a sync did not avoid a conflict, it
+    /// never risked one.
+    /// </para>
     /// </remarks>
     private static ReworkInsight Rework(ScopedActivity scoped)
     {
         var reviewed = scoped.Report.PullRequests.Where(pr => pr.FirstReviewedAt is not null).ToList();
         var churned = reviewed.Where(pr => pr.HasChurn).ToList();
+        var synced = scoped.Report.PullRequests.Where(pr => pr.WasSynced).ToList();
 
         var byRepository = reviewed
             .GroupBy(pr => pr.RepositoryAlias, StringComparer.OrdinalIgnoreCase)
@@ -579,7 +523,13 @@ public sealed class ProductivityInsights(
             WeekBuckets.Count(scoped.Buckets, churned, pr => pr.MergedAt),
             byRepository)
         {
-            Complete = scoped.Report.Complete
+            Complete = scoped.Report.Complete,
+            ReviewRounds = reviewed.Sum(pr => pr.ReviewRounds),
+            ChangesRequested = reviewed.Sum(pr => pr.ChangesRequested),
+            PullRequestsSynced = synced.Count,
+            PullRequestsWithConflictedSync = synced.Count(pr => pr.HasConflictedSync),
+            SyncMerges = synced.Sum(pr => pr.SyncMerges),
+            ConflictedSyncMerges = synced.Sum(pr => pr.ConflictedSyncMerges)
         };
     }
 

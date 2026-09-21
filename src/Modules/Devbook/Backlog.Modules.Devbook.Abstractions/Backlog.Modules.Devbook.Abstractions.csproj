@@ -23,7 +23,7 @@
 
     Nothing here may reference an infrastructure adapter or a host — the port is
     what keeps Devbook's UI from having to know that the answer is stitched
-    together from GitHub repository settings and the backlog storage root.
+    together from GitHub repository settings and the snapshot cache.
   -->
   <PropertyGroup>
     <RootNamespace>Backlog.Modules.Devbook.Abstractions</RootNamespace>

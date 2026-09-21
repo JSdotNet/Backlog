@@ -6,12 +6,30 @@ using Backlog.UI.Components.Devbook;
 
 namespace Backlog.Desktop.UI.Devbook;
 
-public sealed class TechnologyDevbookService(IDevbookFolderSource source)
+public sealed class TechnologyDevbookService : IDisposable
 {
+    private readonly IDevbookFolderSource _source;
+
+    /// <summary>What the reader has already parsed — each layer file, and the
+    /// graph projection out of the database — kept while the file behind each
+    /// stays as it was. See <see cref="DevbookFileCache{T}"/>.</summary>
+    private readonly TechnologyDevbookReader.Cache _cache = new();
+
+    public TechnologyDevbookService(IDevbookFolderSource source)
+    {
+        _source = source;
+        _source.Changed += _cache.Clear;
+    }
+
+    /// <summary>Lets go of the folder source. The store is a singleton and so is
+    /// the source, so nothing leaks in the app — but a host that tears its
+    /// container down, as the tests do, must find no handler left behind.</summary>
+    public void Dispose() => _source.Changed -= _cache.Clear;
+
     public event Action? Changed
     {
-        add => source.Changed += value;
-        remove => source.Changed -= value;
+        add => _source.Changed += value;
+        remove => _source.Changed -= value;
     }
 
     public async Task<TechnologyDevbookView> ReadAsync(string? repositoryAlias = null, CancellationToken cancellationToken = default)
@@ -20,7 +38,7 @@ public sealed class TechnologyDevbookService(IDevbookFolderSource source)
 
         // Prepared rather than resolved: the graph is every layer file parsed
         // together, so a branch's technology folder is fetched here, whole, once.
-        var location = await source.PrepareContentAsync(".tech", repositoryAlias, cancellationToken: cancellationToken).ConfigureAwait(false);
+        var location = await _source.PrepareContentAsync(".tech", repositoryAlias, cancellationToken: cancellationToken).ConfigureAwait(false);
         if (!location.Available || location.FullPath is null)
         {
             return TechnologyDevbookView.Unavailable(location);
@@ -28,7 +46,9 @@ public sealed class TechnologyDevbookService(IDevbookFolderSource source)
 
         try
         {
-            return TechnologyDevbookReader.Read(location);
+            // On the pool rather than the dispatcher, for the reason the other
+            // stores give: the desktop host's dispatcher is its UI thread.
+            return await Task.Run(() => TechnologyDevbookReader.Read(location, _cache), cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
@@ -43,7 +63,7 @@ public sealed class TechnologyDevbookService(IDevbookFolderSource source)
         if (string.IsNullOrWhiteSpace(itemPath)) throw new ArgumentException("Devbook item path is required.", nameof(itemPath));
         if (string.IsNullOrWhiteSpace(status)) throw new ArgumentException("Status is required.", nameof(status));
 
-        var location = source.Resolve(".tech", repositoryAlias);
+        var location = _source.Resolve(".tech", repositoryAlias);
         var folderPath = location.WritablePath("Technology");
 
         DevbookMarkdownStatusWriter.UpdateStatus(folderPath, itemPath, ".tech/", status);
@@ -170,7 +190,31 @@ internal static class TechnologyDevbookReader
     /// database spells a scope.</summary>
     private const string TechnologyScope = ".tech";
 
-    public static TechnologyDevbookView Read(DevbookFolderLocation location)
+    /// <summary>
+    /// What one service remembers between reads: each layer file's parse, and
+    /// the graph projection out of the database. Two caches because they are
+    /// stamped by different files — a chapter by itself, the projection by
+    /// <c>_meta/devbook.db</c>, which the projection reads whole and which is the
+    /// most expensive single read on this panel.
+    /// </summary>
+    internal sealed class Cache
+    {
+        internal DevbookFileCache<TechnologyMarkdownDocument> Documents { get; } = new();
+
+        internal DevbookFileCache<TechnologyDevbookIndex> Index { get; } = new();
+
+        public void Clear()
+        {
+            Documents.Clear();
+            Index.Clear();
+        }
+    }
+
+    public static TechnologyDevbookView Read(DevbookFolderLocation location) => Read(location, cache: null);
+
+    /// <summary>The same read, remembering through <paramref name="cache"/> —
+    /// null parses everything, which is what the tests want.</summary>
+    internal static TechnologyDevbookView Read(DevbookFolderLocation location, Cache? cache)
     {
         var folderPath = location.FullPath ?? throw new InvalidOperationException("A technology folder path is required.");
         var rootPath = Path.Combine(folderPath, "technology-graph.md");
@@ -183,9 +227,9 @@ internal static class TechnologyDevbookReader
             });
         }
 
-        var root = TechnologyMarkdownParser.Parse(rootPath, File.ReadAllText(rootPath));
+        var root = Parse(rootPath, cache);
         var files = OrderedLayerFiles(folderPath, DevbookReadingOrder.ForFolder(folderPath));
-        var documents = files.Select(path => TechnologyMarkdownParser.Parse(path, File.ReadAllText(path))).ToList();
+        var documents = files.Select(path => Parse(path, cache)).ToList();
 
         var layers = documents.Select(document => ToLayer(document)).ToList();
         var nodes = layers.SelectMany(layer => layer.Nodes).ToDictionary(node => node.Id, StringComparer.OrdinalIgnoreCase);
@@ -198,7 +242,7 @@ internal static class TechnologyDevbookReader
             ? documents.SelectMany(document => document.Diagrams).ToList()
             : root.Diagrams;
 
-        var index = ReadIndex(folderPath);
+        var index = ReadIndex(folderPath, cache);
 
         return new TechnologyDevbookView(
             location,
@@ -398,8 +442,24 @@ internal static class TechnologyDevbookReader
     /// one — the graph is still readable from the Markdown alone, just with
     /// boundary nodes named from their slugs.</para>
     /// </summary>
-    private static TechnologyDevbookIndex ReadIndex(string folderPath) =>
+    private static TechnologyDevbookIndex ReadIndex(string folderPath, Cache? cache)
+    {
+        // Remembered against the database file itself, so a rebuild — which lands
+        // as a new file — is the one thing that re-projects the graph. A folder
+        // with no database has nothing to stamp and takes the JSON rung as before.
+        var databasePath = DevbookDatabaseLocation.ForDevbookFolder(folderPath);
+        if (cache is null || databasePath is null || !File.Exists(databasePath)) return ReadIndexUncached(folderPath);
+
+        return cache.Index.GetOrAdd(folderPath, databasePath, () => ReadIndexUncached(folderPath));
+    }
+
+    private static TechnologyDevbookIndex ReadIndexUncached(string folderPath) =>
         ReadDatabaseIndex(folderPath) ?? ReadJsonIndex(Path.Combine(folderPath, "_meta", "graph.json"));
+
+    private static TechnologyMarkdownDocument Parse(string path, Cache? cache) =>
+        cache is null
+            ? TechnologyMarkdownParser.Parse(path, File.ReadAllText(path))
+            : cache.Documents.GetOrAdd(path, () => TechnologyMarkdownParser.Parse(path, File.ReadAllText(path)));
 
     /// <summary>
     /// The same two answers out of the generated database, with the scope applied
@@ -535,6 +595,7 @@ internal static class TechnologyDevbookReader
         "design" => "Design",
         "backlog" => "Backlog",
         "tech" => "Technology",
+        "ai" => "AI",
         null or "" => "External reference",
         _ => char.ToUpperInvariant(folder[0]) + folder[1..]
     };

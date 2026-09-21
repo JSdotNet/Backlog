@@ -21,10 +21,10 @@
 {
     switch (block)
     {
-        case DesignDevbookSubheading heading:
+        case DocumentDevbookSubheading heading:
             <h5 class="devbook-subheading">@heading.Text</h5>
             break;
-        case DesignDevbookTable table:
+        case DocumentDevbookTable table:
             <div class="devbook-table-wrap @(table.IsTokenTable ? "devbook-table-wrap--tokens" : string.Empty)">
                 <table class="devbook-table">
                     <thead>
@@ -65,7 +65,7 @@
                                    ListCssClass="devbook-list"
                                    ListItemCssClass="@NoItemClass"
                                    DiagramTitle="@DiagramName"
-                                   IsDiagram="@(_ => block is DesignDevbookDiagram)" />
+                                   IsDiagram="@(_ => block is DocumentDevbookDiagram)" />
             }
             break;
     }
@@ -73,7 +73,7 @@
 
 @code {
     [Parameter, EditorRequired]
-    public IReadOnlyList<DesignDevbookBlock> Blocks { get; set; } = [];
+    public IReadOnlyList<DocumentDevbookBlock> Blocks { get; set; } = [];
 
     /// <summary>The name a diagram in this section is captioned with.
     ///
@@ -112,20 +112,20 @@
     /// This section's block as the shared block record it is a subset of.
     ///
     /// <para>A mapping rather than a shared type, because the parsers stay as they
-    /// are: <c>DesignDevbookList</c> holds bare inline runs where <c>MdList</c>
+    /// are: <c>DocumentDevbookList</c> holds bare inline runs where <c>MdList</c>
     /// holds items that may be tasks and may nest, and collapsing the two is its
     /// own change with its own risks. Null for a record drawn above, which is why
     /// an arm that is not mapped draws nothing rather than falling through to a
     /// paragraph.</para>
     /// </summary>
-    private static MdBlock? AsSharedBlock(DesignDevbookBlock block) => block switch
+    private static MdBlock? AsSharedBlock(DocumentDevbookBlock block) => block switch
     {
-        DesignDevbookParagraph paragraph => new MdParagraph(paragraph.Content),
-        DesignDevbookList list => new MdList(list.Ordered, [.. list.Items.Select(item => new MdListItem(null, item, null))]),
-        DesignDevbookQuote quote => new MdQuote(quote.Content),
-        DesignDevbookCode code => new MdCode(code.Text, code.Language),
-        DesignDevbookDiagram diagram => new MdCode(diagram.Source, diagram.Language),
-        DesignDevbookDivider => new MdDivider(),
+        DocumentDevbookParagraph paragraph => new MdParagraph(paragraph.Content),
+        DocumentDevbookList list => new MdList(list.Ordered, [.. list.Items.Select(item => new MdListItem(null, item, null))]),
+        DocumentDevbookQuote quote => new MdQuote(quote.Content),
+        DocumentDevbookCode code => new MdCode(code.Text, code.Language),
+        DocumentDevbookDiagram diagram => new MdCode(diagram.Source, diagram.Language),
+        DocumentDevbookDivider => new MdDivider(),
         _ => null
     };
 }

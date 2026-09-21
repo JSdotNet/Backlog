@@ -43,6 +43,20 @@ public sealed record PullRequestDetail
     /// <summary>False when the size could not be read, in which case both numbers
     /// above are zero and mean nothing.</summary>
     public bool SizeKnown { get; init; }
+
+    /// <summary>Every commit on the pull request. Read with the size, so meaningful
+    /// exactly when <see cref="SizeKnown"/>.</summary>
+    public int Commits { get; init; }
+
+    /// <summary>Merge commits on the branch: syncs with the base branch.</summary>
+    public int SyncMerges { get; init; }
+
+    /// <summary>How many of those say they resolved a conflict.</summary>
+    public int ConflictedSyncMerges { get; init; }
+
+    /// <summary>False when the commits could not be listed, in which case both
+    /// numbers above are zero and mean nothing.</summary>
+    public bool SyncsKnown { get; init; }
 }
 
 /// <summary>

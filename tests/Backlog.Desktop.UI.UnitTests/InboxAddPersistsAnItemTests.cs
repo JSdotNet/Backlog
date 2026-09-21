@@ -136,8 +136,10 @@ public sealed class InboxAddPersistsAnItemTests
 
     // --- Capture ----------------------------------------------------------
 
+    /// <summary>The sources are configured on the pane itself now, so the
+    /// line points at the panel under it rather than at a Settings tab.</summary>
     [Fact]
-    public async Task Capture_with_nothing_enabled_points_at_settings()
+    public async Task Capture_with_nothing_enabled_points_at_the_sources_panel()
     {
         using var harness = CreateHarness();
 
@@ -151,8 +153,57 @@ public sealed class InboxAddPersistsAnItemTests
             var result = component.Find("[data-testid='inbox-pane-capture-result']");
             Assert.Equal("status", result.GetAttribute("role"));
             Assert.Contains("No capture sources are enabled", result.TextContent, StringComparison.Ordinal);
-            Assert.Contains("Settings", result.TextContent, StringComparison.Ordinal);
+            Assert.Contains("Sources", result.TextContent, StringComparison.Ordinal);
+            Assert.DoesNotContain("Settings", result.TextContent, StringComparison.Ordinal);
         });
+
+        // And the panel it points at is on the pane, folded, with its trigger
+        // saying nothing is on.
+        Assert.NotEmpty(component.FindAll("[data-testid='inbox-pane-sources'] [data-testid='capture-sources-toggle']"));
+        Assert.Equal("false", component.Find("[data-testid='capture-sources-toggle']").GetAttribute("aria-expanded"));
+        Assert.Equal("none on", component.Find("[data-testid='capture-sources-summary']").TextContent.Trim());
+    }
+
+    /// <summary>The feature seen from the pane: a source switched on in the
+    /// panel is what the next press runs, and the run's line comes back onto
+    /// that source's row as its last capture.</summary>
+    [Fact]
+    public async Task A_source_switched_on_in_the_panel_is_run_and_its_row_shows_the_last_capture()
+    {
+        using var harness = CreateHarness();
+        harness.Adapter.Entries.Add(new CapturedEntry("yt:video:one", "One", null, null, null));
+
+        var component = Render(harness);
+        await WaitForInboxAsync(component);
+
+        await component.Find("[data-testid='capture-sources-toggle']").ClickAsync(new());
+        component.WaitForAssertion(() =>
+            Assert.Equal("true", component.Find("[data-testid='capture-sources-toggle']").GetAttribute("aria-expanded")));
+
+        component.Find("[data-testid='capture-source-youtube-enabled'] input").Change(true);
+        Assert.True(harness.CaptureSources.Current.For(CaptureSourceKind.YouTube).Enabled);
+        component.WaitForAssertion(() =>
+            Assert.Equal("1 of 3 on", component.Find("[data-testid='capture-sources-summary']").TextContent.Trim()));
+        Assert.Equal("Never captured.", component.Find("[data-testid='capture-source-youtube-last-run']").TextContent.Trim());
+
+        await component.Find("[data-testid='inbox-pane-capture']").ClickAsync(new());
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal("YouTube: 1 new item.", component.Find("[data-testid='inbox-pane-capture-result']").TextContent.Trim());
+            var lastRun = component.Find("[data-testid='capture-source-youtube-last-run']").TextContent;
+            Assert.StartsWith("Last capture", lastRun.Trim(), StringComparison.Ordinal);
+            Assert.Contains("1 new item", lastRun, StringComparison.Ordinal);
+        });
+
+        // The log opens on the same run.
+        await component.Find("[data-testid='capture-source-youtube-log-toggle']").ClickAsync(new());
+        component.WaitForAssertion(() =>
+        {
+            var log = component.Find("[data-testid='capture-source-youtube-log']");
+            Assert.Contains("YouTube: 1 new item.", log.TextContent, StringComparison.Ordinal);
+        });
+        Assert.Equal("Never captured.", component.Find("[data-testid='capture-source-website-last-run']").TextContent.Trim());
     }
 
     /// <summary>Email has no adapter in the product yet, and this host
@@ -340,6 +391,7 @@ public sealed class InboxAddPersistsAnItemTests
                 TasksTestHost.EntriesFor(sp.GetRequiredService<WorkspaceSettingsStore>()),
                 () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
         context.Services.AddSingleton<DesignDevbookProvider>();
+        context.Services.AddSingleton<AiDevbookProvider>();
         context.Services.AddSingleton<TechnologyDevbookService>();
         context.Services.AddSingleton<InstructionSourceDiscovery>();
         context.Services.AddSingleton<DevbookMenu>();
@@ -356,10 +408,12 @@ public sealed class InboxAddPersistsAnItemTests
         context.Services.AddScoped(sp => new DomainDevbookStore(sp.GetRequiredService<IDevbookFolderSource>()));
 
         // The halves of Capture the shell needs: the module for the run, the
-        // host's choice of where the sources are kept, one adapter a test can
-        // arm, and the delivery into the fake Inbox below.
+        // host's choice of where the sources and the run log are kept, one
+        // adapter a test can arm, and the delivery into the fake Inbox below.
         var adapter = new FakeCaptureSourceAdapter(CaptureSourceKind.YouTube);
         context.Services.AddSingleton<ICaptureSourceSettings>(captureSources);
+        context.Services.AddSingleton<ICaptureRunLog>(
+            new CaptureRunLogStore(Path.Combine(root, "capture", "capture-runs.json")));
         context.Services.AddSingleton<ICaptureSourceAdapter>(adapter);
         context.Services.AddCaptureModule();
         InboxTestHost.AddCaptureDelivery(context.Services);
@@ -414,6 +468,8 @@ public sealed class InboxAddPersistsAnItemTests
 
     private sealed class StubGitHubClient : IGitHubClient
     {
+        public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
         public Task<GitHubIssue> CreateIssueAsync(
             GitHubRepositoryRef repository,
             string title,

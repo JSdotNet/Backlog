@@ -32,11 +32,13 @@
 @namespace Backlog.Desktop.UI.Shell
 @using System.Globalization
 @using Backlog.Infrastructure.FileSystem
+@using Backlog.Infrastructure.FileSystem.Logging
 @using Backlog.Infrastructure.Claude
 @using Backlog.SharedKernel
 @using Backlog.SharedKernel.Results
 @using Backlog.Modules.Tasks.Abstractions
 @using Backlog.Modules.Tasks.Abstractions.Services
+@using Backlog.Modules.Inbox.Abstractions.Services
 @using Backlog.Modules.Devbook.Abstractions
 @* Said in writing, which is the rule this project's _Imports.razor states for
    reaching into a context. The devbook-source control is Devbook's, and
@@ -61,15 +63,11 @@
    rather than putting the exception's own words on screen. *@
 @using Microsoft.Extensions.Logging
 @inject WorkspaceSettingsStore Store
-@inject ITasksRefreshSettings Refresh
 @* Injected rather than read off IServiceProvider the way the sync collaborators
    below are: those are optional and feature-gated, and this is neither. A host
    that has not registered it should fail loudly at startup rather than quietly
    drop the section that edits it. *@
 @inject IWorkingHoursSettings WorkingWeek
-@* Hard for the same reason: the tab is feature-gated, but the port behind it is
-   not optional in any host that composes the Inbox. *@
-@inject ICaptureSourceSettings CaptureSources
 @inject GitHubIntegration GitHub
 @inject NavigationManager Navigation
 @inject IAppFeatureSettings Features
@@ -543,7 +541,10 @@
 
         <TabPanel Id="storage" Title="Storage" Element="section" BaseClass="setting" aria-label="Storage settings">
             @* Three blocks that each carry their own heading, so the columns
-               read as three settings rather than as one cut into pieces. *@
+               read as three settings rather than as one cut into pieces: where
+               the backlog is, where it is backed up to, and the working week.
+               The devbook cache sits under the first because it follows the
+               folder by default. *@
             <div class="setting-columns">
                 <div>
                     <h2 class="setting__title">Where the backlog is stored</h2>
@@ -655,90 +656,62 @@
                         copies nothing.
                     </p>
 
-                </div>
 
-                @* Not inside the storage folder, and deliberately: a snapshot is a
-                   disposable copy of a commit that can always be fetched again,
-                   so it has no business in a folder people back up or sync. It is
-                   a setting rather than a constant because a machine with a small
-                   system drive and a large one for work is an ordinary machine. *@
+                @* Under the storage folder by default, so a backlog moved to
+                   another disk takes the default location of what was fetched
+                   to read beside it along. It is a setting rather than a
+                   constant because a machine with a small system drive and a
+                   large one for work is an ordinary machine. Not backed up and
+                   not moved: a snapshot is a disposable copy of a commit that
+                   can always be fetched again. *@
                 <div class="devbook-folders" data-testid="devbook-cache-settings">
                     <h3 class="devbook-folders__title">Branch snapshot folder</h3>
                     <p class="setting__note">
-                        Where the devbook fetched from a repository branch is cached. Clear it to return to the
-                        default. Changing this leaves the old folder alone; the new one refills on the next fetch.
+                        Where the devbook fetched from a repository branch is cached. It sits under the
+                        storage folder unless you point it elsewhere; clear the field to return it there.
+                        Changing this leaves the old folder alone; the new one refills on the next fetch.
                     </p>
                     <TextField Bare="true"
                                LabelCssClass="setting__label"
-                               InputCssClass="setting__input"
+                               InputCssClass="@SettingInputClass(_devbookCacheError)"
                                Label="Snapshot folder"
                                Id="devbook-cache-directory"
                                data-testid="devbook-cache-directory-input"
                                spellcheck="false"
                                autocomplete="off"
                                Placeholder="@Store.DefaultDevbookCacheDirectory"
+                               aria-describedby="devbook-cache-status"
                                Value="@_draftDevbookCacheDirectory"
                                ValueChanged="value => _draftDevbookCacheDirectory = value"
-                               @onchange="ApplyDevbookCacheDirectory" />
-                    <p class="setting__status" data-testid="devbook-cache-status" role="status">
-                        <span>Snapshots: <code>@Store.DevbookCacheDirectory</code></span>
-                    </p>
-                    <Alert Message="@_devbookCacheError" TestId="devbook-cache-error" />
-                </div>
-
-                <div class="devbook-folders" data-testid="storage-devbook-folder-settings">
-                    <h3 class="devbook-folders__title">Devbook sections</h3>
-                    <p class="setting__note">
-                        Storage knowledge folders default to their conventional paths under the storage folder.
-                        Clear an override to return to the default, or turn a section off for the storage folder.
-                        Instructions are on/off only and use Backlog's standard folder discovery.
-                    </p>
-
-                    <div class="devbook-folder-list">
-                        @foreach (var folder in Store.DevbookFolders)
+                               @onchange="ApplyDevbookCacheDirectory"
+                               @onkeydown="OnDevbookCacheDirectoryKeyDown" />
+                    <p class="setting__status" id="devbook-cache-status" data-testid="devbook-cache-status" role="status">
+                        @if (_devbookCacheError is not null)
                         {
-                            var devbookInputId = $"storage-devbook-{folder.Key.TrimStart('.')}";
-
-                            <div class="devbook-folder" data-testid="storage-devbook-folder-row">
-                                @* Checkbox rather than Toggle: Toggle's native shape puts
-                                   the box after the text, and on these rows it leads.
-                                   The row's own class comes after the component's, so
-                                   the tighter gap and the code styling still win. *@
-                                <Checkbox CssClass="devbook-folder__toggle"
-                                          Label="@folder.DisplayName"
-                                          Checked="@folder.Enabled"
-                                          CheckedChanged="enabled => SetStorageDevbookFolderEnabled(folder, enabled)"
-                                          data-testid="storage-devbook-folder-enabled">
-                                    <code>@folder.Key</code>
-                                </Checkbox>
-
-                                @if (folder.SupportsPathOverride)
-                                {
-                                    <TextField Bare="true"
-                                               InputCssClass="setting__input"
-                                               AriaLabel="@($"{folder.DisplayName} folder path")"
-                                               Id="@devbookInputId"
-                                               data-testid="storage-devbook-folder-path-input"
-                                               spellcheck="false"
-                                               autocomplete="off"
-                                               Placeholder="@folder.DefaultRelativePath"
-                                               Value="@StorageDevbookPathDraft(folder)"
-                                               ValueChanged="value => _draftDevbookPaths[DevbookDraftKey(StorageDevbookAlias, folder.Key)] = value"
-                                               @onchange="() => ApplyStorageDevbookFolderPath(folder)"
-                                               @onkeydown="e => OnStorageDevbookPathKeyDown(e, folder)" />
-                                }
-                                else
-                                {
-                                    <span class="devbook-folder__fixed">Uses standard instruction file discovery</span>
-                                }
-                            </div>
+                            <span class="setting__status--error">@_devbookCacheError</span>
                         }
-                    </div>
+                        else
+                        {
+                            <span>Snapshots: <code>@Store.DevbookCacheDirectory</code>@(Store.IsDefaultDevbookCacheDirectory ? " - under the storage folder." : ".")</span>
+                        }
+                    </p>
                 </div>
-                <div class="repo-card__section" data-testid="storage-backup-repository">
-                    <h3 class="devbook-folders__title">Backup repository</h3>
-                    <p class="setting__note">
-                        Optional GitHub repository metadata for future backup. The folder above remains the place entries are written today.
+                </div>
+
+                @* One-way, and the copy says so twice: a backup is a copy that
+                   leaves, and nothing here ever reads the repository back into
+                   the folder. A backup that came home on its own would be file
+                   sync by another name, and R9 in .arc42/11-risks-and-technical-debt.md
+                   is what that did to this database. Local ADR 0010 is the
+                   decision; BackupWorker is the mechanism. *@
+                <div class="repo-card__section" data-testid="storage-backup-settings">
+                    <h2 class="setting__title">Backup</h2>
+                    <p class="setting__body">
+                        A copy of the database is committed to a GitHub repository you name - on a
+                        schedule, or when you press the button. Each backup replaces the last one at
+                        <code>@BackupWorker.RepositoryPath</code> and the repository's history keeps the
+                        rest; a database that has not changed makes no commit. Nothing comes back on
+                        its own: restoring a backup is putting the file back by hand.
                     </p>
 
                     <TextField Bare="true"
@@ -763,7 +736,7 @@
                         }
                         else if (Store.RootRepository is { } storageRepository)
                         {
-                            <span>Backup metadata points at <code>@storageRepository.FullName</code>.</span>
+                            <span>Backs up to <code>@storageRepository.FullName</code>, using the GitHub account this machine is signed in with.</span>
                         }
                         else
                         {
@@ -771,7 +744,69 @@
                         }
                     </p>
 
+                    @* A cadence picked from three, which is the shape SelectField
+                       exists for; the day and the time are shown only when the
+                       cadence gives them something to decide. Form-shaped, the way
+                       the account credential select is, because a bare caption
+                       beside bordered inputs does not read as a control. *@
+                    <SelectField Form="true"
+                                 Label="Schedule"
+                                 Id="storage-backup-cadence"
+                                 TestId="storage-backup-cadence"
+                                 LabelCssClass="setting__label"
+                                 SelectCssClass="setting__input"
+                                 CurrentValue="@Store.BackupSchedule.Cadence.ToString()"
+                                 Options="@BackupCadenceOptions"
+                                 OnChanged="ApplyBackupCadence" />
+
+                    @if (Store.BackupSchedule.Cadence is BackupCadence.Weekly)
+                    {
+                        <SelectField Form="true"
+                                     Label="On"
+                                     Id="storage-backup-day"
+                                     TestId="storage-backup-day"
+                                     LabelCssClass="setting__label"
+                                     SelectCssClass="setting__input"
+                                     CurrentValue="@Store.BackupSchedule.Day.ToString()"
+                                     Options="@BackupDayOptions"
+                                     OnChanged="ApplyBackupDay" />
+                    }
+
+                    @if (Store.BackupSchedule.IsScheduled)
+                    {
+                        @* Committed from the change event's own value rather than
+                           through ValueChanged, for the reason the working-week
+                           rows give: a time input raises empty input events while
+                           a time is half typed. *@
+                        <TextField Bare="true"
+                                   LabelCssClass="setting__label"
+                                   InputCssClass="@SettingInputClass(_backupScheduleError)"
+                                   Label="At"
+                                   Id="storage-backup-time"
+                                   data-testid="storage-backup-time"
+                                   Type="time"
+                                   autocomplete="off"
+                                   aria-describedby="storage-backup-status"
+                                   Value="@BackupTimeDraft"
+                                   @onchange="ApplyBackupTime"
+                                   @onkeydown="OnBackupTimeKeyDown" />
+                    }
+
+                    <p class="setting__status @(BackupStatusIsFailure ? "setting__status--error" : null)"
+                       id="storage-backup-status"
+                       data-testid="storage-backup-status"
+                       role="@(BackupStatusIsFailure ? "alert" : "status")">
+                        <span>@BackupStatusLine</span>
+                    </p>
+
                     <div class="setting__actions">
+                        <AppButton Variant="ButtonVariant.None"
+                                   TestId="storage-backup-now"
+                                   Busy="@(_backup?.IsRunning ?? false)"
+                                   Disabled="@(_backup is null || Store.RootRepository is null)"
+                                   OnClick="BackUpNow">
+                            Back up now
+                        </AppButton>
                         <AppButton Variant="ButtonVariant.None"
                                    data-testid="clear-storage-repository-button"
                                    Disabled="@(Store.RootRepository is null)"
@@ -779,71 +814,23 @@
                             Clear backup repository
                         </AppButton>
                     </div>
-                </div>
 
-                @* Point the folder above at something two machines share and the
-                   other machine's writes arrive as a changed file with nobody to
-                   announce them. This is the announcement, until the store can
-                   push one of its own. *@
-                <div class="repo-card__section" data-testid="storage-refresh-settings">
-                    <h3 class="devbook-folders__title">Pick up changes from disk</h3>
-                    <p class="setting__note">
-                        Re-reads the backlog when the database file changes, so work done on another
-                        machine sharing this folder shows up without reopening the app. An entry open
-                        for editing is never replaced underneath you - the change lands once you are done.
-                    </p>
-
-                    <Toggle NativeCheckbox="true"
-                            BaseClass="feature-flag"
-                            TextCssClass="feature-flag__content"
-                            LabelCssClass="feature-flag__title"
-                            DescriptionCssClass="feature-flag__description"
-                            Label="Check the file for changes"
-                            Description="Turn this off if this machine is the only one writing to the folder."
-                            Checked="@Refresh.Current.PollingEnabled"
-                            CheckedChanged="SetRefreshPollingEnabled"
-                            data-testid="storage-refresh-enabled" />
-
-                    <TextField Bare="true"
-                               LabelCssClass="setting__label"
-                               InputCssClass="@SettingInputClass(_refreshError)"
-                               Label="Check every (seconds)"
-                               Id="storage-refresh-interval"
-                               data-testid="storage-refresh-interval-input"
-                               Type="number"
-                               min="@TasksRefreshSettings.MinimumPollingIntervalSeconds"
-                               step="1"
-                               autocomplete="off"
-                               aria-describedby="storage-refresh-status"
-                               Disabled="@(!Refresh.Current.PollingEnabled)"
-                               Value="@_draftRefreshInterval"
-                               ValueChanged="value => _draftRefreshInterval = value"
-                               @onchange="ApplyRefreshInterval"
-                               @onkeydown="OnRefreshIntervalKeyDown" />
-
-                    <p class="setting__status" id="storage-refresh-status" data-testid="storage-refresh-status" role="status">
-                        @if (_refreshError is not null)
-                        {
-                            <span class="setting__status--error">@_refreshError</span>
-                        }
-                        else if (!Refresh.Current.PollingEnabled)
-                        {
-                            <span>Off. The list shows what it read when you opened it.</span>
-                        }
-                        else
-                        {
-                            <span>Checking every @Refresh.Current.PollingIntervalSeconds seconds.</span>
-                        }
-                    </p>
+                    @if (_backup is not null)
+                    {
+                        <p class="setting__note">
+                            What the last backup did is kept in <code>@_backup.StorePath</code>, beside the
+                            app's other per-user files rather than in the backlog folder.
+                        </p>
+                    }
                 </div>
 
                 @* Not a storage setting, and it is here because this is the only
                    tab that is always on screen and already carries a preference
-                   rather than a credential or a flag — the poll above is one too.
-                   The AI tab would have read better next to the surface that uses
-                   this, but it disappears behind two feature flags, and a working
-                   week nobody can reach is worse than one filed under the wrong
-                   heading. *@
+                   rather than a credential or a flag — the backup schedule beside
+                   it is one too. The AI tab would have read better next to the
+                   surface that uses this, but it disappears behind two feature
+                   flags, and a working week nobody can reach is worse than one
+                   filed under the wrong heading. *@
                 <div class="repo-card__section" data-testid="working-hours-settings">
                     <h3 class="devbook-folders__title">Your working week</h3>
                     <p class="setting__note">
@@ -1204,6 +1191,15 @@
                       @onchange="ApplyRepositories" />
 
             <p class="setting__status" id="github-repos-status" data-testid="github-repos-status" role="status">
+                @if (_repoReplacedHint is not null)
+                {
+                    @* Said once, on the save that did it, and beside the ordinary
+                       summary rather than instead of it. Not an error — the save
+                       went through — but the one edit in this box that reads like a
+                       rename and is not one deserves a sentence pointing at the
+                       control that is. *@
+                    <span data-testid="github-repos-replaced-hint">@_repoReplacedHint </span>
+                }
                 @if (_repoError is not null)
                 {
                     <span class="setting__status--error">@_repoError</span>
@@ -1279,14 +1275,80 @@
                                 <p class="repo-card__meta">
                                     Area <code>@("@" + activeRepo.Alias)</code>
                                 </p>
+                                @if (_renameNoteAlias == activeRepo.Alias && _renameNote is not null)
+                                {
+                                    @* Said once, on the card it concerns, beside the
+                                       name it now carries: a rename is a result to
+                                       report, not an error to clear. *@
+                                    <p class="setting__status" data-testid="repo-rename-note" role="status">@_renameNote</p>
+                                }
                             </div>
 
-                            <AppButton Variant="ButtonVariant.None"
-                                       data-testid="remove-repository-button"
-                                       OnClick="() => RemoveRepository(activeRepo)">
-                                Remove repository
-                            </AppButton>
+                            @* Rename before Remove, in the order somebody reaching
+                               for one of them would want to meet them: the one that
+                               keeps everything, then the one that keeps nothing. *@
+                            <div class="repo-card__actions">
+                                <AppButton Variant="ButtonVariant.None"
+                                           data-testid="rename-repository-button"
+                                           OnClick="() => BeginRename(activeRepo)">
+                                    Rename
+                                </AppButton>
+                                <AppButton Variant="ButtonVariant.None"
+                                           data-testid="remove-repository-button"
+                                           OnClick="() => RemoveRepository(activeRepo)">
+                                    Remove repository
+                                </AppButton>
+                            </div>
                         </header>
+
+                        @if (_renamingAlias == activeRepo.Alias)
+                        {
+                            @* A rename is asked for by name rather than read out of
+                               the repositories box above, because the box cannot tell
+                               a rename from a replacement — and for a line written
+                               without an alias of its own, the two are the same edit.
+                               Asked for here, the repository keeps its clone directory,
+                               colour, account and devbook settings under the new name,
+                               and every entry and inbox item filed against the old
+                               name follows it. *@
+                            <div class="repo-card__section" data-testid="repo-rename">
+                                <TextField Bare="true"
+                                           LabelCssClass="setting__label"
+                                           InputCssClass="@SettingInputClass(_renameError)"
+                                           Label="@($"New name for {activeRepo.FullName}")"
+                                           Id="@($"rename-{activeRepo.Alias}")"
+                                           data-testid="repo-rename-input"
+                                           spellcheck="false"
+                                           autocomplete="off"
+                                           aria-describedby="@($"rename-status-{activeRepo.Alias}")"
+                                           Placeholder="owner/repo"
+                                           Value="@_renameDraft"
+                                           ValueChanged="value => _renameDraft = value"
+                                           @onkeydown="e => OnRenameKeyDownAsync(e, activeRepo)" />
+                                <p class="setting__status" id="@($"rename-status-{activeRepo.Alias}")" data-testid="repo-rename-status" role="status">
+                                    @if (_renameError is not null)
+                                    {
+                                        <span class="setting__status--error">@_renameError</span>
+                                    }
+                                    else
+                                    {
+                                        <span>The repository keeps its settings under the new name, and every entry and inbox item filed against <code>@activeRepo.FullName</code> follows it.</span>
+                                    }
+                                </p>
+                                <div class="setting__actions">
+                                    <AppButton Variant="ButtonVariant.None"
+                                               data-testid="repo-rename-apply"
+                                               OnClick="() => ApplyRenameAsync(activeRepo)">
+                                        Rename repository
+                                    </AppButton>
+                                    <AppButton Variant="ButtonVariant.None"
+                                               data-testid="repo-rename-cancel"
+                                               OnClick="CancelRename">
+                                        Cancel
+                                    </AppButton>
+                                </div>
+                            </div>
+                        }
 
                         @* Which colour this repository wears everywhere it appears —
                            the filter above the backlog, its roadmap band, its entries
@@ -1473,7 +1535,7 @@
                                     <div class="repo-card__section" data-testid="repo-activity-cache">
                                         <h4 class="devbook-folders__title">Dashboard activity</h4>
                                         <p class="setting__note">
-                                            Merged pull requests keep their review, churn and size detail on this machine, so opening the dashboard only fetches the ones it has not seen. Nothing about a merged pull request changes, so the saved copy stays right unless <code>@activeRepo.FullName</code> had its history rewritten.
+                                            Merged pull requests and closed issues are kept on this machine, with each pull request's review, churn and size detail, so opening the dashboard only walks the pages that changed since and fetches the pull requests it has not seen. Nothing about a merged pull request changes, so the saved copy stays right unless <code>@activeRepo.FullName</code> had its history rewritten.
                                         </p>
                                         <p class="setting__status" data-testid="repo-activity-cache-status" role="status">
                                             @ActivityCacheStatus(activeRepo)
@@ -1482,7 +1544,7 @@
                                             <AppButton Variant="ButtonVariant.None"
                                                        data-testid="repo-activity-cache-forget"
                                                        OnClick="() => ForgetActivityCache(activeRepo)">
-                                                Forget this repository's saved pull requests
+                                                Forget this repository's saved pull requests and issues
                                             </AppButton>
                                         </div>
                                     </div>
@@ -1818,6 +1880,10 @@
 
                         <p class="setting__note" data-testid="devices-sync-state-path">
                             How far this device has got is kept in <code>@_taskSync.StorePath</code>.
+                            @if (_logs is not null)
+                            {
+                                <text>A cycle that failed for a reason the sentence above does not give is written out in full under <code>@_logs.Directory</code>.</text>
+                            }
                         </p>
                     </section>
                 }
@@ -1979,81 +2045,6 @@
                            OnCancel="@(() => _forgettingDevice = false)" />
         </TabPanel>
     }
-
-    @if (IsSettingsPageAvailable(SettingsPage.Capture))
-    {
-        @* Which sources the Inbox's Capture button looks at. Gated on the Inbox
-           pane's own feature rather than one of its own: there is no Capture
-           button without the pane it lives on, so a tab for it would be settings
-           for a control nobody can reach. *@
-        <TabPanel Id="capture" Title="Capture" Element="section" BaseClass="setting" TestId="capture-settings" aria-label="Capture settings">
-            <h2 class="setting__title">Capture</h2>
-            <p class="setting__description">
-                Which sources the Inbox's Capture button looks at, and what each one is
-                pointed at. Nothing is watched until you switch it on here; no source can
-                fetch anything yet, and a run says so per source rather than failing.
-            </p>
-
-            @foreach (var kind in CaptureSourceKinds.Monitorable)
-            {
-                var slug = CaptureSourceKinds.Slug(kind);
-                var error = CaptureSourceError(kind);
-
-                <div class="repo-card__section" data-testid="@($"capture-source-{slug}")">
-                    @* The same shape as the Storage tab's refresh toggle: the whole
-                       row is a label, and the switch saves the moment it flips. *@
-                    <Toggle NativeCheckbox="true"
-                            BaseClass="feature-flag"
-                            TextCssClass="feature-flag__content"
-                            LabelCssClass="feature-flag__title"
-                            DescriptionCssClass="feature-flag__description"
-                            Label="@CaptureSourceKinds.Label(kind)"
-                            Description="@CaptureSourceDescription(kind)"
-                            Checked="@CaptureSources.Current.For(kind).Enabled"
-                            CheckedChanged="enabled => SetCaptureSourceEnabled(kind, enabled)"
-                            data-testid="@($"capture-source-{slug}-enabled")" />
-
-                    @* One target per line, committed on change, the way the
-                       Repositories tab takes its list. The box carries its own
-                       border through `setting__input`, so the library's grow
-                       wrapper is emitted without one and auto-grow stays off. *@
-                    <TextArea Bare="true"
-                              AutoGrow="false"
-                              GrowCssClass=""
-                              LabelCssClass="setting__label"
-                              InputCssClass="@($"{SettingInputClass(error)} setting__input--multiline")"
-                              Label="@CaptureSourceTargetsLabel(kind)"
-                              Id="@($"capture-source-{slug}-targets")"
-                              data-testid="@($"capture-source-{slug}-targets")"
-                              Rows="4"
-                              spellcheck="false"
-                              autocomplete="off"
-                              aria-describedby="@($"capture-source-{slug}-status")"
-                              Placeholder="@CaptureSourceTargetsPlaceholder(kind)"
-                              Value="@CaptureTargetsDraft(kind)"
-                              ValueChanged="value => _draftCaptureTargets[kind] = value"
-                              @onchange="() => ApplyCaptureTargets(kind)" />
-
-                    <p class="setting__status" id="@($"capture-source-{slug}-status")" data-testid="@($"capture-source-{slug}-status")" role="status">
-                        @if (error is not null)
-                        {
-                            <span class="setting__status--error">@error</span>
-                        }
-                        else
-                        {
-                            <span>@CaptureSourceSummary(kind)</span>
-                        }
-                    </p>
-                </div>
-            }
-
-            <p class="setting__note">
-                Kept in <code>@CaptureSources.SettingsPath</code>, beside the app's other
-                per-user choices rather than in the backlog folder. Addresses and channels
-                only - never a password or a key.
-            </p>
-        </TabPanel>
-    }
     </Tabs>
 </div>
 
@@ -2082,14 +2073,29 @@
 
     private string _draftRepos = string.Empty;
     private string? _repoError;
+
+    /// <summary>The sentence pointing at Rename after a save of the repositories
+    /// text that both removed a repository and added one — or null when the last
+    /// save did no such thing.</summary>
+    private string? _repoReplacedHint;
+
+    /// <summary>The alias of the repository whose rename form is open, or null
+    /// while none is. One at a time: the form sits on the card, and a card shows
+    /// one repository.</summary>
+    private string? _renamingAlias;
+    private string _renameDraft = string.Empty;
+    private string? _renameError;
+
+    /// <summary>What the last rename did — the new name, and how many entries
+    /// and inbox items followed — and which repository it was, so the sentence
+    /// shows on that card alone.</summary>
+    private string? _renameNote;
+    private string? _renameNoteAlias;
     private string _draftStorageRepository = string.Empty;
     private string? _storageRepositoryError;
-    private string _draftRefreshInterval = string.Empty;
-    private string? _refreshError;
+    private string? _backupScheduleError;
     private readonly Dictionary<string, string> _draftWorkingHours = new(StringComparer.Ordinal);
     private string? _workingHoursError;
-    private readonly Dictionary<CaptureSourceKind, string> _draftCaptureTargets = [];
-    private readonly Dictionary<CaptureSourceKind, string?> _captureSourceErrors = [];
     private GitHubConnection? _connection;
     private string? _featureMessage;
     private string _draftAzureFoundryEndpoint = string.Empty;
@@ -2130,7 +2136,6 @@
     private IReadOnlyList<GhCliAccount> _cliAccounts = [];
     private SettingsPage _activePage = SettingsPage.Features;
     private string? _activeRepositoryAlias;
-    private const string StorageDevbookAlias = "storage";
 
     private enum SettingsPage
     {
@@ -2140,7 +2145,6 @@
         Accounts,
         Repositories,
         Devices,
-        Capture,
     }
 
     // The strip speaks in ids; the page still thinks in the enum.
@@ -2188,10 +2192,6 @@
         // it is not offered rather than offered empty.
         SettingsPage.Accounts => Features.IsEnabled(TasksFeatures.GitHubIntegration) || UsageMetricsEnabled,
         SettingsPage.Devices => SyncEnabled,
-
-        // The Capture button lives on the Inbox pane, so the tab that configures
-        // it goes with the pane rather than with a feature of its own.
-        SettingsPage.Capture => Features.IsEnabled(AppFeatures.InboxPane),
         _ => false
     };
 
@@ -2427,14 +2427,18 @@
         _deviceLog = Services.GetService<ILoggerFactory>()?.CreateLogger(GetType());
         _deviceTokens = Services.GetService<SyncTokenProvider>();
         _activityCache = Services.GetService<IPullRequestDetailCache>();
+        _listingCache = Services.GetService<IActivityListingCache>();
         _taskSync = ResolveTaskSync();
         _sessionSync = ResolveSessionSync();
+        _backup = ResolveBackup();
+        _logs = Services.GetService<AppLogLocation>();
 
         // The loop outlives this screen, so what it did while nobody was here is
         // already on it - and what it does while somebody is here has to reach
         // the page, because otherwise the line below the button never moves.
         if (_taskSync is not null) _taskSync.Changed += OnTaskSyncChanged;
         if (_sessionSync is not null) _sessionSync.Changed += OnSessionSyncChanged;
+        if (_backup is not null) _backup.Changed += OnBackupChanged;
 
         // A background sync is what usually hears the refusal first, on a thread
         // that is not this one - hence the marshal in the handler. That
@@ -2454,10 +2458,7 @@
         // Blank while it is the default, so the placeholder is what explains
         // where snapshots go rather than a path nobody typed.
         _draftDevbookCacheDirectory = Store.IsDefaultDevbookCacheDirectory ? string.Empty : Store.DevbookCacheDirectory;
-        SyncRefreshDraft();
         SyncWorkingHoursDrafts();
-        SyncCaptureTargetsDrafts();
-        SyncStorageDevbookDrafts();
         SyncAzureFoundryDrafts();
         SyncUsageEndpointDrafts();
         _draftRepos = RepositorySettingsText();
@@ -2578,32 +2579,126 @@
         else if (e.Key == "Escape") _draftStorageRepository = Store.RootRepository?.ToLine() ?? string.Empty;
     }
 
-    private void SetRefreshPollingEnabled(bool enabled)
+    // ---- Backup schedule ---------------------------------------------------
+
+    /// <summary>The worker, or null in a host that composes none — the same
+    /// arrangement as <see cref="_taskSync"/>, resolved the same way.</summary>
+    private BackupWorker? _backup;
+
+    private static readonly IReadOnlyList<SelectorOption> BackupCadenceOptions =
+    [
+        new(nameof(BackupCadence.Off), "Off"),
+        new(nameof(BackupCadence.Daily), "Every day"),
+        new(nameof(BackupCadence.Weekly), "Every week")
+    ];
+
+    private static readonly IReadOnlyList<SelectorOption> BackupDayOptions =
+        [.. WorkingHours.Week.Select(day => new SelectorOption(day.ToString(), day.ToString()))];
+
+    /// <summary>What the time field shows: the schedule's time as the input
+    /// wants it, re-read on every render because the field commits on change
+    /// and the store is what it commits to.</summary>
+    private string BackupTimeDraft => Store.BackupSchedule.At.ToString("HH:mm", CultureInfo.InvariantCulture);
+
+    private void ApplyBackupCadence(string? value)
     {
-        _refreshError = Refresh.SetPollingEnabled(enabled);
-        SyncRefreshDraft();
+        if (!Enum.TryParse<BackupCadence>(value, ignoreCase: true, out var cadence)) return;
+
+        _backupScheduleError = Store.SetBackupSchedule(Store.BackupSchedule with { Cadence = cadence });
     }
 
-    /// <summary>Commits the interval the way every other field on this page
-    /// commits: on blur or Enter, with the reason it was refused in the status
-    /// line beside it and the field put back to what is actually in force.</summary>
-    private void ApplyRefreshInterval()
+    private void ApplyBackupDay(string? value)
     {
-        _refreshError = int.TryParse(_draftRefreshInterval, NumberStyles.Integer, CultureInfo.InvariantCulture, out var seconds)
-            ? Refresh.SetPollingIntervalSeconds(seconds)
-            : "Enter how many seconds to wait between checks.";
+        if (!Enum.TryParse<DayOfWeek>(value, ignoreCase: true, out var day)) return;
 
-        SyncRefreshDraft();
+        _backupScheduleError = Store.SetBackupSchedule(Store.BackupSchedule with { Day = day });
     }
 
-    private void OnRefreshIntervalKeyDown(KeyboardEventArgs e)
+    /// <summary>Commits the time from the change event's own value, for the
+    /// reason <see cref="ApplyWorkingTime"/> gives: a time input raises empty
+    /// input events while a time is half typed, and only the change event
+    /// carries a whole one.</summary>
+    private void ApplyBackupTime(ChangeEventArgs e)
     {
-        if (e.Key == "Enter") ApplyRefreshInterval();
-        else if (e.Key == "Escape") SyncRefreshDraft();
+        if (!TryReadWorkingTime(e.Value?.ToString() ?? string.Empty, out var at))
+        {
+            _backupScheduleError = "Enter a time of day for the backup.";
+            return;
+        }
+
+        _backupScheduleError = Store.SetBackupSchedule(Store.BackupSchedule with { At = at });
     }
 
-    private void SyncRefreshDraft() =>
-        _draftRefreshInterval = Refresh.Current.PollingIntervalSeconds.ToString(CultureInfo.InvariantCulture);
+    private void OnBackupTimeKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape") _backupScheduleError = null;
+    }
+
+    /// <summary>Asks the worker for a backup now, and returns. Not awaited, for
+    /// the reason <see cref="SyncTasks"/> is not: copying the database and
+    /// uploading it is work a click handler should not hold the render loop
+    /// for, and what happened arrives through the worker's <c>Changed</c>.</summary>
+    private void BackUpNow() => _backup?.RequestBackup();
+
+    private bool BackupStatusIsFailure =>
+        _backupScheduleError is not null || (_backup is { IsRunning: false, Last.Error: not null });
+
+    /// <summary>One sentence for the state of backups: the refusal of what was
+    /// just typed first, then what the worker did last and when it will next,
+    /// because a person reading this line is asking "is my backlog safe?" and
+    /// the answer is the last backup, not the schedule.</summary>
+    private string BackupStatusLine
+    {
+        get
+        {
+            if (_backupScheduleError is not null) return _backupScheduleError;
+            if (_backup is null) return "Backups are not available in this build.";
+            if (Store.RootRepository is null) return "Name a repository to back up to.";
+            if (_backup.IsRunning) return "Backing up…";
+
+            var last = _backup.Last;
+            // Already local: the worker asks its clock for local time when it
+            // arms, so converting again would shift it by the zone a second time.
+            var next = _backup.NextDue is { } due
+                ? $" Next backup {due:dddd d MMMM} at {due:HH:mm}."
+                : Store.BackupSchedule.IsScheduled ? string.Empty : " Nothing is scheduled.";
+
+            if (last.Error is not null)
+            {
+                var since = last.SucceededAt is { } ok ? $" The last backup that worked was {ok.ToLocalTime():d MMMM yyyy HH:mm}." : string.Empty;
+                return $"The last backup failed: {last.Error}{since}{next}";
+            }
+
+            if (last.SucceededAt is { } at)
+            {
+                var did = last.Committed ? "a new copy was committed" : "nothing had changed";
+                return $"Last backup {at.ToLocalTime():d MMMM yyyy HH:mm} - {did}.{next}";
+            }
+
+            return $"Never backed up.{next}";
+        }
+    }
+
+    /// <summary>Resolved the way <see cref="ResolveTaskSync"/> resolves its
+    /// worker, and for the same reason: both desktop heads compose one, a test
+    /// rendering this page does not have to.</summary>
+    private BackupWorker? ResolveBackup()
+    {
+        try
+        {
+            return Services.GetService<BackupWorker>();
+        }
+        catch (InvalidOperationException ex)
+        {
+            _deviceLog?.LogInformation(ex, "Backup is not composed in this host, so the backup controls are not offered.");
+            return null;
+        }
+    }
+
+    /// <summary>A run ended or started on a thread that is not this one, or
+    /// the schedule moved the next due time. The line under the button is what
+    /// shows it.</summary>
+    private void OnBackupChanged() => _ = InvokeAsync(StateHasChanged);
 
     /// <summary>What the seven rows are showing, keyed by day and by which end
     /// of it. One dictionary rather than fourteen fields, the way the knowledge
@@ -2742,86 +2837,6 @@
             DateTimeStyles.None,
             out time);
 
-    // --- Capture sources ------------------------------------------------
-
-    /// <summary>Turns a source on or off with the targets it already has rather
-    /// than the ones in the field: a half-typed address is not a choice.</summary>
-    private void SetCaptureSourceEnabled(CaptureSourceKind kind, bool enabled) =>
-        _captureSourceErrors[kind] = CaptureSources.SetEnabled(kind, enabled);
-
-    /// <summary>Commits the field the way every other list on this page
-    /// commits: on change, one target per line, with blanks dropped and the
-    /// field put back to exactly what was stored.</summary>
-    private void ApplyCaptureTargets(CaptureSourceKind kind)
-    {
-        var lines = CaptureTargetsDraft(kind)
-            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-        _captureSourceErrors[kind] = CaptureSources.SetTargets(kind, lines);
-        SyncCaptureTargetsDrafts();
-    }
-
-    private void SyncCaptureTargetsDrafts()
-    {
-        foreach (var kind in CaptureSourceKinds.Monitorable)
-        {
-            _draftCaptureTargets[kind] = string.Join('\n', CaptureSources.Current.For(kind).Targets);
-        }
-    }
-
-    private string CaptureTargetsDraft(CaptureSourceKind kind) =>
-        _draftCaptureTargets.GetValueOrDefault(kind, string.Empty);
-
-    private string? CaptureSourceError(CaptureSourceKind kind) =>
-        _captureSourceErrors.GetValueOrDefault(kind);
-
-    /// <summary>What the row is in force as, said in words: off, on with nothing
-    /// to look at, or on and looking at so many.</summary>
-    private string CaptureSourceSummary(CaptureSourceKind kind)
-    {
-        var source = CaptureSources.Current.For(kind);
-        var label = CaptureSourceKinds.Label(kind);
-
-        if (!source.Enabled) return $"Off. {label} is not looked at.";
-        if (source.Targets.Count == 0) return $"On, but pointed at nothing yet - add at least one below.";
-
-        return source.Targets.Count == 1
-            ? $"On. Looking at 1 {CaptureSourceTargetNoun(kind)}."
-            : $"On. Looking at {source.Targets.Count} {CaptureSourceTargetNoun(kind)}s.";
-    }
-
-    private static string CaptureSourceDescription(CaptureSourceKind kind) => kind switch
-    {
-        CaptureSourceKind.YouTube => "New videos on the channels listed below.",
-        CaptureSourceKind.Website => "Changes to the pages listed below.",
-        CaptureSourceKind.Email => "Newsletters and summaries from the senders listed below.",
-        _ => string.Empty
-    };
-
-    private static string CaptureSourceTargetsLabel(CaptureSourceKind kind) => kind switch
-    {
-        CaptureSourceKind.YouTube => "Channels - one URL per line",
-        CaptureSourceKind.Website => "Pages - one URL per line",
-        CaptureSourceKind.Email => "Senders - one address per line",
-        _ => "Targets - one per line"
-    };
-
-    private static string CaptureSourceTargetsPlaceholder(CaptureSourceKind kind) => kind switch
-    {
-        CaptureSourceKind.YouTube => "https://www.youtube.com/@channel",
-        CaptureSourceKind.Website => "https://example.com/blog",
-        CaptureSourceKind.Email => "newsletter@example.com",
-        _ => string.Empty
-    };
-
-    private static string CaptureSourceTargetNoun(CaptureSourceKind kind) => kind switch
-    {
-        CaptureSourceKind.YouTube => "channel",
-        CaptureSourceKind.Website => "page",
-        CaptureSourceKind.Email => "sender",
-        _ => "target"
-    };
-
     /// <summary>The input's classes for a field whose rejection is reported in
     /// the status line beside it rather than by the component.</summary>
     private static string SettingInputClass(string? error) =>
@@ -2840,62 +2855,125 @@
         ? "storage-path-status"
         : "storage-path-status storage-path-sync-warning";
 
-    private string StorageDevbookPathDraft(DevbookFolderSetting folder)
-    {
-        var key = DevbookDraftKey(StorageDevbookAlias, folder.Key);
-        if (!_draftDevbookPaths.TryGetValue(key, out var draft))
-        {
-            draft = folder.Path ?? string.Empty;
-            _draftDevbookPaths[key] = draft;
-        }
-
-        return draft;
-    }
-
-    private void SetStorageDevbookFolderEnabled(DevbookFolderSetting folder, bool enabled)
-    {
-        _error = Store.SetDevbookFolder(
-            folder.Key,
-            enabled,
-            StorageDevbookPathDraft(folder));
-        SyncStorageDevbookDrafts();
-    }
-
-    private void ApplyStorageDevbookFolderPath(DevbookFolderSetting folder)
-    {
-        _error = Store.SetDevbookFolder(
-            folder.Key,
-            folder.Enabled,
-            StorageDevbookPathDraft(folder));
-        SyncStorageDevbookDrafts();
-    }
-
-    private void OnStorageDevbookPathKeyDown(KeyboardEventArgs e, DevbookFolderSetting folder)
-    {
-        if (e.Key == "Enter") ApplyStorageDevbookFolderPath(folder);
-        else if (e.Key == "Escape") _draftDevbookPaths[DevbookDraftKey(StorageDevbookAlias, folder.Key)] = folder.Path ?? string.Empty;
-    }
-
-    private void SyncStorageDevbookDrafts()
-    {
-        foreach (var folder in Store.DevbookFolders)
-        {
-            _draftDevbookPaths[DevbookDraftKey(StorageDevbookAlias, folder.Key)] = folder.Path ?? string.Empty;
-        }
-    }
     /// <summary>Commits the repository list. Lines that aren't repositories are
     /// reported and skipped rather than throwing away the ones around them —
-    /// a half-typed line is an ordinary thing to have in a text box.</summary>
+    /// a half-typed line is an ordinary thing to have in a text box.
+    /// <para>
+    /// The box cannot rename: rows are continued by id, so a line whose
+    /// <c>owner/name</c> changed is a removed repository beside a new one. A save
+    /// that did both is the shape a rename typed here would take, so it is the
+    /// one save that earns a sentence pointing at the Rename control — after the
+    /// fact, because refusing the edit would refuse every genuine swap too.
+    /// </para></summary>
     private void ApplyRepositories()
     {
         var (repositories, errors) = GitHubSettings.ParseText(_draftRepos);
         var messages = new List<string>(errors);
+        var before = GitHub.Settings.Current.Repositories.Select(r => r.FullName).ToList();
 
         var saveError = GitHub.Settings.SetRepositories(repositories);
         if (saveError is not null) messages.Add(saveError);
         _repoError = messages.Count > 0 ? string.Join(" ", messages) : null;
         _draftRepos = RepositorySettingsText();
         SyncRepositoryDrafts();
+
+        var after = GitHub.Settings.Current.Repositories.Select(r => r.FullName).ToList();
+        var removed = before.Where(id => !after.Contains(id, StringComparer.OrdinalIgnoreCase)).ToList();
+        var added = after.Where(id => !before.Contains(id, StringComparer.OrdinalIgnoreCase)).ToList();
+
+        _repoReplacedHint = removed.Count > 0 && added.Count > 0
+            ? $"Removed {string.Join(", ", removed)} and added {string.Join(", ", added)}. To rename a repository and keep its settings and entries, use Rename on its card."
+            : null;
+    }
+
+    private void BeginRename(GitHubRepositoryRef repository)
+    {
+        _renamingAlias = repository.Alias;
+        _renameDraft = repository.FullName;
+        _renameError = null;
+    }
+
+    private void CancelRename()
+    {
+        _renamingAlias = null;
+        _renameDraft = string.Empty;
+        _renameError = null;
+    }
+
+    private async Task OnRenameKeyDownAsync(KeyboardEventArgs e, GitHubRepositoryRef repository)
+    {
+        if (e.Key == "Enter") await ApplyRenameAsync(repository);
+        else if (e.Key == "Escape") CancelRename();
+    }
+
+    /// <summary>
+    /// Applies the rename the form asks for: the store moves its row and records
+    /// the move, and the entries and inbox items filed against the old id are
+    /// carried across here, one call per module. The registry's record means the
+    /// next start would carry them anyway; doing it now is what lets the card say
+    /// how many followed, and what spares the working set a session pointing at
+    /// a coordinate the registry no longer lists.
+    /// <para>
+    /// A refusal from the store is the form's to show and leaves the form open:
+    /// a name that is not a coordinate, or is taken, is a thing to correct, not
+    /// a thing to have tried. Idempotent against the second commit an Enter key
+    /// can raise, because a form that has closed has nothing left to apply.
+    /// </para>
+    /// </summary>
+    private async Task ApplyRenameAsync(GitHubRepositoryRef repository)
+    {
+        if (_renamingAlias != repository.Alias) return;
+
+        var error = GitHub.Settings.RenameRepository(repository.Alias, _renameDraft, out var rename);
+        if (rename is null)
+        {
+            _renameError = error;
+            return;
+        }
+
+        _repoError = error;
+        _draftRepos = RepositorySettingsText();
+        SyncRepositoryDrafts();
+        CancelRename();
+
+        _renameNote = await FollowRenameAsync(rename);
+        _renameNoteAlias = repository.Alias;
+    }
+
+    /// <summary>
+    /// Re-points the entries and inbox items that named the renamed repository
+    /// by its old id, and words what happened for the card.
+    /// <para>
+    /// The two modules are optional here — a host that composes Settings without
+    /// them (the storybook, a unit test) has nothing to carry — so each is
+    /// resolved rather than injected, as the sync services above are. A module
+    /// that refuses is reported in the same breath rather than swallowed: the
+    /// registry has already moved on, and an entry left behind is exactly the
+    /// thing somebody would want to know about — though the next start's pass
+    /// will try it again.
+    /// </para>
+    /// </summary>
+    private async Task<string> FollowRenameAsync(RepositoryRename rename)
+    {
+        var tasks = Services.GetService<ITaskItems>();
+        var inbox = Services.GetService<IInboxItems>();
+
+        var entries = tasks is null ? 0 : await CountOrReport(tasks.RenameRepositoryAsync(rename.OldId, rename.NewId), "Entries");
+        var items = inbox is null ? 0 : await CountOrReport(inbox.RenameRepositoryAsync(rename.OldId, rename.NewId), "Inbox items");
+
+        return $"Renamed {rename.OldId} to {rename.NewId}; {Plural(entries, "entry", "entries")} and {Plural(items, "inbox item", "inbox items")} followed it.";
+
+        async Task<int> CountOrReport(Task<Result<int>> rewrite, string what)
+        {
+            var result = await rewrite;
+            if (result.IsSuccess) return result.Value;
+
+            var message = $"{what} could not follow the rename: {result.Error.Message}";
+            _repoError = _repoError is null ? message : $"{_repoError} {message}";
+            return 0;
+        }
+
+        static string Plural(int count, string one, string many) => $"{count} {(count == 1 ? one : many)}";
     }
 
 
@@ -3029,6 +3107,13 @@
     /// answers.</summary>
     private IPullRequestDetailCache? _activityCache;
 
+    /// <summary>The listing beside the detail: which pull requests and issues there
+    /// were, kept so the next read walks only what changed. Forgotten with the
+    /// detail rather than on its own, because "forget this repository" means both
+    /// to the person pressing it and a listing without its detail would only save
+    /// the cheaper half of the fetch.</summary>
+    private IActivityListingCache? _listingCache;
+
     /// <summary>Which repositories have been forgotten since this screen opened.
     /// Keyed on the alias, so the message follows the repository rather than
     /// whichever card happens to be open.</summary>
@@ -3047,15 +3132,16 @@
     /// </para></summary>
     private string ActivityCacheStatus(GitHubRepositoryRef repository) =>
         _forgottenActivity.Contains(repository.Alias)
-            ? $"Forgotten. The next dashboard read fetches every pull request's detail in {repository.FullName} again, which takes noticeably longer than usual."
-            : $"A merged pull request's detail never changes, so it is saved after it is read and only new pull requests cost a call. Forgetting it means the next dashboard read fetches every pull request's detail in {repository.FullName} again.";
+            ? $"Forgotten. The next dashboard read walks every page and fetches every pull request's detail in {repository.FullName} again, which takes noticeably longer than usual."
+            : $"A merged pull request's detail never changes, so it is saved after it is read and only new pull requests cost a call. Forgetting it means the next dashboard read walks every page and fetches every pull request's detail in {repository.FullName} again.";
 
-    /// <summary>Drops one repository's saved pull-request detail. Nothing else is
-    /// touched — the other repositories keep theirs, and this one keeps its
-    /// settings.</summary>
+    /// <summary>Drops one repository's saved listing and pull-request detail.
+    /// Nothing else is touched — the other repositories keep theirs, and this one
+    /// keeps its settings.</summary>
     private void ForgetActivityCache(GitHubRepositoryRef repository)
     {
         _activityCache?.ForgetRepository(repository);
+        _listingCache?.ForgetRepository(repository);
         _forgottenActivity.Add(repository.Alias);
     }
 
@@ -3065,6 +3151,12 @@
     {
         _devbookCacheError = Store.SetDevbookCacheDirectory(_draftDevbookCacheDirectory);
         _draftDevbookCacheDirectory = Store.IsDefaultDevbookCacheDirectory ? string.Empty : Store.DevbookCacheDirectory;
+    }
+
+    private void OnDevbookCacheDirectoryKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") ApplyDevbookCacheDirectory();
+        else if (e.Key == "Escape") _draftDevbookCacheDirectory = Store.IsDefaultDevbookCacheDirectory ? string.Empty : Store.DevbookCacheDirectory;
     }
 
     private LocalGitRepositoryStatus CloneStatus(GitHubRepositoryRef repository) =>
@@ -3605,6 +3697,12 @@
     /// <summary>The session loop, on the same terms as <see cref="_taskSync"/>:
     /// null on a head that composed none, and hidden with it.</summary>
     private SessionSyncWorker? _sessionSync;
+
+    /// <summary>Where the desktop head writes its log file, so the Sync tasks
+    /// card can point at it: the worker's sentence for an unplanned failure
+    /// names no cause, and the file is where the cause went. Optional because
+    /// only a host that keeps a file registers it.</summary>
+    private AppLogLocation? _logs;
 
     /// <summary>Optional, like the two above and for the same reason: a test
     /// rendering this screen to ask about storage should not have to compose a
@@ -4257,6 +4355,7 @@
 
         if (_taskSync is not null) _taskSync.Changed -= OnTaskSyncChanged;
         if (_sessionSync is not null) _sessionSync.Changed -= OnSessionSyncChanged;
+        if (_backup is not null) _backup.Changed -= OnBackupChanged;
         if (_deviceTokens is not null) _deviceTokens.CredentialRejectedChanged -= OnCredentialRejectedChanged;
         DevbookFolders.Changed -= OnDevbookFoldersChanged;
     }

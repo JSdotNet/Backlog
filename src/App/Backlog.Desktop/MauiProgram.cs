@@ -21,6 +21,7 @@ using Backlog.Modules.Capture.Abstractions.Services;
 using Backlog.Modules.Capture.Extensions;
 using Backlog.Infrastructure.FileSystem.Dashboard;
 using Backlog.Infrastructure.FileSystem.Inbox;
+using Backlog.Infrastructure.FileSystem.Logging;
 using Backlog.Infrastructure.FileSystem.Roadmap;
 using Backlog.Infrastructure.Sqlite.Inbox;
 using Backlog.Infrastructure.Sqlite.Roadmap;
@@ -37,6 +38,7 @@ using Backlog.Infrastructure.Sqlite;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Devbook;
 using Backlog.Infrastructure.Sync;
+using Backlog.Infrastructure.Sync.Annotations;
 using Backlog.Infrastructure.Sync.Extensions;
 using Backlog.Infrastructure.Sync.Sessions;
 using Backlog.UI.Components.Feedback;
@@ -68,6 +70,19 @@ public static class MauiProgram
 
         builder.Services.AddMauiBlazorWebView();
         builder.AddServiceDefaults();
+        // The one log sink an installed build has. The sync and backup workers
+        // catch whatever a cycle throws, put one sentence on screen and write the
+        // exception to the log - and until this line the installed app had no
+        // log, only the Debug provider below, which is compiled out of it. A
+        // second PC reporting "could not be reached, try again in a moment" with
+        // nothing anywhere to say why is what this fixes. Under the workspace's
+        // own app-data folder - Backlog.Debug for a debug head, Backlog for the
+        // installed one - so a checkout run beside the installed app never writes
+        // into its file; the Settings page says where.
+        builder.Logging.AddFileLogging(Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            WorkspaceSettingsStore.DefaultAppDataFolderName,
+            "logs"));
         // The workspace settings file, and the two module ports the adapters
         // over it answer. The knowledge resolver is what both ports share, so
         // neither context has to see the other's settings.
@@ -93,10 +108,6 @@ public static class MauiProgram
             sp.GetRequiredService<IDevbookSnapshotCache>()));
         builder.Services.AddSingleton<ITaskStore>(sp => new WorkspaceTaskStore(
             sp.GetRequiredService<WorkspaceSettingsStore>()));
-        // How often the list re-reads a store somebody else may have written to.
-        // Its own per-user file beside the feature choices, for the same reason
-        // theirs is not in settings.json.
-        builder.Services.AddSingleton<ITasksRefreshSettings, TasksRefreshSettingsStore>();
         // Which hours the reader means to be working. A kernel port rather than a
         // dashboard one: the settings screen writes it and the dashboard shades a
         // grid with it, and neither may reach through the other. Its own per-user
@@ -146,9 +157,11 @@ public static class MauiProgram
         // The same arrangement for capture: the module brings the run, and the host
         // decides where the monitored sources are kept — its own per-user file
         // beside the choices above, for the same reason theirs are not in
-        // settings.json. The source adapters and the delivery come further down,
+        // settings.json — and where what past runs said is kept, a second file
+        // beside it. The source adapters and the delivery come further down,
         // after the Inbox they deliver into.
         builder.Services.AddSingleton<ICaptureSourceSettings, CaptureSourcesSettingsStore>();
+        builder.Services.AddSingleton<ICaptureRunLog, CaptureRunLogStore>();
         builder.Services.AddCaptureModule();
 
         // The two cross-context joins the plan takes part in, each a port a screen
@@ -237,6 +250,22 @@ public static class MauiProgram
         builder.Services.AddSessionSyncStores(Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "Backlog"));
+        // And annotation replication's progress file, in that same folder for the
+        // same reasons. The remarks themselves are the Devbook annotation store's,
+        // under the storage folder with the rest of the person's data.
+        builder.Services.AddAnnotationSyncStore(Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Backlog"));
+        // What the last backup did, in that same folder and for the same reason:
+        // per-installation bookkeeping, never the workspace root. The worker
+        // reads the repository and the schedule off the workspace settings and
+        // uploads through the same GitHub client the feedback dialog commits
+        // screenshots with.
+        builder.Services.AddSingleton<IBackupStateStore>(_ => new FileBackupStateStore(Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Backlog",
+            "backup-state.json")));
+        builder.Services.AddSingleton<BackupWorker>();
         // Where the sync service is, asked per client rather than fixed here.
         // Under the AppHost it is "https+http://sync", which the service discovery
         // AddServiceDefaults wired up rewrites to this run's sync resource - ports
@@ -253,7 +282,10 @@ public static class MauiProgram
         builder.Services.AddSyncClient(SyncServiceAddress);
         builder.Services.AddTaskSyncClient(SyncServiceAddress);
         builder.Services.AddSingleton<AzureFoundrySettingsStore>();
-        builder.Services.AddHttpClient<IAzureFoundryChatClient, AzureFoundryChatClient>();
+        // The chat client's pipeline is the adapter's own, sized for a completion
+        // rather than for the service-to-service defaults AddServiceDefaults
+        // puts on every other client — see AzureFoundryRegistration.
+        builder.Services.AddAzureFoundryChatClient();
         // The Inbox's plan drafter over the same chat client. Singleton here, where
         // the web harness registers it Scoped, because that is the lifetime the
         // chain above it actually has in this host: InboxDesktopState is a
@@ -285,17 +317,29 @@ public static class MauiProgram
         // settings and never under the backlog root - see ActivityCacheDirectory.
         builder.Services.AddSingleton<IPullRequestDetailCache>(sp => new PullRequestDetailCache(
             () => sp.GetRequiredService<WorkspaceSettingsStore>().ActivityCacheDirectory));
+        // And the listing cache is what keeps it from re-walking the pages that
+        // found those pull requests. Same folder, so forgetting a repository is
+        // one gesture that drops both.
+        builder.Services.AddSingleton<IActivityListingCache>(sp => new ActivityListingCache(
+            () => sp.GetRequiredService<WorkspaceSettingsStore>().ActivityCacheDirectory));
         builder.Services.AddSingleton<IGitHubActivityClient>(sp => new GitHubActivityClient(
             sp.GetRequiredService<ResolvingGitHubTransport>(),
-            sp.GetRequiredService<IPullRequestDetailCache>()));
+            sp.GetRequiredService<IPullRequestDetailCache>(),
+            sp.GetRequiredService<IActivityListingCache>()));
         // Counts only, over the search API, for the stretches of history the
         // detailed client is too expensive to walk.
         builder.Services.AddSingleton<IGitHubActivityBaselineClient>(sp => new GitHubActivityBaselineClient(
             sp.GetRequiredService<ResolvingGitHubTransport>()));
+        // Settled Copilot months and settled Claude days are kept beside each other
+        // under the spend cache - see SpendCacheDirectory for why it is a folder of
+        // its own - so a seven-month trend costs the running month and nothing else.
+        builder.Services.AddSingleton<IAiCreditUsageCache>(sp => new AiCreditUsageCache(
+            () => sp.GetRequiredService<WorkspaceSettingsStore>().SpendCacheDirectory));
         builder.Services.AddSingleton<IGitHubBillingClient>(sp => new GitHubBillingClient(
             sp.GetRequiredService<ResolvingGitHubTransport>(),
             sp.GetRequiredService<IGitHubIdentityClient>(),
-            sp.GetRequiredService<GitHubSettingsStore>()));
+            sp.GetRequiredService<GitHubSettingsStore>(),
+            sp.GetRequiredService<IAiCreditUsageCache>()));
 
         // Claude usage reporting is registered unconditionally; it reports
         // itself unavailable until an Admin API key is configured, and the
@@ -305,6 +349,8 @@ public static class MauiProgram
         builder.Services.AddSingleton<IClaudeUsageClient>(sp => new ClaudeUsageClient(
             sp.GetRequiredService<IClaudeTransport>(),
             sp.GetRequiredService<ClaudeSettingsStore>()));
+        builder.Services.AddSingleton<IClaudeCodeUsageCache>(sp => new ClaudeCodeUsageCache(
+            () => sp.GetRequiredService<WorkspaceSettingsStore>().SpendCacheDirectory));
 
         // The Dashboard module brings its derivations; the adapters beside it decide which
         // providers are behind them. Registered after the provider clients above, which is
@@ -322,7 +368,11 @@ public static class MauiProgram
 
         builder.Services.AddSingleton<GitHubIntegration>();
         builder.Services.AddSingleton<FeedbackReporter>();
+        // One per window, and this head has one window: the error screen asks
+        // the footer's dialog to open through it.
+        builder.Services.AddSingleton<FeedbackReportChannel>();
         builder.Services.AddSingleton<DesignDevbookProvider>();
+        builder.Services.AddSingleton<AiDevbookProvider>();
         builder.Services.AddSingleton<TechnologyDevbookService>();
         builder.Services.AddSingleton<DevbookAtlasService>();
         // Retrieval, both tiers. Adapters over the generated database rather than
@@ -373,6 +423,13 @@ public static class MauiProgram
         builder.Services.AddSingleton<C4DevbookStore>();
         builder.Services.AddSingleton<DevbookChapterWriter>();
         builder.Services.AddSingleton(sp => new DomainDevbookStore(sp.GetRequiredService<IDevbookFolderSource>()));
+        // A person's remarks on Devbook chapters: one JSON file per repository
+        // under the storage folder, following the root the way the inbox store
+        // does so a moved backlog takes its remarks along. The panels resolve this
+        // by interface and fall back to a session-scoped store when it is absent,
+        // which is why leaving this line out would not fail — it would only forget.
+        builder.Services.AddSingleton<IDevbookAnnotationStore>(sp =>
+            new DevbookAnnotationStore(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
 
         // The MSIX head can manage its own updates when packaged; it degrades to
         // an "unsupported" report when running unpackaged (e.g. Debug), so this is
@@ -397,12 +454,23 @@ public static class MauiProgram
         // readers; it answers to the same Sync switch as the task loop.
         builder.Services.AddSessionSyncClient(SyncServiceAddress);
 
+        // Annotation replication, the third exchange over the same token pipeline:
+        // it pushes what the annotation store above changed and applies what the
+        // other desktops did. Its own call for the reason the session one is —
+        // a head can have a task database and no Devbook — and it answers to the
+        // same Sync switch as the other two loops.
+        builder.Services.AddAnnotationSyncClient(SyncServiceAddress);
+
         // What a transcript's parsed runs are kept in, so an activity read parses only
         // the transcripts that have changed. Beside the per-user settings and never
         // under the backlog root - see ActivityCacheDirectory: ADR 0005 syncs the
         // workspace, and a per-machine parse cache travelling to another device is
         // exactly the hazard.
         builder.Services.AddSingleton<IAgentActivityCache>(sp => new AgentActivityCache(
+            () => sp.GetRequiredService<WorkspaceSettingsStore>().SessionActivityCacheDirectory));
+        // The other pass over the same transcripts: the folder, branch and turn count
+        // the session list reads. Same folder, same reasons, forgotten together.
+        builder.Services.AddSingleton<ITranscriptFactsCache>(sp => new TranscriptFactsCache(
             () => sp.GetRequiredService<WorkspaceSettingsStore>().SessionActivityCacheDirectory));
 
         // When those sessions were actually producing, read out of the bodies of the
@@ -456,6 +524,13 @@ public static class MauiProgram
         // independently switchable features would have to run whenever either was
         // on, and would give the two one shared error to report.
         _ = app.Services.GetRequiredService<SessionSyncWorker>();
+
+        // And annotation replication's loop, the third sibling, on the same terms.
+        _ = app.Services.GetRequiredService<AnnotationSyncWorker>();
+
+        // And the backup loop, on the same terms: a timer that only existed
+        // while the Storage tab was open would miss every slot it was set for.
+        _ = app.Services.GetRequiredService<BackupWorker>();
 
         return app;
     }

@@ -19,9 +19,12 @@ namespace Backlog.Desktop.UI.Devbook;
 /// </summary>
 public static class InstructionPathTree
 {
-    /// <summary>Version control, editor state, build output, dependencies. The
-    /// same list discovery excludes, kept in step with it deliberately.</summary>
-    private static readonly string[] Excluded = [".git", ".vs", "bin", "obj", "node_modules"];
+    // Version control, editor state, build output, dependencies, and Claude
+    // Code's worktrees — the same exclusions discovery walks by, asked of
+    // InstructionFileWalk rather than kept as a second list here. The worktrees
+    // were the gap: this tree pruned bin and obj and then walked thirty sibling
+    // checkouts underneath .claude, ten thousand directories to the clone's four
+    // hundred, to offer files nobody edits from this pane.
 
     /// <summary>
     /// The tree under <paramref name="root"/>, folders before files and each
@@ -53,7 +56,7 @@ public static class InstructionPathTree
 
         foreach (var child in Directory.EnumerateDirectories(directory).OrderBy(Name, StringComparer.OrdinalIgnoreCase))
         {
-            if (IsExcluded(Name(child))) continue;
+            if (!InstructionFileWalk.Descends(root, child)) continue;
 
             nodes.Add(new TreeNode(
                 Relative(root, child),
@@ -71,16 +74,13 @@ public static class InstructionPathTree
             // looked at directories let it through here and nowhere else — which
             // is exactly the kind of difference that survives review, because the
             // clone everybody tests in does not have it.
-            if (IsExcluded(Name(file))) continue;
+            if (InstructionFileWalk.IsExcludedName(Name(file))) continue;
 
             nodes.Add(TreeNode.Leaf(Relative(root, file), Name(file)));
         }
 
         return nodes;
     }
-
-    private static bool IsExcluded(string name) =>
-        Excluded.Any(excluded => string.Equals(excluded, name, StringComparison.OrdinalIgnoreCase));
 
     private static string Name(string path) => Path.GetFileName(path);
 

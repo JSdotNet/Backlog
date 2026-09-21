@@ -49,6 +49,22 @@ public sealed class GitHubSettings
     public bool ShowRepositoryColours { get; init; }
 
     /// <summary>
+    /// Every rename the registry remembers, oldest first: the coordinates a
+    /// configured repository used to be known by.
+    /// <para>
+    /// Part of the shared registry rather than of this machine, because the
+    /// entries that still name an old coordinate are not all on this machine.
+    /// The registry travels by the workspace folder and the entries by the sync
+    /// service, and nothing orders the two — so a device that receives the
+    /// renamed row before the re-pointed entries would, without this record,
+    /// read the old id as a repository nobody has and register it back as a
+    /// ghost. With it, the old id resolves to the row it became, whichever half
+    /// arrives first.
+    /// </para>
+    /// </summary>
+    public List<RepositoryRename> Renames { get; init; } = [];
+
+    /// <summary>
     /// The repository a name refers to, or null when nothing configured answers
     /// to it.
     /// <para>
@@ -66,6 +82,13 @@ public sealed class GitHubSettings
     /// to read like half a coordinate from shadowing a real one, and it is the
     /// reason an id can now be stored on an entry: the stored value resolves by
     /// the branch that is about identity rather than by luck.
+    /// </para>
+    /// <para>
+    /// An id no row carries is looked up in <see cref="Renames"/> before it is
+    /// given up on: a coordinate the registry remembers renaming answers with the
+    /// row it became, through however many renames it has been through since. A
+    /// configured row always wins over a record, so a repository re-created under
+    /// a name that was once renamed away is that new repository, not the old one.
     /// </para></summary>
     public GitHubRepositoryRef? Find(string? alias)
     {
@@ -75,12 +98,37 @@ public sealed class GitHubSettings
 
         if (trimmed.Contains('/', StringComparison.Ordinal))
         {
-            return Repositories.FirstOrDefault(r => string.Equals(r.FullName, trimmed, StringComparison.OrdinalIgnoreCase));
+            return ById(trimmed) ?? ById(RenamedTo(trimmed));
         }
 
         var normalized = GitHubRepositoryRef.NormalizeAlias(trimmed);
         return Repositories.FirstOrDefault(r => string.Equals(r.Alias, normalized, StringComparison.Ordinal));
     }
+
+    /// <summary>
+    /// Where a coordinate ended up after every rename the registry remembers, or
+    /// the coordinate itself when none names it. The latest record for a
+    /// coordinate is the one followed, because a name given up twice ended up
+    /// where the second rename put it; and the walk is bounded by the record's
+    /// length so a rename back to an earlier name — a genuine cycle — cannot loop.
+    /// </summary>
+    public string RenamedTo(string id)
+    {
+        var current = id.Trim();
+
+        for (var hops = 0; hops < Renames.Count; hops++)
+        {
+            var next = Renames.LastOrDefault(r => string.Equals(r.OldId, current, StringComparison.OrdinalIgnoreCase));
+            if (next is null) break;
+
+            current = next.NewId;
+        }
+
+        return current;
+    }
+
+    private GitHubRepositoryRef? ById(string id) =>
+        Repositories.FirstOrDefault(r => string.Equals(r.FullName, id, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// Which identity hue each configured repository wears, keyed by alias.
@@ -378,6 +426,15 @@ public sealed class GitHubSettings
 }
 
 /// <summary>
+/// One repository whose <c>owner/name</c> moved — a rename on GitHub, applied in
+/// Settings. <see cref="OldId"/> is the coordinate every entry filed itself
+/// against until then, <see cref="NewId"/> the one the registry states from
+/// there on, and <see cref="At"/> when it was applied. Both ids are registry
+/// ids, compared without regard to case wherever they are matched.
+/// </summary>
+public sealed record RepositoryRename(string OldId, string NewId, DateTimeOffset At);
+
+/// <summary>
 /// Reads and writes <see cref="GitHubSettings"/> across the two files a
 /// repository is configured in, and is the single façade over both.
 /// <para>
@@ -435,7 +492,15 @@ public sealed class GitHubSettingsStore
     /// what it does not have the standing to prune.</summary>
     private List<RepositoryDto> _localRows = [];
 
+    /// <summary>The registry's rename record as last read or written. Store
+    /// state rather than a field every mutator restates, because every one of
+    /// them builds a fresh <see cref="GitHubSettings"/> and a mutator that forgot
+    /// to carry the record would silently drop it.</summary>
+    private List<RepositoryRename> _renames = [];
+
     private RegistryState _registryState;
+
+    private readonly TimeProvider _clock;
 
     /// <summary>Where the per-user file sits when nothing overrides it. Named so
     /// a host can compose the two-argument form without restating the path, and
@@ -479,13 +544,17 @@ public sealed class GitHubSettingsStore
     /// different folder takes effect without restarting it.
     /// </para>
     /// </summary>
-    public GitHubSettingsStore(string localPath, Func<string> rootDirectory)
+    /// <param name="clock">What stamps a rename record; the system clock when
+    /// nothing else is given, a fixed one in a test that reads the stamp
+    /// back.</param>
+    public GitHubSettingsStore(string localPath, Func<string> rootDirectory, TimeProvider? clock = null)
     {
         ArgumentNullException.ThrowIfNull(localPath);
         ArgumentNullException.ThrowIfNull(rootDirectory);
 
         _path = localPath;
         _rootDirectory = rootDirectory;
+        _clock = clock ?? TimeProvider.System;
         Directory.CreateDirectory(Path.GetDirectoryName(localPath)!);
         Current = Load();
     }
@@ -533,9 +602,19 @@ public sealed class GitHubSettingsStore
         Changed?.Invoke();
     }
 
-    /// <summary>Replaces the configured repositories. Returns an error message
-    /// when persisting failed; the in-memory value is updated either way so the
-    /// session still works.</summary>
+    /// <summary>
+    /// Replaces the configured repositories. Returns an error message when
+    /// persisting failed; the in-memory value is updated either way so the
+    /// session still works.
+    /// <para>
+    /// Rows are continued by id and by id alone. A line that kept a configured
+    /// alias and changed its <c>owner/name</c> is a new repository beside a
+    /// removed one, not a rename — the text box cannot tell a rename from a
+    /// replacement, and guessing from the alias went wrong for every line
+    /// written without one, whose alias <em>is</em> its name. Renaming is
+    /// <see cref="RenameRepository"/>, which is asked for by name.
+    /// </para>
+    /// </summary>
     public string? SetRepositories(IEnumerable<GitHubRepositoryRef> repositories)
     {
         if (_registryState is RegistryState.Unreadable) return RegistryUnreadable;
@@ -547,6 +626,65 @@ public sealed class GitHubSettingsStore
             ShowRepositoryColours = Current.ShowRepositoryColours,
             Accounts = [.. Current.Accounts]
         });
+    }
+
+    /// <summary>Why a rename was refused, or null when it was applied. Sentences
+    /// for the settings screen, which is the only caller.</summary>
+    public const string RenameUnchanged = "That is already the repository's name.";
+    public const string RenameNotACoordinate = "Write the new name as owner/repo.";
+    public const string RenameTaken = "Another configured repository already has that name.";
+
+    /// <summary>
+    /// Moves a configured repository to a new <c>owner/name</c>, keeping
+    /// everything decided about it, and remembers the move.
+    /// <para>
+    /// The store settles its own half here: the row keeps its machine data and
+    /// its identity choices under the new id, the old id is written to neither
+    /// file as a row, and the registry records the move so that the old id keeps
+    /// resolving — here and on every install that shares the registry. What the
+    /// store cannot settle is the entries that filed themselves against the old
+    /// id, which live in other modules' stores; <paramref name="rename"/> is what
+    /// lets the caller carry those across straight away rather than leaving them
+    /// to the next start's reconcile pass.
+    /// </para>
+    /// <para>
+    /// Refused, with the sentence to show, when the new name is not a
+    /// coordinate, is the name the repository already has, or is the name of
+    /// another configured repository — merging two rows is not a rename.
+    /// </para>
+    /// </summary>
+    public string? RenameRepository(string alias, string newFullName, out RepositoryRename? rename)
+    {
+        rename = null;
+        if (_registryState is RegistryState.Unreadable) return RegistryUnreadable;
+        if (Find(alias) is not { } target) return NotConfigured;
+
+        // The one grammar the Settings text box reads, so a browser URL or a
+        // `.git` suffix pasted here is accepted the way a line would be. The
+        // alias it derives is discarded: the repository keeps its own.
+        var parsed = GitHubRepositoryRef.TryParse(newFullName, out _);
+        if (parsed is null) return RenameNotACoordinate;
+        if (string.Equals(parsed.FullName, target.FullName, StringComparison.OrdinalIgnoreCase)) return RenameUnchanged;
+        if (Current.Repositories.Any(r => !IsSame(r, target) && IsSame(r, parsed))) return RenameTaken;
+
+        var moved = new RepositoryRename(target.FullName, parsed.FullName, _clock.GetUtcNow());
+        _renames = [.. _renames, moved];
+
+        var error = Save(new GitHubSettings
+        {
+            Repositories =
+            [
+                .. Current.Repositories.Select(r => IsSame(r, target)
+                    ? r with { Owner = parsed.Owner, Name = parsed.Name }
+                    : r)
+            ],
+            ApiEndpoint = Current.ApiEndpoint,
+            ShowRepositoryColours = Current.ShowRepositoryColours,
+            Accounts = [.. Current.Accounts]
+        });
+
+        rename = moved;
+        return error;
     }
 
     public string? SetRepositoryToken(string alias, string? token)
@@ -935,13 +1073,23 @@ public sealed class GitHubSettingsStore
     /// </summary>
     private string? Save(GitHubSettings settings)
     {
+        var repositories = NormalizeRepositories(settings.Repositories);
+
+        // A record whose old id is configured again is spent: a row always wins
+        // over a record, so it would never be followed, and a repository
+        // re-created under a name that was once given up is simply that
+        // repository. Dropping it here, on the save that re-created the row, is
+        // also what keeps a rename-and-rename-back from leaving a cycle behind.
+        _renames = [.. _renames.Where(rename => !repositories.Any(r => string.Equals(r.FullName, rename.OldId, StringComparison.OrdinalIgnoreCase)))];
+
         var normalized = new GitHubSettings
         {
-            Repositories = NormalizeRepositories(settings.Repositories),
+            Repositories = repositories,
             Accounts = NormalizeAccounts(settings.Accounts),
             Token = null,
             ApiEndpoint = CleanEndpoint(settings.ApiEndpoint) ?? GitHubSettings.DefaultApiEndpoint,
-            ShowRepositoryColours = settings.ShowRepositoryColours
+            ShowRepositoryColours = settings.ShowRepositoryColours,
+            Renames = [.. _renames]
         };
         Current = normalized;
 
@@ -962,8 +1110,9 @@ public sealed class GitHubSettingsStore
     }
 
     /// <summary>The shared half: one row per repository, holding the id, the alias,
-    /// the chosen hue and the account it is worked as, and nothing else. No token
-    /// ever reaches this file, and no clone path. The account is a login, never a
+    /// the chosen hue and the account it is worked as, and nothing else — plus the
+    /// rename record, which is about ids and so belongs with them. No token ever
+    /// reaches this file, and no clone path. The account is a login, never a
     /// credential — which is why it may travel.</summary>
     private string? WriteRegistry(GitHubSettings settings) =>
         WriteRegistryRows(
@@ -985,7 +1134,15 @@ public sealed class GitHubSettingsStore
             var path = RegistryPath;
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
 
-            File.WriteAllText(path, JsonSerializer.Serialize(new RegistryDto { Repositories = rows }, JsonOptions));
+            var dto = new RegistryDto
+            {
+                Repositories = rows,
+                Renames = _renames.Count == 0
+                    ? null
+                    : [.. _renames.Select(r => new RegistryRenameDto { From = r.OldId, To = r.NewId, At = r.At })]
+            };
+
+            File.WriteAllText(path, JsonSerializer.Serialize(dto, JsonOptions));
             return null;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException or ArgumentException)
@@ -1149,6 +1306,7 @@ public sealed class GitHubSettingsStore
         var registry = ReadRegistry();
         _registryState = registry.State;
         RegistryError = registry.Error;
+        _renames = registry.Renames;
 
         var rows = registry.Rows;
         var carriedOver = false;
@@ -1308,7 +1466,8 @@ public sealed class GitHubSettingsStore
             ]),
             Token = CleanToken(local.Token),
             ApiEndpoint = CleanEndpoint(local.ApiEndpoint) ?? GitHubSettings.DefaultApiEndpoint,
-            ShowRepositoryColours = local.ShowRepositoryColours
+            ShowRepositoryColours = local.ShowRepositoryColours,
+            Renames = [.. _renames]
         };
     }
 
@@ -1378,7 +1537,7 @@ public sealed class GitHubSettingsStore
             ? RegistryRow.From(id, row.Alias, CleanColour(row.Colour))
             : null;
 
-    private (RegistryState State, List<RegistryRow> Rows, string? Error) ReadRegistry()
+    private (RegistryState State, List<RegistryRow> Rows, List<RepositoryRename> Renames, string? Error) ReadRegistry()
     {
         try
         {
@@ -1387,12 +1546,16 @@ public sealed class GitHubSettingsStore
             // Missing is the ordinary first-run and fresh-workspace state, and it
             // is writable: the next save creates the file. Deliberately not an
             // error, so nothing tells somebody about a problem they do not have.
-            if (!File.Exists(path)) return (RegistryState.Missing, [], null);
+            if (!File.Exists(path)) return (RegistryState.Missing, [], [], null);
 
             var dto = JsonSerializer.Deserialize<RegistryDto>(File.ReadAllText(path), JsonOptions);
-            if (dto is null) return (RegistryState.Missing, [], null);
+            if (dto is null) return (RegistryState.Missing, [], [], null);
 
-            return (RegistryState.Loaded, [.. dto.Repositories.Select(row => RegistryRow.From(row)).OfType<RegistryRow>()], null);
+            return (
+                RegistryState.Loaded,
+                [.. dto.Repositories.Select(row => RegistryRow.From(row)).OfType<RegistryRow>()],
+                [.. (dto.Renames ?? []).Select(RenameFrom).OfType<RepositoryRename>()],
+                null);
         }
         catch (Exception)
         {
@@ -1401,8 +1564,19 @@ public sealed class GitHubSettingsStore
             // empty shared registry would prune every overlay row and refuse
             // nothing. So the state is remembered, and the writes that would act
             // on a list nobody has are refused instead.
-            return (RegistryState.Unreadable, [], RegistryUnreadable);
+            return (RegistryState.Unreadable, [], [], RegistryUnreadable);
         }
+    }
+
+    /// <summary>A stored rename read back, or null for one that names no two
+    /// coordinates — dropped rather than repaired, the tolerance every row in
+    /// this file has.</summary>
+    private static RepositoryRename? RenameFrom(RegistryRenameDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.From) || string.IsNullOrWhiteSpace(dto.To)) return null;
+        if (dto.From.Trim().Split('/').Length != 2 || dto.To.Trim().Split('/').Length != 2) return null;
+
+        return new RepositoryRename(dto.From.Trim(), dto.To.Trim(), dto.At ?? DateTimeOffset.MinValue);
     }
 
     private LocalFile ReadLocal()
@@ -1440,8 +1614,11 @@ public sealed class GitHubSettingsStore
     /// <para>
     /// It used to match alias-or-full-name, which meant an alias rename preserved
     /// a clone directory by luck. Keying on the id preserves it by definition, and
-    /// only a changed <c>owner/name</c> — a genuinely different repository — loses
-    /// it.
+    /// only a changed <c>owner/name</c> — a genuinely different repository, or a
+    /// rename typed into the box instead of asked for — starts from nothing. It
+    /// briefly matched on a kept alias as well, to read such a line as a rename;
+    /// that guess was wrong for every line written without an alias of its own,
+    /// so a rename is now <see cref="RenameRepository"/> and nothing here guesses.
     /// </para>
     /// <para>
     /// The account binding is carried the same way the hue is, and for a reason
@@ -1658,6 +1835,22 @@ public sealed class GitHubSettingsStore
     private sealed class RegistryDto
     {
         public List<RegistryRepositoryDto> Repositories { get; set; } = [];
+
+        /// <summary>Every rename applied to a row in this file, oldest first.
+        /// Omitted while empty, so a workspace nobody has renamed anything in
+        /// writes the file it always wrote.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<RegistryRenameDto>? Renames { get; set; }
+    }
+
+    /// <summary>One rename: the coordinate a row had, the one it has now, and
+    /// when. Written by the install that applied it, read by every install
+    /// that shares the registry.</summary>
+    private sealed class RegistryRenameDto
+    {
+        public string? From { get; set; }
+        public string? To { get; set; }
+        public DateTimeOffset? At { get; set; }
     }
 
     /// <summary>

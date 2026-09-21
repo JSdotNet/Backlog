@@ -358,6 +358,95 @@ h1, h2, h3 {
     justify-content: flex-start;
 }
 
+/* --- Sync activity --------------------------------------------------------- */
+/*
+  The sync phrase wears `.header-util` like the version beside it, so the two
+  read as one row of quiet utilities. Only the type is the phrase's own: the
+  arrows and counts are tabular so "↑3 ↓12" and "↑12 ↓3" are the same width and
+  the band does not breathe as the numbers change. A failed cycle borrows the
+  error text colour and nothing louder — the workers say a failed result is
+  not an alarm, and a laptop on a train would otherwise see red every five
+  minutes.
+*/
+.app-sync {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.app-sync--failed {
+    color: var(--color-error-text);
+}
+
+.sync-activity__totals {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-variant-numeric: tabular-nums;
+}
+
+.sync-activity__totals p {
+    margin: 0;
+}
+
+/* One row per document, in columns that line up: the clock, the direction, the
+   kind, then the title taking what is left. The list is the reason the window
+   exists, so it gets the scroll rather than the dialog: a republish of a whole
+   backlog fills it to `Capacity`, and the totals and the button above it must
+   stay where they are while a reader scrolls the rows. */
+.sync-activity__list {
+    display: grid;
+    grid-template-columns: max-content max-content max-content minmax(0, 1fr);
+    column-gap: var(--spacing-md);
+    row-gap: var(--spacing-xs);
+    align-items: baseline;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    max-height: 18rem;
+    overflow-y: auto;
+    font-size: var(--font-size-sm);
+}
+
+.sync-activity__entry {
+    display: grid;
+    grid-template-columns: subgrid;
+    grid-column: 1 / -1;
+}
+
+.sync-activity__time {
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+}
+
+.sync-activity__direction,
+.sync-activity__kind {
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+}
+
+/* The direction column is the one a reader scans, so it takes the one colour
+   difference in the list: what left is the primary tint, what arrived is the
+   default ink. Both keep the arrow and the word, so the tint is never the only
+   thing saying which way. */
+.sync-activity__entry[data-direction="sent"] .sync-activity__direction {
+    color: var(--color-primary);
+}
+
+.sync-activity__title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sync-activity__note {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
 .app-update-dialog__description code {
     color: var(--color-text-primary);
     font-family: var(--font-family-mono);
@@ -419,9 +508,9 @@ h1, h2, h3 {
 /* The one group in the bar that is not a filter. It keeps its room for the same
    reason the scopes do, and more strongly: it is the only way into the selection
    gutter and the only way back out of the mode, so a chip squeezed out of view
-   would strand a reader inside it. Pinned before the status group's auto margin,
-   so it sits with the scopes on the left rather than drifting to the right
-   edge. */
+   would strand a reader inside it. First in the markup and pinned before the
+   status group's auto margin, so it leads the scopes on the left rather than
+   drifting to the right edge. */
 .filter-group--select {
     flex: 0 0 auto;
 }
@@ -661,8 +750,9 @@ h1, h2, h3 {
 
   Sticky, because the selection it reports on is spread down a column the reader
   scrolls: a bar that left the top of the screen would take the count and the
-  only way out of the selection with it. The list is the scroll container, so
-  top: 0 is the top of the rows rather than the top of the window.
+  only way out of the selection with it. The split's own half is the scroll
+  container — see `.backlog-list` for why the list must not be one — so top: 0
+  is the top of the rows rather than the top of the window.
 
   flex: none, so a bar whose acts have wrapped onto three lines grows downwards
   instead of stealing height from the list.
@@ -715,13 +805,20 @@ h1, h2, h3 {
     max-width: 22rem;
 }
 
+/* Not a scroll container, and deliberately so. The split's own half already
+   scrolls (`.split-pane__start` in the library is `overflow: auto`), and that half
+   is a block that hands this column its content height rather than its own — so
+   an `overflow-y: auto` here never produced a scrollbar. What it did produce was
+   a scroll container that never scrolled, and a sticky child measures against
+   its nearest one: the bulk bar above and the add-entry row below both claimed
+   to stick to this column and both scrolled straight out of view, because the
+   box they were stuck to was as tall as the rows. */
 .backlog-list {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-md);
     min-height: 0;
     min-width: 0;
-    overflow-y: auto;
     container-type: inline-size;
     container-name: backlog-list;
 }
@@ -1020,6 +1117,17 @@ h1, h2, h3 {
     justify-content: flex-end;
     gap: var(--spacing-xs);
     margin-top: var(--spacing-xs);
+}
+
+/* When the entry was created: a fact, not a control, so it is set in the same
+   muted small type as the meta reading hint and sits between delete and close
+   without competing with either. */
+.entry-detail__created {
+    margin-right: var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    line-height: var(--line-height-normal);
+    white-space: nowrap;
 }
 
 .entry-detail__close {
@@ -1616,6 +1724,30 @@ h1, h2, h3 {
     display: flex;
     align-items: stretch;
     gap: var(--spacing-sm);
+    /* Sticky to the bottom of the scroller, the mirror of the bulk bar at its
+       top: the row keeps its slot under the open rows — above Completed, where
+       the next entry will appear — but a column longer than the window no longer
+       hides the one control that adds to it until the reader has scrolled past
+       everything already there. The split's half is the scroll container — see
+       `.backlog-list` — so bottom: 0 is the bottom of the rows rather than of
+       the window, and once the reader reaches the row's own place it scrolls
+       with the rest.
+
+       The ground colour, because the buttons inside are transparent by design
+       — dashed outlines on whatever they sit on — and rows sliding under a
+       transparent strip read through it. The paint reaches up over the column's
+       own gap — a negative margin and the same padding back, so nothing moves —
+       because a row sliding under a strip that starts at the dashed border ends
+       up touching it, and the gap is what keeps them apart everywhere else.
+       flex: none for the bulk bar's reason: an item the column may shrink is an
+       item it will. */
+    flex: none;
+    position: sticky;
+    bottom: 0;
+    z-index: 1;
+    margin-top: calc(-1 * var(--spacing-md));
+    padding-top: var(--spacing-md);
+    background: var(--color-background);
 }
 
 .entry-add-row > .entry-add {
@@ -1835,6 +1967,14 @@ h1, h2, h3 {
     overflow-wrap: anywhere;
 }
 
+/* A status line is often two sentences in two spans - a note about the last
+   save, then the standing summary. The compiler drops the whitespace between
+   them, so the gap is stated here rather than as a space the markup cannot
+   keep. */
+.setting__status > span + span {
+    margin-left: 0.35em;
+}
+
 .setting__status--error { color: var(--color-error-text); }
 .setting__status--ok { color: var(--color-success-text); }
 
@@ -2008,6 +2148,16 @@ h1, h2, h3 {
 
 .repo-card__header .btn {
     flex-shrink: 0;
+}
+
+/* The two buttons on the header's right - Rename, then Remove - sit as one
+   group, and the group is exempt from the give-way rule above: it is the
+   text side that shrinks, and the buttons that hold their size. */
+.repo-card__header > .repo-card__actions {
+    display: flex;
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
 }
 
 .repo-card__title {
@@ -2269,6 +2419,48 @@ h1, h2, h3 {
     .devbook-folder__status {
         grid-column: auto;
     }
+}
+
+/* --- App error state ------------------------------------------------------- */
+/*
+  What AppErrorBoundary draws in the page's place when the page threw. It takes
+  the slot `.shell` normally fills in the `.app-shell` column — the same
+  `flex: 1 1 auto` and `min-height: 0` pair, for the same reason written on
+  `.shell` above — and centres the library's empty state in it. The state itself
+  is the library's; only its width and the exception line under it are this
+  app's.
+*/
+.app-error {
+    display: grid;
+    place-items: center;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    padding: var(--spacing-xl);
+}
+
+.app-error__state {
+    max-width: 40rem;
+    background: var(--color-background-alt);
+}
+
+.app-error__title {
+    color: var(--color-error-text);
+}
+
+/*
+  The exception's own sentence. A block of its own under the description, in the
+  monospace face because it is quoted rather than written, and allowed to wrap
+  because a message that overflows the panel is a message nobody reads.
+*/
+.app-error__message {
+    display: block;
+    margin-top: var(--spacing-sm);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-primary);
+    overflow-wrap: anywhere;
+    text-align: left;
 }
 
 /* --- Blazor error UI -------------------------------------------------------- */
@@ -2815,6 +3007,129 @@ h1, h2, h3 {
 .inbox-pane__capture-result {
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
+}
+
+/* --- Capture sources ---------------------------------------------------- */
+/*
+   The sources panel the shell folds into the Inbox pane's sources slot: a
+   library FoldControl wearing capture-sources beside its own fold class, so
+   the trigger and the chevron are the library's and only the region inside is
+   styled here. Folded, it is one line; open, it is a card per source with the
+   same flag-row switch the feature flags use, the library's textarea under it,
+   and the last run's line with the log beneath. Every colour is a token.
+*/
+.inbox-pane__sources {
+    min-width: 0;
+}
+
+.capture-sources .fold__trigger {
+    font-size: var(--font-size-sm);
+}
+
+.capture-sources__label {
+    font-weight: 700;
+}
+
+.capture-sources__summary {
+    margin-left: var(--spacing-xs);
+    color: var(--color-text-secondary);
+}
+
+.capture-sources__body {
+    display: grid;
+    gap: var(--spacing-md);
+    padding-top: var(--spacing-xs);
+}
+
+.capture-sources__description,
+.capture-sources__note {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.capture-sources__note code {
+    overflow-wrap: anywhere;
+}
+
+/* One source: switch, targets, last run. The card border is the flag row's;
+   the rest sits inside the same box so a source reads as one thing. */
+.capture-sources__source {
+    display: grid;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background);
+}
+
+.capture-sources__source > .feature-flag {
+    padding: 0;
+    border: none;
+    background: transparent;
+}
+
+.capture-sources__targets .field__input {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-sm);
+    resize: vertical;
+}
+
+/* The last run and the way into the log, on one line; the button keeps its
+   width and the line takes the rest. */
+.capture-sources__run {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+}
+
+.capture-sources__last-run {
+    margin: 0;
+    min-width: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+/* The log: newest first, each run on its own line — when, how many, what it
+   said. A list rather than a table because the message is the width. */
+.capture-sources__log {
+    display: grid;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: var(--spacing-sm);
+    list-style: none;
+    font-size: var(--font-size-xs);
+    font-family: var(--font-family-mono);
+    color: var(--color-text-secondary);
+    background: color-mix(in srgb, var(--color-text-primary) 3%, transparent);
+    border-radius: var(--border-radius-sm);
+    max-height: 14rem;
+    overflow-y: auto;
+}
+
+.capture-sources__log-entry {
+    display: grid;
+    grid-template-columns: auto auto 1fr;
+    gap: var(--spacing-sm);
+    align-items: baseline;
+}
+
+.capture-sources__log-when {
+    white-space: nowrap;
+}
+
+.capture-sources__log-new {
+    white-space: nowrap;
+    color: var(--color-text-primary);
+}
+
+.capture-sources__log-text {
+    overflow-wrap: anywhere;
+}
+
+.capture-sources__log-empty {
+    font-family: var(--font-family-base);
 }
 
 .inbox-pane__add-form {
@@ -3630,6 +3945,58 @@ h1, h2, h3 {
     overflow-wrap: anywhere;
 }
 
+/* What Claude has kept of a plugin: one chip per cached version, under the row.
+   A stale chip carries its own small Remove; a chip some install still loads
+   carries none and says so. The line wraps rather than scrolls, because the
+   plugin this exists for had three versions cached and a narrow pane. */
+.tools-inventory__cache {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+    margin-top: var(--spacing-xs);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.tools-inventory__cache-label {
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.tools-inventory__cache-version {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: 999px;
+    padding: 0.1rem 0.5rem;
+    font-family: var(--font-family-mono);
+    white-space: nowrap;
+}
+
+.tools-inventory__cache-version--in-use {
+    color: var(--color-text-primary);
+}
+
+.tools-inventory__cache-use {
+    font-family: var(--font-family-base);
+    font-style: italic;
+}
+
+/* The chip's own Remove, shrunk to the chip: the library's small ghost button
+   is sized for a toolbar, and inside a pill of one word it doubled the pill's
+   height. Only the padding and the size are overridden; it stays the same
+   control, with the same focus ring and the same disabled state. */
+.tools-inventory__cache-remove {
+    padding: 0 0.3rem;
+    min-height: 0;
+    font-size: var(--font-size-xs);
+    font-family: var(--font-family-base);
+    line-height: 1.4;
+}
+
 /* The tick on a row nothing can check. The library's checkbox wearing one extra
    rule: the actions cell is the narrowest column in the table, and a two-word
    label that wraps there makes the row twice as tall as the fifty around it.
@@ -3801,10 +4168,9 @@ h1, h2, h3 {
     grid-template-rows: minmax(0, 1fr);
 }
 
-/* A takeover: Tools, the Dashboard or Sessions, filling everything below the
-   header. The panel inside owns the scrollbar rather than this landmark, so the
-   header — and the control that closes the surface — can never be scrolled out of
-   reach. */
+/* A takeover: Tools or the Dashboard, filling everything below the header. The
+   panel inside owns the scrollbar rather than this landmark, so the header — and
+   the control that closes the surface — can never be scrolled out of reach. */
 .workspace-surface {
     display: flex;
     flex-direction: column;
@@ -3813,12 +4179,40 @@ h1, h2, h3 {
     overflow: hidden;
 }
 
+/* The panel is the scroll container whether it sits in the surface directly or
+   inside one of the Dashboard's tab panels: the tab panel below is the same kind
+   of column as the surface, so the rule reaches the same element either way. */
 .workspace-surface > .tools-panel,
 .workspace-surface > .dashboard-panel,
-.workspace-surface > .sessions-panel {
+.workspace-surface > .sessions-panel,
+.workspace-surface__tabpanel > .dashboard-panel,
+.workspace-surface__tabpanel > .sessions-panel {
     flex: 1 1 auto;
     min-height: 0;
     overflow: auto;
+}
+
+/* The Dashboard's tab strip: Overview beside Sessions. The library's tabs__list
+   draws it; this only fixes it at the top of the column so the panel below takes
+   the rest, and lifts the bottom rule off the panel's own frame. */
+.workspace-surface__tabs {
+    flex: none;
+    margin-bottom: var(--spacing-sm);
+}
+
+/* One tab panel is on screen and the other carries `hidden`. Only the visible one
+   is made a flex column — display on both would override the attribute and put an
+   empty panel in the column beside the live one. */
+.workspace-surface__tabpanel:not([hidden]) {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.workspace-surface__tabpanel:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: -2px;
 }
 
 .roadmap-band {
@@ -4592,10 +4986,17 @@ h1, h2, h3 {
     grid-template-columns: minmax(20rem, 26rem) minmax(0, 1fr) auto minmax(24rem, min(var(--devbook-panel-width, 36rem), calc(100% - var(--workspace-min-width))));
 }
 
+/* Stretched to the row rather than sized by its contents. It used to
+   `align-self: start` and measure its own height, capped at the row: with a
+   short queue the pane stopped a third of the way down and the detail column —
+   which scrolls on its own and takes the pane's height — had no height to give
+   a picker's popup, so the list opened into the column's overflow and was cut
+   off at the pane's edge. The row is a sized track, so filling it is what gives
+   the columns their height and leaves the space below the pane to the pane. */
 .devbook-layout--inbox-before-backlog > .inbox-pane {
     position: sticky;
     top: var(--spacing-lg);
-    align-self: start;
+    align-self: stretch;
     /* The pane row no longer starts below the header alone — the roadmap band can
        sit above it — so a cap measured off the viewport overflows by however tall
        the band is. The row is already a sized grid track, so its own height is the
@@ -4641,6 +5042,16 @@ h1, h2, h3 {
     top: auto;
     max-height: none;
     overflow: auto;
+}
+
+/* The inbox on its own — the backlog hidden — is the whole row, and the stack
+   it sits in is already stretched to that row. The pane grows to fill it for
+   the reason the sticky variant above stretches: a pane sized by a short queue
+   left the rest of the window empty and its detail column with no room for a
+   picker's popup. With another pane in the stack the inbox keeps its content
+   height and shares the column, as before. */
+.side-pane-stack--full > .inbox-pane {
+    flex: 1 1 auto;
 }
 
 /* A column, so the split inside it inherits the height instead of measuring its
@@ -5178,7 +5589,7 @@ h1, h2, h3 {
 
 .devbook-stack__header,
 .devbook-stack__section > .devbook-pane,
-.devbook-stack__section > .design-devbook,
+.devbook-stack__section > .folder-devbook,
 .devbook-stack__section > .domain-devbook {
     border: var(--border-width) solid var(--color-border);
     border-radius: var(--border-radius-lg);
@@ -5198,7 +5609,7 @@ h1, h2, h3 {
 }
 
 .devbook-stack__nav,
-.design-devbook__nav,
+.folder-devbook__nav,
 .domain-devbook__contexts,
 .devbook-chapters {
     display: flex;
@@ -5245,7 +5656,7 @@ h1, h2, h3 {
 
 .devbook-stack__nav a,
 .devbook-stack__nav-item,
-.design-devbook__nav-link,
+.folder-devbook__nav-link,
 .domain-context-tab,
 .devbook-chapter {
     display: inline-flex;
@@ -5268,8 +5679,8 @@ h1, h2, h3 {
 .devbook-stack__nav-item:hover,
 .devbook-stack__nav-item:focus-visible,
 .devbook-stack__nav-item--active,
-.design-devbook__nav-link:hover,
-.design-devbook__nav-link:focus-visible,
+.folder-devbook__nav-link:hover,
+.folder-devbook__nav-link:focus-visible,
 .domain-context-tab:hover,
 .domain-context-tab:focus-visible,
 .domain-context-tab[aria-pressed="true"],
@@ -5281,7 +5692,7 @@ h1, h2, h3 {
 }
 
 .devbook-stack__section > .devbook-pane,
-.devbook-stack__section > .design-devbook,
+.devbook-stack__section > .folder-devbook,
 .devbook-stack__section > .domain-devbook {
     position: static;
     max-height: none;
@@ -5291,7 +5702,7 @@ h1, h2, h3 {
 
 .devbook-stack__section > .devbook-pane--arc42,
 .devbook-stack__section > .instructions-devbook,
-.devbook-stack__section > .design-devbook--chapter,
+.devbook-stack__section > .folder-devbook--chapter,
 .devbook-stack__section > .domain-devbook {
     display: flex;
     flex-direction: column;
@@ -5300,14 +5711,19 @@ h1, h2, h3 {
     overflow: hidden;
 }
 
-/* A selected design chapter is a file, and a file scrolls in the file view. The
+/* The `folder-*` family is the document-folder view — one view for `.design`
+   and `.ai`, told which folder it is drawing — so nothing below names a folder;
+   the token strip is the exception and keeps its `design-` prefix because only a
+   design file writes a Token table.
+
+   A selected chapter is a file, and a file scrolls in the file view. The
    pane stops at the section's height and every wrapper between it and the file
    view stops growing, so the one scrollbar left on that edge is the body's own.
    Only for a chapter: the folder overview is a stack of documents with no file
    view under it, and capping that would clip the folder against a height nobody
    would be able to scroll. */
-.design-devbook--chapter .design-devbook__documents,
-.design-devbook--chapter .design-document {
+.folder-devbook--chapter .folder-devbook__documents,
+.folder-devbook--chapter .folder-document {
     display: flex;
     flex: 1 1 auto;
     flex-direction: column;
@@ -5320,7 +5736,7 @@ h1, h2, h3 {
    asks for when it is the only child, and next to a sibling it is a request for
    more room than there is — which the column then answers by squeezing the file
    to nothing. */
-.design-devbook--chapter .file-view--fill {
+.folder-devbook--chapter .file-view--fill {
     flex: 1 1 auto;
     min-height: 12rem;
     height: auto;
@@ -5547,10 +5963,10 @@ h1, h2, h3 {
         max-height: none;
     }
 }
-.design-devbook,
-.design-devbook__documents,
-.design-document,
-.design-section,
+.folder-devbook,
+.folder-devbook__documents,
+.folder-document,
+.folder-section,
 .domain-devbook,
 .domain-context,
 .domain-context__documents,
@@ -5562,7 +5978,7 @@ h1, h2, h3 {
     gap: var(--spacing-md);
 }
 
-/* The design overview renders its documents' blocks straight into the page, and
+/* The folder overview renders its documents' blocks straight into the page, and
    is the one knowledge view that does: every other one puts the file through the
    file view, whose body is a scroll box and so is never wider than the pane it is
    in. Without one of its own, the widest thing in a `.design` file sets the width
@@ -5573,13 +5989,13 @@ h1, h2, h3 {
    same content one level down; the tracks are told they may shrink, because a
    grid track floors at its content's minimum otherwise and the scroll box would
    never get the chance. */
-.design-devbook__documents,
-.design-document,
-.design-section {
+.folder-devbook__documents,
+.folder-document,
+.folder-section {
     grid-template-columns: minmax(0, 1fr);
 }
 
-.design-section {
+.folder-section {
     overflow-x: auto;
 }
 
@@ -5594,7 +6010,7 @@ h1, h2, h3 {
     overflow-wrap: anywhere;
 }
 
-.design-section__header,
+.folder-section__header,
 .domain-context__header,
 .domain-document__header,
 .domain-section__header,
@@ -5606,14 +6022,14 @@ h1, h2, h3 {
     gap: var(--spacing-md);
 }
 
-/* The design document header stacks instead of splitting. It holds the file's
+/* The folder view's document header stacks instead of splitting. It holds the file's
    path and then the file's own metadata record, and the record already draws the
    name with the status held to the right edge of its line — the split this
    header used to make is now made one level down, inside
    `.devbook-record__headline`, where the two things sharing the line share a
    parent. Laid out as two rows so the path stays the eyebrow above the name it
    has always been. */
-.design-document__header {
+.folder-document__header {
     display: grid;
     gap: var(--spacing-2xs);
 }
@@ -5625,7 +6041,7 @@ h1, h2, h3 {
    left. They stay where the reader has always found them. A header that still
    names its document has two children and is untouched.
 
-   Domain is the last one that needs this. The design pane's header renders only
+   Domain is the last one that needs this. The folder view's header renders only
    when it names the file, so it never has a lone child; and the arc42 pane no
    longer has a document header at all, having given the state and the relation
    count to the file view along with everything else it used to draw above it. */
@@ -5636,10 +6052,10 @@ h1, h2, h3 {
 /* A heading handed to a knowledge record arrives with the block margins it has
    as a block of its own, and left alone they push the status off the line the
    record exists to share. The shared stylesheet resets the markdown heading the
-   file view hands over; these are the design pane's own `h3` and `h4`. */
-.design-document__header h3,
-.design-section__header h4,
-.design-section__record h4,
+   file view hands over; these are the folder view's own `h3` and `h4`. */
+.folder-document__header h3,
+.folder-section__header h4,
+.folder-section__record h4,
 .domain-context__header h3,
 .domain-document__header h3,
 .domain-section__header h4 {
@@ -5742,7 +6158,7 @@ h1, h2, h3 {
    chapter's path to the file view's own header, which sets it as a path rather
    than as an eyebrow — monospaced and right-aligned, because a reader checks one
    segment of a path instead of reading it. Nothing renders the class now. */
-.design-document__file,
+.folder-document__file,
 .domain-devbook__eyebrow {
     margin: 0 0 var(--spacing-xs);
     color: var(--color-primary-light);
@@ -5752,7 +6168,7 @@ h1, h2, h3 {
     text-transform: uppercase;
 }
 
-/* .design-devbook__source and .design-document__summary were here until the
+/* .folder-devbook__source and .folder-document__summary were here until the
    design pane stopped introducing itself: the first printed an absolute folder
    path above the document, and the second reprinted the file's opening sentences
    just above the file. Nothing renders either class now. */
@@ -5773,7 +6189,7 @@ h1, h2, h3 {
    container the Devbook stack sizes and the anchor the Devbook menu jumps to
    — but it always holds a file view now, so a card here is a card around a card. */
 .design-token,
-.design-section,
+.folder-section,
 .domain-document,
 .tech-node {
     padding: var(--spacing-md);

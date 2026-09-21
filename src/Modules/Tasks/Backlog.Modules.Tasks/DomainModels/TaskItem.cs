@@ -294,6 +294,51 @@ public sealed class TaskItem
         Touch();
     }
 
+    /// <summary>
+    /// Follows a repository that was renamed on GitHub: every place this entry
+    /// names <paramref name="oldId"/> — its repository assignments and the issue
+    /// links it holds — names <paramref name="newId"/> afterwards. Answers whether
+    /// anything moved, so a caller can count and can skip the write when nothing
+    /// did.
+    /// <para>
+    /// Ids are registry coordinates and are matched the way the registry matches
+    /// them, without regard to case. Assignments are de-duplicated afterwards,
+    /// because an entry that somehow named both spellings would otherwise name
+    /// the new one twice.
+    /// </para>
+    /// </summary>
+    public bool RenameRepository(string oldId, string newId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(oldId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(newId);
+
+        var changed = false;
+
+        if (_repoIds.Any(id => Matches(id, oldId)))
+        {
+            var renamed = _repoIds
+                .Select(id => Matches(id, oldId) ? newId : id)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            _repoIds.Clear();
+            _repoIds.AddRange(renamed);
+            changed = true;
+        }
+
+        for (var i = 0; i < _projectionRefs.Count; i++)
+        {
+            if (!Matches(_projectionRefs[i].RepoId, oldId)) continue;
+            _projectionRefs[i] = _projectionRefs[i] with { RepoId = newId };
+            changed = true;
+        }
+
+        if (changed) Touch();
+        return changed;
+
+        static bool Matches(string stored, string id) =>
+            string.Equals(stored.Trim(), id, StringComparison.OrdinalIgnoreCase);
+    }
+
     /// <summary>The shared <c>#tag</c> the plan this entry was imported from was
     /// filed under, or null when the entry was not imported (or was imported from
     /// a plan with no shared tag). Provenance in the same spirit as

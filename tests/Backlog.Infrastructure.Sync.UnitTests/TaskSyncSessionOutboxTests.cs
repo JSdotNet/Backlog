@@ -45,6 +45,31 @@ public sealed class TaskSyncSessionOutboxTests
         Assert.Empty(outbox.Pending);
     }
 
+    /// <summary>An acknowledgement is a decision this desktop made about a
+    /// capture, so the log says so — as a capture, sent, with the word that
+    /// tells it apart from a task travelling the same push.</summary>
+    [Fact]
+    public async Task A_pushed_acknowledgement_is_recorded_as_a_capture_sent()
+    {
+        var outbox = new RecordingInboxOutbox();
+        var capture = Guid.CreateVersion7();
+        outbox.Pending.Add(new InboxCaptureAckDto(capture, "Call the dentist", Noon, Noon.AddHours(1)));
+        var activity = new SyncActivityLog();
+
+        using var fixture = Fixture.Create(new InMemoryTaskStore(), new InMemoryTaskSyncStateStore(), outbox,
+            (_, _) => StubHttpMessageHandler.Json(HttpStatusCode.OK, """{"accepted":1}"""),
+            activity);
+
+        await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
+
+        var entry = Assert.Single(activity.Snapshot());
+        Assert.Equal(SyncDirection.Sent, entry.Direction);
+        Assert.Equal(SyncItemKind.Capture, entry.Kind);
+        Assert.Equal(capture.ToString("D"), entry.Id);
+        Assert.Equal("Call the dentist", entry.Title);
+        Assert.Equal("acknowledged", entry.Note);
+    }
+
     [Fact]
     public async Task Acknowledgements_go_after_the_tasks_and_are_counted_with_them()
     {
@@ -182,7 +207,8 @@ public sealed class TaskSyncSessionOutboxTests
             InMemoryTaskStore tasks,
             ITaskSyncStateStore state,
             IInboxCaptureOutbox? outbox,
-            Func<HttpRequestMessage, int, HttpResponseMessage> respond)
+            Func<HttpRequestMessage, int, HttpResponseMessage> respond,
+            SyncActivityLog? activity = null)
         {
             var bodies = new List<string>();
 
@@ -208,7 +234,8 @@ public sealed class TaskSyncSessionOutboxTests
                     "Workshop PC",
                     "a-registration-credential")),
                 new FakeTimeProvider(Noon.AddHours(6)),
-                outbox);
+                outbox,
+                activity);
 
             return new Fixture(http, handler, session, bodies);
         }

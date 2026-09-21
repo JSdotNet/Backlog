@@ -41,16 +41,28 @@ internal sealed class ClaudeSessionReader
     private readonly string _environmentId;
     private readonly string _environment;
     private readonly TimeProvider _clock;
+    private readonly ITranscriptFactsCache? _facts;
 
     /// <summary>The environment arrives as an id and a name, not as a name alone: a
     /// session found here ran here, and "here" is a device with an identity that
-    /// outlives whatever the machine is currently called.</summary>
-    internal ClaudeSessionReader(string home, string environmentId, string environment, TimeProvider clock)
+    /// outlives whatever the machine is currently called.
+    /// <para>
+    /// The cache is optional for the reason every cache in this product is: without
+    /// one the reader opens every transcript on every read and is correct, only
+    /// slower. See <see cref="ReadTranscriptAsync"/> for what it saves.
+    /// </para></summary>
+    internal ClaudeSessionReader(
+        string home,
+        string environmentId,
+        string environment,
+        TimeProvider clock,
+        ITranscriptFactsCache? facts = null)
     {
         _home = home;
         _environmentId = environmentId;
         _environment = environment;
         _clock = clock;
+        _facts = facts;
     }
 
     /// <summary>What this reader is called when it cannot be read.</summary>
@@ -121,7 +133,7 @@ internal sealed class ClaudeSessionReader
     /// how many it has ever run — six on the profile this was measured against.
     /// </para>
     /// </summary>
-    private static async Task<List<AgentSession>> WithTranscriptFactsAsync(
+    private async Task<List<AgentSession>> WithTranscriptFactsAsync(
         IReadOnlyList<AgentSession> live,
         IReadOnlyDictionary<string, FileInfo> transcripts,
         CancellationToken cancellationToken)
@@ -382,13 +394,40 @@ internal sealed class ClaudeSessionReader
     /// count part of it, is the version of this that is too slow to ship.
     /// </para>
     /// <para>
-    /// If that ever stops being affordable, the cheap move is to remember a count
-    /// against a transcript's path, length and write time — a session that has not
-    /// been written to since the last read cannot have taken another turn — rather
-    /// than to make the count less true.
+    /// That cost is now paid once per transcript rather than once per read, when a
+    /// host composes an <see cref="ITranscriptFactsCache"/>: the three facts are
+    /// remembered against the file's path, length and write time, and a transcript
+    /// nothing has appended to since is answered without being opened. The one being
+    /// written to right now misses on every read, which is the file whose count must
+    /// not be stale. Only a pass that reached the end of the file is remembered — an
+    /// interrupted one returns its honest null and is tried again next time.
     /// </para>
     /// </summary>
-    private static async Task<(string Folder, string? Branch, int? Turns)> ReadTranscriptAsync(
+    private async Task<(string Folder, string? Branch, int? Turns)> ReadTranscriptAsync(
+        FileInfo transcript,
+        CancellationToken cancellationToken)
+    {
+        var writtenAt = new DateTimeOffset(transcript.LastWriteTimeUtc, TimeSpan.Zero);
+
+        if (_facts?.TryRead(transcript.FullName, transcript.Length, writtenAt) is { } remembered)
+        {
+            return (remembered.Folder, remembered.Branch, remembered.Turns);
+        }
+
+        var (folder, branch, turns, complete) = await ParseTranscriptAsync(transcript, cancellationToken).ConfigureAwait(false);
+
+        if (complete)
+        {
+            _facts?.Write(transcript.FullName, transcript.Length, writtenAt, new TranscriptFacts(folder, branch, turns));
+        }
+
+        return (folder, branch, turns);
+    }
+
+    /// <summary>The pass itself, apart from the remembering. <c>Complete</c> is
+    /// false when the read was cut short, which is the one outcome that must not
+    /// be written down as if it were a fact about the file.</summary>
+    private static async Task<(string Folder, string? Branch, int? Turns, bool Complete)> ParseTranscriptAsync(
         FileInfo transcript,
         CancellationToken cancellationToken)
     {
@@ -431,14 +470,14 @@ internal sealed class ClaudeSessionReader
             // nothing on the row to say so, and a reader comparing two sessions would
             // be comparing one real count against one lost race. The folder and branch
             // are kept because they are complete or absent, never half-read.
-            return (folder, branch, null);
+            return (folder, branch, null, false);
         }
 
         // Zero turns is reported as absent, never as 0. A count of 0 claims a person
         // opened this session and never spoke in it; what a transcript with nothing
         // countable in it actually supports is that there is nothing here to count.
         // See AgentSession.TurnCount, and the Session Log's invariant behind it.
-        return (folder, branch, turns == 0 ? null : turns);
+        return (folder, branch, turns == 0 ? null : turns, true);
     }
 
     /// <summary>

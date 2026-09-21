@@ -36,8 +36,7 @@
 
     @* Which source the sections are read from, before the sections themselves,
        because it qualifies all five of them at once — the same reason the update
-       control outlives the section it was pressed on. Left out entirely for the
-       storage scope, which is nobody's repository and has no branch to be on. *@
+       control outlives the section it was pressed on. *@
     <ListLeading>
         @if (DevbookSource.CanChoose(ActiveRepositoryAlias))
         {
@@ -150,6 +149,16 @@
                BaseClass="@DevbookUpdatePresentation.StatusClass(_updateState)"
                Role="status"
                TestId="devbook-update-status" />
+        @* The same row, for the other thing a reader asks of the strip: which
+           source they just switched to. Switching between a clone and a branch
+           at the same commit changes nothing on screen — the files are the same
+           files — and a select that answers with silence reads as a select that
+           did nothing. The two messages never share the row: a switch drops the
+           version answer above, and a check or pull drops this. *@
+        <Alert Message="@_sourceStatus"
+               BaseClass="devbook-stack__update-status"
+               Role="status"
+               TestId="devbook-source-status" />
 
         <div class="devbook-stack__body @(ShowMenu ? string.Empty : "devbook-stack__body--without-menu")">
             @if (ShowMenu)
@@ -228,15 +237,16 @@
     private bool _updateBusy;
     private string? _checkedRepositoryAlias;
 
-    /// <summary>The repository scope to read knowledge for, or empty/null for the
-    /// storage folder.</summary>
+    /// <summary>The repository scope to read knowledge for. Empty or null is
+    /// no scope, and the shell does not open the pane for one — every area
+    /// would only say to pick a repository.</summary>
     [Parameter]
     public string? RepositoryAlias { get; set; }
 
     protected override void OnInitialized() => DevbookMenu.Changed += OnDevbookChanged;
 
     /// <summary>
-    /// A folder, a repository or the storage root moved under the pane. Both
+    /// A folder, a repository or the snapshot cache moved under the pane. Both
     /// halves of what is on screen are read from settings that just changed —
     /// which sections there are, and what the menu lists inside the one being
     /// read — and neither the alias nor the visible-section fingerprint has moved,
@@ -266,6 +276,7 @@
     private async void OnDevbookChanged() =>
         await InvokeAsync(async () =>
         {
+            _visibleAreas = null;
             _updateState = DevbookUpdateState.NotChecked;
             _folderOpenError = null;
             await ReloadMenuAsync();
@@ -276,11 +287,30 @@
 
     protected override async Task OnParametersSetAsync()
     {
+        _visibleAreas = null;
         ForgetUpdateStateOnScopeChange();
         await RefreshMenuAsync();
     }
 
-    private IReadOnlyList<DevbookArea> VisibleAreas => Scope.VisibleAreas(RepositoryAlias);
+    /// <summary>The answer is forgotten once the render that used it is on
+    /// screen, so the next render asks the scope once rather than once per row.</summary>
+    protected override void OnAfterRender(bool firstRender) => _visibleAreas = null;
+
+    /// <summary>
+    /// The sections this scope shows, asked of the scope once per render.
+    /// <para>
+    /// The scope answers from settings — a lookup, a normalisation, a set and a
+    /// list — and this pane asks on the way to nearly everything: which section is
+    /// active, which chapter is selected, and through those, the class and the
+    /// selected state of every row in the menu, twice. That was a few hundred
+    /// identical answers per render. It is dropped after each render and on every
+    /// parameter set and folder change, which are the only moments the settings
+    /// behind it can have moved.
+    /// </para>
+    /// </summary>
+    private IReadOnlyList<DevbookArea> VisibleAreas => _visibleAreas ??= Scope.VisibleAreas(RepositoryAlias);
+
+    private IReadOnlyList<DevbookArea>? _visibleAreas;
 
     private string? ActiveRepositoryAlias => Scope.Repository(RepositoryAlias)?.Alias;
 
@@ -318,10 +348,11 @@
     /// The row that opens a whole knowledge folder at once, above the chapters —
     /// or nothing, for an area whose panel has no such reading.
     /// <para>
-    /// Only <c>.design</c>. Its panel draws every file of the folder stacked, each
-    /// subject's status beside its own heading, and that is the reading a design
-    /// folder is opened as a folder for; the other areas draw one chapter, and a
-    /// row promising a folder view they do not have would go nowhere. The Domain
+    /// Only the document-shaped folders, <c>.design</c> and <c>.ai</c>. Their
+    /// panel draws every file of the folder stacked, each subject's status beside
+    /// its own heading, and that is the reading such a folder is opened as a
+    /// folder for; the other areas draw one chapter, and a row promising a folder
+    /// view they do not have would go nowhere. The Domain
     /// panel draws a folder whole too, but the folder it draws is a bounded
     /// context — a row the tree already has.
     /// </para>
@@ -335,7 +366,7 @@
     /// </para>
     /// </summary>
     private static DevbookMenuNode? AreaOverviewRow(DevbookMenuNode? root) =>
-        root is { Available: true, AreaKey: "design" } ? root with { Label = "All documents", Children = [] } : null;
+        root is { Available: true, AreaKey: "design" or "ai" } ? root with { Label = "All documents", Children = [] } : null;
 
     /// <summary>Whether this row is that one, asked of a node the menu handed
     /// back.</summary>
@@ -348,12 +379,18 @@
     /// <para>
     /// A branch snapshot says no. The folder behind it is an app-managed cache
     /// the next fetch replaces wholesale, so opening it in an editor would be an
-    /// invitation to type into something that quietly disappears. The storage
-    /// scope has no repository and is always a real folder, which is why a null
-    /// repository reads as yes.
+    /// invitation to type into something that quietly disappears. A null
+    /// repository reads as yes so a fake that resolved a plain folder for an
+    /// unknown alias still gets the offer.
     /// </para>
     /// </summary>
     private string? _sourceError;
+
+    /// <summary>The sentence under the strip after a source switch, saying what
+    /// is being read now. Null until somebody switches, so the row costs nothing
+    /// on a pane nobody has touched; dropped again by whatever next claims the
+    /// row or moves the scope.</summary>
+    private string? _sourceStatus;
 
     /// <summary>
     /// The reader picked a source — or asked for the branch list, which is the
@@ -363,6 +400,14 @@
     /// store's change event, which the folder source republishes, and every open
     /// panel already reloads on that — the same path a folder being re-pointed
     /// in Settings has always taken.
+    /// </para>
+    /// <para>
+    /// What it does do is say so. A clone and a branch at the same commit read
+    /// identically, and the only visible trace of the switch is the status
+    /// control giving way to a badge — which is not a change anybody reads as
+    /// "done". The selection's own summary is the sentence, the same one the
+    /// settings screen keeps under its copy of the control, so the two surfaces
+    /// cannot describe one source two ways.
     /// </para>
     /// </summary>
     private async Task ChangeDevbookSourceAsync(string? value)
@@ -381,6 +426,11 @@
         // dropped rather than shown against the new one — "up to date" earned by
         // a clone must not sit beside a branch nobody has fetched.
         _updateState = DevbookUpdateState.NotChecked;
+
+        // Only when the choice was written: a refused switch already has the
+        // error beside the control, and a sentence claiming the new source under
+        // it would contradict the error.
+        _sourceStatus = _sourceError is null ? DevbookSource.Summary(ActiveRepositoryAlias) : null;
     }
 
     private bool CanOpenActiveFolder =>
@@ -654,9 +704,9 @@
 
     private static string BuildFolderOpenError(string label, string details) => $"Couldn't open {label} in VS Code. {details}";
 
-    /// <summary>Whether this scope has a version to be behind. Devbook kept in
-    /// the storage folder has no clone and no remote, and neither has a repository
-    /// nobody has cloned yet — in both, a control would only ever say so.</summary>
+    /// <summary>Whether this scope has a version to be behind. A repository
+    /// configured to read its clone, with no clone on this machine, has none —
+    /// a control would only ever say so.</summary>
     private bool ShowUpdateControl => DevbookUpdate.CanCheck(RepositoryAlias);
 
     private string? BehindLabel => DevbookUpdatePresentation.BehindLabel(_updateState);
@@ -684,6 +734,10 @@
                 ? await DevbookUpdate.PullAsync(alias)
                 : await DevbookUpdate.CheckAsync(alias);
             _checkedRepositoryAlias = alias;
+
+            // The row is the version's now. The switch it was announcing is the
+            // source this answer is about, so nothing is lost by letting it go.
+            _sourceStatus = null;
         }
         finally
         {
@@ -710,6 +764,10 @@
 
         _checkedRepositoryAlias = RepositoryAlias;
         _updateState = DevbookUpdateState.NotChecked;
+
+        // Same reasoning for the source sentence: it named the repository that
+        // was just left, and read under another one it would be a lie about it.
+        _sourceStatus = null;
     }
 
     /// <summary>
@@ -847,6 +905,7 @@
                are not: the target is a repository path either way and the selection
                this pane holds is the same selection. *@
             "design" => @<DesignDevbookView RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" OnNavigateToChapter="SelectChapter" />,
+            "ai" => @<AiDevbookView RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" OnNavigateToChapter="SelectChapter" />,
             "arc42" => @<Arc42DevbookPanel RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" SelectedC4View="@_selectedC4View" OnNavigateToChapter="SelectChapter" />,
             "domain" => @<DomainDevbookPanel Compact="true" RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" OnNavigateToChapter="SelectChapter" />,
             "tech" => @<TechnologyDevbookPanel RepositoryAlias="@ActiveRepositoryAlias" OnNavigateToChapter="SelectChapter" />,

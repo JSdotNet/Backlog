@@ -88,6 +88,19 @@
                     <AppButton Variant="ButtonVariant.Primary" Disabled="@(!_catalogExists || _toolsLoading || ToolActionBusy || !CanUpdateAnyTool)" OnClick="UpdateAllToolsAsync">
                         @(_toolActionKey == UpdateAllKey ? "Updating..." : "Update all")
                     </AppButton>
+                    @if (StaleCacheCount > 0)
+                    {
+                        @* Only while some row reports a folder nothing loads. A
+                           button that is always there reads as a chore to do every
+                           time; one that appears is the pane saying there is
+                           something to clear, and the count is how much. *@
+                        <AppButton Variant="ButtonVariant.Secondary"
+                                   Disabled="@(_toolsLoading || ToolActionBusy)"
+                                   OnClick="ClearStaleCacheAsync"
+                                   TestId="tools-cache-clear">
+                            @(_toolActionKey == ClearCacheKey ? "Clearing..." : $"Clear stale cache ({StaleCacheCount})")
+                        </AppButton>
+                    }
                     @if (CanEdit && _catalogExists && _tools.Count > 0)
                     {
                         @* Only alongside a populated table. The two empty states carry
@@ -245,6 +258,45 @@
                                                    exist — and appended to the status they were a
                                                    sentence nobody finished reading. *@
                                                 <span class="tools-inventory__note" data-testid="tools-row-note">@note</span>
+                                            }
+                                            @if (tool.CachedVersions.Count > 0)
+                                            {
+                                                @* What Claude has kept of this plugin, under the row
+                                                   rather than in a column: it is a list, and a fourth
+                                                   column would be one more thing the narrow pane has
+                                                   to stack. Each version says whether an install still
+                                                   loads it, because that is the only fact that decides
+                                                   whether it may go — and the one a person clearing
+                                                   "old versions" by hand gets wrong: a project scope
+                                                   registered months ago still points at the folder it
+                                                   was made against, and deleting that one does not move
+                                                   the project on, it breaks it. Those get no button. *@
+                                                <span class="tools-inventory__cache" data-testid="tools-row-cache">
+                                                    <span class="tools-inventory__cache-label">Cached in Claude</span>
+                                                    @foreach (var cached in tool.CachedVersions)
+                                                    {
+                                                        <span class="tools-inventory__cache-version @(cached.InUse ? "tools-inventory__cache-version--in-use" : "tools-inventory__cache-version--stale")"
+                                                              data-testid="tools-row-cache-version"
+                                                              data-version="@cached.Version"
+                                                              data-in-use="@(cached.InUse ? "true" : "false")"
+                                                              title="@cached.Path">
+                                                            @cached.Version
+                                                            <span class="tools-inventory__cache-use">@CacheUseLabel(cached)</span>
+                                                            @if (!cached.InUse)
+                                                            {
+                                                                <AppButton Variant="ButtonVariant.Ghost"
+                                                                           Size="ButtonSize.Small"
+                                                                           CssClass="tools-inventory__cache-remove"
+                                                                           aria-label="@($"Remove cached {cached.Version} of {tool.Name}")"
+                                                                           Disabled="@(_toolsLoading || ToolActionBusy)"
+                                                                           TestId="tools-row-cache-remove"
+                                                                           OnClick="() => RemoveCachedVersionAsync(tool, cached)">
+                                                                    Remove
+                                                                </AppButton>
+                                                            }
+                                                        </span>
+                                                    }
+                                                </span>
                                             }
                                         </td>
                                         @* Each version cell names itself. The row's four columns only
@@ -729,6 +781,7 @@
     private const string CreateKey = "__create__";
     private const string AddKey = "__add__";
     private const string ImportKey = "__import__";
+    private const string ClearCacheKey = "__clear-cache__";
 
     private bool _toolsLoading;
     private string? _toolMessage;
@@ -876,6 +929,26 @@
     /// whole block of rows failing for a single reason.</summary>
     private bool CanUpdateAnyTool =>
         _tools.Any(tool => tool.CanUpdate || (tool.Kind is DevToolKind.Marketplace && !tool.Installed));
+
+    /// <summary>How many cached folders across every row nothing loads any more
+    /// — what "Clear stale cache" would delete, and whether it is offered at
+    /// all.</summary>
+    private int StaleCacheCount => _tools.Sum(tool => tool.StaleCachedVersions.Count);
+
+    /// <summary>What a cached version's chip says beside the number. "In use" is
+    /// the one that matters: it is why there is no Remove on it.</summary>
+    private static string CacheUseLabel(DevToolCachedVersion cached) => cached.Installs switch
+    {
+        0 => "stale",
+        1 => "in use",
+        var count => $"in use by {count} installs"
+    };
+
+    private Task RemoveCachedVersionAsync(DevToolInfo tool, DevToolCachedVersion cached) =>
+        RunCatalogEditAsync($"{tool.Key}|{cached.Version}", () => DevTools.RemoveCachedVersionAsync(tool.Key, cached.Version));
+
+    private Task ClearStaleCacheAsync() =>
+        RunCatalogEditAsync(ClearCacheKey, () => DevTools.RemoveStaleCacheAsync());
 
     /// <summary>
     /// What a row says when there is nothing to press.
@@ -1545,8 +1618,10 @@
     }
 
     /// <summary>
-    /// The four catalog edits run the same way: hold the busy key, call the port,
-    /// put whatever it says on the status line, and re-read only when it worked.
+    /// The four catalog edits — and the two cache deletes, which are edits to the
+    /// machine rather than the catalog but want exactly this — run the same way:
+    /// hold the busy key, call the port, put whatever it says on the status line,
+    /// and re-read only when it worked.
     ///
     /// <para>Only on success, deliberately. A refresh after a failed edit would
     /// replace the reason it failed with the ordinary "showing tools from ..."

@@ -85,13 +85,11 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     private readonly TasksIssues _issues;
     private readonly TasksCopilotCli _copilot;
     private readonly IRoadmapTagSource _roadmapTags;
-    private readonly ITasksRefreshSettings? _refreshSettings;
 
     /// <summary>Where a failure the reader may not be looking at is announced, or
-    /// null in a host that mounts no tray. Absent rather than silent-by-default,
-    /// the same idiom as <see cref="_refreshSettings"/>: a host that wires no
-    /// channel has said nothing about notifications, and a list that invented one
-    /// would be deciding for it.</summary>
+    /// null in a host that mounts no tray. Absent rather than silent-by-default:
+    /// a host that wires no channel has said nothing about notifications, and a
+    /// list that invented one would be deciding for it.</summary>
     private readonly IToastChannel? _toasts;
 
     /// <summary>The last saved state of each persisted row, as the module
@@ -107,11 +105,12 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     private readonly Dictionary<Guid, Timer> _debounceTimers = new();
 
     /// <summary>Cancelled when this state is disposed. Every callback it left in
-    /// flight — an elapsed debounce, a save flash, a poll tick — asks this before
-    /// touching anything, because by then the store it would write to and the
-    /// screen it would re-render belong to a workspace nobody is looking at. The
-    /// poll asks twice: once on the way in, and again after its reload, which is
-    /// long enough for the workspace to have closed underneath it.</summary>
+    /// flight — an elapsed debounce, a save flash, a reload somebody else asked
+    /// for — asks this before touching anything, because by then the store it
+    /// would write to and the screen it would re-render belong to a workspace
+    /// nobody is looking at. The reload asks twice: once on the way in, and again
+    /// after its read, which is long enough for the workspace to have closed
+    /// underneath it.</summary>
     private readonly CancellationTokenSource _lifetime = new();
 
     /// <summary><see cref="_lifetime"/>'s token, taken once. A token read off a
@@ -119,28 +118,10 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// not, and still reports the cancellation.</summary>
     private readonly CancellationToken _untilDisposed;
 
-    /// <summary>Guards <see cref="_pollTimer"/> and <see cref="_disposed"/>. The
-    /// settings screen can start, rescale or stop the poll from the circuit's
-    /// thread while a tick is already running on the timer's.</summary>
-    private readonly Lock _pollGate = new();
-
-    /// <summary>The recurring check for a store somebody else wrote to, or null
-    /// while the setting has it switched off. See
-    /// <see cref="CheckForExternalChangesAsync"/>.</summary>
-    private Timer? _pollTimer;
-
-    /// <summary>The store as this list last read or wrote it — the newest timestamp
-    /// across the database and its write-ahead log sidecars, per
-    /// <see cref="LastWriteTimeUtc"/> — or null before the first check has looked.
-    /// Null means "no idea yet", which is not the same as "changed": a first tick
-    /// records and reloads nothing. Wrote as well as read, because a save this list
-    /// made is not somebody else's edit: see
-    /// <see cref="WritingToStoreAsync{T}(Func{Task{T}})"/>.</summary>
-    private DateTime? _lastSeenWriteUtc;
-
-    /// <summary>1 while a polled reload is in flight. A slow reload must not have
-    /// a second one started on top of it by the next tick.</summary>
-    private int _pollInFlight;
+    /// <summary>Whether a reload somebody else asked for arrived while a caret
+    /// was live or a save was still on its way, and is owed the moment neither
+    /// is true. See <see cref="ReloadFromStoreAsync"/>.</summary>
+    private bool _reloadDeferred;
 
     /// <summary>How many sub-items <see cref="EditingRow"/> had when its editor
     /// opened, or -1 when no entry is being written in. See
@@ -164,7 +145,6 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         GitHubIntegration gitHub,
         TasksCopilotCli? copilot = null,
         IRoadmapTagSource? roadmapTags = null,
-        ITasksRefreshSettings? refreshSettings = null,
         IToastChannel? toasts = null)
     {
         _store = store;
@@ -174,19 +154,8 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         _copilot = copilot ?? TasksCopilotCli.Unavailable;
         _roadmapTags = roadmapTags ?? EmptyRoadmapTagSource.Instance;
         _untilDisposed = _lifetime.Token;
-        _refreshSettings = refreshSettings;
         _toasts = toasts;
         _store.RootChanged += OnRootChanged;
-
-        // Absent rather than off: a host that wires no refresh settings has said
-        // nothing about polling, and a list that started a timer anyway would be
-        // deciding for it. Every app host wires one; a test that is not about
-        // the poll does not have to.
-        if (_refreshSettings is not null)
-        {
-            _refreshSettings.Changed += OnRefreshSettingsChanged;
-            ApplyRefreshSettings();
-        }
     }
 
     /// <summary>Raised whenever rows or save state change from a background
@@ -354,6 +323,15 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// configured answers to it, and null for everything while the visualization is
     /// off.</summary>
     public int? RepositoryColourFor(string? repository) => _gitHub.Settings.Current.VisibleColourFor(repository);
+
+    /// <summary>
+    /// The configured alias for a repository named the way a session names one —
+    /// <c>owner/name</c>, or the alias itself where a record arrived that way — or
+    /// null for a repository this workspace does not know and for no name at all.
+    /// The same lookup the hue goes through, so the two answers cannot name
+    /// different repositories for one row.
+    /// </summary>
+    public string? RepositoryAliasFor(string? repository) => _gitHub.Settings.Current.Find(repository)?.Alias;
 
     /// <summary>Whether the repository identity hues are being drawn. The shell's header
     /// carries the control, so the shell has to be able to read the state it is
@@ -1081,8 +1059,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         Result<ImportPlanResultDto> result;
         try
         {
-            result = await WritingToStoreAsync(
-                () => _entryUseCases.ImportPlanAsync(rawText, defaultRepo, repoMatches));
+            result = await _entryUseCases.ImportPlanAsync(rawText, defaultRepo, repoMatches);
         }
         catch
         {
@@ -1182,6 +1159,12 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         // area chips are rebuilt against the text as it now stands.
         ApplyFilter();
         Changed?.Invoke();
+
+        // The caret is gone and the flush has landed: a reload that arrived
+        // while either was true is owed now. After the render above rather
+        // than instead of it, so the row shows what was typed before it shows
+        // what somebody else wrote.
+        await DrainDeferredReloadAsync();
     }
 
     // The sub-item raw editor is gone, and its capability is not: a step's notes
@@ -1235,7 +1218,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
             SetSaveState(AppSaveState.Saving);
             try
             {
-                await WritingToStoreAsync(() => _entryUseCases.DeleteAsync(id));
+                await _entryUseCases.DeleteAsync(id);
                 _entries.Remove(id);
                 SetSaveState(AppSaveState.Saved);
             }
@@ -1560,6 +1543,38 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
     public async Task ChangeDependsOnAsync(EntryRow row, IEnumerable<string>? dependsOn) =>
         await RewriteMetadataAsync(row, EntryTextParser.WithDependsOn(row.RawText, dependsOn));
+
+    /// <summary>
+    /// What a row waits on, as real ids wherever the text's <c>after:</c> values
+    /// can be read as one.
+    /// <para>
+    /// <see cref="EntryRow.PreviewDependsOn"/> is the text as written, and an
+    /// import that named a step from an earlier sitting wrote its local
+    /// <c>id:</c> through unresolved (see <see cref="DependencyResolution"/>).
+    /// Everything that reads a dependency — the list's chain, the pane's
+    /// "Waiting for", the picker's chips — reads this instead, so a stored slug
+    /// still names the entry it meant; and the picker writes what it read, so
+    /// the first edit heals the text. A value nothing here can name comes
+    /// through as written, and still blocks.
+    /// </para>
+    /// </summary>
+    public IReadOnlyList<string> ResolvedDependsOn(EntryRow row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        var dependsOn = row.PreviewDependsOn;
+        if (dependsOn.Count == 0) return dependsOn;
+
+        return DependencyResolution.ResolveAll(dependsOn, DependencyCandidates(), row.ImportPlanId, row.PreviewTags);
+    }
+
+    /// <summary>Every persisted row as the resolver sees it. Built per call
+    /// rather than cached: the rows change under every save, and a chain is read
+    /// a handful of times per render, not per keystroke.</summary>
+    private List<DependencyResolution.Candidate> DependencyCandidates() =>
+        [.. Rows
+            .Where(row => row.Id is not null)
+            .Select(row => new DependencyResolution.Candidate(row.Id!.Value, row.PreviewImportItemId, row.ImportPlanId))];
 
     /// <summary>Attaches a place, or detaches what was attached. A path and never a
     /// copy, and one place and never a list — both decisions live on
@@ -1931,19 +1946,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
         _store.RootChanged -= OnRootChanged;
 
-        if (_refreshSettings is not null)
-        {
-            _refreshSettings.Changed -= OnRefreshSettingsChanged;
-        }
-
         _lifetime.Cancel();
-
-        lock (_pollGate)
-        {
-            _disposed = true;
-            _pollTimer?.Dispose();
-            _pollTimer = null;
-        }
 
         lock (_debounceTimers)
         {
@@ -1966,297 +1969,61 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     // --- Picking up somebody else's writes --------------------------------
 
     /// <summary>
-    /// Whether the check is running right now. The setting says what was asked
-    /// for; this says what is actually scheduled, which is the only way a test
-    /// can tell "switched off" from "switched off but still ticking".
-    /// </summary>
-    internal bool IsPollingForExternalChanges
-    {
-        get
-        {
-            lock (_pollGate)
-            {
-                return _pollTimer is not null;
-            }
-        }
-    }
-
-    /// <summary>
-    /// Starts over from the store because something else in this process wrote
-    /// to it — the Inbox routing an item into entries is the caller today, and
-    /// the shell is what calls, because only the shell sees both panes.
+    /// Starts over from the store because something else wrote to it: the Inbox
+    /// routing an item into entries, or a sync pull landing another device's
+    /// edits. The shell is what calls, because only the shell sees both the
+    /// pane and whatever wrote.
     /// <para>
-    /// The poll below would notice the same write on its next tick, but the poll
-    /// can be switched off, and its first tick after start records the baseline
-    /// without reloading. Somebody who has just pressed "Move to backlog" should
-    /// see the entry now rather than a tick later or never, so this reloads
-    /// without asking whether the timestamp moved.
+    /// This used to sit beside a timer that watched the database's timestamp
+    /// for a second machine writing to the same file through a synced folder —
+    /// the arrangement local ADR 0005 replaces with the sync service, and the
+    /// one the Storage settings now warn against. With that gone, a write from
+    /// outside this list arrives through whoever made it, and this is the
+    /// door.
     /// </para>
     /// <para>
-    /// The one guard it keeps is the poll's: a reload replaces every row, and
+    /// The one guard it keeps is the timer's: a reload replaces every row, and
     /// doing that under a live caret or a save still on its way to the store
-    /// would take typed text off the screen. In that case the write is left for
-    /// the next tick, which sees the timestamp and reloads once the caret is
-    /// gone — the same bargain the poll makes.
+    /// would take typed text off the screen. Two carets, not one — the raw
+    /// hatch says so through <see cref="EditingRow"/>, and the detail pane's
+    /// markdown block says so by having a debounced save pending, because it
+    /// writes through <see cref="ChangeBody"/> and never opens a hatch at all.
+    /// In that case the reload is owed rather than dropped: it runs the moment
+    /// the editor closes or the save lands, which is what "the change lands
+    /// once you are done" means on screen.
     /// </para>
     /// </summary>
     public async Task ReloadFromStoreAsync()
     {
         if (_untilDisposed.IsCancellationRequested) return;
-        if (EditingRow is not null || SaveIsPending) return;
+
+        if (EditingRow is not null || SaveIsPending)
+        {
+            _reloadDeferred = true;
+            return;
+        }
+
+        _reloadDeferred = false;
 
         await ReloadRowsAsync();
 
+        // Asked again on the way out. A reload is a trip to the store, and a
+        // workspace can be closed while it is in flight — raising Changed then
+        // would render rows nobody asked for into a circuit that is gone.
         if (_untilDisposed.IsCancellationRequested) return;
 
         Changed?.Invoke();
     }
 
-    /// <summary>
-    /// One tick's worth of work: has the store been written to since this list
-    /// last looked, and if so, start over from it.
-    /// <para>
-    /// The signal is the store's files on disk rather than anything the store
-    /// reports, because the writer is not in this process — it is the other
-    /// machine's copy of the app arriving through a synced folder. It is the
-    /// newest timestamp across the database and its write-ahead log sidecars, not
-    /// the database file alone: see <see cref="LastWriteTimeUtc"/> for why the
-    /// main file on its own never moves. A write this list made records the new
-    /// baseline as it goes, and so does every reload, so neither reads back as
-    /// somebody else's edit.
-    /// </para>
-    /// <para>
-    /// Internal so a test can take one tick deterministically. A timer that has to
-    /// be waited out is a test that is slow when it passes and flaky when it does
-    /// not.
-    /// </para>
-    /// </summary>
-    internal async Task CheckForExternalChangesAsync()
-    {
-        // Disposing the timer does not stop a tick that has already begun — the
-        // same reason the debounce and the save flash read this token rather than
-        // trusting their own disposal. By the time a tick gets here the store it
-        // would read and the screen it would re-render can already belong to a
-        // workspace nobody is looking at.
-        if (_untilDisposed.IsCancellationRequested) return;
+    /// <summary>Whether a reload is owed and waiting for the caret to go. The
+    /// only way a test can tell "deferred" from "dropped".</summary>
+    internal bool ReloadIsDeferred => _reloadDeferred;
 
-        // A reload replaces every row object, and doing that under a live caret
-        // would take the editor out from under whoever is typing. The timestamp
-        // is deliberately not recorded here, so the very next tick after the
-        // editor closes still sees the change rather than having dropped it.
-        //
-        // Two carets, not one. The raw hatch says so through EditingRow; the
-        // detail pane's markdown block says so by having a debounced save
-        // pending, and it never opens a hatch at all — it writes through
-        // ChangeBody, so EditingRow is null the whole time somebody is typing
-        // prose into it. A reload that only asked the first question would swap
-        // that row out from under text that has been typed and not yet written,
-        // and every keystroke since the last flush would be gone from the screen.
-        if (EditingRow is not null || SaveIsPending) return;
-
-        if (Interlocked.CompareExchange(ref _pollInFlight, 1, 0) != 0) return;
-
-        try
-        {
-            var writtenAt = LastWriteTimeUtc();
-            if (writtenAt is null) return;
-
-            if (_lastSeenWriteUtc is not { } lastSeen)
-            {
-                // Nothing to compare against yet. Whatever is on disk is what
-                // this list was built from, so record it and reload nothing.
-                _lastSeenWriteUtc = writtenAt;
-                return;
-            }
-
-            if (writtenAt == lastSeen) return;
-
-            // The reload records the new baseline itself, as every reload does.
-            await ReloadRowsAsync();
-
-            // Asked again on the way out. A reload is a trip to the store, and a
-            // workspace can be closed while it is in flight — raising Changed then
-            // would render rows nobody asked for into a circuit that is gone.
-            if (_untilDisposed.IsCancellationRequested) return;
-
-            Changed?.Invoke();
-        }
-        finally
-        {
-            Interlocked.Exchange(ref _pollInFlight, 0);
-        }
-    }
-
-    /// <summary>
-    /// Runs a write this list is making, and records the timestamp it leaves
-    /// behind as one this list already knows about.
-    /// <para>
-    /// Without this the list read its own saves back as somebody else's: a write
-    /// moves the store's timestamp exactly as the other machine's does, so the
-    /// next check started over — and pressing a reading, which is a save, therefore
-    /// reloaded the list a moment after the press. Every write goes through here
-    /// rather than only the ones that were noticed, because "the store as this list
-    /// last read or wrote it" is one fact, and a write left out of it is the same
-    /// bug again on a different control.
-    /// </para>
-    /// </summary>
-    private async Task<T> WritingToStoreAsync<T>(Func<Task<T>> write)
-    {
-        var seenBeforeTheWrite = LastWriteTimeUtc();
-
-        try
-        {
-            return await write();
-        }
-        finally
-        {
-            RecordLocalWrite(seenBeforeTheWrite);
-        }
-    }
-
-    /// <inheritdoc cref="WritingToStoreAsync{T}(Func{Task{T}})"/>
-    private async Task WritingToStoreAsync(Func<Task> write)
-    {
-        var seenBeforeTheWrite = LastWriteTimeUtc();
-
-        try
-        {
-            await write();
-        }
-        finally
-        {
-            RecordLocalWrite(seenBeforeTheWrite);
-        }
-    }
-
-    /// <summary>
-    /// Brings the baseline forward over a write this list just made.
-    /// <para>
-    /// Only when the baseline was still current when that write went in. A store
-    /// that had already moved is carrying somebody else's edit this list has not
-    /// read yet, and recording now would bury it — the entry the other machine
-    /// wrote would never arrive, because nothing afterwards would ever say the
-    /// store had changed. So the baseline is left exactly where it was, and the
-    /// next check finds what was always there.
-    /// </para>
-    /// <para>
-    /// A write that failed costs nothing here: nothing moved, so the timestamp read
-    /// on the way out is the one read on the way in and the baseline stays put.
-    /// </para>
-    /// </summary>
-    private void RecordLocalWrite(DateTime? seenBeforeTheWrite)
-    {
-        // No baseline yet. The first check records whatever is on disk then,
-        // which already includes this write.
-        if (_lastSeenWriteUtc is null) return;
-
-        if (seenBeforeTheWrite != _lastSeenWriteUtc) return;
-
-        _lastSeenWriteUtc = LastWriteTimeUtc() ?? _lastSeenWriteUtc;
-    }
-
-    /// <summary>
-    /// The newest timestamp across the three files SQLite keeps in WAL mode:
-    /// <c>backlog.db</c> and its <c>-wal</c> and <c>-shm</c> siblings. Null when
-    /// none of them can be read.
-    /// <para>
-    /// The main file alone is not the signal. In WAL mode an ordinary write lands
-    /// in the write-ahead log and leaves <c>backlog.db</c>'s own timestamp exactly
-    /// where it was until a checkpoint, which does not happen per save — so a
-    /// store watched by the main file's timestamp never appears to change at all.
-    /// The sidecars are where a write shows up first, and the latest of the three
-    /// is the moment the store was last written to.
-    /// </para>
-    /// <para>
-    /// A missing sidecar contributes nothing rather than throwing: a freshly
-    /// created or just-checkpointed database legitimately has no <c>-wal</c> or
-    /// <c>-shm</c> at that instant.
-    /// </para>
-    /// </summary>
-    private DateTime? LastWriteTimeUtc()
-    {
-        var path = _store.DatabasePath;
-        string[] files = [path, path + "-wal", path + "-shm"];
-
-        DateTime? newest = null;
-
-        foreach (var candidate in files)
-        {
-            var writtenAt = LastWriteTimeUtcOf(candidate);
-            if (writtenAt is { } stamp && (newest is null || stamp > newest))
-            {
-                newest = stamp;
-            }
-        }
-
-        return newest;
-    }
-
-    private static DateTime? LastWriteTimeUtcOf(string path)
-    {
-        try
-        {
-            return File.Exists(path) ? File.GetLastWriteTimeUtc(path) : null;
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
-        {
-            // A file that cannot be stat'ed right now — mid-sync, or on a share
-            // that dropped — is not a reason to say anything about it. The next
-            // tick asks again.
-            return null;
-        }
-    }
-
-    private void OnRefreshSettingsChanged() => ApplyRefreshSettings();
-
-    /// <summary>Brings the timer into line with the setting: started when the
-    /// check is on, rescaled when the interval moves, gone when it is switched
-    /// off. All three without a restart, because a person who has just turned the
-    /// check on is looking at the list to see whether it works.</summary>
-    private void ApplyRefreshSettings()
-    {
-        lock (_pollGate)
-        {
-            if (_disposed) return;
-
-            var settings = _refreshSettings?.Current;
-
-            if (settings is null || !settings.PollingEnabled)
-            {
-                _pollTimer?.Dispose();
-                _pollTimer = null;
-                return;
-            }
-
-            var period = TimeSpan.FromSeconds(Math.Max(
-                settings.PollingIntervalSeconds,
-                TasksRefreshSettings.MinimumPollingIntervalSeconds));
-
-            if (_pollTimer is null)
-            {
-                _pollTimer = new Timer(_ => OnPollElapsed(), null, period, period);
-            }
-            else
-            {
-                _pollTimer.Change(period, period);
-            }
-        }
-    }
-
-    private async void OnPollElapsed()
-    {
-        try
-        {
-            await CheckForExternalChangesAsync();
-        }
-        catch (Exception)
-        {
-            // A tick runs on a thread pool thread with nobody to hand a failure
-            // to, and an escaping exception there ends the process. Swallowing
-            // it costs one refresh: the next tick reads the same timestamp and
-            // tries again.
-        }
-    }
+    /// <summary>Runs the reload <see cref="ReloadFromStoreAsync"/> put off, if
+    /// there is one. Called wherever a caret goes away or a save lands; a call
+    /// that finds nothing owed costs a field read.</summary>
+    private Task DrainDeferredReloadAsync() =>
+        _reloadDeferred ? ReloadFromStoreAsync() : Task.CompletedTask;
 
     // --- GitHub -----------------------------------------------------------
 
@@ -2321,11 +2088,11 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
             // GitHub made the issue; the module is what remembers it, and hands
             // back the entry with the projection already on it.
-            var linked = await WritingToStoreAsync(() => _entryUseCases.LinkToIssueAsync(
+            var linked = await _entryUseCases.LinkToIssueAsync(
                 id,
                 link.RepoFullName,
                 link.IssueNumber.ToString(),
-                EntryProjectionDto.IssueTargetType));
+                EntryProjectionDto.IssueTargetType);
 
             if (linked.TryGetValue(out var updated))
             {
@@ -2501,8 +2268,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         try
         {
             await _copilot.StartFromEntryAsync(row.RawText, _store.RootDirectory);
-            await WritingToStoreAsync(
-                () => _entryUseCases.RecordUsageAsync(id, TasksCopilotCli.UsageAction));
+            await _entryUseCases.RecordUsageAsync(id, TasksCopilotCli.UsageAction);
             SetSaveState(AppSaveState.Saved);
         }
         catch (CopilotCliException ex)
@@ -2529,6 +2295,9 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         EditingRow = null;
         _editingSubItemCount = -1;
         _entries.Clear();
+
+        // A reload owed to the old folder is paid by the one below.
+        _reloadDeferred = false;
 
         // The new folder brings its own registry and its own entries, so the pass
         // runs again before anything is read: a value that was an alias in the old
@@ -2557,7 +2326,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     {
         try
         {
-            _ = await WritingToStoreAsync(() => _entryUseCases.ReconcileRepositoryIdsAsync());
+            _ = await _entryUseCases.ReconcileRepositoryIdsAsync();
         }
         catch (Exception)
         {
@@ -2569,9 +2338,9 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     // --- Internals ------------------------------------------------------
 
     /// <summary>Whether a keystroke somewhere is still waiting on its debounce.
-    /// Asked by the check for another machine's edits, which must not replace the
-    /// rows while text that has been typed is still on its way to the store — see
-    /// <see cref="CheckForExternalChangesAsync"/>.</summary>
+    /// Asked by a reload somebody else wants, which must not replace the rows
+    /// while text that has been typed is still on its way to the store — see
+    /// <see cref="ReloadFromStoreAsync"/>.</summary>
     private bool SaveIsPending
     {
         get
@@ -2623,6 +2392,11 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         await SaveRowAsync(row, isFlush: false);
 
         Changed?.Invoke();
+
+        // This save may have been the last one pending, which is what a
+        // deferred reload was waiting on. Still under a live caret when the
+        // raw hatch is open, and the drain declines again in that case.
+        await DrainDeferredReloadAsync();
     }
 
     private void CancelDebounce(EntryRow row)
@@ -2691,8 +2465,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         Result<SavedTaskDto> saved;
         try
         {
-            saved = await WritingToStoreAsync(
-                () => _entryUseCases.SaveFromTextAsync(row.Id, text, Math.Max(Rows.IndexOf(row), 0)));
+            saved = await _entryUseCases.SaveFromTextAsync(row.Id, text, Math.Max(Rows.IndexOf(row), 0));
         }
         catch (Exception exception)
         {
@@ -2765,7 +2538,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
         try
         {
-            await WritingToStoreAsync(() => _entryUseCases.ReorderAsync(ids));
+            await _entryUseCases.ReorderAsync(ids);
         }
         catch
         {
@@ -2898,6 +2671,8 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         row.SubItemCount = entry.TotalSubItems;
         row.CompletedSubItemCount = entry.CompletedSubItems;
         row.IssueLink = TasksIssues.FindLink(entry);
+        row.CreatedAt = entry.CreatedAt;
+        row.ImportPlanId = entry.ImportPlanId;
 
         // Re-derive the canonical text from the just-saved entry so the editor
         // reflects any graceful corrections (e.g. an unknown status token that
@@ -2915,12 +2690,6 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         // asked for the reload and for whatever reason.
         _spawnedOccurrencePending = false;
 
-        // Read before the rows rather than after them, so a write that lands
-        // mid-reload is seen again on the next check rather than recorded as
-        // something this list already has. Every reload records it, not just a
-        // polled one: the baseline is "the store as this list last read it".
-        var readAt = LastWriteTimeUtc();
-
         // The plan's tags travel with the reload, so the picker offers planned work
         // the moment the list it sits in refreshes rather than a beat behind it.
         RoadmapTags = await _roadmapTags.TagsInUseAsync();
@@ -2937,11 +2706,6 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         }
 
         Rows = rows;
-
-        // Asked again when there was nothing to read before: the store creates
-        // its database on first use, so this reload is often the thing that
-        // brought the file into existence.
-        _lastSeenWriteUtc = readAt ?? LastWriteTimeUtc() ?? _lastSeenWriteUtc;
 
         ApplyFilter();
     }
@@ -3335,6 +3099,26 @@ public sealed class EntryRow
     public string? CopilotError { get; set; }
 
     public bool IsPersisted => Id.HasValue;
+
+    /// <summary>The plan this entry was imported as part of, or null. Read off the
+    /// entry rather than the parse, like <see cref="CreatedAt"/>: the plan id is
+    /// the tag the whole import shared, and nothing in this entry's own text says
+    /// which of its tags that was.</summary>
+    public string? ImportPlanId { get; set; }
+
+    /// <summary>The local <c>id:</c> this entry goes by inside its plan, or null.
+    /// A preview like the scheduling fields, because the token is in the text and
+    /// a reader can type one.</summary>
+    public string? PreviewImportItemId
+    {
+        get { Render(); return _parsed!.ImportItemId; }
+    }
+
+    /// <summary>When the entry was first saved, or null until it has been. Not a
+    /// preview like the fields above: there is no token for it in the text and
+    /// nothing a reader can type to move it, so it is read straight off the entry
+    /// and never off the parse.</summary>
+    public DateTimeOffset? CreatedAt { get; set; }
 
     /// <summary>True for rows the app only reads. Every task is editable today;
     /// this property is reserved for future sources that truly cannot be written

@@ -122,7 +122,7 @@ public sealed class DevbookFolderChangeRefreshTests
         var component = context.Render<DomainDevbookPanel>(parameters => parameters
             .Add(parameter => parameter.RepositoryAlias, DevbookWorkspace.Alias));
 
-        Assert.Contains("Context Map: Alpha", component.Markup, StringComparison.Ordinal);
+        component.WaitForAssertion(() => Assert.Contains("Context Map: Alpha", component.Markup, StringComparison.Ordinal));
 
         workspace.PointRepositoryAt(workspace.SecondRepositoryPath);
 
@@ -142,7 +142,7 @@ public sealed class DevbookFolderChangeRefreshTests
         var component = context.Render<DesignDevbookView>(parameters => parameters
             .Add(parameter => parameter.RepositoryAlias, DevbookWorkspace.Alias));
 
-        Assert.Contains("Design: Alpha", component.Markup, StringComparison.Ordinal);
+        component.WaitForAssertion(() => Assert.Contains("Design: Alpha", component.Markup, StringComparison.Ordinal));
 
         workspace.PointRepositoryAt(workspace.SecondRepositoryPath);
 
@@ -162,7 +162,7 @@ public sealed class DevbookFolderChangeRefreshTests
         var component = context.Render<InstructionsDevbookPanel>(parameters => parameters
             .Add(parameter => parameter.RepositoryAlias, DevbookWorkspace.Alias));
 
-        Assert.Contains("Instructions: Alpha", component.Markup, StringComparison.Ordinal);
+        component.WaitForAssertion(() => Assert.Contains("Instructions: Alpha", component.Markup, StringComparison.Ordinal));
 
         workspace.PointRepositoryAt(workspace.SecondRepositoryPath);
 
@@ -182,7 +182,7 @@ public sealed class DevbookFolderChangeRefreshTests
         var component = context.Render<InstructionsDevbookPanel>(parameters => parameters
             .Add(parameter => parameter.RepositoryAlias, DevbookWorkspace.Alias));
 
-        Assert.Contains("Instructions: Alpha", component.Markup, StringComparison.Ordinal);
+        component.WaitForAssertion(() => Assert.Contains("Instructions: Alpha", component.Markup, StringComparison.Ordinal));
 
         // The panel reads the selected document asynchronously after the first
         // render — DevbookChapterContent.LoadAsync, and so File.ReadAllTextAsync,
@@ -392,7 +392,7 @@ public sealed class DevbookFolderChangeRefreshTests
         var component = context.Render<DomainDevbookPanel>(parameters => parameters
             .Add(parameter => parameter.RepositoryAlias, DevbookWorkspace.Alias));
 
-        Assert.Contains("Context Map: Alpha", component.Markup, StringComparison.Ordinal);
+        component.WaitForAssertion(() => Assert.Contains("Context Map: Alpha", component.Markup, StringComparison.Ordinal));
 
         workspace.RewriteContextMap(workspace.RepositoryPath, "Pulled");
         workspace.Folders.NotifyContentChanged();
@@ -427,8 +427,13 @@ public sealed class DevbookFolderChangeRefreshTests
         context.Render<InstructionsDevbookPanel>(parameters => parameters
             .Add(parameter => parameter.RepositoryAlias, DevbookWorkspace.Alias));
 
-        Assert.Equal(3, source.SubscriberCount);
+        // Three panels, and the two stores behind the first two: each keeps a
+        // per-file parse cache and listens so a folder change empties it. The
+        // instructions panel reads through discovery, which keeps none.
+        Assert.Equal(5, source.SubscriberCount);
 
+        // Disposing the container disposes the stores as well as the renderer,
+        // so the stores' handlers have to go with it too.
         await context.DisposeAsync();
 
         Assert.Equal(0, source.SubscriberCount);
@@ -539,6 +544,7 @@ file sealed class DevbookWorkspace : IDisposable
         context.Services.AddSingleton(new DevbookCopilotCli(new UnavailableCopilotCliLauncher()));
         context.Services.AddSingleton<IGitFileHistoryService>(new StubGitFileHistory());
         context.Services.AddSingleton<DesignDevbookProvider>();
+        context.Services.AddSingleton<AiDevbookProvider>();
         context.Services.AddSingleton(sp => new DomainDevbookStore(sp.GetRequiredService<IDevbookFolderSource>()));
         context.Services.AddSingleton<Arc42DevbookStore>();
         context.Services.AddSingleton(new InstructionSourceDiscovery());
@@ -641,8 +647,6 @@ file sealed class CountingDevbookFolderSource(IDevbookFolderSource inner) : IDev
     }
 
     public int SubscriberCount { get; private set; }
-
-    public string StorageDirectory => inner.StorageDirectory;
 
     public IReadOnlyList<DevbookFolderSetting> Folders(string? repositoryAlias) => inner.Folders(repositoryAlias);
 

@@ -375,6 +375,82 @@ public static class AgentSessionViews
     };
 }
 
+/// <summary>
+/// One environment a reading holds a record of, as a filter can offer it.
+/// </summary>
+/// <param name="Id">The environment's stable identifier — what a narrowing keys on.
+/// Not the name: a machine can be renamed and two can share a name, so a filter
+/// keyed on the name would quietly merge or split what it is filtering.</param>
+/// <param name="Name">What a person recognises in a list: the name the environment's
+/// most recent session carries, so a renamed machine is offered under the name it
+/// has now.</param>
+public sealed record AgentSessionEnvironment(string Id, string Name);
+
+/// <summary>
+/// Narrowing a set of sessions to one environment, and saying which environments
+/// there are to narrow to. A pure function over the sessions it is given, like
+/// <see cref="AgentSessionViews"/> beside it, and composed the same way: narrow
+/// first, then group, so an environment left out never keeps an empty section.
+/// <para>
+/// Derived from the sessions rather than asked of a directory, and that is the part
+/// worth arguing. An environment is offered exactly when there are records behind it
+/// to narrow to; a filter option that can only ever empty the list is not something
+/// this can produce. It also means the filter's options and the grouping's sections
+/// cannot disagree — same ids, same names, same order — because they are read off
+/// the same grouping.
+/// </para>
+/// <para>
+/// Separate from <see cref="AgentSessionViews"/> rather than a third member of it.
+/// A view is a question about liveness with two answers; which machine is a
+/// question about place, with as many answers as machines have reported, and
+/// folding the two into one enum would make the pane's "Live" mean "live here" on
+/// some presses and "live anywhere" on others. Two narrowings with one guarantee
+/// each — both remove rows and neither reorders — and the surface reports what the
+/// two together left out.
+/// </para>
+/// </summary>
+public static class AgentSessionEnvironments
+{
+    /// <summary>
+    /// Every environment these sessions name, in the order a grouping by environment
+    /// draws its sections: by name, then by id. Read off <see cref="AgentSessionGroups"/>
+    /// deliberately, so a filter option and the section heading it corresponds to are
+    /// one derivation rather than two that only have to drift once.
+    /// </summary>
+    public static IReadOnlyList<AgentSessionEnvironment> Of(IReadOnlyList<AgentSession> sessions)
+    {
+        ArgumentNullException.ThrowIfNull(sessions);
+
+        return
+        [
+            .. AgentSessionGroups.Of(sessions, AgentSessionGrouping.Environment)
+                .Select(group => new AgentSessionEnvironment(
+                    group.Sessions[0].EnvironmentId,
+                    // The heading is the name the newest session carries, and it can be
+                    // blank the way any wire field can. An option with an empty label
+                    // is one a reader cannot tell from "All machines" above it, so
+                    // the id stands in: it at least identifies what it narrows to.
+                    string.IsNullOrWhiteSpace(group.Name) ? group.Sessions[0].EnvironmentId : group.Name))
+        ];
+    }
+
+    /// <summary>
+    /// The sessions on one environment, in the order they were given, or every
+    /// session when no environment is named. Keyed on the id, ordinally, because
+    /// that is how <see cref="AgentSessionGroups"/> decides which section a row is in.
+    /// </summary>
+    public static IReadOnlyList<AgentSession> On(IReadOnlyList<AgentSession> sessions, string? environmentId)
+    {
+        ArgumentNullException.ThrowIfNull(sessions);
+
+        // The same list back, not a copy of it: no environment is the absence of a
+        // filter, the same way AgentSessionView.All is.
+        if (string.IsNullOrWhiteSpace(environmentId)) return sessions;
+
+        return [.. sessions.Where(session => string.Equals(session.EnvironmentId, environmentId, StringComparison.Ordinal))];
+    }
+}
+
 /// <summary>How the reader wants the list carved up.</summary>
 public enum AgentSessionGrouping
 {

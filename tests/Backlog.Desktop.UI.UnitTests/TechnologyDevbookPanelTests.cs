@@ -188,10 +188,7 @@ public sealed class TechnologyDevbookPanelTests : IDisposable
     {
         await using var harness = CreateHarness();
 
-        var component = harness.Render();
-
-        component.WaitForAssertion(() =>
-            Assert.NotEmpty(component.FindAll("[data-testid='graph-atlas-index-option']")));
+        var component = await harness.RenderAtlasAsync();
 
         var labels = component.FindAll(".graph-atlas-index__label").Select(row => row.TextContent.Trim()).ToArray();
 
@@ -204,10 +201,7 @@ public sealed class TechnologyDevbookPanelTests : IDisposable
     {
         await using var harness = CreateHarness();
 
-        var component = harness.Render();
-
-        component.WaitForAssertion(() =>
-            Assert.NotEmpty(component.FindAll("[data-testid='graph-atlas-index-option']")));
+        var component = await harness.RenderAtlasAsync();
 
         // Closed to begin with: nothing has been picked.
         Assert.Equal("false", component.Find("[data-testid='technology-atlas-sheet']").GetAttribute("data-open"));
@@ -232,10 +226,7 @@ public sealed class TechnologyDevbookPanelTests : IDisposable
     {
         await using var harness = CreateHarness();
 
-        var component = harness.Render();
-
-        component.WaitForAssertion(() =>
-            Assert.NotEmpty(component.FindAll("[data-testid='graph-atlas-index-option']")));
+        var component = await harness.RenderAtlasAsync();
 
         component.FindAll("[data-testid='graph-atlas-index-option']")[0].Click();
 
@@ -257,10 +248,7 @@ public sealed class TechnologyDevbookPanelTests : IDisposable
     {
         await using var harness = CreateHarness();
 
-        var component = harness.Render();
-
-        component.WaitForAssertion(() =>
-            Assert.NotEmpty(component.FindAll("[data-testid='graph-atlas-index-option']")));
+        var component = await harness.RenderAtlasAsync();
 
         component.FindAll("[data-testid='graph-atlas-index-option']")[0].Click();
 
@@ -281,10 +269,7 @@ public sealed class TechnologyDevbookPanelTests : IDisposable
     {
         await using var harness = CreateHarness();
 
-        var component = harness.Render();
-
-        component.WaitForAssertion(() =>
-            Assert.NotEmpty(component.FindAll("[data-testid='graph-atlas-index-option']")));
+        var component = await harness.RenderAtlasAsync();
 
         component.FindAll("[data-testid='graph-atlas-index-option']")[0].Click();
         Assert.Equal("true", component.Find("[data-testid='technology-atlas-sheet']").GetAttribute("data-open"));
@@ -345,6 +330,27 @@ public sealed class TechnologyDevbookPanelTests : IDisposable
         public IRenderedComponent<TechnologyDevbookPanel> Render() =>
             Context.Render<TechnologyDevbookPanel>(parameters => parameters
                 .Add(panel => panel.RepositoryAlias, "backlog"));
+
+        /// <summary>
+        /// Renders the panel and waits for the atlas to be on screen and the load
+        /// behind it to have finished rendering.
+        /// <para>
+        /// The store reads the folder on the thread pool, so the panel renders a
+        /// loading line first and the atlas on a later pass. Waiting for the index
+        /// alone is not enough: the assertion can pass while the renderer is still
+        /// working through that pass, and a click dispatched then is queued behind
+        /// it rather than handled inline — so the test reads the sheet before the
+        /// click has drawn. The empty dispatch drains the queue first.
+        /// </para>
+        /// </summary>
+        public async Task<IRenderedComponent<TechnologyDevbookPanel>> RenderAtlasAsync()
+        {
+            var component = Render();
+            component.WaitForAssertion(() =>
+                Assert.NotEmpty(component.FindAll("[data-testid='graph-atlas-index-option']")));
+            await component.InvokeAsync(() => { });
+            return component;
+        }
 
         /// <summary>Renders the panel and opens its Layers tab. The graph is the
         /// tab the panel opens with, and the layer detail these tests are about

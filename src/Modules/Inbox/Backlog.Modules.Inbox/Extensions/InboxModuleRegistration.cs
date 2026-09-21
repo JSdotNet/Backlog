@@ -2,6 +2,7 @@ using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Inbox.Features.ArchiveItem;
 using Backlog.Modules.Inbox.Features.AssignRepositories;
+using Backlog.Modules.Inbox.Features.RenameRepository;
 using Backlog.Modules.Inbox.Features.CaptureItem;
 using Backlog.Modules.Inbox.Features.CreateGroup;
 using Backlog.Modules.Inbox.Features.CreateList;
@@ -53,6 +54,7 @@ public static class InboxModuleRegistration
         services.AddScoped<ICommandHandler<CaptureItemCommand, Result<InboxItemDto>>, CaptureItemCommandHandler>();
         services.AddScoped<ICommandHandler<SetTagsCommand, Result>, SetTagsCommandHandler>();
         services.AddScoped<ICommandHandler<AssignRepositoriesCommand, Result>, AssignRepositoriesCommandHandler>();
+        services.AddScoped<ICommandHandler<RenameRepositoryCommand, Result<int>>, RenameRepositoryCommandHandler>();
         services.AddScoped<ICommandHandler<MoveToListCommand, Result>, MoveToListCommandHandler>();
         services.AddScoped<ICommandHandler<ArchiveItemCommand, Result>, ArchiveItemCommandHandler>();
         services.AddScoped<ICommandHandler<RouteToBacklogCommand, Result<InboxRoutedDto>>, RouteToBacklogCommandHandler>();

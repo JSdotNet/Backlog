@@ -248,6 +248,7 @@ internal static class DevbookAtlasFolders
         "arc42" => ".arc42",
         "tech" => ".tech",
         "design" => ".design",
+        "ai" => ".ai",
         _ => null
     };
 }
@@ -566,6 +567,8 @@ internal static class DevbookAtlasReader
         "design" => "Design",
         "backlog" => "Backlog",
         "tech" => "Technology",
+        // Spelt out because the fallback below would print it as "Ai".
+        "ai" => "AI",
         null or "" => "Elsewhere",
         _ => Titleise(folder)
     };

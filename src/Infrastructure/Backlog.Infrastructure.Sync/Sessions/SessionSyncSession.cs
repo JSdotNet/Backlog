@@ -64,7 +64,14 @@ public sealed class SessionSyncSession
     private readonly IReplicatedSessionStore _replica;
     private readonly IDeviceCredentialStore _credentials;
     private readonly TimeProvider _time;
+    private readonly SyncActivityLog? _activity;
 
+    /// <param name="activity">Where each record that moves is written down by
+    /// name, or null on a head with nothing to show one in. A sent record is
+    /// named by the local session's title, which stays on this machine — the
+    /// record itself carries no title, see <see cref="SessionRecordMapping"/> —
+    /// and a received one by the machine it came from, which is what a person
+    /// reading the log wants to know about a session that is not theirs.</param>
     public SessionSyncSession(
         SessionSyncClient client,
         IAgentSessionSource sessions,
@@ -72,7 +79,8 @@ public sealed class SessionSyncSession
         ISessionSyncStateStore state,
         IReplicatedSessionStore replica,
         IDeviceCredentialStore credentials,
-        TimeProvider time)
+        TimeProvider time,
+        SyncActivityLog? activity = null)
     {
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(sessions);
@@ -89,6 +97,7 @@ public sealed class SessionSyncSession
         _replica = replica;
         _credentials = credentials;
         _time = time;
+        _activity = activity;
     }
 
     /// <summary>
@@ -154,6 +163,11 @@ public sealed class SessionSyncSession
             if (response.IsFailure) return Result.Failure<SessionSyncSummary>(response.Error);
 
             pushed += response.Value.Accepted;
+
+            foreach (var session in batch)
+            {
+                _activity?.Record(SyncDirection.Sent, SyncItemKind.Session, session.Id, session.Title);
+            }
 
             if (WatermarkAfter(batch, final: start + batch.Count >= pending.Count) is { } advanced)
             {
@@ -247,6 +261,13 @@ public sealed class SessionSyncSession
             _replica.Save(theirs);
             applied += theirs.Count;
 
+            foreach (var entry in theirs)
+            {
+                _activity?.Record(
+                    SyncDirection.Received, SyncItemKind.Session, entry.Record.SessionId,
+                    SessionTitle(entry.Record));
+            }
+
             cursor = page.Value.Since;
             _state.Save(_state.Current with { PullCursor = cursor });
 
@@ -257,22 +278,23 @@ public sealed class SessionSyncSession
     }
 
     /// <summary>
-    /// Pull, then push — the same order as <c>TaskSyncSession.SyncAsync</c>, and
-    /// for the same reason there rather than one of its own: session records
-    /// merge by identity on the way in and this device's own are dropped, so the
-    /// order changes nothing for them, but two loops that ran their halves in
-    /// opposite orders would be two things to reason about where one will do. A
-    /// pull that fails stops the exchange rather than being followed by a push:
-    /// the failure is almost always the service being unreachable, and a second
-    /// call to say the same thing is a second thing for a person to read.
+    /// Push, then pull.
+    /// <para>
+    /// In that order because the pull is what tells this device it is up to date,
+    /// and a pull that ran first would say so while this machine's own sessions
+    /// were still unsent. A push that fails stops the exchange rather than being
+    /// followed by a pull: the failure is almost always the service being
+    /// unreachable, and a second call to say the same thing is a second thing for
+    /// a person to read.
+    /// </para>
     /// </summary>
     public async Task<Result<SessionSyncSummary>> SyncAsync(CancellationToken cancellationToken = default)
     {
-        var pull = await PullAsync(cancellationToken).ConfigureAwait(false);
-        if (pull.IsFailure) return pull;
-
         var push = await PushAsync(cancellationToken).ConfigureAwait(false);
         if (push.IsFailure) return push;
+
+        var pull = await PullAsync(cancellationToken).ConfigureAwait(false);
+        if (pull.IsFailure) return pull;
 
         return Result.Success(new SessionSyncSummary(
             push.Value.Pushed,
@@ -281,11 +303,21 @@ public sealed class SessionSyncSession
             _time.GetUtcNow()));
     }
 
-    /// <summary>The two answers that mean "that cursor is no longer one you can
-    /// resume from", which the device recovers from by forgetting it. Neither says
-    /// anything about the owner's records, so starting over loses nothing but the
-    /// position — and a record that arrives twice lands on the row it already
-    /// wrote.</summary>
+    /// <summary>What a record from another machine is called in the log. It
+    /// has no title of its own — the whitelist leaves one behind on purpose — so
+    /// the name is what the Sessions screen groups by: the machine, then the
+    /// repository and branch where the record names them.</summary>
+    private static string SessionTitle(SessionRecord record)
+    {
+        var where = record.RepositoryAlias is null
+            ? null
+            : record.Branch is null ? record.RepositoryAlias : $"{record.RepositoryAlias} on {record.Branch}";
+
+        return where is null
+            ? $"{record.AgentKind} session on {record.MachineName}"
+            : $"{record.AgentKind} session on {record.MachineName} · {where}";
+    }
+
     /// <summary>
     /// Starts the progress over when it was recorded for a different identity —
     /// the same check, for the same reason, as <c>TaskSyncSession.ReconcileIdentity</c>.
@@ -306,6 +338,11 @@ public sealed class SessionSyncSession
         _state.Save(new SessionSyncState(DateTimeOffset.MinValue, null, me.OwnerId, me.DeviceId));
     }
 
+    /// <summary>The two answers that mean "that cursor is no longer one you can
+    /// resume from", which the device recovers from by forgetting it. Neither says
+    /// anything about the owner's records, so starting over loses nothing but the
+    /// position — and a record that arrives twice lands on the row it already
+    /// wrote.</summary>
     private static bool Retired(string code) =>
         code is SyncErrorCodes.SyncCursorExpired or SyncErrorCodes.SyncCursorMalformed;
 

@@ -97,6 +97,7 @@ public sealed class TaskReplicaMerge(
     ITaskRepository tasks,
     IInboxIntake? inbox = null,
     ILogger<TaskReplicaMerge>? log = null,
+    SyncActivityLog? activity = null,
     ITaskChangeSignal? changes = null)
 {
     /// <summary>The kind token the service writes on a capture document. Three
@@ -124,6 +125,14 @@ public sealed class TaskReplicaMerge(
     /// than left null so the skip path below cannot itself be the thing that
     /// throws. A host that has logging gets it injected.</summary>
     private readonly ILogger _log = log ?? NullLogger<TaskReplicaMerge>.Instance;
+
+    /// <summary>Where a document that was actually written is recorded by name,
+    /// or null on a head with nowhere to show one. Recorded here and not by the
+    /// session that pulled the page, because this is the one place that knows
+    /// the difference between a document that arrived and one that was kept —
+    /// an echo of this device's own push arrives too, and a log that listed it
+    /// as received would say the backlog moved when it did not.</summary>
+    private readonly SyncActivityLog? _activity = activity;
 
     /// <summary>
     /// Whether <paramref name="inbound"/> is the later of two records for the
@@ -354,6 +363,17 @@ public sealed class TaskReplicaMerge(
     /// never offers that document again, so no amount of syncing closes it.
     /// </para>
     /// <para>
+    /// This leans on the replica never moving a document backwards. Every
+    /// device echoes what it pulled on its next push — a received row sits
+    /// above the watermark exactly as an edit does — and a replica that took
+    /// the echo would hand this device an <em>older</em> copy of a row it had
+    /// already pushed, which this rule then applies: a pushed tombstone came
+    /// back as the live task, a pushed edit as the version before it. The
+    /// service refuses such a push (<c>TaskChangePrecedence</c>), so the older
+    /// document this branch accepts is one the replica ordered after this
+    /// device's own, never a stale copy of it.
+    /// </para>
+    /// <para>
     /// <b>The one exception is an un-pushed local edit</b> — a local
     /// <c>UpdatedAt</c> above <paramref name="pushWatermark"/>, which means this
     /// device changed the task and has not sent it. That edit wins on its own
@@ -422,9 +442,21 @@ public sealed class TaskReplicaMerge(
             // Received and Withdrawn wrote something; AlreadyKnown and Ignored
             // are the capture's echo or replay, and a replayed page writes
             // nothing — the same idempotency the task path keeps below.
-            return outcome is InboxIntakeOutcome.Received or InboxIntakeOutcome.Withdrawn
-                ? ApplyOutcome.Written
-                : ApplyOutcome.Held;
+            switch (outcome)
+            {
+                case InboxIntakeOutcome.Received:
+                    _activity?.Record(
+                        SyncDirection.Received, SyncItemKind.Capture, record.Change.Id.ToString("D"), record.Change.Task.Title);
+                    return ApplyOutcome.Written;
+
+                case InboxIntakeOutcome.Withdrawn:
+                    _activity?.Record(
+                        SyncDirection.Received, SyncItemKind.Capture, record.Change.Id.ToString("D"), record.Change.Task.Title, "withdrawn");
+                    return ApplyOutcome.Written;
+
+                default:
+                    return ApplyOutcome.Held;
+            }
         }
 
         var local = await _tasks
@@ -460,6 +492,10 @@ public sealed class TaskReplicaMerge(
         {
             await _tasks.SaveAsync(task, cancellationToken).ConfigureAwait(false);
         }
+
+        _activity?.Record(
+            SyncDirection.Received, SyncItemKind.Task, task.Id.ToString("D"), task.Title,
+            task.DeletedAt is null ? null : "deleted");
 
         return ApplyOutcome.Written;
     }

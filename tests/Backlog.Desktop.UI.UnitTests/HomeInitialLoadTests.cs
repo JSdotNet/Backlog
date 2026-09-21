@@ -91,6 +91,7 @@ public sealed class HomeInitialLoadTests
                 TasksTestHost.EntriesFor(sp.GetRequiredService<WorkspaceSettingsStore>()),
                 () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
         context.Services.AddSingleton<DesignDevbookProvider>();
+        context.Services.AddSingleton<AiDevbookProvider>();
         context.Services.AddSingleton<TechnologyDevbookService>();
         context.Services.AddSingleton<InstructionSourceDiscovery>();
         context.Services.AddSingleton<DevbookMenu>();
@@ -114,6 +115,8 @@ public sealed class HomeInitialLoadTests
         // picks where its sources are kept, the same as the application hosts do.
         context.Services.AddSingleton<ICaptureSourceSettings>(
             new CaptureSourcesSettingsStore(Path.Combine(root, "capture", "capture-sources.json")));
+        context.Services.AddSingleton<ICaptureRunLog>(
+            new CaptureRunLogStore(Path.Combine(root, "capture", "capture-runs.json")));
         context.Services.AddCaptureModule();
         InboxTestHost.AddCaptureDelivery(context.Services);
 
@@ -152,6 +155,8 @@ public sealed class HomeInitialLoadTests
 
     private sealed class StubGitHubClient : IGitHubClient
     {
+        public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
         public Task<GitHubIssue> CreateIssueAsync(
             GitHubRepositoryRef repository,
             string title,

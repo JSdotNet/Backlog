@@ -107,23 +107,31 @@ public class DashboardPaneTests
         });
     }
 
+    /// <summary>
+    /// The repository is the shell's to choose: the header carries one scope for the
+    /// whole screen, and a second select here was two repository filters on one
+    /// screen answering differently. So the pane offers no repository control, and
+    /// with nothing handed in it reads every repository.
+    /// </summary>
     [Fact]
-    public void The_filter_offers_every_configured_repository_and_an_all_repositories_option()
+    public void The_pane_offers_no_repository_control_and_reads_all_repositories_by_default()
     {
-        using var context = Context();
+        var productivity = new RecordingProductivityInsights();
+
+        using var context = Context(configure: services =>
+            services.AddSingleton<IProductivityInsights>(productivity));
 
         var pane = context.Render<DashboardPane>();
-        var options = pane.FindAll("[data-testid='dashboard-repository-filter'] option");
 
-        Assert.Equal(3, options.Count);
-        Assert.Equal("All repositories", options[0].TextContent);
-        Assert.Contains(options, option => option.TextContent == "JSdotNet/backlog");
-        Assert.Contains(options, option => option.TextContent == "JSdotNet/backlog-ide");
+        Assert.Empty(pane.FindAll("[data-testid='dashboard-repository-filter']"));
+        Assert.DoesNotContain("All repositories", pane.Markup, StringComparison.Ordinal);
+        Assert.All(productivity.Scopes, scope => Assert.True(scope.IsAllRepositories));
     }
 
     /// <summary>
-    /// Choosing a repository has to reach the parts, or the filter is a control that
-    /// silently drives half a page — which is the usual way a dashboard goes stale.
+    /// The repository handed in has to reach the parts, or the header's scope is a
+    /// control that silently drives half a page — which is the usual way a dashboard
+    /// goes stale.
     /// </summary>
     [Fact]
     public void Focusing_a_repository_reaches_the_productivity_parts()
@@ -134,9 +142,49 @@ public class DashboardPaneTests
             services.AddSingleton<IProductivityInsights>(productivity));
 
         var pane = context.Render<DashboardPane>();
-        pane.Find("[data-testid='dashboard-repository-filter'] select").Change("backlog-ide");
+        FocusRepository(pane, "backlog-ide");
 
-        Assert.Contains("backlog-ide", productivity.Scopes.Select(scope => scope.RepositoryAlias));
+        Assert.Contains(productivity.Scopes, scope => scope.Repositories.Contains("backlog-ide") && !scope.IsAllRepositories);
+    }
+
+    /// <summary>
+    /// The header's scope holds several repositories at once, and the parts get the
+    /// whole set in the order it was taken — the anchor first, because the trend
+    /// holds that one up against the rest.
+    /// </summary>
+    [Fact]
+    public void Several_repositories_reach_the_parts_as_one_focus_in_the_order_taken()
+    {
+        var productivity = new RecordingProductivityInsights();
+
+        using var context = Context(configure: services =>
+            services.AddSingleton<IProductivityInsights>(productivity));
+
+        var pane = context.Render<DashboardPane>();
+        FocusRepository(pane, "backlog-ide", "backlog");
+
+        var focus = productivity.Scopes[^1].Repositories;
+        Assert.Equal(["backlog-ide", "backlog"], focus.Aliases);
+        Assert.Equal("backlog-ide", focus.Anchor);
+    }
+
+    /// <summary>
+    /// A cleared scope is an empty list, and the pane reads it as all repositories
+    /// rather than as a focus on nothing.
+    /// </summary>
+    [Fact]
+    public void An_empty_scope_reads_as_all_repositories()
+    {
+        var productivity = new RecordingProductivityInsights();
+
+        using var context = Context(configure: services =>
+            services.AddSingleton<IProductivityInsights>(productivity));
+
+        var pane = context.Render<DashboardPane>();
+        FocusRepository(pane, "backlog-ide");
+        FocusRepository(pane);
+
+        Assert.True(productivity.Scopes[^1].IsAllRepositories);
     }
 
     /// <summary>
@@ -154,7 +202,7 @@ public class DashboardPaneTests
         var pane = context.Render<DashboardPane>();
         var afterFirstRender = costs.Calls;
 
-        pane.Find("[data-testid='dashboard-repository-filter'] select").Change("backlog-ide");
+        FocusRepository(pane, "backlog-ide");
 
         Assert.Equal(afterFirstRender, costs.Calls);
     }
@@ -173,7 +221,7 @@ public class DashboardPaneTests
         var cost = pane.Find("[data-testid='dashboard-cost']");
 
         Assert.Contains(
-            "neither the repository filter nor the machine filter above changes anything in this section",
+            "neither the repository scope in the header nor the machine filter above changes anything in this section",
             Squashed(cost.TextContent),
             StringComparison.Ordinal);
     }
@@ -214,7 +262,7 @@ public class DashboardPaneTests
         // section used to give for it named the wrong assistant.
         Assert.Contains(
             "Only Copilot records a repository against a session, so filtering by one would hide "
-            + "Claude's half of the picture; the repository filter above does not change this section",
+            + "Claude's half of the picture; the repository scope in the header does not change this section",
             Squashed(sessions.TextContent),
             StringComparison.Ordinal);
     }
@@ -252,6 +300,29 @@ public class DashboardPaneTests
         pane.Find("[data-testid='dashboard-machine-filter'] select").Change(DashboardTestHost.MachineId);
 
         Assert.Contains(DashboardTestHost.MachineId, sessions.Scopes.Select(scope => scope.MachineId));
+    }
+
+    /// <summary>
+    /// Moving a filter starts the next fetch before it cancels the last one. The order
+    /// matters because the sessions read is one shared entry behind the module's cache
+    /// that stops when its last waiter leaves: withdrawn first and joined second, a
+    /// twelve-week parse that was nearly done would be thrown away and started again
+    /// from nothing, on the very gesture — a filter moved during the first load — that
+    /// this ordering exists for.
+    /// </summary>
+    [Fact]
+    public void Moving_a_filter_joins_the_next_fetch_before_it_withdraws_the_last()
+    {
+        var sessions = new TokenOrderSessionInsights();
+
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(sessions));
+
+        var pane = context.Render<DashboardPane>();
+        pane.Find("[data-testid='dashboard-machine-filter'] select").Change(DashboardTestHost.MachineId);
+
+        Assert.True(sessions.Calls >= 2, "The filter change never reached the sessions part.");
+        Assert.DoesNotContain(true, sessions.PredecessorWithdrawnOnArrival);
     }
 
     /// <summary>
@@ -328,7 +399,7 @@ public class DashboardPaneTests
         var pane = context.Render<DashboardPane>();
         var afterFirstRender = sessions.Scopes.Count;
 
-        pane.Find("[data-testid='dashboard-repository-filter'] select").Change("backlog-ide");
+        FocusRepository(pane, "backlog-ide");
 
         Assert.Equal(afterFirstRender, sessions.Scopes.Count);
     }
@@ -430,6 +501,53 @@ public class DashboardPaneTests
             + "so this is rarely time it spent waiting on you.",
             tile,
             StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The mean is over the counted sessions and the tile says how many that is. A
+    /// figure of 7.5 over 8 of 12 sessions presented as "prompts per session" without the
+    /// denominator would read as a fact about all twelve, four of which said nothing.
+    /// </summary>
+    [Fact]
+    public void The_prompts_tile_shows_the_mean_and_says_how_many_sessions_it_covers()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(new ReadySessionInsights(Insight())));
+
+        var pane = context.Render<DashboardPane>();
+        var tile = Squashed(pane.Find("[data-testid='dashboard-sessions-prompts']").TextContent);
+
+        Assert.Contains("Prompts per session", tile, StringComparison.Ordinal);
+        Assert.Contains("7.5", tile, StringComparison.Ordinal);
+        Assert.Contains("over 8 of 12 sessions", tile, StringComparison.Ordinal);
+        Assert.Contains("Copilot records no prompt count", tile, StringComparison.Ordinal);
+
+        Assert.NotNull(pane.Find("[data-testid='dashboard-sessions-prompts-bars']"));
+    }
+
+    /// <summary>
+    /// Nothing to average is a dash and no chart, not a zero and a flat one. Zero would
+    /// say the person opened sessions and never spoke; the only thing a window of
+    /// uncounted sessions supports is that there was nothing to count from.
+    /// </summary>
+    [Fact]
+    public void A_part_with_no_counted_session_shows_no_prompt_figure_and_no_prompt_chart()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(
+                new ReadySessionInsights(Insight() with
+                {
+                    PromptsPerSession = null,
+                    SessionsWithPrompts = 0,
+                    PromptsPerSessionPerWeek = [new("W33", 0m), new("W34", 0m)]
+                })));
+
+        var pane = context.Render<DashboardPane>();
+        var tile = Squashed(pane.Find("[data-testid='dashboard-sessions-prompts']").TextContent);
+
+        Assert.Contains("—", tile, StringComparison.Ordinal);
+        Assert.DoesNotContain("over 0 of", tile, StringComparison.Ordinal);
+        Assert.Empty(pane.FindAll("[data-testid='dashboard-sessions-prompts-bars']"));
     }
 
     /// <summary>Seven dated days down, twenty-four hours across, and every hour present
@@ -1177,6 +1295,13 @@ public class DashboardPaneTests
             Waiting = TimeSpan.FromHours(9),
             IdleAfter = TimeSpan.FromMinutes(5),
 
+            // A fraction, so a tile that rounded to a whole number would show and fail;
+            // and over fewer sessions than the count, because the footnote's whole job
+            // is to say so.
+            PromptsPerSession = 7.5m,
+            SessionsWithPrompts = 8,
+            PromptsPerSessionPerWeek = [new("W33", 6m), new("W34", 9m)],
+
             // Different peaks in different hours, so a tile wired to the wrong record
             // renders a plausible figure and fails rather than passing quietly. 2026-08-19
             // is the Wednesday the grid's week ends on.
@@ -1252,7 +1377,7 @@ public class DashboardPaneTests
         var pane = context.Render<DashboardPane>();
         var note = Squashed(pane.Find("[data-testid='dashboard-score-note']").TextContent);
 
-        Assert.Contains("a quarter above your own best four weeks", note, StringComparison.Ordinal);
+        Assert.Contains("Full marks for volume is a quarter above your own best four weeks", note, StringComparison.Ordinal);
 
         // The figure it works out to, the record behind it, and when that record was
         // set — all three, because any two of them leave the third unarguable.
@@ -1263,50 +1388,97 @@ public class DashboardPaneTests
     }
 
     /// <summary>
-    /// No history, no target, and three of the seven inputs simply absent. A reader
-    /// who cannot see that throughput dropped out reads what is left as a score of
-    /// everything.
+    /// No history, no target, and the volume card simply empty. A reader who cannot
+    /// see that volume dropped out reads the quality score as the score of
+    /// everything — so the note says it, and the card itself says it rather than
+    /// claiming it was scored from inputs the view does not show.
     /// </summary>
     [Fact]
     public void The_score_note_says_when_volume_is_not_being_scored()
     {
         using var context = Context(configure: services =>
             services.AddSingleton<IProductivityInsights>(
-                new ReadyProductivityInsights(Score() with { Target = null })));
+                new ReadyProductivityInsights(Score() with
+                {
+                    Target = null,
+                    Volume = ProductivityScore.Empty
+                })));
 
         var pane = context.Render<DashboardPane>();
         var note = Squashed(pane.Find("[data-testid='dashboard-score-note']").TextContent);
 
-        Assert.Contains(
-            "Merged pull requests, issues closed and assistant sessions are not being scored",
-            note,
-            StringComparison.Ordinal);
+        Assert.Contains("Volume is not being scored", note, StringComparison.Ordinal);
         Assert.Contains("could not be read, or there is not enough of it yet", note, StringComparison.Ordinal);
+
+        var volume = Squashed(pane.Find("[data-testid='dashboard-score-volume']").TextContent);
+
+        Assert.Contains("Not scored: there is no history to set a target from", volume, StringComparison.Ordinal);
+        Assert.DoesNotContain("inputs this view does not show", volume, StringComparison.Ordinal);
+
+        // And the other card is untouched by it.
+        var quality = Squashed(pane.Find("[data-testid='dashboard-score-quality']").TextContent);
+
+        Assert.Contains("First review within a day", quality, StringComparison.Ordinal);
     }
 
     /// <summary>
-    /// The sessions input refuses two of the surface's three dimensions and is worth
-    /// the least of the seven, and all of that is said permanently rather than
-    /// conditionally: the conditions are invisible from the card, so a reader could
-    /// not tell a missing sentence from an absent caveat.
+    /// The split on screen: two cards, each with its own composition, and no
+    /// sessions row on either — the note says where sessions went, permanently,
+    /// because a reader of the previous version will look for the row.
     /// </summary>
     [Fact]
-    public void The_score_note_refuses_the_repository_dimension_for_sessions()
+    public void The_score_part_draws_volume_and_quality_as_two_cards()
     {
         using var context = Context(configure: services =>
             services.AddSingleton<IProductivityInsights>(new ReadyProductivityInsights(Score())));
 
         var pane = context.Render<DashboardPane>();
+
+        var volume = Squashed(pane.Find("[data-testid='dashboard-score-volume']").TextContent);
+        var quality = Squashed(pane.Find("[data-testid='dashboard-score-quality']").TextContent);
+
+        Assert.Contains("Volume", volume, StringComparison.Ordinal);
+        Assert.Contains("Pull requests merged", volume, StringComparison.Ordinal);
+        Assert.Contains("Issues closed", volume, StringComparison.Ordinal);
+        Assert.DoesNotContain("First review within a day", volume, StringComparison.Ordinal);
+
+        Assert.Contains("Quality", quality, StringComparison.Ordinal);
+        Assert.Contains("First review within a day", quality, StringComparison.Ordinal);
+        Assert.Contains("Merged touching 10 files or fewer", quality, StringComparison.Ordinal);
+        Assert.DoesNotContain("Pull requests merged", quality, StringComparison.Ordinal);
+
+        Assert.DoesNotContain("Assistant sessions", volume + quality, StringComparison.Ordinal);
+
         var note = Squashed(pane.Find("[data-testid='dashboard-score-note']").TextContent);
 
+        Assert.Contains("Assistant sessions are scored in neither", note, StringComparison.Ordinal);
         Assert.Contains("count effort rather than output", note, StringComparison.Ordinal);
-        // Not a weight count. The card renormalises the shares over the inputs that
-        // actually had something to read, so a note naming a fixed denominator
-        // contradicts the percentage printed beside the row whenever one drops out.
-        Assert.Contains("carry the least weight here", note, StringComparison.Ordinal);
-        Assert.Contains("rises when another input", note, StringComparison.Ordinal);
-        Assert.Contains("while one repository is in focus", note, StringComparison.Ordinal);
-        Assert.Contains("machine filter does not move this figure", note, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The rework part carries the two figures the reviewers wrote down, and the
+    /// headline the median commit count with the population it was taken over.
+    /// </summary>
+    [Fact]
+    public void Review_rounds_change_requests_and_commits_per_pull_request_reach_the_screen()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<IProductivityInsights>(new ReadyProductivityInsights(Score())));
+
+        var pane = context.Render<DashboardPane>();
+
+        var rounds = Squashed(pane.Find("[data-testid='dashboard-rework-rounds']").TextContent);
+        var requested = Squashed(pane.Find("[data-testid='dashboard-rework-changes-requested']").TextContent);
+        var commits = Squashed(pane.Find("[data-testid='dashboard-headline-commits']").TextContent);
+
+        Assert.Contains("Review rounds", rounds, StringComparison.Ordinal);
+        Assert.Contains("41", rounds, StringComparison.Ordinal);
+        Assert.Contains("Changes requested", requested, StringComparison.Ordinal);
+        Assert.Contains("7", requested, StringComparison.Ordinal);
+
+        Assert.Contains("Commits per pull request", commits, StringComparison.Ordinal);
+        Assert.Contains("4", commits, StringComparison.Ordinal);
+        Assert.Contains("Median, across 290 pull requests whose detail was read", commits, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -1333,21 +1505,26 @@ public class DashboardPaneTests
     }
 
     /// <summary>
-    /// A score with the whole composition behind it: the three volume inputs read
-    /// against the reader's own record, and the four proportions.
+    /// The two scores with their whole compositions behind them: the two volume
+    /// inputs read against the reader's own record, and the five proportions.
     /// </summary>
     private static ProductivityScoreInsight Score() =>
         new(
-            72m,
-            [
-                new ProductivityScoreInput("Pull requests merged", 304m, 380m, 3m),
-                new ProductivityScoreInput("Issues closed", 72m, 90m, 2m),
-                new ProductivityScoreInput("First review within a day", 40m, 50m, 2m),
-                new ProductivityScoreInput("Merged without post-review churn", 30m, 50m, 1m),
-                new ProductivityScoreInput("Merged under 400 changed lines", 20m, 44m, 1m),
-                new ProductivityScoreInput("Merged touching 10 files or fewer", 24m, 44m, 1m),
-                new ProductivityScoreInput("Assistant sessions", 40m, 75m, 1m)
-            ])
+            new ProductivityScore(
+                80m,
+                [
+                    new ProductivityScoreInput("Pull requests merged", 304m, 380m, 3m),
+                    new ProductivityScoreInput("Issues closed", 72m, 90m, 2m)
+                ]),
+            new ProductivityScore(
+                66m,
+                [
+                    new ProductivityScoreInput("First review within a day", 40m, 50m, 2m),
+                    new ProductivityScoreInput("Merged without post-review churn", 30m, 50m, 1m),
+                    new ProductivityScoreInput("Merged without a conflicted sync", 60m, 132m, 1m),
+                    new ProductivityScoreInput("Merged under 400 changed lines", 20m, 44m, 1m),
+                    new ProductivityScoreInput("Merged touching 10 files or fewer", 24m, 44m, 1m)
+                ]))
         {
             Target = new ProductivityTarget(
                 new DateTimeOffset(2026, 5, 12, 0, 0, 0, TimeSpan.Zero),
@@ -1361,7 +1538,7 @@ public class DashboardPaneTests
     /// figures can be read rather than only their unavailable state. Every part gets
     /// the same completeness flag, because it is one report behind all four.
     /// </summary>
-    private sealed class ReadyProductivityInsights(ProductivityScoreInsight score) : IProductivityInsights
+    private sealed class ReadyProductivityInsights(ProductivityScoreInsight score, ReworkInsight? rework = null) : IProductivityInsights
     {
         public Task<InsightResult<ProductivityHeadline>> GetHeadlineAsync(
             DashboardScope scope,
@@ -1369,7 +1546,9 @@ public class DashboardPaneTests
             Task.FromResult(InsightResult<ProductivityHeadline>.Ready(
                 new ProductivityHeadline(304, 72, 0.2m, TimeSpan.FromHours(5), [], [], [])
                 {
-                    Complete = score.Complete
+                    Complete = score.Complete,
+                    MedianCommitsPerPullRequest = 4,
+                    PullRequestsWithCommitCount = 290
                 }));
 
         public Task<InsightResult<ProductivityScoreInsight>> GetScoreAsync(
@@ -1392,14 +1571,76 @@ public class DashboardPaneTests
             DashboardScope scope,
             CancellationToken cancellationToken = default) =>
             Task.FromResult(InsightResult<ReworkInsight>.Ready(
-                new ReworkInsight(6, 30, 12, 2, 9, true, [new InsightPoint("W34", 3m)], [])
+                (rework ?? new ReworkInsight(6, 30, 12, 2, 9, true, [new InsightPoint("W34", 3m)], [])
                 {
-                    Complete = score.Complete
+                    PullRequestsSynced = 14,
+                    PullRequestsWithConflictedSync = 3,
+                    SyncMerges = 21,
+                    ConflictedSyncMerges = 4
+                }) with
+                {
+                    Complete = score.Complete,
+                    ReviewRounds = 41,
+                    ChangesRequested = 7
                 }));
 
         public void Invalidate(DashboardScope scope)
         {
         }
+    }
+
+    /// <summary>
+    /// The second kind of rework, beside the first: conflicted syncs with the base
+    /// branch, over the pull requests that synced at all. The denominator is on the
+    /// tile because "3" means nothing without knowing whether it is 3 of 14 or 3 of
+    /// 300, and the conflicted-merge count says it is a floor, because it is.
+    /// </summary>
+    [Fact]
+    public void The_rework_part_shows_conflicted_syncs_over_the_pull_requests_that_synced()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<IProductivityInsights>(new ReadyProductivityInsights(Score())));
+
+        var pane = context.Render<DashboardPane>();
+
+        var conflicted = Squashed(pane.Find("[data-testid='dashboard-rework-conflicted']").TextContent);
+        Assert.Contains("3", conflicted, StringComparison.Ordinal);
+        Assert.Contains("of 14 synced", conflicted, StringComparison.Ordinal);
+
+        Assert.Contains("21", pane.Find("[data-testid='dashboard-rework-syncs']").TextContent, StringComparison.Ordinal);
+
+        var conflicts = Squashed(pane.Find("[data-testid='dashboard-rework-conflicts']").TextContent);
+        Assert.Contains("4", conflicts, StringComparison.Ordinal);
+        Assert.Contains("At least", conflicts, StringComparison.Ordinal);
+
+        // The churn grid is still there beside it; neither kind hides the other.
+        Assert.NotEmpty(pane.FindAll("[data-testid='dashboard-rework-tiles']"));
+    }
+
+    /// <summary>
+    /// A window nobody reviewed is not an empty window when its branches synced.
+    /// Zero conflicts over twelve syncs is a result, and it renders as one — with
+    /// the churn grid absent rather than reading "0 of 0 reviewed".
+    /// </summary>
+    [Fact]
+    public void An_unreviewed_window_with_synced_branches_still_shows_its_syncs()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<IProductivityInsights>(new ReadyProductivityInsights(
+                Score(),
+                new ReworkInsight(0, 0, 0, 0, 0, true, [], [])
+                {
+                    PullRequestsSynced = 12,
+                    PullRequestsWithConflictedSync = 0,
+                    SyncMerges = 15,
+                    ConflictedSyncMerges = 0
+                })));
+
+        var pane = context.Render<DashboardPane>();
+
+        Assert.Contains("of 12 synced", Squashed(pane.Find("[data-testid='dashboard-rework-conflicted']").TextContent), StringComparison.Ordinal);
+        Assert.Empty(pane.FindAll("[data-testid='dashboard-rework-tiles']"));
+        Assert.Empty(pane.FindAll("[data-testid='dashboard-rework-status']"));
     }
 
     /// <summary>Markup wraps a note across several source lines, so the text arrives
@@ -1471,7 +1712,8 @@ public class DashboardPaneTests
         // Every control on the panel is accounted for, by name and then by count. The
         // count is the part that bites: a control added later without a reason lands
         // here rather than on screen unnoticed.
-        Assert.Single(pane.FindAll("[data-testid='dashboard-repository-filter'] select"));
+        // No repository select: the header's scope is the repository control.
+        Assert.Empty(pane.FindAll("[data-testid='dashboard-repository-filter']"));
         Assert.Single(pane.FindAll("[data-testid='dashboard-machine-filter'] select"));
         Assert.Equal(2, pane.FindAll("[data-testid='dashboard-window-filter'] button").Count);
         Assert.Equal(8, pane.FindAll("[data-testid$='-refresh']").Count);
@@ -1479,8 +1721,8 @@ public class DashboardPaneTests
 
         var controls = pane.FindAll("button, select, input, textarea");
 
-        // One close, two filter selects, two window buttons, eight refreshes.
-        Assert.Equal(1 + 2 + 2 + 8, controls.Count);
+        // One close, one filter select, two window buttons, eight refreshes.
+        Assert.Equal(1 + 1 + 2 + 8, controls.Count);
     }
 
     /// <summary>
@@ -1496,14 +1738,14 @@ public class DashboardPaneTests
             services.AddSingleton<IProductivityInsights>(productivity));
 
         var first = context.Render<DashboardPane>();
-        first.Find("[data-testid='dashboard-repository-filter'] select").Change("backlog-ide");
+        first.Find("[data-testid='dashboard-machine-filter'] select").Change(DashboardTestHost.MachineId);
 
         productivity.Scopes.Clear();
 
         var second = context.Render<DashboardPane>();
         _ = second;
 
-        Assert.All(productivity.Scopes, scope => Assert.True(scope.IsAllRepositories));
+        Assert.All(productivity.Scopes, scope => Assert.True(scope.IsAllMachines));
     }
 
     [Fact]
@@ -1551,6 +1793,12 @@ public class DashboardPaneTests
         SectionHeaderAdoptionTests.AssertPaneHeaderActions(header, "dashboard-panel");
         Assert.NotNull(header.QuerySelector(".dashboard-panel__header-actions button"));
     }
+
+    /// <summary>What the shell does when a scope chip is pressed: hands the pane its
+    /// scope through the parameter. The pane has no control of its own to press,
+    /// which is the point of these tests going through the parameter.</summary>
+    private static void FocusRepository(IRenderedComponent<DashboardPane> pane, params string[] aliases) =>
+        pane.Render(parameters => parameters.Add(p => p.RepositoryAliases, aliases));
 
     private static BunitContext Context(Action<IServiceCollection>? configure = null)
     {
@@ -1659,6 +1907,37 @@ public class DashboardPaneTests
             CancellationToken cancellationToken = default)
         {
             Scopes.Add(scope);
+            return Task.FromResult(InsightResult<AssistantSessionsInsight>.Unavailable("Not configured."));
+        }
+
+        public void Invalidate()
+        {
+        }
+    }
+
+    /// <summary>Records, for every fetch, whether the fetch before it had already been
+    /// cancelled by the time this one arrived.</summary>
+    private sealed class TokenOrderSessionInsights : ISessionInsights
+    {
+        private CancellationToken? _previous;
+
+        public int Calls { get; private set; }
+
+        public List<bool> PredecessorWithdrawnOnArrival { get; } = [];
+
+        public Task<InsightResult<AssistantSessionsInsight>> GetSessionsAsync(
+            DashboardScope scope,
+            CancellationToken cancellationToken = default)
+        {
+            Calls++;
+
+            if (_previous is { } previous)
+            {
+                PredecessorWithdrawnOnArrival.Add(previous.IsCancellationRequested);
+            }
+
+            _previous = cancellationToken;
+
             return Task.FromResult(InsightResult<AssistantSessionsInsight>.Unavailable("Not configured."));
         }
 

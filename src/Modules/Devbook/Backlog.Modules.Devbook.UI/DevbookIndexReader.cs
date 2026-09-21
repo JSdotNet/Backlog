@@ -78,8 +78,48 @@ public sealed class DevbookIndexDocument
     /// it.
     /// </para>
     /// </summary>
-    public static DevbookIndexDocument? TryRead(string folderPath) =>
-        TryReadDatabase(folderPath) ?? TryReadJson(folderPath);
+    public static DevbookIndexDocument? TryRead(string folderPath)
+    {
+        if (string.IsNullOrWhiteSpace(folderPath)) return null;
+
+        // Remembered against the file it came from. One pane load asks this of
+        // the same folder several times over — the menu outline, then the area's
+        // own store, then again on the next tab — and each ask opened the
+        // database, read the meta table, the scope's outline and every chapter
+        // row's stamp. The answer changes only when the file does, and the file
+        // is a build output that lands whole: the generator writes beside it and
+        // renames over it, so a new size or write time is exactly a new build,
+        // and a rebuild is the one event that has to invalidate this.
+        //
+        // Stamped rather than held open: this keeps no connection, so the
+        // open-ask-dispose rule in DevbookDatabase still holds and the rename
+        // can still land.
+        var database = DevbookDatabaseLocation.ForDevbookFolder(folderPath);
+        if (database is not null
+            && File.Exists(database)
+            && Cache.GetOrAdd(folderPath, database, () => new Cached(TryReadDatabase(folderPath))).Document is { } indexed)
+        {
+            return indexed;
+        }
+
+        // The JSON rung, remembered against its own file under its own key, so a
+        // database that knows nothing of this folder never pins the answer the
+        // file beside it gives.
+        var json = Path.Combine(folderPath, "_meta", "index.json");
+        return File.Exists(json)
+            ? Cache.GetOrAdd(folderPath + "|index.json", json, () => new Cached(TryReadJson(folderPath))).Document
+            : null;
+    }
+
+    /// <summary>Process-wide, because the folder source, the menu and the stores
+    /// are all singletons asking about the same handful of folders; keyed by the
+    /// folder, so the same repository read through two scopes is two entries
+    /// rather than one wrong one. Null is a legitimate answer — a database with
+    /// no rows for this scope — and is remembered like any other, which is what
+    /// the wrapper is for.</summary>
+    private static readonly DevbookFileCache<Cached> Cache = new();
+
+    private sealed record Cached(DevbookIndexDocument? Document);
 
     /// <summary>
     /// The outline out of <c>_meta/devbook.db</c>, for the scope this folder is.

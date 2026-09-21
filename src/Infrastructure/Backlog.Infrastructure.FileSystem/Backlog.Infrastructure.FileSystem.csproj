@@ -73,4 +73,16 @@
     <ProjectReference Include="..\Backlog.Infrastructure.Sqlite\Backlog.Infrastructure.Sqlite.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The backup worker logs what a scheduled run did the way the sync
+         workers do: a refusal at information, an unplanned exception at error.
+         Abstractions only; which sink hears it is the host's business. -->
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <!-- And the one sink this project does own: the daily file an installed
+         build writes, so an exception a background loop caught is readable
+         after the fact. ILoggingBuilder and its per-provider filters live here
+         rather than in Abstractions. -->
+    <PackageReference Include="Microsoft.Extensions.Logging" />
+  </ItemGroup>
+
 </Project>

@@ -27,6 +27,8 @@
 @* Capture's published surface, and the one exception to "constants only": the
    Inbox's Capture button is answered here, by calling the module's runner and
    writing its result into a sentence for the pane. The pane itself stays free
-   of these types. *@
+   of these types — its sources panel is Capture's own component, which the
+   shell puts in the slot the pane offers for it. *@
 @using Backlog.Modules.Capture.Abstractions.DataTransferObjects
 @using Backlog.Modules.Capture.Abstractions.Services
+@using Backlog.Modules.Capture.UI

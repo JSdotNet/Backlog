@@ -50,6 +50,7 @@ public sealed class InboxDesktopState
 
     private readonly IInboxItems _inbox;
     private readonly GitHubSettingsStore _gitHubSettings;
+    private readonly IBacklogTagSource _backlogTags;
     private readonly IToastChannel? _toasts;
     private readonly TimeProvider _clock;
 
@@ -69,10 +70,12 @@ public sealed class InboxDesktopState
         IInboxItems inbox,
         GitHubSettingsStore gitHubSettings,
         IToastChannel? toasts = null,
-        TimeProvider? clock = null)
+        TimeProvider? clock = null,
+        IBacklogTagSource? backlogTags = null)
     {
         _inbox = inbox;
         _gitHubSettings = gitHubSettings;
+        _backlogTags = backlogTags ?? EmptyBacklogTagSource.Instance;
         _toasts = toasts;
         _clock = clock ?? TimeProvider.System;
     }
@@ -94,6 +97,11 @@ public sealed class InboxDesktopState
     public IReadOnlyList<InboxListDto> Lists { get; private set; } = [];
 
     public IReadOnlyList<InboxGroupDto> Groups { get; private set; } = [];
+
+    /// <summary>The tags the backlog already uses, read through the port with
+    /// every snapshot so the picker offers what an entry was tagged with after
+    /// the pane opened. Bare words, general tags only — what the port promises.</summary>
+    public IReadOnlyList<string> BacklogTags { get; private set; } = [];
 
     /// <summary>Whether the first snapshot has arrived. Before it the pane has
     /// nothing to say and says nothing, rather than "Nothing captured yet" for
@@ -204,13 +212,17 @@ public sealed class InboxDesktopState
         [.. _gitHubSettings.Current.Repositories.Select(repository =>
             new SelectorOption(repository.FullName, repository.Alias))];
 
-    /// <summary>Every tag in use across the inbox, bare, so the picker offers
-    /// what has been typed before. Items of every status contribute: a tag on
-    /// an archived item is still a word the reader uses.</summary>
+    /// <summary>Every tag in use across the inbox and the backlog, bare, so the
+    /// picker offers what has been typed before on either side. Items of every
+    /// status contribute: a tag on an archived item is still a word the reader
+    /// uses. The inbox's own come first in the union, so where the two sides
+    /// spell a word differently the spelling the inbox already carries is the
+    /// one offered.</summary>
     public IReadOnlyList<SelectorOption> TagOptions =>
         [.. Items
             .SelectMany(item => item.Tags)
             .Select(tag => tag.Name)
+            .Concat(BacklogTags)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
             .Select(name => new SelectorOption(name, name))];
@@ -236,8 +248,38 @@ public sealed class InboxDesktopState
     /// then loads. Called by the shell when the pane first shows; idempotent.</summary>
     public async Task InitializeAsync()
     {
+        await FollowRepositoryRenamesAsync();
         await _inbox.EnsureDefaultOrganizerAsync();
         await ReloadAsync();
+    }
+
+    /// <summary>
+    /// Re-points every item still filed against a coordinate the registry
+    /// remembers renaming away — the Inbox's half of what the Tasks reconcile
+    /// pass does for entries on every start.
+    /// <para>
+    /// Here because a rename applied on another install reaches this one as a
+    /// record in the shared registry, not as a call into this module, and inbox
+    /// items do not travel by the sync service at all: nothing but this pass
+    /// would ever move them. Idempotent, like the rename it repeats — once no
+    /// item names the old id, every run is a pure read — and a store that will
+    /// not answer must not be the reason the inbox will not open, so a refusal
+    /// is left for the next start rather than surfaced.
+    /// </para>
+    /// </summary>
+    private async Task FollowRepositoryRenamesAsync()
+    {
+        foreach (var rename in _gitHubSettings.Current.Renames)
+        {
+            try
+            {
+                _ = await _inbox.RenameRepositoryAsync(rename.OldId, rename.NewId);
+            }
+            catch (Exception)
+            {
+                // Left for the next start, as the Tasks pass leaves its own.
+            }
+        }
     }
 
     /// <summary>Re-reads the snapshot and keeps whatever view state still makes
@@ -257,12 +299,16 @@ public sealed class InboxDesktopState
         var version = ++_reloadVersion;
 
         var snapshot = await _inbox.GetSnapshotAsync();
+        // The backlog's tags travel with the snapshot, and are dropped with it
+        // when a later reload has overtaken this one.
+        var backlogTags = await _backlogTags.TagsInUseAsync();
 
         if (version != _reloadVersion) return;
 
         Items = snapshot.Items;
         Lists = snapshot.Lists;
         Groups = snapshot.Groups;
+        BacklogTags = backlogTags;
         Loaded = true;
 
         if (SelectedListId is { } listId && FindList(listId) is null)

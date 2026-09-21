@@ -17,8 +17,13 @@
 *@
 
 <section class="domain-devbook @(Compact ? "domain-devbook--compact" : string.Empty)" data-testid="domain-devbook-panel" aria-label="Domain area">
-    @if (_view is null)
+    @if (_view is null || _reading)
     {
+        @* Also while a context's documents are being read for the render that
+           comes next. The lists are lazy so that the load does not parse the
+           corpus; drawing one before it is read would parse it here, on the
+           thread that draws — which is what MaterializeSelectionAsync exists to
+           keep off it. *@
         <Alert Message="Loading the domain area..." BaseClass="domain-devbook__state" Role="status" />
     }
     else if (_view.Error is not null)
@@ -147,18 +152,23 @@
     private readonly Dictionary<string, string> _statusErrors = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
-    /// Remarks on a chapter, kept per chapter path and only for as long as the app
-    /// is running.
+    /// Where the remarks on a chapter live: the host's annotation store, or a
+    /// session-scoped one when the host composed none.
     /// <para>
-    /// Deliberately not written anywhere. A comment anchored to a block index needs
-    /// a home that can be re-anchored when the file is edited, and choosing that
-    /// home — a sidecar file beside the chapter, or markers inside it — is a
-    /// decision about a governed knowledge folder rather than a detail of this
-    /// panel. Session-scoped remarks are useful now and commit the repository to
-    /// nothing.
+    /// Resolved from the provider rather than injected, the way the C4 store
+    /// is, so the storybook page and the tests that render this panel with a
+    /// handful of named services keep rendering. A remark used to live in a
+    /// dictionary on this component and went with it when the Router remounted
+    /// the pane; the store is what outlives the panel, and — where the host
+    /// composed replication — the machine.
     /// </para>
     /// </summary>
-    private readonly Dictionary<string, List<MarkdownComment>> _chapterComments = new(StringComparer.OrdinalIgnoreCase);
+    private IDevbookAnnotationStore _annotations = null!;
+
+    /// <summary>The open chapter's remarks as the read view draws them, mapped
+    /// once per change rather than on every render — a fresh list per render is
+    /// a fresh parameter per render, which re-renders every block below it.</summary>
+    private IReadOnlyList<MarkdownComment> _chapterComments = [];
 
     /// <summary>Which of the chapter's headings state a status of their own, and
     /// so which of them the read view is already showing a control for.</summary>
@@ -170,7 +180,6 @@
     private string? _committedUnavailable;
     private bool _committedRead;
     private bool _disposed;
-    private int _nextComment = 1;
     private bool _editing;
     private bool _comparing;
     private string _baselineId = OpenedBaselineId;
@@ -258,6 +267,11 @@
             if (string.IsNullOrWhiteSpace(SelectedPath) || _view is null) return null;
             if (PathMatches(_view.ContextMap.Path, SelectedPath)) return _view.ContextMap;
 
+            // A folder's path names no document, and saying so here rather than
+            // by searching is what keeps a context selection from reading every
+            // context nobody owns the path for.
+            if (!NamesADocument(SelectedPath)) return null;
+
             return CandidateContexts(_view, SelectedPath)
                 .SelectMany(context => context.Documents)
                 .FirstOrDefault(document => PathMatches(document.Path, SelectedPath));
@@ -291,6 +305,9 @@
 
         _c4Store = Services.GetService<C4DevbookStore>();
         if (_c4Store is not null) _c4Store.Changed += OnDevbookChanged;
+
+        _annotations = Services.GetService<IDevbookAnnotationStore>() ?? new SessionDevbookAnnotationStore();
+        _annotations.Changed += OnAnnotationsChanged;
     }
 
     protected override async Task OnParametersSetAsync()
@@ -310,6 +327,10 @@
         // reload path at all — so this is the only place that branch would get it.
         _c4 = _c4Store is null ? C4Catalog.Off : await _c4Store.LoadAsync(RepositoryAlias);
 
+        // Before the selection is derived, because deriving it searches the same
+        // documents the render will then draw — and both would otherwise read
+        // them on this thread.
+        await MaterializeSelectionAsync();
         SelectDefaultContext();
 
         await LoadSelectedChapterAsync();
@@ -402,7 +423,9 @@
         _chapterSaveError = null;
         _chapter = _view is null || document is null
             ? DevbookChapterContent.None
-            : await DevbookChapterContent.LoadAsync("domain", _view.RootPath, document.Path);
+            : await DevbookChapterContent.LoadAsync("domain", _view.RootPath, document.Path, _view.CanEdit);
+
+        RefreshChapterComments();
 
         _statusHeadings = HeadingsWithStatus(_chapter.Text);
 
@@ -481,6 +504,7 @@
         _view = await DomainDevbook.LoadAsync(RepositoryAlias);
         _c4 = _c4Store is null ? C4Catalog.Off : await _c4Store.LoadAsync(RepositoryAlias);
         _loadedRepositoryAlias = RepositoryAlias;
+        await MaterializeSelectionAsync();
         await LoadSelectedChapterAsync(force: true);
     }
 
@@ -609,67 +633,74 @@
             : [opened];
     }
 
-    /// <summary>The remarks on the open chapter. A different chapter's remarks stay
-    /// with that chapter — they are about its blocks and mean nothing against
-    /// another file's.</summary>
-    private IReadOnlyList<MarkdownComment> ChapterComments() =>
-        _chapterDocument is { } document && _chapterComments.TryGetValue(document.Path, out var comments)
-            ? comments
+    /// <summary>The open chapter's remarks, read back from the store. A
+    /// different chapter's remarks stay with that chapter — they are about its
+    /// blocks and mean nothing against another file's.</summary>
+    private void RefreshChapterComments() =>
+        _chapterComments = _chapterDocument is { } document
+            ? DevbookAnnotationComments.Comments(_annotations.List(RepositoryAlias, document.Path))
             : [];
 
+    /// <summary>The store changed under the panel — replication applied what
+    /// another device wrote, or a second panel on the same chapter did. It
+    /// arrives on whichever thread wrote, so the redraw is marshalled.</summary>
+    private void OnAnnotationsChanged()
+    {
+        if (_disposed) return;
+
+        _ = InvokeAsync(() =>
+        {
+            if (_disposed) return;
+
+            RefreshChapterComments();
+            StateHasChanged();
+        });
+    }
+
     /// <summary>
-    /// A remark, where it was asked for — empty, because the read view now opens
-    /// a fresh one straight into its own textarea rather than asking a reader to
+    /// A remark, where it was asked for — empty, because the read view opens a
+    /// fresh one straight into its own textarea rather than asking a reader to
     /// find the Edit button first. The empty body is exactly the signal that
-    /// tells it to.
+    /// tells it to, and the store keeps it as a draft until it is typed into.
     /// </summary>
     private void AddChapterComment(int blockIndex)
     {
         if (_chapterDocument is not { } document) return;
 
-        if (!_chapterComments.TryGetValue(document.Path, out var comments))
-        {
-            comments = [];
-            _chapterComments[document.Path] = comments;
-        }
-
-        comments.Add(new MarkdownComment(
-            $"remark-{_nextComment++}",
-            blockIndex,
-            string.Empty,
-            "You",
-            "just now"));
+        _annotations.Add(RepositoryAlias, document.Path, blockIndex, DevbookAnnotationComments.LocalAuthor);
+        RefreshChapterComments();
     }
 
     /// <summary>Resolved rather than removed, for the reason MarkdownComment
     /// records: the reason a paragraph reads the way it does is usually in the
     /// remark that got it there. See <see cref="DeleteChapterComment"/> for the
     /// remark that should not stick around at all.</summary>
-    private void ResolveChapterComment(string id) =>
-        ReplaceChapterComment(id, comment => comment with { Resolved = !comment.Resolved });
-
-    private void EditChapterComment(MarkdownComment edited) =>
-        ReplaceChapterComment(edited.Id, _ => edited);
-
-    /// <summary>Taken away outright — a stray double-press, or a fresh draft
-    /// Cancel is abandoning rather than saving.</summary>
-    private void DeleteChapterComment(string id)
+    private void ResolveChapterComment(string id)
     {
-        if (_chapterDocument is not { } document) return;
-        if (!_chapterComments.TryGetValue(document.Path, out var comments)) return;
+        if (DevbookAnnotationComments.AnnotationId(id) is not { } annotationId) return;
+        if (_annotations.Find(annotationId) is not { } annotation) return;
 
-        comments.RemoveAll(comment => string.Equals(comment.Id, id, StringComparison.Ordinal));
+        _annotations.SetResolved(annotationId, !annotation.Resolved);
+        RefreshChapterComments();
     }
 
-    private void ReplaceChapterComment(string id, Func<MarkdownComment, MarkdownComment> replace)
+    private void EditChapterComment(MarkdownComment edited)
     {
-        if (_chapterDocument is not { } document) return;
-        if (!_chapterComments.TryGetValue(document.Path, out var comments)) return;
+        if (DevbookAnnotationComments.AnnotationId(edited.Id) is not { } annotationId) return;
 
-        var index = comments.FindIndex(comment => string.Equals(comment.Id, id, StringComparison.Ordinal));
-        if (index < 0) return;
+        _annotations.Edit(annotationId, edited.Body);
+        RefreshChapterComments();
+    }
 
-        comments[index] = replace(comments[index]);
+    /// <summary>Taken away outright — a stray double-press, or a fresh draft
+    /// Cancel is abandoning rather than saving. The store decides whether that
+    /// leaves a tombstone behind for the other devices.</summary>
+    private void DeleteChapterComment(string id)
+    {
+        if (DevbookAnnotationComments.AnnotationId(id) is not { } annotationId) return;
+
+        _annotations.Delete(annotationId);
+        RefreshChapterComments();
     }
 
     /// <summary>
@@ -772,7 +803,89 @@
     private bool IsEditedChapter(DomainDevbookDocument document) =>
         _chapter.Chapter is not null && ReferenceEquals(document, _chapterDocument);
 
-    private void SelectContext(DomainDevbookContext? context) => _selectedContextSlug = context?.Slug;
+    /// <summary>A context tab. Its documents are read before the render that
+    /// draws them, on the pool, rather than inside it: the list is lazy so that
+    /// the load does not parse the corpus, and a lazy list first enumerated by the
+    /// renderer is a parse on the dispatcher — the thread the desktop host draws
+    /// with.</summary>
+    private async Task SelectContext(DomainDevbookContext? context)
+    {
+        _selectedContextSlug = context?.Slug;
+        if (context is not null) await ReadAsync([context]);
+    }
+
+    /// <summary>
+    /// Reads what the next render and the selection will enumerate, off the
+    /// dispatcher: the documents of every context the host's path could be in —
+    /// which is what <see cref="SelectedDocument"/> searches — and of the context
+    /// whose tab is pressed.
+    /// <para>
+    /// Completes synchronously when there is nothing left to read, and that is
+    /// what keeps a parameter set that changed nothing from costing a render: a
+    /// list already read is a list, and the renderer only pauses at an await that
+    /// has not finished.
+    /// </para>
+    /// </summary>
+    private Task MaterializeSelectionAsync()
+    {
+        if (_view is null) return Task.CompletedTask;
+
+        var contexts = new List<DomainDevbookContext>();
+
+        // The context map is answered before any context is searched, so it
+        // reads none of them — the same order SelectedDocument asks in.
+        if (!string.IsNullOrWhiteSpace(SelectedPath)
+            && NamesADocument(SelectedPath)
+            && !PathMatches(_view.ContextMap.Path, SelectedPath))
+        {
+            contexts.AddRange(CandidateContexts(_view, SelectedPath));
+        }
+
+        // The tab that will be pressed once the selection is derived — the one the
+        // path names, or the one already pressed — without deriving it here.
+        var slug = !string.IsNullOrWhiteSpace(SelectedPath)
+            ? _view.Contexts.FirstOrDefault(context => OwnsPath(context.Slug, SelectedPath))?.Slug ?? _selectedContextSlug
+            : _selectedContextSlug;
+        if (_view.Contexts.FirstOrDefault(context => string.Equals(context.Slug, slug, StringComparison.Ordinal)) is { } pressed)
+        {
+            contexts.Add(pressed);
+        }
+
+        return ReadAsync(contexts);
+    }
+
+    /// <summary>Whether a selection can name a chapter at all. Every document in
+    /// the folder is a Markdown file, so a path without the extension is a
+    /// folder's, and no document has to be read to know it matches none.</summary>
+    private static bool NamesADocument(string selectedPath) =>
+        NormalizePath(selectedPath).EndsWith(".md", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsRead(DomainDevbookContext context) =>
+        context.Documents is not LazyDevbookList<DomainDevbookDocument> { IsMaterialized: false };
+
+    /// <summary>The read itself, on the pool, behind the loading line: the render
+    /// that the pending task lets through must not touch the lists it is
+    /// reading.</summary>
+    private async Task ReadAsync(IReadOnlyList<DomainDevbookContext> contexts)
+    {
+        var unread = contexts.Where(context => !IsRead(context)).Distinct().ToList();
+        if (unread.Count == 0) return;
+
+        _reading = true;
+        try
+        {
+            await Task.Run(() =>
+            {
+                foreach (var context in unread) _ = context.Documents.Count;
+            });
+        }
+        finally
+        {
+            _reading = false;
+        }
+    }
+
+    private bool _reading;
 
     private static bool PathMatches(string candidate, string selectedPath)
     {
@@ -899,7 +1012,7 @@
                       CanEditDevbookStatus="@CanEdit"
                       OnDevbookStatusChanged="change => ChangeChapterStatusAsync(document, change)"
                       OnDevbookNavigate="NavigateDevbookReferenceAsync"
-                      Comments="@ChapterComments()"
+                      Comments="@_chapterComments"
                       OnAddComment="index => AddChapterComment(index)"
                       OnResolveComment="ResolveChapterComment"
                       OnEditComment="EditChapterComment"
@@ -1263,5 +1376,6 @@
         _disposed = true;
         DomainDevbook.Changed -= OnDevbookChanged;
         if (_c4Store is not null) _c4Store.Changed -= OnDevbookChanged;
+        _annotations.Changed -= OnAnnotationsChanged;
     }
 }

@@ -101,6 +101,45 @@ is still on screen.
 > locally at all** — the Cosmos emulator does not honour TTL, so that number is
 > deployed-only behaviour rather than something a test or a QA run here has
 > shown.
+>
+> **Amended, 2026-09-16 — the external-change poll is retired.** *The database
+> filename* below argued against a per-device name partly because it "would
+> disable the only cross-device freshness the product has": `TasksDesktopState`
+> polling the database's timestamp for a second machine writing through a
+> synced folder. That poll, and its "Pick up changes from disk" setting, are
+> gone. Its one reason was the shared folder this record exists to replace and
+> the Storage tab now warns against, and it was also — by accident of writing
+> the same file — what made a sync pull show up in the Tasks pane. The shell
+> now reloads the pane when `TaskSyncWorker` reports a cycle that applied
+> something, keeping the poll's one guard: a reload that arrives under a live
+> caret is owed and lands when the caret goes. A second machine on a shared
+> folder sees nothing until restart, which is the arrangement, not a regression
+> in it. The filename argument stands on its other two legs.
+>
+> **Amended, 2026-09-18 — a push may never move a document backwards.** *The
+> sync model* below made arrival order the whole of the replica's authority:
+> the store kept whichever copy of a task arrived last, and `updated_at` only
+> broke ties in the feed. That let a device's *echo* win. Every device pushes
+> everything above its own watermark, and a document it received on a pull sits
+> above that watermark exactly as an edit does — so each device re-sends what it
+> pulled, once, on its next push. When the other machine had deleted or edited
+> the task in between, the echo replaced the tombstone or the edit at the
+> replica, and the first machine then took the older copy back over its own
+> pushed one, because this record makes the replica authoritative for anything a
+> device has already sent. A deleted plan came back on both machines; an edit
+> reverted to the version the other machine had pulled an hour before. Both
+> replica adapters now refuse a pushed copy that is not a later version than
+> the one held — later by `updated_at`, a tombstone beating the live copy it
+> replaced on a tie, an identical pair changing nothing (`TaskChangePrecedence`
+> in the Sync module; the Cosmos adapter reads, compares, and writes against the
+> etag, re-reading on a race rather than letting timing decide). The push
+> response's `accepted` count is honest about it, and the client already treats
+> a short count as nothing to act on. What this costs is the one race arrival
+> order was chosen for: two machines editing one task in the same interval now
+> resolve to the later-*stamped* edit rather than the later-*uploaded* one, so a
+> skewed clock can pick the winner. Both orderings lose one edit in that race;
+> only arrival order also lost every deletion. `_ts` still orders the feed and
+> the tiebreak on the pull side is unchanged.
 
 A **local** decision, numbered in the local sequence — not to be confused with
 inherited ADR 0005 (modular monolith structure) under `.arc42/adr/guidelines/`.
@@ -321,6 +360,10 @@ The service exposes four operations over the two containers, and no more:
   edits. The Cosmos `_ts` assigned on write orders the change feed; the device's
   `updated_at` is carried for display and used only to break ties, with the
   device id as the final deterministic tiebreak so two devices never flap.
+  **Amended 2026-09-18:** the replica accepts a pushed copy only when it is a
+  later version than the one it holds, by `updated_at` and then by tombstone —
+  a push may never move a document backwards. See the amendment note under
+  **Status** for why arrival order alone could not hold.
 - **Offline is unchanged.** The device reads and writes its local database and
   never blocks on the network. Sync is a background reconciliation; losing
   connectivity costs cross-device freshness and nothing else.
@@ -633,12 +676,13 @@ failure than the one it prevents. It is a less visible one.
 Three further things make it the wrong change to make first:
 
 - **It would disable the only cross-device freshness the product has.**
-  `TasksDesktopState` polls the newest timestamp across `backlog.db` and its two
-  sidecars for exactly one reason, which its own summary states: two machines can
-  share one `backlog.db` through a synced folder, and the second has no way to be
-  told about the first one's writes. A per-device name leaves that watcher
-  watching a file no other machine ever writes. Until the sync service ships, the
-  shared file is what makes the second machine see anything at all.
+  *(Retired 2026-09-16 — see the amendment under Status.)* `TasksDesktopState`
+  polled the newest timestamp across `backlog.db` and its two sidecars for
+  exactly one reason, which its own summary stated: two machines could share one
+  `backlog.db` through a synced folder, and the second had no way to be told
+  about the first one's writes. A per-device name would have left that watcher
+  watching a file no other machine ever writes. The poll is gone now, so this
+  leg of the argument is gone with it.
 - **It needs a device identity, and the product should have exactly one.** The
   pairing registration credential above is it. `Environment.MachineName` exists
   today and is the obvious shortcut, but a machine can be renamed and two machines
@@ -803,8 +847,7 @@ Neutral:
   canonical means for a task. ADR 0003 stands.
 - The database file keeps the name `backlog.db` on every device, so nothing that
   reads a workspace root by that name changes: `WorkspaceSettingsStore.DatabasePath`,
-  the external-change poller and its sidecar watch, and the tests that pin the
-  path all stand as written.
+  local ADR 0010's backup, and the tests that pin the path all stand as written.
 
 ## Open questions
 

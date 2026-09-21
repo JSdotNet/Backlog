@@ -66,6 +66,34 @@ public class DevbookStatusVocabularyTests
     }
 
     /// <summary>
+    /// <c>.ai</c> is the one folder the application adopted ahead of the installed
+    /// generator: the plugin's current <c>metadata.mjs</c> rates it on
+    /// <c>.tech</c>'s ladder, but the copy under <c>.github/tools/knowledge-meta/</c>
+    /// predates the folder and CLAUDE.md says to re-sync that copy rather than
+    /// edit it. Until the re-sync lands, the rule the folder's instructions
+    /// state — the same five words as <c>.tech</c> — is what pins the C# list;
+    /// once the generator knows the folder, its list takes over, and
+    /// <see cref="GeneratorKeys"/> should gain the entry so the general rule
+    /// above covers it.
+    /// </summary>
+    [Fact]
+    public void The_ai_vocabulary_matches_the_generator_or_until_it_knows_the_folder_the_tech_ladder()
+    {
+        var generator = StatusByFolder();
+
+        if (generator.TryGetValue("ai", out var ladder))
+        {
+            Assert.True(
+                ladder.SequenceEqual(DevbookStatus.Values(DevbookFolder.Ai)),
+                "The installed generator now knows `.ai`, and its ladder differs from DevbookStatus's. "
+                + "Change both, in the same order — and move `ai` into GeneratorKeys so the general rule checks it.");
+            return;
+        }
+
+        Assert.Equal(DevbookStatus.Values(DevbookFolder.Tech), DevbookStatus.Values(DevbookFolder.Ai));
+    }
+
+    /// <summary>
     /// The mapping above covers every folder the generator knows.
     ///
     /// <para>Without this, a sixth folder added upstream — the plugin has since
@@ -75,7 +103,8 @@ public class DevbookStatusVocabularyTests
     [Fact]
     public void No_generator_folder_is_left_unchecked()
     {
-        var unmapped = StatusByFolder().Keys.Except(GeneratorKeys.Values).ToArray();
+        // `ai` is checked by its own rule above until the generator is re-synced.
+        var unmapped = StatusByFolder().Keys.Except(GeneratorKeys.Values).Except(["ai"]).ToArray();
 
         Assert.True(
             unmapped.Length == 0,

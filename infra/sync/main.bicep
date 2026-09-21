@@ -28,7 +28,7 @@ param cosmosLocation string = 'swedencentral'
 @description('Container image for the sync service. Left empty on the first provision so a public placeholder runs; azd sets it to the built image on every deploy after that.')
 param containerImage string = ''
 
-@description('Cosmos DB database holding the two replica containers and the two registry containers beside them.')
+@description('Cosmos DB database holding the three replica containers and the two registry containers beside them.')
 param databaseName string = 'backlog'
 
 // ADR 0005 fixes this at 180 days. It is provisioned rather than written into
@@ -39,6 +39,9 @@ param taskTombstoneTtlSeconds int = 15552000
 
 @description('Seconds a session record survives in the sessions container. ADR 0005 fixes this at 12 months.')
 param sessionRetentionSeconds int = 31536000
+
+@description('Seconds an annotation tombstone survives in the annotations container. Local ADR 0011 keeps it at the same 180 days as a task tombstone.')
+param annotationTombstoneTtlSeconds int = 15552000
 
 @description('Days Log Analytics keeps ingested telemetry. Application observability only — no domain data reaches this workspace.')
 param logRetentionInDays int = 30
@@ -258,9 +261,10 @@ resource cosmosDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2024
   }
 }
 
-// Two replica containers, not one — ADR 0005 "Two containers, not one". Each
-// carries its own change feed, its own indexing policy and its own TTL, and under
-// serverless the second container costs nothing. Two more beside them, `devices`
+// Three replica containers, not one — ADR 0005 "Two containers, not one", and
+// local ADR 0011 adding the third on the same terms. Each carries its own change
+// feed, its own indexing policy and its own TTL, and under serverless another
+// container costs nothing. Two more beside them, `devices`
 // and `pairingCodes`, hold the registry ADR 0005 Identity describes; they are not
 // replicas — no change feed is ever read from them — and they are partitioned
 // differently, for a reason given at each one.
@@ -349,6 +353,43 @@ resource sessionsContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/c
           {
             path: '/*'
           }
+          {
+            path: '/"_etag"/?'
+          }
+        ]
+      }
+    }
+  }
+}
+
+// `annotations` — the third replica container (local ADR 0011): a person's
+// remarks on Devbook chapters, travelling between their desktops. The task
+// container's arrangement rather than the session one's, because an annotation
+// is edited and deleted like a task: default indexing, and defaultTtl -1 with
+// the 180 days stamped per tombstone from Sync__Cosmos__AnnotationTombstoneTtlSeconds.
+resource annotationsContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-11-15' = {
+  parent: cosmosDatabase
+  name: 'annotations'
+  properties: {
+    resource: {
+      id: 'annotations'
+      partitionKey: {
+        paths: [
+          '/ownerId'
+        ]
+        kind: 'Hash'
+        version: 2
+      }
+      defaultTtl: -1
+      indexingPolicy: {
+        indexingMode: 'consistent'
+        automatic: true
+        includedPaths: [
+          {
+            path: '/*'
+          }
+        ]
+        excludedPaths: [
           {
             path: '/"_etag"/?'
           }
@@ -618,6 +659,10 @@ resource syncApp 'Microsoft.App/containerApps@2024-03-01' = {
               value: sessionsContainer.name
             }
             {
+              name: 'Sync__Cosmos__AnnotationsContainerName'
+              value: annotationsContainer.name
+            }
+            {
               name: 'Sync__Cosmos__DevicesContainerName'
               value: devicesContainer.name
             }
@@ -628,6 +673,10 @@ resource syncApp 'Microsoft.App/containerApps@2024-03-01' = {
             {
               name: 'Sync__Cosmos__TaskTombstoneTtlSeconds'
               value: string(taskTombstoneTtlSeconds)
+            }
+            {
+              name: 'Sync__Cosmos__AnnotationTombstoneTtlSeconds'
+              value: string(annotationTombstoneTtlSeconds)
             }
             // Double underscore is how .NET reads a ':' configuration path from
             // an environment variable, so this lands on SyncTokenOptions as

@@ -4,6 +4,9 @@ using System.Text.Json;
 
 using Backlog.SharedKernel.Results;
 
+using Polly;
+using Polly.Timeout;
+
 namespace Backlog.Infrastructure.Sync;
 
 /// <summary>
@@ -62,6 +65,25 @@ internal static class SyncHttp
             return Result.Failure<T>(Error.Unexpected(
                 DevicePairingClient.UnreachableCode,
                 "The sync service did not answer in time."));
+        }
+        // What the host's resilience pipeline throws when it gives up, which is
+        // not HttpRequestException and not a cancellation: a call that hung
+        // until the total timeout ends in TimeoutRejectedException, and a
+        // circuit held open in BrokenCircuitException. A machine whose firewall
+        // drops the connection rather than refusing it lands here every cycle,
+        // and before this clause it landed in every worker's catch-all — the one
+        // sentence that names no cause.
+        catch (TimeoutRejectedException)
+        {
+            return Result.Failure<T>(Error.Unexpected(
+                DevicePairingClient.UnreachableCode,
+                "The sync service did not answer in time."));
+        }
+        catch (ExecutionRejectedException ex)
+        {
+            return Result.Failure<T>(Error.Unexpected(
+                DevicePairingClient.UnreachableCode,
+                $"The sync service could not be reached: {ex.Message}"));
         }
     }
 

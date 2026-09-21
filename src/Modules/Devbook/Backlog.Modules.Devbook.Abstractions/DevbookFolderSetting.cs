@@ -27,7 +27,11 @@ public sealed record DevbookFolderSetting(string Key, string DisplayName, string
         new(".domain", "Domain", ".domain"),
         new(".arc42", "Architecture", ".arc42"),
         new(".tech", "Technology", ".tech"),
-        new(".design", "Design", ".design")
+        new(".design", "Design", ".design"),
+        // The AI adoption record. Last, after the registry it links into: a `.ai`
+        // chapter points at the `.tech` chapter for the tool under it, never the
+        // other way round, so the folder reads after the one it depends on.
+        new(".ai", "AI", ".ai")
     ];
 
     public static List<DevbookFolderSetting> Normalize(IEnumerable<DevbookFolderSetting>? configured)

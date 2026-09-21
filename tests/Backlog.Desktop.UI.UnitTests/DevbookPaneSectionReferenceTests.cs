@@ -32,7 +32,7 @@ public sealed class DevbookPaneSectionReferenceTests : IDisposable
         await using var harness = CreateHarness();
 
         var component = harness.Render();
-        component.Find("#tab-design").Click();
+        await ClickTabAsync(component, "design");
 
         // The chapter's own file view, not the section around it: the panel renders
         // that section the moment it exists and fills it once the folder has been
@@ -53,7 +53,7 @@ public sealed class DevbookPaneSectionReferenceTests : IDisposable
         await using var harness = CreateHarness();
 
         var component = harness.Render();
-        component.Find("#tab-instructions").Click();
+        await ClickTabAsync(component, "instructions");
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='instructions-document']")));
 
         // An instruction file's own folder is not a section, and it links into the
@@ -69,7 +69,7 @@ public sealed class DevbookPaneSectionReferenceTests : IDisposable
         await using var harness = CreateHarness();
 
         var component = harness.Render();
-        component.Find("#tab-tech").Click();
+        await ClickTabAsync(component, "tech");
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='technology-layers-tab']")));
         component.Find("[data-testid='technology-layers-tab']").Click();
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='technology-node']")));
@@ -83,6 +83,7 @@ public sealed class DevbookPaneSectionReferenceTests : IDisposable
 
     [Theory]
     [InlineData("design", "design-chapter-file")]
+    [InlineData("ai", "ai-chapter-file")]
     [InlineData("instructions", "instructions-document")]
     [InlineData("tech", "technology-node")]
     public async Task No_section_leaves_a_reference_as_a_link_out_of_the_app(string section, string readyTestId)
@@ -90,7 +91,7 @@ public sealed class DevbookPaneSectionReferenceTests : IDisposable
         await using var harness = CreateHarness();
 
         var component = harness.Render();
-        component.Find($"#tab-{section}").Click();
+        await ClickTabAsync(component, section);
 
         if (section == "tech")
         {
@@ -110,6 +111,20 @@ public sealed class DevbookPaneSectionReferenceTests : IDisposable
             href => href is not null && href.StartsWith('.'));
     }
 
+    /// <summary>
+    /// Presses a section tab straight after the pane rendered, while its menu
+    /// and its opening section are still loading on the thread pool.
+    /// <para>
+    /// Find and click in one dispatch, as bUnit advises: those loads land as
+    /// renders between a <c>Find</c> on the test thread and the click that
+    /// follows, and the strip redraws on each, so the handler the found tab
+    /// carried is gone by the time the click reaches the renderer. On the
+    /// renderer's own dispatcher nothing renders in between.
+    /// </para>
+    /// </summary>
+    private static Task ClickTabAsync(IRenderedComponent<DevbookPane> component, string section) =>
+        component.InvokeAsync(() => component.Find($"#tab-{section}").Click());
+
     /// <summary>The reference as the reader meets it, found by the path on its
     /// title rather than by position: a chapter holds several, and which one is
     /// pressed is the whole point of the test.</summary>
@@ -121,6 +136,7 @@ public sealed class DevbookPaneSectionReferenceTests : IDisposable
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-devbook-section-references", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(Path.Combine(root, ".design"));
+        Directory.CreateDirectory(Path.Combine(root, ".ai"));
         Directory.CreateDirectory(Path.Combine(root, ".tech"));
         Directory.CreateDirectory(Path.Combine(root, ".arc42"));
         Directory.CreateDirectory(Path.Combine(root, ".github", "instructions"));
@@ -142,6 +158,28 @@ public sealed class DevbookPaneSectionReferenceTests : IDisposable
             """);
         File.WriteAllText(Path.Combine(root, ".design", "component-libraries.md"), "# Component libraries\n\n## Materialization\n\nWhy the library is the product's own.\n");
         File.WriteAllText(Path.Combine(root, ".design", "color-scheme.md"), "# Color scheme\n\nThe tokens.\n");
+
+        // The adoption record's one outward reference: a `depends-on` into the
+        // technology registry, which is the direction the folder's rule allows.
+        File.WriteAllText(Path.Combine(root, ".ai", "adoption-map.md"), "# AI adoption map\n\n```meta\nstatus: adopted\ntype: adoption-map\n```\n\nHow the project develops with AI.\n");
+        File.WriteAllText(Path.Combine(root, ".ai", "01-build.md"), """
+            # Build
+
+            ```meta
+            status: adopted
+            type: stage
+            ```
+
+            ## Coding agent
+
+            ```meta
+            status: trial
+            type: agent
+            depends-on: [".tech/shared.md#net"]
+            ```
+
+            Hands the implementation to the agent; see [the runtime](../.tech/shared.md#net).
+            """);
 
         File.WriteAllText(Path.Combine(root, ".arc42", "03-context-and-scope.md"), "# Context and scope\n\nThe system in its surroundings.\n");
 
@@ -207,7 +245,7 @@ public sealed class DevbookPaneSectionReferenceTests : IDisposable
         {
             CloneDirectory = root,
             DevbookFolders = [.. DevbookFolderSetting.Defaults()
-                .Select(folder => folder with { Enabled = folder.Key is ".design" or ".tech" or ".arc42" or "instructions" })]
+                .Select(folder => folder with { Enabled = folder.Key is ".design" or ".ai" or ".tech" or ".arc42" or "instructions" })]
         };
         Assert.Null(gitHub.SetRepositories([repository]));
 
@@ -221,6 +259,7 @@ public sealed class DevbookPaneSectionReferenceTests : IDisposable
         context.Services.AddSingleton(sp => new DomainDevbookStore(sp.GetRequiredService<IDevbookFolderSource>()));
         context.Services.AddSingleton<Arc42DevbookStore>();
         context.Services.AddSingleton<DesignDevbookProvider>();
+        context.Services.AddSingleton<AiDevbookProvider>();
         context.Services.AddSingleton<TechnologyDevbookService>();
         context.Services.AddSingleton<InstructionSourceDiscovery>();
         context.Services.AddSingleton(new DevbookCopilotCli(new UnavailableCopilotCliLauncher()));

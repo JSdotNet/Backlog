@@ -136,7 +136,7 @@ public abstract class DashboardPartBase<T> : ComponentBase, IDisposable
     /// </summary>
     private DashboardScope Relevant(DashboardScope scope) => scope with
     {
-        RepositoryAlias = FollowsRepository ? scope.RepositoryAlias : null,
+        Repositories = FollowsRepository ? scope.Repositories : RepositoryFocus.All,
         MachineId = FollowsMachine ? scope.MachineId : null,
         Period = FollowsWindow ? scope.Period : DashboardScope.Default.Period
     };
@@ -169,12 +169,6 @@ public abstract class DashboardPartBase<T> : ComponentBase, IDisposable
         // arrive after the second and win.
         var previous = _inFlight;
         _inFlight = new CancellationTokenSource();
-        if (previous is not null)
-        {
-            await previous.CancelAsync();
-            previous.Dispose();
-        }
-
         var token = _inFlight.Token;
 
         Status = MetricStatusKind.Loading;
@@ -182,10 +176,24 @@ public abstract class DashboardPartBase<T> : ComponentBase, IDisposable
         Value = null;
         StateHasChanged();
 
+        // Started before the previous fetch is withdrawn, not after. The module caches
+        // a read as one shared call that stops when its last waiter leaves; a fetch
+        // that joins it is a waiter, and one that has already been cancelled is not.
+        // Withdrawing first would let a twelve-week read that was nearly done stop
+        // for want of a waiter and start again from nothing, on the very gesture — a
+        // filter moved during the first load — a shared read is there to survive.
+        var fetch = FetchAsync(token);
+
+        if (previous is not null)
+        {
+            await previous.CancelAsync();
+            previous.Dispose();
+        }
+
         InsightResult<T> result;
         try
         {
-            result = await FetchAsync(token);
+            result = await fetch;
         }
         catch (OperationCanceledException)
         {

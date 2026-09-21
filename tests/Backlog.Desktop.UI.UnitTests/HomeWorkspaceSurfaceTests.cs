@@ -11,10 +11,12 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The shell shows one surface at a time. Tools, the Dashboard and Sessions are
-/// whole domains rather than panes: opening any of them takes the screen and hides
-/// every other domain concern — the roadmap band included — and closing it puts the
-/// reader back exactly where they were.
+/// The shell shows one surface at a time. Tools and the Dashboard are whole
+/// domains rather than panes: opening either takes the screen and hides every
+/// other domain concern — the roadmap band included — and closing it puts the
+/// reader back exactly where they were. The session list is the Dashboard's second
+/// tab rather than a surface of its own, so it is reached through the Dashboard
+/// segment and then the tab strip.
 /// <para>
 /// That last part is worth a test even though no code implements it. The surface
 /// is a field of its own and the pane selection is never touched to open one, so
@@ -71,8 +73,14 @@ public sealed class HomeWorkspaceSurfaceTests
         });
     }
 
+    /// <summary>
+    /// The session list is reached through the Dashboard: its segment, then the
+    /// Sessions tab. Switching tabs swaps which module's pane is in front and
+    /// nothing else — the surface, the landmark and the hidden workspace are the
+    /// same as on the overview.
+    /// </summary>
     [Fact]
-    public void Opening_the_sessions_list_hides_the_roadmap_band_and_every_pane()
+    public void Opening_the_sessions_tab_shows_the_session_list_in_the_dashboard_surface()
     {
         using var harness = CreateHarness();
         var component = Render(harness);
@@ -81,16 +89,133 @@ public sealed class HomeWorkspaceSurfaceTests
         // removing it has to put it on screen first or it asserts nothing.
         ShowTheBand(component);
 
-        component.Find("[data-testid='sessions-toggle-button']").Click();
+        OpenTheSessionsTab(component);
 
         component.WaitForAssertion(() =>
         {
-            Assert.NotEmpty(component.FindAll("[data-testid='sessions-surface']"));
-            Assert.NotEmpty(component.FindAll("[data-testid='sessions-panel']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='dashboard-surface'] [data-testid='sessions-panel']"));
+            Assert.Empty(component.FindAll("[data-testid='dashboard-panel']"));
             Assert.Empty(component.FindAll("[data-testid='devbook-layout']"));
             Assert.Empty(component.FindAll("[data-testid='roadmap-band']"));
             Assert.Empty(component.FindAll("[data-testid='workspace']"));
             Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
+            Assert.Single(component.FindAll("main"));
+
+            var tab = component.Find("[data-testid='dashboard-sessions-tab']");
+            Assert.Equal("true", tab.GetAttribute("aria-selected"));
+            Assert.Equal("false", component.Find("[data-testid='dashboard-overview-tab']").GetAttribute("aria-selected"));
+        });
+    }
+
+    /// <summary>
+    /// The Dashboard opens on its overview, with the strip offering both tabs:
+    /// two tabs, one strip, and the overview in front until the reader asks
+    /// otherwise.
+    /// </summary>
+    [Fact]
+    public void The_dashboard_opens_on_its_overview_with_both_tabs_offered()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+
+        component.Find("[data-testid='dashboard-toggle-button']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            var strip = component.Find("[data-testid='dashboard-tabs']");
+            Assert.Equal("tablist", strip.GetAttribute("role"));
+            Assert.Equal("NAV", strip.TagName);
+            Assert.NotEmpty(component.FindAll("[data-testid='dashboard-overview-tab']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='dashboard-sessions-tab']"));
+            Assert.Equal("true", component.Find("[data-testid='dashboard-overview-tab']").GetAttribute("aria-selected"));
+
+            Assert.NotEmpty(component.FindAll("[data-testid='dashboard-panel']"));
+            Assert.Empty(component.FindAll("[data-testid='sessions-panel']"));
+        });
+    }
+
+    /// <summary>
+    /// The header configures what is on screen, so during a takeover the strip
+    /// that configures the workspace has nothing to act on and is not offered.
+    /// The pane selection underneath is untouched: the strip comes back with the
+    /// same pane pressed that it left with.
+    /// </summary>
+    [Fact]
+    public void A_takeover_takes_the_sections_strip_out_of_the_header_and_the_way_back_restores_it()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='global-pane-multiselect']")));
+
+        foreach (var surface in new[] { "tools", "dashboard" })
+        {
+            component.Find($"[data-testid='{surface}-toggle-button']").Click();
+
+            component.WaitForAssertion(() =>
+            {
+                Assert.NotEmpty(component.FindAll($"[data-testid='{surface}-surface']"));
+                Assert.Empty(component.FindAll("[data-testid='global-pane-multiselect']"));
+                Assert.Empty(component.FindAll("[data-testid='roadmap-pane-option']"));
+                Assert.Empty(component.FindAll("[data-testid='backlog-pane-option']"));
+                Assert.Empty(component.FindAll("[data-testid='devbook-pane-option']"));
+
+                // The switcher is what brings the reader back, so it stays.
+                Assert.NotEmpty(component.FindAll("[data-testid='workspace-surface-switcher']"));
+            });
+
+            component.Find("[data-testid='workspace-surface-option']").Click();
+
+            component.WaitForAssertion(() =>
+            {
+                Assert.NotEmpty(component.FindAll("[data-testid='global-pane-multiselect']"));
+                Assert.Equal("true", component.Find("[data-testid='backlog-pane-option']").GetAttribute("aria-pressed"));
+            });
+        }
+    }
+
+    /// <summary>
+    /// Ask AI answers from the task rows in view, so it is offered exactly while
+    /// the task list is on screen: not during a takeover, and not while the list
+    /// is closed in favour of another pane. An open panel goes with its button and
+    /// comes back with it — the flag behind it is not reset by a takeover.
+    /// </summary>
+    [Fact]
+    public void Ask_ai_follows_the_task_list_on_and_off_the_screen()
+    {
+        using var harness = CreateHarness(features => features.SetEnabled(AppFeatures.AiAssistant, true));
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='ai-toggle-button']")));
+        component.Find("[data-testid='ai-toggle-button']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='ai-assistant-panel']")));
+
+        component.Find("[data-testid='dashboard-toggle-button']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='dashboard-surface']"));
+            Assert.Empty(component.FindAll("[data-testid='ai-toggle-button']"));
+            Assert.Empty(component.FindAll("[data-testid='ai-assistant-panel']"));
+        });
+
+        component.Find("[data-testid='workspace-surface-option']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='ai-toggle-button']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='ai-assistant-panel']"));
+        });
+
+        // Devbook alone on screen: the list is closed, so there is nothing in view
+        // for the panel to answer from.
+        component.Find("[data-testid='devbook-pane-option']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
+            Assert.Empty(component.FindAll("[data-testid='ai-toggle-button']"));
+            Assert.Empty(component.FindAll("[data-testid='ai-assistant-panel']"));
         });
     }
 
@@ -106,7 +231,7 @@ public sealed class HomeWorkspaceSurfaceTests
         using var harness = CreateHarness();
         var component = Render(harness);
 
-        string[] surfaces = ["tools", "dashboard", "sessions", "tools"];
+        string[] surfaces = ["tools", "dashboard", "tools"];
 
         foreach (var surface in surfaces)
         {
@@ -138,8 +263,13 @@ public sealed class HomeWorkspaceSurfaceTests
             using var harness = CreateHarness(shellNavigation: shellNavigation);
             var component = Render(harness);
 
-            component.Find("[data-testid='sessions-toggle-button']").Click();
+            component.Find("[data-testid='dashboard-toggle-button']").Click();
+            component.WaitForAssertion(() => Assert.Equal("Dashboard", shellNavigation.LastSurface));
 
+            // The tab travels with the surface, under the name the sessions list has
+            // always been remembered by — so a file written by a build where it was
+            // a surface of its own reads the same either way.
+            component.Find("[data-testid='dashboard-sessions-tab']").Click();
             component.WaitForAssertion(() => Assert.Equal("Sessions", shellNavigation.LastSurface));
         }
         finally
@@ -196,7 +326,9 @@ public sealed class HomeWorkspaceSurfaceTests
 
             component.WaitForAssertion(() =>
             {
-                Assert.NotEmpty(component.FindAll("[data-testid='sessions-surface']"));
+                Assert.NotEmpty(component.FindAll("[data-testid='dashboard-surface']"));
+                Assert.NotEmpty(component.FindAll("[data-testid='sessions-panel']"));
+                Assert.Equal("true", component.Find("[data-testid='dashboard-sessions-tab']").GetAttribute("aria-selected"));
                 Assert.Empty(component.FindAll("[data-testid='workspace']"));
             });
         }
@@ -447,7 +579,13 @@ public sealed class HomeWorkspaceSurfaceTests
     [Fact]
     public void A_surface_whose_feature_is_switched_off_falls_back_to_the_workspace()
     {
-        using var harness = CreateHarness(features => features.SetEnabled(DashboardFeatures.Dashboard, false));
+        // Both features that share the Dashboard surface, or the segment would
+        // still be offered for the one still on.
+        using var harness = CreateHarness(features =>
+        {
+            features.SetEnabled(DashboardFeatures.Dashboard, false);
+            features.SetEnabled(SessionFeatures.Sessions, false);
+        });
         var component = Render(harness);
 
         component.WaitForAssertion(() =>
@@ -458,47 +596,131 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
-    /// The whole point of the flag: with it off there is no way in and nothing to
-    /// find. One key gates both halves — whether the header offers the surface, and
-    /// whether the surface may be shown — so this is the same assertion twice on
-    /// purpose.
+    /// The Dashboard surface is shared by two features, and the segment is offered
+    /// while either has something to show. With only the overview off, the segment
+    /// opens straight onto the session list with no strip — one tab is no choice.
     /// </summary>
     [Fact]
-    public void With_the_sessions_feature_off_there_is_no_button_and_no_surface()
+    public void With_only_the_dashboard_feature_off_the_segment_opens_the_session_list_alone()
     {
-        using var harness = CreateHarness(features => features.SetEnabled(SessionFeatures.Sessions, false));
+        using var harness = CreateHarness(features => features.SetEnabled(DashboardFeatures.Dashboard, false));
         var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='dashboard-toggle-button']")));
+        component.Find("[data-testid='dashboard-toggle-button']").Click();
 
         component.WaitForAssertion(() =>
         {
-            Assert.Empty(component.FindAll("[data-testid='sessions-toggle-button']"));
-            Assert.Empty(component.FindAll("[data-testid='sessions-surface']"));
-            Assert.Empty(component.FindAll("[data-testid='sessions-panel']"));
-
-            // The other takeover in the same context is untouched: one flag, one area.
-            Assert.NotEmpty(component.FindAll("[data-testid='tools-toggle-button']"));
-            Assert.NotEmpty(component.FindAll("[data-testid='devbook-layout']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='dashboard-surface']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='sessions-panel']"));
+            Assert.Empty(component.FindAll("[data-testid='dashboard-panel']"));
+            Assert.Empty(component.FindAll("[data-testid='dashboard-tabs']"));
         });
     }
 
     /// <summary>
-    /// Closing is the ✕ inside the pane as well as the header toggle, which is what
-    /// keeps the header on screen while a takeover is open.
+    /// The whole point of the flag: with it off there is no way in and nothing to
+    /// find. One key gates both halves — whether the dashboard offers the tab, and
+    /// whether the list may be shown — so this is the same assertion twice on
+    /// purpose. The Dashboard itself is untouched, and with one tab left it draws
+    /// no strip.
     /// </summary>
     [Fact]
-    public void The_sessions_pane_closes_itself_back_to_the_workspace()
+    public void With_the_sessions_feature_off_there_is_no_tab_and_no_list()
+    {
+        using var harness = CreateHarness(features => features.SetEnabled(SessionFeatures.Sessions, false));
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='dashboard-toggle-button']")));
+        component.Find("[data-testid='dashboard-toggle-button']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='dashboard-panel']"));
+            Assert.Empty(component.FindAll("[data-testid='dashboard-tabs']"));
+            Assert.Empty(component.FindAll("[data-testid='dashboard-sessions-tab']"));
+            Assert.Empty(component.FindAll("[data-testid='sessions-panel']"));
+
+            // The other takeover is untouched: one flag, one area.
+            Assert.NotEmpty(component.FindAll("[data-testid='tools-toggle-button']"));
+        });
+    }
+
+    /// <summary>
+    /// A remembered Sessions tab whose feature has since gone off must not leave the
+    /// Dashboard blank: the overview is what is left, so the overview is shown.
+    /// </summary>
+    [Fact]
+    public void A_remembered_sessions_tab_falls_back_to_the_overview_when_its_feature_is_off()
+    {
+        var path = NewShellNavigationPath();
+
+        try
+        {
+            var shellNavigation = new ShellNavigationStore(path);
+            shellNavigation.SetLastSurface("Sessions");
+
+            using var harness = CreateHarness(
+                features => features.SetEnabled(SessionFeatures.Sessions, false),
+                shellNavigation);
+            var component = Render(harness);
+
+            component.WaitForAssertion(() =>
+            {
+                Assert.NotEmpty(component.FindAll("[data-testid='dashboard-surface']"));
+                Assert.NotEmpty(component.FindAll("[data-testid='dashboard-panel']"));
+                Assert.Empty(component.FindAll("[data-testid='sessions-panel']"));
+            });
+        }
+        finally
+        {
+            DeleteShellNavigationDirectory(path);
+        }
+    }
+
+    /// <summary>
+    /// Closing the surface and coming back lands on the tab the reader left — the
+    /// tab is part of where they were, not a setting the ✕ resets.
+    /// </summary>
+    [Fact]
+    public void Closing_the_dashboard_keeps_its_tab_for_the_way_back()
     {
         using var harness = CreateHarness();
         var component = Render(harness);
 
-        component.Find("[data-testid='sessions-toggle-button']").Click();
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='sessions-panel']")));
+        OpenTheSessionsTab(component);
+
+        component.Find("[data-testid='workspace-surface-option']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='workspace']")));
+
+        component.Find("[data-testid='dashboard-toggle-button']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='sessions-panel']"));
+            Assert.Equal("true", component.Find("[data-testid='dashboard-sessions-tab']").GetAttribute("aria-selected"));
+        });
+    }
+
+    /// <summary>
+    /// Closing is the ✕ inside the pane as well as the header switcher, which is
+    /// what keeps the header on screen while a takeover is open. The ✕ on the
+    /// sessions list closes the whole surface — it is not a way back to the
+    /// overview tab.
+    /// </summary>
+    [Fact]
+    public void The_sessions_pane_closes_the_dashboard_back_to_the_workspace()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+
+        OpenTheSessionsTab(component);
 
         component.Find("[data-testid='sessions-panel'] button.btn--ghost").Click();
 
         component.WaitForAssertion(() =>
         {
-            Assert.Empty(component.FindAll("[data-testid='sessions-surface']"));
+            Assert.Empty(component.FindAll("[data-testid='dashboard-surface']"));
             Assert.NotEmpty(component.FindAll("[data-testid='devbook-layout']"));
         });
     }
@@ -1256,6 +1478,17 @@ public sealed class HomeWorkspaceSurfaceTests
         });
     }
 
+    /// <summary>The Dashboard segment, then its Sessions tab: the two presses that
+    /// put the session list on screen, and the only way there.</summary>
+    private static void OpenTheSessionsTab(IRenderedComponent<Home> component)
+    {
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='dashboard-toggle-button']")));
+        component.Find("[data-testid='dashboard-toggle-button']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='dashboard-sessions-tab']")));
+        component.Find("[data-testid='dashboard-sessions-tab']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='sessions-panel']")));
+    }
+
     /// <summary>Presses the header option and waits for the band to arrive. The
     /// shell opens collapsed, so every test about a band on screen starts here —
     /// through the same affordance the reader has, rather than by reaching into
@@ -1321,7 +1554,15 @@ public sealed class HomeWorkspaceSurfaceTests
         Assert.Null(gitHubSettings.SetRepositories([configuredRepository]));
 
         var gitHub = new GitHubIntegration(gitHubSettings, new StubGitHubClient(), new StubProbe());
-        var devbookFolderSource = new DevbookFolderSource(gitHubSettings, store);
+
+        // The devbook-only composition, which answers an unscoped ask with the
+        // first configured repository. These tests are about the pane surface —
+        // pins, switching, what a relaunch reopens on — and Devbook is the
+        // released pane they do it with; scoping a repository first in every one
+        // of them would be a second gesture about a different thing. The
+        // application hosts compose the other way and offer the pane only once
+        // a repository is scoped; HomeDevbookPaneTests pins that.
+        var devbookFolderSource = new DevbookFolderSource(gitHubSettings);
 
         var context = new BunitContext();
         context.Services.AddSingleton(store);
@@ -1351,6 +1592,7 @@ public sealed class HomeWorkspaceSurfaceTests
                 TasksTestHost.EntriesFor(sp.GetRequiredService<WorkspaceSettingsStore>()),
                 () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
         context.Services.AddSingleton<DesignDevbookProvider>();
+        context.Services.AddSingleton<AiDevbookProvider>();
         context.Services.AddSingleton<TechnologyDevbookService>();
         context.Services.AddSingleton<InstructionSourceDiscovery>();
         context.Services.AddSingleton<DevbookMenu>();
@@ -1376,6 +1618,8 @@ public sealed class HomeWorkspaceSurfaceTests
         // picks where its sources are kept, the same as the application hosts do.
         context.Services.AddSingleton<ICaptureSourceSettings>(
             new CaptureSourcesSettingsStore(Path.Combine(root, "capture", "capture-sources.json")));
+        context.Services.AddSingleton<ICaptureRunLog>(
+            new CaptureRunLogStore(Path.Combine(root, "capture", "capture-runs.json")));
         context.Services.AddCaptureModule();
         InboxTestHost.AddCaptureDelivery(context.Services);
 
@@ -1420,6 +1664,8 @@ public sealed class HomeWorkspaceSurfaceTests
 
     private sealed class StubGitHubClient : IGitHubClient
     {
+        public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
         public Task<GitHubIssue> CreateIssueAsync(
             GitHubRepositoryRef repository,
             string title,

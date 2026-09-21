@@ -49,6 +49,41 @@ public sealed class TaskReplicaMergeCaptureTests
         Assert.Equal(Noon.AddMinutes(5), Assert.Single(inbox.Received).WithdrawnAt);
     }
 
+    /// <summary>A capture the Inbox took is in the log as received; one it took
+    /// back is there too, marked withdrawn; one it already knew is not, because
+    /// nothing changed here and the log is a record of what did.</summary>
+    [Theory]
+    [InlineData(InboxIntakeOutcome.Received, null)]
+    [InlineData(InboxIntakeOutcome.Withdrawn, "withdrawn")]
+    public async Task A_capture_the_inbox_wrote_is_recorded_as_received(InboxIntakeOutcome answer, string? note)
+    {
+        var inbox = new RecordingInboxIntake { Answer = answer };
+        var activity = new SyncActivityLog();
+        var capture = Captures.Change("Call the dentist", Noon);
+
+        await new TaskReplicaMerge(new InMemoryTaskStore(), inbox, activity: activity)
+            .ApplyAsync([Captures.Record(capture, Phone, 100)], DateTimeOffset.MinValue, TestContext.Current.CancellationToken);
+
+        var entry = Assert.Single(activity.Snapshot());
+        Assert.Equal(SyncDirection.Received, entry.Direction);
+        Assert.Equal(SyncItemKind.Capture, entry.Kind);
+        Assert.Equal(capture.Id.ToString("D"), entry.Id);
+        Assert.Equal("Call the dentist", entry.Title);
+        Assert.Equal(note, entry.Note);
+    }
+
+    [Fact]
+    public async Task A_capture_the_inbox_already_knew_is_not_recorded_as_received()
+    {
+        var inbox = new RecordingInboxIntake { Answer = InboxIntakeOutcome.AlreadyKnown };
+        var activity = new SyncActivityLog();
+
+        await new TaskReplicaMerge(new InMemoryTaskStore(), inbox, activity: activity)
+            .ApplyAsync([Captures.Record(Captures.Change("Echo", Noon), Phone, 100)], DateTimeOffset.MinValue, TestContext.Current.CancellationToken);
+
+        Assert.Empty(activity.Snapshot());
+    }
+
     [Theory]
     [InlineData(InboxIntakeOutcome.AlreadyKnown)]
     [InlineData(InboxIntakeOutcome.Ignored)]

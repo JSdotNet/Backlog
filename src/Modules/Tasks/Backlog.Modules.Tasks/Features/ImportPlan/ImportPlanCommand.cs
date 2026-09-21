@@ -162,6 +162,14 @@ public sealed class ImportPlanCommandHandler(ITaskRepository entries, IRepositor
             .Where(outcome => !string.IsNullOrWhiteSpace(outcome.Parsed.ImportItemId))
             .ToDictionary(outcome => outcome.Parsed.ImportItemId!, outcome => outcome.RealId, StringComparer.Ordinal);
 
+        // What a value the document itself does not name may still mean: a step
+        // an earlier import of this plan already created. Read once for the run
+        // — the store does not change under pass 2 — and over what is left
+        // standing, so a step this version just cleared cannot be resolved to.
+        var stored = existing
+            .Select(entry => new DependencyResolution.Candidate(entry.Id, entry.ImportItemId, entry.ImportPlanId))
+            .ToList();
+
         var created = 0;
         var replaced = 0;
         var updated = 0;
@@ -178,12 +186,17 @@ public sealed class ImportPlanCommandHandler(ITaskRepository entries, IRepositor
             }
 
             // A value found in the map was a same-document local id and is
-            // rewritten to the real id it resolved to; anything else is treated
-            // as a real, already-existing backlog_item_id, unchanged from
-            // ordinary `after:` behaviour.
-            var resolvedDependsOn = (outcome.Parsed.DependsOn ?? [])
-                .Select(id => localIds.TryGetValue(id, out var real) ? real.ToString() : id)
-                .ToList();
+            // rewritten to the real id it resolved to. Anything else is asked of
+            // the store next — the `id:` of a step this plan brought in before
+            // (see DependencyResolution for the order it is asked in) — and only
+            // what neither knows is written through as a real, already-existing
+            // backlog_item_id, unchanged from ordinary `after:` behaviour.
+            var resolvedDependsOn = DependencyResolution.ResolveAll(
+                (outcome.Parsed.DependsOn ?? [])
+                    .Select(id => localIds.TryGetValue(id, out var real) ? real.ToString() : id),
+                stored,
+                planId,
+                outcome.Parsed.Tags);
 
             var entry = outcome.Entry;
 

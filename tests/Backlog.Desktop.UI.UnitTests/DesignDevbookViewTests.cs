@@ -83,16 +83,16 @@ public sealed class DesignDevbookViewTests : IDisposable
 
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='design-chapter-file-body']")));
 
-        component.AssertTheFileIsNamedOnce("Colors", ".design-document");
+        component.AssertTheFileIsNamedOnce("Colors", ".folder-document");
 
         // Nothing above the file view introduces it any more: no header holding a
         // lone status badge, no folder path, no summary reprinting the file's
         // first paragraph. The file view's own header is the only thing that says
         // which file this is.
-        Assert.Empty(component.FindAll(".design-document__header"));
-        Assert.Empty(component.FindAll(".design-document__file"));
-        Assert.Empty(component.FindAll(".design-document__summary"));
-        Assert.Empty(component.FindAll(".design-devbook__source"));
+        Assert.Empty(component.FindAll(".folder-document__header"));
+        Assert.Empty(component.FindAll(".folder-document__file"));
+        Assert.Empty(component.FindAll(".folder-document__summary"));
+        Assert.Empty(component.FindAll(".folder-devbook__source"));
 
         // The token strip goes with them. Colors carries a token table, so this
         // is a strip that would have rendered — and its values are in the file
@@ -113,7 +113,7 @@ public sealed class DesignDevbookViewTests : IDisposable
         // what makes the file view take that height and scroll its own body. A
         // body with a max-height instead would grow the pane past the section
         // already scrolling it, which is the second scrollbar this removed.
-        Assert.Single(component.FindAll(".design-devbook--chapter"));
+        Assert.Single(component.FindAll(".folder-devbook--chapter"));
         Assert.Contains("file-view--fill", component.Find("[data-testid='design-chapter-file']").ClassName, StringComparison.Ordinal);
     }
 
@@ -275,15 +275,15 @@ public sealed class DesignDevbookViewTests : IDisposable
 
         var component = harness.Render(selectedPath: null);
 
-        component.WaitForAssertion(() => Assert.Equal(2, component.FindAll(".design-document").Count));
+        component.WaitForAssertion(() => Assert.Equal(2, component.FindAll(".folder-document").Count));
 
         // Every part of the overview, one assertion each: the nav across files,
         // the token strip, the per-section blocks and the per-section status
         // badge. An editing surface here would have replaced the last two.
-        Assert.Equal(2, component.FindAll(".design-devbook__nav-link").Count);
+        Assert.Equal(2, component.FindAll(".folder-devbook__nav-link").Count);
         Assert.NotEmpty(component.FindAll(".design-token"));
-        Assert.NotEmpty(component.FindAll(".design-section"));
-        Assert.NotEmpty(component.FindAll(".design-section .devbook-record__headline .badge--status"));
+        Assert.NotEmpty(component.FindAll(".folder-section"));
+        Assert.NotEmpty(component.FindAll(".folder-section .devbook-record__headline .badge--status"));
         Assert.Empty(component.FindAll("[data-testid='devbook-chapter-surface']"));
     }
 
@@ -294,11 +294,11 @@ public sealed class DesignDevbookViewTests : IDisposable
 
         var component = harness.Render(selectedPath: null);
 
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".design-document .devbook-record")));
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".folder-document .devbook-record")));
 
         // The status shares the heading's line, which is what the headline is for
         // — not a row of its own three lines down a list.
-        Assert.NotEmpty(component.FindAll(".design-document .devbook-record__headline .badge--status"));
+        Assert.NotEmpty(component.FindAll(".folder-document .devbook-record__headline .badge--status"));
 
         // And the legacy strip is gone with it. Both halves matter: the bare span
         // was the "raw metadata" that was reported, and the <code> per path was
@@ -315,10 +315,10 @@ public sealed class DesignDevbookViewTests : IDisposable
 
         var component = harness.Render(selectedPath: null);
 
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".design-section")));
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".folder-section")));
 
         var contrast = Assert.Single(
-            component.FindAll(".design-section"),
+            component.FindAll(".folder-section"),
             section => section.TextContent.Contains("Contrast", StringComparison.Ordinal));
 
         // The heading survives. A record that stood down for want of a status
@@ -339,9 +339,9 @@ public sealed class DesignDevbookViewTests : IDisposable
 
         var component = harness.Render(selectedPath: null);
 
-        component.WaitForAssertion(() => Assert.Equal(2, component.FindAll(".design-document").Count));
+        component.WaitForAssertion(() => Assert.Equal(2, component.FindAll(".folder-document").Count));
 
-        var colors = component.FindAll(".design-document")[0];
+        var colors = component.FindAll(".folder-document")[0];
 
         // Two subjects state something — the file and the Palette chapter — so
         // two records. Contrast states nothing and gets none.
@@ -369,8 +369,8 @@ public sealed class DesignDevbookViewTests : IDisposable
         Assert.Single(component.FindAll(".file-view__header [data-testid='design-chapter-file-file-metadata']"));
 
         // Nothing draws it a second time above the file view.
-        Assert.Empty(component.FindAll(".design-document > .devbook-record"));
-        Assert.Empty(component.FindAll(".design-document > .devbook-meta"));
+        Assert.Empty(component.FindAll(".folder-document > .devbook-record"));
+        Assert.Empty(component.FindAll(".folder-document > .devbook-meta"));
     }
 
     [Fact]
@@ -378,9 +378,9 @@ public sealed class DesignDevbookViewTests : IDisposable
     {
         await using var harness = CreateHarness();
         var component = harness.Render(selectedPath: null);
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".design-document__header select")));
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".folder-document__header select")));
 
-        component.FindAll(".design-document__header select")[0].Change("deprecated");
+        component.FindAll(".folder-document__header select")[0].Change("deprecated");
 
         component.WaitForAssertion(
             () => Assert.Contains(
@@ -394,7 +394,7 @@ public sealed class DesignDevbookViewTests : IDisposable
         // re-read the file the write landed in.
         component.WaitForAssertion(() => Assert.Contains(
             "deprecated",
-            component.FindAll(".design-devbook__nav-link")[0].TextContent,
+            component.FindAll(".folder-devbook__nav-link")[0].TextContent,
             StringComparison.Ordinal));
     }
 
@@ -403,9 +403,9 @@ public sealed class DesignDevbookViewTests : IDisposable
     {
         await using var harness = CreateHarness();
         var component = harness.Render(selectedPath: null);
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".design-section .devbook-record select")));
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".folder-section .devbook-record select")));
 
-        component.FindAll(".design-section .devbook-record select")[0].Change("deprecated");
+        component.FindAll(".folder-section .devbook-record select")[0].Change("deprecated");
 
         // Auto-save is the one chapter whose status the folder's vocabulary
         // offers a control for, and its fence is the one that must change — not
@@ -460,6 +460,7 @@ public sealed class DesignDevbookViewTests : IDisposable
         context.JSInterop.Mode = JSRuntimeMode.Loose;
         context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(gitHubSettings));
         context.Services.AddSingleton<DesignDevbookProvider>();
+        context.Services.AddSingleton<AiDevbookProvider>();
         context.Services.AddSingleton<DevbookChapterWriter>();
 
         return new Harness(context, design);

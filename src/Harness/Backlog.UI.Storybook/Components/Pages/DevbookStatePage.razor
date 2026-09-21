@@ -3,11 +3,11 @@
 <PageTitle>State in the devbook — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="State"
-           Summary="A subpage of Devbook: `status` is the one field every block must carry, and what it may say depends on which folder the block came from. `DevbookStatus` holds the five vocabularies, `DevbookStatusTone` is the one scale underneath them, and `DevbookFolder` connects a document to its own. Adding state support to a component is one parameter: the folder for the strip that is the devbook&#39;s own, the vocabulary that folder resolves to for the record views, so a surface with words of its own can draw one too. Every behaviour here is gated on that: with no folder or vocabulary given, a status is shown and not judged — no tone, no flag, no control. The vocabularies themselves, and the tone each word maps to, are the rules linked above."
+           Summary="A subpage of Devbook: `status` is the one field every block must carry, and what it may say depends on which folder the block came from. `DevbookStatus` holds the six folders' vocabularies, `DevbookStatusTone` is the one scale underneath them, and `DevbookFolder` connects a document to its own. Adding state support to a component is one parameter: the folder for the strip that is the devbook&#39;s own, the vocabulary that folder resolves to for the record views, so a surface with words of its own can draw one too. Every behaviour here is gated on that: with no folder or vocabulary given, a status is shown and not judged — no tone, no flag, no control. The vocabularies themselves, and the tone each word maps to, are the rules linked above."
            Guidelines="@Rules">
 
-    <Story Name="Five vocabularies, one scale, and both forms of a status"
-           Description="Five folders, five vocabularies, one tone scale under all of them. Read a row for one folder's whole vocabulary and a column for the words five folders spell the same tone with.
+    <Story Name="Six folders, one scale, and both forms of a status"
+           Description="Six folders, five vocabularies, one tone scale under all of them. Read a row for one folder's whole vocabulary and a column for the words the folders spell the same tone with. `.ai` is the row that repeats one: it rates a way of working with a technology on the ladder `.tech` rates the technology on, deliberately the same five words, so a tool can be `adopted` in `.tech` while its use at one stage is still `trial` — and a reader needs only one vocabulary to see that.
 
 Both forms are here: `DevbookStatusPill` for a status that is only being shown, and the select for one that can be changed."
            Code="@ValuesCode">
@@ -173,7 +173,7 @@ Derive the folder rather than asking for it: `DevbookFolders.FromPath` answers f
 @code {
     private static readonly DesignGuideline[] Rules =
     [
-        new("README.md#status-vocabulary", "The five folders' vocabularies, and what each word means."),
+        new("README.md#status-vocabulary", "The folders' vocabularies, and what each word means."),
         new("color-scheme.md#badge-and-chip-tones", "The one tone scale every vocabulary maps onto."),
         new("color-scheme.md#contrast-rules-wcag-aa-minimum", "The ratio a status pill has to clear.")
     ];
@@ -208,7 +208,8 @@ Derive the folder rather than asking for it: `DevbookFolders.FromPath` answers f
         DevbookFolder.Domain,
         DevbookFolder.Backlog,
         DevbookFolder.Tech,
-        DevbookFolder.Design
+        DevbookFolder.Design,
+        DevbookFolder.Ai
     ];
 
     private static readonly IReadOnlyList<ToneColumn> Tones =
@@ -313,6 +314,7 @@ Derive the folder rather than asking for it: `DevbookFolders.FromPath` answers f
         DevbookFolder.Backlog => ".backlog",
         DevbookFolder.Tech => ".tech",
         DevbookFolder.Design => ".design",
+        DevbookFolder.Ai => ".ai",
         _ => "no folder"
     };
 
@@ -324,7 +326,7 @@ Derive the folder rather than asking for it: `DevbookFolders.FromPath` answers f
             // candidate, trial, adopted, hold, retired
         }
 
-        @* And the axis underneath the five vocabularies, which is what lets one
+        @* And the axis underneath the vocabularies, which is what lets one
            colour mean the same thing in every folder. *@
         DevbookStatusTone tone = DevbookStatus.Tone(DevbookFolder.Tech, "adopted"); // Active
         """;

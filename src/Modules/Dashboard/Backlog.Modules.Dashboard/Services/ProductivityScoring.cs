@@ -4,7 +4,7 @@ using Backlog.Modules.Dashboard.Abstractions.Services;
 namespace Backlog.Modules.Dashboard.Services;
 
 /// <summary>
-/// What full marks is worth per week, for the three inputs counted in whole items.
+/// What full marks is worth per week, for the two inputs counted in whole items.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -22,16 +22,15 @@ namespace Backlog.Modules.Dashboard.Services;
 /// </remarks>
 internal sealed record ProductivityTargets(
     decimal MergedPerWeek,
-    decimal ClosedPerWeek,
-    decimal SessionsPerWeek)
+    decimal ClosedPerWeek)
 {
-    /// <summary>No history at all. Every volume input drops out; the proportions
-    /// still score, so the card stays readable.</summary>
-    internal static ProductivityTargets None { get; } = new(0m, 0m, 0m);
+    /// <summary>No history at all. Every volume input drops out; the quality score
+    /// is unaffected, because its inputs never needed a target.</summary>
+    internal static ProductivityTargets None { get; } = new(0m, 0m);
 }
 
 /// <summary>
-/// How the productivity score is worked out, and what it is made of.
+/// How the two productivity scores are worked out, and what each is made of.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -44,18 +43,25 @@ internal sealed record ProductivityTargets(
 /// </para>
 /// <para>
 /// Weights are normalised by their total rather than assumed to add to one, so
-/// adding an eighth input does not mean rebalancing the other seven, and setting
-/// every weight to 1 gives a plain average.
+/// adding an input does not mean rebalancing the others, and setting every weight
+/// to 1 gives a plain average.
 /// </para>
 /// <para>
-/// <strong>The inputs come in two shapes, and only one of them ever needed a
-/// target.</strong> The four middle inputs — review promptness, freedom from churn,
-/// and the two size measures — are PROPORTIONS of an eligible set: full marks is
-/// however many pull requests could have counted, so they move with the window's own
-/// volume and can never pin dishonestly. They were never the broken ones. The three
-/// volume inputs — merged, closed, sessions — are counts, and a count needs
-/// something to be counted against; that something is the reader's own record rather
-/// than a number somebody picked.
+/// <strong>Two scores, because the inputs come in two shapes.</strong> The volume
+/// inputs — merged, closed — are counts, and a count needs something to be counted
+/// against; that something is the reader's own record rather than a number
+/// somebody picked, and it moves. The quality inputs — review promptness, freedom
+/// from churn, freedom from conflicted syncs, and the two size measures — are
+/// PROPORTIONS of an eligible set: full
+/// marks is however many pull requests could have counted, so they move with the
+/// window's own volume and can never pin dishonestly. Folding the two into one
+/// figure was what made the old score unreadable: it could fall because less shipped
+/// or because what shipped came back, and nothing on the card said which.
+/// </para>
+/// <para>
+/// Assistant sessions are scored nowhere. They count effort rather than output,
+/// and a productivity figure that rose with the hours an assistant ran was
+/// measuring the wrong thing; the sessions part is where they are read.
 /// </para>
 /// </remarks>
 internal static class ProductivityScoring
@@ -101,49 +107,31 @@ internal static class ProductivityScoring
         return Math.Round(weighted / totalWeight * MaxScore, 1, MidpointRounding.AwayFromZero);
     }
 
+    /// <summary>One score from its inputs: the figure and the composition together,
+    /// so the card cannot show one without the other.</summary>
+    internal static ProductivityScore ScoreOf(IReadOnlyList<ProductivityScoreInput> inputs) =>
+        new(Score(inputs), inputs);
+
     /// <summary>
-    /// The inputs behind a score for one window of activity: up to seven of them,
-    /// weighted 3-2-2-1-1-1-1.
+    /// The volume inputs behind a score for one window of activity: merged pull
+    /// requests and closed issues, weighted 3-2, each against the reader's own record.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// An input whose full marks works out to zero is left out rather than scored
-    /// as zero. A quarter with no reviewed pull request has nothing to say about
-    /// review promptness, and scoring that silence as a nil would drag the whole
-    /// figure down for an absence of evidence. Leaving it out is safe precisely
-    /// because the weights are normalised by their total — and it is also what
-    /// happens to a volume input with no history to target it against, which is why
-    /// no constant is needed for that case.
-    /// </para>
-    /// <para>
-    /// <paramref name="sessions"/> is nullable rather than defaulted to zero, and
-    /// the difference matters on screen. Absent means the input is not scored at
-    /// all, which is what a repository focus does to it: no assistant records which
-    /// repository a session was for, so scoring one against a single repository
-    /// would claim a whole-machine figure belongs to it. Zero would mean the reader
-    /// ran no sessions, which is a different claim entirely.
-    /// </para>
+    /// An input whose full marks works out to zero is left out rather than scored as
+    /// zero. That is what happens to a volume input with no history to target it
+    /// against, and it is safe precisely because the weights are normalised by their
+    /// total — which is also why no constant is needed for the case.
     /// </remarks>
-    internal static IReadOnlyList<ProductivityScoreInput> InputsFor(
+    internal static IReadOnlyList<ProductivityScoreInput> VolumeInputsFor(
         IReadOnlyList<ActivityPullRequest> pullRequests,
         IReadOnlyList<ActivityIssue> issues,
         int weeks,
-        ProductivityTargets? targets = null,
-        int? sessions = null)
+        ProductivityTargets? targets = null)
     {
         ArgumentNullException.ThrowIfNull(pullRequests);
         ArgumentNullException.ThrowIfNull(issues);
 
         var against = targets ?? ProductivityTargets.None;
-
-        var reviewed = pullRequests.Where(pr => pr.FirstReviewedAt is not null).ToList();
-        var timed = reviewed.Where(pr => pr.ReviewTurnaround is not null).ToList();
-
-        // Only the pull requests whose size was actually read. One whose diff could
-        // not be fetched carries a zero that is not a small change, so it belongs to
-        // neither the numerator nor the denominator: the input is a proportion of
-        // what could be read, and the card shows that denominator.
-        var sized = pullRequests.Where(pr => pr.SizeKnown).ToList();
 
         var candidates = new List<ProductivityScoreInput>
         {
@@ -156,7 +144,44 @@ internal static class ProductivityScoring
                 "Issues closed",
                 issues.Count,
                 FullMarks(against.ClosedPerWeek, weeks),
-                2m),
+                2m)
+        };
+
+        return [.. candidates.Where(input => input.Max > 0m)];
+    }
+
+    /// <summary>
+    /// The quality inputs behind a score for one window of activity: up to five
+    /// proportions, weighted 2-1-1-1-1.
+    /// </summary>
+    /// <remarks>
+    /// An input whose eligible set is empty is left out rather than scored as zero.
+    /// A window with no reviewed pull request has nothing to say about review
+    /// promptness, and scoring that silence as a nil would drag the whole figure
+    /// down for an absence of evidence.
+    /// </remarks>
+    internal static IReadOnlyList<ProductivityScoreInput> QualityInputsFor(
+        IReadOnlyList<ActivityPullRequest> pullRequests)
+    {
+        ArgumentNullException.ThrowIfNull(pullRequests);
+
+        var reviewed = pullRequests.Where(pr => pr.FirstReviewedAt is not null).ToList();
+        var timed = reviewed.Where(pr => pr.ReviewTurnaround is not null).ToList();
+
+        // Only the pull requests whose size was actually read. One whose diff could
+        // not be fetched carries a zero that is not a small change, so it belongs to
+        // neither the numerator nor the denominator: the input is a proportion of
+        // what could be read, and the card shows that denominator.
+        var sized = pullRequests.Where(pr => pr.SizeKnown).ToList();
+
+        // Only the pull requests whose branch was synced with its base at all. A
+        // branch that never synced cannot have hit a conflict syncing, and one
+        // whose commits could not be read has nothing to say either way; both
+        // stay out of the numerator and the denominator alike.
+        var synced = pullRequests.Where(pr => pr.WasSynced).ToList();
+
+        var candidates = new List<ProductivityScoreInput>
+        {
             new(
                 "First review within a day",
                 timed.Count(pr => pr.ReviewTurnaround <= PromptReview),
@@ -166,6 +191,11 @@ internal static class ProductivityScoring
                 "Merged without post-review churn",
                 reviewed.Count(pr => !pr.HasChurn),
                 reviewed.Count,
+                1m),
+            new(
+                "Merged without a conflicted sync",
+                synced.Count(pr => !pr.HasConflictedSync),
+                synced.Count,
                 1m),
             new(
                 $"Merged under {SmallChangedLines} changed lines",
@@ -178,17 +208,6 @@ internal static class ProductivityScoring
                 sized.Count,
                 1m)
         };
-
-        // Last and lightest. A session counts effort rather than output, so it is
-        // worth one weight point against throughput's three.
-        if (sessions is { } count)
-        {
-            candidates.Add(new ProductivityScoreInput(
-                "Assistant sessions",
-                count,
-                FullMarks(against.SessionsPerWeek, weeks),
-                1m));
-        }
 
         return [.. candidates.Where(input => input.Max > 0m)];
     }

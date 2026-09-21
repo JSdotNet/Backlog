@@ -91,14 +91,12 @@ public static class AppFeatures
             DevbookFeatures.ArchifyDiagrams,
             "Archify diagrams",
             "Draw a devbook chapter's diagrams from their generated Archify artifacts where one exists, and offer to generate the rest. Chapters whose artifact is missing or was authored from an earlier version of the diagram keep their mermaid rendering.",
-            EnabledByDefault: false,
-            Status: AppFeatureStatus.Dev),
+            EnabledByDefault: false),
         new(
             DevbookFeatures.C4Diagrams,
             "C4 diagrams",
             "Show the C4 model kept beside the architecture chapters in .arc42/_c4/, authored as Structurizr DSL in c4hero. Its views are listed with the chapters, and a chapter that references a view links to it and back.",
-            EnabledByDefault: false,
-            Status: AppFeatureStatus.Dev),
+            EnabledByDefault: false),
         new(
             DevbookFeatures.Search,
             "Devbook search",
@@ -129,7 +127,7 @@ public static class AppFeatures
             "Sync",
             "Pair this device with the cloud sync service, push this machine's task changes and Claude and Copilot session records to the cloud replica, and pull back what the other devices changed and reported. Session records travel as metadata only: never a prompt, a transcript, a working folder, or a session's title.",
             EnabledByDefault: false,
-            Status: AppFeatureStatus.Dev,
+            Status: AppFeatureStatus.Beta,
             FormerKeys: ["device-pairing", "task-sync", "session-sync"]),
 
         // --- Cross-cutting: something the whole product uses -----------------

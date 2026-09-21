@@ -78,6 +78,42 @@ public class SessionInsightsTests
             () => insights.GetSessionsAsync(DashboardScope.Default));
     }
 
+    /// <summary>
+    /// The stuck-loading race, at this seam. The first read of a profile parses every
+    /// transcript and takes long enough for a reader to move the machine filter while
+    /// it runs. The part cancels its first fetch and asks again; the read is one shared
+    /// entry, so if it ran under the first fetch's token the second would inherit a
+    /// cancellation it never asked for, swallow it as its own, and leave the part on
+    /// Loading with nothing left to wake it.
+    /// </summary>
+    [Fact]
+    public async Task Moving_a_filter_while_the_first_read_is_in_flight_still_answers_the_second_scope()
+    {
+        var gate = new TaskCompletionSource();
+        var source = new StubAssistantSessionSource
+        {
+            Report = Report(Session(Tower, "Claude", Now.AddHours(-3), Now.AddHours(-1), "one")),
+            Gate = gate
+        };
+        var insights = Insights(source);
+
+        using var first = new CancellationTokenSource();
+        using var second = new CancellationTokenSource();
+
+        var everyMachine = insights.GetSessionsAsync(DashboardScope.Default, first.Token);
+        var oneMachine = insights.GetSessionsAsync(DashboardScope.Default with { MachineId = Tower }, second.Token);
+
+        await first.CancelAsync();
+        _ = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => everyMachine);
+
+        gate.SetResult();
+        var result = await oneMachine;
+
+        Assert.True(result.HasValue, result.Availability.Reason);
+        Assert.Equal(1, result.Value!.Sessions);
+        Assert.Equal(1, source.Calls);
+    }
+
     [Fact]
     public async Task A_session_inside_the_window_is_counted_and_its_time_summed()
     {
@@ -519,7 +555,7 @@ public class SessionInsightsTests
         });
 
         var everywhere = await ValueOf(insights, DashboardScope.Default);
-        var focused = await ValueOf(insights, DashboardScope.Default with { RepositoryAlias = "backlog" });
+        var focused = await ValueOf(insights, DashboardScope.Default with { Repositories = RepositoryFocus.Of("backlog") });
 
         Assert.Equal(everywhere.SessionsPerWeek, focused.SessionsPerWeek);
 
@@ -552,6 +588,104 @@ public class SessionInsightsTests
 
         // Once, and only in the last bucket.
         Assert.Equal(1m, value.SessionsPerWeek.Sum(point => point.Value));
+    }
+
+    /// <summary>
+    /// The mean is over the sessions that carry a count and nothing else. A Copilot
+    /// session records no prompt count, and averaging its null in as zero would report a
+    /// figure half the size of the one the counted transcripts actually support — which
+    /// is why the denominator travels beside the mean.
+    /// </summary>
+    [Fact]
+    public async Task Prompts_per_session_averages_the_counted_sessions_and_skips_the_rest()
+    {
+        var insights = Insights(new StubAssistantSessionSource
+        {
+            Report = Report(
+                Session(Tower, "Claude", Now.AddHours(-4), Now.AddHours(-3)) with { Prompts = 12 },
+                Session(Tower, "Claude", Now.AddHours(-2), Now.AddHours(-1)) with { Prompts = 3 },
+                Session(Tower, "Copilot", Now.AddHours(-2), Now.AddHours(-1)))
+        });
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        Assert.Equal(3, value.Sessions);
+        Assert.Equal(2, value.SessionsWithPrompts);
+        Assert.Equal(7.5m, value.PromptsPerSession);
+    }
+
+    /// <summary>
+    /// Nothing to average is null, not zero. Zero would say a person opened sessions and
+    /// never spoke in them; the only thing a window of uncounted sessions supports is
+    /// that there was nothing to count from.
+    /// </summary>
+    [Fact]
+    public async Task Prompts_per_session_is_absent_when_no_session_carries_a_count()
+    {
+        var insights = Insights(new StubAssistantSessionSource
+        {
+            Report = Report(Session(Tower, "Copilot", Now.AddHours(-2), Now.AddHours(-1)))
+        });
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        Assert.Equal(1, value.Sessions);
+        Assert.Equal(0, value.SessionsWithPrompts);
+        Assert.Null(value.PromptsPerSession);
+    }
+
+    /// <summary>
+    /// Bucketed on the same instant the sessions series is, so the two charts share an
+    /// axis and a column in one is the same sessions as the column beside it in the
+    /// other. A week with no counted session is a zero point, so the axis keeps its
+    /// shape; a week with an uncounted session in it is still a zero, because that
+    /// session contributes no prompts and no denominator.
+    /// </summary>
+    [Fact]
+    public async Task Prompts_per_session_is_averaged_within_the_week_a_session_last_moved()
+    {
+        var scope = DashboardScope.Default;
+
+        var insights = Insights(new StubAssistantSessionSource
+        {
+            Report = Report(
+                // Two counted in the week before Now's: 10 and 4 average to 7.
+                Session(Tower, "Claude", Now.AddDays(-8), Now.AddDays(-8)) with { Prompts = 10 },
+                Session(Tower, "Claude", Now.AddDays(-7), Now.AddDays(-7)) with { Prompts = 4 },
+                // Only Copilot two weeks back: a zero, not a gap.
+                Session(Tower, "Copilot", Now.AddDays(-15), Now.AddDays(-15)),
+                // One counted in Now's own week.
+                Session(Tower, "Claude", Now.AddHours(-2), Now.AddHours(-1)) with { Prompts = 5 })
+        });
+
+        var value = await ValueOf(insights, scope);
+
+        Assert.Equal(scope.Weeks + 1, value.PromptsPerSessionPerWeek.Count);
+        Assert.Equal([0m, 7m, 5m], value.PromptsPerSessionPerWeek.TakeLast(3).Select(point => point.Value));
+        Assert.Equal(
+            value.SessionsPerWeek.Select(point => point.Label),
+            value.PromptsPerSessionPerWeek.Select(point => point.Label));
+    }
+
+    /// <summary>The machine filter narrows the mean the way it narrows every other
+    /// figure on the part: a session on the other machine is not in the denominator.</summary>
+    [Fact]
+    public async Task Prompts_per_session_follows_the_machine_filter()
+    {
+        var insights = Insights(new StubAssistantSessionSource
+        {
+            Report = Report(
+                Session(Tower, "Claude", Now.AddHours(-2), Now.AddHours(-1)) with { Prompts = 2 },
+                Session(Laptop, "Claude", Now.AddHours(-2), Now.AddHours(-1)) with { Prompts = 8 })
+        });
+
+        var everywhere = await ValueOf(insights, DashboardScope.Default);
+        var focused = await ValueOf(insights, DashboardScope.Default with { MachineId = Laptop });
+
+        Assert.Equal(5m, everywhere.PromptsPerSession);
+        Assert.Equal(8m, focused.PromptsPerSession);
+        Assert.Equal(1, focused.SessionsWithPrompts);
+        Assert.Equal(8m, focused.PromptsPerSessionPerWeek[^1].Value);
     }
 
     [Fact]
@@ -1873,10 +2007,20 @@ public class SessionInsightsTests
             return Throw is not null ? Task.FromException<InsightAvailability>(Throw) : Task.FromResult(Availability);
         }
 
-        public Task<AssistantSessionReport> GetSessionsAsync(CancellationToken cancellationToken = default)
+        /// <summary>When set, the report is held back until this completes — and the
+        /// wait honours the token, the way the real readers do between transcripts.</summary>
+        public TaskCompletionSource? Gate { get; init; }
+
+        public async Task<AssistantSessionReport> GetSessionsAsync(CancellationToken cancellationToken = default)
         {
             Calls++;
-            return Task.FromResult(Report);
+
+            if (Gate is not null)
+            {
+                await Gate.Task.WaitAsync(cancellationToken);
+            }
+
+            return Report;
         }
     }
 

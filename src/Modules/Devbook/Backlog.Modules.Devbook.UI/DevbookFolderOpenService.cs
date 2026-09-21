@@ -79,6 +79,7 @@ public sealed class DevbookFolderOpenService(IDevbookFolderSource source, IFolde
         "arc42" => string.Equals(nodePath, ".arc42", StringComparison.OrdinalIgnoreCase),
         "tech" => string.Equals(nodePath, ".tech", StringComparison.OrdinalIgnoreCase),
         "design" => string.Equals(nodePath, ".design", StringComparison.OrdinalIgnoreCase),
+        "ai" => string.Equals(nodePath, ".ai", StringComparison.OrdinalIgnoreCase),
         "instructions" => string.Equals(nodePath, "instructions", StringComparison.OrdinalIgnoreCase),
         _ => false
     };
@@ -103,6 +104,7 @@ public sealed class DevbookFolderOpenService(IDevbookFolderSource source, IFolde
         "arc42" => ".arc42",
         "tech" => ".tech",
         "design" => ".design",
+        "ai" => ".ai",
         "instructions" => "instructions",
         _ => areaKey
     };
@@ -113,6 +115,7 @@ public sealed class DevbookFolderOpenService(IDevbookFolderSource source, IFolde
         "arc42" => "Architecture",
         "tech" => "Technology",
         "design" => "Design",
+        "ai" => "AI",
         "instructions" => "Instructions",
         _ => areaKey
     };

@@ -109,7 +109,12 @@ internal sealed class GitHubActivitySource(
                 ReviewTurnaround = pr.ReviewTurnaround,
                 ChangedLines = pr.ChangedLines,
                 ChangedFiles = pr.ChangedFiles,
-                SizeKnown = pr.SizeKnown
+                SizeKnown = pr.SizeKnown,
+                Commits = pr.Commits,
+                ChangesRequested = pr.ChangesRequested,
+                SyncMerges = pr.SyncMerges,
+                ConflictedSyncMerges = pr.ConflictedSyncMerges,
+                SyncsKnown = pr.SyncsKnown
             }));
 
             issues.AddRange(report.Issues.Select(issue =>

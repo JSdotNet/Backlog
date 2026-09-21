@@ -29,6 +29,7 @@ public sealed class CaptureAdapterRegistrationTests
     {
         var services = new ServiceCollection();
         services.AddSingleton<ICaptureSourceSettings>(new NoSettings());
+        services.AddSingleton<ICaptureRunLog>(new NoLog());
         services.AddSingleton<IInboxIntake>(new NoIntake());
         services.AddCaptureModule();
         services.AddCaptureAdapters();
@@ -143,6 +144,21 @@ public sealed class CaptureAdapterRegistrationTests
         public string? SetEnabled(CaptureSourceKind kind, bool enabled) => null;
 
         public string? SetTargets(CaptureSourceKind kind, IReadOnlyList<string> targets) => null;
+    }
+
+    /// <summary>The run log, the host's fourth port: a run is written to it,
+    /// and nothing is ever read back here.</summary>
+    private sealed class NoLog : ICaptureRunLog
+    {
+        public event Action? Changed { add { } remove { } }
+
+        public CaptureRunLogEntry? LastRunFor(CaptureSourceKind kind) => null;
+
+        public IReadOnlyList<CaptureRunLogEntry> EntriesFor(CaptureSourceKind kind) => [];
+
+        public void Record(CaptureRunResultDto run)
+        {
+        }
     }
 
     private sealed class NoIntake : IInboxIntake

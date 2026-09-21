@@ -5,24 +5,6 @@ namespace Backlog.Desktop.UI.Devbook;
 
 public sealed class InstructionSourceDiscovery
 {
-    private static readonly string[] ExcludedDirectoryNames =
-    [
-        ".git",
-        ".vs",
-        "bin",
-        "obj",
-        "node_modules"
-    ];
-
-    /// <summary>
-    /// Claude Code's own worktrees, each a whole second checkout of the
-    /// repository under the folder this walks for instructions. Read as part of
-    /// the clone they counted every instruction file twice over and every
-    /// dependency's readme once — two and a half thousand files against the nine
-    /// that were actually the repository's.
-    /// </summary>
-    private const string ClaudeWorktrees = ".claude/worktrees/";
-
     /// <summary>
     /// The instruction files that sit at the repository root rather than inside one
     /// of the instruction folders.
@@ -197,36 +179,23 @@ public sealed class InstructionSourceDiscovery
         var directory = Path.Combine(root, relativeDirectory.Replace('/', Path.DirectorySeparatorChar));
         if (!Directory.Exists(directory)) return;
 
-        foreach (var fullPath in Directory.EnumerateFiles(directory, pattern, SearchOption.AllDirectories))
+        // Pruned as it walks, never filtered afterwards: the excluded folders are
+        // where the bulk of a clone's directories are, and a walk that enters them
+        // to discard what it finds pays for the whole clone to list the handful
+        // of files it keeps. InstructionFileWalk says which and why.
+        foreach (var fullPath in InstructionFileWalk.EnumerateFiles(root, directory, pattern))
         {
-            if (IsExcluded(root, fullPath)) continue;
-
             AddResolvedDocument(root, fullPath, agent, scope, documents, seen);
         }
     }
 
     private static void AddAgentsDocuments(string root, List<InstructionDocument> documents, HashSet<string> seen)
     {
-        foreach (var fullPath in Directory.EnumerateFiles(root, "AGENTS.md", SearchOption.AllDirectories))
+        foreach (var fullPath in InstructionFileWalk.EnumerateFiles(root, root, "AGENTS.md"))
         {
-            if (IsExcluded(root, fullPath)) continue;
-
             AddResolvedDocument(root, fullPath, "Shared agent convention", "Directory-scoped agent instructions", documents, seen);
         }
     }
-
-    /// <summary>Whether a file sits somewhere no host reads instructions from:
-    /// build output, dependencies, version control, or another worktree.</summary>
-    private static bool IsExcluded(string root, string fullPath)
-    {
-        var relativePath = Path.GetRelativePath(root, fullPath).Replace('\\', '/');
-
-        return relativePath.StartsWith(ClaudeWorktrees, StringComparison.OrdinalIgnoreCase)
-            || relativePath.Split('/').Any(IsExcludedDirectory);
-    }
-
-    private static bool IsExcludedDirectory(string part) =>
-        ExcludedDirectoryNames.Any(excluded => string.Equals(excluded, part, StringComparison.OrdinalIgnoreCase));
 
     private static void AddResolvedDocument(
         string root,

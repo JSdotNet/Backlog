@@ -338,6 +338,90 @@ public sealed class HarnessDevToolServiceTests
     /// what the harness has to call it too for the pane to read the same.</summary>
     private const string DisabledStatus = "Disabled in config";
 
+    /// <summary>The sample cache a plugin entry can carry, read as the pane's
+    /// chips: which versions, and which of them something still loads.</summary>
+    [Fact]
+    public async Task A_plugin_entry_reads_its_sample_cached_versions()
+    {
+        var tools = CreateService(CachedPluginCatalog);
+
+        var row = await FindAsync(tools, "plugin:devbook");
+
+        Assert.Equal(["1.0.0", "1.0.1", "1.1.0"], row.CachedVersions.Select(cached => cached.Version));
+        Assert.Equal([17, 1, 0], row.CachedVersions.Select(cached => cached.Installs));
+        Assert.Equal(["1.1.0"], row.StaleCachedVersions.Select(cached => cached.Version));
+    }
+
+    /// <summary>The browser's Remove has to change what the next read says, or
+    /// it is the same shape as a Remove that did nothing.</summary>
+    [Fact]
+    public async Task Removing_a_stale_cached_version_drops_it_from_the_next_read()
+    {
+        var tools = CreateService(CachedPluginCatalog);
+
+        var removed = await tools.RemoveCachedVersionAsync("plugin:devbook", "1.1.0", TestContext.Current.CancellationToken);
+
+        Assert.True(removed.Succeeded);
+        var row = await FindAsync(tools, "plugin:devbook");
+        Assert.Equal(["1.0.0", "1.0.1"], row.CachedVersions.Select(cached => cached.Version));
+        Assert.Empty(row.StaleCachedVersions);
+    }
+
+    /// <summary>The port's one promise about the cache, kept by the fake too: a
+    /// folder some install still points at is not deleted from here.</summary>
+    [Fact]
+    public async Task A_cached_version_in_use_is_refused()
+    {
+        var tools = CreateService(CachedPluginCatalog);
+
+        var refused = await tools.RemoveCachedVersionAsync("plugin:devbook", "1.0.0", TestContext.Current.CancellationToken);
+
+        Assert.False(refused.Succeeded);
+        Assert.Contains("in use", refused.Message, StringComparison.Ordinal);
+        Assert.Equal(3, (await FindAsync(tools, "plugin:devbook")).CachedVersions.Count);
+    }
+
+    [Fact]
+    public async Task Clearing_the_stale_cache_removes_every_stale_version_and_nothing_in_use()
+    {
+        var tools = CreateService(CachedPluginCatalog);
+
+        var cleared = await tools.RemoveStaleCacheAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(cleared.Succeeded);
+        Assert.Contains("2 stale versions", cleared.Message, StringComparison.Ordinal);
+        var catalog = await tools.ListAsync();
+        Assert.Empty(catalog.Tools.SelectMany(tool => tool.StaleCachedVersions));
+        Assert.Equal(["1.0.0", "1.0.1"], (await FindAsync(tools, "plugin:devbook")).CachedVersions.Select(cached => cached.Version));
+        Assert.Equal(["0.5.0"], (await FindAsync(tools, "plugin:architecture")).CachedVersions.Select(cached => cached.Version));
+    }
+
+    /// <summary>Two plugins with sample caches: one carrying the object shape and
+    /// one carrying bare version strings, which read as versions nothing uses.</summary>
+    private const string CachedPluginCatalog = """
+        {
+          "plugins": [
+            {
+              "name": "devbook",
+              "source": "JSdotNet/Devbook:plugins/devbook",
+              "enabled": true,
+              "cachedVersions": [
+                { "version": "1.0.0", "installs": 17 },
+                { "version": "1.0.1", "installs": 1 },
+                { "version": "1.1.0", "installs": 0 }
+              ]
+            },
+            {
+              "name": "architecture",
+              "source": "JSdotNet/Copilot:plugins/architecture",
+              "enabled": true,
+              "cachedVersions": [ "0.4.0", { "version": "0.5.0", "installs": 1 } ]
+            }
+          ],
+          "mcpServers": []
+        }
+        """;
+
     /// <summary>The entry this repository's own catalog ships: an MCP server that
     /// is registered by the command that starts it rather than installed as a
     /// .NET tool.</summary>

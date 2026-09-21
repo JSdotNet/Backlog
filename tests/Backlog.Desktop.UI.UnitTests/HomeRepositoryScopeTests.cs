@@ -5,6 +5,7 @@ using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.GitHub;
 using AngleSharp.Dom;
 
+using Backlog.Modules.Dashboard.UI;
 using Backlog.Modules.Sessions.UI;
 using Bunit;
 using Microsoft.AspNetCore.Components.Web;
@@ -209,6 +210,117 @@ public sealed class HomeRepositoryScopeTests
         // was already reading beside it.
         component.WaitForAssertion(() =>
             Assert.Equal("docs", component.FindComponent<DevbookPane>().Instance.RepositoryAlias));
+    }
+
+    /// <summary>
+    /// One repository scope for the whole screen. The dashboard used to carry a
+    /// second select for the same question; it reads the header's scope now — the
+    /// whole of it, in the order taken — and a cleared scope reads as every
+    /// repository.
+    /// </summary>
+    [Fact]
+    public void The_dashboard_follows_the_whole_header_scope()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+
+        Chips(component)[1].Click();
+        Chips(component)[0].Click(new MouseEventArgs { CtrlKey = true });
+
+        component.WaitForElement("[data-testid='dashboard-toggle-button']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='dashboard-panel']"));
+            Assert.Equal(["docs", "backlog"], component.FindComponent<DashboardPane>().Instance.RepositoryAliases);
+        });
+
+        // The chips stay live on the dashboard, and a press there reaches it.
+        Chips(component)[0].Click();
+        component.WaitForAssertion(() =>
+            Assert.Equal(["backlog"], component.FindComponent<DashboardPane>().Instance.RepositoryAliases));
+
+        // Cleared: an empty scope, which the pane reads as all repositories.
+        Chips(component)[0].Click();
+        component.WaitForAssertion(() =>
+            Assert.Empty(component.FindComponent<DashboardPane>().Instance.RepositoryAliases));
+    }
+
+    /// <summary>
+    /// The dashboard shows several repositories at once, so the modifier counts on
+    /// it the way it does on the task list — and the tooltip offers it.
+    /// </summary>
+    [Fact]
+    public void On_the_dashboard_a_modified_press_adds_a_repository()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+
+        Chips(component)[0].Click();
+        component.WaitForElement("[data-testid='dashboard-toggle-button']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='dashboard-panel']")));
+
+        Assert.Contains("Ctrl+click", Chips(component)[1].GetAttribute("title"), StringComparison.Ordinal);
+
+        Chips(component)[1].Click(new MouseEventArgs { CtrlKey = true });
+
+        Assert.Equal(["backlog", "docs"], state.SelectedRepositoryAliases);
+    }
+
+    /// <summary>
+    /// Tools shows no repository at all, so leaving the dashboard for it narrows the
+    /// scope to its anchor — the same drop the scope makes when the task list closes
+    /// — and a chip there is a single select.
+    /// </summary>
+    [Fact]
+    public void Leaving_for_tools_narrows_the_scope_to_its_anchor()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+
+        Chips(component)[1].Click();
+        Chips(component)[0].Click(new MouseEventArgs { CtrlKey = true });
+        Assert.Equal(["docs", "backlog"], state.SelectedRepositoryAliases);
+
+        component.WaitForElement("[data-testid='tools-toggle-button']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='tools-surface']")));
+
+        Assert.Equal(["docs"], state.SelectedRepositoryAliases);
+        Assert.DoesNotContain("Ctrl+click", Chips(component)[0].GetAttribute("title"), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The sessions tab takes the same scope, and the shell hands it the lookup that
+    /// turns a session's recorded repository — an <c>owner/name</c>, or an alias
+    /// that arrived on the wire — into the alias the scope is written in.
+    /// </summary>
+    [Fact]
+    public void The_sessions_tab_is_handed_the_scope_and_the_alias_lookup()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+
+        Chips(component)[0].Click();
+
+        component.WaitForElement("[data-testid='dashboard-toggle-button']").Click();
+        component.WaitForElement("[data-testid='dashboard-sessions-tab']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='sessions-panel']")));
+
+        var pane = component.FindComponent<SessionsPane>().Instance;
+        Assert.Equal(["backlog"], pane.RepositoryScope);
+
+        var aliasFor = pane.RepositoryAlias;
+        Assert.NotNull(aliasFor);
+        Assert.Equal("backlog", aliasFor("JSdotNet/Backlog"));
+        Assert.Equal("backlog", aliasFor("backlog"));
+        Assert.Null(aliasFor("Someone/Else"));
+        Assert.Null(aliasFor(null));
+
+        Chips(component)[1].Click(new MouseEventArgs { CtrlKey = true });
+        component.WaitForAssertion(() =>
+            Assert.Equal(["backlog", "docs"], component.FindComponent<SessionsPane>().Instance.RepositoryScope));
     }
 
     [Fact]
@@ -453,7 +565,9 @@ public sealed class HomeRepositoryScopeTests
         using var harness = CreateHarness();
         var component = Render(harness);
 
-        component.WaitForElement("[data-testid='sessions-toggle-button']").Click();
+        // The list is the Dashboard's second tab: the segment, then the tab.
+        component.WaitForElement("[data-testid='dashboard-toggle-button']").Click();
+        component.WaitForElement("[data-testid='dashboard-sessions-tab']").Click();
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='sessions-panel']")));
 
         // The pane is handed a function rather than a dictionary, so the gate has to be
@@ -553,6 +667,7 @@ public sealed class HomeRepositoryScopeTests
                 TasksTestHost.EntriesFor(sp.GetRequiredService<WorkspaceSettingsStore>()),
                 () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
         context.Services.AddSingleton<DesignDevbookProvider>();
+        context.Services.AddSingleton<AiDevbookProvider>();
         context.Services.AddSingleton<TechnologyDevbookService>();
         context.Services.AddSingleton<InstructionSourceDiscovery>();
         context.Services.AddSingleton<DevbookMenu>();
@@ -578,6 +693,8 @@ public sealed class HomeRepositoryScopeTests
         // picks where its sources are kept, the same as the application hosts do.
         context.Services.AddSingleton<ICaptureSourceSettings>(
             new CaptureSourcesSettingsStore(Path.Combine(root, "capture", "capture-sources.json")));
+        context.Services.AddSingleton<ICaptureRunLog>(
+            new CaptureRunLogStore(Path.Combine(root, "capture", "capture-runs.json")));
         context.Services.AddCaptureModule();
         InboxTestHost.AddCaptureDelivery(context.Services);
 
@@ -622,6 +739,8 @@ public sealed class HomeRepositoryScopeTests
 
     private sealed class StubGitHubClient : IGitHubClient
     {
+        public Task<GitHubCommittedFile> CommitFileAsync(GitHubRepositoryRef repository, string path, byte[] content, string commitMessage, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
         public Task<GitHubIssue> CreateIssueAsync(
             GitHubRepositoryRef repository,
             string title,

@@ -68,6 +68,17 @@ public sealed class TaskItemStampTests
         [nameof(TaskItem.MarkDeleted)] = task => task.MarkDeleted(),
         [nameof(TaskItem.AddSubItem)] = task => task.AddSubItem("Step"),
         [nameof(TaskItem.AddProjectionRef)] = task => task.AddProjectionRef(new ProjectionRef("JSdotNet/Backlog", "42", "issue")),
+
+        // A rename that moved something is an edit the other machine has to hear
+        // about, so the stamp moves. Seeded first, because a rename that finds
+        // nothing to move leaves the stamp alone by design - the same rule as
+        // SetDependsOn(null) above, seen from the other side.
+        [nameof(TaskItem.RenameRepository)] = task =>
+        {
+            task.SetRepoIds(["JSdotNet/Backlog"]);
+            task.LoadStamps(Stamped, null);
+            task.RenameRepository("JSdotNet/Backlog", "JSdotNet/Backlog-renamed");
+        },
         [nameof(TaskItem.RemoveSubItem)] = task => task.RemoveSubItem(FirstSubItem(task)),
         [nameof(TaskItem.ToggleSubItem)] = task => task.ToggleSubItem(FirstSubItem(task)),
         [nameof(TaskItem.SetSubItemStatus)] = task => task.SetSubItemStatus(FirstSubItem(task), SubItemStatus.Done),

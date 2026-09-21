@@ -1,8 +1,8 @@
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Sqlite;
-using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.DevPc.Abstractions;
 using Microsoft.Data.Sqlite;
 
@@ -10,8 +10,8 @@ namespace Backlog.Infrastructure.FileSystem;
 
 /// <summary>
 /// The workspace's own settings file: where the backlog lives, which GitHub
-/// repository backs that folder, and which knowledge folders are configured for
-/// it.
+/// repository backs it up and on what schedule, and where branch snapshots are
+/// cached when somebody has moved them.
 /// <para>
 /// The setting itself is deliberately <em>not</em> stored in the backlog folder —
 /// it is kept in a fixed per-user location, because a pointer that moves with
@@ -19,14 +19,21 @@ namespace Backlog.Infrastructure.FileSystem;
 /// folder and this app still knows where you sent it.
 /// </para>
 /// <para>
-/// Three settings in one file rather than three files, because they are one
-/// decision: this folder, backed by that repository, with these knowledge
-/// folders. Only the folder itself is a module port — WorkspaceTaskStore
-/// implements the module's store port over this one. The repository and the
-/// folder list are named in an adapter type and a Devbook type that no
-/// abstractions project may see, and their only consumer is the desktop settings
-/// screen, which takes this adapter directly the way it already takes the GitHub
-/// and Claude ones.
+/// One file rather than several, because they are one decision: this folder,
+/// backed up to that repository, on this schedule. Only the folder itself is a
+/// module port — WorkspaceTaskStore implements the module's store port over
+/// this one. The repository is named in an adapter type that no abstractions
+/// project may see, and its consumers are the desktop settings screen, which
+/// takes this adapter directly the way it already takes the GitHub and Claude
+/// ones, and <see cref="BackupWorker"/>, which does the backing up.
+/// </para>
+/// <para>
+/// The storage folder used to carry a devbook of its own — a configured set of
+/// knowledge folders read when no repository was scoped. It no longer does: a
+/// devbook belongs to a repository, and the repository rows on the Repositories
+/// tab are where its folders are configured. A settings file written while that
+/// was still true still opens; the rows it carried are ignored and the next
+/// save drops them.
 /// </para>
 /// </summary>
 public sealed class WorkspaceSettingsStore
@@ -97,17 +104,16 @@ public sealed class WorkspaceSettingsStore
         var settings = ReadSettings();
         RootDirectory = settings?.RootDirectory ?? DefaultRootDirectory;
         RootRepository = settings?.RootRepository?.ToRepository();
-        // The legacy names are consulted only when the current one is absent, so a
-        // file written before the context was renamed reads as the same choices
-        // and the next save carries them under the current names only.
-        DevbookFolders = DevbookFolderSetting.Normalize(
-            (settings?.DevbookFolders ?? settings?.KnowledgeFolders)?.Select(folder => folder.ToSetting()).OfType<DevbookFolderSetting>() ?? []);
+        BackupSchedule = settings?.BackupSchedule?.ToSchedule() ?? BackupSchedule.Off;
 
-        DefaultDevbookCacheDirectory = ResolveDefaultDevbookCacheDirectory(appData);
-        DevbookCacheDirectory = Clean(settings?.DevbookCacheDirectory) ?? Clean(settings?.KnowledgeCacheDirectory) ?? DefaultDevbookCacheDirectory;
+        // The legacy name is consulted only when the current one is absent, so a
+        // file written before the context was renamed reads as the same choice
+        // and the next save carries it under the current name only.
+        _devbookCacheOverride = Clean(settings?.DevbookCacheDirectory) ?? Clean(settings?.KnowledgeCacheDirectory);
 
         ActivityCacheDirectory = Path.Combine(appData, ActivityCacheFolderName);
         SessionActivityCacheDirectory = Path.Combine(appData, SessionActivityCacheFolderName);
+        SpendCacheDirectory = Path.Combine(appData, SpendCacheFolderName);
 
         // The store owns the location, so it is the store that makes sure the
         // location is usable. This used to happen as a side effect of building a
@@ -157,45 +163,57 @@ public sealed class WorkspaceSettingsStore
     /// </summary>
     public SyncedFolderMatch? SyncedRoot { get; private set; }
 
-    /// <summary>Optional GitHub repository metadata for backing up the storage
-    /// folder later. The folder remains the source of truth today.</summary>
+    /// <summary>The GitHub repository the backlog is backed up to, or null while
+    /// nobody has named one. Naming it is not enough on its own: nothing is
+    /// uploaded until <see cref="BackupSchedule"/> says when, or somebody presses
+    /// the button. The folder remains the source of truth — a backup is a copy
+    /// that leaves, never one that comes back on its own.</summary>
     public GitHubRepositoryRef? RootRepository { get; private set; }
 
-    /// <summary>Devbook folders resolved against the storage root when no repository scope is active.</summary>
-    public IReadOnlyList<DevbookFolderSetting> DevbookFolders { get; private set; }
+    /// <summary>When the backlog is backed up to <see cref="RootRepository"/>.
+    /// <see cref="BackupSchedule.Off"/> until somebody chooses otherwise, and
+    /// kept even while no repository is named so a repository added later
+    /// starts on the schedule that was already set.</summary>
+    public BackupSchedule BackupSchedule { get; private set; }
+
+    /// <summary>Raised when the backup repository or its schedule changes, for
+    /// the worker that has to re-arm its timer. Separate from
+    /// <see cref="RootChanged"/> because a backup setting moving is not a reason
+    /// for every open view to reload the backlog.</summary>
+    public event Action? BackupChanged;
+
+    /// <summary>The folder somebody pointed branch snapshots at, or null while
+    /// they go to <see cref="DefaultDevbookCacheDirectory"/>.</summary>
+    private string? _devbookCacheOverride;
 
     /// <summary>The folder branch snapshots are kept in when nothing overrides
-    /// it: one beside the per-user settings, never inside the backlog.</summary>
-    public string DefaultDevbookCacheDirectory { get; }
+    /// it: <c>devbook-cache</c> under the storage folder, so that a backlog
+    /// moved to another disk takes its default cache location along and the
+    /// disk that holds the backlog is the disk that holds what was fetched to
+    /// read beside it. Recomputed from <see cref="RootDirectory"/> rather than
+    /// stored, which is what makes it follow a move.</summary>
+    public string DefaultDevbookCacheDirectory => Path.Combine(RootDirectory, DevbookCacheFolderName);
 
     /// <summary>
     /// Where the devbook fetched from a repository branch is cached.
     /// <para>
-    /// Configurable, and beside the per-user settings by default rather than
-    /// inside the backlog folder, because a snapshot is neither the workspace's
-    /// content nor anything anybody should back up: it is a disposable copy of a
-    /// commit that can always be fetched again. Somebody who keeps their backlog
-    /// on a synced drive should not find every registered repository's tree
-    /// syncing with it.
-    /// </para>
-    /// <para>
-    /// It is a setting rather than a constant because a machine with a small
-    /// system drive and a large one for work is an ordinary machine, and a
-    /// repository tree per registered repository is the kind of thing people
-    /// want somewhere they chose.
+    /// Under the storage folder by default, and configurable, because a machine
+    /// with a small system drive and a large one for work is an ordinary
+    /// machine, and a repository tree per registered repository is the kind of
+    /// thing people want somewhere they chose. A snapshot is a disposable copy
+    /// of a commit that can always be fetched again, so nothing here is backed
+    /// up: <see cref="BackupWorker"/> takes the database and only the database,
+    /// and a move carries <see cref="OwnedRootFolders"/> and leaves this folder
+    /// to refill in the new place.
     /// </para>
     /// </summary>
-    public string DevbookCacheDirectory { get; private set; }
+    public string DevbookCacheDirectory => _devbookCacheOverride ?? DefaultDevbookCacheDirectory;
 
-    /// <summary>Whether snapshots are still going to the folder beside the
-    /// per-user settings. The settings screen shows the field empty when they
+    /// <summary>Whether snapshots are still going to the folder under the
+    /// storage folder. The settings screen shows the field empty when they
     /// are, so the placeholder does the explaining rather than a path somebody
     /// never typed.</summary>
-    public bool IsDefaultDevbookCacheDirectory =>
-        string.Equals(
-            Path.TrimEndingDirectorySeparator(DevbookCacheDirectory),
-            Path.TrimEndingDirectorySeparator(DefaultDevbookCacheDirectory),
-            StringComparison.OrdinalIgnoreCase);
+    public bool IsDefaultDevbookCacheDirectory => _devbookCacheOverride is null;
 
     /// <summary>
     /// Where the dashboard's merged-pull-request detail is kept.
@@ -209,11 +227,11 @@ public sealed class WorkspaceSettingsStore
     /// commits that cannot change, and can always be fetched again.
     /// </para>
     /// <para>
-    /// Not configurable, unlike <see cref="DevbookCacheDirectory"/>. That one is
-    /// a setting because a repository tree per registered repository is large
-    /// enough that somebody with a small system drive needs a say; this is
-    /// kilobytes, and a second path field on the settings screen would cost more
-    /// attention than it saves disk.
+    /// Not configurable, unlike <see cref="DevbookCacheDirectory"/>, and not
+    /// under the root either. That one is a setting because a repository tree
+    /// per registered repository is large enough that somebody with a small
+    /// system drive needs a say; this is kilobytes, and a second path field on
+    /// the settings screen would cost more attention than it saves disk.
     /// </para>
     /// </summary>
     public string ActivityCacheDirectory { get; }
@@ -238,17 +256,39 @@ public sealed class WorkspaceSettingsStore
     /// </summary>
     public string SessionActivityCacheDirectory { get; }
 
-    private const string DevbookCacheFolderName = "devbook-cache";
+    /// <summary>
+    /// Where the settled part of the two assistants' spend reports is kept: Claude
+    /// Code days more than a couple of days old, Copilot months more than a few
+    /// days over.
+    /// <para>
+    /// Beside the per-user settings and never under the backlog root, for the reason
+    /// <see cref="ActivityCacheDirectory"/> gives — and with one more thing at stake
+    /// than there: what is in here is money, per model, per day, and a folder of it
+    /// carried into a synced drive is a copy of a billing report somebody did not
+    /// ask to have copied.
+    /// </para>
+    /// <para>
+    /// A third folder rather than a corner of either of the other two, so that each
+    /// cache is one deletion: forgetting a repository's pull requests must not take
+    /// a year of spend with it, and clearing the spend must not touch the
+    /// transcripts. Not configurable, for the reason the activity cache is not — it
+    /// is kilobytes.
+    /// </para>
+    /// </summary>
+    public string SpendCacheDirectory { get; }
 
-    /// <summary>The name the default cache folder had while the context was
-    /// called Knowledge. Still honoured as the default on a machine that has it
-    /// and no <see cref="DevbookCacheFolderName"/> beside it — see
-    /// <see cref="ResolveDefaultDevbookCacheDirectory"/>.</summary>
-    private const string LegacyDevbookCacheFolderName = "knowledge-cache";
+    /// <summary>The default cache folder's name under the storage folder. It
+    /// used to sit beside the per-user settings instead, under this name or the
+    /// older <c>knowledge-cache</c>; a machine that still has one of those has a
+    /// folder of snapshots nothing reads any more, which refills in the new
+    /// place on the next fetch and can be deleted by hand.</summary>
+    internal const string DevbookCacheFolderName = "devbook-cache";
 
     private const string ActivityCacheFolderName = "activity-cache";
 
     private const string SessionActivityCacheFolderName = "session-activity-cache";
+
+    private const string SpendCacheFolderName = "spend-cache";
 
     private static string? Clean(string? path) => string.IsNullOrWhiteSpace(path) ? null : path.Trim();
 
@@ -271,8 +311,8 @@ public sealed class WorkspaceSettingsStore
     private const string InboxFolderName = "_inbox";
 
     /// <summary>The folders in the root that are the app's, beside the
-    /// database: the inbox folder, the shared repository registry, and the
-    /// tools catalog when it was put here. This list is what a move carries
+    /// database: the inbox folder, the shared repository registry, the
+    /// tools catalog when it was put here, and the Devbook remarks. This list is what a move carries
     /// and the whole of what it carries. The root used to hold one markdown
     /// file per entry, and a root that old still has that person's own
     /// notes, folders and images beside the database; copying the folder
@@ -285,6 +325,7 @@ public sealed class WorkspaceSettingsStore
         InboxFolderName,
         GitHubSettingsStore.RegistryFolderName,
         DevToolConfigurationPaths.ToolFolderName,
+        DevbookAnnotationStore.FolderName,
     ];
 
     /// <summary>Makes a chosen root usable: the folder itself, and the inbox
@@ -514,7 +555,9 @@ public sealed class WorkspaceSettingsStore
         }
 
         RootRepository = repository;
-        return SaveSettings("Repository configured, but the choice couldn't be saved for next time.");
+        var saveError = SaveSettings("Repository configured, but the choice couldn't be saved for next time.");
+        BackupChanged?.Invoke();
+        return saveError;
     }
 
     public string? ClearRepository()
@@ -522,26 +565,26 @@ public sealed class WorkspaceSettingsStore
         if (RootRepository is null) return null;
 
         RootRepository = null;
-        return SaveSettings("Repository cleared, but the choice couldn't be saved for next time.");
+        var error = SaveSettings("Repository cleared, but the choice couldn't be saved for next time.");
+        BackupChanged?.Invoke();
+        return error;
     }
 
-    public string? SetDevbookFolder(string key, bool enabled, string? path)
+    /// <summary>Changes when the backlog is backed up. Saved even while no
+    /// repository is named, and announced either way, so the worker sees a
+    /// schedule that was set before the repository as soon as both are there.
+    /// The in-memory value moves even when the write fails, the way every
+    /// setter here behaves: the person chose it, and the message says only
+    /// that it will not survive a restart.</summary>
+    public string? SetBackupSchedule(BackupSchedule schedule)
     {
-        if (string.IsNullOrWhiteSpace(key)) return "Choose a knowledge folder before saving.";
+        ArgumentNullException.ThrowIfNull(schedule);
 
-        var folders = DevbookFolderSetting.Normalize(DevbookFolders).ToList();
-        var index = folders.FindIndex(folder => string.Equals(folder.Key, key, StringComparison.OrdinalIgnoreCase));
-        if (index < 0) return $"Unknown knowledge folder '{key}'.";
+        if (schedule == BackupSchedule) return null;
 
-        folders[index] = folders[index] with
-        {
-            Enabled = enabled,
-            Path = string.IsNullOrWhiteSpace(path) ? null : path.Trim()
-        };
-
-        DevbookFolders = DevbookFolderSetting.Normalize(folders);
-        var error = SaveSettings("Devbook folders updated, but the choice couldn't be saved for next time.");
-        if (error is null) RootChanged?.Invoke();
+        BackupSchedule = schedule;
+        var error = SaveSettings("Backup schedule changed, but the choice couldn't be saved for next time.");
+        BackupChanged?.Invoke();
         return error;
     }
 
@@ -564,7 +607,7 @@ public sealed class WorkspaceSettingsStore
         {
             if (IsDefaultDevbookCacheDirectory) return null;
 
-            DevbookCacheDirectory = DefaultDevbookCacheDirectory;
+            _devbookCacheOverride = null;
             var reset = SaveSettings("Snapshot folder reset, but the choice couldn't be saved for next time.");
             if (reset is null) RootChanged?.Invoke();
             return reset;
@@ -604,35 +647,20 @@ public sealed class WorkspaceSettingsStore
             return null;
         }
 
-        DevbookCacheDirectory = full;
+        // Typing the default path is choosing the default, not overriding it
+        // with a path that happens to match: recorded as no override, so the
+        // field shows empty again and a later move of the root takes the cache
+        // default along instead of pinning it to the folder the root used to be.
+        _devbookCacheOverride = string.Equals(
+            Path.TrimEndingDirectorySeparator(full),
+            Path.TrimEndingDirectorySeparator(DefaultDevbookCacheDirectory),
+            StringComparison.OrdinalIgnoreCase)
+            ? null
+            : full;
 
         var error = SaveSettings("Snapshot folder changed, but the choice couldn't be saved for next time.");
         if (error is null) RootChanged?.Invoke();
         return error;
-    }
-
-    /// <summary>
-    /// The folder branch snapshots go to when nobody has chosen one.
-    /// <para>
-    /// <c>devbook-cache</c>, except on a machine that already has a
-    /// <c>knowledge-cache</c> from before the rename and no <c>devbook-cache</c>
-    /// beside it — there the old folder stays the default. The snapshots inside
-    /// it are disposable, so nothing would be lost by starting a fresh folder;
-    /// what would be lost is the fetch that filled it, and a rename is not a
-    /// reason to re-download every registered repository's tree. Keeping the
-    /// old folder as the default also keeps
-    /// <see cref="IsDefaultDevbookCacheDirectory"/> true, so the settings screen
-    /// still shows the field empty rather than a path nobody typed. Once the old
-    /// folder is gone the new name takes over for good.
-    /// </para>
-    /// </summary>
-    private static string ResolveDefaultDevbookCacheDirectory(string appData)
-    {
-        var current = Path.Combine(appData, DevbookCacheFolderName);
-        if (Directory.Exists(current)) return current;
-
-        var legacy = Path.Combine(appData, LegacyDevbookCacheFolderName);
-        return Directory.Exists(legacy) ? legacy : current;
     }
 
     private string? SaveSettings(string saveFailureMessage)
@@ -650,11 +678,14 @@ public sealed class WorkspaceSettingsStore
                         Owner = RootRepository.Owner,
                         Name = RootRepository.Name
                     },
-                DevbookFolders = DevbookFolders.Select(StoreDevbookFolderSettings.From).ToList(),
+                // Written even while off, so the time and day somebody set
+                // before switching the schedule off are still there when they
+                // switch it back on.
+                BackupSchedule = StoreBackupScheduleSettings.From(BackupSchedule),
 
                 // Written as null while it is the default, so a workspace nobody
                 // has moved the cache in keeps producing the file it always did.
-                DevbookCacheDirectory = IsDefaultDevbookCacheDirectory ? null : DevbookCacheDirectory
+                DevbookCacheDirectory = _devbookCacheOverride
             };
             File.WriteAllText(_settingsPath, JsonSerializer.Serialize(settings, JsonOptions));
             return null;
@@ -694,57 +725,63 @@ public sealed class WorkspaceSettingsStore
 
         public StoreRepositorySettings? RootRepository { get; init; }
 
-        public List<StoreDevbookFolderSettings>? DevbookFolders { get; init; }
+        /// <summary>When the backlog is backed up, or null in a file written
+        /// before there was a schedule to write. Absent reads as off.</summary>
+        public StoreBackupScheduleSettings? BackupSchedule { get; init; }
 
         /// <summary>Where branch snapshots are cached, or null for the default
-        /// folder beside this file. Absent reads as the default, which is what
-        /// every settings file written before branch loading existed says.</summary>
+        /// folder under the storage folder. Absent reads as the default, which
+        /// is what every settings file written before branch loading existed
+        /// says.</summary>
         public string? DevbookCacheDirectory { get; init; }
 
-        /// <summary>FROZEN LEGACY FIELDS: the names <see cref="DevbookFolders"/>
-        /// and <see cref="DevbookCacheDirectory"/> were written under while the
-        /// context was called Knowledge. Read when the current name is absent,
-        /// never assigned on save, and omitted when null so the file written back
-        /// carries only the current names.</summary>
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public List<StoreDevbookFolderSettings>? KnowledgeFolders { get; init; }
-
+        /// <summary>FROZEN LEGACY FIELD: the name <see cref="DevbookCacheDirectory"/>
+        /// was written under while the context was called Knowledge. Read when
+        /// the current name is absent, never assigned on save, and omitted when
+        /// null so the file written back carries only the current name.
+        /// <para>
+        /// The storage folder's own devbook rows — <c>devbookFolders</c>, and
+        /// <c>knowledgeFolders</c> before that — are not declared here at all:
+        /// the deserializer ignores what it has no property for, which is how a
+        /// file that still carries them opens as if it never did.
+        /// </para></summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? KnowledgeCacheDirectory { get; init; }
     }
 
-    private sealed record StoreDevbookFolderSettings
+    private sealed record StoreBackupScheduleSettings
     {
-        public string? Key { get; init; }
+        public string? Cadence { get; init; }
 
-        public bool Enabled { get; init; } = true;
+        /// <summary>Local time of day as <c>HH:mm</c>, the way the working-hours
+        /// file writes its times.</summary>
+        public string? At { get; init; }
 
-        public string? Path { get; init; }
+        public string? Day { get; init; }
 
-        /// <summary>The stored row as a setting, or null when its key names no
-        /// knowledge folder — a typo, or a section since retired, as
-        /// <c>.backlog</c> now is. Dropping it is what <see cref="DevbookFolderSetting.Normalize"/>
-        /// would do anyway; saying so here is what keeps a stale file from
-        /// stopping the app from opening.</summary>
-        public DevbookFolderSetting? ToSetting()
+        /// <summary>The stored row as a schedule, or null when it does not read
+        /// as one — a hand-edited file is a file like any other here, and a row
+        /// that cannot be read means off rather than a failure to open.</summary>
+        public BackupSchedule? ToSchedule()
         {
-            var folder = DevbookFolderSetting.Defaults()
-                .FirstOrDefault(defaultFolder => string.Equals(defaultFolder.Key, Key, StringComparison.OrdinalIgnoreCase));
+            if (!Enum.TryParse<BackupCadence>(Cadence, ignoreCase: true, out var cadence)) return null;
 
-            return folder is null
-                ? null
-                : folder with
-                {
-                    Enabled = Enabled,
-                    Path = Path
-                };
+            var at = TimeOnly.TryParseExact(At, "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed)
+                ? parsed
+                : FileSystem.BackupSchedule.Off.At;
+
+            var day = Enum.TryParse<DayOfWeek>(Day, ignoreCase: true, out var parsedDay)
+                ? parsedDay
+                : FileSystem.BackupSchedule.Off.Day;
+
+            return new BackupSchedule(cadence, at, day);
         }
 
-        public static StoreDevbookFolderSettings From(DevbookFolderSetting folder) => new()
+        public static StoreBackupScheduleSettings From(BackupSchedule schedule) => new()
         {
-            Key = folder.Key,
-            Enabled = folder.Enabled,
-            Path = folder.Path
+            Cadence = schedule.Cadence.ToString(),
+            At = schedule.At.ToString("HH:mm", CultureInfo.InvariantCulture),
+            Day = schedule.Day.ToString()
         };
     }
 

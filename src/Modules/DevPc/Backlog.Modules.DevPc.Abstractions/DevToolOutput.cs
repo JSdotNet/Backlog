@@ -253,6 +253,40 @@ public static partial class DevToolOutput
         return plugins;
     }
 
+    /// <summary>
+    /// Every cache folder an install in the same listing points at, with how many
+    /// installs share it.
+    ///
+    /// <para>Read out of the same body as <see cref="ParseClaudePluginList" /> but
+    /// not folded into it, because the two are keyed differently on purpose. That
+    /// one keeps one entry per plugin id and the last scope to be listed wins;
+    /// this one has to see every scope, because a project-scoped install still
+    /// pointing at last year's folder is the exact thing
+    /// <see cref="DevToolCache.Describe" /> exists to keep from being deleted.</para>
+    ///
+    /// <para>Keys are spelled by <see cref="DevToolCache.NormalizePath" />, so the
+    /// desktop adapter's own walk of the cache can look a folder up without
+    /// agreeing with Claude about separators or case.</para>
+    /// </summary>
+    public static IReadOnlyDictionary<string, int> ParseClaudePluginInstallPaths(string json)
+    {
+        var paths = new Dictionary<string, int>(StringComparer.Ordinal);
+
+        foreach (var entry in EnumerateJsonArray(json))
+        {
+            if (entry.ValueKind is not JsonValueKind.Object
+                || ReadString(entry, "installPath") is not { Length: > 0 } installPath)
+            {
+                continue;
+            }
+
+            var key = DevToolCache.NormalizePath(installPath);
+            paths[key] = paths.GetValueOrDefault(key) + 1;
+        }
+
+        return paths;
+    }
+
     /// <summary>The marketplace names <c>claude plugin marketplace list --json</c>
     /// reports, read with the same tolerance and for the same reason as
     /// <see cref="ParseClaudePluginList" />.</summary>

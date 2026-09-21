@@ -6,12 +6,31 @@ using Backlog.Modules.Devbook.Abstractions;
 
 namespace Backlog.Desktop.UI.Devbook;
 
-public sealed class Arc42DevbookStore(IDevbookFolderSource source)
+public sealed class Arc42DevbookStore : IDisposable
 {
+    private readonly IDevbookFolderSource _source;
+
+    /// <summary>Every chapter parsed so far, kept while its file stays as it was.
+    /// The panel that shows this catalog is disposed on every tab switch and asks
+    /// for the folder again on the way back; without this that was thirty-nine
+    /// files parsed to redraw one. See <see cref="DevbookFileCache{T}"/>.</summary>
+    private readonly DevbookFileCache<DevbookDocument> _documents = new();
+
+    public Arc42DevbookStore(IDevbookFolderSource source)
+    {
+        _source = source;
+        _source.Changed += _documents.Clear;
+    }
+
+    /// <summary>Lets go of the folder source. The store is a singleton and so is
+    /// the source, so nothing leaks in the app — but a host that tears its
+    /// container down, as the tests do, must find no handler left behind.</summary>
+    public void Dispose() => _source.Changed -= _documents.Clear;
+
     public event Action? Changed
     {
-        add => source.Changed += value;
-        remove => source.Changed -= value;
+        add => _source.Changed += value;
+        remove => _source.Changed -= value;
     }
 
     public async Task<Arc42DevbookCatalog> LoadAsync(string? repositoryAlias = null)
@@ -19,7 +38,7 @@ public sealed class Arc42DevbookStore(IDevbookFolderSource source)
         // Prepared rather than resolved: the catalog parses every chapter in
         // the folder, so this is the moment a branch's architecture chapters
         // are fetched — the whole area, once, and never again until it moves.
-        var location = await source.PrepareContentAsync(".arc42", repositoryAlias).ConfigureAwait(false);
+        var location = await _source.PrepareContentAsync(".arc42", repositoryAlias).ConfigureAwait(false);
         if (!location.Available || location.FullPath is null)
         {
             return Arc42DevbookCatalog.Missing(location.RootPath ?? location.FullPath ?? string.Empty);
@@ -33,7 +52,14 @@ public sealed class Arc42DevbookStore(IDevbookFolderSource source)
         // The reader knows nothing about where the folder came from, so the
         // editability the resolution decided is stamped on afterwards rather
         // than threaded through a loader that would only carry it.
-        var catalog = await Arc42DevbookReader.LoadFolderAsync(location.FullPath, location.RootPath).ConfigureAwait(false);
+        //
+        // On the thread pool, because the caller is a component and its
+        // continuation is the dispatcher: in the desktop host that is the UI
+        // thread, and a folder parse there is a pane that does not paint until it
+        // is over.
+        var folderPath = location.FullPath;
+        var rootPath = location.RootPath;
+        var catalog = await Task.Run(() => Arc42DevbookReader.LoadFolder(folderPath, rootPath, _documents)).ConfigureAwait(false);
 
         return catalog with { CanEdit = location.CanEdit };
     }
@@ -44,7 +70,7 @@ public sealed class Arc42DevbookStore(IDevbookFolderSource source)
         if (string.IsNullOrWhiteSpace(itemPath)) throw new ArgumentException("Devbook item path is required.", nameof(itemPath));
         if (string.IsNullOrWhiteSpace(status)) throw new ArgumentException("Status is required.", nameof(status));
 
-        var location = source.Resolve(".arc42", repositoryAlias);
+        var location = _source.Resolve(".arc42", repositoryAlias);
         var folderPath = location.WritablePath("Architecture");
 
         DevbookMarkdownStatusWriter.UpdateStatus(folderPath, itemPath, ".arc42/", status);
@@ -65,7 +91,7 @@ public sealed class Arc42DevbookStore(IDevbookFolderSource source)
         cancellationToken.ThrowIfCancellationRequested();
         if (string.IsNullOrWhiteSpace(itemPath)) throw new ArgumentException("Devbook item path is required.", nameof(itemPath));
 
-        var location = source.Resolve(".arc42", repositoryAlias);
+        var location = _source.Resolve(".arc42", repositoryAlias);
         var folderPath = location.WritablePath("Architecture");
 
         DevbookMarkdownStatusWriter.RemoveStatus(folderPath, itemPath, ".arc42/");
@@ -88,7 +114,24 @@ public static class Arc42DevbookReader
     /// conventional folder at the repository root and the only answer available
     /// for a folder configured somewhere off the clone entirely.
     /// </para></summary>
-    public static async Task<Arc42DevbookCatalog> LoadFolderAsync(string arc42Directory, string? repositoryRoot = null)
+    public static Task<Arc42DevbookCatalog> LoadFolderAsync(string arc42Directory, string? repositoryRoot = null) =>
+        Task.FromResult(LoadFolder(arc42Directory, repositoryRoot, cache: null));
+
+    /// <summary>
+    /// The same read, synchronous and remembering.
+    /// <para>
+    /// <paramref name="cache"/> is the store's: a chapter whose file has not
+    /// changed since it was last parsed is handed back as the same record, which
+    /// is also what lets the panel's reference-identity guard skip re-reading a
+    /// chapter that a reload brought back unchanged. Null parses everything, which
+    /// is what the tests and the standalone page want.
+    /// </para>
+    /// <para>
+    /// Synchronous on purpose: the caller decides which thread pays, and the
+    /// store puts it on the pool.
+    /// </para>
+    /// </summary>
+    internal static Arc42DevbookCatalog LoadFolder(string arc42Directory, string? repositoryRoot, DevbookFileCache<DevbookDocument>? cache)
     {
         var rootDirectory = ResolveRoot(arc42Directory, repositoryRoot);
         if (!Directory.Exists(arc42Directory))
@@ -108,8 +151,10 @@ public static class Arc42DevbookReader
             var fullPath = Path.Combine(rootDirectory, relativePath.Replace('/', Path.DirectorySeparatorChar));
             if (!File.Exists(fullPath)) continue;
 
-            var markdown = await File.ReadAllTextAsync(fullPath);
-            documents.Add(DevbookMarkdownParser.Parse(relativePath.Replace('\\', '/'), markdown));
+            var documentPath = relativePath.Replace('\\', '/');
+            documents.Add(cache is null
+                ? DevbookMarkdownParser.Parse(documentPath, File.ReadAllText(fullPath))
+                : cache.GetOrAdd(fullPath, () => DevbookMarkdownParser.Parse(documentPath, File.ReadAllText(fullPath))));
         }
 
         return new Arc42DevbookCatalog(rootDirectory, true, documents);
@@ -205,10 +250,17 @@ public sealed record DevbookDocument(
 {
     public string? Status => Metadata.Status;
 
-    public IReadOnlyList<DevbookBlock> ContentBlocks => Blocks.FirstOrDefault() is DevbookHeadingBlock { Level: 1 } heading
+    /// <summary>The body without its title heading. Computed once: the panel
+    /// hands this to the file view on every render, and a fresh list per render
+    /// is a fresh parameter per render, which re-rendered every block below
+    /// it.</summary>
+    public IReadOnlyList<DevbookBlock> ContentBlocks => _contentBlocks ??=
+        Blocks.FirstOrDefault() is DevbookHeadingBlock { Level: 1 } heading
         && string.Equals(heading.Text, Title, StringComparison.Ordinal)
             ? Blocks.Skip(1).ToList()
             : Blocks;
+
+    private IReadOnlyList<DevbookBlock>? _contentBlocks;
 }
 
 public sealed record DevbookMeta(string? Status, IReadOnlyList<string> Related)

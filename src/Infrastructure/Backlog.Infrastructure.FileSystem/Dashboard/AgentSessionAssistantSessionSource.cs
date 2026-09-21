@@ -68,6 +68,12 @@ public sealed class AgentSessionAssistantSessionSource(IAgentSessionSource sessi
             // Dashboard tell a session that left an activity record from one that left
             // none, and an id rewritten here would be a join that silently matches
             // nothing rather than one that fails.
-            Id = session.Id
+            Id = session.Id,
+
+            // A turn is one prompt the person sent — that is how Sessions defines it,
+            // and the Dashboard says "prompts" because that is the word a reader has.
+            // Null crosses as null: the source already refuses to write 0 for a
+            // transcript with nothing to count, and the seam must not undo that.
+            Prompts = session.TurnCount
         };
 }

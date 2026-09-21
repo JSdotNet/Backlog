@@ -13,31 +13,31 @@ internal static class DevbookGoldenSamples
     /// <summary>The design section's blocks — <c>DesignDevbookView</c>'s half.
     /// Both table shapes are here because the token modifier is the only thing
     /// separating them.</summary>
-    internal static IReadOnlyList<DesignDevbookBlock> DesignBlocks =>
+    internal static IReadOnlyList<DocumentDevbookBlock> DesignBlocks =>
     [
-        new DesignDevbookSubheading(3, "Tokens"),
-        new DesignDevbookParagraph(MarkdownPreview.ParseInlines(
+        new DocumentDevbookSubheading(3, "Tokens"),
+        new DocumentDevbookParagraph(MarkdownPreview.ParseInlines(
             "A paragraph with **bold**, `code`, a #tag and a [link](https://example.com).")),
-        new DesignDevbookList(false,
+        new DocumentDevbookList(false,
         [
             MarkdownPreview.ParseInlines("A bullet"),
             MarkdownPreview.ParseInlines("Another, with a #tag")
         ]),
-        new DesignDevbookList(true,
+        new DocumentDevbookList(true,
         [
             MarkdownPreview.ParseInlines("First"),
             MarkdownPreview.ParseInlines("Second")
         ]),
-        new DesignDevbookQuote(MarkdownPreview.ParseInlines("A quote that says something.")),
-        new DesignDevbookTable(["Name", "Meaning"], [["one", "the first"], ["two", "the second"]], false),
-        new DesignDevbookTable(["Token", "Value"], [["--surface", "#101014"]], true),
-        new DesignDevbookCode("csharp", "var blocks = DesignDevbook.Parse(source);"),
+        new DocumentDevbookQuote(MarkdownPreview.ParseInlines("A quote that says something.")),
+        new DocumentDevbookTable(["Name", "Meaning"], [["one", "the first"], ["two", "the second"]], false),
+        new DocumentDevbookTable(["Token", "Value"], [["--surface", "#101014"]], true),
+        new DocumentDevbookCode("csharp", "var blocks = DesignDevbook.Parse(source);"),
         // A diagram language the library draws, and one it only labels: plantuml
         // is a diagram to DiagramView but nothing renders it, so it falls back to
         // its source and no per-instance id reaches the markup.
-        new DesignDevbookDiagram("plantuml", "@startuml\nA -> B\n@enduml"),
-        new DesignDevbookDiagram("mermaid", "graph TD; a-->b;"),
-        new DesignDevbookDivider()
+        new DocumentDevbookDiagram("plantuml", "@startuml\nA -> B\n@enduml"),
+        new DocumentDevbookDiagram("mermaid", "graph TD; a-->b;"),
+        new DocumentDevbookDivider()
     ];
 
     /// <summary>The arc42 panel's blocks — <c>Arc42DevbookPanel</c>'s half.

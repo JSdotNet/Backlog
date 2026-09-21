@@ -8,7 +8,7 @@ namespace Backlog.Infrastructure.FileSystem;
 /// per-user settings.
 /// <para>
 /// Its own file for the reason <see cref="ShellNavigationStore"/> and
-/// <see cref="TasksRefreshSettingsStore"/> have theirs: <c>settings.json</c> holds
+/// <see cref="WorkingHoursSettingsStore"/> have theirs: <c>settings.json</c> holds
 /// choices somebody made, and this holds a fact about the box that nobody chose and
 /// nobody may edit. Mixing the two would put a value a person can retype next to one
 /// that must never change.

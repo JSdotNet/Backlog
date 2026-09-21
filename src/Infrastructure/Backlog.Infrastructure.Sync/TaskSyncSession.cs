@@ -49,6 +49,7 @@ public sealed class TaskSyncSession
     private readonly IDeviceCredentialStore _credentials;
     private readonly TimeProvider _time;
     private readonly IInboxCaptureOutbox? _outbox;
+    private readonly SyncActivityLog? _activity;
 
     /// <param name="credentials">Whose device this is. Read before every push
     /// and pull to check the progress in <paramref name="state"/> belongs to the
@@ -56,6 +57,10 @@ public sealed class TaskSyncSession
     /// <param name="outbox">The Inbox's acknowledgements waiting to leave this
     /// machine, or null on a head that has no inbox store. Optional by
     /// construction, so the mobile head composes exactly as it did.</param>
+    /// <param name="activity">Where each document that leaves is written down
+    /// by name, or null on a head with nothing to show one in. What arrives is
+    /// recorded by the merge, which is the one that knows whether it was
+    /// kept.</param>
     public TaskSyncSession(
         TaskSyncClient client,
         TaskReplicaMerge merge,
@@ -63,7 +68,8 @@ public sealed class TaskSyncSession
         ITaskSyncStateStore state,
         IDeviceCredentialStore credentials,
         TimeProvider time,
-        IInboxCaptureOutbox? outbox = null)
+        IInboxCaptureOutbox? outbox = null,
+        SyncActivityLog? activity = null)
     {
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(merge);
@@ -79,6 +85,7 @@ public sealed class TaskSyncSession
         _credentials = credentials;
         _time = time;
         _outbox = outbox;
+        _activity = activity;
     }
 
     /// <summary>
@@ -183,6 +190,15 @@ public sealed class TaskSyncSession
 
             pushed += response.Value.Accepted;
 
+            // After the service accepted the batch and not before: the log says
+            // what left, and a batch the replica refused never did.
+            foreach (var task in batch)
+            {
+                _activity?.Record(
+                    SyncDirection.Sent, SyncItemKind.Task, task.Id.ToString("D"), task.Title,
+                    task.DeletedAt is null ? null : "deleted");
+            }
+
             if (WatermarkAfter(batch, final: start + batch.Count >= pending.Count) is { } advanced)
             {
                 _state.Save(_state.Current with { PushWatermark = advanced });
@@ -210,6 +226,12 @@ public sealed class TaskSyncSession
                 if (response.IsFailure) return Result.Failure<TaskSyncSummary>(response.Error);
 
                 pushed += response.Value.Accepted;
+
+                foreach (var ack in batch)
+                {
+                    _activity?.Record(
+                        SyncDirection.Sent, SyncItemKind.Capture, ack.CaptureId.ToString("D"), ack.Title, "acknowledged");
+                }
 
                 await _outbox
                     .MarkSentAsync([.. batch.Select(ack => ack.CaptureId)], cancellationToken)
@@ -313,38 +335,31 @@ public sealed class TaskSyncSession
     }
 
     /// <summary>
-    /// Pull, then push.
+    /// Push, then pull.
     /// <para>
-    /// In that order because the replica takes whatever reaches it last, whole
-    /// document by whole document, and asks nothing about the stamps it carries.
-    /// A device whose copy of a task is behind — one returning from a week away,
-    /// one asked to republish everything, one that has just joined an owner with a
-    /// backlog already on the replica — would, pushing first, put its stale copy
-    /// on top of the newer one and then pull back its own echo, and the other
-    /// machine's edit would be gone before this one had ever seen it. Pulling
-    /// first hands the merge the newer document while the local copy still reads
-    /// as unsent, so <see cref="TaskReplicaMerge"/> keeps a genuine local edit and
-    /// takes a genuinely newer remote one, and what is then pushed is the result.
+    /// In that order because the pull is what tells this device it is up to date,
+    /// and a pull that ran first would say so while local work was still
+    /// unsent. A push that fails stops the exchange rather than being followed by
+    /// a pull: the failure is almost always the service being unreachable, and a
+    /// second call to say the same thing is a second thing for a person to read.
     /// </para>
     /// <para>
-    /// It used to be the other way round, on the ground that the pull is what tells
-    /// the device it is up to date and should not say so while work is unsent. The
-    /// summary is built after both halves and says what each did, so that reading
-    /// was never at risk; the order of the wire traffic was, for the reason above.
-    /// </para>
-    /// <para>
-    /// A pull that fails stops the exchange rather than being followed by a push:
-    /// the failure is almost always the service being unreachable, and a second
-    /// call to say the same thing is a second thing for a person to read.
+    /// The order is safe because the replica refuses a stale push
+    /// (<c>TaskChangePrecedence</c>): a device holding an older copy of a task
+    /// the other machine has since edited sends it, is refused, and takes the
+    /// newer document on the pull that follows. Before the replica compared
+    /// stamps this order let the stale copy land on top of the newer one, which
+    /// is what pulling first would have prevented; the refusal makes the order a
+    /// matter of what the summary reads rather than of what survives.
     /// </para>
     /// </summary>
     public async Task<Result<TaskSyncSummary>> SyncAsync(CancellationToken cancellationToken = default)
     {
-        var pull = await PullAsync(cancellationToken).ConfigureAwait(false);
-        if (pull.IsFailure) return pull;
-
         var push = await PushAsync(cancellationToken).ConfigureAwait(false);
         if (push.IsFailure) return push;
+
+        var pull = await PullAsync(cancellationToken).ConfigureAwait(false);
+        if (pull.IsFailure) return pull;
 
         return Result.Success(new TaskSyncSummary(
             push.Value.Pushed,

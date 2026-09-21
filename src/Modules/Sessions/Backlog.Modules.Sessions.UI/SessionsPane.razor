@@ -15,7 +15,8 @@
     Like the tools pane, it owns its own loading: the list is the pane's subject, and
     a shell holding it would be holding state about a context it only makes room for.
     The shell decides *whether* there is a sessions pane — the feature flag and the
-    header toggle stay there — and this decides what is in one.
+    tab it opens on, beside the dashboard's overview, stay there — and this decides
+    what is in one.
 
     Two things this pane deliberately is not:
 
@@ -40,14 +41,36 @@
     live rows are evidence, while Copilot's state is a timeout on top of a folder that
     leaves no liveness marker at all. A Copilot session that is genuinely running but
     has been quiet for over half an hour reads as Finished, and this view does not
-    hold it. The view is the filter, and it is the only control here that removes a
-    row: grouping still moves rows and removes none, which is why the badge does not
-    move when the grouping does.
+    hold it. The view is a filter, and so is Machine beside it — the two controls
+    here that remove a row: grouping still moves rows and removes none, which is why
+    the badge does not move when the grouping does.
+
+    Machine narrows to one environment, and it is a select where the two strips are
+    one-of-many buttons, for the reason the dashboard's machine filter is one: the
+    options are however many machines have reported, which is not this pane's
+    decision and not a list it can promise stays short. Its options are read off the
+    catalog itself, so an option is offered exactly when there are rows behind it,
+    and it is named and ordered the way Group by environment names and orders its
+    sections — the same derivation, so the two cannot disagree. Like Show, it comes
+    back to "All machines" on every open.
+
+    The shell's repository scope reaches this list too — the same chips that narrow
+    the task list and the dashboard's overview — and it is the one filter this pane
+    does not own a control for, because the control is in the header. It is a
+    subtraction with a cost the other filters do not have: only a session whose
+    agent recorded its repository can be matched to one, and Claude records none
+    (see .domain/sessions — a repository read off a folder path is a guess, and the
+    log never fills a gap the agent left). So a scoped list holds Copilot's sessions
+    and the replicated ones that arrived with an alias, and says so on the subtitle
+    rather than letting a reader conclude Claude ran nothing. What a recorded
+    repository is called on the wire — an owner/name, or an alias — is the shell's
+    to resolve, which is why the mapping is handed in beside the scope the way the
+    hue is.
 
     Two subtractions, two lines, and they must not be confused for each other. The
     subtitle says what the *reading* left out — the cap, and its numbers are the
-    catalog's. The badge says what the *view* is hiding, and it names both numbers
-    whenever it is hiding any. A list that was capped and filtered and reported one
+    catalog's. The badge says what the *filters* are hiding, and it names both numbers
+    whenever they are hiding any. A list that was capped and filtered and reported one
     number for both would be blaming the cap for the reader's own choice.
 
     The ✕ only reports that it was pressed; what that closes is the shell's business.
@@ -69,17 +92,18 @@
                    Description="@Subtitle">
         <Actions>
             @* The library's badge wearing this pane's count class. It answers to the
-               view and not to the grouping: it stays put while Group by moves the
+               filters and not to the grouping: it stays put while Group by moves the
                same rows around, and it changes — and names both numbers — the moment
-               Show leaves some of them out. *@
+               Show or Machine leaves some of them out. *@
             <Badge BaseClass="sessions-panel__count" Kind="" TestId="sessions-count">@CountLabel</Badge>
             <IconButton AriaLabel="Close sessions pane" CssClass="btn--ghost" OnClick="() => OnClose.InvokeAsync()">✕</IconButton>
         </Actions>
     </SectionHeader>
 
     <div class="sessions-panel__filters" data-testid="sessions-filters">
-        @* First, because it decides which rows exist before Group by decides where
-           they sit — and reading left to right is the order the two controls apply.
+        @* The two filters first, because they decide which rows exist before Group
+           by decides where they sit — and reading left to right is the order the
+           controls apply.
 
            A one-of-many strip rather than a Toggle, even though there are two
            options and a switch would fit. A role="switch" states a boolean
@@ -100,6 +124,28 @@
                     </ToggleButton>
                 }
             </ButtonGroup>
+        </div>
+
+        <div class="sessions-filter">
+            <span class="sessions-filter__label">Machine</span>
+            @* "Machine", the dashboard's word for this same control, and not the
+               column's "Environment". The two surfaces offer the same list — this
+               device and every machine that has reported — and a reader who has
+               narrowed the dashboard by machine should find the identical control
+               under the identical name here rather than a second vocabulary for
+               one filter. Environment stays the context's term everywhere the
+               record is described: the column, the grouping, and the code. The
+               library's SelectField in the dashboard's own machine-filter dress,
+               so the two selects are one control rather than two that happen to
+               look alike. *@
+            <SelectField CurrentValue="@_environmentId"
+                         Options="@EnvironmentOptions"
+                         Label="Machine to focus on"
+                         IncludeEmptyOption="true"
+                         EmptyLabel="All machines"
+                         CssClass="badge badge--area"
+                         TestId="sessions-machine-filter"
+                         OnChanged="ChooseEnvironment" />
         </div>
 
         <div class="sessions-filter">
@@ -313,6 +359,14 @@
     private AgentSessionCatalog _catalog = AgentSessionCatalog.Empty;
     private AgentSessionView _view = AgentSessionView.Live;
     private AgentSessionGrouping _grouping = AgentSessionGrouping.None;
+
+    /// <summary>The environment the list is narrowed to, by id, or null for all of
+    /// them. Held the way <see cref="_view"/> is — here, for as long as this pane
+    /// lasts — and for the same reason: a new opening starts on every environment,
+    /// and a stored choice would leave a reader looking at one machine's sessions
+    /// without having asked for them.</summary>
+    private string? _environmentId;
+
     private bool _loading;
 
     /// <summary>When the list was read, so "12 minutes ago" is measured against the
@@ -342,6 +396,24 @@
     /// </summary>
     [Parameter]
     public Func<string?, int?>? RepositoryColour { get; set; }
+
+    /// <summary>
+    /// The repositories the shell has scoped, by alias, in the order taken; empty
+    /// for all of them. Read on every render: the chips can move while the list is
+    /// open, and the list follows them the way the dashboard's parts do.
+    /// </summary>
+    [Parameter]
+    public IReadOnlyList<string> RepositoryScope { get; set; } = [];
+
+    /// <summary>
+    /// What a session's recorded repository is called here — the configured alias
+    /// for an <c>owner/name</c> or for an alias that arrived on the wire, or null
+    /// for a repository this workspace does not know and for a session that
+    /// recorded none. The shell's to answer, for the reason <see cref="RepositoryColour"/>
+    /// is: the pane knows nothing about the repository list and should not have to.
+    /// </summary>
+    [Parameter]
+    public Func<string?, string?>? RepositoryAlias { get; set; }
 
     /// <summary>
     /// The repository cell, plus its identity mark when the host placed it.
@@ -409,6 +481,16 @@
         {
             _catalog = await Sessions.GetSessionsAsync();
             _readAt = DateTimeOffset.UtcNow;
+
+            // A re-read can lose the environment the list was narrowed to — its only
+            // records aged past the cap, or the source that held them could not be
+            // read this time. Left in place, the select would fall back to showing
+            // "All machines" over a list narrowed to nothing, which is the one
+            // thing the control must not say. Widening back out is the honest reset.
+            if (_environmentId is not null && Environments.All(environment => environment.Id != _environmentId))
+            {
+                _environmentId = null;
+            }
         }
         finally
         {
@@ -424,9 +506,59 @@
 
     private void ChooseGrouping(AgentSessionGrouping grouping) => _grouping = grouping;
 
-    /// <summary>The rows this view admits, before any grouping. View first, then
-    /// grouping: the grouping never sees what the view left out.</summary>
-    private IReadOnlyList<AgentSession> Visible => AgentSessionViews.Of(_catalog.Sessions, _view);
+    /// <summary>One environment, or all of them when the empty option is chosen — the
+    /// select hands back an empty string for that, and the module reads either as
+    /// the absence of a filter.</summary>
+    private void ChooseEnvironment(string? id) => _environmentId = string.IsNullOrWhiteSpace(id) ? null : id;
+
+    /// <summary>
+    /// The environments the select offers: every one the reading holds a record of,
+    /// read off the whole catalog and not off the view, so switching Show to Live
+    /// does not take the option a reader just chose out from under them. Derived per
+    /// render rather than stored, because it is a pure function of a catalog that
+    /// only Refresh changes.
+    /// </summary>
+    private IReadOnlyList<AgentSessionEnvironment> Environments => AgentSessionEnvironments.Of(_catalog.Sessions);
+
+    /// <summary>The environments as the library's select wants them: the id is the
+    /// value and the name is the label, which is the whole reason an environment
+    /// carries both.</summary>
+    private IReadOnlyList<SelectorOption> EnvironmentOptions =>
+        [.. Environments.Select(environment => new SelectorOption(environment.Id, environment.Name))];
+
+    /// <summary>What the chosen environment is called, for the sentences that name it,
+    /// or null when the list is not narrowed to one.</summary>
+    private string? EnvironmentName =>
+        _environmentId is null ? null : Environments.FirstOrDefault(environment => environment.Id == _environmentId)?.Name;
+
+    /// <summary>The rows the filters admit, before any grouping. Environment, then
+    /// view, then grouping: neither narrowing reorders, so which of the two goes first
+    /// changes nothing, and the grouping never sees what either left out.</summary>
+    /// <summary>Whether the header has narrowed the list to some repositories.</summary>
+    private bool Scoped => RepositoryScope.Count > 0;
+
+    private string ScopeLabel => string.Join(", ", RepositoryScope);
+
+    /// <summary>A session in the scope: one whose recorded repository the shell
+    /// resolves to a scoped alias. Without a recorded repository there is nothing
+    /// to resolve, and the session is out — an absence, not a guess.</summary>
+    private bool InScope(AgentSession session) =>
+        !Scoped
+        || (RepositoryAlias?.Invoke(session.Repository) is { } alias
+            && RepositoryScope.Contains(alias, StringComparer.OrdinalIgnoreCase));
+
+    /// <summary>The catalog after the header's scope and before this pane's own
+    /// filters: the scope decides which rows exist here at all, the way it does on
+    /// the task list.</summary>
+    private IReadOnlyList<AgentSession> ScopedSessions =>
+        Scoped ? [.. _catalog.Sessions.Where(InScope)] : _catalog.Sessions;
+
+    private IReadOnlyList<AgentSession> Visible =>
+        AgentSessionViews.Of(AgentSessionEnvironments.On(ScopedSessions, _environmentId), _view);
+
+    /// <summary>How many sessions the chosen environment has a record of, whatever
+    /// the view. The number the empty state offers a reader as the way back out.</summary>
+    private int OnEnvironment => AgentSessionEnvironments.On(ScopedSessions, _environmentId).Count;
 
     /// <summary>
     /// The sections to render, derived from the module's own grouping rather than
@@ -472,9 +604,22 @@
     /// The badge is where the view's own subtraction is reported.
     /// </para>
     /// </summary>
-    private string Subtitle => _catalog.Capped
-        ? $"The {Total} most recent of {_catalog.Discovered} sessions this PC has a record of, most recently active first."
-        : "The sessions this PC has a record of, most recently active first.";
+    /// <summary>The reading's own line, plus — while the header has narrowed the
+    /// list — the one thing about that narrowing a reader cannot see from the
+    /// rows: why the Claude sessions are not among them.</summary>
+    private string Subtitle
+    {
+        get
+        {
+            var reading = _catalog.Capped
+                ? $"The {Total} most recent of {_catalog.Discovered} sessions this PC has a record of, most recently active first."
+                : "The sessions this PC has a record of, most recently active first.";
+
+            return Scoped
+                ? $"{reading} Narrowed to {ScopeLabel}: a session whose agent recorded no repository is left out, and Claude records none."
+                : reading;
+        }
+    }
 
     /// <summary>
     /// Nothing on this machine, or nothing this view admits — two different facts,
@@ -483,16 +628,36 @@
     /// </summary>
     private string EmptyMessage => Total == 0
         ? "No sessions on this PC."
-        : "No live sessions right now.";
+        : Scoped && ScopedSessions.Count == 0
+            ? $"No sessions in {ScopeLabel}."
+            : EnvironmentName is null
+                ? "No live sessions right now."
+                : $"No live sessions on {EnvironmentName} right now.";
 
     /// <summary>The description names both states out loud, and names the way back
     /// out. "Live" in the title above is only checkable if the sentence under it
-    /// says which states that means and how many rows are on the other side.</summary>
+    /// says which states that means and how many rows are on the other side.
+    /// <para>
+    /// Narrowed to one environment, the sentence names that environment and counts
+    /// its sessions rather than the PC's: the way back out is still Show, because an
+    /// environment is only ever offered when it has records behind it, so the view is
+    /// the filter that emptied the list. "Recorded there" rather than "it has a record
+    /// of", because for a machine the reader is not sitting at, it is this PC that
+    /// holds the record.
+    /// </para></summary>
     private string EmptyDescription => Total == 0
         ? "Neither Claude nor Copilot has left a session record in this profile yet."
-        : Total == 1
-            ? $"Nothing is running or stalled on this PC. Choose {AllLabel} to see the 1 session it has a record of."
-            : $"Nothing is running or stalled on this PC. Choose {AllLabel} to see the {Total} sessions it has a record of.";
+        : Scoped && ScopedSessions.Count == 0
+            ? "Only a session whose agent recorded its repository can be matched to the scope, and Claude records none. Clear the repository scope in the header to see every session."
+        : EnvironmentName is null
+            ? Scoped
+                // The way back names the scoped count, not the catalog's: the
+                // other view brings back the sessions in scope and no more.
+                ? $"Nothing in {ScopeLabel} is running or stalled. Choose {AllLabel} to see the {SessionCount(ScopedSessions.Count)} recorded there."
+                : $"Nothing is running or stalled on this PC. Choose {AllLabel} to see the {SessionCount(Total)} it has a record of."
+            : $"Nothing on {EnvironmentName} is running or stalled. Choose {AllLabel} to see the {SessionCount(OnEnvironment)} recorded there.";
+
+    private static string SessionCount(int count) => count == 1 ? "1 session" : $"{count} sessions";
 
     /// <summary>The other view's own word, read from the module rather than written
     /// out here. This is the one sentence in the product that names a view in prose,
