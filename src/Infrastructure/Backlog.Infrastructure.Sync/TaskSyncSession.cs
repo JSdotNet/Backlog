@@ -146,12 +146,23 @@ public sealed class TaskSyncSession
             pushed += response.Value.Accepted;
 
             // After the service accepted the batch and not before: the log says
-            // what left, and a batch the replica refused never did.
-            foreach (var task in batch)
+            // what left, and a batch the replica refused never did. Nor did a
+            // batch it took nothing from — the echo of what this device pulled
+            // last time, which sits above the watermark like an edit and which
+            // the replica answers with a count of zero. A person completing a
+            // task on the other machine saw it listed here as sent back to them
+            // a moment after it arrived, and read that as this machine
+            // overwriting their work. The response carries a count and not the
+            // ids, so a batch the replica took part of is still listed whole;
+            // the all-or-nothing case is the one that happens on every cycle.
+            if (response.Value.Accepted > 0)
             {
-                _activity?.Record(
-                    SyncDirection.Sent, SyncItemKind.Task, task.Id.ToString("D"), task.Title,
-                    task.DeletedAt is null ? null : "deleted");
+                foreach (var task in batch)
+                {
+                    _activity?.Record(
+                        SyncDirection.Sent, SyncItemKind.Task, task.Id.ToString("D"), task.Title,
+                        task.DeletedAt is null ? null : "deleted");
+                }
             }
 
             if (WatermarkAfter(batch, final: start + batch.Count >= pending.Count) is { } advanced)
@@ -272,7 +283,7 @@ public sealed class TaskSyncSession
 
             pulled += page.Value.Tasks.Count;
             var merged = await _merge
-                .ApplyAsync(page.Value.Tasks, _state.Current.PushWatermark, cancellationToken)
+                .ApplyAsync(page.Value.Tasks, cancellationToken)
                 .ConfigureAwait(false);
 
             applied += merged.Applied;

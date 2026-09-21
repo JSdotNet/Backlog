@@ -21,7 +21,7 @@ public sealed class TaskReplicaMergeCaptureTests
         var capture = Captures.Change("Call the dentist", Noon);
 
         var merged = await new TaskReplicaMerge(tasks, inbox)
-            .ApplyAsync([Captures.Record(capture, Phone, 100)], DateTimeOffset.MinValue, TestContext.Current.CancellationToken);
+            .ApplyAsync([Captures.Record(capture, Phone, 100)], TestContext.Current.CancellationToken);
 
         Assert.Equal(1, merged.Applied);
         Assert.Equal(0, merged.Skipped);
@@ -43,7 +43,7 @@ public sealed class TaskReplicaMergeCaptureTests
         var capture = Captures.Change("Dismissed on the phone", Noon, deletedAt: Noon.AddMinutes(5));
 
         var merged = await new TaskReplicaMerge(new InMemoryTaskStore(), inbox)
-            .ApplyAsync([Captures.Record(capture, Phone, 100)], DateTimeOffset.MinValue, TestContext.Current.CancellationToken);
+            .ApplyAsync([Captures.Record(capture, Phone, 100)], TestContext.Current.CancellationToken);
 
         Assert.Equal(1, merged.Applied);
         Assert.Equal(Noon.AddMinutes(5), Assert.Single(inbox.Received).WithdrawnAt);
@@ -62,7 +62,7 @@ public sealed class TaskReplicaMergeCaptureTests
         var capture = Captures.Change("Call the dentist", Noon);
 
         await new TaskReplicaMerge(new InMemoryTaskStore(), inbox, activity: activity)
-            .ApplyAsync([Captures.Record(capture, Phone, 100)], DateTimeOffset.MinValue, TestContext.Current.CancellationToken);
+            .ApplyAsync([Captures.Record(capture, Phone, 100)], TestContext.Current.CancellationToken);
 
         var entry = Assert.Single(activity.Snapshot());
         Assert.Equal(SyncDirection.Received, entry.Direction);
@@ -79,7 +79,7 @@ public sealed class TaskReplicaMergeCaptureTests
         var activity = new SyncActivityLog();
 
         await new TaskReplicaMerge(new InMemoryTaskStore(), inbox, activity: activity)
-            .ApplyAsync([Captures.Record(Captures.Change("Echo", Noon), Phone, 100)], DateTimeOffset.MinValue, TestContext.Current.CancellationToken);
+            .ApplyAsync([Captures.Record(Captures.Change("Echo", Noon), Phone, 100)], TestContext.Current.CancellationToken);
 
         Assert.Empty(activity.Snapshot());
     }
@@ -92,7 +92,7 @@ public sealed class TaskReplicaMergeCaptureTests
         var inbox = new RecordingInboxIntake { Answer = answer };
 
         var merged = await new TaskReplicaMerge(new InMemoryTaskStore(), inbox)
-            .ApplyAsync([Captures.Record(Captures.Change("Echo", Noon), Phone, 100)], DateTimeOffset.MinValue, TestContext.Current.CancellationToken);
+            .ApplyAsync([Captures.Record(Captures.Change("Echo", Noon), Phone, 100)], TestContext.Current.CancellationToken);
 
         Assert.Equal(0, merged.Applied);
         Assert.Equal(0, merged.Skipped);
@@ -108,7 +108,7 @@ public sealed class TaskReplicaMergeCaptureTests
         var tasks = new InMemoryTaskStore();
 
         var merged = await new TaskReplicaMerge(tasks)
-            .ApplyAsync([Captures.Record(Captures.Change("Call the dentist", Noon), Phone, 100)], DateTimeOffset.MinValue, TestContext.Current.CancellationToken);
+            .ApplyAsync([Captures.Record(Captures.Change("Call the dentist", Noon), Phone, 100)], TestContext.Current.CancellationToken);
 
         Assert.Equal(0, merged.Applied);
         Assert.Equal(0, merged.Skipped);
@@ -126,7 +126,6 @@ public sealed class TaskReplicaMergeCaptureTests
         var merged = await new TaskReplicaMerge(new InMemoryTaskStore(), inbox)
             .ApplyAsync(
                 [Captures.Record(Captures.Change("From a newer phone", Noon, status: "hovering"), Phone, 100)],
-                DateTimeOffset.MinValue,
                 TestContext.Current.CancellationToken);
 
         Assert.Equal(1, merged.Applied);
@@ -155,7 +154,6 @@ public sealed class TaskReplicaMergeCaptureTests
                 Captures.Record(Captures.Change("Kept", Noon), Phone, 101),
                 TaskChanges.Record(TaskChanges.Change("A task", Noon), Phone, 102),
             ],
-            DateTimeOffset.MinValue,
             TestContext.Current.CancellationToken);
 
         Assert.Equal(2, merged.Applied);
@@ -182,8 +180,8 @@ public sealed class TaskReplicaMergeCaptureTests
         var page = new[] { Captures.Record(Captures.LegacyChange("Call the dentist", Noon), Phone, 100) };
         var merge = new TaskReplicaMerge(tasks, inbox);
 
-        var first = await merge.ApplyAsync(page, DateTimeOffset.MinValue, TestContext.Current.CancellationToken);
-        var again = await merge.ApplyAsync(page, DateTimeOffset.MinValue, TestContext.Current.CancellationToken);
+        var first = await merge.ApplyAsync(page, TestContext.Current.CancellationToken);
+        var again = await merge.ApplyAsync(page, TestContext.Current.CancellationToken);
 
         Assert.Equal(1, first.Applied);
         Assert.Equal(0, again.Applied);
@@ -209,7 +207,6 @@ public sealed class TaskReplicaMergeCaptureTests
                 TaskChanges.Record(TaskChanges.Change("A task", Noon), Phone, 100),
                 Captures.Record(Captures.Change("A capture", Noon), Phone, 101),
             ],
-            DateTimeOffset.MinValue,
             TestContext.Current.CancellationToken);
 
         Assert.Equal(2, merged.Applied);

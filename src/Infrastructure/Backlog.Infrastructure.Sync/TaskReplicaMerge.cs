@@ -37,8 +37,8 @@ public readonly record struct TaskMergeOutcome(int Applied, int Skipped);
 /// what this machine already holds is <c>ApplyOneAsync</c>, and it cannot use
 /// <see cref="Wins"/> because nothing local records which device wrote a task or
 /// where the replica had got to when it did — the local side has one of the
-/// three fields. It answers a different question instead: is the local row work
-/// this device has not sent yet? See that method's own remarks.
+/// three fields. It answers on the one it has: is the inbound copy a later
+/// version than the local one? See that method's own remarks.
 /// </para>
 /// <para>
 /// <b>Reducing a page.</b> Whole documents, last write wins, decided on three
@@ -171,15 +171,14 @@ public sealed class TaskReplicaMerge(
     /// than two, and the intermediate state never reaches disk.
     /// </para>
     /// <para>
-    /// <paramref name="pushWatermark"/> is how far this device has had its own
-    /// writes accepted, and it decides the case below. It is passed in rather
-    /// than read from the state store here, so the rule can be exercised without
-    /// one and this class goes on talking to exactly one thing.
+    /// Nothing about this device's own progress is consulted. The push watermark
+    /// used to be, to let an older inbound copy overwrite a local row that had
+    /// already been sent; <c>ApplyOneAsync</c>'s remarks say why that is no
+    /// longer a question a device answers.
     /// </para>
     /// </summary>
     public async Task<TaskMergeOutcome> ApplyAsync(
         IReadOnlyList<TaskChangeRecord> page,
-        DateTimeOffset pushWatermark,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(page);
@@ -189,7 +188,7 @@ public sealed class TaskReplicaMerge(
 
         foreach (var record in Winners(page))
         {
-            switch (await ApplyOneAsync(record, pushWatermark, cancellationToken).ConfigureAwait(false))
+            switch (await ApplyOneAsync(record, cancellationToken).ConfigureAwait(false))
             {
                 case ApplyOutcome.Written:
                     applied++;
@@ -342,56 +341,39 @@ public sealed class TaskReplicaMerge(
     }
 
     /// <summary>
-    /// Writes one record, unless the local row is work this device has not sent
-    /// yet.
+    /// Writes one record, unless the local row is already at least that version.
     /// <para>
-    /// <b>The replica is authoritative.</b> .arc42/adr/0005 section "The sync
-    /// model" puts ordering authority on the server rather than on a device
-    /// clock, so a document that reached the service after this device's last
-    /// push is what this device takes — even when its own copy carries the later
-    /// <c>UpdatedAt</c>. Deciding on <c>UpdatedAt</c> alone would let a stale
-    /// push win at the replica and be refused by every device that pulled it,
-    /// which is not a lost edit but a permanent, silent disagreement: the feed
-    /// never offers that document again, so no amount of syncing closes it.
+    /// <b>A pull may never move a document backwards</b> — the same rule the
+    /// replica applies to a push (<c>TaskChangePrecedence</c> in the Sync
+    /// module, restated in <see cref="ShouldApply"/> because this project sees
+    /// the service's contracts and not its domain). The inbound copy is taken
+    /// when it is strictly later by <c>UpdatedAt</c>, or is a tombstone of the
+    /// very version held; an identical version is this device's own echo or a
+    /// replayed page and writes nothing, which is what keeps a pull idempotent —
+    /// a run that dies after applying a page but before saving its cursor
+    /// replays that page next time. An older copy is refused whatever the push
+    /// watermark says about the local row.
     /// </para>
     /// <para>
-    /// This leans on the replica never moving a document backwards. Every
-    /// device echoes what it pulled on its next push — a received row sits
-    /// above the watermark exactly as an edit does — and a replica that took
-    /// the echo would hand this device an <em>older</em> copy of a row it had
-    /// already pushed, which this rule then applies: a pushed tombstone came
-    /// back as the live task, a pushed edit as the version before it. The
-    /// service refuses such a push (<c>TaskChangePrecedence</c>), so the older
-    /// document this branch accepts is one the replica ordered after this
-    /// device's own, never a stale copy of it.
+    /// The watermark used to decide the older case: a local row at or below it
+    /// had been pushed, so under .arc42/adr/0005's original "the replica is
+    /// authoritative for anything already sent" an older inbound copy replaced
+    /// it. That was written for a replica that kept whichever push arrived
+    /// last. Since the replica refuses a push that is not a later version, the
+    /// feed can only hand a device an older copy of a row it pushed when
+    /// something has gone wrong — and the branch that took it un-completed a
+    /// task on the very machine that had completed it. The ADR's amendment of
+    /// 2026-09-18 records the change of authority; this is the device half of
+    /// it.
     /// </para>
     /// <para>
-    /// <b>The one exception is an un-pushed local edit</b> — a local
-    /// <c>UpdatedAt</c> above <paramref name="pushWatermark"/>, which means this
-    /// device changed the task and has not sent it. That edit wins on its own
-    /// next push, so taking an older inbound copy over it now would discard work
-    /// before it ever left the machine. A local tombstone is a stamp like any
-    /// other here, which is why the read includes one: a deletion made here and
-    /// not yet pushed stops a live document the other machine has been holding.
-    /// </para>
-    /// <para>
-    /// <b>The same version arriving again writes nothing.</b> Identical stamps on
-    /// one task id are this device's own echo or a replayed page, and skipping
-    /// them is what keeps a pull idempotent — a run that dies after applying a
-    /// page but before saving its cursor replays that page next time.
-    /// </para>
-    /// <para>
-    /// A strictly later inbound document is always taken, whatever the watermark
-    /// says. A row this device received rather than wrote also sits above the
-    /// watermark, and reading that as an un-pushed edit would leave a device that
-    /// pulls twice without pushing in between — which is every page after the
-    /// first of a single pull — refusing everything after the first version it
-    /// was handed.
+    /// The read includes a local tombstone for the same reason it always did: a
+    /// deletion made here carries a stamp like any other, and a live document
+    /// the other machine has been holding since before it is an older version.
     /// </para>
     /// </summary>
     private async Task<ApplyOutcome> ApplyOneAsync(
         TaskChangeRecord record,
-        DateTimeOffset pushWatermark,
         CancellationToken cancellationToken)
     {
         // Only a document carrying the capture kind token takes this branch. A
@@ -455,7 +437,7 @@ public sealed class TaskReplicaMerge(
             .GetIncludingDeletedAsync(record.Change.Id, cancellationToken)
             .ConfigureAwait(false);
 
-        if (!ShouldApply(record.Change, local, pushWatermark)) return ApplyOutcome.Held;
+        if (!ShouldApply(record.Change, local)) return ApplyOutcome.Held;
 
         TaskItem task;
 
@@ -503,22 +485,23 @@ public sealed class TaskReplicaMerge(
         record.Change.DeletedAt);
 
     /// <summary>The apply-against-local decision on its own, by the rule in
-    /// <see cref="ApplyOneAsync"/>'s remarks.</summary>
-    private static bool ShouldApply(TaskChange inbound, TaskItem? local, DateTimeOffset pushWatermark)
+    /// <see cref="ApplyOneAsync"/>'s remarks. Word for word the replica's
+    /// <c>TaskChangePrecedence.Supersedes</c>, over the local aggregate instead
+    /// of a stored change: a version the service would refuse to take from this
+    /// device is one this device refuses to take from the service.</summary>
+    private static bool ShouldApply(TaskChange inbound, TaskItem? local)
     {
         if (local is null) return true;
 
-        // The same document coming back round. Both stamps, because a tombstone
-        // and the live task it replaced can share an UpdatedAt only if one of
-        // them never happened.
-        if (inbound.UpdatedAt == local.UpdatedAt && inbound.DeletedAt == local.DeletedAt) return false;
+        if (inbound.UpdatedAt != local.UpdatedAt)
+        {
+            return inbound.UpdatedAt > local.UpdatedAt;
+        }
 
-        if (inbound.UpdatedAt > local.UpdatedAt) return true;
-
-        // Older than the local copy, so it may only overwrite one this device has
-        // already sent. Everything above the watermark is due to be pushed and
-        // will win there.
-        return local.UpdatedAt <= pushWatermark;
+        // Same stamp: only a deletion of the very version held says anything
+        // new. A tombstone and the live task it replaced can share an UpdatedAt
+        // only if one of them never happened, so the pair is read together.
+        return inbound.DeletedAt is not null && local.DeletedAt is null;
     }
 
     /// <summary>What became of one record. Three outcomes rather than a bool,

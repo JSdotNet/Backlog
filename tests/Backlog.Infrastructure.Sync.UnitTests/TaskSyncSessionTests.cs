@@ -202,7 +202,7 @@ public sealed class TaskSyncSessionTests
             .ToList();
 
         var merged = await new TaskReplicaMerge(deviceB)
-            .ApplyAsync(feed, DateTimeOffset.MinValue, TestContext.Current.CancellationToken);
+            .ApplyAsync(feed, TestContext.Current.CancellationToken);
 
         Assert.Equal(1, merged.Applied);
         Assert.Null(await deviceB.GetAsync(id, TestContext.Current.CancellationToken));
@@ -526,6 +526,37 @@ public sealed class TaskSyncSessionTests
 
         var tombstone = Assert.Single(entries, entry => entry.Title == "Old draft");
         Assert.Equal("deleted", tombstone.Note);
+    }
+
+    /// <summary>
+    /// The echo. Everything this device pulled sits above its watermark and goes
+    /// out again on the next push, and the replica — holding those very versions
+    /// — takes none of it and says so with a count of zero. A log that listed the
+    /// batch as sent told the person who had just completed those tasks on the
+    /// other machine that this one had sent them straight back, which is the
+    /// opposite of what happened. The watermark still advances: the replica holds
+    /// these versions, so there is nothing left to send.
+    /// </summary>
+    [Fact]
+    public async Task A_batch_the_replica_took_nothing_from_records_nothing_as_sent()
+    {
+        var store = new InMemoryTaskStore();
+        store.Seed(TaskChanges.Task("Completed on the other machine", Noon));
+        store.Seed(TaskChanges.Task("Also from over there", Noon.AddMinutes(1)));
+
+        var state = new InMemoryTaskSyncStateStore();
+        var activity = new SyncActivityLog();
+
+        using var fixture = Fixture.Create(store, state, new FakeTimeProvider(Noon.AddHours(6)),
+            (_, _) => StubHttpMessageHandler.Json(HttpStatusCode.OK, """{"accepted":0}"""),
+            activity);
+
+        var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(0, result.Value.Pushed);
+        Assert.Empty(activity.Snapshot());
+        Assert.Equal(Noon.AddMinutes(1), state.Current.PushWatermark);
     }
 
     [Fact]

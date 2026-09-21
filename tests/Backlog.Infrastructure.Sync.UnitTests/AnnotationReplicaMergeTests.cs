@@ -42,8 +42,7 @@ public class AnnotationReplicaMergeTests
         var id = Guid.NewGuid();
 
         var outcome = merge.Apply(
-            [Annotations.Record(Annotations.Change(id, "From the laptop.", Noon), DeviceB, 1)],
-            pushWatermark: DateTimeOffset.MinValue);
+            [Annotations.Record(Annotations.Change(id, "From the laptop.", Noon), DeviceB, 1)]);
 
         Assert.Equal(1, outcome.Applied);
 
@@ -64,8 +63,7 @@ public class AnnotationReplicaMergeTests
         var merge = new AnnotationReplicaMerge(store);
 
         var outcome = merge.Apply(
-            [Annotations.Record(Annotations.Change(local.Id, "Mine.", Noon), DeviceA, 5)],
-            pushWatermark: Noon);
+            [Annotations.Record(Annotations.Change(local.Id, "Mine.", Noon), DeviceA, 5)]);
 
         Assert.Equal(0, outcome.Applied);
         Assert.Empty(store.Applied);
@@ -79,8 +77,7 @@ public class AnnotationReplicaMergeTests
         var merge = new AnnotationReplicaMerge(store);
 
         merge.Apply(
-            [Annotations.Record(Annotations.Change(local.Id, "Theirs, later.", Noon.AddMinutes(5), resolved: true), DeviceB, 5)],
-            pushWatermark: Noon);
+            [Annotations.Record(Annotations.Change(local.Id, "Theirs, later.", Noon.AddMinutes(5), resolved: true), DeviceB, 5)]);
 
         var written = Assert.Single(store.Applied);
         Assert.Equal("Theirs, later.", written.Body);
@@ -91,17 +88,31 @@ public class AnnotationReplicaMergeTests
     public void A_local_edit_still_waiting_to_be_pushed_is_kept()
     {
         var store = new InMemoryDevbookAnnotationStore();
-        // Edited at 12:05 on this machine; the watermark says only what was
-        // pushed up to noon has left. The older version arriving from the
-        // replica must not overwrite the edit that will win there.
+        // Edited at 12:05 on this machine and not yet pushed. The older version
+        // arriving from the replica must not overwrite the edit that will win
+        // there — and would not whatever the push watermark said.
         var local = store.Seed(Annotations.Local("Edited here, unsent.", Noon.AddMinutes(5)));
         var merge = new AnnotationReplicaMerge(store);
 
         var outcome = merge.Apply(
-            [Annotations.Record(Annotations.Change(local.Id, "Older, from elsewhere.", Noon), DeviceB, 5)],
-            pushWatermark: Noon);
+            [Annotations.Record(Annotations.Change(local.Id, "Older, from elsewhere.", Noon), DeviceB, 5)]);
 
         Assert.Equal(0, outcome.Applied);
+    }
+
+    [Fact]
+    public void An_older_version_never_replaces_a_newer_local_one_even_one_already_pushed()
+    {
+        var store = new InMemoryDevbookAnnotationStore();
+        // Edited at 12:05 and already pushed — the case the old rule got wrong.
+        var local = store.Seed(Annotations.Local("Newer, already sent.", Noon.AddMinutes(5)));
+        var merge = new AnnotationReplicaMerge(store);
+
+        var outcome = merge.Apply(
+            [Annotations.Record(Annotations.Change(local.Id, "Older, from elsewhere.", Noon), DeviceB, 5)]);
+
+        Assert.Equal(0, outcome.Applied);
+        Assert.Empty(store.Applied);
     }
 
     [Fact]
@@ -112,8 +123,7 @@ public class AnnotationReplicaMergeTests
         var merge = new AnnotationReplicaMerge(store);
 
         merge.Apply(
-            [Annotations.Record(Annotations.Change(local.Id, "Mine.", Noon.AddMinutes(1), deletedAt: Noon.AddMinutes(1)), DeviceB, 5)],
-            pushWatermark: Noon);
+            [Annotations.Record(Annotations.Change(local.Id, "Mine.", Noon.AddMinutes(1), deletedAt: Noon.AddMinutes(1)), DeviceB, 5)]);
 
         var written = Assert.Single(store.Applied);
         Assert.Equal(Noon.AddMinutes(1), written.DeletedAt);
@@ -131,8 +141,7 @@ public class AnnotationReplicaMergeTests
             [
                 Annotations.Record(Annotations.Change(id, "First.", Noon), DeviceB, 1),
                 Annotations.Record(Annotations.Change(id, "Second.", Noon.AddMinutes(1)), DeviceB, 2),
-            ],
-            pushWatermark: DateTimeOffset.MinValue);
+            ]);
 
         Assert.Equal(1, outcome.Applied);
         Assert.Equal("Second.", Assert.Single(store.Applied).Body);

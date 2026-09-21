@@ -15,10 +15,13 @@ public sealed record AnnotationMergeOutcome(int Applied);
 /// Within a page, the later of two records for one annotation is decided by
 /// the replica's stamp, then the writing device's <c>UpdatedAt</c>, then the
 /// device id — so two devices never flap. Against the local copy, an arriving
-/// version wins when it is newer, or when the local copy is older and has
-/// already been pushed; a local edit still waiting behind the push watermark
-/// is kept, because it will win on the replica when it gets there. A
-/// tombstone is a version like any other.
+/// version wins only when it is a later version — newer by <c>UpdatedAt</c>,
+/// or a tombstone of the very version held — which is the rule the replica
+/// applies to a push (<c>AnnotationChangePrecedence</c> in the Sync module).
+/// An older version is refused whatever the push watermark says about the local
+/// row; a local edit still waiting to be pushed is kept as a consequence, and
+/// so is a row this device has already pushed. A tombstone is a version like
+/// any other.
 /// </para>
 /// <para>
 /// This class is also where the wire shape and the store's record meet, in
@@ -102,12 +105,10 @@ public sealed class AnnotationReplicaMerge
 
     /// <summary>
     /// Applies a page of the feed, reduced to one winner per annotation first,
-    /// and answers how many documents it wrote. <paramref name="pushWatermark"/>
-    /// is how far this device has had its own writes accepted; it is passed in
-    /// rather than read from a state store so the rule can be exercised without
-    /// one.
+    /// and answers how many documents it wrote. Nothing about this device's own
+    /// progress is consulted — see <see cref="ShouldApply"/>.
     /// </summary>
-    public AnnotationMergeOutcome Apply(IReadOnlyList<AnnotationChangeRecord> page, DateTimeOffset pushWatermark)
+    public AnnotationMergeOutcome Apply(IReadOnlyList<AnnotationChangeRecord> page)
     {
         ArgumentNullException.ThrowIfNull(page);
 
@@ -117,7 +118,7 @@ public sealed class AnnotationReplicaMerge
         {
             var local = _store.Find(record.Change.Id);
 
-            if (!ShouldApply(record.Change, local, pushWatermark)) continue;
+            if (!ShouldApply(record.Change, local)) continue;
 
             _store.Apply(ToAnnotation(record.Change));
             applied++;
@@ -126,32 +127,28 @@ public sealed class AnnotationReplicaMerge
         return new AnnotationMergeOutcome(applied);
     }
 
-    /// <summary>The apply-against-local decision on its own.</summary>
-    internal static bool ShouldApply(AnnotationChange inbound, DevbookAnnotation? local, DateTimeOffset pushWatermark)
+    /// <summary>The apply-against-local decision on its own: word for word the
+    /// replica's <c>AnnotationChangePrecedence.Supersedes</c>, over the local
+    /// record instead of a stored change. A pull may never move a remark
+    /// backwards, exactly as a push may not. The branch that used to take an
+    /// older copy over a local row at or below the push watermark is gone, for
+    /// the reason <c>TaskReplicaMerge.ApplyOneAsync</c> gives: it was written
+    /// for a replica that kept whichever push arrived last, and with the replica
+    /// refusing stale pushes it could only ever move a device backwards.</summary>
+    internal static bool ShouldApply(AnnotationChange inbound, DevbookAnnotation? local)
     {
         if (local is null) return true;
 
-        // The same document coming back round: both stamps, because a tombstone
-        // and the live remark it replaced can share an UpdatedAt only if one of
-        // them never happened.
-        if (inbound.UpdatedAt == local.UpdatedAt && inbound.DeletedAt == local.DeletedAt) return false;
+        if (inbound.UpdatedAt != local.UpdatedAt)
+        {
+            return inbound.UpdatedAt > local.UpdatedAt;
+        }
 
-        if (inbound.UpdatedAt > local.UpdatedAt) return true;
-
-        // Older than the local copy, so it may only overwrite one this device
-        // has already sent. Everything above the watermark is due to be pushed
-        // and will win there.
-        //
-        // This leans on the replica never moving a document backwards. Every
-        // device echoes what it pulled on its next push — a received remark
-        // sits above the watermark exactly as an edit does — and a replica
-        // that took the echo would hand this device an *older* copy of a remark
-        // it had already pushed, which this branch then applies: a pushed
-        // tombstone came back as the live remark, a pushed edit as the version
-        // before it. The service refuses such a push (AnnotationChangePrecedence
-        // in the Sync module), so the older document this branch accepts is one
-        // the replica ordered after this device's own, never a stale copy of it.
-        return local.UpdatedAt <= pushWatermark;
+        // Same stamp: only a deletion of the very version held says anything
+        // new. A tombstone and the live remark it replaced can share an
+        // UpdatedAt only if one of them never happened, so the pair is read
+        // together.
+        return inbound.DeletedAt is not null && local.DeletedAt is null;
     }
 
     private static IEnumerable<AnnotationChangeRecord> Winners(IReadOnlyList<AnnotationChangeRecord> page)

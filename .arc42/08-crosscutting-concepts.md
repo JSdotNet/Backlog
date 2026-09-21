@@ -174,7 +174,11 @@ sequenceDiagram
 - **The server orders, the device does not.** Two machines' clocks disagree, and
   last-write-wins decided by a skewed clock discards real edits. The Cosmos `_ts`
   assigned on write orders the feed; `updated_at` breaks ties, and the device id
-  breaks those, so two devices never flap.
+  breaks those, so two devices never flap. Whether a copy *replaces* one already
+  held is a different question with one answer at both ends: only a later
+  version by `updated_at` — or a tombstone of the very version held — is taken,
+  by the replica on a push and by the device on a pull, so nothing ever moves a
+  document backwards (local ADR 0005, amendments of 2026-09-18 and 2026-09-21).
 - **Whole-document resolution**, matching how the aggregate is already persisted
   everywhere else. A per-field merge would invent a reconciliation the domain has
   no rule for.
