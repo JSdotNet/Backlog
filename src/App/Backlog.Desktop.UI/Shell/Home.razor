@@ -37,8 +37,9 @@
     renders owns the page's single <main> landmark.
 
     The header follows the surface. Every control in it acts on something, and a
-    control whose something is off screen is a dead button: the sections strip
-    configures the workspace, the GitHub check refreshes the task list, and Ask AI
+    control whose something is off screen is a dead button: the roadmap toggle
+    and the panes strip configure the workspace, the GitHub check refreshes the
+    task list, and Ask AI
     answers from the entries in view — so each of them renders only while what it
     acts on does. The surface switcher and the identity region stay, because they
     are true of the screen whatever is on it.
@@ -75,8 +76,18 @@
                    The anchor — the first one taken, the one Devbook reads — is marked only
                    once a second chip is pressed: with one chip there is nothing for it
                    to be distinct from, and the markup stays exactly what the single
-                   select produced. *@
-                <div class="app-header__repository-scope" role="group" aria-label="Repository scope">
+                   select produced.
+
+                   Fused, because several can be on at once. The header draws its groups
+                   in two shapes and the shape is the cardinality: members touching
+                   inside one border where any number can be pressed, standalone
+                   controls where exactly one can — see Region B. The scope used to be
+                   loose chips, which said "one of these" to a reader who could in fact
+                   take several. The shared ButtonGroup wears the same header-group
+                   shape the panes strip does; the chips inside keep their chip
+                   classes, because the active fill, the identity edge and the anchor
+                   mark all key on those. *@
+                <ButtonGroup CssClass="header-group app-header__repository-scope" AriaLabel="Repository scope">
                     @foreach (var repository in State.Repositories)
                     {
                         var selected = State.SelectedRepositoryAliases.Contains(repository.Alias, StringComparer.Ordinal);
@@ -93,7 +104,7 @@
                             @repository.Alias
                         </ToggleButton>
                     }
-                </div>
+                </ButtonGroup>
 
                 @* Whether the identity hues are drawn at all — here, beside the chips
                    that wear the most visible ones, rather than buried in Settings with
@@ -132,11 +143,22 @@
             }
         </div>
 
-        @* Region B — navigation, and nothing else. Two groups, because there are
-           two different questions with two different shapes of answer: which
-           surface owns the screen (exactly one) and which sections are on it (any
-           number). Two shared ButtonGroups make that difference visible; one
-           undifferentiated row of pills could not. *@
+        @* Region B — navigation, and nothing else. Two groups and one toggle,
+           because there are three different questions: which surface owns the
+           screen (exactly one), whether the roadmap band is up (on or off), and
+           which panes are on it (any number). Two shared ButtonGroups and a lone
+           ToggleButton make those differences visible; one undifferentiated row of
+           pills could not.
+
+           And they are drawn differently, because the count is the difference.
+           Members fused inside one border say "any of these, together": that is the
+           panes strip, and the repository scope in Region A. Standalone controls
+           with a gap between them say "one of these", or "this one, on or off":
+           that is the surface switcher, and the roadmap toggle. The surface
+           switcher and the roadmap used to wear the fused shape on the argument
+           that everything here answers "what am I looking at" — but a reader
+           cannot see how many answers a control takes until they press it, and the
+           shape is the one thing they can see first. *@
         <nav class="app-header__nav" aria-label="Workspace views">
             @* One field with three states, in markup that finally says so.
                WorkspaceSurface has always been a single enum precisely because a
@@ -144,22 +166,27 @@
                takeover — but the header rendered independent buttons carrying
                aria-expanded, which described neither the exclusivity nor the fact
                that a takeover replaces the workspace instead of expanding beside
-               it. A segmented group of pressed states describes both, and it gives
-               the way back a control of its own rather than leaving it to a second
-               press or the in-surface close button.
+               it. A group of pressed states describes both, and it gives the way
+               back a control of its own rather than leaving it to a second press or
+               the in-surface close button.
+
+               Loose rather than fused: exactly one surface is on at a time, and a
+               fused strip is the shape this header reserves for "several at once".
+               The group is still one group — one role, one label, the options in
+               one tab sequence — it only stops drawing its members as one control.
 
                Ask AI keeps aria-expanded further down, because that one really is
                a disclosure: its panel opens beside the content it belongs to.
 
                The group renders only when there is a takeover to switch to. With
-               every takeover feature off, a lone "Workspace" segment would be a
+               every takeover feature off, a lone "Workspace" option would be a
                control with nothing to choose between. *@
             @if (SurfaceSwitcherVisible)
             {
-                <ButtonGroup CssClass="header-group header-group--surface"
+                <ButtonGroup CssClass="header-group header-group--loose header-group--surface"
                              AriaLabel="Surface"
                              TestId="workspace-surface-switcher">
-                    <ToggleButton BaseClass="header-group__option"
+                    <ToggleButton BaseClass="header-group__option header-group__option--loose"
                                   PressedCssClass="header-group__option--selected"
                                   Pressed="WorkspaceVisible"
                                   id="workspace-surface-option"
@@ -171,7 +198,7 @@
 
                     @if (IsFeatureEnabled(DevPcFeatures.SystemTools))
                     {
-                        <ToggleButton BaseClass="header-group__option"
+                        <ToggleButton BaseClass="header-group__option header-group__option--loose"
                                       PressedCssClass="header-group__option--selected"
                                       Pressed="ToolsVisible"
                                       id="tools-toggle-button"
@@ -195,7 +222,7 @@
                        own here, and its feature flag now gates its tab instead. *@
                     @if (DashboardSurfaceOffered)
                     {
-                        <ToggleButton BaseClass="header-group__option"
+                        <ToggleButton BaseClass="header-group__option header-group__option--loose"
                                       PressedCssClass="header-group__option--selected"
                                       Pressed="DashboardVisible"
                                       id="dashboard-toggle-button"
@@ -211,25 +238,50 @@
                 </ButtonGroup>
             }
 
-            @* What is on screen below, in one strip. "Sections" rather than "panes"
-               because the first option is the roadmap band, and a band is a row above
-               the panes rather than one of them.
+            @* The roadmap band, on its own. It used to be the first option of the
+               panes strip, on the argument that it is one more section on screen —
+               but it is a row above the panes rather than one of them, and it plays by
+               none of the strip's rules: its press is a plain on-or-off that never
+               closes a pane and no pane press ever closes it, it takes no modifier,
+               and no capacity rule ever blocks it. Inside the strip it read as a
+               fourth pane that ought to switch and Ctrl-add, and it did neither. So it
+               stands loose, the shape this header gives a control that is not one of a
+               set, and wears the option's look so it still reads as navigation rather
+               than as a utility.
 
-               That difference is also why it is not a GlobalPane. The selection holds a
+               That is also why it is not a GlobalPane. The selection holds a
                viewport-driven capacity and a "one is always on screen" invariant, both
                of which exist because the three panes compete for the same width; the
                band competes for nothing — it is a horizontal row with its own grid
                track. Folding it in would put it in TrimToCapacity's reach and let a
-               narrowed window silently evict the reader's roadmap. So it looks and feels
-               like its siblings and keeps its own shell field, the same split that keeps
-               WorkspaceSurface out of the selection. It is the one option here with no
-               Disabled binding, because it is the one with no capacity rule to block it.
+               narrowed window silently evict the reader's roadmap. So it keeps its own
+               shell field, the same split that keeps WorkspaceSurface out of the
+               selection.
 
-               The strip is the shared ButtonGroup now rather than a hand-rolled div,
-               so its role and label come from the component and its test id reaches
-               the DOM through TestId. Its options stay aria-pressed toggles:
-               several sections are on screen at once, so this is a multi-select and
-               not a tab strip.
+               Only while the workspace is on screen, like the strip beside it, and for
+               the same reason: a press on it during a takeover changed nothing the
+               reader could see. *@
+            @if (WorkspaceVisible && RoadmapPaneOptionVisible)
+            {
+                <ToggleButton BaseClass="header-group__option header-group__option--loose"
+                              PressedCssClass="header-group__option--selected"
+                              Pressed="RoadmapBandVisible"
+                              id="roadmap-band-toggle"
+                              TestId="roadmap-band-toggle"
+                              aria-controls="roadmap-band"
+                              PressedChanged="ToggleRoadmapBand">
+                    Roadmap
+                    <FeatureStatusBadge Status="@FeatureStatusSlug(RoadmapFeatures.Roadmap)"
+                                        Title="@FeatureStatusTitle(RoadmapFeatures.Roadmap)"
+                                        TestId="roadmap-feature-status" />
+                </ToggleButton>
+            }
+
+            @* Which panes are on screen below, in one strip. The shared ButtonGroup
+               rather than a hand-rolled div, so its role and label come from the
+               component and its test id reaches the DOM through TestId. Its options
+               are aria-pressed toggles, not tabs: several panes are on screen at once,
+               so this is a multi-select, and the fused shape says so.
 
                Only while the workspace is on screen. It used to stay up during a
                takeover, on the argument that it configured the workspace the reader
@@ -240,142 +292,71 @@
                strip that shows it goes, and it comes back exactly as it was. *@
             @if (WorkspaceVisible)
             {
-                <ButtonGroup CssClass="header-group header-group--sections"
-                             AriaLabel="Visible sections"
+                <ButtonGroup CssClass="header-group header-group--panes"
+                             AriaLabel="Visible panes"
                              TestId="global-pane-multiselect">
-                    @if (RoadmapPaneOptionVisible)
-                    {
-                        <ToggleButton BaseClass="header-group__option"
-                                      PressedCssClass="header-group__option--selected"
-                                      Pressed="RoadmapBandVisible"
-                                      id="roadmap-pane-option"
-                                      TestId="roadmap-pane-option"
-                                      aria-controls="roadmap-band"
-                                      PressedChanged="ToggleRoadmapBand">
-                            Roadmap
-                            <FeatureStatusBadge Status="@FeatureStatusSlug(RoadmapFeatures.Roadmap)"
-                                                Title="@FeatureStatusTitle(RoadmapFeatures.Roadmap)"
-                                                TestId="roadmap-feature-status" />
-                        </ToggleButton>
-                    }
+                    @* One pane on a plain press, one more with Ctrl held — the same
+                       convention as the repository scope in Region A, and for the same
+                       reason: several can be on screen at once, and the option is the
+                       one control the reader is already pressing. Each pane used to carry
+                       a pin, railed along its option's top edge, that held it through a
+                       switch; that was a second control on every option for what one
+                       modifier on the option itself now says. The tooltip names the
+                       modifier, because nothing else on screen does — and names it only
+                       while the window fits a second pane, since a Ctrl-press in a window
+                       that fits one is a switch whatever the reader held.
 
-                    @* A pane and its pin are one cell, the pin first: it rails along the
-                       option's top edge, so leading the cell keeps DOM order, reading order
-                       and tab order the same one. Switching to a section closes the panes
-                       the reader did not pin, so the pin is the only way to ask for two at
-                       once — which is why it sits on the option rather than somewhere else
-                       in the chrome. It used to stand beside the option, where its pinned
-                       fill read as a vertical strip down the option's side (#283); the top
-                       edge is also the one edge the option's selected underline does not
-                       already own. The rail takes its height out of the cell rather than on
-                       top of it, so a cell with a pin measures exactly what a bare option
-                       measures and this group sits level with the surface switcher beside
-                       it. The band has no pin because it takes no width from the panes and
-                       so has nothing to be saved from.
-
-                       The glyph is the library's, and it hides itself: ToggleButton drops
-                       child content straight into the button with no wrapper, so a glyph
-                       that named itself would be announced after the AriaLabel below
-                       rather than instead of it.
-
-                       One glyph in both states, and its direction is the state: the
-                       chevron points up while the pane is loose, at the edge the rail
-                       runs along, so the control asks to be pushed; once pinned the
-                       stylesheet turns it half a turn to point down, so it asks to be
-                       pushed back. Which state a drawing stands for is this header's
-                       reading and not the library's — that is why ChevronUpIcon ships
-                       no Pinned parameter — but the reading is now carried by an angle
-                       rather than by choosing between two components, so it belongs in
-                       the sheet with the pixel of lift beside it rather than in a branch
-                       here. header-group__pin-glyph is the hook that rule is keyed on;
-                       CssClass is the library's own way of handing it over, and a rule
-                       keyed on the component's self-named class would take hold of any
-                       chevron a later caller put in this rail as well. *@
+                       OnClick rather than PressedChanged, because the press has to reach
+                       the handler with its modifiers on; the pressed state the button
+                       reports is the selection's answer and not something the handler
+                       needs told. The roadmap toggle above keeps PressedChanged: it
+                       takes no modifier, because it is simply on or off. *@
                     @if (InboxPaneOptionVisible)
                     {
-                        <span class="header-group__pane">
-                            <ToggleButton BaseClass="header-group__pin"
-                                          PressedCssClass="header-group__pin--pinned"
-                                          Pressed="@PanePinned(GlobalPane.Inbox)"
-                                          TestId="inbox-pane-pin"
-                                          aria-controls="inbox-pane"
-                                          Disabled="@PinToggleDisabled(GlobalPane.Inbox)"
-                                          AriaLabel="@PinLabel(GlobalPane.Inbox, "Inbox")"
-                                          Title="@PinTitle(GlobalPane.Inbox, "Inbox")"
-                                          PressedChanged="ToggleInboxPin">
-                                <ChevronUpIcon Size="12" CssClass="header-group__pin-glyph" />
-                            </ToggleButton>
-
-                            <ToggleButton BaseClass="header-group__option"
-                                          PressedCssClass="header-group__option--selected"
-                                          Pressed="InboxPaneVisible"
-                                          id="inbox-pane-option"
-                                          TestId="inbox-pane-option"
-                                          aria-controls="inbox-pane"
-                                          Disabled="@PaneToggleDisabled(GlobalPane.Inbox)"
-                                          PressedChanged="ToggleInboxPane">
-                                Inbox
-                                <FeatureStatusBadge Status="@FeatureStatusSlug(AppFeatures.InboxPane)"
-                                                    Title="@FeatureStatusTitle(AppFeatures.InboxPane)"
-                                                    TestId="inbox-feature-status" />
-                            </ToggleButton>
-                        </span>
-                    }
-
-                    <span class="header-group__pane">
-                        <ToggleButton BaseClass="header-group__pin"
-                                      PressedCssClass="header-group__pin--pinned"
-                                      Pressed="@PanePinned(GlobalPane.Tasks)"
-                                      TestId="backlog-pane-pin"
-                                      aria-controls="backlog-pane"
-                                      Disabled="@PinToggleDisabled(GlobalPane.Tasks)"
-                                      AriaLabel="@PinLabel(GlobalPane.Tasks, "Tasks")"
-                                      Title="@PinTitle(GlobalPane.Tasks, "Tasks")"
-                                      PressedChanged="ToggleTasksPin">
-                            <ChevronUpIcon Size="12" CssClass="header-group__pin-glyph" />
-                        </ToggleButton>
-
                         <ToggleButton BaseClass="header-group__option"
                                       PressedCssClass="header-group__option--selected"
-                                      Pressed="TasksPaneVisible"
-                                      id="backlog-pane-option"
-                                      TestId="backlog-pane-option"
-                                      aria-controls="backlog-pane"
-                                      Disabled="@PaneToggleDisabled(GlobalPane.Tasks)"
-                                      PressedChanged="ToggleTasksPane">
-                            Tasks
+                                      Pressed="InboxPaneVisible"
+                                      id="inbox-pane-option"
+                                      TestId="inbox-pane-option"
+                                      aria-controls="inbox-pane"
+                                      Disabled="@PaneToggleDisabled(GlobalPane.Inbox)"
+                                      Title="@PaneOptionTitle(GlobalPane.Inbox, "Inbox")"
+                                      OnClick="args => PressPane(GlobalPane.Inbox, args)">
+                            Inbox
+                            <FeatureStatusBadge Status="@FeatureStatusSlug(AppFeatures.InboxPane)"
+                                                Title="@FeatureStatusTitle(AppFeatures.InboxPane)"
+                                                TestId="inbox-feature-status" />
                         </ToggleButton>
-                    </span>
+                    }
+
+                    <ToggleButton BaseClass="header-group__option"
+                                  PressedCssClass="header-group__option--selected"
+                                  Pressed="TasksPaneVisible"
+                                  id="backlog-pane-option"
+                                  TestId="backlog-pane-option"
+                                  aria-controls="backlog-pane"
+                                  Disabled="@PaneToggleDisabled(GlobalPane.Tasks)"
+                                  Title="@PaneOptionTitle(GlobalPane.Tasks, "Tasks")"
+                                  OnClick="args => PressPane(GlobalPane.Tasks, args)">
+                        Tasks
+                    </ToggleButton>
 
                     @if (DevbookPaneOptionVisible)
                     {
-                        <span class="header-group__pane">
-                            <ToggleButton BaseClass="header-group__pin"
-                                          PressedCssClass="header-group__pin--pinned"
-                                          Pressed="@PanePinned(GlobalPane.Devbook)"
-                                          TestId="devbook-pane-pin"
-                                          aria-controls="repository-devbook-pane"
-                                          Disabled="@PinToggleDisabled(GlobalPane.Devbook)"
-                                          AriaLabel="@PinLabel(GlobalPane.Devbook, "Devbook")"
-                                          Title="@PinTitle(GlobalPane.Devbook, "Devbook")"
-                                          PressedChanged="ToggleDevbookPin">
-                                <ChevronUpIcon Size="12" CssClass="header-group__pin-glyph" />
-                            </ToggleButton>
-
-                            <ToggleButton BaseClass="header-group__option"
-                                          PressedCssClass="header-group__option--selected"
-                                          Pressed="DevbookPaneVisible"
-                                          id="devbook-pane-option"
-                                          TestId="devbook-pane-option"
-                                          aria-controls="repository-devbook-pane"
-                                          Disabled="@PaneToggleDisabled(GlobalPane.Devbook)"
-                                          PressedChanged="ToggleDevbookPane">
-                                Devbook
-                                <FeatureStatusBadge Status="@FeatureStatusSlug(DevbookFeatures.RepositoryDevbook)"
-                                                    Title="@FeatureStatusTitle(DevbookFeatures.RepositoryDevbook)"
-                                                    TestId="devbook-feature-status" />
-                            </ToggleButton>
-                        </span>
+                        <ToggleButton BaseClass="header-group__option"
+                                      PressedCssClass="header-group__option--selected"
+                                      Pressed="DevbookPaneVisible"
+                                      id="devbook-pane-option"
+                                      TestId="devbook-pane-option"
+                                      aria-controls="repository-devbook-pane"
+                                      Disabled="@PaneToggleDisabled(GlobalPane.Devbook)"
+                                      Title="@PaneOptionTitle(GlobalPane.Devbook, "Devbook")"
+                                      OnClick="args => PressPane(GlobalPane.Devbook, args)">
+                            Devbook
+                            <FeatureStatusBadge Status="@FeatureStatusSlug(DevbookFeatures.RepositoryDevbook)"
+                                                Title="@FeatureStatusTitle(DevbookFeatures.RepositoryDevbook)"
+                                                TestId="devbook-feature-status" />
+                        </ToggleButton>
                     }
                 </ButtonGroup>
             }
@@ -729,11 +710,11 @@
             _dashboardTab = restoredTab;
         }
 
-        // Same restore for which panes were open, and which of those were
-        // pinned. This is what makes it survive Settings and back, not only a
-        // full relaunch: the Router disposes and reconstructs this component
-        // on every route change, so a fresh GlobalPaneSelection is exactly
-        // what a bare `new()` field initializer would otherwise hand back.
+        // Same restore for which panes were open. This is what makes it survive
+        // Settings and back, not only a full relaunch: the Router disposes and
+        // reconstructs this component on every route change, so a fresh
+        // GlobalPaneSelection is exactly what a bare `new()` field initializer
+        // would otherwise hand back.
         var restoredPanes = ShellNavigation.LastEnabledPanes
             .Select(name => GlobalPaneSelection.TryParsePersistedPane(name, out var pane) ? pane : (GlobalPane?)null)
             .Where(pane => pane.HasValue)
@@ -743,14 +724,6 @@
         if (restoredPanes.Length > 0)
         {
             _globalPanes = new GlobalPaneSelection(restoredPanes);
-
-            foreach (var name in ShellNavigation.LastPinnedPanes)
-            {
-                if (GlobalPaneSelection.TryParsePersistedPane(name, out var pinnedPane))
-                {
-                    _globalPanes.TrySetPinned(pinnedPane, pinned: true);
-                }
-            }
         }
 
         State.Changed += HandleStateChanged;
@@ -1278,17 +1251,16 @@
         PersistPaneSelection();
     }
 
-    /// <summary>Remembers which panes are open and pinned, so the next fresh
-    /// shell instance — a relaunch, or the Router rebuilding this component
-    /// after a trip to Settings — reopens on them instead of the single
-    /// default pane.</summary>
+    /// <summary>Remembers which panes are open, so the next fresh shell
+    /// instance — a relaunch, or the Router rebuilding this component after a
+    /// trip to Settings — reopens on them instead of the single default
+    /// pane.</summary>
     private void PersistPaneSelection()
     {
         KeepRepositoryScopeSingleWhereOnlyOneFits();
 
         var enabled = Enum.GetValues<GlobalPane>().Where(_globalPanes.IsEnabled).Select(pane => pane.ToString()).ToArray();
-        var pinned = Enum.GetValues<GlobalPane>().Where(_globalPanes.IsPinned).Select(pane => pane.ToString()).ToArray();
-        ShellNavigation.SetLastPanes(enabled, pinned);
+        ShellNavigation.SetLastPanes(enabled);
     }
 
     /// <summary>
@@ -1324,61 +1296,43 @@
     /// <summary>Show or hide the band. A plain flip of a shell field rather than a
     /// call into <see cref="GlobalPaneSelection"/>, and it never consults capacity:
     /// the band is always freely toggleable because it takes no width from the panes.
-    /// See the multiselect group in the markup for why it stays out of the selection.</summary>
+    /// See the roadmap toggle in the markup for why it stays out of the selection.</summary>
     private void ToggleRoadmapBand() => _roadmapVisible = !_roadmapVisible;
 
-    private void ToggleInboxPane()
+    /// <summary>A press on a pane's option, modifiers and all. A closed pane opens
+    /// on its own with a plain press and beside the open ones with Ctrl (Cmd on
+    /// macOS) held; an open pane closes either way, because "this one too" has no
+    /// meaning for a pane already on screen. Same shape as
+    /// <see cref="ScopeRepository"/>, which is the convention the reader learns from
+    /// the chips beside this strip.</summary>
+    private void PressPane(GlobalPane pane, MouseEventArgs args)
     {
-        _globalPanes.Toggle(GlobalPane.Inbox);
+        if (!_globalPanes.IsEnabled(pane) && (args.CtrlKey || args.MetaKey) && _globalPanes.TakesSeveral)
+        {
+            _globalPanes.TryOpenBeside(pane);
+        }
+        else
+        {
+            _globalPanes.Toggle(pane);
+        }
+
         PersistPaneSelection();
     }
 
-    private void ToggleTasksPane()
+    /// <summary>What the press will do, and the modifier that changes it — named
+    /// here because nothing else on screen does. A window that fits one pane names
+    /// none: Ctrl would only switch there, and a tooltip offering a modifier that
+    /// does nothing is a control lying about itself.</summary>
+    private string PaneOptionTitle(GlobalPane pane, string name)
     {
-        _globalPanes.Toggle(GlobalPane.Tasks);
-        PersistPaneSelection();
-    }
+        if (_globalPanes.IsEnabled(pane))
+        {
+            return _globalPanes.CanDisable(pane) ? $"Close {name}" : $"{name} is the only pane open";
+        }
 
-    private void ToggleDevbookPane()
-    {
-        _globalPanes.Toggle(GlobalPane.Devbook);
-        PersistPaneSelection();
-    }
-
-    private bool PanePinned(GlobalPane pane) => _globalPanes.IsPinned(pane);
-
-    /// <summary>A pin describes a pane on screen, so a closed pane has nothing to
-    /// pin — and in a window that fits one pane no pin could keep its promise. An
-    /// existing pin stays pressable either way, because withdrawing one is always
-    /// allowed.</summary>
-    private bool PinToggleDisabled(GlobalPane pane) => !_globalPanes.IsPinned(pane) && !_globalPanes.CanPin(pane);
-
-    private string PinLabel(GlobalPane pane, string name) =>
-        _globalPanes.IsPinned(pane) ? $"Stop keeping {name} open" : $"Keep {name} open when switching panes";
-
-    /// <summary>Why the pin is inert, when it is — the label alone would only repeat
-    /// the offer the control cannot currently honour.</summary>
-    private string PinTitle(GlobalPane pane, string name) =>
-        _globalPanes.Capacity == 1 ? "This window only fits one pane at a time"
-        : !_globalPanes.IsEnabled(pane) ? $"Open {name} to keep it open"
-        : PinLabel(pane, name);
-
-    private void ToggleInboxPin()
-    {
-        _globalPanes.TogglePin(GlobalPane.Inbox);
-        PersistPaneSelection();
-    }
-
-    private void ToggleTasksPin()
-    {
-        _globalPanes.TogglePin(GlobalPane.Tasks);
-        PersistPaneSelection();
-    }
-
-    private void ToggleDevbookPin()
-    {
-        _globalPanes.TogglePin(GlobalPane.Devbook);
-        PersistPaneSelection();
+        return _globalPanes.TakesSeveral
+            ? $"Switch to {name} — Ctrl+click to open it beside the open panes"
+            : $"Switch to {name}";
     }
 
     /// <summary>Triage: the Inbox turned an item into backlog entries, and the

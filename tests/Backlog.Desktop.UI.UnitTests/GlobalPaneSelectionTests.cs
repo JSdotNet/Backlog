@@ -7,7 +7,7 @@ public sealed class GlobalPaneSelectionTests
     /// A layout saved before a bounded context was renamed still restores: Backlog
     /// became Tasks, and Knowledge became Devbook.
     /// <para>
-    /// The shell persists its open and pinned panes to shell-navigation.json as enum
+    /// The shell persists its open panes to shell-navigation.json as enum
     /// member names, so <c>GlobalPane.Tasks</c> was written as "Backlog" and
     /// <c>GlobalPane.Devbook</c> as "Knowledge" by every build before the respective
     /// rename. A plain <c>Enum.TryParse</c> rejects those, and the pane is then
@@ -54,11 +54,12 @@ public sealed class GlobalPaneSelectionTests
 
     /// <summary>
     /// Asking for a section is asking to look at it, not asking for one more thing on
-    /// screen. So a pane the reader switches to takes the screen from the panes they
-    /// did not ask to keep, however much room the window has.
+    /// screen. So a pane the reader switches to takes the screen from the others,
+    /// however much room the window has — one more is <see cref="GlobalPaneSelection.TryOpenBeside"/>,
+    /// which the reader asks for with the modifier.
     /// </summary>
     [Fact]
-    public void Switching_to_a_pane_closes_the_unpinned_panes_it_replaces()
+    public void Switching_to_a_pane_closes_the_panes_it_replaces()
     {
         var selection = new GlobalPaneSelection();
 
@@ -97,10 +98,10 @@ public sealed class GlobalPaneSelectionTests
 
     /// <summary>
     /// A full viewport is no longer a refusal. The pane asked for makes its own room
-    /// by closing what the reader did not pin, so opening one never fails for width.
+    /// by closing the rest, so opening one never fails for width.
     /// </summary>
     [Fact]
-    public void Two_pane_capacity_makes_room_by_closing_the_unpinned_panes()
+    public void Two_pane_capacity_makes_room_by_closing_the_other_panes()
     {
         var selection = new GlobalPaneSelection(GlobalPane.Inbox, GlobalPane.Tasks);
         selection.TrySetCapacity(2);
@@ -188,34 +189,16 @@ public sealed class GlobalPaneSelectionTests
     }
 
     /// <summary>
-    /// The pin is the exception to the switch: it says "keep this one, whatever I
-    /// look at next". Inbox is open and unpinned here so the same act is shown doing
-    /// both jobs — the pinned pane stays, the other one goes.
+    /// "This one too": the modifier press opens a pane beside the open ones instead
+    /// of in their place. Inbox and Tasks are both open here so the act is shown
+    /// keeping more than one.
     /// </summary>
     [Fact]
-    public void A_pinned_pane_survives_a_switch_away_from_it()
+    public void Opening_beside_keeps_the_open_panes()
     {
         var selection = new GlobalPaneSelection(GlobalPane.Inbox, GlobalPane.Tasks);
 
-        Assert.True(selection.TrySetPinned(GlobalPane.Tasks, pinned: true));
-        Assert.True(selection.TrySetEnabled(GlobalPane.Devbook, enabled: true));
-
-        Assert.True(selection.IsEnabled(GlobalPane.Tasks));
-        Assert.True(selection.IsPinned(GlobalPane.Tasks));
-        Assert.True(selection.IsEnabled(GlobalPane.Devbook));
-        Assert.False(selection.IsEnabled(GlobalPane.Inbox));
-        Assert.Equal(2, selection.EnabledCount);
-    }
-
-    [Fact]
-    public void Two_pinned_panes_both_survive_a_switch_when_the_viewport_has_room()
-    {
-        var selection = new GlobalPaneSelection(GlobalPane.Inbox, GlobalPane.Tasks);
-
-        Assert.True(selection.TrySetPinned(GlobalPane.Inbox, pinned: true));
-        Assert.True(selection.TrySetPinned(GlobalPane.Tasks, pinned: true));
-
-        Assert.True(selection.TrySetEnabled(GlobalPane.Devbook, enabled: true));
+        Assert.True(selection.TryOpenBeside(GlobalPane.Devbook));
 
         Assert.True(selection.IsEnabled(GlobalPane.Inbox));
         Assert.True(selection.IsEnabled(GlobalPane.Tasks));
@@ -224,29 +207,56 @@ public sealed class GlobalPaneSelectionTests
     }
 
     /// <summary>
-    /// A pin is a preference, and the pane the reader just asked for is a request.
-    /// When the two cannot both be honoured the request wins: the oldest pin in the
-    /// stable order makes way, and loses its pin with its place.
+    /// The reader asked to keep what is open and for one more, and the viewport
+    /// cannot hold all of it. The request wins, and only as much goes as it needs
+    /// room for: the first open pane in the stable order, which is the one a trim
+    /// would take too.
     /// </summary>
     [Fact]
-    public void The_switched_to_pane_wins_when_the_pinned_panes_fill_the_viewport()
+    public void Opening_beside_a_full_viewport_evicts_only_the_first_open_pane()
     {
         var selection = new GlobalPaneSelection(GlobalPane.Inbox, GlobalPane.Tasks);
         selection.TrySetCapacity(2);
 
-        Assert.True(selection.TrySetPinned(GlobalPane.Inbox, pinned: true));
-        Assert.True(selection.TrySetPinned(GlobalPane.Tasks, pinned: true));
-
-        Assert.True(selection.TrySetEnabled(GlobalPane.Devbook, enabled: true));
+        Assert.True(selection.TryOpenBeside(GlobalPane.Devbook));
 
         Assert.True(selection.IsEnabled(GlobalPane.Devbook));
         Assert.True(selection.IsEnabled(GlobalPane.Tasks));
-        Assert.True(selection.IsPinned(GlobalPane.Tasks));
-
-        // Evicted, and unpinned with it: a pin only ever describes a pane on screen.
         Assert.False(selection.IsEnabled(GlobalPane.Inbox));
-        Assert.False(selection.IsPinned(GlobalPane.Inbox));
         Assert.Equal(2, selection.EnabledCount);
+    }
+
+    /// <summary>
+    /// Beside means nothing in a window that fits one pane, so the shell names no
+    /// modifier there; asked anyway, the act degrades to the switch the plain press
+    /// would have made rather than refusing.
+    /// </summary>
+    [Fact]
+    public void A_single_pane_window_takes_no_second_pane()
+    {
+        var selection = new GlobalPaneSelection(GlobalPane.Tasks);
+        selection.TrySetCapacity(1);
+
+        Assert.False(selection.TakesSeveral);
+        Assert.True(selection.TryOpenBeside(GlobalPane.Devbook));
+
+        Assert.True(selection.IsEnabled(GlobalPane.Devbook));
+        Assert.False(selection.IsEnabled(GlobalPane.Tasks));
+        Assert.Equal(1, selection.EnabledCount);
+
+        selection.TrySetCapacity(3);
+        Assert.True(selection.TakesSeveral);
+    }
+
+    [Fact]
+    public void Opening_beside_refuses_an_unavailable_or_already_open_pane()
+    {
+        var selection = new GlobalPaneSelection(GlobalPane.Tasks);
+        selection.TrySetAvailable(GlobalPane.Inbox, available: false);
+
+        Assert.False(selection.TryOpenBeside(GlobalPane.Inbox));
+        Assert.False(selection.TryOpenBeside(GlobalPane.Tasks));
+        Assert.Equal(1, selection.EnabledCount);
     }
 
     /// <summary>
@@ -266,96 +276,14 @@ public sealed class GlobalPaneSelectionTests
     }
 
     [Fact]
-    public void Pinning_requires_an_open_pane()
-    {
-        var selection = new GlobalPaneSelection(GlobalPane.Tasks);
-
-        Assert.False(selection.CanPin(GlobalPane.Devbook));
-        Assert.False(selection.TrySetPinned(GlobalPane.Devbook, pinned: true));
-        Assert.False(selection.IsPinned(GlobalPane.Devbook));
-
-        Assert.True(selection.CanPin(GlobalPane.Tasks));
-    }
-
-    [Fact]
-    public void Closing_a_pane_drops_its_pin()
-    {
-        var selection = new GlobalPaneSelection(GlobalPane.Inbox, GlobalPane.Tasks);
-        Assert.True(selection.TrySetPinned(GlobalPane.Inbox, pinned: true));
-
-        Assert.True(selection.TrySetEnabled(GlobalPane.Inbox, enabled: false));
-
-        Assert.False(selection.IsEnabled(GlobalPane.Inbox));
-        Assert.False(selection.IsPinned(GlobalPane.Inbox));
-    }
-
-    /// <summary>
-    /// Unpinning says "you may close this one when I switch", not "close it now".
-    /// </summary>
-    [Fact]
-    public void Unpinning_leaves_the_pane_on_screen()
-    {
-        var selection = new GlobalPaneSelection(GlobalPane.Inbox, GlobalPane.Tasks);
-        Assert.True(selection.TrySetPinned(GlobalPane.Tasks, pinned: true));
-
-        Assert.True(selection.TrySetPinned(GlobalPane.Tasks, pinned: false));
-
-        Assert.False(selection.IsPinned(GlobalPane.Tasks));
-        Assert.True(selection.IsEnabled(GlobalPane.Tasks));
-        Assert.Equal(2, selection.EnabledCount);
-    }
-
-    /// <summary>
-    /// There is nothing for a pin to protect a pane from in a window that holds one
-    /// pane: every switch is a takeover, so offering the pin would be offering a
-    /// promise the viewport cannot keep.
-    /// </summary>
-    [Fact]
-    public void A_pin_cannot_be_taken_in_a_single_pane_window()
-    {
-        var selection = new GlobalPaneSelection(GlobalPane.Tasks);
-        selection.TrySetCapacity(1);
-
-        Assert.False(selection.CanPin(GlobalPane.Tasks));
-        Assert.False(selection.TrySetPinned(GlobalPane.Tasks, pinned: true));
-        Assert.False(selection.IsPinned(GlobalPane.Tasks));
-    }
-
-    /// <summary>
-    /// A pin taken in a wide window is kept through a narrow one rather than thrown
-    /// away: the window is a passing condition and the reader's choice is not.
-    /// </summary>
-    [Fact]
-    public void A_pin_survives_a_narrow_window_and_comes_back_with_it()
-    {
-        var selection = new GlobalPaneSelection(GlobalPane.Inbox, GlobalPane.Tasks);
-        Assert.True(selection.TrySetPinned(GlobalPane.Tasks, pinned: true));
-
-        selection.TrySetCapacity(1);
-
-        Assert.True(selection.IsEnabled(GlobalPane.Tasks));
-        Assert.True(selection.IsPinned(GlobalPane.Tasks));
-        Assert.False(selection.CanPin(GlobalPane.Tasks));
-        Assert.Equal(1, selection.EnabledCount);
-
-        selection.TrySetCapacity(3);
-
-        Assert.True(selection.IsPinned(GlobalPane.Tasks));
-        Assert.True(selection.CanPin(GlobalPane.Tasks));
-    }
-
-    [Fact]
-    public void Trimming_prefers_the_unpinned_panes()
+    public void Trimming_takes_the_first_open_pane_in_the_stable_order()
     {
         var selection = new GlobalPaneSelection(GlobalPane.Inbox, GlobalPane.Tasks, GlobalPane.Devbook);
-        Assert.True(selection.TrySetPinned(GlobalPane.Inbox, pinned: true));
 
         Assert.True(selection.TrySetCapacity(2));
 
-        // Backlog leads the unpinned panes in the stable order, so it goes first —
-        // where without the pin Inbox would have.
-        Assert.True(selection.IsEnabled(GlobalPane.Inbox));
-        Assert.False(selection.IsEnabled(GlobalPane.Tasks));
+        Assert.False(selection.IsEnabled(GlobalPane.Inbox));
+        Assert.True(selection.IsEnabled(GlobalPane.Tasks));
         Assert.True(selection.IsEnabled(GlobalPane.Devbook));
         Assert.Equal(2, selection.EnabledCount);
     }
@@ -382,18 +310,6 @@ public sealed class GlobalPaneSelectionTests
                 Assert.InRange(selection.EnabledCount, 1, capacity);
             }
         }
-    }
-
-    [Fact]
-    public void A_pane_that_becomes_unavailable_loses_its_pin()
-    {
-        var selection = new GlobalPaneSelection(GlobalPane.Tasks, GlobalPane.Devbook);
-        Assert.True(selection.TrySetPinned(GlobalPane.Devbook, pinned: true));
-
-        Assert.True(selection.TrySetAvailable(GlobalPane.Devbook, available: false));
-
-        Assert.False(selection.IsEnabled(GlobalPane.Devbook));
-        Assert.False(selection.IsPinned(GlobalPane.Devbook));
     }
 
     /// <summary>
@@ -426,13 +342,12 @@ public sealed class GlobalPaneSelectionTests
     {
         var selection = new GlobalPaneSelection(GlobalPane.Inbox, GlobalPane.Devbook);
         selection.TrySetCapacity(2);
-        Assert.True(selection.TrySetPinned(GlobalPane.Inbox, pinned: true));
 
         Assert.True(selection.TryOpenAlongside(GlobalPane.Tasks));
 
         Assert.True(selection.IsEnabled(GlobalPane.Tasks));
-        Assert.True(selection.IsEnabled(GlobalPane.Inbox));
+        Assert.False(selection.IsEnabled(GlobalPane.Inbox));
         Assert.False(selection.IsEnabled(GlobalPane.Devbook));
-        Assert.Equal(2, selection.EnabledCount);
+        Assert.Equal(1, selection.EnabledCount);
     }
 }

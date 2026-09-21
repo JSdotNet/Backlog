@@ -13,23 +13,30 @@ public sealed class GlobalPaneMarkupTests
         // the pane options below already follow.
         Assert.Contains("TestId=\"global-pane-multiselect\"", home, StringComparison.Ordinal);
 
-        // "Sections" rather than "panes": the strip also shows and hides the roadmap
-        // band, and a band is a row above the panes rather than one of them.
-        Assert.Contains("AriaLabel=\"Visible sections\"", home, StringComparison.Ordinal);
-        Assert.DoesNotContain("Visible panes", home, StringComparison.Ordinal);
+        // "Panes", because that is all the strip holds now. It used to be
+        // "Sections" while the roadmap band's option sat first in it; the band is a
+        // row above the panes rather than one of them, and its toggle stands on its
+        // own beside the strip — see below.
+        Assert.Contains("AriaLabel=\"Visible panes\"", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("Visible sections", home, StringComparison.Ordinal);
 
-        // The four options are the shared ToggleButton, so their test ids reach
-        // the DOM through its TestId parameter rather than literal attributes.
-        Assert.Contains("TestId=\"roadmap-pane-option\"", home, StringComparison.Ordinal);
+        // The three pane options are the shared ToggleButton, so their test ids
+        // reach the DOM through its TestId parameter rather than literal attributes.
         Assert.Contains("TestId=\"inbox-pane-option\"", home, StringComparison.Ordinal);
         Assert.Contains("TestId=\"backlog-pane-option\"", home, StringComparison.Ordinal);
         Assert.Contains("TestId=\"devbook-pane-option\"", home, StringComparison.Ordinal);
 
-        // The band leads, because it is the thing highest on screen.
+        // The roadmap toggle leads the strip in the markup, because the band is the
+        // thing highest on screen — and it is a toggle, not a pane option: it is
+        // outside the group and its test id does not end in -pane-option, so the
+        // selector the strip's tests use keeps matching the three panes and nothing
+        // else.
+        Assert.Contains("TestId=\"roadmap-band-toggle\"", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("roadmap-pane-option", home, StringComparison.Ordinal);
         Assert.True(
-            home.IndexOf("TestId=\"roadmap-pane-option\"", StringComparison.Ordinal)
-            < home.IndexOf("TestId=\"inbox-pane-option\"", StringComparison.Ordinal),
-            "The Roadmap option comes first in the strip: the band sits above the panes.");
+            home.IndexOf("TestId=\"roadmap-band-toggle\"", StringComparison.Ordinal)
+            < home.IndexOf("TestId=\"global-pane-multiselect\"", StringComparison.Ordinal),
+            "The Roadmap toggle comes before the panes strip: the band sits above the panes.");
 
         // Each pane carries its own landmark id from its own folder; the shell
         // only points the multiselect's aria-controls at them. The band is the same
@@ -106,6 +113,89 @@ public sealed class GlobalPaneMarkupTests
     }
 
     /// <summary>
+    /// The shape of a header group says how many of its options can be on at once:
+    /// members fused inside one border where several can (the repository scope with
+    /// Ctrl held, the sections strip), standalone controls with a gap between them
+    /// where exactly one can (the surface switcher). It used to be the other way
+    /// round for two of the three — the scope was loose chips and the surfaces were
+    /// fused — so a reader had to press to find out which kind of control they were
+    /// holding. The markup carries the modifier and the stylesheet keys on it, so both
+    /// halves are pinned here.
+    /// </summary>
+    [Fact]
+    public void A_header_groups_shape_says_how_many_options_it_takes()
+    {
+        var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
+        var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
+
+        // The scope is the shared ButtonGroup wearing the fused shape, not a div of
+        // its own: several repositories can be scoped at once, so its chips touch.
+        Assert.Contains(
+            "<ButtonGroup CssClass=\"header-group app-header__repository-scope\"",
+            home,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("<div class=\"app-header__repository-scope\"", home, StringComparison.Ordinal);
+
+        // Exactly one surface at a time, so its options stand apart.
+        Assert.Contains(
+            "<ButtonGroup CssClass=\"header-group header-group--loose header-group--surface\"",
+            home,
+            StringComparison.Ordinal);
+
+        // Any number of panes at once, so the strip stays fused.
+        Assert.Contains(
+            "<ButtonGroup CssClass=\"header-group header-group--panes\"",
+            home,
+            StringComparison.Ordinal);
+
+        // The roadmap band is not one of a set at all — on or off, touching no
+        // pane — so its toggle stands alone in the loose shape, outside any group.
+        Assert.Contains(
+            "<ToggleButton BaseClass=\"header-group__option header-group__option--loose\"",
+            home,
+            StringComparison.Ordinal);
+        Assert.True(
+            home.IndexOf("TestId=\"roadmap-band-toggle\"", StringComparison.Ordinal)
+            > home.IndexOf("@if (WorkspaceVisible && RoadmapPaneOptionVisible)", StringComparison.Ordinal),
+            "The roadmap toggle renders on its own gate, not inside the panes strip.");
+
+        // The loose modifier takes the group's own border and fill away and spaces
+        // the members out; each member, loose in its own right, then draws the
+        // border the group gave up. The option's modifier is its own rather than a
+        // descendant rule, so the roadmap toggle can wear it with no group at all.
+        var loose = RuleFor(css, ".header-group--loose {");
+        Assert.Contains("border: 0;", loose, StringComparison.Ordinal);
+        Assert.Contains("background: transparent;", loose, StringComparison.Ordinal);
+        Assert.Contains("gap: var(--spacing-xs);", loose, StringComparison.Ordinal);
+
+        var looseOption = RuleFor(css, ".header-group__option--loose {");
+        Assert.Contains("border: var(--border-width) solid var(--color-border);", looseOption, StringComparison.Ordinal);
+        Assert.Contains("border-radius: var(--border-radius-md);", looseOption, StringComparison.Ordinal);
+        Assert.DoesNotContain(".header-group--loose > .header-group__option", css, StringComparison.Ordinal);
+
+        // A standalone option carries its selection on its own edge, the way the
+        // library's pressed toggle does, because there is no strip for an underline
+        // to run along.
+        Assert.Contains(
+            "border-color: var(--color-primary);",
+            RuleFor(css, ".header-group__option--loose.header-group__option--selected {"),
+            StringComparison.Ordinal);
+
+        // The fused scope chips give up the border and radius a loose chip draws, and
+        // keep only a hairline between neighbours. The active fill, the identity edge
+        // and the anchor underline are untouched: those rules still key on the chip
+        // classes the buttons keep wearing.
+        var fusedChip = RuleFor(css, ".app-header__repository-scope > .chip {");
+        Assert.Contains("border: 0;", fusedChip, StringComparison.Ordinal);
+        Assert.Contains("border-radius: var(--border-radius-none);", fusedChip, StringComparison.Ordinal);
+        Assert.Contains(
+            "border-left: var(--border-width) solid var(--color-border);",
+            RuleFor(css, ".app-header__repository-scope > .chip + .chip {"),
+            StringComparison.Ordinal);
+        Assert.Contains("gap: 0;", RuleFor(css, ".app-header__repository-scope {"), StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Navigation and cross-cutting concerns are separate regions of the header, not
     /// one row of interchangeable pills. This pins the four regions and the fact
     /// that only the two navigation groups live inside the nav landmark.
@@ -172,7 +262,9 @@ public sealed class GlobalPaneMarkupTests
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
 
-        Assert.Contains("@if (RoadmapPaneOptionVisible)", home, StringComparison.Ordinal);
+        // One gate for both conditions, because the toggle stands on its own now
+        // rather than inside the strip the workspace gate already wraps.
+        Assert.Contains("@if (WorkspaceVisible && RoadmapPaneOptionVisible)", home, StringComparison.Ordinal);
         Assert.Contains("RoadmapFeatures.Roadmap", home, StringComparison.Ordinal);
         Assert.Contains("private bool RoadmapBandVisible => RoadmapPaneOptionVisible && _roadmapVisible;", home, StringComparison.Ordinal);
 
@@ -204,7 +296,7 @@ public sealed class GlobalPaneMarkupTests
 
     /// <summary>
     /// Capacity no longer disables an option: a pane the reader asks for makes its own
-    /// room by closing what they did not pin, so the only thing that can block one of
+    /// room by closing the others, so the only thing that can block one of
     /// the three is being the last pane on screen. The binding stays on exactly the
     /// three panes all the same — the band has neither rule.
     /// </summary>
@@ -225,8 +317,16 @@ public sealed class GlobalPaneMarkupTests
         // the selection.
         Assert.Equal(3, CountOccurrences(home, "Disabled=\"@PaneToggleDisabled("));
 
-        // And one pin per pane, disabled on its own terms rather than the option's.
-        Assert.Equal(3, CountOccurrences(home, "Disabled=\"@PinToggleDisabled("));
+        // The three pane options press through one handler that reads the
+        // modifier, so "this one too" is the option itself and not a second
+        // control beside it; the band keeps the plain toggle, because it takes
+        // no modifier.
+        foreach (var pane in new[] { "Inbox", "Tasks", "Devbook" })
+        {
+            Assert.Contains($"OnClick=\"args => PressPane(GlobalPane.{pane}, args)\"", home, StringComparison.Ordinal);
+            Assert.Contains($"Title=\"@PaneOptionTitle(GlobalPane.{pane}, \"", home, StringComparison.Ordinal);
+        }
+        Assert.Contains("PressedChanged=\"ToggleRoadmapBand\"", home, StringComparison.Ordinal);
 
         Assert.Contains("if (_globalPanes.IsEnabled(pane))", home, StringComparison.Ordinal);
         Assert.Contains("return !_globalPanes.CanDisable(pane);", home, StringComparison.Ordinal);
@@ -238,61 +338,6 @@ public sealed class GlobalPaneMarkupTests
         Assert.DoesNotContain("Hide backlog", home, StringComparison.Ordinal);
         Assert.DoesNotContain("Show knowledge", home, StringComparison.Ordinal);
         Assert.DoesNotContain("Hide knowledge", home, StringComparison.Ordinal);
-    }
-
-    /// <summary>
-    /// A pane and its pin are one cell of the strip, the rail first: it draws along
-    /// the option's top edge, so leading the cell is what keeps DOM order, reading
-    /// order and tab order the same one. The band is deliberately not one of them —
-    /// it competes with nothing for width, so there is nothing for a pin to save it
-    /// from.
-    /// <para>
-    /// The test ids end in <c>-pane-pin</c> rather than <c>-pane-option</c> so the
-    /// <c>[data-testid$='-pane-option']</c> selector the strip's own tests use keeps
-    /// matching the four options and nothing else.
-    /// </para>
-    /// </summary>
-    [Fact]
-    public void Every_pane_carries_a_pin_and_the_band_does_not()
-    {
-        var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
-
-        Assert.Contains("TestId=\"inbox-pane-pin\"", home, StringComparison.Ordinal);
-        Assert.Contains("TestId=\"backlog-pane-pin\"", home, StringComparison.Ordinal);
-        Assert.Contains("TestId=\"devbook-pane-pin\"", home, StringComparison.Ordinal);
-        Assert.DoesNotContain("roadmap-pane-pin", home, StringComparison.Ordinal);
-
-        // The cell that holds the pair, and the pin's own two class hooks.
-        Assert.Contains("header-group__pane", home, StringComparison.Ordinal);
-        Assert.Contains("BaseClass=\"header-group__pin\"", home, StringComparison.Ordinal);
-        Assert.Contains("PressedCssClass=\"header-group__pin--pinned\"", home, StringComparison.Ordinal);
-
-        foreach (var pane in new[] { "inbox", "backlog", "devbook" })
-        {
-            var option = home.IndexOf($"TestId=\"{pane}-pane-option\"", StringComparison.Ordinal);
-            var pin = home.IndexOf($"TestId=\"{pane}-pane-pin\"", StringComparison.Ordinal);
-
-            Assert.True(pin >= 0 && option > pin, $"The {pane} rail must lead its own option.");
-        }
-    }
-
-    /// <summary>
-    /// The pin is the shared <c>ToggleButton</c> rather than a control of its own:
-    /// pinned is a pressed state, which is what the component already draws and
-    /// announces. Its state is read from the selection and written back to it, so
-    /// there is no second copy of "which panes are pinned" anywhere.
-    /// </summary>
-    [Fact]
-    public void The_pin_is_the_shared_toggle_button_wired_to_the_selection()
-    {
-        var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
-
-        foreach (var pane in new[] { "Inbox", "Tasks", "Devbook" })
-        {
-            Assert.Contains($"Pressed=\"@PanePinned(GlobalPane.{pane})\"", home, StringComparison.Ordinal);
-            Assert.Contains($"PressedChanged=\"Toggle{pane}Pin\"", home, StringComparison.Ordinal);
-            Assert.Contains($"_globalPanes.TogglePin(GlobalPane.{pane});", home, StringComparison.Ordinal);
-        }
     }
 
     /// <summary>
@@ -311,227 +356,42 @@ public sealed class GlobalPaneMarkupTests
     }
 
     /// <summary>
-    /// Pinned is drawn the way selected is — a tinted fill and a primary rule together
-    /// — because colour alone is the one channel the accessibility rules rule out. The
-    /// rule is the rail's top edge rather than an underline, which is what keeps it off
-    /// the option's own selected edge. And a pin that cannot be taken says so rather
-    /// than merely failing.
+    /// Each pane used to carry a pin, railed along its option's top edge, that held
+    /// it through a switch (#283 is the shape it settled on). The pin was a second
+    /// control on every option for what one modifier on the option itself says:
+    /// a plain press switches to the pane, Ctrl (Cmd on macOS) opens it beside the
+    /// open ones — the convention the repository scope in the same header already
+    /// follows, so the reader learns it once. The rails are gone from the markup,
+    /// the stylesheet and the persisted layout alike, and the tooltip is what names
+    /// the modifier, because nothing else on screen does.
     /// </summary>
     [Fact]
-    public void The_pin_states_are_drawn_with_more_than_colour()
-    {
-        var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
-
-        var pinned = RuleFor(css, ".header-group__pin--pinned {");
-        Assert.Contains("border-top-color: var(--color-primary);", pinned, StringComparison.Ordinal);
-        Assert.Contains("background:", pinned, StringComparison.Ordinal);
-
-        Assert.Contains("cursor: not-allowed;", RuleFor(css, ".header-group__pin:disabled {"), StringComparison.Ordinal);
-    }
-
-    /// <summary>
-    /// The rail holds the library's glyph, not the emoji it started as. An emoji is
-    /// a font's drawing rather than the product's — it arrives in someone else's
-    /// colour, at whatever weight the platform ships, and it is sized by type, which
-    /// is the one thing the iconography rules forbid. So the pin's <c>font-size</c>
-    /// goes with it: nothing in the cell is sized by type any more.
-    /// <para>
-    /// Push up to pin, push down to release. One drawing carries both states and its
-    /// direction is the state: the rail renders a chevron unconditionally, pointing
-    /// up at the edge it runs along while the pane is loose, and the stylesheet turns
-    /// it half a turn down once the pane is pinned. Direction is a channel under the
-    /// fill and the top rule and it is not colour, which is what
-    /// <c>accessibility.md#iconography-accessibility</c> asks for; a rotation nobody
-    /// recognised as a state would be the first thing a later edit dropped, so it is
-    /// asserted rather than left to the comment beside it.
-    /// </para>
-    /// <para>
-    /// The travel is the other half of the sentence: a pixel toward the top edge on
-    /// hover, so the control moves the way it is asking to be moved, and the same
-    /// pixel once pinned, so the glyph stays where the push left it. Both are
-    /// composed through custom properties rather than written as two
-    /// <c>transform</c> declarations, because the hover selector outranks the pinned
-    /// one and would otherwise take the rotation off a hovered pinned rail. Stated
-    /// in this sheet because it has to be — the pin replaces the shared button's
-    /// base class, so none of the library's <c>.btn svg</c> rules reach the glyph.
-    /// </para>
-    /// </summary>
-    [Fact]
-    public void The_pin_turns_its_chevron_over_and_is_drawn_with_the_shared_glyph_rather_than_an_emoji()
+    public void A_second_pane_is_asked_for_with_the_modifier_rather_than_a_pin()
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
         var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
 
-        // One glyph per pin and no more: three panes each draw the chevron once and
-        // unconditionally, and the band draws none.
-        Assert.Equal(3, home.Split("<ChevronUpIcon Size=\"12\" CssClass=\"header-group__pin-glyph\" />").Length - 1);
+        Assert.DoesNotContain("-pane-pin", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("header-group__pin", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("header-group__pane", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("ChevronUpIcon", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("LastPinnedPanes", home, StringComparison.Ordinal);
 
-        // Unconditionally is the point, so the branch that used to choose a drawing
-        // has to be gone rather than merely unreachable — a leftover arm would put a
-        // second glyph back in the rail the moment it was edited.
-        Assert.DoesNotContain("PinIcon", home, StringComparison.Ordinal);
-        foreach (var pane in new[] { "Inbox", "Tasks", "Devbook" })
-        {
-            Assert.DoesNotContain($"@if (PanePinned(GlobalPane.{pane}))", home, StringComparison.Ordinal);
-        }
+        Assert.DoesNotContain(".header-group__pin", css, StringComparison.Ordinal);
+        Assert.DoesNotContain(".header-group__pane", css, StringComparison.Ordinal);
 
-        // Escaped rather than pasted, so the assertion cannot pass because an editor
-        // re-encoded the character it is looking for. U+1F4CC is the pushpin emoji.
-        Assert.DoesNotContain("\U0001F4CC", home, StringComparison.Ordinal);
-
-        // The declaration and not the word: the rule still explains in a comment why
-        // it no longer sets one.
-        var pin = RuleFor(css, ".header-group__pin {");
-        Assert.DoesNotContain("font-size:", pin, StringComparison.Ordinal);
-
-        // And the declaration the emoji let the rule go without. A <button> arrives
-        // from the user agent carrying an ink of its own; an emoji painted over it
-        // regardless, so nobody noticed the rail never said what colour it drew in.
-        // A stroke in currentColor takes that ink instead, which put a near-black
-        // glyph in a dark header at about 1.2:1 — the icon rules ask for 3.
-        Assert.Contains("color: var(--color-text-secondary);", pin, StringComparison.Ordinal);
-
-        // The shared hook, not the component's self-named class: a rule keyed on
-        // `.chevron-up-icon` would take hold of any chevron a later caller put here,
-        // and the pin glyph the sheet used to also dress is gone from the library
-        // altogether — so no rule anywhere may still be reaching for it.
-        var glyph = RuleFor(css, ".header-group__pin-glyph {");
-        Assert.Contains("display: block;", glyph, StringComparison.Ordinal);
-        Assert.Contains("transition: transform var(--transition-fast);", glyph, StringComparison.Ordinal);
-        Assert.DoesNotContain("pin-icon", css, StringComparison.Ordinal);
-
-        // The composed transform, and the two variables it is composed of. The base
-        // rule owns the expression; every state rule below sets one variable and
-        // never the transform, which is what lets a hovered pinned rail keep both.
-        Assert.Contains("--pin-lift: 0;", glyph, StringComparison.Ordinal);
-        Assert.Contains("--pin-turn: 0deg;", glyph, StringComparison.Ordinal);
+        // The modifier opens beside; without it, or in a window that fits one pane,
+        // the press is the switch it always was.
         Assert.Contains(
-            "transform: translateY(var(--pin-lift)) rotate(var(--pin-turn));",
-            glyph,
+            "if (!_globalPanes.IsEnabled(pane) && (args.CtrlKey || args.MetaKey) && _globalPanes.TakesSeveral)",
+            home,
             StringComparison.Ordinal);
+        Assert.Contains("_globalPanes.TryOpenBeside(pane);", home, StringComparison.Ordinal);
+        Assert.Contains("_globalPanes.Toggle(pane);", home, StringComparison.Ordinal);
 
-        // The nudge on hover: the lift and nothing else, so hovering does not reach
-        // the turn. One pixel is all the slack the rail has — its 1rem floor less the
-        // 2px it reserves on the top edge leaves a 14px content box around a 12px
-        // glyph, so a pixel lands the drawing flush with the top and no further. The
-        // turn spends none of that slack: half a turn about a square glyph's own
-        // centre maps its box onto itself.
-        var hovered = RuleFor(css, ".header-group__pin:hover:not(:disabled) .header-group__pin-glyph {");
-        Assert.Contains("--pin-lift: -1px;", hovered, StringComparison.Ordinal);
-        Assert.DoesNotContain("transform:", hovered, StringComparison.Ordinal);
-
-        // And the pinned state: the same pixel held, plus the half turn that says
-        // push back. Both variables, because a pinned rail keeps the lift whether or
-        // not the pointer is still on it.
-        var pinned = RuleFor(css, ".header-group__pin--pinned .header-group__pin-glyph {");
-        Assert.Contains("--pin-lift: -1px;", pinned, StringComparison.Ordinal);
-        Assert.Contains("--pin-turn: 180deg;", pinned, StringComparison.Ordinal);
-        Assert.DoesNotContain("transform:", pinned, StringComparison.Ordinal);
-
-        // The tilt is gone rather than merely unused: an unpinned pin used to be the
-        // pin drawing rotated 45 degrees, and the chevron replaced it.
-        Assert.DoesNotContain("rotate(45deg)", css, StringComparison.Ordinal);
-    }
-
-    /// <summary>
-    /// Feedback #283: the pin was a full-height box on the option's right, so its
-    /// pinned fill read as a vertical strip running down the option's side. The cell
-    /// stacks instead — the rail along the option's top edge — and nothing about
-    /// pinning is drawn beside the option any more.
-    /// <para>
-    /// The top edge rather than the bottom one because the option's selected state
-    /// already owns the bottom. With the two states on opposite edges of the cell,
-    /// selected+pinned, selected alone, pinned alone and neither stay four different
-    /// pictures instead of two rules stacked on one edge.
-    /// </para>
-    /// <para>
-    /// Stacking is not allowed to cost height. The cell states the height a bare
-    /// option has, and the two rows divide it rather than add up to it: the rail
-    /// takes its floor off the top and the option gives up its own floor and its
-    /// vertical padding to fill the rest. Otherwise the sections group stands a rail
-    /// taller than the surface switcher beside it, which is two header groups drawn
-    /// at two heights for a difference nobody can read.
-    /// </para>
-    /// </summary>
-    [Fact]
-    public void The_pin_rails_along_the_top_edge_rather_than_beside_the_option()
-    {
-        var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
-
-        Assert.Contains("flex-direction: column;", RuleFor(css, ".header-group__pane {"), StringComparison.Ordinal);
-
-        // The cells and the pinless band option share one height, so the hairlines
-        // between them span the strip rather than stopping at the option's own row.
-        Assert.Contains("align-items: stretch;", RuleFor(css, ".header-group--sections {"), StringComparison.Ordinal);
-
-        var pin = RuleFor(css, ".header-group__pin {");
-        Assert.Contains("width: 100%;", pin, StringComparison.Ordinal);
-
-        // The full-height side box is the shape that read as a strip. It must not
-        // come back, whichever edge the fill is drawn on.
-        Assert.DoesNotContain("min-height: 2.25rem;", pin, StringComparison.Ordinal);
-
-        // The cell is a bare option tall, which is the height the surface switcher
-        // beside it takes, and the rail comes out of that rather than on top of it.
-        Assert.Contains("min-height: 2.25rem;", RuleFor(css, ".header-group__option {"), StringComparison.Ordinal);
-        Assert.Contains("min-height: 2.25rem;", RuleFor(css, ".header-group__pane {"), StringComparison.Ordinal);
-
-        var paneOption = RuleFor(css, ".header-group__pane > .header-group__option {");
-        Assert.Contains("min-height: 0;", paneOption, StringComparison.Ordinal);
-        Assert.Contains("flex: 1 1 auto;", paneOption, StringComparison.Ordinal);
-        Assert.Contains("padding-top: 0;", paneOption, StringComparison.Ordinal);
-        Assert.Contains("padding-bottom: 0;", paneOption, StringComparison.Ordinal);
-
-        // Reserved on the edge each state will draw on, so neither pinning nor
-        // selecting moves the row.
-        Assert.Contains("border-top: var(--border-width-2) solid transparent;", pin, StringComparison.Ordinal);
-        Assert.Contains(
-            "border-bottom: var(--border-width-2) solid transparent;",
-            RuleFor(css, ".header-group__option {"),
-            StringComparison.Ordinal);
-
-        // Opposite edges: the option underlines selected, the rail overlines pinned.
-        Assert.DoesNotContain("border-bottom", RuleFor(css, ".header-group__pin--pinned {"), StringComparison.Ordinal);
-        Assert.Contains(
-            "border-bottom-color: var(--color-primary);",
-            RuleFor(css, ".header-group__option--selected {"),
-            StringComparison.Ordinal);
-    }
-
-    /// <summary>
-    /// The rail's target is its width, not its height. Height is the half it gives
-    /// back: the cell is one bare option tall and the rail takes 1rem of that, where
-    /// the side box stood the whole 2.25rem. What it has instead is the option's
-    /// entire width — four rem beside Tasks and eight beside Devbook and its flag,
-    /// where the box was never wider than its own 2rem floor. So the rail is shallow
-    /// and long where the box was narrow and tall, and a pointer travelling the strip
-    /// meets it across the whole of the option rather than at one end of it. The 3rem
-    /// floor is the guarantee under that, for the day the shortest word in the strip
-    /// gets shorter.
-    /// <para>
-    /// The compact step narrows the floor and says nothing about height, because the
-    /// cell fixes the height at every width and a second floor here could only argue
-    /// with it. 2.75rem is the floor a narrowed option can still be measured against.
-    /// </para>
-    /// </summary>
-    [Fact]
-    public void The_rail_takes_its_target_from_the_option_width_rather_than_its_own_height()
-    {
-        var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
-
-        var pin = RuleFor(css, ".header-group__pin {");
-        Assert.Contains("width: 100%;", pin, StringComparison.Ordinal);
-        Assert.Contains("min-width: 3rem;", pin, StringComparison.Ordinal);
-
-        // Deep enough for the glyph and the reserved top rule, and no deeper: the
-        // rest of the cell belongs to the option under it.
-        Assert.Contains("min-height: 1rem;", pin, StringComparison.Ordinal);
-
-        var compact = CompactRuleFor(css, ".header-group__pin {");
-        Assert.Contains("min-width: 2.75rem;", compact, StringComparison.Ordinal);
-
-        // Height is the cell's to state, at this width as at any other.
-        Assert.DoesNotContain("min-height", compact, StringComparison.Ordinal);
+        // Named where the reader can find it, and only where it does something.
+        Assert.Contains("Ctrl+click to open it beside the open panes", home, StringComparison.Ordinal);
+        Assert.Contains("_globalPanes.TakesSeveral", home, StringComparison.Ordinal);
     }
 
     [Fact]

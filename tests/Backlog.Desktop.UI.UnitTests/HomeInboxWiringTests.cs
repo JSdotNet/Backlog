@@ -80,7 +80,7 @@ public sealed class HomeInboxWiringTests
     {
         var pulled = new TaskItem("Pulled from the other machine", string.Empty, EntryType.Task);
         using var harness = CreateHarness(inboxOpenOnStart: false, pull: pulled);
-        harness.ShellNavigation.SetLastPanes(["Tasks"], []);
+        harness.ShellNavigation.SetLastPanes(["Tasks"]);
 
         var component = Render(harness);
         var state = State(harness);
@@ -168,7 +168,7 @@ public sealed class HomeInboxWiringTests
         // Only the Inbox open on start, unless the test is about opening it:
         // the routed entry has to open the Tasks pane itself for the first test
         // to prove anything.
-        if (inboxOpenOnStart) shellNavigation.SetLastPanes(["Inbox"], []);
+        if (inboxOpenOnStart) shellNavigation.SetLastPanes(["Inbox"]);
 
         _ = featureSettings.SetEnabled(AppFeatures.InboxPane, true);
         _ = featureSettings.SetEnabled(RoadmapFeatures.Roadmap, false);

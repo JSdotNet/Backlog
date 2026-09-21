@@ -6,6 +6,7 @@ using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.GitHub;
 using Bunit;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -156,7 +157,7 @@ public sealed class HomeWorkspaceSurfaceTests
             {
                 Assert.NotEmpty(component.FindAll($"[data-testid='{surface}-surface']"));
                 Assert.Empty(component.FindAll("[data-testid='global-pane-multiselect']"));
-                Assert.Empty(component.FindAll("[data-testid='roadmap-pane-option']"));
+                Assert.Empty(component.FindAll("[data-testid='roadmap-band-toggle']"));
                 Assert.Empty(component.FindAll("[data-testid='backlog-pane-option']"));
                 Assert.Empty(component.FindAll("[data-testid='devbook-pane-option']"));
 
@@ -405,7 +406,7 @@ public sealed class HomeWorkspaceSurfaceTests
         try
         {
             var shellNavigation = new ShellNavigationStore(path);
-            shellNavigation.SetLastPanes(["Devbook"], []);
+            shellNavigation.SetLastPanes(["Devbook"]);
 
             using var harness = CreateHarness(shellNavigation: shellNavigation);
             var component = Render(harness);
@@ -423,18 +424,18 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
-    /// A pin is part of "what the reader had open" too: restoring the panes without
-    /// it would silently downgrade a kept-open pane back to an ordinary one.
+    /// Two panes the reader had open beside each other come back beside each other:
+    /// the restore is the arrangement, not just the last pane pressed.
     /// </summary>
     [Fact]
-    public void A_fresh_shell_instance_restores_a_pinned_pane_too()
+    public void A_fresh_shell_instance_restores_two_open_panes()
     {
         var path = NewShellNavigationPath();
 
         try
         {
             var shellNavigation = new ShellNavigationStore(path);
-            shellNavigation.SetLastPanes(["Backlog", "Devbook"], ["Backlog"]);
+            shellNavigation.SetLastPanes(["Backlog", "Devbook"]);
 
             using var harness = CreateHarness(shellNavigation: shellNavigation);
             var component = Render(harness);
@@ -443,7 +444,8 @@ public sealed class HomeWorkspaceSurfaceTests
             {
                 Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
                 Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']"));
-                Assert.Equal("true", component.Find("[data-testid='backlog-pane-pin']").GetAttribute("aria-pressed"));
+                Assert.Equal("true", component.Find("[data-testid='backlog-pane-option']").GetAttribute("aria-pressed"));
+                Assert.Equal("true", component.Find("[data-testid='devbook-pane-option']").GetAttribute("aria-pressed"));
             });
         }
         finally
@@ -464,7 +466,7 @@ public sealed class HomeWorkspaceSurfaceTests
         try
         {
             var shellNavigation = new ShellNavigationStore(path);
-            shellNavigation.SetLastPanes(["SomeFuturePane"], []);
+            shellNavigation.SetLastPanes(["SomeFuturePane"]);
 
             using var harness = CreateHarness(shellNavigation: shellNavigation);
             var component = Render(harness);
@@ -482,10 +484,9 @@ public sealed class HomeWorkspaceSurfaceTests
     /// on first precisely so the assertion is about the reader's choice rather than
     /// about the default the shell would fall back to anyway.
     /// <para>
-    /// Backlog is pinned before the switch because switching to a section closes the
-    /// panes the reader did not pin. The two-pane arrangement this test is about is
-    /// therefore something the reader has to ask for in two acts, and the pin is the
-    /// second of them.
+    /// Devbook is opened with Ctrl held, because a plain press would switch to it and
+    /// close Tasks. The two-pane arrangement this test is about is something the
+    /// reader has to ask for, and the modifier is how.
     /// </para>
     /// </summary>
     [Fact]
@@ -495,8 +496,7 @@ public sealed class HomeWorkspaceSurfaceTests
         var component = Render(harness);
 
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='devbook-pane-option']")));
-        component.Find("[data-testid='backlog-pane-pin']").Click();
-        component.Find("[data-testid='devbook-pane-option']").Click();
+        component.Find("[data-testid='devbook-pane-option']").Click(new MouseEventArgs { CtrlKey = true });
 
         component.WaitForAssertion(() =>
         {
@@ -563,7 +563,7 @@ public sealed class HomeWorkspaceSurfaceTests
 
             // And no option offering one. The flag decides whether the option exists;
             // the option decides whether the band is on screen.
-            Assert.Empty(component.FindAll("[data-testid='roadmap-pane-option']"));
+            Assert.Empty(component.FindAll("[data-testid='roadmap-band-toggle']"));
 
             // The strip itself stays, because the panes still need it.
             Assert.NotEmpty(component.FindAll("[data-testid='global-pane-multiselect']"));
@@ -744,7 +744,7 @@ public sealed class HomeWorkspaceSurfaceTests
 
         component.WaitForAssertion(() =>
         {
-            var option = component.Find("[data-testid='roadmap-pane-option']");
+            var option = component.Find("[data-testid='roadmap-band-toggle']");
 
             Assert.Equal("false", option.GetAttribute("aria-pressed"));
             Assert.Equal("roadmap-band", option.GetAttribute("aria-controls"));
@@ -756,12 +756,14 @@ public sealed class HomeWorkspaceSurfaceTests
             // No capacity rule, so unlike the three panes it is never blocked.
             Assert.False(option.HasAttribute("disabled"));
 
-            // It sits in the same strip as the panes, which is what makes it read as
-            // one of them, and first in it because the band is above them on screen.
-            var strip = component.Find("[data-testid='global-pane-multiselect']");
-            var options = strip.QuerySelectorAll("[data-testid$='-pane-option']");
-
-            Assert.Equal("roadmap-pane-option", options[0].GetAttribute("data-testid"));
+            // Its own control, outside the panes strip: on or off, touching no pane,
+            // so it wears the loose shape rather than sitting fused among options
+            // that switch. It comes first because the band is above the panes on
+            // screen.
+            Assert.Null(option.Closest("[data-testid='global-pane-multiselect']"));
+            Assert.Contains("header-group__option--loose", option.ClassList);
+            Assert.Equal("NAV", option.ParentElement?.TagName);
+            Assert.Equal("global-pane-multiselect", option.NextElementSibling?.GetAttribute("data-testid"));
 
             // Nothing of the band on screen, and no empty track where it would go.
             Assert.Empty(component.FindAll("[data-testid='roadmap-band']"));
@@ -776,7 +778,7 @@ public sealed class HomeWorkspaceSurfaceTests
         {
             var band = component.Find("[data-testid='roadmap-band']");
 
-            Assert.Equal("true", component.Find("[data-testid='roadmap-pane-option']").GetAttribute("aria-pressed"));
+            Assert.Equal("true", component.Find("[data-testid='roadmap-band-toggle']").GetAttribute("aria-pressed"));
             Assert.NotEmpty(component.FindAll("[data-testid='roadmap-band-content']"));
             Assert.Equal("Planning", band.QuerySelector(".roadmap-band__eyebrow")!.TextContent.Trim());
             Assert.Equal("Roadmap", component.Find("#roadmap-band-title").TextContent.Trim());
@@ -796,7 +798,7 @@ public sealed class HomeWorkspaceSurfaceTests
         var component = Render(harness);
 
         ShowTheBand(component);
-        component.Find("[data-testid='roadmap-pane-option']").Click();
+        component.Find("[data-testid='roadmap-band-toggle']").Click();
 
         component.WaitForAssertion(() =>
         {
@@ -808,7 +810,7 @@ public sealed class HomeWorkspaceSurfaceTests
                 component.Find("[data-testid='workspace']").GetAttribute("class"));
 
             // The option stays, unpressed and enabled, because it is the way back.
-            var option = component.Find("[data-testid='roadmap-pane-option']");
+            var option = component.Find("[data-testid='roadmap-band-toggle']");
 
             Assert.Equal("false", option.GetAttribute("aria-pressed"));
             Assert.False(option.HasAttribute("disabled"));
@@ -827,15 +829,15 @@ public sealed class HomeWorkspaceSurfaceTests
 
         ShowTheBand(component);
 
-        component.Find("[data-testid='roadmap-pane-option']").Click();
+        component.Find("[data-testid='roadmap-band-toggle']").Click();
         component.WaitForAssertion(() => Assert.Empty(component.FindAll("[data-testid='roadmap-band']")));
 
-        component.Find("[data-testid='roadmap-pane-option']").Click();
+        component.Find("[data-testid='roadmap-band-toggle']").Click();
         component.WaitForAssertion(() =>
         {
             Assert.NotEmpty(component.FindAll("[data-testid='roadmap-band']"));
             Assert.NotEmpty(component.FindAll("[data-testid='roadmap-band-content']"));
-            Assert.Equal("true", component.Find("[data-testid='roadmap-pane-option']").GetAttribute("aria-pressed"));
+            Assert.Equal("true", component.Find("[data-testid='roadmap-band-toggle']").GetAttribute("aria-pressed"));
 
             Assert.DoesNotContain("workspace--no-roadmap",
                 component.Find("[data-testid='workspace']").GetAttribute("class"));
@@ -868,7 +870,7 @@ public sealed class HomeWorkspaceSurfaceTests
 
         // And hidden, which is the direction a capacity trim could not accidentally
         // get right: the band has to stay gone rather than reappearing on a resize.
-        component.Find("[data-testid='roadmap-pane-option']").Click();
+        component.Find("[data-testid='roadmap-band-toggle']").Click();
         component.WaitForAssertion(() => Assert.Empty(component.FindAll("[data-testid='roadmap-band']")));
 
         await component.InvokeAsync(() => component.Instance.SetGlobalPaneCapacityAsync(1));
@@ -881,7 +883,7 @@ public sealed class HomeWorkspaceSurfaceTests
             rendered.WaitForAssertion(() =>
             {
                 Assert.NotEmpty(rendered.FindAll("[data-testid='roadmap-band']"));
-                Assert.Equal("true", rendered.Find("[data-testid='roadmap-pane-option']").GetAttribute("aria-pressed"));
+                Assert.Equal("true", rendered.Find("[data-testid='roadmap-band-toggle']").GetAttribute("aria-pressed"));
                 Assert.DoesNotContain("workspace--no-roadmap",
                     rendered.Find("[data-testid='workspace']").GetAttribute("class"));
             });
@@ -890,7 +892,7 @@ public sealed class HomeWorkspaceSurfaceTests
             rendered.WaitForAssertion(() =>
             {
                 Assert.Empty(rendered.FindAll("[data-testid='roadmap-band']"));
-                Assert.Equal("false", rendered.Find("[data-testid='roadmap-pane-option']").GetAttribute("aria-pressed"));
+                Assert.Equal("false", rendered.Find("[data-testid='roadmap-band-toggle']").GetAttribute("aria-pressed"));
                 Assert.Contains("workspace--no-roadmap",
                     rendered.Find("[data-testid='workspace']").GetAttribute("class"));
             });
@@ -961,7 +963,7 @@ public sealed class HomeWorkspaceSurfaceTests
             // never the band's own.
             Assert.NotEmpty(component.FindAll("[data-testid='workspace']"));
             Assert.NotEmpty(component.FindAll("[data-testid='roadmap-band']"));
-            Assert.Equal("true", component.Find("[data-testid='roadmap-pane-option']").GetAttribute("aria-pressed"));
+            Assert.Equal("true", component.Find("[data-testid='roadmap-band-toggle']").GetAttribute("aria-pressed"));
 
             Assert.DoesNotContain("workspace--no-roadmap",
                 component.Find("[data-testid='workspace']").GetAttribute("class"));
@@ -989,7 +991,7 @@ public sealed class HomeWorkspaceSurfaceTests
         component.WaitForAssertion(() =>
         {
             // The option goes with the feature: no band to offer, so nothing to offer.
-            Assert.Empty(component.FindAll("[data-testid='roadmap-pane-option']"));
+            Assert.Empty(component.FindAll("[data-testid='roadmap-band-toggle']"));
             Assert.Empty(component.FindAll("[data-testid='roadmap-band']"));
 
             Assert.Contains("workspace--no-roadmap",
@@ -1001,7 +1003,7 @@ public sealed class HomeWorkspaceSurfaceTests
         component.WaitForAssertion(() =>
         {
             // Back to shown, which is where the reader left it — not to the default.
-            Assert.Equal("true", component.Find("[data-testid='roadmap-pane-option']").GetAttribute("aria-pressed"));
+            Assert.Equal("true", component.Find("[data-testid='roadmap-band-toggle']").GetAttribute("aria-pressed"));
             Assert.NotEmpty(component.FindAll("[data-testid='roadmap-band']"));
 
             Assert.DoesNotContain("workspace--no-roadmap",
@@ -1063,8 +1065,8 @@ public sealed class HomeWorkspaceSurfaceTests
 
     /// <summary>
     /// Pressing a section is asking to look at it. The pane that was there makes way,
-    /// because a reader who wanted both would have said so — and the pin on the
-    /// option's own edge is how they say it.
+    /// because a reader who wanted both would have said so — with Ctrl held, which is
+    /// the fact after this one.
     /// </summary>
     [Fact]
     public void Switching_to_a_pane_closes_the_one_it_replaces()
@@ -1084,299 +1086,165 @@ public sealed class HomeWorkspaceSurfaceTests
         });
     }
 
+    /// <summary>
+    /// "This one too." The modifier press opens the pane beside the open one rather
+    /// than in its place — Ctrl here, Cmd on macOS, the convention the repository
+    /// scope in the same header already follows. Both options read pressed, because
+    /// both panes are on screen.
+    /// </summary>
     [Fact]
-    public void A_pinned_pane_stays_on_screen_when_the_reader_switches()
+    public void A_modifier_press_opens_the_pane_beside_the_open_one()
     {
         using var harness = CreateHarness();
         var component = Render(harness);
 
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane-pin']")));
-        component.Find("[data-testid='backlog-pane-pin']").Click();
-
-        component.WaitForAssertion(() =>
-            Assert.Equal("true", component.Find("[data-testid='backlog-pane-pin']").GetAttribute("aria-pressed")));
-
-        component.Find("[data-testid='devbook-pane-option']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='devbook-pane-option']")));
+        component.Find("[data-testid='devbook-pane-option']").Click(new MouseEventArgs { CtrlKey = true });
 
         component.WaitForAssertion(() =>
         {
             Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']"));
             Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
-            Assert.Equal("true", component.Find("[data-testid='backlog-pane-pin']").GetAttribute("aria-pressed"));
+            Assert.Equal("true", component.Find("[data-testid='backlog-pane-option']").GetAttribute("aria-pressed"));
+            Assert.Equal("true", component.Find("[data-testid='devbook-pane-option']").GetAttribute("aria-pressed"));
         });
     }
 
-    /// <summary>
-    /// Unpinning withdraws a promise about the next switch; it is not a way to close
-    /// a pane. The pane stays exactly where it was, merely no longer protected.
-    /// </summary>
     [Fact]
-    public void Unpinning_leaves_the_pane_where_it_is()
+    public void The_meta_key_opens_beside_too()
     {
         using var harness = CreateHarness();
         var component = Render(harness);
 
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane-pin']")));
-        component.Find("[data-testid='backlog-pane-pin']").Click();
-        component.Find("[data-testid='devbook-pane-option']").Click();
-
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']")));
-
-        component.Find("[data-testid='backlog-pane-pin']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='devbook-pane-option']")));
+        component.Find("[data-testid='devbook-pane-option']").Click(new MouseEventArgs { MetaKey = true });
 
         component.WaitForAssertion(() =>
         {
-            Assert.Equal("false", component.Find("[data-testid='backlog-pane-pin']").GetAttribute("aria-pressed"));
-
-            // Still both on screen: the pin only ever spoke about the next switch.
-            Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
             Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
         });
     }
 
     /// <summary>
-    /// The rail draws along the top edge of its option rather than standing beside it,
-    /// which is feedback #283: the old full-height box on the option's right read as a
-    /// vertical strip down its side. The stacking itself is CSS, so what the rendered
-    /// markup owes it is the shape the stylesheet keys on — the cell, the rail leading
-    /// it so DOM order matches the order the reader sees, and the pinned state
-    /// arriving as a class on the rail and not only as <c>aria-pressed</c>.
+    /// "This one too" has no meaning for a pane already on screen, so a press on an
+    /// open pane closes it whether or not the modifier is held — the same act the
+    /// plain press has always been.
     /// </summary>
     [Fact]
-    public void The_pin_renders_as_a_rail_leading_its_own_cell()
-    {
-        using var harness = CreateHarness(features => features.SetEnabled(AppFeatures.InboxPane, true));
-        var component = Render(harness);
-
-        component.WaitForAssertion(() =>
-        {
-            // The one-height stretch is scoped to this strip, so the modifier is part
-            // of the contract rather than decoration.
-            Assert.Contains(
-                "header-group--sections",
-                component.Find("[data-testid='global-pane-multiselect']").ClassList);
-
-            foreach (var pane in new[] { "inbox", "backlog", "devbook" })
-            {
-                var pin = component.Find($"[data-testid='{pane}-pane-pin']");
-
-                // Still the shared ToggleButton's own button element.
-                Assert.Equal("BUTTON", pin.TagName);
-                Assert.Contains("header-group__pin", pin.ClassList);
-                Assert.DoesNotContain("header-group__pin--pinned", pin.ClassList);
-
-                // The cell is the pair and nothing else: the rail, then the section.
-                var cell = pin.ParentElement!;
-
-                Assert.Contains("header-group__pane", cell.ClassList);
-                Assert.Equal(2, cell.Children.Length);
-                Assert.Equal($"{pane}-pane-pin", cell.Children[0].GetAttribute("data-testid"));
-                Assert.Equal($"{pane}-pane-option", cell.Children[1].GetAttribute("data-testid"));
-            }
-        });
-
-        component.Find("[data-testid='backlog-pane-pin']").Click();
-
-        component.WaitForAssertion(() => Assert.Contains(
-            "header-group__pin--pinned",
-            component.Find("[data-testid='backlog-pane-pin']").ClassList));
-    }
-
-    /// <summary>
-    /// Push up to pin, push down to release — one drawing in both states, and the
-    /// stylesheet's rotation is what tells them apart. The rail holds a single
-    /// chevron whether the pane is loose or pinned; what changes in the markup is the
-    /// <c>header-group__pin--pinned</c> class the button takes, which is the hook the
-    /// turn and the lift are keyed on.
-    /// <para>
-    /// Worth a rendering test rather than a reading of Home.razor because the class
-    /// is what carries the state into the sheet. An <c>aria-pressed</c> that flipped
-    /// while the class stayed put would leave the rotation permanently off and the
-    /// visible state resting on the tinted fill's colour alone — and nothing about
-    /// the modifier being spelled correctly in a parameter proves it is wired to the
-    /// value the button reports.
-    /// </para>
-    /// <para>
-    /// The glyph carries the class the stylesheet lifts and turns, in both states, so
-    /// there is nothing for a state change to drop. A rail that agreed on that class
-    /// only while unpinned would lose its dressing at the moment the state it is
-    /// dressing arrives.
-    /// </para>
-    /// </summary>
-    [Fact]
-    public void The_rail_keeps_one_chevron_and_takes_the_pinned_class_when_the_pane_is_pinned()
+    public void Pressing_an_open_pane_closes_it_whatever_the_reader_held()
     {
         using var harness = CreateHarness();
         var component = Render(harness);
 
-        component.WaitForAssertion(() =>
-        {
-            var pin = component.Find("[data-testid='backlog-pane-pin']");
-            Assert.Equal("false", pin.GetAttribute("aria-pressed"));
-            Assert.DoesNotContain("header-group__pin--pinned", pin.ClassList);
-
-            // One drawing, and the shared hook on it: a rail holding two glyphs would
-            // be two states at once, and one holding none would be a bare button.
-            var glyphs = pin.QuerySelectorAll("svg");
-            Assert.Single(glyphs);
-            Assert.Contains("chevron-up-icon", glyphs[0].ClassList);
-            Assert.Contains("header-group__pin-glyph", glyphs[0].ClassList);
-        });
-
-        component.Find("[data-testid='backlog-pane-pin']").Click();
-
-        component.WaitForAssertion(() =>
-        {
-            var pin = component.Find("[data-testid='backlog-pane-pin']");
-            Assert.Equal("true", pin.GetAttribute("aria-pressed"));
-
-            // The class the turn is keyed on arrives with the pressed state, on the
-            // same element — the sheet reaches the glyph through this button.
-            Assert.Contains("header-group__pin--pinned", pin.ClassList);
-
-            // And the same single drawing is still there to be turned. The pin glyph
-            // it used to be swapped for no longer exists in the library.
-            var glyphs = pin.QuerySelectorAll("svg");
-            Assert.Single(glyphs);
-            Assert.Contains("chevron-up-icon", glyphs[0].ClassList);
-            Assert.Contains("header-group__pin-glyph", glyphs[0].ClassList);
-        });
-    }
-
-    /// <summary>
-    /// One pin per pane and none for the band, all starting unpressed: keeping a pane
-    /// through a switch is the deliberate act, not the default.
-    /// </summary>
-    [Fact]
-    public void Every_pane_option_offers_a_pin_and_it_starts_unpressed()
-    {
-        using var harness = CreateHarness(features => features.SetEnabled(AppFeatures.InboxPane, true));
-        var component = Render(harness);
-
-        component.WaitForAssertion(() =>
-        {
-            var strip = component.Find("[data-testid='global-pane-multiselect']");
-
-            foreach (var pane in new[] { "inbox", "backlog", "devbook" })
-            {
-                var pin = component.Find($"[data-testid='{pane}-pane-pin']");
-
-                Assert.Equal("false", pin.GetAttribute("aria-pressed"));
-                Assert.False(string.IsNullOrWhiteSpace(pin.GetAttribute("aria-label")));
-                Assert.False(string.IsNullOrWhiteSpace(pin.GetAttribute("title")));
-                Assert.False(string.IsNullOrWhiteSpace(pin.GetAttribute("aria-controls")));
-            }
-
-            // The band takes no width from the panes, so it has nothing to be saved
-            // from and offers no pin.
-            Assert.Empty(component.FindAll("[data-testid='roadmap-pane-pin']"));
-
-            // And the pins stay out of the option selector the strip's other tests
-            // count on.
-            Assert.Equal(4, strip.QuerySelectorAll("[data-testid$='-pane-option']").Length);
-            Assert.Equal(3, strip.QuerySelectorAll("[data-testid$='-pane-pin']").Length);
-        });
-    }
-
-    /// <summary>
-    /// A pin describes a pane on screen, so there is nothing to press until the pane
-    /// is open — the control is offered but inert rather than hidden, so the pairing
-    /// with its option stays legible.
-    /// </summary>
-    [Fact]
-    public void A_closed_panes_pin_is_disabled_until_the_pane_is_open()
-    {
-        using var harness = CreateHarness();
-        var component = Render(harness);
-
-        component.WaitForAssertion(() =>
-        {
-            Assert.True(component.Find("[data-testid='devbook-pane-pin']").HasAttribute("disabled"));
-            Assert.False(component.Find("[data-testid='backlog-pane-pin']").HasAttribute("disabled"));
-        });
-
-        component.Find("[data-testid='devbook-pane-option']").Click();
-
-        component.WaitForAssertion(() =>
-        {
-            Assert.False(component.Find("[data-testid='devbook-pane-pin']").HasAttribute("disabled"));
-
-            // Backlog was replaced by the switch, so its pin is the closed one now.
-            Assert.True(component.Find("[data-testid='backlog-pane-pin']").HasAttribute("disabled"));
-        });
-    }
-
-    /// <summary>
-    /// In a window that holds one pane every switch is a takeover, so a pin could not
-    /// keep its promise. It is offered dimmed rather than removed, because the window
-    /// widening brings it straight back.
-    /// </summary>
-    [Fact]
-    public async Task A_single_pane_window_disables_every_pin()
-    {
-        using var harness = CreateHarness();
-        var component = Render(harness);
-
-        component.WaitForAssertion(() =>
-            Assert.False(component.Find("[data-testid='backlog-pane-pin']").HasAttribute("disabled")));
-
-        await component.InvokeAsync(() => component.Instance.SetGlobalPaneCapacityAsync(1));
-
-        component.WaitForAssertion(() =>
-        {
-            Assert.True(component.Find("[data-testid='backlog-pane-pin']").HasAttribute("disabled"));
-            Assert.True(component.Find("[data-testid='devbook-pane-pin']").HasAttribute("disabled"));
-        });
-
-        await component.InvokeAsync(() => component.Instance.SetGlobalPaneCapacityAsync(3));
-
-        component.WaitForAssertion(() =>
-            Assert.False(component.Find("[data-testid='backlog-pane-pin']").HasAttribute("disabled")));
-    }
-
-    /// <summary>
-    /// Closing a pane the reader had pinned withdraws the pin with it: a pin only ever
-    /// describes a pane on screen, so reopening the pane must not silently bring back
-    /// a promise they never made again.
-    /// </summary>
-    [Fact]
-    public void Closing_a_pinned_pane_from_the_header_clears_its_pin()
-    {
-        using var harness = CreateHarness();
-        var component = Render(harness);
-
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane-pin']")));
-        component.Find("[data-testid='backlog-pane-pin']").Click();
-        component.Find("[data-testid='devbook-pane-option']").Click();
-
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='devbook-pane-option']")));
+        component.Find("[data-testid='devbook-pane-option']").Click(new MouseEventArgs { CtrlKey = true });
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']")));
 
-        component.Find("[data-testid='backlog-pane-option']").Click();
+        component.Find("[data-testid='backlog-pane-option']").Click(new MouseEventArgs { CtrlKey = true });
 
         component.WaitForAssertion(() =>
         {
             Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
-
-            var pin = component.Find("[data-testid='backlog-pane-pin']");
-            Assert.Equal("false", pin.GetAttribute("aria-pressed"));
-            Assert.True(pin.HasAttribute("disabled"));
+            Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']"));
         });
     }
 
     /// <summary>
-    /// A window too narrow for both has to drop one, and the reader has already said
-    /// which. This is the resize path rather than the switch path, so it is the trim
-    /// that has to read the pin.
+    /// In a window that fits one pane there is no beside, so the modifier press is
+    /// the switch the plain press would have been — and the tooltip stops offering
+    /// a modifier that does nothing.
     /// </summary>
     [Fact]
-    public async Task A_narrowed_window_keeps_the_pinned_pane_and_drops_the_other()
+    public async Task A_single_pane_window_turns_the_modifier_press_into_a_switch()
     {
         using var harness = CreateHarness();
         var component = Render(harness);
 
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane-pin']")));
-        component.Find("[data-testid='backlog-pane-pin']").Click();
-        component.Find("[data-testid='devbook-pane-option']").Click();
+        component.WaitForAssertion(() =>
+            Assert.Contains("Ctrl+click", component.Find("[data-testid='devbook-pane-option']").GetAttribute("title")));
+
+        await component.InvokeAsync(() => component.Instance.SetGlobalPaneCapacityAsync(1));
+
+        component.WaitForAssertion(() =>
+            Assert.DoesNotContain("Ctrl+click", component.Find("[data-testid='devbook-pane-option']").GetAttribute("title")));
+
+        component.Find("[data-testid='devbook-pane-option']").Click(new MouseEventArgs { CtrlKey = true });
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']"));
+            Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
+        });
+    }
+
+    /// <summary>
+    /// The tooltip is the one place the modifier is named, so it says what the press
+    /// will do in every state: switch, with the modifier offered; close; or nothing,
+    /// because the pane is the last one and its option is disabled to say so.
+    /// </summary>
+    [Fact]
+    public void The_option_tooltip_says_what_the_press_will_do()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal(
+                "Switch to Devbook — Ctrl+click to open it beside the open panes",
+                component.Find("[data-testid='devbook-pane-option']").GetAttribute("title"));
+            Assert.Equal("Tasks is the only pane open", component.Find("[data-testid='backlog-pane-option']").GetAttribute("title"));
+            Assert.True(component.Find("[data-testid='backlog-pane-option']").HasAttribute("disabled"));
+        });
+
+        component.Find("[data-testid='devbook-pane-option']").Click(new MouseEventArgs { CtrlKey = true });
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal("Close Tasks", component.Find("[data-testid='backlog-pane-option']").GetAttribute("title"));
+            Assert.Equal("Close Devbook", component.Find("[data-testid='devbook-pane-option']").GetAttribute("title"));
+            Assert.False(component.Find("[data-testid='backlog-pane-option']").HasAttribute("disabled"));
+        });
+    }
+
+    /// <summary>
+    /// The strip holds bare pane options only: no rail, no cell, nothing beside or
+    /// above an option but the option, and no roadmap toggle — that is a band, not a
+    /// pane, and stands outside. Every one of the three is a direct child of the
+    /// group, which is what the fused hairlines key on.
+    /// </summary>
+    [Fact]
+    public void Every_option_stands_bare_in_the_strip()
+    {
+        using var harness = CreateHarness(features => features.SetEnabled(AppFeatures.InboxPane, true));
+        var component = Render(harness);
+
+        component.WaitForAssertion(() =>
+        {
+            var options = component.FindAll("[data-testid$='-pane-option']");
+
+            Assert.Equal(3, options.Count);
+            Assert.Empty(component.Find("[data-testid='global-pane-multiselect']").QuerySelectorAll("[data-testid='roadmap-band-toggle']"));
+            Assert.All(options, option =>
+                Assert.Equal("global-pane-multiselect", option.ParentElement?.GetAttribute("data-testid")));
+            Assert.Empty(component.FindAll("[data-testid$='-pane-pin']"));
+        });
+    }
+
+    /// <summary>
+    /// A window too narrow for both has to drop one, and it drops the first in the
+    /// stable order — Tasks before Devbook — the same order every trim takes. This is
+    /// the resize path rather than the switch path.
+    /// </summary>
+    [Fact]
+    public async Task A_narrowed_window_drops_the_first_pane_in_the_stable_order()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='devbook-pane-option']")));
+        component.Find("[data-testid='devbook-pane-option']").Click(new MouseEventArgs { CtrlKey = true });
 
         component.WaitForAssertion(() =>
         {
@@ -1388,8 +1256,8 @@ public sealed class HomeWorkspaceSurfaceTests
 
         component.WaitForAssertion(() =>
         {
-            Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
-            Assert.Empty(component.FindAll("[data-testid='devbook-stack']"));
+            Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='devbook-stack']"));
         });
     }
 
@@ -1495,8 +1363,8 @@ public sealed class HomeWorkspaceSurfaceTests
     /// shell state.</summary>
     private static void ShowTheBand(IRenderedComponent<Home> component)
     {
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='roadmap-pane-option']")));
-        component.Find("[data-testid='roadmap-pane-option']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='roadmap-band-toggle']")));
+        component.Find("[data-testid='roadmap-band-toggle']").Click();
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='roadmap-band']")));
     }
 

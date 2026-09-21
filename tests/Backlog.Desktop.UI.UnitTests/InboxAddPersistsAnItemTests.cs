@@ -357,7 +357,7 @@ public sealed class InboxAddPersistsAnItemTests
 
         // Only the Inbox open on start: adding must not open the Tasks pane,
         // and the assertion is only worth something if it started closed.
-        shellNavigation.SetLastPanes(["Inbox"], []);
+        shellNavigation.SetLastPanes(["Inbox"]);
 
         _ = featureSettings.SetEnabled(AppFeatures.InboxPane, true);
         _ = featureSettings.SetEnabled(RoadmapFeatures.Roadmap, false);

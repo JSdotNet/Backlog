@@ -19,9 +19,8 @@ namespace Backlog.UI.Components.UnitTests;
 /// hard-coded stroke, never a font-size scale. It is hidden from assistive
 /// technology unless a caller says otherwise, because the control that holds a
 /// glyph is where the name belongs. And it ships no state parameter: which state a
-/// direction stands for is the host's reading — the desktop rail turns the drawing
-/// over for pinned in its own stylesheet — so nothing here knows there is a pin at
-/// all.</para>
+/// direction stands for is the host's reading, turned in the host's own stylesheet,
+/// so nothing here knows what the direction means.</para>
 /// </summary>
 public sealed class ChevronUpIconTests
 {
@@ -109,17 +108,17 @@ public sealed class ChevronUpIconTests
 
         var svg = context
             .Render<ChevronUpIcon>(parameters => parameters
-                .Add(icon => icon.CssClass, "header-group__pin-glyph")
-                .Add(icon => icon.TestId, "inbox-pane-pin-glyph"))
+                .Add(icon => icon.CssClass, "disclosure__glyph")
+                .Add(icon => icon.TestId, "details-disclosure-glyph"))
             .Find("svg");
 
         // Its own name first and the host's after it, so a host styling the glyph
         // never has to take the library's class away to add one of its own. The
-        // host's is what a rule keys on: the section rail lifts and turns this glyph
-        // through `header-group__pin-glyph`, which says which control the rule is
+        // host's is what a rule keys on: a host that turns this glyph for a state
+        // does it through `disclosure__glyph`, which says which control the rule is
         // about, where `chevron-up-icon` would take hold of any chevron put there.
         Assert.Contains("chevron-up-icon", svg.ClassList);
-        Assert.Contains("header-group__pin-glyph", svg.ClassList);
-        Assert.Equal("inbox-pane-pin-glyph", svg.GetAttribute("data-testid"));
+        Assert.Contains("disclosure__glyph", svg.ClassList);
+        Assert.Equal("details-disclosure-glyph", svg.GetAttribute("data-testid"));
     }
 }

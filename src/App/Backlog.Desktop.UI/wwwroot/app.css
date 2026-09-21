@@ -296,10 +296,19 @@ h1, h2, h3 {
 
 /* --- App version ---------------------------------------------------------- */
 
+/*
+  The scope wears `.header-group` (under Header groups, below), which gives it the
+  fused shape: one border, a shared fill, the outer corners rounded. What is left
+  to say here is what the chips inside give up to sit in it — see
+  `.app-header__repository-scope > .chip` there. No gap, because a gap is the one
+  thing a fused group cannot have; it still wraps, because seven repositories at a
+  narrow width have to go somewhere, and a fused group two rows deep is still one
+  bordered box.
+*/
 .app-header__repository-scope {
     display: inline-flex;
     align-items: center;
-    gap: var(--spacing-xs);
+    gap: 0;
     flex-wrap: wrap;
     min-width: 0;
 }
@@ -1663,18 +1672,6 @@ h1, h2, h3 {
     .header-group__option {
         padding: var(--spacing-xs) var(--spacing-sm);
     }
-
-    /* The rail follows the option's width, which the rule above has already
-       narrowed, so what is left to tighten is its floor. Height is neither
-       tightened nor restated here: the cell fixes one height for both its rows at
-       every width, and a floor in this step could only argue with it. What the
-       rail keeps here is what it has at any width — the option's whole span, which
-       even beside the shortest word is about twice the 1.75rem the old side box
-       was left with, and four times it beside Devbook. */
-    .header-group__pin {
-        min-width: 2.75rem;
-        padding: 0;
-    }
 }
 
 /* --- Add entry ------------------------------------------------------------ */
@@ -2488,12 +2485,22 @@ h1, h2, h3 {
 
 /* --- Header groups -------------------------------------------------------- */
 /*
-  Two of these sit in the navigation region, and each reads as one control
-  rather than as three or four loose buttons: a single border around the group,
-  members flush inside it, hairlines between them. The surface group is a
-  one-of-three selection and the sections group is a multi-select, but they
-  share this shape because both answer "what am I looking at" — what differs is
-  how many answers they take, and the pressed state carries that.
+  Three of these sit in the header, and the shape each one takes is how many of
+  its options can be on at once. The base shape is fused — a single border
+  around the group, members flush inside it, hairlines between them — and it
+  says "any of these, together": the panes strip, where several panes share the
+  width, and the repository scope, where Ctrl takes a second repository. The
+  `--loose` modifiers below say "one of these": the surface switcher, where
+  exactly one surface owns the screen. The surface switcher used to share the
+  fused shape on the argument that every group here answers "what am I looking
+  at" and only the pressed state needs to carry the count — but the pressed
+  state is what a reader sees after pressing, and the shape is what they see
+  before.
+
+  A loose option can also stand entirely alone. The roadmap toggle is one: not
+  one of a set at all, a single on-or-off beside the panes strip, and it wears
+  `header-group__option--loose` with no group around it so it keeps the look of
+  navigation rather than of a utility.
 
   `border-radius-md`, not the 999px this used to be: the layout guidance
   reserves the full radius for pills and avatars and asks interactive controls
@@ -2510,14 +2517,81 @@ h1, h2, h3 {
 }
 
 /*
-  The sections strip holds cells two rows deep — a pin rail over an option —
-  beside the band option, which has no rail. Stretch, so all of them take the
-  strip's height: centred, the band option would float in the middle of the
-  group and the hairline beside it would stop short of both edges. The surface
-  switcher holds bare options only and keeps the centring above.
+  One of these at a time, so the members stand apart. The group gives up its own
+  border, fill and clipping and spaces the options out; each option, wearing
+  `--loose` of its own, then draws the border the group drew for it, at the
+  radius the group had. Still one group — the role, the label and the tab
+  sequence are untouched — it just no longer looks like one control. The
+  option's side of that is `.header-group__option--loose`, further down after
+  the base option rules.
 */
-.header-group--sections {
-    align-items: stretch;
+.header-group--loose {
+    border: 0;
+    border-radius: var(--border-radius-none);
+    background: transparent;
+    overflow: visible;
+    gap: var(--spacing-xs);
+}
+
+/*
+  The repository scope's chips, fused. They keep the chip classes — the active
+  fill, the identity edge and its seam, and the anchor underline all key on those
+  (see .chip--scope and .chip.repo-mark above) — and give up only what a loose
+  chip draws for itself: the border, the corners and the raised resting fill,
+  which the group now supplies once for all of them. The hairline between
+  neighbours is the group's, the way it is between two options of the sections
+  strip. Hover moves from the border, which is gone, to the fill; the focus ring
+  turns inward because the group clips its members.
+*/
+.app-header__repository-scope > .chip {
+    border: 0;
+    border-radius: var(--border-radius-none);
+    /* Room for the identity edge along the bottom, on every chip — see below. */
+    padding-bottom: calc(var(--spacing-xs) + var(--border-width-4) + var(--border-width));
+}
+
+.app-header__repository-scope > .chip:not(.chip--active) {
+    background: transparent;
+}
+
+.app-header__repository-scope > .chip + .chip {
+    border-left: var(--border-width) solid var(--color-border);
+}
+
+.app-header__repository-scope > .chip:not(.chip--active):hover {
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+}
+
+.app-header__repository-scope > .chip:focus-visible {
+    outline-offset: -2px;
+}
+
+/*
+  The identity edge runs along the bottom here rather than down the leading
+  side. Fused, the chips' leading edges are the hairlines between them, and a
+  4px rule against a 1px hairline read as a thick border on some chips and not
+  others — the shape of the group arguing with the mark. The bottom edge is
+  free: the anchor's mark is a text underline, which sits under the word and
+  not on the box. Still an inset shadow, still additive
+  (.design/color-scheme.md#the-identity-edge), and the seam on the active chip
+  is the same 1px of color-background it was, turned through a right angle.
+
+  The room for it is stated on every fused chip, marked or not (the
+  padding-bottom above): an unmarked repository beside a marked one would
+  otherwise stand 5px shorter, and the group would show the difference along
+  its bottom border.
+*/
+.app-header__repository-scope > .chip.repo-mark {
+    padding-left: var(--spacing-sm);
+    box-shadow: inset 0 calc(-1 * var(--border-width-4)) 0 0 var(--repo-mark-color, transparent);
+}
+
+.app-header__repository-scope > .chip.repo-mark.chip--active {
+    padding-left: var(--spacing-sm);
+    box-shadow:
+        inset 0 calc(-1 * var(--border-width-4)) 0 0 var(--repo-mark-color, transparent),
+        inset 0 calc(-1 * (var(--border-width-4) + var(--border-width))) 0 0 var(--color-background);
 }
 
 .header-group__option {
@@ -2532,11 +2606,6 @@ h1, h2, h3 {
     color: var(--color-text-secondary);
     font: inherit;
     font-size: var(--font-size-sm);
-    /* Tight, because a pane's option gives its height floor up to the cell and
-       then has to fit what the rail leaves: at this size the inherited 1.5 line
-       box is taller than that room and the label would clip. Nothing changes on
-       the surface switcher, where the 2.25rem floor above still decides the
-       height and the line box never reaches it. */
     line-height: var(--line-height-tight);
     cursor: pointer;
     transition: background var(--transition-fast), color var(--transition-fast);
@@ -2579,214 +2648,40 @@ h1, h2, h3 {
     color: var(--color-text-disabled);
 }
 
-/* A pane held on screen as the last one is still the selected one, so it keeps
-   the selected treatment and only dims. */
+/* The last pane on screen is still the selected one, so it keeps the selected
+   treatment and only dims. */
 .header-group__option--selected:disabled {
     color: var(--color-primary-light);
     opacity: 0.8;
 }
 
 /*
-  A pane and its pin are one cell of the group. The hairline moves out to the
-  cell so the pair reads as one member of the strip: an option and the pin that
-  keeps it belong together, and a rule between them would say they were two
-  choices. The surface switcher still holds bare options side by side, which is
-  why the option-to-option rule above stays.
-
-  The cell stacks the pair rather than seating them side by side. Beside the
-  option the pin was a box as tall as the cell and a fifth as wide, so its
-  pinned fill read as a vertical strip running down the option's side — which is
-  the whole of feedback #283. Stacked, the pin is a rail across the option's top
-  edge and the fill runs with the strip instead of against it.
-
-  Stacking cost height at first, because each row kept a floor of its own: the
-  sections strip stood a rail taller than the surface switcher beside it, which
-  is two header groups drawn at two heights for a difference a reader has no
-  reason to see. So the cell states the height now — one bare option, 2.25rem —
-  and the two rows divide it rather than add up to it. The rail takes its 1rem
-  off the top and the option below fills the rest. The pin keeps the edge it
-  belongs to and the header goes back to one row height.
+  The loose option, after the base option rules on purpose: it restates the
+  border the base takes away, at the same specificity, so it has to come later
+  in the sheet to win. It is the option's own modifier rather than a descendant
+  rule of the loose group, because a loose option does not need a group at all —
+  the roadmap toggle wears it alone.
 */
-
-.header-group__pane {
-    display: inline-flex;
-    flex-direction: column;
-    align-items: stretch;
-    /* What the rail's floor and the option's forfeit below add up to, and the one
-       number either of them is measured against: a cell with a pin is exactly a
-       bare option tall, so every member of both groups measures the same. */
-    min-height: 2.25rem;
+.header-group__option--loose {
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
 }
 
-/* The option inside a cell gives up its own floor and its vertical padding: it
-   is no longer measuring itself, it is filling what the rail left of the cell.
-   Only the vertical padding, so the compact step's narrower side padding still
-   reaches it — this selector outranks that one. */
-.header-group__pane > .header-group__option {
-    min-height: 0;
-    padding-top: 0;
-    padding-bottom: 0;
-    flex: 1 1 auto;
-}
-
-.header-group__option + .header-group__pane,
-.header-group__pane + .header-group__pane,
-.header-group__pane + .header-group__option {
-    border-left: var(--border-width) solid var(--color-border);
+/* Nothing clips a loose option, so its focus ring can sit outside it, where every
+   other standalone control in the product puts one. */
+.header-group__option--loose:focus-visible {
+    outline-offset: 2px;
 }
 
 /*
-  Quieter than the option it leads: pinning is the rarer act, and a pin drawn at
-  the option's weight would read as a second thing to choose between.
-
-  Wide and shallow, where the box beside the option was narrow and tall. The
-  floor is stated on the width for that reason, and the height floor is only what
-  the rail needs to hold its glyph. On paper 3rem x 1rem is the smaller box of the
-  two, and in practice the rail is not a box: it is a band as wide as the option
-  it leads — four rem of it for Tasks and eight for Devbook and its flag, where
-  the side box was never wider than its own 2rem floor. What the rail gives up in
-  depth, which is the cell's to reclaim, it takes back in reach.
+  A standalone option has no strip for the fused shape's underline to run along,
+  so the selection moves to the edge it does have: the border takes the primary
+  colour beside the tinted fill, which is the library's own pressed-toggle
+  reading. Two channels still, and neither of them colour alone.
 */
-.header-group__pin {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    min-width: 3rem;
-    min-height: 1rem;
-    padding: 0 var(--spacing-xs);
-    border: 0;
-    /* Reserved, as on the option, so pinning does not shift the row — on the top
-       edge, because the option's selected underline already owns the bottom one.
-       Opposite edges is what keeps the four combinations of selected and pinned
-       four different pictures rather than two rules on one edge. */
-    border-top: var(--border-width-2) solid transparent;
-    background: transparent;
-    /* Stated, not inherited, and the emoji is why it was missing: a <button> arrives
-       from the user agent with an ink of its own, and an emoji painted over it
-       regardless. A stroke drawn in currentColor does not — left unstated it took the
-       agent's near-black into a dark header and the glyph all but disappeared. The
-       option beside it has always said this; the rail only ever got away with not
-       saying it. */
-    color: var(--color-text-secondary);
-    /* No font-size any more. It sized an emoji, and the glyph that replaced it is
-       sized by its own width and height — which is what the iconography rules ask
-       for and the one thing they forbid doing with type. */
-    line-height: 1;
-    /* Quiet, but a stroke rather than a full-colour glyph now carries it, and 0.45 was
-       set when it did not: two pixels of line at that alpha sit under the 3:1 the
-       iconography rules hold an icon to. This clears it while leaving the rail well
-       short of the option's weight, which is the whole point of dimming it at all.
-       The disabled step below stays where it is: an inert control is exempt. */
-    opacity: 0.6;
-    cursor: pointer;
-    transition: background var(--transition-fast), opacity var(--transition-fast);
-}
-
-.header-group__pin:hover:not(:disabled) {
-    background: var(--color-background-raised);
-    opacity: 1;
-}
-
-/* Inset, for the same reason the option's ring is: the group clips its overflow. */
-.header-group__pin:focus-visible {
-    outline: var(--border-width-2) solid var(--color-border-focus);
-    outline-offset: -2px;
-}
-
-/* Two channels again — fill and rule — because colour alone is ruled out. */
-.header-group__pin--pinned {
-    background: color-mix(in srgb, var(--color-primary) 16%, transparent);
-    border-top-color: var(--color-primary);
-    opacity: 1;
-}
-
-.header-group__pin:disabled {
-    cursor: not-allowed;
-    opacity: 0.2;
-}
-
-/*
-  The glyph the rail holds, dressed here because nowhere else can: the pin
-  replaces the library's base class, so none of the `.btn svg` rules reach it and
-  this sheet owns everything the drawing needs. Addressed by the class Home.razor
-  hands the glyph through its CssClass, rather than by the component's own
-  self-named one or by the element: `.chevron-up-icon` and an `svg` selector alike
-  would take hold of whatever a later caller put in this rail, and this rule is
-  about the rail's own drawing rather than about chevrons. Block, so it brings no
-  line box of its own into a rail that is 1rem tall.
-
-  Direction is the third channel under the fill and the top rule, and one drawing
-  carries both states rather than two components: the chevron points up while the
-  pane is loose, at the edge the rail runs along, so the control asks to be pushed,
-  and it turns half a turn down once pinned, so it asks to be pushed back. Which
-  state a drawing stands for stays the host's rule — ChevronUpIcon ships no
-  `Pinned` parameter for exactly that reason, since two hosts with two conventions
-  could not both have it — and an angle set here is that rule stated by the host,
-  in the one place that already knows what pinned looks like.
-
-  This is a channel and not decoration. `.design/accessibility.md#iconography-accessibility`
-  forbids an icon's colour being the sole carrier of meaning, and
-  `.design/interaction-guidelines.md#workspace-panes` names this very control:
-  "a pinned pane's control MUST be visually distinct from an unpinned one through
-  more than colour alone". Up versus down is a non-colour channel, alongside the
-  `--pinned` fill and the primary top rule. Three channels rather than the two
-  required, because the rail is small and the fill is deliberately quiet —
-  direction is the one a reader can see from across the strip, and the one left to
-  a reader who takes no meaning from the fill's colour at all. Shape used to carry
-  it as a second drawing; it carries it as an angle now, and either way it is load
-  bearing. Do not drop the rotation as ornament.
-
-  The transform is composed out of two custom properties, and it has to be. Write
-  the pinned turn as its own `transform` and the hover lift as another, and a
-  hovered pinned rail loses its rotation: `.header-group__pin:hover:not(:disabled)
-  .header-group__pin-glyph` outranks `.header-group__pin--pinned
-  .header-group__pin-glyph`, so the hover declaration wins the cascade and drops
-  the 180deg on the floor. Each rule below therefore sets only the variable it
-  owns and this one composes them, so lift and turn survive in any combination.
-  Do not "simplify" it back into two competing `transform` declarations.
-
-  Transitioned, where the tilt this replaced deliberately was not. That reasoning
-  was about a tilt: it was the state itself rather than a move between states, and
-  a state that animates into place is briefly wrong. What happens here is a move —
-  the glyph travelling the pixel the gesture asks for, and turning over to face the
-  other way — so it eases the way every other move in this sheet does, on the same
-  token. Transitioning the composed `transform` covers both, because both are in it.
-
-  The turn cannot clip. The rail's 1rem floor less the 2px it reserves along its
-  top edge leaves a 14px content box around a 12px glyph, so there is 1px of slack
-  above and 1px below. A 180deg rotation about the glyph's own centre — the default
-  `transform-origin`, and the glyph is a square — maps that 12px box onto itself,
-  so the bounding box after the turn is the box before it and the slack is
-  unchanged. Only the lift spends any of it, and it spends exactly the pixel there
-  is.
-*/
-.header-group__pin-glyph {
-    display: block;
-    --pin-lift: 0;
-    --pin-turn: 0deg;
-    transform: translateY(var(--pin-lift)) rotate(var(--pin-turn));
-    transition: transform var(--transition-fast);
-}
-
-/* Push up to pin, said before the press: the glyph rises a pixel toward the edge
-   the chevron is pointing at, so the control shows the gesture rather than only
-   naming it in the label. One pixel is exactly the slack there is, by the
-   arithmetic above — the lift lands the drawing flush against the top of the
-   content box and never through it, and anything more would clip. The lift is all
-   this rule sets, so hovering a pinned rail leaves its turn alone. */
-.header-group__pin:hover:not(:disabled) .header-group__pin-glyph {
-    --pin-lift: -1px;
-}
-
-/* And once the press lands the glyph stays up and turns over: it holds the pixel
-   the hover took it to, so the travel reads as one movement that ended in a kept
-   pane rather than a hover effect that let go of it, and it now points down at the
-   push that releases the pane. Both variables, because a pinned rail keeps the
-   lift whether or not the pointer is still on it. */
-.header-group__pin--pinned .header-group__pin-glyph {
-    --pin-lift: -1px;
-    --pin-turn: 180deg;
+.header-group__option--loose.header-group__option--selected {
+    border-color: var(--color-primary);
 }
 
 /* --- Header accent and utilities ------------------------------------------ */

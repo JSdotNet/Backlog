@@ -64,7 +64,6 @@ public sealed class ShellNavigationStore
         var dto = Read();
         LastSurface = dto?.LastSurface;
         LastEnabledPanes = dto?.LastEnabledPanes ?? Empty;
-        LastPinnedPanes = dto?.LastPinnedPanes ?? Empty;
     }
 
     /// <summary>Raised after anything remembered here changes, so nothing has
@@ -80,9 +79,6 @@ public sealed class ShellNavigationStore
     /// never allows that state to begin with.</summary>
     public IReadOnlyList<string> LastEnabledPanes { get; private set; }
 
-    /// <summary>The subset of <see cref="LastEnabledPanes"/> that were pinned.</summary>
-    public IReadOnlyList<string> LastPinnedPanes { get; private set; }
-
     /// <summary>Where the choices are written.</summary>
     public string SettingsPath => _path;
 
@@ -94,12 +90,11 @@ public sealed class ShellNavigationStore
         Save();
     }
 
-    public void SetLastPanes(IReadOnlyList<string> enabled, IReadOnlyList<string> pinned)
+    public void SetLastPanes(IReadOnlyList<string> enabled)
     {
-        if (enabled.SequenceEqual(LastEnabledPanes) && pinned.SequenceEqual(LastPinnedPanes)) return;
+        if (enabled.SequenceEqual(LastEnabledPanes)) return;
 
         LastEnabledPanes = [.. enabled];
-        LastPinnedPanes = [.. pinned];
         Save();
     }
 
@@ -110,8 +105,7 @@ public sealed class ShellNavigationStore
             File.WriteAllText(_path, JsonSerializer.Serialize(new ShellNavigationDto
             {
                 LastSurface = LastSurface,
-                LastEnabledPanes = [.. LastEnabledPanes],
-                LastPinnedPanes = [.. LastPinnedPanes]
+                LastEnabledPanes = [.. LastEnabledPanes]
             }, JsonOptions));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -139,12 +133,13 @@ public sealed class ShellNavigationStore
         }
     }
 
+    /// <summary>A file written before pins left the header also carries a
+    /// <c>lastPinnedPanes</c> array. It is not read: the serializer skips a member the
+    /// DTO does not declare, and the next save writes the file without it.</summary>
     private sealed class ShellNavigationDto
     {
         public string? LastSurface { get; init; }
 
         public string[]? LastEnabledPanes { get; init; }
-
-        public string[]? LastPinnedPanes { get; init; }
     }
 }
