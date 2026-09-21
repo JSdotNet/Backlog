@@ -76,6 +76,25 @@ public sealed class MarkdownEditorAutoGrowLayoutTests
     }
 
     /// <summary>
+    /// The replica measures one line short whenever the value ends in a newline:
+    /// a textarea shows the empty line the caret has moved to, a pre-wrap block
+    /// drops a newline at its very end. With the box a line short, the textarea
+    /// — overflow hidden — scrolls its first line away to keep the caret in
+    /// view, and the reader who pressed Enter watches the top of their text
+    /// vanish. The trailing space after the attribute is what turns that last
+    /// newline into a line with something on it.
+    /// </summary>
+    [Fact]
+    public void The_replica_counts_a_trailing_newline_as_the_line_the_caret_is_on()
+    {
+        var replica = Rule(".grow-wrap::after");
+
+        Assert.Matches(
+            @"content\s*:\s*attr\(data-replicated-value\)\s+"" ""\s*;",
+            replica);
+    }
+
+    /// <summary>
     /// The same bargain <c>.entry-doc__editor</c> already makes for the other
     /// auto-growing textarea in this stylesheet. Once the replica owns the
     /// height, a textarea that still scrolls hides text the box was grown to
