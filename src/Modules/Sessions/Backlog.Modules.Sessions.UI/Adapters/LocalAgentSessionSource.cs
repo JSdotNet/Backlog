@@ -90,13 +90,18 @@ internal sealed class LocalAgentSessionSource : IAgentSessionSource
         return identity.Current.Id.ToString();
     }
 
-    public async Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default)
+    public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
+        GetSessionsAsync(AgentSessionQuery.Newest, cancellationToken);
+
+    public async Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(query);
+
         var sessions = new List<AgentSession>();
         var unreadable = new List<string>();
         var discovered = 0;
 
-        foreach (var reader in Readers(cancellationToken))
+        foreach (var reader in Readers(query, cancellationToken))
         {
             var reading = await Collect(reader.Name, reader.Read, unreadable).ConfigureAwait(false);
 
@@ -107,10 +112,10 @@ internal sealed class LocalAgentSessionSource : IAgentSessionSource
         return new AgentSessionCatalog(sessions, unreadable, discovered);
     }
 
-    private (string Name, Func<Task<SessionReading>> Read)[] Readers(CancellationToken cancellationToken) =>
+    private (string Name, Func<Task<SessionReading>> Read)[] Readers(AgentSessionQuery query, CancellationToken cancellationToken) =>
     [
-        (ClaudeSessionReader.Name, () => _claude.ReadAsync(cancellationToken)),
-        (CopilotSessionReader.Name, () => _copilot.ReadAsync(cancellationToken))
+        (ClaudeSessionReader.Name, () => _claude.ReadAsync(query, cancellationToken)),
+        (CopilotSessionReader.Name, () => _copilot.ReadAsync(query, cancellationToken))
     ];
 
     /// <summary>

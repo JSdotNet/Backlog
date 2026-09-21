@@ -1,3 +1,4 @@
+using Backlog.Modules.Dashboard.Abstractions;
 using Backlog.Modules.Dashboard.Abstractions.Services;
 using Backlog.SharedKernel;
 
@@ -35,8 +36,17 @@ namespace Backlog.Modules.Dashboard.UI.Adapters;
 /// <c>SettingsRepositoryDirectory</c> — the source itself reads once, so this costs
 /// nothing and does not pin an answer the day the source stops being fixed.
 /// </para>
+/// <para>
+/// Read back to <see cref="DashboardScope.Horizon"/>, the same distance as the figures
+/// it narrows. A machine whose every record is older than the widest period is a
+/// filter option that can only empty the surface, which is exactly what the first
+/// paragraph says this must not offer.
+/// </para>
 /// </remarks>
-public sealed class DeviceMachineDirectory(IDeviceIdentitySource identity, IAssistantSessionSource sessions)
+public sealed class DeviceMachineDirectory(
+    IDeviceIdentitySource identity,
+    IAssistantSessionSource sessions,
+    TimeProvider time)
     : IMachineDirectory
 {
     public async Task<IReadOnlyList<DashboardMachine>> GetMachinesAsync(
@@ -48,7 +58,9 @@ public sealed class DeviceMachineDirectory(IDeviceIdentitySource identity, IAssi
 
         try
         {
-            report = await sessions.GetSessionsAsync(cancellationToken).ConfigureAwait(false);
+            report = await sessions
+                .GetSessionsAsync(time.GetUtcNow() - DashboardScope.Horizon, cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
