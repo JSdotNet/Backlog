@@ -1300,8 +1300,15 @@ button.badge:hover {
     line-height: var(--line-height-normal);
 }
 
+/* The trailing space is load-bearing. A textarea whose value ends in a newline
+   shows the empty line after it — that is where the caret is — but a pre-wrap
+   block drops a newline at its very end, so the replica measured "Hello\n" as
+   one line and the textarea, overflow hidden, scrolled its first line away to
+   show the caret on the second. One space after the text turns that final
+   newline into a line with something on it, and the space itself never wraps:
+   pre-wrap hangs a trailing space past the edge rather than breaking on it. */
 .grow-wrap::after {
-    content: attr(data-replicated-value);
+    content: attr(data-replicated-value) " ";
     white-space: pre-wrap;
     visibility: hidden;
 }

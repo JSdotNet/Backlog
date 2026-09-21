@@ -46,6 +46,27 @@ else
     private bool _watching;
 
     /// <summary>
+    /// The text the textarea holds right now, as last reported through
+    /// <see cref="ValueChanged"/> — or null when nothing has been typed since
+    /// the host last set the text.
+    /// <para>
+    /// This is the one place the bargain above needs help. The textarea is the
+    /// truth, but Blazor cannot see it: its diff compares this render to the
+    /// last one, never to the DOM. A host that stores the body through a parser
+    /// — the Tasks pane's Markdown tab, a step's notes — hands back the typed
+    /// text with its edges trimmed, and the diff, finding "Hello" where it wrote
+    /// "Hello" last time, leaves the textarea alone with the "Hello\n" the
+    /// reader just typed. The highlight layer and the auto-grow replica are
+    /// drawn from the parameter, though, so both lose the blank line the box
+    /// still shows: every colour lands a line away from its word, and the box
+    /// stops a line short and scrolls. <see cref="OnParametersSet"/> reads the
+    /// trimmed echo as the typed text coming back and keeps drawing what the
+    /// textarea holds.
+    /// </para>
+    /// </summary>
+    private string? _typed;
+
+    /// <summary>
     /// The coloured copy of the text, one element per line.
     /// <para>
     /// A trailing newline per line rather than a block element per line: the
@@ -236,7 +257,7 @@ else
             var updated = await Js.InvokeAsync<string?>("backlogMarkdownEditor.apply", _surface, action, null);
             if (updated is null) return;
 
-            Value = updated;
+            Value = _typed = updated;
             await ValueChanged.InvokeAsync(updated);
         }
         catch (JSException)
@@ -256,8 +277,43 @@ else
 
     private async Task OnTypedAsync(string value)
     {
-        Value = value;
+        Value = _typed = value;
         await ValueChanged.InvokeAsync(value);
+    }
+
+    /// <summary>
+    /// Keeps the textarea's text on screen when the host echoes it back with the
+    /// edges trimmed; sees the text of a host that changed it. See
+    /// <see cref="_typed"/> for why the diff cannot do this on its own.
+    /// <para>
+    /// Only the edges: a blank line typed inside the body survives every store
+    /// this product has, so a value that differs anywhere else is a host that
+    /// has something new to say, and the parameter wins. That keeps the guard
+    /// from shadowing a reload — and from turning every host into one that
+    /// cannot correct the text at all.
+    /// </para>
+    /// </summary>
+    protected override void OnParametersSet()
+    {
+        if (_typed is null || string.Equals(Value, _typed, StringComparison.Ordinal)) return;
+
+        if (SameButForTheEdges(Value, _typed))
+        {
+            Value = _typed;
+            return;
+        }
+
+        _typed = null;
+    }
+
+    /// <summary>Whether <paramref name="value"/> is <paramref name="typed"/> with
+    /// its leading and trailing newlines gone — the shape every parser-backed
+    /// host hands back — read the way a textarea reads line ends.</summary>
+    private static bool SameButForTheEdges(string? value, string typed)
+    {
+        static string Core(string text) => text.Replace("\r\n", "\n").Trim('\n');
+
+        return string.Equals(Core(value ?? string.Empty), Core(typed), StringComparison.Ordinal);
     }
 
     /// <summary>
