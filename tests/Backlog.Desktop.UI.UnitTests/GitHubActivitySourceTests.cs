@@ -80,6 +80,45 @@ public sealed class GitHubActivitySourceTests : IDisposable
         Assert.True(report.Complete);
     }
 
+    /// <summary>
+    /// Whose work a repository is filtered to follows the account its calls go out
+    /// as, not the machine's default. Every repository used to be filtered by the
+    /// one login <c>GET user</c> answered for the default account, so a repository
+    /// bound to a second account authenticated correctly and then dropped every
+    /// pull request in it — they were authored by the other login.
+    /// </summary>
+    [Fact]
+    public async Task A_repository_bound_to_a_second_account_is_filtered_to_that_accounts_login()
+    {
+        var settings = new GitHubSettingsStore(Path.Combine(_root, "github.json"));
+        Assert.Null(settings.SetRepositories(
+        [
+            new GitHubRepositoryRef("backlog", "JSdotNet", "Backlog"),
+            new GitHubRepositoryRef("fincent", "innovadis-dev", "Fincent")
+        ]));
+        Assert.Null(settings.SetAccounts([new GitHubAccount("jsdotnet"), new GitHubAccount("j-schepers_innobv")]));
+        Assert.Null(settings.SetRepositoryAccount("fincent", "j-schepers_innobv"));
+
+        var client = new ScriptedActivityClient
+        {
+            ["JSdotNet/Backlog"] = new GitHubRepositoryActivity("JSdotNet/Backlog", [MergedPullRequest(7)], []),
+            ["innovadis-dev/Fincent"] = new GitHubRepositoryActivity("innovadis-dev/Fincent", [MergedPullRequest(9)], [])
+        };
+
+        var source = new GitHubActivitySource(client, new SignedIn("jsdotnet"), settings);
+
+        var report = await source.GetActivityAsync(
+            [new DashboardRepository("backlog", "JSdotNet/Backlog"), new DashboardRepository("fincent", "innovadis-dev/Fincent")],
+            From,
+            To,
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal("jsdotnet", client.AuthorAskedFor("JSdotNet/Backlog"));
+        Assert.Equal("j-schepers_innobv", client.AuthorAskedFor("innovadis-dev/Fincent"));
+        Assert.Equal(2, report.PullRequests.Count);
+        Assert.True(report.Complete);
+    }
+
     private static GitHubReviewedPullRequest MergedPullRequest(int number) => new(
         number,
         $"https://github.com/JSdotNet/Backlog/pull/{number}",
@@ -109,10 +148,15 @@ public sealed class GitHubActivitySourceTests : IDisposable
     {
         private readonly Dictionary<string, object> _answers = new(StringComparer.OrdinalIgnoreCase);
 
+        private readonly Dictionary<string, string> _authors = new(StringComparer.OrdinalIgnoreCase);
+
         public object this[string fullName]
         {
             set => _answers[fullName] = value;
         }
+
+        /// <summary>The author the last call for one repository was filtered to.</summary>
+        public string AuthorAskedFor(string fullName) => _authors[fullName];
 
         public Task<GitHubActivityAvailability> GetAvailabilityAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(new GitHubActivityAvailability(true, string.Empty));
@@ -124,6 +168,8 @@ public sealed class GitHubActivitySourceTests : IDisposable
             string author,
             CancellationToken cancellationToken = default)
         {
+            _authors[$"{repository.Owner}/{repository.Name}"] = author;
+
             return _answers[$"{repository.Owner}/{repository.Name}"] switch
             {
                 GitHubRepositoryActivity report => Task.FromResult(report),

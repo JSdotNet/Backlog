@@ -15,6 +15,14 @@ namespace Backlog.Modules.Dashboard.UI.Adapters;
 /// able to report on other people — which is a different product.
 /// </para>
 /// <para>
+/// Resolved per repository, not once. A repository bound to an account in Settings
+/// has its calls sent as that account, and the work in it is authored by that
+/// account's login — so filtering it to the login the default account answers for
+/// authenticated correctly and then dropped every pull request it found. The
+/// author follows the same choice the transport makes: the bound login when there
+/// is one, the signed-in login otherwise.
+/// </para>
+/// <para>
 /// A repository that fails is skipped rather than failing the fetch. Five
 /// repositories where one has been renamed should show four repositories' figures
 /// and not an unavailable part, because the four are true — but the report says
@@ -86,7 +94,7 @@ internal sealed class GitHubActivitySource(
             try
             {
                 report = await activity
-                    .GetActivityAsync(reference, from, to, login, cancellationToken)
+                    .GetActivityAsync(reference, from, to, AuthorOf(reference, login), cancellationToken)
                     .ConfigureAwait(false);
             }
             catch (GitHubException)
@@ -130,4 +138,20 @@ internal sealed class GitHubActivitySource(
 
         return new ActivityReport(pullRequests, issues) { Complete = complete };
     }
+
+    /// <summary>
+    /// The login one repository's work is filtered to: the account it is bound to,
+    /// or the signed-in login when it is not bound.
+    /// <para>
+    /// Asked of the same lookup the transport routes the call with, so the author
+    /// and the credential cannot disagree — a binding this machine cannot satisfy
+    /// still names its login here, and the transport's refusal is what takes the
+    /// repository off the report, as it does for any other error.
+    /// </para>
+    /// </summary>
+    internal static string AuthorOf(GitHubSettings settings, GitHubRepositoryRef repository, string signedIn) =>
+        settings.AccountForPath($"repos/{repository.Owner}/{repository.Name}/pulls").Login ?? signedIn;
+
+    private string AuthorOf(GitHubRepositoryRef repository, string signedIn) =>
+        AuthorOf(settings.Current, repository, signedIn);
 }
