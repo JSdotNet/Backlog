@@ -38,6 +38,12 @@ endpoints and the desktop exchange landed together on 2026-09-16.
 > than the later-*uploaded* one, so a skewed clock can pick the winner. Both
 > orderings lose one edit in that race; only arrival order also lost every
 > deletion. `_ts` still orders the feed and the merge's tiebreaks are unchanged.
+>
+> **Amended, 2026-09-21 — nor may a pull.** The merge no longer takes an older
+> copy over a local remark at or below the push watermark; it applies the
+> replica's own rule on the pull side and the watermark no longer enters it.
+> The same change, for the same reason, as ADR 0005's amendment of the same
+> date, which carries the account.
 
 A **local** decision, numbered in the local sequence. It **extends** local ADR
 0005 — a third replica container beside `tasks` and `sessions`, on that
@@ -167,12 +173,12 @@ task pipeline's client, merge, exchange and loop over the third feed, with
 their own progress file (`annotation-sync-state.json`, per-user, never the
 workspace root). The merge's rules are the task merge's exactly — replica
 stamp, then device stamp, then device id within a page; against the local copy,
-newer wins and an unsent local edit is kept — because two devices have to agree
-on them. **Amended 2026-09-18:** the rule "an older copy may overwrite one this
-device has already sent" holds only because the replica accepts a pushed copy
-only when it is a later version than the one it holds, by `updated_at` and then
-by tombstone; see the amendment note under **Status** for why arrival order
-alone could not. The worker is a third sibling of the other two loops rather than a
+a later version wins and nothing else does — because two devices have to agree
+on them. **Amended 2026-09-18 and 2026-09-21:** the replica accepts a pushed
+copy only when it is a later version than the one it holds, by `updated_at` and
+then by tombstone, and the merge takes a pulled copy on the same terms; the
+rule "an older copy may overwrite one this device has already sent" is gone.
+See the amendment notes under **Status**. The worker is a third sibling of the other two loops rather than a
 third exchange inside one, for the whole of the reasoning `SessionSyncWorker`
 records, staggered eleven seconds behind the app's start so three exchanges do
 not fire into the same moment. It answers to the one `sync` feature switch and

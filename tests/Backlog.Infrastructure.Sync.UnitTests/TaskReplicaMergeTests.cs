@@ -19,12 +19,6 @@ public sealed class TaskReplicaMergeTests
     private static readonly Guid Later = Guid.Parse("22222222-2222-2222-2222-222222222222");
     private static readonly DateTimeOffset Noon = new(2026, 9, 7, 12, 0, 0, TimeSpan.Zero);
 
-    /// <summary>The watermark of a device that has never had a push accepted, so
-    /// every local row it holds reads as an un-pushed local edit. The
-    /// conservative end of the rule, and what the cases below want unless they
-    /// are about the watermark itself.</summary>
-    private static readonly DateTimeOffset NothingPushedYet = DateTimeOffset.MinValue;
-
     // --- The tie-break ------------------------------------------------------
 
     [Fact]
@@ -99,7 +93,7 @@ public sealed class TaskReplicaMergeTests
 
         var record = TaskChanges.Record(TaskChanges.Change("From the other machine", Noon), Earlier, serverTimestamp: 100);
 
-        var outcome = await merge.ApplyAsync([record], NothingPushedYet, TestContext.Current.CancellationToken);
+        var outcome = await merge.ApplyAsync([record], TestContext.Current.CancellationToken);
 
         Assert.Equal(1, outcome.Applied);
         Assert.Equal("From the other machine", store.Tasks[record.Change.Id].Title);
@@ -126,7 +120,7 @@ public sealed class TaskReplicaMergeTests
         // the deletion.
         var stale = TaskChanges.Record(TaskChanges.Change("Still alive over there", Noon, id), Later, serverTimestamp: 999);
 
-        var outcome = await merge.ApplyAsync([stale], NothingPushedYet, TestContext.Current.CancellationToken);
+        var outcome = await merge.ApplyAsync([stale], TestContext.Current.CancellationToken);
 
         Assert.Equal(0, outcome.Applied);
         Assert.Empty(store.Writes);
@@ -150,7 +144,7 @@ public sealed class TaskReplicaMergeTests
             Later,
             serverTimestamp: 100);
 
-        var outcome = await merge.ApplyAsync([deletion], NothingPushedYet, TestContext.Current.CancellationToken);
+        var outcome = await merge.ApplyAsync([deletion], TestContext.Current.CancellationToken);
 
         Assert.Equal(1, outcome.Applied);
         Assert.Equal(Noon.AddHours(1), store.Tasks[id].DeletedAt);
@@ -169,8 +163,8 @@ public sealed class TaskReplicaMergeTests
 
         var page = new[] { TaskChanges.Record(TaskChanges.Change("Once", Noon), Earlier, serverTimestamp: 100) };
 
-        Assert.Equal(1, (await merge.ApplyAsync(page, NothingPushedYet, TestContext.Current.CancellationToken)).Applied);
-        Assert.Equal(0, (await merge.ApplyAsync(page, NothingPushedYet, TestContext.Current.CancellationToken)).Applied);
+        Assert.Equal(1, (await merge.ApplyAsync(page, TestContext.Current.CancellationToken)).Applied);
+        Assert.Equal(0, (await merge.ApplyAsync(page, TestContext.Current.CancellationToken)).Applied);
         Assert.Single(store.Writes);
     }
 
@@ -186,7 +180,7 @@ public sealed class TaskReplicaMergeTests
         var older = TaskChanges.Record(TaskChanges.Change("Older", Noon, id), Earlier, serverTimestamp: 100);
         var newer = TaskChanges.Record(TaskChanges.Change("Newer", Noon.AddMinutes(1), id), Later, serverTimestamp: 200);
 
-        var outcome = await merge.ApplyAsync([older, newer], NothingPushedYet, TestContext.Current.CancellationToken);
+        var outcome = await merge.ApplyAsync([older, newer], TestContext.Current.CancellationToken);
 
         Assert.Equal(1, outcome.Applied);
         Assert.Single(store.Writes);
@@ -197,22 +191,23 @@ public sealed class TaskReplicaMergeTests
 
     /// <summary>
     /// Two devices editing one task while one of them is offline, and the state
-    /// they are in once both have synced. The replica is what they have to agree
-    /// with: whichever push reached the service last is what every device ends up
-    /// holding, per .arc42/adr/0005 section "The sync model" — <i>"Ordering
-    /// authority is the server, not the device clock."</i>
+    /// they are in once both have synced. They agree because both ends apply one
+    /// rule — a document never moves backwards. The replica refuses the older
+    /// push (<c>TaskChangePrecedence</c>; the double below applies the same
+    /// rule), so the laptop's nine o'clock copy never lands there, and the
+    /// laptop takes the ten o'clock copy on its pull. The desktop's own pull is
+    /// its echo and changes nothing.
     /// <para>
-    /// The laptop's edit is the older one by the wall clock and it still wins,
-    /// because it is the one that reached the service last. That discards the
-    /// desktop's edit, which the ADR accepts under Negative consequences. What it
-    /// does not accept anywhere is the alternative this replaces: the desktop
-    /// refusing the inbound copy for being older, holding 10:00 forever while the
-    /// replica and the laptop hold 09:00, with no amount of syncing able to close
-    /// the gap.
+    /// This used to converge the other way — on whichever push reached the
+    /// replica last, per the ADR's original "ordering authority is the server" —
+    /// and the device took an older copy over a row it had already pushed to
+    /// make that hold. Both orderings lose the laptop's edit or the desktop's;
+    /// only the old one could also un-complete a task on the machine that had
+    /// completed it, which is the case the reproduction above pins.
     /// </para>
     /// </summary>
     [Fact]
-    public async Task Two_devices_converge_on_whichever_push_reached_the_replica_last()
+    public async Task Two_devices_converge_on_the_later_stamped_edit()
     {
         var id = Guid.NewGuid();
         var replica = new ReplicaDouble();
@@ -224,59 +219,83 @@ public sealed class TaskReplicaMergeTests
         // The desktop edited at ten and synced straight away.
         var desktop = new InMemoryTaskStore();
         desktop.Seed(TaskChanges.Task("Edited on the desktop at ten", Noon.AddHours(-2), id));
-        replica.Push(desktop.Tasks[id], Later);
-        var desktopWatermark = Noon.AddHours(-2);
+        Assert.True(replica.Push(desktop.Tasks[id], Later));
 
-        // Evening: the laptop finally syncs. It pushes first, so its nine
-        // o'clock copy is the last write the service saw.
-        replica.Push(laptop.Tasks[id], Earlier);
-        var laptopWatermark = Noon.AddHours(-3);
+        // Evening: the laptop finally syncs. Its push is refused as stale, and
+        // its pull hands it the desktop's copy.
+        Assert.False(replica.Push(laptop.Tasks[id], Earlier));
 
         await new TaskReplicaMerge(laptop)
-            .ApplyAsync(replica.Feed(), laptopWatermark, TestContext.Current.CancellationToken);
+            .ApplyAsync(replica.Feed(), TestContext.Current.CancellationToken);
 
-        await new TaskReplicaMerge(desktop)
-            .ApplyAsync(replica.Feed(), desktopWatermark, TestContext.Current.CancellationToken);
+        var echo = await new TaskReplicaMerge(desktop)
+            .ApplyAsync(replica.Feed(), TestContext.Current.CancellationToken);
 
-        Assert.Equal("Edited on the laptop at nine", laptop.Tasks[id].Title);
-        Assert.Equal("Edited on the laptop at nine", desktop.Tasks[id].Title);
+        Assert.Equal("Edited on the desktop at ten", laptop.Tasks[id].Title);
+        Assert.Equal("Edited on the desktop at ten", desktop.Tasks[id].Title);
+        Assert.Equal(0, echo.Applied);
     }
 
     /// <summary>
-    /// The same shape with a deletion, which is the worse half of it: the desktop
-    /// keeping a task the person deleted, permanently, because a tombstone
-    /// refused once is never offered again — the replica has moved on and the
-    /// feed does not repeat it.
+    /// The same shape with a deletion. A tombstone stamped after the edit deletes
+    /// the task on the other device; a tombstone stamped before it is the older
+    /// version and is refused at the replica like any other — so a task edited
+    /// after somebody else deleted it comes back on both machines rather than
+    /// vanishing on one of them.
     /// </summary>
     [Fact]
-    public async Task A_tombstone_that_reached_the_replica_last_deletes_the_task_on_the_other_device()
+    public async Task A_later_stamped_tombstone_deletes_the_task_on_the_other_device()
     {
         var id = Guid.NewGuid();
         var replica = new ReplicaDouble();
 
-        var laptop = new InMemoryTaskStore();
-        laptop.Seed(TaskChanges.Task(
-            "Deleted on the laptop at nine", Noon.AddHours(-3), id, deletedAt: Noon.AddHours(-3)));
-
         var desktop = new InMemoryTaskStore();
         desktop.Seed(TaskChanges.Task("Edited on the desktop at ten", Noon.AddHours(-2), id));
-        replica.Push(desktop.Tasks[id], Later);
-        var desktopWatermark = Noon.AddHours(-2);
+        Assert.True(replica.Push(desktop.Tasks[id], Later));
 
-        replica.Push(laptop.Tasks[id], Earlier);
+        var laptop = new InMemoryTaskStore();
+        laptop.Seed(TaskChanges.Task(
+            "Deleted on the laptop at eleven", Noon.AddHours(-1), id, deletedAt: Noon.AddHours(-1)));
+        Assert.True(replica.Push(laptop.Tasks[id], Earlier));
 
         await new TaskReplicaMerge(desktop)
-            .ApplyAsync(replica.Feed(), desktopWatermark, TestContext.Current.CancellationToken);
+            .ApplyAsync(replica.Feed(), TestContext.Current.CancellationToken);
 
         Assert.NotNull(desktop.Tasks[id].DeletedAt);
         Assert.Null(await desktop.GetAsync(id, TestContext.Current.CancellationToken));
     }
 
+    [Fact]
+    public async Task An_earlier_stamped_tombstone_is_refused_and_the_edit_stands_on_both_devices()
+    {
+        var id = Guid.NewGuid();
+        var replica = new ReplicaDouble();
+
+        var desktop = new InMemoryTaskStore();
+        desktop.Seed(TaskChanges.Task("Edited on the desktop at ten", Noon.AddHours(-2), id));
+        Assert.True(replica.Push(desktop.Tasks[id], Later));
+
+        var laptop = new InMemoryTaskStore();
+        laptop.Seed(TaskChanges.Task(
+            "Deleted on the laptop at nine", Noon.AddHours(-3), id, deletedAt: Noon.AddHours(-3)));
+        Assert.False(replica.Push(laptop.Tasks[id], Earlier));
+
+        await new TaskReplicaMerge(laptop)
+            .ApplyAsync(replica.Feed(), TestContext.Current.CancellationToken);
+
+        await new TaskReplicaMerge(desktop)
+            .ApplyAsync(replica.Feed(), TestContext.Current.CancellationToken);
+
+        Assert.Null(laptop.Tasks[id].DeletedAt);
+        Assert.Equal("Edited on the desktop at ten", laptop.Tasks[id].Title);
+        Assert.Null(desktop.Tasks[id].DeletedAt);
+    }
+
     /// <summary>
-    /// The one thing the replica may not overwrite: work this machine has done
-    /// and not yet sent. It sits above the push watermark, so it will win on its
-    /// own next push, and taking the older inbound copy now would lose it before
-    /// it ever left.
+    /// Work this machine has done and not yet sent is the older-inbound case
+    /// everybody thinks of first: the edit will win on its own next push, and
+    /// taking the older inbound copy now would lose it before it ever left. The
+    /// rule needs no watermark to say so — older is older.
     /// </summary>
     [Fact]
     public async Task An_unpushed_local_edit_survives_an_older_inbound_document()
@@ -290,7 +309,7 @@ public sealed class TaskReplicaMergeTests
         var inbound = TaskChanges.Record(
             TaskChanges.Change("Older, from the replica", Noon.AddHours(1), id), Later, serverTimestamp: 900);
 
-        var outcome = await merge.ApplyAsync([inbound], Noon, TestContext.Current.CancellationToken);
+        var outcome = await merge.ApplyAsync([inbound], TestContext.Current.CancellationToken);
 
         Assert.Equal(0, outcome.Applied);
         Assert.Empty(store.Writes);
@@ -298,10 +317,38 @@ public sealed class TaskReplicaMergeTests
     }
 
     /// <summary>
-    /// A row this device received rather than wrote is not an un-pushed local
-    /// edit, however far above the watermark its stamp sits. A rule that read it
-    /// as one would leave a device that pulls twice without pushing in between --
-    /// which is every page after the first of one pull — refusing everything
+    /// The reproduction: a task completed at ten and pushed, then an older copy
+    /// of it handed down by the replica. The old rule took the older copy because
+    /// the local row sat at the watermark — "the replica is authoritative for
+    /// anything already sent" — and un-completed the task on the machine that had
+    /// completed it. The replica refuses a push that would move a document
+    /// backwards; the device refuses a pull that would, for the same reason.
+    /// </summary>
+    [Fact]
+    public async Task An_older_document_never_overwrites_a_newer_local_copy_even_one_already_pushed()
+    {
+        var store = new InMemoryTaskStore();
+        var merge = new TaskReplicaMerge(store);
+
+        var id = Guid.NewGuid();
+        store.Seed(TaskChanges.Task("Completed here at ten", Noon.AddHours(-2), id));
+
+        var inbound = TaskChanges.Record(
+            TaskChanges.Change("Older copy from the replica", Noon.AddHours(-3), id), Later, serverTimestamp: 900);
+
+        // The local row has been pushed and accepted — nothing here is unsent.
+        var outcome = await merge.ApplyAsync([inbound], TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, outcome.Applied);
+        Assert.Empty(store.Writes);
+        Assert.Equal("Completed here at ten", store.Tasks[id].Title);
+    }
+
+    /// <summary>
+    /// A device that pulls twice without pushing in between — which is every
+    /// page after the first of one pull — takes each later version as it comes.
+    /// Pinned because a rule that consulted the push watermark could read a row
+    /// this device received as an un-pushed local edit and refuse everything
     /// after the first version it was handed.
     /// </summary>
     [Fact]
@@ -315,8 +362,8 @@ public sealed class TaskReplicaMergeTests
         var second = TaskChanges.Record(
             TaskChanges.Change("Second version", Noon.AddMinutes(5), id), Later, serverTimestamp: 200);
 
-        Assert.Equal(1, (await merge.ApplyAsync([first], NothingPushedYet, TestContext.Current.CancellationToken)).Applied);
-        Assert.Equal(1, (await merge.ApplyAsync([second], NothingPushedYet, TestContext.Current.CancellationToken)).Applied);
+        Assert.Equal(1, (await merge.ApplyAsync([first], TestContext.Current.CancellationToken)).Applied);
+        Assert.Equal(1, (await merge.ApplyAsync([second], TestContext.Current.CancellationToken)).Applied);
 
         Assert.Equal("Second version", store.Tasks[id].Title);
     }
@@ -344,7 +391,7 @@ public sealed class TaskReplicaMergeTests
         var unreadable = TaskChanges.Record(Retokenized(TaskChanges.Change("From a newer build", Noon)), Later, 100);
         var readable = TaskChanges.Record(TaskChanges.Change("From a build like this one", Noon), Earlier, 101);
 
-        var outcome = await merge.ApplyAsync([unreadable, readable], NothingPushedYet, TestContext.Current.CancellationToken);
+        var outcome = await merge.ApplyAsync([unreadable, readable], TestContext.Current.CancellationToken);
 
         Assert.Equal(1, outcome.Applied);
         Assert.Equal(1, outcome.Skipped);
@@ -485,7 +532,7 @@ public sealed class TaskReplicaMergeTests
 
         var page = new[] { TaskChanges.Record(TaskChanges.Change("From the other machine", Noon), Guid.NewGuid(), serverTimestamp: 100) };
 
-        var outcome = await merge.ApplyAsync(page, DateTimeOffset.MinValue, TestContext.Current.CancellationToken);
+        var outcome = await merge.ApplyAsync(page, TestContext.Current.CancellationToken);
 
         Assert.Equal(1, outcome.Applied);
         Assert.Equal(0, heard);
@@ -522,16 +569,33 @@ public sealed class TaskReplicaMergeTests
 /// cases turn on is the order in which pushes reached the service, and recording
 /// that is the whole of what they need.
 /// </summary>
+/// <summary>
+/// The replica as the merge sees it: one document per task, handed out in the
+/// order they were written. It refuses a push that is not a later version than
+/// the one held — the rule the Sync module's <c>TaskChangePrecedence</c> states,
+/// restated here because this project cannot reference that module — and says
+/// whether it took the push, the way the service's <c>accepted</c> count does.
+/// </summary>
 internal sealed class ReplicaDouble
 {
     private readonly Dictionary<Guid, TaskChangeRecord> _documents = [];
     private long _sequence;
 
-    public void Push(TaskItem task, Guid deviceId)
+    public bool Push(TaskItem task, Guid deviceId)
     {
         var change = TaskReplicaMerge.ToChange(task);
 
+        if (_documents.TryGetValue(change.Id, out var held) && !Supersedes(change, held.Change)) return false;
+
         _documents[change.Id] = new TaskChangeRecord(change, deviceId, ++_sequence);
+        return true;
+    }
+
+    private static bool Supersedes(TaskChange inbound, TaskChange stored)
+    {
+        if (inbound.UpdatedAt != stored.UpdatedAt) return inbound.UpdatedAt > stored.UpdatedAt;
+
+        return inbound.DeletedAt is not null && stored.DeletedAt is null;
     }
 
     public IReadOnlyList<TaskChangeRecord> Feed() =>

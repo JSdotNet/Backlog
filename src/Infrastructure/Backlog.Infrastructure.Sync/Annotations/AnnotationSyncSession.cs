@@ -157,7 +157,7 @@ public sealed class AnnotationSyncSession
             }
 
             pulled += page.Value.Annotations.Count;
-            applied += _merge.Apply(page.Value.Annotations, _state.Current.PushWatermark).Applied;
+            applied += _merge.Apply(page.Value.Annotations).Applied;
 
             cursor = page.Value.Since;
             _state.Save(_state.Current with { PullCursor = cursor });

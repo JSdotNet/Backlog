@@ -140,6 +140,26 @@ is still on screen.
 > skewed clock can pick the winner. Both orderings lose one edit in that race;
 > only arrival order also lost every deletion. `_ts` still orders the feed and
 > the tiebreak on the pull side is unchanged.
+>
+> **Amended, 2026-09-21 — nor may a pull.** The device's merge kept the other
+> half of the original authority after the amendment above: an inbound copy
+> *older* than the local row was still taken whenever that row sat at or below
+> the push watermark — "the replica is authoritative for anything a device has
+> already sent". That branch was written for a replica that kept whichever push
+> arrived last, and with the replica refusing a stale push it had no healthy
+> case left, only an unhealthy one: a task completed on one machine, pushed, and
+> handed back as an older copy was un-completed on the very machine that had
+> completed it. The merge now applies the replica's own rule on the pull side
+> (`TaskReplicaMerge.ShouldApply`, and `AnnotationReplicaMerge.ShouldApply` for
+> ADR 0011's feed): a later version by `updated_at`, or a tombstone of the very
+> version held, is taken; an identical version is an echo and writes nothing;
+> an older one is refused whatever the watermark says. The push watermark no
+> longer enters the merge at all. An unsent local edit is kept as before — it is
+> the newer version — and a device that has pushed nothing takes every later
+> version it is handed, as before. The activity log stops listing a batch as
+> *sent* when the replica took nothing from it, which is what the echo of a pull
+> looks like on every cycle and what made the person think the older copy had
+> gone back.
 
 A **local** decision, numbered in the local sequence — not to be confused with
 inherited ADR 0005 (modular monolith structure) under `.arc42/adr/guidelines/`.
@@ -362,8 +382,11 @@ The service exposes four operations over the two containers, and no more:
   device id as the final deterministic tiebreak so two devices never flap.
   **Amended 2026-09-18:** the replica accepts a pushed copy only when it is a
   later version than the one it holds, by `updated_at` and then by tombstone —
-  a push may never move a document backwards. See the amendment note under
-  **Status** for why arrival order alone could not hold.
+  a push may never move a document backwards. **Amended 2026-09-21:** and the
+  device applies the same rule to what it pulls, so neither end ever moves a
+  document backwards. See the amendment notes under **Status** for why arrival
+  order alone could not hold, and why the device's "older wins once pushed"
+  branch had to go with it.
 - **Offline is unchanged.** The device reads and writes its local database and
   never blocks on the network. Sync is a background reconciliation; losing
   connectivity costs cross-device freshness and nothing else.
