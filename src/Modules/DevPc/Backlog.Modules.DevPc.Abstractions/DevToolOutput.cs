@@ -675,6 +675,33 @@ public static partial class DevToolOutput
         return null;
     }
 
+    /// <summary>
+    /// The first non-blank line a probe printed, as printed, or
+    /// <see langword="null" /> when it printed none.
+    ///
+    /// <para>For the entry that declares its own available side
+    /// (<see cref="DevToolApplication.Available"/>). Its two commands print the
+    /// same vocabulary by construction, and it is not necessarily a version:
+    /// <c>8315afc</c> is what the sync service row prints, and
+    /// <see cref="ParseVersionProbe"/> reads that as no version, which the row
+    /// would then have to report as the word "installed" opposite a real value.
+    /// Nothing is read into the line here; equality is the whole comparison.</para>
+    /// </summary>
+    public static string? ParseVerbatimProbe(string output)
+    {
+        foreach (var line in SplitLines(output))
+        {
+            var trimmed = line.Trim();
+
+            if (trimmed.Length > 0)
+            {
+                return trimmed;
+            }
+        }
+
+        return null;
+    }
+
     /// <summary>The newest version of one marketplace extension that is not a
     /// pre-release, or <see langword="null" /> when the response carries
     /// none.</summary>

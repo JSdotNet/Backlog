@@ -724,6 +724,26 @@ public class DevToolOutputTests
     public void A_probe_that_printed_no_version_reports_nothing(string output) =>
         Assert.Null(DevToolOutput.ParseVersionProbe(output));
 
+    /// <summary>A row that declares its own available side owns the vocabulary
+    /// of both columns, and a commit sha is the case it was added for: the dotted
+    /// number reader sees no version in <c>8315afc</c> and would have reported
+    /// "installed" opposite a real value, which is a comparison nobody can win.
+    /// So the line is taken as printed — first non-blank line, trimmed, and
+    /// nothing read into it.</summary>
+    [Theory]
+    [InlineData("8315afc", "8315afc")]
+    [InlineData("  8315afc  \r\n", "8315afc")]
+    [InlineData("\n\n8315afc\ncommit 8315afc0cefc", "8315afc")]
+    [InlineData("1.0.0+8315afc", "1.0.0+8315afc")]
+    public void A_verbatim_probe_reports_its_first_line_as_printed(string output, string expected) =>
+        Assert.Equal(expected, DevToolOutput.ParseVerbatimProbe(output));
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   \r\n  \n")]
+    public void A_verbatim_probe_that_printed_nothing_reports_nothing(string output) =>
+        Assert.Null(DevToolOutput.ParseVerbatimProbe(output));
+
     /// <summary>The Claude desktop app is a host of its own, and its name starts
     /// with the name of the host beside it. Anything matching on a prefix or a
     /// substring would read <c>claude-desktop</c> as the CLI and register a server

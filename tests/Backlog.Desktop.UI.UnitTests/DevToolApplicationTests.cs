@@ -588,6 +588,54 @@ public class DevToolApplicationTests
         Assert.Equal(["/c", "code", "--install-extension", "x"], application.Install.LaunchArguments);
     }
 
+    /// <summary>The optional third command beside detect and install. A declared
+    /// command has no package manager to ask what the newest version is, so an
+    /// entry that can answer that itself — a deployed service against the
+    /// repository it is built from — declares the command that answers it, and
+    /// the row gains the Available column every other provider already has.</summary>
+    [Fact]
+    public void A_declared_available_command_is_read_beside_detect()
+    {
+        var entry = JsonNode.Parse("""
+            {
+              "id": "backlog-sync-service",
+              "name": "Backlog sync service",
+              "provider": "command",
+              "enabled": true,
+              "detect":    { "command": "pwsh", "args": ["-File", "Get-SyncServiceVersion.ps1", "-Side", "deployed"] },
+              "available": { "command": "pwsh", "args": ["-File", "Get-SyncServiceVersion.ps1", "-Side", "wanted"] },
+              "install":   { "command": "pwsh", "args": ["-File", "Deploy-Azure.ps1", "-Component", "sync", "-Mode", "deploy"] }
+            }
+            """)!.AsObject();
+
+        var application = DevToolConfiguration.ReadApplication(entry)!;
+
+        Assert.Equal(DevToolProvider.Command, application.Provider);
+        Assert.NotNull(application.Available);
+        Assert.Equal("pwsh", application.Available.Command);
+        Assert.Equal(["-File", "Get-SyncServiceVersion.ps1", "-Side", "wanted"], application.Available.Args);
+        Assert.NotNull(application.Install);
+    }
+
+    /// <summary>Every entry on every machine predates the property, and each of
+    /// them keeps the row it always had: detect through the version reader, and
+    /// an Available column that says nothing was looked up.</summary>
+    [Fact]
+    public void An_entry_without_an_available_command_reads_none()
+    {
+        var entry = JsonNode.Parse("""
+            {
+              "id": "aspire",
+              "name": "Aspire CLI",
+              "provider": "command",
+              "enabled": true,
+              "detect": { "command": "aspire", "args": ["--version"] }
+            }
+            """)!.AsObject();
+
+        Assert.Null(DevToolConfiguration.ReadApplication(entry)!.Available);
+    }
+
     /// <summary>The pin is carried through as the catalog spelled it. Nothing here
     /// validates it against a list of installer types, because winget owns that
     /// vocabulary and rejects a value it does not know itself.</summary>

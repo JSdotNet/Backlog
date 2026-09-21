@@ -535,6 +535,49 @@ fastest way to check a change to it:
 az bicep build --file infra\sync\main.bicep --stdout
 ```
 
+## Run from the System tools pane
+
+The desktop app's System tools pane can carry the sync service as a row: whether the
+deployed build is behind the repository, and an **Update** that runs the local deploy
+above. It is a `command` application in the tools catalog, with the one property that
+only this row uses — `available`, the command that answers which build the service
+*should* be running. `detect` and `available` each print one short commit sha; the pane
+compares the two and offers Update when they differ.
+
+```json
+{
+  "id": "backlog-sync-service",
+  "name": "Backlog sync service (Azure)",
+  "provider": "command",
+  "group": "Backlog cloud",
+  "enabled": true,
+  "note": "Update deploys the sync tier from this machine with your own Azure sign-in.",
+  "detect":    { "command": "pwsh", "args": ["-NoProfile", "-File", "D:\\Repos\\Backlog\\build\\Get-SyncServiceVersion.ps1", "-Side", "deployed"] },
+  "available": { "command": "pwsh", "args": ["-NoProfile", "-File", "D:\\Repos\\Backlog\\build\\Get-SyncServiceVersion.ps1", "-Side", "wanted"] },
+  "install":   { "command": "pwsh", "args": ["-NoProfile", "-File", "D:\\Repos\\Backlog\\build\\Deploy-Azure.ps1", "-Component", "sync", "-Mode", "deploy"] }
+}
+```
+
+Replace the path with your clone's. `build/Get-SyncServiceVersion.ps1` does the two
+lookups:
+
+- **`-Side deployed`** asks the service. Its anonymous root (`GET /`) reports the commit
+  the running container was built from — the SDK stamps `HEAD` into the assembly's
+  informational version on every build, so `azd deploy` needs no extra step. The
+  container app is found through `az` by the same tags `Deploy-Azure.ps1` uses; pass
+  `-Endpoint <url>` in the `args` to skip that and make the check a single unauthenticated
+  request.
+- **`-Side wanted`** asks the repository: the newest `origin/main` commit touching what
+  the image is built from (`src/Modules/Sync`, `infra/sync`, `azure.yaml`, the service
+  defaults, the props files). When that commit is already in the deployed build's
+  history it prints the deployed sha back, so a merge that touched nothing the service
+  ships does not read as an update due.
+
+A service deployed before the root endpoint reported its commit answers without one, and
+the row reads *not installed* with the script's message in the pane's transcript. One
+deploy by hand — or pressing Install, which runs the same thing — brings it onto a build
+that reports.
+
 ## Cost
 
 Indicative, at single-user volume, per ADR 0005: Cosmos serverless a few cents per
