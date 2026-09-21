@@ -348,8 +348,9 @@ The desktop shell's header switches between a small set of panes — Inbox,
 Tasks, Devbook — through one option per pane in a fused strip. Several panes
 can be on screen at once, and the strip says so with its shape (see
 `#group-shape-says-cardinality`); the reader asks for a second one with the
-modifier, the same convention as the repository scope beside it
-(`#modifier-click-scope`). Each pane used to carry a pin, railed along its
+modifier, the same convention as the repository scope beside it (the
+*Modifier-click scope* row in `#focus-and-selection`). Each pane used to carry
+a pin, railed along its
 option's top edge, that held it through a switch. The pin was a second control
 on every option for what one modifier on the option itself says, and it is gone.
 The roadmap band is not a pane: its toggle stands beside the strip, loose, and
@@ -371,7 +372,7 @@ desktop shell, not a shared-library component, so it carries no storybook page.
 
 ```meta
 status: active
-related: [".design/interaction-guidelines.md#workspace-panes", ".design/interaction-guidelines.md#modifier-click-scope"]
+related: [".design/interaction-guidelines.md#workspace-panes", ".design/interaction-guidelines.md#focus-and-selection"]
 ```
 
 A group of pressable options in application chrome is drawn in one of two
