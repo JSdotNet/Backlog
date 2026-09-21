@@ -61,6 +61,31 @@ public sealed class TaskSyncSessionTests
         Assert.NotEqual(clock.GetUtcNow(), state.Current.PushWatermark);
     }
 
+    /// <summary>
+    /// The replica takes a batch in part when it already holds a later version
+    /// of the rest. Nothing is retried — the watermark moves on, as it must —
+    /// so the shortfall has to be counted, or the edit that lost is lost in
+    /// silence.
+    /// </summary>
+    [Fact]
+    public async Task A_batch_the_replica_took_in_part_reports_the_rest_as_refused()
+    {
+        var store = new InMemoryTaskStore();
+        store.Seed(TaskChanges.Task("Kept", Noon));
+        store.Seed(TaskChanges.Task("Refused as stale", Noon.AddHours(1)));
+        var state = new InMemoryTaskSyncStateStore();
+
+        using var fixture = Fixture.Create(store, state, new FakeTimeProvider(Noon.AddHours(6)),
+            (_, _) => StubHttpMessageHandler.Json(HttpStatusCode.OK, """{"accepted":1}"""));
+
+        var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(1, result.Value.Pushed);
+        Assert.Equal(1, result.Value.Refused);
+        Assert.Equal(Noon.AddHours(1), state.Current.PushWatermark);
+    }
+
     /// <summary>A task edited before the watermark has already been accepted, so
     /// it is not offered again. The whole point of keeping one.</summary>
     [Fact]

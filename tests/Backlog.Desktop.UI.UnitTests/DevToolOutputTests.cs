@@ -41,6 +41,35 @@ public class DevToolOutputTests
         jsdotnet.mcp.design                        1.0.12              Eduard Keilholz      583
         """;
 
+    /// <summary>
+    /// A listing that ran and an empty listing are opposite answers to the one
+    /// question the cache delete asks. A JSON array with no installs means every
+    /// cached folder is stale and may go; a body that is not the listing at all
+    /// — a warning printed ahead of it, a login prompt, nothing — means nothing
+    /// is known, and read as "no installs anywhere" it deleted the folders every
+    /// install pointed at.
+    /// </summary>
+    [Fact]
+    public void A_plugin_listing_that_is_not_json_is_not_an_empty_listing()
+    {
+        Assert.False(DevToolOutput.TryParseClaudePluginInstallPaths("A new version of Claude Code is available.", out var fromNotice));
+        Assert.Empty(fromNotice);
+
+        Assert.False(DevToolOutput.TryParseClaudePluginInstallPaths(string.Empty, out var fromNothing));
+        Assert.Empty(fromNothing);
+
+        Assert.False(DevToolOutput.TryParseClaudePluginInstallPaths("""{ "status": "ok" }""", out var fromObjectWithoutArray));
+        Assert.Empty(fromObjectWithoutArray);
+
+        Assert.True(DevToolOutput.TryParseClaudePluginInstallPaths("[]", out var fromEmptyListing));
+        Assert.Empty(fromEmptyListing);
+
+        Assert.True(DevToolOutput.TryParseClaudePluginInstallPaths(
+            """[ { "id": "devbook@jsdotnet-devbook", "installPath": "C:\\Users\\me\\.claude\\plugins\\cache\\jsdotnet-devbook\\devbook\\1.0.0" } ]""",
+            out var fromListing));
+        Assert.Equal(1, fromListing[DevToolCache.NormalizePath(@"C:\Users\me\.claude\plugins\cache\jsdotnet-devbook\devbook\1.0.0")]);
+    }
+
     [Fact]
     public void The_plugin_list_reads_the_cli_bullet_form()
     {

@@ -22,7 +22,7 @@ general-purpose or knowledge-folder tooling. Two skills, one for each direction:
   the planned next step.
 
 The marker exists because Backlog's copy button hands over an entry's title and body but
-not its metadata line, so a pasted entry has lost its `id:`, `#tag`, `repo:` and `after:`
+not its metadata line, so a pasted entry has lost its `id:`, `+tag`, `repo:` and `after:`
 unless the body restates them.
 
 `hooks/hooks.json` adds a `UserPromptSubmit` hook (Claude Code) that notices the marker in

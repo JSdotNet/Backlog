@@ -8,7 +8,14 @@ namespace Backlog.Infrastructure.Sync.Annotations;
 /// <paramref name="Pulled"/> counts what came back and <paramref name="Applied"/>
 /// what was written; a device's own echo arrives and changes nothing, so the
 /// two differ on a healthy cycle.</summary>
-public sealed record AnnotationSyncSummary(int Pushed, int Pulled, int Applied, DateTimeOffset At);
+public sealed record AnnotationSyncSummary(int Pushed, int Pulled, int Applied, DateTimeOffset At)
+{
+    /// <summary>Documents offered in a push the replica did not take, because
+    /// it already held a later version. Never healthy: the local store stamps a
+    /// change past the copy it changes, so a refusal means two devices really
+    /// did edit the same remark, and the loser's edit is the one here.</summary>
+    public int Refused { get; init; }
+}
 
 /// <summary>
 /// One exchange with the annotation replica: push what this device's store
@@ -84,6 +91,7 @@ public sealed class AnnotationSyncSession
         var watermark = _state.Current.PushWatermark;
         var pending = _store.ListChangedSince(watermark);
         var pushed = 0;
+        var refused = 0;
 
         for (var start = 0; start < pending.Count; start += PushBatchSize)
         {
@@ -93,7 +101,12 @@ public sealed class AnnotationSyncSession
             var response = await _client.PushAsync(changes, cancellationToken).ConfigureAwait(false);
             if (response.IsFailure) return Result.Failure<AnnotationSyncSummary>(response.Error);
 
+            // A 200 with fewer accepted than sent is the replica keeping a later
+            // version of the rest. The watermark still moves past them — offering
+            // them again would be refused again — so the count is the one place
+            // the loss is said.
             pushed += response.Value.Accepted;
+            refused += Math.Max(0, batch.Count - response.Value.Accepted);
 
             if (WatermarkAfter(batch, final: start + batch.Count >= pending.Count) is { } advanced)
             {
@@ -101,7 +114,7 @@ public sealed class AnnotationSyncSession
             }
         }
 
-        return Result.Success(new AnnotationSyncSummary(pushed, 0, 0, _time.GetUtcNow()));
+        return Result.Success(new AnnotationSyncSummary(pushed, 0, 0, _time.GetUtcNow()) { Refused = refused });
     }
 
     /// <summary>

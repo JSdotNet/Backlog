@@ -144,7 +144,7 @@ public sealed class CreatePlanTests
     {
         var store = new InMemoryInboxStore();
         var target = new FakeBacklogTarget();
-        var drafter = new FakePlanDrafter { Answer = "# Step one\n`prompt` `!draft` `#{tag}`\n\nDo it.\n" };
+        var drafter = new FakePlanDrafter { Answer = "# Step one\n`prompt` `!draft` `+{tag}`\n\nDo it.\n" };
         var first = Items.Manual("Ship the thing");
         var second = Items.Manual("Ship the thing");
         store.Seed(first);
@@ -158,8 +158,8 @@ public sealed class CreatePlanTests
         Assert.All(drafter.Requests, request => Assert.StartsWith("ship-the-thing-", request.PlanTag, StringComparison.Ordinal));
 
         Assert.Equal(2, target.Imports.Count);
-        Assert.Contains($"`#{drafter.Requests[0].PlanTag}`", target.Imports[0].Plan, StringComparison.Ordinal);
-        Assert.Contains($"`#{drafter.Requests[1].PlanTag}`", target.Imports[1].Plan, StringComparison.Ordinal);
+        Assert.Contains($"`+{drafter.Requests[0].PlanTag}`", target.Imports[0].Plan, StringComparison.Ordinal);
+        Assert.Contains($"`+{drafter.Requests[1].PlanTag}`", target.Imports[1].Plan, StringComparison.Ordinal);
         Assert.NotEqual(target.Imports[0].Plan, target.Imports[1].Plan);
     }
 

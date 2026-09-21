@@ -528,8 +528,8 @@ public sealed class TaskItem
     public void MarkDeleted()
     {
         if (DeletedAt is not null) return;
-        DeletedAt = DateTimeOffset.UtcNow;
         Touch();
+        DeletedAt = UpdatedAt;
     }
 
     // --- Sub-items ----------------------------------------------------------
@@ -663,11 +663,19 @@ public sealed class TaskItem
     /// when a mutator is added without deciding whether it restamps.
     /// </para>
     /// <para>
-    /// Two edits inside the same clock tick get the same instant, which is fine:
-    /// this value only breaks ties in an order the server has already decided, and
-    /// the device id breaks the ties it leaves.
+    /// Now, unless the stamp already carried is later — then one tick past it.
+    /// The replica keeps whichever copy is stamped later, and stamps come from
+    /// each machine's own clock; a copy pulled from a machine whose clock runs
+    /// ahead is stamped in this machine's future, and an edit of it stamped "now"
+    /// here would compare older than what it edits, be refused as stale, and be
+    /// lost with nothing said. An edit is later than the copy it edits, so its
+    /// stamp says so whatever the clocks think.
     /// </para></summary>
-    private void Touch() => UpdatedAt = DateTimeOffset.UtcNow;
+    private void Touch()
+    {
+        var now = DateTimeOffset.UtcNow;
+        UpdatedAt = now > UpdatedAt ? now : UpdatedAt.AddTicks(1);
+    }
 
     private SubItem FindSubItem(Guid subItemId) =>
         _subItems.FirstOrDefault(s => s.Id == subItemId)

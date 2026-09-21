@@ -1514,7 +1514,7 @@ public static class DevToolConfiguration
     /// </summary>
     public static JsonNode? McpRegistrationSection(JsonNode? server)
     {
-        if (server?["claude"] is { } claude)
+        if (server is JsonObject withSection && withSection["claude"] is { } claude)
         {
             return claude;
         }
@@ -1566,6 +1566,27 @@ public static class DevToolConfiguration
 
         return args;
     }
+
+    /// <summary>
+    /// A string property of a catalog node, or empty: absent, not a string, or
+    /// on a node that is not an object at all.
+    ///
+    /// <para>Public because the desktop adapter reads the same hand-written
+    /// entries this reader does, and it has to read them with the same
+    /// tolerance. A <c>"claude": "name"</c> where a section was expected, or an
+    /// <c>args</c> holding a port number, is a finding for one row; read with an
+    /// indexer that throws on a value node or a <c>GetValue</c> that throws on a
+    /// number, it was the whole Tools list gone behind "could not be
+    /// checked".</para>
+    /// </summary>
+    public static string ReadString(JsonNode? node, string name) =>
+        node is JsonObject entry ? GetString(entry, name) : string.Empty;
+
+    /// <summary>The string entries of an array property, in order, with every
+    /// entry that is not a string left out — <see cref="ReadString" />'s rule
+    /// for a list.</summary>
+    public static IReadOnlyList<string> ReadStrings(JsonNode? node, string name) =>
+        node is JsonObject entry ? ReadArgs(entry[name]) : [];
 
     /// <summary>
     /// The key a tool is addressed by, minted in one place so the prefixes

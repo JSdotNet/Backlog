@@ -201,6 +201,28 @@ public sealed class PackagedAppDataTests : IDisposable
     /// behind, and the next start finds the real folder still unclaimed and
     /// tries again — rather than an app pointed at an empty folder it believes
     /// it adopted.</summary>
+    /// <summary>The start after a failed adoption. The app went on and opened
+    /// its store, which created an empty database where the copy should have
+    /// landed; nothing was written for settings. That empty file is not a
+    /// backlog in use, so the retry the failure promised still happens — and
+    /// the person's real backlog arrives instead of staying behind forever.</summary>
+    [Fact]
+    public async Task An_empty_database_the_app_created_after_a_failed_attempt_does_not_stop_the_retry()
+    {
+        var task = new TaskItem("Still mine", string.Empty, EntryType.Task);
+        await new SqliteTaskRepository(Redirected).SaveAsync(task, TestContext.Current.CancellationToken);
+        Write(Path.Combine(Redirected, "settings.json"), "{}");
+        _ = await new SqliteTaskRepository(AppData).ListAsync(TestContext.Current.CancellationToken);
+        Assert.True(File.Exists(Path.Combine(AppData, "backlog.db")));
+
+        var adoption = PackagedAppData.Adopt(Redirected, AppData);
+
+        Assert.Equal(AppDataAdoptionOutcome.Adopted, adoption.Outcome);
+        var only = Assert.Single(await new SqliteTaskRepository(AppData).ListAsync(TestContext.Current.CancellationToken));
+        Assert.Equal("Still mine", only.Title);
+        Assert.True(File.Exists(Path.Combine(AppData, "settings.json")));
+    }
+
     [Fact]
     public void A_database_that_cannot_be_copied_is_reported_and_leaves_no_settings_file()
     {

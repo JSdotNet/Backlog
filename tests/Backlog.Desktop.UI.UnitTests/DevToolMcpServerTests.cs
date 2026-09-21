@@ -41,6 +41,35 @@ public class DevToolMcpServerTests
     /// under a property the catalog entry does not carry is a saved setting that
     /// reads back as never saved.
     /// </summary>
+    /// <summary>
+    /// One odd value in a hand-written entry is that row's finding, not the
+    /// list's. Read with an indexer that throws on a value node and a
+    /// <c>GetValue</c> that throws on a number, a <c>"claude": "name"</c> or an
+    /// <c>args</c> holding a port number took every row off the Tools pane
+    /// behind "could not be checked".
+    /// </summary>
+    [Fact]
+    public void A_registration_with_odd_values_reads_as_blank_rather_than_throwing()
+    {
+        var server = JsonNode.Parse("""
+            { "name": "odd", "claude": { "command": "npx", "args": [ "-y", 8080, null, "serve" ] } }
+            """)!;
+        var claude = DevToolConfiguration.McpRegistrationSection(server)!;
+
+        Assert.Equal("npx", DevToolConfiguration.ReadString(claude, "command"));
+        Assert.Equal(["-y", "serve"], DevToolConfiguration.ReadStrings(claude, "args"));
+        Assert.Equal(string.Empty, DevToolConfiguration.ReadString(claude, "name"));
+
+        // A section that is a bare string instead of an object, and a name that
+        // is a number: both nothing, neither an exception.
+        var stringSection = JsonNode.Parse("""{ "name": 3, "claude": "guidelines" }""")!;
+        Assert.Equal(string.Empty, DevToolConfiguration.ReadString(stringSection, "name"));
+        Assert.Equal(string.Empty, DevToolConfiguration.ReadString(stringSection["claude"], "name"));
+        Assert.Empty(DevToolConfiguration.ReadStrings(stringSection["claude"], "args"));
+        Assert.Equal(string.Empty, DevToolConfiguration.ReadString(null, "name"));
+        Assert.Null(DevToolConfiguration.McpRegistrationSection(JsonNode.Parse("\"aspire\"")));
+    }
+
     [Fact]
     public async Task A_command_registered_server_reads_back_the_overrides_it_was_given()
     {

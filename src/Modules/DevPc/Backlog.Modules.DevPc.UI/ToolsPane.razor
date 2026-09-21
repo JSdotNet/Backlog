@@ -96,7 +96,7 @@
                            something to clear, and the count is how much. *@
                         <AppButton Variant="ButtonVariant.Secondary"
                                    Disabled="@(_toolsLoading || ToolActionBusy)"
-                                   OnClick="ClearStaleCacheAsync"
+                                   OnClick="AskToClearStaleCache"
                                    TestId="tools-cache-clear">
                             @(_toolActionKey == ClearCacheKey ? "Clearing..." : $"Clear stale cache ({StaleCacheCount})")
                         </AppButton>
@@ -290,7 +290,7 @@
                                                                            aria-label="@($"Remove cached {cached.Version} of {tool.Name}")"
                                                                            Disabled="@(_toolsLoading || ToolActionBusy)"
                                                                            TestId="tools-row-cache-remove"
-                                                                           OnClick="() => RemoveCachedVersionAsync(tool, cached)">
+                                                                           OnClick="() => AskToRemoveCachedVersion(tool, cached)">
                                                                     Remove
                                                                 </AppButton>
                                                             }
@@ -773,6 +773,21 @@
                OnConfirm="ConfirmRemoveAsync"
                OnCancel="CancelRemove" />
 
+@* The two cache deletes ask first, as the catalog Remove above does. They are
+   the one thing on this pane that deletes folders under the person's profile,
+   recursively and with no way back, and a first-click delete is one misread
+   row from taking a version an install still loads. *@
+<ConfirmDialog Open="@(_cacheRemoval is not null)"
+               Title="@CacheRemovalTitle"
+               Message="@CacheRemovalMessage"
+               ConfirmText="Remove"
+               Destructive="true"
+               TestId="tools-cache-remove-dialog"
+               ConfirmTestId="tools-cache-remove-confirm"
+               CancelTestId="tools-cache-remove-cancel"
+               OnConfirm="ConfirmCacheRemovalAsync"
+               OnCancel="CancelCacheRemoval" />
+
 @code {
     /// <summary>The keys the busy state is held under for acts that are not one
     /// tool's. A tool's own key is its catalog key, and none of those can collide
@@ -944,11 +959,47 @@
         var count => $"in use by {count} installs"
     };
 
-    private Task RemoveCachedVersionAsync(DevToolInfo tool, DevToolCachedVersion cached) =>
-        RunCatalogEditAsync($"{tool.Key}|{cached.Version}", () => DevTools.RemoveCachedVersionAsync(tool.Key, cached.Version));
+    /// <summary>The cache delete waiting on the person's word: one version of
+    /// one tool, or — with no version — every stale version in the cache.</summary>
+    private (DevToolInfo Tool, DevToolCachedVersion? Cached)? _cacheRemoval;
 
-    private Task ClearStaleCacheAsync() =>
-        RunCatalogEditAsync(ClearCacheKey, () => DevTools.RemoveStaleCacheAsync());
+    private string CacheRemovalTitle => _cacheRemoval is { Cached: not null }
+        ? "Remove this cached version?"
+        : "Clear the stale cache?";
+
+    private string CacheRemovalMessage => _cacheRemoval switch
+    {
+        null => string.Empty,
+        { Cached: { } cached, Tool: var tool } =>
+            $"{cached.Version} of {tool.Name} is deleted from Claude's plugin cache. Nothing loads it now; a scope that installs it later downloads it again.",
+        _ => $"{StaleCacheCount} cached versions nothing loads are deleted from Claude's plugin cache. The versions in use stay; a scope that installs a removed one later downloads it again."
+    };
+
+    private void AskToRemoveCachedVersion(DevToolInfo tool, DevToolCachedVersion cached) => _cacheRemoval = (tool, cached);
+
+    /// <summary>The subject is the pane rather than a tool; the tool half of
+    /// the pair is whichever row is first, and is not read for the clear.</summary>
+    private void AskToClearStaleCache() => _cacheRemoval = (_tools[0], null);
+
+    private void CancelCacheRemoval() => _cacheRemoval = null;
+
+    private async Task ConfirmCacheRemovalAsync()
+    {
+        if (_cacheRemoval is not { } removal)
+        {
+            return;
+        }
+
+        _cacheRemoval = null;
+        if (removal.Cached is { } cached)
+        {
+            await RunCatalogEditAsync($"{removal.Tool.Key}|{cached.Version}", () => DevTools.RemoveCachedVersionAsync(removal.Tool.Key, cached.Version));
+        }
+        else
+        {
+            await RunCatalogEditAsync(ClearCacheKey, () => DevTools.RemoveStaleCacheAsync());
+        }
+    }
 
     /// <summary>
     /// What a row says when there is nothing to press.

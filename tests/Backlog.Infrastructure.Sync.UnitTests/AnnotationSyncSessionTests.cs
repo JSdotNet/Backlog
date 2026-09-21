@@ -58,6 +58,28 @@ public sealed class AnnotationSyncSessionTests
         Assert.Equal(Noon.AddHours(1), state.Current.PushWatermark);
     }
 
+    /// <summary>The replica takes a batch in part when it already holds a later
+    /// version of the rest; the watermark moves on regardless, so the shortfall
+    /// is counted or the edit that lost is lost in silence.</summary>
+    [Fact]
+    public async Task A_batch_the_replica_took_in_part_reports_the_rest_as_refused()
+    {
+        var store = new InMemoryDevbookAnnotationStore();
+        store.Seed(Annotations.Local("Kept", Noon.AddHours(1)));
+        store.Seed(Annotations.Local("Refused as stale", Noon.AddHours(2)));
+        var state = new InMemoryAnnotationSyncStateStore();
+
+        using var fixture = Fixture.Create(store, state, new FakeTimeProvider(Noon.AddHours(6)),
+            (_, _) => StubHttpMessageHandler.Json(HttpStatusCode.OK, """{"accepted":1}"""));
+
+        var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(1, result.Value.Pushed);
+        Assert.Equal(1, result.Value.Refused);
+        Assert.Equal(Noon.AddHours(2), state.Current.PushWatermark);
+    }
+
     [Fact]
     public async Task A_remark_deleted_here_is_pushed_as_a_tombstone()
     {

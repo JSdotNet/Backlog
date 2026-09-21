@@ -249,8 +249,19 @@
 
     private async Task LoadAsync()
     {
-        _view = await TechnologyDevbook.ReadAsync(RepositoryAlias);
-        _loadedRepositoryAlias = RepositoryAlias;
+        // The alias is taken before the await and stamped from that copy, never
+        // from the parameter after it. The read runs off the renderer's thread,
+        // so a scope switch can land while it is out; the parameter is then the
+        // new scope, and a load that stamped from it would mark the old scope's
+        // layers as the new one's — and the guard above, seeing the new alias
+        // loaded, would never ask again. A load the scope has moved on from is
+        // dropped; the switch's own load carries the answer.
+        var alias = RepositoryAlias;
+        var view = await TechnologyDevbook.ReadAsync(alias);
+        if (!string.Equals(alias, RepositoryAlias, StringComparison.Ordinal)) return;
+
+        _view = view;
+        _loadedRepositoryAlias = alias;
         if (_view.Layers.All(layer => layer.FileName != _activeLayerFile))
         {
             _activeLayerFile = _view.Layers.FirstOrDefault()?.FileName;

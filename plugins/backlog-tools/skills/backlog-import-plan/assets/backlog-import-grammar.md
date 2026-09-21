@@ -33,7 +33,8 @@ Sigils (no colon; order sigils before named tokens):
 | `!` | status | `!draft`, `!ready`, `!in-progress`, `!done`, `!archived` — an entry stating none is imported at `ready`; write `!draft` to hold one back |
 | `*` | priority | `*low`, `*medium`, `*high`, `*critical` |
 | `@` | area | any slug, e.g. `@repos` |
-| `#` | tag | any slug, e.g. `#vscode-desktop-rollout` |
+| `+` | plan tag | the plan's slug, e.g. `+vscode-desktop-rollout` — stored with its sigil; this is what identifies the plan |
+| `#` | tag | any other slug, e.g. `#deploy` — a general tag, never the plan's identity |
 
 Named tokens (`name:value`):
 
@@ -75,14 +76,14 @@ split: the manual step is its own `task`, and the prompts that need it done wait
 ```markdown
 # Confirm the export format with design
 
-`task` `!ready` `@repos` `#vscode-desktop-rollout` `id:confirm-format` `effort:1`
+`task` `!ready` `@repos` `+vscode-desktop-rollout` `id:confirm-format` `effort:1`
 
 Agree with design whether the export is plain Markdown or Markdown with front matter, and
 note the answer on this entry. Done when the format is written down here.
 
 # Add the export command
 
-`prompt` `*high` `!ready` `@repos` `#vscode-desktop-rollout` `id:add-command` `after:confirm-format` `repo:backlog-desktop` `effort:5`
+`prompt` `*high` `!ready` `@repos` `+vscode-desktop-rollout` `id:add-command` `after:confirm-format` `repo:backlog-desktop` `effort:5`
 
 Backlog plan item `add-command` of plan `vscode-desktop-rollout` for `backlog-desktop`, after `confirm-format` — run it with the `backlog-run-plan-item` skill.
 
@@ -97,7 +98,7 @@ in the format agreed on the `confirm-format` entry.
 
 # Wire the export command into the toolbar
 
-`prompt` `!ready` `@repos` `#vscode-desktop-rollout` `id:wire-toolbar` `after:add-command` `repo:backlog-desktop` `effort:2`
+`prompt` `!ready` `@repos` `+vscode-desktop-rollout` `id:wire-toolbar` `after:add-command` `repo:backlog-desktop` `effort:2`
 
 Backlog plan item `wire-toolbar` of plan `vscode-desktop-rollout` for `backlog-desktop`, after `add-command` — run it with the `backlog-run-plan-item` skill.
 
@@ -109,7 +110,7 @@ Wire the command from the previous prompt into the toolbar as a button.
 
 # Review the VS Code desktop rollout plan for anything missed
 
-`prompt` `!ready` `@repos` `#vscode-desktop-rollout` `id:review-plan` `after:wire-toolbar` `repo:backlog-desktop` `effort:2`
+`prompt` `!ready` `@repos` `+vscode-desktop-rollout` `id:review-plan` `after:wire-toolbar` `repo:backlog-desktop` `effort:2`
 
 Backlog plan item `review-plan` of plan `vscode-desktop-rollout` for `backlog-desktop`, after `wire-toolbar` — run it with the `backlog-run-plan-item` skill.
 
@@ -121,7 +122,7 @@ outstanding as a new entry.
 
 # Sign off the VS Code desktop rollout plan
 
-`task` `!ready` `@repos` `#vscode-desktop-rollout` `id:sign-off-plan` `after:review-plan` `effort:1`
+`task` `!ready` `@repos` `+vscode-desktop-rollout` `id:sign-off-plan` `after:review-plan` `effort:1`
 
 Read the review's outcome. Confirm the plan is complete, or pick up the follow-up entries
 it wrote.
@@ -133,7 +134,7 @@ The first body line of every `prompt` entry — a `task` entry has none, because
 pastes it into a session to run. It exists because of what Backlog's copy button hands
 over: the entry's title, a blank line, and its body — never the metadata line, which
 Backlog treats as its own bookkeeping. An entry copied out of the app and pasted into a
-chat has therefore lost its `id:`, `#tag`, `repo:` and `after:` unless the body restates
+chat has therefore lost its `id:`, `+tag`, `repo:` and `after:` unless the body restates
 them, and the marker is that restatement, in the one shape `backlog-run-plan-item`
 recognizes:
 
@@ -144,8 +145,8 @@ Backlog plan item `<id>` of plan `<tag>` for `<repo>`[, `<repo>`…][, after `<i
 - Clauses in exactly that order; the `after` clause is omitted when the entry waits on
   nothing. Every value is the same slug the metadata line carries, so `(tag, id)` in the
   marker is the pair Backlog itself matches an entry by across plan versions.
-- The tag is written bare, not as `#tag`: a `#`-sigil in body prose is scanned as a tag
-  by the parser, and the entry already carries the plan tag on its metadata line.
+- The tag is written bare, not as `+tag` or `#tag`: a sigil in body prose is scanned as a
+  tag by the parser, and the entry already carries the plan tag on its metadata line.
 - The line is prose with backtick values in it, never backtick tokens alone. A body line
   made only of backtick tokens would be read as a metadata line the moment a copied entry
   — title, blank, body — is pasted back into Backlog.
@@ -170,8 +171,11 @@ These sub-items belong to `prompt` entries; a `task` entry carries none of them.
 
 ## Plan identity and re-import
 
-- Every entry generated for one plan shares one `#tag`, a slug derived from the plan's
-  subject — this is the plan's whole identity; there is no separate plan-id field.
+- Every entry generated for one plan shares one `+tag`, a slug derived from the plan's
+  subject and written with the `+` sigil — this is the plan's whole identity; there is no
+  separate plan-id field. Backlog stores the value sigil and all, and its tag picker offers
+  the same `+slug`, so a plan written `#slug` would be a different plan from the one the
+  app shows.
 - Reusing the exact same tag on a later regeneration is what makes it a new version of
   that plan rather than a second plan: Backlog clears every entry of that tag still
   waiting to be picked up (`draft`/`ready`) and writes the new version in their place, so
