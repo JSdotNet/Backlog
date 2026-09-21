@@ -1,6 +1,6 @@
 ---
 name: backlog-import-plan
-description: Turn an agreed specification (a .domain feature, a .backlog item, an ADR, or other planning material) into a Backlog import plan — an ordered, dependency-linked sequence of entries in Backlog's entry-text grammar, ready to paste or upload.
+description: Turn an agreed specification (a .domain feature, a .backlog item, an ADR, or other planning material) into a Backlog import plan — an ordered, dependency-linked sequence of entries in Backlog's entry-text grammar, ready to paste or upload — together with a review view of it, always.
 disable-model-invocation: true
 ---
 
@@ -8,8 +8,8 @@ disable-model-invocation: true
 
 A one-shot handoff: the spec is settled and it is time to generate the next batch of AI
 prompts for the Backlog app to import. This skill reads the agreed material, writes one
-Backlog import plan document, and stops — it never talks to the Backlog app, executes a
-generated prompt, or touches GitHub.
+Backlog import plan document plus a review view of it, and stops — it never talks to the
+Backlog app, executes a generated prompt, or touches GitHub.
 
 Read `assets/backlog-import-grammar.md` before writing anything. It carries the exact
 entry/sub-item shape, every metadata token and its values, and the plan-identity/re-import
@@ -19,16 +19,19 @@ mechanics; do not invent syntax beyond it.
 
 - **Source material.** Path(s) to the agreed `.domain` feature chapter, `.backlog`
   Epic/Story, ADR, or — if nothing is written down yet — the planning notes given inline.
-- **Plan subject.** What the batch delivers; derives the shared `#tag`.
+- **Plan subject.** What the batch delivers; derives the shared `+tag`.
 - **Target repositories.** One or more repository names the prompts target. Do not check
   whether a name is already registered in Backlog — Import auto-registers an unknown one.
-- **Output.** A file path, or "paste it here" — ask if neither is stated.
+- **Output.** A file path, or "paste it here" — ask if neither is stated. The review view
+  (step 7) is produced either way; it is not an option.
 
 ## Workflow
 
 1. Read the source material in full, following any `depends-on`/prerequisite references it
    names, so ordering is grounded in what is agreed rather than guessed.
-2. Derive the plan's `#tag`: one slug from the plan subject. Reuse the exact same slug if
+2. Derive the plan's `+tag`: one slug from the plan subject, written with the `+` sigil
+   Backlog stores plan tags under (a `#slug` is a general tag and a different plan from
+   the `+slug` the app's picker offers). Reuse the exact same slug if
    this plan is later regenerated, so Backlog's re-import recognizes it as a new version
    of this plan — clearing the entries nobody has started yet — instead of a second plan.
 3. Break the work into ordered entries, one per unit of work. Every entry is exactly one
@@ -76,7 +79,7 @@ mechanics; do not invent syntax beyond it.
    stable slug from its title, reused verbatim when the plan is regenerated, since it is
    how Backlog recognizes an entry already under way or already finished; `after:<id>`
    once per prerequisite, including across repositories and across kinds; the shared
-   `#tag`; and only the `*priority`, `@area` or `due:` the source material actually
+   `+tag`; and only the `*priority`, `@area` or `due:` the source material actually
    implies.
 4. Close every plan with two entries, in this order and last in the document. Never omit
    either, however small the plan.
@@ -97,15 +100,27 @@ mechanics; do not invent syntax beyond it.
 6. Produce the output: write it to the given path (default `<plan-slug>-import-plan.md` in
    the current working directory) when a file was asked for or implied, and show the full
    text inline either way so it is ready to paste directly.
-7. Report the output location (if written), the entry count, the repositories targeted, and
-   the dependency chain. Stop — do not open the Backlog app, run a prompt, or create a pull
-   request.
+7. Build the review view, always, next to the raw plan: copy `assets/plan-review.html`,
+   replace `{{PLAN_TITLE}}` with the plan subject as a short name (e.g. `VS Code desktop
+   rollout plan`) and `{{PLAN}}` with the plan text verbatim (it must not contain
+   `</script>`), and change nothing else. Publish it as an artifact when the host offers
+   one — a private page whose link the user can open beside the raw text; otherwise write
+   it beside the plan as `<plan-slug>-import-plan.html` and say to open it in a browser.
+   The page parses the embedded plan itself, so the view can never disagree with the raw
+   text; it shows the checks of `## Output expectations`, the dependency order as a
+   diagram, and every entry with its boilerplate folded away, with the raw plan on a
+   second tab. Its **Checks** mirror `## Output expectations`, so the reviewer sees at a
+   glance what the plan gets wrong; when the user reports a failed check, fix the plan and
+   regenerate the view rather than patching the view.
+8. Report the output location (if written), the review view's link or path, the entry
+   count, the repositories targeted, and the dependency chain. Stop — do not open the
+   Backlog app, run a prompt, or create a pull request.
 
 ## Output expectations
 
 - One Markdown document; every entry's body precedes its `##`/`- [ ]` sub-items.
 - Every entry is `prompt` or `task` and states `!ready`, an `effort:`, an `id:`, and the
-  plan's shared `#tag`; every prompt also states `repo:` and opens with the marker line,
+  plan's shared `+tag`; every prompt also states `repo:` and opens with the marker line,
   then the session-name line.
 - No prompt contains a manual step in any form — no `Manual:` sub-item, no "ask the user
   to…" instruction — and no task contains instructions for an AI.
@@ -113,8 +128,12 @@ mechanics; do not invent syntax beyond it.
   dependencies and prompts that wait on a task.
 - The last two entries are the plan review, waiting on every leaf of that order, and the
   sign-off task waiting on the review.
-- No file changes outside the produced plan document; no call to the Backlog app or GitHub.
+- A review view built from `assets/plan-review.html` accompanies the plan every time, and
+  none of its checks fail.
+- No file changes outside the produced plan document and its review view; no call to the
+  Backlog app or GitHub.
 
 ## Reference
 
 - `assets/backlog-import-grammar.md`
+- `assets/plan-review.html` — the review view template; its checks mirror the grammar.

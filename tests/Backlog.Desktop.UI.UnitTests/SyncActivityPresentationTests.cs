@@ -111,6 +111,18 @@ public sealed class SyncActivityPresentationTests
         Assert.Null(SyncActivityPresentation.TaskLine(null));
     }
 
+    /// <summary>A push the replica took only in part is a loss on this device,
+    /// and the line is the one place the footer says so.</summary>
+    [Fact]
+    public void The_task_line_says_how_many_the_replica_refused()
+    {
+        var tasks = new TaskSyncSummary(Pushed: 2, Pulled: 0, Applied: 0, Skipped: 0, At: Noon) { Refused = 1 };
+
+        Assert.Equal(
+            $"Tasks: sent 2, received 0 of 0 pulled, 1 refused as stale · {SyncActivityPresentation.Clock(Noon)}",
+            SyncActivityPresentation.TaskLine(tasks));
+    }
+
     [Fact]
     public void Directions_and_kinds_read_as_words()
     {

@@ -271,5 +271,39 @@ public class TaskItemEffortTests
         Assert.Throws<ArgumentOutOfRangeException>(() => entry.SetEffort(-1));
         Assert.Equal(3, entry.Effort);
     }
+
+    /// <summary>
+    /// The replica keeps the copy stamped later, and stamps come from each
+    /// machine's own clock. A task pulled from a machine whose clock runs ahead
+    /// carries a stamp this clock has not reached; an edit here stamped "now"
+    /// would then compare older than the copy it edits, be refused as stale,
+    /// and be lost with nothing said. An edit is later than what it edits, so
+    /// its stamp says so — one tick past, when the clock cannot.
+    /// </summary>
+    [Fact]
+    public void An_edit_after_a_stamp_from_a_faster_clock_still_moves_the_stamp_forward()
+    {
+        var entry = NewEntry();
+        var ahead = DateTimeOffset.UtcNow.AddMinutes(5);
+        entry.LoadStamps(ahead, deletedAt: null);
+
+        entry.Rename("Renamed on the slower clock");
+
+        Assert.True(entry.UpdatedAt > ahead);
+    }
+
+    /// <inheritdoc cref="An_edit_after_a_stamp_from_a_faster_clock_still_moves_the_stamp_forward"/>
+    [Fact]
+    public void A_deletion_after_a_stamp_from_a_faster_clock_still_moves_the_stamp_forward()
+    {
+        var entry = NewEntry();
+        var ahead = DateTimeOffset.UtcNow.AddMinutes(5);
+        entry.LoadStamps(ahead, deletedAt: null);
+
+        entry.MarkDeleted();
+
+        Assert.NotNull(entry.DeletedAt);
+        Assert.True(entry.UpdatedAt > ahead);
+    }
 }
 

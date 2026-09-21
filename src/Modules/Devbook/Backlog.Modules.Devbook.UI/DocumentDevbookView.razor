@@ -375,8 +375,18 @@
     /// thing that does not need telling.</summary>
     private async Task ReloadAsync()
     {
-        _model = await Provider.LoadAsync(RepositoryAlias);
-        _loadedRepositoryAlias = RepositoryAlias;
+        // Stamped from the alias the load was asked for, not the parameter after
+        // the await: the provider reads off the renderer's thread, so a scope
+        // switch can land while it is out, and a load stamped from the new
+        // parameter would label the old scope's documents as the new one's — and
+        // the guard in OnParametersSetAsync would then never ask again. A load
+        // the scope has moved on from is dropped; the switch's own load has it.
+        var alias = RepositoryAlias;
+        var model = await Provider.LoadAsync(alias);
+        if (!string.Equals(alias, RepositoryAlias, StringComparison.Ordinal)) return;
+
+        _model = model;
+        _loadedRepositoryAlias = alias;
         await ReadChapterAsync();
     }
 

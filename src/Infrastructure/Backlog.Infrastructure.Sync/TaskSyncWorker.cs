@@ -1,4 +1,5 @@
 using Backlog.Modules.Sync.Abstractions;
+using Backlog.Modules.Tasks;
 using Backlog.SharedKernel;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -73,6 +74,21 @@ public sealed class TaskSyncWorker : IDisposable
     internal static readonly TimeSpan CyclePeriod = TimeSpan.FromMinutes(5);
 
     /// <summary>
+    /// How long after a local write a cycle runs, when the host wired an
+    /// <see cref="ITaskChangeSignal"/>.
+    /// <para>
+    /// The five-minute period is the budget for a quiet machine; it is also the
+    /// whole of the window in which two machines can edit one task without
+    /// either knowing, and the merge keeps one whole document and drops the
+    /// other when they do. A push a few seconds after the edit shrinks that
+    /// window to a few seconds. The delay is a debounce and not a schedule: it
+    /// restarts on every write, so a burst of saves from somebody typing costs
+    /// one exchange after the last of them rather than one per keystroke.
+    /// </para>
+    /// </summary>
+    internal static readonly TimeSpan ChangeSettleDelay = TimeSpan.FromSeconds(5);
+
+    /// <summary>
     /// What a person is told when a cycle failed in a way nobody planned for.
     /// <para>
     /// The same sentence the Devices panel shows for a pairing call that threw,
@@ -106,6 +122,7 @@ public sealed class TaskSyncWorker : IDisposable
     private readonly IDeviceCredentialStore _credentials;
     private readonly ITaskSyncStateStore _state;
     private readonly TimeProvider _time;
+    private readonly ITaskChangeSignal? _changes;
     private readonly ILogger _log;
 
     /// <summary>Cancelled on disposal and handed to every exchange, so a cycle
@@ -144,15 +161,33 @@ public sealed class TaskSyncWorker : IDisposable
     private int _pendingRehydrate;
 
     private ITimer? _timer;
+
+    /// <summary>The one-shot timer a local write arms, and re-arms while writes
+    /// keep coming. Under <see cref="_gate"/> with the schedule timer, for the
+    /// same reason.</summary>
+    private ITimer? _settle;
+
+    /// <summary>Set when the settle timer fired, cleared by the cycle that answers
+    /// it. The same arrangement as <see cref="_pendingRepublish"/>, for the same
+    /// reason: a cycle already in flight turns the request away, and without the
+    /// flag the write that caused it would wait for the next tick.</summary>
+    private int _changeSettled;
+
     private bool _disposed;
 
+    /// <param name="changes">What the host's repository raises on every local
+    /// write, or null on a head that composed none. When present, a write runs
+    /// a cycle <see cref="ChangeSettleDelay"/> later rather than on the next
+    /// tick; when absent, the loop is the five-minute schedule and the button,
+    /// exactly as before.</param>
     public TaskSyncWorker(
         IServiceProvider services,
         IAppFeatureSettings features,
         IDeviceCredentialStore credentials,
         ITaskSyncStateStore state,
         TimeProvider time,
-        ILogger<TaskSyncWorker>? log = null)
+        ILogger<TaskSyncWorker>? log = null,
+        ITaskChangeSignal? changes = null)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(features);
@@ -165,12 +200,14 @@ public sealed class TaskSyncWorker : IDisposable
         _credentials = credentials;
         _state = state;
         _time = time;
+        _changes = changes;
         _log = log ?? NullLogger<TaskSyncWorker>.Instance;
 
         // Both gates can move while the app is running, and each of them moving
         // is somebody watching to see whether it worked.
         _features.Changed += OnGateChanged;
         _credentials.Changed += OnGateChanged;
+        if (_changes is not null) _changes.Changed += OnLocalChange;
 
         ApplyGates();
     }
@@ -294,10 +331,13 @@ public sealed class TaskSyncWorker : IDisposable
             _disposed = true;
             _timer?.Dispose();
             _timer = null;
+            _settle?.Dispose();
+            _settle = null;
         }
 
         _features.Changed -= OnGateChanged;
         _credentials.Changed -= OnGateChanged;
+        if (_changes is not null) _changes.Changed -= OnLocalChange;
 
         _lifetime.Cancel();
         _lifetime.Dispose();
@@ -325,6 +365,44 @@ public sealed class TaskSyncWorker : IDisposable
     private bool ShouldRun => _features.IsEnabled(SyncFeatures.Sync) && _credentials.Current is not null;
 
     private void OnGateChanged() => ApplyGates();
+
+    /// <summary>
+    /// A task was written on this machine: arm the settle timer, or push it back
+    /// if it is already armed.
+    /// <para>
+    /// Gated the same way a tick is. A write on a device with sync off, or one
+    /// with no credential, is not something to replicate, and creating the timer
+    /// anyway would be a cycle that then declines to run - noise in the log for
+    /// nothing. The timer is one-shot: the period is infinite and the due time
+    /// is reset on every write, which is what makes it a debounce.
+    /// </para>
+    /// </summary>
+    private void OnLocalChange()
+    {
+        lock (_gate)
+        {
+            if (_disposed || !ShouldRun) return;
+
+            if (_settle is null)
+            {
+                _settle = _time.CreateTimer(_ => OnSettled(), state: null, ChangeSettleDelay, Timeout.InfiniteTimeSpan);
+            }
+            else
+            {
+                _settle.Change(ChangeSettleDelay, Timeout.InfiniteTimeSpan);
+            }
+        }
+    }
+
+    /// <summary>The writes have stopped for <see cref="ChangeSettleDelay"/>: run a
+    /// cycle now. Recorded before it is requested, so a cycle already holding the
+    /// guard - which turns the request away - runs one more on its way out and
+    /// the write does not wait for the tick.</summary>
+    private void OnSettled()
+    {
+        Volatile.Write(ref _changeSettled, 1);
+        RequestSync();
+    }
 
     /// <summary>
     /// Brings the timer into line with the two gates: started when both are
@@ -436,8 +514,11 @@ public sealed class TaskSyncWorker : IDisposable
         {
             // Inside the guard and before anything is read, so a reset asked for
             // while another cycle held the guard is applied by this one rather
-            // than trampled by it.
+            // than trampled by it. The settle flag is consumed here for the same
+            // reason: this cycle's push reads the store after this line, so it
+            // carries every write that fired the timer.
             ApplyPendingResets();
+            Interlocked.Exchange(ref _changeSettled, 0);
 
             var session = ResolveSession();
 
@@ -480,7 +561,7 @@ public sealed class TaskSyncWorker : IDisposable
             // next cycle rather than the next tick, five minutes away. It cannot
             // spin: the cycle it starts consumes the flags before it reads
             // anything, so the second pass finds nothing pending.
-            if (ResetPending) RequestSync();
+            if (ResetPending || Volatile.Read(ref _changeSettled) == 1) RequestSync();
         }
     }
 

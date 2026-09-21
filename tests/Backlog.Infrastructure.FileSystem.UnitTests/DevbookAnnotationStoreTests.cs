@@ -47,6 +47,46 @@ public class DevbookAnnotationStoreTests : IDisposable
         Assert.Equal(_time.GetUtcNow(), listed.CreatedAt);
     }
 
+    /// <summary>
+    /// The replica keeps whichever copy carries the later stamp, and stamps
+    /// come from each device's own clock. A remark that arrived from a machine
+    /// whose clock runs ahead therefore carries a stamp this machine's clock
+    /// has not reached yet — and an edit stamped "now" here would be older
+    /// than the copy it edits, refused as stale, and lost in silence. So a
+    /// local change always lands after the stamp it changes, clock or no clock.
+    /// </summary>
+    [Fact]
+    public void An_edit_of_a_remark_that_arrived_from_a_faster_clock_still_lands_after_it()
+    {
+        var store = Store();
+        var ahead = _time.GetUtcNow().AddSeconds(30);
+        var theirs = new DevbookAnnotation(Guid.NewGuid(), Repository, Chapter, 2, "Theirs", "OTHER-PC", ahead, ahead);
+        store.Apply(theirs);
+
+        store.Edit(theirs.Id, "Mine, a moment later on a slower clock.");
+
+        var edited = Assert.Single(store.List(Repository, Chapter));
+        Assert.True(edited.UpdatedAt > ahead);
+        Assert.Contains(store.ListChangedSince(ahead), remark => remark.Id == theirs.Id);
+    }
+
+    /// <inheritdoc cref="An_edit_of_a_remark_that_arrived_from_a_faster_clock_still_lands_after_it"/>
+    [Fact]
+    public void A_deletion_of_a_remark_that_arrived_from_a_faster_clock_still_lands_after_it()
+    {
+        var store = Store();
+        var ahead = _time.GetUtcNow().AddSeconds(30);
+        var theirs = new DevbookAnnotation(Guid.NewGuid(), Repository, Chapter, 2, "Theirs", "OTHER-PC", ahead, ahead);
+        store.Apply(theirs);
+
+        store.Delete(theirs.Id);
+
+        var tombstone = Assert.Single(store.ListChangedSince(ahead));
+        Assert.Equal(theirs.Id, tombstone.Id);
+        Assert.NotNull(tombstone.DeletedAt);
+        Assert.True(tombstone.UpdatedAt > ahead);
+    }
+
     [Fact]
     public void A_remark_survives_a_new_store_over_the_same_folder()
     {
@@ -140,7 +180,11 @@ public class DevbookAnnotationStoreTests : IDisposable
         _time.Advance(TimeSpan.FromMinutes(1));
         var written = store.Add(Repository, Chapter, 1, "DEV-TOWER");
         store.Edit(written.Id, "Written.");
-        var watermark = _time.GetUtcNow();
+
+        // The watermark a push leaves is the stamp of the last document it sent,
+        // never the clock — and an edit in the same tick as its own creation is
+        // stamped one tick past it, so the two are not the same instant here.
+        var watermark = store.Find(written.Id)!.UpdatedAt;
 
         _time.Advance(TimeSpan.FromMinutes(1));
         var later = store.Add(Repository, Chapter, 2, "DEV-TOWER");

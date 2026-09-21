@@ -73,6 +73,56 @@ public static class SqliteDatabaseFile
         }
     }
 
+    /// <summary>Whether the database at <paramref name="path"/> holds no task
+    /// at all — the file the repository creates when it opens a folder that
+    /// had none, before anything was written. A file that cannot be read is
+    /// reported as not empty: whoever asks is deciding whether the file may be
+    /// replaced, and a file this cannot see inside is one it must not vouch
+    /// for.</summary>
+    public static bool IsEmpty(string path)
+    {
+        try
+        {
+            using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
+            {
+                DataSource = path,
+                Mode = SqliteOpenMode.ReadOnly
+            }.ToString());
+            connection.Open();
+
+            try
+            {
+                using var command = connection.CreateCommand();
+                command.CommandText =
+                    "SELECT (SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'tasks') = 0 " +
+                    "OR NOT EXISTS (SELECT 1 FROM tasks);";
+                return Convert.ToInt64(command.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture) == 1;
+            }
+            finally
+            {
+                connection.Close();
+                SqliteConnection.ClearPool(connection);
+            }
+        }
+        catch (SqliteException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>Removes the database at <paramref name="path"/> and the
+    /// journal files SQLite keeps beside it, after letting go of every pooled
+    /// connection to it — a pooled handle is an open file, and an open file
+    /// does not delete on Windows.</summary>
+    public static void Delete(string path)
+    {
+        SqliteConnection.ClearAllPools();
+        File.Delete(path);
+        TryDelete(path + "-wal");
+        TryDelete(path + "-shm");
+        TryDelete(path + "-journal");
+    }
+
     private static void TryDelete(string path)
     {
         try

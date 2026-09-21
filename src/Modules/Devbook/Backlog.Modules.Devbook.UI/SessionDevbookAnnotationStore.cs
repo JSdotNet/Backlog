@@ -50,10 +50,10 @@ public sealed class SessionDevbookAnnotationStore : IDevbookAnnotationStore
     }
 
     public void Edit(Guid id, string body) =>
-        Mutate(id, annotation => annotation with { Body = body, UpdatedAt = _time.GetUtcNow() });
+        Mutate(id, annotation => annotation with { Body = body, UpdatedAt = Stamp(annotation) });
 
     public void SetResolved(Guid id, bool resolved) =>
-        Mutate(id, annotation => annotation with { Resolved = resolved, UpdatedAt = _time.GetUtcNow() });
+        Mutate(id, annotation => annotation with { Resolved = resolved, UpdatedAt = Stamp(annotation) });
 
     public void Delete(Guid id)
     {
@@ -66,8 +66,18 @@ public sealed class SessionDevbookAnnotationStore : IDevbookAnnotationStore
             return;
         }
 
+        var at = Stamp(annotation);
+        Apply(annotation with { DeletedAt = at, UpdatedAt = at });
+    }
+
+    /// <summary>Now, or one tick past the stamp being changed when that is
+    /// later — the same rule the file-backed store keeps, and for the same
+    /// reason: a local change is later than the copy it was made to, whatever
+    /// the clock that stamped that copy thought.</summary>
+    private DateTimeOffset Stamp(DevbookAnnotation annotation)
+    {
         var now = _time.GetUtcNow();
-        Apply(annotation with { DeletedAt = now, UpdatedAt = now });
+        return now > annotation.UpdatedAt ? now : annotation.UpdatedAt.AddTicks(1);
     }
 
     public void Apply(DevbookAnnotation replicated)

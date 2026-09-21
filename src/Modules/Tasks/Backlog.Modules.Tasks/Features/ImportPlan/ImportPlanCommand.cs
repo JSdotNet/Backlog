@@ -332,8 +332,10 @@ public sealed class ImportPlanCommandHandler(ITaskRepository entries, IRepositor
         return null;
     }
 
-    /// <summary>The one <c>#tag</c> every parsed entry has in common, or null
-    /// when there is none. Per ADR 0007 this becomes <c>import_plan_id</c> —
+    /// <summary>The one plan tag every parsed entry has in common — the
+    /// <c>+tag</c> written with its sigil, or for a legacy plan the bare
+    /// <c>#tag</c> — or null when there is none. Per ADR 0007 this becomes
+    /// <c>import_plan_id</c> —
     /// there is no separate plan-id field or wrapper document. An entry pasted
     /// without a shared tag still imports; it just cannot be matched by a later
     /// re-import.</summary>
@@ -345,7 +347,15 @@ public sealed class ImportPlanCommandHandler(ITaskRepository entries, IRepositor
             shared = shared is null ? parsed.Tags : shared.Intersect(parsed.Tags, StringComparer.Ordinal);
         }
 
-        return shared?.FirstOrDefault();
+        if (shared is null) return null;
+
+        // The plan tag is the one written with its sigil, and it is the plan's
+        // identity whichever other tags every entry happens to share: a batch
+        // whose entries all carry `+release-q4` and `#deploy` is the release-q4
+        // plan, not the deploy one. A batch with no sigilled tag is a legacy
+        // plan, identified by the bare tag it was written with.
+        var candidates = shared.ToList();
+        return candidates.FirstOrDefault(tag => tag.StartsWith('+')) ?? candidates.FirstOrDefault();
     }
 
     /// <summary>Applies the dialog's default repository to a parsed entry that

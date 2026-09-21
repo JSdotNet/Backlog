@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Backlog.Infrastructure.Cosmos.Extensions;
 using Backlog.Modules.Sync.Abstractions;
+using Backlog.Modules.Sync.Api;
 using Backlog.Modules.Sync.Api.Endpoints;
 using Backlog.Modules.Sync.Api.Security;
 using Backlog.Modules.Sync.Extensions;
@@ -84,8 +85,17 @@ sync.MapTaskSyncEndpoints();
 sync.MapSessionSyncEndpoints();
 sync.MapAnnotationSyncEndpoints();
 
-// The service saying what it is. No owner, no data, nothing to protect.
-app.MapGet("/", () => Results.Ok(new { service = "Backlog Sync", role = "thin sync layer" }))
+// The service saying what it is, and which build it is. No owner, no data,
+// nothing to protect — the commit is public history, and it is what lets a
+// developer machine see that the deployed service is behind the repository
+// without signing in to Azure to ask (see build/Get-SyncServiceVersion.ps1).
+app.MapGet("/", () => Results.Ok(new
+    {
+        service = "Backlog Sync",
+        role = "thin sync layer",
+        version = BuildInformation.Version,
+        commit = BuildInformation.Commit
+    }))
     .AllowAnonymous();
 
 app.Run();

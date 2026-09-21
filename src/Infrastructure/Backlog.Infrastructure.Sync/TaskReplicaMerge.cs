@@ -97,7 +97,8 @@ public sealed class TaskReplicaMerge(
     ITaskRepository tasks,
     IInboxIntake? inbox = null,
     ILogger<TaskReplicaMerge>? log = null,
-    SyncActivityLog? activity = null)
+    SyncActivityLog? activity = null,
+    ITaskChangeSignal? changes = null)
 {
     /// <summary>The kind token the service writes on a capture document. Three
     /// literals, not a reference: the service's <c>CaptureInboxItemCommandHandler</c>
@@ -112,6 +113,13 @@ public sealed class TaskReplicaMerge(
     /// <summary>Optional by construction, not by omission: a head without an
     /// inbox store leaves it null and captures stay on the replica.</summary>
     private readonly IInboxIntake? _inbox = inbox;
+
+    /// <summary>The signal the host's repository raises on every write, held
+    /// here only to be silenced. A document arriving from the replica is not a
+    /// local change, and a loop that heard it as one would start a cycle on the
+    /// heels of every cycle that received anything. Optional, because a head or a
+    /// test without the loop has nothing to silence.</summary>
+    private readonly ITaskChangeSignal? _changes = changes;
 
     /// <summary>Optional so a test can build one in a line, and defaulted rather
     /// than left null so the skip path below cannot itself be the thing that
@@ -460,7 +468,12 @@ public sealed class TaskReplicaMerge(
             return ApplyOutcome.Unreadable;
         }
 
-        await _tasks.SaveAsync(task, cancellationToken).ConfigureAwait(false);
+        // Inside a suppression, so the write is not announced as this machine's
+        // own edit - see ITaskChangeSignal.Suppress for the loop it would start.
+        using (_changes?.Suppress())
+        {
+            await _tasks.SaveAsync(task, cancellationToken).ConfigureAwait(false);
+        }
 
         _activity?.Record(
             SyncDirection.Received, SyncItemKind.Task, task.Id.ToString("D"), task.Title,

@@ -14,8 +14,26 @@ namespace Backlog.Infrastructure.Sync;
 /// means "from the beginning", which is what a freshly paired device sends and
 /// what it sends again after the service says the cursor has expired.
 /// </para>
+/// <para>
+/// <paramref name="OwnerId"/> and <paramref name="DeviceId"/> say <em>whose</em>
+/// progress this is. Both marks are only true of one identity: the watermark
+/// says what one owner's replica has accepted from this device, and the cursor
+/// is signed for one owner. A device that forgets its credential and registers
+/// again is a new device under a new owner, and progress carried across that
+/// line is a lie in both directions — the new owner has been sent nothing, and
+/// the cursor names a feed the device no longer belongs to. The exchange compares
+/// these against the stored credential before reading either mark, and starts
+/// from nothing when they differ. Null is what a file written before the
+/// identity was recorded reads as, and is treated as "differs": a one-time
+/// full republish costs bandwidth, while adopting a watermark of unknown
+/// provenance is the silent gap this field exists to close.
+/// </para>
 /// </summary>
-public sealed record TaskSyncState(DateTimeOffset PushWatermark, string? PullCursor);
+public sealed record TaskSyncState(
+    DateTimeOffset PushWatermark,
+    string? PullCursor,
+    Guid? OwnerId = null,
+    Guid? DeviceId = null);
 
 /// <summary>
 /// Where this device keeps its replication progress between runs.

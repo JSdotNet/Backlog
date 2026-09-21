@@ -19,13 +19,24 @@ public sealed class AnnotationSyncSessionTests
 {
     private static readonly DateTimeOffset Noon = new(2026, 9, 16, 12, 0, 0, TimeSpan.Zero);
 
+    private static readonly Guid ThisOwner = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private static readonly Guid ThisDevice = Guid.Parse("22222222-2222-2222-2222-222222222222");
+    private static readonly Guid AnotherOwner = Guid.Parse("33333333-3333-3333-3333-333333333333");
+
+    private static readonly DeviceCredential Paired = new(ThisOwner, ThisDevice, "Workshop PC", "a-registration-credential");
+
+    /// <summary>Progress recorded for the fixture's own identity. A seeded state
+    /// with none is started over on first use, by design.</summary>
+    private static AnnotationSyncState Mine(DateTimeOffset watermark, string? cursor) =>
+        new(watermark, cursor, ThisOwner, ThisDevice);
+
     [Fact]
     public async Task Only_what_changed_since_the_watermark_is_sent_and_the_watermark_lands_on_it()
     {
         var store = new InMemoryDevbookAnnotationStore();
         store.Seed(Annotations.Local("Already sent", Noon));
         store.Seed(Annotations.Local("Edited since", Noon.AddHours(1)));
-        var state = new InMemoryAnnotationSyncStateStore(new AnnotationSyncState(Noon, null));
+        var state = new InMemoryAnnotationSyncStateStore(Mine(Noon, null));
 
         using var fixture = Fixture.Create(store, state, new FakeTimeProvider(Noon.AddHours(6)),
             (_, _) => StubHttpMessageHandler.Json(HttpStatusCode.OK, """{"accepted":1}"""));
@@ -47,12 +58,34 @@ public sealed class AnnotationSyncSessionTests
         Assert.Equal(Noon.AddHours(1), state.Current.PushWatermark);
     }
 
+    /// <summary>The replica takes a batch in part when it already holds a later
+    /// version of the rest; the watermark moves on regardless, so the shortfall
+    /// is counted or the edit that lost is lost in silence.</summary>
+    [Fact]
+    public async Task A_batch_the_replica_took_in_part_reports_the_rest_as_refused()
+    {
+        var store = new InMemoryDevbookAnnotationStore();
+        store.Seed(Annotations.Local("Kept", Noon.AddHours(1)));
+        store.Seed(Annotations.Local("Refused as stale", Noon.AddHours(2)));
+        var state = new InMemoryAnnotationSyncStateStore();
+
+        using var fixture = Fixture.Create(store, state, new FakeTimeProvider(Noon.AddHours(6)),
+            (_, _) => StubHttpMessageHandler.Json(HttpStatusCode.OK, """{"accepted":1}"""));
+
+        var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(1, result.Value.Pushed);
+        Assert.Equal(1, result.Value.Refused);
+        Assert.Equal(Noon.AddHours(2), state.Current.PushWatermark);
+    }
+
     [Fact]
     public async Task A_remark_deleted_here_is_pushed_as_a_tombstone()
     {
         var store = new InMemoryDevbookAnnotationStore();
         store.Seed(Annotations.Local("Deleted here", Noon.AddHours(1), deletedAt: Noon.AddHours(1)));
-        var state = new InMemoryAnnotationSyncStateStore();
+        var state = new InMemoryAnnotationSyncStateStore(Mine(DateTimeOffset.MinValue, null));
 
         using var fixture = Fixture.Create(store, state, new FakeTimeProvider(Noon.AddHours(6)),
             (_, _) => StubHttpMessageHandler.Json(HttpStatusCode.OK, """{"accepted":1}"""));
@@ -68,7 +101,7 @@ public sealed class AnnotationSyncSessionTests
     {
         var store = new InMemoryDevbookAnnotationStore();
         store.Seed(Annotations.Local(string.Empty, Noon.AddHours(1)));
-        var state = new InMemoryAnnotationSyncStateStore();
+        var state = new InMemoryAnnotationSyncStateStore(Mine(DateTimeOffset.MinValue, null));
 
         using var fixture = Fixture.Create(store, state, new FakeTimeProvider(Noon.AddHours(6)),
             (_, _) => StubHttpMessageHandler.Json(HttpStatusCode.OK, """{"accepted":0}"""));
@@ -84,7 +117,7 @@ public sealed class AnnotationSyncSessionTests
     {
         var store = new InMemoryDevbookAnnotationStore();
         store.Seed(Annotations.Local("Unsent", Noon.AddHours(1)));
-        var state = new InMemoryAnnotationSyncStateStore(new AnnotationSyncState(Noon, null));
+        var state = new InMemoryAnnotationSyncStateStore(Mine(Noon, null));
 
         using var fixture = Fixture.Create(store, state, new FakeTimeProvider(Noon.AddHours(6)),
             (_, _) => StubHttpMessageHandler.Problem(HttpStatusCode.ServiceUnavailable, SyncErrorCodes.ReplicaUnavailable, "Not yet."));
@@ -101,7 +134,7 @@ public sealed class AnnotationSyncSessionTests
     public async Task Every_page_saves_its_cursor_and_the_loop_ends_on_the_services_word()
     {
         var store = new InMemoryDevbookAnnotationStore();
-        var state = new InMemoryAnnotationSyncStateStore();
+        var state = new InMemoryAnnotationSyncStateStore(Mine(DateTimeOffset.MinValue, null));
 
         using var fixture = Fixture.Create(store, state, new FakeTimeProvider(Noon), (_, index) => index switch
         {
@@ -120,7 +153,7 @@ public sealed class AnnotationSyncSessionTests
     public async Task An_expired_cursor_is_dropped_and_the_pull_starts_over_once()
     {
         var store = new InMemoryDevbookAnnotationStore();
-        var state = new InMemoryAnnotationSyncStateStore(new AnnotationSyncState(Noon, "a-cursor-the-store-forgot"));
+        var state = new InMemoryAnnotationSyncStateStore(Mine(Noon, "a-cursor-the-store-forgot"));
 
         using var fixture = Fixture.Create(store, state, new FakeTimeProvider(Noon), (_, index) => index switch
         {
@@ -140,7 +173,7 @@ public sealed class AnnotationSyncSessionTests
     public async Task A_cursor_belonging_to_somebody_else_is_not_swallowed()
     {
         var store = new InMemoryDevbookAnnotationStore();
-        var state = new InMemoryAnnotationSyncStateStore(new AnnotationSyncState(Noon, "somebody-elses-cursor"));
+        var state = new InMemoryAnnotationSyncStateStore(Mine(Noon, "somebody-elses-cursor"));
 
         using var fixture = Fixture.Create(store, state, new FakeTimeProvider(Noon),
             (_, _) => StubHttpMessageHandler.Problem(HttpStatusCode.Forbidden, SyncErrorCodes.SyncCursorNotYours, "Not yours."));
@@ -156,7 +189,7 @@ public sealed class AnnotationSyncSessionTests
     public async Task A_pulled_remark_is_applied_and_counted_apart_from_what_arrived()
     {
         var store = new InMemoryDevbookAnnotationStore();
-        var state = new InMemoryAnnotationSyncStateStore();
+        var state = new InMemoryAnnotationSyncStateStore(Mine(DateTimeOffset.MinValue, null));
         var change = Annotations.Change(Guid.NewGuid(), "From the other machine", Noon);
 
         var body = JsonSerializer.Serialize(new
@@ -185,7 +218,7 @@ public sealed class AnnotationSyncSessionTests
     {
         var store = new InMemoryDevbookAnnotationStore();
         store.Seed(Annotations.Local("Unsent", Noon.AddHours(1)));
-        var state = new InMemoryAnnotationSyncStateStore();
+        var state = new InMemoryAnnotationSyncStateStore(Mine(DateTimeOffset.MinValue, null));
 
         using var ordered = Fixture.Create(store, state, new FakeTimeProvider(Noon), (request, _) =>
             request.Method == HttpMethod.Post
@@ -213,6 +246,26 @@ public sealed class AnnotationSyncSessionTests
         JsonSerializer.Deserialize<PushAnnotationsRequest>(
             body,
             new JsonSerializerOptions(JsonSerializerDefaults.Web))!.Annotations;
+
+    /// <summary>The same rule as the task and session feeds: progress recorded
+    /// under another owner - or under none - is started over and stamped.</summary>
+    [Fact]
+    public async Task Progress_recorded_for_another_owner_is_started_over()
+    {
+        var state = new InMemoryAnnotationSyncStateStore(
+            new AnnotationSyncState(Noon, "the-old-owners-cursor", AnotherOwner, ThisDevice));
+
+        using var fixture = Fixture.Create(new InMemoryDevbookAnnotationStore(), state, new FakeTimeProvider(Noon),
+            (_, _) => StubHttpMessageHandler.Json(HttpStatusCode.OK, """{"annotations":[],"since":"cursor-fresh","hasMore":false}"""));
+
+        var result = await fixture.Session.PullAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        Assert.DoesNotContain("the-old-owners-cursor", fixture.Queries[0], StringComparison.Ordinal);
+        Assert.Equal(ThisOwner, state.Current.OwnerId);
+        Assert.Equal(ThisDevice, state.Current.DeviceId);
+        Assert.Equal(DateTimeOffset.MinValue, state.Saved[0].PushWatermark);
+    }
 
     private sealed class Fixture : IDisposable
     {
@@ -262,6 +315,7 @@ public sealed class AnnotationSyncSessionTests
                 new AnnotationReplicaMerge(store),
                 store,
                 state,
+                new InMemoryDeviceCredentialStore(Paired),
                 time);
 
             return new Fixture(http, handler, session, bodies, queries);

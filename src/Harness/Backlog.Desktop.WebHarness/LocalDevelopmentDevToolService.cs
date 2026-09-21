@@ -449,6 +449,16 @@ public sealed class LocalDevelopmentDevToolService : IDevToolService
             note: "The HowTo scopes this to \"when npm is installed\", so an absent npm is not a failure.",
             status: "Checklist item: not done yet");
 
+        // The command row that answers its own Available column: a deployed
+        // service against the repository it is built from. Both columns are
+        // commit shas rather than versions, and the row still earns an Update
+        // when they differ — the shape the `available` command spec exists for.
+        yield return Application(
+            "backlog-sync-service", "Backlog sync service (Azure)", DevToolProvider.Command,
+            "Backlog cloud", "8315afc", "c0ffee1", installed: true,
+            note: "Update runs build/Deploy-Azure.ps1 -Component sync -Mode deploy; the wanted commit is the newest on origin/main that touches the sync path set.",
+            status: "Update available for application");
+
         // The two checklist rows that can fix themselves. They keep the button the
         // ones above do not have, which is the distinction the Installable flag is
         // there to carry.

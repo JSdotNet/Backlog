@@ -50,7 +50,15 @@ public static class PackagedAppData
 
         var settings = Path.Combine(appData, SettingsFileName);
         var database = SqliteTaskRepository.DatabasePathFor(appData);
-        if (File.Exists(settings) || File.Exists(database)) return AppDataAdoption.AlreadyInPlace;
+
+        // The settings file is the marker adoption writes last, and a database
+        // with entries in it is a backlog somebody is using. An empty database
+        // is neither: it is what the app creates when it opens its store on the
+        // start whose adoption just failed, and reading it as "in place" would
+        // turn the failure that start reported as retried into one never
+        // retried, with the real backlog left behind in the redirected folder.
+        if (File.Exists(settings)) return AppDataAdoption.AlreadyInPlace;
+        if (File.Exists(database) && !SqliteDatabaseFile.IsEmpty(database)) return AppDataAdoption.AlreadyInPlace;
 
         try
         {
@@ -66,6 +74,11 @@ public static class PackagedAppData
                 var redirectedDatabase = SqliteTaskRepository.DatabasePathFor(redirectedAppData);
                 if (File.Exists(redirectedDatabase))
                 {
+                    // The empty file from the failed start is taken out of the
+                    // copy's way; the copy refuses an existing destination on
+                    // purpose, and this is the one existing destination that
+                    // holds nothing.
+                    if (File.Exists(database)) SqliteDatabaseFile.Delete(database);
                     SqliteDatabaseFile.CopyTo(redirectedDatabase, database);
                     copied++;
                 }

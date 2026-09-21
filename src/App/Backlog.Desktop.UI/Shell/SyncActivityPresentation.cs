@@ -103,6 +103,7 @@ public static class SyncActivityPresentation
         ? null
         : $"Tasks: sent {summary.Pushed}, received {summary.Applied} of {summary.Pulled} pulled"
             + (summary.Skipped > 0 ? $", {summary.Skipped} unreadable by this build" : string.Empty)
+            + (summary.Refused > 0 ? $", {summary.Refused} refused as stale" : string.Empty)
             + $" · {Clock(summary.At)}";
 
     /// <inheritdoc cref="TaskLine"/>

@@ -135,6 +135,8 @@ public sealed class SessionSyncSession
     /// </summary>
     public async Task<Result<SessionSyncSummary>> PushAsync(CancellationToken cancellationToken = default)
     {
+        ReconcileIdentity();
+
         var watermark = _state.Current.PushWatermark;
 
         var catalog = await _sessions.GetSessionsAsync(cancellationToken).ConfigureAwait(false);
@@ -216,6 +218,8 @@ public sealed class SessionSyncSession
     /// </summary>
     public async Task<Result<SessionSyncSummary>> PullAsync(CancellationToken cancellationToken = default)
     {
+        ReconcileIdentity();
+
         var cursor = _state.Current.PullCursor;
         var self = _credentials.Current?.DeviceId;
         var pulled = 0;
@@ -299,11 +303,6 @@ public sealed class SessionSyncSession
             _time.GetUtcNow()));
     }
 
-    /// <summary>The two answers that mean "that cursor is no longer one you can
-    /// resume from", which the device recovers from by forgetting it. Neither says
-    /// anything about the owner's records, so starting over loses nothing but the
-    /// position — and a record that arrives twice lands on the row it already
-    /// wrote.</summary>
     /// <summary>What a record from another machine is called in the log. It
     /// has no title of its own — the whitelist leaves one behind on purpose — so
     /// the name is what the Sessions screen groups by: the machine, then the
@@ -319,6 +318,31 @@ public sealed class SessionSyncSession
             : $"{record.AgentKind} session on {record.MachineName} · {where}";
     }
 
+    /// <summary>
+    /// Starts the progress over when it was recorded for a different identity —
+    /// the same check, for the same reason, as <c>TaskSyncSession.ReconcileIdentity</c>.
+    /// This is the half that showed first: a device that forgot its credential and
+    /// registered again kept a watermark at the newest session it had ever pushed,
+    /// so the new owner was sent nothing older than that, and the second machine
+    /// pairing in saw none of the first one's sessions while the first saw all of
+    /// the second's. A state with no identity recorded predates the check and is
+    /// reset too.
+    /// </summary>
+    private void ReconcileIdentity()
+    {
+        if (_credentials.Current is not { } me) return;
+
+        var state = _state.Current;
+        if (state.OwnerId == me.OwnerId && state.DeviceId == me.DeviceId) return;
+
+        _state.Save(new SessionSyncState(DateTimeOffset.MinValue, null, me.OwnerId, me.DeviceId));
+    }
+
+    /// <summary>The two answers that mean "that cursor is no longer one you can
+    /// resume from", which the device recovers from by forgetting it. Neither says
+    /// anything about the owner's records, so starting over loses nothing but the
+    /// position — and a record that arrives twice lands on the row it already
+    /// wrote.</summary>
     private static bool Retired(string code) =>
         code is SyncErrorCodes.SyncCursorExpired or SyncErrorCodes.SyncCursorMalformed;
 

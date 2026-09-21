@@ -16,7 +16,8 @@ marker's exact shape, `## Sub-item conventions` what the item's `##` headings me
 ## Workflow
 
 1. **Parse.** Title is the first line (`# ` optional). A backtick metadata line, when
-   present, wins for `id:`, `#tag`, `repo:` and `after:`; otherwise read them off the
+   present, wins for `id:`, the plan tag (`+tag`; a legacy plan may still carry it as
+   `#tag`), `repo:` and `after:`; otherwise read them off the
    marker. An entry carrying only the session-name line yields the tag alone — say so and
    continue. The body is the instructions; `## Setup:`, the knowledge/devbook reminder and
    `- [ ]` lines are its steps. A `task` type on the metadata line — or a body with neither

@@ -1460,11 +1460,33 @@ public sealed class ToolsPaneTests
         var readsBefore = service.Reads;
         pane.Find("[data-testid='tools-row-cache-remove']").Click();
 
+        // Asked first. The delete is a recursive one under the person's profile,
+        // and until the dialog is answered nothing has left the disk.
+        Assert.Empty(service.CacheRemovals);
+        Assert.Contains("1.0.0 of devbook", pane.Find("[data-testid='tools-cache-remove-dialog']").TextContent, StringComparison.Ordinal);
+        pane.Find("[data-testid='tools-cache-remove-confirm']").Click();
+
         pane.WaitForAssertion(() =>
         {
             Assert.Equal(("plugin:devbook", "1.0.0"), Assert.Single(service.CacheRemovals));
             Assert.Equal(readsBefore + 1, service.Reads);
         });
+    }
+
+    [Fact]
+    public void Cancelling_the_cache_removal_dialog_removes_nothing()
+    {
+        var service = FakeDevToolService.With(CachedPlugin(
+            new DevToolCachedVersion("1.0.0", @"C:\cache\devbook\1.0.0", Installs: 0),
+            new DevToolCachedVersion("1.0.1", @"C:\cache\devbook\1.0.1", Installs: 1)));
+        using var context = Context(service);
+
+        var pane = context.Render<ToolsPane>();
+        pane.Find("[data-testid='tools-row-cache-remove']").Click();
+        pane.Find("[data-testid='tools-cache-remove-cancel']").Click();
+
+        Assert.Empty(service.CacheRemovals);
+        Assert.Empty(pane.FindAll("[data-testid='tools-cache-remove-dialog']"));
     }
 
     [Fact]
@@ -1478,6 +1500,10 @@ public sealed class ToolsPaneTests
         var pane = context.Render<ToolsPane>();
         var readsBefore = service.Reads;
         pane.Find("[data-testid='tools-cache-clear']").Click();
+
+        Assert.Equal(0, service.StaleCacheClears);
+        Assert.Contains("2 cached versions", pane.Find("[data-testid='tools-cache-remove-dialog']").TextContent, StringComparison.Ordinal);
+        pane.Find("[data-testid='tools-cache-remove-confirm']").Click();
 
         pane.WaitForAssertion(() =>
         {
@@ -1499,6 +1525,7 @@ public sealed class ToolsPaneTests
         var pane = context.Render<ToolsPane>();
         var readsBefore = service.Reads;
         pane.Find("[data-testid='tools-row-cache-remove']").Click();
+        pane.Find("[data-testid='tools-cache-remove-confirm']").Click();
 
         pane.WaitForAssertion(() =>
         {

@@ -1,0 +1,608 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>{{PLAN_TITLE}}</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@600&family=Inter:wght@400;500;600&family=Fira+Code:wght@400;500&display=swap">
+<style>
+  /* Backlog's own palette (.design/color-scheme.md): dark-first, gold accent. */
+  :root {
+    color-scheme: dark;
+    --ground: #121214;
+    --surface: #202023;
+    --raised: #353539;
+    --border: #545459;
+    --border-strong: #737379;
+    --ink: #F8F9FA;
+    --ink-2: #CED4DA;
+    --ink-3: #8E8E96;
+    --accent: #F2C14E;
+    --accent-dark: #D4A72C;
+    --accent-tint: rgba(242, 193, 78, 0.14);
+    --on-accent: #212529;
+    --ok: #7BC47F;
+    --ok-tint: rgba(123, 196, 127, 0.14);
+    --fail: #E4626F;
+    --fail-tint: rgba(228, 98, 111, 0.16);
+    --warn: #E9A23B;
+    --warn-tint: rgba(233, 162, 59, 0.16);
+    --task: #9AA4B2;
+    --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-heading: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-mono: 'Fira Code', 'Cascadia Code', 'Courier New', monospace;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      color-scheme: light;
+      --ground: #F6F6F3; --surface: #FFFFFF; --raised: #ECECE8; --border: #CFCFD3;
+      --border-strong: #A9A9B0; --ink: #1B1B1F; --ink-2: #4E4E56; --ink-3: #77777F;
+      --accent: #B8891C; --accent-dark: #8F6A12; --accent-tint: rgba(184, 137, 28, 0.12);
+      --on-accent: #FFFFFF; --ok: #2E8B4A; --ok-tint: rgba(46, 139, 74, 0.12);
+      --fail: #C2404D; --fail-tint: rgba(194, 64, 77, 0.12); --warn: #B4700F;
+      --warn-tint: rgba(180, 112, 15, 0.12); --task: #5F6B7A;
+    }
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --ground: #F6F6F3; --surface: #FFFFFF; --raised: #ECECE8; --border: #CFCFD3;
+    --border-strong: #A9A9B0; --ink: #1B1B1F; --ink-2: #4E4E56; --ink-3: #77777F;
+    --accent: #B8891C; --accent-dark: #8F6A12; --accent-tint: rgba(184, 137, 28, 0.12);
+    --on-accent: #FFFFFF; --ok: #2E8B4A; --ok-tint: rgba(46, 139, 74, 0.12);
+    --fail: #C2404D; --fail-tint: rgba(194, 64, 77, 0.12); --warn: #B4700F;
+    --warn-tint: rgba(180, 112, 15, 0.12); --task: #5F6B7A;
+  }
+
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.55;
+    padding-inline: 16px;
+    padding-block: 0 48px;
+  }
+  a { color: var(--accent); }
+  code { font-family: var(--font-mono); font-size: 0.88em; background: var(--raised); padding: 0.05em 0.35em; border-radius: 3px; }
+  h1, h2, h3 { font-family: var(--font-heading); font-weight: 600; line-height: 1.25; margin: 0; text-wrap: balance; }
+  h2 { font-size: 1.15rem; margin-block: 32px 12px; }
+  .wrap { max-width: 980px; margin-inline: auto; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+  /* Header */
+  .head {
+    position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+    background: var(--ground); border-bottom: 1px solid var(--border);
+    margin-inline: -16px; padding-inline: 16px; padding-block: 14px 0;
+  }
+  .head-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; }
+  .eyebrow { font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
+  .head h1 { font-size: 1.35rem; }
+  .plan-tag { font-family: var(--font-mono); color: var(--accent); font-size: 0.95rem; }
+  .stats { display: flex; flex-wrap: wrap; gap: 4px 20px; margin-block: 10px 0; font-variant-numeric: tabular-nums; }
+  .stat { display: flex; flex-direction: column; gap: 0; min-width: 64px; }
+  .stat b { font-size: 1.15rem; font-weight: 600; }
+  .stat span { font-size: 0.72rem; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.06em; }
+  .stat .repos { font-family: var(--font-mono); font-size: 0.9rem; font-weight: 500; }
+  .tabs { display: flex; gap: 2px; margin-block: 12px 0; }
+  .tab {
+    appearance: none; background: none; border: 0; border-bottom: 2px solid transparent;
+    color: var(--ink-2); font: inherit; font-weight: 500; padding: 8px 12px; cursor: pointer; margin-bottom: -1px;
+  }
+  .tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+  .tab:focus-visible, .btn:focus-visible, .node:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* Checks */
+  .verdict { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-bottom: 12px; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px; font-size: 0.8rem; font-weight: 600; border: 1px solid transparent; font-variant-numeric: tabular-nums; }
+  .pill-ok { color: var(--ok); background: var(--ok-tint); border-color: var(--ok); }
+  .pill-fail { color: var(--fail); background: var(--fail-tint); border-color: var(--fail); }
+  .pill-warn { color: var(--warn); background: var(--warn-tint); border-color: var(--warn); }
+  .checks { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); }
+  .check { display: grid; grid-template-columns: 22px 1fr; gap: 10px; padding: 8px 12px; border-top: 1px solid var(--border); font-size: 0.92rem; }
+  .check:first-child { border-top: 0; }
+  .check .mark { font-weight: 700; text-align: center; }
+  .check-pass .mark { color: var(--ok); }
+  .check-fail .mark { color: var(--fail); }
+  .check-warn .mark { color: var(--warn); }
+  .check-pass { color: var(--ink-2); }
+  .check .where { color: var(--ink-3); font-size: 0.85em; }
+  .check .where a { color: inherit; }
+  .checks-toggle { margin-top: 8px; }
+  .btn { appearance: none; font: inherit; font-size: 0.85rem; font-weight: 500; color: var(--ink); background: var(--raised); border: 1px solid var(--border); border-radius: 4px; padding: 5px 10px; cursor: pointer; }
+  .btn:hover { border-color: var(--border-strong); }
+
+  /* Order diagram */
+  .graph-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); padding: 12px; }
+  .graph { display: block; }
+  .node { cursor: pointer; }
+  .node rect { fill: var(--raised); stroke: var(--task); stroke-width: 1.5; rx: 4; }
+  .node.prompt rect { stroke: var(--accent); }
+  .node text { fill: var(--ink); font-family: var(--font-body); font-size: 12px; }
+  .node .id { fill: var(--ink-3); font-family: var(--font-mono); font-size: 10px; }
+  .node .pts { fill: var(--ink-2); font-family: var(--font-mono); font-size: 10px; text-anchor: end; }
+  .node.flagged rect { stroke: var(--fail); stroke-dasharray: 4 3; }
+  .edge { fill: none; stroke: var(--border-strong); stroke-width: 1.2; }
+  .edge.unresolved { stroke: var(--warn); stroke-dasharray: 3 3; }
+  .wave-label { fill: var(--ink-3); font-family: var(--font-body); font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 8px; font-size: 0.8rem; color: var(--ink-2); }
+  .legend i { display: inline-block; width: 14px; height: 10px; border: 1.5px solid var(--accent); border-radius: 2px; vertical-align: -1px; margin-right: 6px; }
+  .legend i.task { border-color: var(--task); }
+  .legend i.flag { border-color: var(--fail); border-style: dashed; }
+
+  /* Entries */
+  .entries { display: flex; flex-direction: column; gap: 14px; }
+  .entry { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--task); border-radius: 6px; padding: 14px 16px; scroll-margin-top: 140px; }
+  .entry.prompt { border-left-color: var(--accent); }
+  .entry.flagged { border-color: var(--fail); border-left-color: var(--fail); }
+  .entry-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; }
+  .entry-head h3 { font-size: 1.02rem; flex: 1 1 260px; }
+  .kind { font-family: var(--font-mono); font-size: 0.72rem; font-weight: 500; letter-spacing: 0.04em; padding: 1px 7px; border-radius: 3px; color: var(--on-accent); background: var(--task); }
+  .entry.prompt .kind { background: var(--accent); }
+  .pos { font-family: var(--font-mono); font-size: 0.75rem; color: var(--ink-3); }
+  .effort { font-family: var(--font-mono); font-size: 0.85rem; color: var(--ink-2); white-space: nowrap; }
+  .meta { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; font-family: var(--font-mono); font-size: 0.78rem; color: var(--ink-2); }
+  .meta span::before { content: attr(data-k) ' '; color: var(--ink-3); }
+  .meta a { color: var(--accent); text-decoration: none; }
+  .meta a:hover { text-decoration: underline; }
+  .meta .missing { color: var(--fail); }
+  .body { margin-top: 10px; max-width: 70ch; }
+  .body p { margin: 0 0 8px; }
+  .body ul { margin: 0 0 8px; padding-left: 22px; }
+  .body li.todo { list-style: none; margin-left: -22px; }
+  .body li.todo::before { content: '☐ '; color: var(--ink-3); }
+  .body li.done::before { content: '☑ '; color: var(--ok); }
+  details.boiler { margin-top: 8px; font-size: 0.82rem; color: var(--ink-3); }
+  details.boiler summary { cursor: pointer; }
+  details.boiler pre { white-space: pre-wrap; font-family: var(--font-mono); font-size: 0.8rem; color: var(--ink-2); margin: 6px 0 0; }
+  .subs { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .sub { border: 1px solid var(--border); border-radius: 4px; padding: 6px 10px; font-size: 0.9rem; }
+  .sub .sub-kind { font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.04em; color: var(--ink-3); margin-right: 8px; text-transform: uppercase; }
+  .sub .body { margin-top: 4px; font-size: 0.88rem; color: var(--ink-2); }
+  .findings { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 3px; font-size: 0.85rem; }
+  .findings li { padding-left: 18px; position: relative; }
+  .findings li::before { content: '✕'; position: absolute; left: 0; color: var(--fail); font-weight: 700; }
+  .findings li.warn::before { content: '!'; color: var(--warn); }
+  .empty { color: var(--ink-3); padding: 24px; text-align: center; border: 1px dashed var(--border); border-radius: 6px; }
+
+  /* Raw */
+  .raw-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-block: 20px 8px; color: var(--ink-2); font-size: 0.88rem; }
+  .raw-bar .note { flex: 1 1 260px; }
+  textarea.raw {
+    width: 100%; min-height: 60vh; resize: vertical; font-family: var(--font-mono); font-size: 0.83rem; line-height: 1.5;
+    color: var(--ink); background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 12px; tab-size: 2;
+  }
+  .toast { color: var(--ok); font-weight: 500; }
+  @media (prefers-reduced-motion: no-preference) { .entry { transition: border-color 150ms; } }
+  @media (max-width: 480px) { .head h1 { font-size: 1.15rem; } .stat b { font-size: 1rem; } }
+</style>
+
+<div class="wrap">
+  <header class="head">
+    <div class="head-row">
+      <div>
+        <div class="eyebrow">Backlog import plan · review</div>
+        <h1 id="plan-name">Import plan</h1>
+      </div>
+      <div class="plan-tag" id="plan-tag"></div>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div class="tabs" role="tablist" aria-label="Views">
+      <button class="tab" id="tab-review" role="tab" aria-selected="true" aria-controls="panel-review" type="button">Review</button>
+      <button class="tab" id="tab-raw" role="tab" aria-selected="false" aria-controls="panel-raw" type="button">Raw plan</button>
+    </div>
+  </header>
+
+  <section id="panel-review" role="tabpanel" aria-labelledby="tab-review">
+    <h2>Checks</h2>
+    <div class="verdict" id="verdict"></div>
+    <ul class="checks" id="checks"></ul>
+    <div class="checks-toggle"><button class="btn" id="toggle-passed" type="button">Show passed checks</button></div>
+
+    <h2>Order</h2>
+    <div class="graph-wrap" id="graph-wrap"></div>
+    <div class="legend">
+      <span><i></i>prompt — an AI session runs it</span>
+      <span><i class="task"></i>task — only the user does it</span>
+      <span><i class="flag"></i>has a failed check</span>
+      <span>Arrows point from a prerequisite to what waits on it. Click a box to jump to the entry.</span>
+    </div>
+
+    <h2>Entries</h2>
+    <div class="entries" id="entries"></div>
+  </section>
+
+  <section id="panel-raw" role="tabpanel" aria-labelledby="tab-raw" hidden>
+    <div class="raw-bar">
+      <span class="note">The document exactly as Backlog imports it. Edits here re-run the review on the left tab; they are not saved anywhere — copy the text out when you are done.</span>
+      <button class="btn" id="copy-raw" type="button">Copy</button>
+      <span class="toast" id="copy-toast" aria-live="polite"></span>
+    </div>
+    <label class="sr" for="raw">Raw plan text</label>
+    <textarea class="raw" id="raw" spellcheck="false"></textarea>
+  </section>
+</div>
+
+<script type="text/plain" id="plan-source">{{PLAN}}</script>
+
+<script>
+(function () {
+  'use strict';
+  const EFFORT_SCALE = [1, 2, 3, 5, 8, 13, 21];
+  const MARKER_RE = /^Backlog plan item `([^`]+)` of plan `([^`]+)` for ((?:`[^`]+`)(?:, `[^`]+`)*)(?:, after ((?:`[^`]+`)(?:, `[^`]+`)*))?\s[—-]+\srun it with the `backlog-run-plan-item` skill\.?\s*$/;
+  const SESSION_RE = /^Add the plan name `([^`]+)` to this session['’]s title before you start\.?\s*$/;
+  const META_RE = /^\s*(?:`[^`]+`\s*)+$/;
+
+  // ---------- parsing ----------
+  function parsePlan(text) {
+    const lines = text.replace(/\r\n?/g, '\n').split('\n');
+    const entries = [];
+    let cur = null;
+    lines.forEach((line, i) => {
+      const m = /^# (.+)$/.exec(line);
+      if (m) { cur = { title: m[1].trim(), line: i + 1, raw: [] }; entries.push(cur); return; }
+      if (cur) cur.raw.push(line);
+    });
+    entries.forEach((e, i) => parseEntry(e, i));
+    return entries;
+  }
+
+  function parseEntry(e, index) {
+    e.index = index;
+    e.type = null; e.status = null; e.priority = null; e.area = null; e.tag = null; e.tagSigil = null;
+    e.id = null; e.after = []; e.repo = []; e.due = null; e.effort = null; e.unknownTokens = [];
+    e.metaLine = null; e.bodyLines = []; e.subs = []; e.findings = [];
+
+    let i = 0;
+    while (i < e.raw.length && !e.raw[i].trim()) i++;
+    if (i < e.raw.length && META_RE.test(e.raw[i])) {
+      e.metaLine = e.raw[i];
+      for (const tm of e.raw[i].matchAll(/`([^`]+)`/g)) parseToken(e, tm[1].trim());
+      i++;
+    }
+    let sub = null;
+    for (; i < e.raw.length; i++) {
+      const line = e.raw[i];
+      const h = /^## (.+)$/.exec(line);
+      if (h) { sub = { title: h[1].trim(), lines: [] }; e.subs.push(sub); continue; }
+      if (sub) sub.lines.push(line); else e.bodyLines.push(line);
+    }
+    const nonBlank = e.bodyLines.filter(l => l.trim());
+    e.marker = nonBlank[0] && MARKER_RE.exec(nonBlank[0].trim());
+    e.markerText = e.marker ? nonBlank[0].trim() : null;
+    e.session = nonBlank[e.marker ? 1 : 0] && SESSION_RE.exec(nonBlank[e.marker ? 1 : 0].trim());
+    e.sessionText = e.session ? nonBlank[e.marker ? 1 : 0].trim() : null;
+    e.hasMarkerAnywhere = nonBlank.some(l => MARKER_RE.test(l.trim()));
+    e.hasSessionAnywhere = nonBlank.some(l => SESSION_RE.test(l.trim()));
+    e.instructions = e.bodyLines.filter(l => l.trim() !== e.markerText && l.trim() !== e.sessionText);
+    e.subs.forEach(s => {
+      s.kind = /^setup:/i.test(s.title) ? 'setup' : /knowledge|devbook/i.test(s.title) ? 'knowledge' : /^manual:/i.test(s.title) ? 'manual' : 'other';
+    });
+  }
+
+  function parseToken(e, t) {
+    if (/^(prompt|task|idea)$/.test(t)) { e.type = t; return; }
+    const s = t[0];
+    if (s === '!') { e.status = t.slice(1); return; }
+    if (s === '*') { e.priority = t.slice(1); return; }
+    if (s === '@') { e.area = t.slice(1); return; }
+    if (s === '#' || s === '+') { e.tag = t.slice(1); e.tagSigil = s; return; }
+    const c = t.indexOf(':');
+    if (c > 0) {
+      const k = t.slice(0, c), v = t.slice(c + 1).trim();
+      if (k === 'id') e.id = v;
+      else if (k === 'after') e.after.push(v);
+      else if (k === 'repo') e.repo.push(v);
+      else if (k === 'due') e.due = v;
+      else if (k === 'effort') e.effort = v;
+      else e.unknownTokens.push(t);
+      return;
+    }
+    e.unknownTokens.push(t);
+  }
+
+  // ---------- checks ----------
+  function runChecks(entries) {
+    const checks = [];
+    const add = (level, text, entry) => { const c = { level, text, entry }; checks.push(c); if (entry && level !== 'pass') entry.findings.push(c); return c; };
+    const each = (label, fn) => {
+      const failed = [];
+      entries.forEach(e => { const r = fn(e); if (r) failed.push({ e, r }); });
+      if (!failed.length) add('pass', label);
+      failed.forEach(f => add(f.r.level || 'fail', `${label} — ${f.r.text}`, f.e));
+    };
+    if (!entries.length) { add('fail', 'The document has no entries: no line starts with "# ".'); return checks; }
+
+    // Plan identity
+    const tags = [...new Set(entries.map(e => e.tag).filter(Boolean))];
+    if (tags.length === 1) add('pass', `Every entry shares the plan tag ${tags[0]}`);
+    else if (!tags.length) add('fail', 'No entry carries a plan tag, so Backlog cannot recognize the plan on re-import.');
+    else add('fail', `Entries carry ${tags.length} different tags (${tags.join(', ')}); a plan has exactly one.`);
+    const sigils = [...new Set(entries.map(e => e.tagSigil).filter(Boolean))];
+    if (sigils.length > 1) add('fail', 'The plan tag is written with two different sigils; pick one.');
+    each('Every entry carries the plan tag', e => !e.tag && { text: 'no tag on the metadata line' });
+
+    // Ids
+    each('Every entry has an id', e => !e.id && { text: 'no id:, so a regenerated plan cannot match it' });
+    const seen = new Map();
+    entries.forEach(e => { if (e.id) seen.set(e.id, (seen.get(e.id) || 0) + 1); });
+    const dupes = [...seen].filter(([, n]) => n > 1).map(([id]) => id);
+    if (dupes.length) entries.filter(e => dupes.includes(e.id)).forEach(e => add('fail', `Ids are unique — id ${e.id} is used more than once`, e));
+    else add('pass', 'Ids are unique');
+
+    // Metadata
+    each('Every entry has a metadata line', e => !e.metaLine && { text: 'no backtick metadata line follows the title' });
+    each('Every entry is a prompt or a task', e => e.type !== 'prompt' && e.type !== 'task' && { text: e.type ? `type is ${e.type}` : 'no type on the metadata line' });
+    each('Every entry states !ready', e => e.status !== 'ready' && { text: e.status ? `status is !${e.status}` : 'no status; order is carried by after:, not by !draft' });
+    each('Every entry has an effort on the 1/2/3/5/8/13/21 scale', e => {
+      if (e.effort == null) return { text: 'no effort:' };
+      const n = Number(e.effort);
+      if (!Number.isInteger(n) || n < 0) return { text: `effort ${e.effort} is not a whole number` };
+      if (!EFFORT_SCALE.includes(n)) return { level: 'warn', text: `effort ${n} is off the scale the app offers` };
+    });
+    each('No unrecognized metadata token', e => e.unknownTokens.length && { level: 'warn', text: `unrecognized: ${e.unknownTokens.join(' ')}` });
+
+    // Dependencies
+    const byId = new Map(entries.filter(e => e.id).map(e => [e.id, e]));
+    each('Every after: resolves to an entry in this document', e => {
+      const missing = e.after.filter(a => !byId.has(a));
+      return missing.length && { level: 'warn', text: `after:${missing.join(', after:')} is not in this document (it would have to be a real backlog item id)` };
+    });
+    each('No entry waits on itself', e => e.id && e.after.includes(e.id) && { text: 'after: names its own id' });
+    const cyc = findCycle(entries, byId);
+    if (cyc) add('fail', `Dependencies form a cycle: ${cyc.join(' → ')}`);
+    else add('pass', 'Dependencies form no cycle');
+
+    // Prompts
+    const prompts = entries.filter(e => e.type === 'prompt');
+    const tasks = entries.filter(e => e.type === 'task');
+    const onPrompts = (label, fn) => {
+      const failed = [];
+      prompts.forEach(e => { const r = fn(e); if (r) failed.push({ e, r }); });
+      if (!failed.length) add('pass', label);
+      failed.forEach(f => add(f.r.level || 'fail', `${label} — ${f.r.text}`, f.e));
+    };
+    onPrompts('Every prompt names a repo:', e => !e.repo.length && { text: 'no repo:' });
+    onPrompts('Every prompt opens with the plan item marker', e => !e.marker && { text: e.hasMarkerAnywhere ? 'the marker is not the first body line' : 'no marker line, so a copy pasted out of Backlog loses its id, tag, repo and after' });
+    onPrompts('The marker restates the metadata line', e => {
+      if (!e.marker) return null;
+      const diff = [];
+      if (e.marker[1] !== e.id) diff.push(`id ${e.marker[1]} ≠ ${e.id}`);
+      if (e.marker[2] !== e.tag) diff.push(`tag ${e.marker[2]} ≠ ${e.tag}`);
+      const repos = ticks(e.marker[3]), afters = ticks(e.marker[4] || '');
+      if (!sameSet(repos, e.repo)) diff.push(`repos ${repos.join(',') || '—'} ≠ ${e.repo.join(',') || '—'}`);
+      if (!sameSet(afters, e.after)) diff.push(`after ${afters.join(',') || '—'} ≠ ${e.after.join(',') || '—'}`);
+      return diff.length && { text: diff.join('; ') };
+    });
+    onPrompts('The session-name line follows the marker', e => !e.session ? { text: e.hasSessionAnywhere ? 'the session-name line is not the second body line' : 'no session-name line' } : e.session[1] !== e.tag && { text: `it names ${e.session[1]}, not the plan tag` });
+    onPrompts('Every prompt has instructions beyond the marker and session line', e => !e.instructions.some(l => l.trim()) && { text: 'the body is only boilerplate' });
+    onPrompts('Setup: sub-items come before every other sub-item', e => {
+      const firstOther = e.subs.findIndex(s => s.kind !== 'setup');
+      const lateSetup = firstOther >= 0 && e.subs.slice(firstOther).some(s => s.kind === 'setup');
+      return lateSetup && { text: 'a Setup: sub-item follows another sub-item' };
+    });
+    onPrompts('Every prompt carries the knowledge/devbook reminder (except the review)', e => {
+      const has = e.subs.some(s => s.kind === 'knowledge');
+      if (e.id === 'review-plan') return has && { level: 'warn', text: 'the review changes no repository and carries none' };
+      return !has && { text: 'no ## sub-item reminding to update the repository knowledge folders or devbook' };
+    });
+    onPrompts('No prompt contains a manual step', e => {
+      if (e.subs.some(s => s.kind === 'manual')) return { text: 'a Manual: sub-item — make it a task entry of its own' };
+      const txt = [...e.instructions, ...e.subs.flatMap(s => [s.title, ...s.lines])].join('\n');
+      if (/\bask the user\b/i.test(txt)) return { level: 'warn', text: '"ask the user" — a step only the user can do is a task entry' };
+    });
+
+    // Tasks
+    const onTasks = (label, fn) => {
+      const failed = [];
+      tasks.forEach(e => { const r = fn(e); if (r) failed.push({ e, r }); });
+      if (!failed.length) add('pass', label);
+      failed.forEach(f => add(f.r.level || 'fail', `${label} — ${f.r.text}`, f.e));
+    };
+    onTasks('No task carries a marker or session-name line', e => (e.hasMarkerAnywhere || e.hasSessionAnywhere) && { text: 'those direct an AI session; a task has none' });
+    onTasks('No task carries Setup: or knowledge sub-items', e => e.subs.some(s => s.kind === 'setup' || s.kind === 'knowledge') && { text: 'those direct an AI session; a task has none' });
+    onTasks('Every task says what to do', e => !e.instructions.some(l => l.trim()) && { text: 'empty body' });
+
+    // Closing pair
+    const n = entries.length;
+    const review = entries[n - 2], signoff = entries[n - 1];
+    if (n < 2 || !review || review.id !== 'review-plan') add('fail', 'The second-to-last entry is the review prompt (id:review-plan)', review && review.id !== 'review-plan' ? review : undefined);
+    else {
+      if (review.type !== 'prompt') add('fail', 'The review is a prompt', review); else add('pass', 'The review prompt is second to last');
+      const work = entries.filter(e => e !== review && e !== signoff);
+      const leaves = work.filter(e => e.id && !work.some(d => d.after.includes(e.id)));
+      const missed = leaves.filter(l => !review.after.includes(l.id)).map(l => l.id);
+      if (missed.length) add('fail', `The review waits on every leaf of the plan — missing after:${missed.join(', after:')}`, review);
+      else add('pass', 'The review waits on every leaf of the plan');
+      const repos = new Set(entries.flatMap(e => e.repo));
+      const missingRepos = [...repos].filter(r => !review.repo.includes(r));
+      if (missingRepos.length) add('fail', `The review names every repository the plan targets — missing repo:${missingRepos.join(', repo:')}`, review);
+      else add('pass', 'The review names every repository the plan targets');
+    }
+    if (!signoff || signoff.id !== 'sign-off-plan') add('fail', 'The last entry is the sign-off task (id:sign-off-plan)', signoff && signoff.id !== 'sign-off-plan' ? signoff : undefined);
+    else {
+      const p = [];
+      if (signoff.type !== 'task') p.push('it is not a task');
+      if (!signoff.after.includes('review-plan')) p.push('it does not wait on review-plan');
+      if (String(signoff.effort) !== '1') p.push(`effort is ${signoff.effort ?? 'missing'}, not 1`);
+      if (signoff.repo.length) p.push('it carries a repo:');
+      if (p.length) add('fail', `The sign-off task closes the plan — ${p.join('; ')}`, signoff); else add('pass', 'The sign-off task closes the plan');
+    }
+    entries.forEach(e => { if (e.findings.some(f => f.level === 'fail')) e.flagged = true; });
+    return checks;
+  }
+
+  function ticks(s) { return [...(s || '').matchAll(/`([^`]+)`/g)].map(m => m[1]); }
+  function sameSet(a, b) { const A = new Set(a), B = new Set(b); return A.size === B.size && [...A].every(x => B.has(x)); }
+  function findCycle(entries, byId) {
+    const state = new Map(); let cycle = null;
+    const visit = (e, path) => {
+      if (cycle || !e.id) return;
+      if (state.get(e.id) === 1) { cycle = [...path.slice(path.indexOf(e.id)), e.id]; return; }
+      if (state.get(e.id) === 2) return;
+      state.set(e.id, 1);
+      e.after.forEach(a => { const d = byId.get(a); if (d) visit(d, [...path, e.id]); });
+      state.set(e.id, 2);
+    };
+    entries.forEach(e => visit(e, []));
+    return cycle;
+  }
+
+  // ---------- rendering ----------
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const inline = s => esc(s).replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  function renderProse(lines) {
+    const out = []; let para = [], list = null;
+    const flushP = () => { if (para.length) { out.push(`<p>${inline(para.join(' '))}</p>`); para = []; } };
+    const flushL = () => { if (list) { out.push(`<ul>${list.join('')}</ul>`); list = null; } };
+    lines.forEach(l => {
+      const t = l.trim();
+      if (!t) { flushP(); flushL(); return; }
+      const cb = /^[-*]\s+\[( |x|X)\]\s*(.*)$/.exec(t);
+      const li = !cb && /^[-*]\s+(.*)$/.exec(t);
+      if (cb || li) {
+        flushP(); list = list || [];
+        list.push(cb ? `<li class="${cb[1] === ' ' ? 'todo' : 'todo done'}">${inline(cb[2])}</li>` : `<li>${inline(li[1])}</li>`);
+        return;
+      }
+      if (list) { list[list.length - 1] = list[list.length - 1].replace(/<\/li>$/, ' ' + inline(t) + '</li>'); return; }
+      para.push(t);
+    });
+    flushP(); flushL();
+    return out.join('');
+  }
+  const anchor = e => 'entry-' + (e.id ? e.id.replace(/[^\w-]/g, '_') : 'n' + e.index);
+  const labelOf = e => e.id ? `<code>${esc(e.id)}</code>` : `entry ${e.index + 1}`;
+
+  function render(text) {
+    const entries = parsePlan(text);
+    const checks = runChecks(entries);
+    const byId = new Map(entries.filter(e => e.id).map(e => [e.id, e]));
+    const tag = entries.map(e => e.tag).find(Boolean) || '';
+    const prompts = entries.filter(e => e.type === 'prompt').length;
+    const tasks = entries.filter(e => e.type === 'task').length;
+    const effort = entries.reduce((s, e) => s + (Number(e.effort) || 0), 0);
+    const repos = [...new Set(entries.flatMap(e => e.repo))];
+    const fails = checks.filter(c => c.level === 'fail').length, warns = checks.filter(c => c.level === 'warn').length, passes = checks.filter(c => c.level === 'pass').length;
+
+    document.getElementById('plan-tag').textContent = tag ? (entries.find(e => e.tag).tagSigil + tag) : '';
+    document.getElementById('stats').innerHTML = [
+      ['Entries', entries.length], ['Prompts', prompts], ['Tasks', tasks], ['Effort', effort + ' pt'],
+    ].map(([k, v]) => `<div class="stat"><b>${v}</b><span>${k}</span></div>`).join('') +
+      `<div class="stat"><b class="repos">${repos.map(esc).join(', ') || '—'}</b><span>Repositor${repos.length === 1 ? 'y' : 'ies'}</span></div>`;
+
+    document.getElementById('verdict').innerHTML =
+      (fails ? `<span class="pill pill-fail">${fails} failed</span>` : `<span class="pill pill-ok">Nothing failed</span>`) +
+      (warns ? `<span class="pill pill-warn">${warns} to look at</span>` : '') +
+      `<span class="pill" style="color:var(--ink-2);border-color:var(--border)">${passes} passed</span>`;
+    document.getElementById('checks').innerHTML = checks
+      .sort((a, b) => rank(a) - rank(b))
+      .map(c => `<li class="check check-${c.level}"${c.level === 'pass' ? ' data-pass' : ''}><span class="mark">${c.level === 'pass' ? '✓' : c.level === 'warn' ? '!' : '✕'}</span><span>${esc(c.text)}${c.entry ? ` <span class="where">· <a href="#${anchor(c.entry)}">${esc(c.entry.title)}</a></span>` : ''}</span></li>`)
+      .join('') || '<li class="check"><span></span><span>No checks ran.</span></li>';
+    applyPassedVisibility();
+
+    document.getElementById('graph-wrap').innerHTML = entries.length ? renderGraph(entries, byId) : '<div class="empty">Nothing to order yet.</div>';
+
+    document.getElementById('entries').innerHTML = entries.map(e => `
+      <article class="entry ${e.type || ''}${e.flagged ? ' flagged' : ''}" id="${anchor(e)}">
+        <div class="entry-head">
+          <span class="pos">${e.index + 1}</span>
+          <span class="kind">${esc(e.type || '?')}</span>
+          <h3>${esc(e.title)}</h3>
+          <span class="effort">${e.effort != null ? esc(e.effort) + ' pt' : '<span class="missing">no effort</span>'}</span>
+        </div>
+        <div class="meta">
+          <span data-k="id:">${e.id ? esc(e.id) : '<span class="missing">missing</span>'}</span>
+          <span data-k="!">${esc(e.status || '—')}</span>
+          ${e.repo.length ? `<span data-k="repo:">${e.repo.map(esc).join(', ')}</span>` : ''}
+          ${e.after.length ? `<span data-k="after:">${e.after.map(a => byId.has(a) ? `<a href="#${anchor(byId.get(a))}">${esc(a)}</a>` : `<span class="missing">${esc(a)}</span>`).join(', ')}</span>` : '<span data-k="after:">—</span>'}
+          ${e.priority ? `<span data-k="*">${esc(e.priority)}</span>` : ''}
+          ${e.area ? `<span data-k="@">${esc(e.area)}</span>` : ''}
+          ${e.due ? `<span data-k="due:">${esc(e.due)}</span>` : ''}
+        </div>
+        ${e.type === 'prompt' ? `<details class="boiler"><summary>${e.marker && e.session ? 'Opens with the plan item marker and the session-name line' : 'Opening lines'}</summary><pre>${esc([e.markerText, e.sessionText].filter(Boolean).join('\n') || '(none)')}</pre></details>` : ''}
+        <div class="body">${renderProse(e.instructions) || '<p class="missing">(empty)</p>'}</div>
+        ${e.subs.length ? `<ul class="subs">${e.subs.map(s => `<li class="sub"><span class="sub-kind">${s.kind === 'other' ? '##' : s.kind}</span>${inline(s.title)}${s.lines.some(l => l.trim()) ? `<div class="body">${renderProse(s.lines)}</div>` : ''}</li>`).join('')}</ul>` : ''}
+        ${e.findings.length ? `<ul class="findings">${e.findings.map(f => `<li class="${f.level}">${esc(f.text)}</li>`).join('')}</ul>` : ''}
+      </article>`).join('') || '<div class="empty">No entries. An entry starts with a line beginning "# ".</div>';
+  }
+  const rank = c => c.level === 'fail' ? 0 : c.level === 'warn' ? 1 : 2;
+
+  function renderGraph(entries, byId) {
+    const depth = new Map();
+    const d = (e, stack) => {
+      if (depth.has(e)) return depth.get(e);
+      if (stack.has(e)) return 0;
+      stack.add(e);
+      const pre = e.after.map(a => byId.get(a)).filter(Boolean);
+      const v = pre.length ? 1 + Math.max(...pre.map(p => d(p, stack))) : 0;
+      depth.set(e, v); return v;
+    };
+    entries.forEach(e => d(e, new Set()));
+    const cols = [];
+    entries.forEach(e => { const c = depth.get(e); (cols[c] = cols[c] || []).push(e); });
+    const W = 204, H = 46, GX = 56, GY = 12, PAD = 12, TOP = 24;
+    const pos = new Map();
+    cols.forEach((col, c) => col.forEach((e, r) => pos.set(e, { x: PAD + c * (W + GX), y: TOP + r * (H + GY) })));
+    const width = PAD * 2 + cols.length * W + (cols.length - 1) * GX;
+    const height = TOP + Math.max(...cols.map(c => c.length)) * (H + GY) - GY + PAD;
+    const edges = [];
+    entries.forEach(e => e.after.forEach(a => {
+      const p = byId.get(a); const to = pos.get(e);
+      if (!p) { edges.push(`<path class="edge unresolved" d="M${to.x - 24},${to.y + H / 2} L${to.x},${to.y + H / 2}"/>`); return; }
+      const from = pos.get(p);
+      const x1 = from.x + W, y1 = from.y + H / 2, x2 = to.x, y2 = to.y + H / 2;
+      const cx = (x1 + x2) / 2;
+      edges.push(`<path class="edge" d="M${x1},${y1} C${cx},${y1} ${cx},${y2} ${x2},${y2}" marker-end="url(#arrow)"/>`);
+    }));
+    const waves = cols.map((col, c) => `<text class="wave-label" x="${PAD + c * (W + GX)}" y="14">${c === 0 ? 'Start' : 'Wave ' + (c + 1)}</text>`);
+    const nodes = entries.map(e => {
+      const p = pos.get(e);
+      const t = e.title.length > 27 ? e.title.slice(0, 26).trimEnd() + '…' : e.title;
+      return `<a class="node ${e.type || ''}${e.flagged ? ' flagged' : ''}" href="#${anchor(e)}" tabindex="0"><title>${esc(e.title)}</title>
+        <rect x="${p.x}" y="${p.y}" width="${W}" height="${H}"/>
+        <text x="${p.x + 10}" y="${p.y + 19}">${esc(t)}</text>
+        <text class="id" x="${p.x + 10}" y="${p.y + 36}">${esc(e.id || '')}</text>
+        <text class="pts" x="${p.x + W - 8}" y="${p.y + 36}">${e.effort != null ? esc(e.effort) + ' pt' : ''}</text></a>`;
+    });
+    return `<svg class="graph" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="Dependency order of the plan">
+      <defs><marker id="arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="var(--border-strong)"/></marker></defs>
+      ${waves.join('')}${edges.join('')}${nodes.join('')}</svg>`;
+  }
+
+  // ---------- chrome ----------
+  let showPassed = false;
+  function applyPassedVisibility() {
+    document.querySelectorAll('.check[data-pass]').forEach(li => { li.hidden = !showPassed; });
+    document.getElementById('toggle-passed').textContent = showPassed ? 'Hide passed checks' : 'Show passed checks';
+  }
+  document.getElementById('toggle-passed').addEventListener('click', () => { showPassed = !showPassed; applyPassedVisibility(); });
+
+  const tabs = { review: document.getElementById('tab-review'), raw: document.getElementById('tab-raw') };
+  function selectTab(name) {
+    Object.entries(tabs).forEach(([k, b]) => { b.setAttribute('aria-selected', String(k === name)); document.getElementById('panel-' + k).hidden = k !== name; });
+    try { localStorage.setItem('plan-review-tab', name); } catch (_) { /* per-viewer convenience only */ }
+  }
+  tabs.review.addEventListener('click', () => selectTab('review'));
+  tabs.raw.addEventListener('click', () => selectTab('raw'));
+
+  const raw = document.getElementById('raw');
+  const toast = document.getElementById('copy-toast');
+  document.getElementById('copy-raw').addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(raw.value); toast.textContent = 'Copied'; }
+    catch (_) { raw.focus(); raw.select(); toast.textContent = 'Select-all and copy by hand — the clipboard is blocked here.'; }
+    setTimeout(() => { toast.textContent = ''; }, 2500);
+  });
+  let timer = null;
+  raw.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => render(raw.value), 250); });
+
+  // Boot: the plan text is embedded verbatim by the backlog-import-plan skill.
+  const source = (document.getElementById('plan-source').textContent || '').replace(/^\n/, '');
+  raw.value = source;
+  const t = document.title && !/\{\{/.test(document.title) ? document.title : null;
+  if (t) document.getElementById('plan-name').textContent = t;
+  render(source);
+  let saved = null;
+  try { saved = localStorage.getItem('plan-review-tab'); } catch (_) { /* fine */ }
+  selectTab(saved === 'raw' ? 'raw' : 'review');
+})();
+</script>

@@ -17,7 +17,14 @@ namespace Backlog.Infrastructure.Sync;
 /// documents this build could not read. They are left in the replica and the
 /// exchange carries on, so the count is the only thing that says it happened.
 /// </para></summary>
-public sealed record TaskSyncSummary(int Pushed, int Pulled, int Applied, int Skipped, DateTimeOffset At);
+public sealed record TaskSyncSummary(int Pushed, int Pulled, int Applied, int Skipped, DateTimeOffset At)
+{
+    /// <summary>Tasks offered in a push the replica did not take, because it
+    /// already held a later version. Never healthy either: the task stamps an
+    /// edit past the copy it edits, so a refusal means two devices really did
+    /// edit the same task, and this device's edit is the one that lost.</summary>
+    public int Refused { get; init; }
+}
 
 /// <summary>
 /// One exchange with the replica: push what changed here, pull what changed
@@ -46,10 +53,14 @@ public sealed class TaskSyncSession
     private readonly TaskReplicaMerge _merge;
     private readonly ITaskRepository _tasks;
     private readonly ITaskSyncStateStore _state;
+    private readonly IDeviceCredentialStore _credentials;
     private readonly TimeProvider _time;
     private readonly IInboxCaptureOutbox? _outbox;
     private readonly SyncActivityLog? _activity;
 
+    /// <param name="credentials">Whose device this is. Read before every push
+    /// and pull to check the progress in <paramref name="state"/> belongs to the
+    /// same owner and device — see <see cref="ReconcileIdentity"/>.</param>
     /// <param name="outbox">The Inbox's acknowledgements waiting to leave this
     /// machine, or null on a head that has no inbox store. Optional by
     /// construction, so the mobile head composes exactly as it did.</param>
@@ -62,6 +73,7 @@ public sealed class TaskSyncSession
         TaskReplicaMerge merge,
         ITaskRepository tasks,
         ITaskSyncStateStore state,
+        IDeviceCredentialStore credentials,
         TimeProvider time,
         IInboxCaptureOutbox? outbox = null,
         SyncActivityLog? activity = null)
@@ -70,15 +82,53 @@ public sealed class TaskSyncSession
         ArgumentNullException.ThrowIfNull(merge);
         ArgumentNullException.ThrowIfNull(tasks);
         ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(credentials);
         ArgumentNullException.ThrowIfNull(time);
 
         _client = client;
         _merge = merge;
         _tasks = tasks;
         _state = state;
+        _credentials = credentials;
         _time = time;
         _outbox = outbox;
         _activity = activity;
+    }
+
+    /// <summary>
+    /// Starts the progress over when it was recorded for a different identity.
+    /// <para>
+    /// The watermark says what one owner's replica has accepted from this
+    /// device, and the cursor is signed for one owner. Neither survives the
+    /// device becoming somebody else — which is what forgetting the credential and
+    /// registering or pairing again does — yet the file that holds them is not
+    /// tied to the credential and used to sit untouched through it. The result
+    /// was a device that joined a new owner, re-sent only what it had edited
+    /// since, and left the new replica without everything it had pushed to the old
+    /// one: a second machine pairing in saw a fraction of the first one's tasks
+    /// and none of its sessions, with nothing anywhere to say why.
+    /// </para>
+    /// <para>
+    /// The cursor half healed itself — the service refuses a cursor signed for
+    /// another owner and the pull starts over — which is exactly why the push half
+    /// went unnoticed. Both are reset here so the two cannot disagree again, and a
+    /// state with no identity recorded at all is reset too: it predates this
+    /// check, and a watermark of unknown provenance is the gap, not a saving.
+    /// </para>
+    /// <para>
+    /// Called at the top of both halves rather than once in
+    /// <see cref="SyncAsync"/>, because a caller may run either alone and the
+    /// invariant is the state's, not the exchange's.
+    /// </para>
+    /// </summary>
+    private void ReconcileIdentity()
+    {
+        if (_credentials.Current is not { } me) return;
+
+        var state = _state.Current;
+        if (state.OwnerId == me.OwnerId && state.DeviceId == me.DeviceId) return;
+
+        _state.Save(new TaskSyncState(DateTimeOffset.MinValue, null, me.OwnerId, me.DeviceId));
     }
 
     /// <summary>
@@ -128,12 +178,15 @@ public sealed class TaskSyncSession
     /// </summary>
     public async Task<Result<TaskSyncSummary>> PushAsync(CancellationToken cancellationToken = default)
     {
+        ReconcileIdentity();
+
         var watermark = _state.Current.PushWatermark;
 
         var pending = (await _tasks.ListChangedSinceAsync(watermark, cancellationToken).ConfigureAwait(false))
             .ToList();
 
         var pushed = 0;
+        var refused = 0;
 
         for (var start = 0; start < pending.Count; start += PushBatchSize)
         {
@@ -143,25 +196,32 @@ public sealed class TaskSyncSession
             var response = await _client.PushAsync(changes, cancellationToken).ConfigureAwait(false);
             if (response.IsFailure) return Result.Failure<TaskSyncSummary>(response.Error);
 
+            // A 200 with fewer accepted than sent is the replica keeping a later
+            // version of the rest. The response does not say which, and the
+            // watermark still moves past them — offered again they would be
+            // refused again — so the count is where the loss is said.
+            var refusedInBatch = Math.Max(0, batch.Count - response.Value.Accepted);
             pushed += response.Value.Accepted;
+            refused += refusedInBatch;
 
-            // After the service accepted the batch and not before: the log says
-            // what left, and a batch the replica refused never did. Nor did a
+            // After the service answered and not before: the log says what left,
+            // and a batch the replica rejected outright never did. Nor did a
             // batch it took nothing from — the echo of what this device pulled
             // last time, which sits above the watermark like an edit and which
             // the replica answers with a count of zero. A person completing a
             // task on the other machine saw it listed here as sent back to them
             // a moment after it arrived, and read that as this machine
-            // overwriting their work. The response carries a count and not the
-            // ids, so a batch the replica took part of is still listed whole;
-            // the all-or-nothing case is the one that happens on every cycle.
+            // overwriting their work. A batch it took in part is logged with the
+            // shortfall on every line, because the response cannot say which of
+            // them stayed behind; the all-or-nothing echo is the case that
+            // happens on every cycle, and it is listed nowhere.
             if (response.Value.Accepted > 0)
             {
                 foreach (var task in batch)
                 {
                     _activity?.Record(
                         SyncDirection.Sent, SyncItemKind.Task, task.Id.ToString("D"), task.Title,
-                        task.DeletedAt is null ? null : "deleted");
+                        SentNote(task.DeletedAt is null ? null : "deleted", refusedInBatch, batch.Count));
                 }
             }
 
@@ -205,7 +265,18 @@ public sealed class TaskSyncSession
             }
         }
 
-        return Result.Success(new TaskSyncSummary(pushed, 0, 0, 0, _time.GetUtcNow()));
+        return Result.Success(new TaskSyncSummary(pushed, 0, 0, 0, _time.GetUtcNow()) { Refused = refused });
+    }
+
+    /// <summary>The note a sent task's log line carries: what was already known
+    /// about it, and — when the replica took the batch only in part — how much
+    /// of the batch it did not take, since the response cannot say which.</summary>
+    private static string? SentNote(string? note, int refusedInBatch, int batchCount)
+    {
+        if (refusedInBatch == 0) return note;
+
+        var shortfall = $"{refusedInBatch} of {batchCount} in this batch refused as stale";
+        return note is null ? shortfall : $"{note}; {shortfall}";
     }
 
     /// <summary>
@@ -248,6 +319,8 @@ public sealed class TaskSyncSession
     /// </summary>
     public async Task<Result<TaskSyncSummary>> PullAsync(CancellationToken cancellationToken = default)
     {
+        ReconcileIdentity();
+
         var cursor = _state.Current.PullCursor;
         var pulled = 0;
         var applied = 0;
@@ -306,6 +379,15 @@ public sealed class TaskSyncSession
     /// unsent. A push that fails stops the exchange rather than being followed by
     /// a pull: the failure is almost always the service being unreachable, and a
     /// second call to say the same thing is a second thing for a person to read.
+    /// </para>
+    /// <para>
+    /// The order is safe because the replica refuses a stale push
+    /// (<c>TaskChangePrecedence</c>): a device holding an older copy of a task
+    /// the other machine has since edited sends it, is refused, and takes the
+    /// newer document on the pull that follows. Before the replica compared
+    /// stamps this order let the stale copy land on top of the newer one, which
+    /// is what pulling first would have prevented; the refusal makes the order a
+    /// matter of what the summary reads rather than of what survives.
     /// </para>
     /// </summary>
     public async Task<Result<TaskSyncSummary>> SyncAsync(CancellationToken cancellationToken = default)

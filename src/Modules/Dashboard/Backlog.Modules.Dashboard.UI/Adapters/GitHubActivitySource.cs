@@ -17,7 +17,9 @@ namespace Backlog.Modules.Dashboard.UI.Adapters;
 /// <para>
 /// A repository that fails is skipped rather than failing the fetch. Five
 /// repositories where one has been renamed should show four repositories' figures
-/// and not an unavailable part, because the four are true.
+/// and not an unavailable part, because the four are true — but the report says
+/// it is incomplete, because the fifth is missing from it and every figure on
+/// it is a floor.
 /// </para>
 /// </remarks>
 internal sealed class GitHubActivitySource(
@@ -64,9 +66,12 @@ internal sealed class GitHubActivitySource(
         var issues = new List<ActivityIssue>();
 
         // Every repository's honesty flags fold into one. A repository that was
-        // skipped for an error is deliberately not counted against it — that is the
-        // "four of five repositories are true" case above, and it is a different
-        // claim from "this repository's window was cut short".
+        // skipped for an error counts against it too: the four that answered are
+        // true, but a report headed "across every configured repository" that
+        // silently lacks the fifth is a floor, and the flag is the one thing on
+        // screen that says so. The parts cache a successful report for the whole
+        // session, so a refusal folded in as complete would stay complete until
+        // the next Refresh.
         var complete = true;
 
         foreach (var repository in repositories)
@@ -86,10 +91,12 @@ internal sealed class GitHubActivitySource(
             }
             catch (GitHubException)
             {
+                complete = false;
                 continue;
             }
             catch (GitHubNotConfiguredException)
             {
+                complete = false;
                 continue;
             }
 

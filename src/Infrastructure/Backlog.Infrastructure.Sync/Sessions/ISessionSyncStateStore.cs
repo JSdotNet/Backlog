@@ -25,8 +25,20 @@ namespace Backlog.Infrastructure.Sync.Sessions;
 /// means "from the beginning", which is what a freshly paired device sends and
 /// what it sends again after the service says the cursor has expired.
 /// </para>
+/// <para>
+/// <paramref name="OwnerId"/> and <paramref name="DeviceId"/> say whose progress
+/// this is, for the reason <see cref="Backlog.Infrastructure.Sync.TaskSyncState"/>
+/// gives: a device that registers again is a new device under a new owner, and a
+/// watermark carried across that line means the new owner is never sent the
+/// sessions the old one already had. Null reads as "differs", so a file from
+/// before the identity was recorded republishes once rather than staying silent.
+/// </para>
 /// </summary>
-public sealed record SessionSyncState(DateTimeOffset PushWatermark, string? PullCursor);
+public sealed record SessionSyncState(
+    DateTimeOffset PushWatermark,
+    string? PullCursor,
+    Guid? OwnerId = null,
+    Guid? DeviceId = null);
 
 /// <summary>
 /// Where this device keeps its session-replication progress between runs.

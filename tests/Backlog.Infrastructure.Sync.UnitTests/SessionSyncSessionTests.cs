@@ -23,6 +23,14 @@ public sealed class SessionSyncSessionTests
     private static readonly DateTimeOffset Noon = new(2026, 9, 7, 12, 0, 0, TimeSpan.Zero);
 
     private static readonly Guid ThisDevice = Guid.Parse("22222222-2222-2222-2222-222222222222");
+    private static readonly Guid ThisOwner = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private static readonly Guid AnotherOwner = Guid.Parse("33333333-3333-3333-3333-333333333333");
+
+    /// <summary>Progress recorded for the fixture's own device. A seeded state
+    /// with no identity is started over on first use, by design, so a test
+    /// seeding progress it wants kept has to say whose it is.</summary>
+    private static SessionSyncState Mine(DateTimeOffset watermark, string? cursor) =>
+        new(watermark, cursor, ThisOwner, ThisDevice);
 
     private static readonly Guid OtherDevice = Guid.Parse("33333333-3333-3333-3333-333333333333");
 
@@ -246,7 +254,7 @@ public sealed class SessionSyncSessionTests
                 AgentSessions.Local(id: "old", lastActivityAt: Noon.AddMinutes(-10)),
                 AgentSessions.Local(id: "new", lastActivityAt: Noon.AddMinutes(10))
             ],
-            state: new SessionSyncState(Noon, null));
+            state: Mine(Noon, null));
 
         await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
 
@@ -286,6 +294,7 @@ public sealed class SessionSyncSessionTests
     public async Task A_refused_batch_does_not_advance_the_watermark()
     {
         using var fixture = Fixture.Create(
+            state: Mine(DateTimeOffset.MinValue, null),
             sessions: [AgentSessions.Local()],
             respond: (_, _) => StubHttpMessageHandler.Problem(
                 HttpStatusCode.BadRequest, SyncErrorCodes.SessionInvalid, "No."));
@@ -334,7 +343,7 @@ public sealed class SessionSyncSessionTests
     [Fact]
     public async Task The_pull_keeps_going_while_hasMore_even_on_a_short_page()
     {
-        using var fixture = Fixture.Create(respond: (request, index) =>
+        using var fixture = Fixture.Create(state: Mine(DateTimeOffset.MinValue, null), respond: (request, index) =>
         {
             if (request.Method != HttpMethod.Get)
             {
@@ -373,7 +382,7 @@ public sealed class SessionSyncSessionTests
     public async Task An_expired_cursor_is_forgotten_and_the_feed_is_read_from_the_beginning()
     {
         using var fixture = Fixture.Create(
-            state: new SessionSyncState(DateTimeOffset.MinValue, "v1.stale"),
+            state: Mine(DateTimeOffset.MinValue, "v1.stale"),
             respond: (request, index) => index == 0
                 ? StubHttpMessageHandler.Problem(
                     HttpStatusCode.BadRequest, SyncErrorCodes.SyncCursorExpired, "Start again.")
@@ -400,7 +409,7 @@ public sealed class SessionSyncSessionTests
     public async Task A_cursor_belonging_to_somebody_else_is_not_recovered_from()
     {
         using var fixture = Fixture.Create(
-            state: new SessionSyncState(DateTimeOffset.MinValue, "v1.theirs"),
+            state: Mine(DateTimeOffset.MinValue, "v1.theirs"),
             respond: (_, _) => StubHttpMessageHandler.Problem(
                 HttpStatusCode.Forbidden, SyncErrorCodes.SyncCursorNotYours, "Not yours."));
 
@@ -426,6 +435,49 @@ public sealed class SessionSyncSessionTests
 
         Assert.True(result.IsFailure);
         Assert.Single(fixture.Handler.Requests);
+    }
+
+    // --- Whose progress this is -----------------------------------------------
+
+    /// <summary>
+    /// The symptom that found the whole thing: a device that had forgotten its
+    /// credential and registered again kept the old owner's watermark, pushed only
+    /// sessions newer than it, and the second machine to pair in saw none of the
+    /// first one's. Progress recorded for another owner is started over.
+    /// </summary>
+    [Fact]
+    public async Task Progress_recorded_for_another_owner_is_started_over()
+    {
+        using var fixture = Fixture.Create(
+            sessions:
+            [
+                AgentSessions.Local(id: "old", lastActivityAt: Noon.AddMinutes(-10)),
+                AgentSessions.Local(id: "new", lastActivityAt: Noon.AddMinutes(10))
+            ],
+            state: new SessionSyncState(Noon, "the-old-owners-cursor", AnotherOwner, ThisDevice));
+
+        await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
+
+        Assert.Contains("\"old\"", fixture.LastBody, StringComparison.Ordinal);
+        Assert.Contains("\"new\"", fixture.LastBody, StringComparison.Ordinal);
+        Assert.Equal(ThisOwner, fixture.State.Current.OwnerId);
+        Assert.Equal(ThisDevice, fixture.State.Current.DeviceId);
+        Assert.Null(fixture.State.Current.PullCursor);
+    }
+
+    /// <summary>A state from before the identity was recorded is started over too,
+    /// and stamped, so it happens once.</summary>
+    [Fact]
+    public async Task Progress_with_no_recorded_identity_is_started_over_and_stamped()
+    {
+        using var fixture = Fixture.Create(
+            sessions: [AgentSessions.Local(id: "old", lastActivityAt: Noon.AddMinutes(-10))],
+            state: new SessionSyncState(Noon, null));
+
+        await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
+
+        Assert.Contains("\"old\"", fixture.LastBody, StringComparison.Ordinal);
+        Assert.Equal(ThisOwner, fixture.State.Current.OwnerId);
     }
 
     // --- What the log says moved -----------------------------------------------

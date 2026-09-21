@@ -225,6 +225,7 @@ public sealed class AnnotationSyncWorkerTests
                 new AnnotationReplicaMerge(store),
                 store,
                 State,
+                Credentials,
                 Clock);
         }
     }

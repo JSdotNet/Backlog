@@ -38,6 +38,26 @@ public sealed class ImportPlanTests
     }
 
     /// <summary>
+    /// The plan tag is the one written with its sigil. A batch whose entries
+    /// all share a general tag as well is still the sigilled plan, not the
+    /// general tag's — the picker offers <c>+slug</c>, and a plan filed under
+    /// the wrong tag is one its own regeneration cannot find to clear.
+    /// </summary>
+    [Fact]
+    public async Task The_shared_plan_tag_is_the_sigilled_one_whatever_else_is_shared()
+    {
+        var store = new InMemoryTaskRepository();
+
+        const string plan =
+            "# First prompt\n`prompt` `#deploy` `+release-q4`\n\nDo the first thing.\n\n"
+            + "# Second prompt\n`prompt` `#deploy` `+release-q4`\n\nDo the second thing.\n";
+
+        var result = await Import(store, plan);
+
+        Assert.All(result.Entries, entry => Assert.Equal("+release-q4", entry.ImportPlanId));
+    }
+
+    /// <summary>
     /// Neither prompt has a real id when the document is parsed — see ADR 0007's
     /// two-pass rule. The first prompt names the second as a dependency before
     /// the second has been created, so the dependency can only resolve once both

@@ -8,7 +8,14 @@ namespace Backlog.Infrastructure.Sync.Annotations;
 /// <paramref name="Pulled"/> counts what came back and <paramref name="Applied"/>
 /// what was written; a device's own echo arrives and changes nothing, so the
 /// two differ on a healthy cycle.</summary>
-public sealed record AnnotationSyncSummary(int Pushed, int Pulled, int Applied, DateTimeOffset At);
+public sealed record AnnotationSyncSummary(int Pushed, int Pulled, int Applied, DateTimeOffset At)
+{
+    /// <summary>Documents offered in a push the replica did not take, because
+    /// it already held a later version. Never healthy: the local store stamps a
+    /// change past the copy it changes, so a refusal means two devices really
+    /// did edit the same remark, and the loser's edit is the one here.</summary>
+    public int Refused { get; init; }
+}
 
 /// <summary>
 /// One exchange with the annotation replica: push what this device's store
@@ -28,26 +35,46 @@ public sealed class AnnotationSyncSession
     private readonly AnnotationReplicaMerge _merge;
     private readonly IDevbookAnnotationStore _store;
     private readonly IAnnotationSyncStateStore _state;
+    private readonly IDeviceCredentialStore _credentials;
     private readonly TimeProvider _time;
 
+    /// <param name="credentials">Whose device this is, checked against the
+    /// recorded progress before either half runs — see <see cref="ReconcileIdentity"/>.</param>
     public AnnotationSyncSession(
         AnnotationSyncClient client,
         AnnotationReplicaMerge merge,
         IDevbookAnnotationStore store,
         IAnnotationSyncStateStore state,
+        IDeviceCredentialStore credentials,
         TimeProvider time)
     {
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(merge);
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(credentials);
         ArgumentNullException.ThrowIfNull(time);
 
         _client = client;
         _merge = merge;
         _store = store;
         _state = state;
+        _credentials = credentials;
         _time = time;
+    }
+
+    /// <summary>Starts the progress over when it was recorded for a different
+    /// identity — the check <c>TaskSyncSession.ReconcileIdentity</c> explains,
+    /// applied to the third feed so a device that registers again does not carry
+    /// the old owner's annotation watermark into the new one.</summary>
+    private void ReconcileIdentity()
+    {
+        if (_credentials.Current is not { } me) return;
+
+        var state = _state.Current;
+        if (state.OwnerId == me.OwnerId && state.DeviceId == me.DeviceId) return;
+
+        _state.Save(new AnnotationSyncState(DateTimeOffset.MinValue, null, me.OwnerId, me.DeviceId));
     }
 
     /// <summary>
@@ -59,9 +86,12 @@ public sealed class AnnotationSyncSession
     /// </summary>
     public async Task<Result<AnnotationSyncSummary>> PushAsync(CancellationToken cancellationToken = default)
     {
+        ReconcileIdentity();
+
         var watermark = _state.Current.PushWatermark;
         var pending = _store.ListChangedSince(watermark);
         var pushed = 0;
+        var refused = 0;
 
         for (var start = 0; start < pending.Count; start += PushBatchSize)
         {
@@ -71,7 +101,12 @@ public sealed class AnnotationSyncSession
             var response = await _client.PushAsync(changes, cancellationToken).ConfigureAwait(false);
             if (response.IsFailure) return Result.Failure<AnnotationSyncSummary>(response.Error);
 
+            // A 200 with fewer accepted than sent is the replica keeping a later
+            // version of the rest. The watermark still moves past them — offering
+            // them again would be refused again — so the count is the one place
+            // the loss is said.
             pushed += response.Value.Accepted;
+            refused += Math.Max(0, batch.Count - response.Value.Accepted);
 
             if (WatermarkAfter(batch, final: start + batch.Count >= pending.Count) is { } advanced)
             {
@@ -79,7 +114,7 @@ public sealed class AnnotationSyncSession
             }
         }
 
-        return Result.Success(new AnnotationSyncSummary(pushed, 0, 0, _time.GetUtcNow()));
+        return Result.Success(new AnnotationSyncSummary(pushed, 0, 0, _time.GetUtcNow()) { Refused = refused });
     }
 
     /// <summary>
@@ -92,6 +127,8 @@ public sealed class AnnotationSyncSession
     /// </summary>
     public async Task<Result<AnnotationSyncSummary>> PullAsync(CancellationToken cancellationToken = default)
     {
+        ReconcileIdentity();
+
         var cursor = _state.Current.PullCursor;
         var pulled = 0;
         var applied = 0;

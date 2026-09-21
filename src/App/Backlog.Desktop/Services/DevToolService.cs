@@ -190,6 +190,7 @@ public sealed class DevToolService : IDevToolService
         var claudePlugins = (IReadOnlyDictionary<string, DevToolOutput.ClaudePluginState>)
             new Dictionary<string, DevToolOutput.ClaudePluginState>(StringComparer.OrdinalIgnoreCase);
         var claudeInstallPaths = (IReadOnlyDictionary<string, int>)new Dictionary<string, int>();
+        var claudeInstallsKnown = false;
 
         if (claudeCli is null)
         {
@@ -221,7 +222,7 @@ public sealed class DevToolService : IDevToolService
                 }
             }
 
-            (claudePlugins, claudeInstallPaths) = await GetInstalledClaudePluginsAsync(claudeCli, log, ct).ConfigureAwait(false);
+            (claudePlugins, claudeInstallPaths, claudeInstallsKnown) = await GetInstalledClaudePluginsAsync(claudeCli, log, ct).ConfigureAwait(false);
         }
 
         var defaultMarketplace = DevToolConfiguration.DefaultMarketplaceName(root);
@@ -273,6 +274,7 @@ public sealed class DevToolService : IDevToolService
                 claudeCli,
                 claudePlugins,
                 claudeInstallPaths,
+                claudeInstallsKnown,
                 defaultMarketplace,
                 refreshed,
                 log,
@@ -361,6 +363,7 @@ public sealed class DevToolService : IDevToolService
         string? claudeCli,
         IReadOnlyDictionary<string, DevToolOutput.ClaudePluginState> claudePlugins,
         IReadOnlyDictionary<string, int> claudeInstallPaths,
+        bool claudeInstallsKnown,
         string? defaultMarketplace,
         RefreshState refreshed,
         CommandLog log,
@@ -471,8 +474,18 @@ public sealed class DevToolService : IDevToolService
 
                 // Read whether or not Claude says the plugin is installed. A plugin
                 // that was uninstalled leaves every version it ever had in the
-                // cache, and those are the stalest folders of all.
-                cachedVersions = ReadCachedVersions(pluginId, claudeInstallPaths);
+                // cache, and those are the stalest folders of all. Not read at all
+                // when the listing failed: with no install paths to read against,
+                // every folder would show as stale, and the pane would offer to
+                // clear the ones every install points at.
+                if (claudeInstallsKnown)
+                {
+                    cachedVersions = ReadCachedVersions(pluginId, claudeInstallPaths);
+                }
+                else
+                {
+                    notes.Add("Claude's plugin listing could not be read, so cached versions are not shown.");
+                }
 
                 states.Add(new DevToolHostState(
                     DevToolHosts.Claude,
@@ -1003,6 +1016,11 @@ public sealed class DevToolService : IDevToolService
         }
 
         var listing = await GetInstalledClaudePluginsAsync(claudeCli, log, ct).ConfigureAwait(false);
+        if (!listing.Known)
+        {
+            return DevToolActionResult.Failed(ClaudeListingUnreadable);
+        }
+
         var installs = listing.InstallPaths.GetValueOrDefault(DevToolCache.NormalizePath(directory));
         if (installs > 0)
         {
@@ -1054,6 +1072,14 @@ public sealed class DevToolService : IDevToolService
         }
 
         var listing = await GetInstalledClaudePluginsAsync(claudeCli, log, ct).ConfigureAwait(false);
+        if (!listing.Known)
+        {
+            // Refused, not read as "no install anywhere": with an empty map every
+            // folder in the cache is stale, and the walk below would delete the
+            // versions every install points at along with the rest.
+            return DevToolActionResult.Failed(ClaudeListingUnreadable);
+        }
+
         var removed = 0;
         var failed = new List<string>();
 
@@ -1816,7 +1842,12 @@ public sealed class DevToolService : IDevToolService
                 continue;
             }
 
-            probes[application.Id] = await ProbeCommandAsync(spec, log, ct).ConfigureAwait(false);
+            // Only a command row can declare its own available side, and only
+            // its own detect is read against it — a winget row's cross-check
+            // probe has a package manager answering its Available column already.
+            var available = application.Provider is DevToolProvider.Command ? application.Available : null;
+
+            probes[application.Id] = await ProbeCommandAsync(spec, available, log, ct).ConfigureAwait(false);
         }
 
         return new ApplicationInventory(
@@ -1933,7 +1964,11 @@ public sealed class DevToolService : IDevToolService
     /// the row equal to itself and read as up to date whether or not the machine
     /// had done the thing.</para>
     /// </summary>
-    private static async Task<CommandProbe> ProbeCommandAsync(DevToolCommandSpec spec, CommandLog log, CancellationToken ct)
+    private static async Task<CommandProbe> ProbeCommandAsync(
+        DevToolCommandSpec spec,
+        DevToolCommandSpec? available,
+        CommandLog log,
+        CancellationToken ct)
     {
         var result = await RunAsync(spec, log, ct).ConfigureAwait(false);
 
@@ -1943,6 +1978,11 @@ public sealed class DevToolService : IDevToolService
                 result.Output.Contains(spec.Expect, StringComparison.OrdinalIgnoreCase),
                 DevToolOutput.NoVersion,
                 DevToolOutput.NoVersion);
+        }
+
+        if (available is not null)
+        {
+            return await ProbeDeclaredAvailableAsync(result, available, log, ct).ConfigureAwait(false);
         }
 
         if (result.ExitCode != 0)
@@ -1958,6 +1998,40 @@ public sealed class DevToolService : IDevToolService
             true,
             DevToolOutput.ParseVersionProbe(result.Output) ?? DevToolOutput.Installed,
             DevToolOutput.Unknown);
+    }
+
+    /// <summary>
+    /// The row that answers its own Available column
+    /// (<see cref="DevToolApplication.Available"/>).
+    ///
+    /// <para>Both sides are read as printed rather than through the version
+    /// reader, and the available command runs even when detect failed: a service
+    /// that is not reachable is "not installed" opposite the build it should be
+    /// running, which is exactly the row that earns an Install. An available
+    /// command that fails or prints nothing leaves the column "unknown", which
+    /// the pane renders as a lookup that did not happen rather than as a row
+    /// that is current.</para>
+    /// </summary>
+    private static async Task<CommandProbe> ProbeDeclaredAvailableAsync(
+        CommandResult detect,
+        DevToolCommandSpec available,
+        CommandLog log,
+        CancellationToken ct)
+    {
+        var wanted = await RunAsync(available, log, ct).ConfigureAwait(false);
+        var availableVersion = wanted.ExitCode == 0
+            ? DevToolOutput.ParseVerbatimProbe(wanted.Output) ?? DevToolOutput.Unknown
+            : DevToolOutput.Unknown;
+
+        if (detect.ExitCode != 0)
+        {
+            return new CommandProbe(false, DevToolOutput.NotInstalled, availableVersion);
+        }
+
+        return new CommandProbe(
+            true,
+            DevToolOutput.ParseVerbatimProbe(detect.Output) ?? DevToolOutput.Installed,
+            availableVersion);
     }
 
     /// <summary>One application entry as one row, through whichever mechanism it
@@ -2600,7 +2674,9 @@ public sealed class DevToolService : IDevToolService
     /// <summary>What Claude has installed at any scope, or nothing when the listing
     /// failed. A failure is not thrown here the way the Copilot listing throws:
     /// every Claude row can still say something useful without it, and the command
-    /// log already carries whatever the CLI printed.</summary>
+    /// log already carries whatever the CLI printed. It is said, though — a
+    /// listing that failed and a listing of nothing are opposite answers to the
+    /// one question the cache delete asks.</summary>
     private static async Task<ClaudeInstallListing> GetInstalledClaudePluginsAsync(
         string cli,
         CommandLog log,
@@ -2608,22 +2684,34 @@ public sealed class DevToolService : IDevToolService
     {
         var result = await RunAsync(DevToolCommands.ClaudePluginList(cli), log, ct).ConfigureAwait(false);
 
-        return result.ExitCode == 0
-            ? new ClaudeInstallListing(
-                DevToolOutput.ParseClaudePluginList(result.Output),
-                DevToolOutput.ParseClaudePluginInstallPaths(result.Output))
-            : new ClaudeInstallListing(
-                new Dictionary<string, DevToolOutput.ClaudePluginState>(StringComparer.OrdinalIgnoreCase),
-                new Dictionary<string, int>());
+        if (result.ExitCode == 0 && DevToolOutput.TryParseClaudePluginInstallPaths(result.Output, out var installPaths))
+        {
+            return new ClaudeInstallListing(DevToolOutput.ParseClaudePluginList(result.Output), installPaths, Known: true);
+        }
+
+        return new ClaudeInstallListing(
+            new Dictionary<string, DevToolOutput.ClaudePluginState>(StringComparer.OrdinalIgnoreCase),
+            new Dictionary<string, int>(),
+            Known: false);
     }
 
     /// <summary>One <c>plugin list</c> run, read twice: what is installed per
     /// plugin id, and which cache folders every install at every scope points
     /// at. Both come out of the same body, and running it twice for the two
-    /// would be two chances for the answers to disagree.</summary>
+    /// would be two chances for the answers to disagree.
+    /// <para><paramref name="Known"/> is whether the run answered at all. An
+    /// empty <paramref name="InstallPaths"/> from a listing that ran is "no
+    /// install points anywhere"; the same empty map from one that did not is
+    /// "nothing is known", and a cache delete must not read the second as the
+    /// first — that is every version of every plugin gone, the ones in use
+    /// included.</para></summary>
     private sealed record ClaudeInstallListing(
         IReadOnlyDictionary<string, DevToolOutput.ClaudePluginState> Plugins,
-        IReadOnlyDictionary<string, int> InstallPaths);
+        IReadOnlyDictionary<string, int> InstallPaths,
+        bool Known);
+
+    private const string ClaudeListingUnreadable =
+        "Claude's plugin listing could not be read, so nothing can be told stale from in use. Nothing was removed; see the command log.";
 
     /// <inheritdoc cref="GetInstalledClaudePluginsAsync" />
     private static async Task<IReadOnlySet<string>> GetClaudeMarketplacesAsync(string cli, CommandLog log, CancellationToken ct)
@@ -2939,7 +3027,10 @@ public sealed class DevToolService : IDevToolService
         return null;
     }
 
-    private static string GetString(JsonNode node, string name) => node[name]?.GetValue<string>() ?? string.Empty;
+    // Read with the abstraction's tolerance rather than an indexer that throws
+    // on a value node and a GetValue that throws on a number: the entries are
+    // hand-written, and one odd value is one row's finding, not the list's.
+    private static string GetString(JsonNode node, string name) => DevToolConfiguration.ReadString(node, name);
 
     private static string GetRequiredString(JsonNode node, string name) =>
         string.IsNullOrWhiteSpace(GetString(node, name))
@@ -2985,9 +3076,7 @@ public sealed class DevToolService : IDevToolService
         GetString(claude, "name") is { Length: > 0 } name ? name : GetString(server, "name");
 
     private static string[] ClaudeServerArgs(JsonNode claude) =>
-        claude["args"] is JsonArray args
-            ? [.. args.Select(node => node?.GetValue<string>()).Where(value => !string.IsNullOrWhiteSpace(value)).Select(value => value!)]
-            : [];
+        [.. DevToolConfiguration.ReadStrings(claude, "args").Where(value => !string.IsNullOrWhiteSpace(value))];
 
     private static string DescribeStatus(bool enabled, bool installed, bool updateAvailable, string kind)
     {
