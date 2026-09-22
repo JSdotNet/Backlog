@@ -205,7 +205,7 @@ What holds today:
 | Rule | Materialized as |
 |---|---|
 | Names & roles | Composite widgets declare theirs — `role="tree"`/`treeitem` (TreeView), `role="tablist"`/`tab` (Tabs), `role="menu"`/`menuitem` (MenuList), `role="switch"` (Toggle, because a checkbox role would announce the wrong control), `role="separator"` (SplitPane resizer), `role="search"` (SearchBox), `role="region"` with a label (FileView, CodeView, GraphView) |
-| Live regions | `SaveIndicator` is `role="status"` + `aria-live="polite"`; `ToastHost` is one polite live region for the page, with warnings and errors raised to `role="alert"` inside it; `CodeView`'s copy result is a `role="status"` line rather than a changed button label, and `CopyButton` draws that same result as a glyph as well, because a task row and the task panel hide the line and keep only its announcement |
+| Live regions | `SaveIndicator` is `role="status"` + `aria-live="polite"`; `ToastHost` is one polite live region for the page, with warnings and errors raised to `role="alert"` inside it; `CodeView`'s copy result is a `role="status"` line rather than a changed button label, and `CopyButton` draws that same result as a glyph as well, because a task row and the task panel hide the line and keep only its announcement; `TaskListView` and `RoadmapTimeline` each carry one for reorder, per `#reorder-announcements` |
 | Focus visibility | Every interactive component sets its own `:focus-visible` outline in `color-border-focus` at `border-width-2` with a 2 px offset — `outline`, never a shadow |
 | Non-native focus targets | Scrollable regions that take focus say so and show it (`FileView` body, `CodeView` body) |
 | Reduced motion | Honored per component: the fold chevron and toggle drop their transitions, the spinner stops turning and becomes an opacity-only pulse, the skeleton stops altogether rather than substituting one, graph cards keep colour transitions only, and the copy confirmation keeps its cross-fade but stops scaling |
@@ -218,10 +218,16 @@ Gaps, tracked rather than assumed:
   values too (2.36:1), so it is inherited rather than introduced; the numbers and
   a candidate replacement are in
   `color-scheme.md#surface-and-border-deviation`.
-- **No reorder announcements.** There is no `aria-live` region anywhere in the
-  desktop app, so `#reorder-announcements` is entirely unimplemented. Keyboard
-  reorder works and each grip is labelled with how to use it; the position
-  feedback is the missing half.
+- **Reorder announces, but politely, and only where the gesture exists.** Item
+  reorder carries the live region `#reorder-announcements` asks for, in both
+  library implementations. Two things still fall short of this file. The regions
+  are `polite` where the section asks for assertive during an active grab. And
+  reordering *chapters within a document* is unbuilt altogether
+  (`interaction-guidelines.md#materialization`), so the rule is unmet there for
+  want of a gesture rather than for want of a region — including the indent
+  announcement, which no other surface has anything to say. The pointer grips
+  are `aria-hidden` and take no tab stop, deliberately: they are the pointer's
+  affordance, and the keyboard route is `Alt+Arrow` on the row itself.
 - **No icon set**, so `#iconography-accessibility` has almost nothing to govern
   yet — the product draws its few glyphs in CSS or borrows an emoji. See
   `typography-and-layout.md#materialization`.
