@@ -14,8 +14,9 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// Both hosts compose the roadmap/backlog use cases and the two cross-context
-/// adapters that join them. The adapters capture services the modules register as
+/// Both hosts compose the roadmap/backlog use cases and the adapters that answer
+/// what Roadmap asks of the world outside it. The two cross-context ones capture
+/// services the modules register as
 /// <c>Scoped</c> (<see cref="IRoadmapPlanning"/> and <see cref="ITaskItems"/>), so a
 /// captive dependency — a singleton over a scoped service — makes the whole app
 /// return HTTP 500 on the first render, even though every use-case unit test still
@@ -65,6 +66,10 @@ public sealed class RoadmapCrossContextAdapterScopeTests : IDisposable
         // here for the same reason everything else is: a graph missing it is not
         // the graph a host builds, and ValidateOnBuild would say so.
         services.AddSingleton(new GitHubSettingsStore(Path.Combine(_tempDir, "github", "github.json")));
+        // The reader's pace, which IPlanningVelocity is answered over. Here for the
+        // same reason the GitHub store is: a graph missing it is not the graph a
+        // host builds, and ValidateOnBuild would say so.
+        services.AddSingleton(new PlanningVelocitySettingsStore(Path.Combine(_tempDir, "velocity", "planning-velocity.json")));
         services.AddTasksAdapters();
         services.AddTasksModule();
         services.AddRoadmapModule();
@@ -97,8 +102,10 @@ public sealed class RoadmapCrossContextAdapterScopeTests : IDisposable
 
         var tagSource = scope.ServiceProvider.GetRequiredService<IRoadmapTagSource>();
         var rollup = scope.ServiceProvider.GetRequiredService<IRoadmapItemRollup>();
+        var velocity = scope.ServiceProvider.GetRequiredService<IPlanningVelocity>();
 
         Assert.IsType<RoadmapPlanTagSource>(tagSource);
         Assert.IsType<RoadmapItemRollupService>(rollup);
+        Assert.IsType<PlanningVelocitySource>(velocity);
     }
 }

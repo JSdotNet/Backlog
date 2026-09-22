@@ -97,6 +97,12 @@ builder.Services.AddSingleton<IWorkingHoursSettings>(
 builder.Services.AddSingleton<IUsageResetSettings>(
     _ => new UsageResetSettingsStore(
         Path.Combine(builder.Environment.ContentRootPath, "obj", "local-development", "usage-reset.settings.json")));
+// How many story points the reader gets through in a day, scoped to the content
+// root for the same reason. Roadmap reads it through IPlanningVelocity, answered
+// over this store by AddRoadmapCrossContextAdapters below.
+builder.Services.AddSingleton(
+    _ => new PlanningVelocitySettingsStore(
+        Path.Combine(builder.Environment.ContentRootPath, "obj", "local-development", "planning-velocity.settings.json")));
 // Which surface the shell was last showing. Scoped to the content root like the
 // harness's other settings files, so a session here never rewrites the real
 // per-user choice.
