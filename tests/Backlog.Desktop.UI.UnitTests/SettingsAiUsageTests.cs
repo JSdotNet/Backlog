@@ -277,6 +277,70 @@ public sealed class SettingsAiUsageTests
         Assert.Single(context.Component.FindAll("[data-testid='claude-account-subpage-tab']"));
     }
 
+    /// <summary>
+    /// The page always has one card, so the only account cannot go — forgetting it
+    /// blanks it. A blank card has nothing left to forget, and offering the button
+    /// anyway made a click look like it did nothing.
+    /// </summary>
+    [Fact]
+    public void The_only_claude_account_can_be_forgotten_while_it_holds_something_and_not_once_blank()
+    {
+        using var context = RenderSettings(aiAssistantEnabled: false, usageMetricsEnabled: true);
+
+        OpenAiTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='claude-usage-settings']")));
+
+        Assert.True(context.Component.Find("[data-testid='remove-claude-account-button']").HasAttribute("disabled"));
+
+        var actor = context.Component.Find("[data-testid='claude-usage-actor-input']");
+        actor.Input("me@example.com");
+        actor.Change();
+
+        var button = context.Component.Find("[data-testid='remove-claude-account-button']");
+        Assert.False(button.HasAttribute("disabled"));
+        button.Click();
+
+        // A fresh blank account, and the strip agrees with it: one tab, selected, wired
+        // to the card on screen - not the tab of the account that just went.
+        var remaining = Assert.Single(context.ClaudeStore.Current.Accounts);
+        Assert.Null(remaining.Actor);
+        var tab = Assert.Single(context.Component.FindAll("[data-testid='claude-account-subpage-tab']"));
+        Assert.Equal($"tab-{remaining.Id}", tab.GetAttribute("id"));
+        Assert.Equal("true", tab.GetAttribute("aria-selected"));
+        Assert.Equal(string.Empty, context.Component.Find("[data-testid='claude-usage-actor-input']").GetAttribute("value"));
+        Assert.True(context.Component.Find("[data-testid='remove-claude-account-button']").HasAttribute("disabled"));
+    }
+
+    /// <summary>
+    /// Forgetting the first of two, from its own page. Without a key per card the
+    /// surviving component is handed the second account, and the strip has to follow.
+    /// </summary>
+    [Fact]
+    public void Forgetting_the_first_claude_account_keeps_the_second_on_screen()
+    {
+        using var context = RenderSettings(aiAssistantEnabled: false, usageMetricsEnabled: true);
+
+        OpenAiTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='claude-usage-settings']")));
+
+        context.Component.Find("[data-testid='add-claude-account-button']").Click();
+        var name = context.Component.Find("[data-testid='claude-account-name-input']");
+        name.Input("work");
+        name.Change();
+
+        context.Component.FindAll("[data-testid='claude-account-subpage-tab']")[0].Click();
+        context.Component.Find("[data-testid='remove-claude-account-button']").Click();
+
+        var remaining = Assert.Single(context.ClaudeStore.Current.Accounts);
+        Assert.Equal("work", remaining.DisplayName);
+        var tab = Assert.Single(context.Component.FindAll("[data-testid='claude-account-subpage-tab']"));
+        Assert.Equal("work", tab.TextContent.Trim());
+        Assert.Equal("true", tab.GetAttribute("aria-selected"));
+        Assert.Equal("work", context.Component.Find("[data-testid='claude-account-name-input']").GetAttribute("value"));
+    }
+
     /// <summary>Switching subpages switches which account the fields write to.</summary>
     [Fact]
     public void Picking_a_claude_account_subpage_edits_that_account()

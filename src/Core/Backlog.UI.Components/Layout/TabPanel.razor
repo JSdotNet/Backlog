@@ -91,23 +91,33 @@
     protected override void OnInitialized() => Parent?.Register(this);
 
     /// <summary>
-    /// The strip draws each label from the panel while the strip itself renders,
+    /// The strip draws each tab from the panel while the strip itself renders,
     /// which is before the panel has taken this render's parameters - so a title
-    /// that changed would show one render late. A changed <see cref="Title"/> asks
-    /// the strip to draw again; the string is compared so it happens once, not on
-    /// every render of a host that re-renders often.
+    /// or an id that changed would show one render late. A changed
+    /// <see cref="Title"/> or <see cref="Id"/> asks the strip to draw again; the
+    /// strings are compared so it happens once, not on every render of a host that
+    /// re-renders often.
+    /// <para>
+    /// The id changes when a host renders one panel per item without a key and an
+    /// item in front goes: the surviving component is handed the next item's id.
+    /// Left stale, the strip keeps a tab wired to a panel that no longer exists -
+    /// and, since the active id has moved on, never the selected one.
+    /// </para>
     /// </summary>
     protected override void OnParametersSet()
     {
-        if (_renderedTitle is not null && !string.Equals(_renderedTitle, Title, StringComparison.Ordinal))
-        {
-            Parent?.Refresh();
-        }
+        var changed = _renderedTitle is not null
+            && (!string.Equals(_renderedTitle, Title, StringComparison.Ordinal)
+                || !string.Equals(_renderedId, Id, StringComparison.Ordinal));
+
+        if (changed) Parent?.Refresh();
 
         _renderedTitle = Title;
+        _renderedId = Id;
     }
 
     private string? _renderedTitle;
+    private string? _renderedId;
 
     public void Dispose() => Parent?.Unregister(this);
 }
