@@ -21,10 +21,10 @@ namespace Backlog.Infrastructure.FileSystem.Dashboard;
 /// <para>
 /// It is a mapping and nothing else. Every judgement it passes on is deferred to the
 /// context that owns it — <see cref="AgentSessionGroups.Label(AgentSessionKind)"/>
-/// decides what an assistant is called and <see cref="AgentSessionLimits.PerAgent"/>
-/// decides how many sessions a read stops at — because a second copy of either here is a
-/// second definition free to drift from the first. What the Dashboard does with the
-/// figures is the Dashboard's; what a session <em>is</em> stays Sessions'.
+/// decides what an assistant is called and the Sessions context decides what a horizon
+/// reading holds — because a second copy of either here is a second definition free to
+/// drift from the first. What the Dashboard does with the figures is the Dashboard's;
+/// what a session <em>is</em> stays Sessions'.
 /// </para>
 /// <para>
 /// Availability is always available. The failure this port could report is "the source
@@ -40,15 +40,25 @@ public sealed class AgentSessionAssistantSessionSource(IAgentSessionSource sessi
     public Task<InsightAvailability> GetAvailabilityAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult(InsightAvailability.Available);
 
-    public async Task<AssistantSessionReport> GetSessionsAsync(CancellationToken cancellationToken = default)
+    /// <summary>
+    /// A horizon reading, never the inventory's. <see cref="AgentSessionQuery.Newest"/> is
+    /// the shape a list wants and the wrong one for a count: it stops at
+    /// <see cref="AgentSessionLimits.PerAgent"/> per agent, and a Dashboard that counted
+    /// it showed 200 sessions on every machine. Asked <see cref="AgentSessionQuery.Since"/>
+    /// the horizon instead, the catalog is everything inside it, and
+    /// <see cref="AgentSessionCatalog.Capped"/> only when a source could not reach that
+    /// far back — which is what the Dashboard's own flag means.
+    /// </summary>
+    public async Task<AssistantSessionReport> GetSessionsAsync(DateTimeOffset since, CancellationToken cancellationToken = default)
     {
-        var catalog = await sessions.GetSessionsAsync(cancellationToken).ConfigureAwait(false);
+        var catalog = await sessions
+            .GetSessionsAsync(AgentSessionQuery.Since(since), cancellationToken)
+            .ConfigureAwait(false);
 
         return new AssistantSessionReport(
             [.. catalog.Sessions.Select(Map)],
             catalog.Unreadable,
-            catalog.Capped,
-            AgentSessionLimits.PerAgent);
+            catalog.Capped);
     }
 
     /// <summary>

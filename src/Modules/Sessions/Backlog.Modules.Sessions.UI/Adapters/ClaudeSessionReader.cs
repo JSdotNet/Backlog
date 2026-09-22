@@ -68,7 +68,7 @@ internal sealed class ClaudeSessionReader
     /// <summary>What this reader is called when it cannot be read.</summary>
     internal static string Name => "Claude";
 
-    internal async Task<SessionReading> ReadAsync(CancellationToken cancellationToken)
+    internal async Task<SessionReading> ReadAsync(AgentSessionQuery query, CancellationToken cancellationToken)
     {
         var now = _clock.GetUtcNow();
         var live = await ReadLiveAsync(now, cancellationToken).ConfigureAwait(false);
@@ -84,14 +84,22 @@ internal sealed class ClaudeSessionReader
 
         var seen = live.Select(session => session.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
+        // A horizon reading is the whole of the history inside the horizon, decided on
+        // the file's own timestamp before anything is opened — the same instant the
+        // row's LastActivityAt is read from, so nothing inside the window is filtered
+        // out by a cheaper clock than the one that would have put it in. A live session
+        // is inside every horizon: it is being written to now.
         var history = transcripts
             .Where(transcript => !seen.Contains(transcript.Key))
             .Select(transcript => transcript.Value)
+            .Where(transcript => query.Horizon is not { } horizon || transcript.LastWriteTimeUtc >= horizon.UtcDateTime)
             .ToList();
 
         // A live session is never dropped by the cap. It is the row a reader opened
         // this surface for, and there are only ever as many as the machine is running.
-        var room = Math.Max(0, AgentSessionLimits.PerAgent - live.Count);
+        // A horizon reading has no cap: the count it feeds is only right if it is over
+        // everything, and the facts cache is what makes that affordable on a refresh.
+        var room = query.IsNewest ? Math.Max(0, AgentSessionLimits.PerAgent - live.Count) : history.Count;
         var past = await ReadHistoryAsync(history, room, cancellationToken).ConfigureAwait(false);
 
         // Sessions found, not files found. A session filed under two folders was never

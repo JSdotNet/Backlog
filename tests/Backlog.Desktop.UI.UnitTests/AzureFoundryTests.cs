@@ -400,6 +400,55 @@ public sealed class AzureFoundryChatClientTests : IDisposable
         ["acme/web", "acme/api"],
         "fix-login");
 
+    /// <summary>
+    /// Settings' "Test the connection": one tiny completion over the same route a
+    /// question takes, because the endpoint, the deployment, the API version and the
+    /// key only prove themselves together. What comes back is a sentence for the
+    /// card, never a throw - the card has nowhere to put a throw.
+    /// </summary>
+    [Fact]
+    public async Task A_connection_test_sends_one_small_completion_and_names_the_deployment()
+    {
+        var handler = new RecordingHandler(_ => Completion("OK"));
+        var client = BuildConfiguredClient(handler);
+
+        var check = await client.TestConnectionAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(check.Passed);
+        Assert.Equal("The deployment chat at foundry.example.com answered.", check.Summary);
+        Assert.Equal(1, handler.RequestCount);
+        Assert.Contains("/openai/deployments/chat/chat/completions", handler.Request!.RequestUri!.ToString(), StringComparison.Ordinal);
+        Assert.Equal("secret", handler.Request.Headers.GetValues("api-key").Single());
+    }
+
+    [Fact]
+    public async Task A_connection_test_reports_a_refusal_in_the_clients_own_words()
+    {
+        var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized)
+        {
+            Content = new StringContent("""{"error":{"code":"401","message":"Access denied due to invalid subscription key."}}""", Encoding.UTF8, "application/json")
+        });
+        var client = BuildConfiguredClient(handler);
+
+        var check = await client.TestConnectionAsync(TestContext.Current.CancellationToken);
+
+        Assert.False(check.Passed);
+        Assert.StartsWith("Azure Foundry returned 401", check.Summary, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_connection_test_with_nothing_configured_asks_nothing()
+    {
+        var handler = new RecordingHandler(_ => Completion("OK"));
+        var client = new AzureFoundryChatClient(new HttpClient(handler), new AzureFoundrySettingsStore(NewSettingsPath()));
+
+        var check = await client.TestConnectionAsync(TestContext.Current.CancellationToken);
+
+        Assert.False(check.Passed);
+        Assert.Contains("Configure Azure Foundry", check.Summary, StringComparison.Ordinal);
+        Assert.Equal(0, handler.RequestCount);
+    }
+
     private static HttpResponseMessage Completion(string content) => new(HttpStatusCode.OK)
     {
         Content = new StringContent(JsonSerializer.Serialize(new { choices = new[] { new { message = new { content } } } }), Encoding.UTF8, "application/json")

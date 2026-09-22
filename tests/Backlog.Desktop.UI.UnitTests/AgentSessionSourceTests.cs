@@ -393,6 +393,55 @@ public sealed class AgentSessionSourceTests : IDisposable
     }
 
     /// <summary>
+    /// The source places each session inside a registered clone where it can:
+    /// a Claude session under the Backlog clone — a worktree, here — resolves to
+    /// the repository that clone was registered against, while what the agent
+    /// recorded stays exactly as read. Claude recorded none, and still records
+    /// none.
+    /// </summary>
+    [Fact]
+    public async Task A_session_under_a_registered_clone_carries_the_resolved_repository_beside_the_recorded_one()
+    {
+        GivenClaudeLiveSession("c1", @"D:\Repos\Backlog\.claude\worktrees\keen-bose-667825", "worktree", Noon.AddHours(-1), Noon.AddMinutes(-2));
+        GivenCopilotSession("p1", @"D:\Repos\Backlog", "JSdotNet/Backlog", "main", Noon.AddHours(-3), Noon.AddHours(-2));
+
+        var catalog = await ReadAsync(new ClonesAt(("JSdotNet/Backlog", @"D:\Repos\Backlog")));
+
+        var claude = Assert.Single(catalog.Sessions, session => session.Kind == AgentSessionKind.Claude);
+        Assert.Null(claude.Repository);
+        Assert.Equal("JSdotNet/Backlog", claude.ResolvedRepository);
+
+        // Both fields, for a session whose agent did record one: the two answer
+        // different questions and the source never consults one to fill the other.
+        var copilot = Assert.Single(catalog.Sessions, session => session.Kind == AgentSessionKind.Copilot);
+        Assert.Equal("JSdotNet/Backlog", copilot.Repository);
+        Assert.Equal("JSdotNet/Backlog", copilot.ResolvedRepository);
+    }
+
+    [Fact]
+    public async Task A_session_outside_every_registered_clone_is_placed_nowhere()
+    {
+        GivenClaudeLiveSession("c1", @"C:\Users\someone\scratch", "scratch", Noon.AddHours(-1), Noon.AddMinutes(-2));
+
+        var session = Assert.Single((await ReadAsync(new ClonesAt(("JSdotNet/Backlog", @"D:\Repos\Backlog")))).Sessions);
+
+        Assert.Null(session.Repository);
+        Assert.Null(session.ResolvedRepository);
+    }
+
+    /// <summary>A head that composed no repository list composes no resolver, and
+    /// the reading is what it always was: nothing placed, nothing failed.</summary>
+    [Fact]
+    public async Task Without_a_resolver_nothing_is_placed()
+    {
+        GivenClaudeLiveSession("c1", @"D:\Repos\Backlog", "worktree", Noon.AddHours(-1), Noon.AddMinutes(-2));
+
+        var session = Assert.Single((await ReadAsync()).Sessions);
+
+        Assert.Null(session.ResolvedRepository);
+    }
+
+    /// <summary>
     /// A machine with only one of the two agents installed is the ordinary case, not
     /// a failure. An absent folder must not be reported as unreadable, or the pane
     /// would carry a permanent warning on every machine that has never run Copilot.
@@ -585,6 +634,104 @@ public sealed class AgentSessionSourceTests : IDisposable
         Assert.Single(catalog.Sessions);
         Assert.Equal(1, catalog.Discovered);
         Assert.False(catalog.Capped);
+    }
+
+    /// <summary>
+    /// The cap is the inventory's shape and not a count's. The Dashboard asked this
+    /// source with no horizon and counted what came back, and every machine with more
+    /// than a hundred sessions per agent in twelve weeks showed exactly 200 — the page
+    /// size, presented as a total. A reading since a horizon is everything inside it,
+    /// however many that is, and is not capped by the per-agent limit at all.
+    /// </summary>
+    [Fact]
+    public async Task A_reading_since_a_horizon_is_every_claude_session_inside_it_and_not_the_newest_hundred()
+    {
+        const int inside = AgentSessionLimits.PerAgent + 25;
+
+        for (var index = 0; index < inside; index++)
+        {
+            GivenClaudeTranscript("D--Repos-Backlog", $"session-{index:000}", @"D:\Repos\Backlog", "main", Noon.AddHours(-index));
+        }
+
+        // One the horizon excludes, so the reading is "since" and not "everything".
+        GivenClaudeTranscript("D--Repos-Backlog", "ancient", @"D:\Repos\Backlog", "main", Noon.AddDays(-30));
+
+        var catalog = await ReadAsync(AgentSessionQuery.Since(Noon.AddDays(-7)));
+
+        Assert.Equal(inside, catalog.Sessions.Count);
+        Assert.Equal(inside, catalog.Discovered);
+        Assert.False(catalog.Capped);
+        Assert.DoesNotContain(catalog.Sessions, session => session.Id == "ancient");
+    }
+
+    [Fact]
+    public async Task A_reading_since_a_horizon_is_every_copilot_session_inside_it_and_not_the_newest_hundred()
+    {
+        const int inside = AgentSessionLimits.PerAgent + 25;
+
+        for (var index = 0; index < inside; index++)
+        {
+            GivenCopilotSession(
+                $"copilot-{index:000}",
+                @"D:\Repos\Backlog",
+                "JSdotNet/Backlog",
+                "main",
+                Noon.AddDays(-2),
+                Noon.AddHours(-index),
+                descriptorWritten: Noon.AddHours(-index));
+        }
+
+        GivenCopilotSession(
+            "ancient",
+            @"D:\Repos\Backlog",
+            "JSdotNet/Backlog",
+            "main",
+            Noon.AddDays(-31),
+            Noon.AddDays(-30),
+            descriptorWritten: Noon.AddDays(-30));
+
+        var catalog = await ReadAsync(AgentSessionQuery.Since(Noon.AddDays(-7)));
+
+        Assert.Equal(inside, catalog.Sessions.Count);
+        Assert.Equal(inside, catalog.Discovered);
+        Assert.False(catalog.Capped);
+        Assert.DoesNotContain(catalog.Sessions, session => session.Id == "ancient");
+    }
+
+    /// <summary>A file's timestamp is the instant the horizon is decided on, and a
+    /// transcript written exactly at the horizon is inside it — a window's start is
+    /// closed, and a reading that excluded it would disagree with the surface's own
+    /// scoping by one session on the boundary.</summary>
+    [Fact]
+    public async Task A_transcript_written_exactly_at_the_horizon_is_inside_it()
+    {
+        var horizon = Noon.AddDays(-7);
+
+        GivenClaudeTranscript("D--Repos-Backlog", "on-the-edge", @"D:\Repos\Backlog", "main", horizon);
+        GivenClaudeTranscript("D--Repos-Backlog", "just-before", @"D:\Repos\Backlog", "main", horizon.AddSeconds(-1));
+
+        var catalog = await ReadAsync(AgentSessionQuery.Since(horizon));
+
+        var session = Assert.Single(catalog.Sessions);
+        Assert.Equal("on-the-edge", session.Id);
+    }
+
+    /// <summary>The parameterless read is the inventory's reading, exactly as before:
+    /// a caller that never learned about horizons gets the newest per agent.</summary>
+    [Fact]
+    public async Task The_parameterless_read_is_the_newest_per_agent()
+    {
+        for (var index = 0; index < AgentSessionLimits.PerAgent + 1; index++)
+        {
+            GivenClaudeTranscript("D--Repos-Backlog", $"session-{index:000}", @"D:\Repos\Backlog", "main", Noon.AddMinutes(-index));
+        }
+
+        var plain = await ReadAsync();
+        var newest = await ReadAsync(AgentSessionQuery.Newest);
+
+        Assert.Equal(AgentSessionLimits.PerAgent, plain.Sessions.Count);
+        Assert.Equal(plain.Sessions.Select(session => session.Id), newest.Sessions.Select(session => session.Id));
+        Assert.True(plain.Capped);
     }
 
     /// <summary>
@@ -1019,6 +1166,25 @@ public sealed class AgentSessionSourceTests : IDisposable
     private Task<AgentSessionCatalog> ReadAsync() =>
         new LocalAgentSessionSource(ClaudeHome, CopilotHome, MachineId, Machine, new FixedClock(Noon))
             .GetSessionsAsync();
+
+    private Task<AgentSessionCatalog> ReadAsync(AgentSessionQuery query) =>
+        new LocalAgentSessionSource(ClaudeHome, CopilotHome, MachineId, Machine, new FixedClock(Noon))
+            .GetSessionsAsync(query);
+
+    private Task<AgentSessionCatalog> ReadAsync(ISessionRepositoryResolver repositories) =>
+        new LocalAgentSessionSource(ClaudeHome, CopilotHome, MachineId, Machine, new FixedClock(Noon), facts: null, repositories)
+            .GetSessionsAsync();
+
+    /// <summary>The port answered from a fixed list of clones, through the same
+    /// containment rule the settings adapter uses — that rule has its own tests,
+    /// and this pins that the source asks and stamps.</summary>
+    private sealed class ClonesAt(params (string Repository, string Folder)[] clones) : ISessionRepositoryResolver
+    {
+        public string? RepositoryOf(string workingFolder) =>
+            RegisteredClones.RepositoryContaining(
+                workingFolder,
+                clones.Select(clone => new RegisteredClone(clone.Repository, clone.Folder)));
+    }
 
     private void GivenClaudeLiveSession(
         string id,

@@ -69,8 +69,16 @@ public sealed class SessionInsights(
     /// twelve weeks once means moving the period control derives again rather than reads
     /// again, exactly as moving the machine filter already does. It costs one longer read
     /// on a refresh and buys a scope change that never touches the disk.
+    /// <para>
+    /// Both sources are read back to it, the session list included. That list used to be
+    /// read with no horizon at all and came back in the inventory's shape — the newest
+    /// hundred per assistant — so every machine's count was the page size. The Sessions
+    /// context promises to keep records this far back (<c>AgentSessionLimits.History</c>,
+    /// which this module may not name); a horizon longer than that would come back
+    /// capped, and a period control offering more than twelve weeks has to move both.
+    /// </para>
     /// </summary>
-    private static readonly TimeSpan Horizon = TimeSpan.FromDays(7 * 12);
+    private static TimeSpan Horizon => DashboardScope.Horizon;
 
     private readonly InsightCache _cache = new();
 
@@ -120,11 +128,13 @@ public sealed class SessionInsights(
 
         if (!availability.IsAvailable) return new Reading(availability, null, AssistantActivityReport.Empty);
 
-        var report = await sessions.GetSessionsAsync(cancellationToken).ConfigureAwait(false);
+        // One instant for both reads, so the session list and the activity log are the
+        // same twelve weeks rather than two windows a tick apart.
+        var since = time.GetUtcNow() - Horizon;
 
-        var log = await activity
-            .GetActivityAsync(time.GetUtcNow() - Horizon, cancellationToken)
-            .ConfigureAwait(false);
+        var report = await sessions.GetSessionsAsync(since, cancellationToken).ConfigureAwait(false);
+
+        var log = await activity.GetActivityAsync(since, cancellationToken).ConfigureAwait(false);
 
         return new Reading(availability, report, log);
     }
@@ -220,7 +230,6 @@ public sealed class SessionInsights(
             scoped.Count == 0 ? null : scoped.Max(session => session.LastActivityAt),
             scoped.Count(session => !recorded.Contains(session.Id)),
             report.Capped,
-            report.CapPerAssistant,
             report.Unreadable,
             Breakdown(scoped, scopedActivity, scope, from, to, zone))
         {

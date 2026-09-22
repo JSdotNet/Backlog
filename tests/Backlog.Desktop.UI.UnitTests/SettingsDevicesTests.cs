@@ -1300,6 +1300,9 @@ public sealed class SettingsDevicesTests
     /// to send and the reported count is a number a test can name.</summary>
     private sealed class OneSessionSource : IAgentSessionSource
     {
+        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) =>
+            GetSessionsAsync(cancellationToken);
+
         public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(new AgentSessionCatalog(
                 [

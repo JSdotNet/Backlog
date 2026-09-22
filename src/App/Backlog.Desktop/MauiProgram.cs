@@ -29,6 +29,8 @@ using Backlog.Modules.Dashboard.Extensions;
 using Backlog.Modules.Dashboard.UI.Extensions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sessions.UI.Extensions;
+using Backlog.Modules.Roadmap.UI;
+using Backlog.Modules.DevPc.UI;
 using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Capture.Extensions;
 using Backlog.Infrastructure.Claude;
@@ -158,6 +160,10 @@ public static class MauiProgram
         builder.Services.AddSingleton<IRoadmapPlanRepository>(sp =>
             new RootedSqliteRoadmapPlanRepository(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
         builder.Services.AddRoadmapModule();
+        // The plan behind the shell's Ask AI port, after the module so the scoped
+        // planning port it holds exists. The other areas register theirs beside
+        // their own state below; the Roadmap has no state, only the port.
+        builder.Services.AddRoadmapAiContentSource();
 
         // The same arrangement for capture: the module brings the run, and the host
         // decides where the monitored sources are kept — its own per-user file
@@ -226,6 +232,7 @@ public static class MauiProgram
             credentials: sp.GetRequiredService<IGitHubCredentialResolver>(),
             accounts: sp.GetRequiredService<IGhCliAccountSource>()));
         builder.Services.AddSingleton<IGitHubConnectionProbe>(sp => sp.GetRequiredService<ResolvingGitHubTransport>());
+        builder.Services.AddSingleton<IGitHubAccountProbe>(sp => sp.GetRequiredService<ResolvingGitHubTransport>());
         // The catalog is the shell's product copy; the store is the adapter that
         // remembers the choices. Composing the two is the host's job.
         builder.Services.AddSingleton<IAppFeatureSettings>(_ => new AppFeatureSettingsStore(AppFeatures.All));
@@ -351,6 +358,7 @@ public static class MauiProgram
         // "usage-metrics" feature decides whether anything asks it.
         builder.Services.AddSingleton<ClaudeSettingsStore>();
         builder.Services.AddHttpClient<IClaudeTransport, ClaudeAdminTransport>();
+        builder.Services.AddSingleton<IClaudeAccountProbe>(sp => new ClaudeAccountProbe(sp.GetRequiredService<IClaudeTransport>()));
         builder.Services.AddSingleton<IClaudeUsageClient>(sp => new ClaudeUsageClient(
             sp.GetRequiredService<IClaudeTransport>(),
             sp.GetRequiredService<ClaudeSettingsStore>()));
@@ -399,15 +407,22 @@ public static class MauiProgram
         // installed — is the host's to know, which is why the library only asks.
         builder.Services.AddSingleton<IDiagramArtifactSource, ArchifyDiagramArtifacts>();
         builder.Services.AddSingleton<DevbookScope>();
+        // The open-chapter mirror the pane writes and the Ask AI source that pins
+        // from it, after the search and folder ports above that the source holds.
+        builder.Services.AddDevbookAiContentSource();
         builder.Services.AddSingleton<DevbookUpdateService>();
 
         // Shared by the Devbook pane and the settings screen, and a singleton so
         // the branch list somebody fetched in one is already there in the other.
         builder.Services.AddSingleton<DevbookSourceSelection>();
         builder.Services.AddSingleton<TasksDesktopState>();
+        // The backlog behind the shell's Ask AI port, beside the state it reads.
+        builder.Services.AddTasksAiContentSource();
         // The Inbox pane's state, on the same terms as TasksDesktopState: one
         // window, one user, one object that outlives the page it is drawn on.
         builder.Services.AddSingleton<InboxDesktopState>();
+        // The Inbox behind the shell's Ask AI port, beside the state it reads.
+        builder.Services.AddInboxAiContentSource();
         // The band under every route reads the backlog's save state through the
         // library's own interface rather than reaching for the state class, so the
         // shell's footer never learns which module is the interesting one. Same
@@ -443,6 +458,8 @@ public static class MauiProgram
         builder.Services.AddSingleton<IDevToolService>(sp => new DevToolService(
             sp.GetRequiredService<ITaskStore>(),
             sp.GetService<ILogger<DevToolService>>()));
+        // The tool catalog behind the shell's Ask AI port, beside the port it reads.
+        builder.Services.AddToolsAiContentSource();
 
         // The session list reads the two agents' own folders in the profile of
         // whoever is signed in, so unlike the tool service above there is nothing
@@ -477,6 +494,13 @@ public static class MauiProgram
         // the session list reads. Same folder, same reasons, forgotten together.
         builder.Services.AddSingleton<ITranscriptFactsCache>(sp => new TranscriptFactsCache(
             () => sp.GetRequiredService<WorkspaceSettingsStore>().SessionActivityCacheDirectory));
+        // Which registered clone a session's working folder lies inside, read off
+        // the same repository list the Repositories screen writes. The session
+        // readers stamp the answer on each local session so a header scoped to one
+        // repository can hold the Claude sessions running in its clone — Claude
+        // records none itself.
+        builder.Services.AddSingleton<ISessionRepositoryResolver>(sp =>
+            new SettingsSessionRepositoryResolver(sp.GetRequiredService<GitHubSettingsStore>()));
 
         // When those sessions were actually producing, read out of the bodies of the
         // transcripts the call above only stats. A separate call because it is a

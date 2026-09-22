@@ -9,11 +9,12 @@ namespace Backlog.Infrastructure.Sync.Sessions;
 /// sync state.
 /// <para>
 /// Beside the progress rather than inside it: the cursor is saved after every
-/// page and is two scalars, while this is up to
+/// page and is two scalars, while this is the newest
 /// <see cref="ReplicatedSessionLimits.PerEnvironmentPerAgent"/> records per
-/// environment per agent. Writing the whole cache every time a cursor moved would
-/// be work done to change nothing, and the two have different reasons to be
-/// unreadable.
+/// environment per agent plus every record inside
+/// <see cref="ReplicatedSessionLimits.History"/>. Writing the whole cache every
+/// time a cursor moved would be work done to change nothing, and the two have
+/// different reasons to be unreadable.
 /// </para>
 /// <para>
 /// Plaintext, like both stores beside it, because nothing in it is a secret —
@@ -51,12 +52,18 @@ public sealed class FileReplicatedSessionStore : IReplicatedSessionStore
     private readonly Lock _gate = new();
 
     private readonly string _path;
+    private readonly TimeProvider _time;
 
-    public FileReplicatedSessionStore(string path)
+    /// <summary>The clock is what the retention is measured against: a record is
+    /// kept while its activity is inside <see cref="ReplicatedSessionLimits.History"/>
+    /// of now, and a store with no notion of now could only keep by count.</summary>
+    public FileReplicatedSessionStore(string path, TimeProvider time)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        ArgumentNullException.ThrowIfNull(time);
 
         _path = path;
+        _time = time;
 
         var directory = Path.GetDirectoryName(path);
         if (!string.IsNullOrWhiteSpace(directory))
@@ -81,7 +88,7 @@ public sealed class FileReplicatedSessionStore : IReplicatedSessionStore
 
         lock (_gate)
         {
-            var merged = Merge(Current, entries);
+            var merged = Merge(Current, entries, _time.GetUtcNow());
 
             // Written before adopted, for the reason the two stores beside this
             // one use that order: a write that fails throws and leaves Current as
@@ -97,11 +104,15 @@ public sealed class FileReplicatedSessionStore : IReplicatedSessionStore
 
     /// <summary>
     /// The held set with a page folded into it: newer readings replace older ones
-    /// for the same session, and each environment's each agent is cut back to the
-    /// cap.
+    /// for the same session, and each environment's each agent is cut back to what
+    /// <see cref="ReplicatedSessionLimits"/> retains — the newest
+    /// <see cref="ReplicatedSessionLimits.PerEnvironmentPerAgent"/>, and everything
+    /// active inside <see cref="ReplicatedSessionLimits.History"/> of <paramref name="now"/>
+    /// whether or not it is among them.
     /// <para>
     /// Static and pure so the merge — which is where a record is silently lost or
-    /// silently duplicated — can be asserted without a directory.
+    /// silently duplicated — can be asserted without a directory; the instant it
+    /// measures the history against arrives as a parameter for the same reason.
     /// </para>
     /// <para>
     /// A later reading of a session replaces an earlier one on
@@ -113,7 +124,10 @@ public sealed class FileReplicatedSessionStore : IReplicatedSessionStore
     /// single-writer, so this is an ordering question and never a conflict.
     /// </para>
     /// </summary>
-    internal static ReplicatedSessions Merge(ReplicatedSessions current, IReadOnlyList<SessionRecordEntry> arriving)
+    internal static ReplicatedSessions Merge(
+        ReplicatedSessions current,
+        IReadOnlyList<SessionRecordEntry> arriving,
+        DateTimeOffset now)
     {
         var byIdentity = new Dictionary<(Guid Machine, string Agent, string Session), SessionRecordEntry>();
 
@@ -129,6 +143,7 @@ public sealed class FileReplicatedSessionStore : IReplicatedSessionStore
 
         var kept = new List<SessionRecordEntry>();
         var dropped = 0;
+        var horizon = now - ReplicatedSessionLimits.History;
 
         foreach (var group in byIdentity.Values.GroupBy(entry => (entry.MachineId, entry.Record.AgentKind)))
         {
@@ -136,8 +151,17 @@ public sealed class FileReplicatedSessionStore : IReplicatedSessionStore
                 .OrderByDescending(entry => entry.Record.LastActivityAt)
                 .ToList();
 
-            kept.AddRange(ordered.Take(ReplicatedSessionLimits.PerEnvironmentPerAgent));
-            dropped += Math.Max(0, ordered.Count - ReplicatedSessionLimits.PerEnvironmentPerAgent);
+            // Ordered newest first, so everything inside the history is a prefix of
+            // the list and the cap only ever cuts into what lies beyond it. The
+            // retained set is therefore the longer of the two: the newest N, or the
+            // history when more than N sessions fall inside it — which is the case a
+            // count over the window must not be answered short for.
+            var retained = Math.Max(
+                ReplicatedSessionLimits.PerEnvironmentPerAgent,
+                ordered.Count(entry => entry.Record.LastActivityAt >= horizon));
+
+            kept.AddRange(ordered.Take(retained));
+            dropped += Math.Max(0, ordered.Count - retained);
         }
 
         return new ReplicatedSessions(

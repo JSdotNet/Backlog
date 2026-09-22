@@ -225,7 +225,7 @@ aliases: [AgentSessionLimits, PerAgent]
 related: [.domain/sessions/features.md#say-how-much-was-left-out]
 ```
 
-How many sessions per agent a reading will describe.
+How many sessions per agent a reading for a list will describe.
 
 Per agent, not overall. An environment can hold hundreds of records and the agents do
 not hold them in equal numbers — so a single overall limit would be filled by whichever
@@ -233,7 +233,27 @@ agent kept more history, and would quietly empty a list whose purpose is showing
 
 A limit on how much is described, never a claim about how much exists: the number
 discovered travels back beside the sessions, and a reading that dropped anything says
-so.
+so. It applies to the list's reading only; a reading since a horizon
+(`#session-history`) has no limit.
+
+## Session History
+
+```meta
+type: term
+status: active
+aliases: [AgentSessionLimits.History, ReplicatedSessionLimits.History, AgentSessionQuery.Since]
+related: [.domain/sessions/features.md#say-how-much-was-left-out, #session-limit]
+```
+
+How far back a reading since a horizon is promised to reach on every source: twelve
+weeks, the longest period the Dashboard offers.
+
+A reading since a horizon describes every session active at or after it, however
+many, so a consumer that counts is never handed the session limit as its total. The
+promise is what a source that keeps another environment's records has to keep them
+for — the newest sessions up to the limit, and everything inside the history whether
+or not it is among them — because a fleet count is only as complete as the least
+complete store behind it.
 
 ## Reporting Capability
 

@@ -399,6 +399,9 @@ public sealed class InboxAddPersistsAnItemTests
         context.Services.AddSingleton<IFolderEditorLauncher, UnsupportedFolderEditorLauncher>();
         context.Services.AddSingleton<DevbookFolderOpenService>();
         context.Services.AddSingleton<DevbookScope>();
+        // The pane publishes its open chapter here for the Ask AI source; a pane
+        // rendered without it would fail on inject, as the application hosts would.
+        context.Services.AddScoped<DevbookOpenChapter>();
         context.Services.AddSingleton<DevbookUpdateService>();
         context.Services.AddSingleton<IGitHubBranchCatalog>(new StubBranchCatalog());
         context.Services.AddSingleton<DevbookSourceSelection>();
@@ -453,6 +456,9 @@ public sealed class InboxAddPersistsAnItemTests
 
     private sealed class EmptySessionSource : IAgentSessionSource
     {
+        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) =>
+            GetSessionsAsync(cancellationToken);
+
         public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(AgentSessionCatalog.Empty);
     }

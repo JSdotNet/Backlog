@@ -66,15 +66,22 @@ internal sealed class CompositeAgentSessionSource : IAgentSessionSource
     /// the one thing worth seeing.
     /// </para>
     /// </summary>
-    public async Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default)
+    public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
+        GetSessionsAsync(AgentSessionQuery.Newest, cancellationToken);
+
+    public async Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(query);
+
         var sessions = new List<AgentSession>();
         var unreadable = new List<string>();
         var discovered = 0;
 
         foreach (var source in _sources)
         {
-            var catalog = await source.GetSessionsAsync(cancellationToken).ConfigureAwait(false);
+            // The same query to every source, so a horizon reading is a horizon
+            // reading of the fleet and not of whichever source happened to be first.
+            var catalog = await source.GetSessionsAsync(query, cancellationToken).ConfigureAwait(false);
 
             sessions.AddRange(catalog.Sessions);
             discovered += catalog.Discovered;

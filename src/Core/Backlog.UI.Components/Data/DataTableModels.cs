@@ -26,5 +26,14 @@ public sealed record DataTableColumn(string Header, string? CssClass = null);
 /// component that re-sorted what it was handed would quietly disagree with the
 /// control the reader used to ask for that order.
 /// </para>
+/// <para>
+/// <c>Key</c> is what makes a section one section, where that is not its name.
+/// Two sections may share a name and still be two — two machines called the same
+/// thing are the standing example — and a table that keyed on the name alone
+/// would hand Blazor two siblings with one key and take the surface down. Null
+/// means the name is the key, which is what it is for every table that groups by
+/// a label; a caller that groups by an identity and labels by a name supplies the
+/// identity here.
+/// </para>
 /// </summary>
-public sealed record DataTableSection<TItem>(string? Name, IReadOnlyList<TItem> Items);
+public sealed record DataTableSection<TItem>(string? Name, IReadOnlyList<TItem> Items, string? Key = null);

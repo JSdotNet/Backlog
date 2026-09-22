@@ -1975,6 +1975,37 @@ h1, h2, h3 {
 .setting__status--error { color: var(--color-error-text); }
 .setting__status--ok { color: var(--color-success-text); }
 
+/* What a vendor said when an account was tested, one line per question. The
+   outcome is a word in the subject's colour and a data attribute, never a
+   coloured bar: a skipped line is the same grey as the note it sits under. */
+.setting__check {
+    list-style: none;
+    margin: 0 0 var(--spacing-sm) 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    font-size: var(--font-size-sm);
+}
+
+.setting__check-step {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 0.35em;
+}
+
+.setting__check-subject {
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-secondary);
+}
+
+.setting__check-subject::after { content: ":"; }
+
+.setting__check-step--passed .setting__check-subject { color: var(--color-success-text); }
+.setting__check-step--failed .setting__check-subject,
+.setting__check-step--failed .setting__check-detail { color: var(--color-error-text); }
+.setting__check-step--skipped .setting__check-detail { color: var(--color-text-secondary); }
+
 /* The concrete sync-folder warning, at the weight .app-error-message carries but
    in warning rather than error colours: the folder is a hazard the reader chose
    and may keep, not a value the app refused.
@@ -2807,6 +2838,19 @@ h1, h2, h3 {
 .ai-panel__settings {
     color: var(--color-text-link);
     font-size: var(--font-size-sm);
+}
+
+/* The scope chips: one per open area, the reader's choice of which content
+   answers. The shared ButtonGroup with the same chip classes the header's
+   repository scope wears, so the two rows of chips read as the same kind of
+   control - a pressed set - and neither grows a look of its own. Wrapping,
+   because seven areas can be open at once on a wide window and the panel is
+   not. */
+.ai-panel__scope {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    margin: var(--spacing-sm) 0 var(--spacing-xs);
 }
 
 .ai-panel__body,
@@ -4854,6 +4898,15 @@ h1, h2, h3 {
    falling off the right edge of the table. */
 .sessions-table__repository {
     max-width: 12rem;
+}
+
+/* A repository the product placed the session in — its working folder lies inside
+   a registered clone — rather than one the agent recorded. The cell's title says so
+   in words; this is the glance-level hint, a leading approximation glyph, so a
+   resolved value never reads as a recorded one. Colour stays the identity hue's. */
+.sessions-table__repository--resolved::before {
+    content: "≈ ";
+    color: var(--color-text-secondary);
 }
 
 .sessions-table__branch {

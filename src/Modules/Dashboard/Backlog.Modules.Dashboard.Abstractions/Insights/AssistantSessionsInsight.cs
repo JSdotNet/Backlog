@@ -93,10 +93,9 @@ public sealed record AssistantSessionRow(
 /// meaning carried over; it did not.
 /// </para>
 /// </param>
-/// <param name="Capped">Whether the source stopped short of everything it holds.</param>
-/// <param name="CapPerAssistant">How many sessions per assistant the source stopped at,
-/// so the sentence admitting the cap can name the number instead of the surface keeping
-/// a copy of it.</param>
+/// <param name="Capped">Whether the source could not reach as far back as the window
+/// asked. Not "the newest N per assistant were read": the read is a horizon read, and
+/// the sentence that named a per-assistant number went with the cap it described.</param>
 /// <param name="Unreadable">The sources that could not be read, by name.</param>
 /// <param name="Breakdown">Per machine when every machine is in view, per assistant
 /// when one is focused. Ordered by sessions descending, then by name.</param>
@@ -106,7 +105,6 @@ public sealed record AssistantSessionsInsight(
     DateTimeOffset? LastActivityAt,
     int WithoutActivity,
     bool Capped,
-    int CapPerAssistant,
     IReadOnlyList<string> Unreadable,
     IReadOnlyList<AssistantSessionRow> Breakdown)
 {
@@ -386,13 +384,12 @@ public sealed record AssistantSessionsInsight(
 
     /// <summary>
     /// The gap that ends a run, as the source reported it. Carried so the footnote can
-    /// name the source's number rather than keeping a second copy of it —
-    /// <see cref="CapPerAssistant"/>'s precedent, and it matters more here: the answer
+    /// name the source's number rather than keeping a second copy of it: the answer
     /// moves under this constant, so a surface quoting a stale copy of it would be
     /// explaining one figure with another figure's threshold.
     /// </summary>
     public TimeSpan IdleAfter { get; init; }
 
     public static AssistantSessionsInsight Empty { get; } =
-        new(0, TimeSpan.Zero, null, 0, false, 0, [], []) { SessionsPerWeek = [] };
+        new(0, TimeSpan.Zero, null, 0, false, [], []) { SessionsPerWeek = [] };
 }

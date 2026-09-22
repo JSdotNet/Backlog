@@ -90,33 +90,27 @@ public sealed record AssistantSession(
 /// <param name="Unreadable">The sources that could not be read, by name, so the
 /// surface can say which half of the picture is missing rather than presenting the
 /// other half as the whole.</param>
-/// <param name="Capped">True when the source stopped short of everything it holds, so
-/// every figure derived from it is a floor rather than a total.</param>
-/// <param name="CapPerAssistant">
-/// How many sessions per assistant the source will describe at most. Carried rather than
-/// known, because the cap is the source's and a surface that hard-coded the same number
-/// would be a second copy of it free to drift — the sentence on screen says "the newest
-/// N", and N has to be whatever the source actually stopped at.
-/// </param>
+/// <param name="Capped">True when the source could not reach as far back as it was
+/// asked, so every figure derived from it is a floor rather than a total.</param>
 public sealed record AssistantSessionReport(
     IReadOnlyList<AssistantSession> Sessions,
     IReadOnlyList<string> Unreadable,
-    bool Capped,
-    int CapPerAssistant)
+    bool Capped)
 {
-    public static AssistantSessionReport Empty { get; } = new([], [], false, 0);
+    public static AssistantSessionReport Empty { get; } = new([], [], false);
 }
 
 /// <summary>
 /// PORT — the assistant sessions this installation can account for.
 /// <para>
-/// No window and no machine in the signature, unlike <see cref="IActivitySource"/>,
-/// and that is a fact about the source rather than an omission. This one is a local
-/// read that already returns everything it will ever return — capped per assistant,
-/// which it says — so a window parameter would be a narrowing the source would have to
-/// implement twice: once here and once in the module, where the scoping actually has
-/// to happen anyway. Scoping is the module's pure derivation over one report, which is
-/// also what makes changing the machine or the window cost no read at all.
+/// A horizon and no machine in the signature, on <see cref="IAssistantActivitySource"/>'s
+/// pattern. The horizon is the source's business because it decides what the source
+/// reads at all: without one the Sessions context answers with its inventory, which is
+/// the newest hundred per assistant, and a count over that list is a page size wearing a
+/// total's clothes — 200 on every machine, which is what this part showed. The machine
+/// stays out of it for the reason the activity port gives: the module's scoping is a
+/// pure derivation over one report, which is what makes moving the machine filter or the
+/// period control cost no read at all.
 /// </para>
 /// <para>
 /// Nothing in this contract names a Sessions type. The adapter that answers it may see
@@ -128,6 +122,8 @@ public interface IAssistantSessionSource
     /// <summary>Whether this source can answer, and why not when it cannot.</summary>
     Task<InsightAvailability> GetAvailabilityAsync(CancellationToken cancellationToken = default);
 
-    /// <summary>Everything the source has, in one read.</summary>
-    Task<AssistantSessionReport> GetSessionsAsync(CancellationToken cancellationToken = default);
+    /// <summary>Every session whose last activity is at or after <paramref name="since"/>,
+    /// in one read. Uncapped inside the horizon; <see cref="AssistantSessionReport.Capped"/>
+    /// says when the source could not reach that far.</summary>
+    Task<AssistantSessionReport> GetSessionsAsync(DateTimeOffset since, CancellationToken cancellationToken = default);
 }

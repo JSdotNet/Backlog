@@ -391,6 +391,51 @@ public class SessionInsightsTests
     }
 
     /// <summary>
+    /// A machine this installation never ran anything on gets a measured row, not a
+    /// row of zeros. Its sessions and its activity both arrived over sync, and the two
+    /// sources stamp them independently — the session with the name its record carried,
+    /// the activity with whatever name travelled beside the intervals — so the join has
+    /// to be on the machine id and on nothing else. A breakdown that joined on the name,
+    /// or that only measured machines the activity source had folded locally, would
+    /// show the remote machine as having done nothing all week.
+    /// </summary>
+    [Fact]
+    public async Task A_remote_machines_row_is_measured_from_activity_joined_on_its_id()
+    {
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(
+                    Session(Tower, "Claude", Now.AddHours(-3), Now.AddHours(-1), "mine"),
+                    Session(Laptop, "DEV-LAPTOP", "Claude", Now.AddHours(-3), Now, "theirs"))
+            },
+            Activity(
+                RanAndWaited("mine", Tower, "Claude", [(Now.AddHours(-3), Now.AddHours(-1))], []),
+                // The same id under a different label: the name that travelled with the
+                // intervals, which nothing here may key on.
+                new AssistantActivitySession(
+                    "theirs",
+                    Laptop,
+                    "Kitchen laptop",
+                    "Claude",
+                    [Interval((Now.AddHours(-3), Now.AddHours(-1)))],
+                    [Interval((Now.AddHours(-1), Now))])));
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        var remote = Row(value, "DEV-LAPTOP");
+
+        Assert.Equal(Laptop, remote.Key);
+        Assert.Equal(1, remote.Sessions);
+        Assert.Equal(TimeSpan.FromHours(2), remote.ActiveTime);
+        Assert.Equal(TimeSpan.FromHours(1), remote.Waiting);
+
+        // And nothing of the remote machine's leaked into the local one's row.
+        Assert.Equal(TimeSpan.FromHours(2), Row(value, "DEV-TOWER").ActiveTime);
+        Assert.Equal(TimeSpan.Zero, Row(value, "DEV-TOWER").Waiting);
+    }
+
+    /// <summary>
     /// Two machines called the same thing are two machines, and the breakdown has to be
     /// able to say so twice. The rows carry one label and two keys — anything that keyed
     /// them on the label would either merge two machines' figures or, in a table, hand
@@ -696,18 +741,63 @@ public class SessionInsightsTests
             Report = new AssistantSessionReport(
                 [Session(Tower, "Claude", Now.AddHours(-3), Now.AddHours(-1))],
                 ["Copilot"],
-                Capped: true,
-                CapPerAssistant: 100)
+                Capped: true)
         });
 
         var value = await ValueOf(insights, DashboardScope.Default);
 
         Assert.True(value.Capped);
         Assert.Equal(["Copilot"], value.Unreadable);
+    }
 
-        // The number the sentence on screen names, carried from the source rather than
-        // kept as a second copy on the surface.
-        Assert.Equal(100, value.CapPerAssistant);
+    /// <summary>
+    /// The session list is asked back to the widest window, the same as the activity
+    /// log — and asked at all. It used to be read with no horizon, which the source
+    /// answered with its inventory: the newest hundred per assistant. A count over that
+    /// list is a page size, and every machine with more than a hundred sessions per
+    /// assistant in twelve weeks read "200". The horizon is what makes the read a
+    /// count's read rather than a list's.
+    /// </summary>
+    [Fact]
+    public async Task The_session_source_is_asked_for_the_same_widest_window_as_the_activity_source()
+    {
+        var source = new StubAssistantSessionSource();
+        var activity = new StubAssistantActivitySource();
+        var insights = Insights(source, activity);
+
+        _ = await insights.GetSessionsAsync(new DashboardScope(Period: DashboardPeriod.FourWeeks));
+
+        Assert.Equal(Now - DashboardScope.Horizon, Assert.Single(source.Horizons));
+        Assert.Equal(Assert.Single(activity.Horizons), Assert.Single(source.Horizons));
+    }
+
+    /// <summary>
+    /// And what comes back is counted whole. Two hundred and forty sessions inside the
+    /// window is two hundred and forty, not the hundred-per-assistant the old read
+    /// stopped at — the arithmetic here has no cap of its own to reintroduce.
+    /// </summary>
+    [Fact]
+    public async Task More_than_a_hundred_sessions_per_assistant_are_all_counted()
+    {
+        var sessions = Enumerable.Range(0, 240)
+            .Select(index => Session(
+                Tower,
+                index % 2 == 0 ? "Claude" : "Copilot",
+                Now.AddHours(-index - 1),
+                Now.AddHours(-index),
+                id: $"s{index}"))
+            .ToList();
+
+        var insights = Insights(new StubAssistantSessionSource
+        {
+            Report = new AssistantSessionReport(sessions, [], Capped: false)
+        });
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        Assert.Equal(240, value.Sessions);
+        Assert.Equal(240, Assert.Single(value.Breakdown).Sessions);
+        Assert.False(value.Capped);
     }
 
     /// <summary>
@@ -2563,7 +2653,7 @@ public class SessionInsightsTests
     }
 
     private static AssistantSessionReport Report(params AssistantSession[] sessions) =>
-        new(sessions, [], false, 100);
+        new(sessions, [], false);
 
     private static StubAssistantActivitySource Activity(params AssistantActivitySession[] sessions) =>
         new() { Report = new AssistantActivityReport(sessions, [], Now.AddDays(-7 * 12), TimeSpan.FromMinutes(5)) };
@@ -2690,9 +2780,15 @@ public class SessionInsightsTests
         /// wait honours the token, the way the real readers do between transcripts.</summary>
         public TaskCompletionSource? Gate { get; init; }
 
-        public async Task<AssistantSessionReport> GetSessionsAsync(CancellationToken cancellationToken = default)
+        /// <summary>The horizons this was asked for, on the activity stub's precedent:
+        /// the read being a horizon read is the whole of the fix for a count that used
+        /// to be a page size.</summary>
+        public List<DateTimeOffset> Horizons { get; } = [];
+
+        public async Task<AssistantSessionReport> GetSessionsAsync(DateTimeOffset since, CancellationToken cancellationToken = default)
         {
             Calls++;
+            Horizons.Add(since);
 
             if (Gate is not null)
             {

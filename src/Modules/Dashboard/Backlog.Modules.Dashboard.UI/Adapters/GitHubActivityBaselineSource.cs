@@ -15,6 +15,13 @@ namespace Backlog.Modules.Dashboard.UI.Adapters;
 /// other people — which is a different product.
 /// </para>
 /// <para>
+/// And resolved per repository, as that adapter does: the search queries carry
+/// <c>author:</c>, and a repository bound to a second account holds work authored
+/// by that account's login. So the repositories are grouped by the login they are
+/// worked as, the client is asked once per group, and the counts are summed — the
+/// record is still one person's, read under every name they work under.
+/// </para>
+/// <para>
 /// A repository that Settings no longer holds is skipped rather than failing the
 /// answer, on the same precedent: five repositories where one has been renamed
 /// should set the bar from the four that are still true. What the reader must not
@@ -49,39 +56,67 @@ internal sealed class GitHubActivityBaselineSource(
         // score drops its volume inputs instead of reading the reader as idle.
         if (string.IsNullOrWhiteSpace(login)) return ActivityBaseline.Empty;
 
-        var references = repositories
-            .Select(repository => settings.Current.Find(repository.Alias))
+        var current = settings.Current;
+
+        var byAuthor = repositories
+            .Select(repository => current.Find(repository.Alias))
             .OfType<GitHubRepositoryRef>()
+            .GroupBy(
+                reference => GitHubActivitySource.AuthorOf(current, reference, login),
+                StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        if (references.Count == 0) return ActivityBaseline.Empty;
+        if (byAuthor.Count == 0) return ActivityBaseline.Empty;
 
-        GitHubActivityBaseline answer;
-        try
+        IReadOnlyList<ActivityBlock> asked = [.. blocks.Select(block => new ActivityBlock(block.From, block.To))];
+
+        var merged = new int[blocks.Count];
+        var closed = new int[blocks.Count];
+        var complete = true;
+
+        // A group that refuses is left out and the answer marked incomplete, rather
+        // than emptying the record the other groups did set: that is the rule the
+        // client applies per query and the activity adapter per repository, and a
+        // rate limit on one account's searches should not take the volume score off
+        // the card for work read under another. What the reader must still not get
+        // is a bar quietly set from half the record, and the flag is what says so.
+        foreach (var group in byAuthor)
         {
-            answer = await baseline
-                .GetBaselineAsync(
-                    references,
-                    [.. blocks.Select(block => new ActivityBlock(block.From, block.To))],
-                    login,
-                    cancellationToken)
-                .ConfigureAwait(false);
-        }
-        catch (GitHubException)
-        {
-            return ActivityBaseline.Empty with { Complete = false };
-        }
-        catch (GitHubNotConfiguredException)
-        {
-            return ActivityBaseline.Empty with { Complete = false };
+            GitHubActivityBaseline answer;
+            try
+            {
+                answer = await baseline
+                    .GetBaselineAsync([.. group], asked, group.Key, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (GitHubException)
+            {
+                complete = false;
+                continue;
+            }
+            catch (GitHubNotConfiguredException)
+            {
+                complete = false;
+                continue;
+            }
+
+            complete &= answer.Complete;
+
+            // The client answers one row per block it was asked for, in order; an
+            // empty answer is the client's own "nothing to ask" and adds nothing.
+            for (var index = 0; index < answer.Blocks.Count && index < blocks.Count; index++)
+            {
+                merged[index] += answer.Blocks[index].MergedPullRequests;
+                closed[index] += answer.Blocks[index].ClosedIssues;
+            }
         }
 
         return new ActivityBaseline(
-            [.. answer.Blocks.Select(block => new ActivityVolume(
+            [.. blocks.Select((block, index) => new ActivityVolume(
                 block.From,
                 block.To,
-                block.MergedPullRequests,
-                block.ClosedIssues))],
-            answer.Complete);
+                merged[index],
+                closed[index]))],
+            complete);
     }
 }

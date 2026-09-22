@@ -101,6 +101,19 @@
         </div>
     </Story>
 
+    <Story Name="SetupSteps"
+           Description="A numbered checklist that ticks itself off. The host derives each step's Done from its own state - a field filled, a check passed - and the list draws it; nothing in it is clickable, because the thing to do is in the field beside it. An optional step is drawn as such and never reads as unfinished. Toggle the sample's fields to watch the ticks follow them."
+           Code="@SetupStepsCode">
+        <div class="sb-stack">
+            <SetupSteps AriaLabel="Setting up the account" TestId="setup-steps-sample" Steps="@SampleSteps" />
+            <div class="sb-row">
+                <AppButton Variant="ButtonVariant.None" OnClick="() => _keyPasted = !_keyPasted">@(_keyPasted ? "Forget the key" : "Paste a key")</AppButton>
+                <AppButton Variant="ButtonVariant.None" OnClick="() => _actorNamed = !_actorNamed">@(_actorNamed ? "Clear the account" : "Name the account")</AppButton>
+                <AppButton Variant="ButtonVariant.None" OnClick="() => _tested = !_tested" Disabled="@(!_keyPasted)">@(_tested ? "Reset the test" : "Test")</AppButton>
+            </div>
+        </div>
+    </Story>
+
     <Story Name="Spinner"
            Description="Three sizes; the label is what a screen reader hears."
            Code="@SpinnerCode">
@@ -205,8 +218,38 @@ Bars inside a table's own cells — the tools pane's placeholder — are the Dat
         new("interaction-guidelines.md#empty-loading-and-error-states", "What an empty, loading or failed surface shows."),
         new("accessibility.md#reduced-motion", "What the pulse and the spin do when motion is unwelcome."),
         new("accessibility.md#save-state-announcements", "What a save announces, and how often."),
-        new("color-scheme.md#semantic-soft-surface-tokens", "The tone each severity is drawn in.")
+        new("color-scheme.md#semantic-soft-surface-tokens", "The tone each severity is drawn in."),
+        new("accessibility.md#iconography-accessibility", "Why a tick glyph never carries done on its own.")
     ];
+
+    private bool _keyPasted;
+    private bool _actorNamed;
+    private bool _tested;
+
+    private SetupStep[] SampleSteps =>
+    [
+        new("Create an Admin API key and paste it below", _keyPasted,
+            "Only an organization admin can create one.",
+            "https://console.anthropic.com/settings/admin-keys", "Open the Console's Admin keys page"),
+        new("Enter the email your Claude Code use is attributed to", _actorNamed,
+            "The report is organization-wide; this is what narrows it to you."),
+        new("Narrow it to one workspace", false, Optional: true),
+        new("Test this account", _tested && _keyPasted)
+    ];
+
+    private const string SetupStepsCode = """
+        <SetupSteps AriaLabel="Setting up the account" Steps="@Steps" />
+
+        private SetupStep[] Steps =>
+        [
+            new("Create an Admin API key and paste it below", account.IsConfigured,
+                "Only an organization admin can create one.",
+                "https://console.anthropic.com/settings/admin-keys", "Open the Console's Admin keys page"),
+            new("Enter the email your Claude Code use is attributed to", account.Actor is not null),
+            new("Narrow it to one workspace", account.WorkspaceId is not null, Optional: true),
+            new("Test this account", lastCheck?.Passed == true)
+        ];
+        """;
 
     private static readonly SaveState[] SaveStates =
         [SaveState.Idle, SaveState.Saving, SaveState.Saved, SaveState.Failed];

@@ -126,6 +126,26 @@ public sealed record AgentSessionActivity(
     /// </para>
     /// </summary>
     public IReadOnlyList<AgentLimitHit> LimitHits { get; init; } = [];
+
+    /// <summary>
+    /// How this device came by the record. See <see cref="AgentSessionOrigin"/>; it
+    /// is stamped by the source that produced the record, exactly as
+    /// <see cref="AgentSession.Origin"/> is, and is the one field on here that does
+    /// not describe the session.
+    /// <para>
+    /// It exists for the same rule that field exists for: a record from another
+    /// environment is not this machine's to publish. The sync push reads activity
+    /// through the same merged port every screen does, and this is what lets it tell
+    /// a record it folded from a transcript on this disk from one that arrived over
+    /// the wire and would otherwise go straight back out under this machine's id.
+    /// </para>
+    /// <para>
+    /// An init property rather than a seventh parameter, on <see cref="AgentActivityLog.Subagents"/>'s
+    /// precedent: the fixture builders construct these positionally, and every
+    /// source that ever existed produced local records, so local is the default.
+    /// </para>
+    /// </summary>
+    public AgentSessionOrigin Origin { get; init; } = AgentSessionOrigin.Local;
 }
 
 /// <summary>

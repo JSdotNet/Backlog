@@ -27,6 +27,26 @@ public sealed record AzureFoundryPlanRequest(
 /// model wrapped it in, what comes back is what Tasks' import can read.</summary>
 public sealed record AzureFoundryPlanResponse(string PlanMarkdown);
 
+/// <summary>What "Test the connection" found: one sentence, and whether it is
+/// good news.</summary>
+public sealed record AzureFoundryCheck(bool Passed, string Summary);
+
+/// <summary>
+/// Answers "does this configuration reach a deployment that answers?" for the
+/// Settings card. The endpoint, the deployment, the API version and the key only
+/// prove themselves together, so the probe is one small completion over the
+/// route a question takes, and the answer is a sentence rather than a throw -
+/// the card has nowhere to put a throw.
+/// <para>
+/// Its own interface rather than a member of <see cref="IAzureFoundryChatClient"/>,
+/// which seven test doubles implement and none of them would want this on.
+/// </para>
+/// </summary>
+public interface IAzureFoundryConnectionProbe
+{
+    Task<AzureFoundryCheck> TestConnectionAsync(CancellationToken cancellationToken = default);
+}
+
 public interface IAzureFoundryChatClient
 {
     Task<AzureFoundryChatResponse> AskAsync(AzureFoundryChatRequest request, CancellationToken cancellationToken = default);
@@ -37,7 +57,7 @@ public interface IAzureFoundryChatClient
     Task<AzureFoundryPlanResponse> DraftPlanAsync(AzureFoundryPlanRequest request, CancellationToken cancellationToken = default);
 }
 
-public sealed class AzureFoundryChatClient(HttpClient httpClient, AzureFoundrySettingsStore settingsStore) : IAzureFoundryChatClient
+public sealed class AzureFoundryChatClient(HttpClient httpClient, AzureFoundrySettingsStore settingsStore) : IAzureFoundryChatClient, IAzureFoundryConnectionProbe
 {
     private const string SystemPrompt = "You answer questions about the supplied Backlog content. Use only the supplied content. If the content does not contain the answer, say you do not know from the content.";
 
@@ -122,6 +142,28 @@ public sealed class AzureFoundryChatClient(HttpClient httpClient, AzureFoundrySe
     /// fail to be one. Both calls go through here so they cannot drift on any of
     /// it; what they say differs only in the messages and in which Settings
     /// sentence a missing configuration points at.</summary>
+    /// <summary>The smallest completion that proves the whole configuration: a
+    /// model that answers at all answers this, and every way it can fail is
+    /// already a sentence <see cref="CompleteAsync"/> knows how to say.</summary>
+    public async Task<AzureFoundryCheck> TestConnectionAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await CompleteAsync(
+                "Configure Azure Foundry in Settings before testing the connection.",
+                [new ChatMessage("user", "Reply with the single word OK.")],
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (AzureFoundryException ex)
+        {
+            return new AzureFoundryCheck(false, ex.Message);
+        }
+
+        var settings = settingsStore.Current;
+        var host = Uri.TryCreate(settings.Endpoint, UriKind.Absolute, out var endpoint) ? endpoint.Host : settings.Endpoint;
+        return new AzureFoundryCheck(true, $"The deployment {settings.Deployment} at {host} answered.");
+    }
+
     private async Task<string> CompleteAsync(string notConfiguredMessage, IReadOnlyList<ChatMessage> messages, CancellationToken cancellationToken)
     {
         var settings = settingsStore.Current;

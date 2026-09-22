@@ -1,6 +1,7 @@
 using Backlog.Modules.Dashboard.Abstractions;
 using Backlog.Modules.Dashboard.Abstractions.Insights;
 using Backlog.Modules.Dashboard.Abstractions.Services;
+using Backlog.Modules.Dashboard.UI;
 using Backlog.SharedKernel;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -42,6 +43,11 @@ internal static class DashboardTestHost
         // nothing — the same reason the clock and the time zone are fixed.
         services.AddSingleton<IWorkingHoursSettings>(new FixedWorkingHours());
         services.AddSingleton<IUsageResetSettings>(new NoUsageReset());
+
+        // The pane publishes its scope here for the Ask AI source, and injects it
+        // hard the way the application hosts compose it. The source itself is
+        // not registered: a shell test decides for itself which areas answer.
+        services.AddScoped<DashboardScopeInView>();
 
         return services;
     }

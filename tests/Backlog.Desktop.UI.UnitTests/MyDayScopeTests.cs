@@ -70,18 +70,18 @@ public sealed class MyDayScopeTests
     }
 
     /// <summary>
-    /// The bar's two scopes sit together and are shaped alike, and no group of areas
+    /// The bar's scopes sit together and are shaped alike, and no group of areas
     /// sits between them and the tags any more.
     /// <para>
     /// Areas are still typed, still shown on rows and still the reader's own pile —
     /// what went is the chip group, on the grounds that the repository scope in the
     /// header was already answering the question people were asking it. "No repo" is
     /// the one part of that question the header could not answer, so it arrived here
-    /// as the areas left.
+    /// as the areas left. "Not waiting" is the third: readiness, asked as a scope.
     /// </para>
     /// </summary>
     [Fact]
-    public async Task The_scope_group_holds_both_scopes_and_the_bar_holds_no_areas()
+    public async Task The_scope_group_holds_every_scope_and_the_bar_holds_no_areas()
     {
         var (host, _, _, _) = await ThreeAsync();
         using var _host = host;
@@ -90,14 +90,18 @@ public sealed class MyDayScopeTests
 
         var scopes = pane.FindAll(".filter-group--scope .chip");
 
-        Assert.Equal(2, scopes.Count);
+        Assert.Equal(3, scopes.Count);
         Assert.Contains("My Day", scopes[0].TextContent, StringComparison.Ordinal);
         Assert.Contains("No repo", scopes[1].TextContent, StringComparison.Ordinal);
+        Assert.Contains("Not waiting", scopes[2].TextContent, StringComparison.Ordinal);
 
         // Same shape as My Day, for the same reason: a state of its own rather than
         // one of a set.
-        Assert.Equal("false", scopes[1].GetAttribute("aria-pressed"));
-        Assert.Null(scopes[1].GetAttribute("role"));
+        foreach (var scope in scopes.Skip(1))
+        {
+            Assert.Equal("false", scope.GetAttribute("aria-pressed"));
+            Assert.Null(scope.GetAttribute("role"));
+        }
 
         Assert.Empty(pane.FindAll(".filter-group--areas"));
         Assert.Empty(pane.FindAll("[data-testid='area-filter-option']"));
