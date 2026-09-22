@@ -16,6 +16,11 @@
          direction ModuleBoundaryTests allows and the one that keeps the setting
          out of a project the module may not see. -->
     <ProjectReference Include="..\..\Modules\Devbook\Backlog.Modules.Devbook.Abstractions\Backlog.Modules.Devbook.Abstractions.csproj" />
+    <!-- Sessions' published surface, in the same direction and for the same
+         reason: ISessionRepositoryResolver is that module's port, and the settings
+         store answers it (SettingsSessionRepositoryResolver) with the clone
+         directory each registered repository carries. -->
+    <ProjectReference Include="..\..\Modules\Sessions\Backlog.Modules.Sessions.Abstractions\Backlog.Modules.Sessions.Abstractions.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -222,6 +222,21 @@ the machine that read it. Absent there means "cannot be shown here", not "was
 never written down", and either way nothing on this side reconstructs one: the
 log fills no gap an agent left, and it fills none the boundary made either.
 
+Beside the recorded repository, and never in its place, the location may carry a
+**resolved repository** (as of 2026-09-22): the `owner/name` of the registered
+repository whose clone directory contains the working folder, on the environment
+that read the session. This is not the inference the paragraph above rules out. A
+path leaf is a guess about which of GitHub's several `Backlog`s a folder is a
+clone of; a registered clone directory is a fact the person stated on the
+Repositories screen, and a folder is either under it or not. It is still a fact
+about the reading environment's registrations rather than about the session,
+which is why it is a second field: the two fail differently, and a surface must
+be able to tell "the agent said" from "this product placed". It resolves on the
+environment that ran the session — the only one holding both the folder and the
+clone — travels with the record, and is held as it arrived everywhere else. Where
+no registered clone contains the folder it is absent, and absent still means
+only that.
+
 ### Activity Window
 
 ```meta

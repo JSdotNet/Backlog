@@ -43,24 +43,40 @@ namespace Backlog.Modules.Sessions.UI.Adapters;
 /// a name is not an identity. It is asked for once, at composition, because a machine
 /// is not renamed mid-session and the identity source reads once too.
 /// </para>
+/// <para>
+/// And every session is placed, where it can be, inside a registered clone:
+/// <see cref="AgentSession.ResolvedRepository"/> is stamped here, after the readers
+/// have answered, from the working folder each recorded and the clones this
+/// machine's Repositories screen knows. Here and not in the readers, because the
+/// readers report what the agents wrote and this is something the product adds;
+/// and here rather than on the surface, because only the machine that ran a
+/// session has both the folder and the clone, and the wire carries the answer
+/// from this source outward. With no resolver composed nothing is placed, which
+/// is the true answer on a head without a repository list.
+/// </para>
 /// </summary>
 internal sealed class LocalAgentSessionSource : IAgentSessionSource
 {
     private readonly ClaudeSessionReader _claude;
     private readonly CopilotSessionReader _copilot;
+    private readonly ISessionRepositoryResolver? _repositories;
 
     /// <summary>What a host composes: the two agents' own folders in the profile of
     /// whoever is signed in, this device's identity, the wall clock, and — when the
     /// host has one — the cache that spares the Claude reader a pass over every
     /// transcript it has already read.</summary>
-    internal LocalAgentSessionSource(IDeviceIdentitySource identity, ITranscriptFactsCache? facts = null)
+    internal LocalAgentSessionSource(
+        IDeviceIdentitySource identity,
+        ITranscriptFactsCache? facts = null,
+        ISessionRepositoryResolver? repositories = null)
         : this(
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude"),
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".copilot"),
             IdOf(identity),
             identity.Current.Name,
             TimeProvider.System,
-            facts)
+            facts,
+            repositories)
     {
     }
 
@@ -73,10 +89,12 @@ internal sealed class LocalAgentSessionSource : IAgentSessionSource
         string environmentId,
         string environment,
         TimeProvider clock,
-        ITranscriptFactsCache? facts = null)
+        ITranscriptFactsCache? facts = null,
+        ISessionRepositoryResolver? repositories = null)
     {
         _claude = new ClaudeSessionReader(claudeHome, environmentId, environment, clock, facts);
         _copilot = new CopilotSessionReader(copilotHome, environmentId, environment, clock);
+        _repositories = repositories;
     }
 
     /// <summary>The device id as this contract carries identifiers: a string, in the
@@ -105,11 +123,25 @@ internal sealed class LocalAgentSessionSource : IAgentSessionSource
         {
             var reading = await Collect(reader.Name, reader.Read, unreadable).ConfigureAwait(false);
 
-            sessions.AddRange(reading.Sessions);
+            sessions.AddRange(reading.Sessions.Select(Placed));
             discovered += reading.Discovered;
         }
 
         return new AgentSessionCatalog(sessions, unreadable, discovered);
+    }
+
+    /// <summary>
+    /// The session with its resolved repository, or the session as read when there
+    /// is no resolver or no clone contains its folder. The recorded repository is
+    /// never consulted and never touched: whether the agent named one has no
+    /// bearing on which clone the folder sits in, and a Copilot session gets both
+    /// fields for the same reason a Claude session gets one.
+    /// </summary>
+    private AgentSession Placed(AgentSession session)
+    {
+        var repository = _repositories?.RepositoryOf(session.WorkingFolder);
+
+        return repository is null ? session : session with { ResolvedRepository = repository };
     }
 
     private (string Name, Func<Task<SessionReading>> Read)[] Readers(AgentSessionQuery query, CancellationToken cancellationToken) =>

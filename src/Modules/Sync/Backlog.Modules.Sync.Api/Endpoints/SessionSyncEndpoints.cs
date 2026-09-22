@@ -155,6 +155,7 @@ internal static class SessionSyncEndpoints
                 ?? TooLong("agent kind", record.AgentKind, SyncRequestLimits.MaximumAgentKind)
                 ?? TooLong("machine name", record.MachineName, SyncRequestLimits.MaximumMachineName)
                 ?? TooLong("repository alias", record.RepositoryAlias, SyncRequestLimits.MaximumRepositoryAlias)
+                ?? TooLong("resolved repository alias", record.ResolvedRepositoryAlias, SyncRequestLimits.MaximumRepositoryAlias)
                 ?? TooLong("branch", record.Branch, SyncRequestLimits.MaximumBranch);
 
             if (refusal is not null)

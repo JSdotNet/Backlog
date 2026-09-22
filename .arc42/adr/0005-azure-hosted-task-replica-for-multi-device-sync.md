@@ -437,6 +437,7 @@ carries exactly this, and nothing else:
 | Last activity at | When it was last seen alive. |
 | Turn count | How many turns it has taken. |
 | Duration count | How long it has been running. |
+| Resolved repository alias | The repository the pushing machine placed the session in, from its working folder lying inside a registered clone — again the alias, never the folder. |
 
 **Never prompts, never tool output, never file contents.** That is the whole reason
 a session record can leave the machine at all: the record is metadata *about* work,
@@ -489,6 +490,31 @@ reading of it. Nothing here identifies anything by name.
 not move to accommodate a screen: each of the two had to be argued past it
 separately, and a field the receiving surface would merely find convenient is still
 a field that does not sync until this table says it does.
+
+**The table stands at eleven as of 2026-09-22.** The eleventh is the resolved
+repository alias, and it is argued here on the same terms as the two before it.
+
+- **Resolved repository alias, because Claude records no repository and a scope
+  needs one.** The header's repository scope reaches the session list, and it
+  admits a session by its recorded repository — which Claude never writes, in any
+  file, so a scoped list hid every Claude session on the machine, running ones
+  included. The reading device now places each local session inside a registered
+  clone where it can: the person registered a clone directory against an
+  `owner/name` on the Repositories screen, and a working folder is either under it
+  or not. That is a lookup against a fact the product holds, not the path-leaf
+  inference `.domain/sessions/domain.md#working-location` forbids — and it stays a
+  **second field** for exactly that chapter's reason: a recorded repository is a
+  fact about the session, a resolved one is a fact about the reading machine's
+  registrations, and a receiving machine cannot tell the two apart once they share
+  a slot. It travels because only the origin machine ever has both the folder and
+  the clone it lies under; a replicated record has no folder to resolve from, so
+  what its origin resolved is the only answer any other device can hold. What
+  leaves is the alias (or the `owner/name`), the same word the recorded field
+  travels as, and never the folder — the folder stays exactly as excluded as it
+  was. The service stores the field and indexes nothing on it; nothing queries by
+  it. A device that predates the field sends none and reads it back as null, and
+  a service that predates it drops the property on the floor, so the field is
+  carried end to end only once both sides have been deployed with it.
 
 ### Manual rank
 

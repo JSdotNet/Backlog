@@ -472,6 +472,13 @@ public static class MauiProgram
         // the session list reads. Same folder, same reasons, forgotten together.
         builder.Services.AddSingleton<ITranscriptFactsCache>(sp => new TranscriptFactsCache(
             () => sp.GetRequiredService<WorkspaceSettingsStore>().SessionActivityCacheDirectory));
+        // Which registered clone a session's working folder lies inside, read off
+        // the same repository list the Repositories screen writes. The session
+        // readers stamp the answer on each local session so a header scoped to one
+        // repository can hold the Claude sessions running in its clone — Claude
+        // records none itself.
+        builder.Services.AddSingleton<ISessionRepositoryResolver>(sp =>
+            new SettingsSessionRepositoryResolver(sp.GetRequiredService<GitHubSettingsStore>()));
 
         // When those sessions were actually producing, read out of the bodies of the
         // transcripts the call above only stats. A separate call because it is a

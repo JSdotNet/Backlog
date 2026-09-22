@@ -103,6 +103,18 @@ The alternative was inferring the missing repository from the working folder. A
 wrong repository attributed to a session renders exactly as convincingly as a right
 one, which is what makes inference the more expensive option.
 
+What a row may show in that cell instead, as of 2026-09-22, is the **resolved
+repository** — marked as resolved, with the cell's title saying in words that the
+agent recorded none and the folder was placed inside a registered clone. This is
+not the inference above: it is not read off the path but looked up against the
+clone directory the person registered (`.domain/sessions/domain.md#working-location`).
+A recorded repository always outranks it in the cell, and a session with neither
+still reads "not recorded". The repository scope in the shell's header admits a
+session by either — which is what makes a scoped list able to hold the Claude
+sessions running in that repository's clone — and its narrowing sentence names
+both terms, so a Claude session missing from a scoped list is understood as one
+outside every registered clone rather than as one that never ran.
+
 ### Sessions from another machine
 
 ```meta

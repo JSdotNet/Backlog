@@ -51,7 +51,7 @@ public class SessionDocumentTests
     [Fact]
     public void The_three_unknowable_fields_round_trip_as_null()
     {
-        var sparse = Record() with { RepositoryAlias = null, Branch = null, StartedAt = null };
+        var sparse = Record() with { RepositoryAlias = null, Branch = null, StartedAt = null, ResolvedRepositoryAlias = null };
 
         var entry = SessionDocumentFactory.ToEntry(SessionDocumentFactory.From(Scope, sparse));
 
@@ -59,6 +59,8 @@ public class SessionDocumentTests
         Assert.Null(entry.Record.RepositoryAlias);
         Assert.Null(entry.Record.Branch);
         Assert.Null(entry.Record.StartedAt);
+        // And the fourth, which every document written before 2026-09-22 lacks.
+        Assert.Null(entry.Record.ResolvedRepositoryAlias);
     }
 
     /// <summary>
@@ -100,10 +102,10 @@ public class SessionDocumentTests
 
     /// <summary>
     /// The whole whitelist, and nothing beside it. Written as a set comparison
-    /// rather than as ten assertions because the failure worth catching is the
-    /// eleventh property somebody adds — .arc42/adr/0005 §Session records says a
-    /// field not in its table does not sync, and a test that only checked the ten
-    /// were present would pass with a transcript path beside them.
+    /// rather than as eleven assertions because the failure worth catching is the
+    /// twelfth property somebody adds — .arc42/adr/0005 §Session records says a
+    /// field not in its table does not sync, and a test that only checked the
+    /// eleven were present would pass with a transcript path beside them.
     /// </summary>
     [Fact]
     public void The_document_carries_the_whitelist_and_nothing_else()
@@ -115,8 +117,8 @@ public class SessionDocumentTests
         Assert.Equal(
             new HashSet<string>(StringComparer.Ordinal)
             {
-                // The ten ADR 0005 permits...
-                "sessionId", "agentKind", "machineId", "machineName", "repositoryAlias",
+                // The eleven ADR 0005 permits...
+                "sessionId", "agentKind", "machineId", "machineName", "repositoryAlias", "resolvedRepositoryAlias",
                 "branch", "startedAt", "lastActivityAt", "turnCount", "durationSeconds",
 
                 // ...plus the owner, which is the partition rather than a fact
@@ -231,5 +233,6 @@ public class SessionDocumentTests
         StartedAt: new DateTimeOffset(2026, 9, 8, 9, 0, 0, TimeSpan.Zero),
         LastActivityAt: new DateTimeOffset(2026, 9, 8, 10, 30, 0, TimeSpan.Zero),
         TurnCount: 42,
-        DurationSeconds: 5_400);
+        DurationSeconds: 5_400,
+        ResolvedRepositoryAlias: "backlog");
 }

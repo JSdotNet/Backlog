@@ -115,8 +115,8 @@ public class SessionSyncEndpointTests : IDisposable
         Assert.Equal(9, arrived.Record.TurnCount);
     }
 
-    /// <summary>Exactly the ten whitelisted fields survive the round trip — nine
-    /// on the wire and the machine id the service stamps — and the three that can
+    /// <summary>Exactly the eleven whitelisted fields survive the round trip — ten
+    /// on the wire and the machine id the service stamps — and the four that can
     /// honestly be unknown come back as null rather than as blanks.</summary>
     [Fact]
     public async Task The_whole_whitelist_survives_the_round_trip()
@@ -130,6 +130,7 @@ public class SessionSyncEndpointTests : IDisposable
             RepositoryAlias = null,
             Branch = null,
             StartedAt = null,
+            ResolvedRepositoryAlias = null,
         });
 
         var page = await laptop.PullSessions();
@@ -141,6 +142,7 @@ public class SessionSyncEndpointTests : IDisposable
         Assert.Null(sparse.RepositoryAlias);
         Assert.Null(sparse.Branch);
         Assert.Null(sparse.StartedAt);
+        Assert.Null(sparse.ResolvedRepositoryAlias);
     }
 
     [Fact]
@@ -348,6 +350,7 @@ public class SessionSyncEndpointTests : IDisposable
     [InlineData("agent kind")]
     [InlineData("machine name")]
     [InlineData("repository alias")]
+    [InlineData("resolved repository alias")]
     [InlineData("branch")]
     public async Task A_record_longer_than_the_service_stores_is_refused(string field)
     {
@@ -504,6 +507,7 @@ public class SessionSyncEndpointTests : IDisposable
         "agent kind" => Session("s-1") with { AgentKind = Long(SyncRequestLimits.MaximumAgentKind) },
         "machine name" => Session("s-1") with { MachineName = Long(SyncRequestLimits.MaximumMachineName) },
         "repository alias" => Session("s-1") with { RepositoryAlias = Long(SyncRequestLimits.MaximumRepositoryAlias) },
+        "resolved repository alias" => Session("s-1") with { ResolvedRepositoryAlias = Long(SyncRequestLimits.MaximumRepositoryAlias) },
         "branch" => Session("s-1") with { Branch = Long(SyncRequestLimits.MaximumBranch) },
         _ => throw new ArgumentOutOfRangeException(nameof(field), field, "No bound by that name."),
     };
@@ -522,7 +526,8 @@ public class SessionSyncEndpointTests : IDisposable
         StartedAt: new DateTimeOffset(2026, 9, 8, 9, 0, 0, TimeSpan.Zero),
         LastActivityAt: new DateTimeOffset(2026, 9, 8, 10, 30, 0, TimeSpan.Zero),
         TurnCount: 42,
-        DurationSeconds: 5_400);
+        DurationSeconds: 5_400,
+        ResolvedRepositoryAlias: "backlog");
 
     private static string PullRoute(string since) =>
         $"{SyncRoutes.Absolute(SyncRoutes.Sessions)}?since={Uri.EscapeDataString(since)}";
