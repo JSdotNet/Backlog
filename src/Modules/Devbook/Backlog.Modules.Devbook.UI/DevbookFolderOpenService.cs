@@ -98,16 +98,7 @@ public sealed class DevbookFolderOpenService(IDevbookFolderSource source, IFolde
             : normalized;
     }
 
-    private static string FolderKey(string areaKey) => areaKey.ToLowerInvariant() switch
-    {
-        "domain" => ".domain",
-        "arc42" => ".arc42",
-        "tech" => ".tech",
-        "design" => ".design",
-        "ai" => ".ai",
-        "instructions" => "instructions",
-        _ => areaKey
-    };
+    private static string FolderKey(string areaKey) => DevbookAreaCatalog.FolderKey(areaKey);
 
     private static string AreaLabel(string areaKey) => areaKey.ToLowerInvariant() switch
     {

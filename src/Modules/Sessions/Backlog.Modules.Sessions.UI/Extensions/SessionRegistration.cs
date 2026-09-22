@@ -1,6 +1,7 @@
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sessions.UI.Adapters;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Ai;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Modules.Sessions.UI.Extensions;
@@ -97,6 +98,13 @@ public static class SessionRegistration
 
         services.AddSingleton<IAgentSessionSource>(sp =>
             new CompositeAgentSessionSource([.. sp.GetKeyedServices<IAgentSessionSource>(KeyedService.AnyKey)]));
+
+        // The shell's Ask AI port, answered from the merged catalog above and
+        // from nothing else — see SessionsAiContentSource for why the transcripts
+        // stay out. Scoped for consistency with the other areas' sources, which
+        // read per-circuit state; this one holds only the singleton port, so the
+        // lifetime costs one object per window.
+        services.AddScoped<IAiContentSource, SessionsAiContentSource>();
 
         return services;
     }

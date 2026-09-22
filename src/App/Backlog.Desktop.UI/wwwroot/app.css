@@ -2831,6 +2831,19 @@ h1, h2, h3 {
     font-size: var(--font-size-sm);
 }
 
+/* The scope chips: one per open area, the reader's choice of which content
+   answers. The shared ButtonGroup with the same chip classes the header's
+   repository scope wears, so the two rows of chips read as the same kind of
+   control - a pressed set - and neither grows a look of its own. Wrapping,
+   because seven areas can be open at once on a wide window and the panel is
+   not. */
+.ai-panel__scope {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    margin: var(--spacing-sm) 0 var(--spacing-xs);
+}
+
 .ai-panel__body,
 .ai-panel__answer p {
     color: var(--color-text-secondary);

@@ -172,6 +172,26 @@
     [Inject]
     private IMachineDirectory Machines { get; set; } = default!;
 
+    /// <summary>Where the pane tells the shell what it is looking at, so the Ask
+    /// AI source fetches for the same repositories and window the parts show.
+    /// Written through <see cref="Scope"/> and never read back: the field above
+    /// stays the pane's own, and closing the surface still forgets it.</summary>
+    [Inject]
+    private DashboardScopeInView ScopeInView { get; set; } = default!;
+
+    /// <summary>The one place the scope is assigned, so the mirror cannot fall
+    /// behind the field. Replaced rather than mutated, for the reason
+    /// <see cref="FocusMachine"/> gives.</summary>
+    private DashboardScope Scope
+    {
+        get => _scope;
+        set
+        {
+            _scope = value;
+            ScopeInView.Set(value);
+        }
+    }
+
     /// <summary>
     /// The repositories in focus, by alias, in the order the shell's scope took
     /// them; empty for all of them. The pane never asks the directory itself, so it
@@ -199,7 +219,7 @@
     /// </para>
     /// </summary>
     protected override void OnParametersSet() =>
-        _scope = _scope with { Repositories = RepositoryFocus.Of(RepositoryAliases) };
+        Scope = _scope with { Repositories = RepositoryFocus.Of(RepositoryAliases) };
 
     /// <summary>
     /// The machines the filter offers, asked for once when the pane opens rather than
@@ -229,9 +249,9 @@
     /// Replaced rather than mutated, for the reason <see cref="FocusRepository"/>
     /// gives.</summary>
     private void FocusMachine(string? id) =>
-        _scope = _scope with { MachineId = string.IsNullOrWhiteSpace(id) ? null : id };
+        Scope = _scope with { MachineId = string.IsNullOrWhiteSpace(id) ? null : id };
 
-    private void ChooseWindow(DashboardPeriod period) => _scope = _scope with { Period = period };
+    private void ChooseWindow(DashboardPeriod period) => Scope = _scope with { Period = period };
 
     private static int Weeks(DashboardPeriod period) => new DashboardScope(Period: period).Weeks;
 }

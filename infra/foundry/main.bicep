@@ -20,8 +20,8 @@ param accountSkuName string = 'S0'
 param deploymentSkuName string = 'GlobalStandard'
 
 @minValue(1)
-@description('Default capacity used for model deployments that do not specify their own.')
-param deploymentCapacity int = 1
+@description('Default capacity used for model deployments that do not specify their own, in thousands of tokens per minute. 1 is 1K tokens/min, which is below one Ask AI question with its content attached (about 1.5K tokens of content plus the question and the answer), so a single press was a 429. 10 leaves room for a few questions a minute and stays well inside the subscription quota.')
+param deploymentCapacity int = 10
 
 @description('Deploy the optional balanced alternative model.')
 param includeBalancedModel bool = false
