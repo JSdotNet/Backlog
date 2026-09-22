@@ -706,6 +706,9 @@ public sealed class HomeRepositoryScopeTests
         context.Services.AddSingleton<IFolderEditorLauncher, UnsupportedFolderEditorLauncher>();
         context.Services.AddSingleton<DevbookFolderOpenService>();
         context.Services.AddSingleton<DevbookScope>();
+        // The pane publishes its open chapter here for the Ask AI source; a pane
+        // rendered without it would fail on inject, as the application hosts would.
+        context.Services.AddScoped<DevbookOpenChapter>();
         context.Services.AddSingleton<DevbookUpdateService>();
         context.Services.AddSingleton<IGitHubBranchCatalog>(new StubBranchCatalog());
         context.Services.AddSingleton<DevbookSourceSelection>();

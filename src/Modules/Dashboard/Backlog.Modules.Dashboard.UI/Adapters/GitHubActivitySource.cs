@@ -113,6 +113,7 @@ internal sealed class GitHubActivitySource(
                 pr.FilesRetouched,
                 pr.ChurnComplete)
             {
+                Title = pr.Title,
                 ReviewTurnaround = pr.ReviewTurnaround,
                 ChangedLines = pr.ChangedLines,
                 ChangedFiles = pr.ChangedFiles,
@@ -125,7 +126,7 @@ internal sealed class GitHubActivitySource(
             }));
 
             issues.AddRange(report.Issues.Select(issue =>
-                new ActivityIssue(repository.Alias, issue.Number, issue.ClosedAt)));
+                new ActivityIssue(repository.Alias, issue.Number, issue.ClosedAt) { Title = issue.Title }));
         }
 
         return new ActivityReport(pullRequests, issues) { Complete = complete };

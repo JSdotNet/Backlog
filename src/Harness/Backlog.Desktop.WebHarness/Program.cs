@@ -32,6 +32,8 @@ using Backlog.Modules.Dashboard.Extensions;
 using Backlog.Modules.Dashboard.UI.Extensions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sessions.UI.Extensions;
+using Backlog.Modules.Roadmap.UI;
+using Backlog.Modules.DevPc.UI;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Devbook;
 using Backlog.Infrastructure.Sync;
@@ -122,6 +124,10 @@ builder.Services.AddTasksModule();
 builder.Services.AddSingleton<IRoadmapPlanRepository>(sp =>
     new RootedSqliteRoadmapPlanRepository(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
 builder.Services.AddRoadmapModule();
+// The plan behind the shell's Ask AI port, after the module so the scoped
+// planning port it holds exists. The other areas register theirs beside
+// their own state below; the Roadmap has no state, only the port.
+builder.Services.AddRoadmapAiContentSource();
 
 // The same arrangement for capture: the module brings the run, and the host picks
 // where the monitored sources are kept and where what past runs said is kept.
@@ -370,16 +376,23 @@ builder.Services.AddSingleton<IDiagramArtifactSource>(sp => new ArchifyDiagramAr
     sp.GetRequiredService<GitHubSettingsStore>(),
     new UnavailableCopilotCliLauncher()));
 builder.Services.AddSingleton<DevbookScope>();
+// The open-chapter mirror the pane writes and the Ask AI source that pins
+// from it, after the search and folder ports above that the source holds.
+builder.Services.AddDevbookAiContentSource();
 builder.Services.AddSingleton<DevbookUpdateService>();
 
 // Shared by the Devbook pane and the settings screen, and a singleton so the
 // branch list somebody fetched in one is already there in the other.
 builder.Services.AddSingleton<DevbookSourceSelection>();
 builder.Services.AddScoped<TasksDesktopState>();
+// The backlog behind the shell's Ask AI port, beside the state it reads.
+builder.Services.AddTasksAiContentSource();
 // The Inbox pane's state, on the same terms as TasksDesktopState and for the
 // same reason: it captures the module's scoped IInboxItems, and a singleton over
 // a scoped service is a captive dependency validate-on-build refuses.
 builder.Services.AddScoped<InboxDesktopState>();
+// The Inbox behind the shell's Ask AI port, beside the state it reads.
+builder.Services.AddInboxAiContentSource();
 // The save-state band and the toast tray, both mounted by MainLayout under every
 // route. Scoped rather than singleton, and that is forced rather than tidy: this
 // host has one circuit per visitor, a singleton forwarding to a scoped
@@ -394,6 +407,8 @@ builder.Services.AddScoped(sp => new DomainDevbookStore(sp.GetRequiredService<ID
 // reports updates as unsupported.
 builder.Services.AddSingleton<IAppUpdateService, UnsupportedAppUpdateService>();
 builder.Services.AddSingleton<IDevToolService, LocalDevelopmentDevToolService>();
+// The tool catalog behind the shell's Ask AI port, beside the port it reads.
+builder.Services.AddToolsAiContentSource();
 
 // The session list reads the two agents' own folders in the profile of whoever is
 // signed in, and the harness runs as that person on that machine — so unlike the

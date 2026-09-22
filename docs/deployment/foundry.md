@@ -43,10 +43,12 @@ in `swedencentral` on 2026-09-09:
 | `OpenAI.GlobalStandard.text-embedding-3-small` | 0 | 2000 |
 | `OpenAI.GlobalStandard.gpt-4o-transcribe` | 0 | 400 |
 
-The template's `deploymentCapacity` default of `1` — one thousand tokens per minute per
-deployment — sits well inside all of these. `gpt-5.6-sol` is the one to watch: 1250 of its
-2000 is already spent by something else in this subscription, so the balanced model has less
-headroom than the rest.
+The template's `deploymentCapacity` default of `10` — ten thousand tokens per minute per
+deployment — sits well inside all of these. It used to be `1`, and that was below one Ask
+AI question: the content an area attaches is budgeted at about 1.5K tokens, so a single
+press with the question and the answer on top was a 429. `gpt-5.6-sol` is the one to
+watch: 1250 of its 2000 is already spent by something else in this subscription, so the
+balanced model has less headroom than the rest.
 
 A `what-if` with `backlog-ai.bicepparam` returns `status: Succeeded`, `error: null`, and
 plans one `Modify` of the account plus a `Create` for each of the five selected deployments.

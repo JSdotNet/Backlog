@@ -60,6 +60,22 @@ public static class DevbookAreaCatalog
         return Areas.Any(area => string.Equals(area.Key, areaKey, StringComparison.Ordinal)) ? areaKey : null;
     }
 
+    /// <summary>The folder-source key for a section — the reverse of the mapping
+    /// below, for a caller that holds an area key and needs to resolve its
+    /// folder. A key this catalog does not know is handed back as it came, which
+    /// is what the folder source expects of a folder configured under its own
+    /// name.</summary>
+    public static string FolderKey(string areaKey) => areaKey.ToLowerInvariant() switch
+    {
+        "domain" => ".domain",
+        "arc42" => ".arc42",
+        "tech" => ".tech",
+        "design" => ".design",
+        "ai" => ".ai",
+        "instructions" => "instructions",
+        _ => areaKey
+    };
+
     private static string AreaKey(DevbookFolderSetting folder) => folder.Key switch
     {
         "instructions" => "instructions",

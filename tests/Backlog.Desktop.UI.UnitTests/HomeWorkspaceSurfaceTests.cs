@@ -5,6 +5,13 @@ using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.GitHub;
+using Backlog.Infrastructure.Devbook;
+using Backlog.Modules.Dashboard.Abstractions.Insights;
+using Backlog.Modules.Dashboard.Abstractions.Services;
+using Backlog.Modules.Dashboard.UI;
+using Backlog.Modules.DevPc.UI;
+using Backlog.Modules.Sessions.UI;
+using Backlog.SharedKernel.Ai;
 using Bunit;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
@@ -176,47 +183,294 @@ public sealed class HomeWorkspaceSurfaceTests
     }
 
     /// <summary>
-    /// Ask AI answers from the task rows in view, so it is offered exactly while
-    /// the task list is on screen: not during a takeover, and not while the list
-    /// is closed in favour of another pane. An open panel goes with its button and
-    /// comes back with it — the flag behind it is not reset by a takeover.
+    /// Ask AI answers from whichever area is open, so it stays offered across a
+    /// takeover — the Dashboard is an area too — and while the task list is closed
+    /// in favour of another pane. An open panel goes with its button and comes back
+    /// with it: the flag behind it is not reset by a takeover. The sentence under
+    /// the title names the one area on screen, because with one there are no chips.
     /// </summary>
     [Fact]
-    public void Ask_ai_follows_the_task_list_on_and_off_the_screen()
+    public void Ask_ai_follows_the_open_areas_and_names_the_one_that_answers()
     {
         using var harness = CreateHarness(features => features.SetEnabled(AppFeatures.AiAssistant, true));
         var component = Render(harness);
 
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='ai-toggle-button']")));
         component.Find("[data-testid='ai-toggle-button']").Click();
-        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='ai-assistant-panel']")));
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='ai-assistant-panel']"));
+            Assert.Equal("Answers from the Tasks content.", component.Find(".ai-panel__body").TextContent.Trim());
+        });
 
         component.Find("[data-testid='dashboard-toggle-button']").Click();
 
         component.WaitForAssertion(() =>
         {
             Assert.NotEmpty(component.FindAll("[data-testid='dashboard-surface']"));
-            Assert.Empty(component.FindAll("[data-testid='ai-toggle-button']"));
-            Assert.Empty(component.FindAll("[data-testid='ai-assistant-panel']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='ai-assistant-panel']"));
+            Assert.Equal("Answers from the Dashboard content.", component.Find(".ai-panel__body").TextContent.Trim());
         });
+
+        // The Sessions tab is the other context on the same surface, and it is the
+        // area that answers while it is in front.
+        component.Find("[data-testid='dashboard-sessions-tab']").Click();
+        component.WaitForAssertion(() =>
+            Assert.Equal("Answers from the Sessions content.", component.Find(".ai-panel__body").TextContent.Trim()));
 
         component.Find("[data-testid='workspace-surface-option']").Click();
 
-        component.WaitForAssertion(() =>
-        {
-            Assert.NotEmpty(component.FindAll("[data-testid='ai-toggle-button']"));
-            Assert.NotEmpty(component.FindAll("[data-testid='ai-assistant-panel']"));
-        });
-
-        // Devbook alone on screen: the list is closed, so there is nothing in view
-        // for the panel to answer from.
+        // Devbook alone on screen: the list is closed, and the devbook answers.
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='devbook-pane-option']")));
         component.Find("[data-testid='devbook-pane-option']").Click();
 
         component.WaitForAssertion(() =>
         {
             Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
-            Assert.Empty(component.FindAll("[data-testid='ai-toggle-button']"));
-            Assert.Empty(component.FindAll("[data-testid='ai-assistant-panel']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='ai-toggle-button']"));
+            Assert.Equal("Answers from the Devbook content.", component.Find(".ai-panel__body").TextContent.Trim());
+        });
+    }
+
+    /// <summary>The Inbox is an area like the others: with it open and the task
+    /// list closed, the button is still there and the Inbox is what answers.</summary>
+    [Fact]
+    public void Ask_ai_is_offered_with_the_inbox_open_and_the_task_list_closed()
+    {
+        using var harness = CreateHarness(features =>
+        {
+            features.SetEnabled(AppFeatures.AiAssistant, true);
+            features.SetEnabled(AppFeatures.InboxPane, true);
+        });
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='inbox-pane-option']")));
+        component.Find("[data-testid='inbox-pane-option']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='backlog-pane']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='inbox-pane']"));
+            Assert.NotEmpty(component.FindAll("[data-testid='ai-toggle-button']"));
+        });
+
+        component.Find("[data-testid='ai-toggle-button']").Click();
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='ai-scope']"));
+            Assert.Equal("Answers from the Inbox content.", component.Find(".ai-panel__body").TextContent.Trim());
+        });
+    }
+
+    /// <summary>
+    /// The scope chips exist only when there is a choice: none with one area, one
+    /// per area with two or more, each carrying its area's test id. The area the
+    /// reader opened last is pressed by default, and a press on another chip moves
+    /// the choice.
+    /// </summary>
+    [Fact]
+    public void Scope_chips_appear_with_two_areas_default_to_the_last_opened_and_follow_a_press()
+    {
+        using var harness = CreateHarness(features => features.SetEnabled(AppFeatures.AiAssistant, true));
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='ai-toggle-button']")));
+        component.Find("[data-testid='ai-toggle-button']").Click();
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='ai-assistant-panel']"));
+            Assert.Empty(component.FindAll("[data-testid='ai-scope']"));
+        });
+
+        ShowTheBand(component);
+
+        component.WaitForAssertion(() =>
+        {
+            var group = component.Find("[data-testid='ai-scope']");
+            Assert.Equal("group", group.GetAttribute("role"));
+            Assert.Equal("Ask about", group.GetAttribute("aria-label"));
+
+            // Two chips, in the shell's fixed order — the panes, then the band —
+            // and the band, opened last, is the one pressed.
+            Assert.Equal("false", component.Find("[data-testid='ai-scope-tasks']").GetAttribute("aria-pressed"));
+            Assert.Equal("true", component.Find("[data-testid='ai-scope-roadmap']").GetAttribute("aria-pressed"));
+            Assert.Equal("Answers from the content of the area chosen above.", component.Find(".ai-panel__body").TextContent.Trim());
+        });
+
+        component.Find("[data-testid='ai-scope-tasks']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal("true", component.Find("[data-testid='ai-scope-tasks']").GetAttribute("aria-pressed"));
+            Assert.Equal("false", component.Find("[data-testid='ai-scope-roadmap']").GetAttribute("aria-pressed"));
+        });
+    }
+
+    /// <summary>A question goes to the chosen area's source, and what the client
+    /// receives as content is that source's body — here the plan's, headed the
+    /// way the budget heads every body.</summary>
+    [Fact]
+    public void Asking_sends_the_chosen_sources_body_as_the_content()
+    {
+        using var harness = CreateHarness(features => features.SetEnabled(AppFeatures.AiAssistant, true));
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='ai-toggle-button']")));
+        component.Find("[data-testid='ai-toggle-button']").Click();
+        ShowTheBand(component);
+        component.WaitForAssertion(() => Assert.Equal("true", component.Find("[data-testid='ai-scope-roadmap']").GetAttribute("aria-pressed")));
+
+        component.Find("[data-testid='ai-question-input']").Input("What ships first?");
+        component.Find("[data-testid='ai-ask-button']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            var request = Assert.Single(harness.FoundryChat.Requests);
+            Assert.Equal("What ships first?", request.Question);
+            Assert.StartsWith("Roadmap: ", request.Content, StringComparison.Ordinal);
+        });
+    }
+
+    /// <summary>A chip pressed for an area that then closes is a choice about
+    /// nothing: the chips go with the second area, and the question goes to the
+    /// one that is left.</summary>
+    [Fact]
+    public void A_pressed_chip_whose_area_closes_falls_back_to_the_area_still_open()
+    {
+        using var harness = CreateHarness(features => features.SetEnabled(AppFeatures.AiAssistant, true));
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='ai-toggle-button']")));
+        component.Find("[data-testid='ai-toggle-button']").Click();
+        ShowTheBand(component);
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='ai-scope-roadmap']")));
+        component.Find("[data-testid='ai-scope-roadmap']").Click();
+        component.WaitForAssertion(() => Assert.Equal("true", component.Find("[data-testid='ai-scope-roadmap']").GetAttribute("aria-pressed")));
+
+        component.Find("[data-testid='roadmap-band-toggle']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='roadmap-band']"));
+            Assert.Empty(component.FindAll("[data-testid='ai-scope']"));
+            Assert.Equal("Answers from the Tasks content.", component.Find(".ai-panel__body").TextContent.Trim());
+        });
+
+        component.Find("[data-testid='ai-question-input']").Input("What now?");
+        component.Find("[data-testid='ai-ask-button']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            var request = Assert.Single(harness.FoundryChat.Requests);
+            Assert.StartsWith("Tasks: ", request.Content, StringComparison.Ordinal);
+        });
+    }
+
+    /// <summary>Two asks, two chips, two bodies: the chip pressed at the moment of
+    /// asking is the source whose body goes.</summary>
+    [Fact]
+    public void Pressing_a_different_chip_changes_which_body_is_sent()
+    {
+        using var harness = CreateHarness(features => features.SetEnabled(AppFeatures.AiAssistant, true));
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='ai-toggle-button']")));
+        component.Find("[data-testid='ai-toggle-button']").Click();
+        ShowTheBand(component);
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='ai-scope-tasks']")));
+
+        component.Find("[data-testid='ai-scope-tasks']").Click();
+        component.Find("[data-testid='ai-question-input']").Input("First?");
+        component.Find("[data-testid='ai-ask-button']").Click();
+        component.WaitForAssertion(() => Assert.Single(harness.FoundryChat.Requests));
+
+        component.Find("[data-testid='ai-scope-roadmap']").Click();
+        component.Find("[data-testid='ai-ask-button']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal(2, harness.FoundryChat.Requests.Count);
+            Assert.StartsWith("Tasks: ", harness.FoundryChat.Requests[0].Content, StringComparison.Ordinal);
+            Assert.StartsWith("Roadmap: ", harness.FoundryChat.Requests[1].Content, StringComparison.Ordinal);
+        });
+    }
+
+    /// <summary>
+    /// A source reads a store, and a store can throw. That is a fact about the
+    /// area rather than about the assistant, so it is said the way an assistant
+    /// failure is — on the toast, in the area's name — and it never reaches the
+    /// error boundary: the panel and the page are still there afterwards, and
+    /// nothing was sent.
+    /// </summary>
+    [Fact]
+    public void A_source_that_throws_is_reported_beside_the_question_and_the_page_survives()
+    {
+        using var harness = CreateHarness(
+            features => features.SetEnabled(AppFeatures.AiAssistant, true),
+            configureServices: services => services.AddScoped<IAiContentSource>(_ => new ThrowingSource("roadmap", "Roadmap")));
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='ai-toggle-button']")));
+        component.Find("[data-testid='ai-toggle-button']").Click();
+        ShowTheBand(component);
+        component.WaitForAssertion(() => Assert.Equal("true", component.Find("[data-testid='ai-scope-roadmap']").GetAttribute("aria-pressed")));
+
+        component.Find("[data-testid='ai-question-input']").Input("Anything?");
+        component.Find("[data-testid='ai-ask-button']").Click();
+
+        var toasts = harness.Context.Services.GetRequiredService<ToastChannel>();
+        component.WaitForAssertion(() =>
+        {
+            var toast = Assert.Single(toasts.Visible);
+            Assert.Equal("Could not gather the Roadmap content: The plan file is locked.", toast.Message);
+            Assert.Equal("ai-error", toast.TestId);
+        });
+
+        Assert.Empty(harness.FoundryChat.Requests);
+        Assert.NotEmpty(component.FindAll("[data-testid='ai-assistant-panel']"));
+        Assert.NotEmpty(component.FindAll("[data-testid='roadmap-band']"));
+        Assert.False(component.Find("[data-testid='ai-ask-button']").HasAttribute("disabled"));
+    }
+
+    /// <summary>
+    /// The old panel sent the rows the status chips had left in view. The Tasks
+    /// source sends the scope: an entry the chips hide is still in the body, and the
+    /// body is the source's own rather than anything the shell composed.
+    /// </summary>
+    [Fact]
+    public async Task The_tasks_body_sent_is_the_sources_body_and_not_the_filtered_rows()
+    {
+        using var harness = CreateHarness(features => features.SetEnabled(AppFeatures.AiAssistant, true));
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='ai-toggle-button']")));
+
+        await component.InvokeAsync(async () =>
+        {
+            state.NewRow();
+            state.OnRawTextInput(state.Rows[^1], "# Ready entry\n`task` `!ready`\n");
+            await state.EndEditAsync(state.Rows[^1]);
+            state.NewRow();
+            state.OnRawTextInput(state.Rows[^1], "# Draft entry\n`task` `!draft`\n");
+            await state.EndEditAsync(state.Rows[^1]);
+            state.SetStatusFilter("draft");
+        });
+
+        Assert.Single(state.FilteredRows);
+
+        component.Find("[data-testid='ai-toggle-button']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='ai-question-input']")));
+        component.Find("[data-testid='ai-question-input']").Input("What is ready?");
+        component.Find("[data-testid='ai-ask-button']").Click();
+
+        component.WaitForAssertion(() =>
+        {
+            var request = Assert.Single(harness.FoundryChat.Requests);
+            Assert.StartsWith("Tasks: 2 entries.", request.Content, StringComparison.Ordinal);
+            Assert.Contains("# Ready entry", request.Content, StringComparison.Ordinal);
+            Assert.Contains("# Draft entry", request.Content, StringComparison.Ordinal);
+            Assert.DoesNotContain("Visible tasks", request.Content, StringComparison.Ordinal);
         });
     }
 
@@ -1387,7 +1641,8 @@ public sealed class HomeWorkspaceSurfaceTests
 
     private static Harness CreateHarness(
         Action<AppFeatureSettingsStore>? configureFeatures = null,
-        ShellNavigationStore? shellNavigation = null)
+        ShellNavigationStore? shellNavigation = null,
+        Action<IServiceCollection>? configureServices = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-workspace-surface-tests", Guid.NewGuid().ToString("n"));
         var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
@@ -1439,7 +1694,8 @@ public sealed class HomeWorkspaceSurfaceTests
         context.Services.AddSingleton(gitHubSettings);
         context.Services.AddSingleton(gitHub);
         context.Services.AddSingleton(new FeedbackReporter(gitHub));
-        context.Services.AddSingleton<IAzureFoundryChatClient, StubAzureFoundryChatClient>();
+        var foundryChat = new StubAzureFoundryChatClient();
+        context.Services.AddSingleton<IAzureFoundryChatClient>(foundryChat);
         context.Services.AddSingleton<IDevToolService, UnsupportedDevToolService>();
 
         // The sessions takeover, with nothing on the machine behind it. A shell test
@@ -1496,10 +1752,36 @@ public sealed class HomeWorkspaceSurfaceTests
         // module, the same terms as the Tasks state above.
         _ = InboxTestHost.AddInboxState(context.Services);
 
-        return new Harness(root, context);
+        // A test's own registrations go first, so a source it registers for an
+        // area is the one the shell takes for that area — the shell keeps the
+        // first registration per key.
+        configureServices?.Invoke(context.Services);
+
+        // Every area's Ask AI source, the way the application hosts compose them,
+        // so the shell has one to offer for each area a test can open. The two
+        // whose ports this harness does not otherwise carry — the devbook index
+        // and the GitHub activity — get the real adapter over the test clone and
+        // an unavailable provider respectively, which is the state both are in on
+        // any machine running these tests.
+        context.Services.AddTasksAiContentSource();
+        context.Services.AddInboxAiContentSource();
+        context.Services.AddSingleton<IDevbookSearch>(sp =>
+            new DevbookFullTextSearch(sp.GetRequiredService<IDevbookFolderSource>()));
+        context.Services.AddDevbookAiContentSource();
+        context.Services.AddRoadmapAiContentSource();
+        context.Services.AddSingleton<IActivitySource>(new UnavailableActivitySource());
+        context.Services.AddScoped<IAiContentSource>(sp => new DashboardAiContentSource(
+            sp.GetRequiredService<IActivitySource>(),
+            sp.GetRequiredService<IRepositoryDirectory>(),
+            sp.GetRequiredService<DashboardScopeInView>(),
+            TimeProvider.System));
+        context.Services.AddScoped<IAiContentSource, SessionsAiContentSource>();
+        context.Services.AddToolsAiContentSource();
+
+        return new Harness(root, context, foundryChat);
     }
 
-    private sealed record Harness(string Root, BunitContext Context) : IDisposable
+    private sealed record Harness(string Root, BunitContext Context, StubAzureFoundryChatClient FoundryChat) : IDisposable
     {
         public void Dispose()
         {
@@ -1521,10 +1803,41 @@ public sealed class HomeWorkspaceSurfaceTests
             Task.FromResult(AgentSessionCatalog.Empty);
     }
 
+    private sealed class ThrowingSource(string areaKey, string areaTitle) : IAiContentSource
+    {
+        public string AreaKey => areaKey;
+
+        public string AreaTitle => areaTitle;
+
+        public Task<AiContent> ComposeAsync(AiContentRequest request, CancellationToken cancellationToken = default) =>
+            throw new IOException("The plan file is locked.");
+    }
+
+    private sealed class UnavailableActivitySource : IActivitySource
+    {
+        public Task<InsightAvailability> GetAvailabilityAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(InsightAvailability.Unavailable(DashboardTestHost.UnavailableReason));
+
+        public Task<ActivityReport> GetActivityAsync(
+            IReadOnlyList<DashboardRepository> repositories,
+            DateTimeOffset from,
+            DateTimeOffset to,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(ActivityReport.Empty);
+    }
+
+    /// <summary>Answers every question with the same line, and keeps what it was
+    /// asked: which body the shell handed over is the thing the scope tests are
+    /// about.</summary>
     private sealed class StubAzureFoundryChatClient : IAzureFoundryChatClient
     {
-        public Task<AzureFoundryChatResponse> AskAsync(AzureFoundryChatRequest request, CancellationToken cancellationToken = default) =>
-            Task.FromResult(new AzureFoundryChatResponse("Not used in this test."));
+        public List<AzureFoundryChatRequest> Requests { get; } = [];
+
+        public Task<AzureFoundryChatResponse> AskAsync(AzureFoundryChatRequest request, CancellationToken cancellationToken = default)
+        {
+            Requests.Add(request);
+            return Task.FromResult(new AzureFoundryChatResponse("Not used in this test."));
+        }
 
         public Task<AzureFoundryPlanResponse> DraftPlanAsync(AzureFoundryPlanRequest request, CancellationToken cancellationToken = default) =>
             Task.FromResult(new AzureFoundryPlanResponse("# Not used in this test."));
