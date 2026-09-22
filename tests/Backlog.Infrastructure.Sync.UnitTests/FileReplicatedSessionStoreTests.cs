@@ -150,6 +150,82 @@ public sealed class FileReplicatedSessionStoreTests
     }
 
     /// <summary>
+    /// The runs and waits survive the file too, and null survives as null. The
+    /// file is the only copy this device has of another machine's intervals — the
+    /// cursor has moved past them — and a list that failed to serialise would have
+    /// that machine measured at nothing on every launch after the first.
+    /// </summary>
+    [Fact]
+    public void Intervals_survive_a_restart_and_null_stays_null()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"backlog-replicated-{Guid.NewGuid():N}", "replicated-sessions.json");
+
+        try
+        {
+            var store = new FileReplicatedSessionStore(path);
+            store.Save(
+            [
+                SessionRecords.Entry(Laptop, sessionId: "measured", runs: [new(Noon.AddMinutes(-10), Noon)], waits: []),
+                SessionRecords.Entry(Laptop, sessionId: "unmeasured")
+            ]);
+
+            var reopened = new FileReplicatedSessionStore(path);
+
+            var measured = reopened.Current.Entries.Single(entry => entry.Record.SessionId == "measured").Record;
+            Assert.Equal([new ActivityInterval(Noon.AddMinutes(-10), Noon)], measured.Runs);
+            Assert.NotNull(measured.Waits);
+            Assert.Empty(measured.Waits);
+
+            var unmeasured = reopened.Current.Entries.Single(entry => entry.Record.SessionId == "unmeasured").Record;
+            Assert.Null(unmeasured.Runs);
+            Assert.Null(unmeasured.Waits);
+        }
+        finally
+        {
+            var folder = Path.GetDirectoryName(path);
+            if (folder is not null && Directory.Exists(folder)) Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// A file written before the two lists existed loads with null in both, which
+    /// is the same thing a current pusher sends for a session it has no record for.
+    /// Nothing in the store had to change for that: the record's positional
+    /// constructor defaults the two, so an older file is an ordinary file rather
+    /// than one that reads as empty and loses everything the cursor has passed.
+    /// </summary>
+    [Fact]
+    public void A_file_from_before_the_intervals_existed_loads_with_null_lists()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"backlog-replicated-{Guid.NewGuid():N}", "replicated-sessions.json");
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(
+                path,
+                """
+                {"entries":[{"record":{"sessionId":"old","agentKind":"claude","machineName":"Laptop",
+                "repositoryAlias":"backlog","branch":"main","startedAt":null,
+                "lastActivityAt":"2026-09-07T12:00:00+00:00","turnCount":3,"durationSeconds":0},
+                "machineId":"33333333-3333-3333-3333-333333333333","serverTimestamp":1}],"dropped":0}
+                """);
+
+            var store = new FileReplicatedSessionStore(path);
+
+            var kept = Assert.Single(store.Current.Entries);
+            Assert.Equal("old", kept.Record.SessionId);
+            Assert.Null(kept.Record.Runs);
+            Assert.Null(kept.Record.Waits);
+        }
+        finally
+        {
+            var folder = Path.GetDirectoryName(path);
+            if (folder is not null && Directory.Exists(folder)) Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    /// <summary>
     /// A file that cannot be read reads as empty rather than throwing. It loses
     /// records the cursor has moved past, which is a real loss — and one this class
     /// cannot repair, because refusing to start would leave the person unable to ask

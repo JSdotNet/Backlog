@@ -1,3 +1,4 @@
+using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Microsoft.AspNetCore.Http.Metadata;
 
 namespace Backlog.Modules.Sync.Api.Endpoints;
@@ -56,24 +57,52 @@ internal static class SyncRequestLimits
     /// <para>
     /// The same number the pull clamps a page to, and for the same reason: a page
     /// is a unit of work against the store, and the replica issues one round trip
-    /// per element in a sequential loop. It is a far looser bound in practice
-    /// than the task cap is, because a record is ten small fields rather than a
-    /// whole task document — the count is what has to be bounded here, not the
-    /// weight.
+    /// per element in a sequential loop. It was a far looser bound in practice
+    /// than the task cap while a record was ten small scalars; now that a record
+    /// may carry a thousand intervals, <see cref="MaximumSessionIntervals"/> and
+    /// the body limit are what bound the weight, and this still bounds the count.
     /// </para>
     /// </summary>
     internal const int MaximumPushSessions = 500;
 
     /// <summary>
+    /// The most intervals either list on a session record may carry — the wire
+    /// contract's own number, <see cref="SessionRecordLimits.IntervalsPerList"/>,
+    /// because this is the one bound the pusher has to match exactly rather than
+    /// stay under: it truncates to the cap and this refuses above it.
+    /// <para>
+    /// The arithmetic. An interval is two ISO-8601 timestamps under two property
+    /// names, about 96 bytes as JSON; a record's scalars are about 330 bytes. A
+    /// record at the cap in both lists is therefore a thousand intervals plus the
+    /// scalars, about 96 KB, and it is the only kind of record that comes near
+    /// troubling anything. The pusher weighs a batch at 4,000 intervals, about
+    /// 450 KB with the records around them — under half of
+    /// <see cref="SessionPushBodyBytes"/> — so no batch a client of ours sends
+    /// meets that limit. A caller that is not ours can still post five hundred
+    /// capped records, about 48 MB, and the body limit is what refuses that before
+    /// the parser sees it.
+    /// </para>
+    /// <para>
+    /// Refused rather than trimmed, like every other bound here: a push that
+    /// silently kept the first five hundred intervals and answered 200 would leave
+    /// the machine believing the rest were stored.
+    /// </para>
+    /// </summary>
+    internal const int MaximumSessionIntervals = SessionRecordLimits.IntervalsPerList;
+
+    /// <summary>
     /// The most a session push body may weigh: 1 MB.
     /// <para>
-    /// An eighth of the task limit, and deliberately not the same number. Every
-    /// field of a session record is bounded below, so
-    /// <see cref="MaximumPushSessions"/> records cannot honestly exceed about
-    /// half a megabyte; a body larger than this is not a batch of session records
-    /// however it is framed. The count cap bounds what reaches the store, and
-    /// this bounds what reaches the parser — which the count cap cannot, because
-    /// the count is not known until the body has been read.
+    /// An eighth of the task limit, and deliberately not the same number. It is
+    /// sized for the batches a client of ours sends and not for the worst case
+    /// the count cap alone would admit: the pusher splits a batch at two hundred
+    /// records or 4,000 intervals, whichever comes first, and the heavier of
+    /// those is about 450 KB, so a body larger than this is not a batch our
+    /// pusher built however it is framed. The count cap bounds what reaches the
+    /// store, this bounds what reaches the parser — which the count cap cannot,
+    /// because the count is not known until the body has been read — and
+    /// <see cref="MaximumSessionIntervals"/> bounds what one record may cost the
+    /// store once it is there.
     /// </para>
     /// </summary>
     internal const long SessionPushBodyBytes = 1L * 1024 * 1024;

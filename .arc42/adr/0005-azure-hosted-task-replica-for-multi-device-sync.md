@@ -437,6 +437,8 @@ carries exactly this, and nothing else:
 | Last activity at | When it was last seen alive. |
 | Turn count | How many turns it has taken. |
 | Duration count | How long it has been running. |
+| Active runs | The stretches in which the agent was producing, as pairs of timestamps. |
+| Waits | The stretches in which the agent had stopped and nothing had prompted it yet, as pairs of timestamps. |
 
 **Never prompts, never tool output, never file contents.** That is the whole reason
 a session record can leave the machine at all: the record is metadata *about* work,
@@ -447,7 +449,7 @@ misses a field merely omits it. A field not in this table does not sync, and
 adding one to the table is a decision to be taken here, not an implementation
 detail to be settled in the pushing code.
 
-**The table stood at eight when this record was accepted and stands at ten as of
+**The table stood at eight when this record was accepted and at ten as of
 2026-09-08.** Widening it is precisely the decision the sentence above reserves to
 this record, so it is taken here and argued here rather than filed as a note about
 a change made somewhere else. Both additions are of the same kind as the original
@@ -485,8 +487,57 @@ as a device identity. The name travels only as the label on a section the id has
 already defined, refreshed from the operating system at the source like every other
 reading of it. Nothing here identifies anything by name.
 
-**Ten fields is still a whitelist, on the same terms eight was.** The boundary did
-not move to accommodate a screen: each of the two had to be argued past it
+**The table stands at twelve as of 2026-09-22.** The two additions are the agent's
+active runs and its waits, each a list of timestamp pairs, and they are argued here
+for the reason the previous two were: widening the table is this record's decision.
+
+- **They are timestamps *about* work, never content.** A run says an agent was
+  producing from one instant to another; a wait says it had stopped and nothing had
+  prompted it yet. Neither carries a prompt, a tool result, a file or a word the
+  session produced — they are the same kind of fact as *Started at* and *Last
+  activity at*, only more of them, and they sit on the metadata side of the line
+  the paragraph above draws for the same reason those two do.
+- **They exist so a machine dimension can carry utilisation the reading device
+  could not compute.** The Dashboard's per-machine breakdown measures a machine's
+  active and waiting time by folding its agents' transcript bodies, and a
+  transcript stays where it was written. Before these two fields a session from
+  another machine was a row the Dashboard could count and could not measure, so a
+  second machine read as having done nothing all week beside a session list saying
+  otherwise. Folding on the machine that holds the transcript and sending the
+  result is the only honest way to fill that cell.
+- **Null and empty mean different things, and both survive the trip.** Null in
+  both lists says the pushing machine had no parsable activity record for the
+  session — an older client, a transcript it could not open, a session that left
+  one lone event — and the reading device counts that as "no record", exactly as it
+  counts a local session it could not fold. An empty list says the record was read
+  and this is what it held: every Copilot session travels with empty waits, because
+  Copilot cannot mark that boundary, and that is a fact about the session rather
+  than a gap in the record. The wire, the replica file and the store all keep the
+  distinction; collapsing it would have every Copilot session on every other
+  machine reading as unmeasured.
+- **Each list is capped at 500 intervals, refused above it, and the pusher keeps
+  the newest.** The service refuses a longer list rather than trimming it, on the
+  rule every other bound at that edge follows: a push that silently kept part of
+  a record and answered 200 would leave the machine believing the rest was stored.
+  The pusher therefore cuts to the cap itself, from the front, because a reader's
+  window covers the end of a record before its beginning. A batch is also weighed —
+  four thousand intervals across its records — beside the two-hundred-record count,
+  because the count stopped bounding the body the day a record could carry a
+  thousand of these.
+- **The fold threshold is assumed identical on every machine rather than becoming
+  a thirteenth field.** A run ends after five minutes of silence, and that number
+  is a judgement the folding machine made. Every build folds with the same one, so
+  carrying it would be sending a constant; the day two builds disagree is the day
+  this record widens again, and the replicated source says "no opinion" on the
+  threshold rather than repeating a number it did not use.
+- **Sub-agent activity does not travel.** The agents a session spawns are folded
+  beside it locally and never sent, so the Dashboard's concurrency figures stay
+  figures about this machine. Adding them is a separate decision with its own
+  weight argument — a session's spawned agents can outnumber its own runs many
+  times over — and is not taken here.
+
+**Twelve fields is still a whitelist, on the same terms eight was.** The boundary
+did not move to accommodate a screen: each of the four had to be argued past it
 separately, and a field the receiving surface would merely find convenient is still
 a field that does not sync until this table says it does.
 

@@ -467,8 +467,17 @@ public enum AgentSessionGrouping
 /// <summary>
 /// One section of a grouped list. <c>Name</c> is null for the ungrouped case, so a
 /// caller renders sections and never has to branch on the grouping again.
+/// <para>
+/// <c>Key</c> is what made the section one section, and it is carried because the
+/// name does not always say: the environment id under Environment grouping, the
+/// kind's name under Kind grouping, null when nothing grouped. Two machines that
+/// share a name are two sections here — <see cref="AgentSessionGroups.Of"/> keys on
+/// the id for exactly that reason — and a renderer keying its sections on the
+/// heading alone would collapse them back into one, or refuse to render at all.
+/// The key travels so the renderer can key on what the grouping keyed on.
+/// </para>
 /// </summary>
-public sealed record AgentSessionGroup(string? Name, IReadOnlyList<AgentSession> Sessions);
+public sealed record AgentSessionGroup(string? Name, IReadOnlyList<AgentSession> Sessions, string? Key = null);
 
 /// <summary>
 /// Carving the list up. A pure function over the sessions it is given: no I/O, no
@@ -511,16 +520,16 @@ public static class AgentSessionGroups
             [
                 .. ordered
                     .GroupBy(session => session.EnvironmentId, StringComparer.Ordinal)
-                    .Select(group => new AgentSessionGroup(group.First().Environment, [.. group]))
+                    .Select(group => new AgentSessionGroup(group.First().Environment, [.. group], group.Key))
                     .OrderBy(group => group.Name, StringComparer.OrdinalIgnoreCase)
-                    .ThenBy(group => group.Sessions[0].EnvironmentId, StringComparer.Ordinal)
+                    .ThenBy(group => group.Key, StringComparer.Ordinal)
             ],
             AgentSessionGrouping.Kind =>
             [
                 .. ordered
                     .GroupBy(session => session.Kind)
                     .OrderBy(group => group.Key)
-                    .Select(group => new AgentSessionGroup(Label(group.Key), [.. group]))
+                    .Select(group => new AgentSessionGroup(Label(group.Key), [.. group], group.Key.ToString()))
             ],
             _ => ordered.Count == 0 ? [] : [new AgentSessionGroup(null, ordered)]
         };

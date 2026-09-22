@@ -1004,6 +1004,36 @@ public sealed class SessionsPaneTests
     }
 
     /// <summary>
+    /// Two machines called the same thing are two sections, and the pane renders
+    /// both. The case QA found: forgetting a device and pairing again registers the
+    /// same PC as a second device, so its replicated rows arrive under this box's
+    /// own name with another id. The grouping already kept them apart on the id;
+    /// what took the pane down was the table keying its sections on the heading,
+    /// and two siblings under one key is a render Blazor refuses. bUnit swallows
+    /// that refusal, so the assertion is on what rendered.
+    /// </summary>
+    [Fact]
+    public void Two_environments_sharing_a_name_render_as_two_sections()
+    {
+        using var context = Context([Sample[0], Replicated(environment: "DEV-TOWER")]);
+
+        var pane = context.Render<SessionsPane>();
+
+        ShowAll(pane);
+        pane.Find("[data-testid='sessions-group-environment']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(
+                ["DEV-TOWER", "DEV-TOWER"],
+                pane.FindAll(".data-table__group-name").Select(name => name.TextContent.Trim()));
+
+            Assert.Equal(2, pane.FindAll("tbody").Count);
+            Assert.Equal(2, pane.FindAll(".data-table__row").Count);
+        });
+    }
+
+    /// <summary>
     /// Switches to the whole list, and waits for the strip to say so. Several tests
     /// below are about the grouping rather than the view, and they have to get the
     /// view out of the way before they can measure the grouping at all.

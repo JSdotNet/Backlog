@@ -313,8 +313,13 @@ resource tasksContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/cont
 
 // `sessions` — a lean custom index. A session record is read by owner and recency
 // and by nothing else, so only the owner, the machine, the repository alias and
-// the two timestamps are indexed; everything else is excluded. The whole record
-// expires at 12 months, so here the TTL genuinely is a container setting.
+// the two timestamps are indexed; everything else is excluded. That deliberately
+// includes the two activity-interval arrays (`runs` and `waits`, up to 500
+// entries each): nothing queries by an interval, and indexing every timestamp in
+// them would be the largest index on the account for a lookup nobody makes.
+// `/*` excludes them as it stands, so widening the record added no path here.
+// The whole record expires at 12 months, so here the TTL genuinely is a container
+// setting.
 resource sessionsContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-11-15' = {
   parent: cosmosDatabase
   name: 'sessions'

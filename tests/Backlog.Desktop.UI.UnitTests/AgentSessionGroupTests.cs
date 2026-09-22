@@ -131,6 +131,21 @@ public sealed class AgentSessionGroupTests
 
         Assert.Equal(2, groups.Count);
         Assert.All(groups, group => Assert.Equal("DEV-TOWER", group.Name));
+
+        // And the two carry the keys that made them two, so a renderer keying its
+        // sections on what the grouping keyed on can tell them apart where the
+        // heading cannot.
+        Assert.Equal(["laptop", "tower"], groups.Select(group => group.Key));
+    }
+
+    /// <summary>The key under Kind grouping is the kind's own name, and there is
+    /// none when nothing grouped — a nameless section has nothing to be keyed apart
+    /// from.</summary>
+    [Fact]
+    public void A_sections_key_is_the_kind_under_type_grouping_and_absent_when_ungrouped()
+    {
+        Assert.Equal(["Claude", "Copilot"], AgentSessionGroups.Of(Sample, AgentSessionGrouping.Kind).Select(group => group.Key));
+        Assert.Null(Assert.Single(AgentSessionGroups.Of(Sample, AgentSessionGrouping.None)).Key);
     }
 
     /// <summary>

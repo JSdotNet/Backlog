@@ -52,6 +52,12 @@ internal static class SessionDocumentFactory
             LastActivityAt = record.LastActivityAt,
             TurnCount = record.TurnCount,
             DurationSeconds = record.DurationSeconds,
+            // Passed through, never copied or reshaped: null stays null so the
+            // serializer drops it, and an empty list stays an empty list so it
+            // writes `[]`. A mapping that built a new list here would turn the
+            // first into the second.
+            Runs = record.Runs,
+            Waits = record.Waits,
         };
 
     /// <summary>
@@ -83,7 +89,9 @@ internal static class SessionDocumentFactory
                 document.StartedAt,
                 document.LastActivityAt,
                 document.TurnCount,
-                document.DurationSeconds),
+                document.DurationSeconds,
+                document.Runs,
+                document.Waits),
             machineId,
             document.Timestamp);
     }
