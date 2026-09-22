@@ -16,7 +16,7 @@ public sealed class AgentSessionViewTests
         // session that has gone quiet, not one that has ended.
         Assert.Equal(
             ["running", "stalled"],
-            AgentSessionViews.Of(Sample, AgentSessionView.Live)
+            AgentSessionViews.Of(Rows(Sample), AgentSessionView.Live)
                 .Select(session => session.Id)
                 .OrderBy(id => id, StringComparer.Ordinal));
 
@@ -25,14 +25,18 @@ public sealed class AgentSessionViewTests
         // The invariant this filter is the code home for: with no liveness evidence
         // a session is Finished, and Finished is the one thing Live is not.
         Assert.All(
-            AgentSessionViews.Of(Sample, AgentSessionView.Live),
+            AgentSessionViews.Of(Rows(Sample), AgentSessionView.Live),
             session => Assert.NotEqual(AgentSessionState.Finished, session.State));
 
     [Fact]
-    public void All_is_every_session_unchanged() =>
+    public void All_is_every_session_unchanged()
+    {
+        var rows = Rows(Sample);
+
         // The same list, not a copy of it. All is the absence of a filter, and a
         // rebuilt list would be work done to arrive back where it started.
-        Assert.Same(Sample, AgentSessionViews.Of(Sample, AgentSessionView.All));
+        Assert.Same(rows, AgentSessionViews.Of(rows, AgentSessionView.All));
+    }
 
     [Fact]
     public void Nothing_filtered_is_an_empty_list_rather_than_null()
@@ -40,7 +44,7 @@ public sealed class AgentSessionViewTests
         // A machine where every agent has gone home. The surface decides what
         // "nothing live" looks like, and it can only do that if it is handed a list.
         var live = AgentSessionViews.Of(
-            [Session("done", AgentSessionState.Finished, Noon.AddHours(-6))],
+            Rows([Session("done", AgentSessionState.Finished, Noon.AddHours(-6))]),
             AgentSessionView.Live);
 
         Assert.NotNull(live);
@@ -56,7 +60,7 @@ public sealed class AgentSessionViewTests
     public void Filtering_preserves_the_order_it_was_given() =>
         Assert.Equal(
             ["stalled", "running"],
-            AgentSessionViews.Of(Sample, AgentSessionView.Live).Select(session => session.Id));
+            AgentSessionViews.Of(Rows(Sample), AgentSessionView.Live).Select(session => session.Id));
 
     /// <summary>
     /// The composition the pane uses: view first, then grouping. A machine with
@@ -68,16 +72,16 @@ public sealed class AgentSessionViewTests
     {
         Assert.Equal(
             ["DEV-LAPTOP", "DEV-TOWER"],
-            AgentSessionGroups.Of(Sample, AgentSessionGrouping.Environment).Select(group => group.Name));
+            AgentSessionGroups.Of(Rows(Sample), AgentSessionGrouping.Environment).Select(group => group.Name));
 
         var live = AgentSessionGroups.Of(
-            AgentSessionViews.Of(Sample, AgentSessionView.Live),
+            AgentSessionViews.Of(Rows(Sample), AgentSessionView.Live),
             AgentSessionGrouping.Environment);
 
         var group = Assert.Single(live);
 
         Assert.Equal("DEV-TOWER", group.Name);
-        Assert.Equal(2, group.Sessions.Count);
+        Assert.Equal(2, group.Rows.Count);
     }
 
     [Theory]
@@ -126,4 +130,9 @@ public sealed class AgentSessionViewTests
             // every construction site to say them.
             TurnCount: null,
             Origin: AgentSessionOrigin.Local);
+
+    /// <summary>The list the pure functions now take: every session as a row of its
+    /// own, no runs on any of them. What the pane builds from a reading with no run
+    /// files behind it.</summary>
+    private static IReadOnlyList<SessionRow> Rows(IReadOnlyList<AgentSession> sessions) => SessionRows.Of(sessions, []);
 }

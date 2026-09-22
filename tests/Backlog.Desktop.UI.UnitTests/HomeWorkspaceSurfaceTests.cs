@@ -5,6 +5,7 @@ using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.GitHub;
+using Backlog.Modules.Sessions.UI;
 using Bunit;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
@@ -1385,12 +1386,101 @@ public sealed class HomeWorkspaceSurfaceTests
         return harness.Context.Render<Home>();
     }
 
+    /// <summary>
+    /// The sessions list hands an entry back to the workspace: a delivery run names
+    /// the Backlog entry it was started from, and pressing it leaves the surface,
+    /// puts the task list on screen and selects that entry.
+    /// <para>
+    /// Wired here rather than in the pane because an entry belongs to Tasks and the
+    /// pane holds sessions; the shell is the only place that knows both, which is
+    /// exactly what this asserts.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void A_run_s_backlog_entry_opens_in_the_task_list()
+    {
+        using var harness = CreateHarness(seed: PlanEntryText);
+        var component = Render(harness);
+
+        component.WaitForElement("[data-testid='dashboard-toggle-button']").Click();
+        component.WaitForElement("[data-testid='dashboard-sessions-tab']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='sessions-panel']")));
+
+        var pane = component.FindComponent<SessionsPane>().Instance;
+
+        Assert.True(pane.OnOpenTask.HasDelegate);
+
+        // The plan as the marker states it — bare, where the app stores the tag with
+        // its sigil — so this is the spelling the shell has to reconcile.
+        component.InvokeAsync(() => pane.OnOpenTask.InvokeAsync(
+            new DeliveryRunReference(DeliveryRunReferenceKind.Task, "delivery-run-reader", "Plan backlog-mcp-server", null, null, "backlog-mcp-server")));
+
+        component.WaitForAssertion(() =>
+        {
+            // Off the surface and back to the panes, with the task list among them.
+            Assert.Empty(component.FindAll("[data-testid='sessions-panel']"));
+
+            var selected = Assert.Single(component.FindAll(".task-item--selected"));
+
+            Assert.Contains("Read delivery run files", selected.TextContent);
+        });
+    }
+
+    /// <summary>An entry as an import leaves it: the plan tag with its sigil, and
+    /// the item's id within that plan.</summary>
+    private const string PlanEntryText =
+        "# Read delivery run files\n`prompt` `!ready` `+backlog-mcp-server` `id:delivery-run-reader`\n";
+
+    /// <summary>An entry this workspace does not hold is said out loud: the run was
+    /// real and the entry is somewhere, just not here.</summary>
+    [Fact]
+    public void An_entry_this_workspace_does_not_hold_is_reported_rather_than_ignored()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+
+        component.WaitForElement("[data-testid='dashboard-toggle-button']").Click();
+        component.WaitForElement("[data-testid='dashboard-sessions-tab']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='sessions-panel']")));
+
+        var pane = component.FindComponent<SessionsPane>().Instance;
+
+        component.InvokeAsync(() => pane.OnOpenTask.InvokeAsync(
+            new DeliveryRunReference(DeliveryRunReferenceKind.Task, "nowhere", "Plan other-plan", null, null, "other-plan")));
+
+        component.WaitForAssertion(() =>
+        {
+            // Read off the channel rather than off the screen: the tray lives in the
+            // layout, which these tests do not render.
+            var notice = Assert.Single(harness.Context.Services.GetRequiredService<IToastChannel>().Visible);
+
+            Assert.Contains("other-plan", notice.Message);
+            Assert.Contains("nowhere", notice.Message);
+            Assert.Equal("sessions-plan-entry-missing", notice.TestId);
+
+            // And the reader is left where they were, rather than on a task list that
+            // does not hold what they asked for.
+            Assert.NotEmpty(component.FindAll("[data-testid='sessions-panel']"));
+        });
+    }
+
     private static Harness CreateHarness(
         Action<AppFeatureSettingsStore>? configureFeatures = null,
-        ShellNavigationStore? shellNavigation = null)
+        ShellNavigationStore? shellNavigation = null,
+        string? seed = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-workspace-surface-tests", Guid.NewGuid().ToString("n"));
         var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));
+
+        if (seed is not null)
+        {
+            // Written through the real use case, so the entry carries the plan and
+            // the item id exactly as an import leaves them.
+            var saved = TasksTestHost.EntriesFor(store).SaveFromTextAsync(null, seed, 0).GetAwaiter().GetResult();
+
+            Assert.True(saved.IsSuccess);
+        }
+
         var gitHubSettings = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
         var featureSettings = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features", "features.json"));
         shellNavigation ??= new ShellNavigationStore(Path.Combine(root, "shell", "shell-navigation.json"));
@@ -1447,6 +1537,8 @@ public sealed class HomeWorkspaceSurfaceTests
         // whatever the person running it had been doing that morning — and a pane that
         // only worked with rows in it would fail here, which is the point.
         context.Services.AddSingleton<IAgentSessionSource>(new EmptySessionSource());
+        // And no delivery runs behind it, for the same reason.
+        context.Services.AddSingleton<IDeliveryRunSource>(new EmptyRunSource());
         context.Services.AddSingleton<IAppUpdateService, UnsupportedAppUpdateService>();
         context.Services.AddSingleton<IDevbookFolderSource>(devbookFolderSource);
         // The Roadmap module the way a host wires it: a real plan document under the
@@ -1522,6 +1614,12 @@ public sealed class HomeWorkspaceSurfaceTests
 
         public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(AgentSessionCatalog.Empty);
+    }
+
+    private sealed class EmptyRunSource : IDeliveryRunSource
+    {
+        public Task<DeliveryRunCatalog> GetRunsAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(DeliveryRunCatalog.Empty);
     }
 
     private sealed class StubAzureFoundryChatClient : IAzureFoundryChatClient

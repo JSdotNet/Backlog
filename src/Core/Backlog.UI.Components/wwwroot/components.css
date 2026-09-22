@@ -11528,10 +11528,41 @@ select.field__input {
     background: var(--color-background-alt);
 }
 
+/* A row's detail row: what belongs to the record and to none of its columns,
+   across the whole width. It wraps, unlike every other cell in this table — it is
+   the one cell whose content is not a name, a date or a chip — and it carries no
+   line of its own, because it is the underside of the row above rather than a row
+   of its own. */
+.data-table__row-detail > td {
+    padding: 0;
+    white-space: normal;
+    border-bottom: none;
+}
+
+/* A detail row with nothing in it takes no height: the fragment is asked for every
+   record, and a record with nothing to add must not leave a stripe under its row. */
+.data-table__row-detail > td > * {
+    padding: 0 var(--spacing-sm) var(--spacing-xs);
+}
+
+.data-table__row:has(+ .data-table__row-detail) > td,
+.data-table__row:has(+ .data-table__row-detail) > th {
+    border-bottom: none;
+}
+
+/* The pair highlights together whichever half the pointer is over: they are one
+   record, and a row lighting up while the detail under it stays dark reads as two. */
+.data-table__row-detail:hover,
+.data-table__row:hover + .data-table__row-detail,
+.data-table__row:has(+ .data-table__row-detail:hover) {
+    background: var(--color-background-alt);
+}
+
 /* The frame already draws the last edge, so the last row's own border would sit
    just inside it as a doubled line. */
 .data-table__section:last-child .data-table__row:last-child td,
-.data-table__section:last-child .data-table__row:last-child th {
+.data-table__section:last-child .data-table__row:last-child th,
+.data-table__section:last-child .data-table__row-detail:last-child td {
     border-bottom: none;
 }
 

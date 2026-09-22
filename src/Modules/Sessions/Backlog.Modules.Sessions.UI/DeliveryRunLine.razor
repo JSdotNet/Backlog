@@ -1,0 +1,338 @@
+@using global::Microsoft.AspNetCore.Components.Web
+@using global::Backlog.UI.Components.Icons
+@using global::Backlog.UI.Components.Metrics
+
+@*
+    One delivery run, as a line in the sessions table: under the session that ran
+    it, or in a row of its own when no listed session did. One component for both
+    places so a run reads the same wherever it landed — the difference between the
+    two is the row it sits in, not the run.
+
+    A summary line and a fold. The summary is what a reader scanning the list wants
+    from a run — which skill, what it was called, how it ended — plus the four
+    figures that say how much it took: stages done, output tokens, the context peak
+    and the tool-call count. Everything the run file records beyond that is behind
+    the fold, because a run holds ten stages, six token buckets per stage and tens of
+    thousands of tool calls, and a row that showed them would be a report with a
+    table around it. The fold is the library's, so the region is announced, keyed and
+    hidden the way every other disclosure in the product is.
+
+    Top to bottom rather than left to right, and each part where a reader looks for
+    it: what the run is linked to, then how it ended, then the figures behind the
+    fold, and the skill that owned it last.
+
+    What it is linked to is the Integrations family's own reference, rendered exactly
+    as the storybook's references page shows them: the provider's mark, "#128" for an
+    issue and "PR #74" for a pull request, the item's own title in the tooltip, and an
+    anchor that opens on GitHub. One per line, because they are separate pieces of
+    work rather than one address written twice. No state chip rides with them: this
+    product has not asked GitHub how the item is doing, and a chip would be claiming
+    it had.
+
+    **The run's own title is not here.** A dashboard names a run after the work it was
+    doing, so beside the reference to that work the title is the same sentence twice —
+    "PR #203 bijwerken met main" next to PR #203. It stays in the fold, where a reader
+    who wants the run's own words can have them without the line repeating itself.
+
+    The status is the library's status badge over the dashboard's own word, under the
+    references rather than beside them: the run's outcome is about the run, and the
+    references are about the work, so stacking them keeps a reader from reading the
+    state as the state of the item above it. **It leads to the Backlog entry**, where
+    the run names one and the host has said how to open one — the entry is where this
+    product's own work is tracked, and the GitHub items beside it already lead to
+    themselves. A run with no entry leaves the badge the span every badge here is. The
+    dashboards wrote seven spellings between them, and the badge's slug for a word it
+    has no colour for falls back to the draft tint rather than to nothing, so a new
+    spelling still renders as a chip with the word in it. The label is tidied for
+    reading — "in_progress" is not a word — and the slug is left to the badge.
+
+    The skill sits under the fold, not over the line. It is what a reader asks last —
+    the work and the outcome first, and only then which recipe produced it — and it is
+    the one thing on the line that never changes between two runs of the same flow.
+
+    Two blocks, and which side each takes is the table's doing rather than this
+    component's taste. The figures and the skill read from the left edge, under the
+    session's name; the references and the outcome sit at the right, under the row's
+    own State column, because that is where a reader's eye already goes for a state on
+    this screen. The stack is right-aligned for the same reason the column is.
+
+    The summary comes first in the markup and second on screen. A reader with a screen
+    reader gets the work and the outcome before the figures, which is the order the
+    facts matter in; the eye gets them at the right, which is where the column is. One
+    `row-reverse` buys both, and neither is bent to suit the other.
+*@
+<div class="sessions-run" data-testid="sessions-run" data-run-id="@Run.Id">
+    <span class="sessions-run__summary">
+        @* The mark and the label only: the item's own title travels in the tooltip,
+           and one reference per line — two pieces of work are two lines. *@
+        @foreach (var reference in Linked)
+        {
+            <IntegrationLink Link="@Link(reference)"
+                             ShowTitle="false"
+                             CssClass="sessions-run__reference"
+                             TestId="@($"sessions-run-{Slug(reference.Kind)}")" />
+        }
+
+        @* A button where the run names a Backlog entry and the host can open one,
+           and the span it has always been otherwise. Never an anchor to the pull
+           request above it: two ways to reach one place is one too many, and this
+           one's place is the entry. *@
+        <StatusBadge Status="@Run.Status"
+                     Text="@StatusLabel(Run.Status)"
+                     CssClass="sessions-run__status"
+                     OnClick="@(Entry is { } entry && OnOpenTask.HasDelegate ? EventCallback.Factory.Create<MouseEventArgs>(this, () => OnOpenTask.InvokeAsync(entry)) : default)"
+                     Title="@(Entry is { } which && OnOpenTask.HasDelegate ? $"Open {which.Label} in the task list" : null)"
+                     TestId="sessions-run-status" />
+    </span>
+    <span class="sessions-run__facts">
+        <FoldControl Label="@Facts"
+                     CssClass="sessions-run__fold"
+                     AriaLabel="@($"Details of run {Run.Title}")"
+                     @bind-Expanded="_expanded"
+                     TestId="sessions-run-fold">
+            <dl class="sessions-run__details">
+                @* The run's own name for itself, which the line above deliberately does
+                   not repeat. *@
+                <dt>Title</dt>
+                <dd data-testid="sessions-run-title">@Run.Title</dd>
+
+                <dt>Run</dt>
+                <dd class="data-table__mono">@Run.Id · @Run.Dashboard · @Run.WorktreeName</dd>
+
+                @if (!string.IsNullOrWhiteSpace(Run.ChangeKind))
+                {
+                    <dt>Change</dt>
+                    <dd>@Run.ChangeKind</dd>
+                }
+
+                @if (Run.Stages.Count > 0)
+                {
+                    <dt>Stages</dt>
+                    <dd>
+                        <ul class="sessions-run__list" data-testid="sessions-run-stages">
+                            @foreach (var stage in Run.Stages)
+                            {
+                                <li>
+                                    <span class="sessions-run__stage-name">@stage.Name</span>
+                                    <span class="sessions-run__stage-facts">
+                                        @StatusLabel(stage.Status)@(stage.DurationMs is { } ms ? $" · {Duration(ms)}" : string.Empty)@(stage.DoneCount > 1 ? $" · done ×{stage.DoneCount}" : string.Empty)
+                                    </span>
+                                </li>
+                            }
+                        </ul>
+                    </dd>
+                }
+
+                @if (Run.TokenUsage is { } usage)
+                {
+                    <dt>Tokens</dt>
+                    <dd data-testid="sessions-run-tokens">
+                        <span class="sessions-run__fact">@Tokens(usage.Total)</span>
+                        @if (usage.SubAgent.ModelCalls > 0)
+                        {
+                            <span class="sessions-run__fact">Sub-agents: @Tokens(usage.SubAgent)</span>
+                        }
+                        @if (usage.Models.Count > 0)
+                        {
+                            <span class="sessions-run__fact">Models: @string.Join(", ", usage.Models)</span>
+                        }
+                        @if (usage.ByStage.Count > 0)
+                        {
+                            <ul class="sessions-run__list">
+                                @foreach (var stage in usage.ByStage)
+                                {
+                                    <li>
+                                        <span class="sessions-run__stage-name">@stage.StageName</span>
+                                        <span class="sessions-run__stage-facts">@Tokens(stage.Total)</span>
+                                    </li>
+                                }
+                            </ul>
+                        }
+                    </dd>
+                }
+
+                @if (Run.Context is { } context)
+                {
+                    <dt>Context</dt>
+                    <dd data-testid="sessions-run-context">@Context(context)</dd>
+                }
+
+                @if (Run.InsightsByCategory.Count > 0)
+                {
+                    <dt>Tool calls</dt>
+                    <dd>
+                        <ul class="sessions-run__list" data-testid="sessions-run-insights">
+                            @foreach (var group in Run.InsightsByCategory)
+                            {
+                                <li>
+                                    <span class="sessions-run__stage-name">@group.Name</span>
+                                    <span class="sessions-run__stage-facts">@Insight(group)</span>
+                                </li>
+                            }
+                        </ul>
+                    </dd>
+                }
+
+                @if (Run.InsightsByServer.Count > 0)
+                {
+                    <dt>MCP servers</dt>
+                    <dd>
+                        <ul class="sessions-run__list" data-testid="sessions-run-servers">
+                            @foreach (var group in Run.InsightsByServer)
+                            {
+                                <li>
+                                    <span class="sessions-run__stage-name data-table__mono">@group.Name</span>
+                                    <span class="sessions-run__stage-facts">@Insight(group)</span>
+                                </li>
+                            }
+                        </ul>
+                    </dd>
+                }
+            </dl>
+        </FoldControl>
+
+        @* Last, and quiet: which recipe produced the run is what a reader asks after
+           the work and the outcome, and it is the one thing two runs of the same flow
+           share. *@
+        <span class="sessions-run__skill" data-testid="sessions-run-skill">
+            <SparklesIcon Size="12" CssClass="sessions-run__icon" />
+            <span class="data-table__mono">@Run.SkillId</span>
+        </span>
+    </span>
+</div>
+
+@code {
+    private bool _expanded;
+
+    [Parameter, EditorRequired]
+    public DeliveryRun Run { get; set; } = default!;
+
+    /// <summary>How the host opens a Backlog entry, where it can. Without one a task
+    /// reference is inert text, which is the honest rendering of a reference nobody
+    /// on this surface can follow.</summary>
+    [Parameter]
+    public EventCallback<DeliveryRunReference> OnOpenTask { get; set; }
+
+    /// <summary>The references drawn on the line: the work that lives elsewhere. The
+    /// Backlog entry is not among them — the status badge is how this line reaches
+    /// one, and a chip beside it would be a second control to the same place.</summary>
+    private IEnumerable<DeliveryRunReference> Linked =>
+        Run.References.Where(reference => reference.Kind is not DeliveryRunReferenceKind.Task);
+
+    /// <summary>The Backlog entry this run was started from, where it names one.</summary>
+    private DeliveryRunReference? Entry =>
+        Run.References.FirstOrDefault(reference => reference.Kind is DeliveryRunReferenceKind.Task);
+
+    /// <summary>
+    /// The four figures a reader wants before deciding whether to open the fold,
+    /// joined with the middle dot the rest of this table uses between facts. Each is
+    /// left out rather than shown as zero when the file does not carry it: an older
+    /// run file has no token usage, and "0 output tokens" would be a claim about the
+    /// run rather than about the file.
+    /// </summary>
+    private string Facts
+    {
+        get
+        {
+            var facts = new List<string>();
+
+            if (Run.Stages.Count > 0)
+            {
+                var done = Run.Stages.Count(stage => IsDone(stage.Status));
+
+                facts.Add($"{done} of {Run.Stages.Count} stages done");
+            }
+
+            if (Run.TokenUsage is { } usage && usage.Total.ModelCalls > 0)
+            {
+                facts.Add($"{MetricFormat.Compact(usage.Total.OutputTokens)} output tokens");
+            }
+
+            if (Run.Context?.PeakShare is { } share)
+            {
+                facts.Add($"context peak {MetricFormat.Percent(share, 0)}");
+            }
+
+            var calls = Run.InsightsByCategory.Sum(group => group.Count);
+
+            if (calls > 0)
+            {
+                facts.Add(calls == 1 ? "1 tool call" : $"{MetricFormat.Compact(calls)} tool calls");
+            }
+
+            return facts.Count == 0 ? "Details" : string.Join(" · ", facts);
+        }
+    }
+
+    /// <summary>The dashboards' status words, made readable. Anything unrecognised
+    /// keeps its own spelling with the underscores spaced out, so a new word still
+    /// says what the file said.</summary>
+    internal static string StatusLabel(string status) => status.ToLowerInvariant() switch
+    {
+        "done" or "completed" or "success" => "Done",
+        "in_progress" => "In progress",
+        "" => "Unknown",
+        var other => char.ToUpperInvariant(other[0]) + other[1..].Replace('_', ' ')
+    };
+
+    private static bool IsDone(string status) =>
+        status.ToLowerInvariant() is "done" or "completed" or "success";
+
+    /// <summary>
+    /// One of the run's references as the Integrations family draws one. No artifact
+    /// state on it, because none was read: a chip would say this product had asked
+    /// GitHub how the item is doing.
+    /// </summary>
+    private static IntegrationLinkRef Link(DeliveryRunReference reference) =>
+        new(
+            reference.Url ?? reference.Label,
+            reference.Kind is DeliveryRunReferenceKind.Task ? IntegrationProvider.None : IntegrationProvider.GitHub,
+            reference.Kind switch
+            {
+                DeliveryRunReferenceKind.PullRequest => IntegrationLinkKind.PullRequest,
+                DeliveryRunReferenceKind.Issue => IntegrationLinkKind.Issue,
+                _ => IntegrationLinkKind.Other
+            },
+            reference.Label,
+            reference.Title,
+            reference.Url,
+            Repository: string.IsNullOrWhiteSpace(reference.Repository)
+                ? null
+                : new IntegrationRepositoryRef(reference.Repository, reference.Repository));
+
+    private static string Slug(DeliveryRunReferenceKind kind) => kind switch
+    {
+        DeliveryRunReferenceKind.PullRequest => "pull-request",
+        DeliveryRunReferenceKind.Issue => "issue",
+        _ => "task"
+    };
+
+    private static string Tokens(DeliveryRunTokens tokens) =>
+        $"{MetricFormat.Compact(tokens.ModelCalls)} calls · {MetricFormat.Compact(tokens.OutputTokens)} out · {MetricFormat.Compact(tokens.InputTokens)} in · {MetricFormat.Compact(tokens.CacheReadTokens)} cache read · {MetricFormat.Compact(tokens.CacheWriteTokens)} cache write";
+
+    private static string Context(DeliveryRunContext context) =>
+        context.PeakShare is { } share
+            ? $"Peak {MetricFormat.Compact(context.PeakTokens)} of {MetricFormat.Compact(context.TokenLimit)} ({MetricFormat.Percent(share, 0)}); last sample {MetricFormat.Compact(context.CurrentTokens)}"
+            : $"Peak {MetricFormat.Compact(context.PeakTokens)}; last sample {MetricFormat.Compact(context.CurrentTokens)}";
+
+    private static string Insight(DeliveryRunInsightGroup group)
+    {
+        var calls = group.Count == 1 ? "1 call" : $"{MetricFormat.Compact(group.Count)} calls";
+        var failed = group.Failed == 0 ? string.Empty : $" · {group.Failed} failed";
+
+        return $"{calls} · {Duration(group.DurationMs)}{failed}";
+    }
+
+    /// <summary>Milliseconds as the two largest units that matter: hours and minutes
+    /// for a stage, minutes and seconds for a short one, and seconds alone below a
+    /// minute. A duration in milliseconds is a number nobody reads.</summary>
+    internal static string Duration(long milliseconds)
+    {
+        var span = TimeSpan.FromMilliseconds(Math.Max(0, milliseconds));
+
+        if (span.TotalHours >= 1) return $"{(int)span.TotalHours}h {span.Minutes}m";
+        if (span.TotalMinutes >= 1) return $"{span.Minutes}m {span.Seconds}s";
+
+        return span.TotalSeconds >= 1 ? $"{(int)span.TotalSeconds}s" : "<1s";
+    }
+}

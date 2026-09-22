@@ -279,6 +279,105 @@ It is a value object because it is a reading over the stream, not a second entit
 new activity entry replaces the summary by deriving a later one rather than by
 editing a stored record.
 
+### Delivery Run
+
+```meta
+type: entity
+status: active
+related: [.domain/sessions/features.md#delivery-runs-beside-their-sessions]
+```
+
+One orchestrated delivery run — a flow or orchestration skill driven through a
+dashboard — as that dashboard's own run file records it. Identified by the
+dashboard's run id within the worktree folder it was filed under.
+
+Holds what the file states: which dashboard wrote it, the worktree key it was filed
+under, the skill, the title, the status word verbatim, the change kind, the
+`Delivery Run Reference`s it names, when it started and was last updated, its stages with their status, duration
+and how many times each was marked done, its token usage in total, for delegated
+agents and per stage with the models seen, the owner session's context gauge with its
+peak, and its tool activity summed by category and by MCP server. It also carries the
+environment its file was read on, stamped by the source the way a session's is: a
+run file found here was written here.
+
+The worktree key is the dashboards' own — the folder's leaf and eight hex characters
+of a hash of its lower-cased path — and it is one-way: the path is not recoverable
+from it, but the same key can be derived from a session's `Working Location`, which is
+what `Run Attachment` does.
+
+*Delivery* run, with the adjective: this context already has a run, the stretch of
+transcript in which an agent was producing, derived here from the agent's own record.
+This one is another tool's record of work it was tracking, with a status that tool
+assigned. The two share a word and nothing else.
+
+Its lifecycle is not this context's to run either, and its status is not derived: the
+dashboard wrote seven spellings for it between two generations, and a reading that
+mapped them onto fewer members would be deciding what a writer meant rather than
+reporting what it wrote. A surface that needs a chip normalises at the last moment,
+where a new spelling degrades to a plain label rather than to a dropped row.
+
+### Delivery Run Reference
+
+```meta
+type: value-object
+status: active
+related: [.domain/sessions/features.md#the-work-a-run-is-linked-to]
+```
+
+One piece of work a `Delivery Run` is linked to: the Backlog entry it was started
+from, a tracker issue it was working, or a pull request it opened. Carries which of
+those it is, what to call it, the item's own title where the file recorded one, its
+address where it has one, and the repository it belongs to. Equality by all of them.
+
+A list on the run rather than a single tracker item, because a run has more than one
+link and they are not the same link — it starts from an item and ends in a pull
+request — and a reader wants to reach either. The address is optional and its absence
+is a fact rather than a gap: a Backlog entry is in this product, not on a page, and
+nothing here invents a URL for one. Such a reference carries the plan it belongs to
+beside its id, because the pair is what identifies an entry across plan versions, and
+reaching one is the surrounding application's to do — this context names the entry and
+never opens it. A surface shows it as the run's own outcome rather than as a chip of
+its own: the entry is the work the run was answering about, and two controls to one
+place is one too many.
+
+No state rides on a reference. Whether the issue is open or the pull request merged is
+a reading of the tracker, and this context has not performed one — a `Session Log`
+that reported one would be filling a gap nobody looked into, which is the invariant it
+already holds for a session's own fields.
+
+### Session Row
+
+```meta
+type: value-object
+status: active
+related: [.domain/sessions/domain.md#run-attachment, .domain/sessions/features.md#delivery-runs-beside-their-sessions]
+```
+
+One row of the session list: an `Agent Session` and the `Delivery Run`s it drove, or
+a single `Delivery Run` the list holds no session for. The unit the list shows,
+because a session and a run describe the same work from two sides and either may be
+the one this environment still has.
+
+Every fact read off a row comes from whichever source has it, and the row says nothing
+either source did not: a run-only row is titled by its worktree, dated by the run,
+placed on the environment the file was read on, and Finished — there is no liveness
+evidence for it. A session row's repository is the session's, and where the agent
+recorded none, the tracker item a run of it named: a recorded fact from a second
+source, not the guess from a path the Session Log forbids.
+
+### Delivery Run Catalog
+
+```meta
+type: value-object
+status: active
+```
+
+What a reading of one environment's dashboards answers with: every `Delivery Run`
+every readable folder holds, and the dashboards or folders that could **not** be read,
+by name. No count of what was left out, because nothing is: a run is work somebody
+started on purpose, there are hundreds rather than thousands, and most of them attach
+to rows the list already has. Equality by both parts.
+
 ### Session Catalog
 
 ```meta
@@ -342,6 +441,35 @@ Whether a session can report activity to the optional Collections MCP:
 This is about the reporting path and not about the session's own health. A running
 session can have degraded reporting, and a finished session can still have an enabled
 path that already delivered its last update.
+
+## Run Attachment
+
+```meta
+type: domain-service
+status: active
+related: [.domain/sessions/domain.md#delivery-run, .domain/sessions/domain.md#session-identity, .domain/sessions/features.md#under-the-session-that-drove-it]
+```
+
+Builds the list of `Session Row`s from the sessions and the runs: which `Agent
+Session` each `Delivery Run` ran in, and which runs stand on their own. A pure
+function over what it is given, like `Session Grouping`.
+
+Two conditions, and both are needed. **The worktree:** the run's key must equal the
+key derived from the session's `Working Location` — or from a folder above it, since
+a session may be started below the worktree's top level — compared without regard to
+letter case, because the dashboard slugs git's casing of the leaf and a session
+records the folder as it was launched in. **The window:** that session's `Activity
+Window` must overlap the run's. The worktree alone names a place, and a worktree is
+worked in by several sessions over its life; only the overlap names a time. Where more
+than one session passes both, the one whose start is nearest the run's own wins — the
+session that opened the run started with it. A run whose file does not date its start
+is placed by its last update, the one moment it is known to have existed.
+
+A run that matches nothing becomes a row of its own, never dropped: its session may be
+older than the `Session Limit` keeps or may have been read on another environment, and
+neither is a reason to hide the work. The rows come back in the order the sessions
+were given, then the run-only rows most recently updated first; ordering for display
+is `Session Grouping`'s job.
 
 ## Liveness Assessment
 

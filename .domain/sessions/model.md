@@ -57,6 +57,38 @@ classDiagram
         +int discovered
         +string[] unreadable
     }
+    class DeliveryRun {
+        +string run_id
+        +string dashboard
+        +string worktree
+        +string skill_id
+        +string title
+        +string status
+        +DeliveryRunStage[] stages
+        +string[] session_ids
+    }
+    class DeliveryRunReference {
+        +ReferenceKind kind
+        +string label
+        +string title
+        +string url
+        +string repository
+    }
+    class DeliveryRunStage {
+        +string name
+        +string status
+        +long duration_ms
+        +int done_count
+    }
+    class DeliveryRunCatalog {
+        +string[] unreadable
+    }
+    class SessionRow {
+        +string key
+        +string title
+        +string environment_id
+        +SessionState state
+    }
     class Agent {
         <<enumeration>>
         claude
@@ -86,6 +118,10 @@ classDiagram
     class SessionGrouping {
         <<service>>
         +SessionGroup[] group(AgentSession[], by)
+    }
+    class RunAttachment {
+        <<service>>
+        +SessionRow[] rows(AgentSession[], DeliveryRun[])
     }
     class SessionActivityPublishing {
         <<service>>
@@ -122,6 +158,15 @@ classDiagram
     SessionActivityEnrichment ..> SessionActivityStream : reads
     SessionActivityEnrichment ..> SessionEnrichmentSummary : yields
     SessionGroup "1" --> "many" AgentSession : contains
+    DeliveryRunCatalog "1" --> "many" DeliveryRun : describes
+    DeliveryRun "1" --> "many" DeliveryRunStage : tracked as
+    DeliveryRun "1" --> "many" DeliveryRunReference : linked to
+    SessionRow "1" --> "0..1" AgentSession : shows
+    SessionRow "1" --> "many" DeliveryRun : shows
+    RunAttachment ..> DeliveryRun : reads
+    RunAttachment ..> WorkingLocation : keys by
+    RunAttachment ..> ActivityWindow : overlaps
+    RunAttachment ..> SessionRow : yields
 ```
 
 ## Relationship notes
@@ -193,6 +238,13 @@ classDiagram
   session can be `running` and `degraded` at the same time: one term says what the
   local record proves about the session, the other what the external reporting path is
   doing.
+
+- **`Delivery Run` is not owned by `Agent Session`, and the diagram has no edge saying
+  it is.** The run file names no session; what puts the two on one `Session Row` is a
+  reading `Run Attachment` produces from the worktree key and the two windows, and a
+  run the reading cannot place is a row of its own. A containment edge would promise a
+  fact the evidence does not carry — which is also why the row, and not the session,
+  is the unit the list shows.
 
 - **No aggregate here references a Machine.** `Environment` is this context's own
   term. Where an environment and a registered Machine name the same box, that is a

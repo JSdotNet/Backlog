@@ -19,7 +19,7 @@ public sealed class AgentSessionEnvironmentTests
         // list is not something this can produce.
         Assert.Equal(
             ["laptop", "tower"],
-            AgentSessionEnvironments.Of(Sample).Select(environment => environment.Id));
+            AgentSessionEnvironments.Of(Rows(Sample)).Select(environment => environment.Id));
 
     /// <summary>
     /// The filter's options and the grouping's sections are one derivation. A
@@ -29,8 +29,8 @@ public sealed class AgentSessionEnvironmentTests
     [Fact]
     public void The_environments_are_named_and_ordered_as_the_grouping_draws_its_sections() =>
         Assert.Equal(
-            AgentSessionGroups.Of(Sample, AgentSessionGrouping.Environment).Select(group => group.Name),
-            AgentSessionEnvironments.Of(Sample).Select(environment => environment.Name));
+            AgentSessionGroups.Of(Rows(Sample), AgentSessionGrouping.Environment).Select(group => group.Name),
+            AgentSessionEnvironments.Of(Rows(Sample)).Select(environment => environment.Name));
 
     /// <summary>
     /// Keyed on the id and named by the newest session, so a machine renamed since
@@ -46,7 +46,7 @@ public sealed class AgentSessionEnvironmentTests
             Session("new", Noon.AddHours(-1), "tower", "DEV-TOWER")
         ];
 
-        var environment = Assert.Single(AgentSessionEnvironments.Of(renamed));
+        var environment = Assert.Single(AgentSessionEnvironments.Of(Rows(renamed)));
 
         Assert.Equal("tower", environment.Id);
         Assert.Equal("DEV-TOWER", environment.Name);
@@ -57,7 +57,7 @@ public sealed class AgentSessionEnvironmentTests
     {
         // A wire field can be blank. An option with an empty label cannot be told
         // from "All machines" above it, so the id stands in.
-        var environment = Assert.Single(AgentSessionEnvironments.Of([Session("s", Noon, "8f3d5c11", "")]));
+        var environment = Assert.Single(AgentSessionEnvironments.Of(Rows([Session("s", Noon, "8f3d5c11", "")])));
 
         Assert.Equal("8f3d5c11", environment.Name);
     }
@@ -66,7 +66,7 @@ public sealed class AgentSessionEnvironmentTests
     public void Narrowing_keeps_exactly_one_environments_sessions() =>
         Assert.Equal(
             ["tower-stalled", "tower-running"],
-            AgentSessionEnvironments.On(Sample, "tower").Select(session => session.Id));
+            AgentSessionEnvironments.On(Rows(Sample), "tower").Select(session => session.Id));
 
     /// <summary>
     /// The narrowing does not sort. Ordering the list is the grouping's job, and a
@@ -77,17 +77,21 @@ public sealed class AgentSessionEnvironmentTests
     public void Narrowing_preserves_the_order_it_was_given() =>
         Assert.Equal(
             ["laptop-finished", "laptop-running"],
-            AgentSessionEnvironments.On(Sample, "laptop").Select(session => session.Id));
+            AgentSessionEnvironments.On(Rows(Sample), "laptop").Select(session => session.Id));
 
     [Theory]
     [InlineData(null)]
     [InlineData("")]
     [InlineData("   ")]
-    public void No_environment_is_every_session_unchanged(string? environmentId) =>
+    public void No_environment_is_every_session_unchanged(string? environmentId)
+    {
+        var rows = Rows(Sample);
+
         // The same list, not a copy of it: no environment is the absence of a
         // filter, the way All is for the view. Blank and null both mean it, because
         // a select hands back an empty string for its empty option.
-        Assert.Same(Sample, AgentSessionEnvironments.On(Sample, environmentId));
+        Assert.Same(rows, AgentSessionEnvironments.On(rows, environmentId));
+    }
 
     [Fact]
     public void Narrowing_is_on_the_id_and_not_the_name()
@@ -100,9 +104,9 @@ public sealed class AgentSessionEnvironmentTests
             Session("second", Noon.AddHours(-2), "b", "DEV-PC")
         ];
 
-        Assert.Equal(2, AgentSessionEnvironments.Of(twins).Count);
-        Assert.Equal(["first"], AgentSessionEnvironments.On(twins, "a").Select(session => session.Id));
-        Assert.Empty(AgentSessionEnvironments.On(twins, "DEV-PC"));
+        Assert.Equal(2, AgentSessionEnvironments.Of(Rows(twins)).Count);
+        Assert.Equal(["first"], AgentSessionEnvironments.On(Rows(twins), "a").Select(session => session.Id));
+        Assert.Empty(AgentSessionEnvironments.On(Rows(twins), "DEV-PC"));
     }
 
     /// <summary>
@@ -115,13 +119,13 @@ public sealed class AgentSessionEnvironmentTests
     public void Narrowing_then_viewing_then_grouping_is_grouping_over_what_survived()
     {
         var live = AgentSessionGroups.Of(
-            AgentSessionViews.Of(AgentSessionEnvironments.On(Sample, "laptop"), AgentSessionView.Live),
+            AgentSessionViews.Of(AgentSessionEnvironments.On(Rows(Sample), "laptop"), AgentSessionView.Live),
             AgentSessionGrouping.Environment);
 
         var group = Assert.Single(live);
 
         Assert.Equal("DEV-LAPTOP", group.Name);
-        Assert.Equal(["laptop-running"], group.Sessions.Select(session => session.Id));
+        Assert.Equal(["laptop-running"], group.Rows.Select(session => session.Id));
     }
 
     /// <summary>
@@ -161,4 +165,9 @@ public sealed class AgentSessionEnvironmentTests
             // to say them.
             TurnCount: null,
             Origin: AgentSessionOrigin.Local);
+
+    /// <summary>The list the pure functions now take: every session as a row of its
+    /// own, no runs on any of them. What the pane builds from a reading with no run
+    /// files behind it.</summary>
+    private static IReadOnlyList<SessionRow> Rows(IReadOnlyList<AgentSession> sessions) => SessionRows.Of(sessions, []);
 }

@@ -1,0 +1,58 @@
+@*
+    Sparkles: one four-pointed star with two small crosses beside it.
+
+    Drawn here rather than fetched, for the reason ChevronUpIcon gives: a control
+    that needs the network to show itself is no use in a WebView with no egress.
+    Lucide's idiom rather than Lucide's file — an outline on the 24x24 grid, stroked
+    at 2, round caps and joins, filled nowhere — which is what
+    `.design/typography-and-layout.md#iconography` allows on exactly these terms.
+
+    Named for the shape, not for a meaning. The sessions list puts it in front of
+    the skill that owned a delivery run, because that is the glyph the agent
+    tooling itself uses for a skill; a second host may read it as anything else a
+    spark stands for, and this file ships no opinion about which. Colour and size
+    are the caller's, as on every glyph in this folder.
+*@
+
+<svg class="@ClassValue"
+     viewBox="0 0 24 24"
+     width="@Size"
+     height="@Size"
+     fill="none"
+     stroke="currentColor"
+     stroke-width="2"
+     stroke-linecap="round"
+     stroke-linejoin="round"
+     aria-hidden="true"
+     focusable="false"
+     data-testid="@TestId"
+     @attributes="AdditionalAttributes">
+    @* The star: four concave arcs meeting at the points, centred on the grid. *@
+    <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" />
+    @* Two small crosses, top right and bottom left, so the glyph reads as
+       sparkles rather than as a compass rose. *@
+    <path d="M20 3v4" />
+    <path d="M22 5h-4" />
+    <path d="M4 17v2" />
+    <path d="M5 18H3" />
+</svg>
+
+@code {
+    /// <summary>Edge length, written straight onto <c>width</c> and <c>height</c>;
+    /// see <see cref="ChevronUpIcon.Size"/> for the scale it is drawn on.</summary>
+    [Parameter]
+    public string Size { get; set; } = "16";
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    /// <summary>Names itself for the reason the chevron does: a host reaching the
+    /// drawing inside its own control hooks the name, not an element selector.</summary>
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "sparkles-icon" : $"sparkles-icon {CssClass}";
+}

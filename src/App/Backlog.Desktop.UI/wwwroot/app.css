@@ -4795,6 +4795,11 @@ h1, h2, h3 {
    is a date, a chip or a short string. */
 .sessions-table__session {
     white-space: normal;
+    /* Room for a run line: the glyph, a skill id, a title, a tracker reference and
+       the outcome, on one line at the widths this pane is used at. Below this the
+       eight-column table already scrolls sideways, so the floor costs nothing the
+       table was not paying. */
+    min-width: 26rem;
 }
 
 .sessions-table__title {
@@ -4849,6 +4854,185 @@ h1, h2, h3 {
 
 .sessions-table__branch {
     max-width: 16rem;
+}
+
+/* A delivery run, under the session that drove it or in a row of the runs table.
+
+   Detail-sized and detail-coloured, on purpose: in the sessions table it is the
+   third line of a name cell whose first line is the session, and a run drawn at
+   the row's own size would read as a second row. The title inside it takes the
+   primary ink back, because it is the one thing on the line a reader recognises,
+   and it is clamped the way every long value in this table is — at a width that
+   leaves the Type column where it was. In the runs table the same line is the
+   row's whole first cell, and the size holds: a run is a run wherever it is. */
+/* Two blocks across the row the run spans: the figures and the skill from the left
+   edge, under the session's name, and the references with the outcome at the right,
+   under the row's own State column. `row-reverse` is what puts the summary — which
+   comes first in the markup, because the work and the outcome are what matter first
+   — on the right without reordering the markup for the eye's sake. */
+.sessions-run {
+    display: flex;
+    flex-direction: row-reverse;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+    margin-top: var(--spacing-xs);
+    min-width: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: 400;
+}
+
+.sessions-run__facts {
+    display: grid;
+    gap: var(--spacing-2xs);
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+/* Stacked, not strung out: one reference per line and the outcome under them. The
+   references are about the work and the badge is about the run, and side by side the
+   badge read as the state of the item beside it. Right-aligned, because the block
+   sits under the State column and a column is what the alignment follows.
+
+   Sticky along that edge, and this is the part worth arguing. Eight columns are wider
+   than the box they are in at 1400px, so State itself starts past the visible edge:
+   aligned to it and nothing more, the reference and the outcome were off screen on
+   every run — exactly the two things this block exists to show. Sticky keeps it at
+   the scroll box's right edge while the table is scrolled short of State, and leaves
+   it where it naturally falls — under State — the moment the window is wide enough to
+   show that column. The same mechanism the heading row already uses to stay put, on
+   the other axis. */
+.sessions-run__summary {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--spacing-2xs);
+    flex: 0 0 auto;
+    min-width: 0;
+    position: sticky;
+    right: 0;
+}
+
+/* The glyph and the skill id read as one thing, so they share a baseline and a
+   gap smaller than the one between facts. Under the fold, and quieter than what is
+   above it: it is the last question a reader asks about a run. */
+.sessions-run__skill {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    align-self: start;
+    color: var(--color-text-secondary);
+}
+
+.sessions-run__icon {
+    flex: 0 0 auto;
+    color: var(--color-text-secondary);
+}
+
+/* The run lines of one row, as a block: the detail cell's own padding lives here,
+   so a row with no runs leaves no stripe. */
+.sessions-runs {
+    display: grid;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+}
+
+.sessions-run__reference {
+    align-self: end;
+    min-width: 0;
+}
+
+/* The outcome sits under the work it is the outcome of.
+
+   Sized to its word, which is the one thing this host changes about the library's
+   status badge. That badge is 7.5rem wide because it stands in a column on the task
+   list, where a fixed width is what makes a column; here it trails a sentence in a
+   detail line, and 7.5rem of pill after four words pushed it onto a line of its own
+   on two rows in three. The tone, the weight and the capitals are the library's and
+   stay exactly as they are. */
+.sessions-run__status {
+    align-self: end;
+    width: auto;
+    min-width: 0;
+    height: auto;
+    margin-left: 0;
+    padding: 0 var(--spacing-xs);
+    letter-spacing: 0.02em;
+}
+
+/* The fold's trigger is the facts line — stages, tokens, context, calls — so it
+   inherits the run's size rather than the button default the library resets to
+   `inherit` from the cell, which is the row's size. */
+.sessions-run__fold .fold__trigger {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    align-items: baseline;
+}
+
+/* Four facts wrap onto a second line in a narrow cell rather than being cut at
+   the cell's edge with the last one half-said. On the label itself, because the
+   library clamps the label there and inheritance from the trigger does not reach
+   past a rule that names the element. */
+.sessions-run__fold .fold__label {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+}
+
+.sessions-run__details {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: var(--spacing-2xs) var(--spacing-md);
+    margin: var(--spacing-xs) 0 0;
+    max-width: 48rem;
+}
+
+.sessions-run__details dt {
+    font-weight: 500;
+}
+
+.sessions-run__details dd {
+    display: grid;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    min-width: 0;
+    color: var(--color-text-primary);
+    /* A table cell does not wrap, and the Run line is three identifiers joined
+       with dots — a run id, a dashboard and a worktree name — with no space a
+       browser would break at. Found on a real profile: a long worktree name ran
+       18px into the Type column. Wrapping anywhere is the honest answer for text
+       that is identifiers rather than prose. */
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.sessions-run__list {
+    display: grid;
+    gap: 2px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.sessions-run__list li {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.sessions-run__stage-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sessions-run__stage-facts {
+    flex: 0 0 auto;
+    color: var(--color-text-secondary);
+    white-space: nowrap;
 }
 
 /* A grid item in `.workspace` now, not a flex child of `.shell`. `flex` is

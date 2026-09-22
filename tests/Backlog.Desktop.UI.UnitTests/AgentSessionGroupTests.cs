@@ -13,12 +13,12 @@ public sealed class AgentSessionGroupTests
     [Fact]
     public void Ungrouped_is_one_nameless_section_of_everything()
     {
-        var group = Assert.Single(AgentSessionGroups.Of(Sample, AgentSessionGrouping.None));
+        var group = Assert.Single(AgentSessionGroups.Of(Rows(Sample), AgentSessionGrouping.None));
 
         // Null rather than "All": a caller renders sections unconditionally and a
         // name of null is what tells it there is no heading to draw.
         Assert.Null(group.Name);
-        Assert.Equal(Sample.Count, group.Sessions.Count);
+        Assert.Equal(Sample.Count, group.Rows.Count);
     }
 
     [Fact]
@@ -26,32 +26,32 @@ public sealed class AgentSessionGroupTests
     {
         // Not one empty section: the surface decides what "nothing" looks like, and
         // an empty section would make it draw a heading over it.
-        Assert.Empty(AgentSessionGroups.Of([], AgentSessionGrouping.None));
-        Assert.Empty(AgentSessionGroups.Of([], AgentSessionGrouping.Environment));
-        Assert.Empty(AgentSessionGroups.Of([], AgentSessionGrouping.Kind));
+        Assert.Empty(AgentSessionGroups.Of(Rows([]), AgentSessionGrouping.None));
+        Assert.Empty(AgentSessionGroups.Of(Rows([]), AgentSessionGrouping.Environment));
+        Assert.Empty(AgentSessionGroups.Of(Rows([]), AgentSessionGrouping.Kind));
     }
 
     [Fact]
     public void By_environment_is_a_section_per_machine_named_after_it()
     {
-        var groups = AgentSessionGroups.Of(Sample, AgentSessionGrouping.Environment);
+        var groups = AgentSessionGroups.Of(Rows(Sample), AgentSessionGrouping.Environment);
 
         // Sorted by name, deliberately not by size: a list that reordered its own
         // sections as sessions came and went would make the reader re-find the one
         // they were reading.
         Assert.Equal(["DEV-LAPTOP", "DEV-TOWER"], groups.Select(group => group.Name));
-        Assert.Single(groups[0].Sessions);
-        Assert.Equal(3, groups[1].Sessions.Count);
+        Assert.Single(groups[0].Rows);
+        Assert.Equal(3, groups[1].Rows.Count);
     }
 
     [Fact]
     public void By_type_is_a_section_per_assistant_in_the_order_the_enum_declares_them()
     {
-        var groups = AgentSessionGroups.Of(Sample, AgentSessionGrouping.Kind);
+        var groups = AgentSessionGroups.Of(Rows(Sample), AgentSessionGrouping.Kind);
 
         Assert.Equal(["Claude", "Copilot"], groups.Select(group => group.Name));
-        Assert.All(groups[0].Sessions, session => Assert.Equal(AgentSessionKind.Claude, session.Kind));
-        Assert.All(groups[1].Sessions, session => Assert.Equal(AgentSessionKind.Copilot, session.Kind));
+        Assert.All(groups[0].Rows, session => Assert.Equal(AgentSessionKind.Claude, session.Kind));
+        Assert.All(groups[1].Rows, session => Assert.Equal(AgentSessionKind.Copilot, session.Kind));
     }
 
     /// <summary>
@@ -70,8 +70,8 @@ public sealed class AgentSessionGroupTests
     [InlineData(AgentSessionGrouping.Kind)]
     public void Every_grouping_carries_every_session(AgentSessionGrouping grouping)
     {
-        var grouped = AgentSessionGroups.Of(Sample, grouping)
-            .SelectMany(group => group.Sessions)
+        var grouped = AgentSessionGroups.Of(Rows(Sample), grouping)
+            .SelectMany(group => group.Rows)
             .ToList();
 
         Assert.Equal(Sample.Count, grouped.Count);
@@ -83,11 +83,11 @@ public sealed class AgentSessionGroupTests
     [Fact]
     public void Inside_a_section_the_most_recently_active_session_is_first()
     {
-        var groups = AgentSessionGroups.Of(Sample, AgentSessionGrouping.Environment);
+        var groups = AgentSessionGroups.Of(Rows(Sample), AgentSessionGrouping.Environment);
 
         foreach (var group in groups)
         {
-            var activity = group.Sessions.Select(session => session.LastActivityAt).ToList();
+            var activity = group.Rows.Select(session => session.LastActivityAt).ToList();
 
             Assert.Equal(activity.OrderByDescending(moment => moment), activity);
         }
@@ -108,9 +108,9 @@ public sealed class AgentSessionGroupTests
             Session("b", AgentSessionKind.Claude, "tower", "dev-tower", Noon.AddMinutes(-1))
         ];
 
-        var group = Assert.Single(AgentSessionGroups.Of(sessions, AgentSessionGrouping.Environment));
+        var group = Assert.Single(AgentSessionGroups.Of(Rows(sessions), AgentSessionGrouping.Environment));
 
-        Assert.Equal(2, group.Sessions.Count);
+        Assert.Equal(2, group.Rows.Count);
     }
 
     /// <summary>
@@ -127,7 +127,7 @@ public sealed class AgentSessionGroupTests
             Session("b", AgentSessionKind.Claude, "laptop", "DEV-TOWER", Noon.AddMinutes(-1))
         ];
 
-        var groups = AgentSessionGroups.Of(sessions, AgentSessionGrouping.Environment);
+        var groups = AgentSessionGroups.Of(Rows(sessions), AgentSessionGrouping.Environment);
 
         Assert.Equal(2, groups.Count);
         Assert.All(groups, group => Assert.Equal("DEV-TOWER", group.Name));
@@ -148,7 +148,7 @@ public sealed class AgentSessionGroupTests
             Session("newer", AgentSessionKind.Claude, "tower", "NEW-NAME", Noon)
         ];
 
-        var group = Assert.Single(AgentSessionGroups.Of(sessions, AgentSessionGrouping.Environment));
+        var group = Assert.Single(AgentSessionGroups.Of(Rows(sessions), AgentSessionGrouping.Environment));
 
         Assert.Equal("NEW-NAME", group.Name);
     }
@@ -194,4 +194,9 @@ public sealed class AgentSessionGroupTests
             // that lets a replicated session pass for a local one.
             TurnCount: null,
             Origin: AgentSessionOrigin.Local);
+
+    /// <summary>The list the pure functions now take: every session as a row of its
+    /// own, no runs on any of them. What the pane builds from a reading with no run
+    /// files behind it.</summary>
+    private static IReadOnlyList<SessionRow> Rows(IReadOnlyList<AgentSession> sessions) => SessionRows.Of(sessions, []);
 }

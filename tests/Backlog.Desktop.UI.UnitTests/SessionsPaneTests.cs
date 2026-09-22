@@ -1159,7 +1159,17 @@ public sealed class SessionsPaneTests
         var context = new BunitContext();
         context.Services.AddSingleton(source);
 
+        // No runs, unless a test says otherwise: the pane injects the run port too,
+        // and every test here is about the sessions. The run tests register their own.
+        context.Services.AddSingleton<IDeliveryRunSource>(new StubRunSource([], []));
+
         return context;
+    }
+
+    internal sealed class StubRunSource(IReadOnlyList<DeliveryRun> runs, IReadOnlyList<string> unreadable) : IDeliveryRunSource
+    {
+        public Task<DeliveryRunCatalog> GetRunsAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(new DeliveryRunCatalog(runs, unreadable));
     }
 
     private static readonly IReadOnlyList<AgentSession> Sample =

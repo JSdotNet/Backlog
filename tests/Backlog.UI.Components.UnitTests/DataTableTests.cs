@@ -224,6 +224,56 @@ public sealed class DataTableTests
         new("DEV-TOWER", [.. Sample])
     ];
 
+    /// <summary>
+    /// A detail row spans every column, sits under the row it belongs to, and is not
+    /// one of the rows: the count above the table counts records, and a caller
+    /// selecting <c>.data-table__row</c> must not start finding two per record.
+    /// </summary>
+    [Fact]
+    public void A_detail_row_spans_the_columns_under_the_row_it_belongs_to()
+    {
+        using var context = new BunitContext();
+
+        var table = Render(context, parameters => parameters
+            .Add(c => c.Items, Sample)
+            .Add(c => c.RowKey, row => row.Id)
+            .Add(c => c.RowDetail, (RenderFragment<Row>)(row => builder => builder.AddContent(0, $"about {row.Name}"))));
+
+        Assert.Equal(2, table.FindAll(".data-table__row").Count);
+
+        var details = table.FindAll(".data-table__row-detail");
+
+        Assert.Equal(2, details.Count);
+        Assert.Equal(["about first", "about second"], details.Select(detail => detail.TextContent.Trim()));
+
+        foreach (var detail in details)
+        {
+            var cell = Assert.Single(detail.QuerySelectorAll("td"));
+
+            Assert.Equal(Columns.Length.ToString(System.Globalization.CultureInfo.InvariantCulture), cell.GetAttribute("colspan"));
+        }
+
+        // Under its own row, not after both of them.
+        var rows = table.FindAll("tbody tr");
+
+        Assert.Equal(
+            ["data-table__row", "data-table__row-detail", "data-table__row", "data-table__row-detail"],
+            rows.Select(row => row.ClassName));
+    }
+
+    /// <summary>Without the parameter the table is exactly what it was: one tr per
+    /// record and no empty second row under each.</summary>
+    [Fact]
+    public void No_detail_fragment_leaves_the_table_as_it_was()
+    {
+        using var context = new BunitContext();
+
+        var table = Render(context, parameters => parameters.Add(c => c.Items, Sample));
+
+        Assert.Equal(2, table.FindAll(".data-table__row").Count);
+        Assert.Empty(table.FindAll(".data-table__row-detail"));
+    }
+
     private static IRenderedComponent<DataTable<Row>> Render(
         BunitContext context,
         Action<ComponentParameterCollectionBuilder<DataTable<Row>>> configure) =>
