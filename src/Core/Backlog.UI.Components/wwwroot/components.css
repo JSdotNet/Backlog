@@ -1248,6 +1248,12 @@ button.badge:hover {
     flex: 1 1 auto;
 }
 
+/* The heading HeadingLevel wraps the trigger in. Only the margin goes: the face
+   stays the heading's own, and the trigger inherits it. */
+.fold__heading {
+    margin: 0;
+}
+
 .fold__trigger:hover .fold__chevron,
 .entry-doc__title-button:hover .entry-doc__fold-chevron,
 .subitem-card__title-button:hover .entry-doc__fold-chevron {
@@ -1282,6 +1288,92 @@ button.badge:hover {
     .entry-doc__fold-chevron {
         transition: none;
     }
+}
+
+/* --- Info hint ----------------------------------------------------------- */
+/*
+  A mark and the explanation behind it. The bubble is always in the DOM, for
+  aria-describedby; showing it is the sighted reader's concern and happens on
+  hover, on focus, or when a press pinned it. --dismissed is Escape: it beats
+  hover and focus until either leaves, so the reader who closed it is not shown
+  it again for still being where they were.
+
+  At rest the bubble is display: none, not visibility: hidden. An invisible
+  absolutely-positioned box still counts toward its scroll container's width,
+  and eight of them beside part titles gave a narrow dashboard a horizontal
+  scrollbar for captions nobody had opened.
+
+  A host that wants the bubble aligned to something wider than the mark — a
+  card's edge rather than the ⓘ — makes that ancestor the containing block:
+  position: relative on it, position: static on .info-hint, and the bubble's
+  left: 0 and max-width: 100% then mean that ancestor's.
+*/
+
+.info-hint {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+}
+
+.info-hint__trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--color-text-secondary);
+    cursor: help;
+    font: inherit;
+    line-height: 1;
+}
+
+.info-hint__trigger:hover,
+.info-hint__trigger:focus-visible,
+.info-hint--open .info-hint__trigger {
+    color: var(--color-primary);
+}
+
+.info-hint__trigger:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+    border-radius: 50%;
+}
+
+.info-hint__icon {
+    display: block;
+    font-size: 1em;
+}
+
+/* Below and to the right of the mark, on the raised surface every popover
+   takes. 500 is the tooltip layer typography-and-layout.md names; there is no
+   token for it yet, and it only has to clear the dropdowns at 100. */
+.info-hint__bubble {
+    display: none;
+    position: absolute;
+    top: calc(100% + var(--spacing-2xs));
+    left: 0;
+    z-index: 500;
+    width: max-content;
+    max-width: min(44ch, 80vw);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+    box-shadow: var(--shadow-lg);
+    font-size: var(--font-size-sm);
+    font-weight: 400;
+    line-height: var(--line-height-normal);
+    text-align: left;
+    white-space: normal;
+}
+
+.info-hint:hover:not(.info-hint--dismissed) .info-hint__bubble,
+.info-hint:focus-within:not(.info-hint--dismissed) .info-hint__bubble,
+.info-hint--open .info-hint__bubble {
+    display: block;
 }
 
 /* --- Raw editor ---------------------------------------------------------- */

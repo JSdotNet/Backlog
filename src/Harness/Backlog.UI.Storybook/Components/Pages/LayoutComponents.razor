@@ -166,6 +166,21 @@
         </div>
     </Story>
 
+    <Story Name="FoldControl as a section heading"
+           Description="HeadingLevel wraps the trigger in a heading — the accordion shape a dashboard section wants. A button inside a heading is valid and keeps the section in the outline; a heading inside a button is neither, so the level is a parameter rather than something a host nests itself."
+           Code="@FoldHeadingCode">
+        <div class="sb-stack">
+            <FoldControl Expanded="_headingFoldOpen"
+                         ExpandedChanged="v => _headingFoldOpen = v"
+                         Label="Cost"
+                         HeadingLevel="3"
+                         TestId="fold-heading">
+                <p>Spend this month, by model, over the period.</p>
+            </FoldControl>
+            <p class="sb-state" data-testid="fold-heading-state">Expanded: @_headingFoldOpen</p>
+        </div>
+    </Story>
+
     <Story Name="SplitPane"
            Description="Drag the separator, or focus it and use Left/Right, PageUp/PageDown, Home/End. Every drag in this product owes the keyboard an equivalent, and this is that equivalent."
            Code="@SplitCode">
@@ -265,6 +280,7 @@ Left and Right still describe the separator rather than the number, so here Left
     private string _body = "The editor and the read view are two tabs over the same text.";
     private bool _foldOpen = true;
     private bool _hostFoldOpen;
+    private bool _headingFoldOpen = true;
     private double _startWidth = 20;
 
     /// <summary>Held apart from the start-anchored story's width so the two
@@ -325,6 +341,13 @@ Left and Right still describe the separator rather than the number, so here Left
         <FoldControl Expanded="_open" ExpandedChanged="v => _open = v" Label="Advanced settings">
             @* ChildContent is the region that folds, not the trigger's label. *@
             <Toggle Checked="_local" CheckedChanged="v => _local = v" Label="Keep entries local" />
+        </FoldControl>
+        """;
+
+    private const string FoldHeadingCode = """
+        <FoldControl Expanded="_open" ExpandedChanged="v => _open = v"
+                     Label="Cost" HeadingLevel="3" HeadingCssClass="dashboard-section__title">
+            ...
         </FoldControl>
         """;
 

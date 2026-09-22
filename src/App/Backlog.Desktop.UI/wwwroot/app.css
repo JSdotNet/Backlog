@@ -4554,8 +4554,7 @@ h1, h2, h3 {
 }
 
 .dashboard-panel__eyebrow,
-.dashboard-panel__title,
-.dashboard-panel__subtitle {
+.dashboard-panel__title {
     margin: 0;
 }
 
@@ -4569,11 +4568,6 @@ h1, h2, h3 {
 
 .dashboard-panel__title {
     font-size: var(--font-size-lg);
-}
-
-.dashboard-panel__subtitle {
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
 }
 
 .dashboard-panel__content {
@@ -4616,9 +4610,10 @@ h1, h2, h3 {
     white-space: nowrap;
 }
 
-/* Productivity and cost. A section rather than two panels of tiles, because the
-   thing that separates them is not visual weight — it is that the filter above
-   drives one of them and cannot drive the other, and that has to be sayable. */
+/* Productivity, sessions and cost. A section rather than three panels of tiles,
+   because the thing that separates them is not visual weight — it is that the
+   filter above drives one of them and cannot drive the others, and each folds
+   away under its own heading. */
 .dashboard-section {
     display: grid;
     gap: var(--spacing-md);
@@ -4626,17 +4621,27 @@ h1, h2, h3 {
     min-width: 0;
 }
 
+/* The heading is FoldControl's, wearing this name: the trigger inside it inherits
+   the heading face, so the title reads as a title with a chevron in front of it. */
 .dashboard-section__title {
     margin: 0;
     font-family: var(--font-family-heading);
     font-size: var(--font-size-lg);
 }
 
-.dashboard-section__note {
-    margin: 0;
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-    max-width: 60ch;
+/* The fold's wrapper and its region take the stacking the section used to give
+   the parts directly. :not([hidden]) so a folded region keeps the library's
+   display: none — a bare .fold__region rule here would outrank it. */
+.dashboard-section__fold {
+    display: grid;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.dashboard-section__fold .fold__region:not([hidden]) {
+    display: grid;
+    gap: var(--spacing-md);
+    min-width: 0;
 }
 
 /* Two parts side by side where there is room for them, one above the other where
@@ -4663,6 +4668,8 @@ h1, h2, h3 {
 }
 
 .dashboard-part__header {
+    /* The containing block of the info mark's bubble — see .dashboard-part__hint. */
+    position: relative;
     display: flex;
     gap: var(--spacing-sm);
     align-items: flex-start;
@@ -4671,8 +4678,9 @@ h1, h2, h3 {
 }
 
 .dashboard-part__heading {
-    display: grid;
-    gap: var(--spacing-2xs);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
     min-width: 0;
 }
 
@@ -4682,15 +4690,23 @@ h1, h2, h3 {
     font-size: var(--font-size-base);
 }
 
-/* What the figures do and do not cover. Long on purpose in the cost parts, where
-   it carries the one thing a reader could otherwise get wrong — that the
-   repository filter above does not reach them — so it wraps rather than
-   truncating. */
-.dashboard-part__note {
-    margin: 0;
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-    max-width: 70ch;
+/* The info mark beside the title, sized to the heading it follows. What the
+   figures do and do not cover is its bubble — long on purpose in the cost parts,
+   where it carries the one thing a reader could otherwise get wrong, that the
+   repository filter above does not reach them.
+
+   The bubble hangs from the part's header rather than from the mark: a part in
+   the right-hand column has less room to its right than a 44ch bubble wants, and
+   one anchored to the ⓘ ran past the card and widened the pane. Anchored to the
+   header it starts at the card's left edge and is capped at the card's width,
+   which is always enough for it to wrap inside. */
+.dashboard-part__header .dashboard-part__hint {
+    position: static;
+    font-size: var(--font-size-base);
+}
+
+.dashboard-part__hint .info-hint__bubble {
+    max-width: min(44ch, 100%);
 }
 
 .dashboard-part__content {
