@@ -47,8 +47,13 @@ public sealed class AgentActivityCache(Func<string> cacheRoot) : IAgentActivityC
     /// activity, which deleted every wait it saw. Bumping is the whole of the remedy, and
     /// a parse changed without bumping is a wrong figure with nothing on screen to say so.
     /// </para>
+    /// <para>
+    /// Version 3 added the limit hits. Every version-2 entry describes a transcript
+    /// whose refusals were never read, and served as-is it would say the session was
+    /// never refused — the same shape of false claim the waits paragraph describes.
+    /// </para>
     /// </summary>
-    private const int Version = 2;
+    private const int Version = 3;
 
     private readonly Func<string> _cacheRoot = cacheRoot ?? throw new ArgumentNullException(nameof(cacheRoot));
 
@@ -77,7 +82,10 @@ public sealed class AgentActivityCache(Func<string> cacheRoot) : IAgentActivityC
             return new AgentActivityEntry(
                 [.. stored.Runs.Select(run => new AgentActivityRun(run.From, run.To))],
                 [.. stored.Waits.Select(wait => new AgentActivityWait(wait.From, wait.To))],
-                TimeSpan.FromTicks(stored.IdleAfterTicks));
+                TimeSpan.FromTicks(stored.IdleAfterTicks))
+            {
+                LimitHits = [.. stored.LimitHits.Select(hit => new AgentLimitHit(hit.At, KindOf(hit.Kind), hit.RateLimitType))]
+            };
         }
         catch (Exception exception) when (exception is JsonException or IOException or UnauthorizedAccessException)
         {
@@ -106,7 +114,8 @@ public sealed class AgentActivityCache(Func<string> cacheRoot) : IAgentActivityC
                     WrittenAtTicks = writtenAt.UtcTicks,
                     IdleAfterTicks = entry.IdleAfter.Ticks,
                     Runs = [.. entry.Runs.Select(run => new StoredInterval { From = run.StartedAt, To = run.EndedAt })],
-                    Waits = [.. entry.Waits.Select(wait => new StoredInterval { From = wait.StartedAt, To = wait.EndedAt })]
+                    Waits = [.. entry.Waits.Select(wait => new StoredInterval { From = wait.StartedAt, To = wait.EndedAt })],
+                    LimitHits = [.. entry.LimitHits.Select(hit => new StoredLimitHit { At = hit.At, Kind = hit.Kind.ToString(), RateLimitType = hit.RateLimitType })]
                 },
                 JsonOptions));
         }
@@ -171,6 +180,11 @@ public sealed class AgentActivityCache(Func<string> cacheRoot) : IAgentActivityC
 
         /// <inheritdoc cref="Runs"/>
         public StoredInterval[] Waits { get; init; } = [];
+
+        /// <summary>The refusals, each with its kind spelled as the enum member's name
+        /// rather than its number, so the file says "FiveHour" and a reordered enum
+        /// cannot silently relabel every stored hit.</summary>
+        public StoredLimitHit[] LimitHits { get; init; } = [];
     }
 
     private sealed record StoredInterval
@@ -179,4 +193,21 @@ public sealed class AgentActivityCache(Func<string> cacheRoot) : IAgentActivityC
 
         public DateTimeOffset To { get; init; }
     }
+
+    private sealed record StoredLimitHit
+    {
+        public DateTimeOffset At { get; init; }
+
+        public string Kind { get; init; } = "";
+
+        public string? RateLimitType { get; init; }
+    }
+
+    /// <summary>The kind back from its stored name. A name this version does not know
+    /// is Other rather than a throw: the raw type beside it is still the fact, and one
+    /// unreadable member must not turn the whole entry into a miss.</summary>
+    private static AgentLimitKind KindOf(string kind) =>
+        Enum.TryParse<AgentLimitKind>(kind, ignoreCase: false, out var parsed) && Enum.IsDefined(parsed)
+            ? parsed
+            : AgentLimitKind.Other;
 }
