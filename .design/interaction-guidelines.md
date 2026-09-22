@@ -484,20 +484,22 @@ related: [".design/README.md#living-reference-the-ui-storybook", ".design/access
 | Inline confirmation | `CopyButton` in the shared library: a `role="status"` line beside the button and a glyph that cross-fades into a check for the same few seconds, at `transition-base`/`ease-out` — the same pairing, and the same recorded deviation from `ease-bounce`, as the saved-confirmation flash | Storybook → *Buttons* → **CopyButton** |
 | Focus and selection | Every interactive component declares its own `:focus-visible` outline at `border-width-2` with a 2 px offset | Storybook → every page |
 | Empty / loading / error states | `EmptyState`, `Spinner`, `Alert` | Storybook → *Feedback* |
-| Drag-and-drop reordering | The **desktop app**, not the library: entry and sub-item grips in `TasksPane.razor`, state in `TasksDesktopState` | none — see the gap below |
+| Drag-and-drop reordering (items) | The **shared library**, in two halves: `taskListDrag` in `Backlog.UI.Components/wwwroot/components.js` carries the pointer gesture and the edge autoscroll, and `TaskListView.razor` the grip, the drop preview, the keyboard move and the announcement. `RoadmapTimeline` runs the same gesture against a time axis. The module screens are hosts, not owners: `TasksPane.razor` passes `Reorderable`/`OnReorder` and applies the move it is handed | Storybook → *Task list* → **Reordering, by pointer and by key**; *Prompt tasks*, for the link gesture the same pointer machinery drives; *Roadmap* → **Moving a bar, and moving it without a mouse** |
 
 Known gaps:
 
-- **Chapter reorder has no review surface.** Item reorder is now in the shared
-  library — `TaskListView` owns the grip, the drop preview and the keyboard move,
-  and `RoadmapTimeline` owns the same gesture against a time axis — so both are
-  under review at storybook → *Task list* → **Reordering, by pointer and by key**
-  and *Roadmap* → **Moving a bar, and moving it without a mouse**. Reordering
-  *chapters within a document* is still desktop-app-only and has no page.
-- **Item reorder announces; chapter reorder does not.** Both library
-  implementations carry the `aria-live` region
-  `accessibility.md#reorder-announcements` requires. The desktop app's chapter
-  grips take focus and respond to the arrow keys but announce nothing.
+- **Chapter reorder is unbuilt.** Nothing in the product reorders *chapters
+  within a document*: no grip, no keyboard move, no announcement, in the library
+  or in any host. `#keyboard-accessible-reordering` and the chapter half of
+  `#nesting--indent-rules-chapters` are therefore requirements waiting on an
+  implementation, not a built gesture falling short of them — and there is no
+  review surface to ask for until there is something to review.
+- **The roadmap drag does not autoscroll.** `#autoscroll` is written for any
+  scrollable container, and the task list satisfies it — a band at each edge,
+  a speed that rises with depth into it and stops at a cap. The timeline's own
+  gesture, `backlogRoadmapTimeline`, carries no scroll logic at all, so a bar
+  cannot be dragged past the edge of what the timeline is showing. The rule is
+  unmet there rather than misstated here.
 - **No `Offline` or `Conflict` save state.** The `SaveState` enum stops at
   `Failed`. Both states are specified in `#save-state-indicator-vocabulary` and
   both need building before sync ships.
