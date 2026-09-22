@@ -66,6 +66,39 @@ public sealed class AzureFoundrySettingsStoreTests : IDisposable
         Assert.False(store.Current.IsConfigured);
     }
 
+    [Fact]
+    public void Cost_scope_is_normalized_survives_restart_and_is_independent_of_the_chat_connection()
+    {
+        var path = NewSettingsPath();
+        var store = new AzureFoundrySettingsStore(path);
+
+        var error = store.SetCostScope("  subscriptions/abc/resourceGroups/rg/providers/Microsoft.CognitiveServices/accounts/ai/ ");
+        var restarted = new AzureFoundrySettingsStore(path);
+
+        Assert.Null(error);
+        Assert.Equal("/subscriptions/abc/resourceGroups/rg/providers/Microsoft.CognitiveServices/accounts/ai", restarted.Current.CostScope);
+        Assert.True(restarted.Current.IsCostConfigured);
+        // Reading the bill needs no chat deployment.
+        Assert.False(restarted.Current.IsConfigured);
+    }
+
+    [Fact]
+    public void Connection_and_key_updates_keep_the_cost_scope_and_clearing_it_keeps_them()
+    {
+        var store = new AzureFoundrySettingsStore(NewSettingsPath());
+        store.SetCostScope("/subscriptions/abc");
+
+        store.SetConnection("https://foundry.example.com", "chat", "secret", null);
+        store.SetApiKey("next");
+        Assert.Equal("/subscriptions/abc", store.Current.CostScope);
+
+        store.SetCostScope("  ");
+        Assert.Null(store.Current.CostScope);
+        Assert.False(store.Current.IsCostConfigured);
+        Assert.Equal("next", store.Current.ApiKey);
+        Assert.True(store.Current.IsConfigured);
+    }
+
     private string NewSettingsPath()
     {
         var path = Path.Combine(Path.GetTempPath(), "backlog-foundry-settings", Guid.NewGuid().ToString("n"), "azure-foundry.json");

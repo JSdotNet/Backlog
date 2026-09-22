@@ -6,15 +6,16 @@
     daily bars in this space is a texture rather than a chart, and the decision
     somebody makes from this part is about a month.
 
-    MetricStackedArea when both providers reported, MetricBars when only one did.
+    MetricStackedArea when more than one provider reported, MetricBars when one did.
     The stack answers "what is the shape of the whole and who is in it", which needs
     a whole; with one series it would be an area chart pretending to be a
     composition, and bars say the same thing without the implication.
 
     The currency is on the label rather than formatted into every value, because
-    both providers report United States dollars and repeating the symbol on every
-    bucket label is noise. If they ever disagree the module reports "mixed" and the
-    label says so instead of picking one.
+    repeating the symbol on every bucket label is noise. Claude and Copilot report
+    United States dollars and Azure bills in the subscription's currency; when they
+    disagree the module reports "mixed" and the label says so instead of picking
+    one.
 *@
 @inherits DashboardPartBase<SpendTrendInsight>
 @inject ICostInsights Costs

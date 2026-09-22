@@ -1934,6 +1934,14 @@ h1, h2, h3 {
     color: var(--color-text-secondary);
 }
 
+/* A second topic inside one setting block - the Foundry resource's spend under
+   its chat connection - headed like the block but a size down. */
+.setting__subtitle {
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-base);
+    margin: var(--spacing-lg) 0 var(--spacing-xs);
+}
+
 .setting__label {
     display: block;
     font-size: var(--font-size-xs);
