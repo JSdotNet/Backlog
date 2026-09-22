@@ -55,6 +55,40 @@ public class AgentActivityCacheTests : IDisposable
             read.Waits.Select(wait => (wait.StartedAt, wait.EndedAt)));
     }
 
+    /// <summary>
+    /// The hits come back as hits: the instant, the kind, and the raw type the
+    /// transcript named — including a type this version does not know, which is the
+    /// whole reason the raw string is stored beside the kind.
+    /// </summary>
+    [Fact]
+    public void Limit_hits_come_back_with_their_kind_and_raw_type()
+    {
+        var cache = Cache();
+
+        cache.Write(Transcript, Written, Entry(runs: [(9, 10)], waits: []) with
+        {
+            LimitHits =
+            [
+                new AgentLimitHit(At(9), AgentLimitKind.FiveHour, "five_hour"),
+                new AgentLimitHit(At(10), AgentLimitKind.WeeklyFable, "seven_day_overage_included"),
+                new AgentLimitHit(At(11), AgentLimitKind.Other, "seven_day_opus"),
+                new AgentLimitHit(At(12), AgentLimitKind.Other, null)
+            ]
+        });
+
+        var read = cache.TryRead(Transcript, Written, Threshold);
+
+        Assert.NotNull(read);
+        Assert.Equal(
+            [
+                (At(9), AgentLimitKind.FiveHour, "five_hour"),
+                (At(10), AgentLimitKind.WeeklyFable, "seven_day_overage_included"),
+                (At(11), AgentLimitKind.Other, "seven_day_opus"),
+                (At(12), AgentLimitKind.Other, (string?)null)
+            ],
+            read.LimitHits.Select(hit => (hit.At, hit.Kind, hit.RateLimitType)));
+    }
+
     [Fact]
     public void Nothing_stored_is_a_miss_rather_than_a_throw()
     {

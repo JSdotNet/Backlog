@@ -25,6 +25,64 @@ public sealed record AgentActivityRun(DateTimeOffset StartedAt, DateTimeOffset E
 public sealed record AgentActivityWait(DateTimeOffset StartedAt, DateTimeOffset EndedAt);
 
 /// <summary>
+/// Which usage limit refused the agent.
+/// <para>
+/// The three the plan's usage page lists — <em>5-hour limit</em>, <em>Weekly · all
+/// models</em>, <em>Weekly · Fable</em> — and a fourth for whatever else the transcript
+/// names. Not modelled per model: only Fable has a weekly bucket of its own today, and
+/// an enum with a member per model would be a claim about how the limits are shaped
+/// that this product cannot check and Anthropic is free to change. A bucket this
+/// version does not know lands on <see cref="Other"/> with its raw name intact on
+/// <see cref="AgentLimitHit.RateLimitType"/>, so nothing is dropped and nothing is
+/// guessed.
+/// </para>
+/// </summary>
+public enum AgentLimitKind
+{
+    /// <summary>The rolling five-hour session limit. <c>five_hour</c> on the wire.</summary>
+    FiveHour,
+
+    /// <summary>The weekly limit across every model. <c>seven_day</c> on the wire.</summary>
+    Weekly,
+
+    /// <summary>The weekly limit on Fable alone. <c>seven_day_overage_included</c> on
+    /// the wire, which is Claude Code's own name for the bucket it labels "Fable
+    /// limit".</summary>
+    WeeklyFable,
+
+    /// <summary>A refusal the transcript filed under some other name, or one whose
+    /// wording named nothing this version knows. The raw name — or its absence — is
+    /// on the hit.</summary>
+    Other
+}
+
+/// <summary>
+/// One moment an agent asked for a turn and was refused for a usage limit.
+/// <para>
+/// An instant rather than a stretch. The transcript records the refusal and nothing
+/// after it until somebody prompts again, and how long the agent then sat is already
+/// a wait or an abandonment by the rules the fold applies to every other gap; a
+/// second interval type over the same silence would count it twice. What this adds is
+/// the reason the gap opened, which is the one thing the fold cannot see.
+/// </para>
+/// <para>
+/// Read off the transcript, never off the account: the plan's usage page knows how
+/// full each bucket is and this product does not ask it. A hit is the agent's own
+/// record that it was refused, and it is exactly as reliable as that line — which is
+/// why the raw type travels alongside the kind rather than being consumed by it.
+/// </para>
+/// </summary>
+/// <param name="At">When the refusal was recorded.</param>
+/// <param name="Kind">Which limit, as far as this version can name it.</param>
+/// <param name="RateLimitType">The bucket's name exactly as the transcript spelled
+/// it, or null where the refusal carried no such field — older agent versions wrote
+/// none, and the kind on those hits was read off the refusal's own sentence instead.
+/// Kept on every hit, not only the <see cref="AgentLimitKind.Other"/> ones, so the
+/// mapping can be checked against what it mapped, and so a null says which of the
+/// two readings a kind came from.</param>
+public sealed record AgentLimitHit(DateTimeOffset At, AgentLimitKind Kind, string? RateLimitType);
+
+/// <summary>
 /// What one session was doing, as its own transcript records it.
 /// </summary>
 /// <param name="Id">The agent's own identifier, so an activity record and a session
@@ -43,7 +101,22 @@ public sealed record AgentSessionActivity(
     string EnvironmentId,
     string Environment,
     IReadOnlyList<AgentActivityRun> Runs,
-    IReadOnlyList<AgentActivityWait> Waits);
+    IReadOnlyList<AgentActivityWait> Waits)
+{
+    /// <summary>
+    /// Every refusal for a usage limit the transcript records inside the horizon.
+    /// Ordered, ascending. Empty for every Copilot session — Copilot's stream carries
+    /// no such line — and empty for a Claude session that was never refused, which
+    /// are two different facts this list cannot tell apart; the kind on the record
+    /// can.
+    /// <para>
+    /// An init property rather than a seventh parameter, on
+    /// <see cref="AgentActivityLog.Subagents"/>'s precedent: the fixture builders
+    /// construct these positionally.
+    /// </para>
+    /// </summary>
+    public IReadOnlyList<AgentLimitHit> LimitHits { get; init; } = [];
+}
 
 /// <summary>
 /// What one agent a session spawned was doing, as its own sidechain transcript
@@ -81,7 +154,18 @@ public sealed record SubagentActivity(
     AgentSessionKind Kind,
     string EnvironmentId,
     string Environment,
-    IReadOnlyList<AgentActivityRun> Runs);
+    IReadOnlyList<AgentActivityRun> Runs)
+{
+    /// <summary>
+    /// Every refusal for a usage limit the sidechain records inside the horizon.
+    /// Ordered, ascending. Carried here where the waits are not, and the difference is
+    /// the point: a subagent's transcript structurally cannot evidence a wait, but it
+    /// is refused on the same account as its parent and records the refusal in the
+    /// same line shape, so an orchestrated run that takes most of its hits in its
+    /// subagents would otherwise be a run that never hit anything.
+    /// </summary>
+    public IReadOnlyList<AgentLimitHit> LimitHits { get; init; } = [];
+}
 
 /// <summary>
 /// Everything one activity read produced.
