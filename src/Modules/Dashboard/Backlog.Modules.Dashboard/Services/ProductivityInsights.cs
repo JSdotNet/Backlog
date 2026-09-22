@@ -401,13 +401,15 @@ public sealed class ProductivityInsights(
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Read over the UNFOCUSED window, whatever the filter says. Every repository is
-    /// always present here — the comparison components show one series against the
-    /// pack, and dropping the pack when somebody zooms in would remove the only thing
-    /// that makes the focused line mean anything — so narrowing the fetch would have
-    /// left a focused reader with a single line and a chart that could not answer the
-    /// question it exists for. The focus travels as
-    /// <see cref="ProductivityTrend.Highlight"/> instead of as a filter.
+    /// Fetched over the UNFOCUSED window whatever the filter says, then narrowed to
+    /// the repositories in focus. The fetch stays estate-wide for two reasons: the
+    /// target every point is read against is the estate's record, and a fetch keyed
+    /// on the focus would set a different bar per filter move — a quiet repository
+    /// focused alone would read its own best week as full marks; and the unfocused
+    /// fetch is the one every other part already made, so narrowing here costs no
+    /// call. The series are then filtered so the part answers the filter the way
+    /// the rest of the surface does, and the first repository taken into focus
+    /// travels on as <see cref="ProductivityTrend.Highlight"/>.
     /// </para>
     /// <para>
     /// One target for every repository, taken from the whole estate's record rather
@@ -469,6 +471,10 @@ public sealed class ProductivityInsights(
             // that says only that it was quiet. Dropping it keeps the trellis about
             // the repositories actually worked in.
             .Where(one => one.Points.Any(point => point.Value > 0m))
+            // And the filter narrows the rest, as it narrows every other part. The
+            // target was set above from the whole estate, so a repository scores
+            // the same drawn alone as it did beside the pack.
+            .Where(one => scope.IsAllRepositories || scope.Repositories.Contains(one.Name))
             .ToList();
 
         // The anchor: the trellis and the spotlight can hold one repository up

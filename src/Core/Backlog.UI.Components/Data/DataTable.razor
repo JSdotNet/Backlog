@@ -65,11 +65,16 @@
                     @* A tbody per section. Semantically it is what a group of rows
                        is, and it also gives the CSS something to hang the section
                        separator on without a modifier class on the first row. *@
-                    @* Keyed by the section's name, not the section: the record holds
-                       a list, whose equality is by reference, so keying on the
-                       record itself would hand Blazor a new key on every refresh
-                       and throw the whole section away rather than diff it. *@
-                    <tbody class="@(Part("section"))" @key="@(section.Name ?? string.Empty)">
+                    @* Keyed by the section's key, or its name where it has none,
+                       and never by the section: the record holds a list, whose
+                       equality is by reference, so keying on the record itself
+                       would hand Blazor a new key on every refresh and throw the
+                       whole section away rather than diff it. The name is enough
+                       for a table that groups by a label; a caller that groups by
+                       an identity supplies it as the key, because two sections may
+                       share a name and still be two sections, and two siblings
+                       under one key is a render Blazor refuses outright. *@
+                    <tbody class="@(Part("section"))" @key="@(section.Key ?? section.Name ?? string.Empty)">
                         @if (!string.IsNullOrWhiteSpace(section.Name))
                         {
                             <tr class="@(Part("group"))">

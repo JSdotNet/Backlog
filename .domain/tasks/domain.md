@@ -134,7 +134,7 @@ before the sigil existed is a different plan from one written under `+slug`.
 The bare slug, which is how the
 [Roadmap Item](../roadmap/domain.md#roadmap-tag) for the same plan holds it, is
 the roadmap's spelling; the sigil is lifted at that boundary and nowhere here
-(`.arc42/adr/0012-imported-plan-is-a-roadmap-item-laid-out-by-import.md`).
+(`.arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md`).
 
 The task also carries an optional `effort`: a size estimate in **story points**,
 held as a non-negative integer. It is deliberately three-valued at the edges.

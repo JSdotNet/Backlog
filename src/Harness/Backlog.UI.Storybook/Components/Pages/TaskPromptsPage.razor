@@ -108,7 +108,7 @@ Two markers because there are two questions — `TaskChain.NextReady` answers �
     <Story Name="A blocked row says what it is waiting for, and offers nothing"
            Description="A blocked row's circle renders its state as an image with an accessible label rather than as a control, even with `OnToggle` supplied — the same rule the library follows for a row nobody is listening to.
 
-Its metadata line names what it is waiting for, by title, at the front."
+Its metadata line names what it is waiting for, by title, at the front — behind only the kind mark and the content facts it leads, which hold the line's left edge on every row so the mark can be scanned for (the rule is on the Task list page). These rows carry one, and the last a note, to show the two side by side."
            Code="@BlockedCode">
         <div class="sb-menu-wide" data-testid="prompt-blocked">
             <TaskListView Tasks="@Blocked"
@@ -365,9 +365,9 @@ Order and dependency are independent facts about the same pair of rows, so one g
 
     private static readonly IReadOnlyList<TaskRow> Blocked =
     [
-        new("collect", "Collect the findings", Group: "Prompts"),
-        new("rank", "Rank them by severity", Group: "Prompts", DependsOn: ["collect"]),
-        new("send", "Send the summary", Group: "Prompts", DependsOn: ["collect", "rank"])
+        new("collect", "Collect the findings", Group: "Prompts", Kind: new("✨", "prompt")),
+        new("rank", "Rank them by severity", Group: "Prompts", Kind: new("✨", "prompt"), DependsOn: ["collect"]),
+        new("send", "Send the summary", Group: "Prompts", Kind: new("📋", "task"), Note: true, DependsOn: ["collect", "rank"])
     ];
 
     /// <summary>What the follow story draws: a chain whose last step also waits

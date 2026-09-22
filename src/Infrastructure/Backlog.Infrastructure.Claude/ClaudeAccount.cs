@@ -68,6 +68,16 @@ public sealed record ClaudeAccount
     [JsonIgnore]
     public bool IsConfigured => !string.IsNullOrWhiteSpace(AdminApiKey);
 
+    /// <summary>True when nothing has been typed into the account: the state a fresh
+    /// one is created in, and the one forgetting the last account returns it to.</summary>
+    [JsonIgnore]
+    public bool IsBlank =>
+        string.IsNullOrWhiteSpace(DisplayName)
+        && string.IsNullOrWhiteSpace(AdminApiKey)
+        && string.IsNullOrWhiteSpace(WorkspaceId)
+        && string.IsNullOrWhiteSpace(Actor)
+        && string.Equals(ApiEndpoint, ClaudeSettingsStore.DefaultApiEndpoint, StringComparison.OrdinalIgnoreCase);
+
     /// <summary>True when the account can answer the personal question the dashboard
     /// asks: it has a key to read the organization with and an actor to narrow it
     /// to.</summary>

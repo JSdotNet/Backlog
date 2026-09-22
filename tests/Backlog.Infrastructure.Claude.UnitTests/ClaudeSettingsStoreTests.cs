@@ -215,4 +215,19 @@ public class ClaudeSettingsStoreTests
         Assert.Equal("me@example.com", (blank with { ApiEndpoint = "https://claude.example.internal", Actor = "me@example.com" }).Label);
         Assert.Equal("work", (blank with { Actor = "me@example.com", DisplayName = " work " }).Label);
     }
+
+    /// <summary>Blank is the state a fresh account starts in; any typed field, the
+    /// endpoint included, ends it. The id does not count - every account has one.</summary>
+    [Fact]
+    public void An_account_is_blank_until_something_is_typed_into_it()
+    {
+        var blank = new ClaudeAccount();
+        Assert.True(blank.IsBlank);
+
+        Assert.False((blank with { DisplayName = "work" }).IsBlank);
+        Assert.False((blank with { AdminApiKey = "sk-ant-admin01-example" }).IsBlank);
+        Assert.False((blank with { WorkspaceId = "wrkspc_01" }).IsBlank);
+        Assert.False((blank with { Actor = "me@example.com" }).IsBlank);
+        Assert.False((blank with { ApiEndpoint = "https://claude.example.internal" }).IsBlank);
+    }
 }

@@ -220,8 +220,11 @@
 
                                 @* A plain Title rather than TitleContent: the label changes as
                                    the card is filled in, and a string title is what the strip
-                                   knows how to notice changing. *@
-                                <TabPanel Id="@claudeAccount.Id"
+                                   knows how to notice changing. Keyed by the account, so
+                                   forgetting one disposes its card rather than handing the
+                                   next account to the component in that slot. *@
+                                <TabPanel @key="claudeAccount.Id"
+                                          Id="@claudeAccount.Id"
                                           Title="@claudeAccount.Label"
                                           TabTestId="claude-account-subpage-tab"
                                           Element="article"
@@ -237,12 +240,25 @@
                                                 </p>
                                             </div>
 
+                                            @* There is always one card, so the only account is blanked
+                                               rather than removed - and a blank one has nothing left to
+                                               forget. Offering the button anyway made a click look like
+                                               it did nothing. *@
                                             <AppButton Variant="ButtonVariant.None"
                                                        TestId="remove-claude-account-button"
+                                                       Disabled="@(!CanForgetClaudeAccount(claudeAccount))"
+                                                       title="@(CanForgetClaudeAccount(claudeAccount) ? null : "This is the only Claude account and it is already blank. Fill it in, or add another.")"
                                                        OnClick="() => RemoveClaudeAccount(claudeAccount)">
                                                 Forget this account
                                             </AppButton>
                                         </header>
+
+                                        @* What to do, in order, ticking off as the fields below are
+                                           filled. The list is derived from the account each render,
+                                           so it never disagrees with the card under it. *@
+                                        <SetupSteps AriaLabel="Setting up this Claude account"
+                                                    TestId="claude-account-setup-steps"
+                                                    Steps="@ClaudeSetupSteps(claudeAccount)" />
 
                                         @* Every field on this page is the shared TextField wearing
                                            the page's own label and input classes. Bare, because a
@@ -357,7 +373,33 @@
                                             }
                                         </p>
 
+                                        @* What Anthropic said, one line per question, so a card
+                                           that fails at step two still shows step one passed. *@
+                                        @if (_claudeAccountChecks.GetValueOrDefault(claudeAccount.Id) is { } claudeCheck)
+                                        {
+                                            <ul class="setting__check" data-testid="claude-account-check" role="status" aria-label="Test result">
+                                                @foreach (var step in claudeCheck.Steps)
+                                                {
+                                                    <li class="@ClaudeCheckStepClass(step)"
+                                                        data-testid="claude-account-check-step"
+                                                        data-outcome="@step.Outcome.ToString().ToLowerInvariant()">
+                                                        <span class="setting__check-subject">@step.Subject</span>
+                                                        <span class="setting__check-detail">@step.Detail</span>
+                                                    </li>
+                                                }
+                                            </ul>
+                                        }
+
                                         <div class="setting__actions">
+                                            <AppButton Variant="ButtonVariant.None"
+                                                       TestId="test-claude-account-button"
+                                                       Disabled="@(!claudeAccount.IsConfigured)"
+                                                       Busy="@_claudeAccountsTesting.Contains(claudeAccount.Id)"
+                                                       BusyLabel="Asking Anthropic"
+                                                       title="@(claudeAccount.IsConfigured ? null : "Paste an Admin API key first.")"
+                                                       OnClick="() => TestClaudeAccountAsync(claudeAccount)">
+                                                Test this account
+                                            </AppButton>
                                             <AppButton Variant="ButtonVariant.None"
                                                        data-testid="claude-clear-key-button"
                                                        Disabled="@(claudeAccount.AdminApiKey is null)"
@@ -388,6 +430,10 @@
                         <p class="setting__body">
                             What Backlog needs to read organization Copilot seat activity.
                         </p>
+
+                        <SetupSteps AriaLabel="Setting up GitHub usage reporting"
+                                    TestId="github-usage-setup-steps"
+                                    Steps="@GitHubUsageSetupSteps" />
 
                         <TextField Bare="true"
                                    LabelCssClass="setting__label"
@@ -429,6 +475,34 @@
                             </p>
                         }
 
+                        @* What GitHub said, one line for this machine and one per
+                           configured account, so a card with two accounts says which
+                           one is wrong. *@
+                        @if (_gitHubUsageCheck is { } usageCheck)
+                        {
+                            <ul class="setting__check" data-testid="github-usage-check" role="status" aria-label="Test result">
+                                @foreach (var line in usageCheck)
+                                {
+                                    <li class="@(line.Passed ? "setting__check-step setting__check-step--passed" : "setting__check-step setting__check-step--failed")"
+                                        data-testid="github-usage-check-line"
+                                        data-outcome="@(line.Passed ? "passed" : "failed")">
+                                        <span class="setting__check-subject">@line.Subject</span>
+                                        <span class="setting__check-detail">@line.Detail</span>
+                                    </li>
+                                }
+                            </ul>
+                        }
+
+                        <div class="setting__actions">
+                            <AppButton Variant="ButtonVariant.None"
+                                       TestId="test-github-usage-button"
+                                       Busy="@_gitHubUsageTesting"
+                                       BusyLabel="Asking GitHub"
+                                       OnClick="TestGitHubUsageAsync">
+                                Test the connection
+                            </AppButton>
+                        </div>
+
                         @* No token field here. GitHub authenticates per account, on the
                            Accounts tab, and signing in with the GitHub CLI is preferred
                            over a token at all - so a second place to type one would be a
@@ -448,6 +522,10 @@
                             visible backlog content and your question to that deployment only when
                             you ask.
                         </p>
+
+                        <SetupSteps AriaLabel="Setting up Azure Foundry AI"
+                                    TestId="azure-foundry-setup-steps"
+                                    Steps="@AzureFoundrySetupSteps" />
 
                         <TextField Bare="true"
                                    LabelCssClass="setting__label"
@@ -521,7 +599,30 @@
                             }
                         </p>
 
+                        @if (_azureFoundryCheck is { } foundryCheck)
+                        {
+                            <p class="setting__status" data-testid="azure-foundry-check-status" role="status">
+                                @if (foundryCheck.Passed)
+                                {
+                                    <span>@foundryCheck.Summary</span>
+                                }
+                                else
+                                {
+                                    <span class="setting__status--error">@foundryCheck.Summary</span>
+                                }
+                            </p>
+                        }
+
                         <div class="setting__actions">
+                            <AppButton Variant="ButtonVariant.None"
+                                       TestId="test-azure-foundry-button"
+                                       Disabled="@(!AzureFoundry.Current.IsConfigured)"
+                                       Busy="@_azureFoundryTesting"
+                                       BusyLabel="Asking Azure Foundry"
+                                       title="@(AzureFoundry.Current.IsConfigured ? null : "Fill in the endpoint, the deployment and the API key first.")"
+                                       OnClick="TestAzureFoundryAsync">
+                                Test the connection
+                            </AppButton>
                             <AppButton Variant="ButtonVariant.None"
                                        data-testid="azure-foundry-clear-key-button"
                                        Disabled="@(AzureFoundry.Current.ApiKey is null)"
@@ -1071,6 +1172,10 @@
                                     </AppButton>
                                 </header>
 
+                                <SetupSteps AriaLabel="Setting up this GitHub account"
+                                            TestId="github-account-setup-steps"
+                                            Steps="@GitHubSetupSteps(activeAccount)" />
+
                                 @* A name picked from a list of two, which is the shape
                                    SelectField exists for. Not the colour swatches'
                                    radiogroup: those are a radiogroup because a colour
@@ -1143,6 +1248,30 @@
                                         <span>@AccountSummary(activeAccount)</span>
                                     }
                                 </p>
+
+                                @if (_accountChecks.GetValueOrDefault(activeAccount.Login) is { } accountCheck)
+                                {
+                                    <p class="setting__status" data-testid="account-check-status" role="status">
+                                        @if (accountCheck.Passed)
+                                        {
+                                            <span>@accountCheck.Summary</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="setting__status--error">@accountCheck.Summary</span>
+                                        }
+                                    </p>
+                                }
+
+                                <div class="setting__actions">
+                                    <AppButton Variant="ButtonVariant.None"
+                                               TestId="test-account-button"
+                                               Busy="@_accountsTesting.Contains(activeAccount.Login)"
+                                               BusyLabel="Asking GitHub"
+                                               OnClick="() => TestAccountAsync(activeAccount)">
+                                        Test this account
+                                    </AppButton>
+                                </div>
 
                                 <p class="setting__note">
                                     Accounts are kept in <code>@GitHub.Settings.SettingsPath</code> - deliberately
@@ -2210,8 +2339,57 @@
     }
 
 
+    /// <summary>What Azure Foundry said the last time the connection was tested.
+    /// Not persisted, and forgotten the moment any field under it changes.</summary>
+    private AzureFoundryCheck? _azureFoundryCheck;
+
+    private bool _azureFoundryTesting;
+
+    private const string FoundryPortalUrl = "https://ai.azure.com";
+
+    private IReadOnlyList<SetupStep> AzureFoundrySetupSteps =>
+    [
+        new("Enter the endpoint of your Azure Foundry resource", !string.IsNullOrWhiteSpace(AzureFoundry.Current.Endpoint),
+            "The resource's URL, as the Foundry portal shows it under Keys and endpoint.",
+            FoundryPortalUrl, "Open the Azure Foundry portal"),
+        new("Name the chat deployment to ask", !string.IsNullOrWhiteSpace(AzureFoundry.Current.Deployment),
+            "The deployment name, not the model name - the two differ when a deployment was renamed."),
+        new("Paste one of the resource's API keys", !string.IsNullOrWhiteSpace(AzureFoundry.Current.ApiKey),
+            "From the same Keys and endpoint page."),
+        new("Test the connection", _azureFoundryCheck?.Passed == true,
+            "Sends one small question to the deployment, so the endpoint, the deployment, the API version and the key are proved together.")
+    ];
+
+    private async Task TestAzureFoundryAsync()
+    {
+        if (_azureFoundryTesting) return;
+
+        _azureFoundryTesting = true;
+        _azureFoundryCheck = null;
+        StateHasChanged();
+
+        try
+        {
+            var probe = Services.GetService<IAzureFoundryConnectionProbe>();
+            _azureFoundryCheck = probe is null
+                ? new AzureFoundryCheck(false, "This host cannot test an Azure Foundry connection.")
+                : await probe.TestConnectionAsync();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _azureFoundryCheck = new AzureFoundryCheck(false, $"Couldn't ask Azure Foundry: {ex.Message}");
+        }
+        finally
+        {
+            _azureFoundryTesting = false;
+        }
+
+        StateHasChanged();
+    }
+
     private void ApplyAzureFoundryConnection()
     {
+        _azureFoundryCheck = null;
         var error = AzureFoundry.SetConnection(
             _draftAzureFoundryEndpoint,
             _draftAzureFoundryDeployment,
@@ -2225,6 +2403,7 @@
     {
         if (string.IsNullOrWhiteSpace(_draftAzureFoundryApiKey)) return;
 
+        _azureFoundryCheck = null;
         var error = AzureFoundry.SetApiKey(_draftAzureFoundryApiKey);
         _azureFoundryMessage = error ?? "Azure Foundry API key stored.";
         _draftAzureFoundryApiKey = string.Empty;
@@ -2233,6 +2412,7 @@
 
     private void ClearAzureFoundryApiKey()
     {
+        _azureFoundryCheck = null;
         var error = AzureFoundry.ClearApiKey();
         _azureFoundryMessage = error ?? "Azure Foundry API key forgotten.";
         _draftAzureFoundryApiKey = string.Empty;
@@ -2285,6 +2465,73 @@
         SyncUsageEndpointDrafts();
     }
 
+    private const string AdminKeysConsoleUrl = "https://console.anthropic.com/settings/admin-keys";
+
+    /// <summary>What Anthropic said the last time each account was tested, by id.
+    /// Not persisted: it was true of the moment the button was pressed.</summary>
+    private readonly Dictionary<string, ClaudeAccountCheck> _claudeAccountChecks = new(StringComparer.Ordinal);
+
+    private readonly HashSet<string> _claudeAccountsTesting = new(StringComparer.Ordinal);
+
+    /// <summary>The probe, when this host registered one. Resolved rather than
+    /// injected so a host without it - the unit-test fixtures around other tabs -
+    /// still renders the page; the button then says so instead of throwing.</summary>
+    private IClaudeAccountProbe? ClaudeProbe => Services.GetService<IClaudeAccountProbe>();
+
+    /// <summary>The card's checklist, derived from the account each render so it
+    /// cannot disagree with the fields under it. The last step ticks on a test that
+    /// passed for this account, and only until the account changes.</summary>
+    private IReadOnlyList<SetupStep> ClaudeSetupSteps(ClaudeAccount account) =>
+    [
+        new("Create an Admin API key in the Claude Console and paste it below", account.IsConfigured,
+            "Only an organization admin can create one; a regular API key cannot read usage reports.",
+            AdminKeysConsoleUrl, "Open the Console's Admin keys page"),
+        new("Enter the email address Anthropic attributes your Claude Code use to", !string.IsNullOrWhiteSpace(account.Actor),
+            "The report covers the whole organization; this is what narrows it to you."),
+        new("Narrow the report to one workspace", !string.IsNullOrWhiteSpace(account.WorkspaceId), Optional: true),
+        new("Test this account", _claudeAccountChecks.GetValueOrDefault(account.Id)?.Passed == true,
+            "Asks Anthropic whether the key, the account and the workspace are what they should be.")
+    ];
+
+    private static string ClaudeCheckStepClass(ClaudeAccountCheckStep step) => step.Outcome switch
+    {
+        ClaudeCheckOutcome.Passed => "setting__check-step setting__check-step--passed",
+        ClaudeCheckOutcome.Failed => "setting__check-step setting__check-step--failed",
+        _ => "setting__check-step setting__check-step--skipped"
+    };
+
+    private async Task TestClaudeAccountAsync(ClaudeAccount account)
+    {
+        if (!_claudeAccountsTesting.Add(account.Id)) return;
+
+        _claudeAccountChecks.Remove(account.Id);
+        StateHasChanged();
+
+        try
+        {
+            var probe = ClaudeProbe;
+            _claudeAccountChecks[account.Id] = probe is null
+                ? new ClaudeAccountCheck([new ClaudeAccountCheckStep("Admin API key", ClaudeCheckOutcome.Failed, "This host cannot test a Claude account.")])
+                : await probe.CheckAsync(account);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _claudeAccountChecks[account.Id] = new ClaudeAccountCheck(
+                [new ClaudeAccountCheckStep("Admin API key", ClaudeCheckOutcome.Failed, $"Couldn't ask Anthropic: {ex.Message}")]);
+        }
+        finally
+        {
+            _claudeAccountsTesting.Remove(account.Id);
+        }
+
+        StateHasChanged();
+    }
+
+    /// <summary>The store keeps one account at least, so forgetting the only one blanks
+    /// it - which is nothing when it is blank already.</summary>
+    private bool CanForgetClaudeAccount(ClaudeAccount account) =>
+        Claude.Current.Accounts.Count > 1 || !account.IsBlank;
+
     private void RemoveClaudeAccount(ClaudeAccount account)
     {
         var error = Claude.RemoveAccount(account.Id);
@@ -2300,6 +2547,7 @@
     private void ApplyClaudeUsageSettings(ClaudeAccount account)
     {
         var id = account.Id;
+        _claudeAccountChecks.Remove(id);
         var errors = new[]
         {
             Claude.SetDisplayName(id, Draft(_draftClaudeNames, account)),
@@ -2320,8 +2568,68 @@
         else if (e.Key == "Escape") SyncUsageEndpointDrafts();
     }
 
+    /// <summary>One line of the GitHub usage card's test: whose answer it is, and
+    /// what they said.</summary>
+    private sealed record GitHubUsageCheckLine(string Subject, bool Passed, string Detail);
+
+    /// <summary>What GitHub said the last time the usage connection was tested.
+    /// Not persisted; forgotten when the endpoint under it changes.</summary>
+    private IReadOnlyList<GitHubUsageCheckLine>? _gitHubUsageCheck;
+
+    private bool _gitHubUsageTesting;
+
+    /// <summary>The usage card's checklist. Usage is read as this machine's
+    /// signed-in identity and as every configured account, so the first step is
+    /// done when either exists; the endpoint is a GitHub Enterprise Server
+    /// concern; the test ticks only when every line of it passed.</summary>
+    private IReadOnlyList<SetupStep> GitHubUsageSetupSteps =>
+    [
+        new("Sign in with the GitHub CLI, or add an account on the Accounts tab",
+            _connection?.IsConnected == true || ConfiguredAccounts.Count > 0,
+            "Copilot metrics are organization-scoped and owner-only, so the identity has to be an owner of the organization."),
+        new("Name the organization API endpoint for a GitHub Enterprise Server",
+            !string.Equals(GitHub.Settings.Current.ApiEndpoint, GitHubSettings.DefaultApiEndpoint, StringComparison.OrdinalIgnoreCase),
+            "Leave it as it is for github.com.", Optional: true),
+        new("Test the connection", _gitHubUsageCheck is { Count: > 0 } lines && lines.All(line => line.Passed),
+            "Asks GitHub whom this machine is signed in as, and whether each account's credential is really that account's.")
+    ];
+
+    private async Task TestGitHubUsageAsync()
+    {
+        if (_gitHubUsageTesting) return;
+
+        _gitHubUsageTesting = true;
+        _gitHubUsageCheck = null;
+        StateHasChanged();
+
+        var lines = new List<GitHubUsageCheckLine>();
+        try
+        {
+            _connection = await GitHub.DescribeConnectionAsync();
+            lines.Add(new GitHubUsageCheckLine("This machine", _connection.IsConnected, _connection.Summary));
+
+            foreach (var account in ConfiguredAccounts)
+            {
+                var check = await GitHub.CheckAccountAsync(account);
+                lines.Add(new GitHubUsageCheckLine(account.Login, check.Passed, check.Summary));
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            lines.Add(new GitHubUsageCheckLine("GitHub", false, $"Couldn't ask GitHub: {ex.Message}"));
+        }
+        finally
+        {
+            _gitHubUsageTesting = false;
+        }
+
+        _gitHubUsageCheck = lines;
+        StateHasChanged();
+    }
+
     private void ApplyGitHubUsageSettings()
     {
+        _gitHubUsageCheck = null;
         var error = GitHub.Settings.SetApiEndpoint(_draftGitHubUsageEndpoint);
 
         _gitHubUsageMessage = string.IsNullOrWhiteSpace(error) ? "GitHub usage API settings updated." : error;
@@ -2367,6 +2675,8 @@
         var draft = Draft(_draftClaudeApiKeys, account);
         if (string.IsNullOrWhiteSpace(draft)) return;
 
+        _claudeAccountChecks.Remove(account.Id);
+
         var error = Claude.SetAdminApiKey(account.Id, draft);
         _claudeAccountMessages[account.Id] = error ?? "Claude API key stored.";
         _draftClaudeApiKeys[account.Id] = string.Empty;
@@ -2374,6 +2684,7 @@
 
     private void ClearClaudeApiKey(ClaudeAccount account)
     {
+        _claudeAccountChecks.Remove(account.Id);
         var error = Claude.ClearAdminApiKey(account.Id);
         _claudeAccountMessages[account.Id] = error ?? "Claude API key forgotten.";
         _draftClaudeApiKeys[account.Id] = string.Empty;
@@ -2471,10 +2782,15 @@
         if (!firstRender) return;
 
         // Asking GitHub who we are is a network call, so it happens after the
-        // page is on screen rather than holding it up.
-        if (Features.IsEnabled(TasksFeatures.GitHubIntegration))
+        // page is on screen rather than holding it up. The usage card reads as
+        // this machine's identity too, so its checklist wants the answer as well.
+        if (Features.IsEnabled(TasksFeatures.GitHubIntegration) || UsageMetricsEnabled)
         {
             await CheckConnectionAsync();
+        }
+
+        if (Features.IsEnabled(TasksFeatures.GitHubIntegration))
+        {
             await LoadCliAccountsAsync();
         }
 
@@ -3444,6 +3760,7 @@
 
     private void ApplyAccountCredential(GitHubAccount account, string? kind)
     {
+        _accountChecks.Remove(account.Login);
         if (!Enum.TryParse<GitHubCredentialKind>(kind, ignoreCase: true, out var credential)) return;
 
         // A pasted token survives a change that keeps the kind that can hold one;
@@ -3471,6 +3788,8 @@
         var draft = AccountTokenDraft(account);
         if (string.IsNullOrWhiteSpace(draft)) return;
 
+        _accountChecks.Remove(account.Login);
+
         _accountMessage = GitHub.Settings.SetAccountCredential(
             account.Login,
             GitHubCredentialKind.PersonalAccessToken,
@@ -3480,6 +3799,7 @@
 
     private void ClearAccountToken(GitHubAccount account)
     {
+        _accountChecks.Remove(account.Login);
         _accountMessage = GitHub.Settings.SetAccountCredential(
             account.Login,
             GitHubCredentialKind.PersonalAccessToken,
@@ -3506,6 +3826,7 @@
 
     private void ApplyAccountEndpoint(GitHubAccount account)
     {
+        _accountChecks.Remove(account.Login);
         _accountMessage = GitHub.Settings.SetAccountApiEndpoint(account.Login, AccountEndpointDraft(account));
         _draftAccountEndpoints[account.Login] = GitHub.Settings.Current.Account(account.Login)?.ApiEndpoint ?? string.Empty;
     }
@@ -3532,6 +3853,55 @@
     /// list means "no gh here to ask", not "gh is not signed in as this".
     /// </para>
     /// </summary>
+    /// <summary>What GitHub said the last time each account was tested, by login.
+    /// Not persisted: it was true of the moment the button was pressed.</summary>
+    private readonly Dictionary<string, GitHubAccountCheck> _accountChecks = new(StringComparer.OrdinalIgnoreCase);
+
+    private readonly HashSet<string> _accountsTesting = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The card's checklist, derived from the account each render. The
+    /// credential step reads as done when nothing about it is a problem this
+    /// machine can see; the test step, when GitHub agreed.</summary>
+    private IReadOnlyList<SetupStep> GitHubSetupSteps(GitHubAccount account) =>
+    [
+        new(account.Credential is GitHubCredentialKind.GhCli
+                ? $"Sign the GitHub CLI in as {account.Login}, or switch to a personal access token"
+                : $"Create a personal access token for {account.Login} and paste it below",
+            AccountProblem(account) is null,
+            account.Credential is GitHubCredentialKind.GhCli
+                ? "`gh auth login` on this machine; Backlog asks gh for a token when it needs one."
+                : "A fine-grained token with access to the repositories worked as this account.",
+            account.Credential is GitHubCredentialKind.GhCli ? null : "https://github.com/settings/personal-access-tokens",
+            account.Credential is GitHubCredentialKind.GhCli ? null : "Open GitHub's personal access tokens page"),
+        new("Name the API endpoint for a GitHub Enterprise Server login", !string.IsNullOrWhiteSpace(account.ApiEndpoint),
+            "Leave it empty for github.com.", Optional: true),
+        new("Test this account", _accountChecks.GetValueOrDefault(account.Login)?.Passed == true,
+            "Asks GitHub whose credential this is, and holds the answer against the login above.")
+    ];
+
+    private async Task TestAccountAsync(GitHubAccount account)
+    {
+        if (!_accountsTesting.Add(account.Login)) return;
+
+        _accountChecks.Remove(account.Login);
+        StateHasChanged();
+
+        try
+        {
+            _accountChecks[account.Login] = await GitHub.CheckAccountAsync(account);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _accountChecks[account.Login] = new GitHubAccountCheck(false, $"Couldn't ask GitHub: {ex.Message}");
+        }
+        finally
+        {
+            _accountsTesting.Remove(account.Login);
+        }
+
+        StateHasChanged();
+    }
+
     private string? AccountProblem(GitHubAccount account)
     {
         if (account.Credential is GitHubCredentialKind.PersonalAccessToken && !account.HasToken)

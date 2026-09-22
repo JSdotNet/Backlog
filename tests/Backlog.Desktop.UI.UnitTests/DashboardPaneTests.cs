@@ -952,9 +952,10 @@ public class DashboardPaneTests
 
         Assert.Contains("Only Copilot records a repository against a session", note, StringComparison.Ordinal);
 
-        // The number comes off the report rather than out of a constant beside the part,
-        // so a cap the Sessions context changes reaches this sentence.
-        Assert.Contains("Only the newest 100 sessions per assistant were read", note, StringComparison.Ordinal);
+        // No per-assistant number: the read is everything inside the period, and the
+        // sentence is for a source that could not reach that far back.
+        Assert.Contains("Not every session in this period could be read", note, StringComparison.Ordinal);
+        Assert.DoesNotContain("newest", note, StringComparison.Ordinal);
         Assert.Contains("so these figures are a floor", note, StringComparison.Ordinal);
         Assert.Contains("Copilot's folder could not be read.", note, StringComparison.Ordinal);
     }
@@ -1284,7 +1285,6 @@ public class DashboardPaneTests
             LastActivityAt: new DateTimeOffset(2026, 8, 19, 9, 30, 0, TimeSpan.Zero),
             WithoutActivity: 3,
             Capped: false,
-            CapPerAssistant: 100,
             Unreadable: [],
             Breakdown:
             [

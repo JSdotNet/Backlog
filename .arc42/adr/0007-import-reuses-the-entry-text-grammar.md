@@ -2,7 +2,7 @@
 
 ```meta
 status: proposed
-related: [".domain/tasks/features.md#import", ".domain/tasks/domain.md#task", ".design/content-editing.md#scheduling-and-dependency-tokens", ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md", ".arc42/adr/0012-imported-plan-is-a-roadmap-item-laid-out-by-import.md"]
+related: [".domain/tasks/features.md#import", ".domain/tasks/domain.md#task", ".design/content-editing.md#scheduling-and-dependency-tokens", ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md", ".arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md"]
 issue: null
 ```
 
@@ -21,7 +21,7 @@ record allows, but is a different plan from one written under `+tag`. And a
 document may now carry entries of the type word `plan`, which Import hands to
 Roadmap Planning instead of creating a task from — one Roadmap Item per plan,
 placed by the importer, tagged with the plan's bare slug. Both are settled in
-`.arc42/adr/0012-imported-plan-is-a-roadmap-item-laid-out-by-import.md`, which
+`.arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md`, which
 leaves everything decided here — one grammar, two-pass `after:`, clear-then-write
 on re-import, no new table — exactly as it stands.
 

@@ -114,7 +114,7 @@ task's, offered by its picker, and the item gathers a task whether it wears the
 sigil or carries the bare slug from before the sigil existed. An imported plan's
 shared tag is this same tag — one item per plan, its tag the plan's slug — which
 is what [laying out imported plans](#laying-out-imported-plans) rests on, and
-`.arc42/adr/0012-imported-plan-is-a-roadmap-item-laid-out-by-import.md` is where
+`.arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md` is where
 the two spellings are settled.
 
 ## Gathering work under an item and totalling its effort
@@ -356,7 +356,7 @@ observed downstream reaches back in and edits the plan.
 type: feature
 status: proposed
 depends-on: [.domain/roadmap/features.md#tagging-planned-work, .domain/roadmap/features.md#gathering-work-under-an-item-and-totalling-its-effort, .domain/roadmap/features.md#dependency-planning]
-related: [.arc42/adr/0012-imported-plan-is-a-roadmap-item-laid-out-by-import.md, .domain/tasks/features.md#import, .domain/tasks/features.md#re-importing-an-updated-plan, .domain/roadmap/features.md#sequencing-work-into-tracks, .domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline, .domain/roadmap/domain.md#roadmap-item-gathering]
+related: [.arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md, .domain/tasks/features.md#import, .domain/tasks/features.md#re-importing-an-updated-plan, .domain/roadmap/features.md#sequencing-work-into-tracks, .domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline, .domain/roadmap/domain.md#roadmap-item-gathering]
 ```
 
 Put a plan that was [imported](../tasks/features.md#import) on the roadmap
@@ -378,7 +378,7 @@ person pressing Import is the person changing the plan: the import is a gesture
 of theirs, and the item it creates is theirs to move.
 
 The decision behind all of it is
-`.arc42/adr/0012-imported-plan-is-a-roadmap-item-laid-out-by-import.md`; this
+`.arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md`; this
 chapter says what the feature does, not why the rulings fell the way they did.
 
 ### Placing a plan in time
@@ -479,7 +479,7 @@ status vocabulary has no `idea`, so `proposed` carries it here: nothing below is
 settled, and the open questions are as much the point of the chapter as the
 description is. Two of them have since been answered by
 [laying out imported plans](#laying-out-imported-plans) and
-`.arc42/adr/0012-imported-plan-is-a-roadmap-item-laid-out-by-import.md`; each is
+`.arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md`; each is
 marked where it stands below, and the rest are as open as they were.
 
 Plan a repository's work as **tracks** rather than as dates. A track is an *area

@@ -21,7 +21,11 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// <para>
 /// Neither copies the metadata line. `task` `*high` `!ready` `@backlog` is this
 /// app's bookkeeping about the entry, not something the reader wrote, and pasting
-/// it into a model is pasting noise.
+/// it into a model is pasting noise. What an entry copies instead is one line
+/// ahead of the title — <see cref="EntryRunMarker"/>, the command that runs the
+/// entry, with the stored id the session needs to find it again. That is what
+/// turns the paste into a runnable prompt, and it is the reason a bare entry no
+/// longer copies a bare title.
 /// </para>
 /// </summary>
 [Collection(WorkspaceSettingsCollection.Name)]
@@ -35,6 +39,9 @@ public sealed class TasksCopyForPromptTests
         "How the store gets wired.\n";
 
     private static string EntryTaskId(EntryRow row) => (row.Id ?? row.Key).ToString();
+
+    private static string MarkerFor(EntryRow row) =>
+        $"/backlog-tools:backlog-run-plan-item entry `{row.Id}`:";
 
     [Fact]
     public async Task An_entry_row_copies_the_whole_written_entry()
@@ -50,10 +57,12 @@ public sealed class TasksCopyForPromptTests
         var copied = (string)Assert.Single(
             host.Context.JSInterop.Invocations["backlogClipboard.copy"]).Arguments[0]!;
 
-        // The title leads, because a headless paragraph no longer says which task
-        // it was. Then everything under the metadata line — the prose and the
-        // steps both, since a brief that stopped before its steps is half a brief.
-        Assert.StartsWith("Ship the sync spike\n\n", copied, StringComparison.Ordinal);
+        // The command leads, the title directly under it, because a headless
+        // paragraph no longer says which task it was. Then everything under the
+        // metadata line — the prose and the steps both, since a brief that
+        // stopped before its steps is half a brief. A `task` gets the command
+        // like any other entry: the skill it invokes is what declines to run one.
+        Assert.StartsWith($"{MarkerFor(row)}\nShip the sync spike\n\n", copied, StringComparison.Ordinal);
         Assert.Contains("Work out whether the delta protocol survives a three-way merge.", copied, StringComparison.Ordinal);
         Assert.Contains("## Wire up the store", copied, StringComparison.Ordinal);
         Assert.Contains("How the store gets wired.", copied, StringComparison.Ordinal);
@@ -62,11 +71,11 @@ public sealed class TasksCopyForPromptTests
         Assert.DoesNotContain("!ready", copied, StringComparison.Ordinal);
     }
 
-    /// <summary>An entry that is nothing but its title copies the title. The
-    /// fallback is the shared row's own, and it matters here because the hook this
-    /// pane fills in must not turn "no body" into a copy of an empty line.</summary>
+    /// <summary>An entry that is nothing but its title copies the command and
+    /// the title, and nothing after: "no body" must not become a copy with an
+    /// empty line welded on the end.</summary>
     [Fact]
-    public async Task An_entry_with_nothing_under_the_title_copies_the_title()
+    public async Task An_entry_with_nothing_under_the_title_copies_the_command_and_the_title()
     {
         using var host = await TasksPaneHost.CreateAsync();
         host.Context.JSInterop.Setup<bool>("backlogClipboard.copy", _ => true).SetResult(true);
@@ -77,7 +86,35 @@ public sealed class TasksCopyForPromptTests
         pane.Find($"[data-testid='entry-list-{EntryTaskId(row)}-copy']").Click();
 
         Assert.Equal(
-            "Rename the pane",
+            $"{MarkerFor(row)}\nRename the pane",
+            Assert.Single(host.Context.JSInterop.Invocations["backlogClipboard.copy"]).Arguments[0]);
+    }
+
+    /// <summary>An imported prompt copies the command over the entry the plan
+    /// wrote — its plan-item marker included, since that is body prose and the
+    /// one place the plan's own slugs survive the metadata line being left
+    /// behind. The command carries the stored id and nothing else; the plan, the
+    /// repositories and the dependencies are the connector's to answer.</summary>
+    [Fact]
+    public async Task An_imported_prompt_copies_the_command_over_its_plan_item_marker()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        host.Context.JSInterop.Setup<bool>("backlogClipboard.copy", _ => true).SetResult(true);
+
+        var pane = host.Render();
+        pane.Find("[data-testid='import-plan-open']").Click();
+        pane.Find("[data-testid='import-plan-text'] textarea").Input(
+            "# First prompt\n`prompt` `+myplan` `id:first` `repo:backlog`\n\n"
+            + "Backlog plan item `first` of plan `myplan` for `backlog` — run it with the `backlog-run-plan-item` skill.\n\nDo the first thing.\n");
+        await pane.Find("[data-testid='import-plan-submit']").ClickAsync(new());
+
+        var row = host.State.Rows.Single(r => r.PreviewImportItemId == "first");
+
+        pane.Find($"[data-testid='entry-list-{EntryTaskId(row)}-copy']").Click();
+
+        Assert.Equal(
+            $"{MarkerFor(row)}\nFirst prompt\n\n"
+            + "Backlog plan item `first` of plan `myplan` for `backlog` — run it with the `backlog-run-plan-item` skill.\n\nDo the first thing.",
             Assert.Single(host.Context.JSInterop.Invocations["backlogClipboard.copy"]).Arguments[0]);
     }
 
@@ -93,7 +130,8 @@ public sealed class TasksCopyForPromptTests
         pane.Find("[data-testid='subitem-list-0-copy']").Click();
 
         // The step, and only the step: the parent's prose is a different task's
-        // brief and would arrive unlabelled in the middle of this one.
+        // brief and would arrive unlabelled in the middle of this one. No command
+        // either — a step is not an entry Backlog can be asked about.
         Assert.Equal(
             "Wire up the store\n\nHow the store gets wired.",
             Assert.Single(host.Context.JSInterop.Invocations["backlogClipboard.copy"]).Arguments[0]);
@@ -120,6 +158,7 @@ public sealed class TasksCopyForPromptTests
 
         Assert.Equal(2, copies.Count);
         Assert.Equal(copies[0], copies[1]);
+        Assert.StartsWith(MarkerFor(row), copies[0], StringComparison.Ordinal);
         Assert.Contains("## Wire up the store", copies[0], StringComparison.Ordinal);
     }
 
@@ -140,7 +179,7 @@ public sealed class TasksCopyForPromptTests
         pane.Find("[data-testid='entry-panel-copy']").Click();
 
         Assert.Equal(
-            "Rename the pane",
+            $"{MarkerFor(row)}\nRename the pane",
             Assert.Single(host.Context.JSInterop.Invocations["backlogClipboard.copy"]).Arguments[0]);
     }
 }

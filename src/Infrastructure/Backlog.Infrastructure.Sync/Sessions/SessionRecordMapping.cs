@@ -8,7 +8,7 @@ namespace Backlog.Infrastructure.Sync.Sessions;
 /// <para>
 /// <strong>This is the whole reason a session record may leave the machine, and
 /// it is deliberately the only place a record is built.</strong>
-/// .arc42/adr/0005 §Session records states a whitelist of ten fields and says in
+/// .arc42/adr/0005 §Session records states a whitelist of thirteen fields and says in
 /// as many words that a whitelist and a filter fail in opposite directions: a
 /// filter that misses a field leaks it, a whitelist that misses one merely omits
 /// it. <see cref="SessionRecord"/> makes that structural — a field not in the
@@ -55,7 +55,16 @@ public static class SessionRecordMapping
     /// shaped.</param>
     /// <param name="aliases">Where a recorded <c>owner/name</c> becomes the alias
     /// this machine calls it.</param>
-    public static SessionRecord ToRecord(AgentSession session, ISessionRepositoryAliases aliases)
+    /// <param name="activity">What this machine folded out of the session's own
+    /// transcript, or null where it folded nothing — no parsable record, or none
+    /// inside the horizon the push asked for. Null travels as null in both lists,
+    /// which the far side reads as "no record"; a record travels as two lists, each
+    /// cut to <see cref="SessionRecordLimits.IntervalsPerList"/> from the front.
+    /// The caller has already established that this is this machine's own record
+    /// (<see cref="AgentSessionActivity.Origin"/>), for the reason the session
+    /// itself has to be local: that is a rule about who may write, and it is
+    /// enforced where the writing is decided.</param>
+    public static SessionRecord ToRecord(AgentSession session, ISessionRepositoryAliases aliases, AgentSessionActivity? activity)
     {
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(aliases);
@@ -69,8 +78,111 @@ public static class SessionRecordMapping
             session.StartedAt,
             session.LastActivityAt,
             session.TurnCount,
-            DurationSecondsOf(session.StartedAt, session.LastActivityAt));
+            DurationSecondsOf(session.StartedAt, session.LastActivityAt),
+            // The same alias-or-owner/name rule as the recorded repository, and
+            // the same reason: a machine without the alias configured still sends
+            // a true statement rather than nothing. What is never done here is
+            // resolving one from the other — a record that recorded a repository
+            // and resolved none, or the reverse, goes out exactly so.
+            RepositoryAliasFor(session.ResolvedRepository, aliases),
+            activity is null ? null : Newest(activity.Runs.Select(run => new ActivityInterval(run.StartedAt, run.EndedAt))),
+            activity is null ? null : Newest(activity.Waits.Select(wait => new ActivityInterval(wait.StartedAt, wait.EndedAt))));
     }
+
+    /// <summary>
+    /// One record's activity from another environment, as this device's activity
+    /// port answers it, or null where there is nothing to answer.
+    /// <para>
+    /// Null when both lists are null — the pushing machine had no record, and the
+    /// rule the local source reads its own folders under is that such a session is
+    /// absent rather than present-and-empty. Null again when nothing survives the
+    /// horizon, for the same reason: a record with two empty lists would be a
+    /// session claiming to have been measured inside a window it was never in.
+    /// An empty list that arrived empty is neither of those; a Copilot session
+    /// with runs and no waits is a record, and it is answered as one.
+    /// </para>
+    /// <para>
+    /// Clipped to <paramref name="since"/> the way <c>LocalAgentActivitySource</c>
+    /// clips its own: an interval that ended on or before the horizon goes, and one
+    /// that straddles it starts at the horizon. The two sources have to agree on
+    /// this or a machine's figure would depend on which of them measured it.
+    /// </para>
+    /// <para>
+    /// Sorted ascending rather than trusted. The contract promises ordered,
+    /// disjoint, ascending lists, and this device wrote none of these — the wire
+    /// and the store between it and the pusher are not places that promise is
+    /// known to have been kept. Sorting a few hundred timestamps costs nothing, and
+    /// a sweep over an unsorted list would count some hours twice and others not at
+    /// all. Validity is not re-checked here: the service refuses an interval that
+    /// does not run forward, so nothing in the replica carries one.
+    /// </para>
+    /// </summary>
+    /// <param name="entry">What came back from the feed, machine id and all.</param>
+    /// <param name="since">The horizon the activity read was asked for.</param>
+    public static AgentSessionActivity? ToActivity(SessionRecordEntry entry, DateTimeOffset since)
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+
+        var record = entry.Record;
+
+        if (record.Runs is null && record.Waits is null) return null;
+
+        var runs = Clip(record.Runs ?? [], since, (start, end) => new AgentActivityRun(start, end));
+        var waits = Clip(record.Waits ?? [], since, (start, end) => new AgentActivityWait(start, end));
+
+        if (runs.Count == 0 && waits.Count == 0) return null;
+
+        return new AgentSessionActivity(
+            record.SessionId,
+            KindFor(record.AgentKind),
+            // The Guid's plain "D" form, which is how ToSession spells the same id
+            // and how the local sources spell theirs: an activity record and a
+            // session row are the same machine by identity only while every source
+            // writes the id one way.
+            entry.MachineId.ToString(),
+            record.MachineName,
+            runs,
+            waits)
+        {
+            Origin = AgentSessionOrigin.Replicated
+        };
+    }
+
+    /// <summary>
+    /// The last <see cref="SessionRecordLimits.IntervalsPerList"/> of a list that
+    /// is longer than that, or the list itself.
+    /// <para>
+    /// The newest rather than the oldest, because a reader's window covers the end
+    /// of a record before its beginning: the Dashboard sweeps the last seven days
+    /// or the last twelve weeks, and a session long enough to overrun the cap is
+    /// one whose oldest stretches are the first to fall out of any window. The
+    /// list is taken in the order the contract promises — ascending — so the tail
+    /// is the newest; this is an in-process record from a source this build owns,
+    /// which is the one place that promise can be taken at its word.
+    /// </para>
+    /// </summary>
+    private static IReadOnlyList<ActivityInterval> Newest(IEnumerable<ActivityInterval> intervals)
+    {
+        var all = intervals.ToList();
+
+        return all.Count <= SessionRecordLimits.IntervalsPerList
+            ? all
+            : all.GetRange(all.Count - SessionRecordLimits.IntervalsPerList, SessionRecordLimits.IntervalsPerList);
+    }
+
+    /// <summary>Ascending, clipped to the horizon, and in the consumer's own
+    /// type. One shape for both lists, because the two differ only in what they
+    /// are called.</summary>
+    private static IReadOnlyList<T> Clip<T>(
+        IReadOnlyList<ActivityInterval> intervals,
+        DateTimeOffset since,
+        Func<DateTimeOffset, DateTimeOffset, T> interval) =>
+    [
+        .. intervals
+            .Where(candidate => candidate.EndedAt > since)
+            .OrderBy(candidate => candidate.StartedAt)
+            .Select(candidate => interval(candidate.StartedAt >= since ? candidate.StartedAt : since, candidate.EndedAt))
+    ];
 
     /// <summary>
     /// One record from another environment, as this device's read model holds it.
@@ -126,7 +238,13 @@ public static class SessionRecordMapping
                 ? AgentSessionState.Finished
                 : AgentSessionState.Running,
             record.TurnCount,
-            AgentSessionOrigin.Replicated);
+            AgentSessionOrigin.Replicated)
+        {
+            // Held as it arrived. There is no folder on the wire to resolve it
+            // from again, and the origin machine was the only one that ever had
+            // both the folder and the clone it lay under.
+            ResolvedRepository = record.ResolvedRepositoryAlias
+        };
     }
 
     /// <summary>
@@ -167,7 +285,10 @@ public static class SessionRecordMapping
     /// repository guessed from a folder path is indistinguishable from a recorded
     /// one and wrong, and the receiving machine has no way to tell the two apart
     /// — so a guess made here would be believed there. Null on the wire means the
-    /// agent recorded no repository, and it means only that.
+    /// agent recorded no repository, and it means only that. The resolved
+    /// repository travels in its own field for exactly this reason: it is placed
+    /// by the reading source against a registered clone, and it stays tellable
+    /// apart from the recorded one all the way to the other machine.
     /// </para>
     /// <para>
     /// Falling back to <c>owner/name</c> rather than to null is the other half of

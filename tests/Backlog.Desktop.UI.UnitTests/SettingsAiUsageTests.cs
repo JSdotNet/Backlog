@@ -277,6 +277,367 @@ public sealed class SettingsAiUsageTests
         Assert.Single(context.Component.FindAll("[data-testid='claude-account-subpage-tab']"));
     }
 
+    /// <summary>
+    /// The page always has one card, so the only account cannot go — forgetting it
+    /// blanks it. A blank card has nothing left to forget, and offering the button
+    /// anyway made a click look like it did nothing.
+    /// </summary>
+    [Fact]
+    public void The_only_claude_account_can_be_forgotten_while_it_holds_something_and_not_once_blank()
+    {
+        using var context = RenderSettings(aiAssistantEnabled: false, usageMetricsEnabled: true);
+
+        OpenAiTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='claude-usage-settings']")));
+
+        Assert.True(context.Component.Find("[data-testid='remove-claude-account-button']").HasAttribute("disabled"));
+
+        var actor = context.Component.Find("[data-testid='claude-usage-actor-input']");
+        actor.Input("me@example.com");
+        actor.Change();
+
+        var button = context.Component.Find("[data-testid='remove-claude-account-button']");
+        Assert.False(button.HasAttribute("disabled"));
+        button.Click();
+
+        // A fresh blank account, and the strip agrees with it: one tab, selected, wired
+        // to the card on screen - not the tab of the account that just went.
+        var remaining = Assert.Single(context.ClaudeStore.Current.Accounts);
+        Assert.Null(remaining.Actor);
+        var tab = Assert.Single(context.Component.FindAll("[data-testid='claude-account-subpage-tab']"));
+        Assert.Equal($"tab-{remaining.Id}", tab.GetAttribute("id"));
+        Assert.Equal("true", tab.GetAttribute("aria-selected"));
+        Assert.Equal(string.Empty, context.Component.Find("[data-testid='claude-usage-actor-input']").GetAttribute("value"));
+        Assert.True(context.Component.Find("[data-testid='remove-claude-account-button']").HasAttribute("disabled"));
+    }
+
+    /// <summary>
+    /// Forgetting the first of two, from its own page. Without a key per card the
+    /// surviving component is handed the second account, and the strip has to follow.
+    /// </summary>
+    [Fact]
+    public void Forgetting_the_first_claude_account_keeps_the_second_on_screen()
+    {
+        using var context = RenderSettings(aiAssistantEnabled: false, usageMetricsEnabled: true);
+
+        OpenAiTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='claude-usage-settings']")));
+
+        context.Component.Find("[data-testid='add-claude-account-button']").Click();
+        var name = context.Component.Find("[data-testid='claude-account-name-input']");
+        name.Input("work");
+        name.Change();
+
+        context.Component.FindAll("[data-testid='claude-account-subpage-tab']")[0].Click();
+        context.Component.Find("[data-testid='remove-claude-account-button']").Click();
+
+        var remaining = Assert.Single(context.ClaudeStore.Current.Accounts);
+        Assert.Equal("work", remaining.DisplayName);
+        var tab = Assert.Single(context.Component.FindAll("[data-testid='claude-account-subpage-tab']"));
+        Assert.Equal("work", tab.TextContent.Trim());
+        Assert.Equal("true", tab.GetAttribute("aria-selected"));
+        Assert.Equal("work", context.Component.Find("[data-testid='claude-account-name-input']").GetAttribute("value"));
+    }
+
+    /// <summary>
+    /// "Test this account" asks Anthropic three things and puts each answer on its
+    /// own line under the card, so a card that fails at step two still says step one
+    /// passed. A pass ticks the checklist's last step; nothing is written.
+    /// </summary>
+    [Fact]
+    public void Testing_a_claude_account_lists_what_anthropic_said_step_by_step()
+    {
+        var probe = new RecordingClaudeProbe(new ClaudeAccountCheck(
+        [
+            new ClaudeAccountCheckStep("Admin API key", ClaudeCheckOutcome.Passed, "Opens the organization Acme Corp."),
+            new ClaudeAccountCheckStep("Your Claude account", ClaudeCheckOutcome.Passed, "me@example.com is a member of Acme Corp (developer)."),
+            new ClaudeAccountCheckStep("Workspace", ClaudeCheckOutcome.Skipped, "No workspace set - the whole organization is reported.")
+        ]));
+        using var context = RenderSettings(aiAssistantEnabled: false, usageMetricsEnabled: true, claudeProbe: probe);
+
+        OpenAiTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='claude-usage-settings']")));
+
+        var key = context.Component.Find("[data-testid='claude-api-key-input']");
+        key.Input("sk-ant-admin01-example");
+        key.Change();
+        var actor = context.Component.Find("[data-testid='claude-usage-actor-input']");
+        actor.Input("me@example.com");
+        actor.Change();
+
+        var before = context.ClaudeStore.Current;
+        Assert.Equal("false", LastStep(context.Component).GetAttribute("data-done"));
+
+        context.Component.Find("[data-testid='test-claude-account-button']").Click();
+
+        context.Component.WaitForAssertion(() =>
+        {
+            var lines = context.Component.FindAll("[data-testid='claude-account-check'] [data-testid='claude-account-check-step']");
+            Assert.Equal(3, lines.Count);
+            Assert.Contains("Opens the organization Acme Corp.", lines[0].TextContent, StringComparison.Ordinal);
+            Assert.Equal("passed", lines[0].GetAttribute("data-outcome"));
+            Assert.Equal("skipped", lines[2].GetAttribute("data-outcome"));
+            Assert.Equal("true", LastStep(context.Component).GetAttribute("data-done"));
+        });
+
+        var asked = Assert.Single(probe.Asked);
+        Assert.Equal("sk-ant-admin01-example", asked.AdminApiKey);
+        Assert.Equal("me@example.com", asked.Actor);
+        Assert.Same(before, context.ClaudeStore.Current);
+    }
+
+    [Fact]
+    public void A_failed_claude_test_marks_the_failing_line_and_leaves_the_last_step_unticked()
+    {
+        var probe = new RecordingClaudeProbe(new ClaudeAccountCheck(
+        [
+            new ClaudeAccountCheckStep("Admin API key", ClaudeCheckOutcome.Failed, "Anthropic rejected the admin key - check it has not been revoked."),
+            new ClaudeAccountCheckStep("Your Claude account", ClaudeCheckOutcome.Skipped, "Not asked - the key was refused."),
+            new ClaudeAccountCheckStep("Workspace", ClaudeCheckOutcome.Skipped, "Not asked - the key was refused.")
+        ]));
+        using var context = RenderSettings(aiAssistantEnabled: false, usageMetricsEnabled: true, claudeProbe: probe);
+
+        OpenAiTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='claude-usage-settings']")));
+
+        var key = context.Component.Find("[data-testid='claude-api-key-input']");
+        key.Input("sk-ant-admin01-example");
+        key.Change();
+
+        context.Component.Find("[data-testid='test-claude-account-button']").Click();
+
+        context.Component.WaitForAssertion(() =>
+        {
+            var lines = context.Component.FindAll("[data-testid='claude-account-check'] [data-testid='claude-account-check-step']");
+            Assert.Equal("failed", lines[0].GetAttribute("data-outcome"));
+            Assert.Contains("rejected the admin key", lines[0].TextContent, StringComparison.Ordinal);
+            Assert.Equal("false", LastStep(context.Component).GetAttribute("data-done"));
+        });
+    }
+
+    /// <summary>Without a key there is nothing to test, and the checklist's first
+    /// step already says so - the button waits for it.</summary>
+    [Fact]
+    public void The_claude_checklist_ticks_as_the_card_is_filled_and_the_test_waits_for_a_key()
+    {
+        using var context = RenderSettings(aiAssistantEnabled: false, usageMetricsEnabled: true, claudeProbe: new RecordingClaudeProbe(new ClaudeAccountCheck([])));
+
+        OpenAiTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='claude-usage-settings']")));
+
+        var steps = context.Component.FindAll("[data-testid='claude-account-setup-steps'] [data-testid='setup-step']");
+        Assert.Equal(4, steps.Count);
+        Assert.All(steps, step => Assert.Equal("false", step.GetAttribute("data-done")));
+        Assert.True(context.Component.Find("[data-testid='test-claude-account-button']").HasAttribute("disabled"));
+        Assert.Contains("console.anthropic.com", steps[0].QuerySelector("a")!.GetAttribute("href"), StringComparison.Ordinal);
+
+        var key = context.Component.Find("[data-testid='claude-api-key-input']");
+        key.Input("sk-ant-admin01-example");
+        key.Change();
+
+        context.Component.WaitForAssertion(() =>
+        {
+            var after = context.Component.FindAll("[data-testid='claude-account-setup-steps'] [data-testid='setup-step']");
+            Assert.Equal("true", after[0].GetAttribute("data-done"));
+            Assert.Equal("false", after[1].GetAttribute("data-done"));
+            Assert.False(context.Component.Find("[data-testid='test-claude-account-button']").HasAttribute("disabled"));
+        });
+    }
+
+    private static AngleSharp.Dom.IElement LastStep(IRenderedComponent<Settings> component) =>
+        component.FindAll("[data-testid='claude-account-setup-steps'] [data-testid='setup-step']")[^1];
+
+    private sealed class RecordingClaudeProbe(ClaudeAccountCheck answer) : IClaudeAccountProbe
+    {
+        public List<ClaudeAccount> Asked { get; } = [];
+
+        public Task<ClaudeAccountCheck> CheckAsync(ClaudeAccount account, CancellationToken cancellationToken = default)
+        {
+            Asked.Add(account);
+            return Task.FromResult(answer);
+        }
+    }
+
+    /// <summary>
+    /// The GitHub usage card's "Test the connection" answers the two questions the
+    /// card raises: whom this machine is signed in as, and whether each configured
+    /// account's credential is really that account's - one line each, so a card with
+    /// two accounts says which one is wrong.
+    /// </summary>
+    [Fact]
+    public void Testing_the_github_usage_connection_reports_the_machine_and_every_account()
+    {
+        var probe = new RecordingGitHubAccountProbe(login => new GitHubAccountCheck(
+            login == "JSdotNet",
+            login == "JSdotNet"
+                ? "GitHub recognises the token as JSdotNet at https://api.github.com."
+                : "GitHub rejected the token — check it hasn't expired."));
+        using var context = RenderSettings(
+            aiAssistantEnabled: false,
+            usageMetricsEnabled: true,
+            seed: store => Assert.Null(store.SetAccounts(
+            [
+                new GitHubAccount("JSdotNet") { Credential = GitHubCredentialKind.PersonalAccessToken, Token = "ghp_a" },
+                new GitHubAccount("octocat") { Credential = GitHubCredentialKind.PersonalAccessToken, Token = "ghp_b" }
+            ])),
+            connection: new GitHubConnection(true, "Connected through the GitHub CLI as JSdotNet.", "JSdotNet"),
+            gitHubAccountProbe: probe);
+
+        OpenAiTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='github-usage-settings']")));
+
+        Assert.Equal("false", LastStep(context.Component, "github-usage-setup-steps").GetAttribute("data-done"));
+        context.Component.Find("[data-testid='test-github-usage-button']").Click();
+
+        context.Component.WaitForAssertion(() =>
+        {
+            var lines = context.Component.FindAll("[data-testid='github-usage-check'] [data-testid='github-usage-check-line']");
+            Assert.Equal(3, lines.Count);
+            Assert.Contains("Connected through the GitHub CLI as JSdotNet.", lines[0].TextContent, StringComparison.Ordinal);
+            Assert.Equal("passed", lines[0].GetAttribute("data-outcome"));
+            Assert.Contains("JSdotNet", lines[1].TextContent, StringComparison.Ordinal);
+            Assert.Equal("passed", lines[1].GetAttribute("data-outcome"));
+            Assert.Contains("octocat", lines[2].TextContent, StringComparison.Ordinal);
+            Assert.Equal("failed", lines[2].GetAttribute("data-outcome"));
+            // One account failed, so the card's test step stays unticked.
+            Assert.Equal("false", LastStep(context.Component, "github-usage-setup-steps").GetAttribute("data-done"));
+        });
+        Assert.Equal(["JSdotNet", "octocat"], probe.Asked);
+    }
+
+    [Fact]
+    public void The_github_usage_checklist_ticks_when_this_machine_can_reach_github_and_the_test_passes()
+    {
+        using var context = RenderSettings(
+            aiAssistantEnabled: false,
+            usageMetricsEnabled: true,
+            connection: new GitHubConnection(true, "Connected through the GitHub CLI as JSdotNet.", "JSdotNet"),
+            gitHubAccountProbe: new RecordingGitHubAccountProbe(_ => new GitHubAccountCheck(true, "fine")));
+
+        OpenAiTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='github-usage-settings']")));
+
+        context.Component.WaitForAssertion(() =>
+        {
+            var steps = context.Component.FindAll("[data-testid='github-usage-setup-steps'] [data-testid='setup-step']");
+            Assert.Equal(3, steps.Count);
+            Assert.Equal("true", steps[0].GetAttribute("data-done"));
+            Assert.Equal("false", steps[2].GetAttribute("data-done"));
+        });
+
+        context.Component.Find("[data-testid='test-github-usage-button']").Click();
+
+        context.Component.WaitForAssertion(() =>
+            Assert.Equal("true", LastStep(context.Component, "github-usage-setup-steps").GetAttribute("data-done")));
+    }
+
+    /// <summary>
+    /// The Foundry card's "Test the connection": the probe's one sentence lands on
+    /// the card and the checklist's last step ticks on a pass. The button waits for
+    /// the three fields the completion needs, because the probe would only say so.
+    /// </summary>
+    [Fact]
+    public void Testing_the_foundry_connection_puts_the_probes_answer_on_the_card()
+    {
+        var probe = new RecordingFoundryProbe(new AzureFoundryCheck(true, "The deployment chat at foundry.example.com answered."));
+        using var context = RenderSettings(aiAssistantEnabled: true, usageMetricsEnabled: false, foundryProbe: probe);
+
+        OpenAiTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='azure-foundry-settings']")));
+
+        var steps = context.Component.FindAll("[data-testid='azure-foundry-setup-steps'] [data-testid='setup-step']");
+        Assert.Equal(4, steps.Count);
+        Assert.All(steps, step => Assert.Equal("false", step.GetAttribute("data-done")));
+        Assert.True(context.Component.Find("[data-testid='test-azure-foundry-button']").HasAttribute("disabled"));
+
+        Fill(context.Component, "azure-foundry-endpoint-input", "https://foundry.example.com");
+        Fill(context.Component, "azure-foundry-deployment-input", "chat");
+        Fill(context.Component, "azure-foundry-api-key-input", "secret");
+
+        context.Component.WaitForAssertion(() =>
+        {
+            var filled = context.Component.FindAll("[data-testid='azure-foundry-setup-steps'] [data-testid='setup-step']");
+            Assert.Equal(["true", "true", "true", "false"], filled.Select(step => step.GetAttribute("data-done")).ToArray());
+            Assert.False(context.Component.Find("[data-testid='test-azure-foundry-button']").HasAttribute("disabled"));
+        });
+
+        context.Component.Find("[data-testid='test-azure-foundry-button']").Click();
+
+        context.Component.WaitForAssertion(() =>
+        {
+            Assert.Contains("The deployment chat at foundry.example.com answered.", context.Component.Find("[data-testid='azure-foundry-check-status']").TextContent, StringComparison.Ordinal);
+            Assert.Equal("true", LastStep(context.Component, "azure-foundry-setup-steps").GetAttribute("data-done"));
+        });
+        Assert.Equal(1, probe.Calls);
+    }
+
+    [Fact]
+    public void A_failed_foundry_test_is_shown_as_the_problem_it_is()
+    {
+        var probe = new RecordingFoundryProbe(new AzureFoundryCheck(false, "Azure Foundry returned 401: Access denied due to invalid subscription key."));
+        using var context = RenderSettings(aiAssistantEnabled: true, usageMetricsEnabled: false, foundryProbe: probe);
+
+        OpenAiTab(context.Component);
+        context.Component.WaitForAssertion(() =>
+            Assert.Single(context.Component.FindAll("[data-testid='azure-foundry-settings']")));
+
+        Fill(context.Component, "azure-foundry-endpoint-input", "https://foundry.example.com");
+        Fill(context.Component, "azure-foundry-deployment-input", "chat");
+        Fill(context.Component, "azure-foundry-api-key-input", "wrong");
+
+        context.Component.WaitForAssertion(() =>
+            Assert.False(context.Component.Find("[data-testid='test-azure-foundry-button']").HasAttribute("disabled")));
+        context.Component.Find("[data-testid='test-azure-foundry-button']").Click();
+
+        context.Component.WaitForAssertion(() =>
+        {
+            var status = context.Component.Find("[data-testid='azure-foundry-check-status']");
+            Assert.NotNull(status.QuerySelector(".setting__status--error"));
+            Assert.Contains("returned 401", status.TextContent, StringComparison.Ordinal);
+            Assert.Equal("false", LastStep(context.Component, "azure-foundry-setup-steps").GetAttribute("data-done"));
+        });
+    }
+
+    private static void Fill(IRenderedComponent<Settings> component, string testId, string value)
+    {
+        var input = component.Find($"[data-testid='{testId}']");
+        input.Input(value);
+        input.Change();
+    }
+
+    private static AngleSharp.Dom.IElement LastStep(IRenderedComponent<Settings> component, string listTestId) =>
+        component.FindAll($"[data-testid='{listTestId}'] [data-testid='setup-step']")[^1];
+
+    private sealed class RecordingGitHubAccountProbe(Func<string, GitHubAccountCheck> answer) : IGitHubAccountProbe
+    {
+        public List<string> Asked { get; } = [];
+
+        public Task<GitHubAccountCheck> CheckAccountAsync(GitHubAccount account, CancellationToken cancellationToken = default)
+        {
+            Asked.Add(account.Login);
+            return Task.FromResult(answer(account.Login));
+        }
+    }
+
+    private sealed class RecordingFoundryProbe(AzureFoundryCheck answer) : IAzureFoundryConnectionProbe
+    {
+        public int Calls { get; private set; }
+
+        public Task<AzureFoundryCheck> TestConnectionAsync(CancellationToken cancellationToken = default)
+        {
+            Calls++;
+            return Task.FromResult(answer);
+        }
+    }
+
     /// <summary>Switching subpages switches which account the fields write to.</summary>
     [Fact]
     public void Picking_a_claude_account_subpage_edits_that_account()
@@ -368,7 +729,11 @@ public sealed class SettingsAiUsageTests
     private static SettingsRenderContext RenderSettings(
         bool aiAssistantEnabled,
         bool usageMetricsEnabled,
-        Action<GitHubSettingsStore>? seed = null)
+        Action<GitHubSettingsStore>? seed = null,
+        IClaudeAccountProbe? claudeProbe = null,
+        GitHubConnection? connection = null,
+        IGitHubAccountProbe? gitHubAccountProbe = null,
+        IAzureFoundryConnectionProbe? foundryProbe = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-settings-tests", Guid.NewGuid().ToString("n"));
 
@@ -385,7 +750,7 @@ public sealed class SettingsAiUsageTests
         _ = githubSettings.SetRepositories(repositories);
         seed?.Invoke(githubSettings);
 
-        var github = new GitHubIntegration(githubSettings, new StubGitHubClient(), new StubProbe());
+        var github = new GitHubIntegration(githubSettings, new StubGitHubClient(), new StubProbe(connection), accountProbe: gitHubAccountProbe);
 
         var testContext = new BunitContext();
         testContext.Services.AddSingleton(store);
@@ -396,6 +761,8 @@ public sealed class SettingsAiUsageTests
             new CaptureSourcesSettingsStore(Path.Combine(root, "capture", "capture-sources.json")));
         testContext.Services.AddSingleton(azureFoundry);
         testContext.Services.AddSingleton(claude);
+        if (claudeProbe is not null) testContext.Services.AddSingleton(claudeProbe);
+        if (foundryProbe is not null) testContext.Services.AddSingleton(foundryProbe);
         testContext.Services.AddSingleton(github);
         testContext.Services.AddSingleton<FeedbackReporter>();
         testContext.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
@@ -455,10 +822,10 @@ public sealed class SettingsAiUsageTests
             throw new NotSupportedException();
     }
 
-    private sealed class StubProbe : IGitHubConnectionProbe
+    private sealed class StubProbe(GitHubConnection? connection = null) : IGitHubConnectionProbe
     {
         public Task<GitHubConnection> DescribeAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new GitHubConnection(false, "Not connected."));
+            Task.FromResult(connection ?? new GitHubConnection(false, "Not connected."));
 
         public void Invalidate()
         {

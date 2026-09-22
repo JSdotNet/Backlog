@@ -1,4 +1,4 @@
-# ADR 0012: An imported plan is one Roadmap Item; a `plan` entry is the same grammar, and the importer places it
+# ADR 0013: An imported plan is one Roadmap Item; a `plan` entry is the same grammar, and the importer places it
 
 ```meta
 status: proposed

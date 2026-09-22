@@ -21,7 +21,8 @@
         "0009-captures-are-a-document-kind-on-the-replica.md",
         "0010-backup-is-the-database-committed-to-a-repository.md",
         "0011-devbook-annotations-are-a-third-replica-container.md",
-        "0012-imported-plan-is-a-roadmap-item-laid-out-by-import.md"
+        "0012-backlog-is-an-mcp-server-inside-the-desktop-app.md",
+        "0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md"
       ]
     },
     ".arc42/adr/guidelines": {

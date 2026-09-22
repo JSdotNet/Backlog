@@ -233,13 +233,11 @@ public class ProductivityInsightsTests
     }
 
     /// <summary>
-    /// Zooming in moves a highlight rather than dropping the pack. The comparison
-    /// components show one series against the others, and one line alone says
-    /// nothing about whether a dip was this repository or a quiet fortnight
-    /// everywhere.
+    /// Nothing in focus draws every repository that reported anything: the trellis
+    /// is the whole estate until somebody narrows it.
     /// </summary>
     [Fact]
-    public async Task Focusing_a_repository_still_returns_every_repository_that_reported()
+    public async Task No_focus_returns_every_repository_that_reported()
     {
         var source = new StubActivitySource
         {
@@ -475,14 +473,13 @@ public class ProductivityInsightsTests
     }
 
     /// <summary>
-    /// Zooming in moves a highlight rather than dropping the pack, and the trend has
-    /// to read the UNFOCUSED window for that to be possible at all. Its own remark
-    /// and <c>ProductivityTrend</c>'s doc comment both said so while the code
-    /// narrowed to <c>scoped.Repositories</c>; the covering test used the default
-    /// scope and could not see it.
+    /// The repository filter narrows the trend the way it narrows every other part:
+    /// only the repositories in focus are drawn, and the first one taken into focus
+    /// is the highlight. It used to move the highlight alone and keep the pack on
+    /// screen, which read as the filter not reaching this part.
     /// </summary>
     [Fact]
-    public async Task Every_repository_stays_in_the_trend_when_one_is_in_focus()
+    public async Task Focusing_repositories_narrows_the_trend_to_those_repositories()
     {
         var source = new StubActivitySource
         {
@@ -496,11 +493,50 @@ public class ProductivityInsightsTests
         };
 
         var trend = await Insights(source)
-            .GetTrendAsync(new DashboardScope(RepositoryFocus.Of("backlog-ide")), TestContext.Current.CancellationToken);
+            .GetTrendAsync(
+                new DashboardScope(RepositoryFocus.Of("backlog-ide", "backlog-mobile")),
+                TestContext.Current.CancellationToken);
 
         Assert.True(trend.HasValue);
-        Assert.Equal(3, trend.Value!.ByRepository.Count);
+        Assert.Equal(["backlog-ide", "backlog-mobile"], trend.Value!.ByRepository.Select(series => series.Name));
         Assert.Equal("backlog-ide", trend.Value.Highlight);
+    }
+
+    /// <summary>
+    /// Narrowing does not move the bar. The target every point is read against is
+    /// the whole estate's record whatever the filter says, so a repository's week
+    /// scores the same whether it is drawn beside the pack or alone — otherwise
+    /// focusing a quiet repository would make its best week read full marks.
+    /// </summary>
+    [Fact]
+    public async Task Focusing_a_repository_keeps_the_estate_wide_target()
+    {
+        var week = Now.AddDays(-1);
+
+        var source = new StubActivitySource
+        {
+            Report = new ActivityReport(
+                [
+                    .. Enumerable.Range(1, 8).Select(number =>
+                        Merged(number, reviewed: false, churned: false) with { MergedAt = week }),
+                    .. Enumerable.Range(9, 2).Select(number =>
+                        Merged(number, reviewed: false, churned: false) with
+                        {
+                            RepositoryAlias = "backlog-ide",
+                            MergedAt = week
+                        })
+                ],
+                [])
+        };
+
+        var baseline = new StubBaselineSource { MergedPerBlock = 40, ClosedPerBlock = 0 };
+
+        var trend = await Insights(source, baseline)
+            .GetTrendAsync(new DashboardScope(RepositoryFocus.Of("backlog-ide")), TestContext.Current.CancellationToken);
+
+        var quiet = Assert.Single(trend.Value!.ByRepository);
+        Assert.Equal("backlog-ide", quiet.Name);
+        Assert.Equal(16m, quiet.Points.Max(point => point.Value));
     }
 
     /// <summary>

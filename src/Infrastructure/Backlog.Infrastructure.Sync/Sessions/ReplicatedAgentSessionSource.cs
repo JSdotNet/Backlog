@@ -1,5 +1,6 @@
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sync.Abstractions;
+using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.SharedKernel;
 
 namespace Backlog.Infrastructure.Sync.Sessions;
@@ -77,8 +78,26 @@ public sealed class ReplicatedAgentSessionSource : IAgentSessionSource
     /// moving a dictionary walk to the thread pool.
     /// </para>
     /// </summary>
-    public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default)
+    public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
+        GetSessionsAsync(AgentSessionQuery.Newest, cancellationToken);
+
+    /// <summary>
+    /// The held records, in the shape the query asks for.
+    /// <para>
+    /// The store retains more than the inventory shows — everything inside
+    /// <see cref="ReplicatedSessionLimits.History"/> as well as the newest
+    /// <see cref="ReplicatedSessionLimits.PerEnvironmentPerAgent"/> — so the
+    /// <see cref="AgentSessionQuery.Newest"/> shape is cut back to the cap here, per
+    /// environment per agent, exactly as the local reader cuts its own. A horizon
+    /// reading is everything held at or after the horizon, and it is capped only
+    /// when asked past what the store retains: a horizon inside the retention was
+    /// kept whole, and what the cap discarded beyond it is older than the question.
+    /// </para>
+    /// </summary>
+    public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(query);
+
         if (!_features.IsEnabled(SyncFeatures.Sync))
         {
             return Task.FromResult(AgentSessionCatalog.Empty);
@@ -89,9 +108,11 @@ public sealed class ReplicatedAgentSessionSource : IAgentSessionSource
         var held = _store.Current;
         var now = _time.GetUtcNow();
 
-        var sessions = held.Entries
+        var sessions = Select(held, query)
             .Select(entry => SessionRecordMapping.ToSession(entry, now))
             .ToList();
+
+        var beyondRetention = query.Horizon is { } horizon && horizon < now - ReplicatedSessionLimits.History;
 
         return Task.FromResult(new AgentSessionCatalog(
             sessions,
@@ -100,9 +121,23 @@ public sealed class ReplicatedAgentSessionSource : IAgentSessionSource
             // describe as broken — the records it already holds are as readable as
             // they ever were.
             [],
-            // What the cap discarded is added back in, because Discovered means
-            // "how many there were before the cap" and a store that under-reported
-            // it would let a truncated list render as the whole history.
-            sessions.Count + held.Dropped));
+            // What the cap discarded is added back in wherever the question reaches
+            // it, because Discovered means "how many there were before the cap" and
+            // a store that under-reported it would let a truncated list render as
+            // the whole history. For the newest shape that is what the cap cut at
+            // read time plus what earlier merges discarded; for a horizon inside the
+            // retention it is nothing at all.
+            query.IsNewest ? held.Entries.Count + held.Dropped
+                : beyondRetention ? sessions.Count + held.Dropped
+                : sessions.Count));
     }
+
+    private static IEnumerable<SessionRecordEntry> Select(ReplicatedSessions held, AgentSessionQuery query) =>
+        query.Horizon is { } horizon
+            ? held.Entries.Where(entry => entry.Record.LastActivityAt >= horizon)
+            : held.Entries
+                .GroupBy(entry => (entry.MachineId, entry.Record.AgentKind))
+                .SelectMany(group => group
+                    .OrderByDescending(entry => entry.Record.LastActivityAt)
+                    .Take(ReplicatedSessionLimits.PerEnvironmentPerAgent));
 }

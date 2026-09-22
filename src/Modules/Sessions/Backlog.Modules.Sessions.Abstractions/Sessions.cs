@@ -214,7 +214,46 @@ public sealed record AgentSession(
     DateTimeOffset LastActivityAt,
     AgentSessionState State,
     int? TurnCount,
-    AgentSessionOrigin Origin);
+    AgentSessionOrigin Origin)
+{
+    /// <summary>
+    /// The repository this product places the session in — <c>owner/name</c>, from
+    /// the working folder lying inside a registered repository's clone — or null
+    /// where no registered clone contains it.
+    /// <para>
+    /// <b>A second field, never written into <see cref="Repository"/>.</b> That one
+    /// is what the agent said; this one is what this product worked out, and the
+    /// two must stay tellable apart because they fail differently. A recorded
+    /// repository is a fact about the session. A resolved one is a fact about this
+    /// machine's Repositories screen — that somebody registered a clone at a folder
+    /// the session happened to be under — and it is exactly as good as that
+    /// registration. Folding it into the recorded field would have every surface
+    /// treat the two with one confidence, which is the outcome
+    /// <c>.domain/sessions/domain.md#working-location</c> forbids when it says a
+    /// guessed repository is indistinguishable from a recorded one.
+    /// </para>
+    /// <para>
+    /// Not a guess in that sense, which is why it exists at all. The rule there is
+    /// against reading a repository off a path leaf: <c>D:\Repos\Backlog</c> does
+    /// not say which of GitHub's several <c>Backlog</c>s it is a clone of. This is
+    /// a lookup against a fact the product already holds — a clone directory the
+    /// person registered against an <c>owner/name</c> — and the folder is either
+    /// under it or not. Claude records no repository in anything it writes, so
+    /// without this a header scoped to one repository hides every Claude session
+    /// on the machine, running ones included; see <see cref="ISessionRepositoryResolver"/>.
+    /// </para>
+    /// <para>
+    /// Resolved where the session is read, because only the machine that ran the
+    /// session has both the folder and the clone it lies under, and carried on the
+    /// wire from there: a replicated record has no folder to resolve from and holds
+    /// whatever its origin resolved. An <c>init</c> property rather than a
+    /// positional parameter, so the readers construct what they read and the source
+    /// stamps this afterwards — the same shape as <see cref="Origin"/>, a fact
+    /// about how this device sees the session rather than one the agent wrote.
+    /// </para>
+    /// </summary>
+    public string? ResolvedRepository { get; init; }
+}
 
 /// <summary>
 /// How many sessions a source will describe per agent.
@@ -239,6 +278,64 @@ public static class AgentSessionLimits
 {
     /// <summary>The most recent this many sessions from each agent.</summary>
     public const int PerAgent = 100;
+
+    /// <summary>
+    /// How far back a reading <see cref="AgentSessionQuery.Since"/> a horizon is
+    /// promised to reach on every source, whatever the per-agent cap.
+    /// <para>
+    /// The cap is the right shape for a list and the wrong one for a count. A surface
+    /// that asks "how many sessions ran in the last twelve weeks" and is answered with
+    /// the newest hundred per agent reads a page size back as a total — 200 on every
+    /// machine, which is what the Dashboard showed. So a reading can be asked for
+    /// everything since a horizon instead, and this is the horizon a source that keeps
+    /// somebody else's records has to keep them for: a store that retained less would
+    /// answer the same question short for every other machine.
+    /// </para>
+    /// <para>
+    /// Twelve weeks because that is the longest period the Dashboard offers. The
+    /// Dashboard cannot name this constant — its module may not see this one — so the
+    /// two are paired by this sentence and by <c>SessionInsights.Horizon</c>'s.
+    /// </para>
+    /// </summary>
+    public static readonly TimeSpan History = TimeSpan.FromDays(7 * 12);
+}
+
+/// <summary>
+/// How much of an environment's history one reading describes.
+/// <para>
+/// Two shapes and no third. <see cref="Newest"/> is the inventory's: the most recent
+/// <see cref="AgentSessionLimits.PerAgent"/> from each agent, which is a list a person
+/// can scroll and a read a profile of hundreds can afford on every refresh.
+/// <see cref="Since"/> is the count's: every session whose last activity is at or after
+/// a horizon, with no cap at all, because a figure derived from a capped list is a
+/// floor pretending to be a total. A reading answered <c>Since</c> is never
+/// <see cref="AgentSessionCatalog.Capped"/> by the per-agent limit — only by a source
+/// that does not hold records as far back as it was asked.
+/// </para>
+/// <para>
+/// A record with a factory per shape rather than a nullable parameter on the port, so a
+/// caller reads what it asked for and a source cannot mistake "no horizon" for "since
+/// forever".
+/// </para>
+/// </summary>
+public sealed record AgentSessionQuery
+{
+    private AgentSessionQuery(DateTimeOffset? horizon) => Horizon = horizon;
+
+    /// <summary>The most recent <see cref="AgentSessionLimits.PerAgent"/> sessions from
+    /// each agent, and how many there were before the cap.</summary>
+    public static AgentSessionQuery Newest { get; } = new(horizon: null);
+
+    /// <summary>Every session whose last activity is at or after
+    /// <paramref name="horizon"/>, uncapped.</summary>
+    public static AgentSessionQuery Since(DateTimeOffset horizon) => new(horizon);
+
+    /// <summary>The horizon, or null for the newest-per-agent shape.</summary>
+    public DateTimeOffset? Horizon { get; }
+
+    /// <summary>Whether this is the newest-per-agent shape. The other is
+    /// <see cref="Horizon"/> being set.</summary>
+    public bool IsNewest => Horizon is null;
 }
 
 /// <summary>
@@ -252,11 +349,14 @@ public static class AgentSessionLimits
 /// half as the whole.
 /// </para>
 /// </summary>
-/// <param name="Sessions">What the source will describe, up to
-/// <see cref="AgentSessionLimits.PerAgent"/> from each agent.</param>
+/// <param name="Sessions">What the source will describe: up to
+/// <see cref="AgentSessionLimits.PerAgent"/> from each agent for
+/// <see cref="AgentSessionQuery.Newest"/>, everything at or after the horizon for
+/// <see cref="AgentSessionQuery.Since"/>.</param>
 /// <param name="Unreadable">The sources that could not be read, by name.</param>
 /// <param name="Discovered">
-/// How many sessions existed, before the cap. Sessions and not files: an agent can
+/// How many sessions existed that the query asked about, before any cap — the same as
+/// the list's length for a horizon reading a source could reach. Sessions and not files: an agent can
 /// file one session twice — a live marker beside its own transcript, or a transcript
 /// under two project folders after the session's cwd changed — and both halves of
 /// this number collapse those before counting, so it does not mean one thing for
@@ -284,7 +384,13 @@ public sealed record AgentSessionCatalog(
 /// </summary>
 public interface IAgentSessionSource
 {
+    /// <summary>The inventory's reading: <see cref="AgentSessionQuery.Newest"/>.</summary>
     Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>The reading <paramref name="query"/> names. Two members rather than a
+    /// defaulted parameter so an implementation has to say what it does with a horizon
+    /// instead of quietly answering the capped list to a question about a window.</summary>
+    Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default);
 }
 
 /// <summary>Which sessions the reader wants in front of them at all.</summary>
@@ -467,8 +573,17 @@ public enum AgentSessionGrouping
 /// <summary>
 /// One section of a grouped list. <c>Name</c> is null for the ungrouped case, so a
 /// caller renders sections and never has to branch on the grouping again.
+/// <para>
+/// <c>Key</c> is what made the section one section, and it is carried because the
+/// name does not always say: the environment id under Environment grouping, the
+/// kind's name under Kind grouping, null when nothing grouped. Two machines that
+/// share a name are two sections here — <see cref="AgentSessionGroups.Of"/> keys on
+/// the id for exactly that reason — and a renderer keying its sections on the
+/// heading alone would collapse them back into one, or refuse to render at all.
+/// The key travels so the renderer can key on what the grouping keyed on.
+/// </para>
 /// </summary>
-public sealed record AgentSessionGroup(string? Name, IReadOnlyList<AgentSession> Sessions);
+public sealed record AgentSessionGroup(string? Name, IReadOnlyList<AgentSession> Sessions, string? Key = null);
 
 /// <summary>
 /// Carving the list up. A pure function over the sessions it is given: no I/O, no
@@ -511,16 +626,16 @@ public static class AgentSessionGroups
             [
                 .. ordered
                     .GroupBy(session => session.EnvironmentId, StringComparer.Ordinal)
-                    .Select(group => new AgentSessionGroup(group.First().Environment, [.. group]))
+                    .Select(group => new AgentSessionGroup(group.First().Environment, [.. group], group.Key))
                     .OrderBy(group => group.Name, StringComparer.OrdinalIgnoreCase)
-                    .ThenBy(group => group.Sessions[0].EnvironmentId, StringComparer.Ordinal)
+                    .ThenBy(group => group.Key, StringComparer.Ordinal)
             ],
             AgentSessionGrouping.Kind =>
             [
                 .. ordered
                     .GroupBy(session => session.Kind)
                     .OrderBy(group => group.Key)
-                    .Select(group => new AgentSessionGroup(Label(group.Key), [.. group]))
+                    .Select(group => new AgentSessionGroup(Label(group.Key), [.. group], group.Key.ToString()))
             ],
             _ => ordered.Count == 0 ? [] : [new AgentSessionGroup(null, ordered)]
         };

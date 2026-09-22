@@ -57,6 +57,28 @@ public sealed class SessionSyncSession
     /// </summary>
     private const int PushBatchSize = 200;
 
+    /// <summary>
+    /// How many activity intervals go in one push, summed over every record in it.
+    /// <para>
+    /// A second bound beside the count, because the count stopped bounding the
+    /// weight the day a record could carry a thousand intervals: two hundred such
+    /// records would be around 19 MB against a service body limit of 1 MB. Four
+    /// thousand intervals is about 450 KB on the wire — under half the limit, so
+    /// the base records beside them and the JSON around them have room — and a
+    /// batch is flushed <em>before</em> the record that would take it over. A
+    /// single record always fits alone: the mapping caps each list at
+    /// <see cref="SessionRecordLimits.IntervalsPerList"/>, so no record weighs more
+    /// than a thousand.
+    /// </para>
+    /// <para>
+    /// Most batches never come near it. A session weighs a handful of intervals on
+    /// an ordinary day, so the count cap is the one that splits a busy week and this
+    /// one is for the machine that has been folding a long-running agent for a
+    /// month.
+    /// </para>
+    /// </summary>
+    private const int PushBatchIntervals = 4_000;
+
     private readonly SessionSyncClient _client;
     private readonly IAgentSessionSource _sessions;
     private readonly ISessionRepositoryAliases _aliases;
@@ -65,6 +87,7 @@ public sealed class SessionSyncSession
     private readonly IDeviceCredentialStore _credentials;
     private readonly TimeProvider _time;
     private readonly SyncActivityLog? _activity;
+    private readonly IAgentActivitySource? _agentActivity;
 
     /// <param name="activity">Where each record that moves is written down by
     /// name, or null on a head with nothing to show one in. A sent record is
@@ -72,6 +95,19 @@ public sealed class SessionSyncSession
     /// record itself carries no title, see <see cref="SessionRecordMapping"/> —
     /// and a received one by the machine it came from, which is what a person
     /// reading the log wants to know about a session that is not theirs.</param>
+    /// <param name="agentActivity">
+    /// Where the runs and waits a record carries come from, or null on a head that
+    /// composed no activity source — which then pushes null in both lists, the
+    /// record every push carried before the two fields existed.
+    /// <para>
+    /// This is the merged port every screen reads, not the local reader alone, and
+    /// that is acceptable only because the push filters what it answers on
+    /// <see cref="AgentSessionActivity.Origin"/>: the merged port includes what
+    /// other machines reported, and a record that arrived over the wire must not
+    /// go back out under this machine's id. The filter is the same rule the
+    /// session filter below enforces, applied to the second list.
+    /// </para>
+    /// </param>
     public SessionSyncSession(
         SessionSyncClient client,
         IAgentSessionSource sessions,
@@ -80,7 +116,8 @@ public sealed class SessionSyncSession
         IReplicatedSessionStore replica,
         IDeviceCredentialStore credentials,
         TimeProvider time,
-        SyncActivityLog? activity = null)
+        SyncActivityLog? activity = null,
+        IAgentActivitySource? agentActivity = null)
     {
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(sessions);
@@ -98,6 +135,7 @@ public sealed class SessionSyncSession
         _credentials = credentials;
         _time = time;
         _activity = activity;
+        _agentActivity = agentActivity;
     }
 
     /// <summary>
@@ -126,11 +164,18 @@ public sealed class SessionSyncSession
     /// session still carrying that stamp is excluded from every future run.
     /// </para>
     /// <para>
-    /// The whole catalog is read rather than a changed-since query, because there
-    /// is no such query to ask: <see cref="IAgentSessionSource"/> reads two agents'
-    /// folders and answers with what it found. The filter is therefore here, and
-    /// the source's own per-agent cap bounds the work regardless of how long this
-    /// device has been away.
+    /// The catalog is read <see cref="AgentSessionQuery.Since"/> the watermark rather
+    /// than in the inventory's newest-per-agent shape. That shape is a cap, and a
+    /// push selecting from a capped list ships at most a hundred sessions per agent
+    /// however many moved — the hundred-and-first this machine ran since the last
+    /// cycle would never leave it, and no other machine's count would be right. The
+    /// horizon reading is everything past the watermark, and the strict filter below
+    /// still decides the edge; the source's inclusive one is a superset of it.
+    /// </para>
+    /// <para>
+    /// The activity read happens once per push, when something is pending, from a
+    /// horizon that never clips a pending session — see <see cref="ActivityFor"/>
+    /// for why the horizon has to be that early and what each cycle then costs.
     /// </para>
     /// </summary>
     public async Task<Result<SessionSyncSummary>> PushAsync(CancellationToken cancellationToken = default)
@@ -139,7 +184,9 @@ public sealed class SessionSyncSession
 
         var watermark = _state.Current.PushWatermark;
 
-        var catalog = await _sessions.GetSessionsAsync(cancellationToken).ConfigureAwait(false);
+        var catalog = await _sessions
+            .GetSessionsAsync(AgentSessionQuery.Since(watermark), cancellationToken)
+            .ConfigureAwait(false);
 
         var pending = catalog.Sessions
             .Where(session => session.Origin == AgentSessionOrigin.Local)
@@ -149,27 +196,40 @@ public sealed class SessionSyncSession
 
         var pushed = 0;
 
-        for (var start = 0; start < pending.Count; start += PushBatchSize)
+        if (pending.Count == 0) return Result.Success(new SessionSyncSummary(pushed, 0, 0, _time.GetUtcNow()));
+
+        var activity = await ActivityFor(pending, cancellationToken).ConfigureAwait(false);
+
+        // The one place a record is built, so "what leaves this machine" has one
+        // place to be audited. See SessionRecordMapping.
+        var outgoing = pending
+            .Select(session => new Outgoing(
+                session,
+                SessionRecordMapping.ToRecord(
+                    session,
+                    _aliases,
+                    activity.TryGetValue((session.Kind, session.Id), out var found) ? found : null)))
+            .ToList();
+
+        var sent = 0;
+
+        foreach (var batch in Batches(outgoing))
         {
-            var batch = pending.GetRange(start, Math.Min(PushBatchSize, pending.Count - start));
+            var response = await _client
+                .PushAsync([.. batch.Select(item => item.Record)], cancellationToken)
+                .ConfigureAwait(false);
 
-            // The one place a record is built, so "what leaves this machine" has
-            // one place to be audited. See SessionRecordMapping.
-            var records = batch
-                .Select(session => SessionRecordMapping.ToRecord(session, _aliases))
-                .ToList();
-
-            var response = await _client.PushAsync(records, cancellationToken).ConfigureAwait(false);
             if (response.IsFailure) return Result.Failure<SessionSyncSummary>(response.Error);
 
             pushed += response.Value.Accepted;
+            sent += batch.Count;
 
-            foreach (var session in batch)
+            foreach (var item in batch)
             {
-                _activity?.Record(SyncDirection.Sent, SyncItemKind.Session, session.Id, session.Title);
+                _activity?.Record(SyncDirection.Sent, SyncItemKind.Session, item.Session.Id, item.Session.Title);
             }
 
-            if (WatermarkAfter(batch, final: start + batch.Count >= pending.Count) is { } advanced)
+            if (WatermarkAfter([.. batch.Select(item => item.Session)], final: sent >= outgoing.Count) is { } advanced)
             {
                 _state.Save(_state.Current with { PushWatermark = advanced });
             }
@@ -177,6 +237,114 @@ public sealed class SessionSyncSession
 
         return Result.Success(new SessionSyncSummary(pushed, 0, 0, _time.GetUtcNow()));
     }
+
+    /// <summary>A session about to go and the record built for it, kept together
+    /// so the log entry and the watermark read the session while the wire reads
+    /// the record.</summary>
+    private sealed record Outgoing(AgentSession Session, SessionRecord Record);
+
+    /// <summary>
+    /// This machine's own activity for the sessions about to go, keyed the way a
+    /// session is identified — the agent and the id together, never the id alone
+    /// (<c>.domain/sessions/naming.md#session-identity</c>). Empty on a head with
+    /// no activity source.
+    /// <para>
+    /// <strong>Only local records, and this is where that is enforced for the
+    /// second list.</strong> The port is the merged one, so it answers with what
+    /// other machines reported as well; a replicated record matched to a local
+    /// session by id would go out again under this machine's token, attributed to
+    /// this box. The session filter above stops that for rows; this stops it for
+    /// the intervals on them.
+    /// </para>
+    /// <para>
+    /// <strong>The horizon must never clip a pending session, because a record
+    /// carries the session's whole activity every time it goes.</strong> The
+    /// replica keeps one record per session — a later push replaces the earlier
+    /// one whole — and the reading device clips to its own window on arrival, so
+    /// a record that went out with less than everything would overwrite one that
+    /// had more. The failure is the quiet kind: a session with no recorded start
+    /// pending alone in a cycle, measured from its own last activity, has every
+    /// run ending before that instant clipped away and its transcript skipped on
+    /// mtime, so it goes out with null in both lists and downgrades a record that
+    /// carried intervals to "no record". So the horizon is the earliest recorded
+    /// start among the pending sessions, and the beginning of time where any of
+    /// them recorded none — the sources compare against the horizon and never do
+    /// arithmetic on it, so <see cref="DateTimeOffset.MinValue"/> is a safe
+    /// floor rather than an overflow waiting to happen.
+    /// </para>
+    /// <para>
+    /// What that costs, honestly: a long-lived or start-less session pins the
+    /// horizon far back for every cycle it stays pending, and the local source
+    /// then probes every transcript whose mtime is inside that window — a
+    /// <c>File.Exists</c> and a JSON read of the cache entry per unchanged file,
+    /// a parse only for one that moved. That is the same cost the Dashboard already
+    /// pays per refresh over its twelve-week horizon, and the alternative — a
+    /// horizon that occasionally sends less than the whole record — is a wrong
+    /// number on another machine's screen rather than a slower cycle on this one.
+    /// </para>
+    /// </summary>
+    private async Task<Dictionary<(AgentSessionKind Kind, string Id), AgentSessionActivity>> ActivityFor(
+        IReadOnlyList<AgentSession> pending,
+        CancellationToken cancellationToken)
+    {
+        var index = new Dictionary<(AgentSessionKind, string), AgentSessionActivity>();
+
+        if (_agentActivity is null) return index;
+
+        var since = pending.Min(session => session.StartedAt ?? DateTimeOffset.MinValue);
+
+        var log = await _agentActivity.GetActivityAsync(since, cancellationToken).ConfigureAwait(false);
+
+        foreach (var record in log.Sessions)
+        {
+            if (record.Origin != AgentSessionOrigin.Local) continue;
+
+            index.TryAdd((record.Kind, record.Id), record);
+        }
+
+        return index;
+    }
+
+    /// <summary>
+    /// The outgoing records cut into pushes: at most <see cref="PushBatchSize"/>
+    /// records and at most <see cref="PushBatchIntervals"/> intervals per push,
+    /// whichever is reached first, in the order the records were given.
+    /// <para>
+    /// The weight check runs before a record is added, so a batch is flushed ahead
+    /// of the record that would take it over rather than after — and a batch that
+    /// is empty always takes the next record whatever it weighs, which is what
+    /// keeps a single heavy record from being unsendable.
+    /// </para>
+    /// </summary>
+    private static IEnumerable<IReadOnlyList<Outgoing>> Batches(IReadOnlyList<Outgoing> outgoing)
+    {
+        var batch = new List<Outgoing>();
+        var weight = 0;
+
+        foreach (var item in outgoing)
+        {
+            var cost = WeightOf(item.Record);
+
+            if (batch.Count > 0 && (batch.Count == PushBatchSize || weight + cost > PushBatchIntervals))
+            {
+                yield return batch;
+
+                batch = [];
+                weight = 0;
+            }
+
+            batch.Add(item);
+            weight += cost;
+        }
+
+        if (batch.Count > 0) yield return batch;
+    }
+
+    /// <summary>How many intervals a record carries, both lists together. The
+    /// scalars beside them are the same size on every record and are what the
+    /// count cap already bounds.</summary>
+    private static int WeightOf(SessionRecord record) =>
+        (record.Runs?.Count ?? 0) + (record.Waits?.Count ?? 0);
 
     /// <summary>
     /// Reads the owner's session feed to its end, keeping each page as it arrives.

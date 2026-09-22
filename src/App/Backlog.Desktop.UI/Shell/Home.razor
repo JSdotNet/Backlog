@@ -3,6 +3,7 @@
 @using Backlog.Infrastructure.FileSystem
 @using Backlog.Infrastructure.Sync
 @using Backlog.Modules.Inbox.Abstractions.DataTransferObjects
+@using Backlog.SharedKernel.Ai
 @inject TasksDesktopState State
 @inject InboxDesktopState InboxState
 @inject IServiceProvider Services
@@ -10,6 +11,11 @@
 @inject IJSRuntime JS
 @inject IAppFeatureSettings Features
 @inject IAzureFoundryChatClient AzureFoundryChat
+@* Every area's answer to "what is your content", collected rather than named:
+   the shell picks one by which area is open and never learns what a task, an
+   item or a chapter looks like. Empty in a host that composes none, and the
+   panel is then simply not offered. *@
+@inject IEnumerable<IAiContentSource> AiSources
 @inject DevbookScope Devbook
 @inject ShellNavigationStore ShellNavigation
 @* Injected hard rather than resolved: the Inbox's Capture button is on screen
@@ -39,9 +45,8 @@
     The header follows the surface. Every control in it acts on something, and a
     control whose something is off screen is a dead button: the roadmap toggle
     and the panes strip configure the workspace, the GitHub check refreshes the
-    task list, and Ask AI
-    answers from the entries in view — so each of them renders only while what it
-    acts on does. The surface switcher and the identity region stay, because they
+    task list, and Ask AI answers from the content of an open area — so each of
+    them renders only while what it acts on does. The surface switcher and the identity region stay, because they
     are true of the screen whatever is on it.
 
     What is inside a surface is not the shell's business: Inbox, Backlog
@@ -400,10 +405,12 @@
            a single control is what lets it mean something instead of becoming the
            header's wallpaper — which is what the old all-gold row had made it. *@
         <div class="app-header__utilities">
-            @* Offered while there is content to ask about. The panel answers from the
-               task rows in view — see BuildAiContent — so with the list off screen it
-               would be answering about entries the reader cannot see, and the button
-               that opens it would be a button that opens nothing about this screen. *@
+            @* Offered while there is content to ask about — while at least one area
+               with an Ask AI source behind it is on screen. The panel answers from that
+               area's own content, not from what the screen is showing of it, so a
+               takeover no longer hides the button: the Dashboard and Tools are areas
+               too. What does hide it is a screen with no area at all, which is the one
+               case where the button would open nothing about this screen. *@
             @if (AiAssistantOffered)
             {
                 @* A disclosure, not a pressed state: this opens a panel beside the
@@ -440,7 +447,7 @@
         </div>
     </header>
 
-    @* Gated the way its button is: the panel follows the list it reads from, and
+    @* Gated the way its button is: the panel follows the areas it reads from, and
        comes back open if the reader left it open, because _aiExpanded is not
        touched by a takeover. *@
     @if (AiAssistantOffered && _aiExpanded)
@@ -462,8 +469,29 @@
                     <a class="ai-panel__settings" href="settings">Settings</a>
                 </Actions>
             </SectionHeader>
+            @* Which area answers. With several on screen the reader chooses, on a
+               row of pressed states — the same shared group and toggle the header's
+               scope chips are — and the last area they opened is pressed by default,
+               because it is the one they were just looking at. With one area there is
+               nothing to choose, so its name goes into the sentence instead: a group
+               of one is a control with no choice in it. *@
+            @if (OpenAiAreas.Count > 1)
+            {
+                <ButtonGroup CssClass="ai-panel__scope" AriaLabel="Ask about" TestId="ai-scope">
+                    @foreach (var area in OpenAiAreas)
+                    {
+                        <ToggleButton BaseClass="chip"
+                                      PressedCssClass="chip--active"
+                                      Pressed="@string.Equals(area.AreaKey, EffectiveAiScope, StringComparison.Ordinal)"
+                                      TestId="@($"ai-scope-{area.AreaKey}")"
+                                      OnClick="() => ChooseAiScope(area.AreaKey)">
+                            @area.AreaTitle
+                        </ToggleButton>
+                    }
+                </ButtonGroup>
+            }
             <p class="ai-panel__body">
-                The question is answered from the entries currently in view and loaded backlog knowledge.
+                @AiPanelBody
             </p>
             @* The box keeps its own class and its own border, so the library's
                grow wrapper is emitted without one. *@
@@ -694,6 +722,19 @@
     private string? _aiAnswer;
     private bool _aiBusy;
 
+    /// <summary>The area the reader chose to ask about, by key, or null before
+    /// any choice. Session-only and unpersisted on purpose: it is "the one I was
+    /// just looking at", which a relaunch cannot know. Every gesture that opens
+    /// an area writes it — see <see cref="RememberAiScope"/> — so the default is
+    /// the last-opened area, and a pressed chip overrides that until the next
+    /// open. Resolved through <see cref="EffectiveAiScope"/>, which falls back to
+    /// the first open area when this one has since been closed.</summary>
+    private string? _aiScope;
+
+    /// <summary>The sources by area key, taken once: the collection is what a
+    /// host composed and does not change while the page is up.</summary>
+    private Dictionary<string, IAiContentSource> _aiSources = new(StringComparer.Ordinal);
+
     /// <summary>The id the refusal carried while it was an inline alert under the
     /// question box. It rides on the toast now, so a selector written against
     /// either surface still finds the sentence.</summary>
@@ -725,6 +766,13 @@
         {
             _globalPanes = new GlobalPaneSelection(restoredPanes);
         }
+
+        // First registration wins for a key, so a host that composed two
+        // sources for one area gets the one it wrote first rather than a throw
+        // on the page's first render.
+        _aiSources = AiSources
+            .GroupBy(source => source.AreaKey, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
 
         State.Changed += HandleStateChanged;
         InboxState.Changed += HandleStateChanged;
@@ -855,8 +903,8 @@
     private bool WorkspaceVisible => !ToolsVisible && !DashboardVisible;
 
     /// <summary>Whether the task list is in front of the reader — on screen in the
-    /// workspace, not merely selected underneath a takeover. The GitHub check and
-    /// Ask AI both act on the list, and both are offered on this answer.</summary>
+    /// workspace, not merely selected underneath a takeover. The GitHub check acts
+    /// on the list and is offered on this answer; so is the Tasks area of Ask AI.</summary>
     private bool TasksListOnScreen => WorkspaceVisible && TasksPaneVisible;
 
     /// <summary>Whether what is on screen can show several repositories at once:
@@ -865,7 +913,94 @@
     /// select and the scope is kept to its anchor.</summary>
     private bool RepositoryScopeTakesSeveral => TasksListOnScreen || DashboardVisible;
 
-    private bool AiAssistantOffered => IsFeatureEnabled(AppFeatures.AiAssistant) && TasksListOnScreen;
+    /// <summary>Offered while the feature is on and there is an area to ask about.
+    /// It used to be the task list alone; every area answers now, so the button
+    /// follows whichever of them is on screen.</summary>
+    private bool AiAssistantOffered => IsFeatureEnabled(AppFeatures.AiAssistant) && OpenAiAreas.Count > 0;
+
+    /// <summary>
+    /// The areas on screen that have a source behind them, in a fixed order.
+    /// <para>
+    /// The order is the shell's, not the reader's: the chips would otherwise
+    /// reorder themselves as panes opened and closed, and a row that shuffles
+    /// under the pointer is a row nobody can aim at. It reads the way the
+    /// workspace does — the panes left to right, then the band above them, then
+    /// the takeovers — and only the keys a host actually composed a source for
+    /// count, so a host without a Devbook source never offers a Devbook chip.
+    /// </para>
+    /// <para>
+    /// The Dashboard surface is two areas because it is two contexts: the
+    /// overview is the Dashboard's content and the session list is Sessions'.
+    /// Which tab is in front decides which one is open, and never both.
+    /// </para>
+    /// </summary>
+    private IReadOnlyList<IAiContentSource> OpenAiAreas
+    {
+        get
+        {
+            var keys = new List<string>(7);
+            if (WorkspaceVisible && InboxPaneVisible) keys.Add("inbox");
+            if (TasksListOnScreen) keys.Add("tasks");
+            if (WorkspaceVisible && DevbookPaneVisible) keys.Add("devbook");
+            if (WorkspaceVisible && RoadmapBandVisible) keys.Add("roadmap");
+            if (DashboardVisible && ActiveDashboardTab == DashboardTab.Overview) keys.Add("dashboard");
+            if (DashboardVisible && ActiveDashboardTab == DashboardTab.Sessions) keys.Add("sessions");
+            if (ToolsVisible) keys.Add("tools");
+
+            return [.. keys.Where(_aiSources.ContainsKey).Select(key => _aiSources[key])];
+        }
+    }
+
+    /// <summary>The area a question goes to: the chosen one while it is still on
+    /// screen, else the first open one, else nothing — in which case the panel
+    /// is not offered at all.</summary>
+    private string? EffectiveAiScope
+    {
+        get
+        {
+            var open = OpenAiAreas;
+            if (open.Count == 0) return null;
+
+            return _aiScope is not null && open.Any(area => string.Equals(area.AreaKey, _aiScope, StringComparison.Ordinal))
+                ? _aiScope
+                : open[0].AreaKey;
+        }
+    }
+
+    /// <summary>The sentence under the panel's title. It names the area when
+    /// there is one, because with one area there are no chips to name it.</summary>
+    private string AiPanelBody
+    {
+        get
+        {
+            var open = OpenAiAreas;
+            if (open.Count == 1) return $"Answers from the {open[0].AreaTitle} content.";
+
+            return "Answers from the content of the area chosen above.";
+        }
+    }
+
+    /// <summary>A press on a scope chip. A choice, held until the next area
+    /// opens — see <see cref="_aiScope"/>.</summary>
+    private void ChooseAiScope(string areaKey) => _aiScope = areaKey;
+
+    /// <summary>The reader opened an area, so it becomes the default scope. Called
+    /// from every gesture that opens one: the pane presses, the surface switch,
+    /// the roadmap toggle and the dashboard tab. Only opens count — closing a pane
+    /// says nothing about what the reader wants to ask about, and the fallback in
+    /// <see cref="EffectiveAiScope"/> handles a scope that has since gone.</summary>
+    private void RememberAiScope(string areaKey) => _aiScope = areaKey;
+
+    private static string AiScopeFor(GlobalPane pane) => pane switch
+    {
+        GlobalPane.Inbox => "inbox",
+        GlobalPane.Tasks => "tasks",
+        GlobalPane.Devbook => "devbook",
+        // Exhaustive on purpose: a pane added without an area is a pane whose
+        // press would silently point Ask AI at the wrong content, and a throw
+        // here is found by the first test that presses it.
+        _ => throw new ArgumentOutOfRangeException(nameof(pane), pane, "No Ask AI area is defined for this pane.")
+    };
 
     /// <summary>Whether the surface switcher is offered at all. It needs something
     /// to switch to: with every takeover feature off its only member would be the
@@ -894,7 +1029,14 @@
     /// layout.</summary>
     private string WorkspaceClass => RoadmapBandVisible ? "workspace" : "workspace workspace--no-roadmap";
 
-    private void ToggleAiPanel() => _aiExpanded = !_aiExpanded;
+    /// <summary>Opens or closes the panel. Closing it ends an ask in flight: the
+    /// answer would land in a panel nobody is looking at, and the quota it costs
+    /// is better kept for a question the reader waits for.</summary>
+    private void ToggleAiPanel()
+    {
+        _aiExpanded = !_aiExpanded;
+        if (!_aiExpanded) CancelAsk();
+    }
 
     private void ToggleTools() => ToggleSurface(WorkspaceSurface.Tools);
 
@@ -909,6 +1051,19 @@
         _focusSurfacePending = _surface != WorkspaceSurface.Workspace;
         RememberSurface();
         KeepRepositoryScopeSingleWhereOnlyOneFits();
+
+        // Opening a takeover opens its area; the Dashboard's is whichever tab is
+        // in front. Returning to the workspace is not an open, and the scope the
+        // reader had there before is what the fallback returns to.
+        switch (_surface)
+        {
+            case WorkspaceSurface.Tools:
+                RememberAiScope("tools");
+                break;
+            case WorkspaceSurface.Dashboard:
+                RememberAiScope(ActiveDashboardTab == DashboardTab.Sessions ? "sessions" : "dashboard");
+                break;
+        }
     }
 
     /// <summary>Back to the panes. The pane selection was never touched, so there
@@ -929,6 +1084,7 @@
 
         _dashboardTab = tab;
         RememberSurface();
+        RememberAiScope(tab == DashboardTab.Sessions ? "sessions" : "dashboard");
     }
 
     private static string DashboardTabId(DashboardTab tab) => tab.ToString().ToLowerInvariant();
@@ -958,17 +1114,53 @@
 
     private async Task AskAiAsync()
     {
-        if (_aiBusy) return;
+        if (EffectiveAiScope is not { } scope || !_aiSources.TryGetValue(scope, out var source)) return;
 
+        // One token per ask, and a new ask ends the one before it: an answer to
+        // the question the reader has moved on from is not worth its quota, and a
+        // compose still reading a store for it is not worth its I/O. The button is
+        // disabled while an ask is in flight, so this reaches a second ask only by
+        // the keyboard shortcut — and the one in flight is the older of the two.
+        var ask = ReplaceAsk();
         _aiBusy = true;
         _aiAnswer = null;
 
         try
         {
-            var response = await AzureFoundryChat.AskAsync(new AzureFoundryChatRequest(BuildAiContent(), _aiQuestion));
-            _aiAnswer = response.Answer;
+            // The scoped area composes its own content for the question, within
+            // the budget the deployment can take in one turn. The shell hands over
+            // the body and learns nothing about what is in it.
+            //
+            // Its own try, because the source reads a store — the tool catalog's
+            // JSON, the plan's SQLite file, the devbook database, GitHub — and any
+            // of those can throw. That throw is a fact about the area, not about
+            // the assistant, so it is said as one; and it must not reach the error
+            // boundary, which would take the page for a question that was never
+            // sent.
+            AiContent content;
+            try
+            {
+                content = await source.ComposeAsync(new AiContentRequest(_aiQuestion, AiContentBudget.DefaultCharacters), ask.Token);
+            }
+            catch (OperationCanceledException) when (ask.IsCancellationRequested)
+            {
+                return;
+            }
+            catch (Exception ex)
+            {
+                Toasts.Publish(ToastMessage.Error($"Could not gather the {source.AreaTitle} content: {ex.Message}", AiErrorTestId));
+                return;
+            }
+
+            var response = await AzureFoundryChat.AskAsync(new AzureFoundryChatRequest(content.Body, _aiQuestion), ask.Token);
+            if (!ask.IsCancellationRequested) _aiAnswer = response.Answer;
         }
-        catch (AzureFoundryException ex)
+        catch (OperationCanceledException) when (ask.IsCancellationRequested)
+        {
+            // The reader closed the panel, left the page, or asked again: nothing
+            // to say about an answer nobody is waiting for.
+        }
+        catch (AzureFoundryException ex) when (!ask.IsCancellationRequested)
         {
             // The one exception the client throws for every way an answer fails
             // to be one: a bad status, an endpoint that could not be reached, and
@@ -977,28 +1169,46 @@
             // transport catches this handler kept, and stop the whole page.
             Toasts.Publish(ToastMessage.Error(ex.Message, AiErrorTestId));
         }
+        catch (AzureFoundryException)
+        {
+            // Cancelled mid-flight and the client said so in its own words; the
+            // reader has already moved on.
+        }
         finally
         {
-            _aiBusy = false;
+            // Only the ask that is still current clears the flag: a cancelled one
+            // finishing late must not mark its successor idle.
+            if (ReferenceEquals(_aiAsk, ask)) _aiBusy = false;
         }
+    }
+
+    /// <summary>The in-flight ask's cancellation, or null when none is in flight.
+    /// Cancelled by the next ask, by closing the panel, and on dispose.</summary>
+    private CancellationTokenSource? _aiAsk;
+
+    /// <summary>Ends whatever ask is in flight and starts the token for the next.</summary>
+    private CancellationTokenSource ReplaceAsk()
+    {
+        CancelAsk();
+        return _aiAsk = new CancellationTokenSource();
+    }
+
+    /// <summary>Ends the ask in flight, if any. Disposed here rather than at the
+    /// end of the ask, so a token a late continuation still reads is a cancelled
+    /// token and not a disposed one.</summary>
+    private void CancelAsk()
+    {
+        var ask = _aiAsk;
+        if (ask is null) return;
+
+        _aiAsk = null;
+        _aiBusy = false;
+        ask.Cancel();
+        ask.Dispose();
     }
 
     private Task OnAiQuestionKeyDownAsync(KeyboardEventArgs e) =>
         e.Key == "Enter" && (e.CtrlKey || e.MetaKey) ? AskAiAsync() : Task.CompletedTask;
-
-    private string BuildAiContent()
-    {
-        var builder = new System.Text.StringBuilder();
-        builder.AppendLine("Visible tasks:");
-        foreach (var row in State.FilteredRows.Where(row => !row.IsUntouched))
-        {
-            builder.AppendLine("---");
-            builder.AppendLine(row.RawText.Trim());
-        }
-
-        var content = builder.ToString().Trim();
-        return content.Length <= 12000 ? content : content[..12000];
-    }
 
     private bool TasksPaneVisible => _globalPanes.IsEnabled(GlobalPane.Tasks);
 
@@ -1297,7 +1507,11 @@
     /// call into <see cref="GlobalPaneSelection"/>, and it never consults capacity:
     /// the band is always freely toggleable because it takes no width from the panes.
     /// See the roadmap toggle in the markup for why it stays out of the selection.</summary>
-    private void ToggleRoadmapBand() => _roadmapVisible = !_roadmapVisible;
+    private void ToggleRoadmapBand()
+    {
+        _roadmapVisible = !_roadmapVisible;
+        if (_roadmapVisible) RememberAiScope("roadmap");
+    }
 
     /// <summary>A press on a pane's option, modifiers and all. A closed pane opens
     /// on its own with a plain press and beside the open ones with Ctrl (Cmd on
@@ -1315,6 +1529,10 @@
         {
             _globalPanes.Toggle(pane);
         }
+
+        // A press that left the pane open opened it — a switch, a Ctrl-add, or a
+        // plain open — and that is the area the reader wants to ask about next.
+        if (_globalPanes.IsEnabled(pane)) RememberAiScope(AiScopeFor(pane));
 
         PersistPaneSelection();
     }
@@ -1522,6 +1740,7 @@
     // on a window drag because a page that is gone is still in the map.
     public async ValueTask DisposeAsync()
     {
+        CancelAsk();
         State.Changed -= HandleStateChanged;
         InboxState.Changed -= HandleStateChanged;
         InboxState.Routed -= HandleInboxRouted;
