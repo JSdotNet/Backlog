@@ -22,6 +22,15 @@ namespace Backlog.Aspire.AppHost;
 /// reset that deletes a directory tree deletes all of that too. The database file,
 /// its two SQLite sidecars, and the settings file are the whole of first-run
 /// state.</para>
+///
+/// <para>One file is removed from outside the workspace: the surface the desktop
+/// harness was last showing. <c>Home</c> reopens on it, so a reset that leaves it
+/// behind hands the next run a harness whose backlog is empty but whose Dashboard
+/// takeover is still on screen — which reads as the takeover opening and closing
+/// itself, because the first click on the toggle then closes it rather than opening
+/// it. It is the harness's own file rather than the workspace's, so unlike
+/// everything above it belongs to this worktree alone and no other session feels
+/// it going.</para>
 /// </summary>
 internal static class LocalDataReset
 {
@@ -54,6 +63,23 @@ internal static class LocalDataReset
     /// journal for a database that no longer exists.</summary>
     private static readonly string[] DatabaseFileSuffixes = ["", "-wal", "-shm"];
 
+    /// <summary>The desktop harness's remembered surface, and the variable that
+    /// moves it. Both are copied out of <c>Backlog.Desktop.WebHarness</c>'s
+    /// <c>CreateLocalDevelopmentShellNavigationStore</c> for the same reason the
+    /// workspace folder name is copied out of <c>WorkspaceSettingsStore</c>: the
+    /// AppHost cannot reference the projects it orchestrates. <c>AspireAppModelTests</c>
+    /// asserts the two stay in step, because a copy that drifts here deletes nothing
+    /// and still reports success.</summary>
+    private const string ShellNavigationFileName = "shell-navigation.settings.json";
+
+    private const string ShellNavigationPathVariable = "BACKLOG_SHELL_NAVIGATION_SETTINGS_PATH";
+
+    /// <summary>Where the harness project sits, relative to the AppHost. The
+    /// registration below names the same path to add the project; this reaches the
+    /// state it writes beside it.</summary>
+    private static readonly string[] HarnessLocalDevelopment =
+        ["..", "..", "Harness", "Backlog.Desktop.WebHarness", "obj", "local-development"];
+
     /// <summary>The per-user workspace folder, before any settings pointer is
     /// followed.</summary>
     private static string DefaultWorkspace => Path.Combine(
@@ -74,11 +100,32 @@ internal static class LocalDataReset
         return ConfiguredRoot(Path.Combine(workspace, SettingsFileName)) ?? workspace;
     }
 
+    /// <summary>The file the desktop harness keeps its remembered surface in: wherever
+    /// <see cref="ShellNavigationPathVariable"/> points, else the default beside the
+    /// harness project. Resolved the way the harness resolves it, so a developer who
+    /// moved the file still has it reset rather than silently kept.
+    ///
+    /// <para>Unlike the workspace there is no approval to re-check against: this path
+    /// is fixed by the repository layout and an environment variable read at startup,
+    /// not by a settings screen someone can repoint while the AppHost runs.</para></summary>
+    public static string ResolveShellNavigation(string appHostDirectory)
+    {
+        var configured = Environment.GetEnvironmentVariable(ShellNavigationPathVariable);
+
+        if (!string.IsNullOrWhiteSpace(configured)) return configured;
+
+        return Path.GetFullPath(Path.Combine(
+            [appHostDirectory, .. HarnessLocalDevelopment, ShellNavigationFileName]));
+    }
+
     /// <param name="approvedRoot">The folder named in the confirmation the person
     /// approved. Re-resolved below and compared rather than trusted: settings can be
     /// repointed while the AppHost is running, and deleting a database in a folder
     /// nobody was shown is the one outcome this command must not have.</param>
-    public static ExecuteCommandResult Run(ExecuteCommandContext context, string approvedRoot)
+    /// <param name="shellNavigation">The harness's remembered surface, from
+    /// <see cref="ResolveShellNavigation"/>.</param>
+    public static ExecuteCommandResult Run(
+        ExecuteCommandContext context, string approvedRoot, string shellNavigation)
     {
         var workspace = DefaultWorkspace;
 
@@ -99,6 +146,7 @@ internal static class LocalDataReset
         var targets = DatabaseFileSuffixes
             .Select(suffix => Path.Combine(root, DatabaseFileName + suffix))
             .Append(settings)
+            .Append(shellNavigation)
             .Where(File.Exists)
             .ToList();
 
