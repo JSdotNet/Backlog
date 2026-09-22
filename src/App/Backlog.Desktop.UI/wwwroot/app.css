@@ -728,6 +728,26 @@ h1, h2, h3 {
     overflow: hidden;
 }
 
+/* And the list half scrolls down and never sideways.
+
+   The shared split gives both halves `overflow: auto`, which is two axes. Down is
+   the list working as intended — there are more entries than fit. Sideways is
+   never that: the column is as wide as the layout can make it, so a horizontal
+   bar only ever appears because something in a row refused to shrink, and the
+   reader pays for it by dragging the whole list — rows, filter bar and add row
+   together — to read the end of one line. Nothing in this half is worth that
+   gesture, so the axis is not offered.
+
+   `hidden` rather than `clip`, because the vertical axis is still `auto`: a box
+   with one axis clipped and the other scrollable computes the clip back to hidden
+   anyway, and naming it hidden says what the box actually does. It is the last
+   line of defence and not the fix — a row that overflows is clipped here and the
+   clamps in the library keep it from overflowing in the first place, so what the
+   reader sees is a shortened line rather than a line cut off at the pane's edge. */
+.backlog-split > .split-pane__start {
+    overflow-x: hidden;
+}
+
 /* Nothing open, so there is nothing to divide: the list takes the whole width and
    the separator has no second pane to drag against. A modifier rather than a
    different element — the split stays mounted so the list keeps its scroll

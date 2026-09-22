@@ -952,6 +952,60 @@ public sealed class GlobalPaneMarkupTests
     }
 
     /// <summary>
+    /// The list half scrolls down and never sideways.
+    /// <para>
+    /// The rule above gives both halves <c>overflow: auto</c>, which is two axes,
+    /// and only one of them is a list working as intended. A horizontal bar under
+    /// the rows is always a row that refused to shrink, and reading the end of one
+    /// line by dragging the whole column — filter bar, rows and add row together —
+    /// is not a gesture this pane asks anybody for. So the axis is turned off here,
+    /// where the split is the Tasks pane's, and the shared halves keep both axes for
+    /// the hosts that mean it.
+    /// </para>
+    /// <para>
+    /// The clamps below are what keep it from being a cut: a row that fits is never
+    /// clipped, and the three boxes named here are the ones that were free to grow
+    /// past the track they sit in. <c>.task-item</c> is a grid item, so
+    /// <c>.task-list</c>'s <c>minmax(0, 1fr)</c> caps its track and not the row in
+    /// it; <c>.task-item__detail</c> is a <c>nowrap</c> box, so a pasted link or a
+    /// long branch name held the whole line open from the innermost box out.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void The_list_half_never_scrolls_sideways()
+    {
+        var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
+        var components = NormalizeLineEndings(File.ReadAllText(FindComponentsCss()));
+
+        var listHalf = Block(css, ".backlog-split > .split-pane__start {");
+        Assert.Contains("overflow-x: hidden;", listHalf, StringComparison.Ordinal);
+        // The vertical axis is the half's whole job, so it must not be turned off
+        // with it — a shorthand here would take both.
+        Assert.DoesNotContain("overflow-y", listHalf, StringComparison.Ordinal);
+        Assert.DoesNotContain("overflow:", listHalf, StringComparison.Ordinal);
+
+        var row = Block(components, ".task-item {");
+        Assert.Contains("min-width: 0;", row, StringComparison.Ordinal);
+
+        var meta = Block(components, ".task-item__meta {\n    display: flex;");
+        Assert.Contains("min-width: 0;", meta, StringComparison.Ordinal);
+
+        var detail = Block(components, ".task-item__detail {");
+        Assert.Contains("min-width: 0;", detail, StringComparison.Ordinal);
+        Assert.Contains("overflow: hidden;", detail, StringComparison.Ordinal);
+        // Ellipsis has no effect on a flex container's items, so a declaration here
+        // would promise the reader a mark they never get.
+        Assert.DoesNotContain("text-overflow", detail, StringComparison.Ordinal);
+
+        static string Block(string sheet, string selector)
+        {
+            var start = sheet.IndexOf(selector, StringComparison.Ordinal);
+            Assert.True(start >= 0, $"{selector} should be declared.");
+            return sheet[start..sheet.IndexOf('}', start)];
+        }
+    }
+
+    /// <summary>
     /// The two controls that stick to the list half, and the edge each holds. The
     /// bulk bar takes the top so the count and the way out of a selection stay in
     /// reach; the add-entry row takes the bottom so a column longer than the window
