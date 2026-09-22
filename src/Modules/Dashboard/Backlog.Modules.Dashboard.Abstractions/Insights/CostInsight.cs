@@ -1,12 +1,14 @@
 namespace Backlog.Modules.Dashboard.Abstractions.Insights;
 
 /// <summary>Which assistant a spend figure came from. Kept apart all the way to
-/// the screen: the two providers report on different terms — one an estimate, one
-/// a metered credit balance — and a single total would hide that.</summary>
+/// the screen: the providers report on different terms — an estimate, a metered
+/// credit balance, a bill in whatever currency the subscription is charged in —
+/// and a single total would hide that.</summary>
 public enum SpendProvider
 {
     Claude,
-    Copilot
+    Copilot,
+    AzureFoundry
 }
 
 /// <summary>
@@ -16,8 +18,8 @@ public enum SpendProvider
 /// <para>
 /// <see cref="Spend"/> is what was charged. <see cref="Allowance"/> is the part of
 /// the month's consumption the plan already covered, which GitHub reports as a
-/// discount against the gross figure and Anthropic does not report at all — so it
-/// is null for Claude. The two together are what was consumed; neither is the
+/// discount against the gross figure and neither Anthropic nor Azure reports at
+/// all — so it is null for Claude and for Azure Foundry. The two together are what was consumed; neither is the
 /// plan's total included credit, because no endpoint publishes that and inventing
 /// a ceiling is how a meter starts lying.
 /// </para>
@@ -60,11 +62,11 @@ public enum SpendBucket
 }
 
 /// <summary>
-/// Where the money went, by model, across both providers.
+/// Where the money went, by model, across every provider.
 /// <para>
-/// Rows carry the provider in their detail rather than being split into two
-/// tables: the question a reader is asking here is which model costs the most,
-/// and answering it across two tables makes them do the merge by eye.
+/// Rows carry the provider in their detail rather than being split into a table
+/// per provider: the question a reader is asking here is which model costs the
+/// most, and answering it across tables makes them do the merge by eye.
 /// </para>
 /// </summary>
 public sealed record SpendByModelInsight(IReadOnlyList<InsightRow> Rows)

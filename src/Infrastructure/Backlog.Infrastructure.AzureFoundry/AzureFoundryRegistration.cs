@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Backlog.Infrastructure.AzureFoundry;
 
@@ -58,6 +59,30 @@ public static class AzureFoundryRegistration
             // the breaker.
             options.CircuitBreaker.SamplingDuration = AnswerBudget * 2;
         });
+
+        return services;
+    }
+
+    /// <summary>
+    /// Registers <see cref="IAzureFoundryCostClient"/> over an
+    /// <see cref="HttpClient"/> aimed at Resource Manager, and the developer
+    /// sign-in it reads with unless the host registered a token source of its
+    /// own first. Needs an <see cref="AzureFoundrySettingsStore"/> beside it.
+    /// </summary>
+    /// <param name="managementEndpoint">Where Resource Manager is. Null is the
+    /// public cloud; the harness passes its stand-in.</param>
+    /// <remarks>
+    /// The host's default resilience pipeline is kept, unlike the chat client's:
+    /// a cost query answers in a second or two, and a retry with backoff on a
+    /// 429 is exactly what Cost Management's rate limit asks for.
+    /// </remarks>
+    public static IServiceCollection AddAzureFoundryCostClient(this IServiceCollection services, Uri? managementEndpoint = null)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.TryAddSingleton<IAzureManagementTokenSource, DeveloperSignInTokenSource>();
+        services.AddHttpClient<IAzureFoundryCostClient, AzureFoundryCostClient>(client =>
+            client.BaseAddress = managementEndpoint ?? AzureFoundryCostClient.PublicCloudManagementEndpoint);
 
         return services;
     }

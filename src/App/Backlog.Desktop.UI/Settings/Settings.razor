@@ -533,6 +533,44 @@
                         <p class="setting__note">
                             The key is kept in <code>@AzureFoundry.SettingsPath</code> - outside the backlog folder, so it is never synced or committed with entries.
                         </p>
+
+                        <h3 class="setting__subtitle">Spend</h3>
+                        <p class="setting__body">
+                            The dashboard's Cost section reads what this resource cost from Azure Cost
+                            Management. Paste the resource ID of the Foundry account - or of its resource
+                            group or subscription, to include everything in it.
+                        </p>
+
+                        <TextField Bare="true"
+                                   LabelCssClass="setting__label"
+                                   InputCssClass="setting__input"
+                                   Label="Azure resource ID"
+                                   Id="azure-foundry-cost-scope"
+                                   data-testid="azure-foundry-cost-scope-input"
+                                   spellcheck="false"
+                                   autocomplete="off"
+                                   Placeholder="/subscriptions/<id>/resourceGroups/<group>/providers/Microsoft.CognitiveServices/accounts/<name>"
+                                   Value="@_draftAzureFoundryCostScope"
+                                   ValueChanged="value => _draftAzureFoundryCostScope = value"
+                                   @onchange="ApplyAzureFoundryCostScope"
+                                   @onkeydown="OnAzureFoundryCostScopeKeyDown" />
+
+                        <p class="setting__status" data-testid="azure-foundry-cost-status" role="status">
+                            @if (AzureFoundry.Current.IsCostConfigured)
+                            {
+                                <span>Spend is read for <code>@AzureFoundry.Current.CostScope</code>.</span>
+                            }
+                            else
+                            {
+                                <span>Spend needs a resource ID before the dashboard can read it.</span>
+                            }
+                        </p>
+
+                        <p class="setting__note">
+                            No key is stored for this: spend is read with the Azure sign-in already on this
+                            machine - the Azure CLI (<code>az login</code>), the Azure Developer CLI, or Visual
+                            Studio - as an account with the Cost Management Reader role on the resource.
+                        </p>
                     </section>
                 }
             </div>
@@ -2102,6 +2140,7 @@
     private string _draftAzureFoundryDeployment = string.Empty;
     private string _draftAzureFoundryApiVersion = AzureFoundrySettingsStore.DefaultApiVersion;
     private string _draftAzureFoundryApiKey = string.Empty;
+    private string _draftAzureFoundryCostScope = string.Empty;
     private string? _azureFoundryMessage;
     private string _draftGitHubUsageEndpoint = string.Empty;
     private string? _gitHubUsageMessage;
@@ -2251,11 +2290,29 @@
         else if (e.Key == "Escape") _draftAzureFoundryApiKey = string.Empty;
     }
 
+    /// <summary>Idempotent, like the connection above it: Enter raises keydown
+    /// and then change, and the second call stores what the first did.</summary>
+    private void ApplyAzureFoundryCostScope()
+    {
+        var error = AzureFoundry.SetCostScope(_draftAzureFoundryCostScope);
+        _azureFoundryMessage = error ?? (AzureFoundry.Current.IsCostConfigured
+            ? "Azure Foundry cost scope updated."
+            : "Azure Foundry cost scope cleared.");
+        SyncAzureFoundryDrafts();
+    }
+
+    private void OnAzureFoundryCostScopeKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") ApplyAzureFoundryCostScope();
+        else if (e.Key == "Escape") SyncAzureFoundryDrafts();
+    }
+
     private void SyncAzureFoundryDrafts()
     {
         _draftAzureFoundryEndpoint = AzureFoundry.Current.Endpoint ?? string.Empty;
         _draftAzureFoundryDeployment = AzureFoundry.Current.Deployment ?? string.Empty;
         _draftAzureFoundryApiVersion = AzureFoundry.Current.ApiVersion;
+        _draftAzureFoundryCostScope = AzureFoundry.Current.CostScope ?? string.Empty;
     }
 
     /// <summary>The account whose subpage is open - the chosen one while it still

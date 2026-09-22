@@ -1,22 +1,24 @@
 @*
-    Where the money went, by model, across both providers in one table.
+    Where the money went, by model, across every provider in one table.
 
     One table rather than one per provider. The question here is which model costs
-    the most, and answering it across two tables makes the reader do the merge by
-    eye. The provider travels in each row's detail column instead.
+    the most, and answering it across tables makes the reader do the merge by eye.
+    The provider travels in each row's detail column instead.
 
-    The tokens column is populated for Claude and empty for Copilot, and that is a
-    fact about the two APIs rather than a gap: Anthropic reports tokens beside its
-    cost, GitHub meters in AI credits. Putting credits under a heading that says
-    Tokens would place two different units in one column, so the cell stays
-    unreported — MetricBreakdown draws that as an em dash, which is a different
-    statement from a zero.
+    The tokens column is populated for Claude and empty for the other two, and that
+    is a fact about the APIs rather than a gap: Anthropic reports tokens beside its
+    cost, GitHub meters in AI credits, Azure meters in each meter's own unit. Putting
+    those under a heading that says Tokens would place different units in one
+    column, so the cell stays unreported — MetricBreakdown draws that as an em dash,
+    which is a different statement from a zero. An Azure row is a meter rather than
+    a model — the model plus the direction of its tokens — because that is what the
+    bill names.
 *@
 @inherits DashboardPartBase<SpendByModelInsight>
 @inject ICostInsights Costs
 
 <PartFrame Title="Spend by model"
-           Note="Your own usage this month. Tokens are reported by Claude only — Copilot meters in AI credits, which is a different unit and is left out of that column rather than mixed into it."
+           Note="Your own usage this month. Tokens are reported by Claude only — Copilot meters in AI credits and Azure Foundry in per-meter units, which are different units and are left out of that column rather than mixed into it. Azure rows are billing meters: one model appears once per token direction."
            Busy="Status == MetricStatusKind.Loading"
            OnRefresh="RefreshAsync"
            TestId="dashboard-spend-model">
