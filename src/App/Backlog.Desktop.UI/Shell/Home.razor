@@ -943,7 +943,9 @@
     /// of them inside a tab or on its own depending on how many are offered, and a
     /// pane written twice in the markup would be two places to keep in step.</summary>
     private RenderFragment DashboardOverview =>
-        @<DashboardPane OnClose="CloseSurface" RepositoryAliases="@State.SelectedRepositoryAliases" />;
+        @<DashboardPane OnClose="CloseSurface"
+                        RepositoryAliases="@State.SelectedRepositoryAliases"
+                        RepositoryColour="@RepositoryColourFor" />;
 
     private RenderFragment SessionsList =>
         @<SessionsPane OnClose="CloseSurface"

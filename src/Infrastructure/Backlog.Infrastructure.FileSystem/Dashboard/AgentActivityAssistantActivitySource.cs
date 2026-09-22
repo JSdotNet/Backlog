@@ -43,7 +43,26 @@ public sealed class AgentActivityAssistantActivitySource(IAgentActivitySource ac
             log.Since,
             log.IdleAfter)
         {
-            Subagents = [.. log.Subagents.Select(Map)]
+            Subagents = [.. log.Subagents.Select(Map)],
+
+            // The refusals, off the sessions they sit on, placed and dated. Only the ones
+            // the assistant dated with a reset are useful to the dashboard — the weekly
+            // reset is what it cuts weeks on and the hour a five-hour refusal marks is
+            // named by when it was over — so a refusal without one is left out rather
+            // than given an instant nobody wrote down.
+            Limits =
+            [
+                .. log.Sessions
+                    .SelectMany(session => session.LimitHits
+                        .Where(hit => hit.ResetsAt is not null && hit.Kind is not AgentLimitKind.Other)
+                        .Select(hit => new AssistantLimitHit(
+                            hit.At,
+                            hit.Kind == AgentLimitKind.FiveHour ? AssistantLimitKind.FiveHour : AssistantLimitKind.SevenDay,
+                            hit.ResetsAt!.Value,
+                            session.Id,
+                            session.EnvironmentId)))
+                    .OrderBy(hit => hit.At)
+            ]
         };
     }
 

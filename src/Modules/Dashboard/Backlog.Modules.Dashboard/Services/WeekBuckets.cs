@@ -12,7 +12,7 @@ namespace Backlog.Modules.Dashboard.Services;
 /// but week 34 comes round every year, so matching on it would count a merge from
 /// last August into this one. The key carries the ISO year and the label does not.
 /// </remarks>
-internal sealed record WeekBucket(string Key, string Label);
+internal sealed record WeekBucket(string Key, string Label, DateTimeOffset Start);
 
 /// <summary>
 /// The weekly buckets every productivity series is drawn on, and how a timestamp
@@ -51,7 +51,8 @@ internal static class WeekBuckets
         return new WeekBucket(
             year.ToString("0000", CultureInfo.InvariantCulture)
                 + "-W" + week.ToString("00", CultureInfo.InvariantCulture),
-            "W" + week.ToString("00", CultureInfo.InvariantCulture));
+            "W" + week.ToString("00", CultureInfo.InvariantCulture),
+            StartOfWeek(instant));
     }
 
     /// <summary>
@@ -86,17 +87,31 @@ internal static class WeekBuckets
     internal static IReadOnlyList<InsightPoint> Count<T>(
         IReadOnlyList<WeekBucket> buckets,
         IEnumerable<T> items,
-        Func<T, DateTimeOffset> instantOf)
+        Func<T, DateTimeOffset> instantOf) =>
+        Count(buckets, items, instantOf, instant => Of(instant).Key);
+
+    /// <summary>
+    /// <see cref="Count{T}(IReadOnlyList{WeekBucket}, IEnumerable{T}, Func{T, DateTimeOffset})"/>
+    /// under a different cut: <paramref name="keyOf"/> says which bucket an instant is
+    /// in, so a caller counting into weeks that are not ISO weeks — the sessions part's
+    /// usage weeks — reuses the arithmetic and supplies the calendar.
+    /// </summary>
+    internal static IReadOnlyList<InsightPoint> Count<T>(
+        IReadOnlyList<WeekBucket> buckets,
+        IEnumerable<T> items,
+        Func<T, DateTimeOffset> instantOf,
+        Func<DateTimeOffset, string> keyOf)
     {
         ArgumentNullException.ThrowIfNull(buckets);
         ArgumentNullException.ThrowIfNull(items);
         ArgumentNullException.ThrowIfNull(instantOf);
+        ArgumentNullException.ThrowIfNull(keyOf);
 
         var counts = buckets.ToDictionary(bucket => bucket.Key, _ => 0, StringComparer.Ordinal);
 
         foreach (var item in items)
         {
-            var key = Of(instantOf(item)).Key;
+            var key = keyOf(instantOf(item));
             if (counts.ContainsKey(key)) counts[key]++;
         }
 
@@ -112,15 +127,25 @@ internal static class WeekBuckets
         IReadOnlyList<WeekBucket> buckets,
         IEnumerable<T> items,
         Func<T, DateTimeOffset> instantOf,
-        Func<IReadOnlyList<T>, decimal> aggregate)
+        Func<IReadOnlyList<T>, decimal> aggregate) =>
+        Reduce(buckets, items, instantOf, aggregate, instant => Of(instant).Key);
+
+    /// <summary>The reduce under a different cut, on the counting overload's terms.</summary>
+    internal static IReadOnlyList<InsightPoint> Reduce<T>(
+        IReadOnlyList<WeekBucket> buckets,
+        IEnumerable<T> items,
+        Func<T, DateTimeOffset> instantOf,
+        Func<IReadOnlyList<T>, decimal> aggregate,
+        Func<DateTimeOffset, string> keyOf)
     {
         ArgumentNullException.ThrowIfNull(buckets);
         ArgumentNullException.ThrowIfNull(items);
         ArgumentNullException.ThrowIfNull(instantOf);
         ArgumentNullException.ThrowIfNull(aggregate);
+        ArgumentNullException.ThrowIfNull(keyOf);
 
         var grouped = items
-            .GroupBy(item => Of(instantOf(item)).Key, StringComparer.Ordinal)
+            .GroupBy(item => keyOf(instantOf(item)), StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => (IReadOnlyList<T>)[.. group], StringComparer.Ordinal);
 
         return

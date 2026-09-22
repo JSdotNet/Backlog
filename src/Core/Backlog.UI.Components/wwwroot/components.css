@@ -9240,6 +9240,342 @@ select.field__input {
     white-space: nowrap;
 }
 
+/* --- Metrics: stacked and grouped columns -------------------------------- */
+
+/* The column chart's skeleton with several boxes per column. min-width: 0
+   everywhere for the reason the block above gives. */
+.metric-stacked-bars {
+    position: relative;
+    display: grid;
+    gap: var(--spacing-sm);
+    margin: 0;
+    min-width: 0;
+}
+
+.metric-stacked-bars__label {
+    color: var(--chart-ink-muted);
+    font-size: var(--font-size-sm);
+}
+
+.metric-stacked-bars__plot {
+    display: flex;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.metric-stacked-bars__scale {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: var(--metric-stacked-bars-height, 9rem);
+    padding-bottom: 1.25rem;
+    color: var(--chart-ink-muted);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+}
+
+.metric-stacked-bars__columns {
+    position: relative;
+    display: flex;
+    flex: 1;
+    align-items: stretch;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+    border-bottom: var(--border-width) solid var(--chart-axis);
+}
+
+/* The right-hand scale is the lines' own and reads the other way round: its figures
+   sit on the left of its column so they face the plot they belong to. */
+.metric-stacked-bars__scale--right {
+    align-items: flex-start;
+}
+
+/* The lines' overlay covers exactly the tracks — the height token — and stops above
+   the label row, so a point at 0 sits on the baseline rather than in the labels. */
+.metric-stacked-bars__lines {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: var(--metric-stacked-bars-height, 9rem);
+    overflow: visible;
+    pointer-events: none;
+}
+
+/* Ink, not the hue: a line crosses bands drawn in the ramp, and a ramp step over a
+   ramp step is invisible exactly where the two agree. Ink is the one colour on the
+   chart that is not a quantity, so it says "a different population" without saying
+   "a different hue", and the dash pattern below is what tells the lines apart. */
+.metric-stacked-bars__line {
+    fill: none;
+    stroke: var(--chart-ink);
+    stroke-width: 2px;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+}
+
+/* Dash pattern is the channel for telling lines apart, by position: solid, dashed,
+   dotted, dash-dot. Non-scaling strokes keep the pattern in pixels whatever the box
+   does. */
+.metric-stacked-bars__line--dash-1 {
+    stroke-dasharray: 8 4;
+}
+
+.metric-stacked-bars__line--dash-2 {
+    stroke-dasharray: 2 4;
+}
+
+.metric-stacked-bars__line--dash-3 {
+    stroke-dasharray: 8 4 2 4;
+}
+
+.metric-stacked-bars__column {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+/* A pressable column says so on hover and says which one is picked with the axis
+   colour along its baseline — an edge, not a tint, on the identity-edge rule the
+   header's chips follow. */
+.metric-stacked-bars__column--pressable {
+    cursor: pointer;
+    border-radius: var(--border-radius-sm);
+}
+
+.metric-stacked-bars__column--pressable:hover .metric-stacked-bars__segment,
+.metric-stacked-bars__column--pressable:focus-visible .metric-stacked-bars__segment {
+    filter: brightness(1.15);
+}
+
+.metric-stacked-bars__column--pressable:focus-visible {
+    outline: var(--border-width) solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+.metric-stacked-bars__column--selected .metric-stacked-bars__column-track {
+    box-shadow: inset 0 calc(var(--border-width) * -3) 0 0 var(--color-primary);
+}
+
+.metric-stacked-bars__column--selected .metric-stacked-bars__column-label {
+    color: var(--chart-ink);
+    font-weight: 700;
+}
+
+.metric-stacked-bars__column-track {
+    display: flex;
+    height: var(--metric-stacked-bars-height, 9rem);
+}
+
+/* A stack builds up from the baseline in the order given: column-reverse puts the
+   first series at the bottom without the markup listing it last. */
+.metric-stacked-bars__column-track--stacked {
+    flex-direction: column-reverse;
+    justify-content: flex-start;
+}
+
+.metric-stacked-bars__column-track--stacked .metric-stacked-bars__segment {
+    width: 100%;
+}
+
+/* Side by side, each bar a share of the column's width, all standing on the
+   baseline. */
+.metric-stacked-bars__column-track--grouped {
+    flex-direction: row;
+    align-items: flex-end;
+    gap: var(--spacing-2xs);
+}
+
+.metric-stacked-bars__column-track--grouped .metric-stacked-bars__segment {
+    flex: 1;
+    min-width: 0;
+}
+
+.metric-stacked-bars__segment {
+    display: block;
+    /* A hairline for a bucket with nothing in it, so an empty week reads as a week
+       with nothing rather than as a gap in the data — MetricBars' rule. In a stack
+       the hairlines add up to a seam between bands, which is what stops two
+       adjacent ramp steps reading as one. */
+    min-height: var(--border-width);
+    background: var(--chart-ramp-3);
+}
+
+.metric-stacked-bars__column-track--stacked .metric-stacked-bars__segment:last-child,
+.metric-stacked-bars__column-track--grouped .metric-stacked-bars__segment {
+    border-radius: var(--border-radius-sm) var(--border-radius-sm) 0 0;
+}
+
+.metric-stacked-bars__segment--1 {
+    background: var(--chart-ramp-1);
+}
+
+.metric-stacked-bars__segment--2 {
+    background: var(--chart-ramp-2);
+}
+
+.metric-stacked-bars__segment--3 {
+    background: var(--chart-ramp-3);
+}
+
+.metric-stacked-bars__segment--4 {
+    background: var(--chart-ramp-4);
+}
+
+.metric-stacked-bars__column-label {
+    min-height: 1rem;
+    overflow: hidden;
+    color: var(--chart-ink-muted);
+    font-size: var(--font-size-xs);
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* The legend is a fused toggle group: several can be on, so it takes the shape
+   interaction-guidelines.md gives a many-of-many set. It wraps rather than
+   scrolls, because a legend a reader has to scroll to find a series in is not a
+   legend. */
+.metric-stacked-bars__legend {
+    flex-wrap: wrap;
+    justify-self: start;
+    max-width: 100%;
+}
+
+.metric-stacked-bars__legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-width: 0;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: var(--font-size-xs);
+    font-weight: 400;
+}
+
+/* The key: the legend with nothing to press. A list rather than a group, in the same
+   row shape, with the button chrome gone. */
+.metric-stacked-bars__legend--key {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm) var(--spacing-md);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.metric-stacked-bars__legend-item--key {
+    padding: 0;
+    color: var(--chart-ink-muted);
+}
+
+.metric-stacked-bars__swatch {
+    flex: none;
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: var(--border-radius-sm);
+    background: var(--chart-track);
+}
+
+.metric-stacked-bars__swatch--1 {
+    background: var(--chart-ramp-1);
+}
+
+.metric-stacked-bars__swatch--2 {
+    background: var(--chart-ramp-2);
+}
+
+.metric-stacked-bars__swatch--3 {
+    background: var(--chart-ramp-3);
+}
+
+.metric-stacked-bars__swatch--4 {
+    background: var(--chart-ramp-4);
+}
+
+/* An identity rather than a step: the band-identity hues color-scheme.md's consumer
+   table lets this chart's repository bands wear. A fill, as the roadmap's bars are —
+   and never the sole carrier, because the name sits beside it in the legend. */
+.metric-stacked-bars__segment--identity-1,
+.metric-stacked-bars__swatch--identity-1 {
+    background: var(--color-band-1);
+}
+
+.metric-stacked-bars__segment--identity-2,
+.metric-stacked-bars__swatch--identity-2 {
+    background: var(--color-band-2);
+}
+
+.metric-stacked-bars__segment--identity-3,
+.metric-stacked-bars__swatch--identity-3 {
+    background: var(--color-band-3);
+}
+
+.metric-stacked-bars__segment--identity-4,
+.metric-stacked-bars__swatch--identity-4 {
+    background: var(--color-band-4);
+}
+
+.metric-stacked-bars__segment--identity-5,
+.metric-stacked-bars__swatch--identity-5 {
+    background: var(--color-band-5);
+}
+
+/* A line's swatch is a line: a short rule in the line's colour and dash, not a box,
+   so the legend says which population a name belongs to. */
+.metric-stacked-bars__swatch--line {
+    width: 1rem;
+    height: 0;
+    border-top: 2px solid var(--chart-ink);
+    border-radius: 0;
+    background: transparent;
+}
+
+.metric-stacked-bars__swatch--dash-1 {
+    border-top-style: dashed;
+}
+
+.metric-stacked-bars__swatch--dash-2 {
+    border-top-style: dotted;
+}
+
+.metric-stacked-bars__swatch--dash-3 {
+    border-top-style: double;
+    border-top-width: 3px;
+}
+
+/* Off is muted rather than removed: the series keeps its place and its step in
+   the legend so it can be found again, and the pressed state — not the tint —
+   says which it is. */
+.metric-stacked-bars__legend-item--off .metric-stacked-bars__swatch {
+    background: var(--chart-track);
+}
+
+.metric-stacked-bars__legend-item--off .metric-stacked-bars__swatch--line {
+    background: transparent;
+    border-top-color: var(--chart-track);
+}
+
+.metric-stacked-bars__legend-item--off .metric-stacked-bars__legend-name {
+    color: var(--chart-ink-muted);
+    text-decoration: line-through;
+}
+
+.metric-stacked-bars__legend-name {
+    overflow: hidden;
+    color: var(--chart-ink);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.metric-stacked-bars__legend-detail {
+    color: var(--chart-ink-muted);
+    font-family: var(--font-family-mono);
+    font-variant-numeric: tabular-nums;
+}
+
 /* --- Metrics: part-to-whole ---------------------------------------------- */
 
 .metric-breakdown-bar {
@@ -9507,6 +9843,10 @@ select.field__input {
     }
 
     .metric-bars__scale {
+        display: none;
+    }
+
+    .metric-stacked-bars__scale {
         display: none;
     }
 
@@ -9875,6 +10215,88 @@ select.field__input {
 .metric-heatmap__cell--marked {
     outline: var(--border-width) solid var(--chart-axis);
     outline-offset: calc(var(--border-width) * -1);
+}
+
+/* A moment inside the hour rather than a region around it: a dot in the cell's
+   top-right corner, in the error foreground, on top of whatever shade the cell has.
+   color-error-text rather than color-error: the surface tone is made to sit under
+   text and disappears on a shaded cell, and the foreground is the token the scheme
+   names for an error mark with no surface behind it. Not ink and not the hue, because
+   the moment is one — a request refused — and it must not read as a fifth ramp step.
+   Kinds tell apart by shape, filled against hollow, not by a second colour the
+   palette does not have. */
+.metric-heatmap__cell--flagged {
+    position: relative;
+}
+
+.metric-heatmap__cell--flagged::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--color-error-text);
+    box-shadow: 0 0 0 1px var(--chart-surface);
+    pointer-events: none;
+}
+
+.metric-heatmap__cell--flag-weekly::after {
+    background: transparent;
+    border: 2px solid var(--color-error-text);
+}
+
+/* The hours a refusal kept walled out, the refusal's own among them: the cell in the
+   error surface with its figure in the error foreground — the one semantic pair the
+   scheme keeps for "this went wrong", used as a pair so the figure stays legible on it.
+   A fill rather than a mark, because the hour was not shaded by a quantity that
+   happened to be refused; it was refused, and nothing produced in it. The reading is
+   still in the figure, the title and the hidden text. */
+.metric-heatmap__cell.metric-heatmap__cell--flag-blocked {
+    background: var(--color-error);
+    box-shadow: inset 0 0 0 var(--border-width) var(--color-error-text);
+}
+
+/* Two classes on the cell, so this outranks the ramp steps' own inverse ink below,
+   which would otherwise win on source order. */
+.metric-heatmap__cell.metric-heatmap__cell--flag-blocked .metric-heatmap__value {
+    color: var(--color-error-text);
+}
+
+.metric-heatmap__cell--flag-blocked:not(.metric-heatmap__cell--flag-weekly)::after {
+    content: none;
+}
+
+.metric-heatmap__swatch--flag-blocked {
+    background: var(--color-error);
+    box-shadow: inset 0 0 0 var(--border-width) var(--color-error-text);
+}
+
+.metric-heatmap__swatch--flag-blocked::after {
+    content: none;
+}
+
+.metric-heatmap__swatch--flag {
+    position: relative;
+    background: var(--chart-track);
+}
+
+.metric-heatmap__swatch--flag::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--color-error-text);
+    transform: translate(-50%, -50%);
+}
+
+.metric-heatmap__swatch--flag-weekly::after {
+    background: transparent;
+    border: 2px solid var(--color-error-text);
 }
 
 /* The figure printed inside its own cell, for the grids that turn ShowValues on.

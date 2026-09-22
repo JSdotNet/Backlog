@@ -41,6 +41,7 @@ internal static class DashboardTestHost
         // the person running the tests happens to keep is a grid asserted against
         // nothing — the same reason the clock and the time zone are fixed.
         services.AddSingleton<IWorkingHoursSettings>(new FixedWorkingHours());
+        services.AddSingleton<IUsageResetSettings>(new NoUsageReset());
 
         return services;
     }
@@ -136,6 +137,25 @@ internal static class DashboardTestHost
     /// <c>working-hours.json</c> existed on the build agent at all.
     /// </para>
     /// </summary>
+    /// <summary>No configured reset, so the insight is on whatever it detects — and
+    /// the stubbed insights detect nothing, which is the calendar-week default.</summary>
+    private sealed class NoUsageReset : IUsageResetSettings
+    {
+        public event Action? Changed
+        {
+            add { }
+            remove { }
+        }
+
+        public UsageWeekReset? Current => null;
+
+        public string SettingsPath => "usage-reset.json";
+
+        public string? Set(DayOfWeek day, TimeOnly time) => null;
+
+        public string? Clear() => null;
+    }
+
     private sealed class FixedWorkingHours : IWorkingHoursSettings
     {
         public event Action? Changed

@@ -74,6 +74,10 @@ public sealed class AgentSessionAssistantSessionSource(IAgentSessionSource sessi
             // and the Dashboard says "prompts" because that is the word a reader has.
             // Null crosses as null: the source already refuses to write 0 for a
             // transcript with nothing to count, and the seam must not undo that.
-            Prompts = session.TurnCount
+            Prompts = session.TurnCount,
+
+            // Recorded or null, exactly as Sessions holds it. Sessions already declines
+            // to derive one from the working folder; the seam does not get to either.
+            Repository = session.Repository
         };
 }

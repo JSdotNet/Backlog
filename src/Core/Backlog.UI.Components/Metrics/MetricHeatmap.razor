@@ -102,6 +102,16 @@
                         <span>@Format(Ceiling(index - 1)) – @Format(Ceiling(index))</span>
                     </li>
                 }
+                @if (HasFlags)
+                {
+                    @foreach (var flag in NamedFlags)
+                    {
+                        <li class="@(Part("legend-item"))">
+                            <span class="@($"{Part("swatch")} {Part("swatch")}--flag {Part("swatch")}--flag-{flag.Key}")" aria-hidden="true"></span>
+                            <span>@flag.Label</span>
+                        </li>
+                    }
+                }
             </ul>
         }
     }
@@ -208,6 +218,22 @@
     [Parameter]
     public string? MarkedLabel { get; set; }
 
+    /// <summary>
+    /// A second kind of mark, drawn as a dot in the cell's corner rather than an edge
+    /// around it — for the moment something happened in an hour, as opposed to a
+    /// region an hour is inside. Answers which of <see cref="Flags"/> a cell carries,
+    /// by key, or null for none; a key not in <see cref="Flags"/> draws nothing, on the
+    /// marked pair's rule: a dot nobody can name is a distinction some readers cannot
+    /// perceive.
+    /// </summary>
+    [Parameter]
+    public Func<string, string, string?>? CellFlag { get; set; }
+
+    /// <summary>The kinds of moment this grid marks, each with the word for it. Listed in
+    /// the legend in this order.</summary>
+    [Parameter]
+    public IReadOnlyList<MetricFlag> Flags { get; set; } = [];
+
     /// <summary>The value that earns the darkest step. Left null it is the largest
     /// reading present; set it to a fixed ceiling — 100 for a score — so the shades
     /// mean the same thing from one window to the next.</summary>
@@ -272,6 +298,23 @@
 
     private bool Marked(string row, string bucket) => HasMarks && CellMarked!(row, bucket);
 
+    private IReadOnlyList<MetricFlag> NamedFlags =>
+        [.. (Flags ?? []).Where(flag => !string.IsNullOrWhiteSpace(flag.Key) && !string.IsNullOrWhiteSpace(flag.Label))];
+
+    private bool HasFlags => CellFlag is not null && NamedFlags.Count > 0;
+
+    /// <summary>The flags a cell carries — the caller answers one key, or several
+    /// separated by spaces — less any the legend cannot name.</summary>
+    private IReadOnlyList<MetricFlag> FlagsOf(string row, string bucket)
+    {
+        if (!HasFlags) return [];
+
+        var keys = (CellFlag!(row, bucket) ?? string.Empty)
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        return [.. NamedFlags.Where(flag => keys.Contains(flag.Key, StringComparer.Ordinal))];
+    }
+
     private decimal Max => SharedMax ?? MetricScoring.SharedMax(Rows);
 
     private static decimal? Reading(MetricSeries series, string bucket) =>
@@ -279,7 +322,8 @@
 
     private string CellClass(MetricSeries row, string bucket, decimal? reading)
     {
-        var mark = Marked(row.Name, bucket) ? $" {Part("cell")}--marked" : string.Empty;
+        var mark = (Marked(row.Name, bucket) ? $" {Part("cell")}--marked" : string.Empty)
+            + string.Concat(FlagsOf(row.Name, bucket).Select(flag => $" {Part("cell")}--flagged {Part("cell")}--flag-{flag.Key}"));
 
         if (reading is null) return $"{Part("cell")} {Part("cell")}--missing{mark}";
 
@@ -291,7 +335,8 @@
     private string Title(MetricSeries row, string bucket, decimal? reading) =>
         $"{row.Name}, {bucket}: {(reading is null ? NotReported : Format(reading.Value))}"
         + (Detail(row.Name, bucket) is { } detail ? $" — {detail}" : string.Empty)
-        + (Marked(row.Name, bucket) ? $" ({MarkedLabel})" : string.Empty);
+        + (Marked(row.Name, bucket) ? $" ({MarkedLabel})" : string.Empty)
+        + string.Concat(FlagsOf(row.Name, bucket).Select(flag => $" ({flag.Label})"));
 
     /// <summary>The hidden text: the reading, whatever else the caller has to say about
     /// this cell, and the mark if it carries one. A pointer gets the same from the title.
@@ -303,7 +348,8 @@
     private string CellText(MetricSeries row, string bucket, decimal? reading) =>
         (reading is null ? NotReported : Format(reading.Value))
         + (Detail(row.Name, bucket) is { } detail ? $". {detail}" : string.Empty)
-        + (Marked(row.Name, bucket) ? $". {MarkedLabel}" : string.Empty);
+        + (Marked(row.Name, bucket) ? $". {MarkedLabel}" : string.Empty)
+        + string.Concat(FlagsOf(row.Name, bucket).Select(flag => $". {flag.Label}"));
 
     /// <summary>Blank is the same as absent. A caller building a sentence from data it
     /// may not have should not have to decide whether an empty one is worth appending an

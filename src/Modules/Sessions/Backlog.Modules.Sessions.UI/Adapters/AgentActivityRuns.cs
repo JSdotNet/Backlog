@@ -4,14 +4,21 @@ namespace Backlog.Modules.Sessions.UI.Adapters;
 
 /// <summary>
 /// One thing a transcript recorded happening, reduced to the two facts the fold
-/// needs: when, and whether it was a person arriving.
+/// needs — when, and whether it was a person arriving — and the one fact it does not:
+/// whether the line was a refusal for a usage limit.
 /// <para>
-/// A struct with two fields rather than the line it came from, because the fold is
+/// A struct with three fields rather than the line it came from, because the fold is
 /// the same fold for both agents and the two formats have nothing else in common.
 /// Whatever else a line said is the reader's business and is deliberately lost here.
 /// </para>
+/// <para>
+/// The hit rides on the event rather than coming back beside the list, so the read
+/// stays one pass and one delegate for both agents. The fold never looks at it: a
+/// refusal is a turn with a timestamp and counts as activity exactly as it did before
+/// it had a name, and the source lifts the hits off afterwards.
+/// </para>
 /// </summary>
-internal readonly record struct ActivityEvent(DateTimeOffset At, bool IsPrompt);
+internal readonly record struct ActivityEvent(DateTimeOffset At, bool IsPrompt, AgentLimitHit? Limit = null);
 
 /// <summary>
 /// Turning a stream of recorded instants into the stretches an agent was working and

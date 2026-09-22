@@ -978,13 +978,15 @@ public class SessionInsightsTests
 
         var value = await ValueOf(insights, DashboardScope.Default);
 
-        var day = value.ActivityByDay.Single(entry => entry.Day == new DateOnly(2026, 8, 16));
+        // The Sunday is the last row of the week before Now's, so it is on that week's
+        // grid rather than the latest one.
+        var day = value.Grids.SelectMany(grid => grid.Days).Single(entry => entry.Day == new DateOnly(2026, 8, 16));
 
         Assert.Equal(0, day.SessionsInWorkingHours);
         Assert.Equal(1, day.SessionsOutsideWorkingHours);
 
         Assert.All(
-            value.ActivityByHour.Where(hour => hour.Day == new DateOnly(2026, 8, 16)),
+            value.Grids.SelectMany(grid => grid.Hours).Where(hour => hour.Day == new DateOnly(2026, 8, 16)),
             hour => Assert.False(hour.InWorkingHours));
     }
 
@@ -1803,6 +1805,630 @@ public class SessionInsightsTests
         Assert.Equal(0, value.WithoutActivity);
     }
 
+    // --- The four weekly series read out of the sweeps ------------------------------
+
+    /// <summary>
+    /// The agent-hours land in the week they were worked, and the columns add up to the
+    /// tile. Two hours in the ISO week before Now's and one in Now's own, so a series
+    /// that bucketed on the session instead of on the hours would read [0, 3] here.
+    /// </summary>
+    [Fact]
+    public async Task Active_time_is_bucketed_into_the_week_it_was_worked_and_sums_to_the_tile()
+    {
+        var earlier = (Now.AddDays(-8), Now.AddDays(-8).AddHours(2));
+        var recent = (Now.AddHours(-2), Now.AddHours(-1));
+
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(
+                    Session(Tower, "Claude", earlier.Item1, earlier.Item2, "one"),
+                    Session(Tower, "Claude", recent.Item1, recent.Item2, "two"))
+            },
+            Activity(Ran("one", Tower, "Claude", earlier), Ran("two", Tower, "Claude", recent)));
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        Assert.Equal([2m, 1m], value.ActiveTimePerWeek.TakeLast(2).Select(point => point.Value));
+        Assert.Equal(["W33", "W34"], value.ActiveTimePerWeek.TakeLast(2).Select(point => point.Label));
+
+        // The same buckets as the sessions series, so the two charts share an axis.
+        Assert.Equal(value.SessionsPerWeek.Select(point => point.Label), value.ActiveTimePerWeek.Select(point => point.Label));
+
+        // And the columns are the tile, cut by week.
+        Assert.Equal((decimal)value.ActiveTime.TotalHours, value.ActiveTimePerWeek.Sum(point => point.Value));
+    }
+
+    /// <summary>
+    /// <b>The difference from the sessions series, and the sentence the part owes.</b> A
+    /// session is one mark in the week it last moved; its hours are wherever they were.
+    /// One run across the Sunday–Monday boundary is one session in W34 and an hour of
+    /// work in each of W33 and W34.
+    /// </summary>
+    [Fact]
+    public async Task A_run_across_a_week_boundary_puts_its_hours_in_both_weeks_and_its_session_in_one()
+    {
+        // 2026-08-16 is the Sunday W33 ends on; the run straddles midnight into W34.
+        var boundary = new DateTimeOffset(2026, 8, 17, 0, 0, 0, TimeSpan.Zero);
+        var ran = (boundary.AddHours(-1), boundary.AddHours(1));
+
+        var insights = Insights(
+            new StubAssistantSessionSource { Report = Report(Session(Tower, "Claude", ran.Item1, ran.Item2, "one")) },
+            Activity(Ran("one", Tower, "Claude", ran)));
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        Assert.Equal([0m, 1m], value.SessionsPerWeek.TakeLast(2).Select(point => point.Value));
+        Assert.Equal([1m, 1m], value.ActiveTimePerWeek.TakeLast(2).Select(point => point.Value));
+    }
+
+    /// <summary>
+    /// Waiting is cut the same way and adds up to its own tile. A wait is the gap between
+    /// two runs, so a session that ran, waited a week and ran again puts the whole gap in
+    /// the weeks it spanned rather than in the week the prompt finally arrived.
+    /// </summary>
+    [Fact]
+    public async Task Waiting_is_bucketed_into_the_week_it_was_waited_and_sums_to_the_tile()
+    {
+        var waited = (Now.AddDays(-8), Now.AddDays(-8).AddHours(3));
+        var recent = (Now.AddHours(-2), Now.AddHours(-1));
+
+        var insights = Insights(
+            new StubAssistantSessionSource { Report = Report(Session(Tower, "Claude", waited.Item1, recent.Item2, "one")) },
+            Activity(RanAndWaited("one", Tower, "Claude", [recent], [waited])));
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        Assert.Equal([3m, 0m], value.WaitingPerWeek.TakeLast(2).Select(point => point.Value));
+        Assert.Equal((decimal)value.Waiting.TotalHours, value.WaitingPerWeek.Sum(point => point.Value));
+    }
+
+    /// <summary>
+    /// The peaks are a maximum per week rather than a sum: two sessions running together
+    /// last week and one alone this week is [2, 1], and a week nobody worked is a zero
+    /// point rather than a gap, on the sessions series' rule.
+    /// </summary>
+    [Fact]
+    public async Task The_most_sessions_at_once_is_read_per_week_as_a_peak_not_a_sum()
+    {
+        var together = (Now.AddDays(-8), Now.AddDays(-8).AddHours(1));
+        var alone = (Now.AddHours(-2), Now.AddHours(-1));
+
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(
+                    Session(Tower, "Claude", together.Item1, together.Item2, "one"),
+                    Session(Tower, "Claude", together.Item1, together.Item2, "two"),
+                    Session(Tower, "Claude", alone.Item1, alone.Item2, "three"))
+            },
+            Activity(
+                Ran("one", Tower, "Claude", together),
+                Ran("two", Tower, "Claude", together),
+                Ran("three", Tower, "Claude", alone)));
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        Assert.Equal([2m, 1m], value.MostSessionsAtOncePerWeek.TakeLast(2).Select(point => point.Value));
+        Assert.Equal(0m, value.MostSessionsAtOncePerWeek[0].Value);
+
+        // And the tile is the highest column, never more and never less.
+        Assert.Equal((decimal)value.MostSessionsAtOnce!.Peak, value.MostSessionsAtOncePerWeek.Max(point => point.Value));
+    }
+
+    /// <summary>The agents' peak per week comes off the agents' own sweep, so a week with
+    /// three sessions and no spawned agent reads zero here and three on the series above.</summary>
+    [Fact]
+    public async Task The_most_agents_at_once_is_read_per_week_from_the_agents_sweep()
+    {
+        var value = await ValueOf(WithSpawnedAgents(), DashboardScope.Default);
+
+        Assert.Equal(3m, value.MostAgentsAtOncePerWeek[^1].Value);
+        Assert.Equal(1m, value.MostSessionsAtOncePerWeek[^1].Value);
+        Assert.Equal((decimal)value.MostAgentsAtOnce!.Peak, value.MostAgentsAtOncePerWeek.Max(point => point.Value));
+
+        // Empty when there is no axis, on the sessions series' rule.
+        Assert.Equal(value.SessionsPerWeek.Count, value.MostAgentsAtOncePerWeek.Count);
+    }
+
+    /// <summary>
+    /// The weeks are cut on the local clock, the way the grid is and the way a reset is
+    /// read off a usage screen. An hour worked at 22:30 UTC on a Sunday is that Sunday's
+    /// week on a UTC clock and the next week's two hours east, where it is already
+    /// Monday — and the columns and the grid move together, which is the point of one
+    /// cut for both.
+    /// </summary>
+    [Fact]
+    public async Task The_week_columns_are_cut_on_the_local_clock_like_the_grid()
+    {
+        // 22:30–23:30 UTC on Sunday 16 August: local Monday 00:30–01:30 two hours east.
+        var sunday = new DateTimeOffset(2026, 8, 16, 22, 30, 0, TimeSpan.Zero);
+        var ran = (sunday, sunday.AddHours(1));
+
+        var sessions = new StubAssistantSessionSource { Report = Report(Session(Tower, "Claude", ran.Item1, ran.Item2, "one")) };
+
+        var utc = await ValueOf(Insights(sessions, Activity(Ran("one", Tower, "Claude", ran))), DashboardScope.Default);
+        var east = await ValueOf(Insights(sessions, Activity(Ran("one", Tower, "Claude", ran)), PlusTwo), DashboardScope.Default);
+
+        Assert.Equal([1m, 0m], utc.ActiveTimePerWeek.TakeLast(2).Select(point => point.Value));
+        Assert.Equal([0m, 1m], east.ActiveTimePerWeek.TakeLast(2).Select(point => point.Value));
+
+        // And under the calendar fallback the columns still say which ISO week they are.
+        Assert.Equal(WeekSource.Calendar, east.Week.Source);
+        Assert.Equal("W34", east.ActiveTimePerWeek[^1].Label);
+    }
+
+    // --- The same series cut by repository ------------------------------------------
+
+    /// <summary>
+    /// A row per band: a configured repository by its alias, the unconfigured ones
+    /// folded into one, and one for the sessions that recorded none — which is every
+    /// Claude session, and the row a reader meets first. The rows' hours add up to the
+    /// total column for column; dropping the unrecorded row would turn a chart of all
+    /// sessions into a chart of Copilot's.
+    /// </summary>
+    [Fact]
+    public async Task Hours_are_cut_by_repository_band_with_the_configured_alias_as_the_name()
+    {
+        var ran = (Now.AddHours(-3), Now.AddHours(-1));
+
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(
+                    Session(Tower, "Copilot", ran.Item1, ran.Item2, "one") with { Repository = "acme/backlog" },
+                    Session(Tower, "Copilot", ran.Item1, ran.Item2, "two") with { Repository = "acme/unknown" },
+                    Session(Tower, "Claude", ran.Item1, ran.Item2, "three"))
+            },
+            Activity(
+                Ran("one", Tower, "Copilot", ran),
+                Ran("two", Tower, "Copilot", (ran.Item1, ran.Item1.AddHours(1))),
+                Ran("three", Tower, "Claude", ran)));
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        // Producing time descending, then name. The alias, not owner/name, so the row
+        // wears the word the header's chips do; the folded rows are named for the fact.
+        Assert.Equal(
+            ["No repository recorded", "backlog", "Other repositories"],
+            value.ByRepository.Select(row => row.Name));
+        Assert.Equal(
+            [RepositoryBandKind.Unrecorded, RepositoryBandKind.Configured, RepositoryBandKind.Other],
+            value.ByRepository.Select(row => row.Kind));
+
+        Assert.Equal(2m, value.ByRepository[0].ActiveTimePerWeek[^1].Value);
+        Assert.Equal(2m, value.ByRepository[1].ActiveTimePerWeek[^1].Value);
+        Assert.Equal(1m, value.ByRepository[2].ActiveTimePerWeek[^1].Value);
+
+        // Same buckets as the totals, and the rows add up to them.
+        Assert.All(value.ByRepository, row => Assert.Equal(value.SessionsPerWeek.Count, row.ActiveTimePerWeek.Count));
+        Assert.Equal(
+            value.ActiveTimePerWeek.Select(point => point.Value),
+            Enumerable.Range(0, value.ActiveTimePerWeek.Count)
+                .Select(week => value.ByRepository.Sum(row => row.ActiveTimePerWeek[week].Value)));
+    }
+
+    /// <summary>The sessions count and the prompt mean are cut per row on the same terms
+    /// as the totals — the week the session last moved, the mean over counted sessions
+    /// only — so the rows' session counts add up to the sessions series above.</summary>
+    [Fact]
+    public async Task Sessions_and_prompts_are_cut_per_repository_row_on_the_totals_terms()
+    {
+        var ran = (Now.AddHours(-3), Now.AddHours(-1));
+
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(
+                    Session(Tower, "Copilot", ran.Item1, ran.Item2, "one") with { Repository = "acme/backlog" },
+                    Session(Tower, "Copilot", ran.Item1, ran.Item2, "two") with { Repository = "acme/backlog" },
+                    Session(Tower, "Claude", ran.Item1, ran.Item2, "three") with { Prompts = 6 },
+                    Session(Tower, "Claude", ran.Item1, ran.Item2, "four") with { Prompts = 10 })
+            },
+            Activity(Ran("one", Tower, "Copilot", ran), Ran("three", Tower, "Claude", ran)));
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        var backlog = Assert.Single(value.ByRepository.Where(row => row.Name == "backlog"));
+        var unrecorded = Assert.Single(value.ByRepository.Where(row => row.Kind == RepositoryBandKind.Unrecorded));
+
+        Assert.Equal(2m, backlog.SessionsPerWeek[^1].Value);
+        Assert.Equal(2m, unrecorded.SessionsPerWeek[^1].Value);
+        Assert.Equal(value.SessionsPerWeek[^1].Value, value.ByRepository.Sum(row => row.SessionsPerWeek[^1].Value));
+
+        // Copilot counts no prompts, so its row is zero — "nothing to count" drawn as
+        // the totals draw it — and Claude's row is the mean over its two.
+        Assert.Equal(0m, backlog.PromptsPerSessionPerWeek[^1].Value);
+        Assert.Equal(8m, unrecorded.PromptsPerSessionPerWeek[^1].Value);
+    }
+
+    /// <summary>
+    /// <b>The one thing on this insight that follows the repository scope.</b> With
+    /// repositories in focus only their rows are built and the folded rows are out —
+    /// the Sessions list's treatment of a session it cannot place — while the totals
+    /// stay whole, because narrowing them would hide Claude's half.
+    /// </summary>
+    [Fact]
+    public async Task The_repository_rows_follow_the_scope_and_the_totals_do_not()
+    {
+        var ran = (Now.AddHours(-3), Now.AddHours(-1));
+
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(
+                    Session(Tower, "Copilot", ran.Item1, ran.Item2, "one") with { Repository = "acme/backlog" },
+                    Session(Tower, "Copilot", ran.Item1, ran.Item2, "two") with { Repository = "acme/other" },
+                    Session(Tower, "Copilot", ran.Item1, ran.Item2, "three") with { Repository = "acme/unknown" },
+                    Session(Tower, "Claude", ran.Item1, ran.Item2, "four"))
+            },
+            Activity(
+                Ran("one", Tower, "Copilot", ran),
+                Ran("two", Tower, "Copilot", ran),
+                Ran("three", Tower, "Copilot", ran),
+                Ran("four", Tower, "Claude", ran)));
+
+        var focused = await ValueOf(insights, new DashboardScope(Repositories: RepositoryFocus.Of("backlog")));
+
+        Assert.Equal(["backlog"], focused.ByRepository.Select(row => row.Name));
+
+        // The totals above are every session still.
+        Assert.Equal(4m, focused.SessionsPerWeek[^1].Value);
+        Assert.Equal(8m, focused.ActiveTimePerWeek[^1].Value);
+    }
+
+    /// <summary>
+    /// A row's peak is the most at once in that row, and the rows' peaks do not add up
+    /// to the total: two repositories with one session each running together is a
+    /// total peak of two and a peak of one in each row.
+    /// </summary>
+    [Fact]
+    public async Task A_repository_row_peak_is_its_own_and_the_rows_do_not_sum_to_the_total_peak()
+    {
+        var ran = (Now.AddHours(-3), Now.AddHours(-1));
+
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(
+                    Session(Tower, "Copilot", ran.Item1, ran.Item2, "one") with { Repository = "acme/backlog" },
+                    Session(Tower, "Copilot", ran.Item1, ran.Item2, "two") with { Repository = "acme/other" })
+            },
+            Activity(Ran("one", Tower, "Copilot", ran), Ran("two", Tower, "Copilot", ran)));
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        Assert.Equal(2m, value.MostSessionsAtOncePerWeek[^1].Value);
+        Assert.All(value.ByRepository, row => Assert.Equal(1m, row.MostSessionsAtOncePerWeek[^1].Value));
+    }
+
+    /// <summary>A spawned agent is in the row of the session that spawned it, and the
+    /// wait too — the whole record of a session sits in one row.</summary>
+    [Fact]
+    public async Task Agents_and_waits_follow_their_session_into_its_repository_row()
+    {
+        var ran = (Now.AddHours(-3), Now.AddHours(-2));
+        var waited = (Now.AddHours(-2), Now.AddHours(-1));
+
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(Session(Tower, "Copilot", ran.Item1, waited.Item2, "one") with { Repository = "acme/backlog" })
+            },
+            Activity(
+                [RanAndWaited("one", Tower, "Copilot", [ran], [waited])],
+                [Spawned("a1", "one", Tower, ran), Spawned("a2", "one", Tower, ran)]));
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        var row = Assert.Single(value.ByRepository);
+
+        Assert.Equal("backlog", row.Name);
+        Assert.Equal(1m, row.WaitingPerWeek[^1].Value);
+        Assert.Equal(2m, row.MostAgentsAtOncePerWeek[^1].Value);
+    }
+
+    /// <summary>A repository with sessions in the horizon and none in the window is not
+    /// a row: a legend entry for a band of nothing tells a reader nothing.</summary>
+    [Fact]
+    public async Task A_repository_with_nothing_in_the_window_has_no_row()
+    {
+        var older = (Now.AddDays(-42), Now.AddDays(-42).AddHours(1));
+        var recent = (Now.AddHours(-2), Now.AddHours(-1));
+
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(
+                    Session(Tower, "Copilot", older.Item1, older.Item2, "old") with { Repository = "acme/other" },
+                    Session(Tower, "Copilot", recent.Item1, recent.Item2, "new") with { Repository = "acme/backlog" })
+            },
+            Activity(Ran("old", Tower, "Copilot", older), Ran("new", Tower, "Copilot", recent)));
+
+        var four = await ValueOf(insights, new DashboardScope(Period: DashboardPeriod.FourWeeks));
+        var twelve = await ValueOf(insights, new DashboardScope(Period: DashboardPeriod.TwelveWeeks));
+
+        Assert.Equal(["backlog"], four.ByRepository.Select(row => row.Name));
+        Assert.Equal(["backlog", "other"], twelve.ByRepository.Select(row => row.Name).Order(StringComparer.Ordinal));
+    }
+
+    // --- The usage week -------------------------------------------------------------
+
+    /// <summary>
+    /// A configured reset cuts the weeks: with the reset at Monday 14:00 local, Now's
+    /// week began Monday 17 August 14:00 UTC (the test clock is UTC), a run on Monday
+    /// morning is the week before, and the columns are labelled by the day the week
+    /// began rather than by ISO number.
+    /// </summary>
+    [Fact]
+    public async Task A_configured_reset_cuts_the_weeks_and_names_them_by_their_first_day()
+    {
+        // Monday 17 August, 13:00–13:30 UTC: an hour before this week's reset.
+        var before = new DateTimeOffset(2026, 8, 17, 13, 0, 0, TimeSpan.Zero);
+        var after = new DateTimeOffset(2026, 8, 17, 15, 0, 0, TimeSpan.Zero);
+
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(
+                    Session(Tower, "Claude", before, before.AddMinutes(30), "one"),
+                    Session(Tower, "Claude", after, after.AddHours(1), "two"))
+            },
+            Activity(Ran("one", Tower, "Claude", (before, before.AddMinutes(30))), Ran("two", Tower, "Claude", (after, after.AddHours(1)))),
+            reset: new FixedUsageReset(new UsageWeekReset(DayOfWeek.Monday, new TimeOnly(14, 0))));
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        Assert.Equal(WeekSource.Configured, value.Week.Source);
+        Assert.Equal("Monday 14:00", value.Week.ResetAt);
+        Assert.Equal(["10 Aug", "17 Aug"], value.ActiveTimePerWeek.TakeLast(2).Select(point => point.Label));
+        Assert.Equal([0.5m, 1m], value.ActiveTimePerWeek.TakeLast(2).Select(point => point.Value));
+        Assert.Equal([1m, 1m], value.SessionsPerWeek.TakeLast(2).Select(point => point.Value));
+    }
+
+    /// <summary>
+    /// With nothing configured, the last weekly refusal's reset is the anchor — any
+    /// reset instant cuts the same weeks, so one recorded in July anchors this week too.
+    /// A refusal for the five-hour window is not a weekly reset and anchors nothing.
+    /// </summary>
+    [Fact]
+    public async Task The_last_weekly_refusal_anchors_the_weeks_when_nothing_is_configured()
+    {
+        var ran = (Now.AddHours(-3), Now.AddHours(-1));
+
+        // A weekly reset at Monday 21:00 UTC, four weeks back, and a five-hour refusal
+        // since then whose reset is not a week boundary.
+        var weeklyReset = new DateTimeOffset(2026, 7, 27, 21, 0, 0, TimeSpan.Zero);
+
+        var insights = Insights(
+            new StubAssistantSessionSource { Report = Report(Session(Tower, "Claude", ran.Item1, ran.Item2, "one")) },
+            Activity(
+                [Ran("one", Tower, "Claude", ran)],
+                [
+                    Refused("old", AssistantLimitKind.SevenDay, weeklyReset.AddDays(-1), weeklyReset),
+                    Refused("one", AssistantLimitKind.FiveHour, Now.AddHours(-2), Now.AddHours(1))
+                ]));
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        Assert.Equal(WeekSource.Detected, value.Week.Source);
+        Assert.Equal("Monday 21:00", value.Week.ResetAt);
+
+        // Now is Wednesday 19 August 09:00: the week began Monday 17 August 21:00.
+        Assert.Equal("17 Aug", value.ActiveTimePerWeek[^1].Label);
+        Assert.Equal(new DateTimeOffset(2026, 8, 17, 21, 0, 0, TimeSpan.Zero), value.Grids[^1].StartsAt);
+    }
+
+    /// <summary>A configured reset outranks a detected one: the records on a machine may
+    /// be from another plan or another month, and the person said otherwise.</summary>
+    [Fact]
+    public async Task A_configured_reset_outranks_a_detected_one()
+    {
+        var ran = (Now.AddHours(-3), Now.AddHours(-1));
+        var weeklyReset = new DateTimeOffset(2026, 7, 27, 21, 0, 0, TimeSpan.Zero);
+
+        var insights = Insights(
+            new StubAssistantSessionSource { Report = Report(Session(Tower, "Claude", ran.Item1, ran.Item2, "one")) },
+            Activity([Ran("one", Tower, "Claude", ran)], [Refused("old", AssistantLimitKind.SevenDay, weeklyReset.AddDays(-1), weeklyReset)]),
+            reset: new FixedUsageReset(new UsageWeekReset(DayOfWeek.Monday, new TimeOnly(14, 0))));
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        Assert.Equal(WeekSource.Configured, value.Week.Source);
+        Assert.Equal(new DateTimeOffset(2026, 8, 17, 14, 0, 0, TimeSpan.Zero), value.Grids[^1].StartsAt);
+    }
+
+    /// <summary>
+    /// A grid row is a calendar day, cut at the reset: with the reset at Monday 14:00
+    /// the first row is Monday from 14:00 and the last is the next Monday up to 13:00 —
+    /// eight rows, 168 hours between them, and the hours outside the week simply not
+    /// there. One grid per column, on the same keys, so a column a reader picks names a
+    /// grid.
+    /// </summary>
+    [Fact]
+    public async Task A_grid_is_calendar_days_cut_at_the_reset_hour()
+    {
+        // Tuesday 18 August 02:00–03:00 UTC: on Tuesday's row, inside the week.
+        var ran = (new DateTimeOffset(2026, 8, 18, 2, 0, 0, TimeSpan.Zero), new DateTimeOffset(2026, 8, 18, 3, 0, 0, TimeSpan.Zero));
+
+        var insights = Insights(
+            new StubAssistantSessionSource { Report = Report(Session(Tower, "Claude", ran.Item1, ran.Item2, "one")) },
+            Activity(Ran("one", Tower, "Claude", ran)),
+            reset: new FixedUsageReset(new UsageWeekReset(DayOfWeek.Monday, new TimeOnly(14, 0))));
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        var grid = value.Grids[^1];
+
+        Assert.Equal(value.ActiveTimePerWeek.Count, value.Grids.Count);
+        Assert.Equal(value.ActiveTimePerWeek.Select(point => point.Label), value.Grids.Select(one => one.Label));
+        Assert.Equal(168, grid.Hours.Count);
+
+        // Eight calendar rows: Monday 17 from 14:00 to Monday 24 up to 13:00.
+        Assert.Equal(8, grid.Days.Count);
+        Assert.Equal(Enumerable.Range(14, 10), grid.Hours.Where(hour => hour.Day == new DateOnly(2026, 8, 17)).Select(hour => hour.Hour));
+        Assert.Equal(Enumerable.Range(0, 14), grid.Hours.Where(hour => hour.Day == new DateOnly(2026, 8, 24)).Select(hour => hour.Hour));
+        Assert.Equal(24, grid.Hours.Count(hour => hour.Day == new DateOnly(2026, 8, 18)));
+
+        // The run at 02:00 Tuesday is on Tuesday's row, and Tuesday's row counts it.
+        var worked = Assert.Single(grid.Hours.Where(hour => hour.Active > TimeSpan.Zero));
+        Assert.Equal((new DateOnly(2026, 8, 18), 2), (worked.Day, worked.Hour));
+        Assert.Equal(1, grid.Days.Single(day => day.Day == new DateOnly(2026, 8, 18)).Sessions);
+
+        // The latest grid is what the older properties still answer with.
+        Assert.Equal(grid.Hours, value.ActivityByHour);
+    }
+
+    /// <summary>Under the calendar fallback the reset hour is midnight and a week is
+    /// seven full days.</summary>
+    [Fact]
+    public async Task Under_the_calendar_fallback_a_grid_is_seven_full_days()
+    {
+        var ran = (Now.AddHours(-3), Now.AddHours(-1));
+
+        var insights = Insights(
+            new StubAssistantSessionSource { Report = Report(Session(Tower, "Claude", ran.Item1, ran.Item2, "one")) },
+            Activity(Ran("one", Tower, "Claude", ran)));
+
+        var grid = (await ValueOf(insights, DashboardScope.Default)).Grids[^1];
+
+        Assert.Equal(7, grid.Days.Count);
+        Assert.Equal(new DateOnly(2026, 8, 17), grid.Days[0].Day);
+        Assert.All(grid.Days, day => Assert.Equal(24, grid.Hours.Count(hour => hour.Day == day.Day)));
+    }
+
+    /// <summary>A five-hour refusal is marked on the cell it happened in, on the row it
+    /// falls in; a refusal in another week is on that week's grid.</summary>
+    [Fact]
+    public async Task A_refusal_is_marked_on_the_cell_of_the_week_it_happened_in()
+    {
+        var ran = (Now.AddHours(-3), Now.AddHours(-1));
+        var refusedAt = new DateTimeOffset(2026, 8, 18, 16, 30, 0, TimeSpan.Zero);
+        var lastWeek = new DateTimeOffset(2026, 8, 12, 10, 0, 0, TimeSpan.Zero);
+
+        var insights = Insights(
+            new StubAssistantSessionSource { Report = Report(Session(Tower, "Claude", ran.Item1, ran.Item2, "one")) },
+            Activity(
+                [Ran("one", Tower, "Claude", ran)],
+                [
+                    Refused("one", AssistantLimitKind.FiveHour, refusedAt, refusedAt.AddHours(2)),
+                    Refused("one", AssistantLimitKind.FiveHour, lastWeek, lastWeek.AddHours(2))
+                ]),
+            reset: new FixedUsageReset(new UsageWeekReset(DayOfWeek.Monday, new TimeOnly(14, 0))));
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        var mark = Assert.Single(value.Grids[^1].Limits);
+
+        // Tuesday 16:30 is on Tuesday's row, hour 16.
+        Assert.Equal((new DateOnly(2026, 8, 18), 16, AssistantLimitKind.FiveHour), (mark.Day, mark.Hour, mark.Kind));
+        Assert.Equal(refusedAt, mark.At);
+
+        // The wall reached to the hour the window reset: 18:30 is hour 18.
+        Assert.Equal((new DateOnly(2026, 8, 18), 18), (mark.UntilDay, mark.UntilHour));
+
+        Assert.Single(value.Grids[^2].Limits);
+    }
+
+    /// <summary>A wall that would reach past the week stops at the week's last hour, and
+    /// a weekly refusal has no reach at all — its reset is the next week's start.</summary>
+    [Fact]
+    public async Task A_walls_reach_stops_at_the_week_and_a_weekly_refusal_has_none()
+    {
+        var ran = (Now.AddHours(-3), Now.AddHours(-1));
+
+        // Sunday 23 August 22:30 UTC, resetting Monday 02:00 — past the calendar week's
+        // end at Monday 00:00 — and a weekly refusal an hour earlier.
+        var lateSunday = new DateTimeOffset(2026, 8, 23, 22, 30, 0, TimeSpan.Zero);
+
+        var insights = Insights(
+            new StubAssistantSessionSource { Report = Report(Session(Tower, "Claude", ran.Item1, ran.Item2, "one")) },
+            Activity(
+                [Ran("one", Tower, "Claude", ran)],
+                [
+                    Refused("one", AssistantLimitKind.FiveHour, lateSunday, lateSunday.AddHours(3.5)),
+                    Refused("one", AssistantLimitKind.SevenDay, lateSunday.AddHours(-1), new DateTimeOffset(2026, 8, 24, 21, 0, 0, TimeSpan.Zero))
+                ]),
+            // Pinned to Monday midnight, so the weekly refusal above does not move the
+            // week's end to its own reset and the five-hour reset genuinely falls past it.
+            reset: new FixedUsageReset(new UsageWeekReset(DayOfWeek.Monday, new TimeOnly(0, 0))));
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        var marks = value.Grids[^1].Limits;
+
+        var fiveHour = Assert.Single(marks.Where(mark => mark.Kind == AssistantLimitKind.FiveHour));
+        Assert.Equal((new DateOnly(2026, 8, 23), 23), (fiveHour.UntilDay, fiveHour.UntilHour));
+
+        var weekly = Assert.Single(marks.Where(mark => mark.Kind == AssistantLimitKind.SevenDay));
+        Assert.Null(weekly.UntilDay);
+    }
+
+    /// <summary>The refusals are counted for the tile, by kind, over the window.</summary>
+    [Fact]
+    public async Task Refusals_are_counted_by_kind_over_the_window()
+    {
+        var ran = (Now.AddHours(-3), Now.AddHours(-1));
+
+        var insights = Insights(
+            new StubAssistantSessionSource { Report = Report(Session(Tower, "Claude", ran.Item1, ran.Item2, "one")) },
+            Activity(
+                [Ran("one", Tower, "Claude", ran)],
+                [
+                    Refused("one", AssistantLimitKind.FiveHour, Now.AddHours(-2), Now),
+                    Refused("one", AssistantLimitKind.FiveHour, Now.AddDays(-10), Now.AddDays(-10).AddHours(2)),
+                    Refused("one", AssistantLimitKind.SevenDay, Now.AddDays(-9), Now),
+                    Refused("one", AssistantLimitKind.FiveHour, Now.AddDays(-40), Now.AddDays(-40).AddHours(2))
+                ]));
+
+        var four = await ValueOf(insights, new DashboardScope(Period: DashboardPeriod.FourWeeks));
+        var twelve = await ValueOf(insights, new DashboardScope(Period: DashboardPeriod.TwelveWeeks));
+
+        Assert.Equal(new LimitHitCounts(2, 1), four.LimitHits);
+        Assert.Equal(new LimitHitCounts(3, 1), twelve.LimitHits);
+        Assert.Equal(4, twelve.LimitHits.Total);
+    }
+
+    /// <summary>The refusals follow the machine filter, the way every grid does.</summary>
+    [Fact]
+    public async Task A_refusal_on_another_machine_is_not_marked_when_one_machine_is_focused()
+    {
+        var ran = (Now.AddHours(-3), Now.AddHours(-1));
+
+        var insights = Insights(
+            new StubAssistantSessionSource { Report = Report(Session(Tower, "Claude", ran.Item1, ran.Item2, "one")) },
+            Activity(
+                [Ran("one", Tower, "Claude", ran)],
+                [new AssistantLimitHit(Now.AddHours(-2), AssistantLimitKind.FiveHour, Now, "elsewhere", Laptop)]));
+
+        var everywhere = await ValueOf(insights, DashboardScope.Default);
+        var focused = await ValueOf(insights, new DashboardScope(MachineId: Tower));
+
+        Assert.Single(everywhere.Grids[^1].Limits);
+        Assert.Empty(focused.Grids[^1].Limits);
+    }
+
+    /// <summary>Following the period control, exactly as the tiles they cut do: four
+    /// weeks is five columns and twelve is thirteen, and the older run is only on the
+    /// wider axis.</summary>
+    [Fact]
+    public async Task The_weekly_series_follow_the_period_control()
+    {
+        var older = (Now.AddDays(-42), Now.AddDays(-42).AddHours(1));
+
+        var insights = Insights(
+            new StubAssistantSessionSource { Report = Report(Session(Tower, "Claude", older.Item1, older.Item2, "old")) },
+            Activity(Ran("old", Tower, "Claude", older)));
+
+        var four = await ValueOf(insights, new DashboardScope(Period: DashboardPeriod.FourWeeks));
+        var twelve = await ValueOf(insights, new DashboardScope(Period: DashboardPeriod.TwelveWeeks));
+
+        Assert.Equal(5, four.ActiveTimePerWeek.Count);
+        Assert.Equal(13, twelve.ActiveTimePerWeek.Count);
+        Assert.Equal(0m, four.ActiveTimePerWeek.Sum(point => point.Value));
+        Assert.Equal(1m, twelve.ActiveTimePerWeek.Sum(point => point.Value));
+    }
+
     /// <summary>
     /// One session, and three agents it spawned running right through the stretch it
     /// produced in. The fixture the ten hard-constraint facts above are all asserted
@@ -1871,12 +2497,45 @@ public class SessionInsightsTests
         IAssistantSessionSource source,
         IAssistantActivitySource? activity = null,
         TimeZoneInfo? zone = null,
-        WorkingHours? week = null) =>
+        WorkingHours? week = null,
+        IUsageResetSettings? reset = null) =>
         new(
             source,
             activity ?? new StubAssistantActivitySource(),
             new FixedWorkingHours(week ?? WorkingHours.Default),
+            new StubRepositoryDirectory(),
+            reset ?? new FixedUsageReset(null),
             new FixedClock(Now, zone));
+
+    /// <summary>A reset that does not come off disk: null for the calendar fallback the
+    /// weekly facts are asserted under, or the one a fact about the usage week hands in.</summary>
+    private sealed class FixedUsageReset(UsageWeekReset? reset) : IUsageResetSettings
+    {
+        public event Action? Changed
+        {
+            add { }
+            remove { }
+        }
+
+        public UsageWeekReset? Current => reset;
+
+        public string SettingsPath => "usage-reset.json";
+
+        public string? Set(DayOfWeek day, TimeOnly time) => null;
+
+        public string? Clear() => null;
+    }
+
+    /// <summary>Two configured repositories, so a recorded one can be known by its
+    /// alias, unknown, or absent — the three bands the repository rows are cut into.</summary>
+    private sealed class StubRepositoryDirectory : IRepositoryDirectory
+    {
+        public IReadOnlyList<DashboardRepository> Repositories { get; } =
+        [
+            new("backlog", "acme/backlog"),
+            new("other", "acme/other")
+        ];
+    }
 
     /// <summary>
     /// A working week that does not come off disk.
@@ -1922,6 +2581,26 @@ public class SessionInsightsTests
                 Subagents = subagents
             }
         };
+
+    /// <summary>A report carrying the allowance refusals as well, on the same terms.</summary>
+    private static StubAssistantActivitySource Activity(
+        AssistantActivitySession[] sessions,
+        AssistantLimitHit[] limits) =>
+        new()
+        {
+            Report = new AssistantActivityReport(sessions, [], Now.AddDays(-7 * 12), TimeSpan.FromMinutes(5))
+            {
+                Limits = limits
+            }
+        };
+
+    /// <summary>One refusal, placed on a session on the tower.</summary>
+    private static AssistantLimitHit Refused(
+        string sessionId,
+        AssistantLimitKind kind,
+        DateTimeOffset at,
+        DateTimeOffset resetsAt) =>
+        new(at, kind, resetsAt, sessionId, Tower);
 
     /// <summary>One agent a session spawned, and when it was producing. Always Claude:
     /// Copilot spawns none, and a fixture that pretended otherwise would be describing a

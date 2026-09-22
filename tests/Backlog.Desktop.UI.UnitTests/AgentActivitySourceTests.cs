@@ -626,6 +626,224 @@ public sealed class AgentActivitySourceTests : IDisposable
     }
 
     /// <summary>
+    /// A refusal for a usage limit is an <c>assistant</c> line carrying
+    /// <c>"error":"rate_limit"</c> and a <c>quotaLimits</c> block naming which limit.
+    /// The three the plan page shows — 5-hour, Weekly · all models, Weekly · Fable —
+    /// are the three kinds; the raw type travels with every hit so a bucket this
+    /// version does not know is kept rather than dropped.
+    /// </summary>
+    [Fact]
+    public async Task A_rate_limit_refusal_is_a_limit_hit_of_the_kind_the_transcript_names()
+    {
+        GivenClaudeRawTranscript(
+            "D--Repos-Backlog",
+            "refused",
+            [
+                Prompt("refused", Yesterday, "typed"),
+                RateLimited("refused", Yesterday.AddMinutes(1), "five_hour"),
+                RateLimited("refused", Yesterday.AddMinutes(2), "seven_day"),
+                RateLimited("refused", Yesterday.AddMinutes(3), "seven_day_overage_included"),
+                RateLimited("refused", Yesterday.AddMinutes(4), "seven_day_opus")
+            ],
+            lastWrite: Noon);
+
+        var session = Assert.Single((await ReadAsync()).Sessions);
+
+        Assert.Equal(
+            [
+                (Yesterday.AddMinutes(1), AgentLimitKind.FiveHour, "five_hour"),
+                (Yesterday.AddMinutes(2), AgentLimitKind.Weekly, "seven_day"),
+                (Yesterday.AddMinutes(3), AgentLimitKind.WeeklyFable, "seven_day_overage_included"),
+                (Yesterday.AddMinutes(4), AgentLimitKind.Other, "seven_day_opus")
+            ],
+            session.LimitHits.Select(hit => (hit.At, hit.Kind, hit.RateLimitType)));
+    }
+
+    /// <summary>
+    /// The refusal is still a turn, so it still counts as activity: the run figure must
+    /// not move because a line grew a second meaning. And a synthetic assistant line
+    /// that is not a refusal — a parse failure, "No response requested" — is not a hit.
+    /// </summary>
+    [Fact]
+    public async Task A_limit_hit_is_still_activity_and_an_ordinary_error_line_is_not_a_hit()
+    {
+        GivenClaudeRawTranscript(
+            "D--Repos-Backlog",
+            "mixed",
+            [
+                Assistant("mixed", Yesterday, "starting"),
+                RateLimited("mixed", Yesterday.AddMinutes(2), "five_hour"),
+                SyntheticError("mixed", Yesterday.AddMinutes(4))
+            ],
+            lastWrite: Noon);
+
+        var session = Assert.Single((await ReadAsync()).Sessions);
+
+        Assert.Equal(TimeSpan.FromMinutes(4), Total(session));
+        Assert.Single(session.LimitHits);
+    }
+
+    /// <summary>
+    /// Claude Code 2.1.229 wrote refusals with no <c>quotaLimits</c> block at all — 37
+    /// of the 119 on the machine this was built against — and the only place those
+    /// name the limit is the prose. The prose is the agent's own record and is read as
+    /// one: "session limit" and "weekly limit" are the two phrases it used. The raw
+    /// type stays null, because the transcript named no bucket, and a phrase this
+    /// version does not know is Other rather than a guess.
+    /// </summary>
+    [Theory]
+    [InlineData("You've hit your session limit · resets 3am (Europe/Amsterdam)", AgentLimitKind.FiveHour)]
+    [InlineData("You've hit your weekly limit · resets Aug 24, 11pm (Europe/Amsterdam)", AgentLimitKind.Weekly)]
+    [InlineData("You've hit a limit", AgentLimitKind.Other)]
+    public async Task A_refusal_with_no_quota_block_is_kinded_from_its_own_wording(string text, AgentLimitKind expected)
+    {
+        GivenClaudeRawTranscript(
+            "D--Repos-Backlog",
+            "bare",
+            [
+                Assistant("bare", Yesterday, "starting"),
+                $$"""{"parentUuid":"7c1b0f2a-4d2e-4a91-9f2c-1d8a0b3e6c22","isSidechain":false,"type":"assistant","uuid":"8f3f4989-b251-4cbf-a296-301531d7e4dc","timestamp":"{{Stamp(Yesterday.AddMinutes(1))}}","message":{"model":"<synthetic>","role":"assistant","type":"message","content":[{"type":"text","text":"{{text}}"}]},"error":"rate_limit","isApiErrorMessage":true,"apiErrorStatus":429,"sessionId":"bare","version":"2.1.229"}"""
+            ],
+            lastWrite: Noon);
+
+        var hit = Assert.Single(Assert.Single((await ReadAsync()).Sessions).LimitHits);
+
+        Assert.Equal(expected, hit.Kind);
+        Assert.Null(hit.RateLimitType);
+
+        // No block, no reset: an instant nobody wrote down is not invented.
+        Assert.Null(hit.ResetsAt);
+    }
+
+    /// <summary>The reset the block names, as an instant: the dashboard cuts its weeks on
+    /// the weekly kind's and dates the five-hour kind's hour by it.</summary>
+    [Fact]
+    public async Task A_refusal_with_a_block_carries_when_the_allowance_resets()
+    {
+        GivenClaudeRawTranscript(
+            "D--Repos-Backlog",
+            "dated",
+            [Assistant("dated", Yesterday, "starting"), RateLimited("dated", Yesterday.AddMinutes(1), "five_hour")],
+            lastWrite: Noon);
+
+        var hit = Assert.Single(Assert.Single((await ReadAsync()).Sessions).LimitHits);
+
+        Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1788399000), hit.ResetsAt);
+    }
+
+    /// <summary>
+    /// The structured field outranks the prose. A spend-limit refusal says "your
+    /// session limit resets" in its text while its <c>rateLimitType</c> says
+    /// <c>seven_day</c>, and the field is the one Claude Code itself keys on.
+    /// </summary>
+    [Fact]
+    public async Task The_quota_block_outranks_the_wording_when_both_are_present()
+    {
+        GivenClaudeRawTranscript(
+            "D--Repos-Backlog",
+            "both",
+            [
+                Assistant("both", Yesterday, "starting"),
+                RateLimited("both", Yesterday.AddMinutes(1), "seven_day")
+            ],
+            lastWrite: Noon);
+
+        var hit = Assert.Single(Assert.Single((await ReadAsync()).Sessions).LimitHits);
+
+        // The builder's text says "session limit"; the field says seven_day.
+        Assert.Equal(AgentLimitKind.Weekly, hit.Kind);
+        Assert.Equal("seven_day", hit.RateLimitType);
+    }
+
+    /// <summary>
+    /// A hit is clipped to the horizon the way a run is: one before it is outside the
+    /// reading and goes. And a session whose whole record inside the horizon is one
+    /// refusal is present rather than absent — being refused is a thing that happened
+    /// to it, even when nothing else did.
+    /// </summary>
+    [Fact]
+    public async Task A_hit_before_the_horizon_is_dropped_and_a_hit_alone_keeps_the_session()
+    {
+        GivenClaudeRawTranscript(
+            "D--Repos-Backlog",
+            "lonely",
+            [
+                RateLimited("lonely", Horizon.AddHours(-1), "five_hour"),
+                RateLimited("lonely", Horizon.AddHours(1), "seven_day")
+            ],
+            lastWrite: Noon);
+
+        var session = Assert.Single((await ReadAsync()).Sessions);
+
+        Assert.Empty(session.Runs);
+        Assert.Equal([Horizon.AddHours(1)], session.LimitHits.Select(hit => hit.At));
+    }
+
+    /// <summary>
+    /// The hits ride in the same cache entry as the runs, so a finished transcript's
+    /// refusals are read from the cache and never parsed twice. Proved the way the runs
+    /// are: the file is locked for the second read.
+    /// </summary>
+    [Fact]
+    public async Task Limit_hits_are_read_from_the_cache_on_the_second_read()
+    {
+        GivenClaudeRawTranscript(
+            "D--Repos-Backlog",
+            "remembered-hit",
+            [
+                Assistant("remembered-hit", Yesterday, "starting"),
+                RateLimited("remembered-hit", Yesterday.AddMinutes(2), "seven_day_overage_included")
+            ],
+            lastWrite: Noon);
+
+        var cache = new RecordingCache();
+
+        Assert.Single(Assert.Single((await ReadAsync(cache)).Sessions).LimitHits);
+
+        await using var _ = new FileStream(
+            TranscriptPath("D--Repos-Backlog", "remembered-hit"),
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.None);
+
+        var hit = Assert.Single(Assert.Single((await ReadAsync(cache)).Sessions).LimitHits);
+
+        Assert.Equal(AgentLimitKind.WeeklyFable, hit.Kind);
+        Assert.Equal(1, cache.Writes);
+    }
+
+    /// <summary>
+    /// A subagent is refused on the same account as the session that spawned it, and
+    /// its sidechain records the refusal in the same line shape. Dropping it would hide
+    /// the hits an orchestrated run takes where it takes most of them.
+    /// </summary>
+    [Fact]
+    public async Task A_subagent_refusal_is_a_limit_hit_on_the_agent()
+    {
+        GivenClaudeTranscript(
+            "D--Repos-Backlog",
+            "orchestrator",
+            [(Yesterday, false), (Yesterday.AddMinutes(1), false)],
+            lastWrite: Noon);
+
+        GivenClaudeFileSpawnedBy(
+            "D--Repos-Backlog",
+            "orchestrator",
+            "subagents/agent-a1b2c3.jsonl",
+            lastWrite: Noon,
+            Sidechain("orchestrator", "agent-a1b2c3", Yesterday, "working"),
+            RateLimited("orchestrator", Yesterday.AddMinutes(1), "five_hour", agentId: "agent-a1b2c3"));
+
+        var log = await ReadAsync();
+
+        Assert.Empty(Assert.Single(log.Sessions).LimitHits);
+
+        var hit = Assert.Single(Assert.Single(log.Subagents).LimitHits);
+
+        Assert.Equal(AgentLimitKind.FiveHour, hit.Kind);
+    }
+
+    /// <summary>
     /// The boundary the whole agents figure rests on, read from the activity side.
     /// <c>AgentSessionSourceTests.Files_a_session_spawned_are_not_sessions_of_their_own</c>
     /// is the same claim read from the session side and stays green untouched: the two
@@ -1155,6 +1373,26 @@ public sealed class AgentActivitySourceTests : IDisposable
     private static string Assistant(string id, DateTimeOffset at, string text) =>
         $$$"""
         {"parentUuid":"7c1b0f2a-4d2e-4a91-9f2c-1d8a0b3e6c22","isSidechain":false,"userType":"external","cwd":"D:\\Repos\\Backlog","sessionId":"{{{id}}}","version":"2.1.229","gitBranch":"main","type":"assistant","message":{"id":"msg_01Hs","type":"message","role":"assistant","model":"claude-opus-4-5-20260101","content":[{"type":"text","text":"{{{text}}}"}],"usage":{"input_tokens":4,"output_tokens":9}},"requestId":"req_011CT","uuid":"1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d","timestamp":"{{{Stamp(at)}}}"}
+        """;
+
+    /// <summary>
+    /// A refusal for a usage limit, in the shape Claude really writes one: a synthetic
+    /// assistant turn — <c>model</c> is literally <c>&lt;synthetic&gt;</c>, every usage
+    /// figure zero — with <c>"error":"rate_limit"</c>, a 429, and a <c>quotaLimits</c>
+    /// block whose <c>rateLimitType</c> names the bucket. 82 of these on the machine this
+    /// was built against, all 82 in exactly this shape. On a sidechain the line adds
+    /// <c>isSidechain</c> and an <c>agentId</c>, the way every sidechain line does.
+    /// </summary>
+    private static string RateLimited(string id, DateTimeOffset at, string rateLimitType, string? agentId = null) =>
+        $$$"""
+        {"parentUuid":"7c1b0f2a-4d2e-4a91-9f2c-1d8a0b3e6c22","isSidechain":{{{(agentId is null ? "false" : "true")}}},{{{(agentId is null ? "" : $"\"agentId\":\"{agentId}\",")}}}"type":"assistant","uuid":"8f3f4989-b251-4cbf-a296-301531d7e4dc","timestamp":"{{{Stamp(at)}}}","message":{"diagnostics":null,"id":"955c160f-8889-410f-8f48-3f9ed9dc39bb","container":null,"model":"<synthetic>","role":"assistant","stop_details":null,"stop_reason":"stop_sequence","stop_sequence":"","type":"message","usage":{"input_tokens":0,"output_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0},"content":[{"type":"text","text":"You've hit your session limit · resets 3am (Europe/Amsterdam)"}],"context_management":null},"requestId":"req_011CefV3ZTjhKsqMaAatbSv9","quotaLimits":{"status":"rejected","resetsAt":1788399000,"unifiedRateLimitFallbackAvailable":false,"rateLimitType":"{{{rateLimitType}}}","overageStatus":"rejected","isUsingOverage":false},"error":"rate_limit","isApiErrorMessage":true,"apiErrorStatus":429,"userType":"external","entrypoint":"claude-desktop","cwd":"D:\\Repos\\Backlog","sessionId":"{{{id}}}","version":"2.1.258","gitBranch":"main"}
+        """;
+
+    /// <summary>The other synthetic assistant line: an API error that is not a refusal.
+    /// <c>isApiErrorMessage</c> alone is not the mark — this one carries it too.</summary>
+    private static string SyntheticError(string id, DateTimeOffset at) =>
+        $$"""
+        {"parentUuid":"7c1b0f2a-4d2e-4a91-9f2c-1d8a0b3e6c22","isSidechain":false,"type":"assistant","uuid":"819fd821-4d00-4a36-a4ee-388821859904","timestamp":"{{Stamp(at)}}","message":{"diagnostics":null,"id":"a1fb8285-5098-4166-ab02-6b2d92e699f5","model":"<synthetic>","role":"assistant","stop_reason":"stop_sequence","type":"message","usage":{"input_tokens":0,"output_tokens":0},"content":[{"type":"text","text":"The model's tool call could not be parsed (retry also failed)."}]},"isApiErrorMessage":true,"userType":"external","entrypoint":"claude-desktop","cwd":"D:\\Repos\\Backlog","sessionId":"{{id}}","version":"2.1.271","gitBranch":"main"}
         """;
 
     /// <summary>A tool result: a user line with no promptSource and array content.

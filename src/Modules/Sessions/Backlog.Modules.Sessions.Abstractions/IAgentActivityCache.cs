@@ -67,4 +67,14 @@ public interface IAgentActivityCache
 public sealed record AgentActivityEntry(
     IReadOnlyList<AgentActivityRun> Runs,
     IReadOnlyList<AgentActivityWait> Waits,
-    TimeSpan IdleAfter);
+    TimeSpan IdleAfter)
+{
+    /// <summary>
+    /// Every refusal for a usage limit in the file, whole-file for the reason the runs
+    /// are. Not part of the key: a hit is read off a line rather than folded at a
+    /// threshold, so nothing about it can go stale while the file stands still — but
+    /// an entry written before hits were read carries none, and the disk half's
+    /// version is what sends those back to the transcript.
+    /// </summary>
+    public IReadOnlyList<AgentLimitHit> LimitHits { get; init; } = [];
+}

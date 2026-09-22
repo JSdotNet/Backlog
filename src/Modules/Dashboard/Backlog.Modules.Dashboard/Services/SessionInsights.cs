@@ -55,6 +55,8 @@ public sealed class SessionInsights(
     IAssistantSessionSource sessions,
     IAssistantActivitySource activity,
     IWorkingHoursSettings workingHours,
+    IRepositoryDirectory repositories,
+    IUsageResetSettings usageReset,
     TimeProvider time) : ISessionInsights
 {
     /// <summary>The only key there is. Named rather than empty so the entry reads as a
@@ -199,7 +201,18 @@ public sealed class SessionInsights(
         // different populations.
         var counted = scoped.Where(session => session.Prompts is not null).ToList();
 
-        var buckets = WeekBuckets.Buckets(from, to);
+        // The week everything below is cut into. The person's own reset first, because
+        // the records may be from another plan or another month; the assistant's last
+        // reported reset second; Monday midnight on the local clock when neither is
+        // known — and the insight says which, so the columns can.
+        var weeks = Weeks(reading.Activity.Limits, to, zone);
+        var buckets = weeks.Buckets(from, to);
+
+        var scopedLimits = reading.Activity.Limits
+            .Where(hit => scope.IsAllMachines || Matches(hit.MachineId, scope.MachineId))
+            .ToList();
+
+        var grids = Grids(buckets, scopedActivity, scopedLimits, active, waiting, open, agents, week, zone);
 
         return new AssistantSessionsInsight(
             scoped.Count,
@@ -219,7 +232,8 @@ public sealed class SessionInsights(
             SessionsPerWeek = WeekBuckets.Count(
                 buckets,
                 scoped,
-                session => session.LastActivityAt),
+                session => session.LastActivityAt,
+                weeks.KeyOf),
             PromptsPerSession = MeanPrompts(counted),
             SessionsWithPrompts = counted.Count,
             // Same buckets and the same instant as the series above, so a column here is
@@ -229,14 +243,53 @@ public sealed class SessionInsights(
                 buckets,
                 counted,
                 session => session.LastActivityAt,
-                inWeek => MeanPrompts(inWeek) ?? 0m),
+                inWeek => MeanPrompts(inWeek) ?? 0m,
+                weeks.KeyOf),
             Waiting = Sum(waiting),
             MostSessionsAtOnce = Busiest(active),
             MostAgentsAtOnce = Busiest(agents),
-            ActivityByHour = Grid(active, waiting, open, agents, week, to, zone),
-            ActivityByDay = Days(scopedActivity, active, waiting, week, to, zone),
+            // The tiles above, cut by week. Read out of the same sweeps, cell by cell, so
+            // the duration columns add up to their tile and the peak columns top out at
+            // theirs — never a second pass over the intervals. A cell goes in the week
+            // its start instant falls in, on the same cut as the sessions series.
+            ActiveTimePerWeek = PerWeek(buckets, weeks, active, zone, Hours),
+            WaitingPerWeek = PerWeek(buckets, weeks, waiting, zone, Hours),
+            MostSessionsAtOncePerWeek = PerWeek(buckets, weeks, active, zone, Peak),
+            MostAgentsAtOncePerWeek = PerWeek(buckets, weeks, agents, zone, Peak),
+            ByRepository = ByRepository(buckets, weeks, scope, scoped, scopedActivity, scopedAgents, from, to, zone),
+            Week = new UsageWeekInfo(weeks.Source, weeks.ResetDescription),
+            Grids = grids,
+            LimitHits = new LimitHitCounts(
+                scopedLimits.Count(hit => hit.At >= from && hit.At < to && hit.Kind == AssistantLimitKind.FiveHour),
+                scopedLimits.Count(hit => hit.At >= from && hit.At < to && hit.Kind == AssistantLimitKind.SevenDay)),
+            ActivityByHour = grids.Count == 0 ? [] : grids[^1].Hours,
+            ActivityByDay = grids.Count == 0 ? [] : grids[^1].Days,
             IdleAfter = reading.Activity.IdleAfter
         };
+    }
+
+    /// <summary>
+    /// The cut in force: the configured reset, else the last weekly refusal's reset the
+    /// assistant reported, else the local calendar. A configured reset outranks a
+    /// detected one on purpose — the records on a machine may come from an older plan
+    /// — and the surface names which won.
+    /// </summary>
+    private UsageWeeks Weeks(IReadOnlyList<AssistantLimitHit> limits, DateTimeOffset now, TimeZoneInfo zone)
+    {
+        if (usageReset.Current is { } configured)
+        {
+            return UsageWeeks.AnchoredOn(configured.MostRecentBefore(now, zone), zone, WeekSource.Configured);
+        }
+
+        var detected = limits
+            .Where(hit => hit.Kind == AssistantLimitKind.SevenDay)
+            .OrderByDescending(hit => hit.At)
+            .Select(hit => (DateTimeOffset?)hit.ResetsAt)
+            .FirstOrDefault();
+
+        return detected is { } reset
+            ? UsageWeeks.AnchoredOn(reset, zone, WeekSource.Detected)
+            : UsageWeeks.Calendar(now, zone);
     }
 
     /// <summary>
@@ -249,6 +302,160 @@ public sealed class SessionInsights(
         counted.Count == 0
             ? null
             : (decimal)counted.Sum(session => session.Prompts!.Value) / counted.Count;
+
+    /// <summary>
+    /// A sweep cut into the given week buckets: every cell into the week its start
+    /// instant falls in, and the cells that landed in a week reduced to one figure by
+    /// <paramref name="aggregate"/> — a sum of hours or a peak, which are the two
+    /// things a cell holds. A week no cell landed in is handed an empty list and is
+    /// whatever the aggregate makes of nothing, which for both is zero.
+    /// <para>
+    /// The cell's instant is its local start put back into UTC through the zone the
+    /// sweep was cut on — the offset the zone reports for that local hour, which is
+    /// defined on both sides of a daylight-saving transition rather than throwing on
+    /// the hour that repeats. The hour that does not exist cannot be a cell, because
+    /// every cell came out of a UTC instant. What the round trip buys is the same week
+    /// axis as the sessions series, drawn in UTC like every other week column here, and
+    /// a cell that cannot fall outside the buckets covering its own window.
+    /// </para>
+    /// </summary>
+    private static IReadOnlyList<InsightPoint> PerWeek(
+        IReadOnlyList<WeekBucket> buckets,
+        UsageWeeks weeks,
+        IReadOnlyDictionary<HourCell, HourReading> cells,
+        TimeZoneInfo zone,
+        Func<IReadOnlyList<KeyValuePair<HourCell, HourReading>>, decimal> aggregate) =>
+        WeekBuckets.Reduce(
+            buckets,
+            cells,
+            cell => StartOf(cell.Key, zone),
+            aggregate,
+            weeks.KeyOf);
+
+    /// <summary>
+    /// The weekly series again, one row per repository band, each row swept on its own.
+    /// <para>
+    /// The band is the session's, joined on the id: the activity record carries no
+    /// repository, and the session record carries what the assistant wrote — null for
+    /// every Claude session. A recorded repository the workspace has configured is its
+    /// alias, so the row wears the name the header's chips do; one it has not is folded
+    /// into the other row, because nothing here has a name or a colour for it. A
+    /// subagent takes its parent session's band, and an activity record whose session
+    /// the report did not list — the cap, or a source that read one folder and not the
+    /// other — is unrecorded too, because nothing says where it was.
+    /// </para>
+    /// <para>
+    /// The scope is applied here and nowhere else on this insight: with repositories in
+    /// focus only their rows are built, and the two folded rows are out — the Sessions
+    /// list's treatment of a session it cannot place. The totals above are left whole
+    /// on purpose; the contract says why.
+    /// </para>
+    /// <para>
+    /// One sweep per row per measure rather than a partition of the total sweep, since
+    /// a cell's peak is a property of which intervals overlapped and cannot be split
+    /// after the fact. The hours can, and do add up across rows to the totals above;
+    /// the peaks cannot, and the contract says so.
+    /// </para>
+    /// </summary>
+    private IReadOnlyList<RepositoryWeekly> ByRepository(
+        IReadOnlyList<WeekBucket> buckets,
+        UsageWeeks weeks,
+        DashboardScope scope,
+        IReadOnlyList<AssistantSession> sessions,
+        IReadOnlyList<AssistantActivitySession> activity,
+        IReadOnlyList<AssistantActivitySubagent> agents,
+        DateTimeOffset from,
+        DateTimeOffset to,
+        TimeZoneInfo zone)
+    {
+        if (buckets.Count == 0) return [];
+
+        // owner/name to alias, for the repositories the workspace knows. Case-insensitive
+        // on the full name, as GitHub itself is.
+        var aliasOf = repositories.Repositories
+            .GroupBy(repository => repository.FullName, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First().Alias, StringComparer.OrdinalIgnoreCase);
+
+        (string Name, RepositoryBandKind Kind) BandOf(string? repository) =>
+            string.IsNullOrWhiteSpace(repository) ? (RepositoryWeekly.UnrecordedName, RepositoryBandKind.Unrecorded)
+            : aliasOf.TryGetValue(repository.Trim(), out var alias) ? (alias, RepositoryBandKind.Configured)
+            : (RepositoryWeekly.OtherName, RepositoryBandKind.Other);
+
+        // Last one wins on a duplicate id, which the sessions list does not produce;
+        // the dictionary is only refusing to throw on a fixture that does.
+        var bandOfSession = new Dictionary<string, (string Name, RepositoryBandKind Kind)>(StringComparer.Ordinal);
+
+        foreach (var session in sessions)
+        {
+            bandOfSession[session.Id] = BandOf(session.Repository);
+        }
+
+        (string Name, RepositoryBandKind Kind) BandOfId(string sessionId) =>
+            bandOfSession.TryGetValue(sessionId, out var band) ? band : (RepositoryWeekly.UnrecordedName, RepositoryBandKind.Unrecorded);
+
+        bool InScope((string Name, RepositoryBandKind Kind) band) =>
+            scope.IsAllRepositories || (band.Kind == RepositoryBandKind.Configured && scope.Repositories.Contains(band.Name));
+
+        var rows = sessions
+            .Select(session => BandOf(session.Repository))
+            .Concat(activity.Select(session => BandOfId(session.Id)))
+            .Distinct()
+            .Where(InScope)
+            .Select(band =>
+            {
+                var theirSessions = sessions.Where(session => BandOf(session.Repository) == band).ToList();
+                var theirs = activity.Where(session => BandOfId(session.Id) == band).ToList();
+                var theirAgents = agents.Where(agent => BandOfId(agent.SessionId) == band).ToList();
+                var counted = theirSessions.Where(session => session.Prompts is not null).ToList();
+
+                var active = LocalHourBuckets.Sweep(Intervals(theirs, session => session.Active), from, to, zone);
+                var waiting = LocalHourBuckets.Sweep(Intervals(theirs, session => session.Waiting), from, to, zone);
+                var spawned = LocalHourBuckets.Sweep(
+                    theirAgents.SelectMany(agent => agent.Active).Select(interval => (interval.From, interval.To)),
+                    from,
+                    to,
+                    zone);
+
+                return (
+                    Cells: active.Count + waiting.Count + spawned.Count + theirSessions.Count,
+                    Total: Sum(active),
+                    Row: new RepositoryWeekly(
+                        band.Name,
+                        band.Kind,
+                        WeekBuckets.Count(buckets, theirSessions, session => session.LastActivityAt, weeks.KeyOf),
+                        WeekBuckets.Reduce(buckets, counted, session => session.LastActivityAt, inWeek => MeanPrompts(inWeek) ?? 0m, weeks.KeyOf),
+                        PerWeek(buckets, weeks, active, zone, Hours),
+                        PerWeek(buckets, weeks, waiting, zone, Hours),
+                        PerWeek(buckets, weeks, active, zone, Peak),
+                        PerWeek(buckets, weeks, spawned, zone, Peak)));
+            })
+            // A band with nothing at all in the window — no session and no cell on any
+            // sweep — would be a legend entry for a band of nothing.
+            .Where(entry => entry.Cells > 0)
+            .OrderByDescending(entry => entry.Total)
+            .ThenBy(entry => entry.Row.Name, StringComparer.Ordinal)
+            .Select(entry => entry.Row);
+
+        return [.. rows];
+    }
+
+    /// <summary>The UTC instant a local hour cell begins at.</summary>
+    private static DateTimeOffset StartOf(HourCell cell, TimeZoneInfo zone)
+    {
+        var local = cell.Day.ToDateTime(new TimeOnly(cell.Hour, 0));
+
+        return new DateTimeOffset(local, zone.GetUtcOffset(local));
+    }
+
+    /// <summary>What a week's cells add up to, in hours. Decimal from the total rather
+    /// than from a rounded figure, so the columns sum to the tile to the tick.</summary>
+    private static decimal Hours(IReadOnlyList<KeyValuePair<HourCell, HourReading>> inWeek) =>
+        (decimal)inWeek.Aggregate(TimeSpan.Zero, (running, cell) => running + cell.Value.Total).TotalHours;
+
+    /// <summary>The most at once in any of a week's cells, or zero for a week with none —
+    /// a maximum, which is the one arithmetic a peak survives.</summary>
+    private static decimal Peak(IReadOnlyList<KeyValuePair<HourCell, HourReading>> inWeek) =>
+        inWeek.Count == 0 ? 0m : inWeek.Max(cell => cell.Value.Peak);
 
     /// <summary>
     /// The busiest cell of a sweep, or null when the sweep found nothing.
@@ -277,155 +484,144 @@ public sealed class SessionInsights(
             .FirstOrDefault();
 
     /// <summary>
-    /// The grid: the last seven dated local days, every hour of them, read out of the
-    /// sweeps.
+    /// One grid per week: the week's hours on calendar-day rows, read out of the same
+    /// sweeps the tiles are summed from, and the refusals that fell inside the week.
+    /// <para>
+    /// Rows are local calendar days, hours 0–23 in clock order, so a row reads the way a
+    /// day does. The week does not start at midnight, so the first row holds only the
+    /// hours from the reset hour on and the last — an eighth calendar day — only the
+    /// hours before it; the hours outside the week are simply not there, which the grid
+    /// draws as not reported rather than as zero. Under the calendar fallback the reset
+    /// hour is midnight and there are seven full rows.
+    /// </para>
+    /// <para>
+    /// Empty when the sweeps found nothing at all, so the part can decline to draw an
+    /// axis it has nothing to put on — the rule the weekly series are already under.
+    /// </para>
+    /// <para>
+    /// <b>DST.</b> The week is 168 hours of UTC cut into local hours, so on the two days a
+    /// year the clock skips or repeats an hour a row is an hour short or long. The cells
+    /// are the local hours as the sweep cut them, which is what makes this a stated limit
+    /// rather than a mis-attribution — the choice <see cref="LocalHourBuckets"/> already
+    /// made.
+    /// </para>
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>Seven days, not the window.</b> Every other figure this class produces widens
-    /// with the period control and this one does not — see
-    /// <see cref="AssistantSessionsInsight.ActivityByHour"/> and
-    /// <see cref="LocalHourBuckets.Cells"/> for why the fixed grid was chosen over a
-    /// fold across weeks. The part is required to say so on screen; here it is enough
-    /// that the asymmetry is deliberate and in one place.
-    /// </para>
-    /// <para>
-    /// Empty when neither session sweep found anything, so the part can decline to draw an
-    /// axis with nothing on it. Otherwise every cell is present, including the ones nobody
-    /// worked: a heatmap draws a zero and an absence differently, and an hour that
-    /// happened and was quiet is a zero.
-    /// </para>
-    /// <para>
-    /// <b>The agents deliberately do not open this gate.</b> A subagent exists because a
-    /// session was producing, so a profile with agents and no session activity is not a
-    /// thing that happens — and widening the test to include them would let a third grid
-    /// appear beside two the part had declined to draw.
-    /// </para>
-    /// </remarks>
-    private static IReadOnlyList<ActivityHour> Grid(
+    private static IReadOnlyList<WeekGrid> Grids(
+        IReadOnlyList<WeekBucket> buckets,
+        IReadOnlyList<AssistantActivitySession> sessions,
+        IReadOnlyList<AssistantLimitHit> limits,
         IReadOnlyDictionary<HourCell, HourReading> active,
         IReadOnlyDictionary<HourCell, HourReading> waiting,
         IReadOnlyDictionary<HourCell, HourReading> open,
         IReadOnlyDictionary<HourCell, HourReading> agents,
         WorkingHours week,
-        DateTimeOffset to,
         TimeZoneInfo zone)
     {
         if (active.Count == 0 && waiting.Count == 0) return [];
 
-        return
-        [
-            .. LocalHourBuckets.Cells(to, zone).Select(cell =>
-            {
-                var worked = At(active, cell);
-                var waited = At(waiting, cell);
-
-                // The totals of the open sweep are discarded, and the peak of the waiting
-                // one with them. Open agent-hours would be a duration nobody asked for and
-                // would read as a bigger version of the active time it is not comparable
-                // to; a second peak travelling unused is a second peak somebody eventually
-                // shades by mistake.
-                return new ActivityHour(
-                    cell.Day,
-                    cell.Hour,
-                    worked.Peak,
-                    worked.Total,
-                    waited.Total,
-                    At(open, cell).Peak,
-                    week.Covers(cell.Day.DayOfWeek, cell.Hour))
-                {
-                    // The agents' peak and not their total, for the reason the open sweep's
-                    // total is dropped: agent-hours spawned is a duration nobody asked for
-                    // and it would read as a bigger version of the active time it is not
-                    // comparable to.
-                    PeakAgents = At(agents, cell).Peak
-                };
-            })
-        ];
-    }
-
-    /// <summary>
-    /// How many distinct sessions ran on each of the grid's days.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// Counted from the sessions themselves rather than from the sweeps, and that is the
-    /// whole point of the method. The sweeps hold peaks and durations, neither of which
-    /// can produce this: adding a day's twenty-four peaks counts a session once per hour
-    /// it spanned, and a duration says nothing about how many things produced it. Only
-    /// the interval's owner can answer "how many distinct", so the identity has to come
-    /// from the session and not from the grid.
-    /// </para>
-    /// <para>
-    /// Active intervals only. A session that spent a day waiting and never produced did
-    /// not run that day, and counting it here would put a figure in the column that the
-    /// shaded row beside it flatly contradicts.
-    /// </para>
-    /// <para>
-    /// Drawn or not drawn with the grid, never on its own: the same emptiness test, so
-    /// the column cannot appear beside an axis the part has declined to draw.
-    /// </para>
-    /// </remarks>
-    private static IReadOnlyList<ActivityDay> Days(
-        IReadOnlyList<AssistantActivitySession> sessions,
-        IReadOnlyDictionary<HourCell, HourReading> active,
-        IReadOnlyDictionary<HourCell, HourReading> waiting,
-        WorkingHours week,
-        DateTimeOffset to,
-        TimeZoneInfo zone)
-    {
-        if (active.Count == 0 && waiting.Count == 0) return [];
-
-        var ran = new Dictionary<DateOnly, HashSet<string>>();
-        var inHours = new Dictionary<DateOnly, HashSet<string>>();
-        var outsideHours = new Dictionary<DateOnly, HashSet<string>>();
+        // Which distinct sessions touched which cell, once for every week, so a row's
+        // count is a set size rather than a sum of peaks.
+        var ran = new Dictionary<HourCell, HashSet<string>>();
 
         foreach (var session in sessions)
         {
             foreach (var interval in session.Active)
             {
-                // By the hour rather than by the day, because the split is an hour-level
-                // question: a session that began at four and ran until eight was inside
-                // the working day for one of those hours and outside it for the rest, and
-                // a day-level test could only have said one of those.
-                foreach (var cell in LocalHourBuckets.HoursTouched(interval.From, interval.To, to, zone))
+                foreach (var (cell, length) in LocalHourBuckets.Pieces(interval.From, interval.To, zone))
                 {
-                    Count(ran, cell.Day, session.Id);
+                    if (length <= TimeSpan.Zero) continue;
 
-                    Count(
-                        week.Covers(cell.Day.DayOfWeek, cell.Hour) ? inHours : outsideHours,
-                        cell.Day,
-                        session.Id);
+                    if (!ran.TryGetValue(cell, out var seen))
+                    {
+                        seen = new HashSet<string>(StringComparer.Ordinal);
+                        ran[cell] = seen;
+                    }
+
+                    seen.Add(session.Id);
                 }
             }
         }
 
         return
         [
-            .. LocalHourBuckets.Cells(to, zone)
-                .Select(cell => cell.Day)
-                .Distinct()
-                .Select(day => new ActivityDay(day, Size(ran, day), Size(inHours, day), Size(outsideHours, day)))
+            .. buckets.Select(bucket =>
+            {
+                var start = TimeZoneInfo.ConvertTime(bucket.Start, zone).DateTime;
+                var end = bucket.Start.AddDays(LocalHourBuckets.Days);
+
+                // Every local hour of the week, in order: 168 of them, from the reset
+                // hour of the first day to the hour before it on the last.
+                var cells = Enumerable.Range(0, LocalHourBuckets.Days * 24)
+                    .Select(offset => start.AddHours(offset))
+                    .Select(at => new HourCell(DateOnly.FromDateTime(at), at.Hour))
+                    .ToList();
+
+                var hours = cells.Select(cell =>
+                {
+                    var worked = At(active, cell);
+                    var waited = At(waiting, cell);
+
+                    return new ActivityHour(
+                        cell.Day,
+                        cell.Hour,
+                        worked.Peak,
+                        worked.Total,
+                        waited.Total,
+                        At(open, cell).Peak,
+                        week.Covers(cell.Day.DayOfWeek, cell.Hour))
+                    {
+                        PeakAgents = At(agents, cell).Peak
+                    };
+                }).ToList();
+
+                var days = cells
+                    .GroupBy(cell => cell.Day)
+                    .OrderBy(group => group.Key)
+                    .Select(group =>
+                    {
+                        var all = new HashSet<string>(StringComparer.Ordinal);
+                        var inHours = new HashSet<string>(StringComparer.Ordinal);
+                        var outside = new HashSet<string>(StringComparer.Ordinal);
+
+                        foreach (var cell in group)
+                        {
+                            if (!ran.TryGetValue(cell, out var seen)) continue;
+
+                            all.UnionWith(seen);
+                            (week.Covers(cell.Day.DayOfWeek, cell.Hour) ? inHours : outside).UnionWith(seen);
+                        }
+
+                        return new ActivityDay(group.Key, all.Count, inHours.Count, outside.Count);
+                    })
+                    .ToList();
+
+                var marks = limits
+                    .Where(hit => hit.At >= bucket.Start && hit.At < end)
+                    .OrderBy(hit => hit.At)
+                    .Select(hit =>
+                    {
+                        var local = TimeZoneInfo.ConvertTime(hit.At, zone).DateTime;
+
+                        // How far the wall reached: to the hour the reset fell in, and
+                        // no further than this week's last hour. A weekly refusal's reset
+                        // is the next week, so it gets no reach at all.
+                        DateTime? until = hit.Kind == AssistantLimitKind.FiveHour
+                            ? TimeZoneInfo.ConvertTime(hit.ResetsAt < end ? hit.ResetsAt : end.AddSeconds(-1), zone).DateTime
+                            : null;
+
+                        return new LimitMark(DateOnly.FromDateTime(local), local.Hour, hit.Kind, hit.At, hit.ResetsAt)
+                        {
+                            UntilDay = until is { } reach ? DateOnly.FromDateTime(reach) : null,
+                            UntilHour = until?.Hour
+                        };
+                    })
+                    .ToList();
+
+                return new WeekGrid(bucket.Key, bucket.Label, bucket.Start, hours, days, marks);
+            })
         ];
     }
 
-    private static void Count(Dictionary<DateOnly, HashSet<string>> into, DateOnly day, string session)
-    {
-        if (!into.TryGetValue(day, out var seen))
-        {
-            seen = new HashSet<string>(StringComparer.Ordinal);
-            into[day] = seen;
-        }
-
-        seen.Add(session);
-    }
-
-    private static int Size(Dictionary<DateOnly, HashSet<string>> counted, DateOnly day) =>
-        counted.TryGetValue(day, out var seen) ? seen.Count : 0;
-
-    /// <summary>What a sweep found in one cell, or a zero where it found nothing. The
-    /// substitution is the grid's rather than the sweep's, so "nothing landed here" stays
-    /// one fact with one owner.</summary>
     private static HourReading At(IReadOnlyDictionary<HourCell, HourReading> cells, HourCell cell) =>
         cells.TryGetValue(cell, out var found) ? found : HourReading.Nothing;
 

@@ -2001,6 +2001,15 @@ h1, h2, h3 {
     margin-top: var(--spacing-md);
 }
 
+/* A second choice inside a section, under the first: a rule and a breath above it, so
+   the reset reads as belonging to the working week without pretending to be one of
+   its rows. */
+.setting__group {
+    margin-top: var(--spacing-lg);
+    padding-top: var(--spacing-md);
+    border-top: var(--border-width) solid var(--color-border);
+}
+
 /*
   Both places render `ButtonVariant.None`, which is a promise to dress plain
   `.btn` here rather than take a modifier the host would have to undo. This kept

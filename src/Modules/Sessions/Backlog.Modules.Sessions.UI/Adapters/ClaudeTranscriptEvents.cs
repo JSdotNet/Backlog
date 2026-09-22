@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Backlog.Modules.Sessions.Abstractions;
 
 namespace Backlog.Modules.Sessions.UI.Adapters;
 
@@ -61,6 +62,15 @@ internal static class ClaudeTranscriptEvents
             //    injections (isMeta), "[Request interrupted by user]", and
             //    slash-command plumbing. A conversation turn with a timestamp and no
             //    promptSource is simply activity; do not try to name it.
+            //
+            // 5. A REFUSAL IS `error` BEING "rate_limit". Not isApiErrorMessage, which
+            //    a parse failure and "No response requested" carry too; not the text,
+            //    which is prose and has already been reworded once ("session limit",
+            //    "individual spend limit"). The 82 refusals on this machine all carry
+            //    the field with that value and a 429 beside it. Which limit is
+            //    `quotaLimits.rateLimitType`, kept raw beside the kind it maps to.
+            //    The line is still a turn and still an event — rule 1 admitted it
+            //    before it had a name, and giving it one must not move a figure.
             if (line.Length == 0 || line[0] is not '{') continue;
 
             try
@@ -85,7 +95,7 @@ internal static class ClaudeTranscriptEvents
                     continue;
                 }
 
-                events.Add(new ActivityEvent(at, root.TryGetProperty("promptSource", out _)));
+                events.Add(new ActivityEvent(at, root.TryGetProperty("promptSource", out _), LimitOf(root, at)));
             }
             catch (JsonException)
             {
@@ -112,4 +122,95 @@ internal static class ClaudeTranscriptEvents
     /// </summary>
     private static bool IsTurn(string? type) =>
         type is "user" or "assistant" or "attachment";
+
+    /// <summary>
+    /// The refusal a line records, or null for the overwhelming majority that record
+    /// none. See rule 5 above for what marks one.
+    /// </summary>
+    private static AgentLimitHit? LimitOf(JsonElement root, DateTimeOffset at)
+    {
+        if (!root.TryGetProperty("error", out var error)
+            || error.ValueKind is not JsonValueKind.String
+            || error.GetString() is not "rate_limit")
+        {
+            return null;
+        }
+
+        // The bucket is nested and optional: 2.1.229 wrote refusals with no quotaLimits
+        // block at all — 37 of the 119 on this machine. Those name the limit only in
+        // their prose, so the prose is read when the field is absent and never when it
+        // is present: the field is what Claude Code itself keys on, and a spend-limit
+        // refusal's text says "session limit resets" under a seven_day field. The raw
+        // type stays null either way the field is missing, because the transcript
+        // named no bucket and the record must not say it did.
+        var type = root.TryGetProperty("quotaLimits", out var quota)
+            && quota.ValueKind is JsonValueKind.Object
+            && quota.TryGetProperty("rateLimitType", out var name)
+            && name.ValueKind is JsonValueKind.String
+                ? name.GetString()
+                : null;
+
+        // The reset instant, from the same optional block, in Unix seconds. Absent or
+        // malformed reads as null rather than as an instant nothing wrote down.
+        var resetsAt = root.TryGetProperty("quotaLimits", out var limits)
+            && limits.ValueKind is JsonValueKind.Object
+            && limits.TryGetProperty("resetsAt", out var reset)
+            && reset.ValueKind is JsonValueKind.Number
+            && reset.TryGetInt64(out var seconds)
+                ? DateTimeOffset.FromUnixTimeSeconds(seconds)
+                : (DateTimeOffset?)null;
+
+        return new AgentLimitHit(at, type is null ? KindOf(TextOf(root)) : KindOf(type), type) { ResetsAt = resetsAt };
+    }
+
+    /// <summary>The refusal's own sentence — the first text block of the message, or
+    /// null where there is none.</summary>
+    private static string? TextOf(JsonElement root)
+    {
+        if (!root.TryGetProperty("message", out var message)
+            || message.ValueKind is not JsonValueKind.Object
+            || !message.TryGetProperty("content", out var content)
+            || content.ValueKind is not JsonValueKind.Array)
+        {
+            return null;
+        }
+
+        foreach (var block in content.EnumerateArray())
+        {
+            if (block.ValueKind is JsonValueKind.Object
+                && block.TryGetProperty("text", out var text)
+                && text.ValueKind is JsonValueKind.String)
+            {
+                return text.GetString();
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Claude Code's own names for the buckets, from its own code: it labels
+    /// <c>five_hour</c> "session limit", <c>seven_day</c> "weekly limit" and
+    /// <c>seven_day_overage_included</c> "Fable limit", which is what the plan's usage
+    /// page shows as 5-hour, Weekly · all models and Weekly · Fable. Its vocabulary
+    /// also holds <c>seven_day_opus</c>, <c>seven_day_sonnet</c> and <c>overage</c>;
+    /// those are deliberately Other, because the model this maps onto is not per
+    /// model — see <see cref="AgentLimitKind"/>.
+    /// <para>
+    /// Two phrases from the prose beside the three names from the field, for the
+    /// refusals that carry no field. "session limit" and "weekly limit" are the two
+    /// 2.1.229 wrote; nothing on any profile yet shows what an older Fable refusal
+    /// would have said, so there is no phrase for it here and one would be a guess.
+    /// </para>
+    /// </summary>
+    private static AgentLimitKind KindOf(string? rateLimitTypeOrText) =>
+        rateLimitTypeOrText switch
+        {
+            "five_hour" => AgentLimitKind.FiveHour,
+            "seven_day" => AgentLimitKind.Weekly,
+            "seven_day_overage_included" => AgentLimitKind.WeeklyFable,
+            { } text when text.Contains("session limit", StringComparison.Ordinal) => AgentLimitKind.FiveHour,
+            { } text when text.Contains("weekly limit", StringComparison.Ordinal) => AgentLimitKind.Weekly,
+            _ => AgentLimitKind.Other
+        };
 }

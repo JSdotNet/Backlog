@@ -127,9 +127,10 @@
                 Sessions Claude and Copilot left on this machine and on any other that has reported
                 its own, and when an agent was actually producing. Only Copilot records a repository
                 against a session, so filtering by one would hide Claude's half of the picture; the
-                repository scope in the header does not change this section.
+                repository scope in the header narrows the by-repository chart and nothing else in
+                this section.
             </p>
-            <SessionsPart Scope="_scope" />
+            <SessionsPart Scope="_scope" RepositoryColour="@RepositoryColour" />
         </div>
 
         <div class="dashboard-section" data-testid="dashboard-cost">
@@ -185,6 +186,16 @@
     /// decision — the pane only reports that the ✕ was pressed.</summary>
     [Parameter]
     public EventCallback OnClose { get; set; }
+
+    /// <summary>
+    /// Which identity hue a repository alias wears, or null while the hues are switched
+    /// off — the shell's answer, handed through to the one part that draws a
+    /// repository as a band. A callback rather than a lookup, for the reason the
+    /// Sessions list takes the same one: which repositories exist and whether their
+    /// hues are on are workspace questions, not this pane's.
+    /// </summary>
+    [Parameter]
+    public Func<string?, int?>? RepositoryColour { get; set; }
 
     /// <summary>
     /// Takes the repositories the shell handed in into the scope. On every parameter
