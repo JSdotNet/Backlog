@@ -1,5 +1,3 @@
-using AngleSharp.Dom;
-
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.GitHub;
 
@@ -78,14 +76,14 @@ public sealed class DevbookPaneAreaOverviewTests : IDisposable
         await using var harness = CreateHarness();
 
         var component = harness.Render();
-        OpenDesign(component);
+        await OpenDesignAsync(component);
 
         // The section opens on a chapter, which is the pane's own rule and stays
         // one: the overview is what it shows *instead* of a chapter, never beside.
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='design-chapter-file']")));
         Assert.Empty(component.FindAll("nav[aria-label='Design documents']"));
 
-        MenuItem(component, "All documents").Click();
+        await ClickMenuItemAsync(component, "All documents");
 
         component.WaitForAssertion(() => Assert.Single(component.FindAll("nav[aria-label='Design documents']")));
 
@@ -104,16 +102,16 @@ public sealed class DevbookPaneAreaOverviewTests : IDisposable
         await using var harness = CreateHarness();
 
         var component = harness.Render();
-        OpenDesign(component);
+        await OpenDesignAsync(component);
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='design-chapter-file']")));
 
-        MenuItem(component, "All documents").Click();
+        await ClickMenuItemAsync(component, "All documents");
         component.WaitForAssertion(() => Assert.Single(component.FindAll("nav[aria-label='Design documents']")));
 
-        component.Find("#tab-arc42").Click();
+        await ClickTabAsync(component, "arc42");
         component.WaitForAssertion(() => Assert.Equal("true", component.Find("#tab-arc42").GetAttribute("aria-selected")));
 
-        component.Find("#tab-design").Click();
+        await ClickTabAsync(component, "design");
 
         // Switching section runs the pane's "make sure something is selected" pass.
         // The row's path is the folder's own, and the folder is in the tree, so
@@ -129,13 +127,13 @@ public sealed class DevbookPaneAreaOverviewTests : IDisposable
         await using var harness = CreateHarness();
 
         var component = harness.Render();
-        OpenDesign(component);
+        await OpenDesignAsync(component);
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='design-chapter-file']")));
 
-        MenuItem(component, "All documents").Click();
+        await ClickMenuItemAsync(component, "All documents");
         component.WaitForAssertion(() => Assert.Single(component.FindAll("nav[aria-label='Design documents']")));
 
-        MenuItem(component, "Colors").Click();
+        await ClickMenuItemAsync(component, "Colors");
 
         // The way out is the way in reversed, so the overview is not a mode a
         // reader can get stuck in.
@@ -167,19 +165,39 @@ public sealed class DevbookPaneAreaOverviewTests : IDisposable
     /// <summary>Puts the pane on Design. Two sections are enabled so the section
     /// strip is real, and Architecture is the earlier of them, so Design is
     /// arrived at rather than opened on.</summary>
-    private static void OpenDesign(IRenderedComponent<DevbookPane> component)
+    private static async Task OpenDesignAsync(IRenderedComponent<DevbookPane> component)
     {
         component.WaitForAssertion(() => Assert.Single(component.FindAll("#tab-design")));
-        component.Find("#tab-design").Click();
+        await ClickTabAsync(component, "design");
         component.WaitForAssertion(() => Assert.Equal("true", component.Find("#tab-design").GetAttribute("aria-selected")));
     }
 
-    /// <summary>One menu row, by the label a reader reads. Matched on the row's own
-    /// label span rather than on its text, because a folder row also carries a
-    /// twisty.</summary>
-    private static IElement MenuItem(IRenderedComponent<DevbookPane> component, string label) =>
-        component.FindAll(".devbook-menu__item")
-            .Single(item => string.Equals(item.QuerySelector(".devbook-menu__label")?.TextContent.Trim(), label, StringComparison.Ordinal));
+    /// <summary>
+    /// Presses a section tab while the pane's menu and its open section may still
+    /// be loading on the thread pool.
+    /// <para>
+    /// Find and click in one dispatch, as bUnit advises: those loads land as
+    /// renders between a <c>Find</c> on the test thread and the click that
+    /// follows, and the strip redraws on each, so the handler the found tab
+    /// carried is gone by the time the click reaches the renderer. On the
+    /// renderer's own dispatcher nothing renders in between.
+    /// </para>
+    /// </summary>
+    private static Task ClickTabAsync(IRenderedComponent<DevbookPane> component, string section) =>
+        component.InvokeAsync(() => component.Find($"#tab-{section}").Click());
+
+    /// <summary>Presses one menu row, by the label a reader reads. Matched on the
+    /// row's own label span rather than on its text, because a folder row also
+    /// carries a twisty.
+    /// <para>Found and clicked in one dispatch, for the reason
+    /// <see cref="ClickTabAsync"/> is: the menu redraws whenever a load lands —
+    /// the section's chapter, the rows themselves, the overview's files — and a
+    /// row found on the test thread has lost its handler by the time a separate
+    /// click is dispatched.</para></summary>
+    private static Task ClickMenuItemAsync(IRenderedComponent<DevbookPane> component, string label) =>
+        component.InvokeAsync(() => component.FindAll(".devbook-menu__item")
+            .Single(item => string.Equals(item.QuerySelector(".devbook-menu__label")?.TextContent.Trim(), label, StringComparison.Ordinal))
+            .Click());
 
     private Harness CreateHarness()
     {
