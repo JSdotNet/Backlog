@@ -477,6 +477,34 @@ public sealed class MetricHeatmapTests
         new("late", [new MetricPoint("w3", 25m)])
     ];
 
+    /// <summary>
+    /// The caption names the grid and the mark beside it holds the rest — what the cells
+    /// count, what they refuse, what they are not a total of. The table keeps the caption
+    /// as its accessible name: a bubble that is display: none contributes nothing to a
+    /// name, and the explanation is reached through the mark's own button instead.
+    /// </summary>
+    [Fact]
+    public void A_note_is_a_mark_beside_the_caption_and_leaves_the_grids_name_alone()
+    {
+        using var context = new BunitContext();
+
+        var heatmap = context.Render<MetricHeatmap>(parameters => parameters
+            .Add(h => h.Series, Grid)
+            .Add(h => h.Label, "Agents at once, by hour")
+            .Add(h => h.Note, "Your local clock, the last 7 days.")
+            .Add(h => h.TestId, "agents"));
+
+        var caption = heatmap.Find(".metric-heatmap__label");
+        var trigger = heatmap.Find("[data-testid='agents-info']");
+
+        Assert.StartsWith("Agents at once, by hour", caption.TextContent.Trim(), StringComparison.Ordinal);
+        Assert.Equal(caption, trigger.ParentElement?.ParentElement);
+        Assert.Equal(caption.Id, heatmap.Find("table").GetAttribute("aria-labelledby"));
+        Assert.Equal(
+            heatmap.Find("[data-testid='agents-note']").Id,
+            trigger.GetAttribute("aria-describedby"));
+    }
+
     [Fact]
     public void Rows_are_series_and_columns_are_buckets()
     {

@@ -9234,6 +9234,10 @@ select.field__input {
 }
 
 .metric-tile {
+    /* The containing block of a hinted footnote's bubble: anchored to the tile,
+       the bubble can be no wider than the tile and so can never widen the grid
+       it sits in. See .metric-tile__hint. */
+    position: relative;
     display: grid;
     align-content: start;
     min-width: 0;
@@ -9252,9 +9256,32 @@ select.field__input {
 }
 
 .metric-tile__label {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
     margin: 0;
     color: var(--chart-ink-muted);
     font-size: var(--font-size-sm);
+}
+
+/* The mark is on the label line and its bubble hangs from the tile: below it,
+   its own width, so a tile at the right-hand edge of a grid opens a caption
+   that stays inside the card. A label that has to wrap keeps the mark on the
+   last line rather than letting it push the text into a second column. */
+.metric-tile__hint,
+.metric-score__hint,
+.metric-bars__hint,
+.metric-heatmap__hint {
+    position: static;
+}
+
+.metric-tile__hint .info-hint__bubble,
+.metric-score__hint .info-hint__bubble,
+.metric-bars__hint .info-hint__bubble,
+.metric-heatmap__hint .info-hint__bubble {
+    top: calc(100% + var(--spacing-2xs));
+    left: 0;
+    max-width: min(44ch, 100%);
 }
 
 .metric-tile__value {
@@ -9394,7 +9421,12 @@ select.field__input {
     min-width: 0;
 }
 
-.metric-bars__label {
+.metric-bars__label,
+.metric-heatmap__label {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
     color: var(--chart-ink-muted);
     font-size: var(--font-size-sm);
 }
@@ -9769,11 +9801,17 @@ select.field__input {
 }
 
 .metric-score__head {
+    /* Containing block for a hinted footnote's bubble, so it opens below the whole
+       head — label, score, band — rather than over the number it is explaining. */
+    position: relative;
     display: grid;
     gap: var(--spacing-2xs);
 }
 
 .metric-score__label {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
     margin: 0;
     color: var(--chart-ink-muted);
     font-size: var(--font-size-sm);
@@ -10014,8 +10052,6 @@ select.field__input {
 
 .metric-heatmap__label {
     margin: 0;
-    color: var(--chart-ink-muted);
-    font-size: var(--font-size-sm);
 }
 
 .metric-heatmap__scroll {

@@ -662,8 +662,11 @@ public class DashboardPaneTests
         var pane = context.Render<DashboardPane>();
         var grid = Squashed(pane.Find("[data-testid='dashboard-sessions-hours']").TextContent);
 
-        Assert.Contains("by hour of your local clock", grid, StringComparison.Ordinal);
-        Assert.Contains("the last 7 days, whichever period is selected above", grid, StringComparison.Ordinal);
+        // The caption names the clock; the mark beside it carries the rest. Both are
+        // inside the grid, which is what this reads — a reader meets the refusal at the
+        // thing that will not move either way.
+        Assert.Contains("by hour", grid, StringComparison.Ordinal);
+        Assert.Contains("Your local clock, the last 7 days, whichever period is selected above", grid, StringComparison.Ordinal);
     }
 
     /// <summary>The count is in the block, not only in the tooltip. A shade is one of four
@@ -1066,7 +1069,7 @@ public class DashboardPaneTests
 
         // The bucketing rule, beside the columns it governs rather than left for a
         // reader to deduce from a total that does not add up.
-        Assert.Contains("counted in the week they last moved", bars, StringComparison.Ordinal);
+        Assert.Contains("Counted in the week they last moved", bars, StringComparison.Ordinal);
 
         // And the figures themselves, in the table the columns are only a picture of.
         Assert.Contains("W33", bars, StringComparison.Ordinal);
@@ -1215,7 +1218,8 @@ public class DashboardPaneTests
         // And it says what it counts, and that it is neither of the other two.
         var label = Squashed(agents.TextContent);
 
-        Assert.Contains("Peak agents at once, by hour of your local clock", label, StringComparison.Ordinal);
+        Assert.Contains("Agents at once, by hour", label, StringComparison.Ordinal);
+        Assert.Contains("Your local clock, the last 7 days", label, StringComparison.Ordinal);
         Assert.Contains("they are in neither grid above", label, StringComparison.Ordinal);
     }
 
@@ -1323,8 +1327,8 @@ public class DashboardPaneTests
         var pane = context.Render<DashboardPane>();
         var grid = Squashed(pane.Find("[data-testid='dashboard-sessions-hours']").TextContent);
 
-        Assert.Contains("Peak sessions producing at once", grid, StringComparison.Ordinal);
-        Assert.DoesNotContain("Peak agents running at once", grid, StringComparison.Ordinal);
+        Assert.Contains("Sessions producing at once", grid, StringComparison.Ordinal);
+        Assert.DoesNotContain("agents running at once", grid, StringComparison.Ordinal);
     }
 
     /// <summary>
