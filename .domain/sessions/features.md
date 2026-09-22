@@ -293,6 +293,132 @@ least as far back as the longest horizon a consumer can ask for
 (`.domain/sessions/naming.md#session-history`). A source that cannot reach the
 horizon it was asked still says so.
 
+## Delivery runs beside their sessions
+
+```meta
+type: feature
+status: active
+depends-on: [.domain/sessions/features.md#session-inventory]
+related: [.domain/sessions/domain.md#delivery-run, .domain/sessions/domain.md#run-attachment]
+```
+
+Show the orchestrated delivery runs an environment's dashboards recorded — which skill
+ran, what it was called, how it ended, how much it cost — in the same list as the
+sessions, because a run is a piece of work a session was doing and a reader asking
+"what has been going on here" wants both answers in one place.
+
+**One list, whichever side arrived first.** A session record and a run file describe
+the same piece of work from two sides, and either can be the one this environment
+still holds: the run's session may have aged out of the reading, or the run may belong
+to a session read on another machine. So the row is the unit of the list, not the
+session — a row is a session with the runs it drove, or a run standing on its own —
+and the reader never has to know which table to look in.
+
+The dashboards keep a run's file outside the repository, keyed by the worktree it ran
+in, and the file says nothing about which session drove it. What this context adds is
+the matching: the same worktree key derived from a session's folder, and the window
+the two were open together.
+
+### Under the session that drove it
+
+```meta
+type: sub-feature
+status: active
+related: [.domain/sessions/domain.md#run-attachment]
+```
+
+A run filed under the worktree a listed session ran in, and open while that session
+was active, is shown under that session's own row and across every column of the
+list, stacked the way a reader asks: the work it is linked to, the dashboard's status
+under it, one line of figures — stages done, output tokens, the context peak, the tool
+calls — and the skill that owned it last. The stages, the token buckets, the gauge,
+the tool activity by category and by MCP server, and the run's own title are behind a
+fold.
+
+Under the row rather than in a column, because a run is not a property of a session;
+across every column rather than inside the name cell, because a quarter of the width
+turned each of its parts into three lines while the rest of the row sat empty.
+
+On the session's row rather than in a column, because the session is the process and
+the run is the work it was tracking; and behind a fold, because a run holds ten stages
+and tens of thousands of tool calls, and a row that showed them would be a report with
+a table around it.
+
+### The work a run is linked to
+
+```meta
+type: sub-feature
+status: active
+related: [.domain/sessions/domain.md#delivery-run-reference]
+```
+
+A run names what it was for and what it produced, and both are shown on its line: the
+tracker issue it was working and the pull requests it opened, each as a reference of
+the kind this product draws for work that lives elsewhere, one per line, opening where
+it lives.
+
+The Backlog entry it was started from is not a reference beside them — **the run's own
+status is how a reader reaches it**, because the entry is where this product tracks
+the work and the status is the run's answer about that work. Pressing it hands the
+entry back to whatever holds the task list, which shows and selects it; a run that
+names no entry leaves the status a plain word.
+
+The run's own title is not shown on the line at all. A dashboard names a run after the
+work it was doing, so beside a reference to that work the title is the same sentence
+twice; it stays in the fold for a reader who wants the run's own words.
+
+Three sources, because a run file records them in three places — its own tracker
+field, the links its stages kept, the plan item in the prompt it was started with —
+and one item named twice is one reference. No state travels with them: this
+environment has not asked the tracker how the item is doing, and saying otherwise
+would be inventing a reading.
+
+### A row of its own in the same list
+
+```meta
+type: sub-feature
+status: active
+related: [.domain/sessions/features.md#say-how-much-was-left-out]
+```
+
+A run no listed session ran in is a row of the same list — named after its worktree,
+dated by the run, on the machine its file was read on, with a line saying that no
+session record backs it and which dashboard does — rather than dropped, or dressed as
+a session, or put in a table of its own.
+
+It answers every control the sessions answer: grouped by machine and by agent beside
+them, narrowed by the machine filter, and out of the live view — with no liveness
+evidence a row is Finished, and a session still running would be in the reading and
+the run would be on its row.
+
+### Only the rows with a run
+
+```meta
+type: sub-feature
+status: active
+related: [.domain/sessions/features.md#open-on-the-live-sessions]
+```
+
+One toggle narrows the list to the rows that carry a delivery run — a session that
+drove one, or a run standing on its own — for the reader who came for the work rather
+than for the sessions. A filter like the live view: the count says what it hid, it
+composes with the view and the machine filter, and it is off again on every open.
+
+### Only what the dashboard recorded
+
+```meta
+type: sub-feature
+status: active
+related: [.domain/sessions/features.md#name-the-source-that-could-not-be-read]
+```
+
+A status word is shown as the dashboard wrote it, made readable but never mapped onto
+a smaller vocabulary; a figure the file does not carry is left out rather than shown
+as zero; a stage the writer lost the name of is numbered rather than named after the
+writer's missing value. A run file cut off mid-write costs that run and nothing else,
+and a dashboard folder that cannot be read is named beside the agents that cannot be,
+in the same sentence.
+
 ## Session activity enrichment
 
 ```meta

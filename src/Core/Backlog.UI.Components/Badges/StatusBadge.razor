@@ -1,4 +1,4 @@
-<Badge Kind="@Kind" Slug="@Slug" BaseClass="@BaseClass" TestId="@TestId" CssClass="@CssClass" Title="@Title" @attributes="AdditionalAttributes">@Label</Badge>
+<Badge Kind="@Kind" Slug="@Slug" BaseClass="@BaseClass" TestId="@TestId" CssClass="@CssClass" Title="@Title" Href="@Href" @attributes="AdditionalAttributes">@Label</Badge>
 
 @code {
     [Parameter]
@@ -21,6 +21,12 @@
 
     [Parameter]
     public string? Title { get; set; }
+
+    /// <summary>Where the status leads, when it leads somewhere. Handed through to
+    /// the badge, which then renders an anchor rather than a span — a status that
+    /// names a tracker item a reader wants to open is the case that earned it.</summary>
+    [Parameter]
+    public string? Href { get; set; }
 
     [Parameter]
     public string? CssClass { get; set; }

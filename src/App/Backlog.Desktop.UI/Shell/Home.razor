@@ -1107,7 +1107,71 @@
         @<SessionsPane OnClose="CloseSurface"
                        RepositoryScope="@State.SelectedRepositoryAliases"
                        RepositoryAlias="@RepositoryAliasFor"
-                       RepositoryColour="@RepositoryColourFor" />;
+                       RepositoryColour="@RepositoryColourFor"
+                       OnOpenTask="OpenPlanEntryAsync" />;
+
+    /// <summary>
+    /// The Backlog entry a delivery run was started from, opened from the sessions
+    /// list: back to the panes, the task list on screen, that entry selected.
+    /// <para>
+    /// Here rather than in the sessions pane because an entry belongs to Tasks and
+    /// that pane holds sessions: it knows a run names an entry and nothing about how
+    /// this workspace shows one. The shell owns both, which is what makes it the one
+    /// place the two can meet.
+    /// </para>
+    /// <para>
+    /// Matched on the pair the import writes down — the plan and the item's id within
+    /// it — because that is what identifies an entry across plan versions; the plan is
+    /// stored with its sigil and the marker states the slug, so the comparison drops
+    /// it. An entry this workspace does not hold is said out loud rather than
+    /// silently doing nothing: the run was real and the entry is somewhere, just not
+    /// here.
+    /// </para>
+    /// </summary>
+    private async Task OpenPlanEntryAsync(DeliveryRunReference reference)
+    {
+        var row = State.Rows.FirstOrDefault(candidate =>
+            string.Equals(candidate.PreviewImportItemId, reference.Label, StringComparison.OrdinalIgnoreCase)
+            && InPlan(candidate, reference.Plan));
+
+        if (row is null)
+        {
+            Toasts.Publish(ToastMessage.Warning(
+                $"No entry of plan {reference.Plan} with the id {reference.Label} is in this workspace.",
+                PlanEntryMissingTestId));
+
+            return;
+        }
+
+        CloseSurface();
+        _globalPanes.TrySetEnabled(GlobalPane.Tasks, enabled: true);
+        PersistPaneSelection();
+
+        await State.SelectAsync(row);
+    }
+
+    /// <summary>
+    /// Whether an entry belongs to the plan a run names. Two ways, because an entry
+    /// can carry the plan in two: Import stamps the plan id on what it writes, and an
+    /// entry typed by hand carries the plan tag and nothing else. Either is the plan
+    /// saying so; neither is a guess.
+    /// <para>
+    /// The sigil is trimmed on both sides — the app stores a plan tag as
+    /// <c>+slug</c> and the marker states the slug bare — and a reference that names
+    /// no plan matches on the item id alone, which the caller has already compared.
+    /// </para>
+    /// </summary>
+    private static bool InPlan(EntryRow row, string? plan)
+    {
+        if (plan is null) return true;
+
+        var wanted = plan.TrimStart('+');
+
+        return string.Equals((row.ImportPlanId ?? string.Empty).TrimStart('+'), wanted, StringComparison.OrdinalIgnoreCase)
+            || row.PreviewTags.Any(tag => string.Equals(tag.TrimStart('+'), wanted, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private const string PlanEntryMissingTestId = "sessions-plan-entry-missing";
 
     private void OnSurfaceKeyDown(KeyboardEventArgs e)
     {

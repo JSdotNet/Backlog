@@ -132,6 +132,7 @@
                     <div class="sb-metric">
                         <span class="sb-label sb-metric__name">@size.Token — @(size.Value)px</span>
                         <ChevronUpIcon Size="@size.Value" TestId="@($"chevron-up-icon-{size.Value}")" />
+                        <SparklesIcon Size="@size.Value" TestId="@($"sparkles-icon-{size.Value}")" />
                     </div>
                 }
             </div>
@@ -166,6 +167,7 @@
         <ChevronUpIcon Size="12" />
         <ChevronUpIcon Size="16" />
         <ChevronUpIcon Size="20" />
+        <SparklesIcon Size="16" />
         """;
 
     private TokenReport? _tokens;

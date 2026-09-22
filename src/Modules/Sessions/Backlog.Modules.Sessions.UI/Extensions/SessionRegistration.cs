@@ -7,7 +7,8 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Backlog.Modules.Sessions.UI.Extensions;
 
 /// <summary>
-/// Wires the adapters that answer <see cref="IAgentSessionSource"/>.
+/// Wires the adapters that answer <see cref="IAgentSessionSource"/> and, beside it,
+/// <see cref="IDeliveryRunSource"/>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -56,8 +57,8 @@ public static class SessionRegistration
     private const string LocalActivitySourceKey = "activity.local";
 
     /// <summary>
-    /// This machine's own session readers, and the merged source every consumer
-    /// asks for.
+    /// This machine's own session readers, the merged source every consumer asks
+    /// for, and the reader of the delivery runs the pane shows against them.
     /// <para>
     /// <strong>The unkeyed registration is a composite from the first day rather
     /// than from the day a second source appeared</strong>, and that is the part
@@ -98,6 +99,18 @@ public static class SessionRegistration
 
         services.AddSingleton<IAgentSessionSource>(sp =>
             new CompositeAgentSessionSource([.. sp.GetKeyedServices<IAgentSessionSource>(KeyedService.AnyKey)]));
+
+        // The delivery runs go in with the sessions rather than behind a call of their
+        // own, and that is the opposite of the choice AddAgentActivitySource makes.
+        // The activity port is a separate call because a host wanting the session
+        // list is not thereby asking for hundreds of megabytes of transcript; the run
+        // files are a few tens of megabytes read by the same pane that shows the
+        // sessions, and there is no consumer of one port that does not want the
+        // other. A host that composed the pane gets both, which is what the pane
+        // injects. The port itself stays separate so the two readings can be tested
+        // and replaced apart.
+        services.AddSingleton<IDeliveryRunSource>(sp =>
+            new LocalDeliveryRunSource(sp.GetRequiredService<IDeviceIdentitySource>()));
 
         // The shell's Ask AI port, answered from the merged catalog above and
         // from nothing else — see SessionsAiContentSource for why the transcripts

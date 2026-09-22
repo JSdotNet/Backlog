@@ -300,6 +300,65 @@ Unlike a stored preference it outlives nothing: the surface holding it opens at 
 every time, and re-reading the sessions leaves the choice exactly where the reader put
 it.
 
+## Delivery Run
+
+```meta
+type: term
+status: active
+aliases: [DeliveryRun, run, orchestration run, flow run]
+related: [.domain/sessions/domain.md#delivery-run]
+```
+
+One orchestrated delivery run — a `flow-*` or `orch-*` skill driven through a
+dashboard — as that dashboard's run file records it: skill, title, status, stages,
+token usage, context gauge, tool activity.
+
+Say **delivery run** in full inside this context: "run" alone already means a stretch
+of an agent's activity here, and the two are different things that happen to share a
+word. Outside it, the dashboards' own words — orchestration run, flow run — resolve
+here.
+
+## Delivery Run Reference
+
+```meta
+type: term
+status: active
+aliases: [DeliveryRunReference, linked work, tracker item]
+related: [.domain/sessions/domain.md#delivery-run-reference]
+```
+
+What a `Delivery Run` is linked to: a Backlog entry, a tracker issue, or a pull
+request. Say **reference** for the link and **item** for the thing it points at, and
+never "the run's issue" for a pull request — the two are different kinds and the row
+labels them differently.
+
+## Run Attachment
+
+```meta
+type: term
+status: active
+aliases: [SessionRows, attached run, run-only row, stray run]
+related: [.domain/sessions/domain.md#run-attachment]
+```
+
+The reading that builds the list's `Session Row`s: it puts a `Delivery Run` on the row
+of the `Agent Session` that drove it, by the worktree key and an overlapping `Activity
+Window` together, and gives every other run a row of its own. A run nobody drove, as
+far as the list knows, is shown, not hidden.
+
+## Session Row
+
+```meta
+type: term
+status: active
+aliases: [SessionRow, row]
+related: [.domain/sessions/domain.md#session-row]
+```
+
+One row of the session list: a session with the runs it drove, or a run alone. Say
+**row** when the sentence is about the list, and **session** or **run** when it is
+about what the row rests on.
+
 ## Session Grouping
 
 ```meta

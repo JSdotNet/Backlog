@@ -32,6 +32,13 @@
     labels every column beneath it, and that is the element that says so; a
     reader on a screen reader gets the group announced as they cross into it
     rather than having to infer a boundary from a bold row.
+
+    A row may carry a second row under it, spanning every column: RowDetail. It is
+    for what belongs to the record but not to any one of its columns — a run of work
+    under a session, a note under an entry — and it spans because the alternative is
+    a paragraph folded into the first cell, where it is as wide as that column and
+    the other seven sit empty beside it. The cells stay the caller's, as ever; what
+    this owns is the tr, the colspan and the class.
 *@
 
 <div class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
@@ -95,6 +102,17 @@
                             <tr class="@RowClass(item)" @key="Key(item)" @attributes="RowAttributes?.Invoke(item)">
                                 @Row(item)
                             </tr>
+
+                            @if (RowDetail is not null)
+                            {
+                                @* Its own key, because two siblings may not share
+                                   one, and the record's key with a suffix so the
+                                   detail moves with the row it belongs to rather
+                                   than by position. *@
+                                <tr class="@(Part("row-detail"))" @key="DetailKey(item)">
+                                    <td colspan="@Columns.Count">@RowDetail(item)</td>
+                                </tr>
+                            }
                         }
                     </tbody>
                 }
@@ -125,6 +143,27 @@
     /// section expects one.</summary>
     [Parameter, EditorRequired]
     public RenderFragment<TItem> Row { get; set; } = default!;
+
+    /// <summary>
+    /// A second row under the first, spanning every column: what belongs to the
+    /// record and to no one of its columns. Null for a table whose rows are only
+    /// their cells, which is every table that had one before this existed.
+    /// <para>
+    /// A row rather than a cell in the first column, because a cell is as wide as
+    /// its column: content put there wraps inside a fraction of the table while the
+    /// rest of the row sits empty beside it. Spanning is what makes the width the
+    /// table's.
+    /// </para>
+    /// <para>
+    /// Returning nothing for a record still emits the row. A caller that wants no
+    /// detail row for some records tests for that in the fragment and the row
+    /// collapses to an empty one — or passes null and has none at all. This
+    /// component does not inspect a fragment's output to decide whether to render
+    /// it, because it cannot.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public RenderFragment<TItem>? RowDetail { get; set; }
 
     /// <summary>
     /// What identifies a row across renders. Without it Blazor keys rows by position,
@@ -211,6 +250,10 @@
     /// empty state above the single check it is.</summary>
     private IReadOnlyList<DataTableSection<TItem>> Resolved => Sections
         ?? (Items.Count == 0 ? [] : [new DataTableSection<TItem>(null, Items)]);
+
+    /// <summary>The detail row's key: the row's own, made distinct. A string, so it
+    /// cannot collide with a caller's key of another type.</summary>
+    private object DetailKey(TItem item) => $"detail:{Key(item)}";
 
     private object Key(TItem item) => RowKey?.Invoke(item) ?? item!;
 

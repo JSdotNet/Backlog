@@ -689,6 +689,8 @@ public sealed class HomeRepositoryScopeTests
         // whatever the person running it had been doing that morning — and a pane that
         // only worked with rows in it would fail here, which is the point.
         context.Services.AddSingleton<IAgentSessionSource>(new EmptySessionSource());
+        // And no delivery runs behind it, for the same reason.
+        context.Services.AddSingleton<IDeliveryRunSource>(new EmptyRunSource());
         context.Services.AddSingleton<IAppUpdateService, UnsupportedAppUpdateService>();
         context.Services.AddSingleton<IDevbookFolderSource>(devbookFolderSource);
         // The Roadmap module the way a host wires it: a real plan document under the
@@ -767,6 +769,12 @@ public sealed class HomeRepositoryScopeTests
 
         public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(AgentSessionCatalog.Empty);
+    }
+
+    private sealed class EmptyRunSource : IDeliveryRunSource
+    {
+        public Task<DeliveryRunCatalog> GetRunsAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(DeliveryRunCatalog.Empty);
     }
 
     private sealed class StubAzureFoundryChatClient : IAzureFoundryChatClient

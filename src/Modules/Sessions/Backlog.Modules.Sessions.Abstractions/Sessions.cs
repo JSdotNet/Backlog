@@ -415,11 +415,16 @@ public enum AgentSessionView
 }
 
 /// <summary>
-/// Choosing which sessions to show. A pure function over the sessions it is given,
-/// the same way <see cref="AgentSessionGroups"/> is — and the composition is view
-/// first, then grouping: a surface filters the list and groups what survived, never
-/// the other way round, so a machine with nothing live on it loses its section
-/// rather than keeping an empty one.
+/// Choosing which rows to show. A pure function over the rows it is given, the same
+/// way <see cref="AgentSessionGroups"/> is — and the composition is view first, then
+/// grouping: a surface filters the list and groups what survived, never the other way
+/// round, so a machine with nothing live on it loses its section rather than keeping
+/// an empty one.
+/// <para>
+/// Over <see cref="SessionRow"/>s rather than sessions since the list gained rows a
+/// run alone accounts for: a view that only knew sessions would have had to be
+/// applied twice, once to each half of a list that is meant to be one.
+/// </para>
 /// <para>
 /// A separate operation rather than a fourth member of
 /// <see cref="AgentSessionGrouping"/>, and that is the part worth arguing. A
@@ -433,21 +438,21 @@ public enum AgentSessionView
 public static class AgentSessionViews
 {
     /// <summary>
-    /// The sessions this view admits, in the order they were given. Ordering is the
+    /// The rows this view admits, in the order they were given. Ordering is the
     /// grouping's job; a filter that also sorted would be a second answer to what
     /// "most recently active first" means.
     /// </summary>
-    public static IReadOnlyList<AgentSession> Of(IReadOnlyList<AgentSession> sessions, AgentSessionView view)
+    public static IReadOnlyList<SessionRow> Of(IReadOnlyList<SessionRow> rows, AgentSessionView view)
     {
-        ArgumentNullException.ThrowIfNull(sessions);
+        ArgumentNullException.ThrowIfNull(rows);
 
         return view switch
         {
-            AgentSessionView.Live => [.. sessions.Where(IsLive)],
+            AgentSessionView.Live => [.. rows.Where(row => IsLive(row.State))],
 
             // The same list back, not a copy of it: All is the absence of a filter,
             // and rebuilding the list would be work done to change nothing.
-            _ => sessions
+            _ => rows
         };
     }
 
@@ -468,8 +473,17 @@ public static class AgentSessionViews
     /// full; do not read this method's name as a promise the readers all keep.
     /// </para>
     /// </summary>
-    public static bool IsLive(AgentSession session) =>
-        session.State is AgentSessionState.Running or AgentSessionState.Stalled;
+    public static bool IsLive(AgentSession session)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+
+        return IsLive(session.State);
+    }
+
+    /// <summary>The same test over a state alone, which is what a row that may have
+    /// no session behind it can offer.</summary>
+    public static bool IsLive(AgentSessionState state) =>
+        state is AgentSessionState.Running or AgentSessionState.Stalled;
 
     /// <summary>What a view is called on screen. Here rather than in the pane, for
     /// the reason <see cref="AgentSessionGroups.Label(AgentSessionKind)"/> is: a
@@ -493,8 +507,8 @@ public static class AgentSessionViews
 public sealed record AgentSessionEnvironment(string Id, string Name);
 
 /// <summary>
-/// Narrowing a set of sessions to one environment, and saying which environments
-/// there are to narrow to. A pure function over the sessions it is given, like
+/// Narrowing a set of rows to one environment, and saying which environments there
+/// are to narrow to. A pure function over the rows it is given, like
 /// <see cref="AgentSessionViews"/> beside it, and composed the same way: narrow
 /// first, then group, so an environment left out never keeps an empty section.
 /// <para>
@@ -523,37 +537,37 @@ public static class AgentSessionEnvironments
     /// deliberately, so a filter option and the section heading it corresponds to are
     /// one derivation rather than two that only have to drift once.
     /// </summary>
-    public static IReadOnlyList<AgentSessionEnvironment> Of(IReadOnlyList<AgentSession> sessions)
+    public static IReadOnlyList<AgentSessionEnvironment> Of(IReadOnlyList<SessionRow> rows)
     {
-        ArgumentNullException.ThrowIfNull(sessions);
+        ArgumentNullException.ThrowIfNull(rows);
 
         return
         [
-            .. AgentSessionGroups.Of(sessions, AgentSessionGrouping.Environment)
+            .. AgentSessionGroups.Of(rows, AgentSessionGrouping.Environment)
                 .Select(group => new AgentSessionEnvironment(
-                    group.Sessions[0].EnvironmentId,
-                    // The heading is the name the newest session carries, and it can be
+                    group.Rows[0].EnvironmentId,
+                    // The heading is the name the newest row carries, and it can be
                     // blank the way any wire field can. An option with an empty label
                     // is one a reader cannot tell from "All machines" above it, so
                     // the id stands in: it at least identifies what it narrows to.
-                    string.IsNullOrWhiteSpace(group.Name) ? group.Sessions[0].EnvironmentId : group.Name))
+                    string.IsNullOrWhiteSpace(group.Name) ? group.Rows[0].EnvironmentId : group.Name))
         ];
     }
 
     /// <summary>
-    /// The sessions on one environment, in the order they were given, or every
-    /// session when no environment is named. Keyed on the id, ordinally, because
-    /// that is how <see cref="AgentSessionGroups"/> decides which section a row is in.
+    /// The rows on one environment, in the order they were given, or every row when
+    /// no environment is named. Keyed on the id, ordinally, because that is how
+    /// <see cref="AgentSessionGroups"/> decides which section a row is in.
     /// </summary>
-    public static IReadOnlyList<AgentSession> On(IReadOnlyList<AgentSession> sessions, string? environmentId)
+    public static IReadOnlyList<SessionRow> On(IReadOnlyList<SessionRow> rows, string? environmentId)
     {
-        ArgumentNullException.ThrowIfNull(sessions);
+        ArgumentNullException.ThrowIfNull(rows);
 
         // The same list back, not a copy of it: no environment is the absence of a
         // filter, the same way AgentSessionView.All is.
-        if (string.IsNullOrWhiteSpace(environmentId)) return sessions;
+        if (string.IsNullOrWhiteSpace(environmentId)) return rows;
 
-        return [.. sessions.Where(session => string.Equals(session.EnvironmentId, environmentId, StringComparison.Ordinal))];
+        return [.. rows.Where(row => string.Equals(row.EnvironmentId, environmentId, StringComparison.Ordinal))];
     }
 }
 
@@ -583,10 +597,10 @@ public enum AgentSessionGrouping
 /// The key travels so the renderer can key on what the grouping keyed on.
 /// </para>
 /// </summary>
-public sealed record AgentSessionGroup(string? Name, IReadOnlyList<AgentSession> Sessions, string? Key = null);
+public sealed record AgentSessionGroup(string? Name, IReadOnlyList<SessionRow> Rows, string? Key = null);
 
 /// <summary>
-/// Carving the list up. A pure function over the sessions it is given: no I/O, no
+/// Carving the list up. A pure function over the rows it is given: no I/O, no
 /// clock, no state — which is what lets the grouping be tested without a
 /// filesystem underneath it, and what keeps the pane from growing a second
 /// definition of "by type".
@@ -603,12 +617,12 @@ public static class AgentSessionGroups
     /// </para>
     /// </summary>
     public static IReadOnlyList<AgentSessionGroup> Of(
-        IReadOnlyList<AgentSession> sessions,
+        IReadOnlyList<SessionRow> rows,
         AgentSessionGrouping grouping)
     {
-        ArgumentNullException.ThrowIfNull(sessions);
+        ArgumentNullException.ThrowIfNull(rows);
 
-        var ordered = sessions.OrderByDescending(session => session.LastActivityAt).ToList();
+        var ordered = rows.OrderByDescending(row => row.LastActivityAt).ToList();
 
         return grouping switch
         {
@@ -625,7 +639,7 @@ public static class AgentSessionGroups
             AgentSessionGrouping.Environment =>
             [
                 .. ordered
-                    .GroupBy(session => session.EnvironmentId, StringComparer.Ordinal)
+                    .GroupBy(row => row.EnvironmentId, StringComparer.Ordinal)
                     .Select(group => new AgentSessionGroup(group.First().Environment, [.. group], group.Key))
                     .OrderBy(group => group.Name, StringComparer.OrdinalIgnoreCase)
                     .ThenBy(group => group.Key, StringComparer.Ordinal)
@@ -633,7 +647,7 @@ public static class AgentSessionGroups
             AgentSessionGrouping.Kind =>
             [
                 .. ordered
-                    .GroupBy(session => session.Kind)
+                    .GroupBy(row => row.Kind)
                     .OrderBy(group => group.Key)
                     .Select(group => new AgentSessionGroup(Label(group.Key), [.. group], group.Key.ToString()))
             ],

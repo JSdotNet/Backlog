@@ -44,14 +44,24 @@ Nothing changes for a caller that passes neither parameter, down to the attribut
     </Story>
 
     <Story Name="StatusBadge"
-           Description="The status vocabulary is the caller's, not the library's — the badge only slugifies whatever string arrives."
+           Description="The status vocabulary is the caller's, not the library's — the badge only slugifies whatever string arrives. An address makes it an anchor, the way `Badge` above does: a status that names something a reader wants to open — the item a run finished, the build that failed — leads there rather than sitting beside a second link saying the same thing."
            Code="@StatusCode">
-        <div class="sb-row">
-            @foreach (var status in StatusValues)
-            {
-                <StatusBadge Status="@status" TestId="@($"status-{status}")" />
-            }
-            <StatusBadge Status="" Text="Unknown status" Title="Falls back to the draft slug" />
+        <div class="sb-stack">
+            <div class="sb-row">
+                @foreach (var status in StatusValues)
+                {
+                    <StatusBadge Status="@status" TestId="@($"status-{status}")" />
+                }
+                <StatusBadge Status="" Text="Unknown status" Title="Falls back to the draft slug" />
+            </div>
+            <div class="sb-row" data-testid="status-badge-linked">
+                <span class="sb-label">anchor</span>
+                <StatusBadge Status="done"
+                             Text="Done"
+                             Href="#status-badge-linked"
+                             Title="Open the work this status is about"
+                             TestId="status-linked" />
+            </div>
         </div>
     </Story>
 
@@ -202,6 +212,9 @@ The hash is still the caller's, as it always was here: `TagChip` draws exactly t
 
     private const string StatusCode = """
         <StatusBadge Status="@entry.Status" />
+
+        @* An address makes it an anchor, exactly as it does on Badge. *@
+        <StatusBadge Status="@run.Status" Href="@run.ItemUrl" />
         """;
 
     private const string FeatureStatusCode = """
