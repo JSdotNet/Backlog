@@ -128,7 +128,7 @@ public class TasksRowPickersTests
     }
 
     [Fact]
-    public async Task FinishingARowFromTheListMovesItUnderCompleted()
+    public async Task FinishingARowFromTheListLeavesItInTheOpenListUntilTicked()
     {
         using var host = await TasksPaneHost.CreateAsync();
         var row = await host.WriteEntryAsync("# Provision the box\n`task`\n");
@@ -138,13 +138,13 @@ public class TasksRowPickersTests
 
         await Picker(pane, row, "row-status-badge").ChangeAsync(new() { Value = nameof(EntryStatus.Done) });
 
-        // Done is not one more word on the row: it is what the list groups on, and a
-        // picker that set the status without the row folding away would be a second,
-        // quieter notion of finished sitting beside the circle's. The fold is shut by
-        // default, so the row leaving the open list is the whole of the evidence.
+        // Done is one more word on the row and not what the list groups on: the
+        // fold is the circle's, and a status that says the work is over leaves the
+        // row where the person can still look at it before ticking it off.
         Assert.True(row.PreviewStatus is EntryStatus.Done);
-        Assert.NotNull(pane.Find("[data-testid='entry-list-completed']"));
-        Assert.Empty(pane.FindAll($"[data-testid='{RowTestId(row)}']"));
+        Assert.False(row.IsPreviewCompleted);
+        Assert.Empty(pane.FindAll("[data-testid='entry-list-completed']"));
+        Assert.NotNull(pane.Find($"[data-testid='{RowTestId(row)}']"));
     }
 
     [Fact]

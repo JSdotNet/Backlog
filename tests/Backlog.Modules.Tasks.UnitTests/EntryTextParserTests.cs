@@ -632,6 +632,7 @@ public class EntryTextParserTests
     [InlineData("due:")]
     [InlineData("remind:2026-08-21")]
     [InlineData("myday:21/08/2026")]
+    [InlineData("completed:yesterday")]
     [InlineData("repeat:fortnightly")]
     [InlineData("repeat:0w")]
     [InlineData("after:")]
@@ -881,6 +882,48 @@ public class EntryTextParserTests
             []);
 
         Assert.Equal("# Title\n`task`\n", cleared);
+    }
+
+    // --- The tick ----------------------------------------------------------
+
+    /// <summary>The tick is its own token and never the status: `!done` says
+    /// the work is over, `completed:` says the person ticked the entry off, and
+    /// each is read without the other.</summary>
+    [Fact]
+    public void The_completed_token_is_read_beside_and_independently_of_the_status()
+    {
+        var ticked = EntryTextParser.Parse("# Title\n`task` `!in-progress` `completed:2026-09-22`\n");
+        Assert.Equal(new DateOnly(2026, 9, 22), ticked.CompletedOn);
+        Assert.Equal(EntryStatus.InProgress, ticked.Status);
+
+        var done = EntryTextParser.Parse("# Title\n`task` `!done`\n");
+        Assert.Null(done.CompletedOn);
+        Assert.Equal(EntryStatus.Done, done.Status);
+    }
+
+    [Fact]
+    public void Ticking_writes_the_completed_token_and_leaves_the_status_alone()
+    {
+        const string raw = "# Title\n`task` `!done` `due:2026-08-21`\n";
+
+        var ticked = EntryTextParser.WithCompletedOn(raw, new DateOnly(2026, 9, 22));
+        Assert.Equal("# Title\n`task` `!done` `due:2026-08-21` `completed:2026-09-22`\n", ticked);
+
+        // Unticking clears the token entirely, like every other named field, and
+        // touches nothing else — the entry goes back on the list as what it was.
+        Assert.Equal(raw, EntryTextParser.WithCompletedOn(ticked, null));
+    }
+
+    [Fact]
+    public void The_completed_token_survives_the_canonical_rewrite()
+    {
+        var entry = new TaskItem("Title", string.Empty, EntryType.Task, Priority.Medium);
+        entry.SetCompletedOn(new DateOnly(2026, 9, 22));
+
+        var rewritten = EntryTextParser.ToRawText(entry.ToDto());
+
+        Assert.Contains("`completed:2026-09-22`", rewritten, StringComparison.Ordinal);
+        Assert.Equal(new DateOnly(2026, 9, 22), EntryTextParser.Parse(rewritten).CompletedOn);
     }
 
     [Fact]

@@ -1402,24 +1402,37 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         await RewriteMetadataAsync(row, EntryTextParser.WithStatus(row.RawText, status, cascadeSubItems: true), forceWhenEqual: row.Status != status);
 
     /// <summary>
-    /// Completes the entry, or puts a completed one back to work.
+    /// Ticks the entry off on <paramref name="today"/>, or unticks it.
     /// <para>
-    /// Done and back to InProgress, which are the two moves
-    /// <c>.domain/tasks/flow.md#backlog-entry-lifecycle</c> allows either side of
-    /// the finish line. Nothing else is invented: an entry still in Draft cannot
-    /// legally reach Done, the module refuses that transition exactly as it refuses
-    /// it from the status selector, and the refusal comes back through the same
-    /// "reads as" line — the circle does not tick, and the entry says why.
+    /// The tick is its own fact and this writes only it: the status is left
+    /// exactly as it was, whichever it is. Done and Archived say the work is over
+    /// (<c>.domain/tasks/flow.md#task-lifecycle</c>); the tick says the person has
+    /// dealt with the entry, and they are two moves so that a Done entry can sit
+    /// on the open list until they have looked at it. Any status can be ticked,
+    /// so there is no refusal to explain, and unticking clears the date rather
+    /// than reopening anything — an entry that came off the list goes back on it
+    /// as whatever it still is. The day comes from the caller for the reason the
+    /// scheduling methods above give.
     /// </para>
     /// </summary>
-    public async Task ToggleDoneAsync(EntryRow row)
+    public async Task ToggleCompletedAsync(EntryRow row, DateOnly today)
     {
         ArgumentNullException.ThrowIfNull(row);
 
-        await ChangeStatusAsync(
-            row,
-            row.PreviewStatus is EntryStatus.Done ? EntryStatus.InProgress : EntryStatus.Done);
+        await ChangeCompletedAsync(row, row.IsPreviewCompleted ? null : today);
     }
+
+    /// <summary>Ticks the entry off on a day, or unticks it with null — the
+    /// non-toggling form, for a caller that knows which it means. Written the way
+    /// <see cref="ChangeMyDayAsync"/> is: the metadata line, then the save.</summary>
+    public async Task ChangeCompletedAsync(EntryRow row, DateOnly? completedOn) =>
+        await RewriteMetadataAsync(
+            row,
+            EntryTextParser.WithCompletedOn(row.RawText, completedOn),
+            // Forced through when the text already says it but the store does not
+            // yet — a tick typed into the editor and then confirmed is a save,
+            // not a no-op. The same guard <see cref="ChangeStatusAsync"/> keeps.
+            forceWhenEqual: row.CompletedOn != completedOn);
 
     /// <summary>Renames the entry — its first line, which is its title. A discrete
     /// change rather than a keystroke, so it saves immediately.</summary>
@@ -2715,6 +2728,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         row.Type = entry.Type;
         row.Priority = entry.Priority;
         row.Status = entry.Status;
+        row.CompletedOn = entry.CompletedOn;
         row.Area = entry.Area;
         row.Tags = entry.Tags;
         row.SubItemCount = entry.TotalSubItems;
@@ -2961,7 +2975,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
             .Select(row => new TaskRow(
                 row.TaskId,
                 string.Empty,
-                Done: row.PreviewStatus is EntryStatus.Done,
+                Done: row.IsPreviewCompleted,
                 DependsOn: ResolvedDependsOn(row)))
             .ToList();
 
@@ -3044,13 +3058,12 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         _selectedTags.RemoveWhere(tag => !remaining.Contains(tag));
     }
 
-    /// <summary>Done and archived are one state — "there is nothing left to do
-    /// here" — which is the pair <c>ImportPlanCommand</c> already reads together.
-    /// Off <c>PreviewStatus</c> rather than the stored status, the same reader the
-    /// status filter uses, so a status just typed into the editor counts before it is
-    /// saved.</summary>
-    private static bool IsFinished(EntryRow row) =>
-        row.PreviewStatus is EntryStatus.Done or EntryStatus.Archived;
+    /// <summary>Finished means ticked off, and only that: a Done or Archived
+    /// entry the person has not ticked is still on their list, which is the whole
+    /// reason the tick is a separate fact. Off the preview rather than the stored
+    /// text, the same reader the status filter uses, so a token just typed into
+    /// the editor counts before it is saved.</summary>
+    private static bool IsFinished(EntryRow row) => row.IsPreviewCompleted;
 
     private static string StatusWire(EntryStatus status) => status switch
     {
@@ -3154,6 +3167,11 @@ public sealed class EntryRow
     public Priority Priority { get; set; } = Priority.Medium;
 
     public EntryStatus Status { get; set; } = EntryStatus.Draft;
+
+    /// <summary>The day the entry was ticked off as the store last had it, or
+    /// null. The stored half of <see cref="PreviewCompletedOn"/>, kept so a save
+    /// can tell a tick already typed into the text from one already saved.</summary>
+    public DateOnly? CompletedOn { get; set; }
 
     /// <summary>Free-form area the entry is filed under, or null for unfiled.</summary>
     public string? Area { get; set; }
@@ -3362,6 +3380,19 @@ public sealed class EntryRow
     {
         get { Render(); return _parsed!.InMyDayOn; }
     }
+
+    /// <summary>The day the entry was ticked off, or null while it is still on
+    /// the list. A preview like the scheduling fields: the token is in the text
+    /// and a reader can type one.</summary>
+    public DateOnly? PreviewCompletedOn
+    {
+        get { Render(); return _parsed!.CompletedOn; }
+    }
+
+    /// <summary>What the checkbox shows. Deliberately not
+    /// <c>PreviewStatus is Done</c>: the tick and the lifecycle are two facts, and
+    /// this is the one the list, the Completed section and the row menu read.</summary>
+    public bool IsPreviewCompleted => PreviewCompletedOn is not null;
 
     public IReadOnlyList<string> PreviewDependsOn
     {

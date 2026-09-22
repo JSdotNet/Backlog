@@ -27,6 +27,7 @@ internal static class TaskItemMapper
         entry.RemindAt,
         entry.Recurrence,
         entry.InMyDayOn,
+        entry.CompletedOn,
         [.. entry.DependsOn],
         entry.View,
         entry.Attachment,

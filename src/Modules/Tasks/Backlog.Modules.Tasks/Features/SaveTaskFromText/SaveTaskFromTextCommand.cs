@@ -89,10 +89,10 @@ public sealed class SaveTaskFromTextCommandHandler(ITaskRepository entries, IRep
 
         await entries.SaveAsync(entry, cancellationToken);
 
-        // Deliberately no successor here, even for an entry typed straight in as
-        // `!done` with a repeat on it. Spawning is what happens when a save
-        // *completes* an occurrence, and a create has no previous state for the
-        // save to have moved it from — an entry arriving already finished is a
+        // Deliberately no successor here, even for an entry typed straight in
+        // ticked (`completed:`) with a repeat on it. Spawning is what happens when
+        // a save *completes* an occurrence, and a create has no previous state for
+        // the save to have moved it from — an entry arriving already ticked is a
         // record of something done, not an occurrence just now finishing.
         return new SavedTaskDto(entry.ToDto());
     }
@@ -106,11 +106,14 @@ public sealed class SaveTaskFromTextCommandHandler(ITaskRepository entries, IRep
         if (entry is null) return NotFound;
 
         // Read before anything is applied, because "this save completed the
-        // entry" is a statement about the step from one status to another. An
-        // entry that was already Done stays Done and spawns nothing: without this
-        // the next keystroke on a finished repeating entry would spawn a second
-        // successor, and the one after that a third.
-        var wasDone = entry.Status is EntryStatus.Done;
+        // entry" is a statement about the step from unticked to ticked. The tick,
+        // not the status: Done says the work is over, and the person may leave a
+        // Done occurrence on the list until they have ticked it — the next one is
+        // owed when they do (.domain/tasks/flow.md#recurring-task-occurrences).
+        // An entry that was already ticked stays ticked and spawns nothing:
+        // without this the next keystroke on a finished repeating entry would
+        // spawn a second successor, and the one after that a third.
+        var wasCompleted = entry.IsCompleted;
 
         TaskEntryFields.ApplyToExisting(entry, parsed);
 
@@ -118,7 +121,7 @@ public sealed class SaveTaskFromTextCommandHandler(ITaskRepository entries, IRep
 
         await entries.SaveAsync(entry, cancellationToken);
 
-        if (!wasDone && entry.Status is EntryStatus.Done && entry.Recurrence is not null)
+        if (!wasCompleted && entry.IsCompleted && entry.Recurrence is not null)
         {
             // Saved after the completed occurrence, so a failure here cannot lose
             // the completion that has already been recorded.

@@ -60,6 +60,15 @@ the task is in My Day exactly when that date is the reader's current local
 date, so the decision expires by arithmetic rather than by a timer and needs no
 clock, timezone or background sweep to retire it. My Day is not a due date - one
 is a commitment, the other is this morning's choice about what to look at.
+`completed_on` is the day the person ticked the task off, or unset while it is
+still on their list. It is deliberately not the same fact as `status`: `done`
+and `archived` say the work is over, the tick says the person has dealt with
+the task, and the two are recorded separately so that finished work can sit on
+the open list until they have looked at it. The tick carries no invariant -
+any status can be ticked, and unticking clears the date and changes nothing
+else. What "finished" means anywhere else in this context - the list's
+Completed section, tag counts, dependency readiness, the next occurrence of a
+repeat - is the tick, never the status.
 
 `depends_on` lists the tasks this one waits on. A list rather than a single
 predecessor, because a step that needs two things finished before it can start
@@ -371,9 +380,11 @@ status: proposed
 related: [.domain/tasks/domain.md#task, .domain/tasks/domain.md#taskcompleted, .domain/tasks/domain.md#occurrencespawned]
 ```
 
-Creates the next occurrence of a repeating task. When a save completes a task
-that carries a `Recurrence`, it creates a new `Task` with `due_on`
-advanced to the next date that recurrence produces.
+Creates the next occurrence of a repeating task. When a save ticks off a task
+that carries a `Recurrence` - sets `completed_on` where it was unset - it
+creates a new `Task` with `due_on` advanced to the next date that recurrence
+produces. The status reaching `done` is not what triggers it: a task whose work
+is over but which nobody has ticked spawns nothing yet.
 
 It is a service because producing the next occurrence creates a second
 aggregate instance, which an aggregate cannot do to itself: the completed task
@@ -397,7 +408,7 @@ be traced the way `source_inbox_id` traces a task back to its inbox item. What
 does not carry over is everything that was about the occurrence rather than the
 repeat: the new task starts at `ready` with its sub-items reset to `pending`,
 and with no projections, no usage history, no reminder that has already fired,
-and no `in_my_day_on`.
+no `in_my_day_on` and no `completed_on`.
 
 A repeating task therefore accumulates one completed task per occurrence.
 That is the cost of keeping the record rather than rolling a single task

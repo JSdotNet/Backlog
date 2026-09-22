@@ -195,6 +195,16 @@ public sealed class TaskItem
     /// arithmetic rather than by an overnight sweep.</summary>
     public DateOnly? InMyDayOn { get; private set; }
 
+    /// <summary>The day the person ticked this entry off, or null while it is
+    /// still on their list. Deliberately not the same fact as <see cref="Status"/>:
+    /// Done and Archived say the work is over, this says the person has dealt with
+    /// the entry — and the two are ticked separately, so an entry whose work
+    /// finished can sit unticked in the open list until they have looked at it.
+    /// A date rather than a flag so the record says when, on the same terms as
+    /// <see cref="InMyDayOn"/>. No lifecycle rule reads it: any status can be
+    /// ticked, and unticking changes nothing else.</summary>
+    public DateOnly? CompletedOn { get; private set; }
+
     /// <summary>Which reading of the body the person last asked for, or null when
     /// they have never said. Held on the aggregate and not in a view-model because
     /// the entry's markdown is canonical: the preference is written on the metadata
@@ -408,6 +418,18 @@ public sealed class TaskItem
         InMyDayOn = inMyDayOn;
         Touch();
     }
+
+    /// <summary>Ticks the entry off on a day, or unticks it. Touches nothing
+    /// else on purpose — see <see cref="CompletedOn"/>.</summary>
+    public void SetCompletedOn(DateOnly? completedOn)
+    {
+        CompletedOn = completedOn;
+        Touch();
+    }
+
+    /// <summary>Whether the person has ticked this entry off. The list's checkbox
+    /// and the Completed section read this, never <see cref="Status"/>.</summary>
+    public bool IsCompleted => CompletedOn is not null;
 
     /// <summary>
     /// Attaches a place, or detaches whatever was attached.

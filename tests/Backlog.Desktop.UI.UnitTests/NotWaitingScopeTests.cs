@@ -33,7 +33,7 @@ public sealed class NotWaitingScopeTests
     {
         var host = await TasksPaneHost.CreateAsync();
 
-        var finished = await host.WriteEntryAsync("# Provision the box\n`task` `!done`\n");
+        var finished = await host.WriteEntryAsync("# Provision the box\n`task` `!done` `completed:2026-09-22`\n");
         var unblocked = await host.WriteEntryAsync($"# Deploy it\n`task` `!ready` `after:{finished.TaskId}`\n");
         var open = await host.WriteEntryAsync("# Write the runbook\n`task` `!draft`\n");
         var blocked = await host.WriteEntryAsync($"# Publish it\n`task` `!ready` `after:{open.TaskId}`\n");
@@ -150,7 +150,7 @@ public sealed class NotWaitingScopeTests
         host.State.SetNotWaitingFilter(true);
         Assert.DoesNotContain(blocked, host.State.FilteredRows);
 
-        await host.State.ChangeStatusAsync(open, EntryStatus.Done);
+        await host.State.ToggleCompletedAsync(open, new DateOnly(2026, 9, 22));
 
         Assert.Contains(blocked, host.State.FilteredRows);
         Assert.DoesNotContain(open, host.State.FilteredRows);

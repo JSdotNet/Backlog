@@ -79,7 +79,25 @@ aliases: [TaskStatus]
 related: [.domain/tasks/domain.md#task-status]
 ```
 
-Lifecycle state of a task; see `flow.md` for the state transitions.
+Lifecycle state of a task; see `flow.md` for the state transitions. Not the
+same as being [completed](#completed): `done` and `archived` describe the work,
+the tick describes the person's list.
+
+## Completed
+
+```meta
+type: term
+status: draft
+aliases: [completed_on, tick, ticked off, checkbox]
+related: [.domain/tasks/domain.md#task, .domain/tasks/naming.md#task-status]
+```
+
+A task the person has ticked off their list, recorded as `completed_on`, the
+day it happened. Independent of `Task Status`: any status can be ticked, a
+`done` task is not completed until it is ticked, and unticking clears the day
+without changing the status. "Finished" anywhere in this context — the
+Completed section, tag counts, dependency readiness, a repeat's next occurrence
+— means this.
 
 ## Area
 
@@ -217,7 +235,7 @@ aliases: [recurrence_source_id, OccurrenceSpawned]
 related: [.domain/tasks/domain.md#occurrence-spawning]
 ```
 
-One instance of a recurring task. Completing an occurrence leaves it completed
+One instance of a recurring task. Ticking an occurrence off leaves it completed
 and spawns the next as a separate task, linked back by
 `recurrence_source_id`. A series is therefore a chain of tasks rather than one
 task that moves, so the record of each completion survives.

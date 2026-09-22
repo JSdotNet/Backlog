@@ -17,6 +17,8 @@ namespace Backlog.Desktop.UI.UnitTests;
 [Collection(WorkspaceSettingsCollection.Name)]
 public sealed class RecurrenceSuccessorInListTests
 {
+    private static readonly DateOnly Today = new(2026, 8, 21);
+
     private const string Repeating =
         "# Weekly review\n" +
         "`task` `!in-progress` `due:2026-08-21` `repeat:weekly`\n\n" +
@@ -30,14 +32,14 @@ public sealed class RecurrenceSuccessorInListTests
 
         Assert.Single(host.State.Rows);
 
-        await host.State.ChangeStatusAsync(row, EntryStatus.Done);
+        await host.State.ToggleCompletedAsync(row, Today);
 
-        // Two rows: the occurrence that was finished, and the one that follows it.
+        // Two rows: the occurrence that was ticked off, and the one that follows it.
         // The finished one stays — it is the record of what was done.
         Assert.Equal(2, host.State.Rows.Count);
-        Assert.Contains(host.State.Rows, r => r.PreviewStatus == EntryStatus.Done);
+        Assert.Contains(host.State.Rows, r => r.IsPreviewCompleted);
 
-        var successor = Assert.Single(host.State.Rows, r => r.PreviewStatus != EntryStatus.Done);
+        var successor = Assert.Single(host.State.Rows, r => !r.IsPreviewCompleted);
         Assert.Equal(new DateOnly(2026, 8, 28), successor.PreviewDueOn);
         Assert.Equal("Weekly review", successor.PreviewTitle);
     }
@@ -57,7 +59,7 @@ public sealed class RecurrenceSuccessorInListTests
         Assert.Equal(1, EntryTitles(pane));
         Assert.Empty(pane.FindAll("[data-testid='entry-list-completed']"));
 
-        await host.State.ChangeStatusAsync(row, EntryStatus.Done);
+        await host.State.ToggleCompletedAsync(row, Today);
         pane.Render();
 
         // Still one row in the open list — but a different one. The occurrence that
@@ -74,7 +76,7 @@ public sealed class RecurrenceSuccessorInListTests
     }
 
     /// <summary>The same thing when the completion arrives as typed text rather
-    /// than through the status badge. Both routes are one save, which is the point
+    /// than through the circle. Both routes are one save, which is the point
     /// of the entry being its text.</summary>
     [Fact]
     public async Task Typing_the_completion_and_leaving_the_editor_shows_the_successor()
@@ -83,7 +85,7 @@ public sealed class RecurrenceSuccessorInListTests
         var row = await host.WriteEntryAsync(Repeating);
 
         host.State.BeginEdit(row);
-        host.State.OnRawTextInput(row, Repeating.Replace("!in-progress", "!done", StringComparison.Ordinal));
+        host.State.OnRawTextInput(row, Repeating.Replace("!in-progress`", "!in-progress` `completed:2026-08-21`", StringComparison.Ordinal));
         await host.State.EndEditAsync(row);
 
         Assert.Equal(2, host.State.Rows.Count);
@@ -105,11 +107,12 @@ public sealed class RecurrenceSuccessorInListTests
         var row = await host.WriteEntryAsync(Repeating);
 
         host.State.BeginEdit(row);
-        host.State.OnRawTextInput(row, Repeating.Replace("!in-progress", "!done", StringComparison.Ordinal));
+        host.State.OnRawTextInput(row, Repeating.Replace("!in-progress`", "!in-progress` `completed:2026-08-21`", StringComparison.Ordinal));
 
         // The save the debounce would have made, made now so the test does not
-        // wait on a timer.
-        await host.State.ChangeStatusAsync(row, EntryStatus.Done);
+        // wait on a timer. The tick is already in the typed text, so this is the
+        // save of that text rather than a toggle that would take it back out.
+        await host.State.ChangeCompletedAsync(row, Today);
 
         // The successor exists in the store, and the row being edited is still the
         // same object the editor is bound to.
@@ -131,10 +134,29 @@ public sealed class RecurrenceSuccessorInListTests
         using var host = await TasksPaneHost.CreateAsync();
         var row = await host.WriteEntryAsync("# Water the plants\n`task` `!in-progress`\n\nThe big one.\n");
 
-        await host.State.ChangeStatusAsync(row, EntryStatus.Done);
+        await host.State.ToggleCompletedAsync(row, Today);
 
         // Same object, so nothing was rebuilt: a reload would have replaced it.
         Assert.Same(row, Assert.Single(host.State.Rows));
+    }
+
+    /// <summary>The status reaching Done is not a completion: the next occurrence
+    /// is owed when the person ticks this one off, not when its work is over, so
+    /// a Done repeating entry sits alone in the list until they do.</summary>
+    [Fact]
+    public async Task Reaching_Done_spawns_nothing_until_the_entry_is_ticked()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync(Repeating);
+
+        await host.State.ChangeStatusAsync(row, EntryStatus.Done);
+
+        Assert.Same(row, Assert.Single(host.State.Rows));
+        Assert.False(row.IsPreviewCompleted);
+
+        await host.State.ToggleCompletedAsync(row, Today);
+
+        Assert.Equal(2, host.State.Rows.Count);
     }
 
     /// <summary>How many entry titles are on screen, wherever the list has put them.

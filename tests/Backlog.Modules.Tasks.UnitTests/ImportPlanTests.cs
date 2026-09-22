@@ -615,6 +615,27 @@ public sealed class ImportPlanTests
         Assert.Equal("Draft title", store.Entries[firstId].Title);
     }
 
+    /// <summary>The tick is finished work on its own terms: an entry the person
+    /// ticked off while it still read Ready is neither cleared as "not started"
+    /// nor rewritten by a later plan version.</summary>
+    [Fact]
+    public async Task Reimporting_against_a_ticked_entry_leaves_it_untouched_and_counts_it_skipped()
+    {
+        var store = new InMemoryTaskRepository();
+
+        var first = await Import(store, "# Draft title\n`prompt` `#myplan` `id:step-one` `!ready`\n\nOriginal body.\n");
+        var firstId = Assert.Single(first.Entries).Id;
+        store.Entries[firstId].SetCompletedOn(new DateOnly(2026, 9, 22));
+
+        var second = await Import(store, "# Revised title\n`prompt` `#myplan` `id:step-one`\n\nRevised body.\n");
+
+        Assert.Equal(0, second.Removed);
+        Assert.Equal(1, second.Skipped);
+        Assert.Null(store.Entries[firstId].DeletedAt);
+        Assert.Equal("Draft title", store.Entries[firstId].Title);
+        Assert.Equal(EntryStatus.Ready, store.Entries[firstId].Status);
+    }
+
     /// <summary>A dependency on a skipped-but-referenced entry still resolves —
     /// a settled prompt is a real entry, even one this run leaves
     /// untouched.</summary>
