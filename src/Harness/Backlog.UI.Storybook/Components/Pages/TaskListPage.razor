@@ -131,6 +131,8 @@ Tick a row and watch the slot stay put while the section grows beneath it. A slo
     <Story Name="Tags, dates, reminders and repeats"
            Description="Each fact on the metadata line carries a glyph, and the glyph is decoration on top of the words: a screen reader hears “Reminder 09:00”, never “alarm clock emoji”. Tags render as chips rather than as more of that line.
 
+`Kind` is the one fact drawn as its glyph alone. Everywhere else the glyph says what kind of fact the words are; here the glyph *is* the fact — three kinds, three marks, learned once — and the word beside it would say the same thing on every row. The word is not dropped: it is the tooltip (“Type: prompt”) and what a screen reader hears. Both halves come from the host as a `TaskKind`, because the kinds are the host's vocabulary and this library ships no icon set to know what a “prompt” looks like; a backlog passes ✨ prompt, 📋 task and 💡 idea. It is the first thing on the line, on every row — ahead of the group, and ahead even of a blocked row's “Waiting for” — because a mark is only a mark if it is always in the same place: a reader scanning the column for the prompts finds it at the left edge or reads every row. It also stands in for the glyphs of the facts about what is *under* the title: on a row with a kind the step count and the note follow the mark directly, as words alone — “📋 2 of 5 Note”, one statement about one thing rather than three glyphs in a row, with nothing else on the line between them — while a due date, a reminder and a wait keep their own, since those glyphs are what tell “Friday” from “09:00”. A row with no kind draws every glyph as before, in the places it always had them. And the mark is on this line rather than beside the title, where `Status` goes, because a kind is what the row was filed as and does not move as work does.
+
 Which facts come forward, which stay quiet, and what happens to the line on a finished row are the rules linked above. The fields that set these values are on Inputs."
            Code="@TagCode">
         <div class="sb-menu-wide" data-testid="task-list-facts">
@@ -424,7 +426,9 @@ It exists for the row that was projected from a document the task itself does no
         new("f3", "Both, which are not the same fact", Group: "Tasks", Due: "Friday", Reminder: "09:00"),
         new("f4", "Recurring, which is a shape", Group: "Tasks", Repeats: true) { RepeatLabel = "Every weekday" },
         new("f5", "Tagged", Group: "Tasks", Tags: ["ui", "storybook"]),
-        new("f6", "Everything at once", Group: "Tasks", Due: "Friday", Reminder: "09:00", Repeats: true, InMyDay: true, StepsDone: 2, StepCount: 5, Note: true, Tags: ["ui"]) { RepeatLabel = "Weekly" },
+        new("f8", "A kind, which is what it was filed as", Group: "Tasks", Kind: new("✨", "prompt"), StepsDone: 0, StepCount: 2, Note: true),
+        new("f9", "Another kind, so the marks can be told apart", Group: "Tasks", Kind: new("💡", "idea")),
+        new("f6", "Everything at once", Group: "Tasks", Kind: new("📋", "task"), Due: "Friday", Reminder: "09:00", Repeats: true, InMyDay: true, StepsDone: 2, StepCount: 5, Note: true, Tags: ["ui"]) { RepeatLabel = "Weekly" },
         new("f7", "Finished, so nothing competes", Done: true, Group: "Tasks", Due: "Yesterday", Reminder: "08:00", Tags: ["ui"])
     ];
 
@@ -681,7 +685,7 @@ It exists for the row that was projected from a document the task itself does no
 
     private const string TagCode = """
         new TaskRow("id", "Everything at once",
-            Group: "Tasks", Due: "Friday", Reminder: "09:00",
+            Group: "Tasks", Kind: new TaskKind("📋", "task"), Due: "Friday", Reminder: "09:00",
             Repeats: true, Tags: ["ui", "storybook"])
         { RepeatLabel = "Weekly" }
         """;
