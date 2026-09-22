@@ -5713,6 +5713,95 @@ button.tag-chip__label {
     gap: var(--spacing-sm);
 }
 
+/* --- Setup steps --------------------------------------------------------- */
+/*
+  A checklist that ticks itself off as a card's fields are filled. The
+  numbering is the list's own counter so a step drawn done keeps its number:
+  the tick replaces the digit in the mark, never the position in the sequence.
+  Done is said three ways on purpose - the glyph, the muted title, and the
+  sr-only text - because a tick at secondary weight is a glyph, not a colour,
+  and reads the same to someone who cannot see green.
+*/
+
+.setup-steps {
+    list-style: none;
+    counter-reset: setup-step;
+    margin: 0 0 var(--spacing-md) 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.setup-step {
+    counter-increment: setup-step;
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-normal);
+}
+
+.setup-step__mark {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-full);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-secondary);
+}
+
+.setup-step__mark:empty::before {
+    content: counter(setup-step);
+}
+
+.setup-step--done .setup-step__mark {
+    border-color: var(--color-success-text);
+    color: var(--color-success-text);
+}
+
+.setup-step__body {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding-top: 0.125rem;
+}
+
+.setup-step__title {
+    color: var(--color-text-primary);
+}
+
+.setup-step--done .setup-step__title {
+    color: var(--color-text-secondary);
+}
+
+.setup-step__optional {
+    margin-left: var(--spacing-xs);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.setup-step__detail {
+    color: var(--color-text-secondary);
+}
+
+.setup-step__link {
+    color: var(--color-primary);
+}
+
+/* After a detail sentence the link needs the space the compiler drops between
+   the text node and the anchor; alone in the line it needs none. A class
+   rather than :not(:first-child), because the sentence is a text node and the
+   anchor is the first element child either way. */
+.setup-step__link--after-text {
+    margin-left: 0.35em;
+}
+
 /* --- Toasts -------------------------------------------------------------- */
 /*
   The host is the live region and stays in the DOM whether or not it holds

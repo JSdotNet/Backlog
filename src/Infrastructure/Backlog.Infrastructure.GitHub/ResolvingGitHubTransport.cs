@@ -18,6 +18,26 @@ public interface IGitHubConnectionProbe
     void Invalidate();
 }
 
+/// <summary>What "Test this account" found for one GitHub account: one sentence,
+/// and whether it is good news.</summary>
+public sealed record GitHubAccountCheck(bool Passed, string Summary);
+
+/// <summary>
+/// Answers "does this account's credential really authenticate as this account?"
+/// - the one thing a card cannot tell by looking at itself. A token is a token
+/// until GitHub says whose it is, and a <c>gh</c> login is a name until the CLI
+/// hands over a token for it.
+/// <para>
+/// Separate from <see cref="IGitHubConnectionProbe"/>, whose question is
+/// machine-wide, because thirty-odd test doubles implement that one and this
+/// question is only ever asked from the account card.
+/// </para>
+/// </summary>
+public interface IGitHubAccountProbe
+{
+    Task<GitHubAccountCheck> CheckAccountAsync(GitHubAccount account, CancellationToken cancellationToken = default);
+}
+
 /// <summary>
 /// Picks how to talk to GitHub, per call.
 /// <para>
@@ -35,7 +55,7 @@ public interface IGitHubConnectionProbe
 /// call for one owner's repository left as another owner and came back a 404.
 /// </para>
 /// </summary>
-public sealed class ResolvingGitHubTransport : IGitHubTransport, IGitHubConnectionProbe
+public sealed class ResolvingGitHubTransport : IGitHubTransport, IGitHubConnectionProbe, IGitHubAccountProbe
 {
     private readonly GhCliTransport _cli;
     private readonly TokenTransport _token;
@@ -106,6 +126,74 @@ public sealed class ResolvingGitHubTransport : IGitHubTransport, IGitHubConnecti
         return new GitHubConnection(
             false,
             "Not connected. Sign in with `gh auth login`, or paste a personal access token in repository settings.");
+    }
+
+    /// <summary>
+    /// Resolves the credential the way a call bound to this account would - by a
+    /// path that names the login, so the resolver's own rules apply, including its
+    /// refusal to fall through to another identity - then asks <c>GET user</c> with
+    /// it and holds GitHub's answer against the card.
+    /// </summary>
+    public async Task<GitHubAccountCheck> CheckAccountAsync(GitHubAccount account, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(account);
+
+        GitHubCredential? credential;
+        try
+        {
+            credential = await _credentials.ResolveAsync($"users/{account.Login}", cancellationToken);
+        }
+        catch (GitHubNotConfiguredException ex)
+        {
+            return new GitHubAccountCheck(false, ex.Message);
+        }
+
+        if (credential is not { IsBound: true })
+        {
+            return new GitHubAccountCheck(false, $"No credential on this machine is bound to '{account.Login}'.");
+        }
+
+        JsonElement user;
+        try
+        {
+            user = await _token.SendAsAsync(credential, HttpMethod.Get, "user", cancellationToken: cancellationToken);
+        }
+        catch (GitHubException ex)
+        {
+            return new GitHubAccountCheck(false, ex.Message);
+        }
+        catch (GitHubNotConfiguredException ex)
+        {
+            return new GitHubAccountCheck(false, ex.Message);
+        }
+
+        var login = user.ValueKind == JsonValueKind.Object
+            && user.TryGetProperty("login", out var value)
+            && value.ValueKind == JsonValueKind.String
+                ? value.GetString()
+                : null;
+
+        var endpoint = string.IsNullOrWhiteSpace(credential.ApiEndpoint)
+            ? _token.EndpointUri("user").GetLeftPart(UriPartial.Authority)
+            : credential.ApiEndpoint.Trim().TrimEnd('/');
+
+        if (login is null)
+        {
+            return new GitHubAccountCheck(false, $"GitHub at {endpoint} answered without saying whose credential this is.");
+        }
+
+        if (!GitHubAccount.IsSameLogin(login, account.Login))
+        {
+            return new GitHubAccountCheck(
+                false,
+                $"The credential for {account.Login} authenticates as {login}, not {account.Login}. Calls for {account.Login} would leave as the wrong person.");
+        }
+
+        return new GitHubAccountCheck(
+            true,
+            account.Credential is GitHubCredentialKind.GhCli
+                ? $"GitHub recognises the GitHub CLI's token as {login} at {endpoint}."
+                : $"GitHub recognises the token as {login} at {endpoint}.");
     }
 
     public async Task<JsonElement> SendAsync(

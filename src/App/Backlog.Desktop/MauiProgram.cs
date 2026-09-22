@@ -221,6 +221,7 @@ public static class MauiProgram
             credentials: sp.GetRequiredService<IGitHubCredentialResolver>(),
             accounts: sp.GetRequiredService<IGhCliAccountSource>()));
         builder.Services.AddSingleton<IGitHubConnectionProbe>(sp => sp.GetRequiredService<ResolvingGitHubTransport>());
+        builder.Services.AddSingleton<IGitHubAccountProbe>(sp => sp.GetRequiredService<ResolvingGitHubTransport>());
         // The catalog is the shell's product copy; the store is the adapter that
         // remembers the choices. Composing the two is the host's job.
         builder.Services.AddSingleton<IAppFeatureSettings>(_ => new AppFeatureSettingsStore(AppFeatures.All));
@@ -346,6 +347,7 @@ public static class MauiProgram
         // "usage-metrics" feature decides whether anything asks it.
         builder.Services.AddSingleton<ClaudeSettingsStore>();
         builder.Services.AddHttpClient<IClaudeTransport, ClaudeAdminTransport>();
+        builder.Services.AddSingleton<IClaudeAccountProbe>(sp => new ClaudeAccountProbe(sp.GetRequiredService<IClaudeTransport>()));
         builder.Services.AddSingleton<IClaudeUsageClient>(sp => new ClaudeUsageClient(
             sp.GetRequiredService<IClaudeTransport>(),
             sp.GetRequiredService<ClaudeSettingsStore>()));
