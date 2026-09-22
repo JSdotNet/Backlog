@@ -111,7 +111,7 @@ These are the parameters a `<environment_name>.bicepparam` file may set. Only `a
 | `location` | resource group location | Set when the account must live in a specific model-supported region, as `backlog-ai` does. |
 | `accountSkuName` | `S0` | Azure AI Services account SKU. |
 | `deploymentSkuName` | `GlobalStandard` | Default SKU for deployments that do not pin their own; must be available in the target subscription and region. |
-| `deploymentCapacity` | `1` | Default capacity for deployments that do not pin their own, in thousands of tokens per minute; bounded by the target subscription's quota. |
+| `deploymentCapacity` | `10` | Default capacity for deployments that do not pin their own, in thousands of tokens per minute; bounded by the target subscription's quota. |
 | `includeBalancedModel` | `false` | Deploys `gpt-5-6-sol` in addition to the required set. |
 | `includeEmbeddingModel` | `false` | Deploys `text-embedding-3-small`, which backs the knowledge database's semantic tier. Set to `true` in `backlog-ai.bicepparam`. Nothing calls it yet: the tier is wired and the database is correct without it. |
 | `includeSpeechModel` | `false` | Deploys `gpt-4o-transcribe`. Set to `true` in `backlog-ai.bicepparam`. |
