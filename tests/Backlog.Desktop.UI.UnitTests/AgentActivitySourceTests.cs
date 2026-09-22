@@ -710,6 +710,25 @@ public sealed class AgentActivitySourceTests : IDisposable
 
         Assert.Equal(expected, hit.Kind);
         Assert.Null(hit.RateLimitType);
+
+        // No block, no reset: an instant nobody wrote down is not invented.
+        Assert.Null(hit.ResetsAt);
+    }
+
+    /// <summary>The reset the block names, as an instant: the dashboard cuts its weeks on
+    /// the weekly kind's and dates the hour a five-hour wall came down by it.</summary>
+    [Fact]
+    public async Task A_refusal_with_a_block_carries_when_the_allowance_resets()
+    {
+        GivenClaudeRawTranscript(
+            "D--Repos-Backlog",
+            "dated",
+            [Assistant("dated", Yesterday, "starting"), RateLimited("dated", Yesterday.AddMinutes(1), "five_hour")],
+            lastWrite: Noon);
+
+        var hit = Assert.Single(Assert.Single((await ReadAsync()).Sessions).LimitHits);
+
+        Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1788399000), hit.ResetsAt);
     }
 
     /// <summary>

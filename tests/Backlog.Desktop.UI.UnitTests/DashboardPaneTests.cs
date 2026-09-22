@@ -462,28 +462,6 @@ public class DashboardPaneTests
         Assert.Equal(afterFirstRender, costs.Calls);
     }
 
-    /// <summary>
-    /// Claude records no repository, so the repository filter must not reach the
-    /// sessions part — a re-fetch would be harmless in itself, but a part that
-    /// re-fetches on a filter it says it ignores is a part whose sentence has stopped
-    /// being true.
-    /// </summary>
-    [Fact]
-    public void Focusing_a_repository_does_not_re_ask_the_sessions_part()
-    {
-        var sessions = new RecordingSessionInsights();
-
-        using var context = Context(configure: services =>
-            services.AddSingleton<ISessionInsights>(sessions));
-
-        var pane = context.Render<DashboardPane>();
-        var afterFirstRender = sessions.Scopes.Count;
-
-        FocusRepository(pane, "backlog-ide");
-
-        Assert.Equal(afterFirstRender, sessions.Scopes.Count);
-    }
-
     [Fact]
     public void The_sessions_part_puts_its_three_figures_on_screen()
     {
@@ -602,7 +580,7 @@ public class DashboardPaneTests
         Assert.Contains("over 8 of 12 sessions", tile, StringComparison.Ordinal);
         Assert.Contains("Copilot records no prompt count", tile, StringComparison.Ordinal);
 
-        Assert.NotNull(pane.Find("[data-testid='dashboard-sessions-prompts-bars']"));
+        Assert.NotNull(pane.Find("[data-testid='dashboard-sessions-weekly-bars-toggle-prompts-per-session']"));
     }
 
     /// <summary>
@@ -627,7 +605,7 @@ public class DashboardPaneTests
 
         Assert.Contains("—", tile, StringComparison.Ordinal);
         Assert.DoesNotContain("over 0 of", tile, StringComparison.Ordinal);
-        Assert.Empty(pane.FindAll("[data-testid='dashboard-sessions-prompts-bars']"));
+        Assert.Empty(pane.FindAll("[data-testid='dashboard-sessions-weekly-bars-toggle-prompts-per-session']"));
     }
 
     /// <summary>Seven dated days down, twenty-four hours across, and every hour present
@@ -657,7 +635,7 @@ public class DashboardPaneTests
     /// everything but this shift should have been told by its own caption.
     /// </summary>
     [Fact]
-    public void The_grid_says_it_is_the_last_seven_days_and_a_local_clock()
+    public void The_grid_says_which_week_it_is_and_a_local_clock()
     {
         using var context = Context(configure: services =>
             services.AddSingleton<ISessionInsights>(new ReadySessionInsights(Insight())));
@@ -665,11 +643,12 @@ public class DashboardPaneTests
         var pane = context.Render<DashboardPane>();
         var grid = Squashed(pane.Find("[data-testid='dashboard-sessions-hours']").TextContent);
 
-        // The caption names the clock; the mark beside it carries the rest. Both are
-        // inside the grid, which is what this reads — a reader meets the refusal at the
-        // thing that will not move either way.
-        Assert.Contains("by hour", grid, StringComparison.Ordinal);
-        Assert.Contains("Your local clock, the last 7 days, whichever period is selected above", grid, StringComparison.Ordinal);
+        // The caption names the measure; the mark beside it carries the rest. Both are
+        // inside the grid, which is what this reads — a reader meets the week it is
+        // showing, and the refusals, at the thing that will not move either way.
+        Assert.Contains("Sessions producing at once, by hour", grid, StringComparison.Ordinal);
+        Assert.Contains("Your local clock, the week of W34, picked above, as calendar days", grid, StringComparison.Ordinal);
+        Assert.Contains("A cell in the error colour is an hour Claude had walled you out for the 5-hour limit", grid, StringComparison.Ordinal);
     }
 
     /// <summary>The count is in the block, not only in the tooltip. A shade is one of four
@@ -860,7 +839,7 @@ public class DashboardPaneTests
     {
         using var context = Context(configure: services =>
             services.AddSingleton<ISessionInsights>(
-                new ReadySessionInsights(Insight() with { ActivityByHour = [] })));
+                new ReadySessionInsights(Insight() with { ActivityByHour = [], Grids = [] })));
 
         var pane = context.Render<DashboardPane>();
 
@@ -1044,8 +1023,9 @@ public class DashboardPaneTests
     }
 
     /// <summary>
-    /// The one chart on this part, and the sentence that says what a column is. Every
-    /// other part on this surface draws its series; this one used to be the exception.
+    /// A column per bucket, the quiet week among them, and the sentence that says what
+    /// a week is. A chart that drew only the weeks with something in them would put
+    /// W32 next to W34 and read as two consecutive weeks.
     /// </summary>
     [Fact]
     public void The_sessions_part_draws_a_column_per_week()
@@ -1058,24 +1038,414 @@ public class DashboardPaneTests
                     new InsightPoint("W32", 3),
                     new InsightPoint("W33", 0),
                     new InsightPoint("W34", 9)
-                ]
+                ],
+                ActiveTimePerWeek = [new("W32", 1m), new("W33", 0m), new("W34", 2m)],
+                WaitingPerWeek = [new("W32", 1m), new("W33", 0m), new("W34", 2m)]
             })));
 
         var pane = context.Render<DashboardPane>();
 
-        // A column per bucket, the quiet week among them: a chart that drew only the
-        // weeks with something in them would put W32 next to W34 and read as two
-        // consecutive weeks.
-        Assert.Equal(3, pane.FindAll("[data-testid='dashboard-sessions-bars'] .metric-bars__column").Count);
+        Assert.Equal(3, pane.FindAll("[data-testid='dashboard-sessions-weekly-bars'] .metric-stacked-bars__column").Count);
 
-        var bars = Squashed(pane.Find("[data-testid='dashboard-sessions-bars']").TextContent);
+        var chart = Squashed(pane.Find("[data-testid='dashboard-sessions-weekly-bars']").TextContent);
 
-        // The bucketing rule, beside the columns it governs rather than left for a
+        // Both bucketing rules, beside the columns they govern rather than left for a
         // reader to deduce from a total that does not add up.
-        Assert.Contains("Counted in the week they last moved", bars, StringComparison.Ordinal);
+        Assert.Contains("counted in the week the session last moved", chart, StringComparison.Ordinal);
+        Assert.Contains("placed in the week they were worked", chart, StringComparison.Ordinal);
 
         // And the figures themselves, in the table the columns are only a picture of.
-        Assert.Contains("W33", bars, StringComparison.Ordinal);
+        Assert.Contains("W33", chart, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Every tile cut by week in one chart: the two hour tiles as the stack, the four
+    /// counts as lines on a scale of their own, the legend on top because it is the
+    /// filter for both charts. Waiting starts off; the other five are on, each carrying
+    /// its own tile's figure; the total row is the columns' alone.
+    /// </summary>
+    [Fact]
+    public void The_sessions_part_stacks_the_hours_and_draws_the_counts_as_lines_over_them()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(new ReadySessionInsights(Insight())));
+
+        var pane = context.Render<DashboardPane>();
+
+        var chart = pane.Find("[data-testid='dashboard-sessions-weekly-bars']");
+
+        Assert.Contains("metric-stacked-bars--stacked", chart.ClassList);
+        Assert.Equal(2, chart.QuerySelectorAll(".metric-stacked-bars__column").Length);
+
+        // Waiting is off from the start, so one band per column and four lines.
+        Assert.All(
+            chart.QuerySelectorAll(".metric-stacked-bars__column"),
+            column => Assert.Single(column.QuerySelectorAll(".metric-stacked-bars__segment")));
+        Assert.Equal(4, chart.QuerySelectorAll("polyline.metric-stacked-bars__line").Length);
+        Assert.NotNull(chart.QuerySelector(".metric-stacked-bars__scale--right"));
+        Assert.Equal("false", chart.QuerySelector("[data-testid='dashboard-sessions-weekly-bars-toggle-waiting-for-a-prompt']")!.GetAttribute("aria-pressed"));
+
+        // The legend sits above the plot: it is the filter for the chart below too.
+        var legend = chart.QuerySelector(".metric-stacked-bars__legend")!;
+        Assert.True(legend.CompareDocumentPosition(chart.QuerySelector(".metric-stacked-bars__plot")!).HasFlag(AngleSharp.Dom.DocumentPositions.Following));
+
+        var text = Squashed(chart.TextContent);
+
+        Assert.Contains("on the right-hand scale, which is theirs alone", text, StringComparison.Ordinal);
+        Assert.Contains("The legend is the filter for this chart and the one below", text, StringComparison.Ordinal);
+        Assert.Contains("Calendar weeks from Monday, because no usage reset is known", text, StringComparison.Ordinal);
+        Assert.Contains("Agent-hours on the go", text, StringComparison.Ordinal);
+
+        foreach (var toggle in new[] { "producing", "sessions", "prompts-per-session", "sessions-at-once", "agents-at-once" })
+        {
+            Assert.Equal("true", chart.QuerySelector($"[data-testid='dashboard-sessions-weekly-bars-toggle-{toggle}']")!.GetAttribute("aria-pressed"));
+        }
+
+        Assert.Contains("5h", chart.QuerySelector("[data-testid='dashboard-sessions-weekly-bars-toggle-producing']")!.TextContent, StringComparison.Ordinal);
+        Assert.Contains("9h", chart.QuerySelector("[data-testid='dashboard-sessions-weekly-bars-toggle-waiting-for-a-prompt']")!.TextContent, StringComparison.Ordinal);
+        Assert.Contains("12", chart.QuerySelector("[data-testid='dashboard-sessions-weekly-bars-toggle-sessions']")!.TextContent, StringComparison.Ordinal);
+        Assert.Contains("peak 11", chart.QuerySelector("[data-testid='dashboard-sessions-weekly-bars-toggle-agents-at-once']")!.TextContent, StringComparison.Ordinal);
+
+        // The total is the hours shown — producing alone, with waiting off.
+        Assert.Equal(["3h", "2h"], [.. chart.QuerySelectorAll("tfoot td").Select(cell => cell.TextContent)]);
+    }
+
+    /// <summary>The week sentence names the boundary in force, in the words the reader
+    /// would use: their setting, or what the assistant reported.</summary>
+    [Fact]
+    public void The_weekly_chart_says_which_reset_cuts_its_weeks()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(new ReadySessionInsights(Insight() with
+            {
+                Week = new UsageWeekInfo(WeekSource.Configured, "Monday 14:00")
+            })));
+
+        var pane = context.Render<DashboardPane>();
+        var text = Squashed(pane.Find("[data-testid='dashboard-sessions-weekly-bars']").TextContent);
+
+        Assert.Contains("Weeks run from Monday 14:00 to the next, your configured usage reset", text, StringComparison.Ordinal);
+    }
+
+    /// <summary>Switching a measure off in the legend takes it out of the stack: the
+    /// toggle is the component's, but the part is where a reader meets it.</summary>
+    [Fact]
+    public void A_measure_switched_off_in_the_legend_leaves_the_weekly_stack()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(new ReadySessionInsights(Insight())));
+
+        var pane = context.Render<DashboardPane>();
+
+        pane.Find("[data-testid='dashboard-sessions-weekly-bars-toggle-agents-at-once']").Click();
+        pane.Find("[data-testid='dashboard-sessions-weekly-bars-toggle-waiting-for-a-prompt']").Click();
+
+        var chart = pane.Find("[data-testid='dashboard-sessions-weekly-bars']");
+
+        // One line fewer, one band more: waiting came on as agents went off.
+        Assert.Equal(3, chart.QuerySelectorAll("polyline.metric-stacked-bars__line").Length);
+        Assert.All(
+            chart.QuerySelectorAll(".metric-stacked-bars__column"),
+            column => Assert.Equal(2, column.QuerySelectorAll(".metric-stacked-bars__segment").Length));
+
+        // The same choice reaches the repository stack. With the three remaining counts
+        // switched off too, its bands are hours alone and read as durations: producing
+        // plus waiting per week.
+        pane.Find("[data-testid='dashboard-sessions-weekly-bars-toggle-sessions']").Click();
+        pane.Find("[data-testid='dashboard-sessions-weekly-bars-toggle-prompts-per-session']").Click();
+        pane.Find("[data-testid='dashboard-sessions-weekly-bars-toggle-sessions-at-once']").Click();
+
+        var repositories = pane.Find("[data-testid='dashboard-sessions-repository-bars']");
+        Assert.Equal(["9h", "5h"], [.. repositories.QuerySelectorAll("tfoot td").Select(cell => cell.TextContent)]);
+        Assert.Contains("Producing + Waiting for a prompt per week, by repository", Squashed(repositories.TextContent), StringComparison.Ordinal);
+        Assert.Contains("The measures switched on above, added up per repository and stacked", Squashed(repositories.TextContent), StringComparison.Ordinal);
+        Assert.Contains("All repositories, agent-hours", Squashed(repositories.TextContent), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The repository chart stacks what the shared legend has on — producing alone at
+    /// first — one band per repository with the unrecorded row drawn and named for
+    /// what it is. Its legend is a key, not a filter: the repositories are the header's
+    /// scope chips, and a second control here would be a second answer.
+    /// </summary>
+    [Fact]
+    public void The_repository_chart_stacks_the_selected_measures_by_repository_with_a_key_and_no_filter_of_its_own()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(new ReadySessionInsights(Insight())));
+
+        var pane = context.Render<DashboardPane>();
+
+        Assert.Empty(pane.FindAll("[data-testid='dashboard-sessions-measure']"));
+
+        var chart = pane.Find("[data-testid='dashboard-sessions-repository-bars']");
+
+        Assert.All(
+            chart.QuerySelectorAll(".metric-stacked-bars__column"),
+            column => Assert.Equal(2, column.QuerySelectorAll(".metric-stacked-bars__segment").Length));
+
+        // A key: the same entries, nothing to press.
+        var legend = chart.QuerySelector(".metric-stacked-bars__legend")!;
+        Assert.Equal("UL", legend.TagName);
+        Assert.Empty(legend.QuerySelectorAll("button"));
+
+        var text = Squashed(chart.TextContent);
+
+        // Everything but waiting is on from the start, so a band is a sum across units
+        // and the chart says so rather than printing it as a figure of something.
+        Assert.Contains("Producing + Sessions + Prompts per session + Sessions at once + Agents at once per week, by repository", text, StringComparison.Ordinal);
+        Assert.Contains("The measures switched on above, added up per repository and stacked", text, StringComparison.Ordinal);
+        Assert.Contains("a sum across units that is not a figure of anything", text, StringComparison.Ordinal);
+        Assert.Contains("is every Claude session", text, StringComparison.Ordinal);
+        Assert.Contains("Press a week to open it in the grids below", text, StringComparison.Ordinal);
+
+        Assert.Equal(
+            ["No repository recorded", "backlog"],
+            chart.QuerySelectorAll("tbody th").Select(cell => cell.TextContent));
+        Assert.Empty(chart.QuerySelectorAll("[class*='segment--identity-']"));
+
+        // The unrecorded band: 2+2+6+2+0 and 1+6+9+3+11, as plain numbers.
+        Assert.Equal(["12", "30"], [.. chart.QuerySelectorAll("tbody tr")[0].QuerySelectorAll("td").Select(cell => cell.TextContent)]);
+        Assert.Contains("42", chart.QuerySelector("[data-testid='dashboard-sessions-repository-bars-toggle-no-repository-recorded']")!.TextContent, StringComparison.Ordinal);
+        Assert.Contains("All repositories — a sum across measures, not a figure of anything", text, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Adding a count to the selection makes the band a sum across units, and the
+    /// chart says so rather than printing the number as if it were one: the figures
+    /// stop reading as durations, the total heading and the caption say what it is not.
+    /// </summary>
+    [Fact]
+    public void Adding_a_count_to_the_selection_makes_the_repository_band_a_mixed_sum_and_says_so()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(new ReadySessionInsights(Insight())));
+
+        var pane = context.Render<DashboardPane>();
+
+        // Producing + Sessions at once: 2 + 2 and 1 + 3 for the unrecorded band.
+        pane.Find("[data-testid='dashboard-sessions-weekly-bars-toggle-sessions']").Click();
+        pane.Find("[data-testid='dashboard-sessions-weekly-bars-toggle-prompts-per-session']").Click();
+        pane.Find("[data-testid='dashboard-sessions-weekly-bars-toggle-agents-at-once']").Click();
+
+        var chart = pane.Find("[data-testid='dashboard-sessions-repository-bars']");
+        var text = Squashed(chart.TextContent);
+
+        Assert.Contains("Producing + Sessions at once per week, by repository", text, StringComparison.Ordinal);
+        Assert.Contains("The measures switched on above, added up per repository and stacked", text, StringComparison.Ordinal);
+        Assert.Contains("a sum across units that is not a figure of anything", text, StringComparison.Ordinal);
+        Assert.Contains("All repositories — a sum across measures, not a figure of anything", text, StringComparison.Ordinal);
+
+        Assert.Equal(["4", "4"], [.. chart.QuerySelectorAll("tbody tr")[0].QuerySelectorAll("td").Select(cell => cell.TextContent)]);
+        Assert.Contains("8", chart.QuerySelector("[data-testid='dashboard-sessions-repository-bars-toggle-no-repository-recorded']")!.TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>With nothing selected the stack says so rather than drawing an empty
+    /// axis under a heading about repositories.</summary>
+    [Fact]
+    public void With_nothing_selected_the_repository_chart_says_so()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(new ReadySessionInsights(Insight())));
+
+        var pane = context.Render<DashboardPane>();
+
+        pane.Find("[data-testid='dashboard-sessions-weekly-bars-toggle-producing']").Click();
+        pane.Find("[data-testid='dashboard-sessions-weekly-bars-toggle-sessions']").Click();
+        pane.Find("[data-testid='dashboard-sessions-weekly-bars-toggle-prompts-per-session']").Click();
+        pane.Find("[data-testid='dashboard-sessions-weekly-bars-toggle-sessions-at-once']").Click();
+        pane.Find("[data-testid='dashboard-sessions-weekly-bars-toggle-agents-at-once']").Click();
+
+        var text = Squashed(pane.Find("[data-testid='dashboard-sessions-repository-bars']").TextContent);
+
+        Assert.Contains("Nothing selected, by repository", text, StringComparison.Ordinal);
+        Assert.Contains("Nothing selected in the legend above, so nothing to stack", text, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Pressing a week in either chart picks it for the grids: the rows become that
+    /// week's, the caption names it, the column reads as pressed in both charts, and the
+    /// five-hour refusal marked is that week's — not the latest week's.
+    /// </summary>
+    [Fact]
+    public void Pressing_a_week_in_either_chart_opens_it_in_the_grids_below()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(new ReadySessionInsights(Insight())));
+
+        var pane = context.Render<DashboardPane>();
+
+        // Opens on the latest week: its refusal is Wednesday 19th at 11.
+        Assert.Contains("W34", Squashed(pane.Find("[data-testid='dashboard-sessions-hours']").TextContent), StringComparison.Ordinal);
+        Assert.Equal("true", pane.FindAll("[data-testid='dashboard-sessions-weekly-bars'] .metric-stacked-bars__column")[1].GetAttribute("aria-pressed"));
+        var flagged = pane.FindAll("[data-testid='dashboard-sessions-hours'] .metric-heatmap__cell--flag-blocked");
+        Assert.Equal(4, flagged.Count);
+        Assert.Contains("blocked by the 5-hour limit", flagged[0].GetAttribute("title"), StringComparison.Ordinal);
+        Assert.Contains("Wed 19", Squashed(flagged[0].ParentElement!.QuerySelector("th")!.TextContent), StringComparison.Ordinal);
+
+        // Press the earlier week on the repository chart.
+        pane.FindAll("[data-testid='dashboard-sessions-repository-bars'] .metric-stacked-bars__column")[0].Click();
+
+        var grid = pane.Find("[data-testid='dashboard-sessions-hours']");
+        Assert.Contains("the week of W33, picked above", Squashed(grid.TextContent), StringComparison.Ordinal);
+        Assert.Contains("Thu 06", grid.QuerySelector("tbody th")!.TextContent, StringComparison.Ordinal);
+
+        Assert.Equal("true", pane.FindAll("[data-testid='dashboard-sessions-weekly-bars'] .metric-stacked-bars__column")[0].GetAttribute("aria-pressed"));
+        Assert.Equal("true", pane.FindAll("[data-testid='dashboard-sessions-repository-bars'] .metric-stacked-bars__column")[0].GetAttribute("aria-pressed"));
+
+        // That week's refusal: Friday 7th at 15, with no reach recorded, so one cell.
+        var earlier = Assert.Single(pane.FindAll("[data-testid='dashboard-sessions-hours'] .metric-heatmap__cell--flag-blocked"));
+        Assert.Contains("Fri 07", Squashed(earlier.ParentElement!.QuerySelector("th")!.TextContent), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A five-hour wall is drawn as far as it stood: the hour of the refusal and every
+    /// hour up to the one its window reset in carry the stripe, the refusal's own hour
+    /// the dot as well, and a weekly refusal gets a hollow dot and no stripe.
+    /// </summary>
+    [Fact]
+    public void A_five_hour_wall_is_drawn_from_the_refusal_to_the_hour_its_window_reset()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(new ReadySessionInsights(Insight())));
+
+        var pane = context.Render<DashboardPane>();
+        var grid = pane.Find("[data-testid='dashboard-sessions-hours']");
+
+        // Wednesday 19th: 11 through 14 blocked, 11 the hit as well.
+        var wednesday = grid.QuerySelectorAll("tbody tr").Single(row => row.QuerySelector("th")!.TextContent.Contains("Wed 19", StringComparison.Ordinal));
+        var cells = wednesday.QuerySelectorAll(".metric-heatmap__cell");
+
+        Assert.Equal([11, 12, 13, 14], Enumerable.Range(0, 24).Where(hour => cells[hour].ClassList.Contains("metric-heatmap__cell--flag-blocked")));
+        Assert.Contains("blocked by the 5-hour limit, from the refusal to the reset", cells[13].GetAttribute("title"), StringComparison.Ordinal);
+
+        // No mark of its own for the refusal's hour: the run's start is the moment.
+        Assert.Empty(grid.QuerySelectorAll(".metric-heatmap__cell--flag-five-hour"));
+
+        // Tuesday 18th at 9: the weekly refusal, a dot of its own kind and no stripe.
+        var tuesday = grid.QuerySelectorAll("tbody tr").Single(row => row.QuerySelector("th")!.TextContent.Contains("Tue 18", StringComparison.Ordinal));
+        var nine = tuesday.QuerySelectorAll(".metric-heatmap__cell")[9];
+
+        Assert.Contains("metric-heatmap__cell--flag-weekly", nine.ClassList);
+        Assert.DoesNotContain("metric-heatmap__cell--flag-blocked", nine.ClassList);
+        Assert.Contains("weekly limit hit", nine.GetAttribute("title"), StringComparison.Ordinal);
+
+        // Both kinds are in the legend.
+        var legend = Squashed(grid.QuerySelector(".metric-heatmap__legend")!.TextContent);
+        Assert.Contains("blocked by the 5-hour limit, from the refusal to the reset", legend, StringComparison.Ordinal);
+        Assert.Contains("weekly limit hit", legend, StringComparison.Ordinal);
+    }
+
+    /// <summary>The refusals as a tile, split by allowance, whose they are said.</summary>
+    [Fact]
+    public void The_limit_hits_tile_counts_the_refusals_by_allowance()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(new ReadySessionInsights(Insight())));
+
+        var pane = context.Render<DashboardPane>();
+        var tile = Squashed(pane.Find("[data-testid='dashboard-sessions-limit-hits']").TextContent);
+
+        Assert.Contains("Limit hits", tile, StringComparison.Ordinal);
+        Assert.Contains("9", tile, StringComparison.Ordinal);
+        Assert.Contains("8 × 5-hour · 1 × weekly", tile, StringComparison.Ordinal);
+        Assert.Contains("Copilot records none", tile, StringComparison.Ordinal);
+    }
+
+    /// <summary>Under a usage reset the grid caption says a row runs from the reset hour,
+    /// so a reader does not take a row's date for a calendar day.</summary>
+    [Fact]
+    public void Under_a_usage_reset_the_grid_says_its_rows_are_cut_at_the_reset()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(new ReadySessionInsights(Insight() with
+            {
+                Week = new UsageWeekInfo(WeekSource.Detected, "Monday 21:00")
+            })));
+
+        var pane = context.Render<DashboardPane>();
+        var text = Squashed(pane.Find("[data-testid='dashboard-sessions-hours']").TextContent);
+
+        Assert.Contains("as calendar days cut at the reset (Monday 21:00)", text, StringComparison.Ordinal);
+        Assert.Contains("the hours outside it are blank", text, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A configured repository's band wears its identity hue when the shell answers one
+    /// — the header's Colors switch, seen from this pane — and the folded bands never
+    /// do: they are not a repository, so there is no hue for them to wear.
+    /// </summary>
+    [Fact]
+    public void A_repository_band_wears_the_hue_the_shell_answers_and_the_folded_bands_do_not()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(new ReadySessionInsights(Insight())));
+
+        var pane = context.Render<DashboardPane>(parameters => parameters
+            .Add(p => p.RepositoryColour, alias => alias == "backlog" ? 2 : 5));
+
+        var chart = pane.Find("[data-testid='dashboard-sessions-repository-bars']");
+        var first = chart.QuerySelectorAll(".metric-stacked-bars__column")[0].QuerySelectorAll(".metric-stacked-bars__segment");
+
+        // Unrecorded first (most hours), then backlog.
+        Assert.DoesNotContain("metric-stacked-bars__segment--identity-5", first[0].ClassList);
+        Assert.Contains("metric-stacked-bars__segment--identity-2", first[1].ClassList);
+        Assert.Contains("metric-stacked-bars__swatch--identity-2", chart.QuerySelector("[data-testid='dashboard-sessions-repository-bars-toggle-backlog'] .metric-stacked-bars__swatch")!.ClassList);
+    }
+
+    /// <summary>
+    /// The repository scope reaches the sessions part now — for the one chart that can
+    /// honour it. The scope goes to the insight, which is where the rows are narrowed,
+    /// and the caption says the folded bands are out of it.
+    /// </summary>
+    [Fact]
+    public void Focusing_a_repository_reaches_the_sessions_part_and_the_caption_says_what_is_out()
+    {
+        var sessions = new RecordingSessionInsights();
+
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(sessions));
+
+        var pane = context.Render<DashboardPane>();
+        FocusRepository(pane, "backlog");
+
+        Assert.Contains(sessions.Scopes, scope => scope.Repositories.Contains("backlog"));
+    }
+
+    [Fact]
+    public void Under_a_repository_scope_the_caption_says_the_unrecorded_sessions_are_out()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(new ReadySessionInsights(Insight() with
+            {
+                ByRepository = [Insight().ByRepository[1]]
+            })));
+
+        var pane = context.Render<DashboardPane>();
+        FocusRepository(pane, "backlog");
+
+        var text = Squashed(pane.Find("[data-testid='dashboard-sessions-repository-bars']").TextContent);
+
+        Assert.Contains("Narrowed to the header's repository scope", text, StringComparison.Ordinal);
+        Assert.Contains("are out of it", text, StringComparison.Ordinal);
+    }
+
+    /// <summary>An axis or nothing, on the sessions chart's rule: a series that arrived
+    /// empty draws no chart rather than an empty one under tiles that report figures.</summary>
+    [Fact]
+    public void The_weekly_charts_are_not_drawn_without_an_axis()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(new ReadySessionInsights(Insight() with
+            {
+                SessionsPerWeek = [],
+                ByRepository = []
+            })));
+
+        var pane = context.Render<DashboardPane>();
+
+        Assert.Empty(pane.FindAll("[data-testid='dashboard-sessions-weekly-bars']"));
+        Assert.Empty(pane.FindAll("[data-testid='dashboard-sessions-repository-bars']"));
     }
 
     /// <summary>
@@ -1222,7 +1592,7 @@ public class DashboardPaneTests
         var label = Squashed(agents.TextContent);
 
         Assert.Contains("Agents at once, by hour", label, StringComparison.Ordinal);
-        Assert.Contains("Your local clock, the last 7 days", label, StringComparison.Ordinal);
+        Assert.Contains("Your local clock, the week of W34, picked above", label, StringComparison.Ordinal);
         Assert.Contains("they are in neither grid above", label, StringComparison.Ordinal);
     }
 
@@ -1233,7 +1603,7 @@ public class DashboardPaneTests
     {
         using var context = Context(configure: services =>
             services.AddSingleton<ISessionInsights>(
-                new ReadySessionInsights(Insight() with { ActivityByHour = [] })));
+                new ReadySessionInsights(Insight() with { ActivityByHour = [], Grids = [] })));
 
         var pane = context.Render<DashboardPane>();
 
@@ -1385,6 +1755,7 @@ public class DashboardPaneTests
             PromptsPerSession = 7.5m,
             SessionsWithPrompts = 8,
             PromptsPerSessionPerWeek = [new("W33", 6m), new("W34", 9m)],
+            SessionsPerWeek = [new("W33", 3m), new("W34", 9m)],
 
             // Different peaks in different hours, so a tile wired to the wrong record
             // renders a plausible figure and fails rather than passing quietly. 2026-08-19
@@ -1392,25 +1763,85 @@ public class DashboardPaneTests
             MostSessionsAtOnce = new ConcurrencyPeak(4, new DateOnly(2026, 8, 19), 9),
             MostAgentsAtOnce = new ConcurrencyPeak(11, new DateOnly(2026, 8, 19), 11),
             ActivityByHour = Grid(),
-            ActivityByDay =
+
+            // The four series cut by week, on the same two buckets the prompts series
+            // uses. Hours as decimals, and a stacked pair whose sum differs per week so a
+            // part that drew one series twice would show and fail.
+            ActiveTimePerWeek = [new("W33", 3m), new("W34", 2m)],
+            WaitingPerWeek = [new("W33", 6m), new("W34", 3m)],
+            MostSessionsAtOncePerWeek = [new("W33", 2m), new("W34", 4m)],
+            MostAgentsAtOncePerWeek = [new("W33", 0m), new("W34", 11m)],
+
+            // Two rows: one recorded, one for the sessions that recorded none — which
+            // is the row the part must draw rather than drop. The hours add up to the
+            // series above; the peaks deliberately do not (3 + 2 over a total of 4).
+            ByRepository =
             [
-                // The three counts differ on purpose, and deliberately do not add up: a
-                // session that ran across the edge of the working day is in both halves,
-                // so a fixture where they summed would let a part that mixed the columns
-                // up pass.
-                .. Enumerable.Range(0, 7).Select(day =>
-                    new ActivityDay(new DateOnly(2026, 8, 13).AddDays(day), day + 1, day, day + 1))
-            ]
+                new RepositoryWeekly(
+                    RepositoryWeekly.UnrecordedName,
+                    RepositoryBandKind.Unrecorded,
+                    SessionsPerWeek: [new("W33", 2m), new("W34", 6m)],
+                    PromptsPerSessionPerWeek: [new("W33", 6m), new("W34", 9m)],
+                    ActiveTimePerWeek: [new("W33", 2m), new("W34", 1m)],
+                    WaitingPerWeek: [new("W33", 6m), new("W34", 3m)],
+                    MostSessionsAtOncePerWeek: [new("W33", 2m), new("W34", 3m)],
+                    MostAgentsAtOncePerWeek: [new("W33", 0m), new("W34", 11m)]),
+                new RepositoryWeekly(
+                    "backlog",
+                    RepositoryBandKind.Configured,
+                    SessionsPerWeek: [new("W33", 1m), new("W34", 3m)],
+                    PromptsPerSessionPerWeek: [new("W33", 0m), new("W34", 0m)],
+                    ActiveTimePerWeek: [new("W33", 1m), new("W34", 1m)],
+                    WaitingPerWeek: [new("W33", 0m), new("W34", 0m)],
+                    MostSessionsAtOncePerWeek: [new("W33", 1m), new("W34", 2m)],
+                    MostAgentsAtOncePerWeek: [new("W33", 0m), new("W34", 0m)])
+            ],
+            ActivityByDay = Days(),
+
+            // Two weeks of grids, on the two buckets the series above use, the latest
+            // last — the one the part opens on. Each carries one five-hour refusal, on
+            // different cells, so a part reading the wrong week's marks shows and fails.
+            Grids =
+            [
+                new WeekGrid("2026-W33", "W33", new DateTimeOffset(2026, 8, 10, 0, 0, 0, TimeSpan.Zero), Grid(new DateOnly(2026, 8, 6)), Days(new DateOnly(2026, 8, 6)),
+                    [new LimitMark(new DateOnly(2026, 8, 7), 15, AssistantLimitKind.FiveHour, new DateTimeOffset(2026, 8, 7, 15, 20, 0, TimeSpan.Zero), new DateTimeOffset(2026, 8, 7, 17, 0, 0, TimeSpan.Zero))
+                    {
+                        UntilDay = new DateOnly(2026, 8, 7),
+                        UntilHour = 15
+                    }]),
+                new WeekGrid("2026-W34", "W34", new DateTimeOffset(2026, 8, 17, 0, 0, 0, TimeSpan.Zero), Grid(), Days(),
+                    [
+                        new LimitMark(new DateOnly(2026, 8, 19), 11, AssistantLimitKind.FiveHour, new DateTimeOffset(2026, 8, 19, 11, 40, 0, TimeSpan.Zero), new DateTimeOffset(2026, 8, 19, 14, 0, 0, TimeSpan.Zero))
+                        {
+                            UntilDay = new DateOnly(2026, 8, 19),
+                            UntilHour = 14
+                        },
+                        new LimitMark(new DateOnly(2026, 8, 18), 9, AssistantLimitKind.SevenDay, new DateTimeOffset(2026, 8, 18, 9, 5, 0, TimeSpan.Zero), new DateTimeOffset(2026, 8, 24, 21, 0, 0, TimeSpan.Zero))
+                    ])
+            ],
+
+            // Eight five-hour walls and one weekly, so the tile's split shows and a part
+            // that printed the total under either label alone would fail.
+            LimitHits = new LimitHitCounts(8, 1)
         };
+
+    /// <summary>The three counts differ on purpose, and deliberately do not add up: a
+    /// session that ran across the edge of the working day is in both halves, so a
+    /// fixture where they summed would let a part that mixed the columns up pass.</summary>
+    private static IReadOnlyList<ActivityDay> Days(DateOnly? first = null) =>
+    [
+        .. Enumerable.Range(0, 7).Select(day =>
+            new ActivityDay((first ?? new DateOnly(2026, 8, 13)).AddDays(day), day + 1, day, day + 1))
+    ];
 
     /// <summary>The full grid the part is handed in practice: seven dated days, all
     /// twenty-four hours each, quiet hours included. A fixture that omitted the quiet
     /// ones would let a part that drops them pass.</summary>
-    private static IReadOnlyList<ActivityHour> Grid() =>
+    private static IReadOnlyList<ActivityHour> Grid(DateOnly? first = null) =>
     [
         .. Enumerable.Range(0, 7).SelectMany(day => Enumerable.Range(0, 24).Select(hour =>
             new ActivityHour(
-                new DateOnly(2026, 8, 13).AddDays(day),
+                (first ?? new DateOnly(2026, 8, 13)).AddDays(day),
                 hour,
                 hour == 9 ? 4 : 0,
                 hour == 9 ? TimeSpan.FromHours(2) : TimeSpan.Zero,

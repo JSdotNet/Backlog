@@ -140,7 +140,7 @@
                          HeadingCssClass="dashboard-section__title"
                          BaseClass="dashboard-section__fold"
                          TestId="dashboard-sessions-toggle">
-                <SessionsPart Scope="_scope" />
+                <SessionsPart Scope="_scope" RepositoryColour="@RepositoryColour" />
             </FoldControl>
         </div>
 
@@ -225,6 +225,16 @@
     /// decision — the pane only reports that the ✕ was pressed.</summary>
     [Parameter]
     public EventCallback OnClose { get; set; }
+
+    /// <summary>
+    /// Which identity hue a repository alias wears, or null while the hues are switched
+    /// off — the shell's answer, handed through to the one part that draws a
+    /// repository as a band. A callback rather than a lookup, for the reason the
+    /// Sessions list takes the same one: which repositories exist and whether their
+    /// hues are on are workspace questions, not this pane's.
+    /// </summary>
+    [Parameter]
+    public Func<string?, int?>? RepositoryColour { get; set; }
 
     /// <summary>
     /// Takes the repositories the shell handed in into the scope. On every parameter

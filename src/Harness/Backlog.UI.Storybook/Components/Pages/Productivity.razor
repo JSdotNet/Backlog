@@ -170,6 +170,22 @@ It will not draw without MarkedLabel, and the pairing is the point: the label go
                        TestId="heatmap-marked" />
     </Story>
 
+    <Story Name="MetricHeatmap — a moment inside a cell"
+           Description="CellFlag is the other kind of mark: not a region a cell is inside but a moment that happened in it — the hour an allowance ran out, say. It is a dot in the cell's corner rather than an edge around it, so the two marks can share a cell without hiding each other, in the error foreground because the moment is one and it must not read as a fifth ramp step. Kinds tell apart by shape, filled against hollow, since the palette has no second colour to spend.
+
+A dot will not draw for a key the legend cannot name, and each kind's label goes into the legend, the title and the hidden text."
+           Code="@HeatmapFlaggedCode">
+        <MetricHeatmap Series="Windowed"
+                       Label="@($"Score by repository and week, last {_weeks} weeks — the weeks a repository's review budget ran out flagged")"
+                       SharedMax="MetricScoring.MaxScore"
+                       FormatValue="MetricFormat.Score"
+                       CellMarked="@RecentWeek"
+                       MarkedLabel="in the current quarter"
+                       CellFlag="@BudgetEvent"
+                       Flags="@BudgetFlags"
+                       TestId="heatmap-flagged" />
+    </Story>
+
     <Story Name="MetricSpotlight — one series against the pack"
            Description="Every repository on one plot, the subject in the brand hue and the rest muted. It answers whether the subject sits above or below the pack.
 
@@ -256,6 +272,92 @@ Turn the totals off — as below — and the two charts are indistinguishable."
                            TestId="stacked-selected" />
     </Story>
 
+    <Story Name="MetricStackedBars — hours that add up, stacked"
+           Description="Two series over the same weeks, one on the other, because their sum is a figure: an hour producing on an hour waiting is two agent-hours on the go. The hidden table prints that total for the same reason.
+
+The legend is a fused toggle group — several can be on at once, which is the shape `interaction-guidelines.md` gives a many-of-many set. Switch a series off and the columns redraw without it, the scale with them; it keeps its ramp step while it is off, so the legend a reader just learnt stays true."
+           Code="@StackedBarsCode">
+        <MetricStackedBars Series="ProductivityFixtures.AgentHoursByWeek"
+                           Label="Agent-hours per week, producing and waiting"
+                           NameHeading="Time"
+                           TotalHeading="On the go"
+                           FormatValue="ProductivityFixtures.Hours"
+                           TestId="stacked-bars" />
+    </Story>
+
+    <Story Name="MetricStackedBars — peaks that do not, side by side"
+           Description="The same component with `Mode` set to Grouped, for series whose sum was never a count of anything: the most sessions at one moment and the most agents at one moment. One session can hold several agents, so neither bounds the other, and a stack of them would draw a total nobody measured.
+
+Grouped prints no total row, and its scale is the tallest single bar rather than the tallest stack. The mode is the caller's claim about the arithmetic; the component draws the claim rather than deciding it."
+           Code="@GroupedBarsCode">
+        <MetricStackedBars Series="ProductivityFixtures.PeaksByWeek"
+                           Mode="MetricBarsMode.Grouped"
+                           Label="Most sessions and most agents at one moment, per week"
+                           NameHeading="Peak"
+                           TestId="grouped-bars" />
+    </Story>
+
+    <Story Name="MetricStackedBars — lines over the stack, on a scale of their own"
+           Description="The same hours, with the two peaks drawn as lines over them. A count over an hour is two measures on one plot — which `color-scheme.md` says to draw as two charts — and a caller who asks for it is bending that rule knowingly; what the component does about it is refuse to pretend. The lines have their own scale, printed on the right, and never share the columns', so a line's height is never read against the columns' figure.
+
+Lines tell each other apart by dash pattern, the second channel one hue leaves. Every line is a legend toggle like every band, and the total row stays the columns' alone."
+           Code="@ComboCode">
+        <MetricStackedBars Series="ProductivityFixtures.AgentHoursByWeek"
+                           Lines="ProductivityFixtures.PeaksAsLines"
+                           Label="Agent-hours per week, with the peaks as lines on the right-hand scale"
+                           NameHeading="Measure"
+                           TotalHeading="On the go"
+                           FormatValue="ProductivityFixtures.Hours"
+                           FormatLine="MetricFormat.Compact"
+                           TestId="combo-bars" />
+    </Story>
+
+    <Story Name="MetricStackedBars — a legend on top that filters two charts, and a week to pick"
+           Description="One legend for two charts: the stack's legend sits above it, its hidden set is bound to the page, and the second chart draws the same measures with a key — the same swatches and names, nothing to press — because its filter is the legend above and a second one would be a second answer.
+
+A column is a week, and with a listener bound it is pressable — a button for a keyboard as much as a pointer. The picked week reads as pressed in both charts, because both are told which it is; here the caption says which was picked."
+           Code="@SharedLegendCode">
+        <div class="sb-stack">
+            <MetricStackedBars Series="ProductivityFixtures.AgentHoursByWeek"
+                               Lines="ProductivityFixtures.PeaksAsLines"
+                               Label="Agent-hours per week — the legend above is the filter for both charts"
+                               NameHeading="Measure"
+                               TotalHeading="On the go"
+                               LegendAbove="true"
+                               Hidden="@_hiddenMeasures"
+                               HiddenChanged="@(set => _hiddenMeasures = set)"
+                               SelectedBucket="@_pickedWeek"
+                               OnBucketSelected="@(week => _pickedWeek = week)"
+                               FormatValue="ProductivityFixtures.Hours"
+                               FormatLine="MetricFormat.Compact"
+                               TestId="shared-legend-bars" />
+
+            <MetricStackedBars Series="@FilteredHours"
+                               Label="@($"The same hours under the same filter, with a key — {(_pickedWeek is null ? "no week picked" : $"{_pickedWeek} picked above")}")"
+                               NameHeading="Measure"
+                               TotalHeading="On the go"
+                               LegendInteractive="false"
+                               SelectedBucket="@_pickedWeek"
+                               OnBucketSelected="@(week => _pickedWeek = week)"
+                               FormatValue="ProductivityFixtures.Hours"
+                               TestId="shared-legend-key" />
+        </div>
+    </Story>
+
+    <Story Name="MetricStackedBars — repositories wearing their identity hues"
+           Description="A stack whose bands are repositories, with the header's Colors switch on. The band-identity set colours *which repository*, never what kind of quantity, so a band that resolves to one wears it and one that does not — an unconfigured repository, a folded 'other' band — keeps its ramp step. The caller hands over the shell's own answer through `IdentityOf`; with the switch off it hands over nothing and the whole stack is the ramp again.
+
+`color-scheme.md#band-identity-tokens` names this chart on its consumer table. The hue is a fill, as the roadmap's bars are, and never the sole carrier: the name sits beside it in the legend."
+           Code="@IdentityCode">
+        <MetricStackedBars Series="ProductivityFixtures.TimeByRepository"
+                           IdentityOf="ProductivityFixtures.IdentityOf"
+                           Label="Hours logged per week by repository, in each repository's own hue"
+                           NameHeading="Repository"
+                           TotalHeading="All repositories"
+                           FormatValue="ProductivityFixtures.Hours"
+                           TestId="identity-bars" />
+    </Story>
+
     <Story Name="Which of these to use"
            Description="All four are in the library because they answer different questions. The wrong one is not merely less pretty — it cannot express the thing being asked.">
         <div class="sb-table-scroll">
@@ -319,6 +421,33 @@ Turn the totals off — as below — and the two charts are indistinguishable."
     ];
 
     private int _weeks = 12;
+
+    /// <summary>The shared legend's hidden set and the picked week, owned by the page
+    /// because two charts read them.</summary>
+    private IReadOnlyCollection<string> _hiddenMeasures = ["Waiting for a prompt"];
+
+    private string? _pickedWeek;
+
+    /// <summary>The hours the shared legend has on, for the second chart.</summary>
+    private IReadOnlyList<MetricSeries> FilteredHours =>
+        [.. ProductivityFixtures.AgentHoursByWeek.Where(series => !_hiddenMeasures.Contains(series.Name))];
+
+    /// <summary>The kinds of moment the flagged story marks, in the legend's words.</summary>
+    private static readonly IReadOnlyList<MetricFlag> BudgetFlags =
+    [
+        new("ran-out", "review budget ran out"),
+        new("weekly", "budget topped up")
+    ];
+
+    /// <summary>A moment in a cell: the weeks a repository's review budget ran out,
+    /// which the fixture puts on the week its score dipped hardest — and the one week
+    /// it was topped up, drawn hollow.</summary>
+    private static string? BudgetEvent(string repository, string week) => (repository, week) switch
+    {
+        ("backlog", "W32") or ("spike-agents", "W34") => "ran-out",
+        ("backlog-ide", "W30") => "weekly",
+        _ => null
+    };
     private string _subject = ProductivityFixtures.Subject;
 
     private IReadOnlyList<MetricSeries> Windowed =>
@@ -391,6 +520,9 @@ Turn the totals off — as below — and the two charts are indistinguishable."
         new("MetricStackedArea",
             "What share of my time went where, week by week? Always adds to 100%.",
             "You need to know whether the work grew or shrank — a full week and a quiet one are the same height. Read the bucket totals, or a column chart beside it."),
+        new("MetricStackedBars",
+            "How did two or three quantities move together, week by week? Stacked when they add up, side by side when they do not — and any of them can be switched off. A second unit goes on as lines with a scale of their own, which is the chart rule's two-charts bent knowingly rather than a mixed axis.",
+            "More than four series of one kind — one hue has four steps and the fifth repeats the first. Repositories may wear their identity hues instead; anything else may not."),
         new("A slope or dumbbell chart",
             "Who improved most between two dates? Not built — noted as the obvious next one.",
             "Two points per repository is all it shows; anything in between is invisible.")
@@ -425,6 +557,64 @@ Turn the totals off — as below — and the two charts are indistinguishable."
         <MetricStackedArea Series="timeByRepository"
                            Selected="backlog-ide"
                            NameHeading="Repository" />
+        """;
+
+    private const string StackedBarsCode = """
+        @* Stacked is a claim that the sum is a figure, and the hidden table prints it.
+           Each series' Detail is what the legend shows beside the name. *@
+        <MetricStackedBars Series="agentHoursByWeek"
+                           Label="Agent-hours per week, producing and waiting"
+                           NameHeading="Time"
+                           TotalHeading="On the go"
+                           FormatValue="hours => $"{hours:0.#}h"" />
+        """;
+
+    private const string GroupedBarsCode = """
+        @* Grouped, for series whose sum means nothing: no total row, and the scale
+           is the tallest single bar. *@
+        <MetricStackedBars Series="peaksByWeek"
+                           Mode="MetricBarsMode.Grouped"
+                           Label="Most sessions and most agents at one moment, per week"
+                           NameHeading="Peak" />
+        """;
+
+    private const string ComboCode = """
+        @* Lines take the right-hand scale; FormatLine names their unit. *@
+        <MetricStackedBars Series="agentHoursByWeek"
+                           Lines="peaksByWeek"
+                           Label="Agent-hours per week, with the peaks as lines on the right-hand scale"
+                           NameHeading="Measure"
+                           FormatValue="hours => $"{hours:0.#}h""
+                           FormatLine="MetricFormat.Compact" />
+        """;
+
+    private const string IdentityCode = """
+        @* The shell answers which hue an alias wears, or null while the hues are off. *@
+        <MetricStackedBars Series="hoursByRepository"
+                           IdentityOf="alias => state.RepositoryColourFor(alias)"
+                           NameHeading="Repository" />
+        """;
+
+    private const string HeatmapFlaggedCode = """
+        @* A glyph in the corner for a moment inside the hour; the edge for a region
+           around it. Both need their label, and both reach the hidden text. *@
+        <MetricHeatmap Series="scoreByWeek"
+                       CellMarked="@((_, week) => IsRecent(week))"
+                       MarkedLabel="in the current quarter"
+                       CellFlag="@((repository, week) => EventIn(repository, week))"
+                       Flags="@(new MetricFlag[] { new("ran-out", "review budget ran out"), new("weekly", "budget topped up") })" />
+        """;
+
+    private const string SharedLegendCode = """
+        @* The page owns the hidden set and the picked week; both charts read them. *@
+        <MetricStackedBars Series="hours" Lines="peaks"
+                           LegendAbove="true"
+                           Hidden="@hidden" HiddenChanged="@(set => hidden = set)"
+                           SelectedBucket="@picked" OnBucketSelected="@(week => picked = week)" />
+
+        <MetricStackedBars Series="@hours.Where(one => !hidden.Contains(one.Name))"
+                           LegendInteractive="false"
+                           SelectedBucket="@picked" OnBucketSelected="@(week => picked = week)" />
         """;
 
     private const string ScoreCode = """

@@ -275,6 +275,114 @@ public sealed record AssistantSessionsInsight(
     public ConcurrencyPeak? MostAgentsAtOnce { get; init; }
 
     /// <summary>
+    /// The agent-hours of <see cref="ActiveTime"/> cut by ISO week of the window, oldest
+    /// first and one point per week, in hours — or empty exactly when
+    /// <see cref="SessionsPerWeek"/> is.
+    /// <para>
+    /// <b>Bucketed on where the hours were, not on the session.</b> The sessions series
+    /// puts a whole session in the week it last moved, because that is the only instant
+    /// every session has; the hours have an instant each, and they go in the week they
+    /// were worked. So one run across a Sunday midnight is one mark on the sessions
+    /// chart and an hour in each of two columns here, and the two charts' columns are
+    /// not the same sessions. The part says so beside the columns rather than leaving a
+    /// reader to find that the series disagree about which week a session was.
+    /// </para>
+    /// <para>
+    /// Read out of the same hour-cell sweep <see cref="ActiveTime"/> is summed from —
+    /// each cell into the ISO week of the UTC instant it starts at — so the columns add
+    /// up to the tile exactly, and the week axis is the UTC one every other week column
+    /// on the surface is drawn on. The grid is the one local thing here, and stays so.
+    /// </para>
+    /// <para>
+    /// A week nobody worked is a zero point rather than a missing one, on
+    /// <see cref="SessionsPerWeek"/>'s rule, and an init property on its precedent.
+    /// </para>
+    /// </summary>
+    public IReadOnlyList<InsightPoint> ActiveTimePerWeek { get; init; } = [];
+
+    /// <summary>
+    /// <see cref="Waiting"/> cut by ISO week, in hours, on exactly
+    /// <see cref="ActiveTimePerWeek"/>'s terms: the hours of a wait go in the weeks they
+    /// were waited, so a gap that ran over a weekend is in the weekend's week even when
+    /// the prompt that ended it arrived in the next one. Sums to the tile. Copilot's
+    /// sessions contribute nothing here for the reason the tile already gives.
+    /// </summary>
+    public IReadOnlyList<InsightPoint> WaitingPerWeek { get; init; } = [];
+
+    /// <summary>
+    /// The most sessions producing at one instant inside each ISO week of the window,
+    /// oldest first and one point per week — a maximum per column, never a sum, and
+    /// zero for a week in which nothing produced.
+    /// <para>
+    /// Read out of the same sweep <see cref="MostSessionsAtOnce"/> is, cell by cell into
+    /// the week the cell's UTC start falls in, so the tile is the tallest column. Not
+    /// summable across weeks and not addable to <see cref="MostAgentsAtOncePerWeek"/>:
+    /// the surface may draw the two side by side and may not stack them.
+    /// </para>
+    /// </summary>
+    public IReadOnlyList<InsightPoint> MostSessionsAtOncePerWeek { get; init; } = [];
+
+    /// <summary>
+    /// The most spawned agents running at one instant inside each ISO week, on
+    /// <see cref="MostSessionsAtOncePerWeek"/>'s terms and off the agents' own sweep —
+    /// never merged with the sessions', for the reason <see cref="MostAgentsAtOnce"/>
+    /// gives. Claude's alone, because Copilot spawns none.
+    /// </summary>
+    public IReadOnlyList<InsightPoint> MostAgentsAtOncePerWeek { get; init; } = [];
+
+    /// <summary>
+    /// The weekly series again, one row per repository band, ordered by producing time
+    /// descending and then by name — or empty exactly when <see cref="SessionsPerWeek"/>
+    /// is.
+    /// <para>
+    /// A band is a configured repository, named by its alias; or every recorded
+    /// repository the workspace has not configured, folded into one; or every session
+    /// that recorded none. <b>Only Copilot records a repository</b>, so that last row is
+    /// every Claude session, and it is the largest on a real profile: a surface that
+    /// dropped it would turn a chart of all sessions into a chart of Copilot's.
+    /// </para>
+    /// <para>
+    /// <b>This follows the repository scope, and the rest of the part does not.</b>
+    /// With repositories in focus only their rows are here, and the folded rows are
+    /// out — the same treatment the Sessions list gives a session it cannot place. The
+    /// totals above stay whole, because narrowing them would hide Claude's half; the
+    /// pane says so in its note.
+    /// </para>
+    /// <para>
+    /// Cut from the same sweeps as the totals, one sweep per row, so the rows' hours
+    /// add up to <see cref="ActiveTimePerWeek"/> column for column when nothing is in
+    /// focus. The peaks do not: a row's peak is the most at once <em>in that row</em>,
+    /// and two rows' peaks summed is a number of sessions that were never running
+    /// together. A surface that stacks them says so.
+    /// </para>
+    /// </summary>
+    public IReadOnlyList<RepositoryWeekly> ByRepository { get; init; } = [];
+
+    /// <summary>
+    /// Which week this insight is cut into — the reset the person configured, the one
+    /// the assistant's records last reported, or the calendar fallback — and how to say
+    /// it. Every weekly series here and every grid below is on this cut.
+    /// </summary>
+    public UsageWeekInfo Week { get; init; } = new(WeekSource.Calendar, null);
+
+    /// <summary>
+    /// One <see cref="WeekGrid"/> per week of the window, oldest first, on exactly the
+    /// buckets the weekly series are drawn on — so a column a reader picks names a
+    /// grid. Empty exactly when <see cref="ActivityByHour"/> is; that one and
+    /// <see cref="ActivityByDay"/> are the last grid here, kept for the reader who has
+    /// picked nothing.
+    /// </summary>
+    public IReadOnlyList<WeekGrid> Grids { get; init; } = [];
+
+    /// <summary>
+    /// How many times inside the window the assistant refused a request against an
+    /// allowance, by kind — the tile beside the peaks. Claude's alone, because Copilot
+    /// records none, and counted where the refusal was written, so a five-hour refusal
+    /// and the wait it started are two different facts about the same minute.
+    /// </summary>
+    public LimitHitCounts LimitHits { get; init; } = new(0, 0);
+
+    /// <summary>
     /// The gap that ends a run, as the source reported it. Carried so the footnote can
     /// name the source's number rather than keeping a second copy of it: the answer
     /// moves under this constant, so a surface quoting a stale copy of it would be

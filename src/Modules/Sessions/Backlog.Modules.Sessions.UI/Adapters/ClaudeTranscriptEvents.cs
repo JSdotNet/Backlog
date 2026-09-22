@@ -150,7 +150,17 @@ internal static class ClaudeTranscriptEvents
                 ? name.GetString()
                 : null;
 
-        return new AgentLimitHit(at, type is null ? KindOf(TextOf(root)) : KindOf(type), type);
+        // The reset instant, from the same optional block, in Unix seconds. Absent or
+        // malformed reads as null rather than as an instant nothing wrote down.
+        var resetsAt = root.TryGetProperty("quotaLimits", out var limits)
+            && limits.ValueKind is JsonValueKind.Object
+            && limits.TryGetProperty("resetsAt", out var reset)
+            && reset.ValueKind is JsonValueKind.Number
+            && reset.TryGetInt64(out var seconds)
+                ? DateTimeOffset.FromUnixTimeSeconds(seconds)
+                : (DateTimeOffset?)null;
+
+        return new AgentLimitHit(at, type is null ? KindOf(TextOf(root)) : KindOf(type), type) { ResetsAt = resetsAt };
     }
 
     /// <summary>The refusal's own sentence — the first text block of the message, or

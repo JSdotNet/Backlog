@@ -69,7 +69,7 @@ public class AgentActivityCacheTests : IDisposable
         {
             LimitHits =
             [
-                new AgentLimitHit(At(9), AgentLimitKind.FiveHour, "five_hour"),
+                new AgentLimitHit(At(9), AgentLimitKind.FiveHour, "five_hour") { ResetsAt = At(13) },
                 new AgentLimitHit(At(10), AgentLimitKind.WeeklyFable, "seven_day_overage_included"),
                 new AgentLimitHit(At(11), AgentLimitKind.Other, "seven_day_opus"),
                 new AgentLimitHit(At(12), AgentLimitKind.Other, null)
@@ -87,6 +87,9 @@ public class AgentActivityCacheTests : IDisposable
                 (At(12), AgentLimitKind.Other, (string?)null)
             ],
             read.LimitHits.Select(hit => (hit.At, hit.Kind, hit.RateLimitType)));
+
+        // The reset rides along where there was one and stays null where there was not.
+        Assert.Equal([At(13), null, null, null], read.LimitHits.Select(hit => hit.ResetsAt));
     }
 
     [Fact]

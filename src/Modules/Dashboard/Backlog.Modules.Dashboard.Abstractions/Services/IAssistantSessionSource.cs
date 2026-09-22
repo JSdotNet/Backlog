@@ -69,6 +69,17 @@ public sealed record AssistantSession(
     /// </para>
     /// </summary>
     public int? Prompts { get; init; }
+
+    /// <summary>
+    /// <c>owner/name</c> where the assistant recorded it against the session, and null
+    /// where it did not — which today is every Claude session, because Claude writes a
+    /// working folder and no repository, and the Sessions context refuses to guess one
+    /// from a path. Null crosses as null: a surface grouping on this shows the
+    /// unrecorded sessions as one band named for the fact rather than dropping them or
+    /// attributing them to a guess.
+    /// <para>An init property on <see cref="Prompts"/>' precedent.</para>
+    /// </summary>
+    public string? Repository { get; init; }
 }
 
 /// <summary>

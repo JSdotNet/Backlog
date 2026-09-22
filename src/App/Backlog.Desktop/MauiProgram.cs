@@ -116,6 +116,11 @@ public static class MauiProgram
         // file beside the two above, for the same reason theirs are not in
         // settings.json.
         builder.Services.AddSingleton<IWorkingHoursSettings, WorkingHoursSettingsStore>();
+        // When the assistant's weekly allowance resets, as the person read it off the
+        // assistant's own usage screen. The same kind of port as the working week, for
+        // the same reason: the settings screen writes it and the dashboard cuts its
+        // weeks with it. Null until set, and detection stands in.
+        builder.Services.AddSingleton<IUsageResetSettings, UsageResetSettingsStore>();
         // Which surface the shell was last showing, so it reopens there instead
         // of always defaulting to the workspace panes.
         builder.Services.AddSingleton<ShellNavigationStore>();

@@ -84,7 +84,7 @@ public sealed class AgentActivityCache(Func<string> cacheRoot) : IAgentActivityC
                 [.. stored.Waits.Select(wait => new AgentActivityWait(wait.From, wait.To))],
                 TimeSpan.FromTicks(stored.IdleAfterTicks))
             {
-                LimitHits = [.. stored.LimitHits.Select(hit => new AgentLimitHit(hit.At, KindOf(hit.Kind), hit.RateLimitType))]
+                LimitHits = [.. stored.LimitHits.Select(hit => new AgentLimitHit(hit.At, KindOf(hit.Kind), hit.RateLimitType) { ResetsAt = hit.ResetsAt })]
             };
         }
         catch (Exception exception) when (exception is JsonException or IOException or UnauthorizedAccessException)
@@ -115,7 +115,7 @@ public sealed class AgentActivityCache(Func<string> cacheRoot) : IAgentActivityC
                     IdleAfterTicks = entry.IdleAfter.Ticks,
                     Runs = [.. entry.Runs.Select(run => new StoredInterval { From = run.StartedAt, To = run.EndedAt })],
                     Waits = [.. entry.Waits.Select(wait => new StoredInterval { From = wait.StartedAt, To = wait.EndedAt })],
-                    LimitHits = [.. entry.LimitHits.Select(hit => new StoredLimitHit { At = hit.At, Kind = hit.Kind.ToString(), RateLimitType = hit.RateLimitType })]
+                    LimitHits = [.. entry.LimitHits.Select(hit => new StoredLimitHit { At = hit.At, Kind = hit.Kind.ToString(), RateLimitType = hit.RateLimitType, ResetsAt = hit.ResetsAt })]
                 },
                 JsonOptions));
         }
@@ -201,6 +201,8 @@ public sealed class AgentActivityCache(Func<string> cacheRoot) : IAgentActivityC
         public string Kind { get; init; } = "";
 
         public string? RateLimitType { get; init; }
+
+        public DateTimeOffset? ResetsAt { get; init; }
     }
 
     /// <summary>The kind back from its stored name. A name this version does not know

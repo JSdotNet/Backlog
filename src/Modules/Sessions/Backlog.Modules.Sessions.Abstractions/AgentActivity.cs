@@ -80,7 +80,17 @@ public enum AgentLimitKind
 /// Kept on every hit, not only the <see cref="AgentLimitKind.Other"/> ones, so the
 /// mapping can be checked against what it mapped, and so a null says which of the
 /// two readings a kind came from.</param>
-public sealed record AgentLimitHit(DateTimeOffset At, AgentLimitKind Kind, string? RateLimitType);
+public sealed record AgentLimitHit(DateTimeOffset At, AgentLimitKind Kind, string? RateLimitType)
+{
+    /// <summary>
+    /// When the assistant said the refused allowance would reset — <c>quotaLimits.resetsAt</c>,
+    /// Unix seconds on the wire — or null for a refusal written without the block.
+    /// Carried for the dashboard: a weekly kind's reset recurs every seven days and is the
+    /// boundary it cuts its weeks on, and a five-hour kind's reset is the hour the wall it
+    /// put up came down. An init property so the positional shape above stays as it is.
+    /// </summary>
+    public DateTimeOffset? ResetsAt { get; init; }
+}
 
 /// <summary>
 /// What one session was doing, as its own transcript records it.

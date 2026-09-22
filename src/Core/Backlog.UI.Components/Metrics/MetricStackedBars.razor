@@ -1,0 +1,711 @@
+@using Microsoft.AspNetCore.Components.Web
+@*
+    Several series over the same buckets, as columns — stacked when their sum is a
+    figure, side by side when it is not — with, optionally, more series drawn as lines
+    over them on a second axis.
+
+    The mode is the caller's claim about the arithmetic, and the component draws the
+    claim rather than deciding it. Two durations stack: an hour producing and an hour
+    waiting are two hours of something. Two peaks do not: the most sessions at once and
+    the most agents at once never add up to anything that happened, and a stack of them
+    would draw a total nobody measured. So Stacked puts a total row in the hidden
+    table and Grouped does not, and the scale is the tallest stack in one and the
+    tallest single column in the other.
+
+    Lines are the second population, on the right-hand axis. A count drawn over an
+    hour is two measures on one plot — which color-scheme.md's chart rule says to draw
+    as two charts — and the caller who asks for it is bending that rule knowingly. What
+    this component does about it is refuse to pretend: the lines have their own scale,
+    printed on the right, and never share the columns' one, so a line's height is never
+    read against the columns' figure. They are drawn in ink rather than the hue — a
+    ramp step over a ramp step disappears where the two agree — and tell each other
+    apart by dash pattern, the one channel left once colour is spoken for.
+
+    The legend is a set of pressed buttons, not a key. Each series — column or line —
+    can be switched off and the chart redraws without it, each scale with its own
+    population, so what is left fills the height it has. Several can be on at once, so
+    the group is the fused shape interaction-guidelines.md gives a many-of-many set,
+    and aria-pressed is the state rather than the tint. A series keeps its ramp step
+    while it is off: hiding the second band must not recolour the third, or the legend
+    a reader just learnt is wrong the moment they use it.
+
+    One hue, four ramp steps, on MetricStackedArea's rule — past the fourth series the
+    ramp repeats and the legend is the only thing telling two apart. Below four the
+    steps are spread rather than taken from the bottom: two series get steps 2 and 4,
+    because steps 1 and 2 sit one shade apart and two bands one shade apart read as
+    one band with a seam. The one exception to the hue is an identity: a caller whose
+    columns are repositories may hand over IdentityOf, and a band that resolves to a
+    band-identity token wears it — color-scheme.md's band identity set, whose consumer
+    table names this chart. That colours which repository, never what kind of
+    quantity, which is the line the single-hue rule draws. Columns are CSS boxes rather
+    than SVG for MetricBars' reason: the axis labels stay real text.
+
+    Every figure is in a visually-hidden table, series by row. The picture is
+    aria-hidden; the table is the component's answer to the rule that a number drawn
+    only as a height is not readable. Hidden series leave the table too — the table
+    describes the picture the reader chose, and a row the picture has no column for
+    would be a second chart under the first.
+*@
+
+<figure class="@ClassValue" style="@StyleValue" data-testid="@TestId" @attributes="AdditionalAttributes">
+    @if (!string.IsNullOrWhiteSpace(Label))
+    {
+        <figcaption class="@(Part("label"))">
+            @Label
+            @if (!string.IsNullOrWhiteSpace(Note))
+            {
+                @* The caption says what the columns are; the mark holds what a reader
+                   would otherwise get wrong about them. Two sentences of that under
+                   every chart is what a dashboard reads as prose for. *@
+                <InfoHint AriaLabel="@($"About {Label}")"
+                          Text="@Note"
+                          CssClass="@(Part("hint"))"
+                          TriggerTestId="@(TestId is null ? null : TestId + "-info")"
+                          TooltipTestId="@(TestId is null ? null : TestId + "-note")" />
+            }
+        </figcaption>
+    }
+
+    @if (Bands.Count == 0 && LineBands.Count == 0)
+    {
+        <MetricStatus Kind="MetricStatusKind.Empty" Message="@EmptyMessage" CssClass="@(Part("status"))" />
+    }
+    else
+    {
+        @if (ShowLegend && LegendAbove)
+        {
+            @Legend
+        }
+
+        <div class="@(Part("plot"))" aria-hidden="true">
+            <div class="@(Part("scale"))">
+                <span class="@(Part("scale-max"))">@Format(PeakValue)</span>
+                <span class="@(Part("scale-zero"))">0</span>
+            </div>
+
+            <div class="@(Part("columns"))">
+                @foreach (var column in Columns)
+                {
+                    @* A column is a button when the caller listens for a pick, so a
+                       week can be chosen with a keyboard as well as a pointer — and a
+                       plain box otherwise, because a control that does nothing is a
+                       control lying about itself. aria-hidden on the plot keeps this
+                       out of the reading order either way; the hidden table is the
+                       reader's copy, and picking is a convenience over it. *@
+                    <div class="@ColumnClass(column)"
+                         role="@(OnBucketSelected.HasDelegate ? "button" : null)"
+                         tabindex="@(OnBucketSelected.HasDelegate ? 0 : (int?)null)"
+                         aria-pressed="@(OnBucketSelected.HasDelegate ? (column.Selected ? "true" : "false") : null)"
+                         data-bucket="@column.Label"
+                         @onclick="() => Pick(column)"
+                         @onkeydown="e => PickOnKey(e, column)">
+                        <div class="@TrackClass">
+                            @foreach (var segment in column.Segments)
+                            {
+                                <span class="@SegmentClass(segment)"
+                                      style="@($"height: {Invariant(segment.Height)}%")"
+                                      title="@($"{column.Label} · {segment.Name}: {Format(segment.Value)}")"></span>
+                            }
+                        </div>
+                        <span class="@(Part("column-label"))">@(column.ShowLabel ? column.Label : null)</span>
+                    </div>
+                }
+
+                @* The lines, in one SVG laid over the tracks. The viewBox stretches to
+                   the box, so the strokes are told not to scale with it — a line that
+                   thickened as the chart widened would be a line whose weight meant
+                   the window size. *@
+                @if (LineBands.Any(line => !line.Hidden))
+                {
+                    <svg class="@(Part("lines"))" viewBox="0 0 100 100" preserveAspectRatio="none" focusable="false">
+                        @foreach (var line in LineBands.Where(one => !one.Hidden))
+                        {
+                            <polyline class="@LineClass(line)" points="@line.Points" vector-effect="non-scaling-stroke" />
+                        }
+                    </svg>
+                }
+            </div>
+
+            @if (LineBands.Any(line => !line.Hidden))
+            {
+                <div class="@($"{Part("scale")} {Part("scale")}--right")">
+                    <span class="@(Part("scale-max"))">@FormatLineValue(LinePeak)</span>
+                    <span class="@(Part("scale-zero"))">0</span>
+                </div>
+            }
+        </div>
+
+        @if (ShowLegend && !LegendAbove)
+        {
+            @Legend
+        }
+
+        @* The wrapper carries sr-only, not the table: a table ignores overflow and a
+           wide hidden one would drag the page sideways. *@
+        <div class="sr-only">
+            <table>
+                <caption>@Caption</caption>
+                <thead>
+                    <tr>
+                        <th scope="col">@NameHeading</th>
+                        @foreach (var column in Columns)
+                        {
+                            <th scope="col">@column.Label</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var band in Bands.Where(one => !one.Hidden))
+                    {
+                        <tr>
+                            <th scope="row">@band.Name</th>
+                            @foreach (var value in band.Values)
+                            {
+                                <td>@(value is null ? NotReported : Format(value.Value))</td>
+                            }
+                        </tr>
+                    }
+                    @foreach (var line in LineBands.Where(one => !one.Hidden))
+                    {
+                        <tr class="@(Part("line-row"))">
+                            <th scope="row">@line.Name</th>
+                            @foreach (var value in line.Values)
+                            {
+                                <td>@(value is null ? NotReported : FormatLineValue(value.Value))</td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+                @if (Mode == MetricBarsMode.Stacked && Bands.Any(one => !one.Hidden))
+                {
+                    @* Only a stack claims its sum is a figure, so only a stack prints
+                       one — and over the columns alone, never the lines. *@
+                    <tfoot>
+                        <tr>
+                            <th scope="row">@TotalHeading</th>
+                            @foreach (var column in Columns)
+                            {
+                                <td>@Format(column.Total)</td>
+                            }
+                        </tr>
+                    </tfoot>
+                }
+            </table>
+        </div>
+    }
+</figure>
+
+@code {
+    /// <summary>The legend, once, wherever it is placed. Interactive it is a fused group
+    /// of pressed buttons; as a key it is a plain list with the same swatches, for a
+    /// caller whose filter lives elsewhere — the header's scope, say — and who must not
+    /// offer a second one here.</summary>
+    private RenderFragment Legend => builder =>
+    {
+        if (LegendInteractive)
+        {
+            builder.OpenComponent<ButtonGroup>(0);
+            builder.AddAttribute(1, nameof(ButtonGroup.AriaLabel), LegendLabel);
+            builder.AddAttribute(2, nameof(ButtonGroup.CssClass), Part("legend"));
+            builder.AddAttribute(3, nameof(ButtonGroup.ChildContent), (RenderFragment)(inner =>
+            {
+                var sequence = 0;
+
+                foreach (var band in Bands)
+                {
+                    var name = band.Name;
+                    var hidden = band.Hidden;
+
+                    inner.OpenComponent<ToggleButton>(sequence++);
+                    inner.AddAttribute(sequence++, nameof(ToggleButton.Pressed), !hidden);
+                    inner.AddAttribute(sequence++, nameof(ToggleButton.PressedChanged), EventCallback.Factory.Create<bool>(this, on => SetShown(name, on)));
+                    inner.AddAttribute(sequence++, nameof(ToggleButton.CssClass), LegendItemClass(hidden));
+                    inner.AddAttribute(sequence++, nameof(ToggleButton.Title), hidden ? $"Show {name}" : $"Hide {name}");
+                    inner.AddAttribute(sequence++, nameof(ToggleButton.TestId), LegendTestId(name));
+                    inner.AddAttribute(sequence++, nameof(ToggleButton.ChildContent), LegendEntry(SwatchClass(band), name, band.Detail));
+                    inner.CloseComponent();
+                }
+
+                foreach (var line in LineBands)
+                {
+                    var name = line.Name;
+                    var hidden = line.Hidden;
+
+                    inner.OpenComponent<ToggleButton>(sequence++);
+                    inner.AddAttribute(sequence++, nameof(ToggleButton.Pressed), !hidden);
+                    inner.AddAttribute(sequence++, nameof(ToggleButton.PressedChanged), EventCallback.Factory.Create<bool>(this, on => SetShown(name, on)));
+                    inner.AddAttribute(sequence++, nameof(ToggleButton.CssClass), LegendItemClass(hidden));
+                    inner.AddAttribute(sequence++, nameof(ToggleButton.Title), hidden ? $"Show {name}" : $"Hide {name}");
+                    inner.AddAttribute(sequence++, nameof(ToggleButton.TestId), LegendTestId(name));
+                    inner.AddAttribute(sequence++, nameof(ToggleButton.ChildContent), LegendEntry(LineSwatchClass(line), name, line.Detail));
+                    inner.CloseComponent();
+                }
+            }));
+            builder.CloseComponent();
+            return;
+        }
+
+        builder.OpenElement(0, "ul");
+        builder.AddAttribute(1, "class", $"{Part("legend")} {Part("legend")}--key");
+        builder.AddAttribute(2, "aria-label", LegendLabel);
+
+        var index = 3;
+
+        foreach (var band in Bands)
+        {
+            builder.OpenElement(index++, "li");
+            builder.AddAttribute(index++, "class", $"{Part("legend-item")} {Part("legend-item")}--key");
+            builder.AddAttribute(index++, "data-testid", LegendTestId(band.Name));
+            builder.AddContent(index++, LegendEntry(SwatchClass(band), band.Name, band.Detail));
+            builder.CloseElement();
+        }
+
+        foreach (var line in LineBands)
+        {
+            builder.OpenElement(index++, "li");
+            builder.AddAttribute(index++, "class", $"{Part("legend-item")} {Part("legend-item")}--key");
+            builder.AddAttribute(index++, "data-testid", LegendTestId(line.Name));
+            builder.AddContent(index++, LegendEntry(LineSwatchClass(line), line.Name, line.Detail));
+            builder.CloseElement();
+        }
+
+        builder.CloseElement();
+    };
+
+    private RenderFragment LegendEntry(string swatchClass, string name, string? detail) => builder =>
+    {
+        builder.OpenElement(0, "span");
+        builder.AddAttribute(1, "class", swatchClass);
+        builder.AddAttribute(2, "aria-hidden", "true");
+        builder.CloseElement();
+
+        builder.OpenElement(3, "span");
+        builder.AddAttribute(4, "class", Part("legend-name"));
+        builder.AddContent(5, name);
+        builder.CloseElement();
+
+        if (!string.IsNullOrWhiteSpace(detail))
+        {
+            builder.OpenElement(6, "span");
+            builder.AddAttribute(7, "class", Part("legend-detail"));
+            builder.AddContent(8, detail);
+            builder.CloseElement();
+        }
+    };
+
+    /// <summary>The column series, oldest bucket first within each. Order is meaning:
+    /// in a stack the first series sits on the baseline and the rest build on it, and
+    /// in a group the first is the leftmost bar of every bucket. Ramp steps follow the
+    /// same order, so the caller decides which series takes the full hue.
+    /// <para>Buckets are matched by label across every series, columns and lines, in
+    /// the order the first series that names them does. A series that skips a bucket is
+    /// drawn as nothing there and reads as not reported in the table — which is a
+    /// different fact from zero.</para></summary>
+    [Parameter]
+    public IReadOnlyList<MetricSeries> Series { get; set; } = [];
+
+    /// <summary>Series drawn as lines over the columns, on their own axis printed on
+    /// the right. For a caller putting a second measure on the columns' plot — a
+    /// count over hours — knowingly; the two scales are what keep that honest.</summary>
+    [Parameter]
+    public IReadOnlyList<MetricSeries> Lines { get; set; } = [];
+
+    /// <summary>Whether the column series add up to something. Stacked draws them one
+    /// on another and prints the totals; Grouped draws them side by side and does not,
+    /// because two peaks or two rates have no sum worth a row.</summary>
+    [Parameter]
+    public MetricBarsMode Mode { get; set; } = MetricBarsMode.Stacked;
+
+    [Parameter]
+    public string? Label { get; set; }
+
+    /// <summary>What a reader would otherwise get wrong about the figures — what a
+    /// column counts, what it refuses, what it is not a total of. Behind a mark on
+    /// the caption rather than in it, so the caption stays a name.</summary>
+    [Parameter]
+    public string? Note { get; set; }
+
+    /// <summary>How a column value reads on the left scale, in a title and in the
+    /// table. Defaults to the compact token notation.</summary>
+    [Parameter]
+    public Func<decimal, string>? FormatValue { get; set; }
+
+    /// <summary>How a line value reads on the right scale and in the table. Defaults
+    /// to <see cref="FormatValue"/>, which is right when the two populations share a
+    /// unit and wrong when the whole point of the lines is that they do not.</summary>
+    [Parameter]
+    public Func<decimal, string>? FormatLine { get; set; }
+
+    /// <summary>
+    /// Which band-identity token a column series wears, by name, or null for the ramp.
+    /// For a chart whose series are repositories: color-scheme.md's identity set may
+    /// colour <em>which repository</em>, and this chart is on its consumer table. A
+    /// caller passes the shell's own answer so the band is the hue the header's chip
+    /// is, and passes nothing at all — or a function answering null — when the hues
+    /// are switched off. Lines never wear one; a line is a measure, not an identity.
+    /// </summary>
+    [Parameter]
+    public Func<string, int?>? IdentityOf { get; set; }
+
+    /// <summary>What the row-name column is called in the hidden table.</summary>
+    [Parameter]
+    public string NameHeading { get; set; } = "Series";
+
+    /// <summary>What the stack's total row is called. Only printed in Stacked mode.</summary>
+    [Parameter]
+    public string TotalHeading { get; set; } = "Total";
+
+    /// <summary>What the legend group is called for a screen reader.</summary>
+    [Parameter]
+    public string LegendLabel { get; set; } = "Series shown";
+
+    /// <summary>How many bucket labels to print at most, thinned as MetricBars thins
+    /// its own, the last always among them.</summary>
+    [Parameter]
+    public int MaxLabels { get; set; } = 7;
+
+    [Parameter]
+    public bool ShowLegend { get; set; } = true;
+
+    /// <summary>Puts the legend above the plot rather than under it — for a legend that
+    /// is the filter for more than this chart, and so belongs on top of what it filters.</summary>
+    [Parameter]
+    public bool LegendAbove { get; set; }
+
+    /// <summary>Whether the legend's entries are toggles. Off, it is a key: the same
+    /// swatches and names, nothing to press, for a caller whose filtering happens
+    /// somewhere it must not be duplicated.</summary>
+    [Parameter]
+    public bool LegendInteractive { get; set; } = true;
+
+    /// <summary>
+    /// Which series are switched off, by name, for a caller that owns that state —
+    /// because the same choice drives another chart, or because a series should start
+    /// off. Two-way: the component raises <see cref="HiddenChanged"/> on every toggle
+    /// and keeps its own copy when nothing is bound. Names rather than indexes, so a
+    /// caller re-ordering its series does not silently hide a different one.
+    /// </summary>
+    [Parameter]
+    public IReadOnlyCollection<string>? Hidden { get; set; }
+
+    [Parameter]
+    public EventCallback<IReadOnlyCollection<string>> HiddenChanged { get; set; }
+
+    /// <summary>The bucket drawn as picked, by label — the week the grids below are
+    /// showing, say. Null for none.</summary>
+    [Parameter]
+    public string? SelectedBucket { get; set; }
+
+    /// <summary>Raised with a bucket's label when a column is picked. Columns are only
+    /// pressable while this has a delegate.</summary>
+    [Parameter]
+    public EventCallback<string> OnBucketSelected { get; set; }
+
+    [Parameter]
+    public string Height { get; set; } = "9rem";
+
+    /// <summary>Shown when there is no series at all.</summary>
+    [Parameter]
+    public string? EmptyMessage { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>Replaces <c>metric-stacked-bars</c> as the class this block carries, and
+    /// every child class with it.</summary>
+    [Parameter]
+    public string BaseClass { get; set; } = "metric-stacked-bars";
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private const string NotReported = "—";
+
+    /// <summary>One column series as drawn: its ramp step or identity, whether the
+    /// reader switched it off, and its value in every bucket — null where it named
+    /// none.</summary>
+    private sealed record Band(string Name, string? Detail, int Ramp, int? Identity, bool Hidden, IReadOnlyList<decimal?> Values);
+
+    /// <summary>One line as drawn: its dash pattern, and the polyline points in the
+    /// overlay's own 0–100 space.</summary>
+    private sealed record Line(string Name, string? Detail, int Dash, bool Hidden, IReadOnlyList<decimal?> Values, string Points);
+
+    /// <summary>One box in one column: which series, how tall, how much.</summary>
+    private sealed record Segment(string Name, int Ramp, int? Identity, decimal Value, decimal Height);
+
+    private sealed record Column(string Label, bool ShowLabel, decimal Total, bool Selected, IReadOnlyList<Segment> Segments);
+
+    private List<Band> Bands { get; set; } = [];
+
+    private List<Line> LineBands { get; set; } = [];
+
+    private List<Column> Columns { get; set; } = [];
+
+    private decimal PeakValue { get; set; }
+
+    private decimal LinePeak { get; set; }
+
+    /// <summary>Which series the reader switched off, by name. Names rather than
+    /// indexes, so a caller re-ordering its series between renders does not silently
+    /// hide a different one.</summary>
+    private readonly HashSet<string> _hidden = new(StringComparer.Ordinal);
+
+    protected override void OnParametersSet()
+    {
+        // A bound set is the caller's answer and replaces the component's own; unbound,
+        // the component's copy stands.
+        if (Hidden is not null)
+        {
+            _hidden.Clear();
+            _hidden.UnionWith(Hidden);
+        }
+
+        Rebuild();
+    }
+
+    private async Task SetShown(string name, bool on)
+    {
+        if (on) _hidden.Remove(name);
+        else _hidden.Add(name);
+
+        Rebuild();
+
+        if (HiddenChanged.HasDelegate)
+        {
+            await HiddenChanged.InvokeAsync(_hidden.ToArray());
+        }
+    }
+
+    private Task Pick(Column column) =>
+        OnBucketSelected.HasDelegate ? OnBucketSelected.InvokeAsync(column.Label) : Task.CompletedTask;
+
+    private Task PickOnKey(KeyboardEventArgs e, Column column) =>
+        e.Key is "Enter" or " " ? Pick(column) : Task.CompletedTask;
+
+    private string ColumnClass(Column column)
+    {
+        var pressable = OnBucketSelected.HasDelegate ? $" {Part("column")}--pressable" : string.Empty;
+        var selected = column.Selected ? $" {Part("column")}--selected" : string.Empty;
+
+        return $"{Part("column")}{pressable}{selected}";
+    }
+
+    private void Rebuild()
+    {
+        var series = (Series ?? []).Where(one => one.Points.Count > 0).ToList();
+        var lines = (Lines ?? []).Where(one => one.Points.Count > 0).ToList();
+
+        if (series.Count == 0 && lines.Count == 0)
+        {
+            Bands = [];
+            LineBands = [];
+            Columns = [];
+            PeakValue = 0m;
+            LinePeak = 0m;
+            return;
+        }
+
+        // Buckets in first-appearance order across every series, columns first, so a
+        // series that starts late does not push the axis around.
+        var labels = new List<string>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var point in series.Concat(lines).SelectMany(one => one.Points))
+        {
+            if (seen.Add(point.Label)) labels.Add(point.Label);
+        }
+
+        Bands =
+        [
+            .. series.Select((one, index) => new Band(
+                one.Name,
+                one.Detail,
+                Ramp(index, series.Count),
+                IdentityOf?.Invoke(one.Name),
+                _hidden.Contains(one.Name),
+                ValuesOf(one, labels)))
+        ];
+
+        var shown = Bands.Where(band => !band.Hidden).ToList();
+
+        // Per bucket: the segments to draw and what they come to. Only the shown series
+        // count — the scale is of what is on screen, so what is left fills the height.
+        var totals = labels.Select((_, bucket) =>
+            shown.Sum(band => Math.Max(0m, band.Values[bucket] ?? 0m))).ToList();
+
+        PeakValue = Mode == MetricBarsMode.Stacked
+            ? (totals.Count == 0 ? 0m : totals.Max())
+            : shown.SelectMany(band => band.Values).Select(value => value ?? 0m).DefaultIfEmpty(0m).Max();
+
+        // A whole period of nothing is legitimate, and every column should be empty
+        // rather than every column full.
+        var span = PeakValue <= 0m ? 1m : PeakValue;
+
+        var stride = MaxLabels <= 0 ? 1 : Math.Max(1, (int)Math.Ceiling(labels.Count / (double)MaxLabels));
+        var last = labels.Count - 1;
+
+        Columns =
+        [
+            .. labels.Select((label, bucket) => new Column(
+                label,
+                bucket % stride == 0 || bucket == last,
+                totals[bucket],
+                string.Equals(label, SelectedBucket, StringComparison.Ordinal),
+                [
+                    .. shown.Select(band => new Segment(
+                        band.Name,
+                        band.Ramp,
+                        band.Identity,
+                        band.Values[bucket] ?? 0m,
+                        Math.Max(0m, band.Values[bucket] ?? 0m) / span * 100m))
+                ]))
+        ];
+
+        // The lines, on their own scale: the tallest shown line value, never the
+        // columns'. The dash pattern goes by position, so hiding one line does not
+        // restyle the next.
+        var lineValues = lines.Select(one => ValuesOf(one, labels)).ToList();
+
+        LinePeak = lines
+            .Select((one, index) => (one, index))
+            .Where(entry => !_hidden.Contains(entry.one.Name))
+            .SelectMany(entry => lineValues[entry.index])
+            .Select(value => value ?? 0m)
+            .DefaultIfEmpty(0m)
+            .Max();
+
+        var lineSpan = LinePeak <= 0m ? 1m : LinePeak;
+
+        LineBands =
+        [
+            .. lines.Select((one, index) => new Line(
+                one.Name,
+                one.Detail,
+                index % 4,
+                _hidden.Contains(one.Name),
+                lineValues[index],
+                PointsOf(lineValues[index], lineSpan)))
+        ];
+    }
+
+    private static IReadOnlyList<decimal?> ValuesOf(MetricSeries one, IReadOnlyList<string> labels)
+    {
+        var byLabel = one.Points
+            .GroupBy(point => point.Label, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.Last().Value, StringComparer.Ordinal);
+
+        return [.. labels.Select(label => byLabel.TryGetValue(label, out var value) ? value : (decimal?)null)];
+    }
+
+    /// <summary>
+    /// A line's points in the overlay's 0–100 space, one at the centre of each column.
+    /// A bucket the series never named is skipped rather than drawn as zero — the same
+    /// "not reported is not zero" the table keeps — so the line jumps across it.
+    /// </summary>
+    private static string PointsOf(IReadOnlyList<decimal?> values, decimal span)
+    {
+        var points = new List<string>(values.Count);
+
+        for (var index = 0; index < values.Count; index++)
+        {
+            if (values[index] is not { } value) continue;
+
+            var x = (index + 0.5m) / values.Count * 100m;
+            var y = 100m - Math.Clamp(Math.Max(0m, value) / span, 0m, 1m) * 100m;
+
+            points.Add($"{Invariant(x)},{Invariant(y)}");
+        }
+
+        return string.Join(' ', points);
+    }
+
+    /// <summary>Which ramp step a series takes, by position. Four or more take the
+    /// steps in order and repeat; fewer are spread so that neighbours are at least one
+    /// step apart — one series takes the full hue, two take 2 and 4, three take 2, 3
+    /// and 4.</summary>
+    private static int Ramp(int index, int count) => count switch
+    {
+        1 => 4,
+        2 => index == 0 ? 2 : 4,
+        3 => index + 2,
+        _ => index % 4 + 1
+    };
+
+    private string TrackClass =>
+        $"{Part("column-track")} {Part("column-track")}--{(Mode == MetricBarsMode.Stacked ? "stacked" : "grouped")}";
+
+    private string SegmentClass(Segment segment) =>
+        segment.Identity is { } identity
+            ? $"{Part("segment")} {Part("segment")}--identity-{identity}"
+            : $"{Part("segment")} {Part("segment")}--{segment.Ramp}";
+
+    private string SwatchClass(Band band) =>
+        band.Identity is { } identity
+            ? $"{Part("swatch")} {Part("swatch")}--identity-{identity}"
+            : $"{Part("swatch")} {Part("swatch")}--{band.Ramp}";
+
+    private string LineClass(Line line) =>
+        $"{Part("line")} {Part("line")}--dash-{line.Dash}";
+
+    private string LineSwatchClass(Line line) =>
+        $"{Part("swatch")} {Part("swatch")}--line {Part("swatch")}--dash-{line.Dash}";
+
+    private string LegendItemClass(bool hidden) =>
+        hidden ? $"{Part("legend-item")} {Part("legend-item")}--off" : Part("legend-item");
+
+    private string? LegendTestId(string name) =>
+        string.IsNullOrWhiteSpace(TestId) ? null : $"{TestId}-toggle-{Slug(name)}";
+
+    private string Caption => string.IsNullOrWhiteSpace(Label)
+        ? $"{NameHeading} per bucket"
+        : Label;
+
+    private string Format(decimal value) => (FormatValue ?? MetricFormat.Compact)(value);
+
+    private string FormatLineValue(decimal value) => (FormatLine ?? FormatValue ?? MetricFormat.Compact)(value);
+
+    private string StyleValue => $"--metric-stacked-bars-height: {Height}";
+
+    private string Part(string name) => $"{BaseClass}__{name}";
+
+    private string ClassValue
+    {
+        get
+        {
+            var mode = $" {BaseClass}--{(Mode == MetricBarsMode.Stacked ? "stacked" : "grouped")}";
+            var extra = string.IsNullOrWhiteSpace(CssClass) ? string.Empty : " " + CssClass;
+
+            return $"{BaseClass}{mode}{extra}";
+        }
+    }
+
+    /// <summary>A series name as a test-id fragment: lower-case, one hyphen per run of
+    /// anything that is not a letter or digit.</summary>
+    private static string Slug(string name)
+    {
+        var slug = new System.Text.StringBuilder(name.Length);
+        var pendingHyphen = false;
+
+        foreach (var character in name.ToLowerInvariant())
+        {
+            if (char.IsLetterOrDigit(character))
+            {
+                if (pendingHyphen && slug.Length > 0) slug.Append('-');
+                pendingHyphen = false;
+                slug.Append(character);
+            }
+            else
+            {
+                pendingHyphen = true;
+            }
+        }
+
+        return slug.ToString();
+    }
+
+    private static string Invariant(decimal value) =>
+        value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+}

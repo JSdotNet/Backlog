@@ -68,6 +68,7 @@
    that has not registered it should fail loudly at startup rather than quietly
    drop the section that edits it. *@
 @inject IWorkingHoursSettings WorkingWeek
+@inject IUsageResetSettings UsageReset
 @inject GitHubIntegration GitHub
 @inject NavigationManager Navigation
 @inject IAppFeatureSettings Features
@@ -1045,10 +1046,72 @@
                         </AppButton>
                     </div>
 
+                    @* The week the dashboard cuts by, under the week the reader keeps.
+                       The assistant's allowance resets on a fixed weekday and time, and a
+                       week of sessions read against calendar Mondays is a week nobody
+                       spends; this is the person's own reading of the "Resets Mon 2:00 PM"
+                       on the assistant's usage screen, in their own clock. Detection from
+                       the assistant's records stands in while nothing is set, and the
+                       status says which is in force. *@
+                    <div class="setting__group" data-testid="usage-reset-settings">
+                        <p class="setting__note">
+                            <strong>Weekly usage reset.</strong> When your assistant's weekly allowance
+                            resets, as its usage screen shows it in your own clock. The dashboard's
+                            weekly columns and hour grids then run from one reset to the next instead
+                            of from a calendar Monday. Leave it unset and the dashboard uses the reset
+                            it can detect from the assistant's own records, and calendar weeks when it
+                            has seen none.
+                        </p>
+
+                        <div class="working-day" data-testid="usage-reset-row">
+                            <SelectField Form="true"
+                                         Label="Reset day"
+                                         Id="usage-reset-day"
+                                         TestId="usage-reset-day"
+                                         CurrentValue="@(UsageReset.Current?.Day.ToString() ?? string.Empty)"
+                                         IncludeEmptyOption="true"
+                                         EmptyLabel="Not set"
+                                         Options="@UsageResetDayOptions"
+                                         OnChanged="SetUsageResetDay" />
+
+                            <TextField Bare="true"
+                                       InputCssClass="setting__input"
+                                       AriaLabel="Reset time"
+                                       Id="usage-reset-time"
+                                       data-testid="usage-reset-time"
+                                       Type="time"
+                                       autocomplete="off"
+                                       aria-describedby="usage-reset-status"
+                                       Disabled="@(UsageReset.Current is null)"
+                                       Value="@_usageResetTimeDraft"
+                                       @onchange="ApplyUsageResetTime" />
+                        </div>
+
+                        <p class="setting__status" id="usage-reset-status" data-testid="usage-reset-status" role="status">
+                            @if (_usageResetError is not null)
+                            {
+                                <span class="setting__status--error">@_usageResetError</span>
+                            }
+                            else
+                            {
+                                <span>@UsageResetSummary</span>
+                            }
+                        </p>
+
+                        <div class="setting__actions">
+                            <AppButton Variant="ButtonVariant.None"
+                                       data-testid="usage-reset-clear-button"
+                                       Disabled="@(UsageReset.Current is null)"
+                                       OnClick="ClearUsageReset">
+                                Back to detecting it
+                            </AppButton>
+                        </div>
+                    </div>
+
                     <p class="setting__note">
-                        Kept in <code>@WorkingWeek.SettingsPath</code>, beside the app's other
-                        per-user choices rather than in the backlog folder - it is yours, not the
-                        workspace's.
+                        Kept in <code>@WorkingWeek.SettingsPath</code> and <code>@UsageReset.SettingsPath</code>,
+                        beside the app's other per-user choices rather than in the backlog folder - they
+                        are yours, not the workspace's.
                     </p>
                 </div>
             </div>
@@ -2827,6 +2890,7 @@
         // where snapshots go rather than a path nobody typed.
         _draftDevbookCacheDirectory = Store.IsDefaultDevbookCacheDirectory ? string.Empty : Store.DevbookCacheDirectory;
         SyncWorkingHoursDrafts();
+        SyncUsageResetDraft();
         SyncAzureFoundryDrafts();
         SyncUsageEndpointDrafts();
         _draftRepos = RepositorySettingsText();
@@ -3092,6 +3156,62 @@
 
         return draft;
     }
+
+    private string _usageResetTimeDraft = string.Empty;
+
+    private string? _usageResetError;
+
+    private static readonly IReadOnlyList<SelectorOption> UsageResetDayOptions =
+        [.. WorkingHours.Week.Select(day => new SelectorOption(day.ToString(), day.ToString()))];
+
+    /// <summary>Picking a day sets the reset at once — with the time already in force,
+    /// or the assistant's usual afternoon when none was — so a half-configured reset
+    /// never exists; clearing the day forgets the whole reset.</summary>
+    private void SetUsageResetDay(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            _usageResetError = UsageReset.Clear();
+        }
+        else if (Enum.TryParse<DayOfWeek>(value, ignoreCase: true, out var day))
+        {
+            _usageResetError = UsageReset.Set(day, UsageReset.Current?.Time ?? new TimeOnly(14, 0));
+        }
+
+        SyncUsageResetDraft();
+    }
+
+    private void ApplyUsageResetTime(ChangeEventArgs e)
+    {
+        var typed = e.Value?.ToString() ?? string.Empty;
+        _usageResetTimeDraft = typed;
+
+        if (UsageReset.Current is not { } current) return;
+
+        if (!TryReadWorkingTime(typed, out var time))
+        {
+            _usageResetError = "Give the reset a time, as HH:mm.";
+            return;
+        }
+
+        _usageResetError = UsageReset.Set(current.Day, time);
+
+        if (_usageResetError is null) SyncUsageResetDraft();
+    }
+
+    private void ClearUsageReset()
+    {
+        _usageResetError = UsageReset.Clear();
+        SyncUsageResetDraft();
+    }
+
+    private void SyncUsageResetDraft() =>
+        _usageResetTimeDraft = UsageReset.Current is { } reset ? FormatWorkingTime(reset.Time) : string.Empty;
+
+    private string UsageResetSummary =>
+        UsageReset.Current is { } reset
+            ? $"Weeks run from {reset.Day} {FormatWorkingTime(reset.Time)} to the next {reset.Day} {FormatWorkingTime(reset.Time)}, on this machine's clock."
+            : "Not set - the dashboard uses the reset it detects from your assistant's records, or calendar weeks.";
 
     private void SyncWorkingHoursDrafts()
     {

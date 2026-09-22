@@ -93,6 +93,10 @@ builder.Services.AddSingleton<ITaskStore>(sp => new WorkspaceTaskStore(
 // per-user choice.
 builder.Services.AddSingleton<IWorkingHoursSettings>(
     _ => CreateLocalDevelopmentWorkingHoursSettingsStore(builder.Environment.ContentRootPath));
+// When the weekly allowance resets, scoped to the content root for the same reason.
+builder.Services.AddSingleton<IUsageResetSettings>(
+    _ => new UsageResetSettingsStore(
+        Path.Combine(builder.Environment.ContentRootPath, "obj", "local-development", "usage-reset.settings.json")));
 // Which surface the shell was last showing. Scoped to the content root like the
 // harness's other settings files, so a session here never rewrites the real
 // per-user choice.

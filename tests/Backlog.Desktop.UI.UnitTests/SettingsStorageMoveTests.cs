@@ -253,6 +253,8 @@ public sealed class SettingsStorageMoveTests
         context.Services.AddSingleton<IAppFeatureSettings>(features);
         context.Services.AddSingleton<IWorkingHoursSettings>(
             new WorkingHoursSettingsStore(Path.Combine(root, "working-hours", "working-hours.json")));
+        context.Services.AddSingleton<IUsageResetSettings>(
+            new UsageResetSettingsStore(Path.Combine(root, "usage-reset", "usage-reset.json")));
         context.Services.AddSingleton<ICaptureSourceSettings>(
             new CaptureSourcesSettingsStore(Path.Combine(root, "capture", "capture-sources.json")));
         context.Services.AddSingleton(new AzureFoundrySettingsStore(Path.Combine(root, "azure", "azure-foundry.json")));

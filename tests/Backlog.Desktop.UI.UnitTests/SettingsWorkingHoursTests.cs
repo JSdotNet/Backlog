@@ -174,6 +174,52 @@ public sealed class SettingsWorkingHoursTests
         Assert.True(settings.Component.Find("[data-testid='working-hours-reset-button']").HasAttribute("disabled"));
     }
 
+    // --- The usage week, beside the working week ---------------------------------
+
+    /// <summary>Nothing set opens as "Not set" with the time disabled, and says what
+    /// stands in: detection, then the calendar.</summary>
+    [Fact]
+    public void The_usage_reset_opens_unset_and_says_detection_stands_in()
+    {
+        using var settings = RenderSettings();
+        OpenStorageTab(settings.Component);
+
+        Assert.True(settings.Component.Find("[data-testid='usage-reset-time']").HasAttribute("disabled"));
+        Assert.Contains("uses the reset it detects", settings.Component.Find("[data-testid='usage-reset-status']").TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>Picking a day sets the reset at once, at the assistant's usual two in
+    /// the afternoon, and the time can then be changed and is stored straight away.</summary>
+    [Fact]
+    public void Picking_a_day_sets_the_reset_and_the_time_is_stored_on_change()
+    {
+        using var settings = RenderSettings();
+        OpenStorageTab(settings.Component);
+
+        settings.Component.Find("[data-testid='usage-reset-day'] select").Change("Monday");
+
+        Assert.Equal(new UsageWeekReset(DayOfWeek.Monday, new TimeOnly(14, 0)), settings.UsageReset.Current);
+        Assert.Equal("14:00", settings.Component.Find("[data-testid='usage-reset-time']").GetAttribute("value"));
+
+        settings.Component.Find("[data-testid='usage-reset-time']").Change("21:00");
+
+        Assert.Equal(new UsageWeekReset(DayOfWeek.Monday, new TimeOnly(21, 0)), settings.UsageReset.Current);
+        Assert.Contains("Weeks run from Monday 21:00", settings.Component.Find("[data-testid='usage-reset-status']").TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Clearing_the_reset_hands_the_week_back_to_detection()
+    {
+        using var settings = RenderSettings();
+        OpenStorageTab(settings.Component);
+
+        settings.Component.Find("[data-testid='usage-reset-day'] select").Change("Friday");
+        settings.Component.Find("[data-testid='usage-reset-clear-button']").Click();
+
+        Assert.Null(settings.UsageReset.Current);
+        Assert.True(settings.Component.Find("[data-testid='usage-reset-clear-button']").HasAttribute("disabled"));
+    }
+
     private static void OpenStorageTab(IRenderedComponent<Settings> component) =>
         component.FindAll(".settings-tabs button").Single(button => button.TextContent.Trim() == "Storage").Click();
 
@@ -188,12 +234,14 @@ public sealed class SettingsWorkingHoursTests
         _ = features.SetEnabled(AppFeatures.UsageMetrics, false);
 
         var workingWeek = new WorkingHoursSettingsStore(Path.Combine(root, "working-hours", "working-hours.json"));
+        var usageReset = new UsageResetSettingsStore(Path.Combine(root, "usage-reset", "usage-reset.json"));
         var githubSettings = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
 
         var context = new BunitContext();
         context.Services.AddSingleton(store);
         context.Services.AddSingleton<IAppFeatureSettings>(features);
         context.Services.AddSingleton<IWorkingHoursSettings>(workingWeek);
+        context.Services.AddSingleton<IUsageResetSettings>(usageReset);
         context.Services.AddSingleton<ICaptureSourceSettings>(
             new CaptureSourcesSettingsStore(Path.Combine(root, "capture", "capture-sources.json")));
         context.Services.AddSingleton(new AzureFoundrySettingsStore(Path.Combine(root, "azure", "azure-foundry.json")));
@@ -204,7 +252,7 @@ public sealed class SettingsWorkingHoursTests
         context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(githubSettings, store));
         context.Services.AddSingleton(new DevbookSourceSelection(githubSettings, new StubBranchCatalog()));
 
-        return new SettingsRenderContext(root, context, context.Render<Settings>(), workingWeek);
+        return new SettingsRenderContext(root, context, context.Render<Settings>(), workingWeek, usageReset);
     }
 
     private sealed class NoGitHub : IGitHubClient
@@ -249,7 +297,8 @@ public sealed class SettingsWorkingHoursTests
         string Root,
         BunitContext TestContext,
         IRenderedComponent<Settings> Component,
-        WorkingHoursSettingsStore WorkingWeek) : IDisposable
+        WorkingHoursSettingsStore WorkingWeek,
+        UsageResetSettingsStore UsageReset) : IDisposable
     {
         public void Dispose()
         {
