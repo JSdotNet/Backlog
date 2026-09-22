@@ -3214,11 +3214,19 @@ button.md-check {
    Flex rather than a grid of named columns: the grip is only there when the list
    is reorderable, and a positional grid silently shifts every child one column
    left when it is not — which put the flexible track under the title's
-   neighbour and left the copy button short of the right edge. */
+   neighbour and left the copy button short of the right edge.
+
+   `min-width: 0` because the row is a grid item and `.task-list` caps the track
+   and not the item in it. `minmax(0, 1fr)` says the column may not be wider than
+   the list; the row's own automatic minimum is still `min-content`, so a row
+   holding something that will not shrink grows past the track it was placed in
+   and out of the list's scroll container. Capping the track was half the fix the
+   comment on `.task-list` describes; this is the other half. */
 .task-item {
     display: flex;
     align-items: center;
     gap: var(--spacing-sm);
+    min-width: 0;
     padding: var(--spacing-sm) var(--spacing-md);
     border: var(--border-width) solid transparent;
     border-radius: var(--border-radius-md);
@@ -3486,6 +3494,7 @@ button.task-panel__check:focus-visible {
     flex-wrap: wrap;
     align-items: center;
     gap: var(--spacing-sm);
+    min-width: 0;
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
 }
@@ -3493,11 +3502,26 @@ button.task-panel__check:focus-visible {
 /* Each fact carries the glyph that says what kind of fact it is: "Friday" and
    "09:00" side by side are two dates until something says one is a deadline and
    the other an alarm. The glyph is aria-hidden and the name is said in text
-   beside it, so nothing announces "alarm clock emoji". */
+   beside it, so nothing announces "alarm clock emoji".
+
+   The `nowrap` is what makes a fact one fact, and it is also the one thing on this
+   line that cannot give room back: a branch name or a link pasted into an entry is
+   a single unbreakable word, and a nowrap box holding one asks for its full width
+   however little the row has. Every ancestor above it already carries `min-width: 0`
+   and none of them helped, because the floor was here.
+
+   So the fact shrinks and shows what it has room for. No `text-overflow` with it:
+   the box is an inline-flex holding a glyph and its text, and ellipsis has no
+   effect on a flex container's items — a declaration here would read as a promise
+   of an ellipsis the reader never gets. Wrapping was the alternative and it is
+   worse: `overflow-wrap: anywhere` fits the same URL by doubling the height of
+   every row that carries one, in a list whose whole purpose is to be scanned. */
 .task-item__detail {
     display: inline-flex;
     align-items: center;
     gap: var(--spacing-2xs);
+    min-width: 0;
+    overflow: hidden;
     white-space: nowrap;
 }
 
