@@ -100,6 +100,14 @@ delete from rather than assuming that one: the settings screen can point the wor
 any rooted path, and the command refuses rather than deleting if it has moved since the
 AppHost started.
 
+It also forgets the **remembered surface** — `shell-navigation.settings.json` beside the
+harness, which is this worktree's alone rather than shared. That file is why a "fresh page
+load" is not a clean slate: `Home` reopens on whichever takeover was last open, so a scenario
+that clicks `dashboard-toggle-button` expecting to open the Dashboard may instead close a
+takeover that was already on screen. Assert the pre-click state, or reset before the run.
+The reset stops at the first file it cannot remove, and the harness holds the task database
+open, so stop `desktop-web-harness` before running it.
+
 ## Base URLs
 
 **Ports are dynamic.** Every host is configured with `localhost:0`, so the OS assigns

@@ -245,6 +245,22 @@ place an inbox item becomes entry text — and reaches the AI plan drafter throu
 `Backlog.Modules.Inbox.UI` pane references its own module's Abstractions and
 nothing of Tasks; the earlier Tasks.UI → Inbox.UI edge is gone. See local ADR 0009.
 
+**Ask AI content** is a port in the shared kernel, `IAiContentSource` under
+`Backlog.SharedKernel.Ai`, and one answer per area in that area's UI project —
+`TasksAiContentSource`, `InboxAiContentSource`, `DevbookAiContentSource`,
+`RoadmapAiContentSource`, `DashboardAiContentSource`, `SessionsAiContentSource`
+and `ToolsAiContentSource`. Each declares what its content is and composes a body
+for a question within a character budget, choosing among its records the one way
+`AiContentBudget` defines; the shell's Ask AI panel collects the sources, offers a
+scope chip per open area, and hands the chosen source's body to the Azure Foundry
+client. The shell learns nothing about what a task, an item or a chapter looks
+like. A source never describes the screen — no filter text, sort, layout or
+selection beyond pinning the open record — but the scope that defines an area's
+records (a dashboard's repositories and period, a task list's repository scope) is
+content, and the body's first line states it. Ask AI used to scrape the visible
+task rows, which was screen state and which exceeded the deployment's quota on
+every press.
+
 **Sync Client** is `Backlog.Infrastructure.Sync`, shared by the desktop head and
 both web harnesses (registered separately so the two harnesses pair as two
 distinct devices). It holds the device's registration credential

@@ -191,7 +191,8 @@ public static class EntryTextParser
         Attachment? Attachment = null,
         int? Effort = null,
         string? ImportItemId = null,
-        IReadOnlyList<string>? RepoIds = null);
+        IReadOnlyList<string>? RepoIds = null,
+        DateOnly? CompletedOn = null);
 
     private sealed record Metadata(
         EntryType? Type,
@@ -209,7 +210,8 @@ public static class EntryTextParser
         Attachment? Attachment = null,
         int? Effort = null,
         string? ImportItemId = null,
-        IReadOnlyList<string>? RepoIds = null)
+        IReadOnlyList<string>? RepoIds = null,
+        DateOnly? CompletedOn = null)
     {
         public static Metadata Empty { get; } = new(null, null, null, null, []);
     }
@@ -361,7 +363,8 @@ public static class EntryTextParser
             metadata.Attachment,
             metadata.Effort,
             metadata.ImportItemId,
-            metadata.RepoIds ?? []);
+            metadata.RepoIds ?? [],
+            metadata.CompletedOn);
     }
 
     private static Metadata ParseMetadataLine(string line)
@@ -375,6 +378,7 @@ public static class EntryTextParser
         DateTime? remindAt = null;
         Recurrence? recurrence = null;
         DateOnly? inMyDayOn = null;
+        DateOnly? completedOn = null;
         EntryView? view = null;
         Attachment? attachment = null;
         int? effort = null;
@@ -419,6 +423,16 @@ public static class EntryTextParser
                     case "myday":
                         if (TryParseDateToken(value, out var myDay)) inMyDayOn = myDay;
                         else unreadable.Add(new UnreadableToken("myday", value));
+                        break;
+
+                    case "completed":
+                        // The tick, as a date. Deliberately a named token and not
+                        // `!done`: the status says the work is over, this says the
+                        // person has ticked the entry off, and the two are written
+                        // separately so a Done entry can stay on the open list until
+                        // they have. Absent means unticked.
+                        if (TryParseDateToken(value, out var completed)) completedOn = completed;
+                        else unreadable.Add(new UnreadableToken("completed", value));
                         break;
 
                     case "effort":
@@ -571,7 +585,8 @@ public static class EntryTextParser
             attachment,
             effort,
             importItemId,
-            repoIds);
+            repoIds,
+            completedOn);
     }
 
     /// <summary>Blanks out fenced code so it cannot contribute tags. Structure
@@ -1268,6 +1283,7 @@ public static class EntryTextParser
         if (entry.RemindAt is { } remindAt) meta += $" `remind:{ReminderToken(remindAt)}`";
         if (entry.Recurrence is { } recurrence) meta += $" `repeat:{RepeatToken(recurrence)}`";
         if (entry.InMyDayOn is { } inMyDayOn) meta += $" `myday:{DateToken(inMyDayOn)}`";
+        if (entry.CompletedOn is { } completedOn) meta += $" `completed:{DateToken(completedOn)}`";
         foreach (var id in (entry.DependsOn ?? []).Where(id => !string.IsNullOrWhiteSpace(id)))
         {
             meta += $" `after:{id.Trim()}`";
@@ -1504,6 +1520,13 @@ public static class EntryTextParser
     public static string WithMyDay(string raw, DateOnly? inMyDayOn) =>
         RewriteMetaLine(raw, inMyDayOn: inMyDayOn, updateMyDay: true);
 
+    /// <summary>Ticks the entry off on a day, or unticks it by clearing the
+    /// token. Writes nothing else: in particular it leaves the status token
+    /// alone, because the tick and the lifecycle are two facts
+    /// (<c>.domain/tasks/flow.md#task-lifecycle</c>).</summary>
+    public static string WithCompletedOn(string raw, DateOnly? completedOn) =>
+        RewriteMetaLine(raw, completedOn: completedOn, updateCompletedOn: true);
+
     /// <summary>Rewrites the whole set of <c>after:</c> tokens. An empty list
     /// clears them: the ids are the dependency, so there is nothing left to say
     /// once they are gone.</summary>
@@ -1739,6 +1762,8 @@ public static class EntryTextParser
         bool updateRepeat = false,
         DateOnly? inMyDayOn = null,
         bool updateMyDay = false,
+        DateOnly? completedOn = null,
+        bool updateCompletedOn = false,
         IReadOnlyList<string>? dependsOn = null,
         bool updateDependsOn = false,
         IReadOnlyList<string>? repoIds = null,
@@ -1838,6 +1863,12 @@ public static class EntryTextParser
             if (inMyDayOn is { } myDay) tokens.Add($"myday:{DateToken(myDay)}");
         }
 
+        if (updateCompletedOn)
+        {
+            RemoveNamedToken(tokens, "completed");
+            if (completedOn is { } completed) tokens.Add($"completed:{DateToken(completed)}");
+        }
+
         if (updateDependsOn)
         {
             RemoveNamedToken(tokens, "after");
@@ -1914,6 +1945,7 @@ public static class EntryTextParser
         if (parsed.RemindAt is { } remindAt) tokens.Add($"remind:{ReminderToken(remindAt)}");
         if (parsed.Recurrence is { } recurrence) tokens.Add($"repeat:{RepeatToken(recurrence)}");
         if (parsed.InMyDayOn is { } inMyDayOn) tokens.Add($"myday:{DateToken(inMyDayOn)}");
+        if (parsed.CompletedOn is { } completedOn) tokens.Add($"completed:{DateToken(completedOn)}");
         tokens.AddRange((parsed.DependsOn ?? []).Select(id => $"after:{id}"));
         if (!string.IsNullOrWhiteSpace(parsed.ImportItemId)) tokens.Add($"id:{parsed.ImportItemId}");
         tokens.AddRange((parsed.RepoIds ?? []).Select(repo => $"repo:{repo}"));

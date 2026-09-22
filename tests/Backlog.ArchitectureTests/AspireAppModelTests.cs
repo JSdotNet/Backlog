@@ -320,6 +320,74 @@ public class AspireAppModelTests
         }
     }
 
+    /// <summary>
+    /// The command promises first-run state, and what the shell is showing is part
+    /// of that: <c>Home</c> reopens on the surface it last remembered, so a reset
+    /// that leaves the remembered surface behind hands the next run a Dashboard
+    /// takeover already on screen. That has already been mistaken once for the
+    /// takeover opening and closing itself, because the first click on the toggle
+    /// closes it rather than opening it.
+    /// </summary>
+    [Fact]
+    public void Resetting_local_data_forgets_the_surface_the_shell_was_last_showing()
+    {
+        var reset = File.ReadAllText(RepositoryRoot.File(LocalDataResetSource));
+
+        Assert.Contains(ShellNavigationFileName, reset, StringComparison.Ordinal);
+
+        // The description is the promise someone reads before running it, so it has
+        // to name what actually goes. It under-promised for as long as the reset
+        // left the surface behind, and either half drifting back is the same bug.
+        var description = Description(Registration("\"reset-local-data\""));
+
+        Assert.Contains("surface", description, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>The <c>Description</c> a command's <c>CommandOptions</c> declares,
+    /// with its string concatenation folded away so a phrase split across lines
+    /// still reads as one sentence.</summary>
+    private static string Description(string registration)
+    {
+        var match = Regex.Match(
+            registration,
+            """Description\s*=\s*((?:"[^"]*"\s*\+?\s*)+)""");
+
+        Assert.True(match.Success, "The reset-local-data command declares no Description.");
+
+        return string.Concat(Regex.Matches(match.Groups[1].Value, "\"([^\"]*)\"").Select(part => part.Groups[1].Value));
+    }
+
+    /// <summary>
+    /// The harness decides where it keeps the remembered surface, and the AppHost
+    /// has to delete that same file. Neither can reference the other — the reason
+    /// <see cref="LocalDataReset"/> copies its constants at all — so the file name
+    /// and the environment variable that overrides it are asserted to match
+    /// instead. A copy that drifts here deletes nothing and reports success.
+    /// </summary>
+    [Fact]
+    public void Resetting_local_data_names_the_same_shell_navigation_file_the_harness_reads()
+    {
+        var reset = File.ReadAllText(RepositoryRoot.File(LocalDataResetSource));
+
+        var harness = File.ReadAllText(RepositoryRoot.File(
+            "src", "Harness", "Backlog.Desktop.WebHarness", "Program.cs"));
+
+        Assert.Contains(ShellNavigationFileName, harness, StringComparison.Ordinal);
+        Assert.Contains(ShellNavigationPathVariable, harness, StringComparison.Ordinal);
+
+        Assert.True(
+            reset.Contains(ShellNavigationPathVariable, StringComparison.Ordinal),
+            $"The harness lets {ShellNavigationPathVariable} move the remembered surface, but the reset does not "
+            + "read it — so a harness pointed elsewhere keeps its surface through a reset.");
+    }
+
+    /// <summary>The file the desktop harness keeps its remembered surface in, and
+    /// the variable that moves it. Named here rather than inline so both tests
+    /// above fail together when either side is renamed.</summary>
+    private const string ShellNavigationFileName = "shell-navigation.settings.json";
+
+    private const string ShellNavigationPathVariable = "BACKLOG_SHELL_NAVIGATION_SETTINGS_PATH";
+
     /// <summary>The workspace folder names a file declares, in both halves of its
     /// <c>#if DEBUG</c>. Matched on the const declaration rather than the whole file
     /// so a folder name that only appears in prose does not count as agreement.</summary>
@@ -364,6 +432,7 @@ public class AspireAppModelTests
     [Theory]
     [InlineData("foundry-local")]
     [InlineData("telemetry filtering")]
+    [InlineData("remembered surface")]
     public void Both_orchestration_contexts_carry_the_same_runtime_facts(string fact)
     {
         foreach (var context in OrchestrationContexts)

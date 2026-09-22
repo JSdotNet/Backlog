@@ -66,6 +66,7 @@ public sealed record TaskItemDto(
     DateTime? RemindAt = null,
     Recurrence? Recurrence = null,
     DateOnly? InMyDayOn = null,
+    DateOnly? CompletedOn = null,
     IReadOnlyList<string>? DependsOn = null,
     EntryView? View = null,
     Attachment? Attachment = null,

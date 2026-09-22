@@ -14,10 +14,22 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.Web" />
+    <!-- For AddRoadmapAiContentSource(), the composition root a host calls to
+         put the plan behind the shell's Ask AI port. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The record shape the Ask AI source writes a milestone and an item in is
+         a contract with the assistant, so it is worth asserting without a DOM. -->
+    <InternalsVisibleTo Include="Backlog.Desktop.UI.UnitTests" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\Core\Backlog.UI.Components\Backlog.UI.Components.csproj" />
+    <!-- IAiContentSource: the shell's Ask AI port, which this module answers for
+         the plan. The kernel is what everything may see. -->
+    <ProjectReference Include="..\..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
     <!-- The module's published surface only: the DTOs, the planning vocabulary and
          the IRoadmapPlanning port. The plan, its repository and the use-case
          handlers stay behind that line — the host wires them up, the band does not

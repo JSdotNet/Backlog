@@ -35,9 +35,12 @@
     assistants records a repository against a session, so narrowing by one would drop
     Claude's half of that part rather than filter it. The machine filter drives only the
     sessions part, because GitHub cannot say which machine a pull request was worked from
-    and a bill does not either. Every one of those refusals is stated on the section and
-    on the part rather than left for a reader to work out from a figure that will not
-    move.
+    and a bill does not either. Every one of those refusals is stated on the part it
+    applies to rather than left for a reader to work out from a figure that will not
+    move — behind an info mark beside the part's title, so the figures are what a part
+    shows and the caveat is there for whoever asks. The sections used to restate them in
+    a paragraph under each heading; that was the same sentence twice on one screen, and
+    it went.
 
     The sessions part refuses a third dimension that is not a filter at all: its activity
     grid is the last seven days whatever period is selected, and is drawn on a local clock
@@ -45,23 +48,29 @@
     caption, because this pane owns the filters and not the meaning of what they do not
     reach.
 
+    Each section folds under its own heading. The state is a field like the scope: it
+    lasts as long as the surface is open and no longer, for the reason nothing else here
+    is persisted. The parts stay in the DOM while folded — FoldControl hides its region
+    rather than removing it — so unfolding a section brings back the figures it had, not
+    a fresh fetch.
+
     The ✕ only reports that it was pressed; what that closes is the shell's business.
 *@
 
 <section @key=@("dashboard-pane") class="dashboard-panel" id="dashboard-pane" aria-labelledby="dashboard-title" data-testid="dashboard-panel">
     @* The library's section header wearing this pane's own class names. The
-       eyebrow/title/subtitle/actions shape is one component's job; the pane owns
-       what those parts are called and nothing else. *@
+       eyebrow/title/actions shape is one component's job; the pane owns what
+       those parts are called and nothing else. No subtitle: the three section
+       headings below say what the pane holds, and a sentence above them saying
+       it again was text in front of the figures. *@
     <SectionHeader BaseClass="dashboard-panel__header"
                    TextCssClass=""
                    EyebrowCssClass="dashboard-panel__eyebrow"
                    TitleCssClass="dashboard-panel__title"
-                   DescriptionCssClass="dashboard-panel__subtitle"
                    ActionsCssClass="dashboard-panel__header-actions"
                    Eyebrow="Dashboard"
                    TitleId="dashboard-title"
-                   Title="Productivity and cost"
-                   Description="Your own pull requests, issues and rework, the sessions your assistants ran, and what they cost.">
+                   Title="Productivity and cost">
         <Actions>
             <IconButton AriaLabel="Close dashboard" CssClass="btn--ghost" OnClick="() => OnClose.InvokeAsync()">✕</IconButton>
         </Actions>
@@ -106,44 +115,48 @@
     </div>
 
     <div class="dashboard-panel__content" id="dashboard-content">
+        @* The library's disclosure wearing this pane's class names, with the trigger
+           inside an h3 so each section keeps its place in the heading outline. *@
         <div class="dashboard-section" data-testid="dashboard-productivity">
-            <h3 class="dashboard-section__title">Productivity</h3>
-            <p class="dashboard-section__note">
-                Your own work, as GitHub records it, narrowed to the repository scoped in the header.
-                GitHub does not report which machine a pull request or issue was worked on from, so
-                the machine filter above does not change anything in this section.
-            </p>
-            <HeadlinePart Scope="_scope" />
-            <div class="dashboard-section__split">
-                <ScorePart Scope="_scope" />
-                <ReworkPart Scope="_scope" />
-            </div>
-            <TrendPart Scope="_scope" />
+            <FoldControl @bind-Expanded="_productivityExpanded"
+                         Label="Productivity"
+                         HeadingLevel="3"
+                         HeadingCssClass="dashboard-section__title"
+                         BaseClass="dashboard-section__fold"
+                         TestId="dashboard-productivity-toggle">
+                <HeadlinePart Scope="_scope" />
+                <div class="dashboard-section__split">
+                    <ScorePart Scope="_scope" />
+                    <ReworkPart Scope="_scope" />
+                </div>
+                <TrendPart Scope="_scope" />
+            </FoldControl>
         </div>
 
         <div class="dashboard-section" data-testid="dashboard-sessions-section">
-            <h3 class="dashboard-section__title">Sessions</h3>
-            <p class="dashboard-section__note">
-                Sessions Claude and Copilot left on this machine and on any other that has reported
-                its own, and when an agent was actually producing. Only Copilot records a repository
-                against a session, so filtering by one would hide Claude's half of the picture; the
-                repository scope in the header does not change this section.
-            </p>
-            <SessionsPart Scope="_scope" />
+            <FoldControl @bind-Expanded="_sessionsExpanded"
+                         Label="Sessions"
+                         HeadingLevel="3"
+                         HeadingCssClass="dashboard-section__title"
+                         BaseClass="dashboard-section__fold"
+                         TestId="dashboard-sessions-toggle">
+                <SessionsPart Scope="_scope" RepositoryColour="@RepositoryColour" />
+            </FoldControl>
         </div>
 
         <div class="dashboard-section" data-testid="dashboard-cost">
-            <h3 class="dashboard-section__title">Cost</h3>
-            <p class="dashboard-section__note">
-                Your own assistant usage. Neither Anthropic nor GitHub reports spend per repository or
-                per machine, so neither the repository scope in the header nor the machine filter above
-                changes anything in this section.
-            </p>
-            <SpendThisMonthPart Scope="_scope" />
-            <div class="dashboard-section__split">
-                <SpendTrendPart Scope="_scope" />
-                <SpendByModelPart Scope="_scope" />
-            </div>
+            <FoldControl @bind-Expanded="_costExpanded"
+                         Label="Cost"
+                         HeadingLevel="3"
+                         HeadingCssClass="dashboard-section__title"
+                         BaseClass="dashboard-section__fold"
+                         TestId="dashboard-cost-toggle">
+                <SpendThisMonthPart Scope="_scope" />
+                <div class="dashboard-section__split">
+                    <SpendTrendPart Scope="_scope" />
+                    <SpendByModelPart Scope="_scope" />
+                </div>
+            </FoldControl>
         </div>
     </div>
 </section>
@@ -164,6 +177,13 @@
     /// </summary>
     private DashboardScope _scope = DashboardScope.Default;
 
+    /// <summary>Which sections are open. Every one starts open, because a dashboard
+    /// that opens folded is a dashboard showing nothing; fields rather than anything
+    /// persisted, for the same reason the scope is one.</summary>
+    private bool _productivityExpanded = true;
+    private bool _sessionsExpanded = true;
+    private bool _costExpanded = true;
+
     /// <summary>What the machine directory answered. Empty until it has, which renders
     /// as the "All machines" option on its own — the honest shape of "not asked yet",
     /// and the option the filter falls back to anyway.</summary>
@@ -171,6 +191,26 @@
 
     [Inject]
     private IMachineDirectory Machines { get; set; } = default!;
+
+    /// <summary>Where the pane tells the shell what it is looking at, so the Ask
+    /// AI source fetches for the same repositories and window the parts show.
+    /// Written through <see cref="Scope"/> and never read back: the field above
+    /// stays the pane's own, and closing the surface still forgets it.</summary>
+    [Inject]
+    private DashboardScopeInView ScopeInView { get; set; } = default!;
+
+    /// <summary>The one place the scope is assigned, so the mirror cannot fall
+    /// behind the field. Replaced rather than mutated, for the reason
+    /// <see cref="FocusMachine"/> gives.</summary>
+    private DashboardScope Scope
+    {
+        get => _scope;
+        set
+        {
+            _scope = value;
+            ScopeInView.Set(value);
+        }
+    }
 
     /// <summary>
     /// The repositories in focus, by alias, in the order the shell's scope took
@@ -187,6 +227,16 @@
     public EventCallback OnClose { get; set; }
 
     /// <summary>
+    /// Which identity hue a repository alias wears, or null while the hues are switched
+    /// off — the shell's answer, handed through to the one part that draws a
+    /// repository as a band. A callback rather than a lookup, for the reason the
+    /// Sessions list takes the same one: which repositories exist and whether their
+    /// hues are on are workspace questions, not this pane's.
+    /// </summary>
+    [Parameter]
+    public Func<string?, int?>? RepositoryColour { get; set; }
+
+    /// <summary>
     /// Takes the repositories the shell handed in into the scope. On every parameter
     /// set rather than once, because the chips can move while the dashboard is
     /// open and the parts follow the scope, not the parameter.
@@ -199,7 +249,7 @@
     /// </para>
     /// </summary>
     protected override void OnParametersSet() =>
-        _scope = _scope with { Repositories = RepositoryFocus.Of(RepositoryAliases) };
+        Scope = _scope with { Repositories = RepositoryFocus.Of(RepositoryAliases) };
 
     /// <summary>
     /// The machines the filter offers, asked for once when the pane opens rather than
@@ -229,9 +279,9 @@
     /// Replaced rather than mutated, for the reason <see cref="FocusRepository"/>
     /// gives.</summary>
     private void FocusMachine(string? id) =>
-        _scope = _scope with { MachineId = string.IsNullOrWhiteSpace(id) ? null : id };
+        Scope = _scope with { MachineId = string.IsNullOrWhiteSpace(id) ? null : id };
 
-    private void ChooseWindow(DashboardPeriod period) => _scope = _scope with { Period = period };
+    private void ChooseWindow(DashboardPeriod period) => Scope = _scope with { Period = period };
 
     private static int Weeks(DashboardPeriod period) => new DashboardScope(Period: period).Weeks;
 }

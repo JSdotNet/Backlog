@@ -449,6 +449,7 @@ public sealed class TaskReplicaMergeTests
         original.SetDueOn(new DateOnly(2026, 9, 30));
         original.SetReminder(new DateTime(2026, 9, 29, 9, 0, 0, DateTimeKind.Unspecified));
         original.SetInMyDayOn(new DateOnly(2026, 9, 7));
+        original.SetCompletedOn(new DateOnly(2026, 9, 22));
         original.SetView(EntryView.Steps);
         original.SetTags(["release"]);
         original.SetRepoIds(["JSdotNet/Backlog"]);
@@ -475,6 +476,7 @@ public sealed class TaskReplicaMergeTests
         Assert.Equal(original.DueOn, restored.DueOn);
         Assert.Equal(original.RemindAt, restored.RemindAt);
         Assert.Equal(original.InMyDayOn, restored.InMyDayOn);
+        Assert.Equal(original.CompletedOn, restored.CompletedOn);
         Assert.Equal(original.View, restored.View);
         Assert.Equal(original.Tags, restored.Tags);
         Assert.Equal(original.RepoIds, restored.RepoIds);

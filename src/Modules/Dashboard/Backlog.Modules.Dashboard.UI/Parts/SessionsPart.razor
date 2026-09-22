@@ -130,6 +130,7 @@
                 <MetricTile Label="Agent-active time"
                             Value="@DashboardFormat.Duration(Value!.ActiveTime)"
                             Footnote="@ActiveTimeFootnote"
+                            FootnoteAsHint="true"
                             TestId="dashboard-sessions-active" />
                 @* "For a prompt" rather than "on you". Nearly every prompt that ends a
                    gap here comes from an SDK or a skill rather than from the keyboard —
@@ -138,6 +139,7 @@
                 <MetricTile Label="Waiting for a prompt"
                             Value="@DashboardFormat.Duration(Value!.Waiting)"
                             Footnote="@WaitingFootnote"
+                            FootnoteAsHint="true"
                             TestId="dashboard-sessions-waiting" />
                 @* A mean over the sessions that carry a count, and the footnote names
                    how many that is. Only Claude records one, so a mean that treated the
@@ -147,6 +149,7 @@
                 <MetricTile Label="Prompts per session"
                             Value="@Prompts(Value!.PromptsPerSession)"
                             Footnote="@PromptsFootnote"
+                            FootnoteAsHint="true"
                             TestId="dashboard-sessions-prompts" />
                 @* The instant rather than "two hours ago". A relative figure would need
                    a clock in a component that otherwise reads none, and would go stale
@@ -163,6 +166,7 @@
                 <MetricTile Label="Most sessions at once"
                             Value="@Peak(Value!.MostSessionsAtOnce)"
                             Footnote="@SessionsAtOnceFootnote"
+                            FootnoteAsHint="true"
                             TestId="dashboard-sessions-at-once" />
                 @* A second population, and the tile beside it is the reason the footnote
                    has to say so twice over: these are counted apart from the sessions, and
@@ -171,51 +175,98 @@
                 <MetricTile Label="Most agents at once"
                             Value="@Peak(Value!.MostAgentsAtOnce)"
                             Footnote="@AgentsAtOnceFootnote"
+                            FootnoteAsHint="true"
                             TestId="dashboard-sessions-agents-at-once" />
+                @* The refusals, counted where they were written. A count rather than a
+                   duration because that is what the transcript holds: the moment the
+                   assistant said no, not how long the no lasted — the wait it started is
+                   already in the waiting figure. Claude's alone, because Copilot records
+                   none, and the footnote splits it by allowance so a reader can tell a
+                   week of five-hour walls from the one weekly wall. *@
+                <MetricTile Label="Limit hits"
+                            Value="@MetricFormat.Compact(Value!.LimitHits.Total)"
+                            Footnote="@LimitHitsFootnote"
+                            TestId="dashboard-sessions-limit-hits" />
             </MetricGrid>
 
-            @* Drawn only when there is an axis to draw it on. The part's empty state
-               is governed by the session count, so a series that arrived empty for any
-               other reason must not put "no usage in this period" under tiles that are
-               reporting some. *@
+            @* Every tile above, cut by week, in one chart. The hours are the columns —
+               producing on the baseline, waiting on it, stacked because an hour of each
+               is two agent-hours on the go — and the four counts are lines over them on
+               a scale of their own, printed on the right. Two measures on one plot is
+               what color-scheme.md's chart rule says to draw as two charts, and the
+               reader chose one knowingly; the two scales are what keep it honest.
+
+               The legend sits on top because it is the filter for both charts: the
+               measures switched on here are the ones the repository stack below adds
+               up. Waiting starts off — it dwarfs everything else on a real profile —
+               and the part owns the set so the two charts cannot disagree about it.
+               A column is a week, and pressing one is how the grids below pick theirs.
+               Drawn on the rule of an axis or nothing. *@
             @if (Value!.SessionsPerWeek.Count > 0)
             {
-                <MetricBars Points="@PerWeek"
-                            Label="@PerWeekLabel"
-                            BucketHeading="Week"
-                            ValueHeading="Sessions"
-                            HighlightLast="true"
-                            FormatValue="MetricFormat.Compact"
-                            TestId="dashboard-sessions-bars" />
+                <MetricStackedBars Series="@WeeklyColumns"
+                                   Lines="@WeeklyLines"
+                                   Mode="MetricBarsMode.Stacked"
+                                   Label="@WeeklyLabel"
+                                   Note="@WeeklyNote"
+                                   NameHeading="Measure"
+                                   TotalHeading="Agent-hours on the go"
+                                   LegendLabel="Measures shown — the filter for both charts"
+                                   LegendAbove="true"
+                                   Hidden="@_hidden"
+                                   HiddenChanged="@(set => _hidden = set)"
+                                   SelectedBucket="@SelectedWeekLabel"
+                                   OnBucketSelected="@PickWeek"
+                                   FormatValue="@Hours"
+                                   FormatLine="MetricFormat.Score"
+                                   TestId="dashboard-sessions-weekly-bars" />
             }
 
-            @* Drawn only when some session in the window was counted, on the tile's
-               rule rather than the chart above's: an axis of zeros under a tile that
-               says "—" would be the chart claiming the zero the tile refused to. The
-               columns share the sessions chart's buckets, so a column here is the same
-               sessions as the column beside it there. *@
-            @if (Value!.SessionsWithPrompts > 0 && Value!.PromptsPerSessionPerWeek.Count > 0)
+            @* The measures switched on above, added up per repository band and stacked.
+               No filter of its own: the measures are the legend above and the
+               repositories are the header's scope chips, and a second control for
+               either would be one more place for the two to disagree. The legend here
+               is a key. A band is a configured repository by its alias — wearing its
+               identity hue when the header's Colors switch is on, because that hue says
+               which repository and this chart is on the identity set's consumer table
+               — or the unconfigured ones folded together, or the sessions that recorded
+               none. Only Copilot records one, so that last band is every Claude session
+               and the largest on a real profile: drawn, named for the fact, never
+               dropped. With repositories in focus only their bands are here, the
+               Sessions list's treatment of a session it cannot place. The sum is the
+               reader's own call — hours and counts added when both are on — and the
+               caption says what went in and what the total therefore is not. *@
+            @if (Value!.ByRepository.Count > 0)
             {
-                <MetricBars Points="@PromptsPerWeek"
-                            Label="@PromptsPerWeekLabel"
-                            BucketHeading="Week"
-                            ValueHeading="Prompts per session"
-                            HighlightLast="true"
-                            FormatValue="MetricFormat.Score"
-                            TestId="dashboard-sessions-prompts-bars" />
+                <MetricStackedBars Series="@RepositorySeries"
+                                   Mode="MetricBarsMode.Stacked"
+                                   Label="@RepositoryLabel"
+                                   Note="@RepositoryNote"
+                                   NameHeading="Repository"
+                                   TotalHeading="@RepositoryTotalHeading"
+                                   LegendLabel="Repositories"
+                                   LegendInteractive="false"
+                                   SelectedBucket="@SelectedWeekLabel"
+                                   OnBucketSelected="@PickWeek"
+                                   FormatValue="@RepositoryFormat"
+                                   IdentityOf="@IdentityOf"
+                                   TestId="dashboard-sessions-repository-bars" />
             }
 
             @* Empty when nothing in the scoped set left a parsable record, and 168 cells
                otherwise, so the count is the whole question. An empty grid drawn as seven
                rows of nothing would be a claim that seven days went by with no agent on
                them, which is a different fact from having nothing to read. *@
-            @if (Value!.ActivityByHour.Count > 0)
+            @if (Grid is not null)
             {
                 <MetricHeatmap Series="@ByHour"
                                Label="@ByHourLabel"
+                               Note="@ByHourNote"
                                CellDetail="@CellDetail"
                                CellMarked="@InsideWorkingHours"
                                MarkedLabel="working hours"
+                               CellFlag="@LimitFlag"
+                               Flags="@LimitFlags"
                                ShowValues="true"
                                RowTotals="@DayTotals"
                                FormatValue="MetricFormat.Compact"
@@ -228,9 +279,12 @@
                    idle. *@
                 <MetricHeatmap Series="@ByHourOpen"
                                Label="@ByHourOpenLabel"
+                               Note="@ByHourOpenNote"
                                CellDetail="@CellDetail"
                                CellMarked="@InsideWorkingHours"
                                MarkedLabel="working hours"
+                               CellFlag="@LimitFlag"
+                               Flags="@LimitFlags"
                                ShowValues="true"
                                FormatValue="MetricFormat.Compact"
                                TestId="dashboard-sessions-open" />
@@ -243,8 +297,11 @@
                    saying only that is the honest version of it. *@
                 <MetricHeatmap Series="@ByHourAgents"
                                Label="@ByHourAgentsLabel"
+                               Note="@ByHourAgentsNote"
                                CellMarked="@InsideWorkingHours"
                                MarkedLabel="working hours"
+                               CellFlag="@LimitFlag"
+                               Flags="@LimitFlags"
                                ShowValues="true"
                                FormatValue="MetricFormat.Compact"
                                TestId="dashboard-sessions-agents" />
@@ -276,11 +333,26 @@
 </PartFrame>
 
 @code {
-    /// <summary>Only one of the two assistants records a repository against a session —
-    /// Copilot does, Claude does not — so narrowing this part by one would drop every
-    /// Claude session rather than filter it. The part refuses the dimension and says so
-    /// on screen.</summary>
-    protected override bool FollowsRepository => false;
+    /// <summary>
+    /// Followed for one chart and refused for the rest, and the insight is where that
+    /// split is made: only one of the two assistants records a repository against a
+    /// session — Copilot does, Claude does not — so narrowing the tiles by one would
+    /// drop every Claude session rather than filter it. The by-repository chart is the
+    /// one place the scope reaches, because there a band is a repository and a band
+    /// out of scope is a band the reader asked not to see. The pane's note says so.
+    /// </summary>
+    protected override bool FollowsRepository => true;
+
+    /// <summary>
+    /// Which identity hue a repository band wears, asked by the band's name — the
+    /// configured alias — or null for the ramp. The shell's to answer, for the reason
+    /// the Sessions list already takes it as a callback: which repositories exist and
+    /// whether their hues are switched on are workspace questions, and a part that
+    /// worked its own out would be a second answer to which project is which. Null
+    /// for the two folded bands, which are not a repository and have no hue to wear.
+    /// </summary>
+    [Parameter]
+    public Func<string?, int?>? RepositoryColour { get; set; }
 
     /// <summary>The one part on the surface that knows which machine its figures came
     /// from, so the one part the machine filter drives.</summary>
@@ -348,42 +420,279 @@
         }
     }
 
+    /// <summary>The six measures the weekly charts cut, in the order the legend lists
+    /// them: the two hour columns first, then the four counts.</summary>
+    private enum WeeklyMeasure
+    {
+        Producing,
+        Waiting,
+        Sessions,
+        Prompts,
+        SessionsAtOnce,
+        AgentsAtOnce
+    }
+
+    private static readonly WeeklyMeasure[] Measures =
+    [
+        WeeklyMeasure.Producing,
+        WeeklyMeasure.Waiting,
+        WeeklyMeasure.Sessions,
+        WeeklyMeasure.Prompts,
+        WeeklyMeasure.SessionsAtOnce,
+        WeeklyMeasure.AgentsAtOnce
+    ];
+
     /// <summary>
-    /// The weekly series as the chart component wants it. Names only, no arithmetic:
-    /// the bucketing happened where the sessions were, and a second pass here would be
-    /// a second place for it to drift.
+    /// The measures switched off, by the name the legend shows — the one filter both
+    /// charts read. Waiting starts off: on a real profile it is several times every
+    /// other figure and a stack that opened with it on would be a chart of waiting with
+    /// the rest as a hairline. A field, on the pane's scope's precedent: closing the
+    /// surface forgets it.
     /// </summary>
-    private IReadOnlyList<MetricPoint> PerWeek =>
+    private IReadOnlyCollection<string> _hidden = [Name(WeeklyMeasure.Waiting)];
+
+    /// <summary>The week the grids show, by its column's label, or null for the latest.
+    /// A label rather than a key because it is what the chart hands back, and the two
+    /// are one-to-one inside a window.</summary>
+    private string? _week;
+
+    private static bool IsHours(WeeklyMeasure measure) =>
+        measure is WeeklyMeasure.Producing or WeeklyMeasure.Waiting;
+
+    /// <summary>The measure as the legend names it.</summary>
+    private static string Name(WeeklyMeasure measure) => measure switch
+    {
+        WeeklyMeasure.Producing => "Producing",
+        WeeklyMeasure.Waiting => "Waiting for a prompt",
+        WeeklyMeasure.Sessions => "Sessions",
+        WeeklyMeasure.Prompts => "Prompts per session",
+        WeeklyMeasure.SessionsAtOnce => "Sessions at once",
+        _ => "Agents at once"
+    };
+
+    private bool IsOn(WeeklyMeasure measure) => !_hidden.Contains(Name(measure));
+
+    /// <summary>The measures switched on, in legend order — what the repository stack
+    /// adds up.</summary>
+    private IReadOnlyList<WeeklyMeasure> Selected => [.. Measures.Where(IsOn)];
+
+    private void PickWeek(string label) => _week = label;
+
+    /// <summary>The picked week's column label, or the latest week's — so the column
+    /// the grids are drawn from is always the one that reads as pressed.</summary>
+    private string? SelectedWeekLabel => Grid?.Label;
+
+    /// <summary>The grid the picked week names, or the latest one while nothing is
+    /// picked — or was picked in a window that no longer holds it, which a change of
+    /// period does.</summary>
+    private WeekGrid? Grid =>
+        !IsReady || Value!.Grids.Count == 0
+            ? null
+            : Value!.Grids.FirstOrDefault(grid => grid.Label == _week) ?? Value!.Grids[^1];
+
+    /// <summary>
+    /// The two hour series as the stack. Names only, no arithmetic: the cutting
+    /// happened where the sweep was, and each legend entry carries its own tile's
+    /// figure, so the one place the columns are summarised is the tile's own words.
+    /// </summary>
+    private IReadOnlyList<MetricSeries> WeeklyColumns =>
         IsReady
-            ? [.. Value!.SessionsPerWeek.Select(point => new MetricPoint(point.Label, point.Value))]
+            ?
+            [
+                new MetricSeries(Name(WeeklyMeasure.Producing), Points(Value!.ActiveTimePerWeek), DashboardFormat.Duration(Value!.ActiveTime)),
+                new MetricSeries(Name(WeeklyMeasure.Waiting), Points(Value!.WaitingPerWeek), DashboardFormat.Duration(Value!.Waiting))
+            ]
             : [];
 
     /// <summary>
-    /// What a column is, said where the columns are. A session has no end recorded and
-    /// may have no start, so the week it last moved is the only week it can be counted
-    /// in — and the consequence, that a session running across a boundary appears once
-    /// rather than in both weeks, is the reader's to know rather than to discover from
-    /// a chart whose columns do not sum to the tile above them.
+    /// The four counts as lines, each with its tile's figure: a count, a mean, and two
+    /// peaks — none of them summable with the others, which is why they are lines on
+    /// a scale of their own and not bands in the stack. The prompt line is left out
+    /// when no session in the window carried a count, on its tile's rule: a line of
+    /// zeros would be the chart claiming the zero the tile refused to.
     /// </summary>
-    private const string PerWeekLabel =
-        "Sessions per week, counted in the week they last moved — one that ran across two weeks appears once";
+    private IReadOnlyList<MetricSeries> WeeklyLines
+    {
+        get
+        {
+            if (!IsReady) return [];
 
-    /// <summary>The prompt series, on the same terms as the one above it.</summary>
-    private IReadOnlyList<MetricPoint> PromptsPerWeek =>
-        IsReady
-            ? [.. Value!.PromptsPerSessionPerWeek.Select(point => new MetricPoint(point.Label, point.Value))]
-            : [];
+            var lines = new List<MetricSeries>
+            {
+                new(Name(WeeklyMeasure.Sessions), Points(Value!.SessionsPerWeek), MetricFormat.Compact(Value!.Sessions))
+            };
+
+            if (Value!.SessionsWithPrompts > 0 && Value!.PromptsPerSessionPerWeek.Count > 0)
+            {
+                lines.Add(new(Name(WeeklyMeasure.Prompts), Points(Value!.PromptsPerSessionPerWeek), Prompts(Value!.PromptsPerSession)));
+            }
+
+            lines.Add(new(Name(WeeklyMeasure.SessionsAtOnce), Points(Value!.MostSessionsAtOncePerWeek), PeakDetail(Value!.MostSessionsAtOnce)));
+            lines.Add(new(Name(WeeklyMeasure.AgentsAtOnce), Points(Value!.MostAgentsAtOncePerWeek), PeakDetail(Value!.MostAgentsAtOnce)));
+
+            return lines;
+        }
+    }
 
     /// <summary>
-    /// What a column is here, and what a zero is. The bucketing is the sessions chart's,
-    /// so that sentence is not repeated; what is new is that a column is a mean over the
-    /// counted sessions in its week and a week without one is drawn as zero — which is
-    /// the one place on this part a zero stands for "nothing to count", and the caption
-    /// is where that has to be said.
+    /// What a week is here — the sentence the columns owe, and it changes with where
+    /// the boundary came from: the person's setting, the assistant's last reported
+    /// reset, or the calendar because neither is known.
     /// </summary>
-    private const string PromptsPerWeekLabel =
-        "Prompts per session by week, averaged over the sessions that carry a count and "
-        + "placed in the week they last moved — a week with no counted session shows as zero";
+    private string WeekSentence =>
+        !IsReady
+            ? string.Empty
+            : Value!.Week.Source switch
+            {
+                WeekSource.Configured => $"Weeks run from {Value!.Week.ResetAt} to the next, your configured usage reset",
+                WeekSource.Detected => $"Weeks run from {Value!.Week.ResetAt} to the next, the usage reset your assistant last reported — set your own in Settings if that is not right",
+                _ => "Calendar weeks from Monday, because no usage reset is known — set yours in Settings to cut by it"
+            };
+
+    /// <summary>The caption is a name; everything a reader would otherwise get wrong
+    /// about these columns is behind the mark beside it.</summary>
+    private const string WeeklyLabel = "Agent-hours and counts per week";
+
+    /// <summary>
+    /// Which measures are the columns and which the lines, that the right scale is the
+    /// lines' own, that the legend is the filter for the chart below, that a column can
+    /// be pressed — and the two bucketing rules that live side by side here: a session
+    /// and its prompts are counted in the week the session last moved, its hours are
+    /// wherever they were worked. The week sentence leads, because which week a column
+    /// is settles everything after it.
+    /// </summary>
+    private string WeeklyNote =>
+        $"{WeekSentence}. Hours producing and waiting are stacked; sessions, prompts per session and the two peaks are lines "
+        + "on the right-hand scale, which is theirs alone. The legend is the filter for this chart and the one below; press a week to open it in the grids further down. "
+        + "Sessions and prompts are counted in the week the session last moved; hours are placed in the week they were worked.";
+
+    /// <summary>
+    /// One series per repository band: the selected measures added up, week by week.
+    /// The sum is the reader's own call, hours and counts together when both are on,
+    /// and the caption says what went in. Names only past the addition: the cutting
+    /// happened where the sweep was.
+    /// </summary>
+    private IReadOnlyList<MetricSeries> RepositorySeries
+    {
+        get
+        {
+            if (!IsReady) return [];
+
+            var selected = Selected;
+
+            return
+            [
+                .. Value!.ByRepository.Select(row =>
+                {
+                    var series = selected.Select(measure => SeriesOf(row, measure)).ToList();
+                    var labels = Value!.SessionsPerWeek.Select(point => point.Label).ToList();
+
+                    var points = labels.Select((label, index) => new MetricPoint(
+                        label,
+                        series.Sum(one => index < one.Count ? one[index].Value : 0m))).ToList();
+
+                    return new MetricSeries(row.Name, points, RepositoryDetail(points, selected));
+                })
+            ];
+        }
+    }
+
+    private static IReadOnlyList<InsightPoint> SeriesOf(RepositoryWeekly row, WeeklyMeasure measure) => measure switch
+    {
+        WeeklyMeasure.Producing => row.ActiveTimePerWeek,
+        WeeklyMeasure.Waiting => row.WaitingPerWeek,
+        WeeklyMeasure.Sessions => row.SessionsPerWeek,
+        WeeklyMeasure.Prompts => row.PromptsPerSessionPerWeek,
+        WeeklyMeasure.SessionsAtOnce => row.MostSessionsAtOncePerWeek,
+        _ => row.MostAgentsAtOncePerWeek
+    };
+
+    /// <summary>Whether every selected measure is hours, so the figures can read as
+    /// durations; anything else and they are plain numbers of a mixed unit.</summary>
+    private bool HoursOnly => Selected.Count > 0 && Selected.All(IsHours);
+
+    /// <summary>A band's period figure for the key: the columns summed, in the unit
+    /// the selection has — a duration for hours alone, a number otherwise, nothing
+    /// when nothing is selected.</summary>
+    private string? RepositoryDetail(IReadOnlyList<MetricPoint> points, IReadOnlyList<WeeklyMeasure> selected) =>
+        selected.Count == 0
+            ? null
+            : HoursOnly ? Hours(points.Sum(point => point.Value)) : MetricFormat.Compact(points.Sum(point => point.Value));
+
+    /// <summary>How a band's figure reads: as a duration when only hours are on, as a
+    /// plain number of a mixed unit otherwise.</summary>
+    private Func<decimal, string> RepositoryFormat => HoursOnly ? Hours : MetricFormat.Compact;
+
+    private string RepositoryTotalHeading =>
+        Selected.Count == 0 ? "Nothing selected"
+        : HoursOnly ? "All repositories, agent-hours"
+        : "All repositories — a sum across measures, not a figure of anything";
+
+    /// <summary>A name, and the selection is part of it: which measures a band is made
+    /// of is the one thing about this chart that changes under the reader's hand.</summary>
+    private string RepositoryLabel
+    {
+        get
+        {
+            var selected = Selected;
+
+            return selected.Count == 0
+                ? "Nothing selected, by repository"
+                : selected.Count == 1
+                    ? $"{Name(selected[0])} per week, by repository"
+                    : $"{string.Join(" + ", selected.Select(Name))} per week, by repository";
+        }
+    }
+
+    /// <summary>
+    /// The note changes with the selection too, because what it has to say does: whether
+    /// the sum means anything, that the unrecorded band is every Claude session, whether
+    /// the header's scope has narrowed it, and that a week can be pressed.
+    /// </summary>
+    private string RepositoryNote
+    {
+        get
+        {
+            var selected = Selected;
+
+            var what = selected.Count == 0
+                ? "Nothing selected in the legend above, so nothing to stack"
+                : selected.Count == 1
+                    ? "The measure switched on above, added up per repository and stacked"
+                    : "The measures switched on above, added up per repository and stacked"
+                      + (HoursOnly ? string.Empty : " — a sum across units that is not a figure of anything; switch measures off above to read one");
+
+            var scoped = Scope.IsAllRepositories
+                ? "Only Copilot records a repository, so \"No repository recorded\" is every Claude session; the header's repository scope narrows this chart and nothing else on this part"
+                : "Narrowed to the header's repository scope — the sessions that recorded no repository, which is every Claude session, are out of it";
+
+            return $"{what}. {scoped}. Press a week to open it in the grids below.";
+        }
+    }
+
+    /// <summary>The hue a band wears: the shell's answer for a configured repository's
+    /// alias, and nothing for the two folded bands — they are not a repository.</summary>
+    private int? IdentityOf(string name) =>
+        IsReady
+        && Value!.ByRepository.Any(row => row.Kind == RepositoryBandKind.Configured && row.Name == name)
+            ? RepositoryColour?.Invoke(name)
+            : null;
+
+    private static IReadOnlyList<MetricPoint> Points(IReadOnlyList<InsightPoint> series) =>
+        [.. series.Select(point => new MetricPoint(point.Label, point.Value))];
+
+    /// <summary>The peak over the period as the legend states it, or nothing when
+    /// nothing ran — never a zero, on the tile's own rule.</summary>
+    private static string? PeakDetail(ConcurrencyPeak? peak) =>
+        peak is { } value ? $"peak {value.Peak}" : null;
+
+    /// <summary>
+    /// A column's hours the way the tiles read them: minutes under an hour, hours under
+    /// a day, days above. The series carries decimal hours because the chart's scale
+    /// needs a number; the reader gets the same words the tile uses for the same time.
+    /// </summary>
+    private static string Hours(decimal hours) =>
+        DashboardFormat.Duration(TimeSpan.FromHours((double)hours));
 
     /// <summary>
     /// The mean to one decimal, or a dash. Not <see cref="MetricFormat.Compact"/>: that
@@ -442,15 +751,27 @@
     private IReadOnlyList<MetricSeries> ByHourAgents => Series(hour => hour.PeakAgents);
 
     private IReadOnlyList<MetricSeries> Series(Func<ActivityHour, int> of) =>
-        IsReady
-            ? [.. Value!.ActivityByHour
+        Grid is { } grid
+            ? [.. grid.Hours
                 .GroupBy(hour => hour.Day)
                 .OrderBy(day => day.Key)
                 .Select(day => new MetricSeries(
                     DashboardFormat.Day(day.Key),
+                    // Clock order. A row is a calendar day; the first and last rows of a
+                    // week hold only the hours inside it, and the grid draws the hours it
+                    // is not given as not reported — they are the neighbouring weeks'.
                     [.. day.OrderBy(hour => hour.Hour)
                         .Select(hour => new MetricPoint(DashboardFormat.Hour(hour.Hour), of(hour)))]))]
             : [];
+
+    /// <summary>The week the grids are showing, said where they are: which one, and
+    /// that a row runs from the reset hour rather than from midnight.</summary>
+    private string GridWeekSentence =>
+        Grid is { } grid
+            ? Value!.Week.Source == WeekSource.Calendar
+                ? $"the week of {grid.Label}, picked above, as calendar days"
+                : $"the week from {grid.Label}, picked above, as calendar days cut at the reset ({Value!.Week.ResetAt}) — the first and last rows hold only the hours inside the week, and the hours outside it are blank"
+            : string.Empty;
 
     /// <summary>
     /// What the grid is, the two things it refuses, and what the column on the end is
@@ -482,9 +803,16 @@
     /// the other's noun is the one that had to give it up.
     /// </para>
     /// </summary>
-    private const string ByHourLabel =
-        "Peak sessions producing at once, by hour of your local clock — the last 7 days, "
-        + "whichever period is selected above. Outlined cells are your working hours from "
+    private const string ByHourLabel = "Sessions producing at once, by hour";
+
+    /// <summary>The week this grid is showing leads the note, because it is the one
+    /// thing about the grid a reader chose; the limit marks and the working-hours
+    /// outline follow, then what the row totals are and are not.</summary>
+    private string ByHourNote =>
+        $"Your local clock, {GridWeekSentence}. "
+        + "A cell in the error colour is an hour Claude had walled you out for the 5-hour limit — from the refusal to the hour the window reset — "
+        + "and a hollow dot is an hour it refused for the weekly one. "
+        + "Outlined cells are your working hours from "
         + "Settings, marked wherever the hour overlaps them. The columns count the "
         + "distinct sessions that ran each day, so they are not the row added up — and a "
         + "session that ran across the edge of your day is counted in hours and outside "
@@ -500,11 +828,13 @@
     /// abandoned window open for days.
     /// </para>
     /// </summary>
-    private const string ByHourOpenLabel =
-        "Sessions on the go at once — producing, or stopped with nothing having prompted "
-        + "them yet. Never lower than the grid above, and the gap between the two is the "
-        + "time an agent was open and idle. A session that went quiet and never resumed is "
-        + "not counted, because nothing records when a session ended.";
+    private const string ByHourOpenLabel = "Sessions on the go at once, by hour";
+
+    private const string ByHourOpenNote =
+        "Producing, or stopped with nothing having prompted them yet. Never lower than "
+        + "the grid above, and the gap between the two is the time an agent was open and "
+        + "idle. A session that went quiet and never resumed is not counted, because "
+        + "nothing records when a session ended.";
 
     /// <summary>
     /// What the third grid counts, and the two ways a reader would otherwise get it wrong.
@@ -521,9 +851,11 @@
     /// call and then nothing — is short by its own silence.
     /// </para>
     /// </summary>
-    private const string ByHourAgentsLabel =
-        "Peak agents at once, by hour of your local clock — the last 7 days, whichever "
-        + "period is selected above. These are the agents Claude's sessions spawned, and "
+    private const string ByHourAgentsLabel = "Agents at once, by hour";
+
+    private string ByHourAgentsNote =>
+        $"Your local clock, {GridWeekSentence}. "
+        + "These are the agents Claude's sessions spawned, and "
         + "they are in neither grid above: the three count different things and none is "
         + "another's total. One session can hold five of these at once, so this grid is "
         + "freely higher or lower than either of the others and the two must not be read "
@@ -574,15 +906,91 @@
     ];
 
     private ActivityDay? Day(string day) =>
+        Grid?.Days.FirstOrDefault(entry => DashboardFormat.Day(entry.Day) == day);
+
+    /// <summary>The marks the grids draw for refusals, in the legend's words: the hours
+    /// a five-hour refusal kept walled out — the refusal's own hour is the first of
+    /// them, and needs no mark of its own — and a weekly refusal.</summary>
+    private static readonly IReadOnlyList<MetricFlag> LimitFlags =
+    [
+        new("blocked", "blocked by the 5-hour limit, from the refusal to the reset"),
+        new("weekly", "weekly limit hit")
+    ];
+
+    /// <summary>
+    /// What an hour on a row carries for refusals, as space-separated keys: the fill
+    /// for every hour from a five-hour refusal up to the hour its window reset — the
+    /// refusal's own hour first, so the run's start is the moment it was written — and
+    /// the dot for a weekly refusal written in that hour. The walk is over the grid's
+    /// own hour order, so a wall that crosses midnight runs on into the next row.
+    /// </summary>
+    private Func<string, string, string?> LimitFlag => (day, hour) =>
+    {
+        if (Grid is not { } grid) return null;
+
+        var keys = new List<string>(2);
+
+        if (IsBlocked(grid, day, hour)) keys.Add("blocked");
+
+        if (grid.Limits.Any(mark =>
+            mark.Kind != AssistantLimitKind.FiveHour
+            && DashboardFormat.Day(mark.Day) == day
+            && DashboardFormat.Hour(mark.Hour) == hour))
+        {
+            keys.Add("weekly");
+        }
+
+        return keys.Count == 0 ? null : string.Join(' ', keys);
+    };
+
+    /// <summary>Whether a cell lies inside the reach of any five-hour refusal: at or
+    /// after the refusal's hour and at or before the hour its window reset, in the
+    /// grid's own hour order.</summary>
+    private static bool IsBlocked(WeekGrid grid, string day, string hour)
+    {
+        int? index = null;
+
+        for (var position = 0; position < grid.Hours.Count; position++)
+        {
+            if (DashboardFormat.Day(grid.Hours[position].Day) == day && DashboardFormat.Hour(grid.Hours[position].Hour) == hour)
+            {
+                index = position;
+                break;
+            }
+        }
+
+        if (index is null) return false;
+
+        return grid.Limits.Any(mark =>
+            mark.Kind == AssistantLimitKind.FiveHour
+            && mark.UntilDay is { } untilDay
+            && mark.UntilHour is { } untilHour
+            && Position(grid, mark.Day, mark.Hour) is { } from
+            && Position(grid, untilDay, untilHour) is { } until
+            && index >= from
+            && index <= until);
+    }
+
+    private static int? Position(WeekGrid grid, DateOnly day, int hour)
+    {
+        for (var position = 0; position < grid.Hours.Count; position++)
+        {
+            if (grid.Hours[position].Day == day && grid.Hours[position].Hour == hour) return position;
+        }
+
+        return null;
+    }
+
+    /// <summary>The count split by allowance, and whose it is.</summary>
+    private string LimitHitsFootnote =>
         IsReady
-            ? Value!.ActivityByDay.FirstOrDefault(entry => DashboardFormat.Day(entry.Day) == day)
-            : null;
+            ? $"{Value!.LimitHits.FiveHour} × 5-hour · {Value!.LimitHits.Weekly} × weekly. Requests Claude refused because an allowance was spent, "
+              + "counted where the refusal was written. Copilot records none, so its sessions contribute nothing rather than zero."
+            : string.Empty;
 
     private ActivityHour? Cell(string day, string hour) =>
-        IsReady
-            ? Value!.ActivityByHour.FirstOrDefault(
-                cell => DashboardFormat.Day(cell.Day) == day && DashboardFormat.Hour(cell.Hour) == hour)
-            : null;
+        Grid?.Hours.FirstOrDefault(
+            cell => DashboardFormat.Day(cell.Day) == day && DashboardFormat.Hour(cell.Hour) == hour);
 
     private static readonly IReadOnlyList<DataTableColumn> MachineColumns =
     [

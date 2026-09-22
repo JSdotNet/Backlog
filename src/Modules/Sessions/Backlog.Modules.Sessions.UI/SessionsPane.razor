@@ -57,16 +57,18 @@
 
     The shell's repository scope reaches this list too — the same chips that narrow
     the task list and the dashboard's overview — and it is the one filter this pane
-    does not own a control for, because the control is in the header. It is a
-    subtraction with a cost the other filters do not have: only a session whose
-    agent recorded its repository can be matched to one, and Claude records none
-    (see .domain/sessions — a repository read off a folder path is a guess, and the
-    log never fills a gap the agent left). So a scoped list holds Copilot's sessions
-    and the replicated ones that arrived with an alias, and says so on the subtitle
-    rather than letting a reader conclude Claude ran nothing. What a recorded
-    repository is called on the wire — an owner/name, or an alias — is the shell's
-    to resolve, which is why the mapping is handed in beside the scope the way the
-    hue is.
+    does not own a control for, because the control is in the header. A session is
+    in scope by either of two repositories: the one its agent recorded, or the one
+    this product resolved from its working folder lying inside a registered clone
+    (see .domain/sessions — the two are kept apart because a resolved repository is
+    only as good as the clone somebody registered, and the log never writes into a
+    gap the agent left). Claude records none, so its sessions are in scope only by
+    the second, and a Claude session outside every registered clone — or one that
+    arrived from a machine that had registered none — is still left out. The
+    subtitle says exactly that rather than letting a reader conclude Claude ran
+    nothing. What either repository is called on the wire — an owner/name, or an
+    alias — is the shell's to resolve, which is why the mapping is handed in beside
+    the scope the way the hue is.
 
     Two subtractions, two lines, and they must not be confused for each other. The
     subtitle says what the *reading* left out — the cap, and its numbers are the
@@ -340,8 +342,13 @@
                        set the table's width and pushed State off the right edge — the
                        one column a reader scanning for a running session actually
                        needs. The full value stays in the cell's title. *@
+                    @* The recorded repository where there is one, and otherwise the
+                       resolved one, marked as such: a reader can tell "the agent said
+                       backlog" from "this folder is under the clone registered as
+                       backlog" by the hint, and the title says which in words. The
+                       em dash stays for a session with neither. *@
                     <td class="data-table__mono">
-                        <span class="@RepositoryClass(row)" title="@row.Repository">@Or(row.Repository)</span>
+                        <span class="@RepositoryClass(row)" title="@RepositoryTitle(row)">@Or(row.Repository)</span>
                     </td>
                     <td class="data-table__mono">
                         <span class="data-table__clamp sessions-table__branch" title="@row.Branch">@Or(row.Branch)</span>
@@ -516,11 +523,22 @@
     /// </summary>
     private string RepositoryClass(SessionRow row)
     {
-        var stem = "data-table__clamp sessions-table__repository";
+        var stem = row.RepositoryResolved
+            ? "data-table__clamp sessions-table__repository sessions-table__repository--resolved"
+            : "data-table__clamp sessions-table__repository";
         var colour = RepositoryColour?.Invoke(row.Repository);
 
         return colour is null ? stem : $"{stem} repo-mark repo-mark--{colour}";
     }
+
+    /// <summary>The cell's title: the full value, and — for a resolved one — how
+    /// it was arrived at, so the hint is never the only carrier. Which repository a
+    /// row names, and whether it was recorded or placed, is the row's own answer:
+    /// see <see cref="SessionRow.Repositories"/>.</summary>
+    private static string? RepositoryTitle(SessionRow row) =>
+        row.RepositoryResolved
+            ? $"{row.Repository} — placed by its working folder, inside the registered clone. The agent recorded no repository."
+            : row.Repository;
 
     /// <summary>
     /// The session's name, plus the family that says it is an identifier on a row
@@ -644,14 +662,17 @@
 
     private string ScopeLabel => string.Join(", ", RepositoryScope);
 
-    /// <summary>A row in the scope: one whose recorded repository the shell resolves
-    /// to a scoped alias — the session's, or the tracker item a run of it named.
-    /// Without a recorded repository there is nothing to resolve, and the row is out
-    /// — an absence, not a guess.</summary>
+    /// <summary>A row in the scope: one whose repository — recorded by the agent,
+    /// resolved from its folder, or named by a run's tracker item — the shell
+    /// resolves to a scoped alias. Any of them will do: a row is about one
+    /// repository however the product came to know which. With none there is nothing
+    /// to resolve, so the row is out: an absence, not a guess.</summary>
     private bool InScope(SessionRow row) =>
-        !Scoped
-        || (RepositoryAlias?.Invoke(row.Repository) is { } alias
-            && RepositoryScope.Contains(alias, StringComparer.OrdinalIgnoreCase));
+        !Scoped || row.Repositories.Any(Scopes);
+
+    private bool Scopes(string? repository) =>
+        RepositoryAlias?.Invoke(repository) is { } alias
+        && RepositoryScope.Contains(alias, StringComparer.OrdinalIgnoreCase);
 
     /// <summary>The list after the header's scope and before this pane's own
     /// filters: the scope decides which rows exist here at all, the way it does on
@@ -680,10 +701,13 @@
     /// worked out here. The pane translates the module's group into the table's —
     /// two records of the same shape in two projects, because the control library
     /// may not see a module and the module may not depend on a control library.
+    /// The key crosses with the name: the grouping keys environments on their id,
+    /// so two machines sharing a name are two sections, and the table has to key
+    /// its rows on the same thing or it refuses to render the second.
     /// </summary>
     private IReadOnlyList<DataTableSection<SessionRow>> Sections =>
         [.. AgentSessionGroups.Of(Visible, _grouping)
-            .Select(group => new DataTableSection<SessionRow>(group.Name, group.Rows))];
+            .Select(group => new DataTableSection<SessionRow>(group.Name, group.Rows, group.Key))];
 
     /// <summary>What the reading found. The subtitle's number and the second half of
     /// the badge's.</summary>
@@ -731,7 +755,9 @@
     /// </summary>
     /// <summary>The reading's own line, plus — while the header has narrowed the
     /// list — the one thing about that narrowing a reader cannot see from the
-    /// rows: why the Claude sessions are not among them.</summary>
+    /// rows: on what terms a session is in, so a Claude session that is missing
+    /// can be understood as one outside every registered clone rather than as one
+    /// that never ran.</summary>
     private string Subtitle
     {
         get
@@ -752,7 +778,7 @@
             }
 
             return Scoped
-                ? $"{reading} Narrowed to {ScopeLabel}: a session whose agent recorded no repository is left out, and Claude records none."
+                ? $"{reading} Narrowed to {ScopeLabel}: a session is in by the repository its agent recorded, or by its working folder lying inside a registered clone; one with neither is left out."
                 : reading;
         }
     }
@@ -788,7 +814,7 @@
         : _withRuns && Shown == 0
             ? "None of the rows this view admits carries a run an orchestration dashboard recorded. Turn off With runs to see them all."
         : Scoped && ScopedSessions.Count == 0
-            ? "Only a session whose agent recorded its repository can be matched to the scope, and Claude records none. Clear the repository scope in the header to see every session."
+            ? "A session is matched to the scope by the repository its agent recorded, or by its working folder lying inside a clone registered for it — Claude records none, so its sessions need the clone. Clear the repository scope in the header to see every session."
         : EnvironmentName is null
             ? Scoped
                 // The way back names the scoped count, not the catalog's: the

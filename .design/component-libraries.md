@@ -79,14 +79,16 @@ rendering technology as the IDE webviews.
 > below.** `Backlog.UI.Components` is a Razor class library written for this
 > product, reviewed in the storybook. Read the recommendation in this section as
 > the option that remains open for the IDE channels, not as a description of the
-> desktop today — see `#materialization`.
+> desktop today — see `#materialization`. The reorder row is the exception: it
+> records what was decided instead, because the reason it was decided rules the
+> webview channels' option out here for good.
 
 | Aspect | Recommendation |
 |---|---|
 | Base controls | **A web component library shared with the IDE webviews** (see IDE recommendation below), rendered via Razor/`BlazorWebView` — not native WinUI 3 XAML controls. |
 | Theming (C1/C2) | Expose the product `--color-*` CSS custom properties, same as the webview channels (`color-scheme.md#per-stack-token-mapping`); no separate WinUI `ResourceDictionary` is authored for app UI. |
 | Markdown editor (C3) | Host the shared **web editor** directly in the same WebView2 surface — no separate desktop editor implementation needed. |
-| Reorder (C4) | Use the same web-based drag-and-drop library as the webview channels (e.g. `dnd-kit`); **keyboard reorder must still be added explicitly** per `interaction-guidelines.md#keyboard-accessible-reordering`. |
+| Reorder (C4) | **Hand-rolled on pointer events in the shared library**, and not a drag-and-drop library at all: WebView2 in the MAUI desktop head aborts a native HTML5 drag about five milliseconds after it opens — `dragstart` fires, `pointercancel` follows, `dragend` arrives, and no `dragover` or `drop` is ever delivered, measured on the running app over its WebView2 debugging port, ten gestures out of ten. A library built on the drag events has nothing left to hook, so both halves of the gesture come from pointer events: one implementation for every host, rather than a second one kept only where native drag happens to work. The edge autoscroll such a library would have supplied is hand-rolled with it. **Keyboard reorder must still be added explicitly** per `interaction-guidelines.md#keyboard-accessible-reordering`. |
 | A11y (C5) | ARIA within the WebView2 content; native `AutomationProperties` still apply to the thin MAUI/WinUI 3 shell chrome (window, title bar); verify both with Accessibility Insights. |
 
 ### Mobile — .NET MAUI
@@ -96,7 +98,7 @@ rendering technology as the IDE webviews.
 | Base controls | **.NET MAUI + .NET MAUI Community Toolkit.** Preferred per architecture. Fallbacks: Blazor Hybrid / Blazor WASM PWA. |
 | Theming (C1/C2) | Single dark resource dictionary of the same tokens; disable system light/dark switching (`UserAppTheme = Dark`, no toggle). |
 | Markdown editor (C3) | Host the shared **web editor via `BlazorWebView`/WebView**; native MAUI has no first-class Markdown WYSIWYG control. |
-| Reorder (C4) | `CollectionView` supports drag reorder (`CanReorderItems`); **keyboard/switch-accessible reorder commands must be added** and single-column drag must autoscroll. |
+| Reorder (C4) | `CollectionView` supports drag reorder (`CanReorderItems`); **keyboard/switch-accessible reorder commands must be added** and single-column drag must autoscroll. None of it is built yet — see `#materialization`. |
 | A11y (C5) | `SemanticProperties`; test Narrator/VoiceOver/TalkBack + OS text scaling. |
 
 ### IDE — VS Code extension (TypeScript webview)
@@ -167,7 +169,7 @@ status: active
 | VS Code | **`@vscode-elements`/Fluent Web Components** + product CSS tokens. | Themeable, host-aligned, maintained. |
 | Visual Studio | **WPF + shared tokens**, editor via WebView2. | Reuses the shared web editor; avoids a second editor. |
 | Markdown WYSIWYG editor (shared) | **TipTap or Milkdown** (WYSIWYG) + **Monaco** for the raw hatch, hosted in the desktop's and VS's WebView2, in VS Code's webview, and in mobile MAUI's `BlazorWebView`. | The single highest-value reuse; Markdown-canonical, round-trip-friendly, one implementation. |
-| Drag-and-drop reorder (web surfaces) | **dnd-kit** (`sortable` + tree). | Best accessible DnD: built-in keyboard support and live-region announcements — satisfies C4/`interaction-guidelines`. Native channels add explicit keyboard Move commands. |
+| Drag-and-drop reorder (IDE webview channels) | **dnd-kit** (`sortable` + tree). | Best accessible DnD: built-in keyboard support and live-region announcements — satisfies C4/`interaction-guidelines`. Native channels add explicit keyboard Move commands. Not the desktop, which cannot run a drag-event library at all — see the reorder row in `#desktop--net-maui-blazor-hybrid-razor-in-webview2`. |
 | Knowledge Markdown diagrams | **Mermaid** for rendered Flow, C4, sequence, state, class/domain-model style diagrams from fenced Markdown. | Text-as-code keeps Markdown canonical and supports the checked-in knowledge folders without a binary diagram format. |
 | Technology and knowledge graphs | **A first-party canvas renderer** in `Backlog.UI.Components`, drawing a 3D-projected, layer-clustered atlas over the `.tech` graph. | The graph is 66 nodes of checked-in Markdown on a local-first desktop. A general-purpose graph library is sized for data this product does not have, and the only way it was ever going to arrive here was over a CDN — which `#risks-and-gaps` forbids in production. Writing the projection is smaller than vendoring the alternative. |
 | Future editable diagramming | **AntV X6** for node/edge flow editors; **diagrams.net/draw.io** only if a full general-purpose GUI editor is needed. | Still true, and still future. Both are editing tools, and nothing in the product edits a diagram yet — the atlas reads the graph and writes one field of it back. Either would arrive vendored, not from a CDN. |
@@ -278,7 +280,7 @@ status: active
 |---|---|---|
 | No shared cross-stack component library covering mobile | Duplicated component effort between mobile's native MAUI XAML and the web-rendered channels | Accept it; invest in the shared **token pipeline** and the shared **web editor** as the reuse points. Desktop no longer duplicates this effort since ADR 0001 moved it to Razor/WebView2. |
 | Token pipeline not yet decided | Drift between XAML and CSS token values | Adopt a build-time token source (e.g. Style Dictionary → XAML + CSS). `[TODO: clarify]` if in scope for v1 (also flagged in `color-scheme.md#per-stack-token-mapping`). |
-| Native controls lack accessible keyboard reorder out of the box | C4 gap on mobile MAUI/WPF (desktop's web-rendered surface reuses the webview reorder story) | Implement explicit Move up/down/top/bottom commands + live announcements per `interaction-guidelines.md#keyboard-accessible-reordering`. |
+| Native controls lack accessible keyboard reorder out of the box | C4 gap on mobile MAUI/WPF (desktop reuses neither: it has its own pointer gesture in the shared library, with the arrow-key route built in) | Implement explicit Move up/down/top/bottom commands + live announcements per `interaction-guidelines.md#keyboard-accessible-reordering`. |
 | Web editor hosted in WebView2/BlazorWebView | Startup cost, bridge complexity, offline asset bundling | Bundle editor assets locally (local-first); measure cold-start; keep a native raw-text fallback. |
 | Diagram libraries can become remote-CDN dependencies | Local-first UX breaks offline and can leak usage metadata | Prefer vendored/local static assets for Mermaid, X6, and ECharts in production; remote loading is acceptable only as a development fallback with source-visible fallback rendering. This is what took the graph renderer first-party — see `#materialization`. |
 | Canvas graphics have no native keyboard semantics | Users may be unable to inspect graph-only relationships by keyboard or screen reader | The focusable node list in `#diagram-and-graph-strategy` is the answer, and it is the primary surface rather than an alternative to one. Preserve the layer cards, relationship chips and source Markdown alongside it; announce selection state before adding editable graph interactions. |
@@ -306,7 +308,8 @@ What the product actually uses today, against the recommendations above:
 | Desktop base controls | A shared web component library (`@vscode-elements`, Fluent Web Components) | **`Backlog.UI.Components`** — a first-party Razor class library with no domain in it, at `src/Core/Backlog.UI.Components`, rendered on its own in the storybook |
 | Design tokens | One logical set emitted per stack | One `:root` block in `components.css`, linked by every host. This is the shared layer working as intended — it is just hand-maintained, not generated |
 | Markdown editor | TipTap or Milkdown, hosted in the WebView2 | None. A text area over the source with a live read view beside it — see `content-editing.md#materialization` |
-| Reorder | dnd-kit | Hand-written HTML5 drag-and-drop with arrow-key equivalents, in the desktop app rather than in the library — see `interaction-guidelines.md#materialization` |
+| Reorder — web surfaces | dnd-kit | A hand-written pointer gesture with arrow-key equivalents, in the shared library and reviewed in the storybook. Why it is hand-written rather than a library's is in the desktop recommendation above; where its halves live is in `interaction-guidelines.md#materialization` |
+| Reorder — mobile | `CollectionView` with `CanReorderItems`, plus explicit move commands and autoscroll | None. `src/App/Backlog.Mobile*` holds no `CollectionView` and reorders nothing, so the mobile row in `#per-channel-recommendations` is a requirement rather than a description of anything |
 | Diagrams | Mermaid | **Mermaid**, as recommended — `DiagramView`, storybook *Diagrams* |
 | Graphs | A first-party canvas renderer | **A first-party canvas renderer**, as recommended — `GraphAtlas` over the technology graph, with `GraphView` and `GraphExplorer` still drawing the list, lane, spine and cluster layouts beside it; storybook *Graph atlas* and *Graph explorer* |
 | Charts | Apache ECharts | None yet |

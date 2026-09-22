@@ -741,7 +741,7 @@
         [.. rows.Select(row => new TaskRow(
             EntryTaskId(row),
             EntryDisplayTitle(row),
-            Done: row.PreviewStatus is EntryStatus.Done,
+            Done: row.IsPreviewCompleted,
             InMyDay: IsInMyDay(row),
             Group: EntryGroup(row),
             Due: FormatDate(row.PreviewDueOn),
@@ -751,7 +751,13 @@
             StepCount: row.PreviewSubItems.Count,
             Note: row.HasExpandableContent,
             Tags: row.PreviewMetadataTags,
-            DependsOn: State.ResolvedDependsOn(row))
+            DependsOn: State.ResolvedDependsOn(row),
+            // The row's mark for what the entry was filed as, with the same word
+            // the panel's type badge shows behind it, so a row and the entry it
+            // opens into never disagree. It used to be absent from the row
+            // altogether, which left "is this a prompt or a task" a question only
+            // the panel could answer.
+            Kind: KindOf(row.PreviewType))
         {
             RepeatLabel = FormatRepeat(row.PreviewRecurrence)
         })];
@@ -775,8 +781,8 @@
 
     /// <summary>
     /// What a row in the entry list copies, and what the panel it opens into
-    /// copies with it: the entry's title, a blank line, and everything written
-    /// under it.
+    /// copies with it: the command that runs the entry, then on the next line the
+    /// entry's title, a blank line, and everything written under it.
     /// <para>
     /// The pane's answer rather than the row's, for the same reason
     /// <c>RepositoryMark</c> is: a <c>TaskRow</c> is a task and has no markdown on
@@ -797,11 +803,23 @@
     /// the entry, not text a person wrote, and it means nothing anywhere else.
     /// </para>
     /// <para>
-    /// Null for an entry with nothing under its title, rather than the title with
-    /// two newlines welded on — that would copy a trailing blank line every time.
-    /// The row reads null as "use the shared default", which is the title; the
-    /// panel has no default to fall back to, so it is handed the title outright.
-    /// Either way both surfaces copy the same thing.
+    /// The first line (<see cref="EntryRunMarker"/>) is what makes the paste a
+    /// runnable prompt: the skill invocation with the entry's stored id, which is
+    /// the one fact a session needs to find the entry again and report back, and
+    /// the one the copy above threw away with the metadata line. The title sits
+    /// directly under it rather than after a blank line, so the command and its
+    /// content read as one paste. A <c>task</c> entry gets it too; the skill it
+    /// invokes is what declines to run one, and it can only decline what it is
+    /// handed.
+    /// </para>
+    /// <para>
+    /// A row that has not been saved yet copies without the command — it has no
+    /// id, and a command naming one nothing outside this session knows would be a
+    /// lie — and, with nothing under its title, copies null rather than the title
+    /// with two newlines welded on. The row reads null as "use the shared
+    /// default", which is the title; the panel has no default to fall back to,
+    /// so it is handed the title outright. Either way both surfaces copy the
+    /// same thing.
     /// </para>
     /// </summary>
     private string? EntryCopyText(TaskRow task) =>
@@ -814,8 +832,11 @@
     private static string? EntryCopyText(EntryRow entry)
     {
         var body = EntryTextParser.Parse(entry.RawText).Body.Trim();
+        var written = body.Length == 0 ? DetailTitle(entry) : $"{DetailTitle(entry)}\n\n{body}";
 
-        return body.Length == 0 ? null : $"{DetailTitle(entry)}\n\n{body}";
+        if (entry.Id is not { } id) return body.Length == 0 ? null : written;
+
+        return $"{EntryRunMarker.Build(id)}\n{written}";
     }
 
     /// <summary>
@@ -1567,7 +1588,7 @@
 
     private async Task OnEntryToggledAsync(string id)
     {
-        if (EntryFor(id) is { } row) await State.ToggleDoneAsync(row);
+        if (EntryFor(id) is { } row) await State.ToggleCompletedAsync(row, Today);
     }
 
     private async Task OnEntryRenamedAsync(TaskRename rename)
@@ -1663,7 +1684,7 @@
         // Nothing here asks whether the row may be written. The state refuses a
         // write it will not make, exactly as it does for the detail pane's own
         // controls, and a menu that second-guessed it would be a second answer.
-        var done = row.PreviewStatus is EntryStatus.Done;
+        var done = row.IsPreviewCompleted;
         var important = IsImportant(row);
         var (above, below) = RowMenuNeighbours(row);
 
@@ -1690,9 +1711,9 @@
     /// out exactly as the list leaves them out of its own order.</summary>
     private (EntryRow? Above, EntryRow? Below) RowMenuNeighbours(EntryRow row)
     {
-        if (row.PreviewStatus is EntryStatus.Done) return (null, null);
+        if (row.IsPreviewCompleted) return (null, null);
 
-        var open = State.FilteredRows.Where(candidate => candidate.PreviewStatus is not EntryStatus.Done).ToList();
+        var open = State.FilteredRows.Where(candidate => !candidate.IsPreviewCompleted).ToList();
         var index = open.IndexOf(row);
         if (index < 0) return (null, null);
 
@@ -1720,7 +1741,7 @@
                 await State.ChangePriorityAsync(row, IsImportant(row) ? Priority.Medium : Priority.High);
                 break;
             case RowMenuDone:
-                await State.ToggleDoneAsync(row);
+                await State.ToggleCompletedAsync(row, Today);
                 break;
             case RowMenuDueToday:
                 await State.ChangeDueAsync(row, Today);
@@ -1938,8 +1959,8 @@
         @<div id="@DetailElementId" class="entry-detail" data-testid="entry-detail" @onkeydown="e => OnDetailKeyDownAsync(row, e)">
             <TaskPanel @ref="_panel"
                        Title="@DetailTitle(row)"
-                       Done="@(row.PreviewStatus is EntryStatus.Done)"
-                       OnToggle="() => State.ToggleDoneAsync(row)"
+                       Done="@row.IsPreviewCompleted"
+                       OnToggle="() => State.ToggleCompletedAsync(row, Today)"
                        OnRename="title => State.RenameEntryAsync(row, title)"
                        OnRenamePreview="text => OnEntryTitlePreview(row, text)"
                        OnTabBackward="MoveFocusToListAsync"
@@ -3141,7 +3162,7 @@
         var candidates = State.Rows
             .Where(candidate => !ReferenceEquals(candidate, row)
                 && candidate.Id is not null
-                && candidate.PreviewStatus is not EntryStatus.Done)
+                && !candidate.IsPreviewCompleted)
             .ToList();
 
         return
@@ -3239,7 +3260,7 @@
     /// </para></summary>
     private static string? FollowUpReason(EntryRow row) =>
         !row.IsPersisted ? "Save this entry first — nothing can wait on an entry that is not there yet."
-        : row.PreviewStatus is EntryStatus.Done ? "This entry is done, so there is nothing left to wait for."
+        : row.IsPreviewCompleted ? "This entry is completed, so there is nothing left to wait for."
         : null;
 
     private string DependencyLabel(string id) =>
@@ -3292,6 +3313,23 @@
 
     private static IReadOnlyList<SelectorOption> TypeSelectorOptions() =>
         [.. Enum.GetValues<EntryType>().Select(type => new SelectorOption(type.ToString(), Humanize(type.ToString())))];
+
+    /// <summary>
+    /// The mark a row wears for each type, with the word the panel's type badge
+    /// uses behind it. Three marks for three facts: a prompt is text you hand to
+    /// an agent, so it takes the sparkle every AI surface has taught readers to
+    /// expect; a task is a thing on a list; an idea is the bulb. The word comes
+    /// from the same <see cref="Humanize"/> the badge's options do, so the tooltip
+    /// on the row and the value in the panel are one spelling.
+    /// </summary>
+    private static TaskKind KindOf(EntryType type) => new(
+        type switch
+        {
+            EntryType.Prompt => "✨",
+            EntryType.Idea => "💡",
+            _ => "📋"
+        },
+        Humanize(type.ToString()));
 
     /// <summary>All four rankings the domain has, lowest first. The badge this
     /// replaced offered three — Critical was in the enum, in the grammar and in the

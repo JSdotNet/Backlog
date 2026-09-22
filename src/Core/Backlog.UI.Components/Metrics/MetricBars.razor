@@ -20,7 +20,20 @@
 <figure class="@ClassValue" style="@StyleValue" data-testid="@TestId" @attributes="AdditionalAttributes">
     @if (!string.IsNullOrWhiteSpace(Label))
     {
-        <figcaption class="@(Part("label"))">@Label</figcaption>
+        <figcaption class="@(Part("label"))">
+            @Label
+            @if (!string.IsNullOrWhiteSpace(Note))
+            {
+                @* The caption says what the columns are; the mark holds what a reader
+                   would otherwise get wrong about them. Two sentences of that under
+                   every chart is what a dashboard reads as prose for. *@
+                <InfoHint AriaLabel="@($"About {Label}")"
+                          Text="@Note"
+                          CssClass="@(Part("hint"))"
+                          TriggerTestId="@(TestId is null ? null : TestId + "-info")"
+                          TooltipTestId="@(TestId is null ? null : TestId + "-note")" />
+            }
+        </figcaption>
     }
 
     @if (Columns.Count == 0)
@@ -83,6 +96,12 @@
 
     [Parameter]
     public string? Label { get; set; }
+
+    /// <summary>What a reader would otherwise get wrong about the figures — what a
+    /// column counts, what it refuses, what it is not a total of. Behind a mark on
+    /// the caption rather than in it, so the caption stays a name.</summary>
+    [Parameter]
+    public string? Note { get; set; }
 
     /// <summary>How a value reads on the scale and in the table. Defaults to the
     /// compact token notation.</summary>

@@ -66,6 +66,39 @@ public sealed class AzureFoundrySettingsStoreTests : IDisposable
         Assert.False(store.Current.IsConfigured);
     }
 
+    [Fact]
+    public void Cost_scope_is_normalized_survives_restart_and_is_independent_of_the_chat_connection()
+    {
+        var path = NewSettingsPath();
+        var store = new AzureFoundrySettingsStore(path);
+
+        var error = store.SetCostScope("  subscriptions/abc/resourceGroups/rg/providers/Microsoft.CognitiveServices/accounts/ai/ ");
+        var restarted = new AzureFoundrySettingsStore(path);
+
+        Assert.Null(error);
+        Assert.Equal("/subscriptions/abc/resourceGroups/rg/providers/Microsoft.CognitiveServices/accounts/ai", restarted.Current.CostScope);
+        Assert.True(restarted.Current.IsCostConfigured);
+        // Reading the bill needs no chat deployment.
+        Assert.False(restarted.Current.IsConfigured);
+    }
+
+    [Fact]
+    public void Connection_and_key_updates_keep_the_cost_scope_and_clearing_it_keeps_them()
+    {
+        var store = new AzureFoundrySettingsStore(NewSettingsPath());
+        store.SetCostScope("/subscriptions/abc");
+
+        store.SetConnection("https://foundry.example.com", "chat", "secret", null);
+        store.SetApiKey("next");
+        Assert.Equal("/subscriptions/abc", store.Current.CostScope);
+
+        store.SetCostScope("  ");
+        Assert.Null(store.Current.CostScope);
+        Assert.False(store.Current.IsCostConfigured);
+        Assert.Equal("next", store.Current.ApiKey);
+        Assert.True(store.Current.IsConfigured);
+    }
+
     private string NewSettingsPath()
     {
         var path = Path.Combine(Path.GetTempPath(), "backlog-foundry-settings", Guid.NewGuid().ToString("n"), "azure-foundry.json");
@@ -399,6 +432,55 @@ public sealed class AzureFoundryChatClientTests : IDisposable
         ["auth", "ui"],
         ["acme/web", "acme/api"],
         "fix-login");
+
+    /// <summary>
+    /// Settings' "Test the connection": one tiny completion over the same route a
+    /// question takes, because the endpoint, the deployment, the API version and the
+    /// key only prove themselves together. What comes back is a sentence for the
+    /// card, never a throw - the card has nowhere to put a throw.
+    /// </summary>
+    [Fact]
+    public async Task A_connection_test_sends_one_small_completion_and_names_the_deployment()
+    {
+        var handler = new RecordingHandler(_ => Completion("OK"));
+        var client = BuildConfiguredClient(handler);
+
+        var check = await client.TestConnectionAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(check.Passed);
+        Assert.Equal("The deployment chat at foundry.example.com answered.", check.Summary);
+        Assert.Equal(1, handler.RequestCount);
+        Assert.Contains("/openai/deployments/chat/chat/completions", handler.Request!.RequestUri!.ToString(), StringComparison.Ordinal);
+        Assert.Equal("secret", handler.Request.Headers.GetValues("api-key").Single());
+    }
+
+    [Fact]
+    public async Task A_connection_test_reports_a_refusal_in_the_clients_own_words()
+    {
+        var handler = new RecordingHandler(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized)
+        {
+            Content = new StringContent("""{"error":{"code":"401","message":"Access denied due to invalid subscription key."}}""", Encoding.UTF8, "application/json")
+        });
+        var client = BuildConfiguredClient(handler);
+
+        var check = await client.TestConnectionAsync(TestContext.Current.CancellationToken);
+
+        Assert.False(check.Passed);
+        Assert.StartsWith("Azure Foundry returned 401", check.Summary, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_connection_test_with_nothing_configured_asks_nothing()
+    {
+        var handler = new RecordingHandler(_ => Completion("OK"));
+        var client = new AzureFoundryChatClient(new HttpClient(handler), new AzureFoundrySettingsStore(NewSettingsPath()));
+
+        var check = await client.TestConnectionAsync(TestContext.Current.CancellationToken);
+
+        Assert.False(check.Passed);
+        Assert.Contains("Configure Azure Foundry", check.Summary, StringComparison.Ordinal);
+        Assert.Equal(0, handler.RequestCount);
+    }
 
     private static HttpResponseMessage Completion(string content) => new(HttpStatusCode.OK)
     {

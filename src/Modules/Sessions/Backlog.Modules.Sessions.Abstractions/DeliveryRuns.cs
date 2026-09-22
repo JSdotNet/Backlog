@@ -334,11 +334,41 @@ public sealed record SessionRow(AgentSession? Session, IReadOnlyList<DeliveryRun
     /// worktree key, which is not a path anyone can open.</summary>
     public string WorkingFolder => Session?.WorkingFolder ?? string.Empty;
 
+    /// <summary>
+    /// Every repository this row could be said to be about, in confidence order:
+    /// what the agent recorded, what this product placed the session's folder under,
+    /// and the repository a run of it named a tracker item in. Ordered, because the
+    /// first is the one to show; enumerated, because a narrowing matches on any of
+    /// them — a row is about one repository however the product came to know which.
+    /// </summary>
+    public IEnumerable<string?> Repositories
+    {
+        get
+        {
+            if (Session is { } session)
+            {
+                yield return session.Repository;
+                yield return session.ResolvedRepository;
+            }
+
+            foreach (var reference in Runs.SelectMany(run => run.References))
+            {
+                yield return reference.Repository;
+            }
+        }
+    }
+
     public string? Repository =>
-        Session?.Repository
-        ?? Runs.SelectMany(run => run.References)
-            .Select(reference => reference.Repository)
-            .FirstOrDefault(repository => !string.IsNullOrWhiteSpace(repository));
+        Repositories.FirstOrDefault(repository => !string.IsNullOrWhiteSpace(repository));
+
+    /// <summary>Whether the repository shown was placed by this product rather than
+    /// recorded by the agent — the case the cell's hint and title exist for. A
+    /// repository a run's tracker item named is recorded too, by the dashboard, so
+    /// only the session's own resolution counts here.</summary>
+    public bool RepositoryResolved =>
+        Session is { } session
+        && string.IsNullOrWhiteSpace(session.Repository)
+        && !string.IsNullOrWhiteSpace(session.ResolvedRepository);
 
     public string? Branch => Session?.Branch;
 

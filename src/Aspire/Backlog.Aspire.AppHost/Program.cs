@@ -119,6 +119,11 @@ static bool IsOnPath(string command)
 // worse than no dialog at all. Run re-resolves and refuses if the two have parted.
 var resetRoot = LocalDataReset.ResolveRoot();
 
+// The surface the shell was last showing. It lives beside the harness rather than in
+// the workspace, so it is resolved separately — and it is this worktree's own, which
+// is why the confirmation below keeps it apart from the shared workspace it names.
+var resetShellNavigation = LocalDataReset.ResolveShellNavigation(builder.AppHostDirectory);
+
 builder.AddProject("desktop-web-harness", "..\\..\\Harness\\Backlog.Desktop.WebHarness\\Backlog.Desktop.WebHarness.csproj")
     .WithReference(sync)
     .WithReference(azureFoundryTest)
@@ -127,14 +132,15 @@ builder.AddProject("desktop-web-harness", "..\\..\\Harness\\Backlog.Desktop.WebH
     .WithCommand(
         "reset-local-data",
         "Reset local data",
-        context => Task.FromResult(LocalDataReset.Run(context, resetRoot)),
+        context => Task.FromResult(LocalDataReset.Run(context, resetRoot, resetShellNavigation)),
         commandOptions: new CommandOptions
         {
-            Description = "Removes the task database and the workspace settings, returning the local store to "
-                          + "first-run state.",
+            Description = "Removes the task database, the workspace settings, and the surface the shell was last "
+                          + "showing, returning the local store to first-run state.",
             ConfirmationMessage = $"Delete the task database and the workspace settings in {resetRoot}? Every git "
                                   + "worktree of this repository shares this workspace, so every session on this "
-                                  + "machine is reset with it."
+                                  + "machine is reset with it. This harness also forgets the surface it was last "
+                                  + $"showing ({resetShellNavigation}), which is this worktree's alone."
         });
 
 // Mobile UI in the browser. The Android head needs an emulator, so this harness

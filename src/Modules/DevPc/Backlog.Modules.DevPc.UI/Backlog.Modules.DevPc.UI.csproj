@@ -21,8 +21,9 @@
       Backlog.Modules.DevPc.UI a bare "Backlog.*" import would bind to
       Backlog.Modules as soon as a Backlog.Modules.Tasks namespace entered
       this project's reference closure. Nothing here brings one in — the only
-      references are the control library and this module's own abstractions —
-      and _Imports.razor writes every Backlog.* import as global:: anyway, so
+      references are the control library, the shared kernel and this module's
+      own abstractions — and _Imports.razor writes every Backlog.* import as
+      global:: anyway, so
       neither half of that has to stay true by luck.
     -->
     <RootNamespace>Backlog.Modules.DevPc.UI</RootNamespace>
@@ -46,10 +47,22 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.Web" />
+    <!-- For AddToolsAiContentSource(), the composition root a host calls to put
+         the tool catalog behind the shell's Ask AI port. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The record shape the Ask AI source writes a tool in is a contract with
+         the assistant, so it is worth asserting without a DOM. -->
+    <InternalsVisibleTo Include="Backlog.Desktop.UI.UnitTests" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\Core\Backlog.UI.Components\Backlog.UI.Components.csproj" />
+    <!-- IAiContentSource: the shell's Ask AI port, which this module answers for
+         the tool catalog. The kernel is what everything may see. -->
+    <ProjectReference Include="..\..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
     <!-- The module's published surface only: the IDevToolService port and
          the DTOs it answers with. Which host implements it, and whether that
          host can do more than read, stays behind that line. -->

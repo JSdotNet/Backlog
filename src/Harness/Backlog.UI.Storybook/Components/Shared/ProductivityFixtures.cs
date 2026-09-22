@@ -200,6 +200,70 @@ internal static class ProductivityFixtures
             $"{entry.Hours.Sum():0.#}h over the period"))
     ];
 
+    // Declared before the series that read them, and that order is load-bearing: a
+    // static initializer runs in textual order, so an array declared below the
+    // property that indexes it is still null when the property is built — and the
+    // page that showed it was a 500 rather than a story.
+    private static readonly decimal[] Producing = [22m, 25m, 31m, 28m, 34m, 30m, 27m, 36m, 33m, 0m, 29m, 38m];
+
+    private static readonly decimal[] WaitingHours = [4m, 6m, 9m, 12m, 18m, 26m, 31m, 40m, 44m, 0m, 52m, 61m];
+
+    private static readonly decimal[] SessionPeaks = [3m, 4m, 4m, 6m, 5m, 8m, 9m, 12m, 11m, 0m, 14m, 17m];
+
+    private static readonly decimal[] AgentPeaks = [0m, 0m, 0m, 0m, 2m, 5m, 9m, 14m, 12m, 0m, 16m, 19m];
+
+    /// <summary>
+    /// The same twelve weeks as agent-hours: how long an assistant was producing, and
+    /// how long a run had ended with nothing having prompted it yet. Two series that
+    /// stack, because an hour of each is two hours of an agent on the go — and shaped
+    /// so the wait is the larger of the two in the later weeks, which is the reading a
+    /// reviewer should be able to take off the stack without the table.
+    /// </summary>
+    public static IReadOnlyList<MetricSeries> AgentHoursByWeek { get; } =
+    [
+        new("Producing",
+            [.. Weeks.Select((week, index) => new MetricPoint(week, Producing[index]))],
+            $"{Producing.Sum():0.#}h over the period"),
+        new("Waiting for a prompt",
+            [.. Weeks.Select((week, index) => new MetricPoint(week, WaitingHours[index]))],
+            $"{WaitingHours.Sum():0.#}h over the period")
+    ];
+
+    /// <summary>
+    /// Two peaks per week that must not be stacked: the most sessions producing at one
+    /// moment and the most spawned agents running at one moment. One session can hold
+    /// several agents, so the agents' line runs above the sessions' from the week the
+    /// spawning started, and the sum of the two was never the count of anything.
+    /// </summary>
+    public static IReadOnlyList<MetricSeries> PeaksByWeek { get; } =
+    [
+        new("Sessions at once",
+            [.. Weeks.Select((week, index) => new MetricPoint(week, SessionPeaks[index]))],
+            $"peak {SessionPeaks.Max()}"),
+        new("Agents at once",
+            [.. Weeks.Select((week, index) => new MetricPoint(week, AgentPeaks[index]))],
+            $"peak {AgentPeaks.Max()}")
+    ];
+
+    /// <summary>The peaks again, for drawing as lines over the hours: the same two
+    /// series, so a reviewer can check the right-hand scale against the grouped chart
+    /// that draws them as columns.</summary>
+    public static IReadOnlyList<MetricSeries> PeaksAsLines => PeaksByWeek;
+
+    /// <summary>
+    /// The timesheet's repositories as they would look wearing their identity hues —
+    /// the band-identity token each is configured with, keyed by name — for the story
+    /// that shows a repository stack with the header's Colors switch on. Two of the
+    /// five answer nothing, which is what an unconfigured repository does.
+    /// </summary>
+    public static int? IdentityOf(string repository) => repository switch
+    {
+        "backlog" => 1,
+        "backlog-cloud" => 2,
+        "backlog-ide" => 3,
+        _ => null
+    };
+
     /// <summary>Hours, the way a timesheet reads them.</summary>
     public static string Hours(decimal value) =>
         value.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + "h";

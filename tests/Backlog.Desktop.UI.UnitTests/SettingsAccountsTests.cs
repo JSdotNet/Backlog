@@ -309,10 +309,94 @@ public sealed class SettingsAccountsTests
                            || tab.TextContent.Trim().EndsWith(alias, StringComparison.OrdinalIgnoreCase))
             .Click();
 
+    /// <summary>
+    /// The card's "Test this account": the probe is asked for the card's own account
+    /// and its one sentence lands on the card, with the checklist's last step ticking
+    /// on a pass. Nothing is written - the settings are what they were.
+    /// </summary>
+    [Fact]
+    public void Testing_an_account_puts_the_probes_answer_on_its_card()
+    {
+        var probe = new RecordingAccountProbe(new GitHubAccountCheck(true, "GitHub recognises the token as JSdotNet at https://api.github.com."));
+        using var settings = RenderSettings(
+            seed: store => Assert.Null(store.SetAccounts([new GitHubAccount("JSdotNet") { Credential = GitHubCredentialKind.PersonalAccessToken, Token = "ghp_example" }])),
+            accountProbe: probe);
+
+        OpenAccountsTab(settings.Component);
+        var before = settings.GitHub.Current;
+
+        Assert.Equal("false", LastStep(settings.Component, "github-account-setup-steps").GetAttribute("data-done"));
+        settings.Component.Find("[data-testid='test-account-button']").Click();
+
+        settings.Component.WaitForAssertion(() =>
+        {
+            Assert.Contains("GitHub recognises the token as JSdotNet", Status(settings.Component, "account-check-status"));
+            Assert.Equal("true", LastStep(settings.Component, "github-account-setup-steps").GetAttribute("data-done"));
+        });
+        Assert.Equal("JSdotNet", Assert.Single(probe.Asked).Login);
+        Assert.Same(before, settings.GitHub.Current);
+    }
+
+    [Fact]
+    public void A_failed_account_test_is_shown_as_the_problem_it_is()
+    {
+        var probe = new RecordingAccountProbe(new GitHubAccountCheck(false, "The credential for JSdotNet authenticates as hubot, not JSdotNet. Calls for JSdotNet would leave as the wrong person."));
+        using var settings = RenderSettings(
+            seed: store => Assert.Null(store.SetAccounts([new GitHubAccount("JSdotNet") { Credential = GitHubCredentialKind.PersonalAccessToken, Token = "ghp_example" }])),
+            accountProbe: probe);
+
+        OpenAccountsTab(settings.Component);
+        settings.Component.Find("[data-testid='test-account-button']").Click();
+
+        settings.Component.WaitForAssertion(() =>
+        {
+            var status = settings.Component.Find("[data-testid='account-check-status']");
+            Assert.NotNull(status.QuerySelector(".setting__status--error"));
+            Assert.Contains("authenticates as hubot", status.TextContent, StringComparison.Ordinal);
+            Assert.Equal("false", LastStep(settings.Component, "github-account-setup-steps").GetAttribute("data-done"));
+        });
+    }
+
+    /// <summary>The checklist follows the card: a token pasted ticks the credential
+    /// step, and a forgotten one unticks it.</summary>
+    [Fact]
+    public void The_setup_checklist_ticks_as_the_card_is_filled_in()
+    {
+        using var settings = RenderSettings(seed: store =>
+            Assert.Null(store.SetAccounts([new GitHubAccount("JSdotNet") { Credential = GitHubCredentialKind.PersonalAccessToken }])));
+
+        OpenAccountsTab(settings.Component);
+
+        var steps = settings.Component.FindAll("[data-testid='github-account-setup-steps'] [data-testid='setup-step']");
+        Assert.Equal("false", steps[0].GetAttribute("data-done"));
+
+        var token = settings.Component.Find("[data-testid='account-token-input']");
+        token.Input("ghp_example");
+        token.Change();
+
+        settings.Component.WaitForAssertion(() =>
+            Assert.Equal("true", settings.Component.FindAll("[data-testid='github-account-setup-steps'] [data-testid='setup-step']")[0].GetAttribute("data-done")));
+    }
+
+    private static AngleSharp.Dom.IElement LastStep(IRenderedComponent<Settings> component, string listTestId) =>
+        component.FindAll($"[data-testid='{listTestId}'] [data-testid='setup-step']")[^1];
+
+    private sealed class RecordingAccountProbe(GitHubAccountCheck answer) : IGitHubAccountProbe
+    {
+        public List<GitHubAccount> Asked { get; } = [];
+
+        public Task<GitHubAccountCheck> CheckAccountAsync(GitHubAccount account, CancellationToken cancellationToken = default)
+        {
+            Asked.Add(account);
+            return Task.FromResult(answer);
+        }
+    }
+
     private static SettingsRenderContext RenderSettings(
         IReadOnlyList<GhCliAccount>? cliAccounts = null,
         Action<GitHubSettingsStore>? seed = null,
-        bool gitHubIntegrationEnabled = true)
+        bool gitHubIntegrationEnabled = true,
+        IGitHubAccountProbe? accountProbe = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-settings-accounts-tests", Guid.NewGuid().ToString("n"));
 
@@ -334,6 +418,8 @@ public sealed class SettingsAccountsTests
         context.Services.AddSingleton<IAppFeatureSettings>(features);
         context.Services.AddSingleton<IWorkingHoursSettings>(
             new WorkingHoursSettingsStore(Path.Combine(root, "working-hours", "working-hours.json")));
+        context.Services.AddSingleton<IUsageResetSettings>(
+            new UsageResetSettingsStore(Path.Combine(root, "usage-reset", "usage-reset.json")));
         context.Services.AddSingleton<ICaptureSourceSettings>(
             new CaptureSourcesSettingsStore(Path.Combine(root, "capture", "capture-sources.json")));
         context.Services.AddSingleton(new AzureFoundrySettingsStore(Path.Combine(root, "azure", "azure-foundry.json")));
@@ -342,7 +428,8 @@ public sealed class SettingsAccountsTests
             githubSettings,
             new NoGitHub(),
             new NoProbe(),
-            new StubCliAccounts(cliAccounts ?? [])));
+            new StubCliAccounts(cliAccounts ?? []),
+            accountProbe));
         context.Services.AddSingleton<FeedbackReporter>();
         context.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
         context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(githubSettings, store));

@@ -6,8 +6,8 @@ namespace Backlog.Modules.Dashboard.UnitTests;
 
 /// <summary>
 /// The three cost parts. The behaviour worth most of these tests is what happens
-/// when one of the two providers cannot answer, because on a real machine that is
-/// the normal case rather than the edge one.
+/// when one of the providers cannot answer, because on a real machine that is the
+/// normal case rather than the edge one.
 /// </summary>
 public class CostInsightsTests
 {
@@ -231,8 +231,75 @@ public class CostInsightsTests
         Assert.Equal(2, copilot.Calls);
     }
 
-    private static CostInsights Costs(StubSpendSource claude, StubSpendSource copilot) =>
-        new(new ClaudeAdapter(claude), new CopilotAdapter(copilot), new FixedClock(Now));
+    /// <summary>
+    /// Azure Foundry answers only when the test says so. The provider was added
+    /// after most of these tests were written, and each of them is about the two
+    /// it names; a third one silently reporting would change what "only" means.
+    /// </summary>
+    [Fact]
+    public async Task Azure_Foundry_is_a_third_tile_a_third_series_and_rows_of_its_own_beside_the_other_two()
+    {
+        var costs = Costs(
+            claude: new StubSpendSource { Report = Spend(12m) },
+            copilot: new StubSpendSource { Report = Spend(3m) },
+            azureFoundry: new StubSpendSource { Report = AzureSpend(4.5m) });
+
+        var month = await costs.GetThisMonthAsync(TestContext.Current.CancellationToken);
+        var trend = await costs.GetTrendAsync(TestContext.Current.CancellationToken);
+        var byModel = await costs.GetByModelAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(
+            [SpendProvider.Claude, SpendProvider.Copilot, SpendProvider.AzureFoundry],
+            month.Value!.Providers.Select(provider => provider.Provider));
+        var azure = month.Value.Providers[2];
+        Assert.Equal(4.5m, azure.Spend.Amount);
+        Assert.Equal("EUR", azure.Spend.Currency);
+        Assert.False(azure.IsEstimate);
+        Assert.Null(azure.Allowance);
+
+        Assert.Equal(["Claude", "Copilot", "Azure Foundry"], trend.Value!.ByProvider.Select(series => series.Name));
+        // Two currencies on one axis: the label says so rather than picking one.
+        Assert.Equal("mixed", trend.Value.Currency);
+
+        var row = Assert.Single(byModel.Value!.Rows, row => row.Detail == "Azure Foundry");
+        Assert.Equal("gpt-5.4 Output Tokens", row.Name);
+        Assert.Null(row.Tokens);
+    }
+
+    [Fact]
+    public async Task Azure_Foundry_alone_is_enough_for_every_part()
+    {
+        var costs = Costs(Silent(), Silent(), azureFoundry: new StubSpendSource { Report = AzureSpend(2m) });
+
+        var month = await costs.GetThisMonthAsync(TestContext.Current.CancellationToken);
+        var trend = await costs.GetTrendAsync(TestContext.Current.CancellationToken);
+
+        var provider = Assert.Single(month.Value!.Providers);
+        Assert.Equal(SpendProvider.AzureFoundry, provider.Provider);
+        Assert.Equal("EUR", trend.Value!.Currency);
+    }
+
+    [Fact]
+    public async Task When_all_three_are_unavailable_the_reason_carries_all_three()
+    {
+        var costs = Costs(
+            claude: new StubSpendSource { Availability = InsightAvailability.Unavailable("No Anthropic key.") },
+            copilot: new StubSpendSource { Availability = InsightAvailability.Unavailable("No admin rights.") },
+            azureFoundry: new StubSpendSource { Availability = InsightAvailability.Unavailable("No cost scope.") });
+
+        var month = await costs.GetThisMonthAsync(TestContext.Current.CancellationToken);
+
+        Assert.False(month.HasValue);
+        Assert.Contains("No Anthropic key.", month.Availability.Reason, StringComparison.Ordinal);
+        Assert.Contains("No admin rights.", month.Availability.Reason, StringComparison.Ordinal);
+        Assert.Contains("No cost scope.", month.Availability.Reason, StringComparison.Ordinal);
+    }
+
+    private static CostInsights Costs(StubSpendSource claude, StubSpendSource copilot, StubSpendSource? azureFoundry = null) =>
+        new(new ClaudeAdapter(claude), new CopilotAdapter(copilot), new AzureFoundryAdapter(azureFoundry ?? Silent()), new FixedClock(Now));
+
+    private static SpendReport AzureSpend(decimal amount) =>
+        new([new SpendEntry(new DateOnly(2026, 8, 3), "gpt-5.4 Output Tokens", null, new DashboardMoney(amount, "EUR"))]);
 
     /// <summary>A provider that cannot answer at all, so a test about one provider
     /// is about one provider. A stub left at its defaults is <em>available</em> with
@@ -283,6 +350,15 @@ public class CostInsightsTests
     }
 
     private sealed class CopilotAdapter(StubSpendSource inner) : ICopilotSpendSource
+    {
+        public Task<InsightAvailability> GetAvailabilityAsync(CancellationToken cancellationToken = default) =>
+            inner.GetAvailabilityAsync(cancellationToken);
+
+        public Task<SpendReport> GetSpendAsync(DateOnly from, DateOnly to, CancellationToken cancellationToken = default) =>
+            inner.GetSpendAsync(from, to, cancellationToken);
+    }
+
+    private sealed class AzureFoundryAdapter(StubSpendSource inner) : IAzureFoundrySpendSource
     {
         public Task<InsightAvailability> GetAvailabilityAsync(CancellationToken cancellationToken = default) =>
             inner.GetAvailabilityAsync(cancellationToken);

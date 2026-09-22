@@ -59,6 +59,7 @@
                      Status="@CardStatus(VolumeInputs)"
                      StatusMessage="@(IsReady ? VolumeEmpty : StatusMessage)"
                      Footnote="@VolumeFootnote"
+                     FootnoteAsHint="true"
                      TestId="dashboard-score-volume" />
         @if (IsReady)
         {
@@ -68,6 +69,7 @@
                          Status="@CardStatus(QualityInputs)"
                          StatusMessage="@QualityEmpty"
                          Footnote="@QualityFootnote"
+                         FootnoteAsHint="true"
                          TestId="dashboard-score-quality" />
         }
     </div>

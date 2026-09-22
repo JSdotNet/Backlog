@@ -1248,6 +1248,12 @@ button.badge:hover {
     flex: 1 1 auto;
 }
 
+/* The heading HeadingLevel wraps the trigger in. Only the margin goes: the face
+   stays the heading's own, and the trigger inherits it. */
+.fold__heading {
+    margin: 0;
+}
+
 .fold__trigger:hover .fold__chevron,
 .entry-doc__title-button:hover .entry-doc__fold-chevron,
 .subitem-card__title-button:hover .entry-doc__fold-chevron {
@@ -1282,6 +1288,92 @@ button.badge:hover {
     .entry-doc__fold-chevron {
         transition: none;
     }
+}
+
+/* --- Info hint ----------------------------------------------------------- */
+/*
+  A mark and the explanation behind it. The bubble is always in the DOM, for
+  aria-describedby; showing it is the sighted reader's concern and happens on
+  hover, on focus, or when a press pinned it. --dismissed is Escape: it beats
+  hover and focus until either leaves, so the reader who closed it is not shown
+  it again for still being where they were.
+
+  At rest the bubble is display: none, not visibility: hidden. An invisible
+  absolutely-positioned box still counts toward its scroll container's width,
+  and eight of them beside part titles gave a narrow dashboard a horizontal
+  scrollbar for captions nobody had opened.
+
+  A host that wants the bubble aligned to something wider than the mark — a
+  card's edge rather than the ⓘ — makes that ancestor the containing block:
+  position: relative on it, position: static on .info-hint, and the bubble's
+  left: 0 and max-width: 100% then mean that ancestor's.
+*/
+
+.info-hint {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+}
+
+.info-hint__trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--color-text-secondary);
+    cursor: help;
+    font: inherit;
+    line-height: 1;
+}
+
+.info-hint__trigger:hover,
+.info-hint__trigger:focus-visible,
+.info-hint--open .info-hint__trigger {
+    color: var(--color-primary);
+}
+
+.info-hint__trigger:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+    border-radius: 50%;
+}
+
+.info-hint__icon {
+    display: block;
+    font-size: 1em;
+}
+
+/* Below and to the right of the mark, on the raised surface every popover
+   takes. 500 is the tooltip layer typography-and-layout.md names; there is no
+   token for it yet, and it only has to clear the dropdowns at 100. */
+.info-hint__bubble {
+    display: none;
+    position: absolute;
+    top: calc(100% + var(--spacing-2xs));
+    left: 0;
+    z-index: 500;
+    width: max-content;
+    max-width: min(44ch, 80vw);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+    box-shadow: var(--shadow-lg);
+    font-size: var(--font-size-sm);
+    font-weight: 400;
+    line-height: var(--line-height-normal);
+    text-align: left;
+    white-space: normal;
+}
+
+.info-hint:hover:not(.info-hint--dismissed) .info-hint__bubble,
+.info-hint:focus-within:not(.info-hint--dismissed) .info-hint__bubble,
+.info-hint--open .info-hint__bubble {
+    display: block;
 }
 
 /* --- Raw editor ---------------------------------------------------------- */
@@ -3093,6 +3185,17 @@ button.md-check {
    one thing — at a hairline the rows ran together into a block of text. */
 .task-list {
     display: grid;
+    /* One column, exactly the width of whatever the list is in — said, because
+       the implicit column is `auto`, and an auto track is as wide as the widest
+       row's min-content. A row's min-content includes its title in full, since the
+       title does not wrap; the `min-width: 0` on the body and the line only lets
+       them shrink once the row is narrower than they are, and with an auto track
+       the row never was — the track grew to the row, every row stretched to the
+       track, and the nearest scroll container grew a horizontal scrollbar. One
+       title with a URL in it did that to the whole list. A floor of zero is what
+       holds the rows to the column, so the title gives up room the way it was
+       always meant to and the trailing cluster's container step gets to fire. */
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--spacing-xs);
     margin: 0;
     padding: 0;
@@ -3111,11 +3214,19 @@ button.md-check {
    Flex rather than a grid of named columns: the grip is only there when the list
    is reorderable, and a positional grid silently shifts every child one column
    left when it is not — which put the flexible track under the title's
-   neighbour and left the copy button short of the right edge. */
+   neighbour and left the copy button short of the right edge.
+
+   `min-width: 0` because the row is a grid item and `.task-list` caps the track
+   and not the item in it. `minmax(0, 1fr)` says the column may not be wider than
+   the list; the row's own automatic minimum is still `min-content`, so a row
+   holding something that will not shrink grows past the track it was placed in
+   and out of the list's scroll container. Capping the track was half the fix the
+   comment on `.task-list` describes; this is the other half. */
 .task-item {
     display: flex;
     align-items: center;
     gap: var(--spacing-sm);
+    min-width: 0;
     padding: var(--spacing-sm) var(--spacing-md);
     border: var(--border-width) solid transparent;
     border-radius: var(--border-radius-md);
@@ -3383,6 +3494,7 @@ button.task-panel__check:focus-visible {
     flex-wrap: wrap;
     align-items: center;
     gap: var(--spacing-sm);
+    min-width: 0;
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
 }
@@ -3390,11 +3502,26 @@ button.task-panel__check:focus-visible {
 /* Each fact carries the glyph that says what kind of fact it is: "Friday" and
    "09:00" side by side are two dates until something says one is a deadline and
    the other an alarm. The glyph is aria-hidden and the name is said in text
-   beside it, so nothing announces "alarm clock emoji". */
+   beside it, so nothing announces "alarm clock emoji".
+
+   The `nowrap` is what makes a fact one fact, and it is also the one thing on this
+   line that cannot give room back: a branch name or a link pasted into an entry is
+   a single unbreakable word, and a nowrap box holding one asks for its full width
+   however little the row has. Every ancestor above it already carries `min-width: 0`
+   and none of them helped, because the floor was here.
+
+   So the fact shrinks and shows what it has room for. No `text-overflow` with it:
+   the box is an inline-flex holding a glyph and its text, and ellipsis has no
+   effect on a flex container's items — a declaration here would read as a promise
+   of an ellipsis the reader never gets. Wrapping was the alternative and it is
+   worse: `overflow-wrap: anywhere` fits the same URL by doubling the height of
+   every row that carries one, in a list whose whole purpose is to be scanned. */
 .task-item__detail {
     display: inline-flex;
     align-items: center;
     gap: var(--spacing-2xs);
+    min-width: 0;
+    overflow: hidden;
     white-space: nowrap;
 }
 
@@ -3419,6 +3546,15 @@ button.task-panel__check:focus-visible {
 }
 
 .task-item__detail--myday {
+    color: var(--color-text-secondary);
+}
+
+/* What the task is, drawn as its glyph alone: the word is in the tooltip and in
+   a visually-hidden span, and a mark learned once says it on every row without
+   the line growing a word. The same size as every other glyph on the line, and
+   secondary like the shape facts — a kind is what the row was filed as, not
+   something that makes it urgent. */
+.task-item__detail--kind {
     color: var(--color-text-secondary);
 }
 
@@ -3582,6 +3718,22 @@ button.task-panel__check:focus-visible {
    at the same weight as a deadline rather than joining the quiet facts. */
 .task-item__detail--blocked {
     color: var(--color-text-primary);
+    /* The one detail whose length is somebody else's title, on a line that does
+       not wrap. A flex item will not shrink below its content unless told it may,
+       and on a wrapping line that meant this one took a line of its own and then
+       ran off the end of it — past the row, past the column, into a scrollbar. */
+    min-width: 0;
+}
+
+/* The names themselves give up room the way the title above them does: the
+   sentence truncates rather than the row growing to fit it. Nothing is lost by
+   it — each name is still the whole of its button's accessible name, and the row
+   it names is one click away — and a row that wrapped three titles under its own
+   would be most of a screen for one fact. */
+.task-item__waiting {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* A name on that line the list can take the reader to. It is a button wearing
@@ -3593,7 +3745,19 @@ button.task-panel__check:focus-visible {
    line is the whole difference between a step you can reach and an id the list
    could not resolve, which sits beside it in the same ink as plain words. */
 .task-item__dependency {
-    display: inline;
+    /* inline-block, and not inline, because a button is an atomic inline in every
+       engine whatever it is told — and an atomic inline is clipped whole by the
+       line it overflows, with no ellipsis, since the ellipsis belongs to text and
+       the button's text is inside a box the line cannot see into. So the button
+       truncates its own text, against the width of the line it stands on. Top
+       aligned, because a box with a hidden overflow puts its baseline at its
+       bottom edge and would lift its own text off the line's; at the same
+       line-height as the words around it, top is exactly where inline was. */
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: top;
     margin: 0;
     padding: 0;
     border: none;
@@ -5711,6 +5875,95 @@ button.tag-chip__label {
     display: flex;
     justify-content: center;
     gap: var(--spacing-sm);
+}
+
+/* --- Setup steps --------------------------------------------------------- */
+/*
+  A checklist that ticks itself off as a card's fields are filled. The
+  numbering is the list's own counter so a step drawn done keeps its number:
+  the tick replaces the digit in the mark, never the position in the sequence.
+  Done is said three ways on purpose - the glyph, the muted title, and the
+  sr-only text - because a tick at secondary weight is a glyph, not a colour,
+  and reads the same to someone who cannot see green.
+*/
+
+.setup-steps {
+    list-style: none;
+    counter-reset: setup-step;
+    margin: 0 0 var(--spacing-md) 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.setup-step {
+    counter-increment: setup-step;
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-normal);
+}
+
+.setup-step__mark {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--border-radius-full);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-secondary);
+}
+
+.setup-step__mark:empty::before {
+    content: counter(setup-step);
+}
+
+.setup-step--done .setup-step__mark {
+    border-color: var(--color-success-text);
+    color: var(--color-success-text);
+}
+
+.setup-step__body {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding-top: 0.125rem;
+}
+
+.setup-step__title {
+    color: var(--color-text-primary);
+}
+
+.setup-step--done .setup-step__title {
+    color: var(--color-text-secondary);
+}
+
+.setup-step__optional {
+    margin-left: var(--spacing-xs);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.setup-step__detail {
+    color: var(--color-text-secondary);
+}
+
+.setup-step__link {
+    color: var(--color-primary);
+}
+
+/* After a detail sentence the link needs the space the compiler drops between
+   the text node and the anchor; alone in the line it needs none. A class
+   rather than :not(:first-child), because the sentence is a text node and the
+   anchor is the first element child either way. */
+.setup-step__link--after-text {
+    margin-left: 0.35em;
 }
 
 /* --- Toasts -------------------------------------------------------------- */
@@ -9005,6 +9258,10 @@ select.field__input {
 }
 
 .metric-tile {
+    /* The containing block of a hinted footnote's bubble: anchored to the tile,
+       the bubble can be no wider than the tile and so can never widen the grid
+       it sits in. See .metric-tile__hint. */
+    position: relative;
     display: grid;
     align-content: start;
     min-width: 0;
@@ -9023,9 +9280,34 @@ select.field__input {
 }
 
 .metric-tile__label {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
     margin: 0;
     color: var(--chart-ink-muted);
     font-size: var(--font-size-sm);
+}
+
+/* The mark is on the label line and its bubble hangs from the tile: below it,
+   its own width, so a tile at the right-hand edge of a grid opens a caption
+   that stays inside the card. A label that has to wrap keeps the mark on the
+   last line rather than letting it push the text into a second column. */
+.metric-tile__hint,
+.metric-score__hint,
+.metric-bars__hint,
+.metric-stacked-bars__hint,
+.metric-heatmap__hint {
+    position: static;
+}
+
+.metric-tile__hint .info-hint__bubble,
+.metric-score__hint .info-hint__bubble,
+.metric-bars__hint .info-hint__bubble,
+.metric-stacked-bars__hint .info-hint__bubble,
+.metric-heatmap__hint .info-hint__bubble {
+    top: calc(100% + var(--spacing-2xs));
+    left: 0;
+    max-width: min(44ch, 100%);
 }
 
 .metric-tile__value {
@@ -9165,7 +9447,12 @@ select.field__input {
     min-width: 0;
 }
 
-.metric-bars__label {
+.metric-bars__label,
+.metric-heatmap__label {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
     color: var(--chart-ink-muted);
     font-size: var(--font-size-sm);
 }
@@ -9238,6 +9525,342 @@ select.field__input {
     text-align: center;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+/* --- Metrics: stacked and grouped columns -------------------------------- */
+
+/* The column chart's skeleton with several boxes per column. min-width: 0
+   everywhere for the reason the block above gives. */
+.metric-stacked-bars {
+    position: relative;
+    display: grid;
+    gap: var(--spacing-sm);
+    margin: 0;
+    min-width: 0;
+}
+
+.metric-stacked-bars__label {
+    color: var(--chart-ink-muted);
+    font-size: var(--font-size-sm);
+}
+
+.metric-stacked-bars__plot {
+    display: flex;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.metric-stacked-bars__scale {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: var(--metric-stacked-bars-height, 9rem);
+    padding-bottom: 1.25rem;
+    color: var(--chart-ink-muted);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+}
+
+.metric-stacked-bars__columns {
+    position: relative;
+    display: flex;
+    flex: 1;
+    align-items: stretch;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+    border-bottom: var(--border-width) solid var(--chart-axis);
+}
+
+/* The right-hand scale is the lines' own and reads the other way round: its figures
+   sit on the left of its column so they face the plot they belong to. */
+.metric-stacked-bars__scale--right {
+    align-items: flex-start;
+}
+
+/* The lines' overlay covers exactly the tracks — the height token — and stops above
+   the label row, so a point at 0 sits on the baseline rather than in the labels. */
+.metric-stacked-bars__lines {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: var(--metric-stacked-bars-height, 9rem);
+    overflow: visible;
+    pointer-events: none;
+}
+
+/* Ink, not the hue: a line crosses bands drawn in the ramp, and a ramp step over a
+   ramp step is invisible exactly where the two agree. Ink is the one colour on the
+   chart that is not a quantity, so it says "a different population" without saying
+   "a different hue", and the dash pattern below is what tells the lines apart. */
+.metric-stacked-bars__line {
+    fill: none;
+    stroke: var(--chart-ink);
+    stroke-width: 2px;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+}
+
+/* Dash pattern is the channel for telling lines apart, by position: solid, dashed,
+   dotted, dash-dot. Non-scaling strokes keep the pattern in pixels whatever the box
+   does. */
+.metric-stacked-bars__line--dash-1 {
+    stroke-dasharray: 8 4;
+}
+
+.metric-stacked-bars__line--dash-2 {
+    stroke-dasharray: 2 4;
+}
+
+.metric-stacked-bars__line--dash-3 {
+    stroke-dasharray: 8 4 2 4;
+}
+
+.metric-stacked-bars__column {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+/* A pressable column says so on hover and says which one is picked with the axis
+   colour along its baseline — an edge, not a tint, on the identity-edge rule the
+   header's chips follow. */
+.metric-stacked-bars__column--pressable {
+    cursor: pointer;
+    border-radius: var(--border-radius-sm);
+}
+
+.metric-stacked-bars__column--pressable:hover .metric-stacked-bars__segment,
+.metric-stacked-bars__column--pressable:focus-visible .metric-stacked-bars__segment {
+    filter: brightness(1.15);
+}
+
+.metric-stacked-bars__column--pressable:focus-visible {
+    outline: var(--border-width) solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+.metric-stacked-bars__column--selected .metric-stacked-bars__column-track {
+    box-shadow: inset 0 calc(var(--border-width) * -3) 0 0 var(--color-primary);
+}
+
+.metric-stacked-bars__column--selected .metric-stacked-bars__column-label {
+    color: var(--chart-ink);
+    font-weight: 700;
+}
+
+.metric-stacked-bars__column-track {
+    display: flex;
+    height: var(--metric-stacked-bars-height, 9rem);
+}
+
+/* A stack builds up from the baseline in the order given: column-reverse puts the
+   first series at the bottom without the markup listing it last. */
+.metric-stacked-bars__column-track--stacked {
+    flex-direction: column-reverse;
+    justify-content: flex-start;
+}
+
+.metric-stacked-bars__column-track--stacked .metric-stacked-bars__segment {
+    width: 100%;
+}
+
+/* Side by side, each bar a share of the column's width, all standing on the
+   baseline. */
+.metric-stacked-bars__column-track--grouped {
+    flex-direction: row;
+    align-items: flex-end;
+    gap: var(--spacing-2xs);
+}
+
+.metric-stacked-bars__column-track--grouped .metric-stacked-bars__segment {
+    flex: 1;
+    min-width: 0;
+}
+
+.metric-stacked-bars__segment {
+    display: block;
+    /* A hairline for a bucket with nothing in it, so an empty week reads as a week
+       with nothing rather than as a gap in the data — MetricBars' rule. In a stack
+       the hairlines add up to a seam between bands, which is what stops two
+       adjacent ramp steps reading as one. */
+    min-height: var(--border-width);
+    background: var(--chart-ramp-3);
+}
+
+.metric-stacked-bars__column-track--stacked .metric-stacked-bars__segment:last-child,
+.metric-stacked-bars__column-track--grouped .metric-stacked-bars__segment {
+    border-radius: var(--border-radius-sm) var(--border-radius-sm) 0 0;
+}
+
+.metric-stacked-bars__segment--1 {
+    background: var(--chart-ramp-1);
+}
+
+.metric-stacked-bars__segment--2 {
+    background: var(--chart-ramp-2);
+}
+
+.metric-stacked-bars__segment--3 {
+    background: var(--chart-ramp-3);
+}
+
+.metric-stacked-bars__segment--4 {
+    background: var(--chart-ramp-4);
+}
+
+.metric-stacked-bars__column-label {
+    min-height: 1rem;
+    overflow: hidden;
+    color: var(--chart-ink-muted);
+    font-size: var(--font-size-xs);
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* The legend is a fused toggle group: several can be on, so it takes the shape
+   interaction-guidelines.md gives a many-of-many set. It wraps rather than
+   scrolls, because a legend a reader has to scroll to find a series in is not a
+   legend. */
+.metric-stacked-bars__legend {
+    flex-wrap: wrap;
+    justify-self: start;
+    max-width: 100%;
+}
+
+.metric-stacked-bars__legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-width: 0;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: var(--font-size-xs);
+    font-weight: 400;
+}
+
+/* The key: the legend with nothing to press. A list rather than a group, in the same
+   row shape, with the button chrome gone. */
+.metric-stacked-bars__legend--key {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm) var(--spacing-md);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.metric-stacked-bars__legend-item--key {
+    padding: 0;
+    color: var(--chart-ink-muted);
+}
+
+.metric-stacked-bars__swatch {
+    flex: none;
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: var(--border-radius-sm);
+    background: var(--chart-track);
+}
+
+.metric-stacked-bars__swatch--1 {
+    background: var(--chart-ramp-1);
+}
+
+.metric-stacked-bars__swatch--2 {
+    background: var(--chart-ramp-2);
+}
+
+.metric-stacked-bars__swatch--3 {
+    background: var(--chart-ramp-3);
+}
+
+.metric-stacked-bars__swatch--4 {
+    background: var(--chart-ramp-4);
+}
+
+/* An identity rather than a step: the band-identity hues color-scheme.md's consumer
+   table lets this chart's repository bands wear. A fill, as the roadmap's bars are —
+   and never the sole carrier, because the name sits beside it in the legend. */
+.metric-stacked-bars__segment--identity-1,
+.metric-stacked-bars__swatch--identity-1 {
+    background: var(--color-band-1);
+}
+
+.metric-stacked-bars__segment--identity-2,
+.metric-stacked-bars__swatch--identity-2 {
+    background: var(--color-band-2);
+}
+
+.metric-stacked-bars__segment--identity-3,
+.metric-stacked-bars__swatch--identity-3 {
+    background: var(--color-band-3);
+}
+
+.metric-stacked-bars__segment--identity-4,
+.metric-stacked-bars__swatch--identity-4 {
+    background: var(--color-band-4);
+}
+
+.metric-stacked-bars__segment--identity-5,
+.metric-stacked-bars__swatch--identity-5 {
+    background: var(--color-band-5);
+}
+
+/* A line's swatch is a line: a short rule in the line's colour and dash, not a box,
+   so the legend says which population a name belongs to. */
+.metric-stacked-bars__swatch--line {
+    width: 1rem;
+    height: 0;
+    border-top: 2px solid var(--chart-ink);
+    border-radius: 0;
+    background: transparent;
+}
+
+.metric-stacked-bars__swatch--dash-1 {
+    border-top-style: dashed;
+}
+
+.metric-stacked-bars__swatch--dash-2 {
+    border-top-style: dotted;
+}
+
+.metric-stacked-bars__swatch--dash-3 {
+    border-top-style: double;
+    border-top-width: 3px;
+}
+
+/* Off is muted rather than removed: the series keeps its place and its step in
+   the legend so it can be found again, and the pressed state — not the tint —
+   says which it is. */
+.metric-stacked-bars__legend-item--off .metric-stacked-bars__swatch {
+    background: var(--chart-track);
+}
+
+.metric-stacked-bars__legend-item--off .metric-stacked-bars__swatch--line {
+    background: transparent;
+    border-top-color: var(--chart-track);
+}
+
+.metric-stacked-bars__legend-item--off .metric-stacked-bars__legend-name {
+    color: var(--chart-ink-muted);
+    text-decoration: line-through;
+}
+
+.metric-stacked-bars__legend-name {
+    overflow: hidden;
+    color: var(--chart-ink);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.metric-stacked-bars__legend-detail {
+    color: var(--chart-ink-muted);
+    font-family: var(--font-family-mono);
+    font-variant-numeric: tabular-nums;
 }
 
 /* --- Metrics: part-to-whole ---------------------------------------------- */
@@ -9510,6 +10133,10 @@ select.field__input {
         display: none;
     }
 
+    .metric-stacked-bars__scale {
+        display: none;
+    }
+
     .metric-breakdown-bar__legend-item {
         grid-template-columns: auto 1fr auto;
     }
@@ -9540,11 +10167,17 @@ select.field__input {
 }
 
 .metric-score__head {
+    /* Containing block for a hinted footnote's bubble, so it opens below the whole
+       head — label, score, band — rather than over the number it is explaining. */
+    position: relative;
     display: grid;
     gap: var(--spacing-2xs);
 }
 
 .metric-score__label {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
     margin: 0;
     color: var(--chart-ink-muted);
     font-size: var(--font-size-sm);
@@ -9785,8 +10418,6 @@ select.field__input {
 
 .metric-heatmap__label {
     margin: 0;
-    color: var(--chart-ink-muted);
-    font-size: var(--font-size-sm);
 }
 
 .metric-heatmap__scroll {
@@ -9875,6 +10506,88 @@ select.field__input {
 .metric-heatmap__cell--marked {
     outline: var(--border-width) solid var(--chart-axis);
     outline-offset: calc(var(--border-width) * -1);
+}
+
+/* A moment inside the hour rather than a region around it: a dot in the cell's
+   top-right corner, in the error foreground, on top of whatever shade the cell has.
+   color-error-text rather than color-error: the surface tone is made to sit under
+   text and disappears on a shaded cell, and the foreground is the token the scheme
+   names for an error mark with no surface behind it. Not ink and not the hue, because
+   the moment is one — a request refused — and it must not read as a fifth ramp step.
+   Kinds tell apart by shape, filled against hollow, not by a second colour the
+   palette does not have. */
+.metric-heatmap__cell--flagged {
+    position: relative;
+}
+
+.metric-heatmap__cell--flagged::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--color-error-text);
+    box-shadow: 0 0 0 1px var(--chart-surface);
+    pointer-events: none;
+}
+
+.metric-heatmap__cell--flag-weekly::after {
+    background: transparent;
+    border: 2px solid var(--color-error-text);
+}
+
+/* The hours a refusal kept walled out, the refusal's own among them: the cell in the
+   error surface with its figure in the error foreground — the one semantic pair the
+   scheme keeps for "this went wrong", used as a pair so the figure stays legible on it.
+   A fill rather than a mark, because the hour was not shaded by a quantity that
+   happened to be refused; it was refused, and nothing produced in it. The reading is
+   still in the figure, the title and the hidden text. */
+.metric-heatmap__cell.metric-heatmap__cell--flag-blocked {
+    background: var(--color-error);
+    box-shadow: inset 0 0 0 var(--border-width) var(--color-error-text);
+}
+
+/* Two classes on the cell, so this outranks the ramp steps' own inverse ink below,
+   which would otherwise win on source order. */
+.metric-heatmap__cell.metric-heatmap__cell--flag-blocked .metric-heatmap__value {
+    color: var(--color-error-text);
+}
+
+.metric-heatmap__cell--flag-blocked:not(.metric-heatmap__cell--flag-weekly)::after {
+    content: none;
+}
+
+.metric-heatmap__swatch--flag-blocked {
+    background: var(--color-error);
+    box-shadow: inset 0 0 0 var(--border-width) var(--color-error-text);
+}
+
+.metric-heatmap__swatch--flag-blocked::after {
+    content: none;
+}
+
+.metric-heatmap__swatch--flag {
+    position: relative;
+    background: var(--chart-track);
+}
+
+.metric-heatmap__swatch--flag::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--color-error-text);
+    transform: translate(-50%, -50%);
+}
+
+.metric-heatmap__swatch--flag-weekly::after {
+    background: transparent;
+    border: 2px solid var(--color-error-text);
 }
 
 /* The figure printed inside its own cell, for the grids that turn ShowValues on.

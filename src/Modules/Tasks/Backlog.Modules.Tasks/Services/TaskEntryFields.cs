@@ -95,6 +95,14 @@ internal static class TaskEntryFields
         entry.SetInMyDayOn(parsed.InMyDayOn);
         entry.SetDependsOn(parsed.DependsOn ?? []);
 
+        // The tick. Not scheduling either, and unconditional for the same reason:
+        // deleting the `completed:` token is how an entry is unticked. Written
+        // here rather than beside the status because it is not a lifecycle step
+        // — the aggregate takes any value at any status, and the caller that
+        // spawns a repeat's successor reads the before-and-after of this field,
+        // not of the status (SaveTaskFromTextCommand.UpdateAsync).
+        entry.SetCompletedOn(parsed.CompletedOn);
+
         // Not scheduling, and here anyway. What is attached is a fact about the
         // work like the fields above it — set once, cleared by deleting the
         // token — and the alternative was a method of one line whose only claim

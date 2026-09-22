@@ -45,7 +45,11 @@ public sealed record TaskPayload(
     IReadOnlyList<string> DependsOn,
     IReadOnlyList<SubItemPayload> SubItems,
     IReadOnlyList<UsageEventPayload> UsageEvents,
-    IReadOnlyList<ProjectionPayload> ProjectionRefs);
+    IReadOnlyList<ProjectionPayload> ProjectionRefs,
+    // Last, and defaulted, because it arrived after the contract did: a document
+    // written by an older build carries no such property and reads as unticked,
+    // which is what it was.
+    DateOnly? CompletedOn = null);
 
 /// <summary>One checklist line under a task. <c>Status</c> is the same opaque
 /// token the local store writes — <c>pending</c> or <c>done</c>.</summary>

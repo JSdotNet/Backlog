@@ -257,8 +257,9 @@ The repeat is anchored to the due date rather than to when the work actually
 finished, so a task completed three days late still falls due on its original
 weekday.
 
-Completing a recurring task leaves it completed and creates the next occurrence
-as a new task. The finished occurrence stays as the record of what was done
+Completing a recurring task — ticking it off, not merely setting its status to
+`done` — leaves it completed and creates the next occurrence as a new task.
+The finished occurrence stays as the record of what was done
 rather than being rolled forward and overwritten, which means a repeating task
 accumulates one completed task per occurrence — archiving is what keeps that
 from crowding the default views.
@@ -407,6 +408,28 @@ status: draft
 One-click copy of prompt text to clipboard, usage-history logging on copy/use,
 and reopening historical prompts from the usage log.
 
+### Copy as a runnable paste
+
+```meta
+type: sub-feature
+status: draft
+related: [.domain/tasks/features.md#import, .domain/tasks/domain.md#task-type]
+```
+
+What the copy hands over is a prompt an AI session can run, not a title and
+some prose. The copy leads with one line that invokes the session's run skill
+on the [Task](domain.md#task) by the id Backlog itself knows it by, and then
+the title and body as written. The metadata line stays behind, as it always
+has: it is the app's bookkeeping, not part of the brief — and the plan a task
+was [imported](#import) under, the repositories it targets and the tasks it
+[waits on](#task-dependencies) are Backlog's to answer when the session asks
+by that id. A session that can ask checks whether the task is still
+outstanding before doing anything, and tells Backlog when the work is picked
+up and when it lands; one that cannot simply reads a prompt with one more line
+on top. Every [type](domain.md#task-type) is copied this way — a `task` too —
+because the copy says which entry it is and the session, not the copy, decides
+whether to run it.
+
 ### Hand-off to Copilot CLI
 
 ```meta
@@ -488,6 +511,18 @@ Every task import creates carries where it came from — see
 [Task](domain.md#task) — so a batch of entries brought in
 together stays traceable back to the plan and the specific item that produced
 each one.
+
+A document may also carry entries that are not tasks at all. An entry whose
+type word is `plan` describes the plan itself as a piece of planned work — its
+title, its tag, its repositories, what it waits on, when it is due — and Import
+hands it to [Roadmap Planning](../roadmap/features.md#laying-out-imported-plans)
+rather than creating a task from it, after the document's task entries have been
+written. One document may hold `plan` entries and task entries together, or only
+one kind; the task entries are created exactly as described above whichever
+company they keep, and a `plan` entry is the one kind of entry Import will act
+on that nothing else in this context will — pasted anywhere but Import, it is
+refused rather than made into a task. The decision, and how the two kinds
+combine, is `.arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md`.
 
 ### Repository resolution on import
 
@@ -585,11 +620,17 @@ related: [.domain/tasks/flow.md]
 Move tasks between active and archived states; archived tasks are excluded
 from default views but always accessible and restorable.
 
-Completing a task and then reopening it returns it to `in_progress`, whatever
-status it held before it was finished; the earlier status is deliberately not
-kept. Finishing is a recorded fact rather than a step that rewinds, so
-reopening starts the work again rather than restoring where it stood before.
-`flow.md` holds the lifecycle this follows.
+Reopening a `done` task returns it to `in_progress`, whatever status it held
+before; the earlier status is deliberately not kept. Finishing the work is a
+recorded fact rather than a step that rewinds, so reopening starts the work
+again rather than restoring where it stood before. `flow.md` holds the
+lifecycle this follows.
+
+Ticking a task off is a separate act from either status. The checkbox sets
+`completed_on` and nothing else: a task can be ticked from any status, a
+`done` or `archived` task stays on the open list until it is ticked, and
+unticking clears the tick without reopening anything. The Completed section,
+the tag counts and every "nothing left to wait for" read the tick.
 
 ## Refresh from shared storage
 

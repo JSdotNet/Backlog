@@ -115,9 +115,10 @@ public class SessionSyncEndpointTests : IDisposable
         Assert.Equal(9, arrived.Record.TurnCount);
     }
 
-    /// <summary>Exactly the ten whitelisted fields survive the round trip — nine
-    /// on the wire and the machine id the service stamps — and the three that can
-    /// honestly be unknown come back as null rather than as blanks.</summary>
+    /// <summary>Exactly the thirteen whitelisted fields survive the round trip —
+    /// twelve on the wire and the machine id the service stamps — and the four
+    /// scalars that can honestly be unknown come back as null rather than as
+    /// blanks.</summary>
     [Fact]
     public async Task The_whole_whitelist_survives_the_round_trip()
     {
@@ -130,17 +131,125 @@ public class SessionSyncEndpointTests : IDisposable
             RepositoryAlias = null,
             Branch = null,
             StartedAt = null,
+            ResolvedRepositoryAlias = null,
         });
 
         var page = await laptop.PullSessions();
 
         var full = page.Sessions.Single(entry => entry.Record.SessionId == "s-1").Record;
-        Assert.Equal(sent, full);
+        Assert.Equal(sent with { Runs = null, Waits = null }, full with { Runs = null, Waits = null });
+        Assert.Equal(sent.Runs, full.Runs);
+        Assert.Equal(sent.Waits, full.Waits);
 
         var sparse = page.Sessions.Single(entry => entry.Record.SessionId == "s-2").Record;
         Assert.Null(sparse.RepositoryAlias);
         Assert.Null(sparse.Branch);
         Assert.Null(sparse.StartedAt);
+        Assert.Null(sparse.ResolvedRepositoryAlias);
+    }
+
+    /// <summary>
+    /// The two lists come back as they went: intervals unchanged, an empty list
+    /// still empty, and null still null. The service stores a record whole and
+    /// never reads it, and the one thing it could get wrong here is the difference
+    /// between "no record" and "a record that held nothing" — which the reading
+    /// device counts differently.
+    /// </summary>
+    [Fact]
+    public async Task Intervals_round_trip_and_null_stays_distinct_from_empty()
+    {
+        var (desktop, laptop) = await PairedDevices();
+
+        await desktop.PushSession(Session("measured"));
+        await desktop.PushSession(Session("copilot") with { Runs = [Interval(-10, 0)], Waits = [] });
+        await desktop.PushSession(Session("unmeasured") with { Runs = null, Waits = null });
+
+        var page = await laptop.PullSessions();
+
+        var measured = page.Sessions.Single(entry => entry.Record.SessionId == "measured").Record;
+        Assert.Equal([Interval(-30, -20), Interval(-10, 0)], measured.Runs);
+        Assert.Equal([Interval(-20, -10)], measured.Waits);
+
+        var copilot = page.Sessions.Single(entry => entry.Record.SessionId == "copilot").Record;
+        Assert.NotNull(copilot.Waits);
+        Assert.Empty(copilot.Waits);
+
+        var unmeasured = page.Sessions.Single(entry => entry.Record.SessionId == "unmeasured").Record;
+        Assert.Null(unmeasured.Runs);
+        Assert.Null(unmeasured.Waits);
+    }
+
+    /// <summary>
+    /// A list longer than the cap is refused rather than trimmed, in either list.
+    /// The pusher cuts to the cap itself, so this is not a limit any client of ours
+    /// meets — it is the bound on the ones that are not ours, and on a record that
+    /// would otherwise grow without limit in per-request-billed storage.
+    /// </summary>
+    [Theory]
+    [InlineData("runs")]
+    [InlineData("waits")]
+    public async Task A_record_with_more_intervals_than_the_cap_is_refused(string list)
+    {
+        var device = await _service.CreateClient().RegisteredDevice("Study desktop");
+
+        var tooMany = Enumerable.Range(0, SyncRequestLimits.MaximumSessionIntervals + 1)
+            .Select(index => Interval(-2 * (index + 1), -2 * (index + 1) + 1))
+            .ToList();
+
+        var response = await device.PushSession(list == "runs"
+            ? Session("s-1") with { Runs = tooMany }
+            : Session("s-1") with { Waits = tooMany });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(
+            SyncErrorCodes.SessionInvalid,
+            (await response.Content.ReadFromJsonAsync<ProblemBody>(Cancellation))?.Code);
+
+        Assert.Empty((await device.PullSessions()).Sessions);
+    }
+
+    /// <summary>A record with exactly the cap in both lists is accepted: the cap is
+    /// what the pusher cuts to, so the boundary has to be inclusive or every busy
+    /// session would be refused on every cycle.</summary>
+    [Fact]
+    public async Task A_record_at_the_interval_cap_is_accepted()
+    {
+        var device = await _service.CreateClient().RegisteredDevice("Study desktop");
+
+        var atCap = Enumerable.Range(0, SyncRequestLimits.MaximumSessionIntervals)
+            .Select(index => Interval(-2 * (index + 1), -2 * (index + 1) + 1))
+            .ToList();
+
+        var response = await device.PushSession(Session("s-1") with { Runs = atCap, Waits = atCap });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    /// <summary>
+    /// An interval that ends before it starts, or ends exactly when it starts, is
+    /// not a stretch of anything and the record carrying it is refused. The reading
+    /// device sweeps these into hour buckets, and a negative or zero-length one is
+    /// either subtracted time or a division nobody wrote a guard for.
+    /// </summary>
+    [Theory]
+    [InlineData("runs", 0)]
+    [InlineData("runs", 5)]
+    [InlineData("waits", 0)]
+    [InlineData("waits", 5)]
+    public async Task A_record_with_an_interval_that_does_not_run_forward_is_refused(string list, int minutesBackwards)
+    {
+        var device = await _service.CreateClient().RegisteredDevice("Study desktop");
+
+        var inverted = Interval(0, -minutesBackwards);
+
+        var response = await device.PushSession(list == "runs"
+            ? Session("s-1") with { Runs = [inverted] }
+            : Session("s-1") with { Waits = [inverted] });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(
+            SyncErrorCodes.SessionInvalid,
+            (await response.Content.ReadFromJsonAsync<ProblemBody>(Cancellation))?.Code);
     }
 
     [Fact]
@@ -348,6 +457,7 @@ public class SessionSyncEndpointTests : IDisposable
     [InlineData("agent kind")]
     [InlineData("machine name")]
     [InlineData("repository alias")]
+    [InlineData("resolved repository alias")]
     [InlineData("branch")]
     public async Task A_record_longer_than_the_service_stores_is_refused(string field)
     {
@@ -504,6 +614,7 @@ public class SessionSyncEndpointTests : IDisposable
         "agent kind" => Session("s-1") with { AgentKind = Long(SyncRequestLimits.MaximumAgentKind) },
         "machine name" => Session("s-1") with { MachineName = Long(SyncRequestLimits.MaximumMachineName) },
         "repository alias" => Session("s-1") with { RepositoryAlias = Long(SyncRequestLimits.MaximumRepositoryAlias) },
+        "resolved repository alias" => Session("s-1") with { ResolvedRepositoryAlias = Long(SyncRequestLimits.MaximumRepositoryAlias) },
         "branch" => Session("s-1") with { Branch = Long(SyncRequestLimits.MaximumBranch) },
         _ => throw new ArgumentOutOfRangeException(nameof(field), field, "No bound by that name."),
     };
@@ -513,6 +624,11 @@ public class SessionSyncEndpointTests : IDisposable
     private static PushSessionsRequest Batch(int count) =>
         new([.. Enumerable.Range(0, count).Select(index => Session($"s-{index}"))]);
 
+    private static readonly DateTimeOffset LastActivity = new(2026, 9, 8, 10, 30, 0, TimeSpan.Zero);
+
+    /// <summary>A record with every field filled, activity included: two runs
+    /// with a wait between them, ending at the last activity. Tests about a
+    /// session with no record override the two lists to null.</summary>
     private static SessionRecord Session(string sessionId) => new(
         sessionId,
         AgentKind: "claude",
@@ -520,9 +636,17 @@ public class SessionSyncEndpointTests : IDisposable
         RepositoryAlias: "backlog",
         Branch: "main",
         StartedAt: new DateTimeOffset(2026, 9, 8, 9, 0, 0, TimeSpan.Zero),
-        LastActivityAt: new DateTimeOffset(2026, 9, 8, 10, 30, 0, TimeSpan.Zero),
+        LastActivityAt: LastActivity,
         TurnCount: 42,
-        DurationSeconds: 5_400);
+        DurationSeconds: 5_400,
+        ResolvedRepositoryAlias: "backlog",
+        Runs: [Interval(-30, -20), Interval(-10, 0)],
+        Waits: [Interval(-20, -10)]);
+
+    /// <summary>An interval given as minutes relative to the last activity, so a
+    /// test reads as the stretch it is about.</summary>
+    private static ActivityInterval Interval(int fromMinutes, int toMinutes) =>
+        new(LastActivity.AddMinutes(fromMinutes), LastActivity.AddMinutes(toMinutes));
 
     private static string PullRoute(string since) =>
         $"{SyncRoutes.Absolute(SyncRoutes.Sessions)}?since={Uri.EscapeDataString(since)}";

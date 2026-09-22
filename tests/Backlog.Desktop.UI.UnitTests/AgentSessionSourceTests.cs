@@ -393,6 +393,55 @@ public sealed class AgentSessionSourceTests : IDisposable
     }
 
     /// <summary>
+    /// The source places each session inside a registered clone where it can:
+    /// a Claude session under the Backlog clone — a worktree, here — resolves to
+    /// the repository that clone was registered against, while what the agent
+    /// recorded stays exactly as read. Claude recorded none, and still records
+    /// none.
+    /// </summary>
+    [Fact]
+    public async Task A_session_under_a_registered_clone_carries_the_resolved_repository_beside_the_recorded_one()
+    {
+        GivenClaudeLiveSession("c1", @"D:\Repos\Backlog\.claude\worktrees\keen-bose-667825", "worktree", Noon.AddHours(-1), Noon.AddMinutes(-2));
+        GivenCopilotSession("p1", @"D:\Repos\Backlog", "JSdotNet/Backlog", "main", Noon.AddHours(-3), Noon.AddHours(-2));
+
+        var catalog = await ReadAsync(new ClonesAt(("JSdotNet/Backlog", @"D:\Repos\Backlog")));
+
+        var claude = Assert.Single(catalog.Sessions, session => session.Kind == AgentSessionKind.Claude);
+        Assert.Null(claude.Repository);
+        Assert.Equal("JSdotNet/Backlog", claude.ResolvedRepository);
+
+        // Both fields, for a session whose agent did record one: the two answer
+        // different questions and the source never consults one to fill the other.
+        var copilot = Assert.Single(catalog.Sessions, session => session.Kind == AgentSessionKind.Copilot);
+        Assert.Equal("JSdotNet/Backlog", copilot.Repository);
+        Assert.Equal("JSdotNet/Backlog", copilot.ResolvedRepository);
+    }
+
+    [Fact]
+    public async Task A_session_outside_every_registered_clone_is_placed_nowhere()
+    {
+        GivenClaudeLiveSession("c1", @"C:\Users\someone\scratch", "scratch", Noon.AddHours(-1), Noon.AddMinutes(-2));
+
+        var session = Assert.Single((await ReadAsync(new ClonesAt(("JSdotNet/Backlog", @"D:\Repos\Backlog")))).Sessions);
+
+        Assert.Null(session.Repository);
+        Assert.Null(session.ResolvedRepository);
+    }
+
+    /// <summary>A head that composed no repository list composes no resolver, and
+    /// the reading is what it always was: nothing placed, nothing failed.</summary>
+    [Fact]
+    public async Task Without_a_resolver_nothing_is_placed()
+    {
+        GivenClaudeLiveSession("c1", @"D:\Repos\Backlog", "worktree", Noon.AddHours(-1), Noon.AddMinutes(-2));
+
+        var session = Assert.Single((await ReadAsync()).Sessions);
+
+        Assert.Null(session.ResolvedRepository);
+    }
+
+    /// <summary>
     /// A machine with only one of the two agents installed is the ordinary case, not
     /// a failure. An absent folder must not be reported as unreadable, or the pane
     /// would carry a permanent warning on every machine that has never run Copilot.
@@ -1121,6 +1170,21 @@ public sealed class AgentSessionSourceTests : IDisposable
     private Task<AgentSessionCatalog> ReadAsync(AgentSessionQuery query) =>
         new LocalAgentSessionSource(ClaudeHome, CopilotHome, MachineId, Machine, new FixedClock(Noon))
             .GetSessionsAsync(query);
+
+    private Task<AgentSessionCatalog> ReadAsync(ISessionRepositoryResolver repositories) =>
+        new LocalAgentSessionSource(ClaudeHome, CopilotHome, MachineId, Machine, new FixedClock(Noon), facts: null, repositories)
+            .GetSessionsAsync();
+
+    /// <summary>The port answered from a fixed list of clones, through the same
+    /// containment rule the settings adapter uses — that rule has its own tests,
+    /// and this pins that the source asks and stamps.</summary>
+    private sealed class ClonesAt(params (string Repository, string Folder)[] clones) : ISessionRepositoryResolver
+    {
+        public string? RepositoryOf(string workingFolder) =>
+            RegisteredClones.RepositoryContaining(
+                workingFolder,
+                clones.Select(clone => new RegisteredClone(clone.Repository, clone.Folder)));
+    }
 
     private void GivenClaudeLiveSession(
         string id,

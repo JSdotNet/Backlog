@@ -477,6 +477,34 @@ public sealed class MetricHeatmapTests
         new("late", [new MetricPoint("w3", 25m)])
     ];
 
+    /// <summary>
+    /// The caption names the grid and the mark beside it holds the rest — what the cells
+    /// count, what they refuse, what they are not a total of. The table keeps the caption
+    /// as its accessible name: a bubble that is display: none contributes nothing to a
+    /// name, and the explanation is reached through the mark's own button instead.
+    /// </summary>
+    [Fact]
+    public void A_note_is_a_mark_beside_the_caption_and_leaves_the_grids_name_alone()
+    {
+        using var context = new BunitContext();
+
+        var heatmap = context.Render<MetricHeatmap>(parameters => parameters
+            .Add(h => h.Series, Grid)
+            .Add(h => h.Label, "Agents at once, by hour")
+            .Add(h => h.Note, "Your local clock, the last 7 days.")
+            .Add(h => h.TestId, "agents"));
+
+        var caption = heatmap.Find(".metric-heatmap__label");
+        var trigger = heatmap.Find("[data-testid='agents-info']");
+
+        Assert.StartsWith("Agents at once, by hour", caption.TextContent.Trim(), StringComparison.Ordinal);
+        Assert.Equal(caption, trigger.ParentElement?.ParentElement);
+        Assert.Equal(caption.Id, heatmap.Find("table").GetAttribute("aria-labelledby"));
+        Assert.Equal(
+            heatmap.Find("[data-testid='agents-note']").Id,
+            trigger.GetAttribute("aria-describedby"));
+    }
+
     [Fact]
     public void Rows_are_series_and_columns_are_buckets()
     {
@@ -743,6 +771,60 @@ public sealed class MetricHeatmapTests
         Assert.Equal("50. working hours", inside.QuerySelector(".sr-only")!.TextContent);
         Assert.Equal("full, w2: 50 (working hours)", inside.GetAttribute("title"));
         Assert.Equal("100", outside.QuerySelector(".sr-only")!.TextContent);
+    }
+
+    [Fact]
+    public void A_flagged_cell_carries_a_dot_of_its_kind_and_says_what_it_means_and_the_legend_names_each_kind()
+    {
+        // A moment inside the hour, not a region around it: a second kind of mark that
+        // can sit on a marked cell without either hiding the other — and a cell can
+        // carry more than one moment.
+        using var context = new BunitContext();
+
+        var heatmap = context.Render<MetricHeatmap>(parameters => parameters
+            .Add(h => h.Series, Grid)
+            .Add(h => h.SharedMax, 100m)
+            .Add(h => h.CellMarked, (_, bucket) => bucket == "w2")
+            .Add(h => h.MarkedLabel, "working hours")
+            .Add(h => h.CellFlag, (row, bucket) => (row, bucket) switch
+            {
+                ("full", "w2") => "hit blocked",
+                ("full", "w1") => "blocked",
+                ("half", "w1") => "unknown",
+                _ => null
+            })
+            .Add(h => h.Flags, [new MetricFlag("hit", "hit the 5-hour limit"), new MetricFlag("blocked", "blocked until reset")]));
+
+        var cells = heatmap.FindAll("tbody tr")[0].QuerySelectorAll(".metric-heatmap__cell");
+
+        Assert.Contains("metric-heatmap__cell--flag-hit", cells[1].ClassList);
+        Assert.Contains("metric-heatmap__cell--flag-blocked", cells[1].ClassList);
+        Assert.Contains("metric-heatmap__cell--marked", cells[1].ClassList);
+        Assert.Equal("50. working hours. hit the 5-hour limit. blocked until reset", cells[1].QuerySelector(".sr-only")!.TextContent);
+        Assert.Equal("full, w2: 50 (working hours) (hit the 5-hour limit) (blocked until reset)", cells[1].GetAttribute("title"));
+
+        Assert.Contains("metric-heatmap__cell--flag-blocked", cells[0].ClassList);
+        Assert.DoesNotContain("metric-heatmap__cell--flag-hit", cells[0].ClassList);
+
+        // A key the legend cannot name draws nothing.
+        Assert.Empty(heatmap.FindAll("tbody tr")[1].QuerySelectorAll(".metric-heatmap__cell--flagged"));
+
+        var legend = heatmap.Find(".metric-heatmap__legend").TextContent;
+        Assert.Contains("hit the 5-hour limit", legend, StringComparison.Ordinal);
+        Assert.Contains("blocked until reset", legend, StringComparison.Ordinal);
+        Assert.Equal(2, heatmap.FindAll(".metric-heatmap__swatch--flag").Count);
+    }
+
+    [Fact]
+    public void A_flag_with_nothing_to_call_it_does_not_draw()
+    {
+        using var context = new BunitContext();
+
+        var heatmap = context.Render<MetricHeatmap>(parameters => parameters
+            .Add(h => h.Series, Grid)
+            .Add(h => h.CellFlag, (_, _) => "hit"));
+
+        Assert.Empty(heatmap.FindAll(".metric-heatmap__cell--flagged"));
     }
 
     [Fact]

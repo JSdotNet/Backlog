@@ -142,13 +142,13 @@ public sealed record ReworkInsight(
 }
 
 /// <summary>
-/// The productivity score per repository per week, plus which repository is in
-/// focus.
+/// The volume score per repository per week, plus which repository is in focus.
 /// <para>
-/// Every repository is always present, even when one is in focus. The comparison
-/// components in the metrics library are built to show one series against the
-/// pack, and dropping the pack when somebody zooms in would remove the only thing
-/// that makes the focused line mean anything.
+/// Narrowed by the repository filter like every other part: with nothing in
+/// focus every repository that reported anything is here, with a focus only
+/// those repositories are. Every series is scored against the same estate-wide
+/// target whichever way it was narrowed, so a repository reads the same alone as
+/// it does beside the pack.
 /// </para>
 /// </summary>
 public sealed record ProductivityTrend(IReadOnlyList<InsightSeries> ByRepository, string? Highlight)

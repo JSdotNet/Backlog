@@ -52,6 +52,24 @@ public sealed record AssistantActivitySession(
 /// agent; freely overlapping across two, and always overlapping with its own parent
 /// session's — which is why this is a separate list rather than more intervals in the
 /// session's own.</param>
+/// <summary>Which allowance an assistant refused a request against.</summary>
+public enum AssistantLimitKind
+{
+    FiveHour,
+    SevenDay
+}
+
+/// <summary>
+/// One allowance refusal, in the Dashboard's words: when, which allowance, when it
+/// resets, and which session on which machine.
+/// </summary>
+public sealed record AssistantLimitHit(
+    DateTimeOffset At,
+    AssistantLimitKind Kind,
+    DateTimeOffset ResetsAt,
+    string SessionId,
+    string MachineId);
+
 public sealed record AssistantActivitySubagent(
     string Id,
     string SessionId,
@@ -91,6 +109,15 @@ public sealed record AssistantActivityReport(
     /// positionally.</para>
     /// </summary>
     public IReadOnlyList<AssistantActivitySubagent> Subagents { get; init; } = [];
+
+    /// <summary>
+    /// Every moment inside the horizon an assistant refused a request against an
+    /// allowance, oldest first — Claude's alone, because Copilot records none. The
+    /// weekly kind's reset instant is what the sessions part cuts its weeks with when
+    /// the person has not said otherwise; the five-hour kind is marked on the grids.
+    /// An init property on <see cref="Subagents"/>' precedent.
+    /// </summary>
+    public IReadOnlyList<AssistantLimitHit> Limits { get; init; } = [];
 
     public static AssistantActivityReport Empty { get; } =
         new([], [], DateTimeOffset.MinValue, TimeSpan.Zero);

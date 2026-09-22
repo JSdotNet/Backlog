@@ -95,9 +95,9 @@ public sealed class EntryFollowUpActionTests
     public async Task A_finished_entry_refuses_and_says_why()
     {
         using var host = await TasksPaneHost.CreateAsync();
-        var row = await host.WriteEntryAsync("# Renew the certificate\n`task` `*medium` `!done`\n");
+        var row = await host.WriteEntryAsync("# Renew the certificate\n`task` `*medium` `!done` `completed:2026-09-22`\n");
 
-        Assert.Equal(EntryStatus.Done, row.PreviewStatus);
+        Assert.True(row.IsPreviewCompleted);
         await host.OpenAsync(row);
 
         var pane = host.Render();

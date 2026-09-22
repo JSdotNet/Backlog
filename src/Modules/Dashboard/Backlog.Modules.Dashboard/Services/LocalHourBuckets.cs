@@ -260,7 +260,7 @@ internal static class LocalHourBuckets
     /// One stretch cut at local hour boundaries: which cell each piece belongs to, and
     /// how long that piece is.
     /// </summary>
-    private static IEnumerable<(HourCell Cell, TimeSpan Length)> Pieces(
+    internal static IEnumerable<(HourCell Cell, TimeSpan Length)> Pieces(
         DateTimeOffset from,
         DateTimeOffset to,
         TimeZoneInfo zone)

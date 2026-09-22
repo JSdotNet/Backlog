@@ -728,6 +728,26 @@ h1, h2, h3 {
     overflow: hidden;
 }
 
+/* And the list half scrolls down and never sideways.
+
+   The shared split gives both halves `overflow: auto`, which is two axes. Down is
+   the list working as intended — there are more entries than fit. Sideways is
+   never that: the column is as wide as the layout can make it, so a horizontal
+   bar only ever appears because something in a row refused to shrink, and the
+   reader pays for it by dragging the whole list — rows, filter bar and add row
+   together — to read the end of one line. Nothing in this half is worth that
+   gesture, so the axis is not offered.
+
+   `hidden` rather than `clip`, because the vertical axis is still `auto`: a box
+   with one axis clipped and the other scrollable computes the clip back to hidden
+   anyway, and naming it hidden says what the box actually does. It is the last
+   line of defence and not the fix — a row that overflows is clipped here and the
+   clamps in the library keep it from overflowing in the first place, so what the
+   reader sees is a shortened line rather than a line cut off at the pane's edge. */
+.backlog-split > .split-pane__start {
+    overflow-x: hidden;
+}
+
 /* Nothing open, so there is nothing to divide: the list takes the whole width and
    the separator has no second pane to drag against. A modifier rather than a
    different element — the split stays mounted so the list keeps its scroll
@@ -1747,6 +1767,22 @@ h1, h2, h3 {
     background: var(--color-background);
 }
 
+/* Out of the way while a row is in flight. Pinned to the bottom of the scroller,
+   the strip is painted over the last rows in view and takes the pointer's hit
+   for them — and the bottom of the scroller is exactly where a drag heads when
+   the row wants to go further down than the view reaches. The list scrolls from
+   its edge either way (components.js, `taskScrollStep`), but a drop target under
+   an opaque strip is a target the reader cannot see, and one the pointer cannot
+   name. Nobody adds an entry mid-drag, so for the length of one the strip
+   neither paints nor hits; its slot stays, so nothing reflows when it returns.
+   Both gestures, because a link drag lands on rows the same way. A sibling,
+   not a descendant: the list renders its AfterOpenRows slot after its own
+   `<ul>`, and the class it wears while dragging is on that `<ul>`. */
+.task-list--dragging ~ .entry-add-row,
+.task-list--linking ~ .entry-add-row {
+    visibility: hidden;
+}
+
 .entry-add-row > .entry-add {
     width: auto;
     flex: 1 1 auto;
@@ -1918,6 +1954,14 @@ h1, h2, h3 {
     color: var(--color-text-secondary);
 }
 
+/* A second topic inside one setting block - the Foundry resource's spend under
+   its chat connection - headed like the block but a size down. */
+.setting__subtitle {
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-base);
+    margin: var(--spacing-lg) 0 var(--spacing-xs);
+}
+
 .setting__label {
     display: block;
     font-size: var(--font-size-xs);
@@ -1975,6 +2019,37 @@ h1, h2, h3 {
 .setting__status--error { color: var(--color-error-text); }
 .setting__status--ok { color: var(--color-success-text); }
 
+/* What a vendor said when an account was tested, one line per question. The
+   outcome is a word in the subject's colour and a data attribute, never a
+   coloured bar: a skipped line is the same grey as the note it sits under. */
+.setting__check {
+    list-style: none;
+    margin: 0 0 var(--spacing-sm) 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    font-size: var(--font-size-sm);
+}
+
+.setting__check-step {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 0.35em;
+}
+
+.setting__check-subject {
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-secondary);
+}
+
+.setting__check-subject::after { content: ":"; }
+
+.setting__check-step--passed .setting__check-subject { color: var(--color-success-text); }
+.setting__check-step--failed .setting__check-subject,
+.setting__check-step--failed .setting__check-detail { color: var(--color-error-text); }
+.setting__check-step--skipped .setting__check-detail { color: var(--color-text-secondary); }
+
 /* The concrete sync-folder warning, at the weight .app-error-message carries but
    in warning rather than error colours: the folder is a hazard the reader chose
    and may keep, not a value the app refused.
@@ -1999,6 +2074,15 @@ h1, h2, h3 {
 
 .setting__actions {
     margin-top: var(--spacing-md);
+}
+
+/* A second choice inside a section, under the first: a rule and a breath above it, so
+   the reset reads as belonging to the working week without pretending to be one of
+   its rows. */
+.setting__group {
+    margin-top: var(--spacing-lg);
+    padding-top: var(--spacing-md);
+    border-top: var(--border-width) solid var(--color-border);
 }
 
 /*
@@ -2798,6 +2882,19 @@ h1, h2, h3 {
 .ai-panel__settings {
     color: var(--color-text-link);
     font-size: var(--font-size-sm);
+}
+
+/* The scope chips: one per open area, the reader's choice of which content
+   answers. The shared ButtonGroup with the same chip classes the header's
+   repository scope wears, so the two rows of chips read as the same kind of
+   control - a pressed set - and neither grows a look of its own. Wrapping,
+   because seven areas can be open at once on a wide window and the panel is
+   not. */
+.ai-panel__scope {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    margin: var(--spacing-sm) 0 var(--spacing-xs);
 }
 
 .ai-panel__body,
@@ -4510,8 +4607,7 @@ h1, h2, h3 {
 }
 
 .dashboard-panel__eyebrow,
-.dashboard-panel__title,
-.dashboard-panel__subtitle {
+.dashboard-panel__title {
     margin: 0;
 }
 
@@ -4525,11 +4621,6 @@ h1, h2, h3 {
 
 .dashboard-panel__title {
     font-size: var(--font-size-lg);
-}
-
-.dashboard-panel__subtitle {
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
 }
 
 .dashboard-panel__content {
@@ -4572,9 +4663,10 @@ h1, h2, h3 {
     white-space: nowrap;
 }
 
-/* Productivity and cost. A section rather than two panels of tiles, because the
-   thing that separates them is not visual weight — it is that the filter above
-   drives one of them and cannot drive the other, and that has to be sayable. */
+/* Productivity, sessions and cost. A section rather than three panels of tiles,
+   because the thing that separates them is not visual weight — it is that the
+   filter above drives one of them and cannot drive the others, and each folds
+   away under its own heading. */
 .dashboard-section {
     display: grid;
     gap: var(--spacing-md);
@@ -4582,17 +4674,27 @@ h1, h2, h3 {
     min-width: 0;
 }
 
+/* The heading is FoldControl's, wearing this name: the trigger inside it inherits
+   the heading face, so the title reads as a title with a chevron in front of it. */
 .dashboard-section__title {
     margin: 0;
     font-family: var(--font-family-heading);
     font-size: var(--font-size-lg);
 }
 
-.dashboard-section__note {
-    margin: 0;
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-    max-width: 60ch;
+/* The fold's wrapper and its region take the stacking the section used to give
+   the parts directly. :not([hidden]) so a folded region keeps the library's
+   display: none — a bare .fold__region rule here would outrank it. */
+.dashboard-section__fold {
+    display: grid;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.dashboard-section__fold .fold__region:not([hidden]) {
+    display: grid;
+    gap: var(--spacing-md);
+    min-width: 0;
 }
 
 /* Two parts side by side where there is room for them, one above the other where
@@ -4619,6 +4721,8 @@ h1, h2, h3 {
 }
 
 .dashboard-part__header {
+    /* The containing block of the info mark's bubble — see .dashboard-part__hint. */
+    position: relative;
     display: flex;
     gap: var(--spacing-sm);
     align-items: flex-start;
@@ -4627,8 +4731,9 @@ h1, h2, h3 {
 }
 
 .dashboard-part__heading {
-    display: grid;
-    gap: var(--spacing-2xs);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
     min-width: 0;
 }
 
@@ -4638,15 +4743,23 @@ h1, h2, h3 {
     font-size: var(--font-size-base);
 }
 
-/* What the figures do and do not cover. Long on purpose in the cost parts, where
-   it carries the one thing a reader could otherwise get wrong — that the
-   repository filter above does not reach them — so it wraps rather than
-   truncating. */
-.dashboard-part__note {
-    margin: 0;
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-    max-width: 70ch;
+/* The info mark beside the title, sized to the heading it follows. What the
+   figures do and do not cover is its bubble — long on purpose in the cost parts,
+   where it carries the one thing a reader could otherwise get wrong, that the
+   repository filter above does not reach them.
+
+   The bubble hangs from the part's header rather than from the mark: a part in
+   the right-hand column has less room to its right than a 44ch bubble wants, and
+   one anchored to the ⓘ ran past the card and widened the pane. Anchored to the
+   header it starts at the card's left edge and is capped at the card's width,
+   which is always enough for it to wrap inside. */
+.dashboard-part__header .dashboard-part__hint {
+    position: static;
+    font-size: var(--font-size-base);
+}
+
+.dashboard-part__hint .info-hint__bubble {
+    max-width: min(44ch, 100%);
 }
 
 .dashboard-part__content {
@@ -4850,6 +4963,15 @@ h1, h2, h3 {
    falling off the right edge of the table. */
 .sessions-table__repository {
     max-width: 12rem;
+}
+
+/* A repository the product placed the session in — its working folder lies inside
+   a registered clone — rather than one the agent recorded. The cell's title says so
+   in words; this is the glance-level hint, a leading approximation glyph, so a
+   resolved value never reads as a recorded one. Colour stays the identity hue's. */
+.sessions-table__repository--resolved::before {
+    content: "≈ ";
+    color: var(--color-text-secondary);
 }
 
 .sessions-table__branch {

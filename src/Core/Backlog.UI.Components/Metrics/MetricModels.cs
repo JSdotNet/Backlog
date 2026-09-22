@@ -56,6 +56,18 @@ public enum MetricDeltaUnit
     Absolute
 }
 
+/// <summary>How a multi-series column chart lays its series out in a bucket — and,
+/// underneath that, whether the caller is claiming their sum is a figure.
+/// <para><see cref="Stacked"/> says it is: hours producing on hours waiting is a
+/// number of hours, and the chart prints it. <see cref="Grouped"/> says it is not:
+/// two peaks side by side are two peaks, and a stack of them would draw a total
+/// nothing ever measured.</para></summary>
+public enum MetricBarsMode
+{
+    Stacked,
+    Grouped
+}
+
 /// <summary>Why a metric is not showing a number.
 /// <para><see cref="Unavailable"/> is not an error. A usage client answers an
 /// availability question before it answers a data question, and "no credential is
@@ -141,3 +153,12 @@ public sealed record MetricBand(string Name, decimal Floor);
 /// What the grid owns is the column: its heading, a cell per row, and the alignment.
 /// </remarks>
 public sealed record MetricTotal(string Heading, Func<string, string?> Of);
+
+/// <summary>
+/// One kind of moment a grid can mark inside a cell — a request refused, a deploy, an
+/// outage — with the word the legend, the title and the hidden text say for it.
+/// </summary>
+/// <param name="Key">What the caller answers from its <c>CellFlag</c> callback, and the
+/// modifier the cell wears: <c>cell--flag-&lt;key&gt;</c>. Lower-case, hyphenated.</param>
+/// <param name="Label">What the mark means, in the reader's words.</param>
+public sealed record MetricFlag(string Key, string Label);

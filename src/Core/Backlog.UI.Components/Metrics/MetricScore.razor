@@ -20,7 +20,17 @@
 
 <div class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
     <div class="@(Part("head"))">
-        <p class="@(Part("label"))" id="@LabelId">@Label</p>
+        <p class="@(Part("label"))" id="@LabelId">
+            @Label
+            @if (HintedFootnote is { } hint)
+            {
+                <InfoHint AriaLabel="@($"About {Label}")"
+                          Text="@hint"
+                          CssClass="@(Part("hint"))"
+                          TriggerTestId="@(TestId is null ? null : TestId + "-info")"
+                          TooltipTestId="@(TestId is null ? null : TestId + "-note")" />
+            }
+        </p>
 
         @if (Status is MetricStatusKind.Ready)
         {
@@ -90,7 +100,9 @@
         </div>
     }
 
-    @if (!string.IsNullOrWhiteSpace(Footnote))
+    @* See MetricTile: a card that asked for the hint does not get the paragraph
+       back when it has no score to explain. *@
+    @if (!FootnoteAsHint && !string.IsNullOrWhiteSpace(Footnote))
     {
         <p class="@(Part("footnote"))">@Footnote</p>
     }
@@ -123,6 +135,12 @@
 
     [Parameter]
     public string? Footnote { get; set; }
+
+    /// <summary>Renders <see cref="Footnote"/> behind an info mark on the label
+    /// line rather than as a line under the card. For a footnote that explains
+    /// the score rather than naming it.</summary>
+    [Parameter]
+    public bool FootnoteAsHint { get; set; }
 
     [Parameter]
     public MetricStatusKind Status { get; set; } = MetricStatusKind.Ready;
@@ -221,6 +239,15 @@
 
     private static string Width(decimal share) =>
         (Math.Clamp(share, 0m, 1m) * 100m).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>The footnote when it belongs on the label line — and only while
+    /// there is a figure for it to be about. A mark explaining how a number was
+    /// arrived at, on a card that could not arrive at one, is a caption for
+    /// nothing.</summary>
+    private string? HintedFootnote =>
+        FootnoteAsHint && Status is MetricStatusKind.Ready && !string.IsNullOrWhiteSpace(Footnote)
+            ? Footnote
+            : null;
 
     private string Part(string name) => $"{BaseClass}__{name}";
 

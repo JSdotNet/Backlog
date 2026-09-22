@@ -12,20 +12,25 @@ general-purpose or knowledge-folder tooling. Two skills, one for each direction:
   the host has one and written beside the plan otherwise. User-invoked only
   (`disable-model-invocation: true`); it never talks to the Backlog app or GitHub.
 - **`backlog-run-plan-item`** — runs one entry of such a plan after it is copied out of the
-  Backlog app and pasted into a session. Model-invoked: it triggers on the marker line
-  every generated `prompt` entry opens with (`Backlog plan item `…``, defined in
-  `skills/backlog-import-plan/assets/backlog-import-grammar.md#plan-item-marker`), checks
-  the item is still outstanding before doing anything — pasting the same item twice is
-  expected and must not redo finished work — and then carries out the instructions the way
-  the current repository says work is done. It does not read from or write to Backlog yet;
-  a feedback loop that pulls the plan's other items for context and reports status back is
-  the planned next step.
+  Backlog app and pasted into a session. The app puts the invocation on the first line of
+  every entry it copies — `/backlog-tools:backlog-run-plan-item entry `<id>`:`, the entry
+  under it — so the paste runs the skill outright; it is also model-invoked on the marker
+  line every generated `prompt` entry opens with (`Backlog plan item `…``). Both shapes are
+  defined in `skills/backlog-import-plan/assets/backlog-import-grammar.md`. It checks the
+  item is still outstanding before doing anything — pasting the same item twice is expected
+  and must not redo finished work — and then carries out the instructions the way the
+  current repository says work is done. When a `backlog` MCP server is in the session's
+  tool list it reads the entry's status from it (`read_item`) and reports Ready → In
+  progress → Done back (`transition`), every call carrying the `repository` read off the
+  git remote; without one it falls back to searching git and says the status has to be set
+  by hand.
 
-The marker exists because Backlog's copy button hands over an entry's title and body but
-not its metadata line, so a pasted entry has lost its `id:`, `+tag`, `repo:` and `after:`
-unless the body restates them.
+The plan-item marker exists because a plan is written before the app has given its entries
+an id, so it restates the `id:`, `+tag`, `repo:` and `after:` the metadata line carries. The
+entry line carries what only the app knows — the stored id — and is what makes any copied
+entry a runnable paste.
 
-`hooks/hooks.json` adds a `UserPromptSubmit` hook (Claude Code) that notices the marker in
+`hooks/hooks.json` adds a `UserPromptSubmit` hook (Claude Code) that notices either line in
 a prompt and nudges the session to invoke `backlog-run-plan-item`, so triggering does not
 rest on the skill description alone. It needs `grep` on the hook shell, which Claude Code
 provides on every platform it runs on.

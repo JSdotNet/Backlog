@@ -125,7 +125,7 @@ related: [".domain/tasks/domain.md#task", ".domain/tasks/naming.md#sub-item", ".
 
 ```meta
 status: active
-related: [".domain/tasks/naming.md#task-status", ".domain/tasks/naming.md#area", ".design/typography-and-layout.md#font-families", ".design/content-editing.md#scheduling-and-dependency-tokens"]
+related: [".domain/tasks/naming.md#task-status", ".domain/tasks/naming.md#area", ".domain/tasks/naming.md#roadmap-tag", ".design/typography-and-layout.md#font-families", ".design/content-editing.md#scheduling-and-dependency-tokens", ".arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md"]
 ```
 
 > Tasks carry structured metadata (type, priority, status, area,
@@ -135,11 +135,12 @@ related: [".domain/tasks/naming.md#task-status", ".domain/tasks/naming.md#area",
 
 | Sigil | Kind | Example |
 |---|---|---|
-| *(none)* | type | `` `prompt` ``, `` `task` ``, `` `idea` `` |
+| *(none)* | type | `` `prompt` ``, `` `task` ``, `` `idea` ``; `` `plan` `` on a roadmap-level entry, which Import alone accepts — see the rule below |
 | `!` | status | `` `!draft` ``, `` `!ready` ``, `` `!in-progress` `` |
 | `*` | priority | `` `*high` `` |
 | `@` | area | `` `@repos` `` |
 | `#` | tag | written in the body, e.g. `#sync` |
+| `+` | plan tag | `` `+release-q4` `` — the tag that files the entry under a roadmap item, stored with its sigil (`.domain/tasks/naming.md#roadmap-tag`) |
 
 | Rule | Requirement |
 |---|---|
@@ -147,13 +148,15 @@ related: [".domain/tasks/naming.md#task-status", ".domain/tasks/naming.md#area",
 | Backward compatible | Metadata written before this convention existed (bare, un-sigilled tokens) MUST continue to parse; saving an entry rewrites its metadata line into canonical sigil form so entries self-heal. |
 | Sigil wins over guessing | A sigilled token that does not match a known value for its declared kind (e.g. a priority sigil on a status word) MUST NOT fall through and be reinterpreted as another kind — the sigil already declared intent, so it is simply unrecognized rather than misread. |
 | Monospace | Metadata tokens render in `font-family-mono`, matching inline code, so the syntax reads as structured rather than prose. |
-| The namespace is closed | These five kinds are the whole of the sigil vocabulary. A new kind of metadata takes a named `name:value` token instead — see [Scheduling and Dependency Tokens](#scheduling-and-dependency-tokens). Minting a sixth sigil would trade a readable name for a character nobody remembers. |
+| The namespace is closed to new kinds | These kinds are the whole of the sigil vocabulary. A new **kind** of metadata takes a named `name:value` token instead — see [Scheduling and Dependency Tokens](#scheduling-and-dependency-tokens); minting a sigil for one would trade a readable name for a character nobody remembers. The one admission since the rule was written, `+`, is not a new kind: a plan tag is a tag, and `#`/`+` tell two sub-kinds of the same kind apart on a line a person reads, the way `@` tells a person from a general tag in the body. That is the test for admitting a sigil — the kind already has one and only the sub-kind is new — and it is why `+` is a row here and a `plan:` token is not (`.arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md`). |
+| `+` keeps its sigil in the stored value | A `#deploy` token becomes the bare tag `deploy`; a `+release-q4` token is stored as `+release-q4`, sigil and all, so the two kinds stay distinguishable after parsing and the canonical rewrite can put each back the way it came. The roadmap holds the bare slug and lifts the `+` at its own boundary; nothing in the entry grammar ever strips it. |
+| `plan` is a type word Import alone accepts | A `plan` entry describes a roadmap item, not a task, and it is parsed as that kind rather than as a fourth task type. Import hands it to the roadmap; every other path that turns entry text into a task — paste, quick-add, a sub-item — MUST refuse it with an error naming Import as the way in, never create a task from it. Silently creating one would leave a type word the task model cannot hold, which the canonical rewrite would then drop. |
 
 ## Scheduling and Dependency Tokens
 
 ```meta
 status: active
-related: [".design/content-editing.md#structured-metadata-sigils", ".domain/tasks/naming.md#due-date", ".domain/tasks/naming.md#reminder", ".domain/tasks/naming.md#recurrence", ".domain/tasks/naming.md#my-day", ".domain/tasks/naming.md#dependency", ".domain/tasks/features.md#import", ".domain/repository-management/domain.md#repository-registry"]
+related: [".design/content-editing.md#structured-metadata-sigils", ".domain/tasks/naming.md#due-date", ".domain/tasks/naming.md#reminder", ".domain/tasks/naming.md#recurrence", ".domain/tasks/naming.md#my-day", ".domain/tasks/naming.md#dependency", ".domain/tasks/features.md#import", ".domain/tasks/features.md#effort-registration", ".domain/repository-management/domain.md#repository-registry", ".arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md"]
 ```
 
 > When an entry is scheduled or waits on other entries, those facts ride on the
@@ -167,9 +170,11 @@ related: [".design/content-editing.md#structured-metadata-sigils", ".domain/task
 | `remind:` | reminder | `` `remind:2026-08-21T09:00` `` |
 | `repeat:` | recurrence | `` `repeat:weekly` ``, `` `repeat:weekdays` ``, `` `repeat:2w` `` |
 | `myday:` | My Day | `` `myday:2026-08-19` `` |
+| `completed:` | ticked off — the checkbox, not the status | `` `completed:2026-09-22` `` |
 | `id:` | local id | `` `id:add-command` `` |
 | `after:` | dependency | `` `after:a1b2c3` `` — may repeat |
 | `repo:` | target repository | `` `repo:backlog-desktop` `` — may repeat |
+| `effort:` | size in story points | `` `effort:5` `` — a non-negative whole number; not honoured on a `plan` entry |
 | `files:` | attached folder or archive | `` `files:D:/reviews/panel-review` ``, `` `files:D:/reviews/panel.zip` `` |
 | `view:` | which reading of the body to open in | `` `view:steps` ``, `` `view:notes` `` |
 
@@ -206,6 +211,8 @@ Two entries pasted together — neither saved yet, so neither has a real
 | Dependencies repeat | `after:` may appear more than once and the order carries no meaning — an entry waiting on two things names both, and asking which is the real predecessor has no answer. An id naming nothing visible still counts, and still blocks. |
 | A repo name repeats, like a dependency | `repo:` may appear more than once, the same as `after:` and for the same reason — an entry can target several repositories at once, and order carries no meaning. This matches the aggregate's own `repo_ids[]` (`.domain/tasks/features.md#multi-repo-targeting`), which already holds more than one. |
 | A repo name is resolved, never invented | `repo:` names a repository the way a person or a pasted document actually can — by name — and is resolved against the Repository Registry (`.domain/repository-management/domain.md#repository-registry`) to the `repo_id` the aggregate stores, because nothing hand-typed can know that id. A name the registry does not recognize is simply unresolved, on the same terms as an unrecognized sigil value; this token never registers a repository on its own. Only the narrower import policy (`.domain/tasks/features.md#repository-resolution-on-import`) auto-registers an unknown name, and only for that feature. |
+| An effort is a count of points | `effort:` takes a non-negative whole number of story points. `0` is a real estimate that contributes nothing; a negative or fractional value is not an estimate and is not read (`.domain/tasks/domain.md#task`). Absent means unestimated, which is a normal state and never rewritten as `0`. |
+| A `plan` entry reads a narrower line | On an entry whose type word is `plan` (`#structured-metadata-sigils`) only `+tag`, `id:`, `after:`, `repo:`, `*priority` and `due:` mean anything, and they mean it about a roadmap item: the tag becomes the item's, `after:` a roadmap dependency, `due:` the window's end. **`effort:` is not honoured on a `plan` entry** — a plan owns no estimate; its size is the effort the tasks under it registered — and Import says so once when it meets one. There is no start-date token: the importer places the item. Every other token on the line describes a task and is ignored. The mapping is `.arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md`. |
 | Unknown tokens survive an edit | A `name:value` token the parser does not recognize MUST be preserved when an unrelated field is changed, on the same terms as the backward-compatibility rule for sigils. It is unrecognized, not invalid. |
 | Absent means absent | An unset field carries no token rather than an empty one. `` `due:` `` with nothing after it is malformed, not "no due date". |
 | Canonical rewrite is destructive by design | Saving rewrites the metadata line into canonical form from the entry model, so a token the model cannot represent does not survive the next save. A new token MUST therefore be added to the domain model, the entry DTO, and the canonical rewrite in the same change — adding it to the parser alone loses data silently, with no error. |

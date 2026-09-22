@@ -450,7 +450,11 @@ public sealed class HomeRepositoryScopeTests
 
         Chips(component)[1].Click(new MouseEventArgs { CtrlKey = true });
 
-        Assert.Equal(["docs"], state.SelectedRepositoryAliases);
+        // Waited for rather than read straight off, the way every other press in this
+        // file is: going to Devbook leaves the pane's own load draining through the
+        // renderer, and a press dispatched while it does lands a batch later. The
+        // assertion is the same one; what changes is that it stops racing the drain.
+        component.WaitForAssertion(() => Assert.Equal(["docs"], state.SelectedRepositoryAliases));
         Assert.DoesNotContain("Ctrl+click", Chips(component)[0].GetAttribute("title"));
     }
 
@@ -708,6 +712,9 @@ public sealed class HomeRepositoryScopeTests
         context.Services.AddSingleton<IFolderEditorLauncher, UnsupportedFolderEditorLauncher>();
         context.Services.AddSingleton<DevbookFolderOpenService>();
         context.Services.AddSingleton<DevbookScope>();
+        // The pane publishes its open chapter here for the Ask AI source; a pane
+        // rendered without it would fail on inject, as the application hosts would.
+        context.Services.AddScoped<DevbookOpenChapter>();
         context.Services.AddSingleton<DevbookUpdateService>();
         context.Services.AddSingleton<IGitHubBranchCatalog>(new StubBranchCatalog());
         context.Services.AddSingleton<DevbookSourceSelection>();

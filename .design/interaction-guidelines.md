@@ -327,7 +327,8 @@ line of a list that may be hundreds long.
 | Repeated renaming | Where retitling many rows is the task, the keystroke that finishes one rename MUST start the next (Tab down, Shift+Tab up), and the field MUST arrive with the title selected so the first keystroke replaces it. |
 | Finished rows | A finished row leaves the open list and joins a Completed section of its own, folded by default, behind a count. It MUST NOT be deleted — the record of what was done is the point — and it MUST stay readable rather than being hidden. |
 | Reorder | A finished row MUST NOT be draggable: its place in the order stopped meaning anything when it left the list. |
-| Blocked rows | A row that cannot start yet MUST refuse twice: its completion control renders as state, and its metadata line names what it is waiting for, first on the line. |
+| Kind mark | Where a list's rows have kinds — a backlog's prompts, tasks and ideas — each row wears its kind as a glyph, and the glyph is the **first thing on the metadata line, on every row**, ahead of the list it belongs to and ahead of a blocked row's wait. A mark is only a mark if it is always in the same place; a reader scanning a column for the prompts finds it at the line's left edge or reads every row. The glyph stands alone — the word is the tooltip and a visually-hidden span, per `typography-and-layout.md#metadata-lines` — and both glyph and word come from the host, since the kinds are its vocabulary. The mark also stands in for the glyphs of the facts about the row's *content* — its step count, its note — which follow it directly, as words alone (`✨ 2 of 5 Note`): one statement about one thing, not three glyphs in a row, and nothing else on the line comes between them. Facts about time and a blocked row's wait keep their own glyphs, because those glyphs are what tell a deadline from an alarm. |
+| Blocked rows | A row that cannot start yet MUST refuse twice: its completion control renders as state, and its metadata line names what it is waiting for, first among the facts — only the kind mark's statement above stands before it. |
 | One next | Where an order is derived, exactly one row is marked as the one to start; rows that are merely startable take a second, quieter marker. The vocabulary MUST NOT change with the count. |
 | Recorded beats derived | A row somebody marked done is done, even where a step it waits on is outstanding. A recorded fact outranks a derived conclusion. |
 | Following a dependency | A name on the waiting-for line that resolves to a row MUST be followable: it takes the focus to that row and opens it. Where a scope hides that row, the scopes hiding it are widened — only those — rather than the entry being opened beside a list that does not show it. A name that resolves to nothing stays text, per the row below. |
@@ -483,20 +484,22 @@ related: [".design/README.md#living-reference-the-ui-storybook", ".design/access
 | Inline confirmation | `CopyButton` in the shared library: a `role="status"` line beside the button and a glyph that cross-fades into a check for the same few seconds, at `transition-base`/`ease-out` — the same pairing, and the same recorded deviation from `ease-bounce`, as the saved-confirmation flash | Storybook → *Buttons* → **CopyButton** |
 | Focus and selection | Every interactive component declares its own `:focus-visible` outline at `border-width-2` with a 2 px offset | Storybook → every page |
 | Empty / loading / error states | `EmptyState`, `Spinner`, `Alert` | Storybook → *Feedback* |
-| Drag-and-drop reordering | The **desktop app**, not the library: entry and sub-item grips in `TasksPane.razor`, state in `TasksDesktopState` | none — see the gap below |
+| Drag-and-drop reordering (items) | The **shared library**, in two halves: `taskListDrag` in `Backlog.UI.Components/wwwroot/components.js` carries the pointer gesture and the edge autoscroll, and `TaskListView.razor` the grip, the drop preview, the keyboard move and the announcement. `RoadmapTimeline` runs the same gesture against a time axis. The module screens are hosts, not owners: `TasksPane.razor` passes `Reorderable`/`OnReorder` and applies the move it is handed | Storybook → *Task list* → **Reordering, by pointer and by key**; *Prompt tasks*, for the link gesture the same pointer machinery drives; *Roadmap* → **Moving a bar, and moving it without a mouse** |
 
 Known gaps:
 
-- **Chapter reorder has no review surface.** Item reorder is now in the shared
-  library — `TaskListView` owns the grip, the drop preview and the keyboard move,
-  and `RoadmapTimeline` owns the same gesture against a time axis — so both are
-  under review at storybook → *Task list* → **Reordering, by pointer and by key**
-  and *Roadmap* → **Moving a bar, and moving it without a mouse**. Reordering
-  *chapters within a document* is still desktop-app-only and has no page.
-- **Item reorder announces; chapter reorder does not.** Both library
-  implementations carry the `aria-live` region
-  `accessibility.md#reorder-announcements` requires. The desktop app's chapter
-  grips take focus and respond to the arrow keys but announce nothing.
+- **Chapter reorder is unbuilt.** Nothing in the product reorders *chapters
+  within a document*: no grip, no keyboard move, no announcement, in the library
+  or in any host. `#keyboard-accessible-reordering` and the chapter half of
+  `#nesting--indent-rules-chapters` are therefore requirements waiting on an
+  implementation, not a built gesture falling short of them — and there is no
+  review surface to ask for until there is something to review.
+- **The roadmap drag does not autoscroll.** `#autoscroll` is written for any
+  scrollable container, and the task list satisfies it — a band at each edge,
+  a speed that rises with depth into it and stops at a cap. The timeline's own
+  gesture, `backlogRoadmapTimeline`, carries no scroll logic at all, so a bar
+  cannot be dragged past the edge of what the timeline is showing. The rule is
+  unmet there rather than misstated here.
 - **No `Offline` or `Conflict` save state.** The `SaveState` enum stops at
   `Failed`. Both states are specified in `#save-state-indicator-vocabulary` and
   both need building before sync ships.

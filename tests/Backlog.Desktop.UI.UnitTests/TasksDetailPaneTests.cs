@@ -305,7 +305,7 @@ public sealed class TasksDetailPaneTests
     public async Task New_entry_sits_above_the_completed_section()
     {
         using var host = await TasksPaneHost.CreateAsync();
-        await host.WriteEntryAsync("# Finished already\n`task` `!done`\n");
+        await host.WriteEntryAsync("# Finished already\n`task` `!done` `completed:2026-09-22`\n");
         await host.WriteEntryAsync("# Still going\n`task` `!in-progress`\n");
 
         var pane = host.Render();
@@ -336,6 +336,12 @@ public sealed class TasksDetailPaneTests
 
     // --- Completing --------------------------------------------------------
 
+    /// <summary>The circle is the tick and only the tick: it writes the
+    /// <c>completed:</c> token and leaves the status exactly where it was, in
+    /// both directions. Done and Archived are the work being over
+    /// (<c>.domain/tasks/flow.md#task-lifecycle</c>); the tick is the person being
+    /// finished with the entry, and the two are separate facts so that a Done
+    /// entry can stay on the open list until they have looked at it.</summary>
     [Fact]
     public async Task The_circle_completes_the_entry_and_puts_it_back()
     {
@@ -345,40 +351,30 @@ public sealed class TasksDetailPaneTests
         var pane = host.Render();
         await pane.Find($"[data-testid='{RowTestId(row)}-check']").ClickAsync(new());
 
-        Assert.Equal(EntryStatus.Done, row.PreviewStatus);
-        Assert.Contains("`!done`", row.RawText, StringComparison.Ordinal);
+        Assert.True(row.IsPreviewCompleted);
+        Assert.Equal(EntryStatus.InProgress, row.PreviewStatus);
+        Assert.Contains("`completed:", row.RawText, StringComparison.Ordinal);
+        Assert.DoesNotContain("`!done`", row.RawText, StringComparison.Ordinal);
 
-        // Done goes back to InProgress, which is the only legal way off the finish
-        // line. Read from the completed section, where the shared list moved it.
+        // Unticking clears the tick and nothing else. Read from the completed
+        // section, where the shared list moved it.
         pane.Render();
         await pane.Find("[data-testid='entry-list-completed-toggle']").ClickAsync(new());
         await pane.Find($"[data-testid='{RowTestId(row)}-check']").ClickAsync(new());
 
+        Assert.False(row.IsPreviewCompleted);
         Assert.Equal(EntryStatus.InProgress, row.PreviewStatus);
+        Assert.DoesNotContain("`completed:", row.RawText, StringComparison.Ordinal);
     }
 
     /// <summary>
-    /// The circle completes a draft entry too, and this is why it is a control on
-    /// every row rather than on some of them.
-    /// <para>
-    /// Draft to Done is not a step <c>.domain/tasks/flow.md#backlog-entry-lifecycle</c>
-    /// lists, but the text route does not enforce the lifecycle: saving an entry from
-    /// its markdown calls <c>SetStatus</c>, not <c>ChangeStatus</c>, so any status a
-    /// person can type is a status the entry takes. The circle writes the same
-    /// <c>!done</c> token through the same save, so it inherits exactly that — which
-    /// is what makes it honest. A circle that silently did nothing on drafts would be
-    /// the alternative, and a checkbox that does nothing is worse than none.
-    /// </para>
-    /// <para>
-    /// The escape hatch's "reads as" line still flags the transition, because
-    /// <c>EntryRow</c> derives that hint from the lifecycle rather than from what the
-    /// save did. That divergence predates this pane and is left alone here rather than
-    /// asserted either way: it is a question about whether the text route should be
-    /// checked, and only the product can answer it.
-    /// </para>
+    /// The circle ticks a draft entry too, and this is why it is a control on
+    /// every row rather than on some of them: the tick is not a lifecycle step, so
+    /// there is no status it is illegal from, and a checkbox that does nothing is
+    /// worse than none.
     /// </summary>
     [Fact]
-    public async Task The_circle_completes_a_draft_entry_because_the_text_route_is_unchecked()
+    public async Task The_circle_completes_a_draft_entry_because_the_tick_is_not_a_lifecycle_step()
     {
         using var host = await TasksPaneHost.CreateAsync();
         var row = await host.WriteEntryAsync("# Ship it\n`task` `!draft`\n");
@@ -386,8 +382,38 @@ public sealed class TasksDetailPaneTests
         var pane = host.Render();
         await pane.Find($"[data-testid='{RowTestId(row)}-check']").ClickAsync(new());
 
-        Assert.Equal(EntryStatus.Done, row.PreviewStatus);
-        Assert.Contains("`!done`", row.RawText, StringComparison.Ordinal);
+        Assert.True(row.IsPreviewCompleted);
+        Assert.Equal(EntryStatus.Draft, row.PreviewStatus);
+    }
+
+    /// <summary>The other half of the split: reaching Done or Archived through
+    /// the status selector does not tick the entry. It stays in the open list,
+    /// unticked, reading Done — which is what lets the person look at finished
+    /// work before ticking it off.</summary>
+    [Theory]
+    [InlineData(EntryStatus.Done)]
+    [InlineData(EntryStatus.Archived)]
+    public async Task An_end_state_status_does_not_tick_the_entry_or_move_it_under_completed(EntryStatus status)
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync("# Ship it\n`task` `!in-progress`\n");
+
+        var pane = host.Render();
+        await host.State.ChangeStatusAsync(row, status);
+        pane.Render();
+
+        Assert.Equal(status, row.PreviewStatus);
+        Assert.False(row.IsPreviewCompleted);
+        Assert.Empty(pane.FindAll("[data-testid='entry-list-completed']"));
+        Assert.NotNull(pane.Find($"[data-testid='{RowTestId(row)}-check']"));
+
+        // And ticking it then moves it, with the status still what it was.
+        await pane.Find($"[data-testid='{RowTestId(row)}-check']").ClickAsync(new());
+        pane.Render();
+
+        Assert.True(row.IsPreviewCompleted);
+        Assert.Equal(status, row.PreviewStatus);
+        Assert.NotNull(pane.Find("[data-testid='entry-list-completed']"));
     }
 
     // --- Renaming ----------------------------------------------------------
@@ -1207,7 +1233,7 @@ public sealed class TasksDetailPaneTests
             "repox = JSdotNet/RepoX",
             "repoy = JSdotNet/RepoY");
 
-        var acrossRepo = await host.WriteEntryAsync("# Ship the library\n`task` `!done` `repo:repoy`\n");
+        var acrossRepo = await host.WriteEntryAsync("# Ship the library\n`task` `!done` `completed:2026-09-22` `repo:repoy`\n");
         var scoped = await host.WriteEntryAsync(
             $"# Ship the app\n`task` `repo:repox` `after:{acrossRepo.Id!.Value}`\n");
 
