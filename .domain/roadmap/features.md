@@ -104,6 +104,19 @@ purpose, and the plan can list the tags in use and show the items sitting under
 any one of them, so grouping planned work under a shared tag is a first-class
 thing to do rather than an accident to be prevented.
 
+The tag is spelled two ways on purpose, and the difference is which side is
+writing. The item holds the **bare slug** — `release-q4` — because that is the
+word a knowledge chapter names in its `roadmap` list and the word this context
+lists as in use. A [Task](../tasks/domain.md#task) filed under it wears the slug
+with a **plan sigil**, `+release-q4`, so that on a line a person reads it tells
+itself apart from a `#` general tag and an `@` person; that spelling is the
+task's, offered by its picker, and the item gathers a task whether it wears the
+sigil or carries the bare slug from before the sigil existed. An imported plan's
+shared tag is this same tag — one item per plan, its tag the plan's slug — which
+is what [laying out imported plans](#laying-out-imported-plans) rests on, and
+`.arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md` is where
+the two spellings are settled.
+
 ## Gathering work under an item and totalling its effort
 
 ```meta
@@ -337,6 +350,121 @@ Announce when planned work is scheduled or moved, so
 compare intent against delivery. Roadmap publishes and does not subscribe: nothing
 observed downstream reaches back in and edits the plan.
 
+## Laying out imported plans
+
+```meta
+type: feature
+status: proposed
+depends-on: [.domain/roadmap/features.md#tagging-planned-work, .domain/roadmap/features.md#gathering-work-under-an-item-and-totalling-its-effort, .domain/roadmap/features.md#dependency-planning]
+related: [.arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md, .domain/tasks/features.md#import, .domain/tasks/features.md#re-importing-an-updated-plan, .domain/roadmap/features.md#sequencing-work-into-tracks, .domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline, .domain/roadmap/domain.md#roadmap-item-gathering]
+```
+
+Put a plan that was [imported](../tasks/features.md#import) on the roadmap
+without anyone typing it in a second time. An imported plan becomes **one
+planned item**, tagged with the plan's own slug, so the tasks the import created
+are gathered under it by the tag they already carry; nothing links them and
+nothing is copied. The plan's steps are then read inside that item, sized by the
+effort they registered, and the item's progress is the tasks' progress, read
+every time and stored nowhere.
+
+A plan reaches the roadmap two ways, and both are the same import. A roadmap
+document — the same entry text a task-level plan is written in, with the type
+word `plan` on each entry — describes the items outright: a title, the plan's
+tag, which repositories, how much the plan wants it, what it waits on, and
+optionally the day it is due. Or the tasks come first, as they do today, and the
+plan is laid out later from the tag they carry (see
+[the shelf](#laying-out-a-plan-whose-tasks-arrived-first)). Either way the
+person pressing Import is the person changing the plan: the import is a gesture
+of theirs, and the item it creates is theirs to move.
+
+The decision behind all of it is
+`.arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md`; this
+chapter says what the feature does, not why the rulings fell the way they did.
+
+### Placing a plan in time
+
+```meta
+type: sub-feature
+status: proposed
+related: [.domain/roadmap/domain.md#planned-window, .domain/roadmap/domain.md#plan-sequencing, .domain/roadmap/features.md#surfacing-contradictions-instead-of-fixing-them]
+```
+
+Give an imported plan a window nobody had to guess. The **end** is the day the
+plan says it is due, when it says one. The **start** is never in the document:
+it is the day after the last thing the plan waits on finishes, or today when it
+waits on nothing. A plan with no due date gets a **length from its effort** —
+the story points its tasks registered, divided by how many points a day the
+person says they get through — never shorter than a day, and a plain working
+week when there is nothing gathered yet or nothing sized. A due date that falls
+before the plan could start is kept, and the plan is placed on that one day so
+the [contradiction shows](#surfacing-contradictions-instead-of-fixing-them)
+rather than being smoothed over.
+
+The points-per-day figure is **the person's own reading pace**, a workspace
+setting, and not an estimate the plan registers: the effort is still the tasks'
+own, added and never invented, and the only thing the placement adds is how fast
+the person says they work through it. Changing it moves nothing already placed —
+re-importing does.
+
+An item the import placed remembers that it did. The first time a person moves
+it by hand, that memory is cleared and the importer never touches its dates
+again. Re-importing the roadmap document brings the item's title, repositories,
+priority and dependencies up to date and re-places only the windows the importer
+still owns; re-importing the plan's tasks changes nothing on the item but the
+length of a window still sized by effort. **Nothing is ever removed** from the
+plan by an import: a plan the document has stopped describing stays planned,
+because taking work off the roadmap is a planning decision — other work waits on
+it — and the person makes it [in place](#editing-the-plan-in-place).
+
+### Reading a plan's steps inside its item
+
+```meta
+type: sub-feature
+status: proposed
+related: [.domain/roadmap/domain.md#roadmap-item-gathering, .domain/tasks/features.md#task-dependencies, .domain/tasks/features.md#effort-registration, .domain/roadmap/features.md#sizing-a-track-by-the-effort-it-gathers]
+```
+
+Open a planned item on the timeline and see the steps it gathers laid end to end
+inside its bar, in the order the tasks' own dependencies put them — what waits on
+what, ties by which was written first — each as wide as its share of the plan's
+effort. A step nobody sized is drawn at a fixed small width and marked as unsized,
+so a plan of unestimated work reads as a row of question marks rather than as
+nothing. Each step wears its task's status colour, and the item's bar fills with
+the effort already done over the effort registered, with the count of unsized
+steps written beside it so a small fill over a pile of unsized work cannot pass
+for a plan nearly finished.
+
+The widths are **proportions of the window, not dates**. A step drawn across a
+Tuesday is not scheduled for Tuesday; the item has a window and the steps have
+sizes, and the drawing puts the second inside the first. This is the reading
+[the tracks idea](#sizing-a-track-by-the-effort-it-gathers) asked for — how big
+each piece is, relative to the others — inside the dated plan the roadmap keeps,
+and it settles that idea's first question: dates stay, and effort sizes the steps
+within them. Everything drawn here is read from Tasks when the item is opened;
+the plan stores no status, no progress and no order of its own.
+
+### Laying out a plan whose tasks arrived first
+
+```meta
+type: sub-feature
+status: proposed
+related: [.domain/tasks/features.md#filing-a-task-against-a-roadmap-tag, .domain/roadmap/features.md#planning-work-that-has-no-task-yet]
+```
+
+Find the plans that were imported as tasks and never placed. Every plan tag the
+backlog carries that no planned item holds is listed on a **shelf** beside the
+timeline; picking one creates its item — tagged with that slug, so it gathers the
+tasks already there — and [places it](#placing-a-plan-in-time) from the effort
+they registered. The Import dialog offers the same thing at the moment of
+import, as an option that is off unless asked for: a document of task entries
+with no `plan` entry can be laid out as one item per plan tag it carries, so a
+person who wants both in one gesture has it, and one who is only refreshing a
+plan's tasks does not grow an item they did not ask for.
+
+Only a tag written as a plan tag reaches the shelf. A plan filed under a general
+tag before the plan sigil existed still gathers under an item whose tag matches
+it, but the item is the person's to create.
+
 ## Sequencing work into tracks
 
 ```meta
@@ -349,7 +477,10 @@ related: [.domain/roadmap/features.md#dependency-planning, .domain/roadmap/featu
 **An idea, written down to be argued with — not an agreed model.** This folder's
 status vocabulary has no `idea`, so `proposed` carries it here: nothing below is
 settled, and the open questions are as much the point of the chapter as the
-description is.
+description is. Two of them have since been answered by
+[laying out imported plans](#laying-out-imported-plans) and
+`.arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md`; each is
+marked where it stands below, and the rest are as open as they were.
 
 Plan a repository's work as **tracks** rather than as dates. A track is an *area
 within one repository* holding a chain of work that has to be done in order — each
@@ -383,12 +514,20 @@ built:
   [Monitoring](../monitoring/domain.md#progress-signal) consumes, so comparing
   intent against delivery would need a new answer or a different question. If both
   are kept, one plan carries two ways of ordering the same work, and something has
-  to say which one a reader is looking at.
+  to say which one a reader is looking at. *Answered: addition — dates stay.*
+  Effort sizes the steps
+  [inside a dated window](#reading-a-plans-steps-inside-its-item), so the window,
+  the timeline and the event all survive and Monitoring's contract holds; what says
+  which reading a person is looking at is the drawing itself — the bar is the
+  window, the steps inside it are proportions and never dates.
 - **Is a track a [Planning Lane](domain.md#planning-lane) with an order and a size,
   or a new node?** A lane today is a free-form label the person owns and nothing
   depends on. A track is ordered and depended upon. Making the lane ordered would
   change what every label already written means, so this is a rename with
-  consequences rather than a small extension.
+  consequences rather than a small extension. *Partly answered:* an imported plan
+  is an existing node, the [Roadmap Item](domain.md#roadmap-item), and its steps
+  are the tasks it gathers — no new node and no ordered lane was needed. Whether a
+  track drawn by hand, with no plan behind it, is a lane or an item stays open.
 - **What is an "area", and who decides that two areas cannot collide?** The safety
   claim rests entirely on this. If an area is the person's own word — as a lane is —
   the guarantee is their judgement, and the plan should say so rather than imply
@@ -396,15 +535,21 @@ built:
   Roadmap starts holding repository facts it has deliberately never owned:
   [Repository Scope](domain.md#repository-scope) keeps opaque aliases for exactly
   that reason, and resolving them is a supplier's job.
-- **Does a track hold work, or gather it?** If the chain runs between plan nodes it
-  is the existing Dependency and nothing moves. If it runs between Tasks,
-  the dependency leaves this context — and Tasks models no dependency
-  today, which is why Roadmap is described as the only context that holds one
-  between two pieces of planned work.
-- **Do milestones survive?** A [Milestone](domain.md#milestone) is a day, and a plan
-  with no dates has nowhere to put one. Either it stays as the plan's single
-  remaining tie to a calendar, or the commitments it records need somewhere else to
-  live.
+- **Does a track hold work, or gather it?** *Answered: it gathers.* If the chain
+  runs between plan nodes it is the existing Dependency and nothing moves. If it
+  runs between Tasks, the dependency is Tasks' own — and Tasks *does* model one,
+  `after:`, since `.arc42/adr/0007-import-reuses-the-entry-text-grammar.md`
+  ([task dependencies](../tasks/features.md#task-dependencies)); an earlier
+  version of this chapter said it did not, which is why Roadmap was described as
+  the only context holding a dependency between two pieces of planned work. The
+  accurate statement is narrower: Roadmap is the only context that holds one
+  between two pieces of *planned* work, and Tasks holds the one between two
+  *tasks*. An item [reads the tasks' chain](#reading-a-plans-steps-inside-its-item)
+  to order its steps and never holds it; the chain between plans stays here.
+- **Do milestones survive?** *Answered: yes*, because dates do. A
+  [Milestone](domain.md#milestone) is a day, and a plan with no dates would have
+  had nowhere to put one; with the window kept, it stays the fixed point an
+  imported plan can wait on and be placed after.
 
 ### Sizing a track by the effort it gathers
 

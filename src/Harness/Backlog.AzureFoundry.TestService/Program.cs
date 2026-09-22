@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Backlog.AzureFoundry.TestService;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -30,6 +31,22 @@ app.MapPost("/openai/deployments/{deployment}/chat/completions", async (string d
             }
         }
     });
+});
+
+// Cost Management's query, at any scope: the desktop client posts to
+// {scope}/providers/Microsoft.CostManagement/query, and the scope is a path of
+// its own, so the route is a catch-all checked for that suffix.
+app.MapPost("/{**path}", (string path, JsonElement body) =>
+{
+    if (!path.EndsWith("/providers/Microsoft.CostManagement/query", StringComparison.OrdinalIgnoreCase))
+    {
+        return Results.NotFound();
+    }
+
+    var window = LocalAzureFoundryCost.ReadWindow(body);
+    return window is null
+        ? Results.BadRequest(new { error = new { code = "BadRequest", message = "A Custom timeframe needs a timePeriod with from and to." } })
+        : Results.Ok(LocalAzureFoundryCost.CreateResponse(window.Value));
 });
 
 app.Run();

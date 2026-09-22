@@ -298,6 +298,10 @@ public static class MauiProgram
         // rather than for the service-to-service defaults AddServiceDefaults
         // puts on every other client — see AzureFoundryRegistration.
         builder.Services.AddAzureFoundryChatClient();
+        // The bill for the same resource, read from Azure Cost Management with
+        // the developer sign-in on this machine. Reports itself unavailable until
+        // a cost scope is in Settings, so it is safe to register unconditionally.
+        builder.Services.AddAzureFoundryCostClient();
         // The Inbox's plan drafter over the same chat client. Singleton here, where
         // the web harness registers it Scoped, because that is the lifetime the
         // chain above it actually has in this host: InboxDesktopState is a

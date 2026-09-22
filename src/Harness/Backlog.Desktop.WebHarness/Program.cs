@@ -51,6 +51,9 @@ using Backlog.Aspire.ServiceDefaults;
 // recognises a stored configuration as its own seed rather than a person's.
 const string LocalAzureFoundryDeployment = "local-ai";
 const string LocalAzureFoundryApiKeyMarker = "local-development";
+// The scope the seed reads spend for. The stand-in service answers any scope
+// with the same canned bill, so the value only has to look like one.
+const string LocalAzureFoundryCostScope = "/subscriptions/local-development/resourceGroups/local/providers/Microsoft.CognitiveServices/accounts/local-ai";
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -256,11 +259,18 @@ builder.Services.AddSingleton(_ => new SyncServiceSettingsStore(
 builder.Services.AddSingleton<SyncServiceEndpoint>();
 builder.Services.AddSyncClient(SyncServiceAddress);
 builder.Services.AddTaskSyncClient(SyncServiceAddress);
-builder.Services.AddSingleton(_ => CreateLocalDevelopmentAzureFoundrySettingsStore(builder.Environment.ContentRootPath));
+var azureFoundrySettings = CreateLocalDevelopmentAzureFoundrySettingsStore(builder.Environment.ContentRootPath);
+builder.Services.AddSingleton(azureFoundrySettings);
 // The chat client's pipeline is the adapter's own, sized for a completion rather
 // than for the service-to-service defaults AddServiceDefaults puts on every other
 // client — see AzureFoundryRegistration.
 builder.Services.AddAzureFoundryChatClient();
+// The bill for the same resource. When the settings are this session's local
+// seed, the query goes to the stand-in service beside the chat one — with a
+// token nothing signed, because the stand-in checks none — so the dashboard's
+// Cost section has figures without an Azure sign-in. A person's own Foundry
+// configuration keeps the real client, and their real bill.
+AddAzureFoundryCostClient(builder.Services, azureFoundrySettings);
 // The Inbox's plan drafter over the same chat client. Scoped, like the other
 // port adapters the Inbox module takes: the handler that asks for it is
 // scoped, and the typed client behind it is transient either way.
@@ -560,6 +570,20 @@ static GitHubSettingsStore CreateLocalDevelopmentGitHubSettingsStore(string cont
 static Uri SyncServiceAddress(IServiceProvider services) =>
     services.GetRequiredService<SyncServiceEndpoint>().Resolve().Address;
 
+static void AddAzureFoundryCostClient(IServiceCollection services, AzureFoundrySettingsStore settings)
+{
+    var localEndpoint = Environment.GetEnvironmentVariable("BACKLOG_AZURE_FOUNDRY_LOCAL_ENDPOINT");
+
+    if (string.IsNullOrWhiteSpace(localEndpoint) || !IsLocalAzureFoundrySeed(settings.Current))
+    {
+        services.AddAzureFoundryCostClient();
+        return;
+    }
+
+    services.AddSingleton<IAzureManagementTokenSource, LocalAzureManagementTokenSource>();
+    services.AddAzureFoundryCostClient(new Uri(localEndpoint));
+}
+
 static AzureFoundrySettingsStore CreateLocalDevelopmentAzureFoundrySettingsStore(string contentRootPath)
 {
     var settingsPath = Environment.GetEnvironmentVariable("BACKLOG_AZURE_FOUNDRY_SETTINGS_PATH");
@@ -589,7 +613,8 @@ static void SeedLocalAzureFoundrySettings(AzureFoundrySettingsStore settings)
         return;
     }
 
-    var error = settings.SetConnection(localEndpoint, LocalAzureFoundryDeployment, LocalAzureFoundryApiKeyMarker, AzureFoundrySettingsStore.DefaultApiVersion);
+    var error = settings.SetConnection(localEndpoint, LocalAzureFoundryDeployment, LocalAzureFoundryApiKeyMarker, AzureFoundrySettingsStore.DefaultApiVersion)
+        ?? settings.SetCostScope(LocalAzureFoundryCostScope);
     if (error is not null)
     {
         throw new InvalidOperationException(error);

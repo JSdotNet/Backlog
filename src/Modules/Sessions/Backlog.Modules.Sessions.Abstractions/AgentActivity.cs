@@ -86,8 +86,8 @@ public sealed record AgentLimitHit(DateTimeOffset At, AgentLimitKind Kind, strin
     /// When the assistant said the refused allowance would reset — <c>quotaLimits.resetsAt</c>,
     /// Unix seconds on the wire — or null for a refusal written without the block.
     /// Carried for the dashboard: a weekly kind's reset recurs every seven days and is the
-    /// boundary it cuts its weeks on, and a five-hour kind's reset is when the hour it
-    /// marks was over. An init property so the positional shape above stays as it is.
+    /// boundary it cuts its weeks on, and a five-hour kind's reset is the hour the wall it
+    /// put up came down. An init property so the positional shape above stays as it is.
     /// </summary>
     public DateTimeOffset? ResetsAt { get; init; }
 }
@@ -114,20 +114,6 @@ public sealed record AgentSessionActivity(
     IReadOnlyList<AgentActivityWait> Waits)
 {
     /// <summary>
-    /// Every refusal for a usage limit the transcript records inside the horizon.
-    /// Ordered, ascending. Empty for every Copilot session — Copilot's stream carries
-    /// no such line — and empty for a Claude session that was never refused, which
-    /// are two different facts this list cannot tell apart; the kind on the record
-    /// can.
-    /// <para>
-    /// An init property rather than a seventh parameter, on
-    /// <see cref="AgentActivityLog.Subagents"/>'s precedent: the fixture builders
-    /// construct these positionally.
-    /// </para>
-    /// </summary>
-    public IReadOnlyList<AgentLimitHit> LimitHits { get; init; } = [];
-
-    /// <summary>
     /// How this device came by the record. See <see cref="AgentSessionOrigin"/>; it
     /// is stamped by the source that produced the record, exactly as
     /// <see cref="AgentSession.Origin"/> is, and is the one field on here that does
@@ -146,6 +132,26 @@ public sealed record AgentSessionActivity(
     /// </para>
     /// </summary>
     public AgentSessionOrigin Origin { get; init; } = AgentSessionOrigin.Local;
+
+    /// <summary>
+    /// Every refusal for a usage limit the transcript records inside the horizon.
+    /// Ordered, ascending. Empty for every Copilot session — Copilot's stream carries
+    /// no such line — and empty for a Claude session that was never refused, which
+    /// are two different facts this list cannot tell apart; the kind on the record
+    /// can.
+    /// <para>
+    /// Empty on every replicated record too, and that absence is the one worth
+    /// naming: a refusal is read out of a transcript, and a record that arrived over
+    /// the wire has none behind it. <see cref="Origin"/> above is what tells that
+    /// apart from a machine whose agent was never refused.
+    /// </para>
+    /// <para>
+    /// An init property rather than a parameter, on
+    /// <see cref="AgentActivityLog.Subagents"/>'s precedent: the fixture builders
+    /// construct these positionally.
+    /// </para>
+    /// </summary>
+    public IReadOnlyList<AgentLimitHit> LimitHits { get; init; } = [];
 }
 
 /// <summary>

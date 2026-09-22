@@ -716,7 +716,7 @@ public sealed class AgentActivitySourceTests : IDisposable
     }
 
     /// <summary>The reset the block names, as an instant: the dashboard cuts its weeks on
-    /// the weekly kind's and dates the five-hour kind's hour by it.</summary>
+    /// the weekly kind's and dates the hour a five-hour wall came down by it.</summary>
     [Fact]
     public async Task A_refusal_with_a_block_carries_when_the_allowance_resets()
     {
