@@ -84,6 +84,29 @@ public sealed class TokenTransport : IGitHubTransport
             throw new GitHubNotConfiguredException("No GitHub token is configured.");
         }
 
+        return await SendAsAsync(credential, method, path, body, apiVersion, cancellationToken);
+    }
+
+    /// <summary>
+    /// Sends one call with a credential already in hand, rather than one the path
+    /// resolves to.
+    /// <para>
+    /// Internal, and the one caller is the account check: it resolves the credential
+    /// for a path that names the account, then asks <c>GET user</c> with it - a path
+    /// that names nobody, and would otherwise leave as this machine's default
+    /// identity, which is exactly the thing the check is meant to see past.
+    /// </para>
+    /// </summary>
+    internal async Task<JsonElement> SendAsAsync(
+        GitHubCredential credential,
+        HttpMethod method,
+        string path,
+        object? body = null,
+        string? apiVersion = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(credential);
+
         using var request = new HttpRequestMessage(method, EndpointUri(path, credential.ApiEndpoint));
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", credential.Token.Trim());
         request.Headers.TryAddWithoutValidation(

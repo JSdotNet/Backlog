@@ -275,7 +275,10 @@ public sealed class GlobalPaneMarkupTests
         Assert.DoesNotContain("private bool _roadmapVisible = ", home, StringComparison.Ordinal);
 
         // Its own shell field, flipped directly rather than through the selection.
-        Assert.Contains("private void ToggleRoadmapBand() => _roadmapVisible = !_roadmapVisible;", home, StringComparison.Ordinal);
+        // The toggle also tells Ask AI the band is the area just opened, which is
+        // why it is no longer a one-line expression body.
+        Assert.Contains("private void ToggleRoadmapBand()", home, StringComparison.Ordinal);
+        Assert.Contains("_roadmapVisible = !_roadmapVisible;", home, StringComparison.Ordinal);
         Assert.DoesNotContain("GlobalPane.Roadmap", home, StringComparison.Ordinal);
 
         // And hiding it reuses the grid variant the feature flag already uses rather

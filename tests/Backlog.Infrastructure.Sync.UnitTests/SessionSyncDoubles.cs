@@ -87,6 +87,56 @@ internal sealed class StubAgentSessionSource(params AgentSession[] sessions) : I
 }
 
 /// <summary>
+/// An activity source that answers with whatever a test seeded and remembers the
+/// horizon it was asked for, so the push can be driven without a transcript on disk
+/// and a test can say how far back it should have looked.
+/// </summary>
+internal sealed class StubAgentActivitySource(params AgentSessionActivity[] sessions) : IAgentActivitySource
+{
+    /// <summary>Every horizon this source was asked for, in order. One entry per
+    /// push is the assertion: the transcripts are the expensive read, and a push
+    /// that asked per batch or per record would be paying for them several times
+    /// over.</summary>
+    public List<DateTimeOffset> Asked { get; } = [];
+
+    public Task<AgentActivityLog> GetActivityAsync(DateTimeOffset since, CancellationToken cancellationToken = default)
+    {
+        Asked.Add(since);
+
+        return Task.FromResult(new AgentActivityLog(sessions, [], since, TimeSpan.FromMinutes(5)));
+    }
+}
+
+/// <summary>
+/// An activity source that honours the horizon the way the real one does: an
+/// interval that ended on or before it is gone, one that straddles it starts at
+/// it, and a session left with nothing is absent. The push's horizon arithmetic
+/// can only be caught by a source that clips — a stub that answers everything
+/// whatever it was asked would pass a horizon that clipped a pending session to
+/// nothing.
+/// </summary>
+internal sealed class ClippingAgentActivitySource(params AgentSessionActivity[] sessions) : IAgentActivitySource
+{
+    public List<DateTimeOffset> Asked { get; } = [];
+
+    public Task<AgentActivityLog> GetActivityAsync(DateTimeOffset since, CancellationToken cancellationToken = default)
+    {
+        Asked.Add(since);
+
+        var clipped = sessions
+            .Select(session => session with
+            {
+                Runs = [.. session.Runs.Where(run => run.EndedAt > since).Select(run => run.StartedAt >= since ? run : run with { StartedAt = since })],
+                Waits = [.. session.Waits.Where(wait => wait.EndedAt > since).Select(wait => wait.StartedAt >= since ? wait : wait with { StartedAt = since })]
+            })
+            .Where(session => session.Runs.Count > 0 || session.Waits.Count > 0)
+            .ToList();
+
+        return Task.FromResult(new AgentActivityLog(clipped, [], since, TimeSpan.FromMinutes(5)));
+    }
+}
+
+/// <summary>
 /// The alias lookup, from a fixed table. Empty by default, which is the shape of a
 /// machine where nobody has configured a repository — the case where the recorded
 /// <c>owner/name</c> has to travel instead.
@@ -136,6 +186,31 @@ internal static class AgentSessions
         };
 }
 
+/// <summary>What a local session was doing, built the same way. The runs and waits
+/// are given as <c>(start, end)</c> pairs so a test reads as the stretches it is
+/// about rather than as a list of constructor calls.</summary>
+internal static class AgentActivities
+{
+    public static AgentSessionActivity Local(
+        string id = "session-1",
+        AgentSessionKind kind = AgentSessionKind.Claude,
+        string environmentId = "11111111-1111-1111-1111-111111111111",
+        string environment = "Workshop PC",
+        (DateTimeOffset Start, DateTimeOffset End)[]? runs = null,
+        (DateTimeOffset Start, DateTimeOffset End)[]? waits = null,
+        AgentSessionOrigin origin = AgentSessionOrigin.Local) =>
+        new(
+            id,
+            kind,
+            environmentId,
+            environment,
+            [.. (runs ?? []).Select(run => new AgentActivityRun(run.Start, run.End))],
+            [.. (waits ?? []).Select(wait => new AgentActivityWait(wait.Start, wait.End))])
+        {
+            Origin = origin
+        };
+}
+
 /// <summary>Wire records to pull, built the same way.</summary>
 internal static class SessionRecords
 {
@@ -150,7 +225,9 @@ internal static class SessionRecords
         DateTimeOffset? lastActivityAt = null,
         int? turnCount = 3,
         long serverTimestamp = 1,
-        string? resolvedRepositoryAlias = null) =>
+        string? resolvedRepositoryAlias = null,
+        IReadOnlyList<ActivityInterval>? runs = null,
+        IReadOnlyList<ActivityInterval>? waits = null) =>
         new(
             new SessionRecord(
                 sessionId,
@@ -162,7 +239,9 @@ internal static class SessionRecords
                 lastActivityAt ?? new DateTimeOffset(2026, 9, 7, 12, 0, 0, TimeSpan.Zero),
                 turnCount,
                 0,
-                resolvedRepositoryAlias),
+                resolvedRepositoryAlias,
+                runs,
+                waits),
             machineId,
             serverTimestamp);
 }

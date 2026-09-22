@@ -31,7 +31,15 @@ public interface IClaudeTransport
 
 /// <summary>Anything Anthropic or the network refused. Carries a message fit to
 /// put in front of a person rather than a stack trace.</summary>
-public sealed class ClaudeException(string message, Exception? inner = null) : Exception(message, inner);
+public sealed class ClaudeException(string message, Exception? inner = null) : Exception(message, inner)
+{
+    /// <summary>The HTTP status Anthropic answered with, when the failure was an
+    /// answer rather than the absence of one. A caller with a meaning for one
+    /// status - the account check reads a 404 on a workspace as "no such
+    /// workspace" - can read it without parsing the sentence meant for a
+    /// person.</summary>
+    public System.Net.HttpStatusCode? Status { get; init; }
+}
 
 /// <summary>
 /// Raised when there is no admin key configured — a settings problem, not a

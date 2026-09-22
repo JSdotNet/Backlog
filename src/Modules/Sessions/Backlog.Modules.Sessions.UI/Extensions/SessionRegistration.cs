@@ -1,6 +1,7 @@
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sessions.UI.Adapters;
 using Backlog.SharedKernel;
+using Backlog.SharedKernel.Ai;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Modules.Sessions.UI.Extensions;
@@ -50,6 +51,10 @@ public static class SessionRegistration
     /// </summary>
     private const string LocalSourceKey = "sessions.local";
 
+    /// <summary>The key the local activity reader is registered under, on the
+    /// same terms as <see cref="LocalSourceKey"/> and for the second port.</summary>
+    private const string LocalActivitySourceKey = "activity.local";
+
     /// <summary>
     /// This machine's own session readers, and the merged source every consumer
     /// asks for.
@@ -94,13 +99,21 @@ public static class SessionRegistration
         services.AddSingleton<IAgentSessionSource>(sp =>
             new CompositeAgentSessionSource([.. sp.GetKeyedServices<IAgentSessionSource>(KeyedService.AnyKey)]));
 
+        // The shell's Ask AI port, answered from the merged catalog above and
+        // from nothing else — see SessionsAiContentSource for why the transcripts
+        // stay out. Scoped for consistency with the other areas' sources, which
+        // read per-circuit state; this one holds only the singleton port, so the
+        // lifetime costs one object per window.
+        services.AddScoped<IAiContentSource, SessionsAiContentSource>();
+
         return services;
     }
 
     /// <summary>
     /// Wires the adapter that answers <see cref="IAgentActivitySource"/>: when the
     /// agents on this machine were actually producing, read out of the bodies of the
-    /// transcripts the session source only stats.
+    /// transcripts the session source only stats — and the merged source every
+    /// consumer asks for.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -118,18 +131,33 @@ public static class SessionRegistration
     /// something that only ever costs time.
     /// </para>
     /// <para>
-    /// A singleton for the reason the session source is one, with one addition: the
-    /// adapter holds no state of its own, and what state there is lives in the cache
-    /// behind the port, which is keyed on files rather than on this object's lifetime.
+    /// The same shape as <see cref="AddAgentSessionSource"/>, for the same argument:
+    /// the local reader is keyed and the unkeyed registration is a composite from the
+    /// first day. A host that composes only this call gets a composite of one, which
+    /// behaves exactly as the reader did; a host that also composes session
+    /// replication gets a composite of two, in either order, and the Dashboard's
+    /// adapter — the one consumer — sees the other machines' runs and waits without
+    /// learning that there is more than one place an interval can come from.
+    /// </para>
+    /// <para>
+    /// Singletons for the reason the session sources are, with one addition: the
+    /// local adapter holds no state of its own, and what state there is lives in the
+    /// cache behind the port, which is keyed on files rather than on this object's
+    /// lifetime.
     /// </para>
     /// </remarks>
     public static IServiceCollection AddAgentActivitySource(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddSingleton<IAgentActivitySource>(sp => new LocalAgentActivitySource(
-            sp.GetRequiredService<IDeviceIdentitySource>(),
-            sp.GetService<IAgentActivityCache>()));
+        services.AddKeyedSingleton<IAgentActivitySource>(
+            LocalActivitySourceKey,
+            (sp, _) => new LocalAgentActivitySource(
+                sp.GetRequiredService<IDeviceIdentitySource>(),
+                sp.GetService<IAgentActivityCache>()));
+
+        services.AddSingleton<IAgentActivitySource>(sp =>
+            new CompositeAgentActivitySource([.. sp.GetKeyedServices<IAgentActivitySource>(KeyedService.AnyKey)]));
 
         return services;
     }

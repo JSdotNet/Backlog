@@ -4,6 +4,7 @@ using System.Text.Json;
 using Backlog.Infrastructure.Sync.Sessions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sync.Abstractions;
+using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 
 using Microsoft.Extensions.Time.Testing;
 
@@ -38,7 +39,7 @@ public sealed class SessionSyncSessionTests
 
     /// <summary>
     /// <strong>The one test this whole slice exists to keep passing.</strong>
-    /// .arc42/adr/0005 §Session records permits eleven fields to leave a machine and
+    /// .arc42/adr/0005 §Session records permits thirteen fields to leave a machine and
     /// says a whitelist and a filter fail in opposite directions. This asserts over
     /// the bytes that went out, not over the DTO: a test on the record would go on
     /// passing if somebody widened the wire contract, which is exactly the change
@@ -68,7 +69,7 @@ public sealed class SessionSyncSessionTests
 
     /// <summary>
     /// The other half of the same rule, said as a whitelist rather than as a list
-    /// of things that must be absent: these ten property names and no others.
+    /// of things that must be absent: these twelve property names and no others.
     /// A field added to the wire fails here even if nobody thought to write a test
     /// naming it, which is the only form of this assertion that keeps working
     /// against a change nobody anticipated.
@@ -94,15 +95,17 @@ public sealed class SessionSyncSessionTests
                 "machineName",
                 "repositoryAlias",
                 "resolvedRepositoryAlias",
+                "runs",
                 "sessionId",
                 "startedAt",
-                "turnCount"
+                "turnCount",
+                "waits"
             ],
             fields);
     }
 
     /// <summary>
-    /// The eleventh whitelisted field is the machine id, and the pushing device does
+    /// The thirteenth whitelisted field is the machine id, and the pushing device does
     /// not send it: the service stamps it from the token. There is no field to set,
     /// which is what makes "a caller may only write records stamped with its own
     /// machine id" hold by construction.
@@ -293,6 +296,321 @@ public sealed class SessionSyncSessionTests
         Assert.Equal(1_800, records[0].GetProperty("durationSeconds").GetInt64());
         Assert.Equal(0, records[1].GetProperty("durationSeconds").GetInt64());
     }
+
+    // --- Activity intervals ----------------------------------------------------
+
+    /// <summary>
+    /// A session this machine folded an activity record for travels with its runs
+    /// and waits, as timestamps and nothing else. This is what lets a reading
+    /// device measure a session it did not run: the transcript stays home, and
+    /// these two lists are the whole of what leaves it.
+    /// </summary>
+    [Fact]
+    public async Task A_session_with_an_activity_record_travels_with_its_runs_and_waits()
+    {
+        using var fixture = Fixture.Create(
+            sessions: [AgentSessions.Local(id: "busy")],
+            agentActivity: new StubAgentActivitySource(AgentActivities.Local(
+                id: "busy",
+                runs: [(Noon.AddMinutes(-30), Noon.AddMinutes(-20)), (Noon.AddMinutes(-10), Noon)],
+                waits: [(Noon.AddMinutes(-20), Noon.AddMinutes(-10))])));
+
+        await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
+
+        var record = fixture.PushedRecord();
+
+        var runs = record.GetProperty("runs").EnumerateArray().ToList();
+        Assert.Equal(2, runs.Count);
+        Assert.Equal(Noon.AddMinutes(-30), runs[0].GetProperty("startedAt").GetDateTimeOffset());
+        Assert.Equal(Noon.AddMinutes(-20), runs[0].GetProperty("endedAt").GetDateTimeOffset());
+        Assert.Equal(Noon, runs[1].GetProperty("endedAt").GetDateTimeOffset());
+
+        var wait = Assert.Single(record.GetProperty("waits").EnumerateArray());
+        Assert.Equal(Noon.AddMinutes(-20), wait.GetProperty("startedAt").GetDateTimeOffset());
+        Assert.Equal(Noon.AddMinutes(-10), wait.GetProperty("endedAt").GetDateTimeOffset());
+    }
+
+    /// <summary>
+    /// A session the activity source had nothing for travels with null in both
+    /// lists, and never with an empty one. Null says "no record"; an empty list says
+    /// "a record, and this is what it held" — and the reader counts the two
+    /// differently, so a pusher that sent <c>[]</c> for a session it could not fold
+    /// would have every other machine reading that session as measured at zero.
+    /// </summary>
+    [Fact]
+    public async Task A_session_without_an_activity_record_travels_with_null_lists()
+    {
+        using var fixture = Fixture.Create(
+            sessions: [AgentSessions.Local(id: "quiet"), AgentSessions.Local(id: "busy", lastActivityAt: Noon.AddMinutes(1))],
+            agentActivity: new StubAgentActivitySource(AgentActivities.Local(
+                id: "busy",
+                runs: [(Noon.AddMinutes(-10), Noon)])));
+
+        await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
+
+        using var document = JsonDocument.Parse(fixture.LastBody);
+        var records = document.RootElement.GetProperty("sessions").EnumerateArray().ToList();
+
+        var quiet = records.Single(record => record.GetProperty("sessionId").GetString() == "quiet");
+        Assert.Equal(JsonValueKind.Null, quiet.GetProperty("runs").ValueKind);
+        Assert.Equal(JsonValueKind.Null, quiet.GetProperty("waits").ValueKind);
+
+        var busy = records.Single(record => record.GetProperty("sessionId").GetString() == "busy");
+        Assert.Equal(JsonValueKind.Array, busy.GetProperty("runs").ValueKind);
+    }
+
+    /// <summary>
+    /// An empty list is kept as an empty list. Every Copilot session has empty
+    /// waits, because Copilot cannot mark the boundary a wait needs, and that is a
+    /// fact about the session the far side is owed rather than a gap to be mapped
+    /// onto null.
+    /// </summary>
+    [Fact]
+    public async Task An_empty_list_travels_as_empty_and_not_as_null()
+    {
+        using var fixture = Fixture.Create(
+            sessions: [AgentSessions.Local(id: "copilot", kind: AgentSessionKind.Copilot)],
+            agentActivity: new StubAgentActivitySource(AgentActivities.Local(
+                id: "copilot",
+                kind: AgentSessionKind.Copilot,
+                runs: [(Noon.AddMinutes(-10), Noon)],
+                waits: [])));
+
+        await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
+
+        var waits = fixture.PushedRecord().GetProperty("waits");
+
+        Assert.Equal(JsonValueKind.Array, waits.ValueKind);
+        Assert.Equal(0, waits.GetArrayLength());
+    }
+
+    /// <summary>
+    /// A host that composed no activity source pushes the record it always did:
+    /// null in both lists. That is the shape of every push before these fields
+    /// existed, and the reader treats it as "no record" rather than as "measured at
+    /// nothing".
+    /// </summary>
+    [Fact]
+    public async Task A_host_without_an_activity_source_pushes_null_lists()
+    {
+        using var fixture = Fixture.Create(sessions: [AgentSessions.Local()]);
+
+        await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
+
+        var record = fixture.PushedRecord();
+
+        Assert.Equal(JsonValueKind.Null, record.GetProperty("runs").ValueKind);
+        Assert.Equal(JsonValueKind.Null, record.GetProperty("waits").ValueKind);
+    }
+
+    /// <summary>
+    /// The activity port is the merged one every screen reads, so what it answers
+    /// includes what other machines reported. A replicated record is not this
+    /// machine's to publish, for the reason
+    /// <see cref="A_replicated_session_is_never_pushed"/> gives — and here the
+    /// failure would be quieter still, because the session itself is local and only
+    /// its activity would be somebody else's.
+    /// </summary>
+    [Fact]
+    public async Task Replicated_activity_is_never_attached_to_a_local_session()
+    {
+        using var fixture = Fixture.Create(
+            sessions: [AgentSessions.Local(id: "shared-id")],
+            agentActivity: new StubAgentActivitySource(AgentActivities.Local(
+                id: "shared-id",
+                runs: [(Noon.AddMinutes(-10), Noon)],
+                origin: AgentSessionOrigin.Replicated)));
+
+        await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(JsonValueKind.Null, fixture.PushedRecord().GetProperty("runs").ValueKind);
+    }
+
+    /// <summary>
+    /// Activity is matched on the agent and the id together, never the id alone.
+    /// <c>.domain/sessions/naming.md#session-identity</c> puts a session's identity
+    /// at both, because two agents may issue the same string — and a Copilot
+    /// session's runs attached to a Claude session of the same id would be one
+    /// machine's measure of the wrong session.
+    /// </summary>
+    [Fact]
+    public async Task Activity_is_matched_on_the_agent_and_the_id_together()
+    {
+        using var fixture = Fixture.Create(
+            sessions: [AgentSessions.Local(id: "shared-id", kind: AgentSessionKind.Claude)],
+            agentActivity: new StubAgentActivitySource(AgentActivities.Local(
+                id: "shared-id",
+                kind: AgentSessionKind.Copilot,
+                runs: [(Noon.AddMinutes(-10), Noon)])));
+
+        await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(JsonValueKind.Null, fixture.PushedRecord().GetProperty("runs").ValueKind);
+    }
+
+    /// <summary>
+    /// A record carries the session's whole activity every time it goes, so the
+    /// horizon must never clip a pending session. The case that got it wrong: a
+    /// session with no recorded start, pending alone, measured from its own last
+    /// activity — every run ending before that instant is clipped away, the record
+    /// goes out with null lists, and because the replica keeps one record per
+    /// session it overwrites one that carried intervals with "no record". The stub
+    /// here answers only what survives the horizon it was asked for, the way the
+    /// local source does, and every run ends before the session's last activity.
+    /// </summary>
+    [Fact]
+    public async Task A_session_with_no_recorded_start_still_goes_out_with_its_whole_record()
+    {
+        var earlier = (Noon.AddHours(-3), Noon.AddHours(-2));
+        var activity = new ClippingAgentActivitySource(AgentActivities.Local(
+            id: "unstarted",
+            runs: [earlier],
+            waits: [(Noon.AddHours(-2), Noon.AddMinutes(-90))]));
+
+        using var fixture = Fixture.Create(
+            sessions: [AgentSessions.Local(id: "unstarted", startedAt: null, lastActivityAt: Noon)],
+            agentActivity: activity);
+
+        await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal([DateTimeOffset.MinValue], activity.Asked);
+
+        var record = fixture.PushedRecord();
+        var run = Assert.Single(record.GetProperty("runs").EnumerateArray());
+        Assert.Equal(earlier.Item1, run.GetProperty("startedAt").GetDateTimeOffset());
+        Assert.Single(record.GetProperty("waits").EnumerateArray());
+    }
+
+    /// <summary>
+    /// The transcripts are read once per push, never once per batch or per record —
+    /// the activity read is the expensive one — and from no later than the earliest
+    /// recorded start among the sessions about to go, so no pending session's record
+    /// is clipped on its way out.
+    /// </summary>
+    [Fact]
+    public async Task The_activity_is_read_once_from_no_later_than_the_earliest_pending_start()
+    {
+        var activity = new StubAgentActivitySource();
+        using var fixture = Fixture.Create(
+            sessions:
+            [
+                AgentSessions.Local(id: "started", startedAt: Noon.AddHours(-3), lastActivityAt: Noon),
+                AgentSessions.Local(id: "recent", startedAt: Noon.AddHours(-1), lastActivityAt: Noon.AddMinutes(1))
+            ],
+            agentActivity: activity);
+
+        await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
+
+        var since = Assert.Single(activity.Asked);
+        Assert.True(since <= Noon.AddHours(-3));
+    }
+
+    /// <summary>
+    /// Nothing pending means nothing read. A device that is up to date runs this
+    /// every five minutes, and parsing every transcript on the machine to attach
+    /// activity to zero records would be the whole cost of the feature for nothing.
+    /// </summary>
+    [Fact]
+    public async Task Nothing_pending_reads_no_activity()
+    {
+        var activity = new StubAgentActivitySource();
+        using var fixture = Fixture.Create(
+            sessions: [AgentSessions.Local(lastActivityAt: Noon.AddMinutes(-10))],
+            state: Mine(Noon, null),
+            agentActivity: activity);
+
+        await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
+
+        Assert.Empty(activity.Asked);
+        Assert.Empty(fixture.Handler.Requests);
+    }
+
+    /// <summary>
+    /// A record is cut to the cap from the front, so what travels is the newest
+    /// stretch of a long session. The service refuses a longer list rather than
+    /// trimming it — a refusal is recoverable and a silent trim is not — so the
+    /// pusher has to cut, and it cuts the oldest because a reader's window covers
+    /// the end of a record before its beginning.
+    /// </summary>
+    [Fact]
+    public async Task A_long_record_is_cut_to_the_cap_keeping_the_newest_intervals()
+    {
+        var cap = SessionRecordLimits.IntervalsPerList;
+
+        // Ascending minute-wide runs, one more than the cap, so the oldest is the
+        // one that has to go and the newest is the one that has to stay.
+        var runs = Enumerable.Range(0, cap + 1)
+            .Select(index => (Noon.AddMinutes(-2 * (cap + 1 - index)), Noon.AddMinutes(-2 * (cap + 1 - index) + 1)))
+            .ToArray();
+
+        using var fixture = Fixture.Create(
+            sessions: [AgentSessions.Local(id: "long")],
+            agentActivity: new StubAgentActivitySource(AgentActivities.Local(id: "long", runs: runs)));
+
+        await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
+
+        var travelled = fixture.PushedRecord().GetProperty("runs").EnumerateArray().ToList();
+
+        Assert.Equal(cap, travelled.Count);
+        Assert.Equal(runs[1].Item1, travelled[0].GetProperty("startedAt").GetDateTimeOffset());
+        Assert.Equal(runs[^1].Item2, travelled[^1].GetProperty("endedAt").GetDateTimeOffset());
+    }
+
+    /// <summary>
+    /// A batch is bounded by weight as well as by count. Two hundred records is the
+    /// count cap; four thousand intervals is the weight one, because a record can
+    /// now carry a thousand of them and two hundred such records would be around
+    /// 19 MB against the service's 1 MB body limit. The split lands before the
+    /// record that would go over, and the watermark still advances per batch.
+    /// </summary>
+    [Fact]
+    public async Task A_batch_is_flushed_before_the_record_that_would_exceed_the_interval_budget()
+    {
+        // Five sessions of a thousand intervals each — the most one record can carry.
+        // Four fit the budget exactly; the fifth has to start a second batch.
+        var sessions = Enumerable.Range(0, 5)
+            .Select(index => AgentSessions.Local(id: $"heavy-{index}", lastActivityAt: Noon.AddMinutes(index)))
+            .ToArray();
+
+        var activity = sessions
+            .Select(session => AgentActivities.Local(
+                id: session.Id,
+                runs: Stretches(SessionRecordLimits.IntervalsPerList),
+                waits: Stretches(SessionRecordLimits.IntervalsPerList)))
+            .ToArray();
+
+        using var fixture = Fixture.Create(sessions: sessions, agentActivity: new StubAgentActivitySource(activity));
+
+        var result = await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(2, fixture.Handler.Requests.Count);
+        Assert.Equal([4, 1], fixture.BatchSizes);
+    }
+
+    /// <summary>
+    /// The count cap still applies on its own: two hundred light records are two
+    /// hundred records, and the weight budget must not have replaced the count
+    /// one.
+    /// </summary>
+    [Fact]
+    public async Task Light_records_still_split_at_the_count_cap()
+    {
+        var sessions = Enumerable.Range(0, 201)
+            .Select(index => AgentSessions.Local(id: $"light-{index}", lastActivityAt: Noon.AddSeconds(index)))
+            .ToArray();
+
+        using var fixture = Fixture.Create(sessions: sessions, agentActivity: new StubAgentActivitySource());
+
+        await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal([200, 1], fixture.BatchSizes);
+    }
+
+    /// <summary>Disjoint minute-wide stretches ending at <see cref="Noon"/>, ascending,
+    /// as many as asked for.</summary>
+    private static (DateTimeOffset, DateTimeOffset)[] Stretches(int count) =>
+        [.. Enumerable.Range(0, count).Select(index => (Noon.AddMinutes(-2 * (count - index)), Noon.AddMinutes(-2 * (count - index) + 1)))];
 
     // --- The watermark ---------------------------------------------------------
 
@@ -670,12 +988,24 @@ public sealed class SessionSyncSessionTests
 
         public string LastBody => _bodies.Count == 0 ? string.Empty : _bodies[^1];
 
+        /// <summary>How many records each push body carried, in order — the shape
+        /// of the batching, read off the bytes that went out.</summary>
+        public List<int> BatchSizes =>
+        [
+            .. _bodies.Select(body =>
+            {
+                using var document = JsonDocument.Parse(body);
+                return document.RootElement.GetProperty("sessions").GetArrayLength();
+            })
+        ];
+
         public static Fixture Create(
             AgentSession[]? sessions = null,
             Dictionary<string, string>? aliases = null,
             SessionSyncState? state = null,
             Func<HttpRequestMessage, int, HttpResponseMessage>? respond = null,
-            SyncActivityLog? activity = null)
+            SyncActivityLog? activity = null,
+            IAgentActivitySource? agentActivity = null)
         {
             var bodies = new List<string>();
             var queries = new List<string>();
@@ -719,7 +1049,8 @@ public sealed class SessionSyncSessionTests
                 replica,
                 credentials,
                 clock,
-                activity);
+                activity,
+                agentActivity);
 
             return new Fixture(http, handler, session, stateStore, replica, clock, source, bodies, queries);
         }

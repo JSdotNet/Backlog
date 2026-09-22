@@ -1,7 +1,7 @@
 {
   "name": "backlog-tools",
   "description": "Backlog-native Claude Code skills for the Backlog product itself — writing a Backlog import plan from an agreed specification, and running one item of such a plan when it is pasted back out of the app.",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "author": {
     "name": "Job Schepers"
   },

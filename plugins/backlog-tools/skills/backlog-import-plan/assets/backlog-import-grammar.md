@@ -8,7 +8,8 @@ entry-text rules (`.design/content-editing.md#scheduling-and-dependency-tokens`)
 Backlog product repository. A plan is not a file format of its own — it is the same
 Backlog Entry text grammar, with more than one entry in the document. The one thing this
 file adds on top of that grammar is the [plan item marker](#plan-item-marker): a body-prose
-convention of these two skills, not a token Backlog parses.
+convention of these two skills, not a token Backlog parses. The [entry marker](#entry-marker)
+beside it is the app's own, documented here because the run skill reads both.
 
 ## Document shape
 
@@ -132,11 +133,12 @@ it wrote.
 
 The first body line of every `prompt` entry — a `task` entry has none, because nobody
 pastes it into a session to run. It exists because of what Backlog's copy button hands
-over: the entry's title, a blank line, and its body — never the metadata line, which
-Backlog treats as its own bookkeeping. An entry copied out of the app and pasted into a
-chat has therefore lost its `id:`, `+tag`, `repo:` and `after:` unless the body restates
-them, and the marker is that restatement, in the one shape `backlog-run-plan-item`
-recognizes:
+over: its own [entry marker](#entry-marker), then the entry's title, a blank line, and
+its body — never the metadata line, which Backlog treats as its own bookkeeping. An entry
+copied out of the app and pasted into a chat has therefore lost its `id:`, `+tag`, `repo:`
+and `after:` unless the body restates them, and the marker is that restatement — the
+plan's own slugs, which the app's marker does not carry — in a shape
+`backlog-run-plan-item` recognizes:
 
 ```
 Backlog plan item `<id>` of plan `<tag>` for `<repo>`[, `<repo>`…][, after `<id>`[, `<id>`…]] — run it with the `backlog-run-plan-item` skill.
@@ -152,6 +154,30 @@ Backlog plan item `<id>` of plan `<tag>` for `<repo>`[, `<repo>`…][, after `<i
   — title, blank, body — is pasted back into Backlog.
 - It goes before the session-name line, which stays: the marker is what a tool keys on,
   the session-name line is an instruction a person can follow without one.
+
+## Entry marker
+
+The line the Backlog app itself puts ahead of every entry its copy button hands over —
+`task` entries included, since the app copies what it has and the skill is what declines to
+run one. `backlog-import-plan` never writes it: it exists only once an entry is stored, and
+a plan is written before that. It is a slash command rather than prose, so a paste that
+opens with it invokes `backlog-run-plan-item` directly, with everything under it — the
+title on the very next line, then the body — as the command's content:
+
+```
+/backlog-tools:backlog-run-plan-item entry `<id>`:
+<Title>
+
+<body>
+```
+
+- `<id>` is the entry's **stored** id — the one a `backlog` MCP server is asked for — never
+  the local `id:` slug, and it is the only value the line carries. The plan, the
+  repositories and the dependencies are the connector's to answer; without one, an
+  imported prompt still has them in its plan-item marker, which is body prose and comes
+  along under the title.
+- The colon closes the command; the title follows on the next line with no blank line
+  between, so the command and its content paste as one message.
 
 ## Sub-item conventions
 

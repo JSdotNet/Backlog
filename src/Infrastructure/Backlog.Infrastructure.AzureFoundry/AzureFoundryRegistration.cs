@@ -40,6 +40,12 @@ public static class AzureFoundryRegistration
 
         var chat = services.AddHttpClient<IAzureFoundryChatClient, AzureFoundryChatClient>();
 
+        // The probe is the same client, asked a different question: it must go
+        // out over the same pipeline, or a test could pass where a question
+        // times out. Resolved through the typed registration above so it does.
+        services.AddTransient<IAzureFoundryConnectionProbe>(sp =>
+            (IAzureFoundryConnectionProbe)sp.GetRequiredService<IAzureFoundryChatClient>());
+
         // The experimental attribute on RemoveAllResilienceHandlers is a
         // warning about the API's shape, not its behaviour; it is the one
         // published way to take the host's default pipeline off a client.

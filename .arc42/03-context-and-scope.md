@@ -97,6 +97,7 @@ Three cross-domain access channels plus one optional platform component are in s
 | **Mobile App** | Mobile-first, offline-first capture; syncs via cloud. |
 | **IDE Extensions** | VS Code, Visual Studio & GitHub Copilot App integration for backlog/knowledge browsing and capture. |
 | **Cloud Service** (optional) | Thin sync/coordination layer: device sync, webhook forwarding, push, machine registry. |
+| **MCP endpoint** (inside the Desktop App) | An AI session's tool surface over the running desktop app — plan items, status moves, reading notes — on loopback; see local ADR 0012 in `.arc42/adr/`. |
 
 
 

@@ -26,6 +26,12 @@ public sealed record ActivityPullRequest(
     int FilesRetouched,
     bool ChurnComplete)
 {
+    /// <summary>What the pull request was called. Null when the adapter did not
+    /// read it. No derivation uses it — the dashboard counts pull requests, it
+    /// does not read them — but Ask AI names them, and "PR #412" is not a
+    /// sentence a person can answer a question about.</summary>
+    public string? Title { get; init; }
+
     /// <summary>How long the first review took to arrive. Null when there was none.</summary>
     public TimeSpan? ReviewTurnaround { get; init; }
 
@@ -77,7 +83,12 @@ public sealed record ActivityPullRequest(
 }
 
 /// <summary>One closed issue of the person's own.</summary>
-public sealed record ActivityIssue(string RepositoryAlias, int Number, DateTimeOffset ClosedAt);
+public sealed record ActivityIssue(string RepositoryAlias, int Number, DateTimeOffset ClosedAt)
+{
+    /// <summary>What the issue was called, for the reason the pull request
+    /// carries its title. Null when the adapter did not read it.</summary>
+    public string? Title { get; init; }
+}
 
 /// <summary>Everything one window's activity fetch produced.</summary>
 public sealed record ActivityReport(

@@ -1,0 +1,63 @@
+@*
+    A numbered checklist that ticks itself off. The host derives each step's
+    Done from its own state - a field filled, a check passed - and hands the
+    list here; nothing in it is clickable, because the thing to do is in the
+    field beside it, not in the list.
+
+    An ordered list, so the numbers are the browser's and a screen reader
+    announces "step 2 of 4". The state is said in text as well as drawn: a tick
+    glyph carries nothing on its own.
+*@
+
+<ol class="@ClassValue" data-testid="@TestId" aria-label="@AriaLabel" @attributes="AdditionalAttributes">
+    @foreach (var step in Steps)
+    {
+        <li class="@(step.Done ? "setup-step setup-step--done" : "setup-step")"
+            data-testid="setup-step"
+            data-done="@(step.Done ? "true" : "false")">
+            <span class="setup-step__mark" aria-hidden="true">@(step.Done ? "✓" : "")</span>
+            <span class="setup-step__body">
+                <span class="setup-step__title">
+                    @step.Title
+                    @if (step.Optional)
+                    {
+                        <span class="setup-step__optional">optional</span>
+                    }
+                    <span class="sr-only">@(step.Done ? " - done" : " - to do")</span>
+                </span>
+                @if (!string.IsNullOrWhiteSpace(step.Detail) || step.Href is not null)
+                {
+                    <span class="setup-step__detail">
+                        @step.Detail
+                        @if (step.Href is not null)
+                        {
+                            <a class="@(string.IsNullOrWhiteSpace(step.Detail) ? "setup-step__link" : "setup-step__link setup-step__link--after-text")"
+                               href="@step.Href"
+                               target="_blank"
+                               rel="noreferrer noopener">@(step.LinkLabel ?? step.Href)</a>
+                        }
+                    </span>
+                }
+            </span>
+        </li>
+    }
+</ol>
+
+@code {
+    [Parameter, EditorRequired]
+    public IReadOnlyList<SetupStep> Steps { get; set; } = [];
+
+    [Parameter]
+    public string? AriaLabel { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "setup-steps" : $"setup-steps {CssClass}";
+}
