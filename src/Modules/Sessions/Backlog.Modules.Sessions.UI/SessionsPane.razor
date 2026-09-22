@@ -598,10 +598,13 @@
     /// worked out here. The pane translates the module's group into the table's —
     /// two records of the same shape in two projects, because the control library
     /// may not see a module and the module may not depend on a control library.
+    /// The key crosses with the name: the grouping keys environments on their id,
+    /// so two machines sharing a name are two sections, and the table has to key
+    /// its rows on the same thing or it refuses to render the second.
     /// </summary>
     private IReadOnlyList<DataTableSection<AgentSession>> Sections =>
         [.. AgentSessionGroups.Of(Visible, _grouping)
-            .Select(group => new DataTableSection<AgentSession>(group.Name, group.Sessions))];
+            .Select(group => new DataTableSection<AgentSession>(group.Name, group.Sessions, group.Key))];
 
     /// <summary>What the reading found. The subtitle's number and the second half of
     /// the badge's.</summary>

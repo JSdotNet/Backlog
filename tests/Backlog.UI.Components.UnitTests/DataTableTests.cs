@@ -88,6 +88,42 @@ public sealed class DataTableTests
         Assert.Equal(2, table.FindAll("tbody").Count);
     }
 
+    /// <summary>
+    /// Two sections that share a name and carry different keys are two tbodies.
+    /// Blazor keys siblings on <c>@key</c> and refuses two under one value, so a
+    /// table keyed on the heading alone took the whole surface down the day two
+    /// machines were called the same thing.
+    /// <para>
+    /// Rendered twice on purpose. The duplicate-key check runs when Blazor diffs
+    /// two non-empty trees, not on a first render, so a single render passes on the
+    /// unfixed table too; the second render is what the pane does when a reader
+    /// switches the grouping on. bUnit swallows the throw rather than surfacing
+    /// it, so the assertion is on what the throw would have prevented: both
+    /// tbodies, both headings, and both rows after the re-render.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void Two_sections_sharing_a_name_with_different_keys_are_two_sections()
+    {
+        using var context = new BunitContext();
+
+        DataTableSection<Row>[] twins =
+        [
+            new("JS-DESKTOP", [new("1", "first")], Key: "device-a"),
+            new("JS-DESKTOP", [new("2", "second")], Key: "device-b")
+        ];
+
+        var table = Render(context, parameters => parameters.Add(c => c.Sections, Sections));
+
+        table.Render(parameters => parameters.Add(c => c.Sections, twins));
+
+        Assert.Equal(2, table.FindAll("tbody").Count);
+        Assert.Equal(
+            ["JS-DESKTOP", "JS-DESKTOP"],
+            table.FindAll(".data-table__group-name").Select(name => name.TextContent.Trim()));
+        Assert.Equal(2, table.FindAll(".data-table__row").Count);
+    }
+
     [Fact]
     public void Sections_and_rows_render_in_the_order_they_were_given()
     {

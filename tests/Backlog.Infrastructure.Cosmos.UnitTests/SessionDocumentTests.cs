@@ -42,6 +42,66 @@ public class SessionDocumentTests
     }
 
     /// <summary>
+    /// The intervals round trip as values, through the JSON the container
+    /// actually stores rather than through the object graph alone — a document
+    /// class that held the list and serialised it under the wrong name, or not at
+    /// all, would pass an in-memory round trip and lose every interval in Cosmos.
+    /// Null stays null and empty stays empty, because the reading device counts
+    /// the two differently.
+    /// </summary>
+    [Fact]
+    public void Intervals_round_trip_through_the_stored_json_and_null_stays_distinct_from_empty()
+    {
+        var measured = Record() with
+        {
+            Runs = [new(At(9, 0), At(9, 30)), new(At(10, 0), At(10, 30))],
+            Waits = [],
+        };
+        var unmeasured = Record() with { SessionId = "unmeasured", Runs = null, Waits = null };
+
+        var stored = Reloaded(SessionDocumentFactory.From(Scope, measured));
+        var entry = SessionDocumentFactory.ToEntry(stored);
+
+        Assert.NotNull(entry);
+        Assert.Equal(measured.Runs, entry.Record.Runs);
+        Assert.NotNull(entry.Record.Waits);
+        Assert.Empty(entry.Record.Waits);
+
+        var sparse = SessionDocumentFactory.ToEntry(Reloaded(SessionDocumentFactory.From(Scope, unmeasured)));
+
+        Assert.NotNull(sparse);
+        Assert.Null(sparse.Record.Runs);
+        Assert.Null(sparse.Record.Waits);
+    }
+
+    /// <summary>
+    /// The two lists are written under the names the bicep's header comment names
+    /// as deliberately unindexed, as arrays of <c>{startedAt, endedAt}</c>. An
+    /// empty list is written as <c>[]</c>, and a null one is not written at all —
+    /// the nulls-dropped policy is what makes "no record" absent rather than
+    /// present-and-null, exactly as it does for a turn count nobody recorded.
+    /// </summary>
+    [Fact]
+    public void Intervals_are_written_as_nested_arrays_and_a_null_list_is_absent()
+    {
+        using var measured = Serialized(SessionDocumentFactory.From(Scope, Record() with
+        {
+            Runs = [new(At(9, 0), At(9, 30))],
+            Waits = [],
+        }));
+
+        var run = Assert.Single(measured.RootElement.GetProperty("runs").EnumerateArray());
+        Assert.Equal(At(9, 0), run.GetProperty("startedAt").GetDateTimeOffset());
+        Assert.Equal(At(9, 30), run.GetProperty("endedAt").GetDateTimeOffset());
+        Assert.Equal(0, measured.RootElement.GetProperty("waits").GetArrayLength());
+
+        using var unmeasured = Serialized(SessionDocumentFactory.From(Scope, Record() with { Runs = null, Waits = null }));
+
+        Assert.False(unmeasured.RootElement.TryGetProperty("runs", out _));
+        Assert.False(unmeasured.RootElement.TryGetProperty("waits", out _));
+    }
+
+    /// <summary>
     /// The three optional fields are optional all the way down. A session that
     /// ran outside a repository, on a detached head, under an agent that recorded
     /// no start time is an ordinary session and not a defective record — and a
@@ -102,10 +162,10 @@ public class SessionDocumentTests
 
     /// <summary>
     /// The whole whitelist, and nothing beside it. Written as a set comparison
-    /// rather than as eleven assertions because the failure worth catching is the
-    /// twelfth property somebody adds — .arc42/adr/0005 §Session records says a
+    /// rather than as thirteen assertions because the failure worth catching is the
+    /// fourteenth property somebody adds — .arc42/adr/0005 §Session records says a
     /// field not in its table does not sync, and a test that only checked the
-    /// eleven were present would pass with a transcript path beside them.
+    /// thirteen were present would pass with a transcript path beside them.
     /// </summary>
     [Fact]
     public void The_document_carries_the_whitelist_and_nothing_else()
@@ -117,9 +177,10 @@ public class SessionDocumentTests
         Assert.Equal(
             new HashSet<string>(StringComparer.Ordinal)
             {
-                // The eleven ADR 0005 permits...
+                // The thirteen ADR 0005 permits...
                 "sessionId", "agentKind", "machineId", "machineName", "repositoryAlias", "resolvedRepositoryAlias",
                 "branch", "startedAt", "lastActivityAt", "turnCount", "durationSeconds",
+                "runs", "waits",
 
                 // ...plus the owner, which is the partition rather than a fact
                 // about the session, and the document id Cosmos requires.
@@ -224,15 +285,27 @@ public class SessionDocumentTests
     private static JsonDocument Serialized(SessionDocument document) =>
         JsonDocument.Parse(JsonSerializer.Serialize(document, ReplicaDocumentSerialization.Options));
 
+    /// <summary>The document as Cosmos would hand it back: serialised with the
+    /// account's options and read again, so the property names and the
+    /// nulls-dropped policy are exercised rather than bypassed.</summary>
+    private static SessionDocument Reloaded(SessionDocument document) =>
+        JsonSerializer.Deserialize<SessionDocument>(
+            JsonSerializer.Serialize(document, ReplicaDocumentSerialization.Options),
+            ReplicaDocumentSerialization.Options)!;
+
+    private static DateTimeOffset At(int hour, int minute) => new(2026, 9, 8, hour, minute, 0, TimeSpan.Zero);
+
     private static SessionRecord Record() => new(
         SessionId: "01994f2c-6e51-7a90-9b2f-3c4d5e6f7081",
         AgentKind: "claude",
         MachineName: "JS-DESKTOP",
         RepositoryAlias: "backlog",
         Branch: "main",
-        StartedAt: new DateTimeOffset(2026, 9, 8, 9, 0, 0, TimeSpan.Zero),
-        LastActivityAt: new DateTimeOffset(2026, 9, 8, 10, 30, 0, TimeSpan.Zero),
+        StartedAt: At(9, 0),
+        LastActivityAt: At(10, 30),
         TurnCount: 42,
         DurationSeconds: 5_400,
-        ResolvedRepositoryAlias: "backlog");
+        ResolvedRepositoryAlias: "backlog",
+        Runs: [new(At(9, 0), At(9, 45)), new(At(10, 0), At(10, 30))],
+        Waits: [new(At(9, 45), At(10, 0))]);
 }
