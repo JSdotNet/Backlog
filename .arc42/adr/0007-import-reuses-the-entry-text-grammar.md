@@ -2,7 +2,7 @@
 
 ```meta
 status: proposed
-related: [".domain/tasks/features.md#import", ".domain/tasks/domain.md#task", ".design/content-editing.md#scheduling-and-dependency-tokens", ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md"]
+related: [".domain/tasks/features.md#import", ".domain/tasks/domain.md#task", ".design/content-editing.md#scheduling-and-dependency-tokens", ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md", ".arc42/adr/0012-imported-plan-is-a-roadmap-item-laid-out-by-import.md"]
 issue: null
 ```
 
@@ -12,6 +12,18 @@ Proposed. Import (`.domain/tasks/features.md#import`) is modelled but not built:
 this ADR fixes the format and the persistence path before the feature slice is
 written, so the implementation has one decision to follow rather than one to
 make up as it goes.
+
+**Addendum, 2026-09-22.** Two things have moved since this was written, and
+neither reopens it. The shared tag this record calls `#tag` is now written with
+a plan sigil, `+tag`, and stored with it — `import_plan_id` is that sigilled
+value verbatim, and a plan written under a bare `#tag` still imports, as this
+record allows, but is a different plan from one written under `+tag`. And a
+document may now carry entries of the type word `plan`, which Import hands to
+Roadmap Planning instead of creating a task from — one Roadmap Item per plan,
+placed by the importer, tagged with the plan's bare slug. Both are settled in
+`.arc42/adr/0012-imported-plan-is-a-roadmap-item-laid-out-by-import.md`, which
+leaves everything decided here — one grammar, two-pass `after:`, clear-then-write
+on re-import, no new table — exactly as it stands.
 
 ## Context
 

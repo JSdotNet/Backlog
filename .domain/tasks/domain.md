@@ -126,7 +126,15 @@ not-yet-started tasks by — see
 `import_plan_id` is also added to the task's `tags`, so filing and filtering
 by plan reuses the same mechanism as filing against a
 [roadmap tag](features.md#filing-a-task-against-a-roadmap-tag) rather than a
-parallel lookup.
+parallel lookup. It is that tag verbatim: a plan tag is spelled with the plan
+sigil, `+slug`, on the metadata line and in `tags` alike, and `import_plan_id`
+keeps the sigil rather than storing a second spelling — so there is one
+comparison inside this context, and a plan written under a general `#slug`
+before the sigil existed is a different plan from one written under `+slug`.
+The bare slug, which is how the
+[Roadmap Item](../roadmap/domain.md#roadmap-tag) for the same plan holds it, is
+the roadmap's spelling; the sigil is lifted at that boundary and nowhere here
+(`.arc42/adr/0012-imported-plan-is-a-roadmap-item-laid-out-by-import.md`).
 
 The task also carries an optional `effort`: a size estimate in **story points**,
 held as a non-negative integer. It is deliberately three-valued at the edges.

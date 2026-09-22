@@ -24,6 +24,7 @@ related: [.domain/context-map.md]
 |---|---|---|---|---|
 | [Monitoring & Dashboard](../monitoring/domain.md#progress-signal) | OHS + Published Language (Roadmap Planning = supplier) | Subscribes to `RoadmapItemScheduled` | `.domain/roadmap/domain.md#roadmapitemscheduled` | Relies on planned windows, and on the previous window being carried, to compare intent against delivery. Breaks if the window stops being inclusive at both ends, or if the previous window is dropped. |
 | [Tasks](../tasks/domain.md#task) | Partnership | Cross-link by foreign id | `.domain/roadmap/naming.md#roadmap-item` | Relies on `roadmap_item_id` staying stable across a reschedule, so a link made once keeps pointing at the same planned work. |
+| [Tasks — Import](../tasks/features.md#import) | Customer/Supplier (Roadmap Planning = supplier) | A Tasks-side port (`IRoadmapPlanIntake`), answered by an infrastructure adapter that calls Roadmap's own import command, once per Import run and after the task entries are written | `.arc42/adr/0012-imported-plan-is-a-roadmap-item-laid-out-by-import.md` | Import hands over the `plan` entries a document held and the plan tags its task entries carried; Roadmap creates or updates one item per plan, [places it](features.md#placing-a-plan-in-time), and re-lengths import-placed items whose tasks changed. Relies on the item's tag being the plan's bare slug, and on an import never deleting an item. Tasks conforms to what the command accepts; it holds no roadmap model and receives none back. |
 
 ## Notes
 
@@ -52,7 +53,17 @@ related: [.domain/context-map.md]
   the other's value.
 - Roadmap Planning publishes to Monitoring and subscribes to nothing. Nothing
   observed downstream reaches back in and edits a plan — a plan changes because a
-  person changed it.
+  person changed it. The inbound edge from Tasks' Import is **not** an exception
+  to that: it is not a subscription, and Roadmap does not react to a task being
+  created. A person pressing Import is a person changing the plan; the port
+  carries that gesture, and the plan is written by a command in this context
+  exactly as a drag on the timeline writes it. What Roadmap does not do is
+  *react*; being *told* by a person's command is how every edit reaches it.
+- The tag is also how an imported plan and its item stay one thing without a
+  link. The item holds the bare slug, the plan's tasks carry it with the plan
+  sigil (`+slug`), and the adapters on both edges — the rollup reading, the
+  intake writing — are the only places the sigil is lifted
+  (`.arc42/adr/0012-imported-plan-is-a-roadmap-item-laid-out-by-import.md`).
 - There is no dependency on [Environment](../environment/domain.md#environment-catalog).
   Surfacing environment shortcuts beside planned work is
   [Environment's own feature](../environment/features.md#environment-aware-work-context),
