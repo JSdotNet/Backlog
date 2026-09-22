@@ -720,6 +720,33 @@ public sealed class SettingsAiUsageTests
         });
     }
 
+    /// <summary>
+    /// The cost scope is the one Foundry setting the dashboard reads rather than
+    /// the assistant, so it is its own field with its own status line — and a
+    /// value typed there lands in the same store the chat connection uses.
+    /// </summary>
+    [Fact]
+    public void Azure_foundry_section_stores_the_cost_scope_the_dashboard_reads_spend_for()
+    {
+        using var context = RenderSettings(aiAssistantEnabled: true, usageMetricsEnabled: false);
+        OpenAiTab(context.Component);
+
+        const string scope = "/subscriptions/abc/resourceGroups/rg/providers/Microsoft.CognitiveServices/accounts/ai";
+        context.Component.WaitForAssertion(() =>
+            Assert.Contains("needs a resource ID", context.Component.Find("[data-testid='azure-foundry-cost-status']").TextContent));
+
+        var input = context.Component.Find("[data-testid='azure-foundry-cost-scope-input']");
+        input.Input(scope);
+        input.Change();
+
+        context.Component.WaitForAssertion(() =>
+        {
+            Assert.Equal(scope, context.AzureFoundryStore.Current.CostScope);
+            Assert.Contains(scope, context.Component.Find("[data-testid='azure-foundry-cost-status']").TextContent);
+            Assert.Contains("cost scope updated", context.Component.Find("[data-testid='azure-foundry-status']").TextContent);
+        });
+    }
+
     private static string[] SettingsTabs(IRenderedComponent<Settings> component) =>
         component.FindAll(".settings-tabs button").Select(button => button.TextContent.Trim()).ToArray();
 
@@ -770,7 +797,7 @@ public sealed class SettingsAiUsageTests
         testContext.Services.AddSingleton(new DevbookSourceSelection(githubSettings, new StubBranchCatalog()));
 
         var component = testContext.Render<Settings>();
-        return new SettingsRenderContext(root, testContext, component, claude, github);
+        return new SettingsRenderContext(root, testContext, component, claude, azureFoundry, github);
     }
 
     private sealed record SettingsRenderContext(
@@ -778,6 +805,7 @@ public sealed class SettingsAiUsageTests
         BunitContext TestContext,
         IRenderedComponent<Settings> Component,
         ClaudeSettingsStore ClaudeStore,
+        AzureFoundrySettingsStore AzureFoundryStore,
         GitHubIntegration GitHub) : IDisposable
     {
         public void Dispose()

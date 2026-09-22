@@ -266,8 +266,11 @@ public class DashboardPaneTests
             Assert.False(string.IsNullOrWhiteSpace(note.TextContent));
         }
 
+        // Main widened this note from two providers to three while the marks were
+        // being built; what is pinned is that the refusal still reaches a reader
+        // through the mark, not the sentence's current arithmetic.
         Assert.Contains(
-            "Neither provider reports spend per repository",
+            "No provider reports spend per repository",
             Squashed(pane.Find("[data-testid='dashboard-spend-month-note']").TextContent),
             StringComparison.Ordinal);
     }

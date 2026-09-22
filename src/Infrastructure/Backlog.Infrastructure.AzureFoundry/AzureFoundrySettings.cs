@@ -12,10 +12,25 @@ public sealed class AzureFoundrySettings
 
     public string ApiVersion { get; init; } = AzureFoundrySettingsStore.DefaultApiVersion;
 
+    /// <summary>
+    /// The Azure Resource Manager scope whose spend the dashboard reads — the
+    /// resource ID of the Foundry account, or a resource group or subscription
+    /// around it. Separate from the chat endpoint because the two are different
+    /// addresses of the same thing: the endpoint is where completions go, the
+    /// scope is what the bill is written against, and nothing derives one from
+    /// the other.
+    /// </summary>
+    public string? CostScope { get; init; }
+
     public bool IsConfigured =>
         !string.IsNullOrWhiteSpace(Endpoint)
         && !string.IsNullOrWhiteSpace(Deployment)
         && !string.IsNullOrWhiteSpace(ApiKey);
+
+    /// <summary>Whether there is a scope to read spend for. Independent of
+    /// <see cref="IsConfigured"/>: reading the bill needs no chat deployment,
+    /// and asking a deployment needs no bill.</summary>
+    public bool IsCostConfigured => !string.IsNullOrWhiteSpace(CostScope);
 }
 
 /// <summary>
@@ -66,7 +81,8 @@ public sealed class AzureFoundrySettingsStore
             Endpoint = Clean(endpoint),
             Deployment = Clean(deployment),
             ApiKey = Clean(apiKey) ?? Current.ApiKey,
-            ApiVersion = Clean(apiVersion) ?? DefaultApiVersion
+            ApiVersion = Clean(apiVersion) ?? DefaultApiVersion,
+            CostScope = Current.CostScope
         });
 
     public string? SetApiKey(string? apiKey) =>
@@ -75,7 +91,18 @@ public sealed class AzureFoundrySettingsStore
             Endpoint = Current.Endpoint,
             Deployment = Current.Deployment,
             ApiKey = Clean(apiKey),
-            ApiVersion = Current.ApiVersion
+            ApiVersion = Current.ApiVersion,
+            CostScope = Current.CostScope
+        });
+
+    public string? SetCostScope(string? costScope) =>
+        Save(new AzureFoundrySettings
+        {
+            Endpoint = Current.Endpoint,
+            Deployment = Current.Deployment,
+            ApiKey = Current.ApiKey,
+            ApiVersion = Current.ApiVersion,
+            CostScope = Clean(costScope)
         });
 
     public string? ClearApiKey() => SetApiKey(null);
@@ -118,7 +145,10 @@ public sealed class AzureFoundrySettingsStore
         Endpoint = Clean(settings.Endpoint)?.TrimEnd('/'),
         Deployment = Clean(settings.Deployment),
         ApiKey = Clean(settings.ApiKey),
-        ApiVersion = Clean(settings.ApiVersion) ?? DefaultApiVersion
+        ApiVersion = Clean(settings.ApiVersion) ?? DefaultApiVersion,
+        // Trimmed of slashes at both ends so the request path is built from one
+        // shape whether the ID was pasted from the portal or from a Bicep output.
+        CostScope = Clean(settings.CostScope)?.Trim('/') is { Length: > 0 } scope ? "/" + scope : null
     };
 
     private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();

@@ -24,9 +24,9 @@ namespace Backlog.Modules.Dashboard.UI.Extensions;
 /// Both hosts must call this after registering <c>IGitHubActivityClient</c>,
 /// <c>IGitHubActivityBaselineClient</c>, <c>IGitHubIdentityClient</c>,
 /// <c>IGitHubBillingClient</c>,
-/// <c>IClaudeUsageClient</c>, <c>GitHubSettingsStore</c>, <c>ClaudeSettingsStore</c>
-/// and <c>IDeviceIdentitySource</c>; the adapters only hold those interfaces and do
-/// not construct them.
+/// <c>IClaudeUsageClient</c>, <c>IAzureFoundryCostClient</c>, <c>GitHubSettingsStore</c>,
+/// <c>ClaudeSettingsStore</c> and <c>IDeviceIdentitySource</c>; the adapters only hold
+/// those interfaces and do not construct them.
 /// </para>
 /// <para>
 /// Singletons, unlike the scoped derivations above them. An adapter holds no
@@ -54,6 +54,7 @@ public static class DashboardAdapterRegistration
         services.AddSingleton<IActivityBaselineSource, GitHubActivityBaselineSource>();
         services.AddSingleton<IClaudeSpendSource, ClaudeSpendSource>();
         services.AddSingleton<ICopilotSpendSource, CopilotSpendSource>();
+        services.AddSingleton<IAzureFoundrySpendSource, AzureFoundrySpendSource>();
 
         AddDashboardAiContentSource(services);
 

@@ -511,6 +511,18 @@ Every task import creates carries where it came from — see
 together stays traceable back to the plan and the specific item that produced
 each one.
 
+A document may also carry entries that are not tasks at all. An entry whose
+type word is `plan` describes the plan itself as a piece of planned work — its
+title, its tag, its repositories, what it waits on, when it is due — and Import
+hands it to [Roadmap Planning](../roadmap/features.md#laying-out-imported-plans)
+rather than creating a task from it, after the document's task entries have been
+written. One document may hold `plan` entries and task entries together, or only
+one kind; the task entries are created exactly as described above whichever
+company they keep, and a `plan` entry is the one kind of entry Import will act
+on that nothing else in this context will — pasted anywhere but Import, it is
+refused rather than made into a task. The decision, and how the two kinds
+combine, is `.arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md`.
+
 ### Repository resolution on import
 
 ```meta
