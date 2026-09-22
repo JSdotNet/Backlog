@@ -751,7 +751,13 @@
             StepCount: row.PreviewSubItems.Count,
             Note: row.HasExpandableContent,
             Tags: row.PreviewMetadataTags,
-            DependsOn: State.ResolvedDependsOn(row))
+            DependsOn: State.ResolvedDependsOn(row),
+            // The row's mark for what the entry was filed as, with the same word
+            // the panel's type badge shows behind it, so a row and the entry it
+            // opens into never disagree. It used to be absent from the row
+            // altogether, which left "is this a prompt or a task" a question only
+            // the panel could answer.
+            Kind: KindOf(row.PreviewType))
         {
             RepeatLabel = FormatRepeat(row.PreviewRecurrence)
         })];
@@ -3292,6 +3298,23 @@
 
     private static IReadOnlyList<SelectorOption> TypeSelectorOptions() =>
         [.. Enum.GetValues<EntryType>().Select(type => new SelectorOption(type.ToString(), Humanize(type.ToString())))];
+
+    /// <summary>
+    /// The mark a row wears for each type, with the word the panel's type badge
+    /// uses behind it. Three marks for three facts: a prompt is text you hand to
+    /// an agent, so it takes the sparkle every AI surface has taught readers to
+    /// expect; a task is a thing on a list; an idea is the bulb. The word comes
+    /// from the same <see cref="Humanize"/> the badge's options do, so the tooltip
+    /// on the row and the value in the panel are one spelling.
+    /// </summary>
+    private static TaskKind KindOf(EntryType type) => new(
+        type switch
+        {
+            EntryType.Prompt => "✨",
+            EntryType.Idea => "💡",
+            _ => "📋"
+        },
+        Humanize(type.ToString()));
 
     /// <summary>All four rankings the domain has, lowest first. The badge this
     /// replaced offered three — Critical was in the enum, in the grammar and in the

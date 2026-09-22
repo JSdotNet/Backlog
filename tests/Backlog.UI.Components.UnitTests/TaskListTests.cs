@@ -2872,4 +2872,142 @@ public sealed class TaskListTests
 
         Assert.Equal(1, view.Instance.Dismissals);
     }
+
+    /// <summary>
+    /// What a task was filed as opens the metadata line, ahead of the list it
+    /// belongs to and of everything about time; what is under the title — the
+    /// steps — comes with it.
+    /// <para>
+    /// A backlog row used to show nothing of this: a prompt and a task looked the
+    /// same until opened. The kind is the host's glyph and word, handed in already
+    /// formatted like a due date. It is the one detail drawn as its glyph alone —
+    /// the mark is the fact — so the word is for the tooltip and the screen
+    /// reader, hidden rather than dropped.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void A_kind_opens_the_line_drawn_as_the_hosts_glyph()
+    {
+        using var context = new BunitContext();
+
+        var view = context.Render<TaskItem>(p => p
+            .Add(t => t.Task, new TaskRow("a", "Ship it", Group: "Tasks", Kind: new TaskKind("✨", "prompt"), StepsDone: 1, StepCount: 3, Due: "Friday"))
+            .Add(t => t.TestId, "row"));
+
+        Assert.Equal(["kind", "steps", "group", "due"], DetailKinds(view));
+
+        var kind = view.Find(".task-item__detail--kind");
+        var glyph = kind.QuerySelector(".task-item__glyph");
+        Assert.NotNull(glyph);
+        Assert.Equal("✨", glyph.TextContent);
+        Assert.Equal("true", glyph.GetAttribute("aria-hidden"));
+
+        // The word is there for a pointer and for a screen reader, and for
+        // nothing else: every visible child of the detail is the glyph.
+        Assert.Equal("Type: prompt", kind.GetAttribute("title"));
+        Assert.Equal(["Type", "prompt"], kind.QuerySelectorAll(".sr-only").Select(span => span.TextContent));
+        Assert.All(kind.Children.Where(child => !child.ClassList.Contains("sr-only")),
+            child => Assert.Contains("task-item__glyph", child.ClassList));
+    }
+
+    /// <summary>
+    /// The one thing that outranks a blocked row's "waiting for" is the mark. The
+    /// wait leads the facts because everything after it is moot until it is
+    /// fixed; the mark is not a fact about progress, and a mark that moved to
+    /// second place on the rows that happen to be blocked could not be scanned
+    /// for down a column.
+    /// </summary>
+    [Fact]
+    public void A_kind_stays_first_even_when_the_row_is_blocked()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskListView>(p => p
+            .Add(l => l.Tasks, (IReadOnlyList<TaskRow>)
+            [
+                new("draft", "Write the draft", Group: "Prompts", Kind: new TaskKind("✨", "prompt")),
+                new("review", "Review it", Group: "Prompts", Kind: new TaskKind("✨", "prompt"), DependsOn: ["draft"], Due: "Friday")
+            ])
+            .Add(l => l.GroupCompleted, false)
+            .Add(l => l.TestId, "list"));
+
+        Assert.Equal(["kind", "blocked", "group", "due"], DetailKinds(view.Find("[data-testid='list-review']")));
+    }
+
+    /// <summary>
+    /// The mark stands in for the content glyphs. "✨ ≡ 2 of 5 📝 Note" read as
+    /// three facts; "✨ 2 of 5 Note" is one statement about one thing. The facts
+    /// about time keep their glyphs, because those are what tell a deadline from
+    /// an alarm — and a screen reader still hears "Steps 2 of 5".
+    /// </summary>
+    [Fact]
+    public void Under_a_kind_the_step_count_and_the_note_follow_as_words_alone()
+    {
+        using var context = new BunitContext();
+
+        var view = context.Render<TaskItem>(p => p
+            .Add(t => t.Task, new TaskRow("a", "Ship it", Kind: new TaskKind("✨", "prompt"), StepsDone: 2, StepCount: 5, Note: true, Due: "Friday"))
+            .Add(t => t.TestId, "row"));
+
+        Assert.Equal(["kind", "steps", "note", "due"], DetailKinds(view));
+
+        var steps = view.Find(".task-item__detail--steps");
+        Assert.Empty(steps.QuerySelectorAll(".task-item__glyph"));
+        Assert.Equal("Steps", steps.QuerySelector(".sr-only")!.TextContent);
+        Assert.Equal("Steps2 of 5", steps.TextContent);
+
+        var note = view.Find(".task-item__detail--note");
+        Assert.Empty(note.QuerySelectorAll(".task-item__glyph"));
+        Assert.Empty(note.QuerySelectorAll(".sr-only"));
+        Assert.Equal("Note", note.TextContent);
+
+        Assert.Equal("🗓", view.Find(".task-item__detail--due .task-item__glyph").TextContent);
+    }
+
+    [Fact]
+    public void Without_a_kind_the_content_glyphs_are_drawn_as_before()
+    {
+        // A step in a checklist has no kind, and its line is what it always was.
+        using var context = new BunitContext();
+
+        var view = context.Render<TaskItem>(p => p
+            .Add(t => t.Task, new TaskRow("a", "Ship it", StepsDone: 2, StepCount: 5, Note: true))
+            .Add(t => t.TestId, "row"));
+
+        Assert.Equal("≡", view.Find(".task-item__detail--steps .task-item__glyph").TextContent);
+        Assert.Equal("📝", view.Find(".task-item__detail--note .task-item__glyph").TextContent);
+    }
+
+    private static IEnumerable<string> DetailKinds(IRenderedComponent<TaskItem> row) => DetailKinds(row.Find("li"));
+
+    private static IEnumerable<string> DetailKinds(AngleSharp.Dom.IElement row) =>
+        row.QuerySelectorAll(".task-item__meta .task-item__detail")
+            .Select(detail => detail.ClassList.Single(name => name.StartsWith("task-item__detail--", StringComparison.Ordinal))["task-item__detail--".Length..]);
+
+    [Fact]
+    public void Only_the_kind_takes_a_glyph_from_the_host()
+    {
+        // The glyph follows from what kind of fact a detail is, so a caller cannot
+        // hand the row a date wearing an alarm clock. The kind is the one place
+        // the host's glyph is read, because its values are the host's too.
+        Assert.Equal("✨", new TaskDetail(TaskDetailKind.Kind, "prompt") { KindGlyph = "✨" }.Glyph);
+        Assert.Equal("🗓", new TaskDetail(TaskDetailKind.Due, "Friday") { KindGlyph = "✨" }.Glyph);
+        Assert.Equal("Due", new TaskDetail(TaskDetailKind.Due, "Friday").Title);
+    }
+
+    [Fact]
+    public void A_row_with_no_kind_says_nothing_about_one()
+    {
+        // A checklist of steps has no kinds, and a row that marked every step as
+        // a task would be a line about nothing.
+        using var context = new BunitContext();
+
+        var view = context.Render<TaskItem>(p => p
+            .Add(t => t.Task, new TaskRow("a", "Ship it", Group: "Tasks"))
+            .Add(t => t.TestId, "row"));
+
+        Assert.Empty(view.FindAll(".task-item__detail--kind"));
+        Assert.Null(new TaskRow("a", "Ship it").Kind);
+    }
 }

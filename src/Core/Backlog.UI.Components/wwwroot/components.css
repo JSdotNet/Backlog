@@ -3433,6 +3433,15 @@ button.task-panel__check:focus-visible {
     color: var(--color-text-secondary);
 }
 
+/* What the task is, drawn as its glyph alone: the word is in the tooltip and in
+   a visually-hidden span, and a mark learned once says it on every row without
+   the line growing a word. The same size as every other glyph on the line, and
+   secondary like the shape facts — a kind is what the row was filed as, not
+   something that makes it urgent. */
+.task-item__detail--kind {
+    color: var(--color-text-secondary);
+}
+
 /* A done row's urgency is over: nothing on the line competes any more. */
 .task-item--done .task-item__detail {
     color: var(--color-text-disabled);
