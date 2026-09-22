@@ -4,6 +4,10 @@
 @inject DevbookScope Scope
 @inject DevbookUpdateService DevbookUpdate
 @inject DevbookSourceSelection DevbookSource
+@* Where the pane tells the rest of the shell which chapter it has open — the
+   Ask AI source pins it. Written after every render and cleared on dispose, so
+   the selection dictionary below stays the pane's own. *@
+@inject DevbookOpenChapter OpenChapter
 
 @*
     The Devbook pane. Everything it needs arrives as a repository alias:
@@ -283,7 +287,11 @@
             StateHasChanged();
         });
 
-    public void Dispose() => DevbookMenu.Changed -= OnDevbookChanged;
+    public void Dispose()
+    {
+        DevbookMenu.Changed -= OnDevbookChanged;
+        OpenChapter.Clear();
+    }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -293,8 +301,15 @@
     }
 
     /// <summary>The answer is forgotten once the render that used it is on
-    /// screen, so the next render asks the scope once rather than once per row.</summary>
-    protected override void OnAfterRender(bool firstRender) => _visibleAreas = null;
+    /// screen, so the next render asks the scope once rather than once per row.
+    /// The open chapter is published first, while that answer is still held:
+    /// it is the one read of the selection that happens after the render rather
+    /// than during it, and it costs nothing more than the render already paid.</summary>
+    protected override void OnAfterRender(bool firstRender)
+    {
+        OpenChapter.Set(ActiveRepositoryAlias, EffectiveSection, SelectedChapterPath);
+        _visibleAreas = null;
+    }
 
     /// <summary>
     /// The sections this scope shows, asked of the scope once per render.

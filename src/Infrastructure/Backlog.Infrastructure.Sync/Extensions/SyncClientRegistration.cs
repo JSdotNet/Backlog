@@ -189,6 +189,12 @@ public static class SyncClientRegistration
     /// </summary>
     private const string ReplicatedSessionSourceKey = "sync.replicated";
 
+    /// <summary>The key the replicated activity source is registered under, on
+    /// the same terms as <see cref="ReplicatedSessionSourceKey"/>: its own slot
+    /// beside the unkeyed <see cref="IAgentActivitySource"/> the composite
+    /// occupies, and a value nothing else has to agree with.</summary>
+    private const string ReplicatedActivitySourceKey = "sync.replicated-activity";
+
     /// <summary>Where <see cref="AddSessionSyncStores"/> puts this device's
     /// session-replication progress inside the folder it is given.</summary>
     private const string SessionSyncStateFileName = "session-sync-state.json";
@@ -322,6 +328,17 @@ public static class SyncClientRegistration
         // handler chain for the life of the process. The state it shares with the
         // next cycle is the host's two stores, which is where the singletons
         // belong.
+        //
+        // Its IAgentActivitySource is an optional constructor parameter, which the
+        // container fills from the unkeyed registration when a host made one —
+        // AddAgentActivitySource()'s composite — and leaves null when it did not,
+        // so a head without transcripts still pushes its records. The composite
+        // is acceptable there even though it also answers with what other machines
+        // reported: the push filters activity on Origin == Local, the same rule it
+        // applies to the sessions themselves, so a record that arrived over the
+        // wire never goes back out under this machine's id. Injecting the local
+        // reader alone would need a key shared between two projects that
+        // deliberately share none.
         services.TryAddTransient<SessionSyncSession>();
 
         // The read side, contributed to the merged source rather than registered
@@ -329,6 +346,12 @@ public static class SyncClientRegistration
         // all; the composite that collects it is AddAgentSessionSource()'s, and
         // the two calls may be made in either order because both resolve lazily.
         services.TryAddKeyedSingleton<IAgentSessionSource, ReplicatedAgentSessionSource>(ReplicatedSessionSourceKey);
+
+        // And its twin for the activity port, on identical terms: keyed, so it
+        // contributes to AddAgentActivitySource()'s composite rather than
+        // replacing the local reader, and the Dashboard's adapter sees the other
+        // machines' runs and waits without a line of its own.
+        services.TryAddKeyedSingleton<IAgentActivitySource, ReplicatedAgentActivitySource>(ReplicatedActivitySourceKey);
 
         // And a singleton, because the schedule is the thing it holds: a second
         // worker would be a second timer, and two timers are the overlapping

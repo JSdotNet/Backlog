@@ -66,6 +66,7 @@
       "tests\\Backlog.Modules.Sync.Api.UnitTests\\Backlog.Modules.Sync.Api.UnitTests.csproj",
       "tests\\Backlog.Modules.Sync.UnitTests\\Backlog.Modules.Sync.UnitTests.csproj",
       "tests\\Backlog.Modules.Tasks.UnitTests\\Backlog.Modules.Tasks.UnitTests.csproj",
+      "tests\\Backlog.SharedKernel.UnitTests\\Backlog.SharedKernel.UnitTests.csproj",
       "tests\\Backlog.UI.Components.UnitTests\\Backlog.UI.Components.UnitTests.csproj"
     ]
   }

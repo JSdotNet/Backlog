@@ -32,6 +32,8 @@ using Backlog.Modules.Dashboard.Extensions;
 using Backlog.Modules.Dashboard.UI.Extensions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sessions.UI.Extensions;
+using Backlog.Modules.Roadmap.UI;
+using Backlog.Modules.DevPc.UI;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Devbook;
 using Backlog.Infrastructure.Sync;
@@ -49,6 +51,9 @@ using Backlog.Aspire.ServiceDefaults;
 // recognises a stored configuration as its own seed rather than a person's.
 const string LocalAzureFoundryDeployment = "local-ai";
 const string LocalAzureFoundryApiKeyMarker = "local-development";
+// The scope the seed reads spend for. The stand-in service answers any scope
+// with the same canned bill, so the value only has to look like one.
+const string LocalAzureFoundryCostScope = "/subscriptions/local-development/resourceGroups/local/providers/Microsoft.CognitiveServices/accounts/local-ai";
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -122,6 +127,10 @@ builder.Services.AddTasksModule();
 builder.Services.AddSingleton<IRoadmapPlanRepository>(sp =>
     new RootedSqliteRoadmapPlanRepository(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
 builder.Services.AddRoadmapModule();
+// The plan behind the shell's Ask AI port, after the module so the scoped
+// planning port it holds exists. The other areas register theirs beside
+// their own state below; the Roadmap has no state, only the port.
+builder.Services.AddRoadmapAiContentSource();
 
 // The same arrangement for capture: the module brings the run, and the host picks
 // where the monitored sources are kept and where what past runs said is kept.
@@ -184,6 +193,7 @@ builder.Services.AddSingleton(sp => new ResolvingGitHubTransport(
     credentials: sp.GetRequiredService<IGitHubCredentialResolver>(),
     accounts: sp.GetRequiredService<IGhCliAccountSource>()));
 builder.Services.AddSingleton<IGitHubConnectionProbe>(sp => sp.GetRequiredService<ResolvingGitHubTransport>());
+builder.Services.AddSingleton<IGitHubAccountProbe>(sp => sp.GetRequiredService<ResolvingGitHubTransport>());
 builder.Services.AddSingleton<IAppFeatureSettings>(_ => CreateLocalDevelopmentFeatureSettingsStore(builder.Environment.ContentRootPath));
 // The device half of cloud sync. Scoped to the content root like the harness's
 // other settings files, so a session here pairs a device of its own rather than
@@ -245,11 +255,18 @@ builder.Services.AddSingleton(_ => new SyncServiceSettingsStore(
 builder.Services.AddSingleton<SyncServiceEndpoint>();
 builder.Services.AddSyncClient(SyncServiceAddress);
 builder.Services.AddTaskSyncClient(SyncServiceAddress);
-builder.Services.AddSingleton(_ => CreateLocalDevelopmentAzureFoundrySettingsStore(builder.Environment.ContentRootPath));
+var azureFoundrySettings = CreateLocalDevelopmentAzureFoundrySettingsStore(builder.Environment.ContentRootPath);
+builder.Services.AddSingleton(azureFoundrySettings);
 // The chat client's pipeline is the adapter's own, sized for a completion rather
 // than for the service-to-service defaults AddServiceDefaults puts on every other
 // client — see AzureFoundryRegistration.
 builder.Services.AddAzureFoundryChatClient();
+// The bill for the same resource. When the settings are this session's local
+// seed, the query goes to the stand-in service beside the chat one — with a
+// token nothing signed, because the stand-in checks none — so the dashboard's
+// Cost section has figures without an Azure sign-in. A person's own Foundry
+// configuration keeps the real client, and their real bill.
+AddAzureFoundryCostClient(builder.Services, azureFoundrySettings);
 // The Inbox's plan drafter over the same chat client. Scoped, like the other
 // port adapters the Inbox module takes: the handler that asks for it is
 // scoped, and the typed client behind it is transient either way.
@@ -302,6 +319,7 @@ builder.Services.AddSingleton<IGitHubBillingClient>(sp => new GitHubBillingClien
 // configured, so it is safe to register unconditionally.
 builder.Services.AddSingleton(_ => CreateLocalDevelopmentClaudeSettingsStore(builder.Environment.ContentRootPath));
 builder.Services.AddHttpClient<IClaudeTransport, ClaudeAdminTransport>();
+builder.Services.AddSingleton<IClaudeAccountProbe>(sp => new ClaudeAccountProbe(sp.GetRequiredService<IClaudeTransport>()));
 builder.Services.AddSingleton<IClaudeUsageClient>(sp => new ClaudeUsageClient(
     sp.GetRequiredService<IClaudeTransport>(),
     sp.GetRequiredService<ClaudeSettingsStore>()));
@@ -370,16 +388,23 @@ builder.Services.AddSingleton<IDiagramArtifactSource>(sp => new ArchifyDiagramAr
     sp.GetRequiredService<GitHubSettingsStore>(),
     new UnavailableCopilotCliLauncher()));
 builder.Services.AddSingleton<DevbookScope>();
+// The open-chapter mirror the pane writes and the Ask AI source that pins
+// from it, after the search and folder ports above that the source holds.
+builder.Services.AddDevbookAiContentSource();
 builder.Services.AddSingleton<DevbookUpdateService>();
 
 // Shared by the Devbook pane and the settings screen, and a singleton so the
 // branch list somebody fetched in one is already there in the other.
 builder.Services.AddSingleton<DevbookSourceSelection>();
 builder.Services.AddScoped<TasksDesktopState>();
+// The backlog behind the shell's Ask AI port, beside the state it reads.
+builder.Services.AddTasksAiContentSource();
 // The Inbox pane's state, on the same terms as TasksDesktopState and for the
 // same reason: it captures the module's scoped IInboxItems, and a singleton over
 // a scoped service is a captive dependency validate-on-build refuses.
 builder.Services.AddScoped<InboxDesktopState>();
+// The Inbox behind the shell's Ask AI port, beside the state it reads.
+builder.Services.AddInboxAiContentSource();
 // The save-state band and the toast tray, both mounted by MainLayout under every
 // route. Scoped rather than singleton, and that is forced rather than tidy: this
 // host has one circuit per visitor, a singleton forwarding to a scoped
@@ -394,6 +419,8 @@ builder.Services.AddScoped(sp => new DomainDevbookStore(sp.GetRequiredService<ID
 // reports updates as unsupported.
 builder.Services.AddSingleton<IAppUpdateService, UnsupportedAppUpdateService>();
 builder.Services.AddSingleton<IDevToolService, LocalDevelopmentDevToolService>();
+// The tool catalog behind the shell's Ask AI port, beside the port it reads.
+builder.Services.AddToolsAiContentSource();
 
 // The session list reads the two agents' own folders in the profile of whoever is
 // signed in, and the harness runs as that person on that machine — so unlike the
@@ -539,6 +566,20 @@ static GitHubSettingsStore CreateLocalDevelopmentGitHubSettingsStore(string cont
 static Uri SyncServiceAddress(IServiceProvider services) =>
     services.GetRequiredService<SyncServiceEndpoint>().Resolve().Address;
 
+static void AddAzureFoundryCostClient(IServiceCollection services, AzureFoundrySettingsStore settings)
+{
+    var localEndpoint = Environment.GetEnvironmentVariable("BACKLOG_AZURE_FOUNDRY_LOCAL_ENDPOINT");
+
+    if (string.IsNullOrWhiteSpace(localEndpoint) || !IsLocalAzureFoundrySeed(settings.Current))
+    {
+        services.AddAzureFoundryCostClient();
+        return;
+    }
+
+    services.AddSingleton<IAzureManagementTokenSource, LocalAzureManagementTokenSource>();
+    services.AddAzureFoundryCostClient(new Uri(localEndpoint));
+}
+
 static AzureFoundrySettingsStore CreateLocalDevelopmentAzureFoundrySettingsStore(string contentRootPath)
 {
     var settingsPath = Environment.GetEnvironmentVariable("BACKLOG_AZURE_FOUNDRY_SETTINGS_PATH");
@@ -568,7 +609,8 @@ static void SeedLocalAzureFoundrySettings(AzureFoundrySettingsStore settings)
         return;
     }
 
-    var error = settings.SetConnection(localEndpoint, LocalAzureFoundryDeployment, LocalAzureFoundryApiKeyMarker, AzureFoundrySettingsStore.DefaultApiVersion);
+    var error = settings.SetConnection(localEndpoint, LocalAzureFoundryDeployment, LocalAzureFoundryApiKeyMarker, AzureFoundrySettingsStore.DefaultApiVersion)
+        ?? settings.SetCostScope(LocalAzureFoundryCostScope);
     if (error is not null)
     {
         throw new InvalidOperationException(error);

@@ -160,6 +160,44 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
     }
 
     /// <summary>
+    /// The attachment is the one field the sync payload and the entry grammar both
+    /// carry that this store once did not, so a task with a folder attached lost it
+    /// on the first save — silently, because nothing threw. The path comes back
+    /// verbatim: the record is a pointer, and rewriting a pointer is the store
+    /// deciding where somebody's files are.
+    /// </summary>
+    [Fact]
+    public async Task An_attachment_round_trips()
+    {
+        var task = new TaskItem("Sort the tax folder", string.Empty, EntryType.Task);
+        task.SetAttachment(new Attachment(@"D:\Documents\Tax\2026"));
+
+        await _repository.SaveAsync(task, TestContext.Current.CancellationToken);
+        var loaded = await _repository.GetAsync(task.Id, TestContext.Current.CancellationToken);
+
+        Assert.NotNull(loaded);
+        Assert.Equal(new Attachment(@"D:\Documents\Tax\2026"), loaded.Attachment);
+    }
+
+    /// <summary>Detaching is a write like any other: the next save has to clear
+    /// the column, not leave the old path behind under a task that no longer
+    /// points at it.</summary>
+    [Fact]
+    public async Task Clearing_an_attachment_survives_the_next_save()
+    {
+        var task = new TaskItem("Sort the tax folder", string.Empty, EntryType.Task);
+        task.SetAttachment(new Attachment("archive.zip"));
+        await _repository.SaveAsync(task, TestContext.Current.CancellationToken);
+
+        task.SetAttachment(null);
+        await _repository.SaveAsync(task, TestContext.Current.CancellationToken);
+        var loaded = await _repository.GetAsync(task.Id, TestContext.Current.CancellationToken);
+
+        Assert.NotNull(loaded);
+        Assert.Null(loaded.Attachment);
+    }
+
+    /// <summary>
     /// A reminder is wall-clock intent: 09:00 means 09:00 wherever the person is.
     /// Storing an offset would move it, so the value must come back
     /// <see cref="DateTimeKind.Unspecified"/> rather than Utc or Local.
@@ -598,6 +636,73 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
     }
 
     /// <summary>
+    /// The same contract for the attachment column, which arrived later than the
+    /// effort one and so has a wider population of databases that predate it:
+    /// a file written by any build up to then opens, reads its rows with nothing
+    /// attached, and takes an attachment on the next save.
+    /// </summary>
+    [Fact]
+    public async Task A_database_written_before_the_attachment_column_still_opens_and_reads()
+    {
+        var id = Guid.NewGuid();
+        var createdAt = new DateTimeOffset(2026, 9, 1, 9, 0, 0, TimeSpan.Zero);
+
+        Directory.CreateDirectory(_root);
+        var path = _repository.DatabasePath;
+
+        // The schema exactly as the build before this column created it — every
+        // column up to and including the stamps, and not this one.
+        await using (var seed = new Microsoft.Data.Sqlite.SqliteConnection(
+            new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder { DataSource = path }.ToString()))
+        {
+            await seed.OpenAsync(TestContext.Current.CancellationToken);
+
+            await using var create = seed.CreateCommand();
+            create.CommandText = """
+                CREATE TABLE tasks (
+                    id TEXT PRIMARY KEY NOT NULL, title TEXT NOT NULL, content_md TEXT NOT NULL DEFAULT '',
+                    type TEXT NOT NULL, status TEXT NOT NULL, priority TEXT NOT NULL,
+                    sort_order INTEGER NOT NULL DEFAULT 0, area TEXT NULL, created_at TEXT NOT NULL,
+                    source_inbox_id TEXT NULL, recurrence_source_id TEXT NULL, due_on TEXT NULL,
+                    remind_at TEXT NULL, recurrence TEXT NULL, in_my_day_on TEXT NULL, view TEXT NULL,
+                    tags TEXT NOT NULL DEFAULT '[]', repo_ids TEXT NOT NULL DEFAULT '[]',
+                    depends_on TEXT NOT NULL DEFAULT '[]', sub_items TEXT NOT NULL DEFAULT '[]',
+                    usage_events TEXT NOT NULL DEFAULT '[]', projections TEXT NOT NULL DEFAULT '[]',
+                    effort INTEGER NULL, import_plan_id TEXT NULL, import_item_id TEXT NULL,
+                    updated_at TEXT NULL, deleted_at TEXT NULL
+                );
+                """;
+            await create.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
+
+            await using var insert = seed.CreateCommand();
+            insert.CommandText = """
+                INSERT INTO tasks (id, title, type, status, priority, created_at)
+                VALUES ($id, $title, 'task', 'ready', 'high', $created_at);
+                """;
+            insert.Parameters.AddWithValue("$id", id.ToString());
+            insert.Parameters.AddWithValue("$title", "Written before attachments existed");
+            insert.Parameters.AddWithValue(
+                "$created_at",
+                createdAt.ToString("O", System.Globalization.CultureInfo.InvariantCulture));
+            await insert.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
+        }
+
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+
+        var loaded = await _repository.GetAsync(id, TestContext.Current.CancellationToken);
+
+        Assert.NotNull(loaded);
+        Assert.Equal("Written before attachments existed", loaded.Title);
+        Assert.Null(loaded.Attachment);
+
+        loaded.SetAttachment(new Attachment("notes/"));
+        await _repository.SaveAsync(loaded, TestContext.Current.CancellationToken);
+        var again = await _repository.GetAsync(id, TestContext.Current.CancellationToken);
+
+        Assert.Equal(new Attachment("notes/"), again!.Attachment);
+    }
+
+    /// <summary>
     /// A row written when <c>follow_up</c> was still a type reads back as a task
     /// rather than throwing. <c>ParseType</c> no longer knows the word, so a file
     /// carrying it would fail every read of that row — which is a person's entry
@@ -666,6 +771,7 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
         task.SetEffort(3);
         task.SetDueOn(new DateOnly(2026, 2, 1));
         task.SetDependsOn(["other"]);
+        task.SetAttachment(new Attachment("folder/"));
         task.AddProjectionRef(new ProjectionRef("JSdotNet/Backlog", "1", "issue"));
         task.LoadStamps(createdAt, deletedAt: null);
 

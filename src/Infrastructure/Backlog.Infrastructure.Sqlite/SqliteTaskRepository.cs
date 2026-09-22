@@ -36,7 +36,7 @@ public sealed class SqliteTaskRepository : ITaskRepository
         "id, title, content_md, type, status, priority, sort_order, area, created_at, " +
         "source_inbox_id, recurrence_source_id, due_on, remind_at, recurrence, in_my_day_on, " +
         "view, tags, repo_ids, depends_on, sub_items, usage_events, projections, effort, " +
-        "import_plan_id, import_item_id, updated_at, deleted_at, completed_on";
+        "import_plan_id, import_item_id, updated_at, deleted_at, attachment_path, completed_on";
 
     private readonly string _databasePath;
 
@@ -74,7 +74,8 @@ public sealed class SqliteTaskRepository : ITaskRepository
                 $id, $title, $content_md, $type, $status, $priority, $sort_order, $area, $created_at,
                 $source_inbox_id, $recurrence_source_id, $due_on, $remind_at, $recurrence, $in_my_day_on,
                 $view, $tags, $repo_ids, $depends_on, $sub_items, $usage_events, $projections, $effort,
-                $import_plan_id, $import_item_id, $updated_at, $deleted_at, $completed_on)
+                $import_plan_id, $import_item_id, $updated_at, $deleted_at, $attachment_path,
+                $completed_on)
             ON CONFLICT(id) DO UPDATE SET
                 title = excluded.title,
                 content_md = excluded.content_md,
@@ -102,6 +103,7 @@ public sealed class SqliteTaskRepository : ITaskRepository
                 import_item_id = excluded.import_item_id,
                 updated_at = excluded.updated_at,
                 deleted_at = excluded.deleted_at,
+                attachment_path = excluded.attachment_path,
                 completed_on = excluded.completed_on;
             """;
 
@@ -151,6 +153,10 @@ public sealed class SqliteTaskRepository : ITaskRepository
         command.Parameters.AddWithValue(
             "$deleted_at",
             Nullable(task.DeletedAt?.ToString("O", CultureInfo.InvariantCulture)));
+
+        // The path and nothing else, the same way the sync payload carries it: the
+        // record's other members are read off the path, so the path is the value.
+        command.Parameters.AddWithValue("$attachment_path", Nullable(task.Attachment?.Path));
 
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
     }
@@ -307,6 +313,7 @@ public sealed class SqliteTaskRepository : ITaskRepository
                     -- already has rows, and the read coalesces a null to created_at.
                     updated_at           TEXT NULL,
                     deleted_at           TEXT NULL,
+                    attachment_path      TEXT NULL,
                     completed_on         TEXT NULL
                 );
 
@@ -328,6 +335,7 @@ public sealed class SqliteTaskRepository : ITaskRepository
             await EnsureColumnAsync(connection, "import_item_id", "TEXT NULL", cancellationToken).ConfigureAwait(false);
             await EnsureColumnAsync(connection, "updated_at", "TEXT NULL", cancellationToken).ConfigureAwait(false);
             await EnsureColumnAsync(connection, "deleted_at", "TEXT NULL", cancellationToken).ConfigureAwait(false);
+            await EnsureColumnAsync(connection, "attachment_path", "TEXT NULL", cancellationToken).ConfigureAwait(false);
             await EnsureColumnAsync(connection, "completed_on", "TEXT NULL", cancellationToken).ConfigureAwait(false);
 
             // And one value the vocabulary retired. `follow_up` was a task type until
@@ -451,7 +459,8 @@ public sealed class SqliteTaskRepository : ITaskRepository
         public const int Tags = 16, RepoIds = 17, DependsOn = 18;
         public const int SubItems = 19, UsageEvents = 20, Projections = 21, Effort = 22;
         public const int ImportPlanId = 23, ImportItemId = 24;
-        public const int UpdatedAt = 25, DeletedAt = 26, CompletedOn = 27;
+        public const int UpdatedAt = 25, DeletedAt = 26;
+        public const int AttachmentPath = 27, CompletedOn = 28;
     }
 
     private static TaskItem Read(IDataRecord row)
@@ -481,6 +490,10 @@ public sealed class SqliteTaskRepository : ITaskRepository
         task.SetEffort(Int(row, Col.Effort));
         task.SetImportPlanId(Text(row, Col.ImportPlanId));
         task.SetImportItemId(Text(row, Col.ImportItemId));
+        // Through From rather than the constructor, so a blank column — which no
+        // save here writes, but a hand-edited file might — reads as no attachment
+        // rather than as an attachment to nowhere.
+        task.SetAttachment(Attachment.From(Text(row, Col.AttachmentPath)));
 
         foreach (var payload in TaskPayloads.Read<SubItemPayload>(Text(row, Col.SubItems)).OrderBy(s => s.Order))
         {

@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The shared kernel's own tests. It is the one project everything may depend
+    on, so what it promises is worth pinning on its own rather than only through
+    the modules that use it.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+  </ItemGroup>
+
+</Project>

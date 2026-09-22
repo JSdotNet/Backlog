@@ -24,6 +24,9 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.Web" />
+    <!-- For AddDevbookAiContentSource(), the composition root a host calls to
+         put the devbook's chapters behind the shell's Ask AI port. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
   </ItemGroup>
 
   <ItemGroup>

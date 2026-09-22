@@ -202,12 +202,14 @@ internal sealed class LocalAgentActivitySource : IAgentActivitySource
             if (entry is null) continue;
 
             var runs = Clip(entry.Runs, since);
+            var hits = Clip(entry.LimitHits, since);
 
             // Absent rather than present-and-empty, the rule the sessions are already
             // read under: an agent whose whole record fell outside the horizon has
             // nothing to contribute to a concurrency figure, and an entry with no
-            // intervals would be an agent claiming to have been measured.
-            if (runs.Count == 0) continue;
+            // intervals would be an agent claiming to have been measured. A refusal
+            // inside the horizon is a record, though, and keeps the agent.
+            if (runs.Count == 0 && hits.Count == 0) continue;
 
             agents.Add(new SubagentActivity(
                 agentId,
@@ -215,7 +217,10 @@ internal sealed class LocalAgentActivitySource : IAgentActivitySource
                 AgentSessionKind.Claude,
                 _environmentId,
                 _environment,
-                runs));
+                runs)
+            {
+                LimitHits = hits
+            });
         }
 
         return agents;
@@ -283,13 +288,20 @@ internal sealed class LocalAgentActivitySource : IAgentActivitySource
 
         var runs = Clip(entry.Runs, since);
         var waits = Clip(entry.Waits, since);
+        var hits = Clip(entry.LimitHits, since);
 
         // Absent rather than present-and-empty. A session whose whole record fell outside
         // the horizon, or that left one lone event, has nothing to contribute to a
         // duration — and the session list is already the place that says it existed.
-        return runs.Count == 0 && waits.Count == 0
+        // One lone refusal is the exception: it contributes no duration and is still a
+        // thing that happened to the session, so a session that was refused and nothing
+        // else is present with that one fact on it.
+        return runs.Count == 0 && waits.Count == 0 && hits.Count == 0
             ? null
-            : new AgentSessionActivity(id, kind, _environmentId, _environment, runs, waits);
+            : new AgentSessionActivity(id, kind, _environmentId, _environment, runs, waits)
+            {
+                LimitHits = hits
+            };
     }
 
     /// <summary>
@@ -341,8 +353,19 @@ internal sealed class LocalAgentActivitySource : IAgentActivitySource
 
             // Stored whole-file, before any horizon is applied, because the horizon moves
             // and the file does not: the twelve-week read and the four-week one share
-            // entries and only the clipping differs.
-            entry = new AgentActivityEntry(folded.Runs, folded.Waits, AgentActivityRuns.IdleAfter);
+            // entries and only the clipping differs. The hits are lifted off the events
+            // here rather than inside the fold, which never looks at them: sorted, so the
+            // list is ascending whatever order the file recorded them in.
+            entry = new AgentActivityEntry(folded.Runs, folded.Waits, AgentActivityRuns.IdleAfter)
+            {
+                LimitHits =
+                [
+                    .. events
+                        .Where(activity => activity.Limit is not null)
+                        .Select(activity => activity.Limit!)
+                        .OrderBy(hit => hit.At)
+                ]
+            };
             _cache?.Write(file.FullName, writtenAt, entry);
         }
 
@@ -371,5 +394,14 @@ internal sealed class LocalAgentActivitySource : IAgentActivitySource
         .. waits
             .Where(wait => wait.EndedAt > since)
             .Select(wait => wait.StartedAt >= since ? wait : new AgentActivityWait(since, wait.EndedAt))
+    ];
+
+    /// <summary>An instant has no part to clip: a hit is inside the horizon or it is
+    /// not. On the horizon counts as inside, the way a run starting there does.</summary>
+    private static IReadOnlyList<AgentLimitHit> Clip(
+        IReadOnlyList<AgentLimitHit> hits,
+        DateTimeOffset since) =>
+    [
+        .. hits.Where(hit => hit.At >= since)
     ];
 }

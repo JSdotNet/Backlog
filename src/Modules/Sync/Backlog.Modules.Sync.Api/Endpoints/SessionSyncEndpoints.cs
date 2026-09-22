@@ -127,13 +127,17 @@ internal static class SessionSyncEndpoints
     /// stored is not.
     /// </para>
     /// <para>
-    /// Two kinds of check, and they fail differently. An empty session id or
+    /// Three kinds of check, and they fail differently. An empty session id or
     /// agent kind is a record with no identity — .domain/sessions/naming.md#session-identity
     /// needs both halves, so a record missing either could not be addressed and
     /// would collide with every other record missing the same one. A field longer
-    /// than its bound is the other kind: nothing a device of ours sends, and the
+    /// than its bound is the second kind: nothing a device of ours sends, and the
     /// thing that stops a caller posting a two-megabyte branch name into durable,
-    /// per-request-billed storage.
+    /// per-request-billed storage. An activity list longer than its cap, or an
+    /// interval that does not run forward, is the third: the list cap is the same
+    /// storage argument over the one field that can grow, and an interval whose
+    /// end is not after its start is not a stretch of anything — the reading
+    /// device sweeps these into hour buckets, and would be subtracting time.
     /// </para>
     /// </summary>
     private static Error? OutOfBounds(IReadOnlyList<SessionRecord> records)
@@ -156,7 +160,11 @@ internal static class SessionSyncEndpoints
                 ?? TooLong("machine name", record.MachineName, SyncRequestLimits.MaximumMachineName)
                 ?? TooLong("repository alias", record.RepositoryAlias, SyncRequestLimits.MaximumRepositoryAlias)
                 ?? TooLong("resolved repository alias", record.ResolvedRepositoryAlias, SyncRequestLimits.MaximumRepositoryAlias)
-                ?? TooLong("branch", record.Branch, SyncRequestLimits.MaximumBranch);
+                ?? TooLong("branch", record.Branch, SyncRequestLimits.MaximumBranch)
+                ?? TooMany("runs", record.Runs)
+                ?? TooMany("waits", record.Waits)
+                ?? NotForward("runs", record.Runs)
+                ?? NotForward("waits", record.Waits);
 
             if (refusal is not null)
             {
@@ -175,6 +183,32 @@ internal static class SessionSyncEndpoints
         value is not null && value.Length > limit
             ? Invalid($"A session record's {field} may be at most {limit} characters; this one was {value.Length}.")
             : null;
+
+    /// <summary>A null list is a session the machine had no activity record for,
+    /// and is as ordinary as a null branch. An empty one is a record that held
+    /// nothing — every Copilot session's waits — and is as ordinary again. Only a
+    /// list past the cap is refused.</summary>
+    private static Error? TooMany(string list, IReadOnlyList<ActivityInterval>? intervals) =>
+        intervals is not null && intervals.Count > SyncRequestLimits.MaximumSessionIntervals
+            ? Invalid($"A session record's {list} may hold at most {SyncRequestLimits.MaximumSessionIntervals} intervals; this one held {intervals.Count}.")
+            : null;
+
+    /// <summary>Half-open and strictly forward: an interval that ends on or before
+    /// it starts is refused, in either list, whichever position it is in.</summary>
+    private static Error? NotForward(string list, IReadOnlyList<ActivityInterval>? intervals)
+    {
+        if (intervals is null) return null;
+
+        foreach (var interval in intervals)
+        {
+            if (interval.EndedAt <= interval.StartedAt)
+            {
+                return Invalid($"A session record's {list} must each end after they start; one ran from {interval.StartedAt:O} to {interval.EndedAt:O}.");
+            }
+        }
+
+        return null;
+    }
 
     private static Error Invalid(string message) => Error.Validation(SyncErrorCodes.SessionInvalid, message);
 }

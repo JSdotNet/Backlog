@@ -1,9 +1,10 @@
 using System.Text.Json.Serialization;
+using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 
 namespace Backlog.Infrastructure.Cosmos.Sessions;
 
 /// <summary>
-/// One session record as it sits in the <c>sessions</c> container: the ten
+/// One session record as it sits in the <c>sessions</c> container: the thirteen
 /// whitelisted fields, the owner, and the two Cosmos maintains.
 /// <para>
 /// <strong>The whitelist is flat, and it is flat because the index is.</strong>
@@ -20,9 +21,17 @@ namespace Backlog.Infrastructure.Cosmos.Sessions;
 /// does.
 /// </para>
 /// <para>
+/// The two activity lists are the one place the document is not flat, and they
+/// are the one place it may not be: an array of <c>{startedAt, endedAt}</c> under
+/// <c>runs</c> and another under <c>waits</c>. Nothing indexes into them —
+/// <c>/*</c> excludes them, and the bicep's header says so on purpose — because
+/// nothing queries by them; they are stored whole and handed back whole, which is
+/// the same standing a task payload has.
+/// </para>
+/// <para>
 /// Flat is also honest here in a way it would not be for a task. A task payload
 /// is an open shape the service stores whole and never reads; a session record
-/// is a closed list of eleven fields that .arc42/adr/0005 §Session records
+/// is a closed list of thirteen fields that .arc42/adr/0005 §Session records
 /// enumerates, so writing them out is writing down the whitelist rather than
 /// duplicating a contract that will grow behind this file's back. A field
 /// appearing here that is not in that table is a defect, not a feature.
@@ -117,6 +126,29 @@ internal sealed class SessionDocument
     /// its working folder. Absent on every document written before it existed,
     /// and read back as null from those.</summary>
     public string? ResolvedRepositoryAlias { get; set; }
+
+    /// <summary>
+    /// The stretches in which the agent was producing, or absent where the
+    /// machine had no activity record for the session.
+    /// <para>
+    /// Absent rather than null, by the nulls-dropped policy in
+    /// <see cref="ReplicaDocumentSerialization"/>, and <c>[]</c> where the record
+    /// held nothing — the same distinction <see cref="TurnCount"/> keeps between
+    /// a gap and a count, and for the same reason: the reading device counts a
+    /// session with no record differently from a session measured at nothing, and
+    /// every Copilot session is the second kind in its waits.
+    /// </para>
+    /// <para>
+    /// The wire contract's own type, as <c>TaskDocument</c> nests the wire's task
+    /// payload: the service stores these whole and never reads one, so a second
+    /// shape here would be a copy free to drift from the one the client reads.
+    /// </para>
+    /// </summary>
+    public IReadOnlyList<ActivityInterval>? Runs { get; set; }
+
+    /// <summary>The stretches in which the agent had stopped and nothing had
+    /// prompted it yet, on the same terms as <see cref="Runs"/>.</summary>
+    public IReadOnlyList<ActivityInterval>? Waits { get; set; }
 
     /// <summary>Cosmos's own write stamp, in unix seconds. Read-only and set by
     /// the store, which is what makes it usable as an ordering two machines with

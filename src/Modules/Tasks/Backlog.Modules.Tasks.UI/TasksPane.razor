@@ -751,7 +751,13 @@
             StepCount: row.PreviewSubItems.Count,
             Note: row.HasExpandableContent,
             Tags: row.PreviewMetadataTags,
-            DependsOn: State.ResolvedDependsOn(row))
+            DependsOn: State.ResolvedDependsOn(row),
+            // The row's mark for what the entry was filed as, with the same word
+            // the panel's type badge shows behind it, so a row and the entry it
+            // opens into never disagree. It used to be absent from the row
+            // altogether, which left "is this a prompt or a task" a question only
+            // the panel could answer.
+            Kind: KindOf(row.PreviewType))
         {
             RepeatLabel = FormatRepeat(row.PreviewRecurrence)
         })];
@@ -775,8 +781,8 @@
 
     /// <summary>
     /// What a row in the entry list copies, and what the panel it opens into
-    /// copies with it: the entry's title, a blank line, and everything written
-    /// under it.
+    /// copies with it: the command that runs the entry, then on the next line the
+    /// entry's title, a blank line, and everything written under it.
     /// <para>
     /// The pane's answer rather than the row's, for the same reason
     /// <c>RepositoryMark</c> is: a <c>TaskRow</c> is a task and has no markdown on
@@ -797,11 +803,23 @@
     /// the entry, not text a person wrote, and it means nothing anywhere else.
     /// </para>
     /// <para>
-    /// Null for an entry with nothing under its title, rather than the title with
-    /// two newlines welded on — that would copy a trailing blank line every time.
-    /// The row reads null as "use the shared default", which is the title; the
-    /// panel has no default to fall back to, so it is handed the title outright.
-    /// Either way both surfaces copy the same thing.
+    /// The first line (<see cref="EntryRunMarker"/>) is what makes the paste a
+    /// runnable prompt: the skill invocation with the entry's stored id, which is
+    /// the one fact a session needs to find the entry again and report back, and
+    /// the one the copy above threw away with the metadata line. The title sits
+    /// directly under it rather than after a blank line, so the command and its
+    /// content read as one paste. A <c>task</c> entry gets it too; the skill it
+    /// invokes is what declines to run one, and it can only decline what it is
+    /// handed.
+    /// </para>
+    /// <para>
+    /// A row that has not been saved yet copies without the command — it has no
+    /// id, and a command naming one nothing outside this session knows would be a
+    /// lie — and, with nothing under its title, copies null rather than the title
+    /// with two newlines welded on. The row reads null as "use the shared
+    /// default", which is the title; the panel has no default to fall back to,
+    /// so it is handed the title outright. Either way both surfaces copy the
+    /// same thing.
     /// </para>
     /// </summary>
     private string? EntryCopyText(TaskRow task) =>
@@ -814,8 +832,11 @@
     private static string? EntryCopyText(EntryRow entry)
     {
         var body = EntryTextParser.Parse(entry.RawText).Body.Trim();
+        var written = body.Length == 0 ? DetailTitle(entry) : $"{DetailTitle(entry)}\n\n{body}";
 
-        return body.Length == 0 ? null : $"{DetailTitle(entry)}\n\n{body}";
+        if (entry.Id is not { } id) return body.Length == 0 ? null : written;
+
+        return $"{EntryRunMarker.Build(id)}\n{written}";
     }
 
     /// <summary>
@@ -3292,6 +3313,23 @@
 
     private static IReadOnlyList<SelectorOption> TypeSelectorOptions() =>
         [.. Enum.GetValues<EntryType>().Select(type => new SelectorOption(type.ToString(), Humanize(type.ToString())))];
+
+    /// <summary>
+    /// The mark a row wears for each type, with the word the panel's type badge
+    /// uses behind it. Three marks for three facts: a prompt is text you hand to
+    /// an agent, so it takes the sparkle every AI surface has taught readers to
+    /// expect; a task is a thing on a list; an idea is the bulb. The word comes
+    /// from the same <see cref="Humanize"/> the badge's options do, so the tooltip
+    /// on the row and the value in the panel are one spelling.
+    /// </summary>
+    private static TaskKind KindOf(EntryType type) => new(
+        type switch
+        {
+            EntryType.Prompt => "✨",
+            EntryType.Idea => "💡",
+            _ => "📋"
+        },
+        Humanize(type.ToString()));
 
     /// <summary>All four rankings the domain has, lowest first. The badge this
     /// replaced offered three — Critical was in the enum, in the grammar and in the

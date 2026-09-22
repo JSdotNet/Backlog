@@ -391,6 +391,51 @@ public class SessionInsightsTests
     }
 
     /// <summary>
+    /// A machine this installation never ran anything on gets a measured row, not a
+    /// row of zeros. Its sessions and its activity both arrived over sync, and the two
+    /// sources stamp them independently — the session with the name its record carried,
+    /// the activity with whatever name travelled beside the intervals — so the join has
+    /// to be on the machine id and on nothing else. A breakdown that joined on the name,
+    /// or that only measured machines the activity source had folded locally, would
+    /// show the remote machine as having done nothing all week.
+    /// </summary>
+    [Fact]
+    public async Task A_remote_machines_row_is_measured_from_activity_joined_on_its_id()
+    {
+        var insights = Insights(
+            new StubAssistantSessionSource
+            {
+                Report = Report(
+                    Session(Tower, "Claude", Now.AddHours(-3), Now.AddHours(-1), "mine"),
+                    Session(Laptop, "DEV-LAPTOP", "Claude", Now.AddHours(-3), Now, "theirs"))
+            },
+            Activity(
+                RanAndWaited("mine", Tower, "Claude", [(Now.AddHours(-3), Now.AddHours(-1))], []),
+                // The same id under a different label: the name that travelled with the
+                // intervals, which nothing here may key on.
+                new AssistantActivitySession(
+                    "theirs",
+                    Laptop,
+                    "Kitchen laptop",
+                    "Claude",
+                    [Interval((Now.AddHours(-3), Now.AddHours(-1)))],
+                    [Interval((Now.AddHours(-1), Now))])));
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        var remote = Row(value, "DEV-LAPTOP");
+
+        Assert.Equal(Laptop, remote.Key);
+        Assert.Equal(1, remote.Sessions);
+        Assert.Equal(TimeSpan.FromHours(2), remote.ActiveTime);
+        Assert.Equal(TimeSpan.FromHours(1), remote.Waiting);
+
+        // And nothing of the remote machine's leaked into the local one's row.
+        Assert.Equal(TimeSpan.FromHours(2), Row(value, "DEV-TOWER").ActiveTime);
+        Assert.Equal(TimeSpan.Zero, Row(value, "DEV-TOWER").Waiting);
+    }
+
+    /// <summary>
     /// Two machines called the same thing are two machines, and the breakdown has to be
     /// able to say so twice. The rows carry one label and two keys — anything that keyed
     /// them on the label would either merge two machines' figures or, in a table, hand

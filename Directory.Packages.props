@@ -31,6 +31,12 @@
     <PackageVersion Include="Aspire.Hosting.Azure.CosmosDB" Version="13.5.3" />
     <PackageVersion Include="Aspire.Hosting.DevTunnels" Version="13.5.3" />
     <!--
+      The Azure sign-in the Foundry cost reader borrows: Azure CLI, Azure
+      Developer CLI, or Visual Studio. Cost Management is a Resource Manager API
+      and takes an Entra token, which no Foundry API key can stand in for.
+    -->
+    <PackageVersion Include="Azure.Identity" Version="1.21.0" />
+    <!--
       Foundry Local and the MAUI project resource ship one preview build per
       Aspire release, so their versions are the 13.5.3 build rather than a
       version of their own. They move with Aspire.Hosting.AppHost above; a

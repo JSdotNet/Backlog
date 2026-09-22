@@ -408,6 +408,28 @@ status: draft
 One-click copy of prompt text to clipboard, usage-history logging on copy/use,
 and reopening historical prompts from the usage log.
 
+### Copy as a runnable paste
+
+```meta
+type: sub-feature
+status: draft
+related: [.domain/tasks/features.md#import, .domain/tasks/domain.md#task-type]
+```
+
+What the copy hands over is a prompt an AI session can run, not a title and
+some prose. The copy leads with one line that invokes the session's run skill
+on the [Task](domain.md#task) by the id Backlog itself knows it by, and then
+the title and body as written. The metadata line stays behind, as it always
+has: it is the app's bookkeeping, not part of the brief — and the plan a task
+was [imported](#import) under, the repositories it targets and the tasks it
+[waits on](#task-dependencies) are Backlog's to answer when the session asks
+by that id. A session that can ask checks whether the task is still
+outstanding before doing anything, and tells Backlog when the work is picked
+up and when it lands; one that cannot simply reads a prompt with one more line
+on top. Every [type](domain.md#task-type) is copied this way — a `task` too —
+because the copy says which entry it is and the session, not the copy, decides
+whether to run it.
+
 ### Hand-off to Copilot CLI
 
 ```meta

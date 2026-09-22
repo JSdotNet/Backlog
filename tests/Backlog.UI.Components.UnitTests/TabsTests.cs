@@ -183,6 +183,37 @@ public sealed class TabsTests
         Assert.Equal("After", tabs.Find("[role='tab']").TextContent.Trim());
     }
 
+    /// <summary>
+    /// The same lateness for the id. A host that renders one panel per item, un-keyed,
+    /// hands the surviving panel the next item's id when the item in front of it
+    /// goes; with the label unchanged the strip used to keep the old tab - wired to
+    /// a panel that no longer exists, and never the selected one.
+    /// </summary>
+    [Fact]
+    public void A_panel_id_that_changes_is_drawn_on_the_strip_straight_away()
+    {
+        using var context = new BunitContext();
+
+        var tabs = context.Render<Tabs>(parameters => parameters
+            .Add(t => t.ActiveId, "before")
+            .AddChildContent<TabPanel>(child => child
+                .Add(p => p.Id, "before")
+                .Add(p => p.Title, "Same")));
+
+        Assert.Equal("tab-before", tabs.Find("[role='tab']").GetAttribute("id"));
+
+        tabs.Render(parameters => parameters
+            .Add(t => t.ActiveId, "after")
+            .AddChildContent<TabPanel>(child => child
+                .Add(p => p.Id, "after")
+                .Add(p => p.Title, "Same")));
+
+        var tab = tabs.Find("[role='tab']");
+        Assert.Equal("tab-after", tab.GetAttribute("id"));
+        Assert.Equal("true", tab.GetAttribute("aria-selected"));
+        Assert.Equal("tab-after", tabs.Find("[role='tabpanel']").GetAttribute("aria-labelledby"));
+    }
+
     [Fact]
     public void A_panel_can_be_rendered_as_another_element_under_another_class()
     {

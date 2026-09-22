@@ -30,6 +30,13 @@ public class TasksRowPickersTests
     private static IElement Row(IRenderedComponent<TasksPane> pane, EntryRow row) =>
         pane.Find($"[data-testid='{RowTestId(row)}']");
 
+    private static (string Glyph, string Title) Kind(IRenderedComponent<TasksPane> pane, EntryRow row)
+    {
+        var kind = Row(pane, row).QuerySelector(".task-item__detail--kind")
+            ?? throw new InvalidOperationException($"The row for '{row.PreviewTitle}' says nothing about its type.");
+        return (kind.QuerySelector(".task-item__glyph")?.TextContent ?? string.Empty, kind.GetAttribute("title") ?? string.Empty);
+    }
+
     private static IElement Picker(IRenderedComponent<TasksPane> pane, EntryRow row, string testId) =>
         Row(pane, row).QuerySelector($"[data-testid='{testId}'] select")
             ?? throw new InvalidOperationException($"The row for '{row.PreviewTitle}' has no {testId}.");
@@ -46,6 +53,48 @@ public class TasksRowPickersTests
         // is a control that misreports the row until somebody touches it.
         Assert.Equal("docs", Picker(pane, row, "row-repo-badge").GetAttribute("value"));
         Assert.Equal(nameof(EntryStatus.InProgress), Picker(pane, row, "row-status-badge").GetAttribute("value"));
+    }
+
+    [Fact]
+    public async Task ARowSaysWhatTheEntryWasFiledAs()
+    {
+        // Not a picker, and the one fact here the reader could not get from the
+        // row before: a prompt and a task looked the same until opened. A mark per
+        // type on the metadata line, with the panel's own word for the type behind
+        // it for the tooltip and the screen reader.
+        using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
+        var prompt = await host.WriteEntryAsync("# Write the ADR\n`prompt`\n");
+        var task = await host.WriteEntryAsync("# Provision the box\n`task`\n");
+        var idea = await host.WriteEntryAsync("# A kiosk mode\n`idea`\n");
+
+        var pane = host.Render();
+
+        Assert.Equal(("✨", "Type: prompt"), Kind(pane, prompt));
+        Assert.Equal(("📋", "Type: task"), Kind(pane, task));
+        Assert.Equal(("💡", "Type: idea"), Kind(pane, idea));
+    }
+
+    [Fact]
+    public async Task TheMarkIsFirstOnTheLineWhateverElseTheRowSays()
+    {
+        // A mark is only a mark if it is always in the same place. The wait a
+        // blocked row leads with, the area, the step count: all of it lines up
+        // behind the glyph, so a column can be scanned for the prompts.
+        using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
+        await host.WriteEntryAsync("# Gather the sources\n`prompt` `id:gather`\n");
+        var blocked = await host.WriteEntryAsync("# Write the ADR\n`prompt` `@docs` `after:gather`\n\n## [ ] Draft it\n");
+
+        var pane = host.Render();
+
+        var details = Row(pane, blocked).QuerySelectorAll(".task-item__meta .task-item__detail");
+        Assert.Equal(
+            ["task-item__detail--kind", "task-item__detail--steps", "task-item__detail--note", "task-item__detail--blocked", "task-item__detail--group"],
+            details.Select(detail => detail.ClassList.Single(name => name.StartsWith("task-item__detail--", StringComparison.Ordinal))));
+
+        // The mark stands in for the content glyphs: the step count and the note
+        // follow it as words alone, one statement, and the wait keeps its ⏳
+        // after that statement rather than splitting it.
+        Assert.Equal(["✨", "⏳"], details.SelectMany(detail => detail.QuerySelectorAll(".task-item__glyph")).Select(glyph => glyph.TextContent));
     }
 
     [Fact]
