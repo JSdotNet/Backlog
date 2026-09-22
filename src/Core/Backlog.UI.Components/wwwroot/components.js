@@ -629,8 +629,126 @@
         // here — dropped, cancelled, Escape, the window losing focus — so there is
         // one place the line has to be taken away and it is this one.
         taskLinkClear();
+        taskScrollStop();
 
         taskDrag = null;
+    }
+
+    // ----- Scrolling the list from its edges ------------------------------
+    //
+    // A row can only be dropped where the pointer can reach, and the pointer
+    // cannot reach past the edge of the container the list scrolls in. So while
+    // a drag is in flight and the pointer sits inside a band along that
+    // container's top or bottom edge, the container is scrolled toward that
+    // edge — faster the deeper into the band, and never faster than the cap.
+    // `interaction-guidelines.md#autoscroll` asks for exactly this, at a bounded
+    // speed.
+    //
+    // A frame loop rather than work done on pointermove, for the same reason the
+    // link line is one: a reader who parks the pointer at the edge produces no
+    // further events, and parking it there is precisely how they ask for the list
+    // to keep going. The loop runs for the length of an active drag and costs one
+    // rectangle a frame while the pointer is nowhere near an edge; it stops with
+    // the gesture, through `endTaskDrag`, so every way a drag can end ends this
+    // too.
+    //
+    // Scrolling moves the rows under a pointer that has not moved, so each frame
+    // that scrolled asks again which row is under it and reports that on the same
+    // terms a pointermove would — `taskReportOver`, which is the one path to C#
+    // for that question. The preview and the armed row therefore follow the scroll
+    // rather than freezing on the row that was under the pointer when it stopped.
+    //
+    // Nothing here is decorative, so there is no reduced-motion branch to take:
+    // `accessibility.md` keeps autoscroll working under `prefers-reduced-motion`
+    // and only forbids motion added on top of it, and none is.
+
+    // How deep the band at each edge is, in px. Wide enough that a pointer aimed
+    // at the last visible row lands in it without hunting for the edge itself.
+    const TASK_DRAG_SCROLL_EDGE_PX = 48;
+
+    // The fastest the list moves, in px per frame — reached only with the pointer
+    // on the edge itself. Bounded because a list that flies past the row the
+    // reader wanted is a list they have to drag back.
+    const TASK_DRAG_SCROLL_MAX_PX = 14;
+
+    let taskScrollFrame = 0;
+
+    // The element that scrolls the list: the row's nearest ancestor that both
+    // says it scrolls and currently has something to scroll. Found from the row
+    // rather than named, because this library does not know which host pane the
+    // list sits in — the desktop pane's body, the storybook page, a mobile
+    // sheet — and a container that clips without scrolling is not one to move.
+    // Nothing found means the document itself scrolls, or nothing does; the
+    // scrolling element with the viewport as its box covers both, since a page
+    // with nothing to scroll simply refuses the scrollTop.
+    function taskScrollerFor(row) {
+        for (let node = row.parentElement; node && node !== document.documentElement; node = node.parentElement) {
+            const overflow = getComputedStyle(node).overflowY;
+            if ((overflow === 'auto' || overflow === 'scroll') && node.scrollHeight > node.clientHeight) {
+                return node;
+            }
+        }
+
+        return document.scrollingElement ?? document.documentElement;
+    }
+
+    // The box the edge bands are measured against. The viewport for the document
+    // — its own rect is the page, not the window — and the element's rect for
+    // anything else.
+    function taskScrollerBox(scroller) {
+        return scroller === document.scrollingElement || scroller === document.documentElement
+            ? { top: 0, bottom: window.innerHeight }
+            : scroller.getBoundingClientRect();
+    }
+
+    function taskScrollTick() {
+        if (taskScrollFrame) return;
+
+        taskScrollFrame = requestAnimationFrame(() => {
+            taskScrollFrame = 0;
+            taskScrollStep();
+        });
+    }
+
+    function taskScrollStop() {
+        if (taskScrollFrame) {
+            cancelAnimationFrame(taskScrollFrame);
+            taskScrollFrame = 0;
+        }
+    }
+
+    function taskScrollStep() {
+        if (!taskDrag || !taskDrag.active) return;
+
+        // Next frame first, ahead of every early return: the pointer can enter a
+        // band without moving, because the rows scroll under it.
+        taskScrollTick();
+
+        const scroller = taskDrag.scroller ??= taskScrollerFor(taskDrag.row);
+        const box = taskScrollerBox(scroller);
+        const y = taskDrag.y;
+
+        // How far into a band the pointer is, as a fraction — negative for the
+        // top band, positive for the bottom, zero between them. Linear with depth
+        // so that the edge of the band is a nudge and the edge of the container
+        // is the cap; the cap is what keeps it bounded.
+        let ratio = 0;
+        if (y < box.top + TASK_DRAG_SCROLL_EDGE_PX) {
+            ratio = -Math.min(1, (box.top + TASK_DRAG_SCROLL_EDGE_PX - y) / TASK_DRAG_SCROLL_EDGE_PX);
+        } else if (y > box.bottom - TASK_DRAG_SCROLL_EDGE_PX) {
+            ratio = Math.min(1, (y - (box.bottom - TASK_DRAG_SCROLL_EDGE_PX)) / TASK_DRAG_SCROLL_EDGE_PX);
+        }
+
+        if (ratio === 0) return;
+
+        const before = scroller.scrollTop;
+        scroller.scrollTop = before + Math.round(ratio * TASK_DRAG_SCROLL_MAX_PX);
+
+        // At the end already, so nothing moved and nothing under the pointer
+        // changed. Not a reason to stop the loop: the reader may come back.
+        if (scroller.scrollTop === before) return;
+
+        taskReportOver(taskDrag.x, taskDrag.y);
     }
 
     // Which row the pointer is over, and only that. What the drop is going to
@@ -946,18 +1064,71 @@
             // read but never written for the rest of the drag: the mode is not
             // something the pointer's later travels get a vote on.
             link: onLinkHandle,
-            lastOverId: null
+            lastOverId: null,
+            // Where the pointer last was, for the frames between events: the
+            // edge scroll reads them while the pointer holds still. The scroller
+            // is looked up on first use rather than here, because a press that
+            // never becomes a drag should not pay for a walk up the tree.
+            x: event.clientX,
+            y: event.clientY,
+            scroller: null
         };
     });
 
+    // Which row the pointer is over, reported to C# only when the answer changes.
+    // A pointer crossing a list produces a move event per frame, and each one is
+    // a round trip to C# — the row under the pointer is what the drop needs, not
+    // how often it was asked. Two callers: the pointermove below, and the frame
+    // loop that scrolls the list from its edges, since scrolling changes the
+    // answer without a move. One function so that the memo is one memo — a
+    // second copy of it would let the two report the same row twice, or let one
+    // miss a change the other had already swallowed.
+    //
+    // Null is one of the answers, and reporting it is the whole point. This
+    // used to fall silent when the hit test found no row, which left C# holding
+    // the last row the pointer had crossed for the rest of the gesture: a link
+    // released over empty space wrote a dependency on a row the reader had left
+    // behind, and the row stayed lit while the line went quiet. So "over no
+    // row" is a value here rather than the absence of one, and the memo
+    // stores it like any other — leaving a list reports once, coming back
+    // reports once, and holding still off it reports nothing at all.
+    //
+    // Nullable through the existing call rather than a second `PointerDragOut`
+    // one, because "which row is the pointer over" is one question with one
+    // answer and one place it is answered. A second entry point would be a
+    // second thing to keep in step with this one, and — worse — would let a
+    // stale script report entering a row while never reporting leaving one,
+    // which is exactly the state the defect lived in. A stale script that has
+    // never heard of null simply reports as it always did.
+    //
+    // The dragged row is still reported by id. C# knows which row it handed
+    // out and turns it into "no target" itself, so the rule that a link cannot
+    // land on its own payload has one owner — see `TaskListView.DragOver`.
+    function taskReportOver(x, y) {
+        const overId = taskRowFromPoint(x, y)?.getAttribute('data-task-id') ?? null;
+        if (overId === taskDrag.lastOverId) return;
+
+        taskDrag.lastOverId = overId;
+        taskDrag.ref.invokeMethodAsync('PointerDragOver', overId).catch(() => {
+        });
+    }
+
     document.addEventListener('pointermove', (event) => {
         if (!taskDrag || event.pointerId !== taskDrag.pointerId) return;
+
+        taskDrag.x = event.clientX;
+        taskDrag.y = event.clientY;
 
         if (!taskDrag.active) {
             const travelled = Math.hypot(event.clientX - taskDrag.startX, event.clientY - taskDrag.startY);
             if (travelled < TASK_DRAG_THRESHOLD_PX) return;
 
             taskDrag.active = true;
+
+            // From here until the gesture ends, the list scrolls itself when the
+            // pointer nears an edge. Started with the drag rather than on entering
+            // a band, so that the rows scrolling under a still pointer are seen.
+            taskScrollTick();
 
             // Two entry points rather than one with a mode argument, so the mode
             // is structural: there is no way to start a link drag except by having
@@ -973,41 +1144,12 @@
             });
         }
 
-        // The line, if this drag is drawing one. Ahead of the block below, because
-        // that one returns as soon as the row has not changed — and the line
-        // follows the pointer within a row as well as between them.
+        // The line, if this drag is drawing one. The line follows the pointer
+        // within a row as well as between them, so it is queued whether or not
+        // the row under the pointer has changed.
         if (taskDrag.link) taskLinkQueue(event.clientX, event.clientY);
 
-        // Reported only when the answer changes. A pointer crossing a list produces
-        // a move event per frame, and each one is a round trip to C# — the row under
-        // the pointer is what the drop needs, not how often it was asked.
-        //
-        // Null is one of the answers, and reporting it is the whole point. This
-        // used to fall silent when the hit test found no row, which left C# holding
-        // the last row the pointer had crossed for the rest of the gesture: a link
-        // released over empty space wrote a dependency on a row the reader had left
-        // behind, and the row stayed lit while the line went quiet. So "over no
-        // row" is a value here rather than the absence of one, and the memo below
-        // stores it like any other — leaving a list reports once, coming back
-        // reports once, and holding still off it reports nothing at all.
-        //
-        // Nullable through the existing call rather than a second `PointerDragOut`
-        // one, because "which row is the pointer over" is one question with one
-        // answer and one place it is answered. A second entry point would be a
-        // second thing to keep in step with this one, and — worse — would let a
-        // stale script report entering a row while never reporting leaving one,
-        // which is exactly the state the defect lived in. A stale script that has
-        // never heard of null simply reports as it always did.
-        //
-        // The dragged row is still reported by id. C# knows which row it handed
-        // out and turns it into "no target" itself, so the rule that a link cannot
-        // land on its own payload has one owner — see `TaskListView.DragOver`.
-        const overId = taskRowFromPoint(event.clientX, event.clientY)?.getAttribute('data-task-id') ?? null;
-        if (overId === taskDrag.lastOverId) return;
-
-        taskDrag.lastOverId = overId;
-        taskDrag.ref.invokeMethodAsync('PointerDragOver', overId).catch(() => {
-        });
+        taskReportOver(event.clientX, event.clientY);
     });
 
     document.addEventListener('pointerup', (event) => {
