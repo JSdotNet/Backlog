@@ -1,7 +1,8 @@
 @*
-    The frame every part of the dashboard wears: a title, an optional line saying
-    what the figures do and do not cover, a refresh control, and the part's own
-    content below.
+    The frame every part of the dashboard wears: a title, an optional note saying
+    what the figures do and do not cover — behind an info mark, not on the face,
+    so the figures are what the part shows — a refresh control, and the part's
+    own content below.
 
     It exists so the seven parts look like seven parts of one thing without each
     of them re-deciding what a heading is. There is nothing configurable on it —
@@ -20,7 +21,13 @@
             <h3 class="dashboard-part__title">@Title</h3>
             @if (!string.IsNullOrWhiteSpace(Note))
             {
-                <p class="dashboard-part__note" data-testid="@(TestId is null ? null : TestId + "-note")">@Note</p>
+                @* Beside the heading rather than inside it, so the heading's name
+                   stays the title and the mark's name stays "About <title>". *@
+                <InfoHint AriaLabel="@($"About {Title}")"
+                          Text="@Note"
+                          CssClass="dashboard-part__hint"
+                          TriggerTestId="@(TestId is null ? null : TestId + "-info")"
+                          TooltipTestId="@(TestId is null ? null : TestId + "-note")" />
             }
         </div>
 
@@ -43,9 +50,9 @@
     [Parameter]
     public string Title { get; set; } = string.Empty;
 
-    /// <summary>One line about what the figures cover. The cost parts use it to say
-    /// they are not filtered by repository, which is the one thing about this
-    /// dashboard a reader could otherwise get wrong.</summary>
+    /// <summary>What the figures cover, read on hover or focus of the info mark.
+    /// The cost parts use it to say they are not filtered by repository, which is
+    /// the one thing about this dashboard a reader could otherwise get wrong.</summary>
     [Parameter]
     public string? Note { get; set; }
 

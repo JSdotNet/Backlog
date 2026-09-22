@@ -317,7 +317,7 @@ public sealed class EntryScheduleControlsTests
     public async Task The_dependency_picker_excludes_completed_entries()
     {
         using var host = await TasksPaneHost.CreateAsync();
-        var done = await host.WriteEntryAsync("# Provision the box\n`task` `!done`\n\nAlready shipped.\n");
+        var done = await host.WriteEntryAsync("# Provision the box\n`task` `!done` `completed:2026-09-22`\n\nAlready shipped.\n");
         var open = await host.WriteEntryAsync(ExpandedEntry);
 
         var pane = host.Render();
@@ -328,7 +328,7 @@ public sealed class EntryScheduleControlsTests
         var options = pane.FindAll("[data-testid='entry-depends-select'] [role='option']");
 
         Assert.DoesNotContain(options, option => option.TextContent == "Provision the box");
-        Assert.Equal(EntryStatus.Done, done.PreviewStatus);
+        Assert.True(done.IsPreviewCompleted);
         Assert.NotNull(open);
     }
 
@@ -461,7 +461,7 @@ public sealed class EntryScheduleControlsTests
     public async Task A_dependency_written_as_a_local_id_names_the_entry_imported_under_it()
     {
         using var host = await TasksPaneHost.CreateAsync();
-        var step = await host.WriteEntryAsync("# Task sync endpoints\n`task` `id:sync-tasks` `!done`\n\nShipped.\n");
+        var step = await host.WriteEntryAsync("# Task sync endpoints\n`task` `id:sync-tasks` `!done` `completed:2026-09-22`\n\nShipped.\n");
         var waiting = await host.WriteEntryAsync("# First deployment\n`task` `after:sync-tasks`\n\nDeploy it.\n");
 
         // The text is left as written — resolution is a reading, not a rewrite.

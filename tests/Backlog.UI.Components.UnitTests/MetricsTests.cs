@@ -212,6 +212,75 @@ public sealed class MetricTileTests
         Assert.Contains("metric-tile--emphasis", tile.Find("article").ClassList);
     }
 
+    /// <summary>
+    /// A footnote that explains the figure rather than naming it goes behind a mark on
+    /// the label line: the tile shows a number and a name, and the sentence is one hover
+    /// away. The text stays in the DOM, because the mark is described by it.
+    /// </summary>
+    [Fact]
+    public void A_hinted_footnote_is_a_mark_on_the_label_rather_than_a_line_under_the_value()
+    {
+        using var context = new BunitContext();
+
+        var tile = context.Render<MetricTile>(parameters => parameters
+            .Add(t => t.Label, "Agent-active time")
+            .Add(t => t.Value, "5h")
+            .Add(t => t.Footnote, "Time an agent was producing, not time a session was open.")
+            .Add(t => t.FootnoteAsHint, true)
+            .Add(t => t.TestId, "active"));
+
+        var trigger = tile.Find("[data-testid='active-info']");
+        var bubble = tile.Find("[data-testid='active-note']");
+
+        Assert.Empty(tile.FindAll(".metric-tile__footnote"));
+        Assert.Equal(tile.Find(".metric-tile__label"), trigger.ParentElement?.ParentElement);
+        Assert.Equal("About Agent-active time", trigger.GetAttribute("aria-label"));
+        Assert.Equal(bubble.Id, trigger.GetAttribute("aria-describedby"));
+        Assert.Contains("Time an agent was producing", bubble.TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>Without the switch the footnote is the line it always was, so every
+    /// other host of this tile is untouched.</summary>
+    [Fact]
+    public void An_unhinted_footnote_is_still_a_line_under_the_value()
+    {
+        using var context = new BunitContext();
+
+        var tile = context.Render<MetricTile>(parameters => parameters
+            .Add(t => t.Label, "Review rounds")
+            .Add(t => t.Value, "3")
+            .Add(t => t.Footnote, "Of those rounds")
+            .Add(t => t.TestId, "rounds"));
+
+        Assert.Equal("Of those rounds", tile.Find(".metric-tile__footnote").TextContent);
+        Assert.Empty(tile.FindAll(".info-hint__trigger"));
+    }
+
+    /// <summary>
+    /// A mark explaining how a number was arrived at, on a tile that has no number, is a
+    /// caption for nothing — and the paragraph is not the fallback either. A host that
+    /// asked for the footnote to be off the face meant in every state, so the unscored
+    /// tile prints nothing rather than the prose the switch was there to remove.
+    /// </summary>
+    [Fact]
+    public void A_tile_that_is_not_ready_carries_neither_the_mark_nor_the_line()
+    {
+        using var context = new BunitContext();
+
+        var tile = context.Render<MetricTile>(parameters => parameters
+            .Add(t => t.Label, "Agent-active time")
+            .Add(t => t.Footnote, "Time an agent was producing.")
+            .Add(t => t.FootnoteAsHint, true)
+            .Add(t => t.Status, MetricStatusKind.Unavailable)
+            .Add(t => t.StatusMessage, "No provider could answer"));
+
+        Assert.Empty(tile.FindAll(".info-hint__trigger"));
+        Assert.Empty(tile.FindAll(".metric-tile__footnote"));
+        Assert.DoesNotContain("Time an agent was producing", tile.Markup, StringComparison.Ordinal);
+        // The status still speaks, because that is the tile saying why it is empty.
+        Assert.Contains("No provider could answer", tile.Markup, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void A_host_can_replace_the_block_class_and_every_part_with_it()
     {
@@ -414,6 +483,45 @@ public sealed class MetricBarsTests
 {
     private static IReadOnlyList<MetricPoint> Days(int count) =>
         [.. Enumerable.Range(1, count).Select(day => new MetricPoint($"{day:00} Aug", day * 10m))];
+
+    /// <summary>
+    /// The caption names the columns; what a reader would otherwise get wrong about them
+    /// goes behind a mark beside it. A chart whose caption is three sentences is prose
+    /// with a picture in it, and five of those on one card is the card nobody reads.
+    /// </summary>
+    [Fact]
+    public void A_note_is_a_mark_beside_the_caption_rather_than_more_caption()
+    {
+        using var context = new BunitContext();
+
+        var bars = context.Render<MetricBars>(parameters => parameters
+            .Add(b => b.Points, Days(3))
+            .Add(b => b.Label, "Sessions per week")
+            .Add(b => b.Note, "Counted in the week they last moved.")
+            .Add(b => b.TestId, "weeks"));
+
+        var caption = bars.Find("figcaption");
+        var trigger = bars.Find("[data-testid='weeks-info']");
+
+        Assert.StartsWith("Sessions per week", caption.TextContent.Trim(), StringComparison.Ordinal);
+        Assert.Equal(caption, trigger.ParentElement?.ParentElement);
+        Assert.Equal("About Sessions per week", trigger.GetAttribute("aria-label"));
+        Assert.Equal(
+            bars.Find("[data-testid='weeks-note']").Id,
+            trigger.GetAttribute("aria-describedby"));
+    }
+
+    [Fact]
+    public void A_caption_with_no_note_carries_no_mark()
+    {
+        using var context = new BunitContext();
+
+        var bars = context.Render<MetricBars>(parameters => parameters
+            .Add(b => b.Points, Days(3))
+            .Add(b => b.Label, "Sessions per week"));
+
+        Assert.Empty(bars.FindAll(".info-hint__trigger"));
+    }
 
     [Fact]
     public void No_buckets_is_an_empty_period_rather_than_an_empty_frame()

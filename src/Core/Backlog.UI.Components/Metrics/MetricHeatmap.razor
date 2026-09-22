@@ -23,7 +23,21 @@
 <div class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
     @if (!string.IsNullOrWhiteSpace(Label))
     {
-        <p class="@(Part("label"))" id="@LabelId">@Label</p>
+        <p class="@(Part("label"))" id="@LabelId">
+            @Label
+            @if (!string.IsNullOrWhiteSpace(Note))
+            {
+                @* Outside the id the table is labelled by, in the sense that matters:
+                   a hidden bubble contributes nothing to an accessible name, so the
+                   table is named by the caption and the explanation is reached through
+                   the mark's own button. *@
+                <InfoHint AriaLabel="@($"About {Label}")"
+                          Text="@Note"
+                          CssClass="@(Part("hint"))"
+                          TriggerTestId="@(TestId is null ? null : TestId + "-info")"
+                          TooltipTestId="@(TestId is null ? null : TestId + "-note")" />
+            }
+        </p>
     }
 
     @if (Buckets.Count == 0 || Rows.Count == 0)
@@ -126,6 +140,12 @@
 
     [Parameter]
     public string? Label { get; set; }
+
+    /// <summary>What a reader would otherwise get wrong about the figures — what a
+    /// column counts, what it refuses, what it is not a total of. Behind a mark on
+    /// the caption rather than in it, so the caption stays a name.</summary>
+    [Parameter]
+    public string? Note { get; set; }
 
     /// <summary>Names the grid when there is no visible label.</summary>
     [Parameter]

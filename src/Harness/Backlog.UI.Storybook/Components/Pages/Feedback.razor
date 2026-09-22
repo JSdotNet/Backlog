@@ -163,6 +163,19 @@ Bars inside a table's own cells — the tools pane's placeholder — are the Dat
         </div>
     </Story>
 
+    <Story Name="InfoHint"
+           Description="An explanation behind a mark rather than on the face: the bubble shows on hover and on focus, a press pins it for a touch screen, and Escape closes it until the pointer or focus leaves. The trigger is a real button with an accessible name and aria-describedby pointing at the bubble, so a screen reader hears the text without it being visible — which is why nothing here uses a title attribute, which never opens from the keyboard. The bubble is on the raised surface every popover takes and wraps at 44ch."
+           Code="@InfoHintCode">
+        <div class="sb-stack">
+            <div class="sb-row">
+                <span class="sb-label" style="font-family: var(--font-family-heading); font-weight: 700;">Score</span>
+                <InfoHint AriaLabel="About Score"
+                          Text="Two scores, each weighted and normalised to 100: volume is what you shipped against your own record, quality is how much of it was reviewed promptly, merged clean, synced without a conflict and kept small."
+                          TriggerTestId="info-hint-demo" />
+            </div>
+        </div>
+    </Story>
+
     <Story Name="Toast and ToastHost"
            Description="One live region for the whole page; toasts come and go inside it. Each one dismisses itself after its duration, and can be dismissed sooner."
            Code="@ToastCode">
@@ -373,6 +386,11 @@ Bars inside a table's own cells — the tools pane's placeholder — are the Dat
 
             public void Dispose() => _save.Dispose();
         }
+        """;
+
+    private const string InfoHintCode = """
+        <h3>Score</h3>
+        <InfoHint AriaLabel="About Score" Text="Two scores, each weighted and normalised to 100: ..." />
         """;
 
     private const string ToastCode = """

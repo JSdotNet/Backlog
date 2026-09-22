@@ -130,6 +130,7 @@
                 <MetricTile Label="Agent-active time"
                             Value="@DashboardFormat.Duration(Value!.ActiveTime)"
                             Footnote="@ActiveTimeFootnote"
+                            FootnoteAsHint="true"
                             TestId="dashboard-sessions-active" />
                 @* "For a prompt" rather than "on you". Nearly every prompt that ends a
                    gap here comes from an SDK or a skill rather than from the keyboard —
@@ -138,6 +139,7 @@
                 <MetricTile Label="Waiting for a prompt"
                             Value="@DashboardFormat.Duration(Value!.Waiting)"
                             Footnote="@WaitingFootnote"
+                            FootnoteAsHint="true"
                             TestId="dashboard-sessions-waiting" />
                 @* A mean over the sessions that carry a count, and the footnote names
                    how many that is. Only Claude records one, so a mean that treated the
@@ -147,6 +149,7 @@
                 <MetricTile Label="Prompts per session"
                             Value="@Prompts(Value!.PromptsPerSession)"
                             Footnote="@PromptsFootnote"
+                            FootnoteAsHint="true"
                             TestId="dashboard-sessions-prompts" />
                 @* The instant rather than "two hours ago". A relative figure would need
                    a clock in a component that otherwise reads none, and would go stale
@@ -163,6 +166,7 @@
                 <MetricTile Label="Most sessions at once"
                             Value="@Peak(Value!.MostSessionsAtOnce)"
                             Footnote="@SessionsAtOnceFootnote"
+                            FootnoteAsHint="true"
                             TestId="dashboard-sessions-at-once" />
                 @* A second population, and the tile beside it is the reason the footnote
                    has to say so twice over: these are counted apart from the sessions, and
@@ -171,6 +175,7 @@
                 <MetricTile Label="Most agents at once"
                             Value="@Peak(Value!.MostAgentsAtOnce)"
                             Footnote="@AgentsAtOnceFootnote"
+                            FootnoteAsHint="true"
                             TestId="dashboard-sessions-agents-at-once" />
                 @* The refusals, counted where they were written. A count rather than a
                    duration because that is what the transcript holds: the moment the
@@ -203,6 +208,7 @@
                                    Lines="@WeeklyLines"
                                    Mode="MetricBarsMode.Stacked"
                                    Label="@WeeklyLabel"
+                                   Note="@WeeklyNote"
                                    NameHeading="Measure"
                                    TotalHeading="Agent-hours on the go"
                                    LegendLabel="Measures shown — the filter for both charts"
@@ -235,6 +241,7 @@
                 <MetricStackedBars Series="@RepositorySeries"
                                    Mode="MetricBarsMode.Stacked"
                                    Label="@RepositoryLabel"
+                                   Note="@RepositoryNote"
                                    NameHeading="Repository"
                                    TotalHeading="@RepositoryTotalHeading"
                                    LegendLabel="Repositories"
@@ -254,6 +261,7 @@
             {
                 <MetricHeatmap Series="@ByHour"
                                Label="@ByHourLabel"
+                               Note="@ByHourNote"
                                CellDetail="@CellDetail"
                                CellMarked="@InsideWorkingHours"
                                MarkedLabel="working hours"
@@ -271,6 +279,7 @@
                    idle. *@
                 <MetricHeatmap Series="@ByHourOpen"
                                Label="@ByHourOpenLabel"
+                               Note="@ByHourOpenNote"
                                CellDetail="@CellDetail"
                                CellMarked="@InsideWorkingHours"
                                MarkedLabel="working hours"
@@ -288,6 +297,7 @@
                    saying only that is the honest version of it. *@
                 <MetricHeatmap Series="@ByHourAgents"
                                Label="@ByHourAgentsLabel"
+                               Note="@ByHourAgentsNote"
                                CellMarked="@InsideWorkingHours"
                                MarkedLabel="working hours"
                                CellFlag="@LimitFlag"
@@ -539,17 +549,22 @@
                 _ => "Calendar weeks from Monday, because no usage reset is known — set yours in Settings to cut by it"
             };
 
+    /// <summary>The caption is a name; everything a reader would otherwise get wrong
+    /// about these columns is behind the mark beside it.</summary>
+    private const string WeeklyLabel = "Agent-hours and counts per week";
+
     /// <summary>
-    /// What the chart is, said where it is: which measures are the columns and which
-    /// the lines, that the right scale is the lines' own, that the legend is the
-    /// filter for the chart below, that a column can be pressed — and the two bucketing
-    /// rules that live side by side here: a session and its prompts are counted in the
-    /// week the session last moved, its hours are wherever they were worked.
+    /// Which measures are the columns and which the lines, that the right scale is the
+    /// lines' own, that the legend is the filter for the chart below, that a column can
+    /// be pressed — and the two bucketing rules that live side by side here: a session
+    /// and its prompts are counted in the week the session last moved, its hours are
+    /// wherever they were worked. The week sentence leads, because which week a column
+    /// is settles everything after it.
     /// </summary>
-    private string WeeklyLabel =>
-        $"{WeekSentence}. Agent-hours per week, producing and waiting, stacked — with sessions, prompts per session and the two peaks as lines "
+    private string WeeklyNote =>
+        $"{WeekSentence}. Hours producing and waiting are stacked; sessions, prompts per session and the two peaks are lines "
         + "on the right-hand scale, which is theirs alone. The legend is the filter for this chart and the one below; press a week to open it in the grids further down. "
-        + "Sessions and prompts are counted in the week the session last moved; hours are placed in the week they were worked";
+        + "Sessions and prompts are counted in the week the session last moved; hours are placed in the week they were worked.";
 
     /// <summary>
     /// One series per repository band: the selected measures added up, week by week.
@@ -613,12 +628,28 @@
         : HoursOnly ? "All repositories, agent-hours"
         : "All repositories — a sum across measures, not a figure of anything";
 
-    /// <summary>
-    /// The caption changes with the selection, because the sentence the columns owe
-    /// does: what went into a band, whether that sum means anything, that the unrecorded
-    /// band is every Claude session, and whether the header's scope has narrowed it.
-    /// </summary>
+    /// <summary>A name, and the selection is part of it: which measures a band is made
+    /// of is the one thing about this chart that changes under the reader's hand.</summary>
     private string RepositoryLabel
+    {
+        get
+        {
+            var selected = Selected;
+
+            return selected.Count == 0
+                ? "Nothing selected, by repository"
+                : selected.Count == 1
+                    ? $"{Name(selected[0])} per week, by repository"
+                    : $"{string.Join(" + ", selected.Select(Name))} per week, by repository";
+        }
+    }
+
+    /// <summary>
+    /// The note changes with the selection too, because what it has to say does: whether
+    /// the sum means anything, that the unrecorded band is every Claude session, whether
+    /// the header's scope has narrowed it, and that a week can be pressed.
+    /// </summary>
+    private string RepositoryNote
     {
         get
         {
@@ -627,15 +658,15 @@
             var what = selected.Count == 0
                 ? "Nothing selected in the legend above, so nothing to stack"
                 : selected.Count == 1
-                    ? $"{Name(selected[0])} per week, stacked by repository"
-                    : $"{string.Join(" + ", selected.Select(Name))} per week, added up and stacked by repository"
+                    ? "The measure switched on above, added up per repository and stacked"
+                    : "The measures switched on above, added up per repository and stacked"
                       + (HoursOnly ? string.Empty : " — a sum across units that is not a figure of anything; switch measures off above to read one");
 
             var scoped = Scope.IsAllRepositories
                 ? "Only Copilot records a repository, so \"No repository recorded\" is every Claude session; the header's repository scope narrows this chart and nothing else on this part"
                 : "Narrowed to the header's repository scope — the sessions that recorded no repository, which is every Claude session, are out of it";
 
-            return $"{what}. {scoped}. Press a week to open it in the grids below";
+            return $"{what}. {scoped}. Press a week to open it in the grids below.";
         }
     }
 
@@ -772,8 +803,13 @@
     /// the other's noun is the one that had to give it up.
     /// </para>
     /// </summary>
-    private string ByHourLabel =>
-        $"Peak sessions producing at once, by hour of your local clock — {GridWeekSentence}. "
+    private const string ByHourLabel = "Sessions producing at once, by hour";
+
+    /// <summary>The week this grid is showing leads the note, because it is the one
+    /// thing about the grid a reader chose; the limit marks and the working-hours
+    /// outline follow, then what the row totals are and are not.</summary>
+    private string ByHourNote =>
+        $"Your local clock, {GridWeekSentence}. "
         + "A cell in the error colour is an hour Claude had walled you out for the 5-hour limit — from the refusal to the hour the window reset — "
         + "and a hollow dot is an hour it refused for the weekly one. "
         + "Outlined cells are your working hours from "
@@ -792,11 +828,13 @@
     /// abandoned window open for days.
     /// </para>
     /// </summary>
-    private const string ByHourOpenLabel =
-        "Sessions on the go at once — producing, or stopped with nothing having prompted "
-        + "them yet. Never lower than the grid above, and the gap between the two is the "
-        + "time an agent was open and idle. A session that went quiet and never resumed is "
-        + "not counted, because nothing records when a session ended.";
+    private const string ByHourOpenLabel = "Sessions on the go at once, by hour";
+
+    private const string ByHourOpenNote =
+        "Producing, or stopped with nothing having prompted them yet. Never lower than "
+        + "the grid above, and the gap between the two is the time an agent was open and "
+        + "idle. A session that went quiet and never resumed is not counted, because "
+        + "nothing records when a session ended.";
 
     /// <summary>
     /// What the third grid counts, and the two ways a reader would otherwise get it wrong.
@@ -813,8 +851,10 @@
     /// call and then nothing — is short by its own silence.
     /// </para>
     /// </summary>
-    private string ByHourAgentsLabel =>
-        $"Peak agents at once, by hour of your local clock — {GridWeekSentence}. "
+    private const string ByHourAgentsLabel = "Agents at once, by hour";
+
+    private string ByHourAgentsNote =>
+        $"Your local clock, {GridWeekSentence}. "
         + "These are the agents Claude's sessions spawned, and "
         + "they are in neither grid above: the three count different things and none is "
         + "another's total. One session can hold five of these at once, so this grid is "

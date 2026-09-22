@@ -476,7 +476,7 @@ public sealed class TagFilterTests
         using var host = await TasksPaneHost.CreateAsync();
 
         await host.WriteEntryAsync("# Provision the box\n`task` `!ready` `@platform` `#sync`\n");
-        await host.WriteEntryAsync("# Run the QA pass\n`task` `!done` `@platform` `#qascenario1`\n");
+        await host.WriteEntryAsync("# Run the QA pass\n`task` `!done` `completed:2026-09-22` `@platform` `#qascenario1`\n");
         await host.State.SelectAsync(null);
 
         Assert.Equal(
@@ -498,7 +498,7 @@ public sealed class TagFilterTests
         using var host = await TasksPaneHost.CreateAsync();
 
         await host.WriteEntryAsync("# Provision the box\n`task` `!ready` `@platform` `#sync`\n");
-        await host.WriteEntryAsync("# Retire the box\n`task` `!archived` `@platform` `#legacy`\n");
+        await host.WriteEntryAsync("# Retire the box\n`task` `!archived` `completed:2026-09-22` `@platform` `#legacy`\n");
         await host.State.SelectAsync(null);
 
         Assert.Equal(
@@ -516,7 +516,7 @@ public sealed class TagFilterTests
         using var host = await TasksPaneHost.CreateAsync();
 
         var live = await host.WriteEntryAsync("# Provision the box\n`task` `!ready` `@platform` `#sync`\n");
-        var finished = await host.WriteEntryAsync("# Draft the invite\n`task` `!done` `@platform` `#sync`\n");
+        var finished = await host.WriteEntryAsync("# Draft the invite\n`task` `!done` `completed:2026-09-22` `@platform` `#sync`\n");
         await host.State.SelectAsync(null);
 
         Assert.Equal(1, Option(host, "sync").OpenCount);
@@ -563,8 +563,8 @@ public sealed class TagFilterTests
         using var host = await TasksPaneHost.CreateAsync();
 
         await host.WriteEntryAsync("# Provision the box\n`task` `!ready` `@platform` `#sync`\n");
-        var finished = await host.WriteEntryAsync("# Write the runbook\n`task` `!done` `@platform`\n");
-        await host.WriteEntryAsync("# Retire the runbook\n`task` `!done` `@platform`\n");
+        var finished = await host.WriteEntryAsync("# Write the runbook\n`task` `!done` `completed:2026-09-22` `@platform`\n");
+        await host.WriteEntryAsync("# Retire the runbook\n`task` `!done` `completed:2026-09-22` `@platform`\n");
         await host.State.SelectAsync(null);
 
         Assert.Equal(["#sync"], host.State.TagFilters.Select(option => option.Label));
@@ -586,7 +586,7 @@ public sealed class TagFilterTests
     {
         using var host = await TasksPaneHost.CreateAsync();
 
-        await host.WriteEntryAsync("# Run the QA pass\n`task` `!done` `@platform` `#qascenario1`\n");
+        await host.WriteEntryAsync("# Run the QA pass\n`task` `!done` `completed:2026-09-22` `@platform` `#qascenario1`\n");
         await host.WriteEntryAsync("# Write the runbook\n`task` `!ready` `@platform`\n");
         await host.State.SelectAsync(null);
 
@@ -615,7 +615,7 @@ public sealed class TagFilterTests
 
         Assert.Equal(["sync"], host.State.SelectedTags);
 
-        await Retag(host, sync, "# Provision the box\n`task` `!done` `@platform` `#sync`\n");
+        await Retag(host, sync, "# Provision the box\n`task` `!done` `completed:2026-09-22` `@platform` `#sync`\n");
 
         Assert.Empty(host.State.SelectedTags);
         Assert.Equal(["#desktop"], host.State.TagFilters.Select(option => option.Label));
@@ -633,7 +633,7 @@ public sealed class TagFilterTests
     {
         using var host = await TasksPaneHost.CreateAsync();
 
-        await host.WriteEntryAsync("# Run the QA pass\n`task` `!done` `@qa` `#qascenario1`\n");
+        await host.WriteEntryAsync("# Run the QA pass\n`task` `!done` `completed:2026-09-22` `@qa` `#qascenario1`\n");
         await host.WriteEntryAsync("# Provision the box\n`task` `!ready` `@platform` `#sync`\n");
         await host.State.SelectAsync(null);
 

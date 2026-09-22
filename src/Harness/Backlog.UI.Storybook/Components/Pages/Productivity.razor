@@ -123,6 +123,7 @@ Bands take a ramp step and a name, never a red-amber-green light."
            Code="@HeatmapCode">
         <MetricHeatmap Series="Windowed"
                        Label="@($"Score by repository and week, last {_weeks} weeks")"
+                       Note="Note holds what a reader would otherwise get wrong about the cells — what they count, and what they are not a total of — behind a mark beside the caption. The table keeps the caption as its name, and the mark's own button is what describes the rest."
                        SharedMax="MetricScoring.MaxScore"
                        FormatValue="MetricFormat.Score"
                        TestId="heatmap-score" />

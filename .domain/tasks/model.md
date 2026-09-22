@@ -32,6 +32,7 @@ classDiagram
         +LocalDateTime remind_at
         +Recurrence recurrence
         +Date in_my_day_on
+        +Date completed_on
         +List~Id~ depends_on
         +Id recurrence_source_id
         +Integer effort
@@ -147,6 +148,11 @@ classDiagram
   None of them is a `Timestamp`: `created_at` records when something happened and
   is an instant, while these three record what a person intended and are read
   against a local calendar.
+- `completed_on` is a fourth scalar of the same kind — the day the person ticked
+  the task off, or unset — and deliberately not a `Task Status` value: the
+  status says whether the work is over, the tick says whether the person is
+  finished with the task, and holding them apart is what lets a `done` task
+  stay on the open list until it is ticked.
 - `Recurrence` is an owned value object rather than a scalar because a repeat has
   internal structure (`interval`, `unit`, and an optional `Weekday` set) and no
   identity of its own. It describes the shape of the repeat only; the date of the

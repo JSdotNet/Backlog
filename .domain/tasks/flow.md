@@ -26,6 +26,15 @@ stateDiagram-v2
 
 - The `Ready → InProgress` transition emits `TaskProjected` (one artifact per
   `repo_id`); `Done` emits `TaskCompleted` to close all projections.
+- `Done` and `Archived` say the work is over. They do not say the person is
+  finished with the task: that is the tick — `completed_on`, the checkbox in
+  the list — which is a separate fact and not a state in this diagram. A task
+  can reach `done` and stay on the open list, unticked, until the person has
+  looked at it; and it can be ticked from any state, because the tick is not a
+  transition. Unticking clears the date and moves nothing here. Everything
+  that groups on "finished" — the Completed section, tag counts, dependency
+  readiness, the next occurrence of a repeat — reads the tick, never these two
+  states. See `.domain/tasks/domain.md#task`.
 - Scheduling attributes do not appear in this diagram, and that is deliberate.
   A due date, a reminder, a repeat and a My Day stamp are facts about when work
   is wanted, not lifecycle states — an overdue task is still `ready`, and
@@ -35,15 +44,19 @@ stateDiagram-v2
 
 ```mermaid
 flowchart TD
-    N["Occurrence N — due 21 Aug"] -->|"completed by a save"| E["Save use case"]
+    N["Occurrence N — due 21 Aug"] -->|"ticked off by a save (completed_on set)"| E["Save use case"]
     E --> Q{"carries a Recurrence?"}
-    Q -->|no| S["Stays Done — end of the line"]
+    Q -->|no| S["Stays ticked — end of the line"]
     Q -->|yes| P["Occurrence Spawning policy"]
-    P --> K["Occurrence N stays Done — the record of what was done"]
+    P --> K["Occurrence N stays ticked — the record of what was done"]
     P --> C["Occurrence N+1 created: ready, due 28 Aug, sub-items pending, recurrence_source_id points at N"]
     C -.->|"OccurrenceSpawned — documented, not yet emitted"| M["Monitoring would read the series"]
 ```
 
+- Completion is the tick — the save that sets `completed_on` from unset — and
+  not the status reaching `done`. A repeating task whose work is over but which
+  the person has not ticked spawns nothing yet; the next occurrence is owed
+  when they tick it, whatever its status is by then.
 - Completion does not roll one task forward; it leaves the finished occurrence
   in place and creates the next as a separate aggregate with its own lifecycle.
   The link between them is `recurrence_source_id` — provenance, not ownership.
@@ -55,7 +68,8 @@ flowchart TD
 - The next due date is calculated from the completed occurrence's `due_on`, not
   from the date it was actually finished, so lateness does not drift a schedule.
 - What resets on the new occurrence: sub-items return to `pending`, and
-  projections, usage history, `remind_at` and `in_my_day_on` do not carry over.
+  projections, usage history, `remind_at`, `in_my_day_on` and `completed_on` do
+  not carry over.
   What carries: title, body, type, priority, area, tags, `repo_ids`, and the
   `Recurrence` itself.
 

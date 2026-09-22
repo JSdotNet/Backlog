@@ -12,23 +12,34 @@ namespace Backlog.Modules.Tasks.UnitTests;
 /// spawn is deliberately part of saving rather than a policy behind an event: this
 /// context publishes no domain events yet, and ADR 0006 already declined to put a
 /// mediator between a caller and the use case it means.
+/// <para>
+/// Completing is the tick — the <c>completed:</c> token — and not the status
+/// reaching Done. The two are separate facts (<c>.domain/tasks/flow.md#task-lifecycle</c>),
+/// and it is the tick that says the person is finished with this occurrence.
+/// </para>
 /// </summary>
 public sealed class RecurringTaskTests
 {
+    private const string Open = "!in-progress";
+    private const string Ticked = "!in-progress` `completed:2026-08-21";
+
     [Fact]
     public async Task Completing_a_repeating_entry_creates_exactly_one_successor()
     {
         var store = new InMemoryTaskRepository();
 
-        var id = await Save(store, null, Text("!in-progress"));
-        await Save(store, id, Text("!done"));
+        var id = await Save(store, null, Text(Open));
+        await Save(store, id, Text(Ticked));
 
         var completed = store.Entries[id];
         var successor = store.Successor(id);
 
         // The finished occurrence stays finished: it is the record of what was
-        // done, not a slot to roll forward.
-        Assert.Equal(EntryStatus.Done, completed.Status);
+        // done, not a slot to roll forward. Its status is untouched — the tick
+        // is the completion, not a lifecycle step.
+        Assert.True(completed.IsCompleted);
+        Assert.Equal(EntryStatus.InProgress, completed.Status);
+        Assert.False(successor.IsCompleted);
         Assert.Equal(EntryStatus.Ready, successor.Status);
         Assert.Equal(new DateOnly(2026, 8, 28), successor.DueOn);
         Assert.Equal(completed.Id, successor.RecurrenceSourceId);
@@ -51,8 +62,8 @@ public sealed class RecurringTaskTests
     {
         var store = new InMemoryTaskRepository();
 
-        var id = await Save(store, null, Text("!in-progress"));
-        var completion = await SaveResult(store, id, Text("!done"));
+        var id = await Save(store, null, Text(Open));
+        var completion = await SaveResult(store, id, Text(Ticked));
 
         Assert.Equal(store.Successor(id).Id, completion.SpawnedOccurrenceId);
 
@@ -68,16 +79,16 @@ public sealed class RecurringTaskTests
         // A create, an ordinary edit, a completion with no repeat on it, and a
         // second save of an entry that was already done: four saves, no spawn, and
         // nothing for a caller to act on.
-        var created = await SaveResult(store, null, Text("!in-progress"));
+        var created = await SaveResult(store, null, Text(Open));
         Assert.Null(created.SpawnedOccurrenceId);
 
         Assert.Null((await SaveResult(store, created.Entry.Id, Text("!ready"))).SpawnedOccurrenceId);
 
         var plain = await SaveResult(store, null, "# Water the plants\n`task` `!in-progress`\n");
-        Assert.Null((await SaveResult(store, plain.Entry.Id, "# Water the plants\n`task` `!done`\n")).SpawnedOccurrenceId);
+        Assert.Null((await SaveResult(store, plain.Entry.Id, "# Water the plants\n`task` `!in-progress` `completed:2026-08-21`\n")).SpawnedOccurrenceId);
 
-        await SaveResult(store, created.Entry.Id, Text("!done"));
-        Assert.Null((await SaveResult(store, created.Entry.Id, Text("!done"))).SpawnedOccurrenceId);
+        await SaveResult(store, created.Entry.Id, Text(Ticked));
+        Assert.Null((await SaveResult(store, created.Entry.Id, Text(Ticked))).SpawnedOccurrenceId);
     }
 
     [Fact]
@@ -91,8 +102,8 @@ public sealed class RecurringTaskTests
         // about today.
         const string overdue = "# Weekly review\n`task` `{0}` `due:2020-01-03` `repeat:weekly`\n";
 
-        var id = await Save(store, null, string.Format(CultureInfo.InvariantCulture, overdue, "!in-progress"));
-        await Save(store, id, string.Format(CultureInfo.InvariantCulture, overdue, "!done"));
+        var id = await Save(store, null, string.Format(CultureInfo.InvariantCulture, overdue, Open));
+        await Save(store, id, string.Format(CultureInfo.InvariantCulture, overdue, Ticked));
 
         Assert.Equal(new DateOnly(2020, 1, 10), store.Successor(id).DueOn);
     }
@@ -103,7 +114,7 @@ public sealed class RecurringTaskTests
         var store = new InMemoryTaskRepository();
 
         var id = await Save(store, null, "# Water the plants\n`task` `!in-progress` `due:2026-08-21`\n");
-        await Save(store, id, "# Water the plants\n`task` `!done` `due:2026-08-21`\n");
+        await Save(store, id, "# Water the plants\n`task` `!in-progress` `completed:2026-08-21` `due:2026-08-21`\n");
 
         Assert.Single(store.Entries);
     }
@@ -118,10 +129,10 @@ public sealed class RecurringTaskTests
     {
         var store = new InMemoryTaskRepository();
 
-        var id = await Save(store, null, Text("!in-progress"));
-        await Save(store, id, Text("!done"));
-        await Save(store, id, Text("!done"));
-        await Save(store, id, Text("!done") + "\nAnd a note typed afterwards.\n");
+        var id = await Save(store, null, Text(Open));
+        await Save(store, id, Text(Ticked));
+        await Save(store, id, Text(Ticked));
+        await Save(store, id, Text(Ticked) + "\nAnd a note typed afterwards.\n");
 
         Assert.Equal(2, store.Entries.Count);
     }
@@ -138,11 +149,11 @@ public sealed class RecurringTaskTests
             + "\n"
             + "## Read last week's notes\n";
 
-        var id = await Save(store, null, string.Format(CultureInfo.InvariantCulture, body, "!in-progress"));
+        var id = await Save(store, null, string.Format(CultureInfo.InvariantCulture, body, Open));
         store.Entries[id].RecordUsage("copy");
         store.Entries[id].AddProjectionRef(new ProjectionRef("org/repo", "42", "issue"));
 
-        await Save(store, id, string.Format(CultureInfo.InvariantCulture, body, "!done"));
+        await Save(store, id, string.Format(CultureInfo.InvariantCulture, body, Ticked));
 
         var successor = store.Successor(id);
 
@@ -170,12 +181,33 @@ public sealed class RecurringTaskTests
         // Nothing to anchor the repeat to. Substituting today would make the
         // schedule depend on the moment somebody happened to tick the entry off.
         var id = await Save(store, null, "# Tidy up\n`task` `!in-progress` `repeat:weekly`\n");
-        await Save(store, id, "# Tidy up\n`task` `!done` `repeat:weekly`\n");
+        await Save(store, id, "# Tidy up\n`task` `!in-progress` `completed:2026-08-21` `repeat:weekly`\n");
 
         var successor = store.Successor(id);
 
         Assert.Null(successor.DueOn);
         Assert.Equal(EntryStatus.Ready, successor.Status);
+    }
+
+    /// <summary>The status reaching Done is the work being over, not the person
+    /// being finished with the occurrence: nothing spawns until they tick it.
+    /// Ticking a Done occurrence then spawns exactly as ticking an open one does.</summary>
+    [Fact]
+    public async Task Reaching_Done_spawns_nothing_until_the_entry_is_ticked()
+    {
+        var store = new InMemoryTaskRepository();
+
+        var id = await Save(store, null, Text(Open));
+        await Save(store, id, Text("!done"));
+
+        Assert.Single(store.Entries);
+        Assert.Equal(EntryStatus.Done, store.Entries[id].Status);
+
+        await Save(store, id, Text("!done` `completed:2026-08-25"));
+
+        Assert.Equal(2, store.Entries.Count);
+        Assert.Equal(EntryStatus.Done, store.Entries[id].Status);
+        Assert.Equal(new DateOnly(2026, 8, 28), store.Successor(id).DueOn);
     }
 
     [Fact]
@@ -186,7 +218,7 @@ public sealed class RecurringTaskTests
         // A create has no previous status for the save to have moved the entry
         // from, so nothing was completed here — an entry arriving finished is a
         // record of something done rather than an occurrence just now finishing.
-        await Save(store, null, Text("!done"));
+        await Save(store, null, Text(Ticked));
 
         Assert.Single(store.Entries);
     }
@@ -203,8 +235,8 @@ public sealed class RecurringTaskTests
     {
         var store = new InMemoryTaskRepository();
 
-        var id = await Save(store, null, Text("!in-progress", repeat));
-        await Save(store, id, Text("!done", repeat));
+        var id = await Save(store, null, Text(Open, repeat));
+        await Save(store, id, Text(Ticked, repeat));
 
         Assert.Equal(DateOnly.Parse(expected, CultureInfo.InvariantCulture), store.Successor(id).DueOn);
     }
@@ -218,7 +250,7 @@ public sealed class RecurringTaskTests
         var store = new InMemoryTaskRepository();
 
         var id = await Save(store, null, "# Pay the invoice\n`task` `!in-progress` `due:2026-01-31` `repeat:monthly`\n");
-        await Save(store, id, "# Pay the invoice\n`task` `!done` `due:2026-01-31` `repeat:monthly`\n");
+        await Save(store, id, "# Pay the invoice\n`task` `!in-progress` `completed:2026-08-21` `due:2026-01-31` `repeat:monthly`\n");
 
         Assert.Equal(new DateOnly(2026, 2, 28), store.Successor(id).DueOn);
     }
