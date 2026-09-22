@@ -190,3 +190,13 @@ related: [".arc42/04-solution-strategy.md"]
   private reading note is the inbox a session reads and resolves, and the answer
   is a devbook fence the session writes itself. Tool groups follow the feature
   flags of the areas they serve.
+- **[ADR 0013 — An imported plan is one Roadmap Item; a `plan` entry is the same grammar, and the importer places it](adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md)**
+  *(proposed)*: an imported plan is represented on the roadmap by one item whose
+  tag is the plan's shared tag with the `+` sigil lifted — `import_plan_id` keeps
+  the sigil, the item holds the bare slug, and the existing gather-by-tag joins
+  them. A roadmap-level entry is the entry grammar with the type word `plan`,
+  handed from Tasks' Import to Roadmap through a port and adapter; the importer
+  places the window (end from `due:`, start after the predecessors, length from
+  gathered effort over a person-owned velocity) and never overrides a window a
+  person moved; an item expands on the timeline into the tasks it gathers, sized
+  by effort, with progress read from Tasks and never stored.
