@@ -1747,6 +1747,22 @@ h1, h2, h3 {
     background: var(--color-background);
 }
 
+/* Out of the way while a row is in flight. Pinned to the bottom of the scroller,
+   the strip is painted over the last rows in view and takes the pointer's hit
+   for them — and the bottom of the scroller is exactly where a drag heads when
+   the row wants to go further down than the view reaches. The list scrolls from
+   its edge either way (components.js, `taskScrollStep`), but a drop target under
+   an opaque strip is a target the reader cannot see, and one the pointer cannot
+   name. Nobody adds an entry mid-drag, so for the length of one the strip
+   neither paints nor hits; its slot stays, so nothing reflows when it returns.
+   Both gestures, because a link drag lands on rows the same way. A sibling,
+   not a descendant: the list renders its AfterOpenRows slot after its own
+   `<ul>`, and the class it wears while dragging is on that `<ul>`. */
+.task-list--dragging ~ .entry-add-row,
+.task-list--linking ~ .entry-add-row {
+    visibility: hidden;
+}
+
 .entry-add-row > .entry-add {
     width: auto;
     flex: 1 1 auto;
