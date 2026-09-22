@@ -164,11 +164,13 @@ public sealed class SessionSyncSession
     /// session still carrying that stamp is excluded from every future run.
     /// </para>
     /// <para>
-    /// The whole catalog is read rather than a changed-since query, because there
-    /// is no such query to ask: <see cref="IAgentSessionSource"/> reads two agents'
-    /// folders and answers with what it found. The filter is therefore here, and
-    /// the source's own per-agent cap bounds the work regardless of how long this
-    /// device has been away.
+    /// The catalog is read <see cref="AgentSessionQuery.Since"/> the watermark rather
+    /// than in the inventory's newest-per-agent shape. That shape is a cap, and a
+    /// push selecting from a capped list ships at most a hundred sessions per agent
+    /// however many moved — the hundred-and-first this machine ran since the last
+    /// cycle would never leave it, and no other machine's count would be right. The
+    /// horizon reading is everything past the watermark, and the strict filter below
+    /// still decides the edge; the source's inclusive one is a superset of it.
     /// </para>
     /// <para>
     /// The activity read happens once per push, when something is pending, from a
@@ -182,7 +184,9 @@ public sealed class SessionSyncSession
 
         var watermark = _state.Current.PushWatermark;
 
-        var catalog = await _sessions.GetSessionsAsync(cancellationToken).ConfigureAwait(false);
+        var catalog = await _sessions
+            .GetSessionsAsync(AgentSessionQuery.Since(watermark), cancellationToken)
+            .ConfigureAwait(false);
 
         var pending = catalog.Sessions
             .Where(session => session.Origin == AgentSessionOrigin.Local)

@@ -53,7 +53,7 @@ public static class SessionRecordLimits
 /// <strong>This is a whitelist, not a filter, and the record type is where that
 /// distinction becomes structural.</strong> The two fail in opposite directions:
 /// a filter that misses a field leaks it, a whitelist that misses one merely
-/// omits it. There are twelve permitted fields in that record's table — eleven
+/// omits it. There are thirteen permitted fields in that record's table — twelve
 /// here and the machine id the service stamps — and a field that is not in the
 /// table does not exist on this type. Never a working folder, never a title, never
 /// a transcript path, and never a prompt, a tool result or a line of a file the
@@ -121,6 +121,27 @@ public static class SessionRecordLimits
 /// </para>
 /// </param>
 /// <param name="DurationSeconds">How long it has been running.</param>
+/// <param name="ResolvedRepositoryAlias">
+/// The repository the pushing machine placed the session in from its working
+/// folder lying inside a registered clone — the alias where that machine has
+/// one, the <c>owner/name</c> otherwise — or null where no registered clone
+/// contained the folder. The eleventh whitelisted field, added to
+/// .arc42/adr/0005 §Session records on 2026-09-22.
+/// <para>
+/// Beside <paramref name="RepositoryAlias"/> rather than folded into it. That
+/// field is what the agent wrote and this is what the product worked out, and
+/// a receiving machine cannot tell the two apart once they share a slot —
+/// which is the failure <c>.domain/sessions/domain.md#working-location</c>
+/// names. It is still not a path: the folder itself never leaves, only which
+/// registered clone it was under.
+/// </para>
+/// <para>
+/// Defaulted, so a record written by a device that predates it deserialises with
+/// the field absent rather than failing the page it arrived in — the same reason
+/// <see cref="TurnCount"/> is nullable rather than zero. The two lists after it
+/// are defaulted on the same terms.
+/// </para>
+/// </param>
 /// <param name="Runs">
 /// The stretches in which the agent was producing, ascending, or null.
 /// <para>
@@ -165,6 +186,7 @@ public sealed record SessionRecord(
     DateTimeOffset LastActivityAt,
     int? TurnCount,
     long DurationSeconds,
+    string? ResolvedRepositoryAlias = null,
     IReadOnlyList<ActivityInterval>? Runs = null,
     IReadOnlyList<ActivityInterval>? Waits = null);
 
@@ -172,7 +194,7 @@ public sealed record SessionRecord(
 /// A session record as it comes back out of the replica: the record itself, the
 /// machine that wrote it, and the store's own ordering stamp.
 /// <para>
-/// <paramref name="MachineId"/> is the twelfth whitelisted field and the one the
+/// <paramref name="MachineId"/> is the thirteenth whitelisted field and the one the
 /// pushing device never sends. It lets a client drop its own echo instead of
 /// re-applying what it just pushed, and it is what a reading device groups by —
 /// .domain/sessions/naming.md#environment keys an environment on its id and not

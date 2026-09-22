@@ -70,9 +70,17 @@ internal sealed class StubAgentSessionSource(params AgentSession[] sessions) : I
 {
     public int Reads { get; private set; }
 
-    public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default)
+    /// <summary>What each read asked for, so a test can pin that the push reads
+    /// since its watermark rather than the capped inventory.</summary>
+    public List<AgentSessionQuery> Queries { get; } = [];
+
+    public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
+        GetSessionsAsync(AgentSessionQuery.Newest, cancellationToken);
+
+    public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default)
     {
         Reads++;
+        Queries.Add(query);
 
         return Task.FromResult(new AgentSessionCatalog(sessions, [], sessions.Length));
     }
@@ -157,7 +165,8 @@ internal static class AgentSessions
         DateTimeOffset? startedAt = null,
         DateTimeOffset? lastActivityAt = null,
         int? turnCount = 7,
-        AgentSessionOrigin origin = AgentSessionOrigin.Local) =>
+        AgentSessionOrigin origin = AgentSessionOrigin.Local,
+        string? resolvedRepository = null) =>
         new(
             id,
             kind,
@@ -171,7 +180,10 @@ internal static class AgentSessions
             lastActivityAt ?? new DateTimeOffset(2026, 9, 7, 12, 0, 0, TimeSpan.Zero),
             AgentSessionState.Running,
             turnCount,
-            origin);
+            origin)
+        {
+            ResolvedRepository = resolvedRepository
+        };
 }
 
 /// <summary>What a local session was doing, built the same way. The runs and waits
@@ -213,6 +225,7 @@ internal static class SessionRecords
         DateTimeOffset? lastActivityAt = null,
         int? turnCount = 3,
         long serverTimestamp = 1,
+        string? resolvedRepositoryAlias = null,
         IReadOnlyList<ActivityInterval>? runs = null,
         IReadOnlyList<ActivityInterval>? waits = null) =>
         new(
@@ -226,6 +239,7 @@ internal static class SessionRecords
                 lastActivityAt ?? new DateTimeOffset(2026, 9, 7, 12, 0, 0, TimeSpan.Zero),
                 turnCount,
                 0,
+                resolvedRepositoryAlias,
                 runs,
                 waits),
             machineId,

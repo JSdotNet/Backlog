@@ -78,7 +78,7 @@ internal sealed class CopilotSessionReader
     /// <summary>What this reader is called when it cannot be read.</summary>
     internal static string Name => "Copilot";
 
-    internal async Task<SessionReading> ReadAsync(CancellationToken cancellationToken)
+    internal async Task<SessionReading> ReadAsync(AgentSessionQuery query, CancellationToken cancellationToken)
     {
         var folder = new DirectoryInfo(Path.Combine(_home, "session-state"));
 
@@ -91,15 +91,23 @@ internal sealed class CopilotSessionReader
         // Copilot keeps a folder per session forever — this machine had 705 of them —
         // so reading all of them would cost 705 file reads on every refresh to
         // produce rows nobody scrolls to.
+        //
+        // A horizon reading is the other shape: every descriptor written at or after
+        // the horizon, decided on the file's timestamp before it is opened. That is a
+        // superset of the sessions whose updated_at is inside the horizon — a file is
+        // written when the session is updated, never before — and the surface that
+        // asked scopes on the row's own instant, so a superset costs it nothing and a
+        // subset would have cost it sessions.
         var descriptors = folder
             .EnumerateDirectories()
             .Select(directory => new FileInfo(Path.Combine(directory.FullName, "workspace.yaml")))
             .Where(descriptor => descriptor.Exists)
+            .Where(descriptor => query.Horizon is not { } horizon || descriptor.LastWriteTimeUtc >= horizon.UtcDateTime)
             .ToList();
 
         var recent = descriptors
             .OrderByDescending(descriptor => descriptor.LastWriteTimeUtc)
-            .Take(AgentSessionLimits.PerAgent);
+            .Take(query.IsNewest ? AgentSessionLimits.PerAgent : descriptors.Count);
 
         foreach (var descriptor in recent)
         {

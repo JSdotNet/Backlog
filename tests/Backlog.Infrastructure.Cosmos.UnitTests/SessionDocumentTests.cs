@@ -111,7 +111,7 @@ public class SessionDocumentTests
     [Fact]
     public void The_three_unknowable_fields_round_trip_as_null()
     {
-        var sparse = Record() with { RepositoryAlias = null, Branch = null, StartedAt = null };
+        var sparse = Record() with { RepositoryAlias = null, Branch = null, StartedAt = null, ResolvedRepositoryAlias = null };
 
         var entry = SessionDocumentFactory.ToEntry(SessionDocumentFactory.From(Scope, sparse));
 
@@ -119,6 +119,8 @@ public class SessionDocumentTests
         Assert.Null(entry.Record.RepositoryAlias);
         Assert.Null(entry.Record.Branch);
         Assert.Null(entry.Record.StartedAt);
+        // And the fourth, which every document written before 2026-09-22 lacks.
+        Assert.Null(entry.Record.ResolvedRepositoryAlias);
     }
 
     /// <summary>
@@ -160,10 +162,10 @@ public class SessionDocumentTests
 
     /// <summary>
     /// The whole whitelist, and nothing beside it. Written as a set comparison
-    /// rather than as twelve assertions because the failure worth catching is the
-    /// thirteenth property somebody adds — .arc42/adr/0005 §Session records says a
+    /// rather than as thirteen assertions because the failure worth catching is the
+    /// fourteenth property somebody adds — .arc42/adr/0005 §Session records says a
     /// field not in its table does not sync, and a test that only checked the
-    /// twelve were present would pass with a transcript path beside them.
+    /// thirteen were present would pass with a transcript path beside them.
     /// </summary>
     [Fact]
     public void The_document_carries_the_whitelist_and_nothing_else()
@@ -175,8 +177,8 @@ public class SessionDocumentTests
         Assert.Equal(
             new HashSet<string>(StringComparer.Ordinal)
             {
-                // The twelve ADR 0005 permits...
-                "sessionId", "agentKind", "machineId", "machineName", "repositoryAlias",
+                // The thirteen ADR 0005 permits...
+                "sessionId", "agentKind", "machineId", "machineName", "repositoryAlias", "resolvedRepositoryAlias",
                 "branch", "startedAt", "lastActivityAt", "turnCount", "durationSeconds",
                 "runs", "waits",
 
@@ -303,6 +305,7 @@ public class SessionDocumentTests
         LastActivityAt: At(10, 30),
         TurnCount: 42,
         DurationSeconds: 5_400,
+        ResolvedRepositoryAlias: "backlog",
         Runs: [new(At(9, 0), At(9, 45)), new(At(10, 0), At(10, 30))],
         Waits: [new(At(9, 45), At(10, 0))]);
 }

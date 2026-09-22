@@ -155,6 +155,22 @@
                                       PressedChanged="State.SetNoRepositoryFilter">
                             No repo<span class="chip__count">@NoRepositoryCount</span>
                         </ToggleButton>
+
+                        @* The domain's readiness as a scope: what is open and
+                           waiting on nothing, which is what a reader scanning for
+                           something to pick up is asking. Worded off the row's own
+                           "Waiting for" line rather than as "Ready", because the
+                           status group already means something else by that word
+                           and a row can be `!ready` and still waiting — see
+                           TasksDesktopState.NotWaitingOnly. *@
+                        <ToggleButton BaseClass="chip chip--filter chip--scope"
+                                      PressedCssClass="chip--active"
+                                      Pressed="@State.NotWaitingOnly"
+                                      TestId="notwaiting-filter-option"
+                                      Title="@(State.NotWaitingOnly ? "Show everything again" : "Show only what is open and waiting on nothing")"
+                                      PressedChanged="State.SetNotWaitingFilter">
+                            Not waiting<span class="chip__count">@NotWaitingCount</span>
+                        </ToggleButton>
                     </div>
 
                     @* Nothing at all until something in scope carries a tag: the group
@@ -1880,6 +1896,11 @@
     /// <c>TasksDesktopState.NoRepositoryOnly</c> — so the count asks it rather than
     /// working the answer out a second way here.</summary>
     private int NoRepositoryCount => State.ScopedRows.Count(row => State.RepositoryFor(row) is null);
+
+    /// <summary>How many of those same rows are open and waiting on nothing. The
+    /// same arrangement as No repo: the state derives readiness, and the count asks
+    /// it — see <c>TasksDesktopState.IsNotWaiting</c>.</summary>
+    private int NotWaitingCount => State.ScopedRows.Count(State.IsNotWaiting);
 
     /// <summary>Turning the scope on pins it to today. The date is read here rather
     /// than in the state for the reason <c>#feature-my-day</c> gives: membership is

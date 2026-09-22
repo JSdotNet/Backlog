@@ -275,12 +275,15 @@ rather than something anything here has shown.
 - **The sanitization boundary is a whitelist, not a filter.** A record carries
   session id, agent kind, machine id, machine name, repository alias (not path),
   branch, started at, last activity at, turn count, duration count, and — since
-  2026-09-22 — the agent's active runs and waits as pairs of timestamps. Never
+  2026-09-22 — the resolved repository alias (the registered clone the working
+  folder lay in, as an alias and never the folder) and the agent's active runs
+  and waits as pairs of timestamps. Never
   prompts, never tool output, never file contents. A filter that misses a field
   leaks it; a whitelist that misses one merely omits it, and adding a field is a
   decision taken in local ADR 0005 rather than settled in the pushing code — as
   agent kind and machine name were, on 2026-09-08, the first two fields added
-  since the list was written, and as the two interval lists were after them. The
+  since the list was written, and as the resolved alias and the two interval
+  lists were after them. The
   name travels as a display label only: a section is still keyed on the machine
   id, which is the thing a rename does not move. The intervals travel because a
   transcript does not: the Dashboard's per-machine active and waiting time is

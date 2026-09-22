@@ -57,6 +57,16 @@ public sealed record DashboardScope(
     /// quarter.</summary>
     public static DashboardScope Default { get; } = new();
 
+    /// <summary>
+    /// The widest any period reaches back: twelve weeks, the longest member of
+    /// <see cref="DashboardPeriod"/>. A source read back to this once answers every
+    /// period by derivation, which is what lets the period control move without a read
+    /// — and it is here rather than in the one derivation that used to keep it so the
+    /// machine filter, which asks the same source, reads exactly as far back as the
+    /// figures it narrows.
+    /// </summary>
+    public static TimeSpan Horizon { get; } = TimeSpan.FromDays(7 * 12);
+
     /// <summary>The repositories in focus. Never null: a caller that passes none
     /// gets <see cref="RepositoryFocus.All"/>, so "not narrowed" has one spelling.</summary>
     public RepositoryFocus Repositories { get; init; } = Repositories ?? RepositoryFocus.All;

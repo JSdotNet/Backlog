@@ -8,7 +8,7 @@ namespace Backlog.Infrastructure.Sync.Sessions;
 /// <para>
 /// <strong>This is the whole reason a session record may leave the machine, and
 /// it is deliberately the only place a record is built.</strong>
-/// .arc42/adr/0005 §Session records states a whitelist of twelve fields and says in
+/// .arc42/adr/0005 §Session records states a whitelist of thirteen fields and says in
 /// as many words that a whitelist and a filter fail in opposite directions: a
 /// filter that misses a field leaks it, a whitelist that misses one merely omits
 /// it. <see cref="SessionRecord"/> makes that structural — a field not in the
@@ -79,6 +79,12 @@ public static class SessionRecordMapping
             session.LastActivityAt,
             session.TurnCount,
             DurationSecondsOf(session.StartedAt, session.LastActivityAt),
+            // The same alias-or-owner/name rule as the recorded repository, and
+            // the same reason: a machine without the alias configured still sends
+            // a true statement rather than nothing. What is never done here is
+            // resolving one from the other — a record that recorded a repository
+            // and resolved none, or the reverse, goes out exactly so.
+            RepositoryAliasFor(session.ResolvedRepository, aliases),
             activity is null ? null : Newest(activity.Runs.Select(run => new ActivityInterval(run.StartedAt, run.EndedAt))),
             activity is null ? null : Newest(activity.Waits.Select(wait => new ActivityInterval(wait.StartedAt, wait.EndedAt))));
     }
@@ -232,7 +238,13 @@ public static class SessionRecordMapping
                 ? AgentSessionState.Finished
                 : AgentSessionState.Running,
             record.TurnCount,
-            AgentSessionOrigin.Replicated);
+            AgentSessionOrigin.Replicated)
+        {
+            // Held as it arrived. There is no folder on the wire to resolve it
+            // from again, and the origin machine was the only one that ever had
+            // both the folder and the clone it lay under.
+            ResolvedRepository = record.ResolvedRepositoryAlias
+        };
     }
 
     /// <summary>
@@ -273,7 +285,10 @@ public static class SessionRecordMapping
     /// repository guessed from a folder path is indistinguishable from a recorded
     /// one and wrong, and the receiving machine has no way to tell the two apart
     /// — so a guess made here would be believed there. Null on the wire means the
-    /// agent recorded no repository, and it means only that.
+    /// agent recorded no repository, and it means only that. The resolved
+    /// repository travels in its own field for exactly this reason: it is placed
+    /// by the reading source against a registered clone, and it stays tellable
+    /// apart from the recorded one all the way to the other machine.
     /// </para>
     /// <para>
     /// Falling back to <c>owner/name</c> rather than to null is the other half of

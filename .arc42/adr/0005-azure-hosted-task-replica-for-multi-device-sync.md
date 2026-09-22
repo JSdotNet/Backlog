@@ -437,6 +437,7 @@ carries exactly this, and nothing else:
 | Last activity at | When it was last seen alive. |
 | Turn count | How many turns it has taken. |
 | Duration count | How long it has been running. |
+| Resolved repository alias | The repository the pushing machine placed the session in, from its working folder lying inside a registered clone — again the alias, never the folder. |
 | Active runs | The stretches in which the agent was producing, as pairs of timestamps. |
 | Waits | The stretches in which the agent had stopped and nothing had prompted it yet, as pairs of timestamps. |
 
@@ -487,9 +488,35 @@ as a device identity. The name travels only as the label on a section the id has
 already defined, refreshed from the operating system at the source like every other
 reading of it. Nothing here identifies anything by name.
 
-**The table stands at twelve as of 2026-09-22.** The two additions are the agent's
-active runs and its waits, each a list of timestamp pairs, and they are argued here
-for the reason the previous two were: widening the table is this record's decision.
+**The table stands at eleven as of 2026-09-22.** The eleventh is the resolved
+repository alias, and it is argued here on the same terms as the two before it.
+
+- **Resolved repository alias, because Claude records no repository and a scope
+  needs one.** The header's repository scope reaches the session list, and it
+  admits a session by its recorded repository — which Claude never writes, in any
+  file, so a scoped list hid every Claude session on the machine, running ones
+  included. The reading device now places each local session inside a registered
+  clone where it can: the person registered a clone directory against an
+  `owner/name` on the Repositories screen, and a working folder is either under it
+  or not. That is a lookup against a fact the product holds, not the path-leaf
+  inference `.domain/sessions/domain.md#working-location` forbids — and it stays a
+  **second field** for exactly that chapter's reason: a recorded repository is a
+  fact about the session, a resolved one is a fact about the reading machine's
+  registrations, and a receiving machine cannot tell the two apart once they share
+  a slot. It travels because only the origin machine ever has both the folder and
+  the clone it lies under; a replicated record has no folder to resolve from, so
+  what its origin resolved is the only answer any other device can hold. What
+  leaves is the alias (or the `owner/name`), the same word the recorded field
+  travels as, and never the folder — the folder stays exactly as excluded as it
+  was. The service stores the field and indexes nothing on it; nothing queries by
+  it. A device that predates the field sends none and reads it back as null, and
+  a service that predates it drops the property on the floor, so the field is
+  carried end to end only once both sides have been deployed with it.
+
+**The table stood at eleven and stands at thirteen, also as of 2026-09-22.** The
+two additions are the agent's active runs and its waits, each a list of timestamp
+pairs, and they are argued here for the reason the previous three were: widening
+the table is this record's decision.
 
 - **They are timestamps *about* work, never content.** A run says an agent was
   producing from one instant to another; a wait says it had stopped and nothing had
@@ -525,7 +552,7 @@ for the reason the previous two were: widening the table is this record's decisi
   because the count stopped bounding the body the day a record could carry a
   thousand of these.
 - **The fold threshold is assumed identical on every machine rather than becoming
-  a thirteenth field.** A run ends after five minutes of silence, and that number
+  a fourteenth field.** A run ends after five minutes of silence, and that number
   is a judgement the folding machine made. Every build folds with the same one, so
   carrying it would be sending a constant; the day two builds disagree is the day
   this record widens again, and the replicated source says "no opinion" on the
@@ -536,8 +563,8 @@ for the reason the previous two were: widening the table is this record's decisi
   weight argument — a session's spawned agents can outnumber its own runs many
   times over — and is not taken here.
 
-**Twelve fields is still a whitelist, on the same terms eight was.** The boundary
-did not move to accommodate a screen: each of the four had to be argued past it
+**Thirteen fields is still a whitelist, on the same terms eight was.** The boundary
+did not move to accommodate a screen: each of the five had to be argued past it
 separately, and a field the receiving surface would merely find convenient is still
 a field that does not sync until this table says it does.
 

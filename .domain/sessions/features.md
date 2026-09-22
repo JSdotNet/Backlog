@@ -103,6 +103,18 @@ The alternative was inferring the missing repository from the working folder. A
 wrong repository attributed to a session renders exactly as convincingly as a right
 one, which is what makes inference the more expensive option.
 
+What a row may show in that cell instead, as of 2026-09-22, is the **resolved
+repository** — marked as resolved, with the cell's title saying in words that the
+agent recorded none and the folder was placed inside a registered clone. This is
+not the inference above: it is not read off the path but looked up against the
+clone directory the person registered (`.domain/sessions/domain.md#working-location`).
+A recorded repository always outranks it in the cell, and a session with neither
+still reads "not recorded". The repository scope in the shell's header admits a
+session by either — which is what makes a scoped list able to hold the Claude
+sessions running in that repository's clone — and its narrowing sentence names
+both terms, so a Claude session missing from a scoped list is understood as one
+outside every registered clone rather than as one that never ran.
+
 ### Sessions from another machine
 
 ```meta
@@ -267,11 +279,19 @@ related: [.domain/sessions/naming.md#session-limit]
 
 An environment can hold hundreds of session records — enough that reading all of
 them costs real time and showing all of them buries the handful that are running. A
-reading therefore describes the most recent sessions per agent, and when it does, it
-states how many exist.
+reading for a list therefore describes the most recent sessions per agent, and when
+it does, it states how many exist.
 
 Per agent rather than overall, so the agent that happens to keep more history cannot
 crowd the other one out of a list whose whole point is showing both.
+
+A reading for a count takes the other shape: everything since a horizon, with no
+limit. A count over the most recent hundred per agent is the limit wearing a
+total's clothes — every busy machine reads "200" — so a consumer that counts asks
+since a horizon and gets every session inside it, and every source keeps records at
+least as far back as the longest horizon a consumer can ask for
+(`.domain/sessions/naming.md#session-history`). A source that cannot reach the
+horizon it was asked still says so.
 
 ## Session activity enrichment
 

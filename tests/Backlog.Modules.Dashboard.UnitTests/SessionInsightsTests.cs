@@ -741,18 +741,63 @@ public class SessionInsightsTests
             Report = new AssistantSessionReport(
                 [Session(Tower, "Claude", Now.AddHours(-3), Now.AddHours(-1))],
                 ["Copilot"],
-                Capped: true,
-                CapPerAssistant: 100)
+                Capped: true)
         });
 
         var value = await ValueOf(insights, DashboardScope.Default);
 
         Assert.True(value.Capped);
         Assert.Equal(["Copilot"], value.Unreadable);
+    }
 
-        // The number the sentence on screen names, carried from the source rather than
-        // kept as a second copy on the surface.
-        Assert.Equal(100, value.CapPerAssistant);
+    /// <summary>
+    /// The session list is asked back to the widest window, the same as the activity
+    /// log — and asked at all. It used to be read with no horizon, which the source
+    /// answered with its inventory: the newest hundred per assistant. A count over that
+    /// list is a page size, and every machine with more than a hundred sessions per
+    /// assistant in twelve weeks read "200". The horizon is what makes the read a
+    /// count's read rather than a list's.
+    /// </summary>
+    [Fact]
+    public async Task The_session_source_is_asked_for_the_same_widest_window_as_the_activity_source()
+    {
+        var source = new StubAssistantSessionSource();
+        var activity = new StubAssistantActivitySource();
+        var insights = Insights(source, activity);
+
+        _ = await insights.GetSessionsAsync(new DashboardScope(Period: DashboardPeriod.FourWeeks));
+
+        Assert.Equal(Now - DashboardScope.Horizon, Assert.Single(source.Horizons));
+        Assert.Equal(Assert.Single(activity.Horizons), Assert.Single(source.Horizons));
+    }
+
+    /// <summary>
+    /// And what comes back is counted whole. Two hundred and forty sessions inside the
+    /// window is two hundred and forty, not the hundred-per-assistant the old read
+    /// stopped at — the arithmetic here has no cap of its own to reintroduce.
+    /// </summary>
+    [Fact]
+    public async Task More_than_a_hundred_sessions_per_assistant_are_all_counted()
+    {
+        var sessions = Enumerable.Range(0, 240)
+            .Select(index => Session(
+                Tower,
+                index % 2 == 0 ? "Claude" : "Copilot",
+                Now.AddHours(-index - 1),
+                Now.AddHours(-index),
+                id: $"s{index}"))
+            .ToList();
+
+        var insights = Insights(new StubAssistantSessionSource
+        {
+            Report = new AssistantSessionReport(sessions, [], Capped: false)
+        });
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        Assert.Equal(240, value.Sessions);
+        Assert.Equal(240, Assert.Single(value.Breakdown).Sessions);
+        Assert.False(value.Capped);
     }
 
     /// <summary>
@@ -1949,7 +1994,7 @@ public class SessionInsightsTests
     }
 
     private static AssistantSessionReport Report(params AssistantSession[] sessions) =>
-        new(sessions, [], false, 100);
+        new(sessions, [], false);
 
     private static StubAssistantActivitySource Activity(params AssistantActivitySession[] sessions) =>
         new() { Report = new AssistantActivityReport(sessions, [], Now.AddDays(-7 * 12), TimeSpan.FromMinutes(5)) };
@@ -2056,9 +2101,15 @@ public class SessionInsightsTests
         /// wait honours the token, the way the real readers do between transcripts.</summary>
         public TaskCompletionSource? Gate { get; init; }
 
-        public async Task<AssistantSessionReport> GetSessionsAsync(CancellationToken cancellationToken = default)
+        /// <summary>The horizons this was asked for, on the activity stub's precedent:
+        /// the read being a horizon read is the whole of the fix for a count that used
+        /// to be a page size.</summary>
+        public List<DateTimeOffset> Horizons { get; } = [];
+
+        public async Task<AssistantSessionReport> GetSessionsAsync(DateTimeOffset since, CancellationToken cancellationToken = default)
         {
             Calls++;
+            Horizons.Add(since);
 
             if (Gate is not null)
             {

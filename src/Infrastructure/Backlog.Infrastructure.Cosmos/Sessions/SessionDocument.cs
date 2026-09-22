@@ -4,7 +4,7 @@ using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 namespace Backlog.Infrastructure.Cosmos.Sessions;
 
 /// <summary>
-/// One session record as it sits in the <c>sessions</c> container: the twelve
+/// One session record as it sits in the <c>sessions</c> container: the thirteen
 /// whitelisted fields, the owner, and the two Cosmos maintains.
 /// <para>
 /// <strong>The whitelist is flat, and it is flat because the index is.</strong>
@@ -31,7 +31,7 @@ namespace Backlog.Infrastructure.Cosmos.Sessions;
 /// <para>
 /// Flat is also honest here in a way it would not be for a task. A task payload
 /// is an open shape the service stores whole and never reads; a session record
-/// is a closed list of twelve fields that .arc42/adr/0005 §Session records
+/// is a closed list of thirteen fields that .arc42/adr/0005 §Session records
 /// enumerates, so writing them out is writing down the whitelist rather than
 /// duplicating a contract that will grow behind this file's back. A field
 /// appearing here that is not in that table is a defect, not a feature.
@@ -120,6 +120,12 @@ internal sealed class SessionDocument
 
     /// <summary>How long it has been running, in seconds.</summary>
     public long DurationSeconds { get; set; }
+
+    /// <summary>The eleventh whitelisted field (.arc42/adr/0005 §Session records,
+    /// 2026-09-22): the repository the pushing machine placed the session in from
+    /// its working folder. Absent on every document written before it existed,
+    /// and read back as null from those.</summary>
+    public string? ResolvedRepositoryAlias { get; set; }
 
     /// <summary>
     /// The stretches in which the agent was producing, or absent where the

@@ -8,10 +8,10 @@
     this one compare to the rest", which is the question somebody has the moment
     they pick a repository in the filter.
 
-    Every repository stays in both, even when one is in focus. Zooming in narrows
-    every other part on the surface; here it moves a highlight instead, because a
-    single line with nothing around it says nothing about whether a dip was this
-    repository or a quiet fortnight everywhere.
+    The repository filter narrows both, as it narrows every other part on the
+    surface; the first repository taken into focus is the highlight. The target
+    behind every point is the estate's whichever repositories are drawn, so
+    narrowing never rescales what is left.
 
     SharedMax is passed explicitly rather than left per panel. A trellis that draws
     each panel to its own scale makes an erratic repository look like the busiest
@@ -74,9 +74,9 @@
     {
         get
         {
-            var basis = Scope.Repositories.Anchor is { } alias
-                ? $"Every repository stays on screen so {alias} can be read against the rest."
-                : "One panel per repository that reported anything, on a shared scale.";
+            var basis = Scope.IsAllRepositories
+                ? "One panel per repository that reported anything, on a shared scale."
+                : "One panel per repository in focus that reported anything, on a shared scale.";
 
             basis += " A point is one repository's week of merged pull requests and closed issues"
                 + " against a target shared by every repository, not against its own best."

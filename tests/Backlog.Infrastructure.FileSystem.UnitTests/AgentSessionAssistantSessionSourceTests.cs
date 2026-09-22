@@ -19,7 +19,7 @@ public class AgentSessionAssistantSessionSourceTests
     {
         var source = Source(Session("claude-1", AgentSessionKind.Claude, AgentSessionState.Finished));
 
-        var session = Assert.Single((await source.GetSessionsAsync()).Sessions);
+        var session = Assert.Single((await source.GetSessionsAsync(Noon.AddDays(-84))).Sessions);
 
         // The id is the machine, and the name is only what it is called: the Sessions
         // context's Environment splits into exactly those two here.
@@ -42,7 +42,7 @@ public class AgentSessionAssistantSessionSourceTests
     {
         var source = Source(Session("claude-1", AgentSessionKind.Claude, AgentSessionState.Finished, turns));
 
-        var session = Assert.Single((await source.GetSessionsAsync()).Sessions);
+        var session = Assert.Single((await source.GetSessionsAsync(Noon.AddDays(-84))).Sessions);
 
         Assert.Equal(turns, session.Prompts);
     }
@@ -60,7 +60,7 @@ public class AgentSessionAssistantSessionSourceTests
     {
         var source = Source(Session("one", kind, AgentSessionState.Finished));
 
-        var session = Assert.Single((await source.GetSessionsAsync()).Sessions);
+        var session = Assert.Single((await source.GetSessionsAsync(Noon.AddDays(-84))).Sessions);
 
         Assert.Equal(expected, session.Assistant);
     }
@@ -79,14 +79,30 @@ public class AgentSessionAssistantSessionSourceTests
             Discovered: 842);
 
         var report = await new AgentSessionAssistantSessionSource(new StubAgentSessionSource(catalog))
-            .GetSessionsAsync();
+            .GetSessionsAsync(Noon.AddDays(-84));
 
         Assert.True(report.Capped);
         Assert.Equal(["Copilot"], report.Unreadable);
+    }
 
-        // And the cap itself, so the sentence on screen names the number the Sessions
-        // context actually stopped at rather than a copy of it kept beside the part.
-        Assert.Equal(AgentSessionLimits.PerAgent, report.CapPerAssistant);
+    /// <summary>
+    /// The Dashboard's horizon crosses the seam as a horizon reading and never as the
+    /// inventory's. The inventory stops at <see cref="AgentSessionLimits.PerAgent"/> per
+    /// agent, and a Dashboard that counted it showed the cap as every machine's total;
+    /// the query is what the Sessions context reads by, so it is the one thing this
+    /// mapping must get right.
+    /// </summary>
+    [Fact]
+    public async Task The_sessions_context_is_asked_since_the_horizon_and_not_for_its_inventory()
+    {
+        var stub = new StubAgentSessionSource(AgentSessionCatalog.Empty);
+        var horizon = Noon.AddDays(-84);
+
+        _ = await new AgentSessionAssistantSessionSource(stub).GetSessionsAsync(horizon);
+
+        var query = Assert.Single(stub.Queries);
+        Assert.False(query.IsNewest);
+        Assert.Equal(horizon, query.Horizon);
     }
 
     /// <summary>
@@ -102,7 +118,7 @@ public class AgentSessionAssistantSessionSourceTests
         var availability = await source.GetAvailabilityAsync();
 
         Assert.True(availability.IsAvailable);
-        Assert.Empty((await source.GetSessionsAsync()).Sessions);
+        Assert.Empty((await source.GetSessionsAsync(Noon.AddDays(-84))).Sessions);
     }
 
     private static AgentSessionAssistantSessionSource Source(params AgentSession[] sessions) =>
@@ -130,7 +146,16 @@ public class AgentSessionAssistantSessionSourceTests
 
     private sealed class StubAgentSessionSource(AgentSessionCatalog catalog) : IAgentSessionSource
     {
+        public List<AgentSessionQuery> Queries { get; } = [];
+
         public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(catalog);
+            GetSessionsAsync(AgentSessionQuery.Newest, cancellationToken);
+
+        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default)
+        {
+            Queries.Add(query);
+
+            return Task.FromResult(catalog);
+        }
     }
 }

@@ -61,6 +61,25 @@ public sealed class CompositeAgentSessionSourceTests
     }
 
     /// <summary>
+    /// The same query reaches every source. A horizon reading answered by one source
+    /// as a horizon and by the other as its capped inventory would be a fleet count
+    /// right for this machine and a page size for every other.
+    /// </summary>
+    [Fact]
+    public async Task The_query_is_handed_to_every_source_unchanged()
+    {
+        var local = new StubSource(AgentSessionCatalog.Empty);
+        var remote = new StubSource(AgentSessionCatalog.Empty);
+        var composite = new CompositeAgentSessionSource([local, remote]);
+        var query = AgentSessionQuery.Since(Noon.AddDays(-84));
+
+        _ = await composite.GetSessionsAsync(query, TestContext.Current.CancellationToken);
+
+        Assert.Same(query, Assert.Single(local.Queries));
+        Assert.Same(query, Assert.Single(remote.Queries));
+    }
+
+    /// <summary>
     /// <c>Unreadable</c> is the union, so a folder one source could not read is
     /// still named after the merge. Dropping it because the other source answered
     /// would present half a picture as the whole one.
@@ -168,8 +187,17 @@ public sealed class CompositeAgentSessionSourceTests
 
     private sealed class StubSource(AgentSessionCatalog catalog) : IAgentSessionSource
     {
+        public List<AgentSessionQuery> Queries { get; } = [];
+
+        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default)
+        {
+            Queries.Add(query);
+
+            return Task.FromResult(catalog);
+        }
+
         public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(catalog);
+            GetSessionsAsync(AgentSessionQuery.Newest, cancellationToken);
     }
 
     private sealed class StubDeviceIdentity : IDeviceIdentitySource

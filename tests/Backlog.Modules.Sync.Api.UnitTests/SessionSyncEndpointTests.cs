@@ -115,8 +115,8 @@ public class SessionSyncEndpointTests : IDisposable
         Assert.Equal(9, arrived.Record.TurnCount);
     }
 
-    /// <summary>Exactly the twelve whitelisted fields survive the round trip —
-    /// eleven on the wire and the machine id the service stamps — and the three
+    /// <summary>Exactly the thirteen whitelisted fields survive the round trip —
+    /// twelve on the wire and the machine id the service stamps — and the four
     /// scalars that can honestly be unknown come back as null rather than as
     /// blanks.</summary>
     [Fact]
@@ -131,6 +131,7 @@ public class SessionSyncEndpointTests : IDisposable
             RepositoryAlias = null,
             Branch = null,
             StartedAt = null,
+            ResolvedRepositoryAlias = null,
         });
 
         var page = await laptop.PullSessions();
@@ -144,6 +145,7 @@ public class SessionSyncEndpointTests : IDisposable
         Assert.Null(sparse.RepositoryAlias);
         Assert.Null(sparse.Branch);
         Assert.Null(sparse.StartedAt);
+        Assert.Null(sparse.ResolvedRepositoryAlias);
     }
 
     /// <summary>
@@ -455,6 +457,7 @@ public class SessionSyncEndpointTests : IDisposable
     [InlineData("agent kind")]
     [InlineData("machine name")]
     [InlineData("repository alias")]
+    [InlineData("resolved repository alias")]
     [InlineData("branch")]
     public async Task A_record_longer_than_the_service_stores_is_refused(string field)
     {
@@ -611,6 +614,7 @@ public class SessionSyncEndpointTests : IDisposable
         "agent kind" => Session("s-1") with { AgentKind = Long(SyncRequestLimits.MaximumAgentKind) },
         "machine name" => Session("s-1") with { MachineName = Long(SyncRequestLimits.MaximumMachineName) },
         "repository alias" => Session("s-1") with { RepositoryAlias = Long(SyncRequestLimits.MaximumRepositoryAlias) },
+        "resolved repository alias" => Session("s-1") with { ResolvedRepositoryAlias = Long(SyncRequestLimits.MaximumRepositoryAlias) },
         "branch" => Session("s-1") with { Branch = Long(SyncRequestLimits.MaximumBranch) },
         _ => throw new ArgumentOutOfRangeException(nameof(field), field, "No bound by that name."),
     };
@@ -635,6 +639,7 @@ public class SessionSyncEndpointTests : IDisposable
         LastActivityAt: LastActivity,
         TurnCount: 42,
         DurationSeconds: 5_400,
+        ResolvedRepositoryAlias: "backlog",
         Runs: [Interval(-30, -20), Interval(-10, 0)],
         Waits: [Interval(-20, -10)]);
 

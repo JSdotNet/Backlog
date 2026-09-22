@@ -311,6 +311,9 @@ public sealed class HomeInboxWiringTests
 
     private sealed class EmptySessionSource : IAgentSessionSource
     {
+        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) =>
+            GetSessionsAsync(cancellationToken);
+
         public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(AgentSessionCatalog.Empty);
     }
