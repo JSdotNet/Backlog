@@ -26,7 +26,8 @@ public sealed class GitHubIntegration(
     GitHubSettingsStore settings,
     IGitHubClient client,
     IGitHubConnectionProbe probe,
-    IGhCliAccountSource? cliAccounts = null)
+    IGhCliAccountSource? cliAccounts = null,
+    IGitHubAccountProbe? accountProbe = null)
 {
     public GitHubSettingsStore Settings => settings;
 
@@ -40,6 +41,16 @@ public sealed class GitHubIntegration(
     /// <summary>The repository an entry's area names, or null when the area is
     /// blank or not assigned to a configured repository.</summary>
     public GitHubRepositoryRef? ResolveRepository(string? repoId) => settings.Current.Find(repoId);
+
+    /// <summary>
+    /// Asks GitHub whether one account's credential really authenticates as that
+    /// account - the card's "Test this account". Optional the way the CLI source is:
+    /// a host that registered no probe is answered with a sentence saying so rather
+    /// than a throw, so the button degrades to a message instead of a fault.
+    /// </summary>
+    public Task<GitHubAccountCheck> CheckAccountAsync(GitHubAccount account, CancellationToken cancellationToken = default) =>
+        accountProbe?.CheckAccountAsync(account, cancellationToken)
+        ?? Task.FromResult(new GitHubAccountCheck(false, "This host cannot test a GitHub account."));
 
     /// <summary>Re-checks how the app can reach GitHub.</summary>
     public Task<GitHubConnection> DescribeConnectionAsync(CancellationToken cancellationToken = default)

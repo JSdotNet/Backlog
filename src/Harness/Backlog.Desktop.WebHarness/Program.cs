@@ -184,6 +184,7 @@ builder.Services.AddSingleton(sp => new ResolvingGitHubTransport(
     credentials: sp.GetRequiredService<IGitHubCredentialResolver>(),
     accounts: sp.GetRequiredService<IGhCliAccountSource>()));
 builder.Services.AddSingleton<IGitHubConnectionProbe>(sp => sp.GetRequiredService<ResolvingGitHubTransport>());
+builder.Services.AddSingleton<IGitHubAccountProbe>(sp => sp.GetRequiredService<ResolvingGitHubTransport>());
 builder.Services.AddSingleton<IAppFeatureSettings>(_ => CreateLocalDevelopmentFeatureSettingsStore(builder.Environment.ContentRootPath));
 // The device half of cloud sync. Scoped to the content root like the harness's
 // other settings files, so a session here pairs a device of its own rather than
@@ -302,6 +303,7 @@ builder.Services.AddSingleton<IGitHubBillingClient>(sp => new GitHubBillingClien
 // configured, so it is safe to register unconditionally.
 builder.Services.AddSingleton(_ => CreateLocalDevelopmentClaudeSettingsStore(builder.Environment.ContentRootPath));
 builder.Services.AddHttpClient<IClaudeTransport, ClaudeAdminTransport>();
+builder.Services.AddSingleton<IClaudeAccountProbe>(sp => new ClaudeAccountProbe(sp.GetRequiredService<IClaudeTransport>()));
 builder.Services.AddSingleton<IClaudeUsageClient>(sp => new ClaudeUsageClient(
     sp.GetRequiredService<IClaudeTransport>(),
     sp.GetRequiredService<ClaudeSettingsStore>()));

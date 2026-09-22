@@ -73,7 +73,7 @@ public sealed class ClaudeAdminTransport : IClaudeTransport
 
             if (!response.IsSuccessStatusCode)
             {
-                throw new ClaudeException(Describe(response.StatusCode, payload));
+                throw new ClaudeException(Describe(response.StatusCode, payload)) { Status = response.StatusCode };
             }
 
             if (payload.Length == 0) return JsonDocument.Parse("null").RootElement.Clone();
