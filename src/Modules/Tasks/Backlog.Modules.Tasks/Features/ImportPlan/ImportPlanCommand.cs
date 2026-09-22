@@ -140,9 +140,13 @@ public sealed class ImportPlanCommandHandler(ITaskRepository entries, IRepositor
                 // or written again in place of the copy just cleared.
                 outcomes.Add(Outcome.ForCreate(parsed, CreateEntry(parsed, nextOrder++, command.SourceInboxId)));
             }
-            else if (match.Status is EntryStatus.Done or EntryStatus.Archived)
+            else if (match.IsCompleted || match.Status is EntryStatus.Done or EntryStatus.Archived)
             {
-                // A later plan version does not reopen finished work.
+                // A later plan version does not reopen finished work — neither
+                // an entry the person has ticked off nor one whose status says the
+                // work is over. Both, because they are two facts now: a Done
+                // entry left unticked is still finished work, and an entry ticked
+                // while still In progress is still off the person's list.
                 outcomes.Add(Outcome.ForSkip(parsed, match));
             }
             else
@@ -264,7 +268,10 @@ public sealed class ImportPlanCommandHandler(ITaskRepository entries, IRepositor
         var superseded = existing
             .Where(entry =>
                 string.Equals(entry.ImportPlanId, planId, StringComparison.Ordinal)
-                && entry.Status is EntryStatus.Draft or EntryStatus.Ready)
+                && entry.Status is EntryStatus.Draft or EntryStatus.Ready
+                // An entry the person has ticked off is finished work whatever
+                // its status says, and finished work is kept, not cleared.
+                && !entry.IsCompleted)
             .ToList();
 
         foreach (var entry in superseded)

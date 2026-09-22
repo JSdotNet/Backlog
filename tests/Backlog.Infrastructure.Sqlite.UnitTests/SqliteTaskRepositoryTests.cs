@@ -142,6 +142,7 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
         task.SetReminder(new DateTime(2026, 8, 21, 9, 0, 0, DateTimeKind.Unspecified));
         task.SetRecurrence(new Recurrence(2, RecurrenceUnit.Week));
         task.SetInMyDayOn(new DateOnly(2026, 8, 19));
+        task.SetCompletedOn(new DateOnly(2026, 9, 22));
         task.SetView(EntryView.Notes);
         task.SetDependsOn(["a1b2c3", "d4e5f6"]);
 
@@ -153,6 +154,7 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
         Assert.Equal(new DateTime(2026, 8, 21, 9, 0, 0), loaded.RemindAt);
         Assert.Equal(new Recurrence(2, RecurrenceUnit.Week), loaded.Recurrence);
         Assert.Equal(new DateOnly(2026, 8, 19), loaded.InMyDayOn);
+        Assert.Equal(new DateOnly(2026, 9, 22), loaded.CompletedOn);
         Assert.Equal(EntryView.Notes, loaded.View);
         Assert.Equal(["a1b2c3", "d4e5f6"], loaded.DependsOn);
     }
@@ -580,12 +582,19 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
         Assert.Equal("Written before effort existed", loaded.Title);
         Assert.Null(loaded.Effort);
 
-        // And the upgraded column is writable: a fresh estimate saves and reads.
+        // The same for the tick, added later still: a row from before it reads as
+        // unticked, whatever its status says.
+        Assert.Null(loaded.CompletedOn);
+
+        // And the upgraded columns are writable: a fresh estimate and a tick save
+        // and read.
         loaded.SetEffort(5);
+        loaded.SetCompletedOn(new DateOnly(2026, 9, 22));
         await _repository.SaveAsync(loaded, TestContext.Current.CancellationToken);
         var again = await _repository.GetAsync(id, TestContext.Current.CancellationToken);
 
         Assert.Equal(5, again!.Effort);
+        Assert.Equal(new DateOnly(2026, 9, 22), again.CompletedOn);
     }
 
     /// <summary>

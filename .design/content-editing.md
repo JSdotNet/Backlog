@@ -167,6 +167,7 @@ related: [".design/content-editing.md#structured-metadata-sigils", ".domain/task
 | `remind:` | reminder | `` `remind:2026-08-21T09:00` `` |
 | `repeat:` | recurrence | `` `repeat:weekly` ``, `` `repeat:weekdays` ``, `` `repeat:2w` `` |
 | `myday:` | My Day | `` `myday:2026-08-19` `` |
+| `completed:` | ticked off — the checkbox, not the status | `` `completed:2026-09-22` `` |
 | `id:` | local id | `` `id:add-command` `` |
 | `after:` | dependency | `` `after:a1b2c3` `` — may repeat |
 | `repo:` | target repository | `` `repo:backlog-desktop` `` — may repeat |

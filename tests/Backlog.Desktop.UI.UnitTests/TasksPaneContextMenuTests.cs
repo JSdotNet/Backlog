@@ -162,9 +162,18 @@ public sealed class TasksPaneContextMenuTests
 
         await OpenMenuAsync(pane, row);
         Assert.Equal("Mark as completed", Label(pane, "done"));
+        var statusBefore = row.PreviewStatus;
         await ChooseAsync(pane, "done");
 
-        Assert.Equal(EntryStatus.Done, row.PreviewStatus);
+        // The tick, and only the tick: the status is not a thing this item writes.
+        Assert.True(row.IsPreviewCompleted);
+        Assert.Equal(statusBefore, row.PreviewStatus);
+
+        // The row folded away under Completed; open the fold to reach it again.
+        pane.Render();
+        await pane.Find("[data-testid='entry-list-completed-toggle']").ClickAsync(new());
+        await OpenMenuAsync(pane, row);
+        Assert.Equal("Mark as not completed", Label(pane, "done"));
     }
 
     [Fact]

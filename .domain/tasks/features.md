@@ -257,8 +257,9 @@ The repeat is anchored to the due date rather than to when the work actually
 finished, so a task completed three days late still falls due on its original
 weekday.
 
-Completing a recurring task leaves it completed and creates the next occurrence
-as a new task. The finished occurrence stays as the record of what was done
+Completing a recurring task — ticking it off, not merely setting its status to
+`done` — leaves it completed and creates the next occurrence as a new task.
+The finished occurrence stays as the record of what was done
 rather than being rolled forward and overwritten, which means a repeating task
 accumulates one completed task per occurrence — archiving is what keeps that
 from crowding the default views.
@@ -585,11 +586,17 @@ related: [.domain/tasks/flow.md]
 Move tasks between active and archived states; archived tasks are excluded
 from default views but always accessible and restorable.
 
-Completing a task and then reopening it returns it to `in_progress`, whatever
-status it held before it was finished; the earlier status is deliberately not
-kept. Finishing is a recorded fact rather than a step that rewinds, so
-reopening starts the work again rather than restoring where it stood before.
-`flow.md` holds the lifecycle this follows.
+Reopening a `done` task returns it to `in_progress`, whatever status it held
+before; the earlier status is deliberately not kept. Finishing the work is a
+recorded fact rather than a step that rewinds, so reopening starts the work
+again rather than restoring where it stood before. `flow.md` holds the
+lifecycle this follows.
+
+Ticking a task off is a separate act from either status. The checkbox sets
+`completed_on` and nothing else: a task can be ticked from any status, a
+`done` or `archived` task stays on the open list until it is ticked, and
+unticking clears the tick without reopening anything. The Completed section,
+the tag counts and every "nothing left to wait for" read the tick.
 
 ## Refresh from shared storage
 
