@@ -3093,6 +3093,17 @@ button.md-check {
    one thing — at a hairline the rows ran together into a block of text. */
 .task-list {
     display: grid;
+    /* One column, exactly the width of whatever the list is in — said, because
+       the implicit column is `auto`, and an auto track is as wide as the widest
+       row's min-content. A row's min-content includes its title in full, since the
+       title does not wrap; the `min-width: 0` on the body and the line only lets
+       them shrink once the row is narrower than they are, and with an auto track
+       the row never was — the track grew to the row, every row stretched to the
+       track, and the nearest scroll container grew a horizontal scrollbar. One
+       title with a URL in it did that to the whole list. A floor of zero is what
+       holds the rows to the column, so the title gives up room the way it was
+       always meant to and the trailing cluster's container step gets to fire. */
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--spacing-xs);
     margin: 0;
     padding: 0;
@@ -3422,6 +3433,15 @@ button.task-panel__check:focus-visible {
     color: var(--color-text-secondary);
 }
 
+/* What the task is, drawn as its glyph alone: the word is in the tooltip and in
+   a visually-hidden span, and a mark learned once says it on every row without
+   the line growing a word. The same size as every other glyph on the line, and
+   secondary like the shape facts — a kind is what the row was filed as, not
+   something that makes it urgent. */
+.task-item__detail--kind {
+    color: var(--color-text-secondary);
+}
+
 /* A done row's urgency is over: nothing on the line competes any more. */
 .task-item--done .task-item__detail {
     color: var(--color-text-disabled);
@@ -3582,6 +3602,22 @@ button.task-panel__check:focus-visible {
    at the same weight as a deadline rather than joining the quiet facts. */
 .task-item__detail--blocked {
     color: var(--color-text-primary);
+    /* The one detail whose length is somebody else's title, on a line that does
+       not wrap. A flex item will not shrink below its content unless told it may,
+       and on a wrapping line that meant this one took a line of its own and then
+       ran off the end of it — past the row, past the column, into a scrollbar. */
+    min-width: 0;
+}
+
+/* The names themselves give up room the way the title above them does: the
+   sentence truncates rather than the row growing to fit it. Nothing is lost by
+   it — each name is still the whole of its button's accessible name, and the row
+   it names is one click away — and a row that wrapped three titles under its own
+   would be most of a screen for one fact. */
+.task-item__waiting {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* A name on that line the list can take the reader to. It is a button wearing
@@ -3593,7 +3629,19 @@ button.task-panel__check:focus-visible {
    line is the whole difference between a step you can reach and an id the list
    could not resolve, which sits beside it in the same ink as plain words. */
 .task-item__dependency {
-    display: inline;
+    /* inline-block, and not inline, because a button is an atomic inline in every
+       engine whatever it is told — and an atomic inline is clipped whole by the
+       line it overflows, with no ellipsis, since the ellipsis belongs to text and
+       the button's text is inside a box the line cannot see into. So the button
+       truncates its own text, against the width of the line it stands on. Top
+       aligned, because a box with a hidden overflow puts its baseline at its
+       bottom edge and would lift its own text off the line's; at the same
+       line-height as the words around it, top is exactly where inline was. */
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: top;
     margin: 0;
     padding: 0;
     border: none;

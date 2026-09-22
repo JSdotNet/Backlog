@@ -32,6 +32,7 @@ classDiagram
     class WorkingLocation {
         +string working_folder
         +string repository
+        +string resolved_repository
         +string branch
     }
     class ActivityWindow {
@@ -183,7 +184,12 @@ classDiagram
   Management owns repositories; this context holds the `owner/name` an agent happened
   to write down and never resolves it. An association to that context's aggregate
   would make this model depend on a lookup it does not perform — see
-  `dependencies.md`.
+  `dependencies.md`. The `resolved_repository` beside it is also a string, and the
+  one lookup this context does perform: which registered clone directory contains
+  the working folder, asked of Repository Management through a one-method port on
+  the environment that read the session. It is a second attribute rather than a
+  fallback value for the first, so the recorded string stays exactly what the agent
+  wrote.
 
 - **`Session Enrichment Summary` is derived and therefore replaceable.** The model does
   not keep a durable second timeline row beside each session; it keeps the latest

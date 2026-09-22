@@ -121,12 +121,20 @@ because the thing that replicates is a record, not an authority:
   which is the rule this context already applies to the agent that leaves no
   marker locally. `stalled` is the claim that something is still there and quiet,
   and nothing in a record can tell that apart from something that is gone.
-- **Only a whitelist travels**, fixed by local ADR 0005 and standing at ten
+- **Only a whitelist travels**, fixed by local ADR 0005 and standing at thirteen
   fields: the `Session Identity` in full — the agent as well as the session id —
   the environment's id and the name that environment goes by, the repository
-  **alias** rather than the working folder, the branch, the activity window, and
-  the turn and duration counts. Never prompts, never tool output, never file
-  contents — which is the whole reason a record can leave the machine at all. A
+  **alias** rather than the working folder, the resolved repository's alias on the
+  same terms (`#working-location`), the branch, the activity window, the turn and
+  duration counts, and the agent's active runs and waits as pairs of
+  timestamps. Never prompts, never tool output, never file contents — which is
+  the whole reason a record can leave the machine at all. The runs and waits are
+  the same kind of fact as the activity window — instants, not content — and they
+  travel so a reading machine can measure a session it never held the transcript
+  for; a record may carry them, may carry an empty list where the agent's own
+  format cannot mark a boundary, or may carry nothing where the gathering
+  environment had no parsable activity record, and a reader keeps those three
+  apart rather than reading an absence as a measurement of zero. A
   field not on the list does not travel, so `working_folder` does not: it
   describes one machine's disk and means nothing on the other. Neither does the
   title, and that one is worth naming rather than leaving to be noticed: an agent
@@ -158,7 +166,9 @@ stays exactly what it already is: optional, reached through an anti-corruption
 layer, never authoritative for whether a session existed. It supplies a second
 kind of evidence about a session this context already knows; replication moves
 records this context already holds. Neither stands in for the other, and a
-replicated record with no activity stream is a perfectly good record.
+replicated record with no activity stream is a perfectly good record — one that
+may now carry the runs and waits its gathering environment folded, which are a
+measure of the session's time and not the stream of what it did.
 
 ### Agent Session
 
@@ -221,6 +231,21 @@ did not travel — a path describes that machine's disk and would be acted on by
 the machine that read it. Absent there means "cannot be shown here", not "was
 never written down", and either way nothing on this side reconstructs one: the
 log fills no gap an agent left, and it fills none the boundary made either.
+
+Beside the recorded repository, and never in its place, the location may carry a
+**resolved repository** (as of 2026-09-22): the `owner/name` of the registered
+repository whose clone directory contains the working folder, on the environment
+that read the session. This is not the inference the paragraph above rules out. A
+path leaf is a guess about which of GitHub's several `Backlog`s a folder is a
+clone of; a registered clone directory is a fact the person stated on the
+Repositories screen, and a folder is either under it or not. It is still a fact
+about the reading environment's registrations rather than about the session,
+which is why it is a second field: the two fail differently, and a surface must
+be able to tell "the agent said" from "this product placed". It resolves on the
+environment that ran the session — the only one holding both the folder and the
+clone — travels with the record, and is held as it arrived everywhere else. Where
+no registered clone contains the folder it is absent, and absent still means
+only that.
 
 ### Activity Window
 

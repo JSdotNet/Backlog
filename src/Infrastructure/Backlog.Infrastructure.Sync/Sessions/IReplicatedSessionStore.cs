@@ -103,4 +103,23 @@ public static class ReplicatedSessionLimits
     /// </para>
     /// </summary>
     public const int PerEnvironmentPerAgent = AgentSessionLimits.PerAgent;
+
+    /// <summary>
+    /// How far back a record is kept whatever the count: every session active
+    /// inside this much of now stays, even when more than
+    /// <see cref="PerEnvironmentPerAgent"/> of them fall inside it.
+    /// <para>
+    /// <see cref="AgentSessionLimits.History"/>, because that is the promise this
+    /// store has to keep for the port it answers through. A horizon reading of the
+    /// fleet is only as complete as the least complete store behind it, and a store
+    /// that kept the newest hundred of a machine that ran two hundred sessions in
+    /// twelve weeks would answer the Dashboard's count for that machine with the
+    /// cap — the figure this retention exists to stop it showing.
+    /// </para>
+    /// <para>
+    /// Still bounded: twelve weeks of one machine's sessions, which is the same
+    /// order of size as the count was, not the fleet's whole history.
+    /// </para>
+    /// </summary>
+    public static readonly TimeSpan History = AgentSessionLimits.History;
 }

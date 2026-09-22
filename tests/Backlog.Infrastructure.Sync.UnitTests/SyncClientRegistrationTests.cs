@@ -244,6 +244,41 @@ public class SyncClientRegistrationTests
         Assert.Contains(keyed, source => source is ReplicatedAgentSessionSource);
     }
 
+    /// <summary>
+    /// The activity twin is registered the same way and for the same reason: a
+    /// keyed contributor, never the plain <see cref="IAgentActivitySource"/>. This
+    /// host composed no activity source of its own, so the unkeyed ask answers
+    /// nothing — which is also what lets the exchange compose without one, since
+    /// its activity dependency is optional.
+    /// </summary>
+    [Fact]
+    public void The_replicated_activity_source_contributes_rather_than_replacing()
+    {
+        using var provider = Build(SessionHost());
+
+        Assert.Null(provider.GetService<IAgentActivitySource>());
+
+        var keyed = provider.GetKeyedServices<IAgentActivitySource>(KeyedService.AnyKey).ToList();
+        Assert.Contains(keyed, source => source is ReplicatedAgentActivitySource);
+    }
+
+    /// <summary>
+    /// And the exchange composes either way — with the activity port registered
+    /// and without it. The dependency is optional so a head without transcripts
+    /// still pushes its records; what the pusher does with a source once it has
+    /// one is <c>SessionSyncSessionTests</c>' subject.
+    /// </summary>
+    [Fact]
+    public void The_exchange_composes_with_an_activity_source_as_well_as_without()
+    {
+        var services = SessionHost();
+        services.AddSingleton<IAgentActivitySource>(new StubAgentActivitySource());
+
+        using var provider = Build(services);
+
+        Assert.NotNull(provider.GetRequiredService<SessionSyncSession>());
+    }
+
     /// <summary>The composition a desktop head makes, with the two session stores in
     /// memory so nothing here writes a file.</summary>
     private static ServiceCollection SessionHost()

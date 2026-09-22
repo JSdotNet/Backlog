@@ -155,6 +155,22 @@
                                       PressedChanged="State.SetNoRepositoryFilter">
                             No repo<span class="chip__count">@NoRepositoryCount</span>
                         </ToggleButton>
+
+                        @* The domain's readiness as a scope: what is open and
+                           waiting on nothing, which is what a reader scanning for
+                           something to pick up is asking. Worded off the row's own
+                           "Waiting for" line rather than as "Ready", because the
+                           status group already means something else by that word
+                           and a row can be `!ready` and still waiting — see
+                           TasksDesktopState.NotWaitingOnly. *@
+                        <ToggleButton BaseClass="chip chip--filter chip--scope"
+                                      PressedCssClass="chip--active"
+                                      Pressed="@State.NotWaitingOnly"
+                                      TestId="notwaiting-filter-option"
+                                      Title="@(State.NotWaitingOnly ? "Show everything again" : "Show only what is open and waiting on nothing")"
+                                      PressedChanged="State.SetNotWaitingFilter">
+                            Not waiting<span class="chip__count">@NotWaitingCount</span>
+                        </ToggleButton>
                     </div>
 
                     @* Nothing at all until something in scope carries a tag: the group
@@ -735,7 +751,13 @@
             StepCount: row.PreviewSubItems.Count,
             Note: row.HasExpandableContent,
             Tags: row.PreviewMetadataTags,
-            DependsOn: State.ResolvedDependsOn(row))
+            DependsOn: State.ResolvedDependsOn(row),
+            // The row's mark for what the entry was filed as, with the same word
+            // the panel's type badge shows behind it, so a row and the entry it
+            // opens into never disagree. It used to be absent from the row
+            // altogether, which left "is this a prompt or a task" a question only
+            // the panel could answer.
+            Kind: KindOf(row.PreviewType))
         {
             RepeatLabel = FormatRepeat(row.PreviewRecurrence)
         })];
@@ -1880,6 +1902,11 @@
     /// <c>TasksDesktopState.NoRepositoryOnly</c> — so the count asks it rather than
     /// working the answer out a second way here.</summary>
     private int NoRepositoryCount => State.ScopedRows.Count(row => State.RepositoryFor(row) is null);
+
+    /// <summary>How many of those same rows are open and waiting on nothing. The
+    /// same arrangement as No repo: the state derives readiness, and the count asks
+    /// it — see <c>TasksDesktopState.IsNotWaiting</c>.</summary>
+    private int NotWaitingCount => State.ScopedRows.Count(State.IsNotWaiting);
 
     /// <summary>Turning the scope on pins it to today. The date is read here rather
     /// than in the state for the reason <c>#feature-my-day</c> gives: membership is
@@ -3271,6 +3298,23 @@
 
     private static IReadOnlyList<SelectorOption> TypeSelectorOptions() =>
         [.. Enum.GetValues<EntryType>().Select(type => new SelectorOption(type.ToString(), Humanize(type.ToString())))];
+
+    /// <summary>
+    /// The mark a row wears for each type, with the word the panel's type badge
+    /// uses behind it. Three marks for three facts: a prompt is text you hand to
+    /// an agent, so it takes the sparkle every AI surface has taught readers to
+    /// expect; a task is a thing on a list; an idea is the bulb. The word comes
+    /// from the same <see cref="Humanize"/> the badge's options do, so the tooltip
+    /// on the row and the value in the panel are one spelling.
+    /// </summary>
+    private static TaskKind KindOf(EntryType type) => new(
+        type switch
+        {
+            EntryType.Prompt => "✨",
+            EntryType.Idea => "💡",
+            _ => "📋"
+        },
+        Humanize(type.ToString()));
 
     /// <summary>All four rankings the domain has, lowest first. The badge this
     /// replaced offered three — Critical was in the enum, in the grammar and in the

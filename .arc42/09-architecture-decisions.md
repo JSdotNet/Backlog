@@ -180,3 +180,13 @@ related: [".arc42/04-solution-strategy.md"]
   replication share, and travels between the person's desktops through a third
   replica container, `annotations`, on the task container's last-write-wins and
   tombstone terms.
+- **[ADR 0012 — Backlog is an MCP server hosted inside the running desktop application](adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md)**
+  *(accepted, not yet built)*: an AI session's tool surface over Backlog is a
+  Streamable HTTP endpoint the desktop app itself listens on — loopback, a
+  configurable port, an `Origin` check and a bearer token — registered as
+  `backlog` everywhere, mapped by the web harness too, and never a standalone
+  stdio host. Every scoped call carries the repository as `owner/name`; a status
+  move is a rewrite of the entry's status token through the existing save; the
+  private reading note is the inbox a session reads and resolves, and the answer
+  is a devbook fence the session writes itself. Tool groups follow the feature
+  flags of the areas they serve.

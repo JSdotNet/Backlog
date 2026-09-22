@@ -610,13 +610,21 @@
             <span class="task-item__meta">
                 @foreach (var detail in Details)
                 {
-                    <span class="@detail.CssClass" title="@detail.Name">
-                        @if (detail.Glyph.Length > 0)
+                    <span class="@detail.CssClass" title="@detail.Title">
+                        @if (detail.DrawsGlyph)
                         {
                             @* The glyph is decoration on top of the words:
                                a screen reader hears "Reminder 09:00", not
                                "alarm clock emoji". *@
                             <span class="task-item__glyph" aria-hidden="true">@detail.Glyph</span>
+                            <span class="sr-only">@detail.Name</span>
+                        }
+                        else if (detail.LedByKind && !string.Equals(detail.Name, detail.Text, StringComparison.Ordinal))
+                        {
+                            @* The kind mark has taken this glyph's place, so only
+                               the words are drawn — but "2 of 5" on its own is a
+                               count of nothing to a screen reader, which still
+                               hears "Steps 2 of 5". "Note" already says "Note". *@
                             <span class="sr-only">@detail.Name</span>
                         }
                         @if (detail.Kind is TaskDetailKind.Blocked && Status is not null)
@@ -626,8 +634,13 @@
                                goes there, and the rest — an id nobody here answers
                                to — stays the words it was. Separated exactly as
                                the joined text was, so the line still reads
-                               "Waiting for Review the draft, sign-off". *@
-                            <span>
+                               "Waiting for Review the draft, sign-off".
+
+                               Named, because it is a sentence of other rows'
+                               titles on a line that does not wrap, and it has to
+                               give up room the way the title above it does when
+                               the column runs out — see .task-item__waiting. *@
+                            <span class="task-item__waiting">
                                 @for (var i = 0; i < Status.Waiting.Count; i++)
                                 {
                                     var dependency = Status.Waiting[i];
@@ -655,7 +668,11 @@
                         }
                         else
                         {
-                            <span>@detail.Text</span>
+                            @* Hidden, not dropped, for the one detail whose
+                               glyph is the fact: a screen reader still hears
+                               "Type: prompt", and the tooltip above says the
+                               same for a pointer. *@
+                            <span class="@(detail.GlyphOnly ? "sr-only" : null)">@detail.Text</span>
                         }
                     </span>
                 }
@@ -1376,11 +1393,20 @@
         : Task.HasBody ? $"{Task.Title}\n\n{Task.Body!.Trim()}"
         : Task.Title;
 
-    /// <summary>The metadata line as this row draws it: what the chain worked
-    /// out first, then what the task knows about itself. A row that cannot be
-    /// started leads with why, because everything after that is moot until it is
-    /// fixed.</summary>
-    private IReadOnlyList<TaskDetail> Details => [.. ChainDetails, .. Task.Details];
+    /// <summary>The metadata line as this row draws it: the kind mark with the
+    /// content facts it leads, then what the chain worked out, then what the task
+    /// knows about itself. A row that cannot be started leads with why, because
+    /// everything after that is moot until it is fixed — everything except the
+    /// mark's statement, which is not about progress at all: the mark holds the
+    /// line's left edge on every row so it can be scanned for, and "2 of 5 Note"
+    /// belongs to it rather than to the wait that would otherwise split them.
+    /// See <see cref="TaskRow.Details"/>.</summary>
+    private IReadOnlyList<TaskDetail> Details =>
+    [
+        .. Task.Details.Where(detail => detail.Kind is TaskDetailKind.Kind || detail.LedByKind),
+        .. ChainDetails,
+        .. Task.Details.Where(detail => detail.Kind is not TaskDetailKind.Kind && !detail.LedByKind)
+    ];
 
     private IReadOnlyList<TaskDetail> ChainDetails
     {

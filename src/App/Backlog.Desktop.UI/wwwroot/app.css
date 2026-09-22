@@ -4860,6 +4860,15 @@ h1, h2, h3 {
     max-width: 12rem;
 }
 
+/* A repository the product placed the session in — its working folder lies inside
+   a registered clone — rather than one the agent recorded. The cell's title says so
+   in words; this is the glance-level hint, a leading approximation glyph, so a
+   resolved value never reads as a recorded one. Colour stays the identity hue's. */
+.sessions-table__repository--resolved::before {
+    content: "≈ ";
+    color: var(--color-text-secondary);
+}
+
 .sessions-table__branch {
     max-width: 16rem;
 }
