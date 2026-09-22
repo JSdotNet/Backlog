@@ -626,8 +626,13 @@
                                goes there, and the rest — an id nobody here answers
                                to — stays the words it was. Separated exactly as
                                the joined text was, so the line still reads
-                               "Waiting for Review the draft, sign-off". *@
-                            <span>
+                               "Waiting for Review the draft, sign-off".
+
+                               Named, because it is a sentence of other rows'
+                               titles on a line that does not wrap, and it has to
+                               give up room the way the title above it does when
+                               the column runs out — see .task-item__waiting. *@
+                            <span class="task-item__waiting">
                                 @for (var i = 0; i < Status.Waiting.Count; i++)
                                 {
                                     var dependency = Status.Waiting[i];
