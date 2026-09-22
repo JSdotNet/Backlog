@@ -106,5 +106,10 @@ public class SessionsAiContentSourceTests
     {
         public Task<AgentSessionCatalog> GetSessionsAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(new AgentSessionCatalog(sessions, unreadable ?? [], discovered ?? sessions.Count));
+
+        // The source asks for the inventory's reading; a horizon is the pane's
+        // question, not this one's, so the fixture answers both the same.
+        public Task<AgentSessionCatalog> GetSessionsAsync(AgentSessionQuery query, CancellationToken cancellationToken = default) =>
+            GetSessionsAsync(cancellationToken);
     }
 }
