@@ -1,0 +1,20 @@
+@* An info mark under a host that closes on Escape, which is the only
+   arrangement that can see where the key stops.
+
+   The live shape is the dashboard takeover: the shell's workspace surface carries
+   a keydown handler that closes the surface on any Escape that reaches it, and
+   the eight info marks on the dashboard's parts sit inside it. The first Escape
+   on a focused mark is the mark's — it closes the caption — and must not also be
+   the shell's; the next one, with nothing left to close, is. A host that counts
+   is what tells those apart. *@
+
+<div class="escape-host" data-testid="host" @onkeydown="OnHostKeyDown">
+    <InfoHint AriaLabel="About Score" Text="Two scores." TriggerTestId="mark" />
+</div>
+
+@code {
+    /// <summary>Every key that reached the host, in order.</summary>
+    public List<string> HostKeys { get; } = [];
+
+    private void OnHostKeyDown(KeyboardEventArgs e) => HostKeys.Add(e.Key);
+}

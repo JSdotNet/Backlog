@@ -130,6 +130,7 @@
                 <MetricTile Label="Agent-active time"
                             Value="@DashboardFormat.Duration(Value!.ActiveTime)"
                             Footnote="@ActiveTimeFootnote"
+                            FootnoteAsHint="true"
                             TestId="dashboard-sessions-active" />
                 @* "For a prompt" rather than "on you". Nearly every prompt that ends a
                    gap here comes from an SDK or a skill rather than from the keyboard —
@@ -138,6 +139,7 @@
                 <MetricTile Label="Waiting for a prompt"
                             Value="@DashboardFormat.Duration(Value!.Waiting)"
                             Footnote="@WaitingFootnote"
+                            FootnoteAsHint="true"
                             TestId="dashboard-sessions-waiting" />
                 @* A mean over the sessions that carry a count, and the footnote names
                    how many that is. Only Claude records one, so a mean that treated the
@@ -147,6 +149,7 @@
                 <MetricTile Label="Prompts per session"
                             Value="@Prompts(Value!.PromptsPerSession)"
                             Footnote="@PromptsFootnote"
+                            FootnoteAsHint="true"
                             TestId="dashboard-sessions-prompts" />
                 @* The instant rather than "two hours ago". A relative figure would need
                    a clock in a component that otherwise reads none, and would go stale
@@ -163,6 +166,7 @@
                 <MetricTile Label="Most sessions at once"
                             Value="@Peak(Value!.MostSessionsAtOnce)"
                             Footnote="@SessionsAtOnceFootnote"
+                            FootnoteAsHint="true"
                             TestId="dashboard-sessions-at-once" />
                 @* A second population, and the tile beside it is the reason the footnote
                    has to say so twice over: these are counted apart from the sessions, and
@@ -171,6 +175,7 @@
                 <MetricTile Label="Most agents at once"
                             Value="@Peak(Value!.MostAgentsAtOnce)"
                             Footnote="@AgentsAtOnceFootnote"
+                            FootnoteAsHint="true"
                             TestId="dashboard-sessions-agents-at-once" />
             </MetricGrid>
 
@@ -182,6 +187,7 @@
             {
                 <MetricBars Points="@PerWeek"
                             Label="@PerWeekLabel"
+                            Note="@PerWeekNote"
                             BucketHeading="Week"
                             ValueHeading="Sessions"
                             HighlightLast="true"
@@ -198,6 +204,7 @@
             {
                 <MetricBars Points="@PromptsPerWeek"
                             Label="@PromptsPerWeekLabel"
+                            Note="@PromptsPerWeekNote"
                             BucketHeading="Week"
                             ValueHeading="Prompts per session"
                             HighlightLast="true"
@@ -213,6 +220,7 @@
             {
                 <MetricHeatmap Series="@ByHour"
                                Label="@ByHourLabel"
+                               Note="@ByHourNote"
                                CellDetail="@CellDetail"
                                CellMarked="@InsideWorkingHours"
                                MarkedLabel="working hours"
@@ -228,6 +236,7 @@
                    idle. *@
                 <MetricHeatmap Series="@ByHourOpen"
                                Label="@ByHourOpenLabel"
+                               Note="@ByHourOpenNote"
                                CellDetail="@CellDetail"
                                CellMarked="@InsideWorkingHours"
                                MarkedLabel="working hours"
@@ -243,6 +252,7 @@
                    saying only that is the honest version of it. *@
                 <MetricHeatmap Series="@ByHourAgents"
                                Label="@ByHourAgentsLabel"
+                               Note="@ByHourAgentsNote"
                                CellMarked="@InsideWorkingHours"
                                MarkedLabel="working hours"
                                ShowValues="true"
@@ -365,8 +375,10 @@
     /// rather than in both weeks, is the reader's to know rather than to discover from
     /// a chart whose columns do not sum to the tile above them.
     /// </summary>
-    private const string PerWeekLabel =
-        "Sessions per week, counted in the week they last moved — one that ran across two weeks appears once";
+    private const string PerWeekLabel = "Sessions per week";
+
+    private const string PerWeekNote =
+        "Counted in the week they last moved — one that ran across two weeks appears once.";
 
     /// <summary>The prompt series, on the same terms as the one above it.</summary>
     private IReadOnlyList<MetricPoint> PromptsPerWeek =>
@@ -381,9 +393,11 @@
     /// the one place on this part a zero stands for "nothing to count", and the caption
     /// is where that has to be said.
     /// </summary>
-    private const string PromptsPerWeekLabel =
-        "Prompts per session by week, averaged over the sessions that carry a count and "
-        + "placed in the week they last moved — a week with no counted session shows as zero";
+    private const string PromptsPerWeekLabel = "Prompts per session, by week";
+
+    private const string PromptsPerWeekNote =
+        "Averaged over the sessions that carry a count and placed in the week they last "
+        + "moved — a week with no counted session shows as zero.";
 
     /// <summary>
     /// The mean to one decimal, or a dash. Not <see cref="MetricFormat.Compact"/>: that
@@ -482,13 +496,15 @@
     /// the other's noun is the one that had to give it up.
     /// </para>
     /// </summary>
-    private const string ByHourLabel =
-        "Peak sessions producing at once, by hour of your local clock — the last 7 days, "
-        + "whichever period is selected above. Outlined cells are your working hours from "
-        + "Settings, marked wherever the hour overlaps them. The columns count the "
-        + "distinct sessions that ran each day, so they are not the row added up — and a "
-        + "session that ran across the edge of your day is counted in hours and outside "
-        + "them both, so those two do not add up to the first either.";
+    private const string ByHourLabel = "Sessions producing at once, by hour";
+
+    private const string ByHourNote =
+        "Your local clock, the last 7 days, whichever period is selected above. Outlined "
+        + "cells are your working hours from Settings, marked wherever the hour overlaps "
+        + "them. The columns count the distinct sessions that ran each day, so they are "
+        + "not the row added up — and a session that ran across the edge of your day is "
+        + "counted in hours and outside them both, so those two do not add up to the "
+        + "first either.";
 
     /// <summary>
     /// What the second grid counts, and why it is never lower than the first.
@@ -500,11 +516,13 @@
     /// abandoned window open for days.
     /// </para>
     /// </summary>
-    private const string ByHourOpenLabel =
-        "Sessions on the go at once — producing, or stopped with nothing having prompted "
-        + "them yet. Never lower than the grid above, and the gap between the two is the "
-        + "time an agent was open and idle. A session that went quiet and never resumed is "
-        + "not counted, because nothing records when a session ended.";
+    private const string ByHourOpenLabel = "Sessions on the go at once, by hour";
+
+    private const string ByHourOpenNote =
+        "Producing, or stopped with nothing having prompted them yet. Never lower than "
+        + "the grid above, and the gap between the two is the time an agent was open and "
+        + "idle. A session that went quiet and never resumed is not counted, because "
+        + "nothing records when a session ended.";
 
     /// <summary>
     /// What the third grid counts, and the two ways a reader would otherwise get it wrong.
@@ -521,16 +539,17 @@
     /// call and then nothing — is short by its own silence.
     /// </para>
     /// </summary>
-    private const string ByHourAgentsLabel =
-        "Peak agents at once, by hour of your local clock — the last 7 days, whichever "
-        + "period is selected above. These are the agents Claude's sessions spawned, and "
-        + "they are in neither grid above: the three count different things and none is "
-        + "another's total. One session can hold five of these at once, so this grid is "
-        + "freely higher or lower than either of the others and the two must not be read "
-        + "as a share of each other. A run ends at the last thing an agent wrote down "
-        + "rather than at the moment it handed back, so one that finished quietly is "
-        + "short by its own silence. Outlined cells are your working hours from Settings, "
-        + "marked wherever the hour overlaps them.";
+    private const string ByHourAgentsLabel = "Agents at once, by hour";
+
+    private const string ByHourAgentsNote =
+        "Your local clock, the last 7 days, whichever period is selected above. These are "
+        + "the agents Claude's sessions spawned, and they are in neither grid above: the "
+        + "three count different things and none is another's total. One session can hold "
+        + "five of these at once, so this grid is freely higher or lower than either of "
+        + "the others and the two must not be read as a share of each other. A run ends at "
+        + "the last thing an agent wrote down rather than at the moment it handed back, so "
+        + "one that finished quietly is short by its own silence. Outlined cells are your "
+        + "working hours from Settings, marked wherever the hour overlaps them.";
 
     /// <summary>
     /// What a cell says beyond its shade. The shade is one of four steps and answers "how

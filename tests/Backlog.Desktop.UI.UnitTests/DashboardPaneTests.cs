@@ -208,63 +208,143 @@ public class DashboardPaneTests
     }
 
     /// <summary>
-    /// The constraint has to be on screen, not only in the code. A reader who cannot
-    /// see why a figure did not move when they filtered will conclude the filter is
-    /// broken.
+    /// No explanatory prose on the face of the pane: not a subtitle under the title,
+    /// not a paragraph under a section heading, not a line under a part's title. The
+    /// figures are what the dashboard shows; what they cover is behind each part's
+    /// info mark, and the test below reads it there.
     /// </summary>
     [Fact]
-    public void The_cost_section_says_neither_filter_reaches_it()
+    public void The_pane_wears_no_explanatory_text_on_its_face()
     {
         using var context = Context();
 
         var pane = context.Render<DashboardPane>();
-        var cost = pane.Find("[data-testid='dashboard-cost']");
 
+        Assert.Empty(pane.FindAll(".dashboard-panel__subtitle"));
+        Assert.Empty(pane.FindAll(".dashboard-section__note"));
+        Assert.Empty(pane.FindAll(".dashboard-part__note"));
+        Assert.Empty(pane.FindAll("p.dashboard-part__note, .dashboard-part__heading > p"));
+        Assert.DoesNotContain("does not change anything in this section", pane.Markup, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The filter refusals — the spend part says no provider reports spend per
+    /// repository, the sessions part says only Copilot records one — are the one thing a
+    /// reader could get wrong about this dashboard, so they are not dropped with the
+    /// prose: each part with a note carries it behind the library's info mark, a named
+    /// button beside the title whose tooltip is what describes it.
+    /// </summary>
+    [Fact]
+    public void Each_part_keeps_its_note_behind_an_info_mark_beside_its_title()
+    {
+        using var context = Context();
+
+        var pane = context.Render<DashboardPane>();
+
+        foreach (var part in new[]
+                 {
+                     "dashboard-headline",
+                     "dashboard-score",
+                     "dashboard-rework",
+                     "dashboard-trend",
+                     "dashboard-sessions",
+                     "dashboard-spend-month",
+                     "dashboard-spend-trend",
+                     "dashboard-spend-model"
+                 })
+        {
+            var trigger = pane.Find($"[data-testid='{part}-info']");
+            var note = pane.Find($"[data-testid='{part}-note']");
+            var title = pane.Find($"[data-testid='{part}'] .dashboard-part__title");
+
+            Assert.Equal("BUTTON", trigger.TagName);
+            Assert.Equal($"About {title.TextContent}", trigger.GetAttribute("aria-label"));
+            Assert.Equal("tooltip", note.GetAttribute("role"));
+            Assert.Equal(note.Id, trigger.GetAttribute("aria-describedby"));
+            // Beside the heading, not inside it: the heading's own name stays the title.
+            Assert.Equal(title.ParentElement, trigger.ParentElement?.ParentElement);
+            Assert.False(string.IsNullOrWhiteSpace(note.TextContent));
+        }
+
+        // Main widened this note from two providers to three while the marks were
+        // being built; what is pinned is that the refusal still reaches a reader
+        // through the mark, not the sentence's current arithmetic.
         Assert.Contains(
-            "neither the repository scope in the header nor the machine filter above changes anything in this section",
-            Squashed(cost.TextContent),
+            "No provider reports spend per repository",
+            Squashed(pane.Find("[data-testid='dashboard-spend-month-note']").TextContent),
             StringComparison.Ordinal);
     }
 
     /// <summary>
-    /// The same rule for the other direction: GitHub cannot say which machine a pull
-    /// request was worked from, so the productivity section says the machine filter
-    /// does not reach it rather than letting the reader conclude the control is broken.
+    /// Each section is a heading with the library's fold trigger inside it — the
+    /// accordion shape, so a screen reader walking headings still finds the three — and
+    /// every one opens expanded, because a dashboard that opens folded shows nothing.
     /// </summary>
-    [Fact]
-    public void The_productivity_section_says_the_machine_filter_does_not_reach_it()
+    [Theory]
+    [InlineData("dashboard-productivity", "dashboard-productivity-toggle", "Productivity")]
+    [InlineData("dashboard-sessions-section", "dashboard-sessions-toggle", "Sessions")]
+    [InlineData("dashboard-cost", "dashboard-cost-toggle", "Cost")]
+    public void Each_section_heading_is_a_fold_trigger_that_starts_open(string section, string toggle, string title)
     {
         using var context = Context();
 
         var pane = context.Render<DashboardPane>();
-        var productivity = pane.Find("[data-testid='dashboard-productivity']");
+        var heading = pane.Find($"[data-testid='{section}'] h3.dashboard-section__title");
+        var trigger = pane.Find($"[data-testid='{toggle}']");
 
-        Assert.Contains(
-            "the machine filter above does not change anything in this section",
-            Squashed(productivity.TextContent),
-            StringComparison.Ordinal);
+        Assert.Equal("H3", trigger.ParentElement?.TagName);
+        Assert.Equal("dashboard-section__title", trigger.ParentElement?.ClassName);
+        Assert.Contains(title, heading.TextContent, StringComparison.Ordinal);
+        Assert.Equal("true", trigger.GetAttribute("aria-expanded"));
+        Assert.False(pane.Find($"[data-testid='{section}'] .fold__region").HasAttribute("hidden"));
     }
 
     /// <summary>
-    /// And the third: the sessions part is the one thing the machine filter does drive,
-    /// and the one thing the repository filter cannot — Claude records no repository
-    /// against a session.
+    /// Folding hides the parts and unfolding brings them back — the same ones, not a
+    /// fresh render. FoldControl keeps its region in the DOM while hidden, so a part's
+    /// figures survive the fold and nothing re-fetches on the way back.
     /// </summary>
     [Fact]
-    public void The_sessions_section_says_the_repository_filter_does_not_reach_it()
+    public void Folding_a_section_hides_its_parts_without_re_fetching_them()
+    {
+        var costs = new RecordingCostInsights();
+        using var context = Context(configure: services => services.AddSingleton<ICostInsights>(costs));
+
+        var pane = context.Render<DashboardPane>();
+        var afterFirstRender = costs.Calls;
+        var region = pane.Find("[data-testid='dashboard-cost'] .fold__region");
+
+        pane.Find("[data-testid='dashboard-cost-toggle']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.True(pane.Find("[data-testid='dashboard-cost'] .fold__region").HasAttribute("hidden"));
+            Assert.Equal("false", pane.Find("[data-testid='dashboard-cost-toggle']").GetAttribute("aria-expanded"));
+        });
+        Assert.NotNull(pane.Find("[data-testid='dashboard-spend-month']"));
+
+        pane.Find("[data-testid='dashboard-cost-toggle']").Click();
+
+        pane.WaitForAssertion(() =>
+            Assert.False(pane.Find("[data-testid='dashboard-cost'] .fold__region").HasAttribute("hidden")));
+        Assert.Equal(afterFirstRender, costs.Calls);
+    }
+
+    /// <summary>One section's fold is its own: closing Cost leaves Productivity and
+    /// Sessions where they were.</summary>
+    [Fact]
+    public void Folding_one_section_leaves_the_others_open()
     {
         using var context = Context();
 
         var pane = context.Render<DashboardPane>();
-        var sessions = pane.Find("[data-testid='dashboard-sessions-section']");
 
-        // Copilot does record one, and always has. The refusal is right; the reason the
-        // section used to give for it named the wrong assistant.
-        Assert.Contains(
-            "Only Copilot records a repository against a session, so filtering by one would hide "
-            + "Claude's half of the picture; the repository scope in the header does not change this section",
-            Squashed(sessions.TextContent),
-            StringComparison.Ordinal);
+        pane.Find("[data-testid='dashboard-cost-toggle']").Click();
+
+        pane.WaitForAssertion(() =>
+            Assert.True(pane.Find("[data-testid='dashboard-cost'] .fold__region").HasAttribute("hidden")));
+        Assert.False(pane.Find("[data-testid='dashboard-productivity'] .fold__region").HasAttribute("hidden"));
+        Assert.False(pane.Find("[data-testid='dashboard-sessions-section'] .fold__region").HasAttribute("hidden"));
     }
 
     [Fact]
@@ -585,8 +665,11 @@ public class DashboardPaneTests
         var pane = context.Render<DashboardPane>();
         var grid = Squashed(pane.Find("[data-testid='dashboard-sessions-hours']").TextContent);
 
-        Assert.Contains("by hour of your local clock", grid, StringComparison.Ordinal);
-        Assert.Contains("the last 7 days, whichever period is selected above", grid, StringComparison.Ordinal);
+        // The caption names the clock; the mark beside it carries the rest. Both are
+        // inside the grid, which is what this reads — a reader meets the refusal at the
+        // thing that will not move either way.
+        Assert.Contains("by hour", grid, StringComparison.Ordinal);
+        Assert.Contains("Your local clock, the last 7 days, whichever period is selected above", grid, StringComparison.Ordinal);
     }
 
     /// <summary>The count is in the block, not only in the tooltip. A shade is one of four
@@ -989,7 +1072,7 @@ public class DashboardPaneTests
 
         // The bucketing rule, beside the columns it governs rather than left for a
         // reader to deduce from a total that does not add up.
-        Assert.Contains("counted in the week they last moved", bars, StringComparison.Ordinal);
+        Assert.Contains("Counted in the week they last moved", bars, StringComparison.Ordinal);
 
         // And the figures themselves, in the table the columns are only a picture of.
         Assert.Contains("W33", bars, StringComparison.Ordinal);
@@ -1138,7 +1221,8 @@ public class DashboardPaneTests
         // And it says what it counts, and that it is neither of the other two.
         var label = Squashed(agents.TextContent);
 
-        Assert.Contains("Peak agents at once, by hour of your local clock", label, StringComparison.Ordinal);
+        Assert.Contains("Agents at once, by hour", label, StringComparison.Ordinal);
+        Assert.Contains("Your local clock, the last 7 days", label, StringComparison.Ordinal);
         Assert.Contains("they are in neither grid above", label, StringComparison.Ordinal);
     }
 
@@ -1246,8 +1330,8 @@ public class DashboardPaneTests
         var pane = context.Render<DashboardPane>();
         var grid = Squashed(pane.Find("[data-testid='dashboard-sessions-hours']").TextContent);
 
-        Assert.Contains("Peak sessions producing at once", grid, StringComparison.Ordinal);
-        Assert.DoesNotContain("Peak agents running at once", grid, StringComparison.Ordinal);
+        Assert.Contains("Sessions producing at once", grid, StringComparison.Ordinal);
+        Assert.DoesNotContain("agents running at once", grid, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -1680,8 +1764,8 @@ public class DashboardPaneTests
     /// <summary>
     /// The surface is deliberately not configurable — no layout editing, no adding or
     /// removing a part, nothing persisted. This is the guard against that quietly
-    /// changing: the only controls on the panel are the filter, the per-part refresh,
-    /// and the close button.
+    /// changing: the only controls on the panel are the filter, the per-part refresh
+    /// and info mark, the three section folds, and the close button.
     /// </summary>
     [Fact]
     public void The_panel_offers_no_way_to_configure_itself()
@@ -1717,12 +1801,17 @@ public class DashboardPaneTests
         Assert.Single(pane.FindAll("[data-testid='dashboard-machine-filter'] select"));
         Assert.Equal(2, pane.FindAll("[data-testid='dashboard-window-filter'] button").Count);
         Assert.Equal(8, pane.FindAll("[data-testid$='-refresh']").Count);
+        // The folds show and hide what is already there; they arrange nothing.
+        Assert.Equal(3, pane.FindAll("[data-testid$='-toggle'].fold__trigger").Count);
+        // The info marks open a caption; they change nothing.
+        Assert.Equal(8, pane.FindAll("[data-testid$='-info'].info-hint__trigger").Count);
         Assert.Single(pane.FindAll("[aria-label='Close dashboard']"));
 
         var controls = pane.FindAll("button, select, input, textarea");
 
-        // One close, one filter select, two window buttons, eight refreshes.
-        Assert.Equal(1 + 1 + 2 + 8, controls.Count);
+        // One close, one filter select, two window buttons, eight refreshes, three
+        // folds, eight info marks.
+        Assert.Equal(1 + 1 + 2 + 8 + 3 + 8, controls.Count);
     }
 
     /// <summary>
@@ -1778,8 +1867,11 @@ public class DashboardPaneTests
 
     /// <summary>
     /// The header is the library SectionHeader now, so what is worth holding is
-    /// that it still renders this pane's own class names - app.css styles all five
-    /// and did not move.
+    /// that it still renders this pane's own class names - app.css styles all four
+    /// and did not move. Not the shared pane-header assertion: that one expects a
+    /// subtitle, and this pane has none on purpose — the section headings say what
+    /// it holds, and a sentence above them saying it again was text in front of the
+    /// figures.
     /// </summary>
     [Fact]
     public void The_header_is_the_shared_component_wearing_this_panes_classes()
@@ -1789,7 +1881,18 @@ public class DashboardPaneTests
         var pane = context.Render<DashboardPane>();
         var header = pane.Find(".dashboard-panel__header");
 
-        SectionHeaderAdoptionTests.AssertPaneHeader(header, "dashboard-panel", "dashboard-title");
+        Assert.Equal("HEADER", header.TagName);
+        Assert.Equal("dashboard-panel__header", header.GetAttribute("class"));
+
+        var text = header.Children[0];
+        Assert.Equal("DIV", text.TagName);
+        Assert.Null(text.GetAttribute("class"));
+        Assert.Equal(["P", "H2"], text.Children.Select(child => child.TagName));
+        Assert.Equal(
+            ["dashboard-panel__eyebrow", "dashboard-panel__title"],
+            text.Children.Select(child => child.GetAttribute("class")));
+        Assert.Equal("dashboard-title", text.Children[1].GetAttribute("id"));
+
         SectionHeaderAdoptionTests.AssertPaneHeaderActions(header, "dashboard-panel");
         Assert.NotNull(header.QuerySelector(".dashboard-panel__header-actions button"));
     }

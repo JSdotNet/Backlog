@@ -9,7 +9,9 @@
     <Story Name="MetricTile"
            Description="A label, a number, and how it moved. The number is already formatted by the caller, so the tile takes a string and not a decimal — it does not know whether it is holding tokens, money or sessions.
 
-`HigherIsBetter` is a parameter, because the answer differs per metric: more sessions is better, more spend is not. It changes the wording and the arrow, never the text colour."
+`HigherIsBetter` is a parameter, because the answer differs per metric: more sessions is better, more spend is not. It changes the wording and the arrow, never the text colour.
+
+A footnote is either a phrase naming the figure or a sentence explaining it. `FootnoteAsHint` moves the second kind behind a mark on the label line, as the last tile here shows: a tile whose explanation is longer than its label is prose with a figure in it."
            Code="@TileCode">
         <MetricGrid Label="Metric tile examples">
             <MetricTile Label="Total tokens"
@@ -28,6 +30,12 @@
                         Delta="new MetricDelta(0m, MetricDeltaUnit.Percent, UsageFixtures.PreviousPeriod, HigherIsBetter: false)"
                         Footnote="Unchanged reads as a word, not an absent arrow."
                         TestId="tile-per-session" />
+
+            <MetricTile Label="Agent-active time"
+                        Value="5h 12m"
+                        Footnote="Time an agent was producing, not time a session was open. A gap of more than five minutes ends a run rather than counting. Concurrent sessions are counted separately, so this can exceed elapsed time."
+                        FootnoteAsHint="true"
+                        TestId="tile-active" />
         </MetricGrid>
     </Story>
 
@@ -101,7 +109,9 @@ The y scale runs zero to max rather than min to max, so a series that moved two 
     <Story Name="MetricBars"
            Description="The same series with an axis, for when a reader takes figures off it rather than glancing at the shape. Columns are CSS boxes rather than SVG, so the axis labels are real text that scales with the reader's font size.
 
-Only every nth date is printed, the last one always among them, and every column is also a row in a visually-hidden table."
+Only every nth date is printed, the last one always among them, and every column is also a row in a visually-hidden table.
+
+`Note` puts what a reader could get wrong about the columns behind a mark beside the caption, so the caption stays a name. The second chart here has one."
            Code="@BarsCode">
         <div class="sb-stack">
             <MetricBars Points="UsageFixtures.TokensPerDay"
@@ -113,6 +123,7 @@ Only every nth date is printed, the last one always among them, and every column
 
             <MetricBars Points="UsageFixtures.CostPerDay"
                         Label="@($"Spend per day, in {UsageFixtures.Currency}")"
+                        Note="A note is what a reader would otherwise get wrong about the columns — what they count, what they refuse — behind a mark rather than in the caption, which stays a name."
                         BucketHeading="Day"
                         ValueHeading="Cost"
                         FormatValue="UsageFixtures.Money"

@@ -11,10 +11,27 @@
 
     Whether up is good is the caller's to say. More sessions is better, more
     spend is not, and no component can work that out from the number.
+
+    A footnote is either a phrase naming the figure — "Of those rounds", a unit —
+    or a sentence explaining it. The first belongs under the number and the second
+    does not: a tile whose explanation is longer than its label is prose with a
+    figure in it. FootnoteAsHint moves that sentence behind a mark on the label
+    line, where it is one hover or one focus away and nothing has to be scrolled
+    past to reach the next number.
 *@
 
 <article class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
-    <p class="@(Part("label"))">@Label</p>
+    <p class="@(Part("label"))">
+        @Label
+        @if (HintedFootnote is { } hint)
+        {
+            <InfoHint AriaLabel="@($"About {Label}")"
+                      Text="@hint"
+                      CssClass="@(Part("hint"))"
+                      TriggerTestId="@(TestId is null ? null : TestId + "-info")"
+                      TooltipTestId="@(TestId is null ? null : TestId + "-note")" />
+        }
+    </p>
 
     @if (Status is MetricStatusKind.Ready)
     {
@@ -49,7 +66,10 @@
         <MetricStatus Kind="Status" Message="@StatusMessage" CssClass="@(Part("status"))" />
     }
 
-    @if (!string.IsNullOrWhiteSpace(Footnote))
+    @* Not "when the hint did not render": a tile whose footnote was asked to be a
+       hint and whose figure never arrived prints nothing, rather than falling back
+       to the paragraph the host was getting rid of. *@
+    @if (!FootnoteAsHint && !string.IsNullOrWhiteSpace(Footnote))
     {
         <p class="@(Part("footnote"))">@Footnote</p>
     }
@@ -77,6 +97,12 @@
 
     [Parameter]
     public string? Footnote { get; set; }
+
+    /// <summary>Renders <see cref="Footnote"/> behind an info mark on the label
+    /// line rather than as a line under the value. For a footnote that explains
+    /// the figure rather than naming it.</summary>
+    [Parameter]
+    public bool FootnoteAsHint { get; set; }
 
     /// <summary>A sparkline slot. Anything else fits, but the trend beside a
     /// number is what the space is shaped for.</summary>
@@ -133,6 +159,15 @@
             return $"{Part("delta")} {Part("delta")}--{direction}";
         }
     }
+
+    /// <summary>The footnote when it belongs on the label line — and only while
+    /// there is a figure for it to be about. A mark explaining how a number was
+    /// arrived at, on a card that could not arrive at one, is a caption for
+    /// nothing.</summary>
+    private string? HintedFootnote =>
+        FootnoteAsHint && Status is MetricStatusKind.Ready && !string.IsNullOrWhiteSpace(Footnote)
+            ? Footnote
+            : null;
 
     private string Part(string name) => $"{BaseClass}__{name}";
 

@@ -1,0 +1,141 @@
+@*
+    An info mark with the explanation behind it: a small ⓘ that shows a line of
+    text on hover and on focus, for a caption a screen wants available without
+    wearing it.
+
+    Not a title attribute. A native tooltip never opens from the keyboard and
+    cannot be styled, which is why nothing in this library uses one for text a
+    reader is meant to reach. The trigger here is a real button: it takes focus,
+    the bubble opens while it has it, and Escape closes it again until focus
+    leaves. A press pins the bubble open, which is what a touch screen — where
+    there is no hover and focus is a tap — needs to read it at all.
+
+    The bubble is in the DOM whether or not it shows. aria-describedby points the
+    trigger at it, so a screen reader announces the text on the button without
+    the bubble having to be visible — a hidden element a describedby names
+    directly is still read — and showing it is only for the sighted reader. At
+    rest it is display: none rather than merely invisible, so it takes no room in
+    a scrolling host it would otherwise widen.
+
+    The Escape that closes the bubble stops here. A host above — a takeover, a
+    pane — closes on Escape too, and a reader who dismissed a caption has not asked
+    to lose the screen it sat on. The boundary is the stopPropagation on the
+    wrapper, and it is bound to whether there is anything left to dismiss: while
+    the bubble shows, a key is this control's; once Escape has closed it, the next
+    Escape is the host's. Bound state on an event modifier is read at render, so
+    it always describes the press before the one it is answering — which is
+    exactly the order wanted here, since the render that follows the first Escape
+    is what lets the second one through.
+*@
+
+<span class="@ClassValue"
+      data-testid="@TestId"
+      @onmouseleave="Leave"
+      @onfocusout="Leave"
+      @onkeydown="OnKeyDown"
+      @onkeydown:stopPropagation="@(!_dismissed)">
+    <button type="button"
+            class="info-hint__trigger"
+            aria-label="@AriaLabel"
+            aria-describedby="@_id"
+            aria-expanded="@(_pinned ? "true" : "false")"
+            data-testid="@TriggerTestId"
+            @onclick="Toggle"
+            @attributes="AdditionalAttributes">
+        <svg class="info-hint__icon" viewBox="0 0 16 16" width="1em" height="1em" aria-hidden="true" focusable="false">
+            <circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-width="1.25" />
+            <path d="M8 7.25v4.25M8 4.5v.75" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+        </svg>
+    </button>
+    <span class="info-hint__bubble" role="tooltip" id="@_id" data-testid="@TooltipTestId">
+        @if (ChildContent is not null)
+        {
+            @ChildContent
+        }
+        else
+        {
+            @Text
+        }
+    </span>
+</span>
+
+@code {
+    private readonly string _id = "info-hint-" + Guid.NewGuid().ToString("N");
+
+    /// <summary>Pinned open by a press; released by the next press, by Escape, or
+    /// by the pointer or focus leaving.</summary>
+    private bool _pinned;
+
+    /// <summary>Closed by Escape while hover or focus would otherwise show it.
+    /// Cleared when either leaves, so the next arrival opens it again.</summary>
+    private bool _dismissed;
+
+    /// <summary>What the mark is about — the button's accessible name, since the
+    /// icon alone says nothing. Usually "About &lt;the thing it sits beside&gt;".</summary>
+    [Parameter, EditorRequired]
+    public string AriaLabel { get; set; } = string.Empty;
+
+    /// <summary>The explanation. <see cref="ChildContent"/> replaces it when the
+    /// text is more than a string.</summary>
+    [Parameter]
+    public string? Text { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>Replaces <c>info-hint</c> as the class the wrapper carries.</summary>
+    [Parameter]
+    public string? BaseClass { get; set; } = "info-hint";
+
+    /// <summary>Lands on the wrapper.</summary>
+    [Parameter]
+    public string? TestId { get; set; }
+
+    /// <summary>Lands on the trigger button.</summary>
+    [Parameter]
+    public string? TriggerTestId { get; set; }
+
+    /// <summary>Lands on the bubble, for a test that reads the explanation.</summary>
+    [Parameter]
+    public string? TooltipTestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string ClassValue
+    {
+        get
+        {
+            var root = string.IsNullOrWhiteSpace(BaseClass) ? "info-hint" : BaseClass;
+            var pinned = _pinned ? " info-hint--open" : string.Empty;
+            var dismissed = _dismissed ? " info-hint--dismissed" : string.Empty;
+            var extra = string.IsNullOrWhiteSpace(CssClass) ? string.Empty : " " + CssClass;
+
+            return $"{root}{pinned}{dismissed}{extra}";
+        }
+    }
+
+    private void Toggle()
+    {
+        _pinned = !_pinned;
+        _dismissed = false;
+    }
+
+    private void Leave()
+    {
+        _pinned = false;
+        _dismissed = false;
+    }
+
+    private void OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape")
+        {
+            _pinned = false;
+            _dismissed = true;
+        }
+    }
+}

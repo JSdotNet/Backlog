@@ -9,22 +9,22 @@
 
     A host that already renders its own region still can: leave ChildContent null
     and point `Controls` at the element it owns, and only the trigger is emitted.
+
+    HeadingLevel wraps the trigger in a heading, which is the accordion shape: a
+    button inside a heading is valid and keeps the section in the heading outline,
+    while a heading inside a button is neither. Without it the trigger is the
+    bare button, which is what a fold that is not a section wants.
 *@
 
 <div class="@ClassValue">
-    <button type="button"
-            class="fold__trigger"
-            id="@TriggerId"
-            data-testid="@TestId"
-            aria-expanded="@(Expanded ? "true" : "false")"
-            aria-controls="@RegionId"
-            aria-label="@AriaLabel"
-            disabled="@Disabled"
-            @onclick="ToggleAsync"
-            @attributes="AdditionalAttributes">
-        <span class="@ChevronClass" aria-hidden="true">&#9656;</span>
-        <span class="fold__label">@(LabelContent ?? DefaultLabel)</span>
-    </button>
+    @if (HeadingLevel is { } level)
+    {
+        @Heading(level)
+    }
+    else
+    {
+        @Trigger
+    }
 
     @if (ChildContent is not null)
     {
@@ -38,6 +38,32 @@
 
 @code {
     private readonly string _id = "fold-" + Guid.NewGuid().ToString("N");
+
+    /// <summary>The trigger, as a fragment so the heading below can wrap it
+    /// without the markup being written twice.</summary>
+    private RenderFragment Trigger => @<button type="button"
+                                              class="fold__trigger"
+                                              id="@TriggerId"
+                                              data-testid="@TestId"
+                                              aria-expanded="@(Expanded ? "true" : "false")"
+                                              aria-controls="@RegionId"
+                                              aria-label="@AriaLabel"
+                                              disabled="@Disabled"
+                                              @onclick="ToggleAsync"
+                                              @attributes="AdditionalAttributes">
+        <span class="@ChevronClass" aria-hidden="true">&#9656;</span>
+        <span class="fold__label">@(LabelContent ?? DefaultLabel)</span>
+    </button>;
+
+    /// <summary>The trigger inside an <c>h1</c>-<c>h6</c>. Built by hand because a
+    /// tag name is not something Razor markup can take from a parameter.</summary>
+    private RenderFragment Heading(int level) => builder =>
+    {
+        builder.OpenElement(0, "h" + Math.Clamp(level, 1, 6));
+        builder.AddAttribute(1, "class", HeadingCssClass ?? "fold__heading");
+        builder.AddContent(2, Trigger);
+        builder.CloseElement();
+    };
 
     [Parameter]
     public bool Expanded { get; set; }
@@ -68,6 +94,17 @@
 
     [Parameter]
     public bool Disabled { get; set; }
+
+    /// <summary>Wraps the trigger in a heading of this level (1-6), for a fold
+    /// that is a section of the page rather than a detail inside one. Null, the
+    /// default, emits the bare button.</summary>
+    [Parameter]
+    public int? HeadingLevel { get; set; }
+
+    /// <summary>Replaces <c>fold__heading</c> as the class the heading carries.
+    /// Ignored without <see cref="HeadingLevel"/>.</summary>
+    [Parameter]
+    public string? HeadingCssClass { get; set; }
 
     [Parameter]
     public string? CssClass { get; set; }
