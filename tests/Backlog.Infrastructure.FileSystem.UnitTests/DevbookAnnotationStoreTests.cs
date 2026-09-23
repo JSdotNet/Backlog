@@ -104,6 +104,34 @@ public class DevbookAnnotationStoreTests : IDisposable
     }
 
     [Fact]
+    public void The_anchor_digest_survives_a_new_store_over_the_same_folder()
+    {
+        // The digest is only worth anything if it outlives the process that
+        // took it: the chapter is edited between sessions, not during one.
+        var first = Store();
+        var remark = first.Add(Repository, Chapter, 2, "DEV-TOWER", "1f2e3d4c");
+        first.Edit(remark.Id, "Say which team owns this.");
+
+        var listed = Assert.Single(Store().List(Repository, Chapter));
+
+        Assert.Equal("1f2e3d4c", listed.BlockHash);
+        Assert.True(listed.IsAnchored);
+    }
+
+    [Fact]
+    public void A_remark_made_without_a_digest_is_not_anchored()
+    {
+        // Every remark in every file written before this existed, and any block
+        // with no text to digest. It has to keep working, unchanged.
+        var store = Store();
+        var remark = store.Add(Repository, Chapter, 2, "DEV-TOWER");
+
+        Assert.Null(remark.BlockHash);
+        Assert.False(remark.IsAnchored);
+        Assert.Null(Assert.Single(Store().List(Repository, Chapter)).BlockHash);
+    }
+
+    [Fact]
     public void Each_repository_gets_its_own_file_under_the_storage_folder()
     {
         var store = Store();

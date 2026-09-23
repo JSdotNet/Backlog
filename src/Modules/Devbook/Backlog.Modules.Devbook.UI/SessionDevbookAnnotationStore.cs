@@ -39,10 +39,24 @@ public sealed class SessionDevbookAnnotationStore : IDevbookAnnotationStore
 
     public DevbookAnnotation? Find(Guid id) => _annotations.GetValueOrDefault(id);
 
-    public DevbookAnnotation Add(string? repositoryAlias, string chapterPath, int blockIndex, string author)
+    public DevbookAnnotation Add(
+        string? repositoryAlias,
+        string chapterPath,
+        int blockIndex,
+        string author,
+        string? blockHash = null)
     {
         var now = _time.GetUtcNow();
-        var annotation = new DevbookAnnotation(Guid.NewGuid(), Key(repositoryAlias), chapterPath, blockIndex, string.Empty, author, now, now);
+        var annotation = new DevbookAnnotation(
+            Guid.NewGuid(),
+            Key(repositoryAlias),
+            chapterPath,
+            blockIndex,
+            string.Empty,
+            author,
+            now,
+            now,
+            BlockHash: string.IsNullOrWhiteSpace(blockHash) ? null : blockHash.Trim());
 
         Apply(annotation);
 

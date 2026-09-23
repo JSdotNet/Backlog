@@ -41,6 +41,12 @@ namespace Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 /// made it.</param>
 /// <param name="Resolved">Whether it has been dealt with. A resolved remark
 /// stays visible and quiet rather than disappearing.</param>
+/// <param name="BlockHash">A short digest of what the anchored block said, so
+/// the receiving device can tell whether <paramref name="BlockIndex"/> still
+/// names the right block in its own copy of the chapter. Last on the line and
+/// optional: a device running an older build sends no such member, and a
+/// payload without one deserializes to null and anchors by index alone, which
+/// is what every remark did before this existed.</param>
 public sealed record AnnotationPayload(
     string RepositoryAlias,
     string ChapterPath,
@@ -48,7 +54,8 @@ public sealed record AnnotationPayload(
     string Body,
     string Author,
     DateTimeOffset CreatedAt,
-    bool Resolved);
+    bool Resolved,
+    string? BlockHash = null);
 
 /// <summary>
 /// One remark's state at one moment, as a device pushes it or pulls it. The

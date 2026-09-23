@@ -56,7 +56,8 @@ public sealed class AnnotationReplicaMerge
                 annotation.Body,
                 annotation.Author,
                 annotation.CreatedAt,
-                annotation.Resolved));
+                annotation.Resolved,
+                annotation.BlockHash));
     }
 
     /// <summary>The stored record for one arriving change.</summary>
@@ -76,7 +77,8 @@ public sealed class AnnotationReplicaMerge
             payload.CreatedAt,
             change.UpdatedAt,
             payload.Resolved,
-            change.DeletedAt);
+            change.DeletedAt,
+            payload.BlockHash);
     }
 
     /// <summary>Whether <paramref name="inbound"/> is the later of two records

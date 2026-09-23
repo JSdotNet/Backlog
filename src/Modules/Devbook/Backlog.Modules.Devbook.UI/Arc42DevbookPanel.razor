@@ -127,7 +127,8 @@
                    makes that transient a read-only render and not a wedged, exit-less
                    blank editor; when the read succeeds again the reader is back where
                    they were writing. *@
-                <FileView Name="@_selected.Title"
+                <FileView @ref="_chapterView"
+                          Name="@_selected.Title"
                           Kind="@ChapterKind(_selected)"
                           Path="@_selected.Path"
                           Body="@_chapter.Text"
@@ -280,6 +281,10 @@
     private DevbookDocument? _selected;
     private DevbookChapterContent _chapter = DevbookChapterContent.None;
     private DevbookDocument? _chapterDocument;
+    /// <summary>The view rendering the chapter, held only so a new remark can
+    /// ask it what the block it was left on says. See
+    /// <c>FileView.BlockDigestAt</c>.</summary>
+    private FileView? _chapterView;
     private DevbookChapterEditor? _editor;
     private string? _chapterSaveError;
     private bool _loading = true;
@@ -694,7 +699,15 @@
     {
         if (_chapterDocument is not { } document) return;
 
-        _annotations.Add(RepositoryAlias, document.Path, blockIndex, DevbookAnnotationComments.LocalAuthor);
+        // Asked of the view rather than worked out here: it owns the block list
+        // the index came from, and this panel holds the file's whole text.
+        _annotations.Add(
+            RepositoryAlias,
+            document.Path,
+            blockIndex,
+            DevbookAnnotationComments.LocalAuthor,
+            _chapterView?.BlockDigestAt(blockIndex));
+
         RefreshChapterComments();
     }
 
