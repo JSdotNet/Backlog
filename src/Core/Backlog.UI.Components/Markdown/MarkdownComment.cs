@@ -12,14 +12,20 @@ namespace Backlog.UI.Components.Markdown;
 /// by half a sentence.
 /// </para>
 /// <para>
-/// Which means the host owns re-anchoring. This library renders comments against
-/// the blocks it is told and never guesses where one should have gone.
+/// A comment that carries <see cref="MarkdownComment.BlockHash"/> is re-anchored
+/// here, because this is the only place that holds the blocks to check it
+/// against. That is not the view guessing: the digest either matches a block or
+/// it does not, and a comment without one keeps the old rule exactly — rendered
+/// against the index it was told, and shown at the end when that index is out
+/// of range.
 /// </para>
 /// </summary>
 /// <param name="Id">Unique within the view, and what a callback reports.</param>
 /// <param name="BlockIndex">Which block of the rendered list it hangs off, from
-/// zero. Out of range means the block went away; the view shows it at the end
-/// rather than dropping it, because a lost comment is worse than a stray one.</param>
+/// zero. Where it goes when that is no longer true depends on
+/// <paramref name="BlockHash"/>: without one, out of range means the block went
+/// away and the view shows the comment at the end rather than dropping it,
+/// because a lost comment is worse than a stray one.</param>
 /// <param name="Body">What was said.</param>
 /// <param name="Author">Who said it. Null for a note to self.</param>
 /// <param name="Timestamp">When, already formatted — what "2 hours ago" is, and
@@ -27,13 +33,20 @@ namespace Backlog.UI.Components.Markdown;
 /// <param name="Resolved">Whether it has been dealt with. A resolved comment
 /// stays visible and quiet rather than disappearing: the reason a paragraph
 /// reads the way it does is usually in the comment that got it there.</param>
+/// <param name="BlockHash">A digest of what the block said when the comment was
+/// made, from <see cref="MdBlockDigest"/>. Given one, the view trusts
+/// <paramref name="BlockIndex"/> only while the block there still matches, and
+/// otherwise looks for the block that does — which is what keeps a comment on
+/// its own passage when the chapter is edited above it. Null leaves the comment
+/// anchored by index alone.</param>
 public sealed record MarkdownComment(
     string Id,
     int BlockIndex,
     string Body,
     string? Author = null,
     string? Timestamp = null,
-    bool Resolved = false);
+    bool Resolved = false,
+    string? BlockHash = null);
 
 /// <summary>Where a read view draws the remarks against its blocks.</summary>
 public enum MarkdownCommentLayout

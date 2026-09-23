@@ -193,6 +193,12 @@ internal static class SyncRequestLimits
     /// — several paragraphs — and nowhere near the two-megabyte document
     /// ceiling that is the failure this keeps off the store.</summary>
     internal const int MaximumAnnotationBody = 8_000;
+
+    /// <summary>How long a remark's anchor digest may be. This end writes eight
+    /// hex characters; the bound is loose enough that lengthening the digest
+    /// does not need a server deploy first, and tight enough that the field
+    /// cannot be used to carry anything else.</summary>
+    internal const int MaximumAnnotationBlockHash = 128;
 }
 
 

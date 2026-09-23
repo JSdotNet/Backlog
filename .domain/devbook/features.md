@@ -146,9 +146,10 @@ This is a different thing from the devbook convention's own note, the
 shared repository artefact with its own lifecycle. Turning a private remark
 into one is a possible later step, not something the app does today.
 
-A remark is anchored to the block it was left on. When the chapter changes
-above it the anchor can point at the wrong block; the remark is then shown at
-the end of the chapter rather than lost, and re-anchoring it is not yet solved.
+A remark is anchored to the block it was left on, and remembers what that block
+said. When the chapter changes above it the remark follows its own passage to
+wherever it has moved to. A remark whose passage has been deleted, or rewritten
+into something else, is shown at the end of the chapter rather than lost.
 
 ### A devbook that stays current
 

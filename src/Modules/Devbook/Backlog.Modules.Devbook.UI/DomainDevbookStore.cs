@@ -28,7 +28,12 @@ public sealed class DomainDevbookStore : IDisposable
     private static readonly Regex Heading = new("^(#{1,6})[ \\t]+(.+?)\\s*$", RegexOptions.Compiled);
     private static readonly Regex Fence = new("^```(?<lang>[A-Za-z0-9_-]*)\\s*$", RegexOptions.Compiled);
     private static readonly Regex DevbookLink = new("\\.(?:domain|arc42|backlog|tech|design)/[^\\s)`>,]+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-    private static readonly string[] PreferredContextFiles = ["domain.md", "index.md", "features.md", "model.md", "flow.md", "dependencies.md", "naming.md"];
+    /// <summary>The order a bounded context's chapters read in when the folder is
+    /// scanned rather than read from a declaration. `context.md` sits behind the root
+    /// document because it introduces the boundary; without it here it would fall to
+    /// the unknown bucket and render after `naming.md`, which is the one position the
+    /// document that opens a context must not be in.</summary>
+    private static readonly string[] PreferredContextFiles = ["domain.md", "context.md", "index.md", "features.md", "model.md", "flow.md", "dependencies.md", "naming.md"];
 
     /// <summary>Re-published from the folder source so an open panel can reload
     /// when the configured folder moves.</summary>

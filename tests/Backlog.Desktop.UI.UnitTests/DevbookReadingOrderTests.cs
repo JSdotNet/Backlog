@@ -142,7 +142,7 @@ public sealed class DevbookReadingOrderTests : IDisposable
         var domain = Backlog.Tests.RepositoryRoot.Directory(".domain");
         var order = DevbookReadingOrder.Read(domain);
 
-        string[] canonical = ["domain.md", "features.md", "model.md", "flow.md", "dependencies.md", "naming.md"];
+        string[] canonical = ["domain.md", "context.md", "features.md", "model.md", "flow.md", "dependencies.md", "naming.md"];
 
         var contexts = Directory.EnumerateDirectories(domain)
             .Select(directory => Path.GetFileName(directory)!)

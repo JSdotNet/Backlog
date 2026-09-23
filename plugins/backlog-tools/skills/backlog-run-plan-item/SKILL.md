@@ -48,7 +48,16 @@ item's `##` headings mean.
    `Setup:` sub-items in order, then the instructions, exactly the way the repository's own
    instructions say work is done there — its orchestration gate, review and validation
    rules; this skill adds no execution path of its own. Tick `- [ ]` lines as they land.
-6. **Close.** The knowledge/devbook reminder is a real step — do it through the repository's
+6. **Answer the notes the item leaves open.** With the connector, `list_annotations` for the
+   repository; a chapter this item rewrote may carry a remark the change now answers. For
+   each open note: work out the answer, then write it into the chapter with the devbook
+   plugin's own `annotations.mjs` — `add` puts the fence under the block the note's
+   `BlockIndex` names (`--after` the block's text, which becomes its `quote`; `--author` the
+   person, `--date` the note's date), `reply` adds the answer, `resolve` closes the fence —
+   and only then `resolve_annotation` for that id. Fence first, resolve second. Name the
+   changed chapter files and offer the commit; never push. `backlog-answer-notes` holds the
+   full procedure and is the skill to invoke when notes are the whole job.
+7. **Close.** The knowledge/devbook reminder is a real step — do it through the repository's
    knowledge skills. Report `(tag, id)`, what was done, and the evidence behind anything
    skipped as already done. With the connector, `transition` In progress → Done once the
    pull request is open; without it, say that the item's status in Backlog has to be set by

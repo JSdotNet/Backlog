@@ -136,7 +136,12 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore
         }
     }
 
-    public DevbookAnnotation Add(string? repositoryAlias, string chapterPath, int blockIndex, string author)
+    public DevbookAnnotation Add(
+        string? repositoryAlias,
+        string chapterPath,
+        int blockIndex,
+        string author,
+        string? blockHash = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(chapterPath);
         ArgumentOutOfRangeException.ThrowIfNegative(blockIndex);
@@ -157,7 +162,8 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore
             string.Empty,
             author,
             now,
-            now);
+            now,
+            BlockHash: NullIfBlank(blockHash));
 
         // What the store now holds, never what was constructed: a caller that
         // goes on to ask for this remark by its chapter path has to be given the
@@ -359,6 +365,17 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore
     private static string Key(string? repositoryAlias) =>
         string.IsNullOrWhiteSpace(repositoryAlias) ? UnscopedAlias : repositoryAlias.Trim();
 
+    /// <summary>One spelling for "this remark has no anchor digest".
+    /// <para>
+    /// A caller with no hash passes null, an older file has the key absent, and
+    /// a file hand-edited to <c>""</c> is saying the same thing. Folding all
+    /// three to null here means <c>IsAnchored</c> answers the same question
+    /// however the remark arrived.
+    /// </para>
+    /// </summary>
+    private static string? NullIfBlank(string? blockHash) =>
+        string.IsNullOrWhiteSpace(blockHash) ? null : blockHash.Trim();
+
     private string PathFor(string key) => Path.Combine(Directory, CachePaths.Safe(key) + ".json");
 
     /// <summary>Reads every repository file under the current root, once, and
@@ -435,7 +452,8 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore
                     entry.CreatedAt,
                     entry.UpdatedAt,
                     entry.Resolved,
-                    entry.DeletedAt);
+                    entry.DeletedAt,
+                    NullIfBlank(entry.BlockHash));
             }
 
             return file;
@@ -473,6 +491,7 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore
                             UpdatedAt = annotation.UpdatedAt,
                             Resolved = annotation.Resolved,
                             DeletedAt = annotation.DeletedAt,
+                            BlockHash = annotation.BlockHash,
                         }),
                 ],
             }, JsonOptions));
@@ -519,5 +538,9 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore
         public bool Resolved { get; init; }
 
         public DateTimeOffset? DeletedAt { get; init; }
+
+        /// <summary>Absent from every file written before anchoring carried a
+        /// digest. It deserializes to null, which means "trust the index".</summary>
+        public string? BlockHash { get; init; }
     }
 }

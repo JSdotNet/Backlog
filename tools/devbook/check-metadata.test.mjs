@@ -225,6 +225,45 @@ test('the stale tech field rename is suppressed, and only it', async () => {
     assert.match(blockingText(bad), /unrecognized field `owner`/);
 });
 
+test('a context.md of setting chapters is suppressed, and only where it is legal', async () => {
+    // The installed generator's domain vocabulary predates `context.md`: it has
+    // neither the file-level `context` type nor the chapter-level `setting` one,
+    // and none of `key`, `scope`, `default`. Both halves have to go — the two
+    // type errors by the paired rule, the fields by the pending-re-sync list — or
+    // the gate is red on every context that records a switch.
+    const current = await checkFixture(
+        '.domain/sample/context.md',
+        chapter(
+            { status: 'draft', type: 'context' },
+            { status: 'draft', type: 'setting', key: 'sample.json', scope: 'user', default: '1' }
+        )
+    );
+    assert.equal(current.blocking.length, 0, blockingText(current));
+    assert.equal(
+        current.suppressed,
+        5,
+        'Expected the two unknown `type` values and the three switch fields, and nothing else.'
+    );
+
+    // The pairing is the point: `context` is a file-level type and `setting` a
+    // chapter-level one, so the two swapped over still block. A vocabulary this
+    // wide would suppress a genuine typo in either position.
+    const swapped = await checkFixture(
+        '.domain/sample/context.md',
+        chapter({ status: 'draft', type: 'setting' }, { status: 'draft', type: 'context' })
+    );
+    assert.equal(swapped.blocking.length, 2, blockingText(swapped));
+
+    // And the suppression is those two names rather than the folder: any other
+    // unknown domain type still blocks.
+    const bogus = await checkFixture(
+        '.domain/sample/context.md',
+        chapter({ status: 'draft', type: 'context' }, { status: 'draft', type: 'preference' })
+    );
+    assert.equal(bogus.blocking.length, 1, blockingText(bogus));
+    assert.match(blockingText(bogus), /type "preference"/);
+});
+
 test('the report names every folder it scanned and what it found', async () => {
     const result = await checkRepository(REPO);
     const report = formatReport(result);

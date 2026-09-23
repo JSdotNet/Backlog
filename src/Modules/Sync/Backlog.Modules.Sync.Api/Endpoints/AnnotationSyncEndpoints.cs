@@ -137,7 +137,8 @@ internal static class AnnotationSyncEndpoints
                 TooLong("repository alias", annotation.RepositoryAlias, SyncRequestLimits.MaximumRepositoryAlias)
                 ?? TooLong("chapter path", annotation.ChapterPath, SyncRequestLimits.MaximumChapterPath)
                 ?? TooLong("author", annotation.Author, SyncRequestLimits.MaximumAnnotationAuthor)
-                ?? TooLong("body", annotation.Body, SyncRequestLimits.MaximumAnnotationBody);
+                ?? TooLong("body", annotation.Body, SyncRequestLimits.MaximumAnnotationBody)
+                ?? TooLong("block hash", annotation.BlockHash, SyncRequestLimits.MaximumAnnotationBlockHash);
 
             if (refusal is not null)
             {

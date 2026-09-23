@@ -71,6 +71,7 @@
     ".domain/productivity": {
       "root": "domain.md",
       "order": [
+        "context.md",
         "features.md",
         "model.md",
         "flow.md",
@@ -91,6 +92,7 @@
     ".domain/roadmap": {
       "root": "domain.md",
       "order": [
+        "context.md",
         "features.md",
         "model.md",
         "flow.md",

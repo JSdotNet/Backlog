@@ -98,6 +98,7 @@ narrowing has to stay visible to the person reading the numbers.
 type: feature
 status: draft
 feature-flag: dashboard
+setting: [.domain/productivity/context.md#working-week, .domain/productivity/context.md#weekly-usage-reset]
 related: [.domain/monitoring/features.md#multi-layer-dashboards]
 ```
 
