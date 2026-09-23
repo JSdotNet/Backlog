@@ -17,11 +17,14 @@ namespace Backlog.Infrastructure.Mcp;
 /// sequence: find the areas, open a chapter, see what was said about it.
 /// </para>
 /// <para>
-/// Nothing here writes. <see cref="IDevbookAnnotationStore"/>'s <c>Add</c>,
-/// <c>Edit</c>, <c>SetResolved</c>, <c>Delete</c> and <c>Apply</c> are never
-/// called from this assembly, and no chapter file is opened for anything but
-/// reading — local ADR 0012 §6: the MCP server never writes a fence, and the
-/// private note is an inbox a later slice learns to resolve.
+/// One write, and one only: <see cref="ResolveAnnotationFor"/> over
+/// <see cref="IDevbookAnnotationStore.SetResolved"/>, which is how a session says
+/// a note has been answered. <c>Add</c>, <c>Edit</c>, <c>Delete</c> and
+/// <c>Apply</c> are never called from this assembly, and no chapter file is
+/// opened for anything but reading — local ADR 0012 §6: the MCP server never
+/// writes a fence. The answer itself is a devbook <c>annotation</c> fence the
+/// session writes in its own checkout, with the plugin's own tool, and this
+/// marks the inbox afterwards.
 /// </para>
 /// </summary>
 [McpServerToolType]
@@ -33,6 +36,7 @@ public sealed class DevbookTools(
     internal const string ListKnowledgeContexts = "list_knowledge_contexts";
     internal const string ReadKnowledgeChapter = "read_knowledge_chapter";
     internal const string ListAnnotations = "list_annotations";
+    internal const string ResolveAnnotation = "resolve_annotation";
 
     // OpenWorld, unlike every tool outside this class. A repository whose devbook
     // is read from a branch snapshot (local ADR 0008) has no clone to resolve
@@ -217,5 +221,70 @@ public sealed class DevbookTools(
             .ToList();
 
         return new AnnotationsPayload(scope.Id, scope.Alias, normalized, notes.Count, notes);
+    }
+
+    // Not read-only, and the only tool here that is not. Idempotent because
+    // resolving an already-resolved note is the state it is already in, and not
+    // destructive because nothing is lost: a resolved remark stays visible and
+    // quiet, and the person can reopen it in the app. Closed, like
+    // ListAnnotations and for the same reason — the notes are Backlog's own
+    // store and nothing on this path can reach GitHub.
+    [McpServerTool(
+        Name = ResolveAnnotation,
+        Title = "Mark a private note answered",
+        ReadOnly = false,
+        Idempotent = true,
+        Destructive = false,
+        OpenWorld = false)]
+    [Description(
+        "Marks one of the reader's own private notes on a knowledge chapter as dealt with. Write the answer into the "
+        + "chapter first, as a devbook `annotation` fence, with the devbook tooling in your own checkout — then call "
+        + "this. That order matters: a fence nobody resolved can still be found, while a note resolved without its "
+        + "answer written has lost the only record of where the answer is. Resolving a note that is already resolved "
+        + "changes nothing.")]
+    public ChapterNotePayload ResolveAnnotationFor(
+        [Description("The repository in owner/name form, e.g. JSdotNet/Backlog.")]
+        string repository,
+        [Description("The note's id, exactly as list_annotations reports it.")]
+        Guid note)
+    {
+        var scope = RepositoryScope.Resolve(repositories, repository).ValueOrThrow();
+
+        if (annotations.Find(note) is not { IsLive: true } existing)
+        {
+            throw RepositoryScope.Failure(Error.NotFound(
+                "annotation.notFound",
+                $"No live note with id {note}. Ask list_annotations for the chapter's notes and use an id from there."));
+        }
+
+        // A draft is a remark nobody has typed into yet — it is on the person's
+        // screen, has never been replicated, and there is nothing to have
+        // answered. Resolving one would quietly retire an empty note.
+        if (existing.IsDraft)
+        {
+            throw RepositoryScope.Failure(Error.Validation(
+                "annotation.draft",
+                $"Note {note} is an empty draft the reader has not written yet, so there is nothing to resolve."));
+        }
+
+        // The repository is named on the call and checked against the note rather
+        // than taken from it. A session works in one checkout, and resolving
+        // another repository's note from it is a mistake worth refusing rather
+        // than a shortcut worth honouring.
+        if (!string.Equals(existing.RepositoryAlias, scope.Alias, StringComparison.OrdinalIgnoreCase))
+        {
+            throw RepositoryScope.Failure(Error.Validation(
+                "annotation.otherRepository",
+                $"Note {note} belongs to {existing.RepositoryAlias}, not {scope.Alias}."));
+        }
+
+        if (!existing.Resolved)
+        {
+            annotations.SetResolved(note, resolved: true);
+        }
+
+        // Read back rather than returned from the record above, so the caller is
+        // told what the store now holds — the stamp the write moved included.
+        return Projections.Note(annotations.Find(note) ?? existing with { Resolved = true });
     }
 }

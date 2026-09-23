@@ -22,7 +22,7 @@ namespace Backlog.Infrastructure.Mcp.UnitTests;
 public class BacklogMcpToolsTests
 {
     [Fact]
-    public void The_seven_read_only_tools_are_the_ones_the_item_names()
+    public void The_published_tools_are_the_ones_the_items_name()
     {
         Assert.Equal(
             [
@@ -32,6 +32,7 @@ public class BacklogMcpToolsTests
                 "list_knowledge_contexts",
                 "read_knowledge_chapter",
                 "list_annotations",
+                "resolve_annotation",
                 "list_sessions"
             ],
             BacklogMcpTools.ToolNames);
@@ -78,26 +79,45 @@ public class BacklogMcpToolsTests
     }
 
     /// <summary>
-    /// Every tool says it is read-only and says what it is for. The first is a
-    /// claim a client shows a person before it runs anything; the second is what
-    /// a model reads to decide whether to call it at all, and a tool with no
-    /// description is a tool that gets called for the wrong reason.
+    /// Every tool says what it is for, and every tool but one says it is
+    /// read-only. The description is what a model reads to decide whether to call
+    /// it at all, and a tool with no description is a tool that gets called for
+    /// the wrong reason; the read-only claim is what a client shows a person
+    /// before it runs anything.
+    /// <para>
+    /// <c>resolve_annotation</c> is the exception and is named here rather than
+    /// exempted by a pattern, so adding a second write has to be a deliberate
+    /// edit to this list. It still has to be honest about the write it makes:
+    /// idempotent, because resolving a resolved note is the state it is already
+    /// in, and not destructive, because a resolved remark stays visible and the
+    /// person can reopen it.
+    /// </para>
     /// </summary>
     [Fact]
-    public void Every_tool_is_declared_read_only_and_described()
+    public void Every_tool_is_described_and_only_the_one_write_is_not_read_only()
     {
+        var writes = new List<string>();
+
         foreach (var group in BacklogMcpTools.Groups)
         {
             foreach (var method in group.ToolType.GetMethods())
             {
                 if (method.GetCustomAttribute<McpServerToolAttribute>() is not { } tool) continue;
 
-                Assert.True(tool.ReadOnly, $"{tool.Name} does not declare itself read-only.");
                 Assert.False(
                     string.IsNullOrWhiteSpace(method.GetCustomAttribute<DescriptionAttribute>()?.Description),
                     $"{tool.Name} has no description for a model to read.");
+
+                if (tool.ReadOnly) continue;
+
+                writes.Add(tool.Name!);
+
+                Assert.True(tool.Idempotent, $"{tool.Name} writes but does not declare itself idempotent.");
+                Assert.False(tool.Destructive, $"{tool.Name} writes and claims to be destructive.");
             }
         }
+
+        Assert.Equal([DevbookTools.ResolveAnnotation], writes);
     }
 
     /// <summary>

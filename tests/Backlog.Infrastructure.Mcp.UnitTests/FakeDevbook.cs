@@ -77,9 +77,10 @@ internal sealed class FakeDevbookFolderSource(string rootPath, params DevbookFol
 /// <summary>
 /// The private reading notes, in a list.
 /// <para>
-/// Every write is recorded and refused: a read-only tool must not add, edit,
-/// resolve, delete or apply one, and local ADR 0012 §6 makes resolving a later
-/// slice's job rather than this one's.
+/// <c>SetResolved</c> works, because <c>resolve_annotation</c> is a real write and
+/// the tests about it need to see what it did — <see cref="Resolved"/> records
+/// every call. Every other write is refused: no tool here may add, edit, delete
+/// or apply a note.
 /// </para>
 /// </summary>
 internal sealed class FakeDevbookAnnotationStore(params DevbookAnnotation[] annotations) : IDevbookAnnotationStore
@@ -89,6 +90,10 @@ internal sealed class FakeDevbookAnnotationStore(params DevbookAnnotation[] anno
     /// <summary>The (alias, chapter) pairs that were asked for, in order. What
     /// shows which spellings a tool tried.</summary>
     public List<(string? Alias, string ChapterPath)> Listed { get; } = [];
+
+    /// <summary>Every <c>SetResolved</c> call, in order — so a test can tell a
+    /// write that happened once from one that happened twice or not at all.</summary>
+    public List<(Guid Id, bool Value)> Resolved { get; } = [];
 
     public event Action? Changed
     {
@@ -125,7 +130,13 @@ internal sealed class FakeDevbookAnnotationStore(params DevbookAnnotation[] anno
 
     public void Edit(Guid id, string body) => throw Written(nameof(Edit));
 
-    public void SetResolved(Guid id, bool resolved) => throw Written(nameof(SetResolved));
+    public void SetResolved(Guid id, bool resolved)
+    {
+        Resolved.Add((id, resolved));
+
+        var index = _annotations.FindIndex(annotation => annotation.Id == id);
+        if (index >= 0) _annotations[index] = _annotations[index] with { Resolved = resolved };
+    }
 
     public void Delete(Guid id) => throw Written(nameof(Delete));
 
