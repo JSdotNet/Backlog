@@ -33,12 +33,20 @@ namespace Backlog.Infrastructure.Sync.Sessions;
 /// sessions the old one already had. Null reads as "differs", so a file from
 /// before the identity was recorded republishes once rather than staying silent.
 /// </para>
+/// <para>
+/// <paramref name="KeepsOwnRecords"/> says the feed has been read from its start
+/// since this device began keeping its own records. Before 2026-09-23 a pull
+/// dropped them, so every one the cursor had already passed is missing from the
+/// held set; false — which is what a file from before the field reads as — starts
+/// the pull over once to fetch them.
+/// </para>
 /// </summary>
 public sealed record SessionSyncState(
     DateTimeOffset PushWatermark,
     string? PullCursor,
     Guid? OwnerId = null,
-    Guid? DeviceId = null);
+    Guid? DeviceId = null,
+    bool KeepsOwnRecords = false);
 
 /// <summary>
 /// Where this device keeps its session-replication progress between runs.

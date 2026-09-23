@@ -4,7 +4,7 @@ using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 namespace Backlog.Infrastructure.Cosmos.Sessions;
 
 /// <summary>
-/// One session record as it sits in the <c>sessions</c> container: the thirteen
+/// One session record as it sits in the <c>sessions</c> container: the nineteen
 /// whitelisted fields, the owner, and the two Cosmos maintains.
 /// <para>
 /// <strong>The whitelist is flat, and it is flat because the index is.</strong>
@@ -31,7 +31,7 @@ namespace Backlog.Infrastructure.Cosmos.Sessions;
 /// <para>
 /// Flat is also honest here in a way it would not be for a task. A task payload
 /// is an open shape the service stores whole and never reads; a session record
-/// is a closed list of thirteen fields that .arc42/adr/0005 §Session records
+/// is a closed list of nineteen fields that .arc42/adr/0005 §Session records
 /// enumerates, so writing them out is writing down the whitelist rather than
 /// duplicating a contract that will grow behind this file's back. A field
 /// appearing here that is not in that table is a defect, not a feature.
@@ -149,6 +149,29 @@ internal sealed class SessionDocument
     /// <summary>The stretches in which the agent had stopped and nothing had
     /// prompted it yet, on the same terms as <see cref="Runs"/>.</summary>
     public IReadOnlyList<ActivityInterval>? Waits { get; set; }
+
+    /// <summary>What the session is called in a list (.arc42/adr/0005 §Session
+    /// records, 2026-09-23). Absent on every document written before it existed.</summary>
+    public string? Title { get; set; }
+
+    /// <summary>The delivery dashboards' key for the session's working folder
+    /// (2026-09-23), or absent.</summary>
+    public string? WorktreeKey { get; set; }
+
+    /// <summary>The moments the agent was refused for a usage limit (2026-09-23),
+    /// on the terms <see cref="Runs"/> is stored: the wire's own type, absent where
+    /// the machine had no activity record, <c>[]</c> where it had one and was never
+    /// refused.</summary>
+    public IReadOnlyList<LimitHitRecord>? LimitHits { get; set; }
+
+    /// <summary>Where the agent was run from (2026-09-23), or absent.</summary>
+    public string? Entrypoint { get; set; }
+
+    /// <summary>The pull requests the session linked (2026-09-23), the wire's own type.</summary>
+    public IReadOnlyList<PullRequestRecord>? PullRequests { get; set; }
+
+    /// <summary>What the session spent per model (2026-09-23), the wire's own type.</summary>
+    public IReadOnlyList<ModelUsageRecord>? ModelUsage { get; set; }
 
     /// <summary>Cosmos's own write stamp, in unix seconds. Read-only and set by
     /// the store, which is what makes it usable as an ordering two machines with

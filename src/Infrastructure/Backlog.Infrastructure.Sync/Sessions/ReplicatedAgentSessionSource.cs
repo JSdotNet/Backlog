@@ -46,11 +46,19 @@ public sealed class ReplicatedAgentSessionSource : IAgentSessionSource
     private readonly IReplicatedSessionStore _store;
     private readonly IAppFeatureSettings _features;
     private readonly TimeProvider _time;
+    private readonly OwnEnvironment _own;
 
+    /// <param name="credentials">Which machine id the service gave this device, so
+    /// its own records can be told apart. Optional: a head that composed no
+    /// credential store stamps every record with the id it carries.</param>
+    /// <param name="identity">The id the local readers stamp this machine's sessions
+    /// with, which its own records take in place of the service's.</param>
     public ReplicatedAgentSessionSource(
         IReplicatedSessionStore store,
         IAppFeatureSettings features,
-        TimeProvider time)
+        TimeProvider time,
+        IDeviceCredentialStore? credentials = null,
+        IDeviceIdentitySource? identity = null)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(features);
@@ -59,6 +67,7 @@ public sealed class ReplicatedAgentSessionSource : IAgentSessionSource
         _store = store;
         _features = features;
         _time = time;
+        _own = new OwnEnvironment(credentials, identity);
     }
 
     /// <summary>
@@ -109,7 +118,7 @@ public sealed class ReplicatedAgentSessionSource : IAgentSessionSource
         var now = _time.GetUtcNow();
 
         var sessions = Select(held, query)
-            .Select(entry => SessionRecordMapping.ToSession(entry, now))
+            .Select(entry => SessionRecordMapping.ToSession(entry, now, _own.EnvironmentFor(entry)))
             .ToList();
 
         var beyondRetention = query.Horizon is { } horizon && horizon < now - ReplicatedSessionLimits.History;

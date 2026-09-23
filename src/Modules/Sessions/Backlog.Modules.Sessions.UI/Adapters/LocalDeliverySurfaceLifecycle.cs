@@ -86,6 +86,7 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
         string title,
         IReadOnlyList<string> stages,
         string? changeKind = null,
+        string? sessionId = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(skillId);
@@ -98,6 +99,14 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
         if (await LiveRunAsync(worktree, skillId, cancellationToken).ConfigureAwait(false) is { } resumed)
         {
             var id = Text(resumed, "id")!;
+
+            // A session picking the run back up — a handoff — is one more session that
+            // drove it. Appended, never replacing the one that started it.
+            if (WithSession(resumed, sessionId))
+            {
+                resumed["updatedAt"] = Now();
+                await _store.WriteAsync(worktree, id, resumed, cancellationToken).ConfigureAwait(false);
+            }
 
             return new DeliveryRunStarted(id, Resumed: true, SessionTitle(resumed));
         }
@@ -129,14 +138,35 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
             // and update_stage addressing a stage by index only means anything
             // against a list that was fixed when the run began.
             ["stages"] = new JsonArray([.. stages.Select(Pending)]),
-            ["summary"] = string.Empty
+            ["summary"] = string.Empty,
+            ["sessionIds"] = new JsonArray()
         };
 
         WritePhaseDoneCounts(run);
 
+        WithSession(run, sessionId);
+
         await _store.WriteAsync(worktree, runId, run, cancellationToken).ConfigureAwait(false);
 
         return new DeliveryRunStarted(runId, Resumed: false, SessionTitle(run));
+    }
+
+    /// <summary>Adds a session id to the run's <c>sessionIds</c> when it is not there
+    /// yet, and says whether anything changed.</summary>
+    private static bool WithSession(JsonObject run, string? sessionId)
+    {
+        if (string.IsNullOrWhiteSpace(sessionId)) return false;
+
+        if (run["sessionIds"] is not JsonArray ids)
+        {
+            run["sessionIds"] = ids = new JsonArray();
+        }
+
+        if (ids.Any(id => string.Equals(id?.GetValue<string>(), sessionId, StringComparison.Ordinal))) return false;
+
+        ids.Add(sessionId);
+
+        return true;
     }
 
     public async Task RecordPromptAsync(

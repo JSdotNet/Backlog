@@ -161,6 +161,12 @@ internal static class SessionSyncEndpoints
                 ?? TooLong("repository alias", record.RepositoryAlias, SyncRequestLimits.MaximumRepositoryAlias)
                 ?? TooLong("resolved repository alias", record.ResolvedRepositoryAlias, SyncRequestLimits.MaximumRepositoryAlias)
                 ?? TooLong("branch", record.Branch, SyncRequestLimits.MaximumBranch)
+                ?? TooLong("title", record.Title, SyncRequestLimits.MaximumSessionTitle)
+                ?? TooLong("worktree key", record.WorktreeKey, SyncRequestLimits.MaximumWorktreeKey)
+                ?? TooManyHits(record.LimitHits)
+                ?? HitOutOfBounds(record.LimitHits)
+                ?? TooLong("entrypoint", record.Entrypoint, SyncRequestLimits.MaximumLimitToken)
+                ?? WorkOutOfBounds(record.PullRequests, record.ModelUsage)
                 ?? TooMany("runs", record.Runs)
                 ?? TooMany("waits", record.Waits)
                 ?? NotForward("runs", record.Runs)
@@ -192,6 +198,81 @@ internal static class SessionSyncEndpoints
         intervals is not null && intervals.Count > SyncRequestLimits.MaximumSessionIntervals
             ? Invalid($"A session record's {list} may hold at most {SyncRequestLimits.MaximumSessionIntervals} intervals; this one held {intervals.Count}.")
             : null;
+
+    /// <summary>A null list of limit hits is a session the machine had no activity
+    /// record for, on the interval lists' terms. Only a list past the cap is
+    /// refused.</summary>
+    private static Error? TooManyHits(IReadOnlyList<LimitHitRecord>? hits) =>
+        hits is not null && hits.Count > SyncRequestLimits.MaximumSessionLimitHits
+            ? Invalid($"A session record's limit hits may hold at most {SyncRequestLimits.MaximumSessionLimitHits}; this one held {hits.Count}.")
+            : null;
+
+    /// <summary>Every hit names its kind, and every token on it is a token rather
+    /// than a paragraph. The kind is not checked against the four the desktop
+    /// knows: it is opaque here, like the agent kind.</summary>
+    private static Error? HitOutOfBounds(IReadOnlyList<LimitHitRecord>? hits)
+    {
+        if (hits is null) return null;
+
+        foreach (var hit in hits)
+        {
+            if (string.IsNullOrWhiteSpace(hit.Kind))
+            {
+                return Invalid("A session record's limit hits each need the kind of limit that refused.");
+            }
+
+            var refusal =
+                TooLong("limit kind", hit.Kind, SyncRequestLimits.MaximumLimitToken)
+                ?? TooLong("limit type", hit.RateLimitType, SyncRequestLimits.MaximumLimitToken)
+                ?? TooLong("overage status", hit.OverageStatus, SyncRequestLimits.MaximumLimitToken)
+                ?? TooLong("overage reason", hit.OverageDisabledReason, SyncRequestLimits.MaximumLimitToken);
+
+            if (refusal is not null) return refusal;
+        }
+
+        return null;
+    }
+
+    /// <summary>The pull requests and the model lines: capped, and each a short
+    /// identifier and a count rather than a paragraph.</summary>
+    private static Error? WorkOutOfBounds(IReadOnlyList<PullRequestRecord>? pullRequests, IReadOnlyList<ModelUsageRecord>? models)
+    {
+        if (pullRequests is { Count: > SyncRequestLimits.MaximumPullRequests })
+        {
+            return Invalid($"A session record may carry at most {SyncRequestLimits.MaximumPullRequests} pull requests; this one carried {pullRequests.Count}.");
+        }
+
+        if (models is { Count: > SyncRequestLimits.MaximumModels })
+        {
+            return Invalid($"A session record may carry at most {SyncRequestLimits.MaximumModels} model lines; this one carried {models.Count}.");
+        }
+
+        foreach (var pr in pullRequests ?? [])
+        {
+            if (string.IsNullOrWhiteSpace(pr.Url) || string.IsNullOrWhiteSpace(pr.Repository))
+            {
+                return Invalid("A session record's pull requests each need a repository and a URL.");
+            }
+
+            var refusal =
+                TooLong("pull request URL", pr.Url, SyncRequestLimits.MaximumUrl)
+                ?? TooLong("pull request repository", pr.Repository, SyncRequestLimits.MaximumPullRequestRepository);
+
+            if (refusal is not null) return refusal;
+        }
+
+        foreach (var model in models ?? [])
+        {
+            if (string.IsNullOrWhiteSpace(model.Model))
+            {
+                return Invalid("A session record's model lines each need the model they are for.");
+            }
+
+            if (TooLong("model", model.Model, SyncRequestLimits.MaximumLimitToken) is { } refusal) return refusal;
+        }
+
+        return null;
+    }
 
     /// <summary>Half-open and strictly forward: an interval that ends on or before
     /// it starts is refused, in either list, whichever position it is in.</summary>

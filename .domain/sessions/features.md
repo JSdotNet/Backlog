@@ -138,13 +138,22 @@ always been: everything read here and nothing else.
 
 **A row from elsewhere says less than a row read here, and visibly so.** Only the
 whitelisted metadata travelled — which agent, which machine, which repository and
-branch, when the session was alive, and how much of it there was — so such a row
-has no working folder to show and is headed by its session id where a local row
-carries a title. Neither is a gap waiting to be closed: a folder names a disk the
-reading machine cannot see, and a title is written out of what the person typed,
-which puts it on the far side of the boundary that lets a record leave at all. An
-identifier that plainly reads as one is the honest heading; anything prettier
-would be this machine composing a description of work it never saw.
+branch, when the session was alive, how much of it there was, its title, and the
+usage limits it was refused by — so such a row has no working folder to show. That
+is not a gap waiting to be closed: a folder names a disk the reading machine cannot
+see. The row still carries the delivery runs filed under that folder, matched on
+the worktree key its record carried. A record from a device that predates the title
+is headed by its session id, an identifier that plainly reads as one.
+
+**A session of this machine's outlives its transcript.** The assistant cleans its
+transcripts away after a month by default; this machine keeps its own record of every
+session it has read, so the session stays in the list — titled, with its folder,
+dated, measured and with its refusals — after the files are gone, with or without
+sync. While the transcript is there the row is read from it, and the record is never
+shown beside it. The pane amends the records of the sessions that moved each time it
+opens; **Update records**, beside Refresh, amends every record the files still hold —
+adding to each, never replacing it — says how many it amended and started, and with
+sync on sends every record again so the other machines are amended too.
 
 **And it reads as finished once it goes quiet, sooner than the truth may be.** A
 record carries no liveness marker, so a session nobody has heard from for longer

@@ -38,17 +38,25 @@ public sealed class ReplicatedAgentActivitySource : IAgentActivitySource
 {
     private readonly IReplicatedSessionStore _store;
     private readonly IAppFeatureSettings _features;
+    private readonly OwnEnvironment _own;
 
     /// <summary>No <see cref="TimeProvider"/>, for the reason the local source has
     /// none: this reads recorded instants against a horizon the caller states, and
     /// never asks what time it is.</summary>
-    public ReplicatedAgentActivitySource(IReplicatedSessionStore store, IAppFeatureSettings features)
+    /// <param name="credentials">As on <see cref="ReplicatedAgentSessionSource"/>.</param>
+    /// <param name="identity">As on <see cref="ReplicatedAgentSessionSource"/>.</param>
+    public ReplicatedAgentActivitySource(
+        IReplicatedSessionStore store,
+        IAppFeatureSettings features,
+        IDeviceCredentialStore? credentials = null,
+        IDeviceIdentitySource? identity = null)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(features);
 
         _store = store;
         _features = features;
+        _own = new OwnEnvironment(credentials, identity);
     }
 
     /// <summary>
@@ -70,7 +78,7 @@ public sealed class ReplicatedAgentActivitySource : IAgentActivitySource
     /// <see cref="TimeSpan.Zero"/>, which means "no opinion" and not "zero
     /// minutes": the fold that produced these intervals ran on the pushing machine
     /// with that machine's threshold, which is assumed to be the same one this
-    /// build folds with rather than carried as a thirteenth field. The composite
+    /// build folds with rather than carried as a field of its own. The composite
     /// that merges this source with the local one skips a zero and names the local
     /// source's number instead.
     /// </para>
@@ -92,7 +100,7 @@ public sealed class ReplicatedAgentActivitySource : IAgentActivitySource
         cancellationToken.ThrowIfCancellationRequested();
 
         var sessions = _store.Current.Entries
-            .Select(entry => SessionRecordMapping.ToActivity(entry, since))
+            .Select(entry => SessionRecordMapping.ToActivity(entry, since, _own.EnvironmentFor(entry)))
             .OfType<AgentSessionActivity>()
             .ToList();
 

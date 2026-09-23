@@ -59,6 +59,12 @@ internal static class SessionDocumentFactory
             // first into the second.
             Runs = record.Runs,
             Waits = record.Waits,
+            Title = record.Title,
+            WorktreeKey = record.WorktreeKey,
+            LimitHits = record.LimitHits,
+            Entrypoint = record.Entrypoint,
+            PullRequests = record.PullRequests,
+            ModelUsage = record.ModelUsage,
         };
 
     /// <summary>
@@ -93,7 +99,13 @@ internal static class SessionDocumentFactory
                 document.DurationSeconds,
                 document.ResolvedRepositoryAlias,
                 document.Runs,
-                document.Waits),
+                document.Waits,
+                document.Title,
+                document.WorktreeKey,
+                document.LimitHits,
+                document.Entrypoint,
+                document.PullRequests,
+                document.ModelUsage),
             machineId,
             document.Timestamp);
     }

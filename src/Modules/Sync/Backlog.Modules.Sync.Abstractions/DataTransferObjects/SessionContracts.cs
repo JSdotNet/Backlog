@@ -43,7 +43,88 @@ public static class SessionRecordLimits
     /// </para>
     /// </summary>
     public const int IntervalsPerList = 500;
+
+    /// <summary>The most limit hits one record may carry. A refusal is followed by
+    /// silence until the allowance resets, so a session that met a hundred walls has
+    /// been refused far more often than any week allows; the newest are kept.</summary>
+    public const int LimitHitsPerList = 100;
+
+    /// <summary>The longest title a record may carry. The pusher cuts to this and
+    /// the service refuses above it, on the terms <see cref="IntervalsPerList"/> gives.</summary>
+    public const int TitleLength = 500;
+
+    /// <summary>The longest worktree key a record may carry: a folder leaf, a hyphen
+    /// and eight hex characters.</summary>
+    public const int WorktreeKeyLength = 300;
+
+    /// <summary>The longest of the free-text fields on a <see cref="LimitHitRecord"/>
+    /// — the kind, the raw bucket, the overage status and reason. Each is a token
+    /// the assistant wrote, and none is anywhere near this.</summary>
+    public const int LimitTokenLength = 100;
+
+    /// <summary>The longest repository name on a pull request.</summary>
+    public const int RepositoryLength = 200;
+
+    /// <summary>The most pull requests one record may carry, newest kept.</summary>
+    public const int PullRequestsPerList = 100;
+
+    /// <summary>The most models one record may carry a usage line for.</summary>
+    public const int ModelsPerList = 20;
+
+    /// <summary>The longest pull request URL a record may carry.</summary>
+    public const int UrlLength = 500;
 }
+
+/// <summary>
+/// A pull request a session linked itself to, as it crosses the wire: which repository,
+/// which number, where, and when the session linked it. Its own type for the reason
+/// <see cref="ActivityInterval"/> gives.
+/// </summary>
+public sealed record PullRequestRecord(string Repository, int Number, string Url, DateTimeOffset? LinkedAt = null);
+
+/// <summary>
+/// What a session spent on one model — the assistant's own token counts, summed over the
+/// session's own messages. Counts, never content.
+/// </summary>
+public sealed record ModelUsageRecord(
+    string Model,
+    long InputTokens,
+    long OutputTokens,
+    long CacheCreationInputTokens,
+    long CacheReadInputTokens);
+
+/// <summary>
+/// One moment an agent was refused for a usage limit, as it crosses the wire. The
+/// Sessions context's <c>AgentLimitHit</c> in a type this assembly can own, for the
+/// reason <see cref="ActivityInterval"/> gives.
+/// <para>
+/// Instants and the tokens the assistant wrote beside them, and nothing else: which
+/// bucket refused, when it would reset, and what it said about paid overage. No
+/// prompt, and not the refusal's own sentence.
+/// </para>
+/// </summary>
+/// <param name="At">When the refusal was recorded.</param>
+/// <param name="Kind">The kind the pushing machine mapped it to — <c>FiveHour</c>,
+/// <c>Weekly</c>, <c>WeeklyFable</c> or <c>Other</c> — as the enum member's name,
+/// so a reordered enum cannot relabel a stored hit. Carried beside the raw type
+/// because an older transcript named its limit only in prose, and the pusher is
+/// the only machine that read it.</param>
+/// <param name="RateLimitType">The bucket exactly as the transcript spelled it, or
+/// null where it spelled none.</param>
+/// <param name="ResetsAt">When the refused allowance resets, or null.</param>
+/// <param name="OverageStatus">What the refusal said about overage, or null.</param>
+/// <param name="OverageResetsAt">When the overage allowance resets, or null.</param>
+/// <param name="OverageDisabledReason">Why overage was unavailable, or null.</param>
+/// <param name="IsUsingOverage">Whether overage was already being spent, or null.</param>
+public sealed record LimitHitRecord(
+    DateTimeOffset At,
+    string Kind,
+    string? RateLimitType = null,
+    DateTimeOffset? ResetsAt = null,
+    string? OverageStatus = null,
+    DateTimeOffset? OverageResetsAt = null,
+    string? OverageDisabledReason = null,
+    bool? IsUsingOverage = null);
 
 /// <summary>
 /// One coding-agent session as it crosses the wire — the whole of what
@@ -53,11 +134,12 @@ public static class SessionRecordLimits
 /// <strong>This is a whitelist, not a filter, and the record type is where that
 /// distinction becomes structural.</strong> The two fail in opposite directions:
 /// a filter that misses a field leaks it, a whitelist that misses one merely
-/// omits it. There are thirteen permitted fields in that record's table — twelve
+/// omits it. There are nineteen permitted fields in that record's table — eighteen
 /// here and the machine id the service stamps — and a field that is not in the
-/// table does not exist on this type. Never a working folder, never a title, never
-/// a transcript path, and never a prompt, a tool result or a line of a file the
-/// session read. Widening the table is a decision taken in that record, not a
+/// table does not exist on this type. Never a working folder, never a transcript
+/// path, and never a prompt, a tool result or a line of a file the session read.
+/// The title is the one exception to the prompt rule, taken on 2026-09-23 and
+/// argued there. Widening the table is a decision taken in that record, not a
 /// property added here.
 /// </para>
 /// <para>
@@ -176,6 +258,35 @@ public static class SessionRecordLimits
 /// <param name="Waits">The stretches in which the agent had stopped and nothing
 /// had prompted it yet, on the same terms as <paramref name="Runs"/>. Empty
 /// rather than null for every Copilot session.</param>
+/// <param name="Title">
+/// What the session is called in a list — the agent's own name for it where it
+/// wrote one, the folder's leaf or a short id otherwise — or null from a device
+/// that predates the field. Added to .arc42/adr/0005 §Session records on
+/// 2026-09-23, reversing the rule that kept it home: the owner decided that a
+/// session they can recognise on their other machine, and after its transcript
+/// is gone on this one, is worth a line of prompt-derived text in their own
+/// replica. Capped at <see cref="SessionRecordLimits.TitleLength"/>.
+/// </param>
+/// <param name="WorktreeKey">
+/// The delivery dashboards' key for the session's working folder — the folder's
+/// leaf and eight hex characters of a one-way hash of its path — or null where
+/// the session had no folder. Added on 2026-09-23 so a session whose folder does
+/// not travel can still be matched to the delivery runs filed under it. It names
+/// the folder's leaf and nothing above it; the path itself still never leaves.
+/// </param>
+/// <param name="LimitHits">
+/// The moments the agent was refused for a usage limit, ascending, or null on the
+/// terms <paramref name="Runs"/> is null. Added on 2026-09-23: a limit belongs to
+/// the account rather than the machine, so a refusal on one machine is a fact
+/// about the week on every other. At most <see cref="SessionRecordLimits.LimitHitsPerList"/>,
+/// the newest kept.
+/// </param>
+/// <param name="Entrypoint">Where the agent was run from — <c>claude-desktop</c>,
+/// <c>cli</c> — or null. Added on 2026-09-23.</param>
+/// <param name="PullRequests">The pull requests the session linked itself to, or null
+/// where the pusher could not say. Added on 2026-09-23.</param>
+/// <param name="ModelUsage">What the session spent per model, or null on the same terms.
+/// Added on 2026-09-23.</param>
 public sealed record SessionRecord(
     string SessionId,
     string AgentKind,
@@ -188,15 +299,22 @@ public sealed record SessionRecord(
     long DurationSeconds,
     string? ResolvedRepositoryAlias = null,
     IReadOnlyList<ActivityInterval>? Runs = null,
-    IReadOnlyList<ActivityInterval>? Waits = null);
+    IReadOnlyList<ActivityInterval>? Waits = null,
+    string? Title = null,
+    string? WorktreeKey = null,
+    IReadOnlyList<LimitHitRecord>? LimitHits = null,
+    string? Entrypoint = null,
+    IReadOnlyList<PullRequestRecord>? PullRequests = null,
+    IReadOnlyList<ModelUsageRecord>? ModelUsage = null);
 
 /// <summary>
 /// A session record as it comes back out of the replica: the record itself, the
 /// machine that wrote it, and the store's own ordering stamp.
 /// <para>
-/// <paramref name="MachineId"/> is the thirteenth whitelisted field and the one the
-/// pushing device never sends. It lets a client drop its own echo instead of
-/// re-applying what it just pushed, and it is what a reading device groups by —
+/// <paramref name="MachineId"/> is the whitelisted field the pushing device never
+/// sends. It lets a client tell its own records from the other machines' — it keeps
+/// both, and answers from its own only for a session whose transcript it can no
+/// longer read — and it is what a reading device groups by —
 /// .domain/sessions/naming.md#environment keys an environment on its id and not
 /// on the name it displays, because a name can be shared by two machines and
 /// changed on one.

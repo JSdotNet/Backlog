@@ -91,10 +91,9 @@ public sealed class SessionSyncSession
 
     /// <param name="activity">Where each record that moves is written down by
     /// name, or null on a head with nothing to show one in. A sent record is
-    /// named by the local session's title, which stays on this machine — the
-    /// record itself carries no title, see <see cref="SessionRecordMapping"/> —
-    /// and a received one by the machine it came from, which is what a person
-    /// reading the log wants to know about a session that is not theirs.</param>
+    /// named by the local session's title, and a received one by the title it
+    /// carries or, from a device that predates the field, by the machine it came
+    /// from.</param>
     /// <param name="agentActivity">
     /// Where the runs and waits a record carries come from, or null on a head that
     /// composed no activity source — which then pushes null in both lists, the
@@ -189,7 +188,7 @@ public sealed class SessionSyncSession
             .ConfigureAwait(false);
 
         var pending = catalog.Sessions
-            .Where(session => session.Origin == AgentSessionOrigin.Local)
+            .Where(session => IsOwn(session.Origin))
             .Where(session => session.LastActivityAt > watermark)
             .OrderBy(session => session.LastActivityAt)
             .ToList();
@@ -237,6 +236,14 @@ public sealed class SessionSyncSession
 
         return Result.Success(new SessionSyncSummary(pushed, 0, 0, _time.GetUtcNow()));
     }
+
+    /// <summary>
+    /// Whether this machine may push a session: one it read from its own files, or its
+    /// own record of one whose files are gone. Never one that arrived over sync — that
+    /// would go out again under this machine's token, attributed to this box.
+    /// </summary>
+    private static bool IsOwn(AgentSessionOrigin origin) =>
+        origin is AgentSessionOrigin.Local or AgentSessionOrigin.Recorded;
 
     /// <summary>A session about to go and the record built for it, kept together
     /// so the log entry and the watermark read the session while the wire reads
@@ -297,7 +304,7 @@ public sealed class SessionSyncSession
 
         foreach (var record in log.Sessions)
         {
-            if (record.Origin != AgentSessionOrigin.Local) continue;
+            if (!IsOwn(record.Origin)) continue;
 
             index.TryAdd((record.Kind, record.Id), record);
         }
@@ -340,11 +347,13 @@ public sealed class SessionSyncSession
         if (batch.Count > 0) yield return batch;
     }
 
-    /// <summary>How many intervals a record carries, both lists together. The
-    /// scalars beside them are the same size on every record and are what the
-    /// count cap already bounds.</summary>
+    /// <summary>How many list items a record carries — both interval lists and its
+    /// limit hits together. A hit is a few more fields than an interval and there
+    /// are at most a fifth as many, so counting it as one keeps the estimate inside
+    /// the margin the batch cap already leaves. The scalars beside them are bounded
+    /// by the count cap.</summary>
     private static int WeightOf(SessionRecord record) =>
-        (record.Runs?.Count ?? 0) + (record.Waits?.Count ?? 0);
+        (record.Runs?.Count ?? 0) + (record.Waits?.Count ?? 0) + (record.LimitHits?.Count ?? 0);
 
     /// <summary>
     /// Reads the owner's session feed to its end, keeping each page as it arrives.
@@ -388,6 +397,14 @@ public sealed class SessionSyncSession
     {
         ReconcileIdentity();
 
+        // Once, for a device that dropped its own records before it kept them: the
+        // feed from its start, because the cursor has already passed every one of
+        // them. A record that arrives twice lands where it already is.
+        if (!_state.Current.KeepsOwnRecords)
+        {
+            _state.Save(_state.Current with { PullCursor = null, KeepsOwnRecords = true });
+        }
+
         var cursor = _state.Current.PullCursor;
         var self = _credentials.Current?.DeviceId;
         var pulled = 0;
@@ -422,11 +439,19 @@ public sealed class SessionSyncSession
 
             pulled += page.Value.Sessions.Count;
 
+            // Every record is kept, this machine's own included. The service holds
+            // them for a year and the transcript behind one is gone after a month,
+            // so the record is the only thing left to answer for a session of this
+            // machine's once the assistant has cleaned its files away. The sources
+            // that read the held set give way to the local reader for a session it
+            // can still read — see CompositeAgentSessionSource. Only the other
+            // machines' records count as received.
+            _replica.Save(page.Value.Sessions);
+
             var theirs = page.Value.Sessions
                 .Where(entry => self is null || entry.MachineId != self)
                 .ToList();
 
-            _replica.Save(theirs);
             applied += theirs.Count;
 
             foreach (var entry in theirs)
@@ -471,12 +496,14 @@ public sealed class SessionSyncSession
             _time.GetUtcNow()));
     }
 
-    /// <summary>What a record from another machine is called in the log. It
-    /// has no title of its own — the whitelist leaves one behind on purpose — so
-    /// the name is what the Sessions screen groups by: the machine, then the
-    /// repository and branch where the record names them.</summary>
+    /// <summary>What a record from another machine is called in the log: its own
+    /// title, or — from a device that predates the field — what the Sessions screen
+    /// groups by: the machine, then the repository and branch where the record
+    /// names them.</summary>
     private static string SessionTitle(SessionRecord record)
     {
+        if (!string.IsNullOrWhiteSpace(record.Title)) return record.Title;
+
         var where = record.RepositoryAlias is null
             ? null
             : record.Branch is null ? record.RepositoryAlias : $"{record.RepositoryAlias} on {record.Branch}";

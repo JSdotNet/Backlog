@@ -137,9 +137,12 @@ public class SessionSyncEndpointTests : IDisposable
         var page = await laptop.PullSessions();
 
         var full = page.Sessions.Single(entry => entry.Record.SessionId == "s-1").Record;
-        Assert.Equal(sent with { Runs = null, Waits = null }, full with { Runs = null, Waits = null });
+        Assert.Equal(sent with { Runs = null, Waits = null, LimitHits = null, PullRequests = null, ModelUsage = null }, full with { Runs = null, Waits = null, LimitHits = null, PullRequests = null, ModelUsage = null });
+        Assert.Equal(sent.PullRequests, full.PullRequests);
+        Assert.Equal(sent.ModelUsage, full.ModelUsage);
         Assert.Equal(sent.Runs, full.Runs);
         Assert.Equal(sent.Waits, full.Waits);
+        Assert.Equal(sent.LimitHits, full.LimitHits);
 
         var sparse = page.Sessions.Single(entry => entry.Record.SessionId == "s-2").Record;
         Assert.Null(sparse.RepositoryAlias);
@@ -223,6 +226,50 @@ public class SessionSyncEndpointTests : IDisposable
         var response = await device.PushSession(Session("s-1") with { Runs = atCap, Waits = atCap });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    /// <summary>Limit hits are capped like the interval lists, inclusively at the
+    /// shared cap and refused one past it.</summary>
+    [Theory]
+    [InlineData(0, HttpStatusCode.OK)]
+    [InlineData(1, HttpStatusCode.BadRequest)]
+    public async Task Limit_hits_are_capped_at_the_shared_limit(int past, HttpStatusCode expected)
+    {
+        var device = await _service.CreateClient().RegisteredDevice("Study desktop");
+
+        var hits = Enumerable.Range(0, SyncRequestLimits.MaximumSessionLimitHits + past)
+            .Select(index => new LimitHitRecord(LastActivity.AddMinutes(-index), "FiveHour"))
+            .ToList();
+
+        var response = await device.PushSession(Session("s-1") with { LimitHits = hits });
+
+        Assert.Equal(expected, response.StatusCode);
+    }
+
+    /// <summary>A title past the shared cap, a hit with no kind, and a hit token that
+    /// is a paragraph rather than a token are each refused as an invalid record.</summary>
+    [Fact]
+    public async Task An_oversized_title_or_malformed_limit_hit_is_refused()
+    {
+        var device = await _service.CreateClient().RegisteredDevice("Study desktop");
+
+        SessionRecord[] refused =
+        [
+            Session("s-1") with { Title = new string('t', SyncRequestLimits.MaximumSessionTitle + 1) },
+            Session("s-2") with { WorktreeKey = new string('k', SyncRequestLimits.MaximumWorktreeKey + 1) },
+            Session("s-3") with { LimitHits = [new(LastActivity, " ")] },
+            Session("s-4") with { LimitHits = [new(LastActivity, "FiveHour", OverageDisabledReason: new string('r', SyncRequestLimits.MaximumLimitToken + 1))] }
+        ];
+
+        foreach (var record in refused)
+        {
+            var response = await device.PushSession(record);
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Equal(
+                SyncErrorCodes.SessionInvalid,
+                (await response.Content.ReadFromJsonAsync<ProblemBody>(Cancellation))?.Code);
+        }
     }
 
     /// <summary>
@@ -641,7 +688,13 @@ public class SessionSyncEndpointTests : IDisposable
         DurationSeconds: 5_400,
         ResolvedRepositoryAlias: "backlog",
         Runs: [Interval(-30, -20), Interval(-10, 0)],
-        Waits: [Interval(-20, -10)]);
+        Waits: [Interval(-20, -10)],
+        Title: "Rewrite the pairing dialog copy",
+        WorktreeKey: "Backlog-43b9057e",
+        LimitHits: [new(LastActivity.AddMinutes(-1), "FiveHour", "five_hour", LastActivity.AddHours(3), "rejected", LastActivity.AddDays(20), "org_spend_cap_reached", false)],
+        Entrypoint: "claude-desktop",
+        PullRequests: [new("JSdotNet/Backlog", 571, "https://github.com/JSdotNet/Backlog/pull/571", LastActivity)],
+        ModelUsage: [new("claude-opus-5-5", 12, 3_400, 900, 120_000)]);
 
     /// <summary>An interval given as minutes relative to the last activity, so a
     /// test reads as the stretch it is about.</summary>

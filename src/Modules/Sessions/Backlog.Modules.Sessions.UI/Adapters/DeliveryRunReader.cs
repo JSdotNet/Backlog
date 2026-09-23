@@ -216,9 +216,22 @@ internal sealed partial class DeliveryRunReader
                 TokenUsage: TokenUsage(root),
                 Context: Context(root),
                 InsightsByCategory: Insights(root, ByCategory),
-                InsightsByServer: Insights(root, ByServer));
+                InsightsByServer: Insights(root, ByServer))
+            {
+                SessionIds = SessionIds(root)
+            };
         }
     }
+
+    /// <summary>The run's <c>sessionIds</c>, distinct and in the order written, or empty
+    /// where the file has none — every dashboard before the surface took a session id.</summary>
+    private static IReadOnlyList<string> SessionIds(JsonElement root) =>
+        root.TryGetProperty("sessionIds", out var ids) && ids.ValueKind is JsonValueKind.Array
+            ? [.. ids.EnumerateArray()
+                .Where(id => id.ValueKind is JsonValueKind.String && !string.IsNullOrWhiteSpace(id.GetString()))
+                .Select(id => id.GetString()!)
+                .Distinct(StringComparer.Ordinal)]
+            : [];
 
     /// <summary>Whether a stage name is one: not blank, and not the word a
     /// JavaScript writer uses for a value it did not have.</summary>

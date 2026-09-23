@@ -159,9 +159,9 @@ internal sealed class ClaudeSessionReader
                 continue;
             }
 
-            var (_, branch, turns) = await ReadTranscriptAsync(transcript, cancellationToken).ConfigureAwait(false);
+            var facts = await ReadTranscriptAsync(transcript, cancellationToken).ConfigureAwait(false);
 
-            read.Add(session with { Branch = branch, TurnCount = turns });
+            read.Add(WithWork(session with { Branch = facts.Branch, TurnCount = facts.Turns }, facts));
         }
 
         return read;
@@ -350,12 +350,12 @@ internal sealed class ClaudeSessionReader
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var (folderPath, branch, turns) =
-                await ReadTranscriptAsync(transcript, cancellationToken).ConfigureAwait(false);
+            var facts = await ReadTranscriptAsync(transcript, cancellationToken).ConfigureAwait(false);
+            var (folderPath, branch, turns) = (facts.Folder, facts.Branch, facts.Turns);
 
             var id = Path.GetFileNameWithoutExtension(transcript.Name);
 
-            sessions.Add(new AgentSession(
+            sessions.Add(WithWork(new AgentSession(
                 Id: id,
                 Kind: AgentSessionKind.Claude,
                 EnvironmentId: _environmentId,
@@ -371,11 +371,21 @@ internal sealed class ClaudeSessionReader
                 // stalled means still registered as running, and nothing here is.
                 State: AgentSessionState.Finished,
                 TurnCount: turns,
-                Origin: AgentSessionOrigin.Local));
+                Origin: AgentSessionOrigin.Local), facts));
         }
 
         return sessions;
     }
+
+    /// <summary>The session with what its transcript says about its work. A pass that
+    /// did not finish leaves the lists null — not read — rather than empty.</summary>
+    private static AgentSession WithWork(AgentSession session, TranscriptFacts facts) =>
+        session with
+        {
+            Entrypoint = facts.Entrypoint,
+            PullRequests = facts.Turns is null && facts.PullRequests.Count == 0 && facts.ModelUsage.Count == 0 ? null : facts.PullRequests,
+            ModelUsage = facts.Turns is null && facts.PullRequests.Count == 0 && facts.ModelUsage.Count == 0 ? null : facts.ModelUsage
+        };
 
     /// <summary>
     /// What a transcript says about itself: the folder and branch from the first lines
@@ -411,7 +421,7 @@ internal sealed class ClaudeSessionReader
     /// interrupted one returns its honest null and is tried again next time.
     /// </para>
     /// </summary>
-    private async Task<(string Folder, string? Branch, int? Turns)> ReadTranscriptAsync(
+    private async Task<TranscriptFacts> ReadTranscriptAsync(
         FileInfo transcript,
         CancellationToken cancellationToken)
     {
@@ -419,23 +429,23 @@ internal sealed class ClaudeSessionReader
 
         if (_facts?.TryRead(transcript.FullName, transcript.Length, writtenAt) is { } remembered)
         {
-            return (remembered.Folder, remembered.Branch, remembered.Turns);
+            return remembered;
         }
 
-        var (folder, branch, turns, complete) = await ParseTranscriptAsync(transcript, cancellationToken).ConfigureAwait(false);
+        var (facts, complete) = await ParseTranscriptAsync(transcript, cancellationToken).ConfigureAwait(false);
 
         if (complete)
         {
-            _facts?.Write(transcript.FullName, transcript.Length, writtenAt, new TranscriptFacts(folder, branch, turns));
+            _facts?.Write(transcript.FullName, transcript.Length, writtenAt, facts);
         }
 
-        return (folder, branch, turns);
+        return facts;
     }
 
     /// <summary>The pass itself, apart from the remembering. <c>Complete</c> is
     /// false when the read was cut short, which is the one outcome that must not
     /// be written down as if it were a fact about the file.</summary>
-    private static async Task<(string Folder, string? Branch, int? Turns, bool Complete)> ParseTranscriptAsync(
+    private static async Task<(TranscriptFacts Facts, bool Complete)> ParseTranscriptAsync(
         FileInfo transcript,
         CancellationToken cancellationToken)
     {
@@ -443,6 +453,7 @@ internal sealed class ClaudeSessionReader
         string? branch = null;
         var turns = 0;
         var line = 0;
+        var work = new ClaudeTranscriptWork();
 
         try
         {
@@ -463,6 +474,8 @@ internal sealed class ClaudeSessionReader
                 }
 
                 if (IsTurn(text)) turns++;
+
+                work.Observe(text);
             }
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException)
@@ -478,14 +491,19 @@ internal sealed class ClaudeSessionReader
             // nothing on the row to say so, and a reader comparing two sessions would
             // be comparing one real count against one lost race. The folder and branch
             // are kept because they are complete or absent, never half-read.
-            return (folder, branch, null, false);
+            return (new TranscriptFacts(folder, branch, null) { Entrypoint = work.Entrypoint }, false);
         }
 
         // Zero turns is reported as absent, never as 0. A count of 0 claims a person
         // opened this session and never spoke in it; what a transcript with nothing
         // countable in it actually supports is that there is nothing here to count.
         // See AgentSession.TurnCount, and the Session Log's invariant behind it.
-        return (folder, branch, turns == 0 ? null : turns, true);
+        return (new TranscriptFacts(folder, branch, turns == 0 ? null : turns)
+        {
+            Entrypoint = work.Entrypoint,
+            PullRequests = work.PullRequests,
+            ModelUsage = work.ModelUsage
+        }, true);
     }
 
     /// <summary>

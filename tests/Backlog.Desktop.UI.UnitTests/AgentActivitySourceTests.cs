@@ -657,6 +657,14 @@ public sealed class AgentActivitySourceTests : IDisposable
                 (Yesterday.AddMinutes(4), AgentLimitKind.Other, "seven_day_opus")
             ],
             session.LimitHits.Select(hit => (hit.At, hit.Kind, hit.RateLimitType)));
+
+        // The overage half of the block rides on every hit, as the transcript wrote it.
+        var first = session.LimitHits[0];
+        Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1788399000), first.ResetsAt);
+        Assert.Equal("rejected", first.OverageStatus);
+        Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1790812800), first.OverageResetsAt);
+        Assert.Equal("org_spend_cap_reached", first.OverageDisabledReason);
+        Assert.False(first.IsUsingOverage);
     }
 
     /// <summary>
@@ -1385,7 +1393,7 @@ public sealed class AgentActivitySourceTests : IDisposable
     /// </summary>
     private static string RateLimited(string id, DateTimeOffset at, string rateLimitType, string? agentId = null) =>
         $$$"""
-        {"parentUuid":"7c1b0f2a-4d2e-4a91-9f2c-1d8a0b3e6c22","isSidechain":{{{(agentId is null ? "false" : "true")}}},{{{(agentId is null ? "" : $"\"agentId\":\"{agentId}\",")}}}"type":"assistant","uuid":"8f3f4989-b251-4cbf-a296-301531d7e4dc","timestamp":"{{{Stamp(at)}}}","message":{"diagnostics":null,"id":"955c160f-8889-410f-8f48-3f9ed9dc39bb","container":null,"model":"<synthetic>","role":"assistant","stop_details":null,"stop_reason":"stop_sequence","stop_sequence":"","type":"message","usage":{"input_tokens":0,"output_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0},"content":[{"type":"text","text":"You've hit your session limit · resets 3am (Europe/Amsterdam)"}],"context_management":null},"requestId":"req_011CefV3ZTjhKsqMaAatbSv9","quotaLimits":{"status":"rejected","resetsAt":1788399000,"unifiedRateLimitFallbackAvailable":false,"rateLimitType":"{{{rateLimitType}}}","overageStatus":"rejected","isUsingOverage":false},"error":"rate_limit","isApiErrorMessage":true,"apiErrorStatus":429,"userType":"external","entrypoint":"claude-desktop","cwd":"D:\\Repos\\Backlog","sessionId":"{{{id}}}","version":"2.1.258","gitBranch":"main"}
+        {"parentUuid":"7c1b0f2a-4d2e-4a91-9f2c-1d8a0b3e6c22","isSidechain":{{{(agentId is null ? "false" : "true")}}},{{{(agentId is null ? "" : $"\"agentId\":\"{agentId}\",")}}}"type":"assistant","uuid":"8f3f4989-b251-4cbf-a296-301531d7e4dc","timestamp":"{{{Stamp(at)}}}","message":{"diagnostics":null,"id":"955c160f-8889-410f-8f48-3f9ed9dc39bb","container":null,"model":"<synthetic>","role":"assistant","stop_details":null,"stop_reason":"stop_sequence","stop_sequence":"","type":"message","usage":{"input_tokens":0,"output_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0},"content":[{"type":"text","text":"You've hit your session limit · resets 3am (Europe/Amsterdam)"}],"context_management":null},"requestId":"req_011CefV3ZTjhKsqMaAatbSv9","quotaLimits":{"status":"rejected","resetsAt":1788399000,"unifiedRateLimitFallbackAvailable":false,"rateLimitType":"{{{rateLimitType}}}","overageStatus":"rejected","overageResetsAt":1790812800,"overageDisabledReason":"org_spend_cap_reached","isUsingOverage":false},"error":"rate_limit","isApiErrorMessage":true,"apiErrorStatus":429,"userType":"external","entrypoint":"claude-desktop","cwd":"D:\\Repos\\Backlog","sessionId":"{{{id}}}","version":"2.1.258","gitBranch":"main"}
         """;
 
     /// <summary>The other synthetic assistant line: an API error that is not a refusal.

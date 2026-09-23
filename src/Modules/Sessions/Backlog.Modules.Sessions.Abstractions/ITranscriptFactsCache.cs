@@ -10,7 +10,20 @@ namespace Backlog.Modules.Sessions.Abstractions;
 /// interrupted; an interrupted read is not written.
 /// </para>
 /// </summary>
-public sealed record TranscriptFacts(string Folder, string? Branch, int? Turns);
+public sealed record TranscriptFacts(string Folder, string? Branch, int? Turns)
+{
+    /// <summary>Where the session was run from — <c>claude-desktop</c>, <c>cli</c> —
+    /// as the transcript's first line naming it spelled it, or null.</summary>
+    public string? Entrypoint { get; init; }
+
+    /// <summary>The pull requests the session linked, oldest first. Empty where it
+    /// linked none.</summary>
+    public IReadOnlyList<AgentPullRequest> PullRequests { get; init; } = [];
+
+    /// <summary>The tokens the session spent per model. Empty where it answered nothing
+    /// with a real model.</summary>
+    public IReadOnlyList<AgentModelUsage> ModelUsage { get; init; } = [];
+}
 
 /// <summary>
 /// Keeps what a full pass over a transcript established on disk, keyed on the file,

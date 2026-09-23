@@ -90,6 +90,26 @@ public sealed record AgentLimitHit(DateTimeOffset At, AgentLimitKind Kind, strin
     /// put up came down. An init property so the positional shape above stays as it is.
     /// </summary>
     public DateTimeOffset? ResetsAt { get; init; }
+
+    /// <summary>
+    /// What the refusal said about paid overage — <c>quotaLimits.overageStatus</c>,
+    /// such as <c>rejected</c> — or null where the block did not say. With the three
+    /// beside it, this is what tells a wall apart from a refusal that could have
+    /// fallen back to overage and did not.
+    /// </summary>
+    public string? OverageStatus { get; init; }
+
+    /// <summary>When the overage allowance resets — <c>quotaLimits.overageResetsAt</c>,
+    /// Unix seconds on the wire — or null.</summary>
+    public DateTimeOffset? OverageResetsAt { get; init; }
+
+    /// <summary>Why overage was not available, spelled as the transcript spelled it —
+    /// <c>org_spend_cap_reached</c>, <c>org_level_disabled_until</c> — or null.</summary>
+    public string? OverageDisabledReason { get; init; }
+
+    /// <summary>Whether the account was already spending overage when it was refused
+    /// — <c>quotaLimits.isUsingOverage</c> — or null where the block did not say.</summary>
+    public bool? IsUsingOverage { get; init; }
 }
 
 /// <summary>

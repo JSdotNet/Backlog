@@ -20,8 +20,9 @@ namespace Backlog.Infrastructure.Sync.Sessions;
 /// Plaintext, like both stores beside it, because nothing in it is a secret —
 /// it is the metadata .arc42/adr/0005 §Session records permits to leave a machine
 /// in the first place, which is the whole basis on which it travelled here. It
-/// carries no working folder, no title and no transcript, because those never
-/// crossed the wire.
+/// carries no working folder and no transcript, because those never crossed the
+/// wire. It holds this machine's own records beside the other machines', so a
+/// session whose transcript is gone is still answered.
 /// </para>
 /// <para>
 /// The whole file is rewritten on every save rather than appended to. A record is

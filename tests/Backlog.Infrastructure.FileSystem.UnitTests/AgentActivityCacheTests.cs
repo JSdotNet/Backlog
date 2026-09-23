@@ -92,6 +92,39 @@ public class AgentActivityCacheTests : IDisposable
         Assert.Equal([At(13), null, null, null], read.LimitHits.Select(hit => hit.ResetsAt));
     }
 
+    /// <summary>The overage half of a hit comes back as it was written, and a hit
+    /// written without it comes back with every field of it null.</summary>
+    [Fact]
+    public void The_overage_half_of_a_limit_hit_comes_back()
+    {
+        var cache = Cache();
+
+        cache.Write(Transcript, Written, Entry(runs: [(9, 10)], waits: []) with
+        {
+            LimitHits =
+            [
+                new AgentLimitHit(At(9), AgentLimitKind.FiveHour, "five_hour")
+                {
+                    OverageStatus = "rejected",
+                    OverageResetsAt = At(20),
+                    OverageDisabledReason = "org_spend_cap_reached",
+                    IsUsingOverage = false
+                },
+                new AgentLimitHit(At(10), AgentLimitKind.Weekly, "seven_day")
+            ]
+        });
+
+        var read = cache.TryRead(Transcript, Written, Threshold);
+
+        Assert.NotNull(read);
+        Assert.Equal(
+            [
+                ("rejected", At(20), "org_spend_cap_reached", (bool?)false),
+                (null, null, null, null)
+            ],
+            read.LimitHits.Select(hit => (hit.OverageStatus, hit.OverageResetsAt, hit.OverageDisabledReason, hit.IsUsingOverage)));
+    }
+
     [Fact]
     public void Nothing_stored_is_a_miss_rather_than_a_throw()
     {

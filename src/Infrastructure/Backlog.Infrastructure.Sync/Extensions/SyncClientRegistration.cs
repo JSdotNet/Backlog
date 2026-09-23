@@ -358,6 +358,11 @@ public static class SyncClientRegistration
         // cycles its own guard exists to prevent.
         services.TryAddSingleton<SessionSyncWorker>();
 
+        // What the Sessions pane's update button asks once this machine's records are
+        // amended: send them all again. Contributed only where sync is composed, so the
+        // records themselves never depend on it.
+        services.TryAddSingleton<ISessionRecordPublisher, SessionSyncRecordPublisher>();
+
         return services;
     }
 

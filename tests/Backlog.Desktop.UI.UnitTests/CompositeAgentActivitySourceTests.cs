@@ -143,7 +143,8 @@ public sealed class CompositeAgentActivitySourceTests
         using var provider = services.BuildServiceProvider();
 
         Assert.IsType<CompositeAgentActivitySource>(provider.GetRequiredService<IAgentActivitySource>());
-        Assert.Single(provider.GetKeyedServices<IAgentActivitySource>(KeyedService.AnyKey));
+        Assert.Equal(2, provider.GetKeyedServices<IAgentActivitySource>(KeyedService.AnyKey).Count());
+        Assert.Contains(provider.GetKeyedServices<IAgentActivitySource>(KeyedService.AnyKey), source => source is RecordedAgentActivitySource);
     }
 
     /// <summary>
@@ -171,7 +172,7 @@ public sealed class CompositeAgentActivitySourceTests
 
         var contributors = provider.GetKeyedServices<IAgentActivitySource>(KeyedService.AnyKey).ToList();
 
-        Assert.Equal(2, contributors.Count);
+        Assert.Equal(3, contributors.Count);
         Assert.Contains(contributors, source => source is ReplicatedAgentActivitySource);
         Assert.IsType<CompositeAgentActivitySource>(provider.GetRequiredService<IAgentActivitySource>());
     }
@@ -205,6 +206,33 @@ public sealed class CompositeAgentActivitySourceTests
         public Task<AgentActivityLog> GetActivityAsync(DateTimeOffset since, CancellationToken cancellationToken = default) =>
             Task.FromResult(log);
     }
+
+    /// <summary>
+    /// The activity this machine folded from a transcript wins over the record it
+    /// pushed of the same session, so a session is never measured twice.
+    /// </summary>
+    [Fact]
+    public async Task A_local_fold_wins_over_the_record_of_the_same_session()
+    {
+        var composite = new CompositeAgentActivitySource(
+        [
+            new StubSource(new AgentActivityLog([Folded("both", AgentSessionOrigin.Local)], [], DateTimeOffset.MinValue, TimeSpan.FromMinutes(5))),
+            new StubSource(new AgentActivityLog(
+                [Folded("both", AgentSessionOrigin.Replicated), Folded("archived", AgentSessionOrigin.Replicated)],
+                [],
+                DateTimeOffset.MinValue,
+                TimeSpan.Zero))
+        ]);
+
+        var log = await composite.GetActivityAsync(DateTimeOffset.MinValue, TestContext.Current.CancellationToken);
+
+        Assert.Equal(
+            [("both", AgentSessionOrigin.Local), ("archived", AgentSessionOrigin.Replicated)],
+            log.Sessions.Select(session => (session.Id, session.Origin)));
+    }
+
+    private static AgentSessionActivity Folded(string id, AgentSessionOrigin origin) =>
+        new(id, AgentSessionKind.Claude, "11111111-1111-1111-1111-111111111111", "Workshop PC", [], []) { Origin = origin };
 
     private sealed class StubDeviceIdentity : IDeviceIdentitySource
     {

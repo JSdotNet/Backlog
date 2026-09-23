@@ -64,12 +64,33 @@ public sealed class DeliverySurfaceLifecycleTests : IDisposable
         Assert.DoesNotContain("render_markdown", DeliverySurfaceOperations.All);
     }
 
+    /// <summary>
+    /// A run started with the driving session's id records it, and a session that picks
+    /// the run back up is added beside it rather than over it — the file names every
+    /// session that drove the run, and the reader hands them to the pane.
+    /// </summary>
+    [Fact]
+    public async Task A_run_records_every_session_that_drove_it()
+    {
+        var surface = Surface();
+
+        var first = await surface.StartRunAsync(Worktree, "flow-code", "Run", Stages, sessionId: "session-a", cancellationToken: TestContext.Current.CancellationToken);
+        var again = await surface.StartRunAsync(Worktree, "flow-code", "Run", Stages, sessionId: "session-b", cancellationToken: TestContext.Current.CancellationToken);
+        await surface.StartRunAsync(Worktree, "flow-code", "Run", Stages, sessionId: "session-a", cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.True(again.Resumed);
+        Assert.Equal(first.RunId, again.RunId);
+
+        var run = Assert.Single((await new DeliveryRunReader(_home, MachineId, Machine).ReadAsync(TestContext.Current.CancellationToken)).Runs);
+        Assert.Equal(["session-a", "session-b"], run.SessionIds);
+    }
+
     [Fact]
     public async Task A_started_run_reads_back_as_the_pane_reads_an_imported_one()
     {
         var surface = Surface();
 
-        var started = await surface.StartRunAsync(Worktree, "flow-code", "Surface lifecycle tools", Stages, "new-functionality", TestContext.Current.CancellationToken);
+        var started = await surface.StartRunAsync(Worktree, "flow-code", "Surface lifecycle tools", Stages, "new-functionality", cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.False(started.Resumed);
 
