@@ -278,6 +278,11 @@ Positive:
 - **The private note and the public fence stay two things.** Backlog keeps
   the inbox; the repository keeps the record; the plugin keeps its one writer.
 - **The mobile head is untouched.** The framework reference cannot reach it.
+- **Hook telemetry has a door beside the tools.** The same listener serves
+  `POST /telemetry`, behind the same `Origin` check and token, so the
+  `backlog-tools` plugin's hook forwarder reports a session's tool calls and
+  token usage to the run it is driving without a second port or credential
+  (`.domain/sessions/domain.md#delivery-run-telemetry`).
 
 Negative, and accepted:
 

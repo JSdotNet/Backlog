@@ -475,20 +475,27 @@ from the first stage that is not done. Two rows for one piece of work would be t
 same work counted twice, with its stages split between them — and a reader has no way
 to tell that from two genuine runs.
 
-### A run this product recorded claims nothing it could not measure
+### What a run cost, reported by the session itself
 
 ```meta
 type: sub-feature
 status: active
-related: [.domain/sessions/features.md#only-what-the-dashboard-recorded]
+related: [.domain/sessions/domain.md#delivery-run-telemetry, .domain/sessions/features.md#only-what-the-dashboard-recorded]
 ```
 
-The model a run resolved is shown, because the run states it. What the run cost is
-not, because this product cannot see it: those figures are counted by watching a
-session's own tool calls, and what arrives here is a call, not the session that made
-it. Left out rather than shown as zero — the rule this area already applies to a
-dashboard's own gaps, and a run recorded here is one more case of it rather than an
-exception to it.
+A run recorded here shows what it cost the way a dashboard's run does: the tool calls
+it made by kind and by MCP server, the agents it delegated to, the tokens it spent —
+in total, delegated, and per stage — and how full its context window got. The session
+reports these itself, from the moments its own tools run, rather than the run
+claiming them: a tool call arriving here is a call, not the session that made it, so
+the figures come from the session's side or not at all.
+
+A session reports only to a run it is driving. One that has no run under way reports
+nothing, and a run started later in it does not count the conversation that came
+before it; a run another session is driving is left alone. A session that does not
+report — the plugin not installed, or a host other than Claude Code — leaves its run
+without these figures, and they are left out rather than shown as zero: the rule this
+area already applies to a dashboard's own gaps.
 
 ## Session activity enrichment
 

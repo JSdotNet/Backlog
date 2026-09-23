@@ -135,6 +135,11 @@ public static class SessionRegistration
                 sp.GetRequiredService<IDeviceIdentitySource>(),
                 sp.GetService<ISessionsSurfaceActivator>()));
 
+        // And the measured half of the same runs: the hook events a session forwards,
+        // attributed to the run it is driving. A singleton because it carries each
+        // session's transcript cursors from one event to the next.
+        services.AddSingleton<IDeliveryRunTelemetry>(_ => new DeliveryRunTelemetry());
+
         // The shell's Ask AI port, answered from the merged catalog above and
         // from nothing else — see SessionsAiContentSource for why the transcripts
         // stay out. Scoped for consistency with the other areas' sources, which

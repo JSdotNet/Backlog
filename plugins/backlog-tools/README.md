@@ -45,6 +45,23 @@ a prompt and nudges the session to invoke `backlog-run-plan-item`, so triggering
 rest on the skill description alone. It needs `grep` on the hook shell, which Claude Code
 provides on every platform it runs on.
 
+It also registers `hooks/telemetry-forwarder.mjs` for `PreToolUse`, `PostToolUse`,
+`SubagentStop`, `PreCompact`, `Stop` and `SessionEnd`. Each event is posted to the app's
+`/telemetry` endpoint — beside `/mcp`, on the same port and behind the same bearer token — and
+the app attributes the tool calls, delegated agents, token usage and context gauge to the
+delivery run that session is driving, which the Sessions pane shows under the run's row. The
+port and token come from `BACKLOG_MCP_PORT` and `BACKLOG_MCP_TOKEN`, the variables the
+repository's `.mcp.json` reads, else from the app's own `settings.json`. The tool-call events
+are matched to shell, edits, sub-agents, skills and MCP tools, the calls a run's figures are
+read for, so a session is not paying a process spawn on every `Read` and `Grep`. The script
+needs Node, drops the tool's output before posting, gives up after two seconds and exits 0 on
+any error, so a closed app costs a session nothing but a refused connection.
+
+Copilot CLI gets a root `hooks.json` with the plan-item nudge as a `userPromptSubmit` prompt
+hook. Its presence is also what keeps Copilot from falling back to `hooks/hooks.json`: the
+forwarder reads a Claude Code payload and the app reads a Claude Code transcript, so the
+telemetry is Claude Code only.
+
 This plugin ships two manifests so it installs the same way in either host:
 
 - `.claude-plugin/plugin.json` — Claude Code

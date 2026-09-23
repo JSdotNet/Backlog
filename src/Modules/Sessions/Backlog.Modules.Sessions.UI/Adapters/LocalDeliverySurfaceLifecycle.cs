@@ -101,11 +101,17 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
             var id = Text(resumed, "id")!;
 
             // A session picking the run back up — a handoff — is one more session that
-            // drove it. Appended, never replacing the one that started it.
-            if (WithSession(resumed, sessionId))
+            // drove it. Appended, never replacing the one that started it; re-read under
+            // the gate, because the listing above was read without it.
+            using (await _store.LockAsync(worktree, id, cancellationToken).ConfigureAwait(false))
             {
-                resumed["updatedAt"] = Now();
-                await _store.WriteAsync(worktree, id, resumed, cancellationToken).ConfigureAwait(false);
+                resumed = await _store.ReadAsync(worktree, id, cancellationToken).ConfigureAwait(false) ?? resumed;
+
+                if (WithSession(resumed, sessionId))
+                {
+                    resumed["updatedAt"] = Now();
+                    await _store.WriteAsync(worktree, id, resumed, cancellationToken).ConfigureAwait(false);
+                }
             }
 
             return new DeliveryRunStarted(id, Resumed: true, SessionTitle(resumed));
@@ -177,6 +183,7 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
         string? label = null,
         CancellationToken cancellationToken = default)
     {
+        using var held = await HoldAsync(worktree, runId, cancellationToken).ConfigureAwait(false);
         var run = await RequiredAsync(worktree, runId, cancellationToken).ConfigureAwait(false);
 
         var history = run["promptHistory"] as JsonArray;
@@ -214,6 +221,7 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
         string? model = null,
         CancellationToken cancellationToken = default)
     {
+        using var held = await HoldAsync(worktree, runId, cancellationToken).ConfigureAwait(false);
         var run = await RequiredAsync(worktree, runId, cancellationToken).ConfigureAwait(false);
 
         // Every argument absent leaves what was there. This is called once per fact as
@@ -248,10 +256,10 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
             }
 
             // The models list and nothing else. The rest of tokenUsage is measured
-            // consumption, which this product cannot measure: the figures are captured
-            // by a collector watching the session's own tool calls, and this server
-            // sees a tool call arrive, not the session that made it. An absent bucket
-            // reads as zero, which is true; an invented one would not be.
+            // consumption, which a tool call cannot report: it arrives from the
+            // session's hooks through DeliveryRunTelemetry, and a run whose session
+            // forwards none keeps it empty. An absent bucket reads as zero, which is
+            // true; an invented one would not be.
             var models = usage["models"] as JsonArray;
 
             if (models is null)
@@ -287,6 +295,7 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
                 nameof(status));
         }
 
+        using var held = await HoldAsync(worktree, runId, cancellationToken).ConfigureAwait(false);
         var run = await RequiredAsync(worktree, runId, cancellationToken).ConfigureAwait(false);
         var stages = run["stages"] as JsonArray ?? [];
 
@@ -383,6 +392,7 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
                 nameof(status));
         }
 
+        using var held = await HoldAsync(worktree, runId, cancellationToken).ConfigureAwait(false);
         var run = await RequiredAsync(worktree, runId, cancellationToken).ConfigureAwait(false);
 
         run["status"] = status;
@@ -428,6 +438,16 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
             .Where(run => string.Equals(Text(run, "status"), DeliveryRunStatuses.InProgress, StringComparison.OrdinalIgnoreCase))
             .OrderByDescending(run => Text(run, "updatedAt") ?? string.Empty, StringComparer.Ordinal)
             .FirstOrDefault();
+    }
+
+    /// <summary>The run file held against the hook telemetry writing beside this class —
+    /// see <see cref="DeliveryRunStore.LockAsync"/>. Argument checks first, so a blank id
+    /// is the caller's error rather than a gate on a file named <c>.json</c>.</summary>
+    private Task<IDisposable> HoldAsync(string worktree, string runId, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(runId);
+
+        return _store.LockAsync(worktree, runId, cancellationToken);
     }
 
     private async Task<JsonObject> RequiredAsync(string worktree, string runId, CancellationToken cancellationToken)
