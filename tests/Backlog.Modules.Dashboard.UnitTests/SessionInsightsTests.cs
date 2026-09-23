@@ -2474,8 +2474,8 @@ public class SessionInsightsTests
         var four = await ValueOf(insights, new DashboardScope(Period: DashboardPeriod.FourWeeks));
         var twelve = await ValueOf(insights, new DashboardScope(Period: DashboardPeriod.TwelveWeeks));
 
-        Assert.Equal(new LimitHitCounts(2, 1), four.LimitHits);
-        Assert.Equal(new LimitHitCounts(3, 1), twelve.LimitHits);
+        Assert.Equal((2, 1), (four.LimitHits.FiveHour, four.LimitHits.Weekly));
+        Assert.Equal((3, 1), (twelve.LimitHits.FiveHour, twelve.LimitHits.Weekly));
         Assert.Equal(4, twelve.LimitHits.Total);
     }
 
@@ -2531,6 +2531,201 @@ public class SessionInsightsTests
     /// and the constraint these hold up is the one the feature was approved on.
     /// </para>
     /// </summary>
+    /// <summary>
+    /// Tokens are summed over the sessions that recorded them, and a session that did
+    /// not is skipped rather than added as nothing — the denominator travels so the
+    /// tile can say the figure is partial.
+    /// </summary>
+    [Fact]
+    public async Task Tokens_are_summed_over_the_sessions_that_recorded_them_and_cut_by_model()
+    {
+        var insights = Insights(new StubAssistantSessionSource
+        {
+            Report = Report(
+                Session(Tower, "Claude", Now.AddHours(-3), Now.AddHours(-2), "one") with
+                {
+                    ModelUsage = [Usage("opus", output: 1_000, input: 10, cacheRead: 100, cacheWrite: 5), Usage("haiku", output: 200, input: 2)]
+                },
+                Session(Tower, "Claude", Now.AddDays(-8), Now.AddDays(-8), "two") with { ModelUsage = [Usage("opus", output: 500)] },
+                Session(Tower, "Copilot", Now.AddHours(-3), Now.AddHours(-1), "three"))
+        });
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        Assert.Equal(new TokenTotals(1_700, 12, 100, 5), value.Tokens);
+        Assert.Equal(2, value.SessionsWithUsage);
+        Assert.Equal(3, value.Sessions);
+
+        Assert.Collection(
+            value.TokensByModel,
+            opus =>
+            {
+                Assert.Equal(("opus", 1_500m), (opus.Name, opus.Total));
+                Assert.Null(opus.Kind);
+
+                // In the week each session last moved: two different weeks, and the
+                // columns add up to the row.
+                Assert.Equal(2, opus.PerWeek.Count(point => point.Value > 0));
+                Assert.Equal(1_500m, opus.PerWeek.Sum(point => point.Value));
+            },
+            haiku => Assert.Equal(("haiku", 200m), (haiku.Name, haiku.Total)));
+    }
+
+    [Fact]
+    public async Task A_window_in_which_no_session_recorded_usage_has_no_token_figure_rather_than_zero()
+    {
+        var insights = Insights(new StubAssistantSessionSource
+        {
+            Report = Report(Session(Tower, "Copilot", Now.AddHours(-3), Now.AddHours(-1), "one"))
+        });
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        Assert.Null(value.Tokens);
+        Assert.Equal(0, value.SessionsWithUsage);
+        Assert.Empty(value.TokensByModel);
+        Assert.Empty(value.TokensByRepository);
+        Assert.Equal(0, value.SessionsWithPullRequestRecord);
+        Assert.Empty(value.PullRequestsByRepository);
+    }
+
+    /// <summary>
+    /// Tokens by repository are banded the way the activity rows are — configured alias,
+    /// the folded others, the unrecorded — and follow the header's repository scope.
+    /// </summary>
+    [Fact]
+    public async Task Tokens_by_repository_follow_the_bands_and_the_repository_scope()
+    {
+        var insights = Insights(new StubAssistantSessionSource
+        {
+            Report = Report(
+                Session(Tower, "Claude", Now.AddHours(-3), Now.AddHours(-2), "one") with
+                {
+                    Repository = "acme/backlog",
+                    ModelUsage = [Usage("opus", output: 300)]
+                },
+                Session(Tower, "Claude", Now.AddHours(-3), Now.AddHours(-2), "two") with { ModelUsage = [Usage("opus", output: 900)] },
+                Session(Tower, "Claude", Now.AddHours(-3), Now.AddHours(-2), "three") with
+                {
+                    Repository = "someone/else",
+                    ModelUsage = [Usage("opus", output: 100)]
+                })
+        });
+
+        var all = await ValueOf(insights, DashboardScope.Default);
+        var focused = await ValueOf(insights, DashboardScope.Default with { Repositories = RepositoryFocus.Of("backlog") });
+
+        Assert.Equal(
+            [
+                (RepositoryWeekly.UnrecordedName, (RepositoryBandKind?)RepositoryBandKind.Unrecorded, 900m),
+                ("backlog", RepositoryBandKind.Configured, 300m),
+                (RepositoryWeekly.OtherName, RepositoryBandKind.Other, 100m)
+            ],
+            all.TokensByRepository.Select(band => (band.Name, band.Kind, band.Total)));
+
+        Assert.Equal(["backlog"], focused.TokensByRepository.Select(band => band.Name));
+
+        // The by-model cut and the tile stay whole under the scope, as the totals do.
+        Assert.Equal(1_300m, focused.TokensByModel.Single().Total);
+        Assert.Equal(1_300, focused.Tokens!.Output);
+    }
+
+    /// <summary>
+    /// One pull request, linked by the session that opened it and the one that finished
+    /// it, is one pull request. Matched on the URL whatever its case, placed at the first
+    /// link, and banded by the repository it lives in rather than by its session's.
+    /// </summary>
+    [Fact]
+    public async Task A_pull_request_several_sessions_linked_is_counted_once_in_its_own_repository()
+    {
+        const string Shared = "https://github.com/acme/backlog/pull/587";
+
+        var insights = Insights(new StubAssistantSessionSource
+        {
+            Report = Report(
+                Session(Tower, "Claude", Now.AddDays(-9), Now.AddDays(-9), "opened") with
+                {
+                    PullRequests = [Pr("acme/backlog", 587, Shared, Now.AddDays(-9))]
+                },
+                Session(Tower, "Claude", Now.AddHours(-3), Now.AddHours(-1), "finished") with
+                {
+                    // Recorded against another repository, which is the session's and
+                    // not the pull request's.
+                    Repository = "acme/other",
+                    PullRequests =
+                    [
+                        Pr("acme/backlog", 587, Shared.ToUpperInvariant(), Now.AddHours(-2)),
+                        Pr("someone/else", 12, "https://github.com/someone/else/pull/12", null)
+                    ]
+                },
+                Session(Tower, "Claude", Now.AddHours(-3), Now.AddHours(-1), "none") with { PullRequests = [] },
+                Session(Tower, "Copilot", Now.AddHours(-3), Now.AddHours(-1), "unknown"))
+        });
+
+        var value = await ValueOf(insights, DashboardScope.Default);
+
+        Assert.Equal(2, value.PullRequests);
+        Assert.Equal(3, value.SessionsWithPullRequestRecord);
+
+        Assert.Equal(2, value.PullRequestsByRepository.Count);
+
+        var backlog = value.PullRequestsByRepository.Single(band => band.Name == "backlog");
+        Assert.Equal((RepositoryBandKind.Configured, 1m), (backlog.Kind, backlog.Total));
+
+        // Placed at the first link, nine days back — not in the latest week.
+        Assert.Equal(0m, backlog.PerWeek[^1].Value);
+
+        var other = value.PullRequestsByRepository.Single(band => band.Name == RepositoryWeekly.OtherName);
+        Assert.Equal(1m, other.Total);
+
+        // Undated, so placed where its session last moved: this week.
+        Assert.Equal(1m, other.PerWeek[^1].Value);
+    }
+
+    /// <summary>
+    /// What overage did about each refusal: a fall-back, a wall for a named reason, a
+    /// bare "rejected", or nothing said. Nothing said is its own count and never a wall.
+    /// </summary>
+    [Fact]
+    public async Task Limit_hits_are_split_by_what_overage_did_about_them()
+    {
+        var at = Now.AddHours(-5);
+
+        var insights = Insights(
+            new StubAssistantSessionSource { Report = Report(Session(Tower, "Claude", at, Now.AddHours(-1), "one")) },
+            Activity(
+                [Ran("one", Tower, "Claude", (at, Now.AddHours(-1)))],
+                [
+                    Refused("one", AssistantLimitKind.FiveHour, at, at.AddHours(1)) with { IsUsingOverage = true },
+                    Refused("one", AssistantLimitKind.FiveHour, at.AddMinutes(1), at.AddHours(1)) with
+                    {
+                        OverageStatus = "rejected",
+                        OverageDisabledReason = "org_spend_cap_reached",
+                        IsUsingOverage = false
+                    },
+                    Refused("one", AssistantLimitKind.SevenDay, at.AddMinutes(2), at.AddDays(3)) with
+                    {
+                        OverageStatus = "rejected",
+                        OverageDisabledReason = "org_spend_cap_reached"
+                    },
+                    Refused("one", AssistantLimitKind.FiveHour, at.AddMinutes(3), at.AddHours(1)) with { OverageStatus = "rejected" },
+                    Refused("one", AssistantLimitKind.FiveHour, at.AddMinutes(4), at.AddHours(1))
+                ]));
+
+        var hits = (await ValueOf(insights, DashboardScope.Default)).LimitHits;
+
+        Assert.Equal((4, 1), (hits.FiveHour, hits.Weekly));
+        Assert.Equal(1, hits.OnOverage);
+        Assert.Equal([new LimitWall("org_spend_cap_reached", 2), new LimitWall("rejected", 1)], hits.Walled);
+        Assert.Equal(1, hits.OverageUnrecorded);
+    }
+
+    private static AssistantModelUsage Usage(string model, long output, long input = 0, long cacheRead = 0, long cacheWrite = 0) =>
+        new(model, input, output, cacheWrite, cacheRead);
+
+    private static AssistantPullRequest Pr(string repository, int number, string url, DateTimeOffset? linkedAt) =>
+        new(repository, number, url, linkedAt);
+
     private static SessionInsights WithSpawnedAgents()
     {
         var ran = (Now.AddHours(-3), Now.AddHours(-1));

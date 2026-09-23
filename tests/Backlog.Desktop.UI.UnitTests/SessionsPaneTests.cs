@@ -1035,6 +1035,154 @@ public sealed class SessionsPaneTests
     }
 
     /// <summary>
+    /// The pull requests a session linked are drawn the way a run draws its own — the
+    /// Integrations reference, "PR #n", an anchor to GitHub — and one the row's run
+    /// already draws is not drawn a second time.
+    /// </summary>
+    [Fact]
+    public void A_sessions_linked_pull_requests_are_references_and_a_runs_own_is_drawn_once()
+    {
+        var session = Sample[0] with
+        {
+            PullRequests =
+            [
+                new AgentPullRequest("JSdotNet/Backlog", 587, "https://github.com/JSdotNet/Backlog/pull/587", Noon.AddHours(-1)),
+                new AgentPullRequest("JSdotNet/Backlog", 590, "https://github.com/JSdotNet/Backlog/pull/590", Noon.AddMinutes(-30))
+            ]
+        };
+        var run = SessionRowsTests.Run("run-1", "keen-bose-667825-0000abcd", Noon.AddHours(-2), Noon.AddMinutes(-10)) with
+        {
+            SessionIds = [session.Id],
+            References = [new DeliveryRunReference(DeliveryRunReferenceKind.PullRequest, "PR #587", null, "https://github.com/JSdotNet/Backlog/pull/587", "JSdotNet/Backlog")]
+        };
+
+        using var context = Context([session]);
+        context.Services.AddSingleton<IDeliveryRunSource>(new StubRunSource([run], []));
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            var link = Assert.Single(pane.FindAll("[data-testid='sessions-pull-request']"));
+
+            Assert.Contains("PR #590", link.TextContent);
+            Assert.Equal("https://github.com/JSdotNet/Backlog/pull/590", link.GetAttribute("href"));
+
+            // PR #587 is the run's, on the run's own line, and only there.
+            Assert.Single(pane.FindAll("[data-testid='sessions-run-pull-request']"));
+        });
+    }
+
+    [Fact]
+    public void A_session_that_linked_nothing_or_could_not_say_draws_no_pull_request_line()
+    {
+        using var context = Context([Sample[0] with { PullRequests = [] }, Sample[3]]);
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(2, pane.FindAll(".data-table__row").Count);
+            Assert.Empty(pane.FindAll("[data-testid='sessions-pull-requests']"));
+        });
+    }
+
+    /// <summary>
+    /// Output and input on the row, every model with its cache figures in the title,
+    /// and an em dash — never a zero — for a session that did not record its usage.
+    /// </summary>
+    [Fact]
+    public void Tokens_are_output_and_input_with_each_model_in_the_title_and_a_dash_where_unrecorded()
+    {
+        var session = Sample[0] with
+        {
+            ModelUsage =
+            [
+                new AgentModelUsage("claude-opus-5-5", InputTokens: 20, OutputTokens: 900, CacheCreationInputTokens: 50, CacheReadInputTokens: 7_000),
+                new AgentModelUsage("claude-haiku-4-5", InputTokens: 10, OutputTokens: 100, CacheCreationInputTokens: 0, CacheReadInputTokens: 0)
+            ]
+        };
+
+        using var context = Context([session, Sample[3]]);
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            var cells = pane.FindAll("[data-testid='sessions-tokens']");
+            Assert.Equal(2, cells.Count);
+
+            Assert.Equal("1,000 out · 30 in", cells[0].TextContent.Trim());
+
+            var title = cells[0].GetAttribute("title")!;
+            Assert.Contains("claude-opus-5-5: 900 out · 20 in · 7,000 cache read · 50 cache write", title);
+            Assert.Contains("claude-haiku-4-5: 100 out · 10 in", title);
+            Assert.Contains("agents it spawned are not included", title);
+
+            Assert.Equal("—", cells[1].TextContent.Trim());
+            Assert.Null(cells[1].GetAttribute("title"));
+        });
+    }
+
+    /// <summary>
+    /// Where the agent was run from, as a quiet badge beside the type — shortened, with
+    /// the full spelling in the title — and nothing at all where it was not recorded.
+    /// </summary>
+    [Fact]
+    public void The_entrypoint_is_a_quiet_badge_beside_the_type()
+    {
+        using var context = Context([Sample[0] with { Entrypoint = "claude-desktop" }, Sample[3]]);
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            var badge = Assert.Single(pane.FindAll("[data-testid='sessions-entrypoint']"));
+
+            Assert.Equal("desktop", badge.TextContent.Trim());
+            Assert.Equal("Run from claude-desktop", badge.GetAttribute("title"));
+            Assert.Contains("badge--kind", badge.GetAttribute("class"));
+        });
+    }
+
+    [Theory]
+    [InlineData("claude-desktop", "desktop")]
+    [InlineData("claude-vscode", "vscode")]
+    [InlineData("cli", "cli")]
+    [InlineData("  ", null)]
+    [InlineData(null, null)]
+    public void An_entrypoint_drops_the_prefix_the_type_column_already_says(string? entrypoint, string? expected) =>
+        Assert.Equal(expected, SessionsPane.EntrypointLabel(entrypoint));
+
+    /// <summary>
+    /// A row answered from this machine's own record, because the agent's files no
+    /// longer hold the session, says so in the origin line's register — and keeps its
+    /// folder, which unlike a replicated row's is this disk's.
+    /// </summary>
+    [Fact]
+    public void A_recorded_row_says_it_comes_from_the_saved_record_and_keeps_its_folder()
+    {
+        using var context = Context([Sample[0] with { Origin = AgentSessionOrigin.Recorded }, Sample[3]]);
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            var rows = pane.FindAll(".data-table__row");
+            var line = Assert.Single(pane.FindAll("[data-testid='sessions-recorded']"));
+
+            Assert.Equal(
+                "From this PC's session record — the transcript is gone, so this is what the last reading kept.",
+                line.TextContent.Trim());
+            Assert.Equal("data-table__detail", line.GetAttribute("class"));
+            Assert.Contains("sessions-table__origin", line.QuerySelector(".data-table__clamp")!.GetAttribute("class"));
+
+            Assert.Contains(@"D:\Repos\Backlog\.claude\worktrees\keen-bose-667825", rows[0].TextContent);
+            Assert.Empty(rows[1].QuerySelectorAll("[data-testid='sessions-recorded']"));
+        });
+    }
+
+    /// <summary>
     /// Switches to the whole list, and waits for the strip to say so. Several tests
     /// below are about the grouping rather than the view, and they have to get the
     /// view out of the way before they can measure the grouping at all.

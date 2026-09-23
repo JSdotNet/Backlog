@@ -68,7 +68,21 @@ public sealed record AssistantLimitHit(
     AssistantLimitKind Kind,
     DateTimeOffset ResetsAt,
     string SessionId,
-    string MachineId);
+    string MachineId)
+{
+    /// <summary>What the refusal said about paid overage — <c>rejected</c>, say — or
+    /// null where it did not say. Init properties from here down, so the positional
+    /// shape the fixtures build stays as it is.</summary>
+    public string? OverageStatus { get; init; }
+
+    /// <summary>Why overage was not available, as the assistant spelled it —
+    /// <c>org_spend_cap_reached</c> — or null.</summary>
+    public string? OverageDisabledReason { get; init; }
+
+    /// <summary>Whether the account was already spending overage when refused, or null
+    /// where the refusal did not say.</summary>
+    public bool? IsUsingOverage { get; init; }
+}
 
 public sealed record AssistantActivitySubagent(
     string Id,

@@ -60,7 +60,12 @@ public sealed class AgentActivityAssistantActivitySource(IAgentActivitySource ac
                             hit.Kind == AgentLimitKind.FiveHour ? AssistantLimitKind.FiveHour : AssistantLimitKind.SevenDay,
                             hit.ResetsAt!.Value,
                             session.Id,
-                            session.EnvironmentId)))
+                            session.EnvironmentId)
+                        {
+                            OverageStatus = hit.OverageStatus,
+                            OverageDisabledReason = hit.OverageDisabledReason,
+                            IsUsingOverage = hit.IsUsingOverage
+                        }))
                     .OrderBy(hit => hit.At)
             ]
         };

@@ -1,4 +1,5 @@
 @using Microsoft.Extensions.DependencyInjection
+@using global::Backlog.UI.Components.Metrics
 @inject IAgentSessionSource Sessions
 @inject IDeliveryRunSource Runs
 @inject IServiceProvider Services
@@ -344,6 +345,37 @@
                             </span>
                         }
 
+                        @* A row answered from this machine's own record because the
+                           agent's files no longer hold the session. Beside the folder
+                           rather than instead of it — unlike a replicated row, the folder
+                           is this disk's and still means something — and in the origin
+                           line's quiet register, because nothing is wrong with the row:
+                           it is as complete as the last reading that amended it, and the
+                           sentence says that it cannot be read again. *@
+                        @if (row.Origin is AgentSessionOrigin.Recorded)
+                        {
+                            <span class="data-table__detail" data-testid="sessions-recorded">
+                                <span class="data-table__clamp sessions-table__origin" title="@RecordedLine">@RecordedLine</span>
+                            </span>
+                        }
+
+                        @* The pull requests the session linked itself to, drawn the way
+                           a run draws its own: the Integrations reference, "PR #n", an
+                           anchor to GitHub. One the row's run already shows is left to
+                           the run's line, so a pull request is one reference on
+                           screen. *@
+                        @if (row.PullRequests.Count > 0)
+                        {
+                            <span class="data-table__detail sessions-table__pull-requests" data-testid="sessions-pull-requests">
+                                @foreach (var pr in row.PullRequests)
+                                {
+                                    <IntegrationLink Link="@Link(pr)"
+                                                     ShowTitle="false"
+                                                     CssClass="sessions-table__pull-request"
+                                                     TestId="sessions-pull-request" />
+                                }
+                            </span>
+                        }
                     </td>
 
                     @* The mark carries no title, because the word is right beside it
@@ -352,6 +384,15 @@
                     <td class="sessions-table__kind">
                         <ProviderMark Provider="@Provider(row.Kind)" CssClass="sessions-table__mark" />
                         <span>@AgentSessionGroups.Label(row.Kind)</span>
+                        @* Where the agent was run from, as a quiet outlined badge after
+                           the word: a detail of the type, not a type of its own. *@
+                        @if (EntrypointLabel(row.Session?.Entrypoint) is { } entrypoint)
+                        {
+                            <Badge Kind="kind"
+                                   CssClass="sessions-table__entrypoint"
+                                   Title="@($"Run from {row.Session!.Entrypoint}")"
+                                   TestId="sessions-entrypoint">@entrypoint</Badge>
+                        }
                     </td>
 
                     <td>@row.Environment</td>
@@ -375,6 +416,11 @@
                     </td>
                     <td>@Moment(row.StartedAt)</td>
                     <td title="@Moment(row.LastActivityAt)">@Ago(row.LastActivityAt)</td>
+
+                    @* Output and input, with every model and the cache figures in the
+                       title. An em dash where the session did not record its usage —
+                       Copilot never does — never a zero. *@
+                    <td class="sessions-table__tokens" title="@TokensTitle(row.Session?.ModelUsage)" data-testid="sessions-tokens">@TokensCell(row.Session?.ModelUsage)</td>
 
                     @* The library's chip, so colour is never the only carrier of the
                        state — it brings its own glyph and its own word. *@
@@ -440,6 +486,7 @@
         new("Branch"),
         new("Started"),
         new("Last activity"),
+        new("Tokens"),
         new("State")
     ];
 
@@ -597,6 +644,57 @@
         string.IsNullOrWhiteSpace(session.Environment)
             ? "Recorded on another machine. Its folder and transcript stay there."
             : $"Recorded on {session.Environment}. Its folder and transcript stay there.";
+
+    /// <summary>What a row answered from this machine's own record says about itself:
+    /// where it came from, and why the agent's files are not behind it.</summary>
+    private const string RecordedLine =
+        "From this PC's session record — the transcript is gone, so this is what the last reading kept.";
+
+    /// <summary>A linked pull request as the Integrations family draws one — the same
+    /// shape a run's pull request takes on the run's own line. No state chip, because
+    /// nothing asked GitHub how it is doing.</summary>
+    private static IntegrationLinkRef Link(AgentPullRequest pr) =>
+        new(
+            pr.Url,
+            IntegrationProvider.GitHub,
+            IntegrationLinkKind.PullRequest,
+            $"PR #{pr.Number}",
+            $"{pr.Repository}#{pr.Number}",
+            pr.Url,
+            Repository: string.IsNullOrWhiteSpace(pr.Repository) ? null : new IntegrationRepositoryRef(pr.Repository, pr.Repository));
+
+    /// <summary>
+    /// Where the agent was run from, shortened for a badge: Claude's own prefix is
+    /// dropped, since the Type column already says Claude — <c>claude-desktop</c> reads
+    /// "desktop", <c>cli</c> stays "cli". Null where nothing was recorded; the title
+    /// keeps the full spelling.
+    /// </summary>
+    internal static string? EntrypointLabel(string? entrypoint) =>
+        string.IsNullOrWhiteSpace(entrypoint)
+            ? null
+            : entrypoint.Trim() is var value && value.StartsWith("claude-", StringComparison.OrdinalIgnoreCase) && value.Length > "claude-".Length
+                ? value["claude-".Length..]
+                : entrypoint.Trim();
+
+    /// <summary>Output and input over every model, or an em dash where the session did
+    /// not record its usage or recorded none.</summary>
+    internal static string TokensCell(IReadOnlyList<AgentModelUsage>? usage) =>
+        usage is { Count: > 0 }
+            ? $"{MetricFormat.Compact(usage.Sum(model => model.OutputTokens))} out · {MetricFormat.Compact(usage.Sum(model => model.InputTokens))} in"
+            : Missing;
+
+    /// <summary>One line per model in the table's token words, and what the figure
+    /// leaves out. Null where there is nothing recorded to break down.</summary>
+    internal static string? TokensTitle(IReadOnlyList<AgentModelUsage>? usage) =>
+        usage switch
+        {
+            null => null,
+            { Count: 0 } => "No model usage recorded in this session.",
+            _ => string.Join(
+                "\n",
+                usage.Select(model => $"{model.Model}: {DeliveryRunLine.TokenFigures(model.OutputTokens, model.InputTokens, model.CacheReadInputTokens, model.CacheCreationInputTokens)}")
+                    .Append("This session's own spend; the agents it spawned are not included."))
+        };
 
     /// <summary>
     /// What a run-only row rests on. The worktree's name is already the title; the

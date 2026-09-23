@@ -71,16 +71,49 @@ public sealed record AssistantSession(
     public int? Prompts { get; init; }
 
     /// <summary>
-    /// <c>owner/name</c> where the assistant recorded it against the session, and null
-    /// where it did not — which today is every Claude session, because Claude writes a
-    /// working folder and no repository, and the Sessions context refuses to guess one
-    /// from a path. Null crosses as null: a surface grouping on this shows the
-    /// unrecorded sessions as one band named for the fact rather than dropping them or
-    /// attributing them to a guess.
+    /// <c>owner/name</c> where the assistant recorded it against the session, or —
+    /// where it recorded none — where the Sessions context placed the session's working
+    /// folder inside a registered clone; null where neither says. Claude writes a
+    /// working folder and no repository, so its sessions arrive here by the second
+    /// route or not at all. The recorded one wins where both exist, because it is the
+    /// session's own fact and the placed one is only as good as the registration.
+    /// Null crosses as null: a surface grouping on this shows those sessions as one
+    /// band named for the fact rather than dropping them or attributing them to a
+    /// guess.
     /// <para>An init property on <see cref="Prompts"/>' precedent.</para>
     /// </summary>
     public string? Repository { get; init; }
+
+    /// <summary>
+    /// The pull requests the session linked itself to, or null where the source cannot
+    /// say — Copilot records none, and an unreadable transcript says nothing. Empty is
+    /// a reading that found none. Anything that counts these skips the nulls and says
+    /// the figure is partial, on <see cref="Prompts"/>' rule.
+    /// </summary>
+    public IReadOnlyList<AssistantPullRequest>? PullRequests { get; init; }
+
+    /// <summary>
+    /// What the session spent per model, on <see cref="PullRequests"/>' null-and-empty
+    /// terms. The owner session's own spend: the agents it spawned are not in it.
+    /// </summary>
+    public IReadOnlyList<AssistantModelUsage>? ModelUsage { get; init; }
 }
+
+/// <summary>A pull request a session linked itself to, in the Dashboard's words.</summary>
+/// <param name="Repository"><c>owner/name</c>, as the assistant spelled it.</param>
+/// <param name="Number">The number in that repository.</param>
+/// <param name="Url">Where it lives — and what makes two sessions' links one pull
+/// request, so a pull request several sessions linked is counted once.</param>
+/// <param name="LinkedAt">When the session linked it, where that was dated.</param>
+public sealed record AssistantPullRequest(string Repository, int Number, string Url, DateTimeOffset? LinkedAt);
+
+/// <summary>What one session spent on one model, in tokens.</summary>
+public sealed record AssistantModelUsage(
+    string Model,
+    long InputTokens,
+    long OutputTokens,
+    long CacheCreationInputTokens,
+    long CacheReadInputTokens);
 
 /// <summary>
 /// Everything one read of the assistant sessions produced, including what it could not

@@ -33,6 +33,25 @@ public sealed record UsageWeekInfo(WeekSource Source, string? ResetAt);
 public sealed record LimitHitCounts(int FiveHour, int Weekly)
 {
     public int Total => FiveHour + Weekly;
+
+    /// <summary>
+    /// The refusals the account met while already spending overage — it fell back, and
+    /// was refused anyway.
+    /// </summary>
+    public int OnOverage { get; init; }
+
+    /// <summary>
+    /// The refusals that were walls: overage was not there to fall back to, grouped by
+    /// the reason the assistant gave, most frequent first.
+    /// </summary>
+    public IReadOnlyList<LimitWall> Walled { get; init; } = [];
+
+    /// <summary>
+    /// The refusals that said nothing about overage at all — older assistant versions
+    /// wrote none. Counted rather than folded into a wall, because a refusal that did
+    /// not say is not one that said "unavailable".
+    /// </summary>
+    public int OverageUnrecorded { get; init; }
 }
 
 /// <summary>

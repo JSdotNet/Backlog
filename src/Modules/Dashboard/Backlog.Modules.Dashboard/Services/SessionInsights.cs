@@ -224,6 +224,15 @@ public sealed class SessionInsights(
 
         var grids = Grids(buckets, scopedActivity, scopedLimits, active, waiting, open, agents, week, zone);
 
+        var bandOf = Bands();
+        var hits = scopedLimits.Where(hit => hit.At >= from && hit.At < to).ToList();
+
+        // The two figures read off the session records rather than the activity: each
+        // over the sessions that could say, and null never counted as zero.
+        var used = scoped.Where(session => session.ModelUsage is not null).ToList();
+        var linking = scoped.Where(session => session.PullRequests is not null).ToList();
+        var linked = Linked(linking);
+
         return new AssistantSessionsInsight(
             scoped.Count,
             Sum(active),
@@ -265,12 +274,51 @@ public sealed class SessionInsights(
             WaitingPerWeek = PerWeek(buckets, weeks, waiting, zone, Hours),
             MostSessionsAtOncePerWeek = PerWeek(buckets, weeks, active, zone, Peak),
             MostAgentsAtOncePerWeek = PerWeek(buckets, weeks, agents, zone, Peak),
-            ByRepository = ByRepository(buckets, weeks, scope, scoped, scopedActivity, scopedAgents, from, to, zone),
+            ByRepository = ByRepository(buckets, weeks, scope, bandOf, scoped, scopedActivity, scopedAgents, from, to, zone),
             Week = new UsageWeekInfo(weeks.Source, weeks.ResetDescription),
             Grids = grids,
-            LimitHits = new LimitHitCounts(
-                scopedLimits.Count(hit => hit.At >= from && hit.At < to && hit.Kind == AssistantLimitKind.FiveHour),
-                scopedLimits.Count(hit => hit.At >= from && hit.At < to && hit.Kind == AssistantLimitKind.SevenDay)),
+            LimitHits = LimitHits(hits),
+            Tokens = used.Count == 0
+                ? null
+                : new TokenTotals(
+                    used.Sum(session => session.ModelUsage!.Sum(usage => usage.OutputTokens)),
+                    used.Sum(session => session.ModelUsage!.Sum(usage => usage.InputTokens)),
+                    used.Sum(session => session.ModelUsage!.Sum(usage => usage.CacheReadInputTokens)),
+                    used.Sum(session => session.ModelUsage!.Sum(usage => usage.CacheCreationInputTokens))),
+            SessionsWithUsage = used.Count,
+            TokensByModel = Ranked(
+                used.SelectMany(session => session.ModelUsage!.Select(usage => (Session: session, Usage: usage)))
+                    .GroupBy(pair => pair.Usage.Model, StringComparer.Ordinal)
+                    .Select(model => Band(
+                        model.Key,
+                        null,
+                        WeekBuckets.Reduce(
+                            buckets,
+                            model,
+                            pair => pair.Session.LastActivityAt,
+                            inWeek => inWeek.Sum(pair => (decimal)pair.Usage.OutputTokens),
+                            weeks.KeyOf)))),
+            TokensByRepository = Ranked(
+                used.GroupBy(session => bandOf(session.Repository))
+                    .Where(band => InRepositoryScope(scope, band.Key))
+                    .Select(band => Band(
+                        band.Key.Name,
+                        band.Key.Kind,
+                        WeekBuckets.Reduce(
+                            buckets,
+                            band,
+                            session => session.LastActivityAt,
+                            inWeek => inWeek.Sum(session => (decimal)session.ModelUsage!.Sum(usage => usage.OutputTokens)),
+                            weeks.KeyOf)))),
+            PullRequests = (int)WeekBuckets.Count(buckets, linked, pr => pr.At, weeks.KeyOf).Sum(point => point.Value),
+            SessionsWithPullRequestRecord = linking.Count,
+            PullRequestsByRepository = Ranked(
+                linked.GroupBy(pr => bandOf(pr.Repository))
+                    .Where(band => InRepositoryScope(scope, band.Key))
+                    .Select(band => Band(
+                        band.Key.Name,
+                        band.Key.Kind,
+                        WeekBuckets.Count(buckets, band, pr => pr.At, weeks.KeyOf)))),
             ActivityByHour = grids.Count == 0 ? [] : grids[^1].Hours,
             ActivityByDay = grids.Count == 0 ? [] : grids[^1].Days,
             IdleAfter = reading.Activity.IdleAfter
@@ -345,8 +393,8 @@ public sealed class SessionInsights(
     /// The weekly series again, one row per repository band, each row swept on its own.
     /// <para>
     /// The band is the session's, joined on the id: the activity record carries no
-    /// repository, and the session record carries what the assistant wrote — null for
-    /// every Claude session. A recorded repository the workspace has configured is its
+    /// repository, and the session record carries what the assistant wrote or, failing
+    /// that, the registered clone its folder lies in. A recorded repository the workspace has configured is its
     /// alias, so the row wears the name the header's chips do; one it has not is folded
     /// into the other row, because nothing here has a name or a colour for it. A
     /// subagent takes its parent session's band, and an activity record whose session
@@ -366,10 +414,103 @@ public sealed class SessionInsights(
     /// the peaks cannot, and the contract says so.
     /// </para>
     /// </summary>
+    /// <summary>
+    /// Which band a repository falls in: a configured one by its alias, an unconfigured
+    /// one folded into the other row, none into the unrecorded row. One resolver for
+    /// every chart cut by repository, so the activity rows, the tokens and the pull
+    /// requests cannot band the same repository two ways.
+    /// </summary>
+    private Func<string?, (string Name, RepositoryBandKind Kind)> Bands()
+    {
+        // owner/name to alias, for the repositories the workspace knows. Case-insensitive
+        // on the full name, as GitHub itself is.
+        var aliasOf = repositories.Repositories
+            .GroupBy(repository => repository.FullName, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First().Alias, StringComparer.OrdinalIgnoreCase);
+
+        return repository =>
+            string.IsNullOrWhiteSpace(repository) ? (RepositoryWeekly.UnrecordedName, RepositoryBandKind.Unrecorded)
+            : aliasOf.TryGetValue(repository.Trim(), out var alias) ? (alias, RepositoryBandKind.Configured)
+            : (RepositoryWeekly.OtherName, RepositoryBandKind.Other);
+    }
+
+    /// <summary>With repositories in focus only their configured bands are in, and the
+    /// two folded bands are out — the Sessions list's treatment of a session it cannot
+    /// place.</summary>
+    private static bool InRepositoryScope(DashboardScope scope, (string Name, RepositoryBandKind Kind) band) =>
+        scope.IsAllRepositories || (band.Kind == RepositoryBandKind.Configured && scope.Repositories.Contains(band.Name));
+
+    private static WeeklyBand Band(string name, RepositoryBandKind? kind, IReadOnlyList<InsightPoint> perWeek) =>
+        new(name, kind, perWeek, perWeek.Sum(point => point.Value));
+
+    /// <summary>Biggest first, ties by name so two refreshes of one profile list them
+    /// in one order; a row of nothing in the window would be a legend entry for
+    /// nothing, so it is left out.</summary>
+    private static IReadOnlyList<WeeklyBand> Ranked(IEnumerable<WeeklyBand> bands) =>
+        [.. bands
+            .Where(band => band.Total > 0)
+            .OrderByDescending(band => band.Total)
+            .ThenBy(band => band.Name, StringComparer.Ordinal)];
+
+    /// <summary>One pull request as the part counts it: where it lives and the instant
+    /// that places it in a week.</summary>
+    private sealed record LinkedPullRequest(string Repository, DateTimeOffset At);
+
+    /// <summary>
+    /// The distinct pull requests the sessions linked, each once. Matched on the URL,
+    /// case-insensitively, because two sessions linking one pull request is the normal
+    /// case — the one that opened it and the one that finished it. Placed at the
+    /// earliest link, and at the linking session's last activity where the link was not
+    /// dated, which is the one instant every session has.
+    /// </summary>
+    private static IReadOnlyList<LinkedPullRequest> Linked(IEnumerable<AssistantSession> sessions) =>
+        [.. sessions
+            .SelectMany(session => session.PullRequests!.Select(pr => (Pr: pr, At: pr.LinkedAt ?? session.LastActivityAt)))
+            .GroupBy(
+                pair => string.IsNullOrWhiteSpace(pair.Pr.Url) ? $"{pair.Pr.Repository}#{pair.Pr.Number}" : pair.Pr.Url.Trim(),
+                StringComparer.OrdinalIgnoreCase)
+            .Select(same => same.OrderBy(pair => pair.At).First())
+            .Select(pair => new LinkedPullRequest(pair.Pr.Repository, pair.At))];
+
+    /// <summary>
+    /// The refusals in the window, by allowance and by what overage did about each: an
+    /// account already on overage, a wall for a reason the assistant named, or nothing
+    /// said. A <c>rejected</c> status with no reason is a wall too, under that word.
+    /// </summary>
+    private static LimitHitCounts LimitHits(IReadOnlyList<AssistantLimitHit> hits)
+    {
+        static string? WallReason(AssistantLimitHit hit) =>
+            hit.IsUsingOverage == true ? null
+            : !string.IsNullOrWhiteSpace(hit.OverageDisabledReason) ? hit.OverageDisabledReason.Trim()
+            : string.Equals(hit.OverageStatus, "rejected", StringComparison.OrdinalIgnoreCase) ? "rejected"
+            : null;
+
+        var walled = hits
+            .Select(WallReason)
+            .OfType<string>()
+            .GroupBy(reason => reason, StringComparer.Ordinal)
+            .Select(reason => new LimitWall(reason.Key, reason.Count()))
+            .OrderByDescending(wall => wall.Count)
+            .ThenBy(wall => wall.Reason, StringComparer.Ordinal)
+            .ToList();
+
+        var onOverage = hits.Count(hit => hit.IsUsingOverage == true);
+
+        return new LimitHitCounts(
+            hits.Count(hit => hit.Kind == AssistantLimitKind.FiveHour),
+            hits.Count(hit => hit.Kind == AssistantLimitKind.SevenDay))
+        {
+            OnOverage = onOverage,
+            Walled = walled,
+            OverageUnrecorded = hits.Count - onOverage - walled.Sum(wall => wall.Count)
+        };
+    }
+
     private IReadOnlyList<RepositoryWeekly> ByRepository(
         IReadOnlyList<WeekBucket> buckets,
         UsageWeeks weeks,
         DashboardScope scope,
+        Func<string?, (string Name, RepositoryBandKind Kind)> bandOf,
         IReadOnlyList<AssistantSession> sessions,
         IReadOnlyList<AssistantActivitySession> activity,
         IReadOnlyList<AssistantActivitySubagent> agents,
@@ -379,40 +520,26 @@ public sealed class SessionInsights(
     {
         if (buckets.Count == 0) return [];
 
-        // owner/name to alias, for the repositories the workspace knows. Case-insensitive
-        // on the full name, as GitHub itself is.
-        var aliasOf = repositories.Repositories
-            .GroupBy(repository => repository.FullName, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(group => group.Key, group => group.First().Alias, StringComparer.OrdinalIgnoreCase);
-
-        (string Name, RepositoryBandKind Kind) BandOf(string? repository) =>
-            string.IsNullOrWhiteSpace(repository) ? (RepositoryWeekly.UnrecordedName, RepositoryBandKind.Unrecorded)
-            : aliasOf.TryGetValue(repository.Trim(), out var alias) ? (alias, RepositoryBandKind.Configured)
-            : (RepositoryWeekly.OtherName, RepositoryBandKind.Other);
-
         // Last one wins on a duplicate id, which the sessions list does not produce;
         // the dictionary is only refusing to throw on a fixture that does.
         var bandOfSession = new Dictionary<string, (string Name, RepositoryBandKind Kind)>(StringComparer.Ordinal);
 
         foreach (var session in sessions)
         {
-            bandOfSession[session.Id] = BandOf(session.Repository);
+            bandOfSession[session.Id] = bandOf(session.Repository);
         }
 
         (string Name, RepositoryBandKind Kind) BandOfId(string sessionId) =>
             bandOfSession.TryGetValue(sessionId, out var band) ? band : (RepositoryWeekly.UnrecordedName, RepositoryBandKind.Unrecorded);
 
-        bool InScope((string Name, RepositoryBandKind Kind) band) =>
-            scope.IsAllRepositories || (band.Kind == RepositoryBandKind.Configured && scope.Repositories.Contains(band.Name));
-
         var rows = sessions
-            .Select(session => BandOf(session.Repository))
+            .Select(session => bandOf(session.Repository))
             .Concat(activity.Select(session => BandOfId(session.Id)))
             .Distinct()
-            .Where(InScope)
+            .Where(band => InRepositoryScope(scope, band))
             .Select(band =>
             {
-                var theirSessions = sessions.Where(session => BandOf(session.Repository) == band).ToList();
+                var theirSessions = sessions.Where(session => bandOf(session.Repository) == band).ToList();
                 var theirs = activity.Where(session => BandOfId(session.Id) == band).ToList();
                 var theirAgents = agents.Where(agent => BandOfId(agent.SessionId) == band).ToList();
                 var counted = theirSessions.Where(session => session.Prompts is not null).ToList();

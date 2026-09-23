@@ -385,6 +385,39 @@ public sealed record SessionRow(AgentSession? Session, IReadOnlyList<DeliveryRun
 
     public string? Branch => Session?.Branch;
 
+    /// <summary>
+    /// The pull requests the session linked itself to that no run on this row already
+    /// names — one pull request is one reference on screen, and a run's line under the
+    /// row is where a run's own pull request is drawn. Matched on the URL, or on the
+    /// repository and the <c>PR #n</c> label a run writes where it carried no URL. Empty
+    /// both where the session linked none and where it could not say: neither has
+    /// anything to draw.
+    /// </summary>
+    public IReadOnlyList<AgentPullRequest> PullRequests
+    {
+        get
+        {
+            if (Session?.PullRequests is not { Count: > 0 } linked) return [];
+
+            var named = Runs
+                .SelectMany(run => run.References)
+                .Where(reference => reference.Kind is DeliveryRunReferenceKind.PullRequest)
+                .ToList();
+
+            bool NamedByRun(AgentPullRequest pr) => named.Any(reference =>
+                (!string.IsNullOrWhiteSpace(reference.Url) && string.Equals(reference.Url.Trim(), pr.Url.Trim(), StringComparison.OrdinalIgnoreCase))
+                || (string.Equals(reference.Repository, pr.Repository, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(reference.Label, $"PR #{pr.Number}", StringComparison.Ordinal)));
+
+            return
+            [
+                .. linked
+                    .Where(pr => !NamedByRun(pr))
+                    .DistinctBy(pr => pr.Url.Trim(), StringComparer.OrdinalIgnoreCase)
+            ];
+        }
+    }
+
     public DateTimeOffset? StartedAt => Session is { } session ? session.StartedAt : First.StartedAt;
 
     public DateTimeOffset LastActivityAt => Session?.LastActivityAt ?? First.UpdatedAt;
