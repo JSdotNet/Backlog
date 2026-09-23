@@ -191,6 +191,10 @@
     private bool CanEdit => _view?.CanEdit ?? true;
     private DevbookChapterContent _chapter = DevbookChapterContent.None;
     private DomainDevbookDocument? _chapterDocument;
+    /// <summary>The view rendering the chapter, held only so a new remark can
+    /// ask it what the block it was left on says. See
+    /// <c>FileView.BlockDigestAt</c>.</summary>
+    private FileView? _chapterView;
     private DevbookChapterEditor? _editor;
     private string? _chapterSaveError;
     private string? _selectedContextSlug;
@@ -677,7 +681,15 @@
     {
         if (_chapterDocument is not { } document) return;
 
-        _annotations.Add(RepositoryAlias, document.Path, blockIndex, DevbookAnnotationComments.LocalAuthor);
+        // Asked of the view rather than worked out here: it owns the block list
+        // the index came from, and this panel holds the file's whole text.
+        _annotations.Add(
+            RepositoryAlias,
+            document.Path,
+            blockIndex,
+            DevbookAnnotationComments.LocalAuthor,
+            _chapterView?.BlockDigestAt(blockIndex));
+
         RefreshChapterComments();
     }
 
@@ -1007,7 +1019,8 @@
                state, a failed write, the Copilot launch, and the linked knowledge
                issue. *@
             <Alert Message="@_chapterSaveError" TestId="domain-chapter-save-error" Role="status" />
-            <FileView Name="@document.Title"
+            <FileView @ref="_chapterView"
+                      Name="@document.Title"
                       Kind="@document.KindLabel"
                       Path="@document.Path"
                       Body="@_chapter.Text"

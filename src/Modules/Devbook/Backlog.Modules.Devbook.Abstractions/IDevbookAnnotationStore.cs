@@ -39,8 +39,21 @@ public interface IDevbookAnnotationStore
     DevbookAnnotation? Find(Guid id);
 
     /// <summary>A fresh, empty remark against one block — a draft the read view
-    /// opens straight into its textarea.</summary>
-    DevbookAnnotation Add(string? repositoryAlias, string chapterPath, int blockIndex, string author);
+    /// opens straight into its textarea.
+    /// <para>
+    /// <paramref name="blockHash"/> is the digest of what that block said when
+    /// the person clicked, and it is what lets the remark survive an edit above
+    /// it. Optional because only a caller that has the parsed chapter in hand
+    /// can compute one: a host without it still gets today's index-only
+    /// anchoring rather than a refusal.
+    /// </para>
+    /// </summary>
+    DevbookAnnotation Add(
+        string? repositoryAlias,
+        string chapterPath,
+        int blockIndex,
+        string author,
+        string? blockHash = null);
 
     /// <summary>Replaces the body. A no-op for an id the store does not hold.</summary>
     void Edit(Guid id, string body);

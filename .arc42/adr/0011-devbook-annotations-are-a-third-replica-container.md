@@ -111,9 +111,17 @@ third replica container, `annotations`, on the task container's terms.**
 by **repository alias and repository-relative chapter path**, never by a folder
 on disk, so the same remark names the same chapter on every device — the alias
 is the cross-device name a repository already has (local ADR 0005 §Session
-records). It is anchored by **block index**, for the reason `MarkdownComment`
-gives, and re-anchoring after the chapter changes is not solved: an index that
-has gone out of range shows at the end of the chapter rather than vanishing.
+records). It is anchored by **block index and a short digest of what that block
+said** (`BlockHash`, from `MdBlockDigest`), for the reason `MarkdownComment`
+gives: the index says where to look, the digest says whether the block found
+there is still the one the remark was about. A chapter edited above a remark is
+re-anchored to the block that matches — nearest the remembered index first —
+and only a remark whose block has genuinely gone, or whose wording has been
+rewritten, shows at the end of the chapter rather than vanishing. The digest is
+taken from the block's text rather than its source lines, so rewrapping or
+re-emphasising a passage does not break the anchor. A remark stored before the
+digest existed carries none, and is anchored by index alone exactly as it
+always was.
 It carries `UpdatedAt` and `DeletedAt`, which is what lets it replicate on a
 task's terms: whole-document last-write-wins, and a deletion that is a
 tombstone.
@@ -221,10 +229,14 @@ Negative, and accepted:
   extraction normally pays; it is deferred because the two existing loops were
   out of scope to refactor and the copy keeps their "fail separately" property
   by construction.
-- **No re-anchoring.** A chapter edited above a remark moves the block the
-  remark points at; the read view shows an orphan at the end rather than
-  dropping it. The devbook fence solves this by position and `quote`; this
-  store does not, yet.
+- **~~No re-anchoring.~~** *Resolved.* This originally read: a chapter edited
+  above a remark moves the block the remark points at, and the read view shows
+  an orphan at the end rather than dropping it. `BlockHash` on the record and
+  the search in `MarkdownView` close it — see **The record and the port** above.
+  What remains accepted is narrower: a passage whose *wording* is rewritten is a
+  different block by design, so a remark on it is orphaned rather than carried
+  onto prose it was never about, and two blocks in one chapter that say exactly
+  the same thing are told apart only by which is nearer the remembered index.
 - **No settings surface for the third loop.** The Devices tab shows the task
   exchange's summary and offers its two resets; the annotation loop has neither
   a button nor a reset. Whoever adds them must copy the pending-flag mechanism

@@ -58,7 +58,12 @@ public sealed class SessionDevbookAnnotationStore : IDevbookAnnotationStore
 
     public DevbookAnnotation? Find(Guid id) => _annotations.GetValueOrDefault(id);
 
-    public DevbookAnnotation Add(string? repositoryAlias, string chapterPath, int blockIndex, string author)
+    public DevbookAnnotation Add(
+        string? repositoryAlias,
+        string chapterPath,
+        int blockIndex,
+        string author,
+        string? blockHash = null)
     {
         var now = _time.GetUtcNow();
 
@@ -67,7 +72,15 @@ public sealed class SessionDevbookAnnotationStore : IDevbookAnnotationStore
         // here, so a caller that goes on to ask for this remark by its chapter
         // path is given the path the next List will answer to.
         var annotation = new DevbookAnnotation(
-            Guid.NewGuid(), Key(repositoryAlias), chapterPath, blockIndex, string.Empty, author, now, now);
+            Guid.NewGuid(),
+            Key(repositoryAlias),
+            chapterPath,
+            blockIndex,
+            string.Empty,
+            author,
+            now,
+            now,
+            BlockHash: string.IsNullOrWhiteSpace(blockHash) ? null : blockHash.Trim());
 
         var stored = Put(annotation);
         Changed?.Invoke();

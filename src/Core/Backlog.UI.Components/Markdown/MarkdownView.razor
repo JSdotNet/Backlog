@@ -392,12 +392,98 @@
     /// <summary>The comments hanging off one block, in the order they were
     /// given.</summary>
     private IReadOnlyList<MarkdownComment> CommentsOn(int index) =>
-        [.. Comments.Where(comment => comment.BlockIndex == index)];
+        [.. Comments.Where(comment => AnchorOf(comment) == index)];
 
     /// <summary>Comments whose block is no longer there. Shown at the end rather
     /// than dropped: a lost comment is worse than a stray one.</summary>
     private IReadOnlyList<MarkdownComment> Orphans =>
-        [.. Comments.Where(comment => comment.BlockIndex < 0 || comment.BlockIndex >= Blocks.Count)];
+        [.. Comments.Where(comment => AnchorOf(comment) < 0)];
+
+    /// <summary>
+    /// Which block a comment actually belongs to, or -1 when its block is gone.
+    /// <para>
+    /// Without a digest this is the index it was given, bounds-checked — the
+    /// only rule there has ever been. With one, the index is a starting guess
+    /// that is verified: the block it names is checked first, because a chapter
+    /// usually has not moved, and only when that fails is the rest of the
+    /// chapter searched.
+    /// </para>
+    /// </summary>
+    private int AnchorOf(MarkdownComment comment)
+    {
+        if (string.IsNullOrEmpty(comment.BlockHash))
+        {
+            return comment.BlockIndex >= 0 && comment.BlockIndex < Blocks.Count ? comment.BlockIndex : -1;
+        }
+
+        EnsureDigests();
+
+        return _anchors!.TryGetValue(comment.Id, out var anchor) ? anchor : -1;
+    }
+
+    /// <summary>
+    /// Searches outward from where the comment thinks it is, nearest first, and
+    /// takes the first block whose digest matches.
+    /// <para>
+    /// Outward rather than left-to-right because an edit moves a block by a
+    /// little far more often than it moves it across the chapter, and the
+    /// nearest match is then the right one. Left-to-right would hand a repeated
+    /// passage — two blocks that genuinely say the same thing — to whichever
+    /// copy comes first in the file, which is only correct by luck.
+    /// </para>
+    /// </summary>
+    private int Search(string hash, int from)
+    {
+        var start = Math.Clamp(from, 0, Math.Max(0, _digests!.Count - 1));
+
+        for (var distance = 0; distance < _digests.Count; distance++)
+        {
+            var before = start - distance;
+            var after = start + distance;
+
+            // Nearer side first, and the earlier block when both are equally
+            // near, so the answer does not depend on which way the loop runs.
+            if (before >= 0 && _digests[before] == hash) return before;
+            if (after < _digests.Count && _digests[after] == hash) return after;
+        }
+
+        return -1;
+    }
+
+    /// <summary>The digest of every block, and every comment's resolved anchor.
+    /// Both are rebuilt only when the blocks or the comments themselves change:
+    /// hashing the chapter on every keystroke in a comment box would be paid
+    /// for by the person typing.</summary>
+    private List<string?>? _digests;
+    private Dictionary<string, int>? _anchors;
+    private IReadOnlyList<MdBlock>? _digestedBlocks;
+    private IReadOnlyList<MarkdownComment>? _digestedComments;
+
+    private void EnsureDigests()
+    {
+        if (_digests is not null
+            && ReferenceEquals(_digestedBlocks, Blocks)
+            && ReferenceEquals(_digestedComments, Comments))
+        {
+            return;
+        }
+
+        _digests = [.. Blocks.Select(MdBlockDigest.Of)];
+        _anchors = [];
+
+        foreach (var comment in Comments)
+        {
+            if (string.IsNullOrEmpty(comment.BlockHash)) continue;
+
+            var index = comment.BlockIndex;
+            var stillThere = index >= 0 && index < _digests.Count && _digests[index] == comment.BlockHash;
+
+            _anchors[comment.Id] = stillThere ? index : Search(comment.BlockHash, index);
+        }
+
+        _digestedBlocks = Blocks;
+        _digestedComments = Comments;
+    }
 
     /// <summary>The proposals hanging off one block. A proposal carrying a
     /// comment id belongs to that comment and is drawn inside it, so it is

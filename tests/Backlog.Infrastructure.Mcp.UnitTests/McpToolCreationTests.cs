@@ -26,9 +26,10 @@ namespace Backlog.Infrastructure.Mcp.UnitTests;
 /// </summary>
 public class McpToolCreationTests
 {
-    /// <summary>Every tool builds, under the name the catalog claims, declaring
-    /// itself read-only to a client that shows a person what it is about to
-    /// run.</summary>
+    /// <summary>Every tool builds, under the name the catalog claims, and carries
+    /// the read-only hint it declared all the way to the wire — which for
+    /// <c>resolve_annotation</c> means arriving as a write, not being quietly
+    /// flattened into one more read.</summary>
     [Fact]
     public void Every_tool_builds_with_the_name_and_the_read_only_hint_it_claims()
     {
@@ -38,9 +39,11 @@ public class McpToolCreationTests
 
         foreach (var tool in built)
         {
-            Assert.True(
-                tool.ProtocolTool.Annotations?.ReadOnlyHint,
-                $"{tool.ProtocolTool.Name} does not reach the wire as read-only.");
+            var write = tool.ProtocolTool.Name == DevbookTools.ResolveAnnotation;
+
+            Assert.Equal(
+                !write,
+                tool.ProtocolTool.Annotations?.ReadOnlyHint);
 
             Assert.False(
                 string.IsNullOrWhiteSpace(tool.ProtocolTool.Description),
@@ -66,6 +69,7 @@ public class McpToolCreationTests
         Assert.Equal(["repository"], schemas["list_knowledge_contexts"]);
         Assert.Equal(["repository", "chapterPath", "review"], schemas["read_knowledge_chapter"]);
         Assert.Equal(["repository", "chapterPath"], schemas["list_annotations"]);
+        Assert.Equal(["repository", "note"], schemas["resolve_annotation"]);
 
         // Optional, and optional means absent from `required` rather than absent
         // from the schema: a model has to be told the narrowing exists to use it.
