@@ -203,7 +203,13 @@
     {
         _plan = await Planning.GetPlanAsync();
         CarryOverPlanColours();
-        _view = RoadmapPlanView.From(_plan, Configured());
+
+        // Every item's gathered work in one read, not one per bar: the steps drawn
+        // inside each bar, and its progress fill, come from here (ADR 0013, ruling
+        // 6). Read on every load and never kept — progress belongs to Tasks.
+        var rollups = await Rollups.GatherPlanAsync(_plan);
+
+        _view = RoadmapPlanView.From(_plan, Configured(), rollups);
     }
 
     /// <summary>

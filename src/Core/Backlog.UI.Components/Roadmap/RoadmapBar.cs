@@ -30,6 +30,10 @@ namespace Backlog.UI.Components.Roadmap;
 /// <param name="Locked">Whether the bar refuses to be moved or resized even when
 /// the timeline allows it. A dependency that is somebody else's commitment is
 /// the usual reason.</param>
+/// <param name="Steps">The pieces of work the bar stands for, in the order they are
+/// drawn. A bar with steps offers to expand into them, one row each, and carries a
+/// progress fill of done effort over total effort while it is collapsed. Null or
+/// empty is a bar with nothing inside it to show.</param>
 public sealed record RoadmapBar(
     string Id,
     string RowId,
@@ -39,9 +43,31 @@ public sealed record RoadmapBar(
     int Shade = 0,
     IReadOnlyList<RoadmapFacet>? Facets = null,
     string? Detail = null,
-    bool Locked = false)
+    bool Locked = false,
+    IReadOnlyList<RoadmapStep>? Steps = null)
 {
     public IReadOnlyList<RoadmapFacet> FacetList => Facets ?? [];
+
+    public IReadOnlyList<RoadmapStep> StepList => Steps ?? [];
+
+    public bool HasSteps => StepList.Count > 0;
+
+    /// <summary>The effort every estimated step registered, summed.</summary>
+    public int TotalEffort => StepList.Where(step => step.IsEstimated).Sum(step => step.Effort!.Value);
+
+    /// <summary>The effort registered by the steps that are done. A finished step
+    /// with no estimate adds nothing here; it is counted in
+    /// <see cref="UnestimatedCount"/> instead, so the fill never reads as further
+    /// along than the work is.</summary>
+    public int DoneEffort => StepList.Where(step => step.IsDone && step.IsEstimated).Sum(step => step.Effort!.Value);
+
+    /// <summary>How many steps registered no estimate — the figure the fill is not
+    /// allowed to hide.</summary>
+    public int UnestimatedCount => StepList.Count(step => !step.IsEstimated);
+
+    /// <summary>How much of the bar the progress fill covers, 0 to 1. Zero when
+    /// nothing is estimated: there is no total to be a share of.</summary>
+    public double DoneShare => TotalEffort <= 0 ? 0 : Math.Clamp((double)DoneEffort / TotalEffort, 0, 1);
 
     /// <summary>How many days the bar covers, counting both ends. Never less
     /// than one: a bar whose end precedes its start is a caller's mistake, and

@@ -22,6 +22,27 @@
      data-roadmap-locked="@(Bar.Locked ? "true" : "false")"
      data-testid="@TestId">
 
+    @* The disclosure, a button of its own beside the body rather than a key on it,
+       and ahead of it in the markup so the tab order runs the way the bar reads.
+       It is a real control with a real expanded state, so Enter and Space both
+       work on it the way they work on every other disclosure, and aria-expanded
+       says which way it is facing without the timeline having to. The timeline
+       still announces the change, because a state read only on focus is missed by
+       a reader whose focus is already there. *@
+    @if (Bar.HasSteps)
+    {
+        <button type="button"
+                id="@ToggleId"
+                class="roadmap-bar__toggle"
+                aria-expanded="@(Expanded ? "true" : "false")"
+                aria-label="@ToggleLabel"
+                title="@ToggleLabel"
+                data-testid="@Suffix("toggle")"
+                @onclick="() => OnToggle.InvokeAsync(Bar.Id)">
+            <span class="roadmap-bar__chevron" aria-hidden="true">@(Expanded ? "▾" : "▸")</span>
+        </button>
+    }
+
     <button type="button"
             id="@ButtonId"
             class="roadmap-bar__body"
@@ -32,7 +53,24 @@
             @onclick="() => OnActivate.InvokeAsync(Bar.Id)"
             @onkeydown="OnKeyDown"
             @onkeydown:preventDefault="PreventDefaultKeys">
+        @* The fill is drawn under the title, and is aria-hidden: the same figures are
+           said in words in the accessible detail below, where a width cannot be. *@
+        @if (Bar.HasSteps)
+        {
+            <span class="roadmap-bar__fill"
+                  style="width: @Percent(Bar.DoneShare)"
+                  aria-hidden="true"
+                  data-testid="@Suffix("fill")"></span>
+        }
+
         <span class="roadmap-bar__title">@Placement.Title</span>
+
+        @* Beside the fill rather than folded into it: a fill that silently dropped
+           the unsized work would read as further along than the plan is. *@
+        @if (Bar.UnestimatedCount > 0)
+        {
+            <span class="roadmap-bar__unestimated" aria-hidden="true" data-testid="@Suffix("unestimated")">@Bar.UnestimatedCount unestimated</span>
+        }
 
         @* The badge is the dependency count the screenshot puts on the bar. It
            is aria-hidden and said again in words below, because a screen reader
@@ -143,9 +181,48 @@
 
     private bool Resizable => AllowResize && !Bar.Locked;
 
+    /// <summary>Whether the bar is showing its steps. Only meaningful for a bar
+    /// that has some.</summary>
+    [Parameter]
+    public bool Expanded { get; set; }
+
+    /// <summary>The disclosure was used. Which way it now faces is the
+    /// timeline's to decide, because the rows it opens are the timeline's.</summary>
+    [Parameter]
+    public EventCallback<string> OnToggle { get; set; }
+
+    /// <summary>The id of the disclosure button, so focus can be put back on it
+    /// after the rows around it are rebuilt.</summary>
+    [Parameter]
+    public string? ToggleId { get; set; }
+
+    private string ToggleLabel => Expanded
+        ? $"Hide the steps of {Bar.Title}"
+        : $"Show the {Steps(Bar.StepList.Count)} of {Bar.Title}";
+
+    private static string Steps(int count) => count == 1 ? "1 step" : $"{count} steps";
+
+    /// <summary>The progress figures in words: done effort over total, and the
+    /// count the total leaves out.</summary>
+    private string? Progress => Bar.HasSteps
+        ? string.Join(", ", new[]
+        {
+            $"{Bar.DoneEffort} of {Bar.TotalEffort} {Points(Bar.TotalEffort)} done",
+            Bar.UnestimatedCount > 0 ? $"{Bar.UnestimatedCount} unestimated" : null
+        }.Where(part => part is not null))
+        : null;
+
+    private static string Points(int count) => count == 1 ? "point" : "points";
+
+    private static string Percent(double share) => $"{RoadmapGeometry.N(share * 100)}%";
+
+    private string? Suffix(string part) => TestId is null ? null : $"{TestId}-{part}";
+
     private string ClassValue => string.Join(' ', new[]
     {
         "roadmap-bar",
+        Bar.HasSteps ? "roadmap-bar--has-steps" : null,
+        Expanded ? "roadmap-bar--expanded" : null,
         $"roadmap-bar--shade-{Placement.ShadeStep}",
         Selected ? "roadmap-bar--selected" : null,
         Grabbed ? "roadmap-bar--grabbed" : null,
@@ -158,7 +235,7 @@
 
     /// <summary>What the tooltip says. The title is on the bar already, but a
     /// narrow bar clips it, and the dates are nowhere else on screen at all.</summary>
-    private string Tooltip => string.Join(" — ", new[] { Placement.Title, Dates, Bar.Detail }
+    private string Tooltip => string.Join(" — ", new[] { Placement.Title, Dates, Bar.Detail, Progress }
         .Where(part => !string.IsNullOrWhiteSpace(part)));
 
     /// <summary>
@@ -170,6 +247,7 @@
         ContextLabel,
         Dates,
         Bar.Detail,
+        Progress,
         DependencyCount switch
         {
             0 => null,

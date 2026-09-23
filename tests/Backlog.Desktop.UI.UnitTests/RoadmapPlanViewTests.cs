@@ -1,4 +1,4 @@
-using Backlog.UI.Components.Roadmap;
+﻿using Backlog.UI.Components.Roadmap;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
@@ -476,5 +476,70 @@ public class RoadmapPlanViewTests
 
         Assert.Equal(item.Id, RoadmapPlanView.NodeIdOf(Assert.Single(view.Bars).Id));
         Assert.Null(RoadmapPlanView.NodeIdOf("not-an-id"));
+    }
+
+    // --- Steps inside an item (ADR 0013, ruling 6) ------------------------------
+
+    private static RoadmapGatheredLink Task(
+        string key,
+        int? effort = 1,
+        RoadmapProgress? progress = RoadmapProgress.Planned,
+        params string[] after) =>
+        new(key, key.ToUpperInvariant(), effort, RollupOrigin.Tag, progress, after);
+
+    private static RoadmapBar Drawn(RoadmapItemDto item, RoadmapItemRollupDto rollup) =>
+        Assert.Single(RoadmapPlanView.From(
+            Plan([item]),
+            Configured,
+            new Dictionary<Guid, RoadmapItemRollupDto> { [item.Id] = rollup }).Bars);
+
+    [Fact]
+    public void AnItemsStepsAreItsGatheredTasksInDependencyOrder()
+    {
+        // Handed in backwards: c waits on b, b waits on a. Drawn a, b, c, with the
+        // free-standing d keeping its place among the ties.
+        var bar = Drawn(Item("Plan"), new RoadmapItemRollupDto(
+            [Task("c", after: "b"), Task("d"), Task("b", after: "a"), Task("a")],
+            []));
+
+        Assert.Equal(["d", "a", "b", "c"], bar.StepList.Select(step => step.Id));
+    }
+
+    [Fact]
+    public void AStepSaysWhatItWaitsForByTitle()
+    {
+        var bar = Drawn(Item("Plan"), new RoadmapItemRollupDto([Task("a"), Task("b", after: "a")], []));
+
+        Assert.Equal("After A", bar.StepList[1].Detail);
+        Assert.Null(bar.StepList[0].Detail);
+    }
+
+    [Fact]
+    public void KnowledgeChaptersAreNotStepsAndDoNotMoveTheFill()
+    {
+        var bar = Drawn(Item("Plan"), new RoadmapItemRollupDto(
+            [Task("a", effort: 2, progress: RoadmapProgress.Done), Task("b", effort: 2)],
+            [new RoadmapGatheredLink("chapter.md#x", "Chapter", null, RollupOrigin.Tag)]));
+
+        Assert.Equal(["a", "b"], bar.StepList.Select(step => step.Id));
+        Assert.Equal(0, bar.UnestimatedCount);
+        Assert.Equal(0.5, bar.DoneShare);
+    }
+
+    [Theory]
+    [InlineData(RoadmapProgress.Planned, RoadmapStepTone.Draft)]
+    [InlineData(RoadmapProgress.Ready, RoadmapStepTone.Ready)]
+    [InlineData(RoadmapProgress.InProgress, RoadmapStepTone.InProgress)]
+    [InlineData(RoadmapProgress.Done, RoadmapStepTone.Done)]
+    [InlineData(null, RoadmapStepTone.Unknown)]
+    public void ProgressIsColouredWithTheStatusBadgesOwnTones(RoadmapProgress? progress, RoadmapStepTone tone) =>
+        Assert.Equal(tone, RoadmapPlanView.Tone(progress));
+
+    [Fact]
+    public void AnItemWithNoRollupDrawsWithNoSteps()
+    {
+        var view = RoadmapPlanView.From(Plan([Item("Plan")]), Configured);
+
+        Assert.False(Assert.Single(view.Bars).HasSteps);
     }
 }
