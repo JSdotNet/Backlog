@@ -115,6 +115,26 @@ sessions running in that repository's clone — and its narrowing sentence names
 both terms, so a Claude session missing from a scoped list is understood as one
 outside every registered clone rather than as one that never ran.
 
+### What a session cost and what it shipped
+
+```meta
+type: sub-feature
+status: active
+related: [.domain/sessions/features.md#the-work-a-run-is-linked-to, .domain/productivity/features.md#what-the-sessions-cost-and-shipped]
+```
+
+As of 2026-09-23 a row also shows three things Claude writes into its transcript and
+the session record keeps: **the pull requests the session linked itself to**, drawn
+exactly as a run's are — "PR #n", opening on GitHub — **its tokens**, output and input
+with every model and the cache figures in the cell's title, and **where it was run
+from**, a quiet badge beside the type ("desktop", "cli").
+
+A pull request the row's own run already draws is not drawn again: one piece of work
+is one reference on screen. The tokens are the session's own spend, and the title
+says the agents it spawned are not in them. Copilot records none of the three, and a
+row that could not say shows nothing or an em dash — never a zero, which would be a
+claim that the session linked nothing or spent nothing.
+
 ### Sessions from another machine
 
 ```meta
@@ -150,7 +170,9 @@ transcripts away after a month by default; this machine keeps its own record of 
 session it has read, so the session stays in the list — titled, with its folder,
 dated, measured and with its refusals — after the files are gone, with or without
 sync. While the transcript is there the row is read from it, and the record is never
-shown beside it. The pane amends the records of the sessions that moved each time it
+shown beside it. A row answered from the record says so under its folder, in the
+origin line's quiet register: the transcript is gone, and what it shows is what the
+last reading kept. The pane amends the records of the sessions that moved each time it
 opens; **Update records**, beside Refresh, amends every record the files still hold —
 adding to each, never replacing it — says how many it amended and started, and with
 sync on sends every record again so the other machines are amended too.

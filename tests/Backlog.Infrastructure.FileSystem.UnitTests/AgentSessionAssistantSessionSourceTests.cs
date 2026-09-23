@@ -121,6 +121,70 @@ public class AgentSessionAssistantSessionSourceTests
         Assert.Empty((await source.GetSessionsAsync(Noon.AddDays(-84))).Sessions);
     }
 
+    /// <summary>
+    /// The repository the dashboard bands a session by: what the agent recorded, and —
+    /// where it recorded none, which is every Claude session — the clone Sessions placed
+    /// the folder under. Without the second every Claude session lands in the
+    /// no-repository band. The recorded one wins where both exist.
+    /// </summary>
+    [Theory]
+    [InlineData("acme/recorded", "acme/resolved", "acme/recorded")]
+    [InlineData(null, "acme/resolved", "acme/resolved")]
+    [InlineData(null, null, null)]
+    public async Task The_recorded_repository_wins_and_the_resolved_one_fills_the_gap(
+        string? recorded,
+        string? resolved,
+        string? expected)
+    {
+        var source = Source(Session("one", AgentSessionKind.Claude, AgentSessionState.Finished) with
+        {
+            Repository = recorded,
+            ResolvedRepository = resolved
+        });
+
+        var session = Assert.Single((await source.GetSessionsAsync(Noon.AddDays(-84))).Sessions);
+
+        Assert.Equal(expected, session.Repository);
+    }
+
+    [Fact]
+    public async Task Linked_pull_requests_and_model_usage_cross_the_seam()
+    {
+        var source = Source(Session("one", AgentSessionKind.Claude, AgentSessionState.Finished) with
+        {
+            PullRequests = [new AgentPullRequest("acme/backlog", 587, "https://github.com/acme/backlog/pull/587", Noon.AddHours(-1))],
+            ModelUsage = [new AgentModelUsage("claude-opus-5-5", 10, 2_000, 300, 40_000)]
+        });
+
+        var session = Assert.Single((await source.GetSessionsAsync(Noon.AddDays(-84))).Sessions);
+
+        var pr = Assert.Single(session.PullRequests!);
+        Assert.Equal(("acme/backlog", 587, "https://github.com/acme/backlog/pull/587", (DateTimeOffset?)Noon.AddHours(-1)), (pr.Repository, pr.Number, pr.Url, pr.LinkedAt));
+
+        var usage = Assert.Single(session.ModelUsage!);
+        Assert.Equal(("claude-opus-5-5", 10L, 2_000L, 300L, 40_000L), (usage.Model, usage.InputTokens, usage.OutputTokens, usage.CacheCreationInputTokens, usage.CacheReadInputTokens));
+    }
+
+    /// <summary>
+    /// "Could not say" and "none" are two answers, and the seam keeps them two: a null
+    /// that arrived as an empty list would be counted as a session that linked nothing
+    /// and spent nothing.
+    /// </summary>
+    [Fact]
+    public async Task A_session_that_could_not_say_crosses_as_null_and_one_that_found_none_as_empty()
+    {
+        var source = Source(
+            Session("unknown", AgentSessionKind.Copilot, AgentSessionState.Finished),
+            Session("none", AgentSessionKind.Claude, AgentSessionState.Finished) with { PullRequests = [], ModelUsage = [] });
+
+        var sessions = (await source.GetSessionsAsync(Noon.AddDays(-84))).Sessions;
+
+        Assert.Null(sessions[0].PullRequests);
+        Assert.Null(sessions[0].ModelUsage);
+        Assert.Empty(sessions[1].PullRequests!);
+        Assert.Empty(sessions[1].ModelUsage!);
+    }
+
     private static AgentSessionAssistantSessionSource Source(params AgentSession[] sessions) =>
         new(new StubAgentSessionSource(new AgentSessionCatalog(sessions, [], sessions.Length)));
 

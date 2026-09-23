@@ -11,9 +11,10 @@ public enum RepositoryBandKind
     /// into one row. Real work, but nothing here has a name or a colour for it.</summary>
     Other,
 
-    /// <summary>Every session that recorded no repository at all — today, every Claude
-    /// session, because Claude writes a working folder and no repository and the
-    /// Sessions context refuses to guess one from the path.</summary>
+    /// <summary>Every session with no repository at all: the agent recorded none and
+    /// its working folder lies inside no registered clone. Claude records none, so
+    /// this is every Claude session outside the clones this workspace registered — and
+    /// every Copilot one that did not say.</summary>
     Unrecorded
 }
 

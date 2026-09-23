@@ -105,3 +105,25 @@ related: [.domain/monitoring/features.md#multi-layer-dashboards]
 Expose productivity trends as personal insight rather than team performance
 reporting. The view shows patterns and evidence while preserving the user's
 control over interpretation.
+
+### What the sessions cost and shipped
+
+```meta
+type: sub-feature
+status: draft
+related: [.domain/sessions/features.md#what-a-session-cost-and-what-it-shipped]
+```
+
+As of 2026-09-23 the assistant-sessions part also reads what the session records
+carry beyond time: **output tokens**, per usage week and cut by model or by repository,
+and **pull requests linked**, per week and by the repository each lives in — counted
+once however many sessions linked one. Both are charts of their own rather than lines
+on the hours chart, because a count of tokens and a count of hours are two measures.
+Each figure is over the sessions that could say, and says it is partial when that is
+fewer than the sessions counted: Copilot records neither, and a missing figure is
+never read as zero.
+
+The limit-hits tile says what overage did about each refusal: fell back to overage, a
+wall for the reason the assistant gave ("org spend cap reached"), or nothing said.
+And a Claude session now sits in the band of the registered clone its folder lies in,
+rather than in "No repository recorded" with every other Claude session.

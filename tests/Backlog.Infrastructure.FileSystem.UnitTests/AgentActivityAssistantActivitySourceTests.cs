@@ -218,6 +218,47 @@ public class AgentActivityAssistantActivitySourceTests
         Assert.Empty(report.Subagents);
     }
 
+    /// <summary>
+    /// What overage did about a refusal crosses as the transcript said it — the reason
+    /// in the assistant's own spelling, and a null where it said nothing. The words a
+    /// reader sees are the part's to choose; the seam only carries the facts.
+    /// </summary>
+    [Fact]
+    public async Task What_a_refusal_said_about_overage_crosses_the_seam_unchanged()
+    {
+        var session = Activity("claude-1", AgentSessionKind.Claude) with
+        {
+            LimitHits =
+            [
+                new AgentLimitHit(Noon.AddHours(-2), AgentLimitKind.FiveHour, "five_hour")
+                {
+                    ResetsAt = Noon.AddHours(2),
+                    OverageStatus = "rejected",
+                    OverageDisabledReason = "org_spend_cap_reached",
+                    IsUsingOverage = false
+                },
+                new AgentLimitHit(Noon.AddHours(-1), AgentLimitKind.FiveHour, "five_hour") { ResetsAt = Noon.AddHours(3) }
+            ]
+        };
+
+        var report = await Source(session).GetActivityAsync(Horizon);
+
+        Assert.Collection(
+            report.Limits,
+            walled =>
+            {
+                Assert.Equal("rejected", walled.OverageStatus);
+                Assert.Equal("org_spend_cap_reached", walled.OverageDisabledReason);
+                Assert.False(walled.IsUsingOverage);
+            },
+            silent =>
+            {
+                Assert.Null(silent.OverageStatus);
+                Assert.Null(silent.OverageDisabledReason);
+                Assert.Null(silent.IsUsingOverage);
+            });
+    }
+
     private static AgentActivityAssistantActivitySource Source(params AgentSessionActivity[] sessions) =>
         new(new StubAgentActivitySource(new AgentActivityLog(sessions, [], Horizon, TimeSpan.FromMinutes(5))));
 

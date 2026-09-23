@@ -337,9 +337,10 @@ public sealed record AssistantSessionsInsight(
     /// <para>
     /// A band is a configured repository, named by its alias; or every recorded
     /// repository the workspace has not configured, folded into one; or every session
-    /// that recorded none. <b>Only Copilot records a repository</b>, so that last row is
-    /// every Claude session, and it is the largest on a real profile: a surface that
-    /// dropped it would turn a chart of all sessions into a chart of Copilot's.
+    /// that has none. <b>Only Copilot records a repository</b>; a Claude session is
+    /// placed by its working folder lying inside a registered clone, so that last row
+    /// is every Claude session outside one. A surface that dropped it would turn a
+    /// chart of all sessions into a chart of the placed ones.
     /// </para>
     /// <para>
     /// <b>This follows the repository scope, and the rest of the part does not.</b>
@@ -389,6 +390,59 @@ public sealed record AssistantSessionsInsight(
     /// explaining one figure with another figure's threshold.
     /// </summary>
     public TimeSpan IdleAfter { get; init; }
+
+    /// <summary>
+    /// Tokens the scoped sessions spent, summed over the ones that recorded any — or
+    /// null when none of them did.
+    /// <para>
+    /// Over the sessions that carry usage only, on <see cref="PromptsPerSession"/>'s rule:
+    /// a session without it is "nothing to count from", never zero, and
+    /// <see cref="SessionsWithUsage"/> travels beside this so the surface can say the
+    /// figure is partial. The owner sessions' own spend; spawned agents are not in it.
+    /// </para>
+    /// </summary>
+    public TokenTotals? Tokens { get; init; }
+
+    /// <summary>How many of <see cref="Sessions"/> recorded their token usage — the
+    /// denominator <see cref="Tokens"/> is over.</summary>
+    public int SessionsWithUsage { get; init; }
+
+    /// <summary>
+    /// Output tokens per week of the window, one row per model, ordered by total
+    /// descending — or empty when no session recorded usage. Bucketed on the week the
+    /// session last moved, the only week every session has, as
+    /// <see cref="SessionsPerWeek"/> is: the usage carries no instant of its own. Does
+    /// not follow the repository scope, on the totals' precedent.
+    /// </summary>
+    public IReadOnlyList<WeeklyBand> TokensByModel { get; init; } = [];
+
+    /// <summary>
+    /// The same output tokens cut by repository band instead of by model, with the
+    /// band rule and the repository scope <see cref="ByRepository"/> is cut under.
+    /// </summary>
+    public IReadOnlyList<WeeklyBand> TokensByRepository { get; init; } = [];
+
+    /// <summary>
+    /// The distinct pull requests the scoped sessions linked, counted once however many
+    /// sessions linked each — matched on the URL — and only those whose week falls in the
+    /// window, so this is exactly what <see cref="PullRequestsByRepository"/>'s columns
+    /// add up to.
+    /// </summary>
+    public int PullRequests { get; init; }
+
+    /// <summary>How many of <see cref="Sessions"/> could say whether they linked a pull
+    /// request — the others are Copilot's or unreadable, and are skipped rather than
+    /// counted as having linked none.</summary>
+    public int SessionsWithPullRequestRecord { get; init; }
+
+    /// <summary>
+    /// <see cref="PullRequests"/> per week and per repository band. A pull request goes in
+    /// the band of the repository it lives in — which is its own, not its session's — and
+    /// in the week it was linked, or the week its session last moved where the link was
+    /// not dated; linked twice, it is placed at the first. Follows the repository scope
+    /// the way <see cref="ByRepository"/> does.
+    /// </summary>
+    public IReadOnlyList<WeeklyBand> PullRequestsByRepository { get; init; } = [];
 
     public static AssistantSessionsInsight Empty { get; } =
         new(0, TimeSpan.Zero, null, 0, false, [], []) { SessionsPerWeek = [] };

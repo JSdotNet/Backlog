@@ -608,6 +608,116 @@ public class DashboardPaneTests
         Assert.Empty(pane.FindAll("[data-testid='dashboard-sessions-weekly-bars-toggle-prompts-per-session']"));
     }
 
+    /// <summary>
+    /// The two figures read off the session records: output tokens with the other
+    /// three counts and the denominator in the hint, and pull requests counted once.
+    /// Both say they are partial when fewer sessions could say than the tile beside
+    /// them counts.
+    /// </summary>
+    [Fact]
+    public void Tokens_and_pull_requests_are_tiles_that_say_how_many_sessions_they_cover()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(new ReadySessionInsights(WithRecords(Insight()))));
+
+        var pane = context.Render<DashboardPane>();
+
+        var tokens = pane.Find("[data-testid='dashboard-sessions-tokens']");
+        Assert.Contains("45.0K", tokens.TextContent, StringComparison.Ordinal);
+        Assert.Contains("From 8 of 12 sessions — the figure is partial.", tokens.OuterHtml, StringComparison.Ordinal);
+        Assert.Contains("1,200 input", tokens.OuterHtml, StringComparison.Ordinal);
+
+        var prs = pane.Find("[data-testid='dashboard-sessions-pull-requests']");
+        Assert.Contains("3", Squashed(prs.TextContent), StringComparison.Ordinal);
+        Assert.Contains("each counted once", prs.OuterHtml, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Tokens are their own chart and never a line on the hours chart, cut by model
+    /// until the reader asks for repositories; pull requests are a chart of their own
+    /// by repository.
+    /// </summary>
+    [Fact]
+    public void Tokens_are_a_chart_of_their_own_cut_by_model_or_by_repository()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(new ReadySessionInsights(WithRecords(Insight()))));
+
+        var pane = context.Render<DashboardPane>();
+
+        var bars = pane.Find("[data-testid='dashboard-sessions-tokens-bars']");
+        Assert.Contains("Output tokens per week, by model", bars.TextContent, StringComparison.Ordinal);
+        Assert.Contains("claude-opus-5-5", bars.TextContent, StringComparison.Ordinal);
+        Assert.DoesNotContain("tokens", pane.Find("[data-testid='dashboard-sessions-weekly-bars']").TextContent, StringComparison.OrdinalIgnoreCase);
+
+        pane.Find("[data-testid='dashboard-sessions-tokens-by-repository']").Click();
+
+        bars = pane.Find("[data-testid='dashboard-sessions-tokens-bars']");
+        Assert.Contains("Output tokens per week, by repository", bars.TextContent, StringComparison.Ordinal);
+        Assert.Contains("backlog", bars.TextContent, StringComparison.Ordinal);
+
+        var prs = pane.Find("[data-testid='dashboard-sessions-pull-requests-bars']");
+        Assert.Contains("Pull requests linked per week, by repository", prs.TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_part_where_no_session_recorded_usage_shows_a_dash_and_no_token_chart()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(new ReadySessionInsights(Insight())));
+
+        var pane = context.Render<DashboardPane>();
+
+        Assert.Contains("—", pane.Find("[data-testid='dashboard-sessions-tokens']").TextContent, StringComparison.Ordinal);
+        Assert.Contains("—", pane.Find("[data-testid='dashboard-sessions-pull-requests']").TextContent, StringComparison.Ordinal);
+        Assert.Empty(pane.FindAll("[data-testid='dashboard-sessions-tokens-bars']"));
+        Assert.Empty(pane.FindAll("[data-testid='dashboard-sessions-pull-requests-bars']"));
+    }
+
+    /// <summary>
+    /// A wall and a fall-back are different news: the limit tile says which refusals had
+    /// overage to fall back to and, for the rest, the reason the assistant gave in words.
+    /// </summary>
+    [Fact]
+    public void The_limit_tile_says_what_overage_did_about_the_refusals()
+    {
+        using var context = Context(configure: services =>
+            services.AddSingleton<ISessionInsights>(new ReadySessionInsights(Insight() with
+            {
+                LimitHits = new LimitHitCounts(3, 1)
+                {
+                    OnOverage = 1,
+                    Walled = [new LimitWall("org_spend_cap_reached", 2)],
+                    OverageUnrecorded = 1
+                }
+            })));
+
+        var pane = context.Render<DashboardPane>();
+
+        Assert.Contains(
+            "Overage: 1 fell back to overage · 2 walled — org spend cap reached · 1 said nothing about overage.",
+            Squashed(pane.Find("[data-testid='dashboard-sessions-limit-hits']").TextContent),
+            StringComparison.Ordinal);
+    }
+
+    /// <summary>The sample insight with the record-side figures filled in: tokens and
+    /// pull requests over fewer sessions than the count, so "partial" has to show.</summary>
+    private static AssistantSessionsInsight WithRecords(AssistantSessionsInsight insight) =>
+        insight with
+        {
+            Tokens = new TokenTotals(Output: 45_000, Input: 1_200, CacheRead: 900_000, CacheWrite: 30_000),
+            SessionsWithUsage = 8,
+            TokensByModel = [new WeeklyBand("claude-opus-5-5", null, [new("W33", 20_000m), new("W34", 25_000m)], 45_000m)],
+            TokensByRepository =
+            [
+                new WeeklyBand("backlog", RepositoryBandKind.Configured, [new("W33", 5_000m), new("W34", 25_000m)], 30_000m),
+                new WeeklyBand(RepositoryWeekly.UnrecordedName, RepositoryBandKind.Unrecorded, [new("W33", 15_000m), new("W34", 0m)], 15_000m)
+            ],
+            PullRequests = 3,
+            SessionsWithPullRequestRecord = 8,
+            PullRequestsByRepository = [new WeeklyBand("backlog", RepositoryBandKind.Configured, [new("W33", 1m), new("W34", 2m)], 3m)]
+        };
+
     /// <summary>Seven dated days down, twenty-four hours across, and every hour present
     /// on every row — a row that omitted its quiet hours would render short and read as
     /// "not reported" where the honest answer is zero.</summary>
@@ -1012,7 +1122,7 @@ public class DashboardPaneTests
         var pane = context.Render<DashboardPane>();
         var note = Squashed(pane.Find("[data-testid='dashboard-sessions-note']").TextContent);
 
-        Assert.Contains("Only Copilot records a repository against a session", note, StringComparison.Ordinal);
+        Assert.Contains("Claude records no repository, so its sessions are placed only by a working folder inside a registered clone", note, StringComparison.Ordinal);
 
         // No per-assistant number: the read is everything inside the period, and the
         // sentence is for a source that could not reach that far back.
@@ -1196,7 +1306,7 @@ public class DashboardPaneTests
         Assert.Contains("Producing + Sessions + Prompts per session + Sessions at once + Agents at once per week, by repository", text, StringComparison.Ordinal);
         Assert.Contains("The measures switched on above, added up per repository and stacked", text, StringComparison.Ordinal);
         Assert.Contains("a sum across units that is not a figure of anything", text, StringComparison.Ordinal);
-        Assert.Contains("is every Claude session", text, StringComparison.Ordinal);
+        Assert.Contains("whose folder lies in no registered clone", text, StringComparison.Ordinal);
         Assert.Contains("Press a week to open it in the grids below", text, StringComparison.Ordinal);
 
         Assert.Equal(

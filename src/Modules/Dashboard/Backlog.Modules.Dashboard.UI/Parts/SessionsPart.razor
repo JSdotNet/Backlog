@@ -187,6 +187,21 @@
                             Value="@MetricFormat.Compact(Value!.LimitHits.Total)"
                             Footnote="@LimitHitsFootnote"
                             TestId="dashboard-sessions-limit-hits" />
+                @* Two figures read off the session records rather than the activity, so
+                   they cover replicated sessions too. Each is over the sessions that
+                   could say, and the footnote names how many that is: a session that did
+                   not record its usage is not a session that spent nothing. A dash where
+                   none could say, never a zero. *@
+                <MetricTile Label="Output tokens"
+                            Value="@(Value!.Tokens is { } tokens ? MetricFormat.Compact(tokens.Output) : "—")"
+                            Footnote="@TokensFootnote"
+                            FootnoteAsHint="true"
+                            TestId="dashboard-sessions-tokens" />
+                <MetricTile Label="Pull requests linked"
+                            Value="@(Value!.SessionsWithPullRequestRecord > 0 ? MetricFormat.Compact(Value!.PullRequests) : "—")"
+                            Footnote="@PullRequestsFootnote"
+                            FootnoteAsHint="true"
+                            TestId="dashboard-sessions-pull-requests" />
             </MetricGrid>
 
             @* Every tile above, cut by week, in one chart. The hours are the columns —
@@ -229,10 +244,10 @@
                is a key. A band is a configured repository by its alias — wearing its
                identity hue when the header's Colors switch is on, because that hue says
                which repository and this chart is on the identity set's consumer table
-               — or the unconfigured ones folded together, or the sessions that recorded
-               none. Only Copilot records one, so that last band is every Claude session
-               and the largest on a real profile: drawn, named for the fact, never
-               dropped. With repositories in focus only their bands are here, the
+               — or the unconfigured ones folded together, or the sessions with none.
+               Claude records none, so a Claude session is in a repository's band only
+               when its folder lies inside a registered clone, and in the last band
+               otherwise: drawn, named for the fact, never dropped. With repositories in focus only their bands are here, the
                Sessions list's treatment of a session it cannot place. The sum is the
                reader's own call — hours and counts added when both are on — and the
                caption says what went in and what the total therefore is not. *@
@@ -251,6 +266,60 @@
                                    FormatValue="@RepositoryFormat"
                                    IdentityOf="@IdentityOf"
                                    TestId="dashboard-sessions-repository-bars" />
+            }
+
+            @* Tokens get a chart of their own rather than a line on the hours chart:
+               a count of tokens and a count of hours are two measures, and the chart
+               rule in .design says two measures are two charts. One chart with a cut
+               control rather than two, because by model and by repository are the same
+               figure divided two ways and their columns add up to the same total. *@
+            @if (Value!.TokensByModel.Count > 0)
+            {
+                <ButtonGroup AriaLabel="How to cut the tokens chart" TestId="dashboard-sessions-tokens-cut">
+                    <ToggleButton Pressed="!_tokensByRepository"
+                                  PressedChanged="_ => _tokensByRepository = false"
+                                  TestId="dashboard-sessions-tokens-by-model">
+                        By model
+                    </ToggleButton>
+                    <ToggleButton Pressed="_tokensByRepository"
+                                  PressedChanged="_ => _tokensByRepository = true"
+                                  TestId="dashboard-sessions-tokens-by-repository">
+                        By repository
+                    </ToggleButton>
+                </ButtonGroup>
+                <MetricStackedBars Series="@Bands(_tokensByRepository ? Value!.TokensByRepository : Value!.TokensByModel)"
+                                   Mode="MetricBarsMode.Stacked"
+                                   Label="@(_tokensByRepository ? "Output tokens per week, by repository" : "Output tokens per week, by model")"
+                                   Note="@TokensNote"
+                                   NameHeading="@(_tokensByRepository ? "Repository" : "Model")"
+                                   TotalHeading="Output tokens"
+                                   LegendLabel="@(_tokensByRepository ? "Repositories" : "Models")"
+                                   LegendInteractive="false"
+                                   SelectedBucket="@SelectedWeekLabel"
+                                   OnBucketSelected="@PickWeek"
+                                   FormatValue="MetricFormat.Compact"
+                                   IdentityOf="@(_tokensByRepository ? BandIdentity(Value!.TokensByRepository) : null)"
+                                   EmptyMessage="No session in the repository scope recorded its tokens."
+                                   TestId="dashboard-sessions-tokens-bars" />
+            }
+
+            @* Pull requests by the repository they live in — the pull request's own,
+               not its session's — each counted once however many sessions linked it. *@
+            @if (Value!.PullRequestsByRepository.Count > 0)
+            {
+                <MetricStackedBars Series="@Bands(Value!.PullRequestsByRepository)"
+                                   Mode="MetricBarsMode.Stacked"
+                                   Label="Pull requests linked per week, by repository"
+                                   Note="@PullRequestsNote"
+                                   NameHeading="Repository"
+                                   TotalHeading="Pull requests"
+                                   LegendLabel="Repositories"
+                                   LegendInteractive="false"
+                                   SelectedBucket="@SelectedWeekLabel"
+                                   OnBucketSelected="@PickWeek"
+                                   FormatValue="MetricFormat.Compact"
+                                   IdentityOf="@BandIdentity(Value!.PullRequestsByRepository)"
+                                   TestId="dashboard-sessions-pull-requests-bars" />
             }
 
             @* Empty when nothing in the scoped set left a parsable record, and 168 cells
@@ -334,12 +403,12 @@
 
 @code {
     /// <summary>
-    /// Followed for one chart and refused for the rest, and the insight is where that
-    /// split is made: only one of the two assistants records a repository against a
-    /// session — Copilot does, Claude does not — so narrowing the tiles by one would
-    /// drop every Claude session rather than filter it. The by-repository chart is the
-    /// one place the scope reaches, because there a band is a repository and a band
-    /// out of scope is a band the reader asked not to see. The pane's note says so.
+    /// Followed for the charts cut by repository and refused for the rest, and the
+    /// insight is where that split is made: Claude records no repository against a
+    /// session and is placed only by a registered clone, so narrowing the tiles by one
+    /// would drop every Claude session outside a clone rather than filter it. In a chart
+    /// cut by repository a band is a repository, and a band out of scope is a band the
+    /// reader asked not to see. The pane's note says so.
     /// </summary>
     protected override bool FollowsRepository => true;
 
@@ -379,9 +448,9 @@
             // than letting a reader read a count of three machines' sessions against one
             // machine's hours.
             var basis = $"Read from what Claude and Copilot leave on the machines that have reported, over {Scope.Weeks} weeks. "
-                + "Only Copilot records a repository against a session, so filtering by one would drop "
-                + "Claude's half of the picture rather than narrow the part; the repository filter is "
-                + "refused here instead. "
+                + "Claude records no repository, so its sessions are placed only by a working folder inside "
+                + "a registered clone; filtering the tiles by repository would drop the rest rather than "
+                + "narrow the part, so the repository filter reaches only the charts cut by repository. "
                 + "Working time is this machine's alone — a session another machine reported arrives as "
                 + "a record, not as a transcript to read it from. "
                 + "The grid below is the last 7 days on this machine's local clock, whichever period is "
@@ -663,8 +732,8 @@
                       + (HoursOnly ? string.Empty : " — a sum across units that is not a figure of anything; switch measures off above to read one");
 
             var scoped = Scope.IsAllRepositories
-                ? "Only Copilot records a repository, so \"No repository recorded\" is every Claude session; the header's repository scope narrows this chart and nothing else on this part"
-                : "Narrowed to the header's repository scope — the sessions that recorded no repository, which is every Claude session, are out of it";
+                ? "\"No repository recorded\" is every session whose agent recorded none and whose folder lies in no registered clone — Claude records none, so its sessions are placed by the clone alone; the header's repository scope narrows the charts cut by repository and nothing else on this part"
+                : "Narrowed to the header's repository scope — the sessions with no repository, recorded or placed, are out of it";
 
             return $"{what}. {scoped}. Press a week to open it in the grids below.";
         }
@@ -981,12 +1050,116 @@
         return null;
     }
 
-    /// <summary>The count split by allowance, and whose it is.</summary>
+    /// <summary>The count split by allowance, whose it is, and — where there were any —
+    /// what overage did about them: a wall is a refusal with nothing to fall back to, and
+    /// the reason the assistant gave is the part a reader can act on.</summary>
     private string LimitHitsFootnote =>
         IsReady
             ? $"{Value!.LimitHits.FiveHour} × 5-hour · {Value!.LimitHits.Weekly} × weekly. Requests Claude refused because an allowance was spent, "
               + "counted where the refusal was written. Copilot records none, so its sessions contribute nothing rather than zero."
+              + (Overage(Value!.LimitHits) is { } overage ? $" Overage: {overage}." : string.Empty)
             : string.Empty;
+
+    /// <summary>
+    /// What overage did about the refusals, one clause per outcome, or null when there
+    /// were none to describe. "Walled" names the assistant's reason in words; a refusal
+    /// that said nothing about overage is counted as such rather than as a wall.
+    /// </summary>
+    internal static string? Overage(LimitHitCounts hits)
+    {
+        if (hits.Total == 0) return null;
+
+        var clauses = new List<string>();
+
+        if (hits.OnOverage > 0) clauses.Add($"{hits.OnOverage} fell back to overage");
+
+        clauses.AddRange(hits.Walled.Select(wall => $"{wall.Count} walled — {OverageReason(wall.Reason)}"));
+
+        if (hits.OverageUnrecorded > 0) clauses.Add($"{hits.OverageUnrecorded} said nothing about overage");
+
+        return string.Join(" · ", clauses);
+    }
+
+    /// <summary>The assistant's reason in words, where it is one this part knows, and its
+    /// own spelling with the underscores spaced out otherwise — so a new reason still says
+    /// what the transcript said.</summary>
+    internal static string OverageReason(string reason) => reason switch
+    {
+        "org_spend_cap_reached" => "org spend cap reached",
+        "org_level_disabled_until" => "overage turned off for the org",
+        "group_zero_credit_limit" => "no overage credit for the group",
+        "rejected" => "overage rejected",
+        _ => reason.Replace('_', ' ')
+    };
+
+    /// <summary>Which way the tokens chart is cut. By model first, because that is the
+    /// cut the figure is recorded in; a field, so closing the surface forgets it.</summary>
+    private bool _tokensByRepository;
+
+    /// <summary>Bands as the chart wants them, each with its period figure in the key.</summary>
+    private static IReadOnlyList<MetricSeries> Bands(IReadOnlyList<WeeklyBand> bands) =>
+        [.. bands.Select(band => new MetricSeries(band.Name, Points(band.PerWeek), MetricFormat.Compact(band.Total)))];
+
+    /// <summary>The hue a repository band wears — a configured repository's, from the
+    /// shell — and none for a model or for the two folded bands.</summary>
+    private Func<string, int?> BandIdentity(IReadOnlyList<WeeklyBand> bands) => name =>
+        bands.Any(band => band.Kind == RepositoryBandKind.Configured && band.Name == name)
+            ? RepositoryColour?.Invoke(name)
+            : null;
+
+    /// <summary>
+    /// The other three token counts, whose figure it is, and how many sessions it covers.
+    /// The denominator is the sentence that matters, on the prompts tile's rule: a total
+    /// over the sessions that recorded usage, under a tile counting every session.
+    /// </summary>
+    private string TokensFootnote
+    {
+        get
+        {
+            const string whose = "Claude's own counts, the owner session's only — the agents a session spawned are not in them. "
+                + "Copilot records none, so its sessions are left out rather than counted as zero.";
+
+            return IsReady && Value!.Tokens is { } tokens
+                ? $"{MetricFormat.Compact(tokens.Input)} input · {MetricFormat.Compact(tokens.CacheRead)} cache read · "
+                    + $"{MetricFormat.Compact(tokens.CacheWrite)} cache write. {Partial(Value!.SessionsWithUsage)}{whose}"
+                : whose;
+        }
+    }
+
+    private string PullRequestsFootnote
+    {
+        get
+        {
+            const string what = "Distinct pull requests the sessions linked themselves to, each counted once however many sessions linked it. "
+                + "Copilot records none, so its sessions are left out rather than counted as linking none.";
+
+            return IsReady && Value!.SessionsWithPullRequestRecord > 0
+                ? $"{Partial(Value!.SessionsWithPullRequestRecord)}{what}"
+                : what;
+        }
+    }
+
+    /// <summary>"From 8 of 12 sessions." when some could not say, and nothing when all
+    /// could — a denominator equal to the count beside it is noise.</summary>
+    private string Partial(int covered) =>
+        covered < Value!.Sessions ? $"From {covered} of {Value!.Sessions} sessions — the figure is partial. " : string.Empty;
+
+    private string TokensNote =>
+        $"{WeekSentence}. A session's tokens are counted in the week it last moved, like the sessions above. "
+        + (Value!.SessionsWithUsage < Value!.Sessions
+            ? $"Only the {Value!.SessionsWithUsage} of {Value!.Sessions} sessions that recorded their usage are in it, so the columns are partial. "
+            : string.Empty)
+        + (_tokensByRepository
+            ? "Repository bands follow the header's scope, as the chart above does. "
+            : "Every model the owner sessions answered with, whatever the header's repository scope. ")
+        + "Spawned agents are not included. Press a week to open it in the grids below.";
+
+    private string PullRequestsNote =>
+        $"{WeekSentence}. A pull request is placed in the week a session first linked it, and in the week that session last moved where the link was not dated. "
+        + "It sits in the band of the repository it lives in, and follows the header's repository scope. "
+        + (Value!.SessionsWithPullRequestRecord < Value!.Sessions
+            ? $"Only the {Value!.SessionsWithPullRequestRecord} of {Value!.Sessions} sessions that could say are counted, so the columns are partial."
+            : "Every session in the period could say.");
 
     private ActivityHour? Cell(string day, string hour) =>
         Grid?.Hours.FirstOrDefault(

@@ -86,8 +86,22 @@ public sealed class AgentSessionAssistantSessionSource(IAgentSessionSource sessi
             // transcript with nothing to count, and the seam must not undo that.
             Prompts = session.TurnCount,
 
-            // Recorded or null, exactly as Sessions holds it. Sessions already declines
-            // to derive one from the working folder; the seam does not get to either.
-            Repository = session.Repository
+            // Recorded first, then the one Sessions placed the folder under. Both are
+            // Sessions' own answers; the seam picks between them and derives nothing.
+            // Without the second, every Claude session lands in the no-repository band.
+            Repository = string.IsNullOrWhiteSpace(session.Repository) ? session.ResolvedRepository : session.Repository,
+
+            // Null crosses as null for both — "could not say" is not "none".
+            PullRequests = session.PullRequests?
+                .Select(pr => new AssistantPullRequest(pr.Repository, pr.Number, pr.Url, pr.LinkedAt))
+                .ToList(),
+            ModelUsage = session.ModelUsage?
+                .Select(usage => new AssistantModelUsage(
+                    usage.Model,
+                    usage.InputTokens,
+                    usage.OutputTokens,
+                    usage.CacheCreationInputTokens,
+                    usage.CacheReadInputTokens))
+                .ToList()
         };
 }

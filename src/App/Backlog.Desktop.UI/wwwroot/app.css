@@ -4956,6 +4956,34 @@ h1, h2, h3 {
     vertical-align: text-bottom;
 }
 
+/* Where the agent was run from — "desktop", "cli" — after the type's word. The
+   library's outlined kind badge at detail size: it qualifies the type and must not
+   compete with it. */
+.sessions-table__entrypoint {
+    margin-left: var(--spacing-xs);
+    font-size: var(--font-size-xs);
+    vertical-align: baseline;
+}
+
+/* The pull requests a session linked, on one line under its name, the way a run's
+   references sit on its own line. They wrap rather than clamp: each is a short
+   "PR #n" and cutting one in half would leave a number nobody can read. */
+.sessions-table__pull-requests {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+}
+
+.sessions-table__pull-request {
+    min-width: 0;
+}
+
+/* Two short figures, read across rather than wrapped. */
+.sessions-table__tokens {
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
 /* Two more columns allowed to be cut short, and narrower than the library's
    default because there are two of them in every row. A branch name here is a
    slug with a hash on the end and a repository is owner/name: both are

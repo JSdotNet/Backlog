@@ -321,7 +321,12 @@
     };
 
     private static string Tokens(DeliveryRunTokens tokens) =>
-        $"{MetricFormat.Compact(tokens.ModelCalls)} calls · {MetricFormat.Compact(tokens.OutputTokens)} out · {MetricFormat.Compact(tokens.InputTokens)} in · {MetricFormat.Compact(tokens.CacheReadTokens)} cache read · {MetricFormat.Compact(tokens.CacheWriteTokens)} cache write";
+        $"{MetricFormat.Compact(tokens.ModelCalls)} calls · {TokenFigures(tokens.OutputTokens, tokens.InputTokens, tokens.CacheReadTokens, tokens.CacheWriteTokens)}";
+
+    /// <summary>The four token counts in the order and the words this table uses for
+    /// them everywhere — a run's here, a session's in its own row.</summary>
+    internal static string TokenFigures(long output, long input, long cacheRead, long cacheWrite) =>
+        $"{MetricFormat.Compact(output)} out · {MetricFormat.Compact(input)} in · {MetricFormat.Compact(cacheRead)} cache read · {MetricFormat.Compact(cacheWrite)} cache write";
 
     private static string Context(DeliveryRunContext context) =>
         context.PeakShare is { } share

@@ -280,6 +280,49 @@ public sealed class SessionRowsTests
         Assert.All(rows, row => Assert.Empty(row.Runs));
     }
 
+    /// <summary>
+    /// A pull request is one reference on screen. The one a run on the row already
+    /// draws — by URL, or by repository and "PR #n" where the run carried no URL — is
+    /// left to the run's line; the rest are the session's own, once each.
+    /// </summary>
+    [Fact]
+    public void A_pull_request_a_run_on_the_row_already_names_is_not_the_sessions_to_show_again()
+    {
+        var session = Session("named", Folder, Noon.AddHours(-3), Noon) with
+        {
+            PullRequests =
+            [
+                new AgentPullRequest("acme/backlog", 587, "https://github.com/acme/backlog/pull/587", null),
+                new AgentPullRequest("acme/backlog", 588, "https://github.com/acme/backlog/pull/588", null),
+                new AgentPullRequest("acme/backlog", 589, "https://github.com/acme/backlog/pull/589", null),
+                new AgentPullRequest("acme/backlog", 589, "HTTPS://github.com/acme/backlog/pull/589", null)
+            ]
+        };
+        var run = Run("run-1", Worktree, startedAt: Noon.AddHours(-2), updatedAt: Noon.AddMinutes(-10)) with
+        {
+            SessionIds = ["named"],
+            References =
+            [
+                new DeliveryRunReference(DeliveryRunReferenceKind.PullRequest, "PR #587", null, "https://github.com/ACME/backlog/pull/587", "acme/backlog"),
+                new DeliveryRunReference(DeliveryRunReferenceKind.PullRequest, "PR #588", null, null, "acme/backlog")
+            ]
+        };
+
+        var row = Assert.Single(SessionRows.Of([session], [run]));
+
+        Assert.Equal([589], row.PullRequests.Select(pr => pr.Number));
+    }
+
+    [Fact]
+    public void A_session_that_could_not_say_and_one_that_linked_none_have_nothing_to_draw()
+    {
+        var unknown = SessionRow.Of(Session("unknown", Folder, null, Noon));
+        var none = SessionRow.Of(Session("none", Folder, null, Noon) with { PullRequests = [] });
+
+        Assert.Empty(unknown.PullRequests);
+        Assert.Empty(none.PullRequests);
+    }
+
     private static AgentSession Session(string id, string folder, DateTimeOffset? startedAt, DateTimeOffset lastActivity) =>
         new(
             Id: id,
