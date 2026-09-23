@@ -103,21 +103,77 @@ public sealed class DevToolService : IDevToolService
     private readonly string? _configPath;
     private readonly ILogger<DevToolService>? _logger;
 
+    /// <summary>
+    /// This machine's own MCP server, or nothing when this host cannot resolve
+    /// one.
+    ///
+    /// <para>Nullable on purpose rather than by omission. A row that declares a
+    /// <c>${BACKLOG_MCP_PORT}</c> is still a row: it lists, it shows the URL
+    /// exactly as the catalog spells it, and what it cannot do is register —
+    /// which it says. Refusing to list it instead would hide a catalog entry
+    /// from the one screen that shows the catalog.</para>
+    /// </summary>
+    private readonly IMcpEndpointSource? _mcp;
+
     public DevToolService(ILogger<DevToolService>? logger = null, string? configPath = null)
-        : this(null, logger, configPath)
+        : this(null, null, logger, configPath)
     {
     }
 
     public DevToolService(ITaskStore store, ILogger<DevToolService>? logger = null)
-        : this(store, logger, null)
+        : this(store, null, logger, null)
     {
     }
 
-    private DevToolService(ITaskStore? store, ILogger<DevToolService>? logger, string? configPath)
+    /// <summary>
+    /// The composition the desktop head uses: a store, and the endpoint a row
+    /// reached over HTTP is written from.
+    /// </summary>
+    /// <param name="mcp">This machine's MCP server, or <see langword="null"/> for
+    /// a host that has none — see <see cref="_mcp"/>.</param>
+    /// <remarks><paramref name="mcp"/> is required rather than optional, unlike
+    /// the logger beside it. Defaulted, a one-argument <c>new DevToolService(store)</c>
+    /// would be applicable to this overload and to the one above it with nothing
+    /// to choose between them, which is a CS0121 waiting for whoever writes that
+    /// line next. Required, every arity resolves to exactly one of the
+    /// three.</remarks>
+    public DevToolService(ITaskStore store, IMcpEndpointSource? mcp, ILogger<DevToolService>? logger = null)
+        : this(store, mcp, logger, null)
+    {
+    }
+
+    private DevToolService(ITaskStore? store, IMcpEndpointSource? mcp, ILogger<DevToolService>? logger, string? configPath)
     {
         _store = store;
+        _mcp = mcp;
         _logger = logger;
         _configPath = configPath;
+    }
+
+    /// <summary>
+    /// Forwarded from <see cref="IMcpEndpointSource.Changed"/>, and raised by
+    /// nothing else.
+    ///
+    /// <para>Everything else a listing reads is a file this pane's own buttons
+    /// write, and the pane already re-lists after each of them. The MCP endpoint
+    /// is the one input that moves without anybody pressing anything here: the
+    /// port is edited on the Settings screen and the listener binds, fails and
+    /// stops on its own.</para>
+    ///
+    /// <para>Subscribed through, not stored and replayed: with no source there is
+    /// nothing to subscribe to and the accessors are the empty pair that
+    /// <c>UnsupportedDevToolService</c> uses, so a subscriber holds nothing.</para>
+    /// </summary>
+    public event Action? Changed
+    {
+        add
+        {
+            if (_mcp is not null) _mcp.Changed += value;
+        }
+        remove
+        {
+            if (_mcp is not null) _mcp.Changed -= value;
+        }
     }
 
     public async Task<DevToolCatalog> ListAsync(CancellationToken ct = default)
@@ -313,7 +369,7 @@ public sealed class DevToolService : IDevToolService
                 continue;
             }
 
-            tools.Add(await DescribeMcpServerAsync(server, declared, installedTools, claudeCli, claudeDesktop, log, ct).ConfigureAwait(false));
+            tools.Add(await DescribeMcpServerAsync(server, declared, installedTools, claudeCli, claudeDesktop, _mcp, log, ct).ConfigureAwait(false));
         }
 
         // Applications last, and read as one batch. Every other kind above asks
@@ -595,15 +651,27 @@ public sealed class DevToolService : IDevToolService
         IReadOnlyDictionary<string, string> installedTools,
         string? claudeCli,
         ClaudeDesktopState? claudeDesktop,
+        IMcpEndpointSource? mcp,
         CommandLog log,
         CancellationToken ct)
     {
         var enabled = declared.Enabled;
         var hosts = declared.Hosts;
         var toolInstalled = declared.Installable && installedTools.ContainsKey(declared.PackageId);
+
+        // The URL with this machine's port filled in — and its token deliberately
+        // left literal. Describing is what every refresh does for every row, so
+        // the resolver used here is the one that refuses to mint: a table nobody
+        // pressed anything on must not be what writes a secret to this machine.
+        var endpoint = declared.Mechanism is DevToolMcpMechanism.Http
+            ? McpPlaceholders.Expand(declared.Url, DescribingWith(mcp))
+            : null;
+
         var installedVersion = declared.Installable
             ? installedTools.TryGetValue(declared.PackageId, out var version) ? version : DevToolOutput.NotInstalled
-            : declared.CommandLine is { Length: > 0 } commandLine ? commandLine : DevToolOutput.NoVersion;
+            : declared.CommandLine is { Length: > 0 } commandLine ? commandLine
+            : endpoint is { Text.Length: > 0 } reached ? reached.Text
+            : DevToolOutput.NoVersion;
         var availableVersion = await GetDotNetToolAvailableVersionAsync(declared, log, ct).ConfigureAwait(false);
 
         var states = new List<DevToolHostState>
@@ -636,23 +704,71 @@ public sealed class DevToolService : IDevToolService
             ? null
             : DevToolConfiguration.McpRegistrationSection(server);
 
+        // What a row reached over HTTP has to say about the endpoint behind it,
+        // which is not the same question as whether its registration is right.
+        // A registration can be perfect and answer nothing, because the feature
+        // is off or because somebody else holds the port — so these are notes on
+        // the row rather than findings about the registration.
+        if (endpoint is not null)
+        {
+            if (mcp is null)
+            {
+                notes.Add(EndpointUnresolvable);
+            }
+            else if (!mcp.Enabled)
+            {
+                notes.Add(EndpointDisabled);
+            }
+            else if (mcp.Unavailable is { Length: > 0 } unavailable)
+            {
+                // The worker's own sentence, verbatim. It already ends by saying
+                // to change the port in every registration too, which is exactly
+                // what this row is for.
+                notes.Add(unavailable);
+            }
+
+            if (endpoint.Problem is { } problem)
+            {
+                notes.Add(problem);
+            }
+        }
+
         if (hosts.HasFlag(DevToolHosts.Claude) && registration is { } claude)
         {
             var serverName = ClaudeServerName(server, claude);
-            var command = GetString(claude, "command");
+            var http = IsHttpRegistration(claude);
+
+            // Where this registration is supposed to point: the expanded URL for
+            // a server that is reached, and the command for one that is started.
+            var target = http
+                ? McpPlaceholders.Expand(GetString(claude, "url"), DescribingWith(mcp)).Text
+                : GetString(claude, "command");
 
             if (claudeCli is null)
             {
                 notes.Add(ClaudeCliMissing);
             }
-            else if (string.IsNullOrWhiteSpace(serverName) || string.IsNullOrWhiteSpace(command))
+            else if (string.IsNullOrWhiteSpace(serverName) || string.IsNullOrWhiteSpace(target))
             {
-                notes.Add("Claude registration needs a name and a command");
+                notes.Add(http ? "Claude registration needs a name and a URL" : "Claude registration needs a name and a command");
             }
             else
             {
                 var details = await GetClaudeMcpServerAsync(claudeCli, serverName, log, ct).ConfigureAwait(false);
-                states.Add(WithoutAnInventedVersion(DescribeClaudeRegistration(serverName, command, details), declared));
+                var state = DescribeClaudeRegistration(serverName, DeclaredTransport(claude), target, details);
+
+                // The finding stays; the offer goes. Re-registering calls
+                // EnsureToken, and minting a secret for a server nobody switched
+                // on — or for an endpoint this host cannot resolve at all — is
+                // the one thing a button here must not do. The row still says it
+                // is pointing elsewhere, and the note above says why nothing can
+                // be done about it yet.
+                if (http && mcp is not { Enabled: true })
+                {
+                    state = state with { RegistrationDrifted = false };
+                }
+
+                states.Add(WithoutAnInventedVersion(state, declared));
             }
         }
 
@@ -723,8 +839,60 @@ public sealed class DevToolService : IDevToolService
     private static string MechanismStatus(DevToolMcpServer server) => server.Mechanism switch
     {
         DevToolMcpMechanism.Command => "Registered by the command it declares",
+        // Not "nothing installs this", which is the arm it used to fall into and
+        // which is false about it: there is nothing to install, and there is very
+        // much something to register.
+        DevToolMcpMechanism.Http => "Registered by the URL it declares",
         _ => "Nothing here installs or registers this server"
     };
+
+    /// <summary>What a row says when this host has no Backlog endpoint to write a
+    /// registration from. Said plainly for the reason <see cref="ClaudeCliMissing"/>
+    /// is: "could not expand" reads as a failure, and this is a host that was
+    /// never going to be able to.</summary>
+    private const string EndpointUnresolvable =
+        "The Backlog MCP endpoint is resolved in the desktop app, so nothing here can expand or register this row.";
+
+    /// <summary>What a row says when the machine has the server switched off.
+    ///
+    /// <para>The row is still drawn and the registration is still left exactly
+    /// where it is: a registration made while the feature was on is on this
+    /// machine either way, and it still names the port. What is true is only that
+    /// nothing answers there.</para></summary>
+    private const string EndpointDisabled =
+        "The MCP server is switched off, so nothing answers at the registered address.";
+
+    /// <summary>
+    /// The resolver a listing may use: the port, and never the token.
+    ///
+    /// <para>A host with no endpoint gets one that answers nothing, which is not
+    /// the same as one that invents a value. Every placeholder stays literal and
+    /// <see cref="McpExpansion.Problem"/> says which one could not be filled in,
+    /// so the row shows the URL exactly as the catalog spells it and says why.</para>
+    /// </summary>
+    private static McpPlaceholderResolver DescribingWith(IMcpEndpointSource? mcp) =>
+        mcp is null ? NoEndpoint : McpPlaceholders.Describing(mcp);
+
+    /// <inheritdoc cref="DescribingWith" />
+    private static readonly McpPlaceholderResolver NoEndpoint = _ => null;
+
+    /// <summary>Whether a registration section registers a URL rather than a
+    /// command.
+    ///
+    /// <para>Read off the section and not off the entry's mechanism, because the
+    /// section is what the registration is made from: a nested <c>claude</c> block
+    /// wins over the synthesised one, and it is allowed to say something the
+    /// entry's own shape does not. The <c>type</c> answers where there is one, and
+    /// a bare <c>url</c> with no <c>command</c> beside it answers where there is
+    /// not.</para></summary>
+    private static bool IsHttpRegistration(JsonNode section) =>
+        DeclaredTransport(section).Equals(DevToolConfiguration.HttpTypeName, StringComparison.OrdinalIgnoreCase)
+        || (GetString(section, "url").Trim().Length > 0 && GetString(section, "command").Trim().Length == 0);
+
+    /// <summary>The transport a section declares, or empty when it declares
+    /// none — which is every registration written before there was one to
+    /// declare, and is read as "no opinion" rather than as stdio.</summary>
+    private static string DeclaredTransport(JsonNode section) => GetString(section, "type").Trim();
 
     /// <summary>
     /// One host state's available column, blanked for a row that has no published
@@ -756,7 +924,11 @@ public sealed class DevToolService : IDevToolService
     /// machine-wide sweep. Saying so with matching versions is what stops the row
     /// offering to "fix" it.</para>
     /// </summary>
-    private static DevToolHostState DescribeClaudeRegistration(string serverName, string command, DevToolOutput.ClaudeMcpServerDetails? details)
+    private static DevToolHostState DescribeClaudeRegistration(
+        string serverName,
+        string declaredType,
+        string expectedTarget,
+        DevToolOutput.ClaudeMcpServerDetails? details)
     {
         if (details is null)
         {
@@ -764,7 +936,7 @@ public sealed class DevToolService : IDevToolService
                 DevToolHosts.Claude,
                 Installed: false,
                 DevToolOutput.NotInstalled,
-                command,
+                expectedTarget,
                 $"Not registered with Claude as '{serverName}'");
         }
 
@@ -779,14 +951,34 @@ public sealed class DevToolService : IDevToolService
                 $"Left alone: '{serverName}' is registered at {scope} scope");
         }
 
+        // Whichever of the two the host reported, chosen by what it said the
+        // transport was rather than by which string happens to be non-empty: a
+        // stdio registration of a server the catalog now reaches over HTTP has a
+        // command, and showing it opposite a URL is how somebody sees what
+        // actually needs repairing.
+        var registered = details.Type.Equals(DevToolConfiguration.HttpTypeName, StringComparison.OrdinalIgnoreCase)
+            ? details.Url
+            : details.Command;
+
+        // Asked of the abstraction rather than compared here, because "the same
+        // registration" is not string equality: a trailing slash and the case of
+        // a scheme are not drift, and a transport that disagrees is drift whatever
+        // the two targets say.
+        var drifted = DevToolConfiguration.RegistrationDrifted(declaredType, expectedTarget, details);
+
         return new DevToolHostState(
             DevToolHosts.Claude,
             Installed: true,
-            string.IsNullOrWhiteSpace(details.Command) ? DevToolOutput.Unknown : details.Command,
-            command,
-            string.Equals(details.Command, command, StringComparison.Ordinal)
-                ? $"Registered with Claude as '{serverName}'"
-                : $"Registered with Claude as '{serverName}', pointing elsewhere");
+            string.IsNullOrWhiteSpace(registered) ? DevToolOutput.Unknown : registered,
+            expectedTarget,
+            drifted
+                ? $"Registered with Claude as '{serverName}', pointing elsewhere"
+                : $"Registered with Claude as '{serverName}'")
+        {
+            // Carried rather than left for the row to re-derive from the two
+            // columns above, which are prose as often as they are targets.
+            RegistrationDrifted = drifted
+        };
     }
 
     public Task<DevToolActionResult> UpdateAsync(string key, CancellationToken ct = default) => ApplyAsync(key, null, ct);
@@ -1320,14 +1512,14 @@ public sealed class DevToolService : IDevToolService
             var uninstall = await RunAsync(cli.Command, [.. cli.Prefix, "plugin", "uninstall", name], log, ct).ConfigureAwait(false);
             return uninstall.ExitCode == 0
                 ? DevToolActionResult.Ok("disabled.")
-                : DevToolActionResult.Failed(CommandFailure(name, uninstall));
+                : DevToolActionResult.Failed(log.Failure(name, uninstall));
         }
 
         var args = isInstalled ? new[] { "plugin", "update", name } : ["plugin", "install", GetRequiredString(plugin, "source")];
         var result = await RunAsync(cli.Command, [.. cli.Prefix, .. args], log, ct).ConfigureAwait(false);
         return result.ExitCode == 0
             ? DevToolActionResult.Ok(isInstalled ? "updated." : "installed.")
-            : DevToolActionResult.Failed(CommandFailure(name, result));
+            : DevToolActionResult.Failed(log.Failure(name, result));
     }
 
     /// <summary>
@@ -1370,7 +1562,7 @@ public sealed class DevToolService : IDevToolService
             var uninstall = await RunAsync(cli, ["plugin", "uninstall", pluginId, "--scope", "user"], log, ct).ConfigureAwait(false);
             return uninstall.ExitCode == 0
                 ? DevToolActionResult.Ok($"{pluginId} uninstalled.")
-                : DevToolActionResult.Failed(CommandFailure(pluginId, uninstall));
+                : DevToolActionResult.Failed(log.Failure(pluginId, uninstall));
         }
 
         // The marketplace before either install or update. Claude installs out of
@@ -1383,7 +1575,7 @@ public sealed class DevToolService : IDevToolService
         if (pull.ExitCode != 0)
         {
             return DevToolActionResult.Failed(
-                $"the {marketplace} marketplace could not be refreshed, so {pluginId} can only reach what Claude already has. {CommandFailure(marketplace, pull)}");
+                $"the {marketplace} marketplace could not be refreshed, so {pluginId} can only reach what Claude already has. {log.Failure(marketplace, pull)}");
         }
 
         if (state is null)
@@ -1391,13 +1583,13 @@ public sealed class DevToolService : IDevToolService
             var install = await RunAsync(cli, ["plugin", "install", pluginId, "--scope", "user"], log, ct).ConfigureAwait(false);
             return install.ExitCode == 0
                 ? DevToolActionResult.Ok($"{pluginId} installed.")
-                : DevToolActionResult.Failed(CommandFailure(pluginId, install));
+                : DevToolActionResult.Failed(log.Failure(pluginId, install));
         }
 
         var update = await RunAsync(cli, ["plugin", "update", pluginId], log, ct).ConfigureAwait(false);
         if (update.ExitCode != 0)
         {
-            return DevToolActionResult.Failed(CommandFailure(pluginId, update));
+            return DevToolActionResult.Failed(log.Failure(pluginId, update));
         }
 
         if (state.Enabled)
@@ -1408,7 +1600,7 @@ public sealed class DevToolService : IDevToolService
         var enable = await RunAsync(cli, ["plugin", "enable", pluginId], log, ct).ConfigureAwait(false);
         return enable.ExitCode == 0
             ? DevToolActionResult.Ok($"{pluginId} updated and enabled.")
-            : DevToolActionResult.Failed(CommandFailure(pluginId, enable));
+            : DevToolActionResult.Failed(log.Failure(pluginId, enable));
     }
 
     /// <summary>
@@ -1434,14 +1626,14 @@ public sealed class DevToolService : IDevToolService
             var update = await RunAsync(cli, ["plugin", "marketplace", "update", name], log, ct).ConfigureAwait(false);
             return update.ExitCode == 0
                 ? DevToolActionResult.Ok($"The {name} marketplace was refreshed.")
-                : DevToolActionResult.Failed(CommandFailure(name, update));
+                : DevToolActionResult.Failed(log.Failure(name, update));
         }
 
         var source = GetRequiredString(marketplace, "source");
         var add = await RunAsync(cli, ["plugin", "marketplace", "add", source], log, ct).ConfigureAwait(false);
         return add.ExitCode == 0
             ? DevToolActionResult.Ok($"The {name} marketplace was added.")
-            : DevToolActionResult.Failed(CommandFailure(name, add));
+            : DevToolActionResult.Failed(log.Failure(name, add));
     }
 
     /// <summary>
@@ -1482,6 +1674,14 @@ public sealed class DevToolService : IDevToolService
         else if (declared.Mechanism is DevToolMcpMechanism.Command)
         {
             outcomes.Add("nothing to install: this server is registered by the command it declares.");
+        }
+        else if (declared.Mechanism is DevToolMcpMechanism.Http)
+        {
+            // Same shape, different reason. There is nothing to install because
+            // the server is reached rather than started — and unlike the manual
+            // arm below, the registration half underneath this very much does
+            // run for it.
+            outcomes.Add("nothing to install: this server is reached at the URL it declares.");
         }
         else
         {
@@ -1576,7 +1776,7 @@ public sealed class DevToolService : IDevToolService
 
         return result.ExitCode == 0
             ? DevToolActionResult.Ok(success)
-            : DevToolActionResult.Failed(CommandFailure(packageId, result));
+            : DevToolActionResult.Failed(log.Failure(packageId, result));
     }
 
     /// <summary>
@@ -1600,6 +1800,18 @@ public sealed class DevToolService : IDevToolService
             return DevToolActionResult.Failed("the entry has no Claude server name.");
         }
 
+        // Which transport this registration is made over. Read here rather than
+        // where it is used, because the line below needs it: the answer decides
+        // whether this apply is one that can mint a token.
+        var http = IsHttpRegistration(claude);
+
+        // Before anything is run, and that ordering is the whole point. The log
+        // masks at record time, so a secret it is told about afterwards is a
+        // secret already written into a line the pane will render — and the very
+        // first command of this method, `claude mcp get`, echoes back the
+        // Headers: block of whatever is registered today.
+        RedactRegistrationSecrets(claude, http && enabled, log);
+
         if (await ResolveClaudeCliAsync(log, ct).ConfigureAwait(false) is not { } cli)
         {
             return DevToolActionResult.Failed(ClaudeCliMissing);
@@ -1619,36 +1831,241 @@ public sealed class DevToolService : IDevToolService
                 return DevToolActionResult.Ok($"'{name}' was already unregistered.");
             }
 
-            var remove = await RunAsync(cli, ["mcp", "remove", name, "--scope", "user"], log, ct).ConfigureAwait(false);
+            var remove = await RunClaudeMcpAsync(cli, ["mcp", "remove", name, "--scope", "user"], log, ct).ConfigureAwait(false);
             return remove.ExitCode == 0
                 ? DevToolActionResult.Ok($"'{name}' was unregistered.")
-                : DevToolActionResult.Failed(CommandFailure(name, remove));
+                : DevToolActionResult.Failed(log.Failure(name, remove));
         }
 
-        var command = GetString(claude, "command");
-        if (string.IsNullOrWhiteSpace(command))
+        // The transport read at the top of this method decides both what the
+        // target is and which `claude mcp add` vector builds it. The two are
+        // genuinely different command lines — the stdio one separates its flags
+        // from the command with `--`, and putting one before a URL registers a
+        // server that can never answer — so they are built apart rather than
+        // patched into one.
+        string target;
+        IReadOnlyList<string> addArguments;
+
+        if (http)
         {
-            return DevToolActionResult.Failed($"'{name}' has no claude.command to register.");
+            var resolved = RegisterableEndpoint(name, claude, log);
+            if (resolved.Failure is { } failed)
+            {
+                return failed;
+            }
+
+            target = resolved.Url;
+            addArguments = DevToolCommands.ClaudeMcpAddHttp(cli, name, target, resolved.Headers).LaunchArguments;
+        }
+        else
+        {
+            target = GetString(claude, "command");
+            if (string.IsNullOrWhiteSpace(target))
+            {
+                return DevToolActionResult.Failed($"'{name}' has no claude.command to register.");
+            }
+
+            addArguments = ["mcp", "add", "--scope", "user", name, "--", target, .. ClaudeServerArgs(claude)];
         }
 
-        if (details is not null && string.Equals(details.Command, command, StringComparison.Ordinal))
+        // Against the target rather than against the command alone, and through
+        // the abstraction: a URL that differs only by a trailing slash is the
+        // same registration, and a stdio registration of an HTTP server is a
+        // different one however its command reads.
+        if (details is not null && !DevToolConfiguration.RegistrationDrifted(DeclaredTransport(claude), target, details))
         {
             return DevToolActionResult.Ok($"'{name}' was already registered.");
         }
 
         if (details is not null)
         {
-            var remove = await RunAsync(cli, ["mcp", "remove", name, "--scope", "user"], log, ct).ConfigureAwait(false);
+            var remove = await RunClaudeMcpAsync(cli, ["mcp", "remove", name, "--scope", "user"], log, ct).ConfigureAwait(false);
             if (remove.ExitCode != 0)
             {
-                return DevToolActionResult.Failed(CommandFailure(name, remove));
+                return DevToolActionResult.Failed(log.Failure(name, remove));
             }
         }
 
-        var add = await RunAsync(cli, ["mcp", "add", "--scope", "user", name, "--", command, .. ClaudeServerArgs(claude)], log, ct).ConfigureAwait(false);
+        var add = await RunClaudeMcpAsync(cli, addArguments, log, ct).ConfigureAwait(false);
         return add.ExitCode == 0
             ? DevToolActionResult.Ok(details is null ? $"'{name}' was registered." : $"'{name}' was re-registered.")
-            : DevToolActionResult.Failed(CommandFailure(name, add));
+            : DevToolActionResult.Failed(log.Failure(name, add));
+    }
+
+    /// <summary>
+    /// Everything about one registration that is a credential, told to the log
+    /// before the apply runs anything at all.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Every header value, not only Backlog's own token.</b> The Add-a-
+    /// tool form takes free-text headers, so <c>X-Api-Key: sk-live-…</c> is a
+    /// shape a person can put into the catalog — and it reaches the pane twice
+    /// over, joined verbatim into the paste-ready <c>--header</c> line and echoed
+    /// back in the <c>Headers:</c> block <c>claude mcp get</c> prints. A header
+    /// value is a credential by default here: this code cannot tell an API key
+    /// from a client tag, and of the two ways to be wrong, masking a tag costs a
+    /// word of legibility and showing a key costs a rotation. The URL's query
+    /// string goes in for the same reason — <c>?token=…</c> is the other place
+    /// people put one.</para>
+    ///
+    /// <para><b>And before the first recorded command, which is the half that was
+    /// wrong.</b> <see cref="CommandLog.Redact"/> takes effect from the moment it
+    /// is called, because the log masks as it records rather than when it is
+    /// read — so a value handed over after <c>claude mcp get</c> has run is a
+    /// value already written into a line the pane will render. The mint used to
+    /// happen inside <see cref="RegisterableEndpoint"/>, two commands later,
+    /// under a remark claiming it came first.</para>
+    ///
+    /// <para>A declared value still carrying <c>${</c> is not yet a secret and is
+    /// not masked as one; it is a placeholder, and masking it would blank the
+    /// very text a person needs to see to understand what their catalog says. Its
+    /// expansion is the secret, and that is seeded here when it is Backlog's own
+    /// token — which is known without expanding anything — and again in
+    /// <see cref="RegisterableEndpoint"/> for anything else the expansion
+    /// produces.</para>
+    /// </remarks>
+    /// <param name="mayMint">Whether this apply is one that is allowed to create
+    /// a token: an HTTP registration somebody asked to be made. Unregistering
+    /// mints nothing, and neither does a stdio row — writing a secret to a
+    /// machine to take a registration <em>away</em> would be the plainest version
+    /// of the thing every guard in this file is about.</param>
+    private void RedactRegistrationSecrets(JsonNode claude, bool mayMint, CommandLog log)
+    {
+        var declaredUrl = GetString(claude, "url");
+        var declaredValues = DevToolConfiguration.ReadHeaders(claude, "headers")
+            .Select(header => header.Value)
+            .Concat(QueryStringValues(declaredUrl))
+            .ToArray();
+
+        foreach (var value in declaredValues.Where(value => !value.Contains("${", StringComparison.Ordinal)))
+        {
+            log.Redact(value);
+        }
+
+        if (mayMint
+            && _mcp is { Enabled: true } mcp
+            && declaredValues.Append(declaredUrl).Any(value => value.Contains(McpPlaceholders.TokenName, StringComparison.Ordinal)))
+        {
+            log.Redact(mcp.EnsureToken());
+        }
+    }
+
+    /// <summary>What a URL carries after its <c>?</c>, value by value.
+    ///
+    /// <para>Split by hand rather than through <see cref="Uri"/>, because the
+    /// string this is handed is routinely not a URL yet: it is the catalog's
+    /// spelling, <c>${BACKLOG_MCP_PORT}</c> and all, which no parser accepts.
+    /// Nothing here needs it to be well formed — what is wanted is the text after
+    /// each <c>=</c>, and a string with no <c>?</c> in it yields nothing.</para></summary>
+    private static IEnumerable<string> QueryStringValues(string url)
+    {
+        var query = url.IndexOf('?', StringComparison.Ordinal);
+
+        if (query < 0)
+        {
+            yield break;
+        }
+
+        foreach (var pair in url[(query + 1)..].Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var separator = pair.IndexOf('=', StringComparison.Ordinal);
+
+            if (separator >= 0 && separator + 1 < pair.Length)
+            {
+                yield return pair[(separator + 1)..];
+            }
+        }
+    }
+
+    /// <summary>
+    /// The URL and the headers one HTTP registration is made with, expanded for
+    /// this machine — or the sentence that says why it cannot be.
+    /// </summary>
+    /// <remarks>
+    /// <para>This is the one call site in the class that expands a token, and it
+    /// refuses outright for a host with no endpoint and for a machine that has
+    /// the server switched off: registering either would write a secret to a
+    /// machine for a server nobody asked to run.</para>
+    ///
+    /// <para>The mint itself is not here. It happens in
+    /// <see cref="RedactRegistrationSecrets"/>, at the top of the apply, because
+    /// the log masks at record time and by the time this runs two commands have
+    /// already gone into it. What this adds is the other direction: whatever the
+    /// expansion <em>produced</em> is handed to the log too, so a header whose
+    /// value came out of a placeholder this file does not special-case is masked
+    /// on the <c>claude mcp add</c> line that carries it.</para>
+    ///
+    /// <para>An unresolved placeholder fails the row rather than being registered
+    /// around it. A URL still carrying <c>${</c> is not a URL, and the add would
+    /// succeed: what fails is every later call, on a machine, with nothing
+    /// pointing at why.</para>
+    /// </remarks>
+    private (DevToolActionResult? Failure, string Url, IReadOnlyList<KeyValuePair<string, string>> Headers) RegisterableEndpoint(
+        string name,
+        JsonNode claude,
+        CommandLog log)
+    {
+        var none = Array.Empty<KeyValuePair<string, string>>();
+
+        if (_mcp is not { } mcp)
+        {
+            return (DevToolActionResult.Failed($"'{name}' was not registered. {EndpointUnresolvable}"), string.Empty, none);
+        }
+
+        if (!mcp.Enabled)
+        {
+            return (
+                DevToolActionResult.Failed(
+                    $"'{name}' was not registered: the MCP server is switched off on this machine, and registering it would "
+                    + "create a token for a server nobody has asked to run. Switch it on first."),
+                string.Empty,
+                none);
+        }
+
+        var declaredUrl = GetString(claude, "url");
+        var declaredHeaders = DevToolConfiguration.ReadHeaders(claude, "headers");
+
+        var resolve = McpPlaceholders.Applying(mcp);
+        var url = McpPlaceholders.Expand(declaredUrl, resolve);
+
+        if (!url.Resolved)
+        {
+            return (DevToolActionResult.Failed($"'{name}' was not registered. {url.Problem}"), string.Empty, none);
+        }
+
+        if (string.IsNullOrWhiteSpace(url.Text))
+        {
+            return (DevToolActionResult.Failed($"'{name}' has no claude.url to register."), string.Empty, none);
+        }
+
+        // Whatever the query string expanded into is a credential on the same
+        // terms the declared one was — ?token=${…} is the shape that reaches
+        // here still spelled as a placeholder.
+        foreach (var value in QueryStringValues(url.Text))
+        {
+            log.Redact(value);
+        }
+
+        var headers = new List<KeyValuePair<string, string>>(declaredHeaders.Count);
+        foreach (var (header, value) in declaredHeaders)
+        {
+            var expanded = McpPlaceholders.Expand(value, resolve);
+
+            if (!expanded.Resolved)
+            {
+                return (DevToolActionResult.Failed($"'{name}' was not registered. {expanded.Problem}"), string.Empty, none);
+            }
+
+            // The expansion, told to the log before the line that carries it is
+            // recorded. The declared spelling was seeded at the top of the apply;
+            // this is what that spelling turned into on this machine, which is
+            // the string that actually goes onto the command line.
+            log.Redact(expanded.Text);
+
+            headers.Add(new KeyValuePair<string, string>(header, expanded.Text));
+        }
+
+        return (null, url.Text, headers);
     }
 
     /// <summary>
@@ -2358,7 +2775,7 @@ public sealed class DevToolService : IDevToolService
 
         return result.ExitCode == 0
             ? DevToolActionResult.Ok($"{application.Id} installed.")
-            : DevToolActionResult.Failed(DescribeInstallFailure(application.Id, spec, result));
+            : DevToolActionResult.Failed(DescribeInstallFailure(application.Id, spec, result, log));
     }
 
     private static async Task<DevToolActionResult> ApplyExtensionApplicationAsync(DevToolApplication application, CommandLog log, CancellationToken ct)
@@ -2381,7 +2798,7 @@ public sealed class DevToolService : IDevToolService
 
         return result.ExitCode == 0
             ? DevToolActionResult.Ok($"{application.Id} installed or already current.")
-            : DevToolActionResult.Failed(CommandFailure(application.Id, result));
+            : DevToolActionResult.Failed(log.Failure(application.Id, result));
     }
 
     private static async Task<DevToolActionResult> ApplyCommandApplicationAsync(DevToolApplication application, CommandLog log, CancellationToken ct)
@@ -2400,7 +2817,7 @@ public sealed class DevToolService : IDevToolService
 
         return result.ExitCode == 0
             ? DevToolActionResult.Ok($"{application.Name} installed.")
-            : DevToolActionResult.Failed(DescribeInstallFailure(application.Name, install, result));
+            : DevToolActionResult.Failed(DescribeInstallFailure(application.Name, install, result, log));
     }
 
     /// <summary>
@@ -2413,12 +2830,19 @@ public sealed class DevToolService : IDevToolService
     /// the entire reason the pane shows a command log. So the honest answer is the
     /// exact line to paste into an admin shell.</para>
     /// </summary>
-    private static string DescribeInstallFailure(string name, DevToolCommandSpec spec, CommandResult result)
+    /// <param name="log">The action's own log, because the sentence is built out
+    /// of what the process printed and only the log knows what may not be
+    /// repeated out of it.</param>
+    private static string DescribeInstallFailure(string name, DevToolCommandSpec spec, CommandResult result, CommandLog log)
     {
-        var failure = CommandFailure(name, result);
+        var failure = log.Failure(name, result);
 
         return NeedsElevation(result)
-            ? $"{failure} This one needs an elevated shell: {string.Join(' ', new[] { spec.FileName }.Concat(spec.LaunchArguments))}"
+            // Through the log's own describer rather than joined here, for the
+            // reason the failure sentence above goes through it: this is a
+            // command line, and a command line is one of the two places a
+            // credential is written down.
+            ? $"{failure} This one needs an elevated shell: {log.Describe(spec.FileName, spec.LaunchArguments)}"
             : failure;
     }
 
@@ -2665,7 +3089,7 @@ public sealed class DevToolService : IDevToolService
         var result = await RunAsync(cli.Command, [.. cli.Prefix, "plugin", "list"], log, ct).ConfigureAwait(false);
         if (result.ExitCode != 0)
         {
-            throw new InvalidOperationException(CommandFailure("Copilot plugin list", result));
+            throw new InvalidOperationException(log.Failure("Copilot plugin list", result));
         }
 
         return new Dictionary<string, string>(DevToolOutput.ParsePluginList(result.Output), StringComparer.OrdinalIgnoreCase);
@@ -2734,17 +3158,45 @@ public sealed class DevToolService : IDevToolService
     /// </summary>
     private static async Task<DevToolOutput.ClaudeMcpServerDetails?> GetClaudeMcpServerAsync(string cli, string name, CommandLog log, CancellationToken ct)
     {
-        var result = await RunAsync(cli, ["mcp", "get", name], log, ct).ConfigureAwait(false);
+        var result = await RunClaudeMcpAsync(cli, ["mcp", "get", name], log, ct).ConfigureAwait(false);
 
         return DevToolOutput.ParseClaudeMcpServer(string.IsNullOrWhiteSpace(result.Output) ? result.Error : result.Output);
     }
+
+    /// <summary>
+    /// A <c>claude mcp</c> call, asked from the user's profile folder.
+    /// </summary>
+    /// <remarks>
+    /// <para>The working directory is the whole of this method. <c>claude mcp get</c>
+    /// has no scope flag: it answers about whichever scope holds the name, and
+    /// project scope is found by walking up from the current directory. This
+    /// repository's own committed <c>.mcp.json</c> declares <c>backlog</c>, so
+    /// asked from inside a worktree the CLI answers <c>Scope: Project config</c> —
+    /// and the apply, correctly, leaves a non-user-scope registration alone. The
+    /// row could then never be managed at all, on the one machine it is being
+    /// developed on.</para>
+    ///
+    /// <para>The leave-alone rule is not what changes, and must not: local ADR
+    /// 0012 §3 depends on a project's own registration being somebody's decision
+    /// rather than ours to sweep. What changes is only where the question is
+    /// asked from, so that the answer is about user scope. Every <c>claude mcp</c>
+    /// launch goes through here — <c>get</c>, <c>add</c> and <c>remove</c> — so
+    /// the read and the write cannot disagree about which scope they are talking
+    /// about.</para>
+    ///
+    /// <para>The existing <c>aspire</c> row is affected in exactly the same way,
+    /// and that is intended rather than collateral: it was reading a project-scope
+    /// answer for the same reason.</para>
+    /// </remarks>
+    private static Task<CommandResult> RunClaudeMcpAsync(string cli, IReadOnlyList<string> arguments, CommandLog log, CancellationToken ct) =>
+        RunAsync(cli, arguments, log, ct, workingDirectory: Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
 
     private static async Task<Dictionary<string, string>> GetInstalledDotNetToolsAsync(CommandLog log, CancellationToken ct)
     {
         var result = await RunAsync("dotnet", ["tool", "list", "--global"], log, ct).ConfigureAwait(false);
         if (result.ExitCode != 0)
         {
-            throw new InvalidOperationException(CommandFailure("dotnet tool list", result));
+            throw new InvalidOperationException(log.Failure("dotnet tool list", result));
         }
 
         return new Dictionary<string, string>(DevToolOutput.ParseDotNetToolList(result.Output), StringComparer.OrdinalIgnoreCase);
@@ -2973,12 +3425,12 @@ public sealed class DevToolService : IDevToolService
         if (Directory.Exists(repoPath))
         {
             var pull = await RunAsync("git", ["-C", repoPath, "pull", "--ff-only"], log, ct).ConfigureAwait(false);
-            return pull.ExitCode == 0 ? "source refreshed" : CommandFailure(ToolDisplayName(plugin), pull);
+            return pull.ExitCode == 0 ? "source refreshed" : log.Failure(ToolDisplayName(plugin), pull);
         }
 
         Directory.CreateDirectory(Path.GetDirectoryName(repoPath) ?? Environment.CurrentDirectory);
         var clone = await RunAsync("git", ["clone", source, repoPath], log, ct).ConfigureAwait(false);
-        return clone.ExitCode == 0 ? "source cloned" : CommandFailure(ToolDisplayName(plugin), clone);
+        return clone.ExitCode == 0 ? "source cloned" : log.Failure(ToolDisplayName(plugin), clone);
     }
 
     private static IEnumerable<JsonNode> GetArray(JsonNode root, string name) =>
@@ -3225,19 +3677,27 @@ public sealed class DevToolService : IDevToolService
     /// <param name="encoding">How to read the redirected streams, defaulting to
     /// UTF-8 — which is what winget writes to a pipe whatever the console code
     /// page is, and is not what <c>wsl.exe</c> writes.</param>
+    /// <param name="workingDirectory">Where to ask from, or nothing to inherit
+    /// this process's own — which is what every launch but the <c>claude mcp</c>
+    /// ones does. See <see cref="RunClaudeMcpAsync"/> for the one question whose
+    /// answer depends on where it was asked.</param>
     private static async Task<CommandResult> RunAsync(
         string fileName,
         IReadOnlyList<string> arguments,
         CommandLog log,
         CancellationToken ct,
         TimeSpan? timeout = null,
-        Encoding? encoding = null)
+        Encoding? encoding = null,
+        string? workingDirectory = null)
     {
         var reader = encoding ?? Encoding.UTF8;
 
         using var process = new Process();
         process.StartInfo = new ProcessStartInfo(fileName)
         {
+            // Empty means "inherit", which is what ProcessStartInfo already does
+            // with it, so the ordinary launch is unchanged.
+            WorkingDirectory = workingDirectory ?? string.Empty,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
@@ -3337,12 +3797,6 @@ public sealed class DevToolService : IDevToolService
         }
     }
 
-    private static string CommandFailure(string name, CommandResult result)
-    {
-        var details = string.IsNullOrWhiteSpace(result.Error) ? result.Output : result.Error;
-        return string.IsNullOrWhiteSpace(details) ? $"{name} failed with exit code {result.ExitCode}." : details.Trim();
-    }
-
     private static string ResolveConfiguredPath(string path) => Environment.ExpandEnvironmentVariables(path);
 
     private sealed record CommandResult(int ExitCode, string Output, string Error);
@@ -3357,6 +3811,17 @@ public sealed class DevToolService : IDevToolService
     /// collector would be a shared mutable that no call site mentions — the
     /// parameter is the point: a method that runs a process says so in its
     /// signature.</para>
+    ///
+    /// <para><b>And the one exit.</b> Everything that turns what a process
+    /// printed into text a person sees is a method on this type — the recorded
+    /// output, the paste-ready command line, a synthesised step's description,
+    /// and <see cref="Failure"/>, which is the sentence a failed action reports.
+    /// That is structural rather than tidy: <see cref="Failure"/> used to be a
+    /// static beside them and returned <c>result.Error</c> verbatim into the
+    /// message the pane renders above the log, so a registration that failed
+    /// showed the token in the message and masked it in the transcript
+    /// underneath. A secret can only be kept out of all of them by one type
+    /// knowing all of them, and this is the type that owns the secrets.</para>
     /// </summary>
     private sealed class CommandLog
     {
@@ -3367,7 +3832,37 @@ public sealed class DevToolService : IDevToolService
 
         private readonly List<DevToolCommand> _commands = [];
 
+        /// <summary>The values nothing this log produces may carry — a token this
+        /// app minted for the action being logged, and every header value the
+        /// entry being applied declares.
+        ///
+        /// <para>Seeded before the first command of an action is recorded, which
+        /// is the only moment that works: <see cref="Captured"/> masks at record
+        /// time, so a value told to this log afterwards is a value that was
+        /// already written down. A <see cref="HashSet{T}"/> rather than a list
+        /// because the same secret is offered from more than one place — the
+        /// declared header and its expansion — and masking it twice would only
+        /// cost passes over every line.</para></summary>
+        private readonly HashSet<string> _secrets = new(StringComparer.Ordinal);
+
         public IReadOnlyList<DevToolCommand> Commands => _commands;
+
+        /// <summary>Keeps one value out of everything this log produces from here
+        /// on — the command line, whatever the command printed, and the sentence
+        /// a failure is reported with.
+        ///
+        /// <para>By value rather than by pattern, which is <see cref="DevToolOutput.Redact"/>'s
+        /// own reasoning: the token arrives on the command line joined into a
+        /// <c>--header</c> argument and comes back in the <c>Headers:</c> block
+        /// the CLI echoes, and a rule written against either of those spellings
+        /// stops working — silently — the day the CLI changes one.</para></summary>
+        public void Redact(string? secret)
+        {
+            if (!string.IsNullOrWhiteSpace(secret))
+            {
+                _secrets.Add(secret);
+            }
+        }
 
         public void Record(string fileName, IReadOnlyList<string> arguments, CommandResult result) =>
             _commands.Add(new DevToolCommand(Describe(fileName, arguments), result.ExitCode, Captured(result)));
@@ -3379,29 +3874,74 @@ public sealed class DevToolService : IDevToolService
         /// only account of what a refresh or an action did, and the two steps that
         /// are not commands — the marketplace lookup and the Claude Desktop config
         /// merge — are precisely the two whose failure is otherwise invisible: a
-        /// column that reads "unknown" and a file that did not change.</para></summary>
+        /// column that reads "unknown" and a file that did not change.</para>
+        ///
+        /// <para>The description is masked as well as the output. It is composed
+        /// by its caller out of a path and a name, and "composed by its caller"
+        /// is exactly the property that stops being true one refactor from
+        /// now.</para></summary>
         public void RecordStep(string description, int exitCode, string output) =>
-            _commands.Add(new DevToolCommand(description, exitCode, Captured(new CommandResult(exitCode, output, string.Empty))));
+            _commands.Add(new DevToolCommand(
+                DevToolOutput.Redact(description, _secrets),
+                exitCode,
+                Captured(new CommandResult(exitCode, output, string.Empty))));
+
+        /// <summary>
+        /// Why an action failed, in the words the process used, and safe to show.
+        /// </summary>
+        /// <remarks>
+        /// <para>On this type and not beside the other statics, because what it
+        /// returns is process output and process output is where a credential
+        /// comes back. This became a <c>DevToolActionResult.Message</c>, which
+        /// the pane renders in the status line directly above the command
+        /// log — so a failing <c>claude mcp add … --header "Authorization: Bearer
+        /// …"</c> printed the redacted line in the transcript and the unredacted
+        /// one in the sentence over it.</para>
+        ///
+        /// <para>Standard error where there is any, and standard output where
+        /// there is not: a CLI that failed quietly on stdout is still a CLI that
+        /// said why. An exit code alone is the last resort and names the thing
+        /// that failed, because "exit code 1" on its own is not a sentence
+        /// anybody can act on.</para>
+        /// </remarks>
+        public string Failure(string name, CommandResult result)
+        {
+            var details = string.IsNullOrWhiteSpace(result.Error) ? result.Output : result.Error;
+
+            return string.IsNullOrWhiteSpace(details)
+                ? $"{name} failed with exit code {result.ExitCode}."
+                : DevToolOutput.Redact(details.Trim(), _secrets);
+        }
 
         /// <summary>The command as something a reader could paste into a shell,
         /// which is the form they will want it in when they go to reproduce
-        /// whatever just failed.</summary>
-        private static string Describe(string fileName, IReadOnlyList<string> arguments) =>
-            string.Join(' ', new[] { Quoted(fileName) }.Concat(arguments.Select(Quoted)));
+        /// whatever just failed. Public because a failure sentence quotes one
+        /// too — see <see cref="DescribeInstallFailure"/> — and a second join of
+        /// the same strings somewhere else is a second place to forget the
+        /// masking.</summary>
+        public string Describe(string fileName, IReadOnlyList<string> arguments) =>
+            DevToolOutput.Redact(
+                string.Join(' ', new[] { Quoted(fileName) }.Concat(arguments.Select(Quoted))),
+                _secrets);
 
         private static string Quoted(string value) =>
             value.Any(char.IsWhiteSpace) ? $"\"{value}\"" : value;
 
-        private static string Captured(CommandResult result)
+        private string Captured(CommandResult result)
         {
             // Standard error after standard output rather than interleaved: the
             // two streams were read separately and their real ordering was lost
             // at that point, so pretending to restore it would be a fiction.
-            var combined = string.Join(
-                Environment.NewLine,
-                new[] { result.Output, result.Error }
-                    .Select(stream => stream.TrimEnd())
-                    .Where(stream => stream.Length > 0));
+            // Redacted before the truncation rather than after it, so a token in
+            // the last hundred characters of a long output is masked whether or
+            // not the tail survives.
+            var combined = DevToolOutput.Redact(
+                string.Join(
+                    Environment.NewLine,
+                    new[] { result.Output, result.Error }
+                        .Select(stream => stream.TrimEnd())
+                        .Where(stream => stream.Length > 0)),
+                _secrets);
 
             return combined.Length <= OutputLimit
                 ? combined

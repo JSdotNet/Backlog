@@ -84,13 +84,21 @@ public enum DevToolProvider
 /// repository's own catalog ships as a command, was dropped before a row was
 /// built and the entry's <c>command</c> was read by nothing at all.</para>
 ///
+/// <para>What it answers is what this host does for this row: install a .NET
+/// tool, register a command, register a URL, or nothing. That is the question
+/// every caller of it asks — which button the row gets, which CLI call the button
+/// makes, and which of the two columns beside it can mean anything — so it is the
+/// question the vocabulary is written to, rather than a count of the shapes the
+/// array happens to hold today.</para>
+///
 /// <para>Declared rather than implied, for the reason
-/// <see cref="DevToolProvider"/> is: two mechanisms in one array is exactly the
-/// shape that needs saying out loud. Unlike an application's, it may be left
-/// unsaid — the entry's own shape answers it, a <c>packageId</c> meaning
-/// <see cref="DotNetTool"/> and a bare <c>command</c> meaning
-/// <see cref="Command"/> — because every catalog on every machine predates the
-/// property and none of them is going to grow one.</para>
+/// <see cref="DevToolProvider"/> is: more than one way onto a machine in one
+/// array is exactly the shape that needs saying out loud. Unlike an
+/// application's, it may be left unsaid — the entry's own shape answers it, a
+/// <c>packageId</c> meaning <see cref="DotNetTool"/>, a <c>type</c> of
+/// <c>http</c> or a bare <c>url</c> meaning <see cref="Http"/>, and a bare
+/// <c>command</c> meaning <see cref="Command"/> — because every catalog on every
+/// machine predates the property and none of them is going to grow one.</para>
 /// </summary>
 public enum DevToolMcpMechanism
 {
@@ -105,6 +113,18 @@ public enum DevToolMcpMechanism
     /// machine or it is not, and what the row can act on is the registration with
     /// each host rather than a package.</summary>
     Command,
+
+    /// <summary>A server reached over HTTP at the <c>url</c> the entry carries,
+    /// identified by its <c>name</c> — which is what
+    /// <c>claude mcp add --transport http</c> registers it under, and never the
+    /// URL, because a URL carries a port that moves.
+    ///
+    /// <para>There is nothing to install here either: the thing at the other end
+    /// of the URL is listening or it is not, and what the row can act on is the
+    /// registration with each host. The URL is the one target a registration can
+    /// be compared against, which is why an HTTP row has a Re-register where a
+    /// .NET tool has an Update.</para></summary>
+    Http,
 
     /// <summary>Nothing this build knows how to install or register — and where
     /// an entry whose <c>mechanism</c> this version does not recognise lands, for
@@ -339,6 +359,60 @@ public static class DevToolCommands
     /// marketplace behind it has been pulled.</summary>
     public static DevToolCommandSpec ClaudePluginList(string cli) =>
         new(cli, ["plugin", "list", "--json"]);
+
+    /// <summary>
+    /// Registering a server that is reached over HTTP rather than started.
+    /// </summary>
+    /// <remarks>
+    /// <para>There is no <c>--</c> anywhere in this vector, and that is the trap
+    /// it is written down to avoid. The <c>--</c> in the stdio call beside it
+    /// belongs to stdio: it separates the flags from the command and the
+    /// arguments that command is to be started with. Put one before a URL and the
+    /// CLI reads the URL as a command to run — the add succeeds, and registers a
+    /// server that can never answer.</para>
+    ///
+    /// <para>Checked against <c>claude mcp add --help</c>: <c>-t/--transport</c>
+    /// takes <c>stdio|sse|http</c>, <c>-s/--scope</c> takes
+    /// <c>local|user|project</c>, and <c>-H/--header</c> repeats. The long forms
+    /// are spelled out for the reason <c>--silent</c> is in
+    /// <see cref="WingetInstall"/>: a short flag in a line nobody reads twice is
+    /// how the wrong one gets typed.</para>
+    ///
+    /// <para>User scope, matching the stdio registration this sits beside: a
+    /// machine-wide tool belongs to the machine, and anything narrower is a
+    /// registration somebody made for one project and did not ask us to
+    /// touch.</para>
+    ///
+    /// <para><paramref name="headers"/> are passed through unread and in order.
+    /// Whatever expansion a value needed happened before this was called — this
+    /// builds a command line and decides nothing about what goes on it.</para>
+    /// </remarks>
+    public static DevToolCommandSpec ClaudeMcpAddHttp(
+        string cli,
+        string name,
+        string url,
+        IReadOnlyList<KeyValuePair<string, string>> headers)
+    {
+        // Two argv elements per header, never one joined string: the value
+        // carries a space after the colon, and every hand-quoted form of that
+        // loses either the space or the quoting.
+        var flags = new List<string>();
+        foreach (var (header, value) in headers)
+        {
+            flags.Add("--header");
+            flags.Add($"{header}: {value}");
+        }
+
+        return new(cli, ["mcp", "add", "--transport", HttpTransportName, "--scope", UserScopeName, name, url, .. flags]);
+    }
+
+    /// <summary>The transport <c>claude mcp add</c> is told to use, which is the
+    /// same word the catalog's <c>type</c> uses for it.</summary>
+    private const string HttpTransportName = "http";
+
+    /// <summary>The scope every registration this app makes is made at: the
+    /// machine's, because a catalog is about a machine.</summary>
+    private const string UserScopeName = "user";
 
     /// <summary>
     /// One mirror brought up to date with its remote, without touching the
@@ -580,6 +654,31 @@ public sealed record DevToolMcpServer(
     /// a space in it.</summary>
     public IReadOnlyList<string> Args { get; init; } = [];
 
+    /// <summary>Where an <see cref="DevToolMcpMechanism.Http"/> server is reached,
+    /// exactly as the catalog spells it — placeholders and all. Expanding one is
+    /// a decision about a single machine, and this is the half that reads the
+    /// file.</summary>
+    public string Url { get; init; } = string.Empty;
+
+    /// <summary>The entry's <c>type</c>, the transport vocabulary the MCP clients
+    /// and their config files already use — <c>http</c>, and the <c>sse</c> and
+    /// whatever else that this build reads as a mechanism it cannot run.
+    ///
+    /// <para>Kept beside <see cref="DeclaredMechanism"/> rather than folded into
+    /// it: a <c>type</c> says what is at the other end of the URL, and a
+    /// <c>mechanism</c> says what this host does about it. They coincide for
+    /// <c>http</c> and nowhere else.</para></summary>
+    public string Type { get; init; } = string.Empty;
+
+    /// <summary>The headers the registration carries, in the order the catalog
+    /// lists them.
+    ///
+    /// <para>Ordered, and a list of pairs rather than a dictionary, because the
+    /// order is what the repeated <c>--header</c> flags are built from and
+    /// because a hand-edited file may name the same header twice. Values are
+    /// unexpanded for the reason <see cref="Url"/>'s are.</para></summary>
+    public IReadOnlyList<KeyValuePair<string, string>> Headers { get; init; } = [];
+
     /// <inheritdoc cref="DevToolClaudeDesktopServer.CommandLine" />
     public string CommandLine => string.Join(' ', new[] { Command }.Concat(Args)).Trim();
 
@@ -615,15 +714,23 @@ public sealed record DevToolMcpServer(
     /// <c>DevToolService.ToolDisplayName</c> makes for a failure message, and for
     /// the same reason — a row has to be called something, and the empty string
     /// this used to return was a nameless line under "MCP servers" whose remove
-    /// control offered to "Remove  from the catalog".</para></summary>
+    /// control offered to "Remove  from the catalog".</para>
+    ///
+    /// <para>An HTTP entry has to carry a name —
+    /// <see cref="DevToolConfiguration.ReadMcpServer"/> refuses one that does
+    /// not — so it reads as that name. The URL is the last fallback rather than
+    /// the answer: a shape the reader does not produce, but one a caller building
+    /// a record of these by hand can.</para></summary>
     public string DisplayName => PackageId.Length == 0
-        ? Name.Length == 0 ? CommandLine : Name
+        ? Name.Length == 0 ? FirstNonEmpty(CommandLine, Url) : Name
         : Name.Length == 0 ? PackageId : $"{Name} ({PackageId})";
 
     /// <summary>Where the row says it comes from: the package for a .NET tool,
-    /// and the command line for a server that is registered rather than
-    /// installed.</summary>
-    public string Source => PackageId.Length == 0 ? CommandLine : PackageId;
+    /// the command line for a server that is registered rather than installed,
+    /// and the URL for one that is reached rather than started.</summary>
+    public string Source => PackageId.Length == 0 ? FirstNonEmpty(CommandLine, Url) : PackageId;
+
+    private static string FirstNonEmpty(string first, string second) => first.Length == 0 ? second : first;
 }
 
 /// <summary>
@@ -684,6 +791,23 @@ public sealed record DevToolHostState(
 
     /// <inheritdoc cref="InstalledAuthority" />
     public DevToolVersionAuthority AvailableAuthority { get; init; } = DevToolVersionAuthority.Unattributed;
+
+    /// <summary>
+    /// Whether this host's registration points somewhere other than where the
+    /// catalog says it should — a server registered against last week's port, or
+    /// over the transport an older build of this app would have used.
+    ///
+    /// <para>Set by the describer that already knows, rather than re-derived from
+    /// the two version columns by whoever draws the row. Those columns are prose
+    /// as often as they are targets — "registered at another scope", "not
+    /// registered" — and a caller re-deriving drift from them would be parsing
+    /// sentences to recover a fact the describer had in its hand and threw
+    /// away.</para>
+    ///
+    /// <para>Defaults to false, so every state built positionally behaves exactly
+    /// as it did: nothing drifted until something says so.</para>
+    /// </summary>
+    public bool RegistrationDrifted { get; init; }
 
     /// <summary>Whether the two columns are about the same thing at all.
     ///
@@ -816,6 +940,24 @@ public sealed record DevToolInfo(
     public bool CanUpdate => Installable && ConfiguredEnabled && (HostStates.Count > 0
         ? HostStates.Any(state => state.Installed && state.ReportsUpdate)
         : Installed && UpdateAvailable);
+
+    /// <summary>
+    /// A registration that exists and points at the wrong thing, on any targeted
+    /// host — the one offer that repairs it, which is to make it again.
+    ///
+    /// <para>Not <see cref="CanUpdate"/> under another name, and it cannot be
+    /// folded into it: that one is gated on <see cref="Installable"/>, and a
+    /// server reached over HTTP or started by a command has nothing to install,
+    /// so it would never qualify. Loosening <see cref="Installable"/> to let it
+    /// through would be worse than leaving it — <see cref="CanInstall"/> reads the
+    /// same flag, and the row would grow an Install button with nothing behind
+    /// it.</para>
+    ///
+    /// <para>Which is also what this repairs. A command-registered server has been
+    /// able to drift since the day the mechanism was added, and all the row could
+    /// do about it was say so in its status.</para>
+    /// </summary>
+    public bool CanReRegister => ConfiguredEnabled && HostStates.Any(state => state.Installed && state.RegistrationDrifted);
 
     /// <summary>A tool this machine is configured to have and does not.
     ///
@@ -1065,6 +1207,16 @@ public sealed record DevToolDraft(
 
     /// <inheritdoc cref="ClaudeArgs" />
     public IReadOnlyList<string> ServerArgs { get; init; } = [];
+
+    /// <summary>Where a <see cref="DevToolMcpMechanism.Http"/> server is reached,
+    /// written as the entry's own <c>url</c> beside a <c>type</c> of
+    /// <c>http</c>.</summary>
+    public string? ServerUrl { get; init; }
+
+    /// <summary>The headers that registration carries, in the order they are to
+    /// be sent — the order the repeated <c>--header</c> flags are built
+    /// from.</summary>
+    public IReadOnlyList<KeyValuePair<string, string>> ServerHeaders { get; init; } = [];
 
     /// <summary>What installs the new application, for
     /// <see cref="DevToolKind.Application"/> and nothing else.
@@ -1353,6 +1505,25 @@ public static class DevToolConfiguration
     public static readonly IReadOnlyList<string> McpServerIdNames = ["packageId", "name", "command"];
 
     /// <summary>
+    /// Every property that proves there is something to reach, as opposed to
+    /// something to call it: a package to install, a command to start, or a URL
+    /// to open.
+    ///
+    /// <para>Read by both <see cref="ReadMcpServer"/> and
+    /// <see cref="TryReadCatalog"/>, so the two cannot come apart again. Them
+    /// disagreeing <em>was</em> the bug — the comment in the reader records it —
+    /// and a third way to reach a server is exactly the change that would
+    /// reintroduce it if each half carried its own list.</para>
+    ///
+    /// <para>Deliberately not <see cref="McpServerIdNames"/>, which answers a
+    /// different question. A URL is a way to reach a server and never a way to
+    /// identify one: it carries a port that moves, and an override stored under
+    /// it would read back as never saved the first time the port
+    /// changed.</para>
+    /// </summary>
+    public static readonly IReadOnlyList<string> McpServerAddressNames = ["packageId", "command", "url"];
+
+    /// <summary>
     /// Every property an entry of one array can be identified by, in precedence
     /// order — which is the single property <see cref="ParseKey"/> named for three
     /// of the four arrays, and <see cref="McpServerIdNames"/> for the fourth.
@@ -1365,6 +1536,85 @@ public static class DevToolConfiguration
     public static IReadOnlyList<string> IdNamesFor(string arrayName, string idName) =>
         arrayName.Equals(McpServersArrayName, StringComparison.Ordinal) ? McpServerIdNames : [idName];
 
+    /// <summary>
+    /// Whether a registration a host reports still points where the catalog says
+    /// it should.
+    /// </summary>
+    /// <param name="declaredType">The transport the catalog entry declares, or
+    /// empty for an entry that declares none — every command-registered entry
+    /// ever written.</param>
+    /// <param name="expectedTarget">Where it should point: the URL for an HTTP
+    /// entry, the command line for a command one, with whatever expansion it
+    /// needed already done.</param>
+    /// <param name="details">What the host answered, or nothing when it has no
+    /// such registration.</param>
+    /// <remarks>
+    /// <para>Nothing registered is not drift. It is absence, which is a different
+    /// row state with a different offer behind it: a registration that was never
+    /// made cannot have moved.</para>
+    ///
+    /// <para>A transport that disagrees is drift on its own, whatever the targets
+    /// say. A stdio registration of a server the catalog reaches over HTTP is one
+    /// an older build of this app would have written, and it cannot work — the
+    /// URL would have been run as a command.</para>
+    ///
+    /// <para>Both targets are normalised as URIs where both parse as one, so a
+    /// trailing slash and the case of a scheme are not drift. The CLI prints back
+    /// the string it was handed and a person hand-edits the catalog, so a literal
+    /// comparison would put a Re-register on a row forever and clear nothing by
+    /// pressing it. Where either side is not a URI — a command line — they are
+    /// compared as the text they are.</para>
+    /// </remarks>
+    public static bool RegistrationDrifted(string declaredType, string expectedTarget, DevToolOutput.ClaudeMcpServerDetails? details)
+    {
+        if (details is null)
+        {
+            return false;
+        }
+
+        var declared = declaredType.Trim();
+        var registeredType = details.Type.Trim();
+
+        if (declared.Length > 0 && registeredType.Length > 0
+            && !declared.Equals(registeredType, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        // Whichever of the two the host reported. A registration carries one
+        // target — a URL or a command — and reading the empty one as a mismatch
+        // would make every stdio registration drift the moment a URL was expected.
+        var registeredTarget = details.Url.Trim() is { Length: > 0 } url ? url : details.Command.Trim();
+        var expected = expectedTarget.Trim();
+
+        if (registeredTarget.Length == 0 || expected.Length == 0)
+        {
+            // Nothing to compare is not a mismatch. A host that printed neither is
+            // a parse this build did not understand, and reporting drift from it
+            // would be reporting on nothing.
+            return false;
+        }
+
+        return !SameTarget(expected, registeredTarget);
+    }
+
+    /// <summary>Two targets that address the same thing.
+    ///
+    /// <para>URI-normalised where both parse — which folds the case of a scheme
+    /// and a host — and with a trailing slash taken off both ends, because
+    /// <c>/mcp</c> and <c>/mcp/</c> are one endpoint and
+    /// <see cref="Uri.AbsoluteUri"/> keeps them apart.</para></summary>
+    private static bool SameTarget(string expected, string registered)
+    {
+        if (Uri.TryCreate(expected, UriKind.Absolute, out var expectedUri)
+            && Uri.TryCreate(registered, UriKind.Absolute, out var registeredUri))
+        {
+            return expectedUri.AbsoluteUri.TrimEnd('/').Equals(registeredUri.AbsoluteUri.TrimEnd('/'), StringComparison.OrdinalIgnoreCase);
+        }
+
+        return expected.Equals(registered, StringComparison.OrdinalIgnoreCase);
+    }
+
     /// <summary>The <c>mechanism</c> string a <see cref="DevToolMcpMechanism"/> is
     /// written as. Exhaustive for the reason <see cref="ProviderName"/> is: a
     /// mechanism added and not spelled out here would be written as another
@@ -1373,8 +1623,15 @@ public static class DevToolConfiguration
     {
         DevToolMcpMechanism.DotNetTool => "dotnet-tool",
         DevToolMcpMechanism.Command => "command",
+        DevToolMcpMechanism.Http => HttpTypeName,
         DevToolMcpMechanism.Manual => "manual"
     };
+
+    /// <summary>What the catalog's <c>type</c> calls the one transport this build
+    /// can register, and — because they are the same word — what its
+    /// <c>mechanism</c> calls the mechanism behind it. Spelled once: the reader,
+    /// the writer and the registration section all test against it.</summary>
+    public const string HttpTypeName = "http";
 
     /// <summary>
     /// Which mechanism a <c>mechanism</c> string names, or nothing when the entry
@@ -1391,6 +1648,7 @@ public static class DevToolConfiguration
         null or "" => null,
         "dotnet-tool" => DevToolMcpMechanism.DotNetTool,
         "command" => DevToolMcpMechanism.Command,
+        HttpTypeName => DevToolMcpMechanism.Http,
         _ => DevToolMcpMechanism.Manual
     };
 
@@ -1423,10 +1681,10 @@ public static class DevToolConfiguration
     }
 
     /// <summary>
-    /// One MCP server entry, or nothing when it carries neither a <c>packageId</c>
-    /// nor a <c>command</c> — an entry no override can reach and no button can act
-    /// on, which is exactly the bar <see cref="TryReadCatalog"/> holds this array
-    /// to.
+    /// One MCP server entry, or nothing when it carries none of
+    /// <see cref="McpServerAddressNames"/> — an entry no override can reach and no
+    /// button can act on, which is exactly the bar <see cref="TryReadCatalog"/>
+    /// holds this array to, out of that same list.
     ///
     /// <para>The same bar, deliberately, and it has to be said here rather than
     /// left to the import: a hand-edited <c>{"name": "foo", "enabled": true}</c> is
@@ -1436,12 +1694,17 @@ public static class DevToolConfiguration
     /// sitting in a catalog that would be refused the moment somebody exported it
     /// and read it back.</para>
     ///
-    /// <para>The mechanism is the entry's own <c>mechanism</c> when it names one,
-    /// and the shape of the entry otherwise: a <c>packageId</c> is a .NET tool and
-    /// a bare <c>command</c> is a registration. Silence is read rather than
-    /// defaulted because every catalog in existence is silent, and reading it as
-    /// ".NET tool" would put a blank package id in front of
-    /// <c>dotnet tool install</c>.</para>
+    /// <para>The mechanism is <see cref="McpMechanismFor"/>'s answer: the entry's
+    /// own <c>mechanism</c> when it names one, and the shape of the entry
+    /// otherwise. Silence is read rather than defaulted because every catalog in
+    /// existence is silent, and reading it as ".NET tool" would put a blank
+    /// package id in front of <c>dotnet tool install</c>.</para>
+    ///
+    /// <para>And nothing when an HTTP entry carries no <c>name</c>. A URL says
+    /// where to reach the server, not what to call it, and both halves of every
+    /// act on the row — the key it is overridden and removed by, and the first
+    /// positional argument <c>claude mcp add --transport http</c> takes — are the
+    /// name.</para>
     /// </summary>
     public static DevToolMcpServer? ReadMcpServer(JsonNode? node)
     {
@@ -1453,9 +1716,13 @@ public static class DevToolConfiguration
         var packageId = GetString(entry, "packageId").Trim();
         var name = GetString(entry, "name").Trim();
         var command = GetString(entry, "command").Trim();
+        var type = GetString(entry, "type").Trim();
+        var url = GetString(entry, "url").Trim();
 
         // The identity, and the one place the precedence in McpServerIdNames is
-        // actually applied to an entry.
+        // actually applied to an entry. The URL is not among the candidates: it
+        // is how the server is reached, not what it is called — see
+        // McpServerAddressNames for the difference the two lists are about.
         var (idName, id) = packageId.Length > 0
             ? (McpServerIdNames[0], packageId)
             : name.Length > 0
@@ -1469,19 +1736,33 @@ public static class DevToolConfiguration
         // same reason rather than drawn as a row nothing behind it can act on —
         // which also subsumes the entry that carries no identity of any kind, the
         // shape this used to be the only guard against.
-        if (packageId.Length == 0 && command.Length == 0)
+        if (packageId.Length == 0 && command.Length == 0 && url.Length == 0)
         {
             return null;
         }
 
-        // Which leaves the inference below resting on that guard: past it, an
-        // entry with no packageId has a command, so "no package" really does mean
-        // "registered by the command it declares" rather than "shape unknown".
-        // Manual is not inferred at all — it is what an entry has to say out loud,
-        // or what an unrecognised mechanism degrades to.
-        var declared = GetString(entry, "mechanism").Trim();
-        var mechanism = ParseMcpMechanism(declared)
-            ?? (packageId.Length > 0 ? DevToolMcpMechanism.DotNetTool : DevToolMcpMechanism.Command);
+        var (mechanism, declared) = McpMechanismFor(entry);
+
+        // An HTTP entry is refused without a name, and this is the one shape
+        // where the addressability guard above is not enough: a URL proves there
+        // is something to reach, and the identity precedence then falls through
+        // the absent name to the absent command, giving an empty id under the key
+        // "mcp:command=" — a row nothing can remove, override or register.
+        // `claude mcp add --transport http` takes the name as its first
+        // positional argument, so there is no registering one without it either.
+        if (mechanism is DevToolMcpMechanism.Http && name.Length == 0)
+        {
+            return null;
+        }
+
+        // The same for any other shape that reaches this with nothing to be
+        // addressed by — a url-bearing entry whose transport this build does not
+        // know, which the guard above no longer subsumes now that a URL is proof
+        // of reachability.
+        if (id.Length == 0)
+        {
+            return null;
+        }
 
         return new DevToolMcpServer(id, idName, mechanism, GetBool(entry, "enabled"))
         {
@@ -1489,11 +1770,81 @@ public static class DevToolConfiguration
             Name = name,
             Command = command,
             Args = ReadArgs(entry["args"]),
+            Url = url,
+            Type = type,
+            Headers = ReadHeaders(entry["headers"]),
             Hosts = ParseHosts(entry),
             DeclaredMechanism = declared,
             MechanismRecognised = declared.Length == 0
                 || McpMechanismName(mechanism).Equals(declared, StringComparison.OrdinalIgnoreCase)
         };
+    }
+
+    /// <summary>
+    /// What this host does for one entry, and the string the entry said it by —
+    /// empty when it said nothing, which is the ordinary case.
+    ///
+    /// <para>Here rather than inside <see cref="ReadMcpServer"/> because
+    /// <see cref="TryReadCatalog"/> has to ask the same question of the same
+    /// entry: the rule that an HTTP entry needs a name is only the same rule in
+    /// both halves if "is this an HTTP entry" is answered in one place.</para>
+    ///
+    /// <para>A declared <c>mechanism</c> wins outright — that is what declaring
+    /// one is for. Otherwise the entry's shape answers, in the order a shape can
+    /// be trusted: a <c>packageId</c> is a .NET tool, an <c>http</c> transport or
+    /// a bare <c>url</c> is a server to reach, and what is left is the
+    /// <c>command</c> that starts one.</para>
+    ///
+    /// <para>A <c>type</c> this build does not know is read <em>against the shape
+    /// beside it</em> rather than ahead of it, and the difference is the whole of
+    /// this method's history. A transport is not a mechanism: the shape a person
+    /// pastes out of a <c>.mcp.json</c> is
+    /// <c>{"type": "stdio", "command": "…-mcpserver"}</c>, and reading that as
+    /// <see cref="DevToolMcpMechanism.Manual"/> stopped registering an entry that
+    /// registered perfectly well before the <c>type</c> line existed — a
+    /// regression with nothing pointing at it, on the one shape this feature's
+    /// premise is that people paste. So an unknown transport on an entry that
+    /// names a <c>packageId</c> or a <c>command</c> is a redundant label, and the
+    /// label is dropped rather than reported: naming it in the row's "not a
+    /// mechanism this build knows" note would point at the wrong word.</para>
+    ///
+    /// <para>Only an entry with nothing to fall back on lands on
+    /// <see cref="DevToolMcpMechanism.Manual"/>, carrying the type as the declared
+    /// string: <c>sse</c> with a URL and no command is a real transport in real
+    /// config files that nothing here can speak, and registering it over HTTP
+    /// because it happens to have a URL is the silent wrong answer.</para>
+    /// </summary>
+    private static (DevToolMcpMechanism Mechanism, string Declared) McpMechanismFor(JsonObject entry)
+    {
+        var declared = GetString(entry, "mechanism").Trim();
+        var type = GetString(entry, "type").Trim();
+        var unknownTransport = type.Length > 0 && !type.Equals(HttpTypeName, StringComparison.OrdinalIgnoreCase);
+
+        if (ParseMcpMechanism(declared) is { } stated)
+        {
+            return (stated, declared);
+        }
+
+        var packageId = GetString(entry, "packageId").Trim();
+        var command = GetString(entry, "command").Trim();
+        var url = GetString(entry, "url").Trim();
+
+        if (unknownTransport)
+        {
+            return packageId.Length > 0
+                ? (DevToolMcpMechanism.DotNetTool, string.Empty)
+                : command.Length > 0
+                    ? (DevToolMcpMechanism.Command, string.Empty)
+                    : (DevToolMcpMechanism.Manual, type);
+        }
+
+        var inferred = packageId.Length > 0
+            ? DevToolMcpMechanism.DotNetTool
+            : type.Length > 0 || url.Length > 0
+                ? DevToolMcpMechanism.Http
+                : DevToolMcpMechanism.Command;
+
+        return (inferred, string.Empty);
     }
 
     /// <summary>
@@ -1519,7 +1870,35 @@ public static class DevToolConfiguration
             return claude;
         }
 
-        if (server is not JsonObject entry || GetString(entry, "command").Trim() is not { Length: > 0 } command)
+        if (server is not JsonObject entry)
+        {
+            return null;
+        }
+
+        // An HTTP entry synthesises the other shape: what to call it, the
+        // transport, where to reach it, and what to send with the request.
+        // Placeholders are left exactly as the catalog spells them — this feeds
+        // the listing as well as the registration, and the listing is a place a
+        // token must never be expanded into.
+        if (McpMechanismFor(entry) is (DevToolMcpMechanism.Http, _)
+            && GetString(entry, "url").Trim() is { Length: > 0 } url)
+        {
+            var http = new JsonObject
+            {
+                ["name"] = GetString(entry, "name").Trim(),
+                ["type"] = HttpTypeName,
+                ["url"] = url
+            };
+
+            if (HeadersObjectFor(ReadHeaders(entry["headers"])) is { } headers)
+            {
+                http["headers"] = headers;
+            }
+
+            return http;
+        }
+
+        if (GetString(entry, "command").Trim() is not { Length: > 0 } command)
         {
             return null;
         }
@@ -1542,6 +1921,62 @@ public static class DevToolConfiguration
         }
 
         return section;
+    }
+
+    /// <summary>
+    /// A <c>headers</c> object read as ordered name/value pairs, skipping any
+    /// value that is not a string — <see cref="ReadArgs"/>'s tolerance, for the
+    /// same reason: the catalog is hand-edited, and a number where a header value
+    /// belongs is one header nobody can send rather than a whole catalog that
+    /// fails to load.
+    ///
+    /// <para>Ordered, because the order is what the repeated <c>--header</c>
+    /// flags are built from — a <see cref="JsonObject"/> enumerates in the order
+    /// it was parsed, which is the order the file lists.</para>
+    /// </summary>
+    private static IReadOnlyList<KeyValuePair<string, string>> ReadHeaders(JsonNode? node)
+    {
+        if (node is not JsonObject declared)
+        {
+            return [];
+        }
+
+        var headers = new List<KeyValuePair<string, string>>();
+        foreach (var (name, value) in declared)
+        {
+            if (name.Trim() is { Length: > 0 } header && value is JsonValue text && text.TryGetValue<string>(out var content))
+            {
+                headers.Add(new KeyValuePair<string, string>(header, content));
+            }
+        }
+
+        return headers;
+    }
+
+    /// <summary>The headers of a registration section, in order —
+    /// <see cref="ReadStrings"/>'s counterpart for the one property that is an
+    /// object rather than an array. Public because the host that runs
+    /// <c>claude mcp add</c> reads the section this file writes.</summary>
+    public static IReadOnlyList<KeyValuePair<string, string>> ReadHeaders(JsonNode? node, string name) =>
+        node is JsonObject entry ? ReadHeaders(entry[name]) : [];
+
+    /// <summary>Ordered pairs written back as a JSON object, or nothing when
+    /// there are none — so an entry with no headers carries no empty
+    /// <c>headers</c> line for the next reader to wonder about.</summary>
+    private static JsonObject? HeadersObjectFor(IReadOnlyList<KeyValuePair<string, string>> headers)
+    {
+        if (headers.Count == 0)
+        {
+            return null;
+        }
+
+        var written = new JsonObject();
+        foreach (var (name, value) in headers)
+        {
+            written[name] = value;
+        }
+
+        return written;
     }
 
     /// <summary>A string array read as strings, skipping anything that is not
@@ -1794,9 +2229,14 @@ public static class DevToolConfiguration
                 // sentence does too: telling somebody registering the Aspire CLI
                 // server to name a package id would be asking for the one thing
                 // that entry does not have.
-                DevToolKind.McpServer => draft.McpMechanism is DevToolMcpMechanism.DotNetTool
-                    ? "An MCP server needs a package id."
-                    : "An MCP server registered by a command needs a name.",
+                DevToolKind.McpServer => draft.McpMechanism switch
+                {
+                    DevToolMcpMechanism.DotNetTool => "An MCP server needs a package id.",
+                    // The name is not decoration for this one: it is the first
+                    // positional argument of `claude mcp add --transport http`.
+                    DevToolMcpMechanism.Http => "An MCP server reached over HTTP needs a name.",
+                    DevToolMcpMechanism.Command or DevToolMcpMechanism.Manual => "An MCP server registered by a command needs a name."
+                },
                 DevToolKind.Marketplace => "A marketplace needs a name.",
                 DevToolKind.Application => "An application needs an id."
             });
@@ -1832,9 +2272,20 @@ public static class DevToolConfiguration
         // that names neither is an entry with nothing to install and nothing to
         // register — which is the row the import validator already refuses a
         // catalog for carrying.
+        // And the HTTP half of the same rule: a server reached rather than
+        // started says where, and one that names no URL is the entry the reader
+        // and the import validator both refuse.
         if (draft.Kind is DevToolKind.McpServer
-            && draft.McpMechanism is not DevToolMcpMechanism.DotNetTool
-            && string.IsNullOrWhiteSpace(draft.ServerCommand))
+            && draft.McpMechanism is DevToolMcpMechanism.Http
+            && string.IsNullOrWhiteSpace(draft.ServerUrl))
+        {
+            throw new InvalidOperationException("An MCP server reached over HTTP needs the URL that serves it.");
+        }
+
+        if (draft.Kind is DevToolKind.McpServer
+            && draft.McpMechanism is not DevToolMcpMechanism.DotNetTool and not DevToolMcpMechanism.Http
+            && string.IsNullOrWhiteSpace(draft.ServerCommand)
+            && string.IsNullOrWhiteSpace(draft.ServerUrl))
         {
             throw new InvalidOperationException("An MCP server that is not a .NET tool needs the command that registers it.");
         }
@@ -1951,11 +2402,26 @@ public static class DevToolConfiguration
                     entry["args"] = args;
                 }
 
+                // The HTTP shape, which says the same thing about itself that a
+                // command entry does: the transport and the URL are what the
+                // server is, and any host that targets it registers from them.
+                if (draft.McpMechanism is DevToolMcpMechanism.Http)
+                {
+                    entry["type"] = HttpTypeName;
+                    WriteIfPresent(entry, "url", draft.ServerUrl);
+
+                    if (HeadersObjectFor(draft.ServerHeaders) is { } headers)
+                    {
+                        entry["headers"] = headers;
+                    }
+                }
+
                 // Written only when the entry's own shape cannot say it. A
-                // packageId means a .NET tool and a bare command means a
-                // registration, and a `mechanism` line that restates the shape is
-                // a line the next reader has to go and check against it — but a
-                // mechanism neither shape implies has nowhere else to live.
+                // packageId means a .NET tool, an http type means a server to
+                // reach and a bare command means a registration, and a
+                // `mechanism` line that restates the shape is a line the next
+                // reader has to go and check against it — but a mechanism no
+                // shape implies has nowhere else to live.
                 if (draft.McpMechanism is DevToolMcpMechanism.Manual)
                 {
                     entry["mechanism"] = McpMechanismName(draft.McpMechanism);
@@ -2152,7 +2618,8 @@ public static class DevToolConfiguration
         // Aspire CLI server is wired, and how this repository's own catalog ships it.
         // Demanding a packageId of both made the product refuse a file it produced.
         if (!EveryEntryCarriesAnId(plugins, "plugins", out error, "name")
-            || !EveryEntryCarriesAnId(servers, "mcpServers", out error, "packageId", "command")
+            || !EveryEntryCarriesAnId(servers, McpServersArrayName, out error, [.. McpServerAddressNames])
+            || !EveryHttpServerCarriesAName(servers, out error)
             || !EveryEntryCarriesAnId(marketplaces, MarketplacesPath, out error, "name")
             || !EveryEntryCarriesAnId(applications, ApplicationsArrayName, out error, ApplicationIdName))
         {
@@ -2756,6 +3223,43 @@ public static class DevToolConfiguration
         return true;
     }
 
+    /// <summary>
+    /// The separate bar an HTTP entry is held to: a <c>url</c> proves there is
+    /// something to reach, and the <c>name</c> is what reaches it.
+    ///
+    /// <para>Its own check with its own sentence rather than another candidate in
+    /// <see cref="McpServerAddressNames"/>, because it is not the same question —
+    /// every other entry in this array may leave the name out, and telling
+    /// somebody a <c>packageId</c> would do just as well would be advice that
+    /// makes the entry worse. <see cref="McpMechanismFor"/> is what decides an
+    /// entry is an HTTP one, so this and <see cref="ReadMcpServer"/> refuse the
+    /// same files.</para>
+    /// </summary>
+    private static bool EveryHttpServerCarriesAName(JsonArray? array, out string error)
+    {
+        error = string.Empty;
+
+        if (array is null)
+        {
+            return true;
+        }
+
+        for (var index = 0; index < array.Count; index++)
+        {
+            if (array[index] is not JsonObject entry
+                || McpMechanismFor(entry) is not (DevToolMcpMechanism.Http, _)
+                || !string.IsNullOrWhiteSpace(GetString(entry, "name")))
+            {
+                continue;
+            }
+
+            error = $"{DescribeEntry(array[index], index)} in \"{McpServersArrayName}\" is reached at a \"url\" and needs a \"name\" to register it under.";
+            return false;
+        }
+
+        return true;
+    }
+
     /// <summary>How to point at the entry that was refused: by its name when it
     /// has one, and otherwise by the only handle left, its place in the array —
     /// counted from one, because that is how a person reads a list.</summary>
@@ -3047,6 +3551,27 @@ public interface IDevToolService
     /// install behind it is not touched.</para>
     /// </summary>
     Task<DevToolActionResult> RemoveStaleCacheAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Raised when something outside this pane changed what a listing would
+    /// answer.
+    ///
+    /// <para>The machine's own MCP server is the case it exists for: its port is a
+    /// setting somebody edits on another screen, and its listener starts, fails to
+    /// bind and stops without anybody pressing anything here. A row written from
+    /// that port is stale the moment either moves, and the pane has no other way
+    /// to find out.</para>
+    ///
+    /// <para>On whatever thread raised it, which is a thread pool thread whenever
+    /// a bind or a release produced it. A renderer subscribing to this has to
+    /// marshal — the same contract <c>McpServerWorker.Changed</c> carries, because
+    /// this is very often that event forwarded.</para>
+    ///
+    /// <para>A host with nothing behind it declares this and never raises it. It
+    /// is not a promise that anything ever changes; it is the only way to hear
+    /// about it when something does.</para>
+    /// </summary>
+    event Action? Changed;
 }
 
 public sealed class UnsupportedDevToolService : IDevToolService
@@ -3090,4 +3615,17 @@ public sealed class UnsupportedDevToolService : IDevToolService
 
     public Task<DevToolActionResult> RemoveStaleCacheAsync(CancellationToken ct = default) =>
         Task.FromResult(DevToolActionResult.Failed(Message));
+
+    /// <summary>Nothing here ever changes, so nothing is ever raised.
+    ///
+    /// <para>Empty accessors rather than an auto-implemented event, which would be
+    /// a field nothing assigns and a CS0067 on a build that treats warnings as
+    /// errors. They also say the thing plainly: a subscriber is accepted and
+    /// discarded, so a pane that listens to this host holds nothing and leaks
+    /// nothing.</para></summary>
+    public event Action? Changed
+    {
+        add { }
+        remove { }
+    }
 }

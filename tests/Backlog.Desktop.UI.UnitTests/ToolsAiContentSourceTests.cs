@@ -1,3 +1,5 @@
+using Backlog.Desktop.WebHarness;
+using Backlog.Infrastructure.FileSystem;
 using Backlog.Modules.DevPc.Abstractions;
 using Backlog.Modules.DevPc.UI;
 using Backlog.SharedKernel.Ai;
@@ -44,6 +46,79 @@ public class ToolsAiContentSourceTests
         Assert.Equal("Tools: 1 entry.\nCatalog: Tool management is only available in the desktop app.", content.Body);
     }
 
+    /// <summary>
+    /// The catalog a machine shares with an assistant, for a server reached over
+    /// HTTP.
+    ///
+    /// <para>This is the shared content the Ask AI port composes, which is to say
+    /// text that leaves the machine. A row that carried an expanded bearer token
+    /// would put this machine's MCP credential into a prompt — so the rule is that
+    /// nothing in a row is ever the expansion of one, and this is where that is
+    /// held against a real read of a real catalog rather than against a row built
+    /// by hand to pass.</para>
+    ///
+    /// <para>Through the harness adapter deliberately: it composes no endpoint
+    /// source at all, so what it produces is the unexpanded truth of the file.
+    /// The desktop head cannot be reached from a test project, which is why the
+    /// expansion itself is pinned in <c>McpEndpointExpansionTests</c>
+    /// instead.</para>
+    ///
+    /// <para><b>The positive half is what makes the negative half mean
+    /// anything.</b> An assertion that a header value is absent proves nothing on
+    /// its own — no row type has ever carried one, so it would pass with this
+    /// whole feature reverted and with the catalog unread. So the entry's
+    /// <em>other</em> unexpanded text is asserted present first: the port
+    /// placeholder, verbatim out of the file. That is this row reaching the
+    /// shared body with its catalog spelling intact, which is exactly the path a
+    /// header value would take the day somebody adds one — and the day they do,
+    /// the three assertions under it fail.</para>
+    /// </summary>
+    [Fact]
+    public async Task An_http_row_shares_its_url_and_none_of_its_headers()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "backlog-tools-ai-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(root, ".tools"));
+        File.WriteAllText(
+            Path.Combine(root, ".tools", DevToolConfigurationPaths.CatalogFileName),
+            """
+            {
+              "plugins": [],
+              "mcpServers": [
+                {
+                  "name": "backlog",
+                  "type": "http",
+                  "url": "http://127.0.0.1:${BACKLOG_MCP_PORT}/mcp",
+                  "headers": {
+                    "Authorization": "Bearer ${BACKLOG_MCP_TOKEN}",
+                    "X-Api-Key": "sk-live-abc123"
+                  },
+                  "hosts": [ "claude" ],
+                  "enabled": true
+                }
+              ]
+            }
+            """);
+
+        var tools = new LocalDevelopmentDevToolService(
+            TasksTestHost.TaskStoreFor(new WorkspaceSettingsStore(root, Path.Combine(root, "settings.json"))));
+
+        var content = await new ToolsAiContentSource(tools)
+            .ComposeAsync(new AiContentRequest("nothing shared", 6000), TestContext.Current.CancellationToken);
+
+        // The row is there, and the catalog's own unexpanded text reaches the
+        // body — so what follows is about what was left out rather than about a
+        // catalog nothing read.
+        Assert.Contains("backlog", content.Body, StringComparison.Ordinal);
+        Assert.Contains("${BACKLOG_MCP_PORT}", content.Body, StringComparison.Ordinal);
+
+        // A literal credential somebody typed into the Add-a-tool form, and the
+        // placeholder that becomes this machine's own. Neither is this row's to
+        // share.
+        Assert.DoesNotContain("sk-live-abc123", content.Body, StringComparison.Ordinal);
+        Assert.DoesNotContain("BACKLOG_MCP_TOKEN", content.Body, StringComparison.Ordinal);
+        Assert.DoesNotContain("Bearer", content.Body, StringComparison.OrdinalIgnoreCase);
+    }
+
     private sealed class FixedTools(DevToolCatalog catalog) : IDevToolService
     {
         public Task<DevToolCatalog> ListAsync(CancellationToken ct = default) => Task.FromResult(catalog);
@@ -58,5 +133,14 @@ public class ToolsAiContentSourceTests
         public Task<DevToolActionResult> ImportAsync(string json, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<DevToolActionResult> RemoveCachedVersionAsync(string key, string version, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<DevToolActionResult> RemoveStaleCacheAsync(CancellationToken ct = default) => throw new NotSupportedException();
+
+        /// <summary>A fixed catalog never changes, so nothing is ever raised.
+        /// Empty accessors rather than an auto-event, which would be a field
+        /// nothing assigns.</summary>
+        public event Action? Changed
+        {
+            add { }
+            remove { }
+        }
     }
 }

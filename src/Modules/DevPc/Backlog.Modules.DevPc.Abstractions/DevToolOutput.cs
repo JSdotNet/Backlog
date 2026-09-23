@@ -320,9 +320,17 @@ public static partial class DevToolOutput
     /// an error would turn "this needs registering" — the case the whole feature
     /// exists for — into a broken row.</para>
     ///
-    /// <para>Only the scope and the command are read back. The scope decides
-    /// whether the registration is ours to touch at all, and the command decides
-    /// whether it still points where the catalog says it should.</para>
+    /// <para>Only the scope, the transport and the target are read back. The scope
+    /// decides whether the registration is ours to touch at all; the transport and
+    /// the command or URL decide whether it still points where the catalog says it
+    /// should.</para>
+    ///
+    /// <para>The <c>Headers:</c> block is deliberately not read. Nothing compares
+    /// it, and what it carries is a bearer token — parsed, it would live in a
+    /// record that ends up in a row's status string, in the command log and in the
+    /// output the pane shows. The accepted consequence is that a rotated token
+    /// does not read as drift; the repair for that is the same Re-register press
+    /// it would have been, so nothing is lost but the detection.</para>
     /// </summary>
     public static ClaudeMcpServerDetails? ParseClaudeMcpServer(string output)
     {
@@ -333,11 +341,63 @@ public static partial class DevToolOutput
 
         var scope = McpServerScopeRegex().Match(output);
         var command = McpServerCommandRegex().Match(output);
+        var type = McpServerTypeRegex().Match(output);
+        var url = McpServerUrlRegex().Match(output);
 
         return new ClaudeMcpServerDetails(
             scope.Success ? scope.Groups["value"].Value.Trim() : string.Empty,
-            command.Success ? command.Groups["value"].Value.Trim() : string.Empty);
+            command.Success ? command.Groups["value"].Value.Trim() : string.Empty)
+        {
+            Type = type.Success ? type.Groups["value"].Value.Trim() : string.Empty,
+            Url = url.Success ? url.Groups["value"].Value.Trim() : string.Empty
+        };
     }
+
+    /// <summary>
+    /// What is left of a command line, or of what it printed, once the secrets in
+    /// it are masked.
+    /// </summary>
+    /// <param name="text">What would otherwise be logged or shown.</param>
+    /// <param name="secrets">The values known to be secret — a token this app
+    /// minted, most often.</param>
+    /// <remarks>
+    /// <para>By value rather than by pattern, because a value is the one thing
+    /// that does not change when the CLI changes how it spells a header. A
+    /// redaction written as "mask what follows <c>--header</c>" stops working the
+    /// day the flag is renamed, and stops silently.</para>
+    ///
+    /// <para>The <c>Bearer</c> sweep is the belt to that pair of braces: it catches
+    /// the credential nobody passed in — one out of a config file, one a host
+    /// echoed back — at the cost of masking the word's ordinary uses, which do not
+    /// occur in the output this reads.</para>
+    ///
+    /// <para>A blank secret is skipped. It matches everywhere, and honouring it
+    /// would turn every line into a row of masks.</para>
+    /// </remarks>
+    public static string Redact(string? text, IEnumerable<string?> secrets)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return text ?? string.Empty;
+        }
+
+        var redacted = text;
+
+        foreach (var secret in secrets)
+        {
+            if (!string.IsNullOrWhiteSpace(secret))
+            {
+                redacted = redacted.Replace(secret, RedactedValue, StringComparison.Ordinal);
+            }
+        }
+
+        return BearerTokenRegex().Replace(redacted, $"Bearer {RedactedValue}");
+    }
+
+    /// <summary>What a masked value reads as. Recognisable rather than a run of
+    /// asterisks, so that somebody reading a log can tell a redaction from a
+    /// password that happens to look like one.</summary>
+    public const string RedactedValue = "[redacted]";
 
     /// <summary>
     /// The id Claude addresses a catalog plugin by, or <see langword="null" /> when
@@ -1026,6 +1086,30 @@ public static partial class DevToolOutput
     [GeneratedRegex(@"^\s*Command:\s*(?<value>.+)$", RegexOptions.Multiline)]
     private static partial Regex McpServerCommandRegex();
 
+    /// <summary>Which transport the registration was made with — the line that
+    /// says a server the catalog reaches over HTTP was registered as stdio by an
+    /// older build.</summary>
+    [GeneratedRegex(@"^\s*Type:\s*(?<value>.+)$", RegexOptions.Multiline)]
+    private static partial Regex McpServerTypeRegex();
+
+    /// <summary>Where an HTTP registration points, which is the one thing a
+    /// registration made over that transport can be compared against.</summary>
+    [GeneratedRegex(@"^\s*URL:\s*(?<value>.+)$", RegexOptions.Multiline)]
+    private static partial Regex McpServerUrlRegex();
+
+    /// <summary>Anything a <c>Bearer</c> introduces. The sweep behind the
+    /// by-value masking in <see cref="Redact" />: a credential nobody thought to
+    /// pass in is still a credential, and this is the shape every one of them
+    /// arrives in.
+    ///
+    /// <para>Everything up to whitespace or a quote, rather than <c>\S+</c>. The
+    /// header reaches the paste-ready command line inside quotes —
+    /// <c>"Authorization: Bearer …"</c> — and a greedy run of non-space took the
+    /// closing one with it, leaving a line nobody could paste. A token has no
+    /// quote in it, so nothing is left unmasked by stopping at one.</para></summary>
+    [GeneratedRegex("Bearer\\s+[^\\s\"']+", RegexOptions.IgnoreCase)]
+    private static partial Regex BearerTokenRegex();
+
     /// <summary>The version <c>winget show</c> leads with. Anchored hard at the
     /// start of a line — no leading whitespace allowed — because the installer
     /// block below indents everything it says about the same version, and this has
@@ -1064,6 +1148,21 @@ public static partial class DevToolOutput
     public sealed record ClaudeMcpServerDetails(string Scope, string Command)
     {
         public bool IsUserScope => Scope.Contains("user", StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>The transport the registration was made with — <c>http</c>,
+        /// <c>stdio</c>, or empty from output that predates this being read.
+        ///
+        /// <para>Init-only with an empty default and not a positional parameter,
+        /// for the reason <see cref="DevToolHostState.InstalledAuthority" /> is:
+        /// every one of these built positionally keeps compiling and keeps
+        /// comparing exactly as it did.</para></summary>
+        public string Type { get; init; } = string.Empty;
+
+        /// <inheritdoc cref="Type" />
+        /// <summary>Where an HTTP registration points, exactly as the CLI printed
+        /// it — placeholders included, because the CLI prints back the string it
+        /// was given.</summary>
+        public string Url { get; init; } = string.Empty;
     }
 
     /// <summary>One entry of <c>copilot plugin list</c>: an indented bullet, the

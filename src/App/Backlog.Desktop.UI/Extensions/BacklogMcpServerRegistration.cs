@@ -1,3 +1,6 @@
+using System.Globalization;
+using System.Net;
+
 using Backlog.Infrastructure.Mcp;
 using Backlog.SharedKernel;
 
@@ -62,6 +65,27 @@ public static class BacklogMcpServerRegistration
     /// </para>
     /// </summary>
     public const string EndpointPath = "/mcp";
+
+    /// <summary>
+    /// The whole address, for a given port: loopback, that port, and
+    /// <see cref="EndpointPath"/>.
+    /// <para>
+    /// Here rather than at each call site because there are two of them and they
+    /// answer different questions about the same thing — the worker says where it
+    /// just bound, and the tools pane says where a registration should point —
+    /// and the day those two disagree is the day a row reports drift it caused
+    /// itself. The path was already shared for exactly that reason; the host and
+    /// the scheme are the rest of the same string.
+    /// </para>
+    /// <para>
+    /// <see cref="IPAddress.Loopback"/> rather than the literal, and never a
+    /// hostname: the request guard refuses a non-loopback <c>Origin</c>, and
+    /// <c>localhost</c> is a name that can resolve to <c>::1</c> on a machine
+    /// where the listener holds the v4 address.
+    /// </para>
+    /// </summary>
+    public static Uri EndpointUri(int port) =>
+        new($"http://{IPAddress.Loopback}:{port.ToString(CultureInfo.InvariantCulture)}{EndpointPath}");
 
     /// <summary>
     /// Registers the Backlog MCP server and its tools, without a transport.

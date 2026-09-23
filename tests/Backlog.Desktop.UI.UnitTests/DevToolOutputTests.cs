@@ -1,3 +1,5 @@
+using System.Reflection;
+
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
@@ -812,4 +814,158 @@ public class DevToolOutputTests
     [Fact]
     public void A_host_this_version_has_not_met_is_ignored_rather_than_rejected() =>
         Assert.Equal(DevToolHosts.ClaudeDesktop, DevToolOutput.ParseHosts(["cursor", "claude-desktop"]));
+
+    /// <summary><c>claude mcp get backlog</c> for an HTTP registration, captured
+    /// verbatim — placeholders and all, because the CLI prints back the string it
+    /// was given rather than the one it resolved.</summary>
+    private const string HttpMcpServerOutput = """
+        backlog:
+          Scope: Project config (shared via .mcp.json)
+          Status: ⏸ Pending approval (run `claude` to approve)
+          Type: http
+          URL: http://127.0.0.1:${BACKLOG_MCP_PORT:-5757}/mcp
+          Headers:
+            Authorization: Bearer ${BACKLOG_MCP_TOKEN}
+        """;
+
+    /// <summary>The two lines a registration made over HTTP is compared by: what
+    /// transport it was made with, and where it points.</summary>
+    [Fact]
+    public void An_http_registration_reads_back_its_type_and_url()
+    {
+        var details = DevToolOutput.ParseClaudeMcpServer(HttpMcpServerOutput);
+
+        Assert.NotNull(details);
+        Assert.Equal("http", details.Type);
+        Assert.Equal("http://127.0.0.1:${BACKLOG_MCP_PORT:-5757}/mcp", details.Url);
+
+        // And the scope is still read, which is what says whether this
+        // registration is ours to touch at all. This one is not.
+        Assert.False(details.IsUserScope);
+    }
+
+    /// <summary>The stdio shape beside it, unchanged — including the bare
+    /// <c>Args:</c> with nothing after it, which is what the CLI prints for a
+    /// server that takes none and is the line a greedy value pattern would take
+    /// for a command.</summary>
+    [Fact]
+    public void A_stdio_registration_still_reads_back_its_command()
+    {
+        var details = DevToolOutput.ParseClaudeMcpServer("""
+            jsdotnet-coding-guidelines:
+              Scope: User config (available in all your projects)
+              Status: ✔ Connected
+              Type: stdio
+              Command: jsdotnet-guidelines-mcpserver
+              Args:
+            """);
+
+        Assert.NotNull(details);
+        Assert.Equal("stdio", details.Type);
+        Assert.Equal("jsdotnet-guidelines-mcpserver", details.Command);
+        Assert.Equal(string.Empty, details.Url);
+        Assert.True(details.IsUserScope);
+    }
+
+    /// <summary>
+    /// The <c>Headers:</c> block is deliberately not read back.
+    ///
+    /// <para>Nothing compares it, and what it carries is a bearer token: parsed,
+    /// it would live in a record that ends up in a row's status string, in a log
+    /// and in the command output the pane shows. The accepted consequence is that
+    /// a rotated token does not read as drift, and the repair is the same
+    /// Re-register press it would have been.</para>
+    ///
+    /// <para>Read off the record's own properties by reflection rather than off
+    /// <c>ToString()</c>, and that is the difference between a test and a
+    /// decoration. A record with no header member at all prints one without it,
+    /// so a <c>ToString()</c> assertion passes with the whole feature
+    /// reverted — it holds nothing. Reflection holds the real property: whatever
+    /// members this record grows, none of them may come back carrying the
+    /// credential, and the two that are read are named here so that "nothing was
+    /// parsed" cannot pass either.</para>
+    /// </summary>
+    [Fact]
+    public void A_headers_block_is_not_read_back()
+    {
+        const string Token = "a-real-token";
+
+        var details = DevToolOutput.ParseClaudeMcpServer(HttpMcpServerOutput.Replace(
+            "${BACKLOG_MCP_TOKEN}",
+            Token,
+            StringComparison.Ordinal));
+
+        Assert.NotNull(details);
+
+        // The block above it was parsed, so this is a reader that got as far as
+        // the headers and stopped — not one that failed on the whole output.
+        Assert.Equal("http", details.Type);
+        Assert.Equal("http://127.0.0.1:${BACKLOG_MCP_PORT:-5757}/mcp", details.Url);
+
+        var carried = typeof(DevToolOutput.ClaudeMcpServerDetails)
+            .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Where(property => property.GetIndexParameters().Length == 0)
+            .Select(property => new { property.Name, Value = property.GetValue(details) as string })
+            .Where(read => read.Value is not null && read.Value.Contains(Token, StringComparison.Ordinal))
+            .Select(read => read.Name)
+            .ToArray();
+
+        Assert.Empty(carried);
+    }
+
+    /// <summary>
+    /// What is printed of a command that carried a secret. By value first, so
+    /// that it survives the CLI changing how it spells a header — the sweep below
+    /// is the belt to that pair of braces.
+    /// </summary>
+    [Fact]
+    public void A_secret_is_masked_by_its_value_wherever_it_appears()
+    {
+        var redacted = DevToolOutput.Redact(
+            "claude mcp add --header \"Authorization: Bearer s3cret\" --url http://127.0.0.1:5757/mcp?key=s3cret",
+            ["s3cret"]);
+
+        Assert.DoesNotContain("s3cret", redacted, StringComparison.Ordinal);
+        Assert.Contains("http://127.0.0.1:5757/mcp", redacted, StringComparison.Ordinal);
+    }
+
+    /// <summary>And the sweep, for the secret nobody passed in: anything after a
+    /// <c>Bearer</c> is a credential whoever printed it did not mean to
+    /// keep.</summary>
+    [Fact]
+    public void Anything_that_follows_a_bearer_is_swept_even_unasked()
+    {
+        var redacted = DevToolOutput.Redact("Header: Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.body", []);
+
+        Assert.DoesNotContain("eyJhbGciOiJIUzI1NiJ9", redacted, StringComparison.Ordinal);
+        Assert.Contains("Bearer", redacted, StringComparison.Ordinal);
+    }
+
+    /// <summary>The sweep stops at the quote it found the header inside.
+    ///
+    /// <para>The paste-ready command line quotes the whole header —
+    /// <c>--header "Authorization: Bearer …"</c> — and a run of non-space took
+    /// the closing quote with the token, leaving a line that cannot be pasted
+    /// into anything. Cosmetic rather than a leak, and cosmetic is the entire
+    /// point of a line whose reason to exist is that somebody can paste
+    /// it.</para></summary>
+    [Fact]
+    public void The_bearer_sweep_leaves_the_quote_that_closes_the_header()
+    {
+        var redacted = DevToolOutput.Redact("claude mcp add --header \"Authorization: Bearer t0ken\" backlog", []);
+
+        Assert.DoesNotContain("t0ken", redacted, StringComparison.Ordinal);
+        Assert.Equal(
+            $"claude mcp add --header \"Authorization: Bearer {DevToolOutput.RedactedValue}\" backlog",
+            redacted);
+    }
+
+    /// <summary>Nothing to mask is text that comes back as itself — a blank
+    /// secret especially, which matched everywhere and turned every line into a
+    /// row of masks.</summary>
+    [Fact]
+    public void Text_with_nothing_to_mask_comes_back_as_itself()
+    {
+        Assert.Equal("dotnet tool list --global", DevToolOutput.Redact("dotnet tool list --global", ["", "   ", null!]));
+    }
 }

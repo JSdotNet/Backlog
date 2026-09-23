@@ -1,4 +1,5 @@
 @inject IDevToolService DevTools
+@implements IDisposable
 
 @*
     The system tools pane: which Copilot plugins, repository tools, MCP servers
@@ -392,6 +393,28 @@
                                                             Install
                                                         </AppButton>
                                                     }
+                                                    else if (tool.CanReRegister)
+                                                    {
+                                                        @* A registration that exists and points at the wrong
+                                                           thing, which neither of the two branches above can
+                                                           repair: both are gated on there being something to
+                                                           install, and a server reached over HTTP or started
+                                                           by a command has nothing.
+
+                                                           The same verb, again. Update is the port's one word
+                                                           for "make this machine match the config", and behind
+                                                           it the host already removes and re-adds a
+                                                           registration whose target differs — what changes
+                                                           here is only that the row now offers it, and says
+                                                           what pressing it does in terms of a registration
+                                                           rather than of a version. *@
+                                                        <AppButton Variant="ButtonVariant.Secondary"
+                                                                   Disabled="@(_toolsLoading || ToolActionBusy)"
+                                                                   OnClick="() => ApplyToolActionAsync(tool, DevToolAction.Update)"
+                                                                   TestId="tools-row-reregister">
+                                                            Re-register
+                                                        </AppButton>
+                                                    }
                                                     else
                                                     {
                                                         <span class="tools-inventory__action-note">@ActionNote(tool)</span>
@@ -647,12 +670,38 @@
                              Form="true"
                              CurrentValue="@_draftMcpMechanism.ToString()"
                              Options="@McpMechanismOptions"
-                             HelpText="How this machine gets the server. A .NET tool is installed; a command is already there and is registered."
+                             HelpText="How this machine reaches the server. A .NET tool is installed; a command is already there and is started; a URL is reached over HTTP."
                              TestId="tools-add-mcp-mechanism"
                              OnChanged="OnDraftMcpMechanismChanged" />
             }
 
-            @if (_draftKind is DevToolKind.McpServer && _draftMcpMechanism is DevToolMcpMechanism.Command)
+            @if (_draftKind is DevToolKind.McpServer && _draftMcpMechanism is DevToolMcpMechanism.Http)
+            {
+                @* The third shape, and the only one whose name is not decoration:
+                   it is the first positional argument of
+                   `claude mcp add --transport http`, so there is no registering
+                   this entry without one. No Claude section either, for the same
+                   reason the command shape has none — the URL is what every host
+                   this entry targets is registered with. *@
+                <TextField Label="Name"
+                           Value="@_draftServerName"
+                           ValueChanged="value => _draftServerName = value"
+                           HelpText="What the server is registered as. It is what the row and any per-PC override are addressed by."
+                           ErrorMessage="@_draftIdError"
+                           TestId="tools-add-server-name" />
+                <TextField Label="URL"
+                           Value="@_draftServerUrl"
+                           ValueChanged="value => _draftServerUrl = value"
+                           HelpText="Where the server answers. ${BACKLOG_MCP_PORT} and ${BACKLOG_MCP_TOKEN} are filled in per machine; nothing else is, and never an environment variable."
+                           ErrorMessage="@_draftCommandError"
+                           TestId="tools-add-server-url" />
+                <TextArea Label="Headers"
+                          Value="@_draftServerHeaders"
+                          ValueChanged="value => _draftServerHeaders = value"
+                          HelpText="Optional. One per line, as Name: value — in the order they are sent."
+                          TestId="tools-add-server-headers" />
+            }
+            else if (_draftKind is DevToolKind.McpServer && _draftMcpMechanism is DevToolMcpMechanism.Command)
             {
                 @* No package id, and no Claude section either: the command is what
                    every host this entry targets is registered with, and a section
@@ -820,6 +869,8 @@
     private string _draftServerName = string.Empty;
     private string _draftServerCommand = string.Empty;
     private string _draftServerArgs = string.Empty;
+    private string _draftServerUrl = string.Empty;
+    private string _draftServerHeaders = string.Empty;
     private string _draftDisplayName = string.Empty;
     private string _draftMarketplaceName = string.Empty;
     private string _draftClaudeName = string.Empty;
@@ -851,7 +902,48 @@
     [Parameter]
     public EventCallback OnClose { get; set; }
 
-    protected override Task OnInitializedAsync() => RefreshToolsAsync();
+    protected override Task OnInitializedAsync()
+    {
+        // Everything else this pane draws is written by its own buttons, and
+        // each of those re-lists afterwards. The port's Changed is for the one
+        // input nothing here touches: this machine's MCP server, whose port is
+        // edited on the Settings screen and whose listener binds, fails and stops
+        // on its own.
+        DevTools.Changed += OnToolsChanged;
+
+        return RefreshToolsAsync();
+    }
+
+    /// <summary>Lets go of the port's event. The shell renders this pane only
+    /// while its surface is open, so this really does run — and without it a pane
+    /// that has been closed stays on a singleton service's event, kept alive by
+    /// it and re-listing into a renderer that has gone.</summary>
+    public void Dispose() => DevTools.Changed -= OnToolsChanged;
+
+    /// <summary>
+    /// Something outside this pane changed what a listing would answer, so the
+    /// listing is taken again.
+    ///
+    /// <para><c>InvokeAsync</c> is not optional: the raise arrives on whatever
+    /// thread the MCP worker's bind or release finished on, which is a thread pool
+    /// thread. And <c>StateHasChanged</c> is explicit for the other half of the
+    /// same reason — this is not a component event callback, so Blazor does not
+    /// render for free at the end of it.</para>
+    ///
+    /// <para>The guard is load-bearing rather than hygiene. Registering this
+    /// machine's own server mints a token when it has none, and minting raises
+    /// this very event from inside the apply that is still running — so without
+    /// the guard, pressing Re-register on a fresh machine starts a full listing
+    /// (winget, <c>dotnet tool list</c>, a dozen <c>claude</c> calls) in the middle
+    /// of the registration it was asked for.</para>
+    /// </summary>
+    private void OnToolsChanged() => _ = InvokeAsync(async () =>
+    {
+        if (_toolsLoading || ToolActionBusy) return;
+
+        await RefreshToolsAsync();
+        StateHasChanged();
+    });
 
     private bool ToolActionBusy => _toolActionKey is not null;
 
@@ -1238,14 +1330,15 @@
         new(nameof(DevToolProvider.Manual), "Nothing — confirmed by hand")
     ];
 
-    /// <summary>How an MCP server gets onto the machine. Two of the three
-    /// mechanisms, because the third is where an entry whose declared mechanism
-    /// this build does not recognise lands — a landing spot is not something to
-    /// offer somebody as a choice.</summary>
+    /// <summary>How an MCP server is reached. Three of the four mechanisms,
+    /// because the fourth is where an entry whose declared mechanism this build
+    /// does not recognise lands — a landing spot is not something to offer
+    /// somebody as a choice.</summary>
     private static readonly IReadOnlyList<SelectorOption> McpMechanismOptions =
     [
         new(nameof(DevToolMcpMechanism.DotNetTool), "A .NET tool"),
-        new(nameof(DevToolMcpMechanism.Command), "A command it declares")
+        new(nameof(DevToolMcpMechanism.Command), "A command it declares"),
+        new(nameof(DevToolMcpMechanism.Http), "A URL it is reached at")
     ];
 
     /// <summary>The id is a different thing per mechanism, and naming the wrong
@@ -1444,16 +1537,22 @@
         _draftCommandError = null;
     }
 
-    /// <summary>Which of the two kinds of MCP server is being added. Spelled out
-    /// like the kind above it and with the same fall-through, but landing on the
-    /// .NET tool: that is what every entry written before there was a choice was,
-    /// and the mechanism that writes no package id at all is not somewhere a
-    /// value nobody typed should end up.</summary>
+    /// <summary>Which kind of MCP server is being added. Spelled out like the
+    /// kind above it and with the same fall-through, but landing on the .NET
+    /// tool: that is what every entry written before there was a choice was, and
+    /// a mechanism that writes no package id at all is not somewhere a value
+    /// nobody typed should end up.
+    ///
+    /// <para>Every offered option is named here. The fall-through is for a value
+    /// the select never held, and an option missing from this list is one somebody
+    /// picks and silently gets a .NET tool for — which was true of <c>http</c>
+    /// until the arm below existed.</para></summary>
     private void OnDraftMcpMechanismChanged(string? value)
     {
         _draftMcpMechanism = value switch
         {
             nameof(DevToolMcpMechanism.Command) => DevToolMcpMechanism.Command,
+            nameof(DevToolMcpMechanism.Http) => DevToolMcpMechanism.Http,
             _ => DevToolMcpMechanism.DotNetTool
         };
 
@@ -1502,10 +1601,13 @@
         var application = _draftKind is DevToolKind.Application;
         var command = application && _draftProvider is DevToolProvider.Command;
 
-        // The second mechanism the mcpServers array holds. It decides whether the
-        // id below is a package id or the server's own name, so it is read once
-        // here rather than at each of the four places that ask.
+        // The two mechanisms the mcpServers array holds that are identified by a
+        // name rather than by a package id. Read once here rather than at each of
+        // the places that ask, and kept as two flags because they differ in what
+        // the entry then has to carry: a command, or a URL.
         var registeredByCommand = _draftKind is DevToolKind.McpServer && _draftMcpMechanism is DevToolMcpMechanism.Command;
+        var reachedAtUrl = _draftKind is DevToolKind.McpServer && _draftMcpMechanism is DevToolMcpMechanism.Http;
+        var namedServer = registeredByCommand || reachedAtUrl;
 
         // Spelled out per kind rather than as the two-way ternary this replaced,
         // whose else was the MCP server's package id: an application submitted
@@ -1515,7 +1617,7 @@
             DevToolKind.Plugin => _draftPluginName,
             DevToolKind.Marketplace => _draftMarketplaceName,
             DevToolKind.Application => _draftApplicationId,
-            DevToolKind.McpServer => registeredByCommand ? _draftServerName : _draftPackageId
+            DevToolKind.McpServer => namedServer ? _draftServerName : _draftPackageId
         }).Trim();
 
         if (id.Length == 0)
@@ -1525,9 +1627,13 @@
                 DevToolKind.Plugin => "A plugin needs a name.",
                 DevToolKind.Marketplace => "A marketplace needs a name.",
                 DevToolKind.Application => "An application needs an id.",
-                DevToolKind.McpServer => registeredByCommand
-                    ? "An MCP server registered by a command needs a name."
-                    : "An MCP server needs a package id."
+                // The port's own three sentences, so the message under the field
+                // and the message the port would have thrown say the same thing.
+                DevToolKind.McpServer => reachedAtUrl
+                    ? "An MCP server reached over HTTP needs a name."
+                    : registeredByCommand
+                        ? "An MCP server registered by a command needs a name."
+                        : "An MCP server needs a package id."
             };
         }
 
@@ -1551,6 +1657,13 @@
         if (registeredByCommand && string.IsNullOrWhiteSpace(_draftServerCommand))
         {
             _draftCommandError = "An MCP server registered by a command needs a command.";
+        }
+
+        // And the HTTP half of the same rule, under the field it is about: a
+        // server that is reached rather than started says where.
+        if (reachedAtUrl && string.IsNullOrWhiteSpace(_draftServerUrl))
+        {
+            _draftCommandError = "An MCP server reached over HTTP needs the URL that serves it.";
         }
 
         if (_draftIdError is not null || _draftSourceError is not null || _draftDetectError is not null || _draftCommandError is not null)
@@ -1577,9 +1690,9 @@
             // with, so a section here would be a second place for the same command
             // to drift — and the boxes are not on screen for it to have been typed
             // into.
-            ClaudeServerName = plugin || marketplace || application || registeredByCommand ? null : NullIfBlank(_draftClaudeServerName),
-            ClaudeCommand = plugin || marketplace || application || registeredByCommand ? null : NullIfBlank(_draftClaudeCommand),
-            ClaudeArgs = plugin || marketplace || application || registeredByCommand ? [] : SplitArgs(_draftClaudeArgs),
+            ClaudeServerName = plugin || marketplace || application || namedServer ? null : NullIfBlank(_draftClaudeServerName),
+            ClaudeCommand = plugin || marketplace || application || namedServer ? null : NullIfBlank(_draftClaudeCommand),
+            ClaudeArgs = plugin || marketplace || application || namedServer ? [] : SplitArgs(_draftClaudeArgs),
 
             // Which of the two kinds of MCP server this is. Not written into the
             // entry — the shape of what is written says it — but the port needs it
@@ -1587,6 +1700,8 @@
             McpMechanism = _draftKind is DevToolKind.McpServer ? _draftMcpMechanism : DevToolMcpMechanism.DotNetTool,
             ServerCommand = registeredByCommand ? NullIfBlank(_draftServerCommand) : null,
             ServerArgs = registeredByCommand ? SplitArgs(_draftServerArgs) : [],
+            ServerUrl = reachedAtUrl ? NullIfBlank(_draftServerUrl) : null,
+            ServerHeaders = reachedAtUrl ? SplitHeaders(_draftServerHeaders) : [],
 
             // Written even when it is the default, unlike everything above: the
             // catalog's silence means "both hosts" and "no override" for the rest,
@@ -1611,6 +1726,36 @@
     /// is typed rather than assembled — <c>agent mcp</c>, not a JSON array.</summary>
     private static IReadOnlyList<string> SplitArgs(string value) =>
         value.Split((char[])[' ', '\t'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+    /// <summary>The headers box as ordered name/value pairs — one per line, split
+    /// at the first colon.
+    ///
+    /// <para>The first colon and not every colon, because the value is where a
+    /// URL goes and a <c>Bearer</c> is not the only thing a header carries. Order
+    /// is kept because it is what the repeated <c>--header</c> flags are built
+    /// from, and a line with no colon is dropped rather than turned into a header
+    /// with an empty value: half a header is not something to send.</para></summary>
+    private static IReadOnlyList<KeyValuePair<string, string>> SplitHeaders(string value)
+    {
+        var headers = new List<KeyValuePair<string, string>>();
+
+        foreach (var line in value.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var separator = line.IndexOf(':', StringComparison.Ordinal);
+            if (separator <= 0)
+            {
+                continue;
+            }
+
+            var name = line[..separator].Trim();
+            if (name.Length > 0)
+            {
+                headers.Add(new KeyValuePair<string, string>(name, line[(separator + 1)..].Trim()));
+            }
+        }
+
+        return headers;
+    }
 
     private void OpenImportDialog()
     {
@@ -1713,6 +1858,8 @@
         _draftServerName = string.Empty;
         _draftServerCommand = string.Empty;
         _draftServerArgs = string.Empty;
+        _draftServerUrl = string.Empty;
+        _draftServerHeaders = string.Empty;
         _draftDisplayName = string.Empty;
         _draftMarketplaceName = string.Empty;
         _draftClaudeName = string.Empty;

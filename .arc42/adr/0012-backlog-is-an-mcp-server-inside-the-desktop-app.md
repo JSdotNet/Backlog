@@ -8,11 +8,13 @@ related: [".arc42/03-context-and-scope.md#access-channels-scope", ".arc42/05-bui
 
 ## Status
 
-Accepted on 2026-09-22, and **not yet built**: this record is written ahead of
-the code so that the `backlog-mcp-server` plan's implementation items have a
-decision to build against rather than one to reconstruct afterwards. Each
-decision below names the code it stands on today; the **Deviations** section
-says where that code still stops short of the decision.
+Accepted on 2026-09-22, **written ahead of the code and now partly built**: this
+record went in first so that the `backlog-mcp-server` plan's implementation items
+had a decision to build against rather than one to reconstruct afterwards.
+Decisions 1, 2, 3 and 7 have since landed — the in-process host and its flag, and
+the `backlog` registration the Dev PC catalog now carries. Each decision below
+names the code it stands on; the **Deviations** section says, row by row, which
+are built and where the rest still stops short.
 
 A **local** decision, numbered in the local sequence. It is the MCP server
 local ADR 0004 anticipated ("every channel — desktop, mobile, IDE, a future MCP
@@ -302,19 +304,19 @@ Negative, and accepted:
 
 ## Deviations
 
-Where the code stands against each decision on the day this record is
-accepted. Each row is what the `backlog-mcp-server` plan's implementation
-items close.
+Where the code stands against each decision, kept current as the
+`backlog-mcp-server` plan's implementation items land rather than frozen at the
+day this record was accepted. A row marked **Built** is one the plan has closed.
 
 | Decision | Where the code is today |
 |---|---|
-| 1 — in-process HTTP host | No listener, no `Origin` check, no token exists. `WorkspaceSettingsStore` has no field for a token or a port, and nothing in `src/` inspects an `Origin` header. |
-| 2 — host code placement | `Backlog.Desktop.csproj` carries no `Microsoft.AspNetCore.App` framework reference. `MauiProgram.cs` and the harness's `Program.cs` each start the same four workers after `Build()` (`TaskSyncWorker`, `SessionSyncWorker`, `AnnotationSyncWorker`, `BackupWorker`); neither maps or resolves anything MCP-shaped. |
-| 3 — `backlog` server id | There is no `.mcp.json` in the repository. `DevToolService` registers Claude servers by `command` only (`claude mcp add --scope user <name> -- <command>`); it has no path for `--transport http` and a URL, and the catalog's `DevToolMcpMechanism` knows `DotNetTool`, `Command` and `Manual`. A registration mechanism for an HTTP server is new work in the Dev PC context. |
+| 1 — in-process HTTP host | **Built.** `McpServerWorker` holds the loopback listener, `McpLoopbackGuard` enforces the absent-or-loopback `Origin` and the bearer token, and `WorkspaceSettingsStore` carries `McpServerPort` (default 5757), `McpServerToken` and `EnsureMcpServerToken()`, which mints on first need rather than on read. A port collision is reported on the row and never retried elsewhere, as this decision requires. |
+| 2 — host code placement | **Built.** `Backlog.Desktop.csproj` carries the `Microsoft.AspNetCore.App` framework reference and nothing else does; `ModelContextProtocol.AspNetCore` is referenced by the two hosts alone. `AddBacklogMcpServer` in `Backlog.Desktop.UI` is the one registration both hosts call, and each adds its own transport — so the tools stay one implementation with two hosts. |
+| 3 — `backlog` server id | **Built.** `.mcp.json` at the repository root declares the project-scope registration, and the Dev PC catalog carries a `backlog` row that `DevToolService` applies as `claude mcp add --transport http --scope user backlog <url> --header "Authorization: Bearer <token>"`. `DevToolMcpMechanism` gained `Http` beside `DotNetTool`, `Command` and `Manual`. The catalog holds `${BACKLOG_MCP_PORT}`/`${BACKLOG_MCP_TOKEN}` placeholders rather than literals — it is committed and resolves out of a synced folder — and the host expands them at apply time, from a closed vocabulary that never reads the environment. |
 | 4 — `repository` argument | `IRepositoryDirectory.Resolve` already does the mapping. The skills that will supply the argument (`backlog-run-plan-item` and the delivery flows) do not read a git remote today. |
 | 5 — status is a token | `EntryTextParser.WithStatus`, `SaveFromTextAsync` and `TaskItem.IsTransitionAllowed` / `NextStatusesFrom` all exist. `TaskItem.ChangeStatus`, the throwing form, has no caller in `src/`; the tool uses the predicate, not this method. Nothing today refuses a jump on the save path, so the refusal is the tool's to make. |
 | 6 — two annotation kinds | `IDevbookAnnotationStore` has `List`, `Find` and `SetResolved`. `annotations.mjs` is not installed in this repository: the checked-in generator under `.github/tools/knowledge-meta/` predates it, and the installed copy arrives with the devbook contract v6 adoption (`devbook-sync`), a standing follow-up. Until then a session writes the fence with the plugin's own copy of the tool. |
-| 7 — feature flags | `AppFeatures.McpServer` does not exist. `08-crosscutting-concepts.md#feature-enablement` is itself still `proposed` — the current build defaults optional features to enabled and records the disabled ones — so `EnabledByDefault: false` on this key is what keeps the listener off until chosen, the way `SyncFeatures.Sync` does it. |
+| 7 — feature flags | **Built.** `AppFeatures.McpServer` (`"mcp-server"`) exists and `McpServerWorker.ShouldRun` reads it, so the listener holds nothing while the flag is off. `08-crosscutting-concepts.md#feature-enablement` is itself still `proposed` — the current build defaults optional features to enabled and records the disabled ones — so `EnabledByDefault: false` on this key is what keeps the listener off until chosen, the way `SyncFeatures.Sync` does it. The Tools pane still draws the `backlog` row while the flag is off, saying that nothing answers at the registered address: a registration made earlier is still on the machine, and hiding the row would hide the one place that says so. |
 
 ## Alternatives considered
 

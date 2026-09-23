@@ -215,6 +215,18 @@
         "mcp"
       ],
       "enabled": true
+    },
+    {
+      "name": "backlog",
+      "type": "http",
+      "url": "http://127.0.0.1:${BACKLOG_MCP_PORT}/mcp",
+      "headers": {
+        "Authorization": "Bearer ${BACKLOG_MCP_TOKEN}"
+      },
+      "hosts": [
+        "claude"
+      ],
+      "enabled": true
     }
   ],
   "applications": [
