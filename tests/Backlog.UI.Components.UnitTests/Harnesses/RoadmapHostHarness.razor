@@ -1,0 +1,28 @@
+@* A timeline inside a host that applies every change it is told about, the way
+   the storybook's editable story does. A drop onto another row only re-parents the
+   bar once the host hands the moved plan back, so a test of where focus lands
+   after a drop needs a host to do that handing back. *@
+
+<RoadmapTimeline Groups="@Groups"
+                 Bars="@_bars"
+                 Window="@Window"
+                 TestId="rm"
+                 OnBarChanged="Apply" />
+
+@code {
+    private IReadOnlyList<RoadmapBar> _bars = [];
+
+    [Parameter, EditorRequired]
+    public IReadOnlyList<RoadmapGroup> Groups { get; set; } = [];
+
+    [Parameter, EditorRequired]
+    public IReadOnlyList<RoadmapBar> Bars { get; set; } = [];
+
+    [Parameter]
+    public RoadmapWindow? Window { get; set; }
+
+    protected override void OnInitialized() => _bars = Bars;
+
+    private void Apply(RoadmapChange change) =>
+        _bars = [.. _bars.Select(bar => bar.Id == change.BarId ? change.ApplyTo(bar) : bar)];
+}
