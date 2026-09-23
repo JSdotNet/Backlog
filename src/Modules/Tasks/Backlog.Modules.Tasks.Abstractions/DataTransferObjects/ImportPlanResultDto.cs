@@ -16,11 +16,24 @@ namespace Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 /// apart by <c>import_item_id</c>: a new entry carrying the id of one just
 /// cleared is the same prompt, written again.
 /// </para>
+/// <para>
+/// A document may also hold <c>plan</c> entries (ADR 0013, ruling 3). The five counts
+/// are the task half; <see cref="Roadmap"/> is the other. The two are reported apart
+/// because they do not stand or fall together: the tasks are written first, and a
+/// roadmap that refuses its half — a cycle — leaves them written.
+/// </para>
 /// </summary>
+/// <param name="Roadmap">The roadmap half, or null when nothing in the run crossed
+/// to the roadmap.</param>
+/// <param name="UnresolvedTaskDependencies">Task-level <c>after:</c> values that named
+/// a <c>plan</c> entry of the same document instead of a task — a cross-level
+/// reference, dropped rather than stored as an id that means nothing.</param>
 public sealed record ImportPlanResultDto(
     int Created,
     int Replaced,
     int Updated,
     int Skipped,
     int Removed,
-    IReadOnlyList<TaskItemDto> Entries);
+    IReadOnlyList<TaskItemDto> Entries,
+    RoadmapIntakeResultDto? Roadmap = null,
+    IReadOnlyList<ImportUnresolvedDependencyDto>? UnresolvedTaskDependencies = null);

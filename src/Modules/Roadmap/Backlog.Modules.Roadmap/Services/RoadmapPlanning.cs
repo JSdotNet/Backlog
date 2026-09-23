@@ -133,6 +133,7 @@ internal sealed class RoadmapPlanning(
     public Task<Result<PlanImportResultDto>> ImportPlanItemsAsync(
         IReadOnlyList<PlanImportEntryDto> entries,
         IReadOnlyList<PlanTagEffortDto>? gatheredEffort = null,
+        IReadOnlyList<PlanImportEntryDto>? createIfMissing = null,
         CancellationToken cancellationToken = default) =>
-        importPlanItems.Handle(new ImportPlanItemsCommand(entries, gatheredEffort), cancellationToken);
+        importPlanItems.Handle(new ImportPlanItemsCommand(entries, gatheredEffort, createIfMissing), cancellationToken);
 }

@@ -98,7 +98,7 @@ internal sealed partial class InboxBacklogTarget(ITaskItems tasks) : IInboxBackl
         }
 
         var imported = await tasks
-            .ImportPlanAsync(planMarkdown, defaultRepo: null, repoMatches: null, sourceInboxId.ToString("D"), cancellationToken)
+            .ImportPlanAsync(planMarkdown, defaultRepo: null, repoMatches: null, sourceInboxId.ToString("D"), cancellationToken: cancellationToken)
             .ConfigureAwait(false);
 
         if (imported.IsFailure) return Result.Failure<IReadOnlyList<Guid>>(imported.Error);

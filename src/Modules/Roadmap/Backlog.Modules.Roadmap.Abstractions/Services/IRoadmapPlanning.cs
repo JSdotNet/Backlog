@@ -121,13 +121,19 @@ public interface IRoadmapPlanning
     /// again, and placed from <paramref name="gatheredEffort"/> (ADR 0013, rulings 2,
     /// 4 and 5). All or nothing — a refused dependency leaves the plan as it was.
     /// <para>
-    /// Every door into an imported plan comes through here — a roadmap document, and
-    /// the shelf of plans whose tasks arrived first — so none of them can place an
-    /// item by a rule the others do not follow.
+    /// Every door into an imported plan comes through here — a roadmap document, the
+    /// Import dialog's "Lay out on the roadmap", and the shelf of plans whose tasks
+    /// arrived first — so none of them can place an item by a rule the others do not
+    /// follow.
     /// </para>
     /// </summary>
+    /// <param name="gatheredEffort">Per tag, what the tasks under it registered; a tag
+    /// no entry names re-lengthens its effort-placed item.</param>
+    /// <param name="createIfMissing">Entries laid out only when no item carries their
+    /// tag yet.</param>
     Task<Result<PlanImportResultDto>> ImportPlanItemsAsync(
         IReadOnlyList<PlanImportEntryDto> entries,
         IReadOnlyList<PlanTagEffortDto>? gatheredEffort = null,
+        IReadOnlyList<PlanImportEntryDto>? createIfMissing = null,
         CancellationToken cancellationToken = default);
 }

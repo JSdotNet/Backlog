@@ -56,13 +56,16 @@ public sealed record PlanTagEffortDto(string Tag, int TotalEffort, int Unestimat
 /// dropped rather than stored.</param>
 /// <param name="Scheduled">Every window the import set or moved, in the
 /// <c>RoadmapItemScheduled</c> shape.</param>
+/// <param name="Relengthened">Items no entry named whose effort-placed window the
+/// gathered effort re-lengthened — the start kept, the end recomputed.</param>
 public sealed record PlanImportResultDto(
     IReadOnlyList<RoadmapItemDto> Created,
     IReadOnlyList<RoadmapItemDto> Updated,
     IReadOnlyList<string> SkippedWithoutTag,
     IReadOnlyList<AmbiguousPlanTagDto> AmbiguousTags,
     IReadOnlyList<UnresolvedPlanDependencyDto> UnresolvedDependencies,
-    IReadOnlyList<RoadmapItemScheduledDto> Scheduled);
+    IReadOnlyList<RoadmapItemScheduledDto> Scheduled,
+    IReadOnlyList<RoadmapItemDto> Relengthened);
 
 /// <summary>
 /// A tag more than one existing item carries. The first of them by creation order was

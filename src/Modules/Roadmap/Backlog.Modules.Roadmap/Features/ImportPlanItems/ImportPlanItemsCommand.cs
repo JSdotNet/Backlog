@@ -21,10 +21,18 @@ namespace Backlog.Modules.Roadmap.Features.ImportPlanItems;
 /// </summary>
 /// <param name="Entries">The document's plan-level entries, in document order.</param>
 /// <param name="GatheredEffort">Per plan tag, what the tasks under it registered. A
-/// tag absent from this gathered nothing.</param>
+/// tag absent from this gathered nothing. A tag here that no entry names still
+/// re-lengthens the item carrying it while that item is still effort-placed — a
+/// task-level re-import under an existing item (ADR 0013, ruling 5).</param>
+/// <param name="CreateIfMissing">Entries to lay out only when no item carries their
+/// tag yet — the Import dialog's "Lay out on the roadmap" for a document that wrote
+/// no <c>plan</c> entry (ruling 3). An item already there is left to the
+/// re-lengthening above: an entry the importer made up does not get to rewrite a
+/// title a person may have chosen.</param>
 public sealed record ImportPlanItemsCommand(
     IReadOnlyList<PlanImportEntryDto> Entries,
-    IReadOnlyList<PlanTagEffortDto>? GatheredEffort = null);
+    IReadOnlyList<PlanTagEffortDto>? GatheredEffort = null,
+    IReadOnlyList<PlanImportEntryDto>? CreateIfMissing = null);
 
 /// <summary>
 /// Upserts by tag, wires dependencies in two passes, and places every window that is
@@ -65,7 +73,7 @@ public sealed class ImportPlanItemsCommandHandler(
         var touched = new List<Touched>();
         var byLocalId = new Dictionary<string, Guid>(StringComparer.Ordinal);
 
-        foreach (var entry in command.Entries)
+        foreach (var entry in EntriesToLayOut(plan, command))
         {
             if (string.IsNullOrWhiteSpace(entry.Tag))
             {
@@ -141,7 +149,12 @@ public sealed class ImportPlanItemsCommandHandler(
             }
         }
 
-        await plans.SaveAsync(plan, cancellationToken);
+        var relengthened = Relengthen(plan, touched, effort, scheduled);
+
+        // A task-level import whose tags carry no item, or only hand-placed ones,
+        // changed nothing — and a save that changes nothing is still a write the
+        // other devices would sync.
+        if (touched.Count > 0 || relengthened.Count > 0) await plans.SaveAsync(plan, cancellationToken);
 
         return Result.Success(new PlanImportResultDto(
             [.. touched.Where(current => current.Previous is null).Select(current => current.Item.ToDto())],
@@ -149,7 +162,66 @@ public sealed class ImportPlanItemsCommandHandler(
             skipped,
             ambiguous,
             unresolved,
-            scheduled));
+            scheduled,
+            relengthened));
+    }
+
+    /// <summary>
+    /// The document's entries, followed by each "create if missing" entry whose tag no
+    /// item carries and no entry of the document names — so a laid-out tag is created
+    /// once and an existing item is never revised from an entry the importer made up.
+    /// </summary>
+    private static IEnumerable<PlanImportEntryDto> EntriesToLayOut(RoadmapPlan plan, ImportPlanItemsCommand command)
+    {
+        var named = command.Entries
+            .Where(entry => !string.IsNullOrWhiteSpace(entry.Tag))
+            .Select(entry => PlanningTag.Of(entry.Tag).Value)
+            .ToHashSet(StringComparer.Ordinal);
+
+        var missing = (command.CreateIfMissing ?? [])
+            .Where(entry => !string.IsNullOrWhiteSpace(entry.Tag))
+            .Where(entry => named.Add(PlanningTag.Of(entry.Tag).Value))
+            .Where(entry => plan.ItemsTagged(PlanningTag.Of(entry.Tag)).Count == 0);
+
+        return command.Entries.Concat(missing);
+    }
+
+    /// <summary>
+    /// Re-lengthens the item each gathered tag names that no entry of this import
+    /// touched, while its window is still effort-placed (ADR 0013, ruling 5): the end is
+    /// recomputed from the newly gathered effort and the start stays. A due-date-placed
+    /// item keeps the end the person wrote; a hand-placed one is untouched. When several
+    /// items carry the tag, the first by creation order, as for an entry.
+    /// </summary>
+    private List<RoadmapItemDto> Relengthen(
+        RoadmapPlan plan,
+        List<Touched> touched,
+        Dictionary<string, int> effort,
+        List<RoadmapItemScheduledDto> scheduled)
+    {
+        var relengthened = new List<RoadmapItemDto>();
+        var done = touched.Select(current => current.Item.Id).ToHashSet();
+
+        foreach (var (tag, total) in effort)
+        {
+            var carrying = plan.ItemsTagged(PlanningTag.Of(tag));
+            if (carrying.Count == 0) continue;
+
+            var item = carrying[0];
+            if (!done.Add(item.Id) || item.PlacedByImport is not ImportPlacement.Effort) continue;
+
+            var previous = item.Window;
+            var (window, placement) = ImportedPlanPlacement.Place(previous.Start, due: null, total, velocity.StoryPointsPerDay);
+            if (window == previous) continue;
+
+            var placed = plan.PlaceByImport(item.Id, window, placement);
+            if (placed.IsFailure) continue;
+
+            scheduled.Add(item.Scheduled(previous));
+            relengthened.Add(item.ToDto());
+        }
+
+        return relengthened;
     }
 
     /// <summary>

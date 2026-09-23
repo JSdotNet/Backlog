@@ -25,7 +25,11 @@ namespace Backlog.Desktop.UI.Tasks;
 /// when left blank.</param>
 /// <param name="RepoMatches">The plan-text name mapped to the alias of the known
 /// repository the reader picked for it, or null when they matched none.</param>
+/// <param name="LayOutOnRoadmap">The dialog's "Lay out on the roadmap": one roadmap
+/// item per plan tag of a document that wrote no <c>plan</c> entry (ADR 0013,
+/// ruling 3).</param>
 public sealed record ImportPlanSubmission(
     string RawText,
     string? DefaultRepo,
-    IReadOnlyDictionary<string, string>? RepoMatches = null);
+    IReadOnlyDictionary<string, string>? RepoMatches = null,
+    bool LayOutOnRoadmap = false);

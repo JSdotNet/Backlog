@@ -524,6 +524,18 @@ on that nothing else in this context will — pasted anywhere but Import, it is
 refused rather than made into a task. The decision, and how the two kinds
 combine, is `.arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md`.
 
+Before anything is written, Import says what the document will produce: how many
+roadmap items and how many tasks. A document of task entries alone can also be
+laid out on the roadmap at once — one item per plan tag its entries carry,
+titled from the tag and scoped to the repositories those entries name — but only
+when the person asks: it is off by default, because a plan brought in again for
+its tasks should not grow an item nobody wanted. Each level of the document
+waits only on its own kind: a task entry's `after:` naming a `plan` entry, or the
+other way round, is reported as unresolved rather than kept. The result reports
+both halves apart, because they do not stand or fall together: the tasks are
+written first, and a roadmap that refuses its half — a document whose plans wait
+on each other in a circle — leaves the tasks written and says so.
+
 ### Repository resolution on import
 
 ```meta

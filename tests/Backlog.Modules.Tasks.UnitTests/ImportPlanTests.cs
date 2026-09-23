@@ -830,10 +830,10 @@ public sealed class ImportPlanTests
     /// path could still have produced, since Import is the only caller the entry
     /// editor's refusal does not stand in front of.
     /// <para>
-    /// Carrying it across to Roadmap is the intake port's job and is not built
-    /// yet, so today it stops here. That is a roadmap item the person does not
-    /// get; letting it through would be a task typed from a word the task model
-    /// cannot hold, which the next canonical rewrite would strip in silence.
+    /// Carrying it across to Roadmap is the intake port's job, and this handler has
+    /// none here — <c>ImportPlanRoadmapIntakeTests</c> covers the crossing. Letting
+    /// it through as a task would be a task typed from a word the task model cannot
+    /// hold, which the next canonical rewrite would strip in silence.
     /// </para>
     /// </summary>
     [Fact]

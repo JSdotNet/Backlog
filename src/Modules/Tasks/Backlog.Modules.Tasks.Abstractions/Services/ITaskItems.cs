@@ -125,5 +125,6 @@ public interface ITaskItems
         string? defaultRepo = null,
         IReadOnlyDictionary<string, string>? repoMatches = null,
         string? sourceInboxId = null,
+        bool layOutOnRoadmap = false,
         CancellationToken cancellationToken = default);
 }

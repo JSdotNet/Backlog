@@ -48,7 +48,8 @@ public static class RoadmapModuleRegistration
         services.AddScoped<ICommandHandler<AddDependencyCommand, Result>, AddDependencyCommandHandler>();
         services.AddScoped<ICommandHandler<RemoveDependencyCommand, Result>, RemoveDependencyCommandHandler>();
         // Needs IPlanningVelocity, which the host answers through the cross-context
-        // adapters; resolved only when an import runs.
+        // adapters. IRoadmapPlanning hands it out, so a host resolving the port must
+        // register a velocity too.
         services.AddScoped<ICommandHandler<ImportPlanItemsCommand, Result<PlanImportResultDto>>, ImportPlanItemsCommandHandler>();
 
         // Placement reads "today"; a host that already registered a clock keeps its own.

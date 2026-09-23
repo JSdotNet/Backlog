@@ -211,7 +211,7 @@ public sealed class SettingsRepositoryRenameTests
         public Task<Result<int>> ReconcileRepositoryIdsAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(Result.Success(0));
 
-        public Task<Result<ImportPlanResultDto>> ImportPlanAsync(string rawText, string? defaultRepo = null, IReadOnlyDictionary<string, string>? repoMatches = null, string? sourceInboxId = null, CancellationToken cancellationToken = default) =>
+        public Task<Result<ImportPlanResultDto>> ImportPlanAsync(string rawText, string? defaultRepo = null, IReadOnlyDictionary<string, string>? repoMatches = null, string? sourceInboxId = null, bool layOutOnRoadmap = false, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
     }
 
