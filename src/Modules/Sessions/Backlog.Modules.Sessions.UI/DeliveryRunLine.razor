@@ -123,11 +123,24 @@
                     </dd>
                 }
 
-                @if (Run.TokenUsage is { } usage)
+                @* A figure the run does not carry is left out rather than shown as
+                   zero — the same rule the trigger above already applies, and it has
+                   to hold in both places or the fold contradicts the line that opens
+                   it. It used to hold only above, which cost nothing while every run
+                   came from a dashboard that measured consumption; a run this product
+                   records carries the model it resolved and no consumption at all,
+                   because those figures are counted by watching a session's own tool
+                   calls and this product sees the call rather than the session. That
+                   made "0 calls · 0 out · 0 in" the normal case instead of a rare
+                   one. *@
+                @if (Run.TokenUsage is { } usage && (usage.Total.ModelCalls > 0 || usage.Models.Count > 0))
                 {
                     <dt>Tokens</dt>
                     <dd data-testid="sessions-run-tokens">
-                        <span class="sessions-run__fact">@Tokens(usage.Total)</span>
+                        @if (usage.Total.ModelCalls > 0)
+                        {
+                            <span class="sessions-run__fact">@Tokens(usage.Total)</span>
+                        }
                         @if (usage.SubAgent.ModelCalls > 0)
                         {
                             <span class="sessions-run__fact">Sub-agents: @Tokens(usage.SubAgent)</span>

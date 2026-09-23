@@ -319,6 +319,11 @@ in, and the file says nothing about which session drove it. What this context ad
 the matching: the same worktree key derived from a session's folder, and the window
 the two were open together.
 
+A run does not have to come from a dashboard. A session can report to this product
+directly, and then the run is recorded here as it happens rather than found afterwards
+— in the same shape, in the same list, on the same terms. See
+[Record a run as it happens](#record-a-run-as-it-happens).
+
 ### Under the session that drove it
 
 ```meta
@@ -418,6 +423,63 @@ as zero; a stage the writer lost the name of is numbered rather than named after
 writer's missing value. A run file cut off mid-write costs that run and nothing else,
 and a dashboard folder that cannot be read is named beside the agents that cannot be,
 in the same sentence.
+
+## Record a run as it happens
+
+```meta
+type: feature
+status: active
+depends-on: [.domain/sessions/features.md#delivery-runs-beside-their-sessions]
+related: [.domain/sessions/domain.md#delivery-run-recording, .arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md]
+```
+
+Let a session report its delivery run to this product while it runs, so the pane shows
+the work in progress instead of a folder somebody else's tool wrote and this product
+found later. A reader watching a run land here sees the same row, with the same
+figures and the same stages, as one imported from a dashboard — because it is the same
+shape, written by this product rather than read from another.
+
+This closes the gap the area was built around. Until now every run in the list was
+somebody else's record: the list could say what had happened, never what was
+happening, and a session with no dashboard installed left no run at all. The
+difference a reader notices is that a row appears when the work starts rather than
+when the reader next refreshes something that had already finished.
+
+**Asking to see the runs brings the pane forward, and answers with the application.**
+A session that reports here can ask for the surface, and what it gets back is what the
+window did — showing the pane, or not showing it because the area is switched off, or
+nothing to show because no window is open. Never an address: this product is the
+application the session is already talking to, and handing back a link would open a
+second window onto the thing it is holding.
+
+### Picking a run back up
+
+```meta
+type: sub-feature
+status: active
+related: [.domain/sessions/domain.md#delivery-run-recording]
+```
+
+A session that resumes work already under way continues the run it left rather than
+starting a second one beside it, and is told that is what happened so it can carry on
+from the first stage that is not done. Two rows for one piece of work would be the
+same work counted twice, with its stages split between them — and a reader has no way
+to tell that from two genuine runs.
+
+### A run this product recorded claims nothing it could not measure
+
+```meta
+type: sub-feature
+status: active
+related: [.domain/sessions/features.md#only-what-the-dashboard-recorded]
+```
+
+The model a run resolved is shown, because the run states it. What the run cost is
+not, because this product cannot see it: those figures are counted by watching a
+session's own tool calls, and what arrives here is a call, not the session that made
+it. Left out rather than shown as zero — the rule this area already applies to a
+dashboard's own gaps, and a run recorded here is one more case of it rather than an
+exception to it.
 
 ## Session activity enrichment
 

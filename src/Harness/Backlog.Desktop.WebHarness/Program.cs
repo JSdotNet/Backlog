@@ -109,6 +109,13 @@ builder.Services.AddSingleton(
 // harness's other settings files, so a session here never rewrites the real
 // per-user choice.
 builder.Services.AddSingleton(_ => CreateLocalDevelopmentShellNavigationStore(builder.Environment.ContentRootPath));
+// What can bring a surface forward from outside the user interface, which the
+// delivery surface's open_dashboard asks. Composed here exactly as in the desktop
+// head and with no local-development variant: there is nothing per-host about it,
+// and the harness is where this gets driven under Aspire. A circuit per browser tab
+// means several windows may attach at once, which is what the activator expects.
+builder.Services.AddSingleton<SessionsSurfaceActivator>();
+builder.Services.AddSingleton<ISessionsSurfaceActivator>(sp => sp.GetRequiredService<SessionsSurfaceActivator>());
 // Which machine this installation is. Scoped to the content root like the harness's
 // other settings files — and here that is more than tidiness: several worktrees serve
 // this harness at once, and one shared identity file would put the first-write race
