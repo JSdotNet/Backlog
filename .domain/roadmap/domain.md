@@ -391,6 +391,40 @@ the count of gathered things that registered no estimate is reported next to the
 total rather than folded into it, because a number that quietly dropped the
 unestimated work would understate it.
 
+Each gathered thing is carried with **how far along it is** and **what else in the
+same gathering it waits on**, so the item can be read as a sequence of steps and not
+only as a total. Both are said in the roadmap's own words: progress is the plan's own
+four-state reading — planned, ready, in progress, done — and a dependency is the key
+of another gathered thing, never a foreign identifier. A supplier's own vocabulary is
+translated once, at the boundary, because a plan that coloured its steps by another
+context's states would be reading a vocabulary it has no say in. A thing that
+registers no progress at all, as a knowledge chapter does, carries none: unknown is
+not a fifth state, and it is never read as finished. A dependency on work this item
+did not gather is dropped rather than carried — it is a real dependency and it really
+blocks, but it is not an edge between two things this item can draw.
+
+The same "registered values only" rule governs the second pair of figures, the ones a
+progress reading is drawn from: how much of the registered effort is **finished**, and
+**how many** finished things there are. The two are reported together for the reason
+the total and the unestimated count are — finished work that registered no estimate is
+invisible to the first, and a reading drawn from effort alone would overstate how far
+along the plan is the moment the finished work turned out to be unsized.
+
+Ordering the steps is arithmetic too, and tolerant by design: nothing is placed before
+what it waits on, things equally free to go next keep the order they were gathered in,
+and a cycle — which the supplying context permits someone to write — is broken by
+releasing the earliest thing still waiting rather than refusing to read the item at
+all.
+
+A whole plan is gathered in one pass as well as an item at a time. Reading every item
+of a plan is one read of each supplier rather than one per item, and both readings
+answer the same way: the per-item reading is for the one item a person opened, the
+plan-wide one for drawing them all. Every item of the plan is answered, including the
+ones that gathered nothing, so "gathered nothing" is never confused with "was not
+asked about". A thing may sit under two items of one plan — a tag is not exclusive —
+and each item's reading names it; which of them may draw it is a question for whoever
+draws them.
+
 Invocation semantics: query/composition-oriented, on the read path. It never
 writes — not to the plan, not to a task, not to a chapter.
 

@@ -44,6 +44,25 @@ public sealed class RoadmapItemRollupService : IRoadmapItemRollup
         return RoadmapItemRollupBuilder.Build(item, backlog, knowledge);
     }
 
+    /// <summary>
+    /// Every item of the plan, off one read of the backlog and one of the knowledge
+    /// graph — the two reads this method exists to make once instead of per item.
+    /// The arithmetic and the joining still belong to
+    /// <see cref="RoadmapItemRollupBuilder"/>; all this adds is that both sources are
+    /// read before any item is answered.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<Guid, RoadmapItemRollupDto>> GatherPlanAsync(
+        RoadmapPlanDto plan,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+
+        var backlog = await _entries.ListAsync(cancellationToken);
+        var knowledge = ReadGraphNodes();
+
+        return RoadmapItemRollupBuilder.BuildPlan(plan, backlog, knowledge);
+    }
+
     private IReadOnlyList<KnowledgeGraphNode> ReadGraphNodes() => ReadDatabaseNodes() ?? ReadGraphJsonNodes();
 
     /// <summary>
