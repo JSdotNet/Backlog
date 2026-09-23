@@ -37,3 +37,26 @@ public enum MilestoneKind
     /// <summary>A date promised to somebody else.</summary>
     Commitment
 }
+
+/// <summary>
+/// Which rule an import used to place an item's window — the <c>placed_by_import</c>
+/// provenance of ADR 0013, ruling 5.
+/// <para>
+/// Held as a nullable value rather than a flag. Absent means a person placed the
+/// window, by hand at creation or by moving it since, and the importer never places
+/// it again. Either member means the window is still the importer's, and a later
+/// re-import has to know which rule placed it: a task-level re-import may re-length
+/// an <see cref="Effort"/> window, but must keep the end of a <see cref="DueDate"/>
+/// one, because that end is a date the person wrote.
+/// </para>
+/// </summary>
+public enum ImportPlacement
+{
+    /// <summary>Start from the predecessors, length from gathered effort over the
+    /// reader's velocity — or the default span when nothing estimated was
+    /// gathered.</summary>
+    Effort,
+
+    /// <summary>Start from the predecessors, end from the entry's <c>due:</c>.</summary>
+    DueDate
+}

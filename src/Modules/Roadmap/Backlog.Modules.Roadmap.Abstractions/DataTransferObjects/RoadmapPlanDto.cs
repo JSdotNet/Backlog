@@ -51,6 +51,8 @@ public sealed record RoadmapPlanDto(
 /// given none, and left alone by a rename.</param>
 /// <param name="KnowledgeRefs">The knowledge chapters this item points at, as opaque
 /// references that may dangle. Empty means it points at none.</param>
+/// <param name="PlacedByImport">Which rule an import placed the window by, while it
+/// is still the importer's; null once a person has placed it.</param>
 public sealed record RoadmapItemDto(
     Guid Id,
     string Title,
@@ -63,7 +65,8 @@ public sealed record RoadmapItemDto(
     IReadOnlyList<Guid> DependsOn,
     string? Notes = null,
     string Tag = "",
-    IReadOnlyList<string>? KnowledgeRefs = null)
+    IReadOnlyList<string>? KnowledgeRefs = null,
+    ImportPlacement? PlacedByImport = null)
 {
     /// <summary>How many days it covers, counting both ends.</summary>
     public int Days => End.DayNumber - Start.DayNumber + 1;

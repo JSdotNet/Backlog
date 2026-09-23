@@ -417,6 +417,14 @@ plan by an import: a plan the document has stopped describing stays planned,
 because taking work off the roadmap is a planning decision — other work waits on
 it — and the person makes it [in place](#editing-the-plan-in-place).
 
+An import says what it could not do rather than guessing. A plan entry with no
+tag is skipped and named, because the tag is how the next import finds it. A tag
+several planned items already carry updates the first of them and names the
+rest. A dependency that names nothing is dropped and named. And a document whose
+dependencies would make the plan circular is
+[refused whole](#refusing-an-edit-rather-than-half-applying-it): nothing is
+created and nothing revised, and the person sees which edge did not fit.
+
 ### Reading a plan's steps inside its item
 
 ```meta

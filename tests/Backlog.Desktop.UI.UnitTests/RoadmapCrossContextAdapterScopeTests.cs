@@ -7,8 +7,12 @@ using Backlog.Modules.Tasks;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.Extensions;
 using Backlog.Modules.Roadmap;
+using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Roadmap.Extensions;
+using Backlog.Modules.Roadmap.Features.ImportPlanItems;
+using Backlog.SharedKernel.Handlers;
+using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -107,5 +111,19 @@ public sealed class RoadmapCrossContextAdapterScopeTests : IDisposable
         Assert.IsType<RoadmapPlanTagSource>(tagSource);
         Assert.IsType<RoadmapItemRollupService>(rollup);
         Assert.IsType<PlanningVelocitySource>(velocity);
+    }
+
+    [Fact]
+    public void Roadmaps_own_import_command_resolves_in_the_host_graph()
+    {
+        // It asks for the reader's pace, which the module never answers itself —
+        // only the cross-context adapters do.
+        using var provider = BuildHostLikeProvider();
+        using var scope = provider.CreateScope();
+
+        var import = scope.ServiceProvider.GetRequiredService<
+            ICommandHandler<ImportPlanItemsCommand, Result<PlanImportResultDto>>>();
+
+        Assert.IsType<ImportPlanItemsCommandHandler>(import);
     }
 }

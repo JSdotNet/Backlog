@@ -32,6 +32,11 @@ public static class RoadmapErrors
     public static Error SelfDependency() =>
         Error.Validation("roadmap.self_dependency", "Something cannot wait for itself.");
 
+    public static Error PlacedByHand(string title) =>
+        Error.Conflict(
+            "roadmap.placed_by_hand",
+            $"'{title}' has been moved by hand since it was imported, so an import keeps its dates.");
+
     /// <summary>A cycle is a conflict with the plan's current state rather than
     /// bad input: the same edge would have been fine before the others were
     /// added.</summary>

@@ -30,7 +30,19 @@ internal static class RoadmapMapper
         item.Dependencies.All,
         item.Notes,
         item.Tag.Value,
-        item.KnowledgeRefs.Refs);
+        item.KnowledgeRefs.Refs,
+        item.PlacedByImport);
+
+    internal static RoadmapItemScheduledDto Scheduled(this RoadmapItem item, PlannedWindow? previous) => new(
+        item.Id,
+        item.Title,
+        item.Window.Start,
+        item.Window.End,
+        previous?.Start,
+        previous?.End,
+        item.Priority,
+        item.Scope.Aliases,
+        item.TaskId);
 
     internal static RoadmapMilestoneDto ToDto(this Milestone milestone) => new(
         milestone.Id,

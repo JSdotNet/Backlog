@@ -144,6 +144,14 @@ internal sealed record RoadmapItemDocument
 
     public string? Notes { get; init; }
 
+    /// <summary>Which rule an import placed the window by — <c>effort</c> or
+    /// <c>due-date</c> — while the window is still the importer's (local ADR 0013,
+    /// ruling 5). Omitted once a person has placed it, so a hand-made item costs no
+    /// key. Additive for the reason <see cref="Tag"/> is: a document written before
+    /// imports placed anything has no key, and every item in it reads as placed by a
+    /// person — which is what each of them was. No version bump, per ADR 0006.</summary>
+    public string? PlacedByImport { get; init; }
+
     internal static RoadmapItemDocument From(RoadmapItem item) => new()
     {
         Id = item.Id.ToString(),
@@ -157,7 +165,8 @@ internal sealed record RoadmapItemDocument
         Tag = item.Tag.Value,
         Knowledge = item.KnowledgeRefs.IsEmpty ? null : [.. item.KnowledgeRefs.Refs],
         DependsOn = [.. item.Dependencies.All.Select(id => id.ToString())],
-        Notes = item.Notes
+        Notes = item.Notes,
+        PlacedByImport = item.PlacedByImport is { } placement ? RoadmapWire.ToWire(placement) : null
     };
 
     /// <summary>The item, or null when the block does not describe one. A block
@@ -186,7 +195,8 @@ internal sealed record RoadmapItemDocument
             // No tag means a document from before tags existed; the item
             // derives one from its title when handed null.
             string.IsNullOrWhiteSpace(Tag) ? null : PlanningTag.Of(Tag),
-            KnowledgeReferences.Of(Knowledge));
+            KnowledgeReferences.Of(Knowledge),
+            RoadmapWire.ParsePlacement(PlacedByImport));
     }
 }
 
@@ -267,6 +277,13 @@ internal static class RoadmapWire
         _ => throw new ArgumentOutOfRangeException(nameof(value))
     };
 
+    internal static string ToWire(ImportPlacement value) => value switch
+    {
+        ImportPlacement.Effort => "effort",
+        ImportPlacement.DueDate => "due-date",
+        _ => throw new ArgumentOutOfRangeException(nameof(value))
+    };
+
     /// <summary>An unreadable or missing priority falls back to medium rather than
     /// failing the load. A document carrying <c>urgent</c> has said something about
     /// one item; refusing to open the whole plan over it would be a poor trade.</summary>
@@ -285,6 +302,17 @@ internal static class RoadmapWire
         "commitment" => MilestoneKind.Commitment,
         _ => MilestoneKind.Release
     };
+
+    /// <summary>A missing or unreadable value reads as placed by a person. That is the
+    /// safe side: the importer then keeps the window rather than moving dates somebody
+    /// may have chosen.</summary>
+    internal static ImportPlacement? ParsePlacement(string? value) =>
+        Normalize(value?.Replace("-", string.Empty, StringComparison.Ordinal)) switch
+        {
+            "effort" => ImportPlacement.Effort,
+            "duedate" => ImportPlacement.DueDate,
+            _ => null
+        };
 
     internal static IEnumerable<Guid> ParseIds(IEnumerable<string>? ids) =>
         (ids ?? []).Select(id => Guid.TryParse(id, out var parsed) ? parsed : Guid.Empty)

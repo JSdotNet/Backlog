@@ -107,7 +107,16 @@ status: draft
 A single piece of planned work, identified by `roadmap_item_id`. Holds `title`,
 its `Roadmap Tag`, its `Planned Window`, its `Planning Priority`, its
 `Repository Scope`, its `Planning Lane`, its `Dependency` set, an optional
-`Task Link`, a set of `Knowledge Ref`s, and optional `notes`.
+`Task Link`, a set of `Knowledge Ref`s, optional `notes`, and — when an import
+placed its window — `placed_by_import`.
+
+`placed_by_import` records which rule an import placed the window by: `effort`
+(start from its predecessors, length from gathered effort over the reader's
+velocity) or `due-date` (end from the `due:` the plan wrote). Absent means a
+person placed it. It is cleared the moment a person moves the window, and never
+set again except by an import creating the item anew; an import re-places only a
+window that still carries it. A drop onto another lane that leaves the dates
+alone keeps it, because no date the importer chose was overruled.
 
 It has no status and no percentage. Both are questions about execution, and
 execution belongs to Tasks: an item that names a task shows that

@@ -233,6 +233,80 @@ public sealed class RoadmapPlan
         return Result.Success(item);
     }
 
+    /// <summary>
+    /// Adds an item an import brought in, its window placed by <paramref name="placement"/>.
+    /// Always tagged: the tag is how the next import finds it again, so an import never
+    /// lets one be derived from the title.
+    /// </summary>
+    public Result<RoadmapItem> AddImportedItem(
+        string title,
+        PlanningTag tag,
+        PlannedWindow window,
+        ImportPlacement placement,
+        PlanningPriority priority = PlanningPriority.Medium,
+        RepositoryScope? scope = null,
+        string? notes = null)
+    {
+        ArgumentNullException.ThrowIfNull(tag);
+
+        var added = AddItem(title, window, priority, scope, notes: notes, tag: tag);
+        if (added.IsSuccess) added.Value.PlaceByImport(window, placement);
+        return added;
+    }
+
+    /// <summary>
+    /// Replaces what a re-imported entry states about an existing item: title,
+    /// priority, repository scope and notes (ADR 0013, ruling 5). Everything the
+    /// document does not speak for — the lane, the linked task, the tag, the
+    /// chapters, and the window — is left alone here.
+    /// </summary>
+    public Result<RoadmapItem> ReviseFromImport(
+        Guid itemId,
+        string title,
+        PlanningPriority priority,
+        RepositoryScope? scope,
+        string? notes)
+    {
+        if (string.IsNullOrWhiteSpace(title)) return Result.Failure<RoadmapItem>(RoadmapErrors.TitleRequired());
+
+        var item = FindItem(itemId);
+        if (item is null) return Result.Failure<RoadmapItem>(RoadmapErrors.ItemNotFound(itemId));
+
+        item.Rename(title.Trim());
+        item.Prioritise(priority);
+        item.FileUnder(scope ?? RepositoryScope.Unfiled);
+        item.Annotate(notes);
+        return Result.Success(item);
+    }
+
+    /// <summary>
+    /// Places an item's window by an import rule. Refused for a window a person has
+    /// placed: once somebody moved it, it is a decision, and the importer does not
+    /// overrule decisions.
+    /// </summary>
+    public Result<RoadmapItem> PlaceByImport(Guid itemId, PlannedWindow window, ImportPlacement placement)
+    {
+        ArgumentNullException.ThrowIfNull(window);
+
+        var item = FindItem(itemId);
+        if (item is null) return Result.Failure<RoadmapItem>(RoadmapErrors.ItemNotFound(itemId));
+        if (item.PlacedByImport is null) return Result.Failure<RoadmapItem>(RoadmapErrors.PlacedByHand(item.Title));
+
+        item.PlaceByImport(window, placement);
+        return Result.Success(item);
+    }
+
+    /// <summary>Takes every dependency off one node, so a re-import can replace the
+    /// set rather than merge into it.</summary>
+    public Result ClearDependencies(Guid nodeId)
+    {
+        var dependencies = DependenciesOf(nodeId);
+        if (dependencies is null) return Result.Failure(RoadmapErrors.NodeNotFound(nodeId));
+
+        foreach (var dependsOn in dependencies.All.ToList()) dependencies.Remove(dependsOn);
+        return Result.Success();
+    }
+
     public Result<RoadmapItem> Rename(Guid itemId, string title)
     {
         if (string.IsNullOrWhiteSpace(title)) return Result.Failure<RoadmapItem>(RoadmapErrors.TitleRequired());
