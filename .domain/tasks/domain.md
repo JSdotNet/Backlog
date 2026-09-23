@@ -290,7 +290,7 @@ status: draft
 related: [.domain/tasks/naming.md#dependency]
 ```
 
-Classification of the task: `prompt`, `task`, `idea`. A follow-up is a
+Classification of the task: `prompt`, `task`, `idea`, `test`. A follow-up is a
 `Dependency` on the task it comes after rather than a type of its own.
 
 ### Task Status

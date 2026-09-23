@@ -1370,6 +1370,22 @@ public class EntryTextParserTests
     }
 
     [Fact]
+    public void A_test_entry_reads_its_type_and_writes_it_back()
+    {
+        var parsed = EntryTextParser.Parse("# Try the export by hand\n`test` `!ready`\n");
+
+        Assert.Equal(EntryType.Test, parsed.Type);
+
+        var entry = new TaskItem("Try the export by hand", string.Empty, EntryType.Test, Priority.Medium);
+        var raw = EntryTextParser.ToRawText(entry.ToDto());
+
+        Assert.Contains("`test`", raw);
+        Assert.Equal(EntryType.Test, EntryTextParser.Parse(raw).Type);
+        Assert.Equal("test", EnumMap.ToWire(EntryType.Test));
+        Assert.Equal(EntryType.Test, EnumMap.ParseType("test"));
+    }
+
+    [Fact]
     public void Raw_text_round_trips_through_an_entry()
     {
         var entry = new TaskItem("Ship it", "Body with #alpha\n\n## A sub-item\nnotes", EntryType.Idea, Priority.High);
@@ -1587,6 +1603,7 @@ public class EntryTextParserTests
     [InlineData("prompt")]
     [InlineData("task")]
     [InlineData("idea")]
+    [InlineData("test")]
     public void Every_other_type_word_is_a_task_entry(string typeWord)
     {
         var parsed = EntryTextParser.Parse($"# Ship it\n`{typeWord}`\n");

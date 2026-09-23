@@ -23,7 +23,7 @@ item's `##` headings mean.
    read them off the plan-item marker; with the connector, `read_item` answers them too. An
    entry carrying only the session-name line yields the tag alone — say so and continue.
    The body is the instructions; `## Setup:`, the knowledge/devbook reminder and `- [ ]`
-   lines are its steps. A `task` type on the metadata line, or from `read_item` — or a body
+   lines are its steps. A `task` or `test` type on the metadata line, or from `read_item` — or a body
    with neither marker nor session-name line — is the user's own work, not a prompt: say
    so and stop.
 2. **Session and place.** Add the plan tag to the session title where the host allows it.
@@ -42,7 +42,7 @@ item's `##` headings mean.
    remains and do only that. **Not started** → continue. Unsure → ask before touching anything.
 4. **Prerequisites.** Look for the same evidence for every `after:` id. One missing → warn
    and ask whether to proceed; never silently build on a step that has not landed. Without
-   the connector, an `after:` id that names a `task` the user does leaves no trace in the
+   the connector, an `after:` id that names a `task` or `test` the user does leaves no trace in the
    repository — ask whether it is done instead of searching for it.
 5. **Do it.** With the connector, `transition` the entry Ready → In progress first. Then
    `Setup:` sub-items in order, then the instructions, exactly the way the repository's own
@@ -66,4 +66,4 @@ item's `##` headings mean.
 ## Never
 
 - Redo an item the evidence says has landed: re-pasting is expected, duplicating work is not.
-- Run a `task` entry, open a pull request, or mark anything done in Backlog unasked.
+- Run a `task` or `test` entry, open a pull request, or mark anything done in Backlog unasked.

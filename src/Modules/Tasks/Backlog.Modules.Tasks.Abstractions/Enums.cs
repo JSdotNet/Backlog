@@ -5,17 +5,20 @@ public enum EntryType
 {
     Prompt,
     Task,
-    Idea
+    Idea,
+
+    /// <summary>A check a person runs by hand against work already done.</summary>
+    Test
 }
 
 /// <summary>
 /// Which half of the entry-text grammar a parsed segment belongs to.
 /// <para>
-/// The bare type word says what an entry <em>is</em>, and three of the four
-/// words it may be — <c>prompt</c>, <c>task</c>, <c>idea</c> — classify a task
-/// and live in <see cref="EntryType"/>. All three are <see cref="Task"/> here:
-/// the kind is not a fourth type, it is which thing the segment describes. The
-/// fourth word, <c>plan</c>, describes a roadmap item, which is not a task and
+/// The bare type word says what an entry <em>is</em>, and four of the five
+/// words it may be — <c>prompt</c>, <c>task</c>, <c>idea</c>, <c>test</c> —
+/// classify a task and live in <see cref="EntryType"/>. All four are
+/// <see cref="Task"/> here: the kind is not a fifth type, it is which thing the
+/// segment describes. The fifth word, <c>plan</c>, describes a roadmap item, which is not a task and
 /// has no row in <see cref="EntryType"/> — so the kind is read off the same
 /// token and kept beside the type rather than inside it, and a <c>plan</c>
 /// segment carries no <see cref="EntryType"/> at all.

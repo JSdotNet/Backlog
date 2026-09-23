@@ -30,6 +30,7 @@ public static class EnumMap
         EntryType.Prompt => "prompt",
         EntryType.Task => "task",
         EntryType.Idea => "idea",
+        EntryType.Test => "test",
         _ => throw new ArgumentOutOfRangeException(nameof(value))
     };
 
@@ -64,6 +65,7 @@ public static class EnumMap
         "prompt" => EntryType.Prompt,
         "task" => EntryType.Task,
         "idea" => EntryType.Idea,
+        "test" => EntryType.Test,
         _ => throw new FormatException($"Unknown task type '{value}'.")
     };
 
