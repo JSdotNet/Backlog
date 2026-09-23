@@ -19,6 +19,14 @@ namespace Backlog.UI.Components.Markdown;
 /// item holding a quote or a fence). Each of those wants a real block/inline
 /// state machine, and every one of them degrades to readable prose today.
 /// </para>
+/// <para>
+/// Every block it emits carries the lines it was read from —
+/// <see cref="MdBlock.Source"/>. That is what lets a caller hand back the
+/// author's own bytes for a block instead of writing the model out again: the
+/// parse is lossy by design above, so a round trip through it reformats a table,
+/// re-indents a list and turns the markdown it does not model into prose. A span
+/// costs nothing to carry and makes the lossiness survivable.
+/// </para>
 /// </summary>
 public static class MarkdownPreview
 {
@@ -99,10 +107,17 @@ public static class MarkdownPreview
         var quote = new List<string>();
         var taskIndex = 0;
 
+        // Where the run being accumulated started, and one past the last line it
+        // has taken. Two numbers rather than a list of indices because a run is
+        // always contiguous: a blank line, a heading, a fence — anything that is
+        // not another line of the same run — flushes it.
+        var paragraphSpan = MdSourceSpan.None;
+        var quoteSpan = MdSourceSpan.None;
+
         void FlushParagraph()
         {
             if (paragraph.Count == 0) return;
-            blocks.Add(new MdParagraph(ParseInlines(string.Join(" ", paragraph), footnotes)));
+            blocks.Add(new MdParagraph(ParseInlines(string.Join(" ", paragraph), footnotes)) { Source = paragraphSpan });
             paragraph.Clear();
         }
 
@@ -126,7 +141,7 @@ public static class MarkdownPreview
         void FlushQuote()
         {
             if (quote.Count == 0) return;
-            blocks.Add(new MdQuote(ParseInlines(string.Join(" ", quote), footnotes)));
+            blocks.Add(new MdQuote(ParseInlines(string.Join(" ", quote), footnotes)) { Source = quoteSpan });
             quote.Clear();
         }
 
@@ -142,19 +157,27 @@ public static class MarkdownPreview
             var line = lines[i].TrimEnd();
             var trimmed = line.TrimStart();
 
-            if (trimmed.StartsWith("```", StringComparison.Ordinal))
+            if (OpeningFence(trimmed) is { } fence)
             {
                 FlushAll();
-                var language = trimmed[3..].Trim();
+                var opened = i;
+                var language = trimmed[fence.Length..].Trim();
                 var code = new List<string>();
                 i++;
-                while (i < lines.Length && !lines[i].TrimStart().StartsWith("```", StringComparison.Ordinal))
+                while (i < lines.Length && !ClosesFence(lines[i], fence))
                 {
                     code.Add(lines[i]);
                     i++;
                 }
 
-                blocks.Add(new MdCode(string.Join('\n', code), language));
+                // The closing fence belongs to the block. An unterminated fence
+                // ran to the end of the body, and its span says so rather than
+                // naming a line that is not there.
+                blocks.Add(new MdCode(string.Join('\n', code), language)
+                {
+                    Source = new MdSourceSpan(opened, i < lines.Length ? i + 1 : lines.Length)
+                });
+
                 continue;
             }
 
@@ -174,7 +197,7 @@ public static class MarkdownPreview
             if (trimmed is "---" or "***" or "___")
             {
                 FlushAll();
-                blocks.Add(new MdDivider());
+                blocks.Add(new MdDivider { Source = new MdSourceSpan(i, i + 1) });
                 continue;
             }
 
@@ -186,7 +209,12 @@ public static class MarkdownPreview
                 && TableDelimiterRegex.IsMatch(lines[i + 1].TrimEnd()))
             {
                 FlushAll();
-                blocks.Add(ReadTable(lines, ref i, footnotes));
+                var opened = i;
+
+                // ReadTable leaves the index on the table's last line, so the
+                // span closes one past it — the same place the loop's own i++ is
+                // about to take the reading.
+                blocks.Add(ReadTable(lines, ref i, footnotes) with { Source = new MdSourceSpan(opened, i + 1) });
                 continue;
             }
 
@@ -194,6 +222,7 @@ public static class MarkdownPreview
             if (heading.Success)
             {
                 FlushAll();
+                var opened = i;
                 var level = heading.Groups[1].Value.Length;
                 var text = heading.Groups[2].Value.Trim();
                 bool? done = null;
@@ -222,7 +251,14 @@ public static class MarkdownPreview
                     i++;
                 }
 
-                blocks.Add(new MdHeading(level, ParseInlines(text, footnotes), done, metadata, inheritedArea));
+                // One line, or two when a metadata line was taken with it: i has
+                // already moved past that line, so the span closes on the
+                // reading rather than on a count of its own.
+                blocks.Add(new MdHeading(level, ParseInlines(text, footnotes), done, metadata, inheritedArea)
+                {
+                    Source = new MdSourceSpan(opened, i + 1)
+                });
+
                 continue;
             }
 
@@ -235,6 +271,7 @@ public static class MarkdownPreview
                 // line before, which turned a two-line quotation into two
                 // stacked bars with a gap down the middle of the sentence.
                 var text = trimmed[1..];
+                quoteSpan = quote.Count == 0 ? new MdSourceSpan(i, i + 1) : quoteSpan.To(i + 1);
                 quote.Add(text.StartsWith(' ') ? text[1..] : text);
                 continue;
             }
@@ -252,7 +289,8 @@ public static class MarkdownPreview
                     Done: task.Groups["marker"].Value is "x" or "X",
                     taskText,
                     ParseInlines(taskText, footnotes),
-                    taskIndex++));
+                    taskIndex++,
+                    new MdSourceSpan(i, i + 1)));
                 continue;
             }
 
@@ -261,7 +299,7 @@ public static class MarkdownPreview
             {
                 FlushParagraph();
                 var bulletText = bullet.Groups[1].Value;
-                items.Add(new RawItem(IndentOf(line), Ordered: false, Done: null, bulletText, ParseInlines(bulletText, footnotes), null));
+                items.Add(new RawItem(IndentOf(line), Ordered: false, Done: null, bulletText, ParseInlines(bulletText, footnotes), null, new MdSourceSpan(i, i + 1)));
                 continue;
             }
 
@@ -270,7 +308,7 @@ public static class MarkdownPreview
             {
                 FlushParagraph();
                 var numberedText = numbered.Groups[1].Value;
-                items.Add(new RawItem(IndentOf(line), Ordered: true, Done: null, numberedText, ParseInlines(numberedText, footnotes), null));
+                items.Add(new RawItem(IndentOf(line), Ordered: true, Done: null, numberedText, ParseInlines(numberedText, footnotes), null, new MdSourceSpan(i, i + 1)));
                 continue;
             }
 
@@ -284,12 +322,20 @@ public static class MarkdownPreview
                 var text = continued.Text + " " + trimmed;
 
                 // The joined text is re-read whole, so emphasis opened on the
-                // first line and closed on the second is still emphasis.
-                items[^1] = continued with { Text = text, Content = ParseInlines(text, footnotes) };
+                // first line and closed on the second is still emphasis. The
+                // item's span grows to cover the line it swallowed.
+                items[^1] = continued with
+                {
+                    Text = text,
+                    Content = ParseInlines(text, footnotes),
+                    Source = continued.Source.To(i + 1)
+                };
+
                 continue;
             }
 
             FlushList();
+            paragraphSpan = paragraph.Count == 0 ? new MdSourceSpan(i, i + 1) : paragraphSpan.To(i + 1);
             paragraph.Add(trimmed);
         }
 
@@ -300,6 +346,54 @@ public static class MarkdownPreview
         if (footnotes.Notes.Count > 0) blocks.Add(new MdFootnotes(footnotes.Notes));
 
         return asEntry ? GroupSubItems(blocks) : blocks;
+    }
+
+    /// <summary>
+    /// The fence a line opens, as the marker it is written with and how many of
+    /// them there are, or null when the line opens none.
+    /// <para>
+    /// Both markers, because CommonMark has both and a <c>~~~</c> fence is how an
+    /// author writes a block whose body contains backtick fences. Reading only
+    /// <c>```</c> meant a <c>~~~</c> block was not a block at all: its body was
+    /// parsed as prose, and every fence inside it as a block of its own.
+    /// </para>
+    /// </summary>
+    private static (char Marker, int Length)? OpeningFence(string trimmed)
+    {
+        if (trimmed.Length < 3 || trimmed[0] is not ('`' or '~')) return null;
+
+        var marker = trimmed[0];
+        var length = 0;
+
+        while (length < trimmed.Length && trimmed[length] == marker) length++;
+
+        return length >= 3 ? (marker, length) : null;
+    }
+
+    /// <summary>
+    /// Whether a line closes the fence that is open.
+    /// <para>
+    /// CommonMark's rule, and the reason this is not "starts with three
+    /// backticks": a fence is closed by a run of <em>its own</em> marker, at
+    /// least as long as the one that opened it, with nothing after it. That is
+    /// what lets a fence hold a fence — a <c>````annotation</c> block whose body
+    /// quotes a <c>```</c> code sample, which is how the devbook convention's own
+    /// notes are written. Ending such a block at the first inner <c>```</c> split
+    /// one note into a code block and a run of loose prose, and any caller cutting
+    /// the note out by line range cut out only the first half of it, leaving the
+    /// rest of somebody's private annotation in text that says it carries none.
+    /// </para>
+    /// </summary>
+    private static bool ClosesFence(string line, (char Marker, int Length) fence)
+    {
+        var trimmed = line.TrimStart();
+
+        return OpeningFence(trimmed) is { } run
+            && run.Marker == fence.Marker
+            && run.Length >= fence.Length
+            // An info string on a closing fence is not a closing fence. Only the
+            // run and whatever whitespace follows it.
+            && trimmed[run.Length..].Trim().Length == 0;
     }
 
     /// <summary>How deep a list line is indented, with a tab counting as four
@@ -319,15 +413,16 @@ public static class MarkdownPreview
     }
 
     /// <summary>One list line before nesting: what it said, how far in it was
-    /// written, and the source text behind it — kept so a wrapped line can be
-    /// joined on and the whole item re-read as one.</summary>
+    /// written, the source text behind it — kept so a wrapped line can be joined
+    /// on and the whole item re-read as one — and the lines it came from.</summary>
     private sealed record RawItem(
         int Indent,
         bool Ordered,
         bool? Done,
         string Text,
         IReadOnlyList<MdInline> Content,
-        int? TaskIndex);
+        int? TaskIndex,
+        MdSourceSpan Source);
 
     /// <summary>
     /// Folds a flat run of list lines into the nesting their indentation
@@ -338,6 +433,7 @@ public static class MarkdownPreview
     private static MdList BuildList(IReadOnlyList<RawItem> raw, ref int index, int level)
     {
         var ordered = raw[index].Ordered;
+        var from = index;
         var items = new List<MdListItem>();
 
         while (index < raw.Count && raw[index].Indent >= level && raw[index].Ordered == ordered)
@@ -359,7 +455,15 @@ public static class MarkdownPreview
             items.Add(new MdListItem(item.Done, item.Content, item.TaskIndex, children));
         }
 
-        return new MdList(ordered, items);
+        // The items this call took, nested ones included: they were read in line
+        // order, so the first one's opening line and the last one's closing line
+        // are the run's own. A nested list's span therefore sits inside its
+        // parent's, which is the one place spans are allowed to contain one
+        // another — they never straddle.
+        return new MdList(ordered, items)
+        {
+            Source = new MdSourceSpan(raw[from].Source.StartLine, raw[index - 1].Source.EndLineExclusive)
+        };
     }
 
     /// <summary>Every <c>[^label]: …</c> line in the body, by label. A label
@@ -568,6 +672,11 @@ public static class MarkdownPreview
                 children.Add(blocks[index++]);
             }
 
+            // The heading and everything folded under it. A child keeps its own
+            // span, so a sub-item's span contains its children's rather than
+            // replacing them.
+            var last = children.LastOrDefault(child => child.Source.IsKnown)?.Source;
+
             grouped.Add(new MdSubItem(
                 heading.Content,
                 heading.Metadata?.Done is true || heading.Done is true,
@@ -575,7 +684,12 @@ public static class MarkdownPreview
                 children,
                 heading.Level,
                 heading.Metadata,
-                heading.Area));
+                heading.Area)
+            {
+                Source = last is { } end
+                    ? new MdSourceSpan(heading.Source.StartLine, end.EndLineExclusive)
+                    : heading.Source
+            });
         }
 
         return grouped;
@@ -660,7 +774,51 @@ public sealed record MarkdownMetadata(object? Value, bool Done, IReadOnlyList<st
     public static MarkdownMetadata None { get; } = new(null, false, []);
 }
 
-public abstract record MdBlock;
+/// <summary>
+/// The lines of the body a block was read from: <paramref name="StartLine"/>
+/// inclusive, <paramref name="EndLineExclusive"/> exclusive, both zero-based
+/// indices into the body split on <c>\n</c> after <c>\r\n</c> has been
+/// normalized — the same split <see cref="MarkdownPreview.Parse(string?, string?, IMarkdownMetadataReader?)"/>
+/// makes, so a caller that splits the same way indexes the same lines.
+/// </summary>
+/// <remarks>
+/// A span covers the block's own lines and nothing else. Between two blocks
+/// there may be lines no block claims — blank lines, and the <c>[^label]:</c>
+/// definitions the parser lifts out of the flow — and those are gaps rather than
+/// content anybody dropped.
+/// </remarks>
+public readonly record struct MdSourceSpan(int StartLine, int EndLineExclusive)
+{
+    /// <summary>No span. What a block synthesized rather than read carries —
+    /// <see cref="MdFootnotes"/>, whose definitions were collected from wherever
+    /// in the body they were written, and any block a caller built by hand.</summary>
+    public static MdSourceSpan None => default;
+
+    /// <summary>Whether this names any lines at all.</summary>
+    public bool IsKnown => EndLineExclusive > StartLine;
+
+    /// <summary>How many lines it covers.</summary>
+    public int LineCount => IsKnown ? EndLineExclusive - StartLine : 0;
+
+    /// <summary>The same span, grown to end at <paramref name="endLineExclusive"/>
+    /// — what a run that has just taken another line becomes.</summary>
+    public MdSourceSpan To(int endLineExclusive) => this with { EndLineExclusive = endLineExclusive };
+}
+
+/// <summary>
+/// One block of the read view's model.
+/// </summary>
+/// <remarks>
+/// <see cref="Source"/> is set by the parser and defaults to
+/// <see cref="MdSourceSpan.None"/>, so a block built by hand — a test fixture, a
+/// storybook sample — is unchanged by its presence.
+/// </remarks>
+public abstract record MdBlock
+{
+    /// <summary>The lines this block was read from, or
+    /// <see cref="MdSourceSpan.None"/> when it was not read from any.</summary>
+    public MdSourceSpan Source { get; init; }
+}
 
 /// <summary>A heading. <see cref="Done"/> is non-null only for the level-2
 /// headings that carry sub-item state.</summary>

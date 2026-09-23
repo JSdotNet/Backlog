@@ -1,3 +1,4 @@
+using Backlog.Desktop.Mcp;
 using Backlog.Desktop.Services;
 using Backlog.Desktop.UI.Inbox;
 using Backlog.Desktop.UI.Tasks;
@@ -46,6 +47,7 @@ using Backlog.Infrastructure.Sync.Sessions;
 using Backlog.UI.Components.Feedback;
 using Backlog.UI.Components.Diagrams;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -278,6 +280,13 @@ public static class MauiProgram
             "Backlog",
             "backup-state.json")));
         builder.Services.AddSingleton<BackupWorker>();
+        // The loopback MCP listener local ADR 0012 decided. TryAdd rather than
+        // Add, the way AddTaskSyncClient registers its own worker: this head
+        // composes it once and a second registration would be a second listener
+        // fighting the first for one port. It takes the provider itself, because
+        // the listener it builds has a container of its own and forwards every
+        // port into this one rather than composing a second ITaskItems.
+        builder.Services.TryAddSingleton<McpServerWorker>();
         // Where the sync service is, asked per client rather than fixed here.
         // Under the AppHost it is "https+http://sync", which the service discovery
         // AddServiceDefaults wired up rewrites to this run's sync resource - ports
@@ -564,6 +573,14 @@ public static class MauiProgram
         // And the backup loop, on the same terms: a timer that only existed
         // while the Storage tab was open would miss every slot it was set for.
         _ = app.Services.GetRequiredService<BackupWorker>();
+
+        // And the MCP listener, on the same terms again - its constructor is
+        // what binds the port, so a singleton nobody resolves is a server no
+        // session can reach. It is the one of the five that does nothing at all
+        // until somebody switches it on: AppFeatures.McpServer is
+        // EnabledByDefault: false, so on an untouched machine this line
+        // constructs an object that reads one flag and stops.
+        _ = app.Services.GetRequiredService<McpServerWorker>();
 
         return app;
     }

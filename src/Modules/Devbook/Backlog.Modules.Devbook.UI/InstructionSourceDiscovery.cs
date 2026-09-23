@@ -15,7 +15,7 @@ public sealed class InstructionSourceDiscovery
     /// comparison, and impossible to open. Shared rather than copied, so the menu
     /// cannot drift from what discovery actually reads.</para>
     /// </summary>
-    public static IReadOnlyList<string> RootFileNames { get; } = ["CLAUDE.md", "AGENTS.md"];
+    public static IReadOnlyList<string> RootFileNames { get; } = DevbookInstructionSources.RootFileNames;
 
     /// <summary>
     /// What a branch has to carry on disk before this area can be discovered:
@@ -210,6 +210,12 @@ public sealed class InstructionSourceDiscovery
 
         var info = new FileInfo(normalizedFullPath);
         var relativePath = Path.GetRelativePath(root, normalizedFullPath);
+
+        // The same predicate the MCP tool refuses a chapter with, asked here so
+        // the two cannot drift: what this panel shows is what a session may read,
+        // and a source added to the calls above without being added to the
+        // predicate disappears here rather than quietly becoming readable there.
+        if (!DevbookInstructionSources.IsInstructionSource(relativePath)) return;
         documents.Add(new InstructionDocument(
             Path.GetFileName(relativePath),
             relativePath,

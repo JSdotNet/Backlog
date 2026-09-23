@@ -71,9 +71,39 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!--
+      THE ONE PLACE THIS MAY APPEAR. Local ADR 0012 §2 puts
+      Microsoft.AspNetCore.App in Backlog.Desktop.csproj "and nowhere else —
+      never Backlog.Desktop.UI, never a module, an infrastructure project or
+      ServiceDefaults, because every one of those is on a path the mobile head
+      compiles". Eleven projects reach net10.0-android through
+      Backlog.Mobile — ServiceDefaults, Backlog.Mobile.UI, Backlog.UI.Components,
+      Backlog.Infrastructure.Sync, Backlog.SharedKernel, Backlog.Modules.Tasks
+      and the Tasks/Sync/Inbox/Devbook/Sessions abstractions — and that head
+      cannot take this reference: it fails NETSDK1082, which is exactly how an
+      AspNetCore instrumentation package once broke it through ServiceDefaults.
+      This project is a Windows-only WinExe that nothing else references, so the
+      reference stops here. Adding it anywhere else, or adding
+      ModelContextProtocol.AspNetCore (which carries it) to a project on that
+      path, breaks the mobile build and no unit test will say so — `dotnet test`
+      does not compile that head.
+    -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.Maui.Controls" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Debug" />
+    <!-- Microsoft.Extensions.Logging.Debug used to be referenced here for the
+         builder.Logging.AddDebug() under #if DEBUG in MauiProgram. It is gone
+         because the FrameworkReference above now supplies it: the package ships
+         inside the Microsoft.AspNetCore.App shared framework, so NuGet prunes it
+         and warns NU1510 if it is named anyway. The mobile head still names it,
+         correctly — that head has no framework reference and never will. -->
+    <!-- WithHttpTransport and MapMcp: the Streamable HTTP half of the MCP SDK,
+         which is what McpServerWorker binds its loopback Kestrel listener with.
+         It is this package that carries the framework reference above. -->
+    <PackageReference Include="ModelContextProtocol.AspNetCore" />
   </ItemGroup>
 
   <ItemGroup>
@@ -107,6 +137,11 @@
     <!-- The device half of cloud sync: where this device keeps its registration
          credential, and the client that trades it for a short-lived token. -->
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Sync\Backlog.Infrastructure.Sync.csproj" />
+    <!-- The read-only MCP tool classes McpServerWorker's listener serves. A leaf
+         library with no framework reference of its own, so that the tools are
+         testable without a host and the web harness maps the same
+         implementation this head does. -->
+    <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Mcp\Backlog.Infrastructure.Mcp.csproj" />
     <ProjectReference Include="..\..\Aspire\Backlog.Aspire.ServiceDefaults\Backlog.Aspire.ServiceDefaults.csproj" />
     <ProjectReference Include="..\Backlog.Desktop.UI\Backlog.Desktop.UI.csproj" />
   </ItemGroup>

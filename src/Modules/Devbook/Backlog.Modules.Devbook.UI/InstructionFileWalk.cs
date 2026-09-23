@@ -1,5 +1,7 @@
 using System.IO.Enumeration;
 
+using Backlog.Modules.Devbook.Abstractions;
+
 namespace Backlog.Desktop.UI.Devbook;
 
 /// <summary>
@@ -26,7 +28,15 @@ internal static class InstructionFileWalk
 {
     /// <summary>Version control, editor state, build output, dependencies. Skipped
     /// by name wherever they sit.</summary>
-    public static readonly string[] ExcludedDirectoryNames = [".git", ".vs", "bin", "obj", "node_modules"];
+    /// <remarks>
+    /// The names themselves are <see cref="DevbookInstructionSources"/>'s, not
+    /// this file's, since a second reader arrived that never walks anything: the
+    /// MCP tool decides from a path alone whether a client may read it, and a
+    /// walker and a reader disagreeing about what a build output is would be the
+    /// hole. Forwarded rather than moved outright so every caller of this keeps
+    /// asking the walk.
+    /// </remarks>
+    public static string[] ExcludedDirectoryNames => DevbookInstructionSources.ExcludedDirectoryNames;
 
     /// <summary>
     /// Claude Code's worktrees, each a whole checkout of the repository under the
@@ -35,11 +45,10 @@ internal static class InstructionFileWalk
     /// besides — and they are skipped by position rather than by name, because a
     /// repository is free to have a folder called <c>worktrees</c> of its own.
     /// </summary>
-    public const string ClaudeWorktrees = ".claude/worktrees";
+    public const string ClaudeWorktrees = DevbookInstructionSources.ClaudeWorktrees;
 
     /// <summary>Whether a directory of this name is one the walk never enters.</summary>
-    public static bool IsExcludedName(string name) =>
-        ExcludedDirectoryNames.Any(excluded => string.Equals(excluded, name, StringComparison.OrdinalIgnoreCase));
+    public static bool IsExcludedName(string name) => DevbookInstructionSources.IsExcludedName(name);
 
     /// <summary>
     /// Whether the walk goes into <paramref name="directory"/>, a directory below
