@@ -4,7 +4,9 @@
     The Roadmap module's public surface — everything a host or another module is
     allowed to see (ADR 0005, ADR 0009):
       DataTransferObjects/  what a caller receives instead of the plan
-      Services/             IRoadmapPlanning, the one port a host calls
+      Services/             IRoadmapPlanning, the one port a host calls, and the
+                            ports the module asks outward through — answered by
+                            infrastructure adapters, never by the module itself
       Enums                 the vocabulary those DTOs are written in
       RoadmapFeatures       the feature key the shell gates the band on
     The aggregate, its repository port, and the use-case handlers stay in the
