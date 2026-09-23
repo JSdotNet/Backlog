@@ -85,6 +85,15 @@ public sealed record DeliveryRun(
     /// wrote the file. The one status question a surface asks often enough to deserve
     /// a single spelling here rather than a string comparison in every caller.</summary>
     public bool InProgress => string.Equals(Status, "in_progress", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// The agent sessions that drove the run, as the run file's <c>sessionIds</c> names
+    /// them — the one that started it and any that picked it up — or empty where the
+    /// writer did not record any: every dashboard before the surface took a session id.
+    /// Where it names one, the run joins that session by identity; where it names none,
+    /// by worktree and overlapping time.
+    /// </summary>
+    public IReadOnlyList<string> SessionIds { get; init; } = [];
 }
 
 /// <summary>What a run is linked to.</summary>
@@ -428,6 +437,12 @@ public static class SessionRows
 
         if (runs.Count == 0) return [.. sessions.Select(SessionRow.Of)];
 
+        // A run that names the sessions that drove it joins the first of them the list
+        // holds, and no guess is made for it.
+        var byId = sessions
+            .GroupBy(session => session.Id, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+
         // Case-insensitively, because the two sides spell the leaf differently on
         // purpose: the dashboard slugs git's own casing of the top level, and a
         // session records the folder as the agent was launched in it — which on
@@ -439,7 +454,7 @@ public static class SessionRows
         // filed under. Computed once per session, not once per run per session — a
         // hash per ancestor per pair is the version of this that is too slow to ship.
         var bySession = sessions
-            .Select(session => (Session: session, Worktree: DeliveryRunWorktrees.KeysUpFrom(session.WorkingFolder).FirstOrDefault(worktrees.Contains)))
+            .Select(session => (Session: session, Worktree: KeysOf(session).FirstOrDefault(worktrees.Contains)))
             .Where(pair => pair.Worktree is not null)
             .GroupBy(pair => pair.Worktree!, pair => pair.Session, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(group => group.Key, group => group.ToList(), StringComparer.OrdinalIgnoreCase);
@@ -449,9 +464,10 @@ public static class SessionRows
 
         foreach (var run in runs.OrderByDescending(run => run.UpdatedAt))
         {
-            var owner = bySession.TryGetValue(run.Worktree, out var candidates)
-                ? candidates.Where(session => Overlaps(session, run)).OrderBy(session => Distance(session, run)).FirstOrDefault()
-                : null;
+            var owner = run.SessionIds.Select(id => byId.GetValueOrDefault(id)).FirstOrDefault(session => session is not null)
+                ?? (run.SessionIds.Count == 0 && bySession.TryGetValue(run.Worktree, out var candidates)
+                    ? candidates.Where(session => Overlaps(session, run)).OrderBy(session => Distance(session, run)).FirstOrDefault()
+                    : null);
 
             if (owner is null)
             {
@@ -474,6 +490,13 @@ public static class SessionRows
             .. alone
         ];
     }
+
+    /// <summary>The keys a session can be matched on: every folder up from its own
+    /// where it has one, and otherwise the one key its record carried.</summary>
+    private static IEnumerable<string> KeysOf(AgentSession session) =>
+        !string.IsNullOrWhiteSpace(session.WorkingFolder) ? DeliveryRunWorktrees.KeysUpFrom(session.WorkingFolder)
+            : session.WorktreeKey is { } key ? [key]
+            : [];
 
     /// <summary>Whether the session was active at any point while the run was open.
     /// A session with no recorded start is taken to have started when it was last

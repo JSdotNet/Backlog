@@ -36,6 +36,15 @@ namespace Backlog.Modules.Sessions.UI.Adapters;
 /// left out the pane's job, which it cannot do from a number that has already been
 /// rounded down.
 /// </para>
+/// <para>
+/// <strong>One answer per session: the files, then the record, then sync.</strong>
+/// This machine's session records and the replicated source both hold this machine's
+/// sessions too, so a session whose transcript was cleaned away is still answered;
+/// while the transcript is there, all three can answer for it, and the local reading
+/// is the fuller one — a live state, the file as it is now. The others are dropped
+/// from the list and from the discovered count, keyed on the agent and the id together
+/// (<c>.domain/sessions/naming.md#session-identity</c>).
+/// </para>
 /// </summary>
 internal sealed class CompositeAgentSessionSource : IAgentSessionSource
 {
@@ -98,6 +107,23 @@ internal sealed class CompositeAgentSessionSource : IAgentSessionSource
             }
         }
 
-        return new AgentSessionCatalog(sessions, unreadable, discovered);
+        var best = sessions
+            .GroupBy(session => (session.Kind, session.Id))
+            .ToDictionary(group => group.Key, group => group.Min(session => Precedence(session.Origin)));
+
+        var answered = sessions
+            .Where(session => Precedence(session.Origin) == best[(session.Kind, session.Id)])
+            .ToList();
+
+        return new AgentSessionCatalog(answered, unreadable, discovered - (sessions.Count - answered.Count));
     }
+
+    /// <summary>Which answer for one session wins: the files read now, then this
+    /// machine's own record of them, then what a machine reported over sync.</summary>
+    internal static int Precedence(AgentSessionOrigin origin) => origin switch
+    {
+        AgentSessionOrigin.Local => 0,
+        AgentSessionOrigin.Recorded => 1,
+        _ => 2
+    };
 }

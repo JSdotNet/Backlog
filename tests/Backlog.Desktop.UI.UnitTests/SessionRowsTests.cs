@@ -64,6 +64,44 @@ public sealed class SessionRowsTests
         Assert.False(row.RunOnly);
     }
 
+    /// <summary>
+    /// A session whose folder did not come with it — a record — is matched on the
+    /// one worktree key it carried instead.
+    /// </summary>
+    [Fact]
+    public void A_session_without_a_folder_is_matched_on_the_key_its_record_carried()
+    {
+        var session = Session("6dd303c0", string.Empty, startedAt: Noon.AddHours(-3), lastActivity: Noon.AddMinutes(-5)) with
+        {
+            Origin = AgentSessionOrigin.Replicated,
+            WorktreeKey = Worktree
+        };
+        var run = Run("run-1", Worktree, startedAt: Noon.AddHours(-2), updatedAt: Noon.AddMinutes(-10));
+
+        var row = Assert.Single(SessionRows.Of([session], [run]));
+
+        Assert.Same(session, row.Session);
+        Assert.Equal([run], row.Runs);
+    }
+
+    /// <summary>
+    /// A run that names the session that drove it joins that session, whatever its
+    /// folder or window says — and never a session it does not name, even one in the
+    /// same worktree at the same time.
+    /// </summary>
+    [Fact]
+    public void A_run_naming_its_session_joins_that_session()
+    {
+        var named = Session("named", @"D:\Somewhere\Else", startedAt: Noon.AddDays(-5), lastActivity: Noon.AddDays(-5));
+        var guess = Session("guess", Folder, startedAt: Noon.AddHours(-3), lastActivity: Noon.AddMinutes(-5));
+        var run = Run("run-1", Worktree, startedAt: Noon.AddHours(-2), updatedAt: Noon.AddMinutes(-10)) with { SessionIds = ["named"] };
+
+        var rows = SessionRows.Of([named, guess], [run]);
+
+        Assert.Equal([run], rows.Single(row => row.Session == named).Runs);
+        Assert.Empty(rows.Single(row => row.Session == guess).Runs);
+    }
+
     [Fact]
     public void A_folder_in_another_letter_case_is_the_same_worktree()
     {

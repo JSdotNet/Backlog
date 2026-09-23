@@ -30,7 +30,9 @@ public sealed class TranscriptFactsCache(Func<string> cacheRoot) : ITranscriptFa
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { WriteIndented = true };
 
-    private const int Version = 1;
+    // 2 added the entrypoint, the pull requests and the per-model usage: a version-1 entry
+    // would say the session linked nothing and spent nothing, which nothing established.
+    private const int Version = 2;
 
     private const string FolderName = "facts";
 
@@ -57,7 +59,12 @@ public sealed class TranscriptFactsCache(Func<string> cacheRoot) : ITranscriptFa
                 return null;
             }
 
-            return new TranscriptFacts(stored.Folder ?? string.Empty, stored.Branch, stored.Turns);
+            return new TranscriptFacts(stored.Folder ?? string.Empty, stored.Branch, stored.Turns)
+            {
+                Entrypoint = stored.Entrypoint,
+                PullRequests = [.. stored.PullRequests.Select(pr => new AgentPullRequest(pr.Repository, pr.Number, pr.Url, pr.LinkedAt))],
+                ModelUsage = [.. stored.ModelUsage.Select(model => new AgentModelUsage(model.Model, model.InputTokens, model.OutputTokens, model.CacheCreationInputTokens, model.CacheReadInputTokens))]
+            };
         }
         catch (Exception exception) when (exception is JsonException or IOException or UnauthorizedAccessException)
         {
@@ -86,7 +93,17 @@ public sealed class TranscriptFactsCache(Func<string> cacheRoot) : ITranscriptFa
                     WrittenAtTicks = writtenAt.UtcTicks,
                     Folder = facts.Folder,
                     Branch = facts.Branch,
-                    Turns = facts.Turns
+                    Turns = facts.Turns,
+                    Entrypoint = facts.Entrypoint,
+                    PullRequests = [.. facts.PullRequests.Select(pr => new StoredPullRequest { Repository = pr.Repository, Number = pr.Number, Url = pr.Url, LinkedAt = pr.LinkedAt })],
+                    ModelUsage = [.. facts.ModelUsage.Select(model => new StoredModelUsage
+                    {
+                        Model = model.Model,
+                        InputTokens = model.InputTokens,
+                        OutputTokens = model.OutputTokens,
+                        CacheCreationInputTokens = model.CacheCreationInputTokens,
+                        CacheReadInputTokens = model.CacheReadInputTokens
+                    })]
                 },
                 JsonOptions));
         }
@@ -128,5 +145,35 @@ public sealed class TranscriptFactsCache(Func<string> cacheRoot) : ITranscriptFa
         public string? Branch { get; init; }
 
         public int? Turns { get; init; }
+
+        public string? Entrypoint { get; init; }
+
+        public StoredPullRequest[] PullRequests { get; init; } = [];
+
+        public StoredModelUsage[] ModelUsage { get; init; } = [];
+    }
+
+    private sealed record StoredPullRequest
+    {
+        public string Repository { get; init; } = "";
+
+        public int Number { get; init; }
+
+        public string Url { get; init; } = "";
+
+        public DateTimeOffset? LinkedAt { get; init; }
+    }
+
+    private sealed record StoredModelUsage
+    {
+        public string Model { get; init; } = "";
+
+        public long InputTokens { get; init; }
+
+        public long OutputTokens { get; init; }
+
+        public long CacheCreationInputTokens { get; init; }
+
+        public long CacheReadInputTokens { get; init; }
     }
 }

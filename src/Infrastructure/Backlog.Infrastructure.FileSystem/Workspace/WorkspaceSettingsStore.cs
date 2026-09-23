@@ -121,6 +121,7 @@ public sealed class WorkspaceSettingsStore
 
         ActivityCacheDirectory = Path.Combine(appData, ActivityCacheFolderName);
         SessionActivityCacheDirectory = Path.Combine(appData, SessionActivityCacheFolderName);
+        SessionRecordsDirectory = Path.Combine(appData, SessionRecordsFolderName);
         SpendCacheDirectory = Path.Combine(appData, SpendCacheFolderName);
 
         // The store owns the location, so it is the store that makes sure the
@@ -310,6 +311,20 @@ public sealed class WorkspaceSettingsStore
     public string SessionActivityCacheDirectory { get; }
 
     /// <summary>
+    /// Where this machine keeps its own session records — what it last read of each
+    /// of its sessions, kept after the agent's files are gone.
+    /// <para>
+    /// Not a cache, and that is why it is not a corner of
+    /// <see cref="SessionActivityCacheDirectory"/>. Everything in that folder can be
+    /// read again from the transcripts it was folded out of; a record here is often the
+    /// only thing left of a session, so clearing the cache must never take it along.
+    /// Beside the per-user settings for the cache's reason: it names folders and titles
+    /// on this machine, and it means nothing on another.
+    /// </para>
+    /// </summary>
+    public string SessionRecordsDirectory { get; }
+
+    /// <summary>
     /// Where the settled part of the two assistants' spend reports is kept: Claude
     /// Code days more than a couple of days old, Copilot months more than a few
     /// days over.
@@ -340,6 +355,8 @@ public sealed class WorkspaceSettingsStore
     private const string ActivityCacheFolderName = "activity-cache";
 
     private const string SessionActivityCacheFolderName = "session-activity-cache";
+
+    private const string SessionRecordsFolderName = "session-records";
 
     private const string SpendCacheFolderName = "spend-cache";
 

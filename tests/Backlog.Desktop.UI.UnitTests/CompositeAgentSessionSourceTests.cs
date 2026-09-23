@@ -61,6 +61,34 @@ public sealed class CompositeAgentSessionSourceTests
     }
 
     /// <summary>
+    /// A session this machine can still read from its transcript is answered once,
+    /// by that reading, and the record it pushed of the same session is dropped from
+    /// the list and from the count. A record with no local reading beside it — its
+    /// transcript cleaned away — is the answer, and stays.
+    /// </summary>
+    [Fact]
+    public async Task A_local_reading_wins_over_the_record_of_the_same_session()
+    {
+        var composite = new CompositeAgentSessionSource(
+        [
+            new StubSource(new AgentSessionCatalog([Session("both")], [], 1)),
+            new StubSource(new AgentSessionCatalog(
+                [
+                    Session("both") with { Origin = AgentSessionOrigin.Replicated, Title = "the record" },
+                    Session("archived") with { Origin = AgentSessionOrigin.Replicated }
+                ],
+                [],
+                2))
+        ]);
+
+        var catalog = await composite.GetSessionsAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(["both", "archived"], catalog.Sessions.Select(session => session.Id));
+        Assert.Equal(AgentSessionOrigin.Local, catalog.Sessions[0].Origin);
+        Assert.Equal(2, catalog.Discovered);
+    }
+
+    /// <summary>
     /// The same query reaches every source. A horizon reading answered by one source
     /// as a horizon and by the other as its capped inventory would be a fleet count
     /// right for this machine and a page size for every other.
@@ -131,7 +159,8 @@ public sealed class CompositeAgentSessionSourceTests
         using var provider = services.BuildServiceProvider();
 
         Assert.NotNull(provider.GetRequiredService<IAgentSessionSource>());
-        Assert.Single(provider.GetKeyedServices<IAgentSessionSource>(KeyedService.AnyKey));
+        Assert.Equal(2, provider.GetKeyedServices<IAgentSessionSource>(KeyedService.AnyKey).Count());
+        Assert.Contains(provider.GetKeyedServices<IAgentSessionSource>(KeyedService.AnyKey), source => source is RecordedAgentSessionSource);
     }
 
     /// <summary>
@@ -164,7 +193,7 @@ public sealed class CompositeAgentSessionSourceTests
 
         var contributors = provider.GetKeyedServices<IAgentSessionSource>(KeyedService.AnyKey).ToList();
 
-        Assert.Equal(2, contributors.Count);
+        Assert.Equal(3, contributors.Count);
         Assert.Contains(contributors, source => source is ReplicatedAgentSessionSource);
         Assert.IsType<CompositeAgentSessionSource>(provider.GetRequiredService<IAgentSessionSource>());
     }

@@ -56,6 +56,15 @@ public static class SessionRegistration
     /// same terms as <see cref="LocalSourceKey"/> and for the second port.</summary>
     private const string LocalActivitySourceKey = "activity.local";
 
+    /// <summary>The keys this machine's session records contribute under — to the
+    /// session composite and to the activity composite — so a session whose files are
+    /// gone is still answered. Optional on the store: a host that composed none
+    /// contributes nothing.</summary>
+    private const string RecordedSourceKey = "sessions.recorded";
+
+    /// <inheritdoc cref="RecordedSourceKey"/>
+    private const string RecordedActivitySourceKey = "activity.recorded";
+
     /// <summary>
     /// This machine's own session readers, the merged source every consumer asks
     /// for, and the reader of the delivery runs the pane shows against them.
@@ -96,6 +105,10 @@ public static class SessionRegistration
                 sp.GetRequiredService<IDeviceIdentitySource>(),
                 sp.GetService<ITranscriptFactsCache>(),
                 sp.GetService<ISessionRepositoryResolver>()));
+
+        services.AddKeyedSingleton<IAgentSessionSource>(
+            RecordedSourceKey,
+            (sp, _) => new RecordedAgentSessionSource(sp.GetService<IAgentSessionRecordStore>()));
 
         services.AddSingleton<IAgentSessionSource>(sp =>
             new CompositeAgentSessionSource([.. sp.GetKeyedServices<IAgentSessionSource>(KeyedService.AnyKey)]));
@@ -179,8 +192,24 @@ public static class SessionRegistration
                 sp.GetRequiredService<IDeviceIdentitySource>(),
                 sp.GetService<IAgentActivityCache>()));
 
+        services.AddKeyedSingleton<IAgentActivitySource>(
+            RecordedActivitySourceKey,
+            (sp, _) => new RecordedAgentActivitySource(sp.GetService<IAgentSessionRecordStore>()));
+
         services.AddSingleton<IAgentActivitySource>(sp =>
             new CompositeAgentActivitySource([.. sp.GetKeyedServices<IAgentActivitySource>(KeyedService.AnyKey)]));
+
+        // The keeper reads the local readers and nothing else, so a record is never
+        // amended from a replicated reading or from itself. Registered here because it
+        // needs both of this module's local readers, and it is a no-op on a host that
+        // composed no record store.
+        services.AddSingleton<ISessionRecordKeeper>(sp =>
+            new SessionRecordKeeper(
+                sp.GetRequiredKeyedService<IAgentSessionSource>(LocalSourceKey),
+                sp.GetKeyedService<IAgentActivitySource>(LocalActivitySourceKey),
+                sp.GetService<IAgentSessionRecordStore>(),
+                sp.GetService<TimeProvider>() ?? TimeProvider.System,
+                sp.GetService<ISessionRecordPublisher>()));
 
         return services;
     }

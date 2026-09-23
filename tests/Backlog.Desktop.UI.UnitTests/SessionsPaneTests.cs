@@ -885,15 +885,15 @@ public sealed class SessionsPaneTests
     }
 
     /// <summary>
-    /// Titles do not sync, so a replicated record names itself with its own session
-    /// id. It wears the family this pane already gives every identifier in a row —
-    /// the repository, the branch, the folder — rather than the ink of a title
-    /// somebody wrote, which is the row passing itself off as local.
+    /// A record from a device that predates the title names itself with its own
+    /// session id. It wears the family this pane already gives every identifier in a
+    /// row — the repository, the branch, the folder — rather than the ink of a title
+    /// somebody wrote. A record that carried its title shows it as one.
     /// </summary>
     [Fact]
     public void A_replicated_rows_title_reads_as_the_identifier_it_is()
     {
-        using var context = Context([Replicated(), Sample[0]]);
+        using var context = Context([Replicated(), Replicated() with { Id = "titled-1", Title = "Rewrite the pairing dialog copy" }, Sample[0]]);
 
         var pane = context.Render<SessionsPane>();
 
@@ -905,6 +905,7 @@ public sealed class SessionsPaneTests
                 .ToDictionary(title => title.TextContent.Trim(), title => title.GetAttribute("class"));
 
             Assert.Equal("sessions-table__title data-table__mono", titles["e7f2b1a0"]);
+            Assert.Equal("sessions-table__title", titles["Rewrite the pairing dialog copy"]);
             Assert.Equal("sessions-table__title", titles["keen-bose-667825"]);
         });
     }
@@ -1250,6 +1251,55 @@ public sealed class SessionsPaneTests
         "jsdotnet/archify" or "archify" => "archify",
         _ => null
     };
+
+    /// <summary>
+    /// With a record keeper composed, the pane offers Update records beside Refresh.
+    /// Pressing it asks for everything, says what it amended and whether sync will
+    /// carry it, and the pane reads the list again. Without a keeper there is no button.
+    /// </summary>
+    [Fact]
+    public void Update_records_amends_everything_and_says_what_it_did()
+    {
+        using var context = Context([Sample[0]]);
+        var keeper = new StubKeeper(new SessionRecordUpdate(2, 5, Published: true));
+        context.Services.AddSingleton<ISessionRecordKeeper>(keeper);
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() => Assert.Equal([false], keeper.Asked));
+
+        pane.Find("[data-testid='sessions-update-records']").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal([false, true], keeper.Asked);
+            Assert.Contains(
+                "Updated 5 session records and started 2. Sync will send every record again on its next cycle.",
+                pane.Find("[data-testid='sessions-records-updated']").TextContent);
+        });
+    }
+
+    [Fact]
+    public void Without_a_keeper_there_is_no_update_button()
+    {
+        using var context = Context([Sample[0]]);
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() => Assert.Empty(pane.FindAll("[data-testid='sessions-update-records']")));
+    }
+
+    private sealed class StubKeeper(SessionRecordUpdate answer) : ISessionRecordKeeper
+    {
+        public List<bool> Asked { get; } = [];
+
+        public Task<SessionRecordUpdate> UpdateAsync(bool everything, CancellationToken cancellationToken = default)
+        {
+            lock (Asked) Asked.Add(everything);
+
+            return Task.FromResult(answer);
+        }
+    }
 
     private static BunitContext Context(
         IReadOnlyList<AgentSession> sessions,

@@ -99,7 +99,17 @@ internal sealed class CompositeAgentActivitySource : IAgentActivitySource
             }
         }
 
-        return new AgentActivityLog(sessions, unreadable, since, idleAfter)
+        // One answer per session, on CompositeAgentSessionSource's precedence: the fold
+        // of the transcript, then this machine's record of it, then what sync carried.
+        var best = sessions
+            .GroupBy(session => (session.Kind, session.Id))
+            .ToDictionary(group => group.Key, group => group.Min(session => CompositeAgentSessionSource.Precedence(session.Origin)));
+
+        return new AgentActivityLog(
+            [.. sessions.Where(session => CompositeAgentSessionSource.Precedence(session.Origin) == best[(session.Kind, session.Id)])],
+            unreadable,
+            since,
+            idleAfter)
         {
             Subagents = subagents
         };

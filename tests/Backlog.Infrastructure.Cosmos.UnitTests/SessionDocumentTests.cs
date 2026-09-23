@@ -162,10 +162,10 @@ public class SessionDocumentTests
 
     /// <summary>
     /// The whole whitelist, and nothing beside it. Written as a set comparison
-    /// rather than as thirteen assertions because the failure worth catching is the
-    /// fourteenth property somebody adds — .arc42/adr/0005 §Session records says a
+    /// rather than as nineteen assertions because the failure worth catching is the
+    /// twentieth property somebody adds — .arc42/adr/0005 §Session records says a
     /// field not in its table does not sync, and a test that only checked the
-    /// thirteen were present would pass with a transcript path beside them.
+    /// nineteen were present would pass with a transcript path beside them.
     /// </summary>
     [Fact]
     public void The_document_carries_the_whitelist_and_nothing_else()
@@ -177,10 +177,11 @@ public class SessionDocumentTests
         Assert.Equal(
             new HashSet<string>(StringComparer.Ordinal)
             {
-                // The thirteen ADR 0005 permits...
+                // The nineteen ADR 0005 permits...
                 "sessionId", "agentKind", "machineId", "machineName", "repositoryAlias", "resolvedRepositoryAlias",
                 "branch", "startedAt", "lastActivityAt", "turnCount", "durationSeconds",
-                "runs", "waits",
+                "runs", "waits", "title", "worktreeKey", "limitHits",
+                "entrypoint", "pullRequests", "modelUsage",
 
                 // ...plus the owner, which is the partition rather than a fact
                 // about the session, and the document id Cosmos requires.
@@ -307,5 +308,11 @@ public class SessionDocumentTests
         DurationSeconds: 5_400,
         ResolvedRepositoryAlias: "backlog",
         Runs: [new(At(9, 0), At(9, 45)), new(At(10, 0), At(10, 30))],
-        Waits: [new(At(9, 45), At(10, 0))]);
+        Waits: [new(At(9, 45), At(10, 0))],
+        Title: "Rewrite the pairing dialog copy",
+        WorktreeKey: "Backlog-43b9057e",
+        LimitHits: [new(At(10, 29), "FiveHour", "five_hour", At(13, 0), "rejected", At(23, 0), "org_spend_cap_reached", false)],
+        Entrypoint: "claude-desktop",
+        PullRequests: [new("JSdotNet/Backlog", 571, "https://github.com/JSdotNet/Backlog/pull/571", At(10, 0))],
+        ModelUsage: [new("claude-opus-5-5", 12, 3_400, 900, 120_000)]);
 }

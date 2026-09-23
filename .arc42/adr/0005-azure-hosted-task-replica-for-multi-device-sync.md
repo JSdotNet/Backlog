@@ -440,6 +440,12 @@ carries exactly this, and nothing else:
 | Resolved repository alias | The repository the pushing machine placed the session in, from its working folder lying inside a registered clone — again the alias, never the folder. |
 | Active runs | The stretches in which the agent was producing, as pairs of timestamps. |
 | Waits | The stretches in which the agent had stopped and nothing had prompted it yet, as pairs of timestamps. |
+| Title | What the session is called in a list — the agent's own name for it, or the folder's leaf. Cut to 500 characters. |
+| Worktree key | The delivery dashboards' key for the working folder: its leaf and eight hex characters of a one-way hash of its path. |
+| Limit hits | The moments the agent was refused for a usage limit: the instant, the kind, the raw bucket, the reset, and the overage status, reset, reason and in-use flag the refusal carried. |
+| Entrypoint | Where the agent was run from — `claude-desktop`, `cli`. |
+| Pull requests | The pull requests the session linked itself to: repository, number, URL, and when. |
+| Model usage | The tokens the session spent per model — input, output, cache creation and cache read counts. |
 
 **Never prompts, never tool output, never file contents.** That is the whole reason
 a session record can leave the machine at all: the record is metadata *about* work,
@@ -563,8 +569,77 @@ the table is this record's decision.
   weight argument — a session's spawned agents can outnumber its own runs many
   times over — and is not taken here.
 
-**Thirteen fields is still a whitelist, on the same terms eight was.** The boundary
-did not move to accommodate a screen: each of the five had to be argued past it
+**The table stands at sixteen as of 2026-09-23, and one of the three reverses a
+rule this record had kept.** The owner decided all three, and the argument for each
+is written here because widening the table is this record's decision.
+
+- **Title, by the owner's decision, against the prompt rule.** A title is written
+  out of what the person typed, so it is a fragment of a prompt, and until now it
+  stayed home on exactly that ground — a replicated session was headed by its id.
+  The owner reversed that: the replica is theirs alone, scoped to their own paired
+  machines, and a record is now also how a session of this machine's stays on
+  screen once its transcript is cleaned away (below). An id does not let a person
+  recognise either. The exception is to the title and nothing else — prompts, tool
+  output and file contents stay out on the terms above — and the title is cut to
+  500 characters so it cannot become a way of carrying a prompt whole.
+- **Worktree key, so a session whose folder does not travel can meet its delivery
+  runs.** The Sessions pane places a delivery run under the session that drove it
+  by the dashboards' key for the worktree, derived from the session's folder, and
+  the folder stays exactly as excluded as it was. The key is one-way above the
+  folder's own name: it names the leaf, and the hash cannot be turned back into the
+  path. Only the folder's own key travels, not the keys of the folders above it,
+  because those would send every parent folder's name along; a session started
+  below its worktree's top level is matched on the machine that ran it and not from
+  its record.
+- **Limit hits, because a usage limit belongs to the account and not the machine.**
+  A refusal on one machine is a fact about the week on every other, and the
+  Dashboard cuts its weeks and draws its walls on them. Each hit carries the
+  instant, the kind the pusher mapped it to — by name, because an older transcript
+  named its limit only in prose and the pusher is the only machine that read it —
+  the raw bucket, the reset instant, and what the refusal said about paid overage.
+  They are the assistant's own tokens and instants, never the refusal's sentence.
+  Null, empty and capped on the runs' terms: null where the pusher had no activity
+  record, at most 100 per record, refused above, newest kept.
+
+**A machine's own session records are local first, and sync second, as of
+2026-09-23.** Every machine keeps a record of each of its own sessions in a folder of
+its own beside the per-user settings (`session-records`), whether or not sync is on.
+Every reading of a local session amends its record — a value the reading has wins, a
+value it lacks keeps what the record held, runs and waits before the reading's first
+instant are kept and limit hits are a union — so nothing is ever removed or replaced
+whole. The record keeps what never leaves the machine, the working folder included,
+and answers for a session once its files are gone. The Sessions pane amends the
+records of the sessions that moved each time it opens, and its **Update records**
+button amends every one the files still hold and, with sync on, sends every record
+again. What leaves the machine is still exactly the whitelist above, built from the
+local reading or, once the files are gone, from the local record.
+
+**The pushing machine also keeps its own replicated records.** A pull used to
+drop the records stamped with the device's own machine id, because keeping them put
+a second copy of every local session on screen. It now keeps them, and the reading
+side gives way to the local reading of a session wherever there is one — keyed on
+the agent and the session id — so the record answers only once the transcript is
+gone. The service holds a record for twelve months; the assistant cleans a
+transcript away after a month by default. Nothing about who writes changes: a
+record read back is never pushed again, because only a session read locally is.
+A device that dropped its own records before this has had its cursor carried past
+every one, so its first pull after the change reads the feed from its start, once.
+The service issues the machine id at pairing, and it is not the installation
+identity the local readers stamp, so a record of this machine's is shown under the
+installation identity rather than as a second environment with the same name.
+
+**The table stands at nineteen, also as of 2026-09-23**, by the owner's decision, and
+none of the three carries a word the session produced. The entrypoint names the tool
+that ran, like the agent kind. A pull request link is Claude's own `pr-link` line — a
+repository, a number and an address, all of which are public to anyone who can see the
+repository — and it answers the question a session row is most often opened to ask:
+what did this produce. Model usage is counts: the assistant's own token figures summed
+once per message and per model, over the session's own transcript and not its spawned
+agents'. Each list is capped and refused above its cap on the runs' terms — 100 pull
+requests, 20 models.
+
+**Nineteen fields is still a whitelist, on the same terms eight was.** The boundary
+did not move to accommodate a screen: each addition had to be argued past it
 separately, and a field the receiving surface would merely find convenient is still
 a field that does not sync until this table says it does.
 

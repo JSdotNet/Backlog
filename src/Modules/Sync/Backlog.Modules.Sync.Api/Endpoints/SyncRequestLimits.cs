@@ -135,6 +135,35 @@ internal static class SyncRequestLimits
     /// short of anything that would trouble the store.</summary>
     internal const int MaximumBranch = 255;
 
+    /// <summary>How long a session title may be — the pusher's own cut, shared
+    /// through <see cref="SessionRecordLimits.TitleLength"/> so the two cannot drift
+    /// apart and have every long-titled session refused on every cycle.</summary>
+    internal const int MaximumSessionTitle = SessionRecordLimits.TitleLength;
+
+    /// <summary>How long a worktree key may be, on the same shared terms.</summary>
+    internal const int MaximumWorktreeKey = SessionRecordLimits.WorktreeKeyLength;
+
+    /// <summary>The most limit hits one record may carry, on the same shared terms.
+    /// Refused rather than trimmed, like the interval lists.</summary>
+    internal const int MaximumSessionLimitHits = SessionRecordLimits.LimitHitsPerList;
+
+    /// <summary>How long each token on a limit hit may be — its kind, raw bucket,
+    /// overage status and reason — on the same shared terms.</summary>
+    internal const int MaximumLimitToken = SessionRecordLimits.LimitTokenLength;
+
+    /// <summary>The most pull requests and model lines a record may carry, and how long
+    /// a pull request's repository and URL may be — all on the shared terms.</summary>
+    internal const int MaximumPullRequests = SessionRecordLimits.PullRequestsPerList;
+
+    /// <inheritdoc cref="MaximumPullRequests"/>
+    internal const int MaximumModels = SessionRecordLimits.ModelsPerList;
+
+    /// <inheritdoc cref="MaximumPullRequests"/>
+    internal const int MaximumUrl = SessionRecordLimits.UrlLength;
+
+    /// <inheritdoc cref="MaximumPullRequests"/>
+    internal const int MaximumPullRequestRepository = SessionRecordLimits.RepositoryLength;
+
     /// <summary>
     /// The most annotation changes one push may carry — the same number as the
     /// other two containers, for the same reason: a page is a unit of work

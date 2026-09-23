@@ -52,8 +52,12 @@ public sealed class AgentActivityCache(Func<string> cacheRoot) : IAgentActivityC
     /// whose refusals were never read, and served as-is it would say the session was
     /// never refused — the same shape of false claim the waits paragraph describes.
     /// </para>
+    /// <para>
+    /// Version 4 added the overage half of each hit. A version-3 entry would read as
+    /// "the refusal said nothing about overage", which the transcript may well have.
+    /// </para>
     /// </summary>
-    private const int Version = 3;
+    private const int Version = 4;
 
     private readonly Func<string> _cacheRoot = cacheRoot ?? throw new ArgumentNullException(nameof(cacheRoot));
 
@@ -84,7 +88,14 @@ public sealed class AgentActivityCache(Func<string> cacheRoot) : IAgentActivityC
                 [.. stored.Waits.Select(wait => new AgentActivityWait(wait.From, wait.To))],
                 TimeSpan.FromTicks(stored.IdleAfterTicks))
             {
-                LimitHits = [.. stored.LimitHits.Select(hit => new AgentLimitHit(hit.At, KindOf(hit.Kind), hit.RateLimitType) { ResetsAt = hit.ResetsAt })]
+                LimitHits = [.. stored.LimitHits.Select(hit => new AgentLimitHit(hit.At, KindOf(hit.Kind), hit.RateLimitType)
+                {
+                    ResetsAt = hit.ResetsAt,
+                    OverageStatus = hit.OverageStatus,
+                    OverageResetsAt = hit.OverageResetsAt,
+                    OverageDisabledReason = hit.OverageDisabledReason,
+                    IsUsingOverage = hit.IsUsingOverage
+                })]
             };
         }
         catch (Exception exception) when (exception is JsonException or IOException or UnauthorizedAccessException)
@@ -115,7 +126,17 @@ public sealed class AgentActivityCache(Func<string> cacheRoot) : IAgentActivityC
                     IdleAfterTicks = entry.IdleAfter.Ticks,
                     Runs = [.. entry.Runs.Select(run => new StoredInterval { From = run.StartedAt, To = run.EndedAt })],
                     Waits = [.. entry.Waits.Select(wait => new StoredInterval { From = wait.StartedAt, To = wait.EndedAt })],
-                    LimitHits = [.. entry.LimitHits.Select(hit => new StoredLimitHit { At = hit.At, Kind = hit.Kind.ToString(), RateLimitType = hit.RateLimitType, ResetsAt = hit.ResetsAt })]
+                    LimitHits = [.. entry.LimitHits.Select(hit => new StoredLimitHit
+                    {
+                        At = hit.At,
+                        Kind = hit.Kind.ToString(),
+                        RateLimitType = hit.RateLimitType,
+                        ResetsAt = hit.ResetsAt,
+                        OverageStatus = hit.OverageStatus,
+                        OverageResetsAt = hit.OverageResetsAt,
+                        OverageDisabledReason = hit.OverageDisabledReason,
+                        IsUsingOverage = hit.IsUsingOverage
+                    })]
                 },
                 JsonOptions));
         }
@@ -203,6 +224,14 @@ public sealed class AgentActivityCache(Func<string> cacheRoot) : IAgentActivityC
         public string? RateLimitType { get; init; }
 
         public DateTimeOffset? ResetsAt { get; init; }
+
+        public string? OverageStatus { get; init; }
+
+        public DateTimeOffset? OverageResetsAt { get; init; }
+
+        public string? OverageDisabledReason { get; init; }
+
+        public bool? IsUsingOverage { get; init; }
     }
 
     /// <summary>The kind back from its stored name. A name this version does not know

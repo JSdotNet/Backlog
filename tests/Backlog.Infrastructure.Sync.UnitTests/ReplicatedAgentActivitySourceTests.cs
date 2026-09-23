@@ -1,6 +1,7 @@
 using Backlog.Infrastructure.Sync.Sessions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
+using Backlog.SharedKernel;
 
 namespace Backlog.Infrastructure.Sync.UnitTests;
 
@@ -197,6 +198,77 @@ public sealed class ReplicatedAgentActivitySourceTests
         _ = features.SetEnabled("session-sync", true);
 
         Assert.Single((await source.GetActivityAsync(Noon.AddDays(-1), TestContext.Current.CancellationToken)).Sessions);
+    }
+
+    /// <summary>
+    /// A record's limit hits come back as the Sessions context's own, every overage
+    /// field included, clipped to the horizon on the local source's terms: on it is
+    /// inside. A kind this build does not know is Other, with the raw type kept.
+    /// </summary>
+    [Fact]
+    public async Task Limit_hits_come_back_with_their_overage_half_and_clipped_to_the_horizon()
+    {
+        var since = Noon.AddHours(-1);
+
+        var source = Source(SessionRecords.Entry(
+            Laptop,
+            runs: [new(Noon.AddHours(-2), Noon)],
+            waits: [],
+            limitHits:
+            [
+                new(since.AddMinutes(-1), "FiveHour", "five_hour"),
+                new(since, "FiveHour", "five_hour", Noon.AddHours(3), "rejected", Noon.AddDays(20), "org_spend_cap_reached", false),
+                new(Noon, "Hourly", "one_hour")
+            ]));
+
+        var activity = Assert.Single((await source.GetActivityAsync(since, TestContext.Current.CancellationToken)).Sessions);
+
+        Assert.Equal(2, activity.LimitHits.Count);
+
+        var hit = activity.LimitHits[0];
+        Assert.Equal(since, hit.At);
+        Assert.Equal(AgentLimitKind.FiveHour, hit.Kind);
+        Assert.Equal("five_hour", hit.RateLimitType);
+        Assert.Equal(Noon.AddHours(3), hit.ResetsAt);
+        Assert.Equal("rejected", hit.OverageStatus);
+        Assert.Equal(Noon.AddDays(20), hit.OverageResetsAt);
+        Assert.Equal("org_spend_cap_reached", hit.OverageDisabledReason);
+        Assert.False(hit.IsUsingOverage);
+
+        Assert.Equal(AgentLimitKind.Other, activity.LimitHits[1].Kind);
+        Assert.Equal("one_hour", activity.LimitHits[1].RateLimitType);
+    }
+
+    /// <summary>
+    /// This machine's own records are shown under the identity the local readers
+    /// stamp, not the machine id the service issued — one environment, not two with
+    /// the same name. Another machine's keep the id they arrived with.
+    /// </summary>
+    [Fact]
+    public async Task Own_records_take_the_local_identity_and_others_keep_theirs()
+    {
+        var self = Guid.Parse("22222222-2222-2222-2222-222222222222");
+        var local = Guid.Parse("99999999-9999-9999-9999-999999999999");
+
+        var source = new ReplicatedAgentActivitySource(
+            new InMemoryReplicatedSessionStore(
+            [
+                SessionRecords.Entry(self, sessionId: "mine", runs: [new(Noon.AddMinutes(-5), Noon)], waits: []),
+                SessionRecords.Entry(Laptop, sessionId: "theirs", runs: [new(Noon.AddMinutes(-5), Noon)], waits: [])
+            ]),
+            new StubFeatureSettings(enabled: true),
+            new InMemoryDeviceCredentialStore(new DeviceCredential(Guid.NewGuid(), self, "Workshop PC", "token")),
+            new FixedDeviceIdentity(new DeviceIdentity(local, "Workshop PC")));
+
+        var sessions = (await source.GetActivityAsync(Noon.AddDays(-1), TestContext.Current.CancellationToken)).Sessions;
+
+        Assert.Equal(local.ToString(), sessions.Single(session => session.Id == "mine").EnvironmentId);
+        Assert.Equal(Laptop.ToString(), sessions.Single(session => session.Id == "theirs").EnvironmentId);
+    }
+
+    private sealed class FixedDeviceIdentity(DeviceIdentity current) : IDeviceIdentitySource
+    {
+        public DeviceIdentity Current { get; } = current;
     }
 
     /// <summary>A source over a fixed set of records with the feature on.</summary>

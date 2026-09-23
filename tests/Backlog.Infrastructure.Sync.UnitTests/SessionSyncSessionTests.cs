@@ -31,7 +31,7 @@ public sealed class SessionSyncSessionTests
     /// with no identity is started over on first use, by design, so a test
     /// seeding progress it wants kept has to say whose it is.</summary>
     private static SessionSyncState Mine(DateTimeOffset watermark, string? cursor) =>
-        new(watermark, cursor, ThisOwner, ThisDevice);
+        new(watermark, cursor, ThisOwner, ThisDevice, KeepsOwnRecords: true);
 
     private static readonly Guid OtherDevice = Guid.Parse("33333333-3333-3333-3333-333333333333");
 
@@ -39,14 +39,15 @@ public sealed class SessionSyncSessionTests
 
     /// <summary>
     /// <strong>The one test this whole slice exists to keep passing.</strong>
-    /// .arc42/adr/0005 §Session records permits thirteen fields to leave a machine and
+    /// .arc42/adr/0005 §Session records permits sixteen fields to leave a machine and
     /// says a whitelist and a filter fail in opposite directions. This asserts over
     /// the bytes that went out, not over the DTO: a test on the record would go on
     /// passing if somebody widened the wire contract, which is exactly the change
-    /// that would leak.
+    /// that would leak. The title travels by the owner's decision of 2026-09-23;
+    /// the folder still does not, in any part above its own name.
     /// </summary>
     [Fact]
-    public async Task The_pushed_body_carries_no_working_folder_and_no_title()
+    public async Task The_pushed_body_carries_no_working_folder()
     {
         using var fixture = Fixture.Create(sessions:
         [
@@ -60,16 +61,34 @@ public sealed class SessionSyncSessionTests
         Assert.True(result.IsSuccess);
 
         // The literal strings, so the assertion fails on a field that carried them
-        // under any name at all - "workingFolder", "path", "cwd", "title".
-        Assert.DoesNotContain("Rewrite the pairing dialog copy", fixture.LastBody, StringComparison.OrdinalIgnoreCase);
+        // under any name at all - "workingFolder", "path", "cwd".
         Assert.DoesNotContain(@"C:\\Users", fixture.LastBody, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("jane", fixture.LastBody, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("workingFolder", fixture.LastBody, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("title", fixture.LastBody, StringComparison.OrdinalIgnoreCase);
+
+        var record = fixture.PushedRecord();
+        Assert.Equal("Rewrite the pairing dialog copy", record.GetProperty("title").GetString());
+        Assert.Equal(DeliveryRunWorktrees.KeyOf(@"C:\Users\jane\repos\backlog\src\App"), record.GetProperty("worktreeKey").GetString());
+        Assert.StartsWith("App-", record.GetProperty("worktreeKey").GetString(), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A title longer than the service accepts is cut to the shared cap rather than
+    /// sent whole: a record the service refuses is refused on every cycle for ever.
+    /// </summary>
+    [Fact]
+    public async Task A_long_title_is_cut_to_the_shared_cap()
+    {
+        using var fixture = Fixture.Create(sessions: [AgentSessions.Local(title: new string('t', SessionRecordLimits.TitleLength + 40))]);
+
+        await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(SessionRecordLimits.TitleLength, fixture.PushedRecord().GetProperty("title").GetString()!.Length);
     }
 
     /// <summary>
     /// The other half of the same rule, said as a whitelist rather than as a list
-    /// of things that must be absent: these twelve property names and no others.
+    /// of things that must be absent: these eighteen property names and no others.
     /// A field added to the wire fails here even if nobody thought to write a test
     /// naming it, which is the only form of this assertion that keeps working
     /// against a change nobody anticipated.
@@ -91,15 +110,21 @@ public sealed class SessionSyncSessionTests
                 "agentKind",
                 "branch",
                 "durationSeconds",
+                "entrypoint",
                 "lastActivityAt",
+                "limitHits",
                 "machineName",
+                "modelUsage",
+                "pullRequests",
                 "repositoryAlias",
                 "resolvedRepositoryAlias",
                 "runs",
                 "sessionId",
                 "startedAt",
+                "title",
                 "turnCount",
-                "waits"
+                "waits",
+                "worktreeKey"
             ],
             fields);
     }
@@ -193,7 +218,7 @@ public sealed class SessionSyncSessionTests
         await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(JsonValueKind.Null, fixture.PushedRecord().GetProperty("repositoryAlias").ValueKind);
-        Assert.DoesNotContain("backlog", fixture.LastBody, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("jane", fixture.LastBody, StringComparison.OrdinalIgnoreCase);
     }
 
     // --- The resolved repository ---------------------------------------------
@@ -328,6 +353,46 @@ public sealed class SessionSyncSessionTests
         var wait = Assert.Single(record.GetProperty("waits").EnumerateArray());
         Assert.Equal(Noon.AddMinutes(-20), wait.GetProperty("startedAt").GetDateTimeOffset());
         Assert.Equal(Noon.AddMinutes(-10), wait.GetProperty("endedAt").GetDateTimeOffset());
+    }
+
+    /// <summary>
+    /// A session this machine folded refusals for travels with them — the instant,
+    /// the kind by name, the raw bucket, the reset and the overage half — so a limit
+    /// met on this machine is a fact about the week on every other.
+    /// </summary>
+    [Fact]
+    public async Task A_session_with_limit_hits_travels_with_them()
+    {
+        var activity = AgentActivities.Local(id: "walled", runs: [(Noon.AddMinutes(-30), Noon)]) with
+        {
+            LimitHits =
+            [
+                new AgentLimitHit(Noon.AddMinutes(-1), AgentLimitKind.Weekly, "seven_day")
+                {
+                    ResetsAt = Noon.AddDays(3),
+                    OverageStatus = "rejected",
+                    OverageResetsAt = Noon.AddDays(20),
+                    OverageDisabledReason = "org_spend_cap_reached",
+                    IsUsingOverage = false
+                }
+            ]
+        };
+
+        using var fixture = Fixture.Create(
+            sessions: [AgentSessions.Local(id: "walled")],
+            agentActivity: new StubAgentActivitySource(activity));
+
+        await fixture.Session.PushAsync(TestContext.Current.CancellationToken);
+
+        var hit = Assert.Single(fixture.PushedRecord().GetProperty("limitHits").EnumerateArray());
+        Assert.Equal(Noon.AddMinutes(-1), hit.GetProperty("at").GetDateTimeOffset());
+        Assert.Equal("Weekly", hit.GetProperty("kind").GetString());
+        Assert.Equal("seven_day", hit.GetProperty("rateLimitType").GetString());
+        Assert.Equal(Noon.AddDays(3), hit.GetProperty("resetsAt").GetDateTimeOffset());
+        Assert.Equal("rejected", hit.GetProperty("overageStatus").GetString());
+        Assert.Equal(Noon.AddDays(20), hit.GetProperty("overageResetsAt").GetDateTimeOffset());
+        Assert.Equal("org_spend_cap_reached", hit.GetProperty("overageDisabledReason").GetString());
+        Assert.False(hit.GetProperty("isUsingOverage").GetBoolean());
     }
 
     /// <summary>
@@ -704,14 +769,14 @@ public sealed class SessionSyncSessionTests
     // --- The pull --------------------------------------------------------------
 
     /// <summary>
-    /// This device's own records travel the feed like everybody else's, and keeping
-    /// them would put a second copy of every local session in the pane — one read
-    /// off disk and one that had been round trip. They are dropped on the machine
-    /// id the service stamped, which is the only thing on the record this build
-    /// could not have set itself.
+    /// This device's own records travel the feed like everybody else's, and they are
+    /// kept: once the assistant has cleaned a transcript away, the record is all that
+    /// is left of the session. The composite sources give way to the local reading
+    /// while there is one. Only the other machines' records count as applied, which
+    /// is what the summary tells a person arrived.
     /// </summary>
     [Fact]
-    public async Task The_device_drops_its_own_echo()
+    public async Task The_device_keeps_its_own_records_and_counts_only_theirs()
     {
         using var fixture = Fixture.Create(respond: (request, _) => request.Method == HttpMethod.Get
             ? Page(Entry(ThisDevice, "mine") + "," + Entry(OtherDevice, "theirs"), "cursor-1", hasMore: false)
@@ -724,7 +789,30 @@ public sealed class SessionSyncSessionTests
         Assert.Equal(1, result.Value.Applied);
 
         var kept = Assert.Single(fixture.Replica.Saved);
-        Assert.Equal("theirs", Assert.Single(kept).Record.SessionId);
+        Assert.Equal(["mine", "theirs"], kept.Select(entry => entry.Record.SessionId));
+    }
+
+    /// <summary>
+    /// A device that dropped its own records before it kept them has had its cursor
+    /// carried past every one of them, so the first pull after the change reads the
+    /// feed from its start — once, and remembered before the first page.
+    /// </summary>
+    [Fact]
+    public async Task The_first_pull_that_keeps_own_records_reads_the_feed_from_its_start()
+    {
+        using var fixture = Fixture.Create(
+            state: new SessionSyncState(DateTimeOffset.MinValue, "cursor-old", ThisOwner, ThisDevice),
+            respond: (request, _) => request.Method == HttpMethod.Get
+                ? Page(Entry(ThisDevice, "mine"), "cursor-1", hasMore: false)
+                : StubHttpMessageHandler.Json(HttpStatusCode.OK, """{"accepted":0}"""));
+
+        var result = await fixture.Session.PullAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        Assert.DoesNotContain("since=", fixture.Queries[0], StringComparison.Ordinal);
+        Assert.Null(fixture.State.Saved[0].PullCursor);
+        Assert.True(fixture.State.Saved[0].KeepsOwnRecords);
+        Assert.True(fixture.State.Current.KeepsOwnRecords);
     }
 
     /// <summary>

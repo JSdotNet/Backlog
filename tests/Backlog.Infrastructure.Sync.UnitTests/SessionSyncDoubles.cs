@@ -227,7 +227,10 @@ internal static class SessionRecords
         long serverTimestamp = 1,
         string? resolvedRepositoryAlias = null,
         IReadOnlyList<ActivityInterval>? runs = null,
-        IReadOnlyList<ActivityInterval>? waits = null) =>
+        IReadOnlyList<ActivityInterval>? waits = null,
+        string? title = null,
+        string? worktreeKey = null,
+        IReadOnlyList<LimitHitRecord>? limitHits = null) =>
         new(
             new SessionRecord(
                 sessionId,
@@ -241,7 +244,10 @@ internal static class SessionRecords
                 0,
                 resolvedRepositoryAlias,
                 runs,
-                waits),
+                waits,
+                title,
+                worktreeKey,
+                limitHits),
             machineId,
             serverTimestamp);
 }

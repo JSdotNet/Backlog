@@ -259,6 +259,14 @@ runs against an in-memory replica standing in for one; the twelve-month containe
 is — the emulator does not honour TTL, so that number is deployed-only behaviour
 rather than something anything here has shown.
 
+As of 2026-09-23 a device keeps the records it pushed when they come back down the
+feed, rather than dropping its own echo, so a session whose transcript the assistant
+has cleaned away is still answered from its record; the local reading of a session
+wins wherever there is one. The record carries nineteen fields — a title, the
+delivery dashboards' worktree key, the usage-limit refusals, the entrypoint, the
+pull requests a session linked and its token usage per model joined the thirteen —
+and local ADR 0005 argues each.
+
 - **Single-writer, so last-write-wins does not apply.** A session ran on one
   machine and only that machine holds the evidence for it, so there is never a
   second version to discard. The conflict policy under

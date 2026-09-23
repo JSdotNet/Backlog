@@ -98,7 +98,13 @@ public enum AgentSessionOrigin
     /// <summary>Reported by another environment. As true as what that environment
     /// sent and as current as the last sync, which is not the standing a file this
     /// device can open for itself has.</summary>
-    Replicated
+    Replicated,
+
+    /// <summary>This machine's own session, answered from its session record because
+    /// the agent's files no longer say anything about it — cleaned away, most often.
+    /// As true as the last reading that amended the record, and never re-readable.
+    /// See <see cref="IAgentSessionRecordStore"/>.</summary>
+    Recorded
 }
 
 /// <summary>
@@ -253,6 +259,33 @@ public sealed record AgentSession(
     /// </para>
     /// </summary>
     public string? ResolvedRepository { get; init; }
+
+    /// <summary>
+    /// The delivery dashboards' key for the working folder, carried for a session
+    /// whose folder did not come with it — a replicated record — or null.
+    /// <para>
+    /// A local session leaves this null and is matched from its folder, which can
+    /// try every folder above it (<see cref="DeliveryRunWorktrees.KeysUpFrom"/>). A
+    /// record carries the key of the folder alone, because the keys above it would
+    /// send every parent folder's name along; a session started below its worktree's
+    /// top level therefore matches its runs on the machine that ran it and not from
+    /// the record.
+    /// </para>
+    /// </summary>
+    public string? WorktreeKey { get; init; }
+
+    /// <summary>Where the agent was run from — <c>claude-desktop</c>, <c>cli</c>, … —
+    /// where it recorded that, or null.</summary>
+    public string? Entrypoint { get; init; }
+
+    /// <summary>The pull requests the session linked itself to, or null where the
+    /// reader cannot say: Copilot records none, and an unreadable transcript says
+    /// nothing. Empty is a reading that found none.</summary>
+    public IReadOnlyList<AgentPullRequest>? PullRequests { get; init; }
+
+    /// <summary>What the session spent per model, on the same null-and-empty terms as
+    /// <see cref="PullRequests"/>.</summary>
+    public IReadOnlyList<AgentModelUsage>? ModelUsage { get; init; }
 }
 
 /// <summary>

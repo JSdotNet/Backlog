@@ -268,12 +268,18 @@ public interface IDeliverySurfaceLifecycle
     /// <param name="stages">Every stage the run intends to pass, in order. The whole
     /// list is written at once and addressed by index afterwards.</param>
     /// <param name="changeKind">Where the caller already knows it.</param>
+    /// <param name="sessionId">The agent session driving the run — Claude's
+    /// <c>${CLAUDE_SESSION_ID}</c> — or null from a caller that does not send one. Written
+    /// into the run's <c>sessionIds</c>, which a resumed run appends to, so the Sessions
+    /// pane attaches the run to the sessions that drove it by identity rather than by
+    /// worktree and overlapping time.</param>
     Task<DeliveryRunStarted> StartRunAsync(
         string worktree,
         string skillId,
         string title,
         IReadOnlyList<string> stages,
         string? changeKind = null,
+        string? sessionId = null,
         CancellationToken cancellationToken = default);
 
     /// <summary><c>record_prompt</c>. The first prompt recorded also becomes the run's

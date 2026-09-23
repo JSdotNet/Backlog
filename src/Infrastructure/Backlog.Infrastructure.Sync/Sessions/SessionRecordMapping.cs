@@ -8,7 +8,7 @@ namespace Backlog.Infrastructure.Sync.Sessions;
 /// <para>
 /// <strong>This is the whole reason a session record may leave the machine, and
 /// it is deliberately the only place a record is built.</strong>
-/// .arc42/adr/0005 §Session records states a whitelist of thirteen fields and says in
+/// .arc42/adr/0005 §Session records states a whitelist of nineteen fields and says in
 /// as many words that a whitelist and a filter fail in opposite directions: a
 /// filter that misses a field leaks it, a whitelist that misses one merely omits
 /// it. <see cref="SessionRecord"/> makes that structural — a field not in the
@@ -17,17 +17,20 @@ namespace Backlog.Infrastructure.Sync.Sessions;
 /// machine" is a question with exactly one place to read the answer.
 /// </para>
 /// <para>
-/// <strong><see cref="AgentSession.WorkingFolder"/> and
-/// <see cref="AgentSession.Title"/> never leave.</strong> The working folder is a
-/// raw absolute path — it describes one machine's disk, means nothing on the
+/// <strong><see cref="AgentSession.WorkingFolder"/> never leaves.</strong> It is
+/// a raw absolute path — it describes one machine's disk, means nothing on the
 /// machine that read it, and .arc42/adr/0005 §Scope lists paths among the four
 /// things that stay out precisely because the receiving machine would then act on
-/// one. The title is worse: an agent derives it from what the person typed, so it
-/// is a fragment of a prompt, and prompts are the first thing named under "never
-/// prompts, never tool output, never file contents". Neither is on the wire type
-/// at all, and <c>SessionRecordMappingTests</c> asserts over the serialized body
-/// rather than over the record, because a test on the record would not notice
-/// somebody widening the wire.
+/// one. What travels in its place is the dashboards' one-way key for it, which is
+/// what matching a delivery run needs and all it needs.
+/// </para>
+/// <para>
+/// <strong><see cref="AgentSession.Title"/> leaves, by decision.</strong> An agent
+/// derives it from what the person typed, so it is a fragment of a prompt, and it
+/// was kept home on that ground until 2026-09-23. The owner reversed that in
+/// .arc42/adr/0005 §Session records: the record is how a session stays
+/// recognisable on another machine and after its transcript is gone, and an id is
+/// not recognisable. It is cut to <see cref="SessionRecordLimits.TitleLength"/>.
 /// </para>
 /// </summary>
 public static class SessionRecordMapping
@@ -85,9 +88,64 @@ public static class SessionRecordMapping
             // resolving one from the other — a record that recorded a repository
             // and resolved none, or the reverse, goes out exactly so.
             RepositoryAliasFor(session.ResolvedRepository, aliases),
-            activity is null ? null : Newest(activity.Runs.Select(run => new ActivityInterval(run.StartedAt, run.EndedAt))),
-            activity is null ? null : Newest(activity.Waits.Select(wait => new ActivityInterval(wait.StartedAt, wait.EndedAt))));
+            activity is null ? null : Newest(activity.Runs.Select(run => new ActivityInterval(run.StartedAt, run.EndedAt)), SessionRecordLimits.IntervalsPerList),
+            activity is null ? null : Newest(activity.Waits.Select(wait => new ActivityInterval(wait.StartedAt, wait.EndedAt)), SessionRecordLimits.IntervalsPerList),
+            Cut(session.Title, SessionRecordLimits.TitleLength),
+            Cut(DeliveryRunWorktrees.KeyOf(session.WorkingFolder), SessionRecordLimits.WorktreeKeyLength),
+            activity is null ? null : Newest(activity.LimitHits.OrderBy(hit => hit.At).Select(HitRecordOf), SessionRecordLimits.LimitHitsPerList),
+            Cut(session.Entrypoint, SessionRecordLimits.LimitTokenLength),
+            session.PullRequests is null ? null
+                : Newest(
+                    session.PullRequests
+                        .Where(pr => pr.Url.Length <= SessionRecordLimits.UrlLength && pr.Repository.Length <= SessionRecordLimits.RepositoryLength)
+                        .Select(pr => new PullRequestRecord(pr.Repository, pr.Number, pr.Url, pr.LinkedAt)),
+                    SessionRecordLimits.PullRequestsPerList),
+            session.ModelUsage is null ? null
+                : [.. session.ModelUsage
+                    .OrderByDescending(usage => usage.OutputTokens)
+                    .Take(SessionRecordLimits.ModelsPerList)
+                    .Select(usage => new ModelUsageRecord(
+                        Cut(usage.Model, SessionRecordLimits.LimitTokenLength)!,
+                        usage.InputTokens,
+                        usage.OutputTokens,
+                        usage.CacheCreationInputTokens,
+                        usage.CacheReadInputTokens))]);
     }
+
+    /// <summary>One refusal as the wire carries it, every token cut to what the
+    /// service accepts so a longer one than this build has seen cannot get the whole
+    /// record refused on every cycle.</summary>
+    private static LimitHitRecord HitRecordOf(AgentLimitHit hit) => new(
+        hit.At,
+        hit.Kind.ToString(),
+        Cut(hit.RateLimitType, SessionRecordLimits.LimitTokenLength),
+        hit.ResetsAt,
+        Cut(hit.OverageStatus, SessionRecordLimits.LimitTokenLength),
+        hit.OverageResetsAt,
+        Cut(hit.OverageDisabledReason, SessionRecordLimits.LimitTokenLength),
+        hit.IsUsingOverage);
+
+    /// <summary>One refusal back in the Sessions context's type. A kind this build
+    /// does not know is Other rather than a throw — the raw type beside it is still
+    /// the fact.</summary>
+    private static AgentLimitHit HitOf(LimitHitRecord hit) =>
+        new(
+            hit.At,
+            Enum.TryParse<AgentLimitKind>(hit.Kind, ignoreCase: false, out var kind) && Enum.IsDefined(kind) ? kind : AgentLimitKind.Other,
+            hit.RateLimitType)
+        {
+            ResetsAt = hit.ResetsAt,
+            OverageStatus = hit.OverageStatus,
+            OverageResetsAt = hit.OverageResetsAt,
+            OverageDisabledReason = hit.OverageDisabledReason,
+            IsUsingOverage = hit.IsUsingOverage
+        };
+
+    /// <summary>A blank value as null, and a long one cut to the cap.</summary>
+    private static string? Cut(string? value, int length) =>
+        string.IsNullOrWhiteSpace(value) ? null
+            : value.Length <= length ? value
+            : value[..length];
 
     /// <summary>
     /// One record's activity from another environment, as this device's activity
@@ -119,7 +177,9 @@ public static class SessionRecordMapping
     /// </summary>
     /// <param name="entry">What came back from the feed, machine id and all.</param>
     /// <param name="since">The horizon the activity read was asked for.</param>
-    public static AgentSessionActivity? ToActivity(SessionRecordEntry entry, DateTimeOffset since)
+    /// <param name="environmentId">The environment to stamp in place of the record's
+    /// machine id, or null to use it — see <see cref="ToSession"/>.</param>
+    public static AgentSessionActivity? ToActivity(SessionRecordEntry entry, DateTimeOffset since, string? environmentId = null)
     {
         ArgumentNullException.ThrowIfNull(entry);
 
@@ -132,6 +192,12 @@ public static class SessionRecordMapping
 
         if (runs.Count == 0 && waits.Count == 0) return null;
 
+        var hits = (record.LimitHits ?? [])
+            .Where(hit => hit.At >= since)
+            .OrderBy(hit => hit.At)
+            .Select(HitOf)
+            .ToList();
+
         return new AgentSessionActivity(
             record.SessionId,
             KindFor(record.AgentKind),
@@ -139,12 +205,13 @@ public static class SessionRecordMapping
             // and how the local sources spell theirs: an activity record and a
             // session row are the same machine by identity only while every source
             // writes the id one way.
-            entry.MachineId.ToString(),
+            environmentId ?? entry.MachineId.ToString(),
             record.MachineName,
             runs,
             waits)
         {
-            Origin = AgentSessionOrigin.Replicated
+            Origin = AgentSessionOrigin.Replicated,
+            LimitHits = hits
         };
     }
 
@@ -161,13 +228,11 @@ public static class SessionRecordMapping
     /// which is the one place that promise can be taken at its word.
     /// </para>
     /// </summary>
-    private static IReadOnlyList<ActivityInterval> Newest(IEnumerable<ActivityInterval> intervals)
+    private static IReadOnlyList<T> Newest<T>(IEnumerable<T> items, int cap)
     {
-        var all = intervals.ToList();
+        var all = items.ToList();
 
-        return all.Count <= SessionRecordLimits.IntervalsPerList
-            ? all
-            : all.GetRange(all.Count - SessionRecordLimits.IntervalsPerList, SessionRecordLimits.IntervalsPerList);
+        return all.Count <= cap ? all : all.GetRange(all.Count - cap, cap);
     }
 
     /// <summary>Ascending, clipped to the horizon, and in the consumer's own
@@ -190,7 +255,14 @@ public static class SessionRecordMapping
     /// <param name="entry">What came back from the feed, machine id and all.</param>
     /// <param name="now">The clock the state is derived against. Passed in rather
     /// than read, which is what makes the staleness boundary testable at all.</param>
-    public static AgentSession ToSession(SessionRecordEntry entry, DateTimeOffset now)
+    /// <param name="environmentId">
+    /// The environment to stamp in place of the record's machine id, or null to use
+    /// it. Set for this machine's own records: the service issued the machine id when
+    /// the device paired, and the local readers stamp the installation's own identity,
+    /// so without this an archived session of this machine's would group under a
+    /// second environment with the same name.
+    /// </param>
+    public static AgentSession ToSession(SessionRecordEntry entry, DateTimeOffset now, string? environmentId = null)
     {
         ArgumentNullException.ThrowIfNull(entry);
 
@@ -199,14 +271,13 @@ public static class SessionRecordMapping
         return new AgentSession(
             record.SessionId,
             KindFor(record.AgentKind),
-            entry.MachineId.ToString(),
+            environmentId ?? entry.MachineId.ToString(),
             record.MachineName,
-            // Titles do not sync, so there is none to show and none to invent. The
-            // session id is what the record actually carries that names this
-            // session to a person, and it reads as an identifier rather than as a
-            // sentence somebody wrote — which is the point. Anything prettier would
-            // be this device composing a description of work it never saw.
-            record.SessionId,
+            // The title the origin machine sent, and the session id from a device
+            // that predates the field: that is what the record actually carries
+            // that names the session to a person. Anything prettier would be this
+            // device composing a description of work it never saw.
+            string.IsNullOrWhiteSpace(record.Title) ? record.SessionId : record.Title,
             // There is no working folder on the wire and there could not be one:
             // a path from another machine describes a disk this one cannot see.
             string.Empty,
@@ -243,7 +314,15 @@ public static class SessionRecordMapping
             // Held as it arrived. There is no folder on the wire to resolve it
             // from again, and the origin machine was the only one that ever had
             // both the folder and the clone it lay under.
-            ResolvedRepository = record.ResolvedRepositoryAlias
+            ResolvedRepository = record.ResolvedRepositoryAlias,
+            // The folder's key in place of the folder, so a delivery run filed under
+            // it can still find this session.
+            WorktreeKey = record.WorktreeKey,
+            Entrypoint = record.Entrypoint,
+            PullRequests = record.PullRequests is null ? null
+                : [.. record.PullRequests.Select(pr => new AgentPullRequest(pr.Repository, pr.Number, pr.Url, pr.LinkedAt))],
+            ModelUsage = record.ModelUsage is null ? null
+                : [.. record.ModelUsage.Select(usage => new AgentModelUsage(usage.Model, usage.InputTokens, usage.OutputTokens, usage.CacheCreationInputTokens, usage.CacheReadInputTokens))]
         };
     }
 

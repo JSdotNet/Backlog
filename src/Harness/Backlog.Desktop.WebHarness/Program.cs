@@ -496,6 +496,9 @@ builder.Services.AddSingleton<IAgentActivityCache>(sp => new AgentActivityCache(
 // session list reads. Same folder, same reasons, forgotten together.
 builder.Services.AddSingleton<ITranscriptFactsCache>(sp => new TranscriptFactsCache(
     () => sp.GetRequiredService<WorkspaceSettingsStore>().SessionActivityCacheDirectory));
+// This machine's own session records, as the desktop head keeps them.
+builder.Services.AddSingleton<IAgentSessionRecordStore>(sp => new AgentSessionRecordStore(
+    () => sp.GetRequiredService<WorkspaceSettingsStore>().SessionRecordsDirectory));
 // Which registered clone a session's working folder lies inside, read off the
 // same repository list the Repositories screen writes. The session readers
 // stamp the answer on each local session so a header scoped to one repository

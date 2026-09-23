@@ -150,18 +150,42 @@ internal static class ClaudeTranscriptEvents
                 ? name.GetString()
                 : null;
 
-        // The reset instant, from the same optional block, in Unix seconds. Absent or
-        // malformed reads as null rather than as an instant nothing wrote down.
-        var resetsAt = root.TryGetProperty("quotaLimits", out var limits)
-            && limits.ValueKind is JsonValueKind.Object
-            && limits.TryGetProperty("resetsAt", out var reset)
-            && reset.ValueKind is JsonValueKind.Number
-            && reset.TryGetInt64(out var seconds)
-                ? DateTimeOffset.FromUnixTimeSeconds(seconds)
-                : (DateTimeOffset?)null;
+        var block = root.TryGetProperty("quotaLimits", out var limits) && limits.ValueKind is JsonValueKind.Object
+            ? limits
+            : (JsonElement?)null;
 
-        return new AgentLimitHit(at, type is null ? KindOf(TextOf(root)) : KindOf(type), type) { ResetsAt = resetsAt };
+        // The reset instant and the overage half, from the same optional block. Absent
+        // or malformed reads as null rather than as a value nothing wrote down.
+        return new AgentLimitHit(at, type is null ? KindOf(TextOf(root)) : KindOf(type), type)
+        {
+            ResetsAt = InstantOf(block, "resetsAt"),
+            OverageStatus = StringOf(block, "overageStatus"),
+            OverageResetsAt = InstantOf(block, "overageResetsAt"),
+            OverageDisabledReason = StringOf(block, "overageDisabledReason"),
+            IsUsingOverage = block is { } held
+                && held.TryGetProperty("isUsingOverage", out var overage)
+                && overage.ValueKind is JsonValueKind.True or JsonValueKind.False
+                    ? overage.GetBoolean()
+                    : null
+        };
     }
+
+    /// <summary>A Unix-seconds field of the quota block as an instant, or null.</summary>
+    private static DateTimeOffset? InstantOf(JsonElement? block, string name) =>
+        block is { } held
+        && held.TryGetProperty(name, out var value)
+        && value.ValueKind is JsonValueKind.Number
+        && value.TryGetInt64(out var seconds)
+            ? DateTimeOffset.FromUnixTimeSeconds(seconds)
+            : null;
+
+    /// <summary>A string field of the quota block, or null.</summary>
+    private static string? StringOf(JsonElement? block, string name) =>
+        block is { } held
+        && held.TryGetProperty(name, out var value)
+        && value.ValueKind is JsonValueKind.String
+            ? value.GetString()
+            : null;
 
     /// <summary>The refusal's own sentence — the first text block of the message, or
     /// null where there is none.</summary>

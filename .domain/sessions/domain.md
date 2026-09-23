@@ -121,13 +121,15 @@ because the thing that replicates is a record, not an authority:
   which is the rule this context already applies to the agent that leaves no
   marker locally. `stalled` is the claim that something is still there and quiet,
   and nothing in a record can tell that apart from something that is gone.
-- **Only a whitelist travels**, fixed by local ADR 0005 and standing at thirteen
+- **Only a whitelist travels**, fixed by local ADR 0005 and standing at nineteen
   fields: the `Session Identity` in full — the agent as well as the session id —
   the environment's id and the name that environment goes by, the repository
   **alias** rather than the working folder, the resolved repository's alias on the
   same terms (`#working-location`), the branch, the activity window, the turn and
-  duration counts, and the agent's active runs and waits as pairs of
-  timestamps. Never prompts, never tool output, never file contents — which is
+  duration counts, the agent's active runs and waits as pairs of timestamps, the
+  session's title, the delivery dashboards' worktree key, the usage-limit
+  refusals the agent recorded, where the agent was run from, the pull requests the
+  session linked, and the tokens it spent per model. Never prompts, never tool output, never file contents — which is
   the whole reason a record can leave the machine at all. The runs and waits are
   the same kind of fact as the activity window — instants, not content — and they
   travel so a reading machine can measure a session it never held the transcript
@@ -136,12 +138,16 @@ because the thing that replicates is a record, not an authority:
   environment had no parsable activity record, and a reader keeps those three
   apart rather than reading an absence as a measurement of zero. A
   field not on the list does not travel, so `working_folder` does not: it
-  describes one machine's disk and means nothing on the other. Neither does the
-  title, and that one is worth naming rather than leaving to be noticed: an agent
-  writes a title out of what the person typed, so a title is a fragment of a
-  prompt under a friendlier name, and a replicated session is therefore headed by
-  its session id — the one thing the record carries that names it — rather than by
-  a description of work the reading machine never saw. The turn count keeps this
+  describes one machine's disk and means nothing on the other. Its worktree key
+  does — the leaf and a one-way hash — so a record can still meet the delivery
+  runs filed under that folder. The title travels by the owner's decision of
+  2026-09-23, although an agent writes it out of what the person typed: a session
+  is recognised by its title, on another machine and once its transcript is gone,
+  and by nothing else the record carries. A record from a device that predates the
+  field is headed by its session id. A limit hit is the assistant's own record of
+  a refusal — when, which bucket, when it resets, and what it said about paid
+  overage — and never the refusal's sentence; it travels because a usage limit is
+  the account's, so a refusal on one machine bounds the week on every other. The turn count keeps this
   context's own rule about gaps: an agent that records none sends none, rather
   than sending zero, because zero is a claim about a session where absence is
   merely the truth about a record. The duration is the one field carried for the
@@ -160,6 +166,18 @@ because the thing that replicates is a record, not an authority:
 - **Retention is the store's, not this context's.** A replicated record expires
   after twelve months by container TTL. Nothing here reaps, and nothing here
   deletes a record.
+- **An environment keeps a record of each of its own sessions, and the record
+  answers once the transcript is gone.** The assistant cleans its transcripts away —
+  Claude after a month by default — and a session read from nothing is a session the
+  log no longer holds. So every reading amends a local `Session Record`, independent
+  of sync: added to, never taken from — a value the reading lacks keeps what the
+  record held, earlier runs and waits are kept, limit hits are a union. The answer
+  for one session is chosen in this order: the files as read now, then this
+  environment's record, then what sync carried. With sync on, the records an
+  environment pushed also come back down the feed and are kept as a second copy; a
+  record read back is never pushed again, so this does not make the log
+  multi-writer, and those are shown under the environment's own identity rather
+  than the machine id the service issued.
 
 **Replication is not the Collections MCP and changes nothing about it.** The MCP
 stays exactly what it already is: optional, reached through an anti-corruption
@@ -337,6 +355,13 @@ The worktree key is the dashboards' own — the folder's leaf and eight hex char
 of a hash of its lower-cased path — and it is one-way: the path is not recoverable
 from it, but the same key can be derived from a session's `Working Location`, which is
 what `Run Attachment` does.
+
+**A run can name the sessions that drove it, and then no guess is made.** As of
+2026-09-23 a run started through `Delivery Run Recording` with the caller's session id
+carries it in `sessionIds`; a session that picks the run back up is appended beside it,
+never over it. Where a run names a session the list holds, it joins that session by
+identity; only a run that names none — every dashboard file written before, and any
+writer that does not send one — is attached by worktree key and overlapping activity.
 
 *Delivery* run, with the adjective: this context already has a run, the stretch of
 transcript in which an agent was producing, derived here from the agent's own record.

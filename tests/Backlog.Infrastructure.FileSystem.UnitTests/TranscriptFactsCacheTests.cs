@@ -115,7 +115,7 @@ public class TranscriptFactsCacheTests : IDisposable
         cache.Write(Transcript, 64_000, WrittenAt, new TranscriptFacts(@"D:\Repos\Backlog", "main", 17));
 
         var path = OnlyEntry();
-        File.WriteAllText(path, File.ReadAllText(path).Replace("\"version\": 1", "\"version\": 0", StringComparison.Ordinal));
+        File.WriteAllText(path, File.ReadAllText(path).Replace("\"version\": 2", "\"version\": 0", StringComparison.Ordinal));
 
         Assert.Null(cache.TryRead(Transcript, 64_000, WrittenAt));
     }

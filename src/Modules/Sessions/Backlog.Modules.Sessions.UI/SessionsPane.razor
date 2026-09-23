@@ -1,5 +1,7 @@
+@using Microsoft.Extensions.DependencyInjection
 @inject IAgentSessionSource Sessions
 @inject IDeliveryRunSource Runs
+@inject IServiceProvider Services
 
 @*
     The sessions pane: the Claude and Copilot sessions this environment has a record
@@ -195,6 +197,20 @@
         </div>
 
         <div class="sessions-filter sessions-filter--end">
+            @if (_keeper is not null)
+            {
+                @* Amends every one of this machine's session records from what its
+                   agents' files still hold, and asks sync to send them all again when
+                   sync is on. Beside Refresh because it is the heavier version of the
+                   same question: Refresh reads, this reads everything and writes it
+                   down. *@
+                <AppButton Variant="ButtonVariant.Secondary"
+                           Disabled="@(_loading || _updating)"
+                           TestId="sessions-update-records"
+                           OnClick="UpdateRecordsAsync">
+                    @(_updating ? "Updating records..." : "Update records")
+                </AppButton>
+            }
             <AppButton Variant="ButtonVariant.Secondary"
                        Disabled="@_loading"
                        TestId="sessions-refresh"
@@ -205,6 +221,10 @@
     </div>
 
     <div class="sessions-panel__content" id="sessions-content">
+        @if (_recordsMessage is not null)
+        {
+            <Alert Message="@_recordsMessage" BaseClass="sessions-panel__notice" Role="status" TestId="sessions-records-updated" />
+        }
         @if (Unreadable.Count > 0)
         {
             @* Named, not swallowed. One agent's folder being unreadable leaves the
@@ -544,18 +564,18 @@
     /// The session's name, plus the family that says it is an identifier on a row
     /// that only has one.
     /// <para>
-    /// Titles do not sync — an agent derives one from what the person typed, and a
-    /// prompt is the first thing ADR 0005 refuses to carry — so a replicated record
-    /// names itself with its own session id. Rendering that in the ink and weight of
-    /// a title somebody wrote is the row passing itself off as local: it reads as a
+    /// A replicated record from a device that predates the title field names itself
+    /// with its own session id. Rendering that in the ink and weight of a title
+    /// somebody wrote is the row passing itself off as a named session: it reads as a
     /// name right up to the point somebody tries to make sense of it. The mono family
     /// is what this pane already gives every identifier in a row — the repository,
     /// the branch, the folder — so the id joins them rather than inventing a fifth
-    /// treatment for the same kind of value.
+    /// treatment for the same kind of value. A record that carried its title (ADR
+    /// 0005, 2026-09-23) shows it as a title.
     /// </para>
     /// </summary>
     private static string TitleClass(SessionRow row) =>
-        row.Origin is AgentSessionOrigin.Replicated
+        row.Origin is AgentSessionOrigin.Replicated && string.Equals(row.Title, row.Id, StringComparison.Ordinal)
             ? "sessions-table__title data-table__mono"
             : "sessions-table__title";
 
@@ -587,7 +607,71 @@
     private static string RunOnlyLine(SessionRow row) =>
         $"No session record on this PC. Recorded by {row.Runs[0].Dashboard} under {row.Runs[0].Worktree}.";
 
-    protected override async Task OnInitializedAsync() => await RefreshAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        _keeper = Services.GetService<ISessionRecordKeeper>();
+
+        await RefreshAsync();
+
+        // Every opening amends the records of the sessions that moved since the last
+        // one, so a session is written down while its transcript is still there to
+        // read. Not awaited by the list: the list is already read, and the records are
+        // what a later reading falls back to, not what this one shows.
+        if (_keeper is not null) _ = KeepRecordsAsync(_keeper);
+    }
+
+    private static async Task KeepRecordsAsync(ISessionRecordKeeper keeper)
+    {
+        try
+        {
+            await keeper.UpdateAsync(everything: false);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // The next opening tries again; the list is unaffected either way.
+        }
+    }
+
+    private ISessionRecordKeeper? _keeper;
+
+    private bool _updating;
+
+    private string? _recordsMessage;
+
+    /// <summary>The update button: every session the files still hold, amended into
+    /// its record — added to, never replaced — then the list read again so a record
+    /// that now answers for a cleaned-away session shows.</summary>
+    private async Task UpdateRecordsAsync()
+    {
+        if (_keeper is null) return;
+
+        _updating = true;
+        _recordsMessage = null;
+
+        try
+        {
+            var update = await _keeper.UpdateAsync(everything: true);
+
+            _recordsMessage = RecordsMessage(update);
+        }
+        finally
+        {
+            _updating = false;
+        }
+
+        await RefreshAsync();
+    }
+
+    internal static string RecordsMessage(SessionRecordUpdate update)
+    {
+        var what = update.Started + update.Amended == 0
+            ? "No session files to read, so every record is as it was."
+            : $"Updated {update.Amended} session record{(update.Amended == 1 ? "" : "s")} and started {update.Started}.";
+
+        return update.Published
+            ? $"{what} Sync will send every record again on its next cycle."
+            : what;
+    }
 
     private async Task RefreshAsync()
     {
