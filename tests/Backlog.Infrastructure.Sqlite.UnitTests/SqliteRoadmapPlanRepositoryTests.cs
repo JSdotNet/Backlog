@@ -405,6 +405,45 @@ public sealed class SqliteRoadmapPlanRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task ImportProvenanceSurvivesTheRoundTrip_WrittenAsAWord()
+    {
+        var plan = RoadmapPlan.Empty();
+        plan.AddImportedItem("By effort", PlanningTag.Of("by-effort"), Window(5, 9), ImportPlacement.Effort);
+        plan.AddImportedItem("By due date", PlanningTag.Of("by-due"), Window(5, 9), ImportPlacement.DueDate);
+        plan.AddItem("By hand", Window(5, 9));
+
+        await _plans.SaveAsync(plan, TestContext.Current.CancellationToken);
+        var json = await StoredDocumentAsync();
+        var loaded = await _plans.LoadAsync(TestContext.Current.CancellationToken);
+
+        Assert.Contains("\"placedByImport\":\"effort\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"placedByImport\":\"due-date\"", json, StringComparison.Ordinal);
+        Assert.Equal(
+            [ImportPlacement.Effort, ImportPlacement.DueDate, null],
+            loaded.Items.Select(item => item.PlacedByImport));
+    }
+
+    [Fact]
+    public async Task AnItemStoredBeforeImportsPlacedAnything_ReadsAsPlacedByAPerson()
+    {
+        // Additive, per local ADR 0006: no key is the state of every item written before
+        // this field existed, and the safe reading of it keeps the dates somebody chose.
+        var json = JsonSerializer.Serialize(new
+        {
+            version = 1,
+            items = new[]
+            {
+                new { id = Guid.NewGuid().ToString(), title = "Older", start = "2026-01-05", end = "2026-01-09" }
+            }
+        });
+        await StoreDocumentAsync(json);
+
+        var loaded = await _plans.LoadAsync(TestContext.Current.CancellationToken);
+
+        Assert.Null(Assert.Single(loaded.Items).PlacedByImport);
+    }
+
+    [Fact]
     public async Task EverySaveStampsAnInstantThatSurvivesTheRoundTrip_AndTheNextSaveMovesItOn()
     {
         var plan = RoadmapPlan.Empty();

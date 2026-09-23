@@ -34,7 +34,8 @@ public sealed class RoadmapItem
         Guid? taskId,
         string? notes,
         PlanningTag? tag = null,
-        KnowledgeReferences? knowledgeRefs = null)
+        KnowledgeReferences? knowledgeRefs = null,
+        ImportPlacement? placedByImport = null)
     {
         Id = id;
         Title = title;
@@ -51,6 +52,7 @@ public sealed class RoadmapItem
         // home.
         Tag = tag ?? PlanningTag.From(title);
         KnowledgeRefs = knowledgeRefs ?? KnowledgeReferences.Empty;
+        PlacedByImport = placedByImport;
     }
 
     /// <summary>Stable across every reschedule. That is what makes it safe for a
@@ -88,16 +90,34 @@ public sealed class RoadmapItem
     /// may dangle. Empty means it points at none.</summary>
     public KnowledgeReferences KnowledgeRefs { get; private set; }
 
+    /// <summary>Which rule an import placed the window by, while the window is still
+    /// the importer's. Null once a person has placed it — and from then on a re-import
+    /// keeps the window, dates and all (ADR 0013, ruling 5).</summary>
+    public ImportPlacement? PlacedByImport { get; private set; }
+
     internal void Rename(string title) => Title = title;
 
-    /// <summary>Moves the item in time. The lane is only changed when one is
-    /// given: dropping something on a different row without travelling in time
-    /// must not also snap its dates, and moving it in time must not silently
-    /// refile it.</summary>
+    /// <summary>Moves the item in time on a person's say-so. The lane is only changed
+    /// when one is given: dropping something on a different row without travelling in
+    /// time must not also snap its dates, and moving it in time must not silently
+    /// refile it.
+    /// <para>
+    /// A window that actually moves is the person's from then on, so the import
+    /// provenance goes with it. A lane-only drop keeps it: the importer never chose a
+    /// lane, and nothing it placed has been overruled.
+    /// </para></summary>
     internal void MoveTo(PlannedWindow window, PlanningLane? lane = null)
     {
+        if (window != Window) PlacedByImport = null;
         Window = window;
         if (lane is not null) Lane = lane;
+    }
+
+    /// <summary>The importer places the window, and records by which rule.</summary>
+    internal void PlaceByImport(PlannedWindow window, ImportPlacement placement)
+    {
+        Window = window;
+        PlacedByImport = placement;
     }
 
     internal void Prioritise(PlanningPriority priority) => Priority = priority;

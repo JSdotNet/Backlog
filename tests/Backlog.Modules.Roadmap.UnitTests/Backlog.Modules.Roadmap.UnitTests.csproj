@@ -6,4 +6,9 @@
     <ProjectReference Include="..\..\src\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Import placement starts from "today"; the handler tests pin it. -->
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+  </ItemGroup>
+
 </Project>

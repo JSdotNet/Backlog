@@ -6,6 +6,7 @@ using Backlog.Modules.Roadmap.Features.AddMilestone;
 using Backlog.Modules.Roadmap.Features.RemoveMilestone;
 using Backlog.Modules.Roadmap.Features.UpdateMilestone;
 using Backlog.Modules.Roadmap.Features.GetPlan;
+using Backlog.Modules.Roadmap.Features.ImportPlanItems;
 using Backlog.Modules.Roadmap.Features.PrioritiseItem;
 using Backlog.Modules.Roadmap.Features.RemoveDependency;
 using Backlog.Modules.Roadmap.Features.RemoveItem;
@@ -15,6 +16,7 @@ using Backlog.Modules.Roadmap.Services;
 using Backlog.SharedKernel.Handlers;
 using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Backlog.Modules.Roadmap.Extensions;
 
@@ -45,6 +47,12 @@ public static class RoadmapModuleRegistration
         services.AddScoped<ICommandHandler<RemoveMilestoneCommand, Result>, RemoveMilestoneCommandHandler>();
         services.AddScoped<ICommandHandler<AddDependencyCommand, Result>, AddDependencyCommandHandler>();
         services.AddScoped<ICommandHandler<RemoveDependencyCommand, Result>, RemoveDependencyCommandHandler>();
+        // Needs IPlanningVelocity, which the host answers through the cross-context
+        // adapters; resolved only when an import runs.
+        services.AddScoped<ICommandHandler<ImportPlanItemsCommand, Result<PlanImportResultDto>>, ImportPlanItemsCommandHandler>();
+
+        // Placement reads "today"; a host that already registered a clock keeps its own.
+        services.TryAddSingleton(TimeProvider.System);
 
         services.AddScoped<IRoadmapPlanning, RoadmapPlanning>();
 

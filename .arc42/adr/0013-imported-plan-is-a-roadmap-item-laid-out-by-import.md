@@ -1,18 +1,31 @@
 # ADR 0013: An imported plan is one Roadmap Item; a `plan` entry is the same grammar, and the importer places it
 
 ```meta
-status: proposed
+status: active
 related: [".arc42/adr/0007-import-reuses-the-entry-text-grammar.md", ".arc42/adr/0002-backlog-module-owns-the-entry-text-language.md", ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md", ".domain/roadmap/domain.md#roadmap-item", ".domain/roadmap/domain.md#roadmap-item-gathering", ".domain/roadmap/features.md#laying-out-imported-plans", ".domain/roadmap/features.md#sequencing-work-into-tracks", ".domain/roadmap/dependencies.md", ".domain/tasks/features.md#import", ".domain/tasks/features.md#re-importing-an-updated-plan", ".domain/tasks/features.md#effort-registration", ".design/content-editing.md#structured-metadata-sigils", ".design/content-editing.md#scheduling-and-dependency-tokens"]
 issue: null
 ```
 
 ## Status
 
-Proposed. Written as the first entry of the `roadmap-imported-plans` plan, so
-that every later entry in it — the `plan` type word, the intake port, the
-placement rule, the velocity setting, the steps drawn inside an item, the shelf —
-implements one decision instead of each making its own. Nothing below is built;
-the code named here is what exists today and what the rulings lean on.
+Accepted on 2026-09-23, through the plan's `confirm-rulings` entry, with two
+amendments made when the rulings were confirmed — in
+[ruling 2](#2-a-plan-entry-is-the-same-grammar-with-a-fourth-type-word) and
+[ruling 5](#5-placed_by_import-and-what-a-re-import-may-touch), and marked there:
+
+- **A cycle refuses the whole import**, rather than dropping the one edge and
+  creating the item anyway. The roadmap already refuses an edit rather than
+  half-applying it (`.domain/roadmap/features.md#refusing-an-edit-rather-than-half-applying-it`),
+  and an import is one edit.
+- **A tag more than one item carries updates the first of them by creation
+  order**, and reports the ambiguity, rather than updating none.
+
+Written as the first entry of the `roadmap-imported-plans` plan, so that every
+later entry in it — the `plan` type word, the intake port, the placement rule,
+the velocity setting, the steps drawn inside an item, the shelf — implements one
+decision instead of each making its own. Built so far: the `plan` type word, the
+velocity setting, and Roadmap's own import command
+(`Features/ImportPlanItems`, rulings 2, 4 and 5 on the Roadmap side).
 
 ## The six rulings
 
@@ -32,7 +45,8 @@ For the `confirm-rulings` entry, in one screen. The reasoning is in
    `plan`. It maps title → item title, its `+slug` → Roadmap Tag (required;
    without one the entry is reported and skipped), `repo:` → Repository Scope,
    `*priority` → Planning Priority, `after:` → roadmap Dependency (two passes
-   against sibling `plan` entries' `id:`, `id:` defaulting to the tag), `due:` →
+   against sibling `plan` entries' `id:`, `id:` defaulting to the tag; a cycle
+   refuses the whole import), `due:` →
    Planned Window end. `effort:` is not honoured; no start-date token exists. A
    `plan` entry never becomes a Task, and outside Import it is refused.
 3. **[Combination](#3-one-document-two-kinds-one-path).** One document may hold
@@ -54,7 +68,8 @@ For the `confirm-rulings` entry, in one screen. The reasoning is in
    An import-created item carries `placed_by_import`, cleared the moment a person
    reschedules it by hand. A roadmap-level re-import, matched by tag, replaces
    title, repository scope, priority and dependencies; re-places a window still
-   `placed_by_import`; keeps a hand-moved one; deletes nothing. A task-level
+   `placed_by_import`; keeps a hand-moved one; deletes nothing. A tag several
+   items carry updates the first by creation order and is reported. A task-level
    re-import changes nothing on the item except — while still `placed_by_import`
    by effort — its length.
 6. **[Steps inside the item](#6-drawing-the-plans-steps-inside-its-item).** On the
@@ -211,9 +226,11 @@ Tag of an item already on the plan, when exactly one item carries it; then a rea
 `roadmap_item_id` or `roadmap_milestone_id`, as any dependency may name a
 milestone. A value that resolves to nothing is dropped and reported rather than
 stored — the aggregate rejects an edge to an unknown node, and this record does
-not soften that invariant. A value that would close a cycle is likewise refused
-and reported, and the item is still created: the plan is left acyclic, and the
-person sees which edge did not fit.
+not soften that invariant. A value that would close a cycle **refuses the whole
+import**, through the aggregate's own acyclicity check, and the stored plan is
+left exactly as it was: nothing created, nothing revised. *(Amended on
+acceptance. As proposed, the one edge was dropped and the item still created;
+that half-applies an import, which the roadmap refuses for every other edit.)*
 
 **A `plan` entry never becomes a Task.** Only Import may act on one. Every other
 path that turns entry text into a task — the editor's paste, the quick-add,
@@ -254,9 +271,9 @@ would be placed against the previous version's effort.
   `Backlog.Infrastructure.FileSystem/Roadmap`, registered in
   `RoadmapCrossContextAdapterRegistration` as `Scoped` like its two siblings. It
   lifts the sigil, and calls Roadmap's own import feature slice.
-- **Roadmap command:** a new feature slice in `Backlog.Modules.Roadmap`
-  (working name `LayOutImportedPlans`), exposed on `IRoadmapPlanning` like every
-  other mutation, that creates or updates one item per `plan` entry
+- **Roadmap command:** a new feature slice in `Backlog.Modules.Roadmap`,
+  `Features/ImportPlanItems`, to be exposed on `IRoadmapPlanning` by the entry
+  that builds the intake port, that creates or updates one item per `plan` entry
   ([ruling 5](#5-placed_by_import-and-what-a-re-import-may-touch)), re-places the
   import-placed items whose tag the task entries touched, and — when asked —
   creates an item for each touched tag that has none yet.
@@ -339,7 +356,10 @@ arithmetic over that total and a factor the person set.
 Placement writes the window through the same path a hand edit does, so
 `RoadmapItemScheduled` is published as for any newly planned item — with no
 previous window on creation, and with the previous one on a re-placement.
-Monitoring sees an imported plan the way it sees every plan.
+Monitoring sees an imported plan the way it sees every plan. No publisher exists
+for the event yet, for hand edits or imports alike; until one does, the import's
+result carries the event's payload for every window it set or moved, so the
+publisher has one place to read it from.
 
 ### 5. `placed_by_import`, and what a re-import may touch
 
@@ -360,9 +380,10 @@ set again except by a fresh import creating the item anew. A window a person
 touched is a decision, and the importer does not overrule decisions.
 
 **Re-importing a roadmap-level document**, matched by tag (bare slug against
-Roadmap Tag; when more than one item carries the tag, none is updated and the
-ambiguity is reported, the same "left alone rather than guessed" rule ADR 0007
-applies to an ambiguous id):
+Roadmap Tag; when more than one item carries the tag, the **first by creation
+order** is updated and the ambiguity is reported, naming the others, so the
+person sees it rather than finding a second item quietly created beside them —
+*amended on acceptance; as proposed, none was updated*):
 
 - **Replaced** from the new version: title, repository scope, planning priority,
   dependencies (the import's set replaces the item's set; a dependency a person
