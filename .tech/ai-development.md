@@ -130,8 +130,14 @@ related: [".tech/ai-development.md#orchestration-dashboard", ".tech/testing.md#p
 The tool-server protocol that supplies agents with capabilities they do not ship
 themselves.
 
-- **Used for** — the Aspire and Playwright servers the `qa` plugin supplies, and
-  the orchestration dashboard.
+- **Used for** — the Aspire and Playwright servers the `qa` plugin supplies, the
+  orchestration dashboard, and Backlog's own `backlog` server, which `.mcp.json`
+  declares and the running desktop app hosts (`.arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md`).
+  `.devbook/config.json` binds that server as this repository's delivery tracker
+  (`bindings["delivery.tracker"]`, provider `backlog`) and on the `spec` and
+  `deliver` points of `bindings["delivery.mcp"]`, so a flow moves the entry it is
+  working. With the app closed nothing answers, and the run continues with the
+  tracker reported unbound.
 - **Why** — these expose live state an agent cannot read from the repository, and
   it is how a harness reaches a tool it does not ship.
 - **Not used for guidance.** The `jsdotnet-project-guidelines` and

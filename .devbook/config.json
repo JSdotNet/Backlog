@@ -1,0 +1,15 @@
+{
+  "id": "backlog",
+  "bindings": {
+    "delivery.tracker": { "provider": "backlog" },
+    "delivery.mcp": {
+      "spec": ["backlog"],
+      "deliver": ["backlog"]
+    }
+  },
+  "components": {
+    "delivery": {
+      "pluginVersion": "1.5.0"
+    }
+  }
+}

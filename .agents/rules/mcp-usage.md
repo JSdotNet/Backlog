@@ -30,8 +30,9 @@ equivalent guidelines MCP, **read the matching document under `.arc42/adr/guidel
 and do not report the absent server as a blocked precondition.
 
 The MCP servers that remain in use are runtime and tooling servers, not guidance servers:
-Aspire (resource state, logs, traces), Playwright (browser automation for QA), and the
-orchestration dashboard.
+Aspire (resource state, logs, traces), Playwright (browser automation for QA), the
+orchestration dashboard, and `backlog` — the running desktop app's own server, bound as the
+delivery tracker in `.devbook/config.json`.
 
 ## Knowledge folders are task-scoped
 
