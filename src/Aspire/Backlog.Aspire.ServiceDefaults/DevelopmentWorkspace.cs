@@ -52,6 +52,58 @@ public static class DevelopmentWorkspace
     /// </summary>
     public static string TitleScript => BuildTitleScript(Current);
 
+    /// <summary>
+    /// The main checkout a linked worktree at <paramref name="checkoutRoot"/>
+    /// belongs to, or <c>null</c> when it is not a linked worktree — a clone is
+    /// its own main checkout, and a bare repository has none.
+    /// <para>
+    /// Read from what git wrote rather than from where the folder sits: the
+    /// worktree's <c>.git</c> file names its git folder, whose <c>commondir</c>
+    /// leads to the shared <c>.git</c>, and the main checkout is the folder that
+    /// holds it. A worktree created with <c>--git-dir</c> elsewhere, or moved,
+    /// still answers correctly; a path under <c>.claude/worktrees</c> is not
+    /// taken to mean anything.
+    /// </para>
+    /// </summary>
+    public static string? MainCheckoutOf(string? checkoutRoot)
+    {
+        if (string.IsNullOrWhiteSpace(checkoutRoot))
+        {
+            return null;
+        }
+
+        try
+        {
+            var root = new DirectoryInfo(checkoutRoot);
+            if (Directory.Exists(Path.Combine(root.FullName, ".git")))
+            {
+                return null;
+            }
+
+            var gitDirectory = ResolveGitDirectory(root);
+            var commonPointer = gitDirectory is null ? null : Path.Combine(gitDirectory, "commondir");
+            if (commonPointer is null || !File.Exists(commonPointer))
+            {
+                return null;
+            }
+
+            var common = File.ReadLines(commonPointer).FirstOrDefault()?.Trim();
+            if (string.IsNullOrEmpty(common))
+            {
+                return null;
+            }
+
+            var commonDirectory = new DirectoryInfo(Path.IsPathRooted(common) ? common : Path.Combine(gitDirectory!, common));
+            return string.Equals(commonDirectory.Name, ".git", StringComparison.OrdinalIgnoreCase)
+                ? commonDirectory.Parent?.FullName
+                : null;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            return null;
+        }
+    }
+
     internal static string DecorateTitle(string title, string? marker) =>
         marker is null ? title : $"[{marker}] {title}";
 
