@@ -72,9 +72,16 @@ public static class RoadmapPlanView
 
     private const string MilestoneRowId = "milestones::all";
 
+    /// <param name="plan">The stored plan.</param>
+    /// <param name="repositories">The configured repositories, in Settings order.</param>
+    /// <param name="rollups">What each item gathered, keyed by item id, as
+    /// <c>IRoadmapItemRollup.GatherPlanAsync</c> answers it. An item missing from it
+    /// — or no rollups at all — draws with no steps, which is what an item nothing
+    /// points at looks like anyway.</param>
     public static RoadmapTimelineModel From(
         RoadmapPlanDto? plan,
-        IReadOnlyList<PlannedRepository>? repositories)
+        IReadOnlyList<PlannedRepository>? repositories,
+        IReadOnlyDictionary<Guid, RoadmapItemRollupDto>? rollups = null)
     {
         if (plan is null || plan.IsEmpty) return RoadmapTimelineModel.Empty;
 
@@ -100,7 +107,7 @@ public static class RoadmapPlanView
         var drawn = groups.SelectMany(group => group.RowList).Select(row => row.Id).ToHashSet();
 
         var bars = items
-            .Select(entry => Bar(entry.Item, LaneRowId(entry.GroupId, entry.Item.Lane), contradicting, configured))
+            .Select(entry => Bar(entry.Item, LaneRowId(entry.GroupId, entry.Item.Lane), contradicting, configured, StepsFor(entry.Item, rollups)))
             .Where(bar => drawn.Contains(bar.RowId))
             .ToList();
 
@@ -249,7 +256,8 @@ public static class RoadmapPlanView
         RoadmapItemDto item,
         string rowId,
         HashSet<Guid> contradicting,
-        List<PlannedRepository> configured) =>
+        List<PlannedRepository> configured,
+        IReadOnlyList<RoadmapStep> steps) =>
         new(
             item.Id.ToString(),
             rowId,
@@ -258,7 +266,79 @@ public static class RoadmapPlanView
             item.End,
             Shade(item.Priority),
             Facets(item, configured),
-            Detail(item, contradicting));
+            Detail(item, contradicting),
+            Steps: steps);
+
+    /// <summary>
+    /// The item's gathered tasks as the steps drawn inside its bar (ADR 0013,
+    /// ruling 6).
+    /// <para>
+    /// Tasks only. A knowledge chapter is gathered too, but it is a reference, not a
+    /// step of the work: it has no status to colour and no place in an order of
+    /// <c>after:</c> edges. So the bar's fill and its "n unestimated" count are the
+    /// tasks' figures, and a chapter the item references changes neither.
+    /// </para>
+    /// <para>
+    /// Ordered by the tasks' own dependencies through
+    /// <see cref="RoadmapRollup.InDependencyOrder"/>, which considers only edges
+    /// between tasks this item gathered. Nothing is stored: order, status and
+    /// progress are all read off the rollup each time the plan is drawn.
+    /// </para>
+    /// </summary>
+    private static IReadOnlyList<RoadmapStep> StepsFor(
+        RoadmapItemDto item,
+        IReadOnlyDictionary<Guid, RoadmapItemRollupDto>? rollups)
+    {
+        if (rollups is null || !rollups.TryGetValue(item.Id, out var rollup)) return [];
+
+        var ordered = RoadmapRollup.InDependencyOrder(rollup.BacklogEntries);
+        // TryAdd rather than ToDictionary: the rollup has normally de-duplicated the
+        // keys already, and a drawing is not the place to throw if it had not.
+        var titles = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var link in ordered) titles.TryAdd(link.Key, link.Title);
+
+        return
+        [
+            .. ordered.Select(link => new RoadmapStep(
+                link.Key,
+                link.Title,
+                link.Effort,
+                Tone(link.Progress),
+                Word(link.Progress),
+                WaitsFor(link, titles)))
+        ];
+    }
+
+    /// <summary>Roadmap's progress onto the status badge's colours. The four words
+    /// are the four the backlog's status badge already paints, so a step and the
+    /// entry it stands for are the same colour.</summary>
+    public static RoadmapStepTone Tone(RoadmapProgress? progress) => progress switch
+    {
+        RoadmapProgress.Planned => RoadmapStepTone.Draft,
+        RoadmapProgress.Ready => RoadmapStepTone.Ready,
+        RoadmapProgress.InProgress => RoadmapStepTone.InProgress,
+        RoadmapProgress.Done => RoadmapStepTone.Done,
+        _ => RoadmapStepTone.Unknown
+    };
+
+    private static string Word(RoadmapProgress? progress) => progress switch
+    {
+        RoadmapProgress.Planned => "Planned",
+        RoadmapProgress.Ready => "Ready",
+        RoadmapProgress.InProgress => "In progress",
+        RoadmapProgress.Done => "Done",
+        _ => "No status"
+    };
+
+    private static string? WaitsFor(RoadmapGatheredLink link, Dictionary<string, string> titles)
+    {
+        var names = link.Waits
+            .Select(key => titles.TryGetValue(key, out var title) ? title : null)
+            .OfType<string>()
+            .ToList();
+
+        return names.Count == 0 ? null : "After " + string.Join(", ", names);
+    }
 
     /// <summary>
     /// Planning priority as a lightness step: critical strongest, low lightest.

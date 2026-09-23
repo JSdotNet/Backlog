@@ -79,6 +79,8 @@
         Press Enter to open. Press Space to pick the bar up, then Left and Right to move it a week,
         Up and Down to move it to another row, Shift with Left or Right to change its end date,
         and Alt with Left or Right to change its start date. Space drops it, Escape puts it back.
+        A bar with steps has a button beside it that shows or hides them, one row each.
+        A step is drawn by its share of the effort, not by date.
     </p>
 
     <p class="sr-only" role="status" aria-live="polite" data-testid="@Suffix("announcement")">@_announcement</p>
@@ -106,9 +108,13 @@
                          data-testid="@Suffix($"group-{Slug(group.Id)}")">
                         <p class="roadmap-timeline__group-name">@group.Title</p>
                         <div class="roadmap-timeline__group-rows">
-                            @foreach (var row in group.RowList)
+                            @* Every placed row of the group, step rows included, so the
+                               two columns stay the same height in the same order. *@
+                            @foreach (var placed in Rows.Where(row => ReferenceEquals(row.Group, group)))
                             {
-                                <p class="roadmap-timeline__row-name" style="height: @Rem(Geometry.RowHeightRem)">@row.Title</p>
+                                <p class="@(placed.Step is null ? "roadmap-timeline__row-name" : "roadmap-timeline__row-name roadmap-timeline__row-name--step")"
+                                   style="height: @Rem(Geometry.RowHeightRem)"
+                                   title="@placed.Row.Title">@placed.Row.Title</p>
                             }
                         </div>
                     </div>
@@ -200,6 +206,36 @@
 
                         @foreach (var placed in Rows)
                         {
+                            @if (placed is { Step: { } step, Owner: { } owner, Span: { } span })
+                            {
+                                @* A step row: one segment, placed as a proportion of its
+                                   bar's window. Not a group of controls — there is
+                                   nothing on it to press — so the segment is an image
+                                   with a name, and the name says it is a share rather
+                                   than a date. *@
+                                <div @key="placed.Row.Id"
+                                     class="roadmap-timeline__row roadmap-timeline__row--step"
+                                     style="top: @Rem(Geometry.RowTop(placed.Index)); height: @Rem(Geometry.RowHeightRem); @GroupStyle(placed.Group)"
+                                     role="group"
+                                     aria-label="@Context(placed)"
+                                     data-testid="@Suffix($"step-row-{Slug(owner.Id)}-{placed.StepIndex}")">
+                                    <span class="@StepClass(step)"
+                                          style="left: @Rem(Geometry.XFor(owner.Start) + span.Offset); width: @Rem(span.Width)"
+                                          role="img"
+                                          aria-label="@Spoken(step, span)"
+                                          title="@Spoken(step, span)"
+                                          data-roadmap-step-share="@RoadmapGeometry.N(span.Share)"
+                                          data-testid="@Suffix($"step-{Slug(owner.Id)}-{Slug(step.Id)}")">
+                                        @if (!step.IsEstimated)
+                                        {
+                                            <span class="roadmap-step__marker" aria-hidden="true">?</span>
+                                        }
+                                        <span class="roadmap-step__title" aria-hidden="true">@step.Title</span>
+                                    </span>
+                                </div>
+                                continue;
+                            }
+
                             <div @key="placed.Row.Id"
                                  class="@(placed.Row.Kind == RoadmapRowKind.Milestones ? "roadmap-timeline__row roadmap-timeline__row--milestones" : "roadmap-timeline__row")"
                                  style="top: @Rem(Geometry.RowTop(placed.Index)); height: @Rem(Geometry.RowHeightRem); @GroupStyle(placed.Group)"
@@ -225,6 +261,9 @@
                                                         DescribedById="@_helpId"
                                                         PreventDefaultKeys="@Is(_grabbedId, bar.Id)"
                                                         ButtonId="@BarButtonId(bar.Id)"
+                                                        Expanded="@IsExpanded(bar)"
+                                                        OnToggle="Toggle"
+                                                        ToggleId="@ToggleButtonId(bar.Id)"
                                                         OnActivate="Activate"
                                                         OnKeyDown="args => Key(bar, args)"
                                                         TestId="@Suffix($"bar-{Slug(bar.Id)}")" />
@@ -285,6 +324,14 @@
     private string? _announcement;
 
     private readonly Dictionary<string, IReadOnlyList<string>> _filters = new(StringComparer.Ordinal);
+
+    // Which bars are showing their steps. By bar id, so it survives the host
+    // rebuilding every bar after a save — the same work is still the same work.
+    private readonly HashSet<string> _expanded = new(StringComparer.Ordinal);
+
+    // Whether the row offset in flight was counted by a pointer, over every drawn
+    // row, or by the keyboard, over the rows a bar can land on. See Landing.
+    private bool _pointerRows;
 
     // Worked out once per change rather than once per read. The chart asks
     // where every row is, which bars survive the filter and where every arrow
@@ -458,12 +505,59 @@
     /// would leave a heading pointing at nothing.</summary>
     private IEnumerable<RoadmapGroup> PopulatedGroups => GroupList.Where(group => group.RowList.Count > 0);
 
-    /// <summary>Every row, flattened and numbered. The number is the row's
-    /// vertical position, and it is what a drag up or down counts in.</summary>
-    private IReadOnlyList<PlacedRow> Rows => _rows ??=
-        [.. PopulatedGroups
-            .SelectMany(group => group.RowList.Select(row => (group, row)))
-            .Select((pair, index) => new PlacedRow(pair.group, pair.row, index))];
+    /// <summary>
+    /// Every row, flattened and numbered, with an expanded bar's steps opened
+    /// beneath the row the bar sits on. The number is the row's vertical position,
+    /// and it is what a pointer drag up or down counts in.
+    /// <para>
+    /// A step row follows the bar's own row rather than wherever a drag in flight is
+    /// taking it: the rows are what a drag is measured against, so they cannot also
+    /// move with it.
+    /// </para>
+    /// </summary>
+    private IReadOnlyList<PlacedRow> Rows => _rows ??= PlaceRows();
+
+    private List<PlacedRow> PlaceRows()
+    {
+        var placed = new List<PlacedRow>();
+
+        foreach (var group in PopulatedGroups)
+        {
+            foreach (var row in group.RowList)
+            {
+                placed.Add(new PlacedRow(group, row, placed.Count));
+
+                if (row.Kind != RoadmapRowKind.Bars) continue;
+
+                foreach (var bar in VisibleBars.Where(bar => Is(bar.RowId, row.Id) && IsExpanded(bar)))
+                {
+                    var spans = RoadmapStepLayout.Lay(bar.StepList, Geometry.WidthFor(bar.Start, bar.End));
+
+                    for (var index = 0; index < bar.StepList.Count; index++)
+                    {
+                        var step = bar.StepList[index];
+
+                        placed.Add(new PlacedRow(
+                            group,
+                            new RoadmapRow($"{bar.Id}::step::{step.Id}", step.Title),
+                            placed.Count,
+                            bar,
+                            step,
+                            index,
+                            spans[index]));
+                    }
+                }
+            }
+        }
+
+        return placed;
+    }
+
+    /// <summary>The rows a bar can be dropped on, in order — the step rows are
+    /// drawings of a bar's insides, not places to put one.</summary>
+    private IReadOnlyList<PlacedRow> LandingRows => [.. Rows.Where(row => row.Step is null)];
+
+    private bool IsExpanded(RoadmapBar bar) => bar.HasSteps && _expanded.Contains(bar.Id);
 
     /// <summary>
     /// The window being drawn: the caller's, or the narrowest one that holds
@@ -562,6 +656,7 @@
         _clickEndsADrag = false;
         _dragId = barId;
         _grabbedId = null;
+        _pointerRows = true;
         _kind = GripKind(grip);
         _steps = 0;
         _rowOffset = 0;
@@ -647,6 +742,7 @@
 
             _dragId = null;
             _grabbedId = bar.Id;
+            _pointerRows = false;
             _kind = RoadmapDrag.Move;
             _steps = 0;
             _rowOffset = 0;
@@ -790,20 +886,91 @@
     /// "nothing happened" is what the reader is shown, not where the bar ends
     /// up.
     /// </para>
+    /// <para>
+    /// Open step rows are counted differently by the two gestures. A pointer
+    /// reports how many drawn rows it travelled, step rows included, and a step
+    /// row it stops on lands the bar on the row that step belongs to. The keyboard
+    /// counts only the rows a bar can land on, so Down always means the next lane
+    /// and never "into the middle of somebody's steps".
+    /// </para>
     /// </summary>
     private string? Landing(RoadmapBar bar)
     {
         if (_rowOffset == 0 || !AllowRowChange || _kind != RoadmapDrag.Move) return bar.RowId;
 
-        var rows = Rows;
-        var from = rows.FirstOrDefault(row => Is(row.Row.Id, bar.RowId));
+        var rows = _pointerRows ? Rows : LandingRows;
+        var from = rows.Select((row, position) => (row, position)).FirstOrDefault(entry => Is(entry.row.Row.Id, bar.RowId));
 
-        if (from is null) return bar.RowId;
+        if (from.row is null) return bar.RowId;
 
-        var landing = rows[Math.Clamp(from.Index + _rowOffset, 0, rows.Count - 1)];
+        var landing = rows[Math.Clamp(from.position + _rowOffset, 0, rows.Count - 1)];
+
+        if (landing.Owner is { } owner) return owner.RowId;
 
         return landing.Row.Kind == RoadmapRowKind.Bars ? landing.Row.Id : null;
     }
+
+    // --- Steps -------------------------------------------------------------
+
+    /// <summary>
+    /// A bar's steps shown or hidden, and said aloud either way.
+    /// <para>
+    /// Announced through the same live region a keyboard move uses, because the
+    /// disclosure's own expanded state is only read when focus arrives on it — and
+    /// the reader's focus is already there. Focus is put back on the disclosure by
+    /// id afterwards, since the rows around it have just been rebuilt.
+    /// </para>
+    /// </summary>
+    private async Task Toggle(string barId)
+    {
+        if (Bar(barId) is not { HasSteps: true } bar) return;
+
+        if (_expanded.Remove(barId))
+        {
+            Announce($"Steps of {bar.Title} hidden.");
+        }
+        else
+        {
+            _expanded.Add(barId);
+            Announce($"Showing {StepCount(bar.StepList.Count)} of {bar.Title}, one row each, sized by effort rather than by date.");
+        }
+
+        Invalidate();
+        StateHasChanged();
+
+        try
+        {
+            await Js.InvokeVoidAsync("backlogFocus", ToggleButtonId(barId));
+        }
+        catch (JSException)
+        {
+        }
+    }
+
+    private static string StepCount(int count) => count == 1 ? "1 step" : $"{count} steps";
+
+    /// <summary>What a step is, said in full: its status in the caller's words, its
+    /// size as a share rather than a date — or that it has none — and what it waits
+    /// for. Its place in the order is on the row it sits in.</summary>
+    private static string Spoken(RoadmapStep step, RoadmapStepSpan span) =>
+        string.Join(". ", new[]
+        {
+            step.Title,
+            step.Status,
+            step.IsEstimated
+                ? $"{step.Effort} {(step.Effort == 1 ? "point" : "points")}, {RoadmapGeometry.N(Math.Round(span.Share * 100))}% of the estimated effort"
+                : "Not estimated, drawn at the minimum width",
+            step.Detail
+        }.Where(part => !string.IsNullOrWhiteSpace(part))) + ".";
+
+    private static string StepClass(RoadmapStep step) => string.Join(' ', new[]
+    {
+        "roadmap-step",
+        "roadmap-step--" + step.Tone.ToString().ToLowerInvariant(),
+        step.IsEstimated ? null : "roadmap-step--unestimated"
+    }.Where(part => part is not null));
+
+    private string ToggleButtonId(string barId) => $"roadmap-bar-toggle-{_instance}-{Slug(barId)}";
 
     /// <summary>Whether the gesture in flight is being refused.</summary>
     private bool Refused => ActiveId is { } id && Bar(id) is { } bar && Landing(bar) is null;
@@ -1023,7 +1190,9 @@
 
     /// <summary>Where a row is, said the way a reader would: the band first,
     /// then the line within it.</summary>
-    private static string Context(PlacedRow placed) => $"{placed.Group.Title}, {placed.Row.Title}";
+    private static string Context(PlacedRow placed) => placed.Owner is { } owner
+        ? $"{placed.Group.Title}, {owner.Title}, step {placed.StepIndex + 1} of {owner.StepList.Count}"
+        : $"{placed.Group.Title}, {placed.Row.Title}";
 
     private static string Glyph(RoadmapMarker marker) => marker switch
     {
@@ -1056,7 +1225,16 @@
 
     /// <summary>A row and where it sits, once the two-level structure has been
     /// flattened into the single list the chart actually draws.</summary>
-    private sealed record PlacedRow(RoadmapGroup Group, RoadmapRow Row, int Index);
+    /// <remarks>A step row also carries the bar it opened from, the step, where
+    /// that step sits in the bar's order, and where it is drawn.</remarks>
+    private sealed record PlacedRow(
+        RoadmapGroup Group,
+        RoadmapRow Row,
+        int Index,
+        RoadmapBar? Owner = null,
+        RoadmapStep? Step = null,
+        int StepIndex = 0,
+        RoadmapStepSpan? Span = null);
 
     public async ValueTask DisposeAsync()
     {

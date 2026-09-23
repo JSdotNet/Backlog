@@ -133,6 +133,20 @@ Every gesture arrives as a `Preview` — a proposed placement the bar draws itse
         </div>
     </Story>
 
+    <Story Name="An item with its steps"
+           Description="A bar handed `Steps` offers a disclosure at its leading edge and carries a progress fill: done effort over total estimated effort, with the count of unestimated steps beside it rather than folded in. Expanded, it opens one row per step in the order it was handed — here a chain of three, then two more — each step's width its share of the estimated effort inside the bar's window.
+
+A step is a proportion, not a date: a step drawn across March is not scheduled for March, and its accessible name says it is a share. The unestimated step takes a fixed minimum width, dashed, with a `?` marker and an accessible name that says so. Colours are the status badge's; the status is also written into every step's name. Tab to the disclosure and press Enter or Space — the change is announced."
+           Code="@StepsCode">
+        <RoadmapTimeline Groups="@StepsPlan"
+                         Bars="@StepsBars"
+                         Title="Import plan"
+                         HeadingLevel="3"
+                         Window="@EditWindow"
+                         ShowFilters="false"
+                         TestId="steps" />
+    </Story>
+
     <Story Name="A plan nobody has written"
            Description="No groups, or groups with no rows, renders the empty state rather than an axis over nothing. The sentence is the caller's, because why the plan is empty is only knowable where the plan came from."
            Code="@EmptyCode">
@@ -152,6 +166,7 @@ Every gesture arrives as a `Preview` — a proposed placement the bar draws itse
         new("interaction-guidelines.md#drag-and-drop-reordering", "How a bar is moved, and what a drop commits."),
         new("interaction-guidelines.md#keyboard-accessible-reordering", "The keys that move a bar without a pointer."),
         new("color-scheme.md#chart-roles", "The hues a lane and a bar are allowed to use."),
+        new("color-scheme.md#badge-and-chip-tones", "The status colours a step inside a bar wears."),
         new("typography-and-layout.md#density", "Row heights, lane labels and how tight an axis may be.")
     ];
 
@@ -424,6 +439,44 @@ Every gesture arrives as a `Preview` — a proposed placement the bar draws itse
                                 bar.Id, bar.RowId,
                                 new(2026, 2, 16), new(2026, 5, 10),
                                 RoadmapDrag.Move))" />
+        """;
+
+    // --- Steps inside an item ----------------------------------------------
+
+    private static IReadOnlyList<RoadmapGroup> StepsPlan =>
+    [
+        new("backlog", "Backlog", [new("planned", "Planned")], "#5FA8D3")
+    ];
+
+    /// <summary>Mixed statuses, one unestimated, and a chain of three: parse, then
+    /// layout, then timeline. 5 of 13 estimated points are done.</summary>
+    private static readonly RoadmapBar[] StepsBars =
+    [
+        new("import", "planned", "Imported plans on the roadmap", On(2, 2), On(4, 24), 0,
+            Steps:
+            [
+                new("parse", "Parse the plan entry", 3, RoadmapStepTone.Done, "Done"),
+                new("layout", "Lay the plan out", 2, RoadmapStepTone.Done, "Done", "After Parse the plan entry"),
+                new("timeline", "Draw steps on the timeline", 5, RoadmapStepTone.InProgress, "In progress", "After Lay the plan out"),
+                new("docs", "Update the devbook", null, RoadmapStepTone.Ready, "Ready"),
+                new("polish", "Polish the fill", 3, RoadmapStepTone.Draft, "Planned")
+            ]),
+        new("plain", "planned", "Nothing gathered yet", On(5, 4), On(6, 26), 2)
+    ];
+
+    private const string StepsCode = """
+        <RoadmapTimeline Groups="@groups"
+                         Bars="@bars"
+                         Window="@window" />
+
+        new RoadmapBar("import", "planned", "Imported plans", start, end,
+            Steps:
+            [
+                new("parse", "Parse the plan entry", 3, RoadmapStepTone.Done, "Done"),
+                new("layout", "Lay the plan out", 2, RoadmapStepTone.Done, "Done", "After Parse the plan entry"),
+                new("timeline", "Draw steps", 5, RoadmapStepTone.InProgress, "In progress", "After Lay the plan out"),
+                new("docs", "Update the devbook", null, RoadmapStepTone.Ready, "Ready"),   // unestimated
+            ]);
         """;
 
     private const string EmptyCode = """
