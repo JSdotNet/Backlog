@@ -702,6 +702,30 @@ public sealed class RoadmapTimelineTests
     }
 
     [Fact]
+    public void The_click_that_follows_a_space_grab_does_not_open_the_bar()
+    {
+        using var context = new BunitContext();
+
+        var opened = new List<string>();
+        var view = Chart(context, extra: parameters => parameters
+            .Add(timeline => timeline.OnBarSelected, id => opened.Add(id)));
+
+        // The browser turns a Space on a button into a click on keyup, after the
+        // keydown that grabbed the bar.
+        view.Find("[data-testid='rm-bar-alpha'] .roadmap-bar__body").KeyDown(new KeyboardEventArgs { Key = " " });
+        view.Find("[data-testid='rm-bar-alpha'] .roadmap-bar__body").Click();
+
+        Assert.Empty(opened);
+        Assert.Contains("roadmap-bar--grabbed", view.Find("[data-testid='rm-bar-alpha']").ClassName!, StringComparison.Ordinal);
+
+        // Once it is put down, a click opens it again.
+        view.Find("[data-testid='rm-bar-alpha'] .roadmap-bar__body").KeyDown(new KeyboardEventArgs { Key = "Escape" });
+        view.Find("[data-testid='rm-bar-alpha'] .roadmap-bar__body").Click();
+
+        Assert.Equal(["alpha"], opened);
+    }
+
+    [Fact]
     public void An_arrow_key_then_space_drops_the_bar_a_week_later()
     {
         using var context = new BunitContext();

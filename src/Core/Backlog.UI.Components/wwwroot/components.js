@@ -3428,10 +3428,25 @@
                 reference.invokeMethodAsync('DragCancel');
             };
 
+            // Space on a bar is always a grab or a drop, never a click. Blazor's
+            // :preventDefault is bound to "is this bar grabbed", which is decided
+            // after the key that grabs it, so the grabbing Space would reach the
+            // browser and become a click on keyup — and a host that opens an editor
+            // on click would open it on top of the grab. Decided here instead, on
+            // both halves of the key, because the button activates on keyup.
+            const onSpace = (event) => {
+                if (event.key !== ' ' && event.key !== 'Spacebar') return;
+                if (!event.target.closest?.('.roadmap-bar__body')) return;
+
+                event.preventDefault();
+            };
+
             element.addEventListener('pointerdown', onPointerDown);
             element.addEventListener('pointermove', onPointerMove);
             element.addEventListener('pointerup', onPointerUp);
             element.addEventListener('pointercancel', onPointerCancel);
+            element.addEventListener('keydown', onSpace);
+            element.addEventListener('keyup', onSpace);
             document.addEventListener('keydown', onKeyDown);
 
             backlogRoadmapTimelines.set(id, () => {
@@ -3440,6 +3455,8 @@
                 element.removeEventListener('pointermove', onPointerMove);
                 element.removeEventListener('pointerup', onPointerUp);
                 element.removeEventListener('pointercancel', onPointerCancel);
+                element.removeEventListener('keydown', onSpace);
+                element.removeEventListener('keyup', onSpace);
                 document.removeEventListener('keydown', onKeyDown);
             });
         },

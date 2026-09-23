@@ -336,4 +336,35 @@ public class RoadmapBandEditingTests : RoadmapBandHarness
             ["backlog", "fincent"],
             Editor(band).Repositories.Select(repository => repository.Alias));
     }
+
+    /// <summary>
+    /// Space picks a bar up; it does not open it. The bar is a real button, so a Space
+    /// the browser is left to handle also becomes a click on keyup, and that click
+    /// used to open the editor on top of the grab and take the keyboard away from it.
+    /// The keydown and the click are raised in the order the browser raises them.
+    /// </summary>
+    [Fact]
+    public async Task SpaceGrabsABarWithoutOpeningTheEditor()
+    {
+        using var context = Context();
+        var band = await PlannedAsync(context);
+
+        var bar = band.Find(".roadmap-bar__body");
+        bar.KeyDown(new Microsoft.AspNetCore.Components.Web.KeyboardEventArgs { Key = " " });
+        band.Find(".roadmap-bar__body").Click();
+
+        band.WaitForAssertion(() => Assert.NotNull(band.Find(".roadmap-bar--grabbed")));
+        Assert.Empty(band.FindAll("[data-testid=\"roadmap-editor\"]"));
+    }
+
+    [Fact]
+    public async Task ClickingALooseBarStillOpensTheEditor()
+    {
+        using var context = Context();
+        var band = await PlannedAsync(context);
+
+        band.Find(".roadmap-bar__body").Click();
+
+        band.WaitForElement("[data-testid=\"roadmap-editor\"]");
+    }
 }
