@@ -832,6 +832,14 @@
             return;
         }
 
+        // A bar the keyboard is holding is being moved, not opened. The Space that
+        // grabbed it is left to the browser on keydown — the bar only starts
+        // suppressing keys once it is grabbed — so the browser turns its keyup into a
+        // click, and opening the host's editor then would take the keyboard away from
+        // the grab it just made. components.js suppresses that click in a browser;
+        // this is the same rule for any click that still arrives.
+        if (_grabbedId == id) return;
+
         if (OnBarSelected.HasDelegate) await OnBarSelected.InvokeAsync(id);
     }
 

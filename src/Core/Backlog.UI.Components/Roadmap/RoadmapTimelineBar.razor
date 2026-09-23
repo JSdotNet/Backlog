@@ -110,7 +110,8 @@
     /// <summary>Whether the arrow keys and space are swallowed rather than
     /// scrolling the page. True exactly while this bar is grabbed — outside a
     /// grab the reader is navigating, and stealing their arrow keys then would
-    /// trap them.</summary>
+    /// trap them. Space is the exception: the key that grabs arrives before this
+    /// turns true, so components.js suppresses Space on the bar itself.</summary>
     [Parameter]
     public bool PreventDefaultKeys { get; set; }
 
