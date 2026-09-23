@@ -452,8 +452,12 @@ public static class MauiProgram
         // does so a moved backlog takes its remarks along. The panels resolve this
         // by interface and fall back to a session-scoped store when it is absent,
         // which is why leaving this line out would not fail — it would only forget.
+        // The folder source is what lets it name a chapter the way every other
+        // device names it, whichever folder this machine has an area pointed at.
         builder.Services.AddSingleton<IDevbookAnnotationStore>(sp =>
-            new DevbookAnnotationStore(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
+            new DevbookAnnotationStore(
+                () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory,
+                folders: sp.GetRequiredService<IDevbookFolderSource>()));
 
         // The MSIX head can manage its own updates when packaged; it degrades to
         // an "unsupported" report when running unpackaged (e.g. Debug), so this is
