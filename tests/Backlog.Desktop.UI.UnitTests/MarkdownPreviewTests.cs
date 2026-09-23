@@ -156,6 +156,66 @@ public class MarkdownPreviewTests
     }
 
 
+    /// <summary>
+    /// A fence longer than the one inside it holds the one inside it. The rule is
+    /// CommonMark's and it is the devbook convention's own — <c>annotations.mjs</c>
+    /// closes a fence on "a run of the same marker, at least as long, with nothing
+    /// after it" — and reading only "starts with three backticks" broke it: a
+    /// four-backtick block quoting a code sample ended at the sample's opening
+    /// line, leaving the rest of the block loose in the document. Where the block
+    /// was a private <c>annotation</c>, that loose remainder was somebody's note
+    /// surviving into a read that says it carries none.
+    /// </summary>
+    [Fact]
+    public void A_longer_fence_holds_the_fences_inside_it()
+    {
+        var blocks = MarkdownPreview.ParseDocument(
+            "````annotation\nauthor: someone\nbody: |\n  ```csharp\n  var x = 1;\n  ```\n````");
+
+        var code = Assert.IsType<MdCode>(Assert.Single(blocks));
+        Assert.Equal("annotation", code.Language);
+        Assert.Contains("var x = 1;", code.Text, StringComparison.Ordinal);
+    }
+
+    /// <summary>The other marker, which is the other way an author writes a block
+    /// whose body holds backtick fences. It was not recognised as a fence at all:
+    /// its body was read as prose and every fence inside it as a block of its
+    /// own.</summary>
+    [Fact]
+    public void A_tilde_fence_is_a_fence()
+    {
+        var blocks = MarkdownPreview.ParseDocument(
+            "~~~annotation\nauthor: someone\nbody: |\n  ```csharp\n  var x = 1;\n  ```\n~~~");
+
+        var code = Assert.IsType<MdCode>(Assert.Single(blocks));
+        Assert.Equal("annotation", code.Language);
+        Assert.Contains("var x = 1;", code.Text, StringComparison.Ordinal);
+    }
+
+    /// <summary>A run of the other marker does not close this one, and neither
+    /// does a shorter run of this one.</summary>
+    [Fact]
+    public void A_fence_is_closed_only_by_its_own_marker()
+    {
+        var blocks = MarkdownPreview.ParseDocument("````text\n~~~\n```\nstill inside\n````\n\nAfter.");
+
+        var code = Assert.IsType<MdCode>(blocks[0]);
+        Assert.Contains("still inside", code.Text, StringComparison.Ordinal);
+        Assert.IsType<MdParagraph>(blocks[1]);
+    }
+
+    /// <summary>A closing fence carries no info string — a line that opens a new
+    /// block is not the end of this one.</summary>
+    [Fact]
+    public void A_fence_line_with_a_language_does_not_close_a_fence()
+    {
+        var blocks = MarkdownPreview.ParseDocument("```text\n```csharp\nvar x = 1;\n```");
+
+        var code = Assert.IsType<MdCode>(Assert.Single(blocks));
+        Assert.Equal("text", code.Language);
+        Assert.Contains("var x = 1;", code.Text, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Fenced_code_keeps_indented_diagram_body()
     {

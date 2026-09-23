@@ -64,11 +64,33 @@ recorded projection target is the `ProjectionRef` value object.
 type: term
 status: draft
 aliases: [TaskType]
-related: [.domain/tasks/domain.md#task-type, .domain/tasks/naming.md#dependency]
+related: [.domain/tasks/domain.md#task-type, .domain/tasks/naming.md#dependency, .domain/tasks/naming.md#entry-kind]
 ```
 
 Classification of a task as prompt, task, or idea. A follow-up is not a type: it
-is an ordinary task carrying a `Dependency` on the task it comes after.
+is an ordinary task carrying a `Dependency` on the task it comes after. Neither
+is `plan`, for a different reason — it classifies nothing about a task because
+what it describes is not one; see `Entry Kind`.
+
+## Entry Kind
+
+```meta
+type: term
+status: draft
+aliases: [EntryKind]
+related: [.domain/tasks/naming.md#task-type, .domain/tasks/features.md#import, .arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md]
+```
+
+Which thing a piece of entry text describes: a task, or a roadmap item. Read off
+the same bare type word as `Task Type` and held beside it rather than inside it —
+`prompt`, `task` and `idea` are all the task kind and carry a `Task Type`, while
+`plan` is the plan kind and carries none, because the enum a task is stored with
+has no row for it.
+
+The distinction earns a name because it is what the parser reports and every
+other path acts on: Import is the only one allowed to act on the plan kind, and
+each of the others refuses it rather than storing a task whose type word the task
+model cannot hold.
 
 ## Task Status
 

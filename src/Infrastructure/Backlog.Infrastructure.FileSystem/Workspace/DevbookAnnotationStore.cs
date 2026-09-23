@@ -54,6 +54,7 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore
 
     private readonly Func<string> _rootDirectory;
     private readonly TimeProvider _time;
+    private readonly IDevbookFolderSource? _folders;
     private readonly Lock _gate = new();
 
     /// <summary>The root the files below were read from. A different answer
@@ -69,18 +70,24 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore
     /// pointer.</param>
     /// <param name="time">Stamps the writes a panel makes. Replication's writes
     /// carry their own stamps and never touch it.</param>
-    public DevbookAnnotationStore(Func<string> rootDirectory, TimeProvider? time = null)
+    /// <param name="folders">Where this machine has each knowledge folder
+    /// pointed, so a chapter path can be canonicalized — see
+    /// <see cref="Canonical"/>. Optional, and absent it degrades to the
+    /// conventional folders rather than failing: a harness or a test with no
+    /// repository registry still files its remarks under a stable name.</param>
+    public DevbookAnnotationStore(Func<string> rootDirectory, TimeProvider? time = null, IDevbookFolderSource? folders = null)
     {
         ArgumentNullException.ThrowIfNull(rootDirectory);
 
         _rootDirectory = rootDirectory;
         _time = time ?? TimeProvider.System;
+        _folders = folders;
     }
 
     /// <summary>A store over one fixed folder — what a test or a harness that
     /// scopes its state to a content root composes.</summary>
-    public DevbookAnnotationStore(string rootDirectory, TimeProvider? time = null)
-        : this(() => rootDirectory, time)
+    public DevbookAnnotationStore(string rootDirectory, TimeProvider? time = null, IDevbookFolderSource? folders = null)
+        : this(() => rootDirectory, time, folders)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(rootDirectory);
     }
@@ -99,13 +106,20 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore
         {
             Load();
 
-            if (!_files.TryGetValue(Key(repositoryAlias), out var file)) return [];
+            var alias = Key(repositoryAlias);
+            if (!_files.TryGetValue(alias, out var file)) return [];
+
+            // The question is canonicalized too, not just the stored key. That is
+            // what lets a caller ask in whatever spelling it happens to hold —
+            // a document path from a relocated folder, a selection from the menu —
+            // and still be asking about the one chapter.
+            var chapter = Canonical(alias, chapterPath);
 
             return
             [
                 .. file.Annotations.Values
                     .Where(annotation => annotation.IsLive)
-                    .Where(annotation => string.Equals(annotation.ChapterPath, chapterPath, StringComparison.OrdinalIgnoreCase))
+                    .Where(annotation => string.Equals(annotation.ChapterPath, chapter, StringComparison.OrdinalIgnoreCase))
                     .OrderBy(annotation => annotation.CreatedAt)
                     .ThenBy(annotation => annotation.Id),
             ];
@@ -134,6 +148,12 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore
         ArgumentNullException.ThrowIfNull(author);
 
         var now = _time.GetUtcNow();
+
+        // Spelled as the caller handed it over. Put settles both addressing
+        // fields, and it is the only place that does: canonicalizing here as well
+        // would apply it twice, which is not the same as applying it once for
+        // every configuration a repository can have, and the value returned would
+        // then be the one-pass answer while the store held the two-pass one.
         var annotation = new DevbookAnnotation(
             Guid.NewGuid(),
             Key(repositoryAlias),
@@ -145,9 +165,10 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore
             now,
             BlockHash: NullIfBlank(blockHash));
 
-        Write(annotation);
-
-        return annotation;
+        // What the store now holds, never what was constructed: a caller that
+        // goes on to ask for this remark by its chapter path has to be given the
+        // path the next List will answer to.
+        return Write(annotation);
     }
 
     public void Edit(Guid id, string body)
@@ -205,6 +226,18 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore
         Changed?.Invoke();
     }
 
+    /// <summary>
+    /// Writes a document as replication hands it over — with its chapter path put
+    /// into canonical form on the way in.
+    /// <para>
+    /// This is what makes the key self-healing, and why nothing has to be pushed
+    /// to fix a device that once wrote the old spelling. A remark filed under a
+    /// relocated folder's path on some other machine arrives here, is filed under
+    /// the name every device knows the chapter by, and is found by the panel that
+    /// asks for it — without a stamp being touched anywhere, so the merge rules
+    /// see exactly what they would have seen.
+    /// </para>
+    /// </summary>
     public void Apply(DevbookAnnotation replicated)
     {
         ArgumentNullException.ThrowIfNull(replicated);
@@ -244,22 +277,35 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore
         Changed?.Invoke();
     }
 
-    /// <summary>Puts one document in its repository's file and says so.</summary>
-    private void Write(DevbookAnnotation annotation)
+    /// <summary>Puts one document in its repository's file, says so, and hands
+    /// back the document as stored — which is not always the one passed in, since
+    /// <see cref="Put"/> settles the alias and the chapter path on the way.</summary>
+    private DevbookAnnotation Write(DevbookAnnotation annotation)
     {
+        DevbookAnnotation stored;
+
         lock (_gate)
         {
             Load();
-            Put(annotation);
+            stored = Put(annotation);
         }
 
         Changed?.Invoke();
+
+        return stored;
     }
 
     /// <summary>One document into its repository's file, on disk and in memory.
     /// The alias on the document decides which file — an applied document names
-    /// its own. Must be called under the lock, after <see cref="Load"/>.</summary>
-    private void Put(DevbookAnnotation annotation)
+    /// its own. Must be called under the lock, after <see cref="Load"/>.
+    /// <para>
+    /// The two addressing fields are settled here rather than at each of the
+    /// verbs above, so that every write goes in named the same way whoever made
+    /// it: the panel's four, replication's <see cref="Apply"/>, and the tombstone
+    /// a delete leaves. The alias has been rewritten on every write since this
+    /// store was written; the chapter path joins it for the same reason.
+    /// </para></summary>
+    private DevbookAnnotation Put(DevbookAnnotation annotation)
     {
         var key = Key(annotation.RepositoryAlias);
 
@@ -269,8 +315,42 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore
             _files[key] = file;
         }
 
-        file.Annotations[annotation.Id] = annotation with { RepositoryAlias = key };
+        var stored = annotation with
+        {
+            RepositoryAlias = key,
+            ChapterPath = Canonical(key, annotation.ChapterPath)
+        };
+
+        file.Annotations[annotation.Id] = stored;
         Save(file);
+
+        return stored;
+    }
+
+    /// <summary>
+    /// The one name a chapter has on every device, for the repository this remark
+    /// belongs to.
+    /// <para>
+    /// <see cref="DevbookChapterKey.Canonical"/> itself is total — a chapter path
+    /// it cannot place still comes back a chapter path rather than an exception,
+    /// because refusing to file the remark would be the worse answer, and with no
+    /// folder source composed it degrades to the conventional folders. What is
+    /// <em>not</em> promised here is the folder source: asking it for the
+    /// repository's folders is a call through a port, and an adapter that throws
+    /// throws through this. The composed adapter reads settings already in memory
+    /// and does not, so this is a note about the boundary rather than a swallowed
+    /// failure — catching here would hide a broken adapter behind silently
+    /// mis-keyed remarks.
+    /// </para>
+    /// </summary>
+    private string Canonical(string alias, string? chapterPath)
+    {
+        var canonical = DevbookChapterKey.Canonical(chapterPath, _folders?.Folders(alias));
+
+        // Only an empty path canonicalizes to nothing, and a remark that somehow
+        // carries one keeps whatever it had: losing the address is worse than
+        // keeping one nobody can resolve.
+        return canonical.Length == 0 ? chapterPath ?? string.Empty : canonical;
     }
 
     /// <summary>Must be called under the lock, after <see cref="Load"/>.</summary>
@@ -299,7 +379,27 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore
     private string PathFor(string key) => Path.Combine(Directory, CachePaths.Safe(key) + ".json");
 
     /// <summary>Reads every repository file under the current root, once, and
-    /// again whenever the root has moved since. Must be called under the lock.</summary>
+    /// again whenever the root has moved since. Must be called under the lock.
+    /// <para>
+    /// This is also where remarks written before the chapter key was pinned get
+    /// their canonical name, and reading is all that happens: nothing is written
+    /// back from here. Rewriting every repository file at startup would be the
+    /// destructive automatic migration
+    /// <c>.arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md</c>
+    /// rules out, and it would buy nothing, because the in-memory form is the one
+    /// every reader sees from the moment this returns.
+    /// </para>
+    /// <para>
+    /// The canonical names do reach the disk, and it is worth being plain about
+    /// when: <see cref="Save"/> serializes a repository's whole file, so the first
+    /// ordinary write to that repository — any remark added, edited, resolved or
+    /// deleted — persists every canonicalized path in it, not just the row that
+    /// was written. That is intended. It is the same rewrite this store has always
+    /// done on every write, carrying names that were already settled in memory,
+    /// rather than a migration pass dressed up as a save. No stamp is touched
+    /// either way, so nothing crosses the push watermark and no device is handed a
+    /// migration to merge.
+    /// </para></summary>
     private void Load()
     {
         var root = _rootDirectory();
@@ -324,7 +424,12 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore
         _loadedRoot = root;
     }
 
-    private static RepositoryFile? Read(string path)
+    /// <summary>One repository's file, with every remark in it named the way this
+    /// machine names that chapter. Two remarks that were filed under two spellings
+    /// of the same chapter both survive it and both answer to the one canonical
+    /// name — they are separate remarks with separate ids, and the dictionary is
+    /// keyed by id, so nothing here can merge or drop one.</summary>
+    private RepositoryFile? Read(string path)
     {
         try
         {
@@ -340,7 +445,7 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore
                 file.Annotations[entry.Id] = new DevbookAnnotation(
                     entry.Id,
                     file.Alias,
-                    entry.ChapterPath,
+                    Canonical(file.Alias, entry.ChapterPath),
                     Math.Max(0, entry.BlockIndex),
                     entry.Body ?? string.Empty,
                     entry.Author ?? string.Empty,

@@ -968,6 +968,8 @@ public sealed class SettingsDevicesTests
             new WorkingHoursSettingsStore(Path.Combine(root, "working-hours", "working-hours.json")));
         testContext.Services.AddSingleton<IUsageResetSettings>(
             new UsageResetSettingsStore(Path.Combine(root, "usage-reset", "usage-reset.json")));
+        testContext.Services.AddSingleton(
+            new PlanningVelocitySettingsStore(Path.Combine(root, "velocity", "planning-velocity.json")));
         testContext.Services.AddSingleton<ICaptureSourceSettings>(
             new CaptureSourcesSettingsStore(Path.Combine(root, "capture", "capture-sources.json")));
         testContext.Services.AddSingleton(new AzureFoundrySettingsStore(Path.Combine(root, "azure", "azure-foundry.json")));

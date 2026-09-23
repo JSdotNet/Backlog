@@ -313,8 +313,16 @@ related: [.domain/sessions/features.md#delivery-runs-beside-their-sessions]
 ```
 
 One orchestrated delivery run — a flow or orchestration skill driven through a
-dashboard — as that dashboard's own run file records it. Identified by the
-dashboard's run id within the worktree folder it was filed under.
+dashboard — as the run file records it. Identified by the run id within the worktree
+folder it was filed under.
+
+Two things write that file. A dashboard this product only reads from, which is where
+every run came from at first; and this product itself, through `Delivery Run
+Recording`, for a session that chose Backlog as the surface it reports to. The shape
+is one shape either way, which is the point: a run being recorded here and one
+imported from a dashboard's folder are the same kind of thing to everything that
+reads them, and which of the two wrote it is provenance rather than a difference in
+kind.
 
 Holds what the file states: which dashboard wrote it, the worktree key it was filed
 under, the skill, the title, the status word verbatim, the change kind, the
@@ -335,11 +343,62 @@ transcript in which an agent was producing, derived here from the agent's own re
 This one is another tool's record of work it was tracking, with a status that tool
 assigned. The two share a word and nothing else.
 
-Its lifecycle is not this context's to run either, and its status is not derived: the
-dashboard wrote seven spellings for it between two generations, and a reading that
-mapped them onto fewer members would be deciding what a writer meant rather than
-reporting what it wrote. A surface that needs a chip normalises at the last moment,
-where a new spelling degrades to a plain label rather than to a dropped row.
+Its status is never derived from a reading: the dashboards wrote seven spellings for
+it between two generations, and mapping them onto fewer members would be deciding
+what a writer meant rather than reporting what it wrote. A surface that needs a chip
+normalises at the last moment, where a new spelling degrades to a plain label rather
+than to a dropped row.
+
+**Reading accepts every spelling; writing uses one.** The asymmetry is deliberate and
+is not a gap to close. A run imported from a dashboard is somebody else's record and
+is reported as written, `completed` and `success` included. A run this context records
+is its own, and has no such excuse — it writes `in_progress` while under way and ends
+on `done`, `blocked`, `parked` or `cancelled`. Reviving an older generation's spelling
+from here would make the drift permanent rather than historical.
+
+### Delivery Run Recording
+
+```meta
+type: domain-service
+status: active
+related: [.domain/sessions/domain.md#delivery-run, .domain/sessions/features.md#record-a-run-as-it-happens]
+```
+
+The capability a session uses to record a `Delivery Run` here as it happens, rather
+than this context finding one afterwards in a folder another tool wrote. Eight
+operations, named by the delivery engine and not by this context: bring the surface
+forward, start a run, record a prompt, set a run's context, update a stage, finish a
+run, list runs, get one.
+
+**The names belong to the engine.** A session finds a surface by matching operation
+names against the tools it has, so these are a wire contract with something outside
+this repository: renaming one is not a rename, it is a surface that stops being
+found, with the session reporting no surface attached — which is also a normal
+outcome, and so indistinguishable from the fault.
+
+**Scope is a worktree the caller states, never a folder this product is sitting in.**
+The process recording a run is the application's, and one clone's worktrees share a
+repository while having as many directories. The caller names the folder its run is
+about, and the worktree key is derived from it — the same derivation `Run Attachment`
+runs from the other side, which is what puts a recorded run and the session that drove
+it on one row.
+
+**Starting a run for a skill already under way reattaches to it.** A session that
+picks work back up says so by starting again, and a second file would not be a second
+run — it would be the one run, listed twice, with its stages split between them. A run
+that has finished is not reattached to.
+
+**A stage is addressed by its position, not its name.** The whole stage list is fixed
+when the run begins, so the surface can show what is still to come; a name is a label
+on a position rather than a key, and two stages may carry one name. An index outside
+the list is refused rather than ignored, because a caller one stage off is reporting
+the wrong stage for the rest of the run and a silent nothing leaves it doing so.
+
+**It records what it observes and claims nothing else.** The model a run resolved is
+something the run states, so it is kept. What a run consumed is measured by watching a
+session's own tool calls, which this product does not see — it sees a call arrive, not
+the session that made it — so those figures are absent, and absent is shown as left
+out rather than as zero.
 
 ### Delivery Run Reference
 

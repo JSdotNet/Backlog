@@ -83,6 +83,15 @@ public sealed class ImportPlanCommandHandler(ITaskRepository entries, IRepositor
         var parsedEntries = EntryTextParser.SplitSegments(command.RawText)
             .Select(EntryTextParser.Parse)
             .Where(parsed => !string.IsNullOrWhiteSpace(parsed.Title))
+            // Import is the one door a `plan` entry may come through, and this is
+            // still not the half that opens it. ADR 0013 ruling 3 puts the task
+            // entries down first and then hands the `plan` entries to Roadmap
+            // through IRoadmapPlanIntake; until that port exists they stop here.
+            // Dropping one costs the person a roadmap item they have no way to
+            // create yet — letting it through would cost them a task typed from a
+            // word the task model does not have, which ruling 2 rules out and the
+            // canonical rewrite would later strip in silence.
+            .Where(parsed => parsed.Kind != EntryKind.Plan)
             .Select(parsed => ApplyDefaultRepo(parsed, command.DefaultRepo))
             .ToList();
 

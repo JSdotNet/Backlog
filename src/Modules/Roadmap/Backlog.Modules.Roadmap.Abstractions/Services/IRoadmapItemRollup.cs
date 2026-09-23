@@ -25,4 +25,25 @@ public interface IRoadmapItemRollup
     /// direct links and everything carrying its tag — and rolls up their effort.
     /// </summary>
     Task<RoadmapItemRollupDto> GatherAsync(RoadmapItemDto item, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The same gathering for every item of a plan at once, keyed by item id.
+    /// <para>
+    /// One read of the backlog and one of the knowledge graph for the whole plan,
+    /// rather than one of each per item. The editor asks about the item a person
+    /// opened and <see cref="GatherAsync"/> stays the right shape for that; a
+    /// timeline draws every bar it can see, and asking per item would read the same
+    /// backlog once per bar to answer questions that were all answerable from the
+    /// first read.
+    /// </para>
+    /// <para>
+    /// Every item of the plan is present in the result, including the ones that
+    /// gathered nothing — an item nothing points at answers
+    /// <see cref="RoadmapItemRollupDto.Empty"/>, so a caller never has to tell
+    /// "gathered nothing" from "was not asked about".
+    /// </para>
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, RoadmapItemRollupDto>> GatherPlanAsync(
+        RoadmapPlanDto plan,
+        CancellationToken cancellationToken = default);
 }

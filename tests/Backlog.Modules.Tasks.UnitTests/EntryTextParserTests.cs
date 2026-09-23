@@ -1565,5 +1565,187 @@ public class EntryTextParserTests
         Assert.DoesNotContain("effort:", rewritten, StringComparison.Ordinal);
         Assert.Null(EntryTextParser.Parse(rewritten).Effort);
     }
+
+    // --- Plan entries --------------------------------------------------------
+    //
+    // `plan` is the fourth bare type word and the one that does not classify a
+    // task: it describes a roadmap item (ADR 0013 ruling 2). It parses into the
+    // same shape as every other entry and says so through Kind, and it never
+    // fills in Type — the enum a task is stored with has no row for it, which is
+    // the whole point of reading it as a kind instead.
+
+    [Fact]
+    public void The_word_plan_parses_as_a_plan_entry_and_leaves_the_task_type_unset()
+    {
+        var parsed = EntryTextParser.Parse("# Imported plans on the roadmap\n`plan` `+roadmap-imported-plans`\n");
+
+        Assert.Equal(EntryKind.Plan, parsed.Kind);
+        Assert.Null(parsed.Type);
+    }
+
+    [Theory]
+    [InlineData("prompt")]
+    [InlineData("task")]
+    [InlineData("idea")]
+    public void Every_other_type_word_is_a_task_entry(string typeWord)
+    {
+        var parsed = EntryTextParser.Parse($"# Ship it\n`{typeWord}`\n");
+
+        Assert.Equal(EntryKind.Task, parsed.Kind);
+    }
+
+    /// <summary>Kind is what tells "typed `plan`" apart from "typed no type at
+    /// all" — both leave <c>Type</c> null, and only one of them is a roadmap
+    /// item.</summary>
+    [Fact]
+    public void An_entry_with_no_type_word_is_a_task_entry_with_no_type()
+    {
+        var parsed = EntryTextParser.Parse("# Ship it\n`*high`\n");
+
+        Assert.Equal(EntryKind.Task, parsed.Kind);
+        Assert.Null(parsed.Type);
+    }
+
+    /// <summary>
+    /// The narrower line a plan entry reads
+    /// (<c>.design/content-editing.md#scheduling-and-dependency-tokens</c>). Each
+    /// token comes off exactly the member it would for a task, so nothing
+    /// downstream needs a second parser to read a roadmap item.
+    /// </summary>
+    [Fact]
+    public void A_plan_entry_reads_the_same_members_a_task_entry_does()
+    {
+        var parsed = EntryTextParser.Parse(
+            "# Imported plans on the roadmap\n"
+            + "`plan` `*high` `+roadmap-imported-plans` `id:roadmap-imported-plans` "
+            + "`after:capture-adapters` `repo:backlog` `due:2026-10-31`\n\n"
+            + "What the plan is about.\n");
+
+        Assert.Equal(EntryKind.Plan, parsed.Kind);
+        Assert.Null(parsed.Type);
+        Assert.Equal(Priority.High, parsed.Priority);
+        Assert.Contains("+roadmap-imported-plans", parsed.MetadataTags);
+        Assert.Equal("roadmap-imported-plans", parsed.ImportItemId);
+        Assert.Equal(["capture-adapters"], parsed.DependsOn);
+        Assert.Equal(["backlog"], parsed.RepoIds);
+        Assert.Equal(new DateOnly(2026, 10, 31), parsed.DueOn);
+        Assert.Equal("What the plan is about.", parsed.Body.Trim());
+    }
+
+    /// <summary>
+    /// "Sigil wins over guessing" (<c>.design/content-editing.md</c>), now that
+    /// there is a fourth word to guess at. A sigil already declared what its token
+    /// is; that the value spells a type word does not promote it to one, and the
+    /// entry stays the task it said it was rather than turning into a roadmap item
+    /// nobody asked for.
+    /// </summary>
+    [Theory]
+    [InlineData("*plan")]
+    [InlineData("!plan")]
+    [InlineData("@plan")]
+    [InlineData("#plan")]
+    [InlineData("+plan")]
+    public void A_sigilled_token_spelling_plan_is_not_the_type_word(string token)
+    {
+        var parsed = EntryTextParser.Parse($"# Ship it\n`task` `{token}`\n");
+
+        Assert.Equal(EntryKind.Task, parsed.Kind);
+        Assert.Equal(EntryType.Task, parsed.Type);
+    }
+
+    /// <summary>
+    /// A bare word that is nearly the type word is unrecognized rather than
+    /// rounded to the nearest match — the same tolerance every unknown bare word
+    /// gets. Guessing here would be worse than elsewhere: it would refuse to save
+    /// an entry somebody is halfway through typing.
+    /// </summary>
+    [Theory]
+    [InlineData("plann")]
+    [InlineData("plans")]
+    [InlineData("pln")]
+    [InlineData("roadmap")]
+    public void A_misspelt_type_word_is_not_guessed_into_a_plan(string typeWord)
+    {
+        var parsed = EntryTextParser.Parse($"# Ship it\n`{typeWord}` `*high`\n");
+
+        Assert.Equal(EntryKind.Task, parsed.Kind);
+        Assert.Null(parsed.Type);
+        Assert.Equal(Priority.High, parsed.Priority);
+    }
+
+    /// <summary>
+    /// The canonical-rewrite rule in <c>.design/content-editing.md</c>: a token
+    /// the rewrite cannot represent is dropped by the next ordinary save, with no
+    /// error to notice it by. Editing one field of a plan entry must therefore
+    /// leave the word — and every token around it — exactly where it was.
+    /// </summary>
+    [Fact]
+    public void Editing_one_field_of_a_plan_entry_leaves_the_word_and_the_rest_of_the_line()
+    {
+        const string raw =
+            "# Imported plans on the roadmap\n"
+            + "`plan` `*medium` `+roadmap-imported-plans` `id:roadmap-imported-plans` "
+            + "`after:capture-adapters` `repo:backlog` `due:2026-10-31`\n";
+
+        var rewritten = EntryTextParser.WithPriority(raw, Priority.High);
+        var parsed = EntryTextParser.Parse(rewritten);
+
+        Assert.Contains("`plan`", rewritten, StringComparison.Ordinal);
+        Assert.DoesNotContain("`task`", rewritten, StringComparison.Ordinal);
+
+        Assert.Equal(EntryKind.Plan, parsed.Kind);
+        Assert.Null(parsed.Type);
+        Assert.Equal(Priority.High, parsed.Priority);
+        Assert.Contains("+roadmap-imported-plans", parsed.MetadataTags);
+        Assert.Equal("roadmap-imported-plans", parsed.ImportItemId);
+        Assert.Equal(["capture-adapters"], parsed.DependsOn);
+        Assert.Equal(["backlog"], parsed.RepoIds);
+        Assert.Equal(new DateOnly(2026, 10, 31), parsed.DueOn);
+    }
+
+    /// <summary>Every token ruling 2 says a plan entry carries, written onto the
+    /// line one rewrite at a time and read back off it.</summary>
+    [Fact]
+    public void Every_rewrite_a_plan_entry_can_take_keeps_the_word()
+    {
+        var raw = "# Imported plans on the roadmap\n`plan` `+roadmap-imported-plans`\n";
+
+        raw = EntryTextParser.WithDue(raw, new DateOnly(2026, 10, 31));
+        raw = EntryTextParser.WithRepoIds(raw, ["backlog"]);
+        raw = EntryTextParser.WithDependsOn(raw, ["capture-adapters"]);
+        raw = EntryTextParser.WithPriority(raw, Priority.High);
+
+        var parsed = EntryTextParser.Parse(raw);
+
+        Assert.Equal(EntryKind.Plan, parsed.Kind);
+        Assert.Null(parsed.Type);
+        Assert.Equal(new DateOnly(2026, 10, 31), parsed.DueOn);
+        Assert.Equal(["backlog"], parsed.RepoIds);
+        Assert.Equal(["capture-adapters"], parsed.DependsOn);
+        Assert.Equal(Priority.High, parsed.Priority);
+        Assert.Contains("+roadmap-imported-plans", parsed.MetadataTags);
+    }
+
+    /// <summary>
+    /// The trap the comment on <c>RetiredTypeTokens</c> describes, now reachable
+    /// through a word that is current grammar: a rewrite that does not recognize
+    /// the old type word prepends the new one and leaves the old one standing, so
+    /// the entry comes out of one ordinary save claiming two types. Retyping a
+    /// plan entry is a person saying it is a task after all, so the word is
+    /// replaced — once.
+    /// </summary>
+    [Fact]
+    public void Retyping_a_plan_entry_replaces_the_word_rather_than_doubling_it()
+    {
+        var rewritten = EntryTextParser.WithType("# Imported plans\n`plan` `*high`\n", EntryType.Task);
+
+        Assert.Contains("`task`", rewritten, StringComparison.Ordinal);
+        Assert.DoesNotContain("`plan`", rewritten, StringComparison.Ordinal);
+
+        var parsed = EntryTextParser.Parse(rewritten);
+
+        Assert.Equal(EntryKind.Task, parsed.Kind);
+        Assert.Equal(EntryType.Task, parsed.Type);
+    }
 }
 

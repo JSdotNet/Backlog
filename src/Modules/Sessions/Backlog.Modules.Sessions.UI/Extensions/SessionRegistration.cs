@@ -112,6 +112,16 @@ public static class SessionRegistration
         services.AddSingleton<IDeliveryRunSource>(sp =>
             new LocalDeliveryRunSource(sp.GetRequiredService<IDeviceIdentitySource>()));
 
+        // The writing half, beside the reading one. GetService and not
+        // GetRequiredService for the activator: it is the shell's own type, composed
+        // by a host that has a window, and a headless host recording runs is a host
+        // whose open_dashboard honestly answers that there is nothing to bring
+        // forward — not a startup failure over a window nobody asked for.
+        services.AddSingleton<IDeliverySurfaceLifecycle>(sp =>
+            new LocalDeliverySurfaceLifecycle(
+                sp.GetRequiredService<IDeviceIdentitySource>(),
+                sp.GetService<ISessionsSurfaceActivator>()));
+
         // The shell's Ask AI port, answered from the merged catalog above and
         // from nothing else — see SessionsAiContentSource for why the transcripts
         // stay out. Scoped for consistency with the other areas' sources, which

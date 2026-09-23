@@ -102,6 +102,40 @@ public class WebHarnessHostTests
     }
 
     /// <summary>
+    /// The delivery surface is constructable, and so is the shell activator it asks
+    /// for.
+    /// <para>
+    /// Worth its own resolve for a reason <c>ValidateOnBuild</c> does not cover: the
+    /// port is registered through a factory, which provider validation cannot look
+    /// inside, and <em>nothing in the application resolves it</em> — no pane injects
+    /// it and no worker asks for it, because its only caller is a tool surface that
+    /// is not built yet. A registration that could not be satisfied would therefore
+    /// sit there silently through every start of both hosts, and surface as a failure
+    /// on the first call a session ever made.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void The_desktop_harness_composes_the_delivery_surface()
+    {
+        using var harness = new Harness<DesktopHarness::Program>();
+
+        Assert.NotNull(harness.Services.GetRequiredService<Backlog.Modules.Sessions.Abstractions.IDeliverySurfaceLifecycle>());
+
+        // And the shell's half of open_dashboard, which the surface takes optionally:
+        // this host has a window, so it is here. A host without one composes the
+        // surface alone and answers that there is nothing to bring forward.
+        Assert.NotNull(harness.Services.GetRequiredService<Backlog.Modules.Sessions.Abstractions.ISessionsSurfaceActivator>());
+
+        // The same instance behind both registrations. The shell attaches to the
+        // concrete type and the surface asks for the port, and two objects here
+        // would mean a window attaching to one registry while open_dashboard asked
+        // the other — which looks exactly like no window being open.
+        Assert.Same(
+            harness.Services.GetRequiredService<Backlog.Desktop.UI.Shell.SessionsSurfaceActivator>(),
+            harness.Services.GetRequiredService<Backlog.Modules.Sessions.Abstractions.ISessionsSurfaceActivator>());
+    }
+
+    /// <summary>
     /// The mobile harness, which has no <c>ITaskRepository</c> and never will:
     /// the phone carries the Inbox, not a local task database. It composes the
     /// pairing surface and nothing of replication, and it has to start.

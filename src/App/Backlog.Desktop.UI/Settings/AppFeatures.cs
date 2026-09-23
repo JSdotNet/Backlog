@@ -59,6 +59,15 @@ public static class AppFeatures
     /// <summary>Report a Desktop app issue to GitHub from the app chrome.</summary>
     public const string FeedbackReporting = "feedback-reporting";
 
+    /// <summary>Listen for MCP tool calls on loopback, so an AI session on this
+    /// machine can read the backlog and the devbook out of the running app. Here
+    /// for the same reason the two above are — the server is the whole product's
+    /// surface rather than any one context's, and it has no abstractions project
+    /// of its own to hold the key. Local ADR 0012 §7 names this key and this
+    /// file; the string is the one in <c>features.json</c> and may never
+    /// change.</summary>
+    public const string McpServer = "mcp-server";
+
     /// <summary>The assistant panel in the app chrome.</summary>
     public const string AiAssistant = "ai-assistant";
 
@@ -157,6 +166,13 @@ public static class AppFeatures
             AiAssistant,
             "AI assistant",
             "Ask questions about visible task content through Azure Foundry.",
+            Status: AppFeatureStatus.Dev,
+            Group: AppFeatureGroup.CrossCutting),
+        new(
+            McpServer,
+            "MCP server",
+            "Let AI sessions on this PC read your backlog and devbook through the Model Context Protocol. Backlog opens a port on this machine (5757 unless you change it) that other programs on it can connect to, and hands out a token they have to present. Nothing outside this PC can reach it, and the tools only read: no session can change an entry, a plan, or a note through them.",
+            EnabledByDefault: false,
             Status: AppFeatureStatus.Dev,
             Group: AppFeatureGroup.CrossCutting),
         new(

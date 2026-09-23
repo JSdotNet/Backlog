@@ -69,6 +69,12 @@
    drop the section that edits it. *@
 @inject IWorkingHoursSettings WorkingWeek
 @inject IUsageResetSettings UsageReset
+@* The concrete store rather than Roadmap's IPlanningVelocity: that port is the
+   read side, for a module that may not see a settings file, and this screen is
+   the write side. Injected for the same reason the two above are - a host that
+   has not registered it should fail loudly at startup rather than quietly drop
+   the field that edits it. *@
+@inject PlanningVelocitySettingsStore PlanningVelocity
 @inject GitHubIntegration GitHub
 @inject NavigationManager Navigation
 @inject IAppFeatureSettings Features
@@ -1108,10 +1114,45 @@
                         </div>
                     </div>
 
+                    @* The reader's own pace, beside the two weeks above and filed
+                       here for the same reason: it is a preference rather than a
+                       credential or a flag. It is read by the roadmap, whose band
+                       sits behind a feature flag - and the argument the working
+                       week was placed on holds again, that a preference nobody can
+                       reach is worse than one under the wrong heading. No status
+                       line of its own: the field carries its own hint and its own
+                       refusal, which is what TextField's HelpText and ErrorMessage
+                       are for. *@
+                    <div class="setting__group" data-testid="planning-velocity-settings">
+                        @* No note above it, unlike the two groups before: this one is
+                           a single field, and its own label already names it. A note
+                           here would say the words the label says. *@
+                        @* The min and the step are affordances, not the rule: HTML
+                           cannot say "greater than zero" for a continuous decimal,
+                           so min only stops the spinner short of negatives while
+                           the store stays the one gate - it refuses the 0 this min
+                           still allows, and accepts the 0.25 this step does not
+                           step to. Nothing reads the browser's own validity. *@
+                        <TextField Bare="true"
+                                   LabelCssClass="setting__label"
+                                   InputCssClass="setting__input"
+                                   Label="Story points per day"
+                                   Id="planning-velocity"
+                                   data-testid="planning-velocity"
+                                   Type="number"
+                                   min="0"
+                                   step="0.5"
+                                   autocomplete="off"
+                                   HelpText="This only affects how long an imported plan's bar is drawn on the timeline when the plan gives no date - the effort its tasks registered, divided by this, rounded up. It registers no estimate against anything, and it never moves a plan that is already placed."
+                                   ErrorMessage="@_planningVelocityError"
+                                   Value="@_planningVelocityDraft"
+                                   @onchange="ApplyPlanningVelocity" />
+                    </div>
+
                     <p class="setting__note">
-                        Kept in <code>@WorkingWeek.SettingsPath</code> and <code>@UsageReset.SettingsPath</code>,
-                        beside the app's other per-user choices rather than in the backlog folder - they
-                        are yours, not the workspace's.
+                        Kept in <code>@WorkingWeek.SettingsPath</code>, <code>@UsageReset.SettingsPath</code>
+                        and <code>@PlanningVelocity.SettingsPath</code>, beside the app's other per-user
+                        choices rather than in the backlog folder - they are yours, not the workspace's.
                     </p>
                 </div>
             </div>
@@ -2891,6 +2932,7 @@
         _draftDevbookCacheDirectory = Store.IsDefaultDevbookCacheDirectory ? string.Empty : Store.DevbookCacheDirectory;
         SyncWorkingHoursDrafts();
         SyncUsageResetDraft();
+        SyncPlanningVelocityDraft();
         SyncAzureFoundryDrafts();
         SyncUsageEndpointDrafts();
         _draftRepos = RepositorySettingsText();
@@ -3207,6 +3249,31 @@
 
     private void SyncUsageResetDraft() =>
         _usageResetTimeDraft = UsageReset.Current is { } reset ? FormatWorkingTime(reset.Time) : string.Empty;
+
+    private string _planningVelocityDraft = string.Empty;
+
+    private string? _planningVelocityError;
+
+    /// <summary>Committed on change rather than bound, so a half-typed pace never
+    /// reaches the store: <c>2.</c> on the way to <c>2.5</c> is not a number, and a
+    /// field that refused it mid-keystroke would be shouting at somebody still
+    /// typing. The parsing rule itself lives in the store, so the screen does not
+    /// carry a second copy of what a valid pace is.</summary>
+    private void ApplyPlanningVelocity(ChangeEventArgs e)
+    {
+        var typed = e.Value?.ToString() ?? string.Empty;
+        _planningVelocityDraft = typed;
+
+        _planningVelocityError = PlanningVelocity.Set(typed);
+
+        // A refused value stays on screen beside the reason, so the reader can see
+        // what they typed and correct it; an accepted one is re-read from the store,
+        // which is what it will show on the next render of this screen.
+        if (_planningVelocityError is null) SyncPlanningVelocityDraft();
+    }
+
+    private void SyncPlanningVelocityDraft() =>
+        _planningVelocityDraft = PlanningVelocitySettingsStore.Format(PlanningVelocity.StoryPointsPerDay);
 
     private string UsageResetSummary =>
         UsageReset.Current is { } reset

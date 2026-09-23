@@ -42,6 +42,8 @@ using Backlog.Infrastructure.Sync.Extensions;
 using Backlog.Infrastructure.Sync.Sessions;
 using Backlog.UI.Components.Diagrams;
 using Backlog.UI.Components.Feedback;
+using Backlog.Desktop.UI.Extensions;
+using Backlog.Desktop.UI.Mcp;
 using Backlog.Desktop.WebHarness;
 using Backlog.Desktop.WebHarness.Components;
 using Backlog.Aspire.ServiceDefaults;
@@ -97,10 +99,23 @@ builder.Services.AddSingleton<IWorkingHoursSettings>(
 builder.Services.AddSingleton<IUsageResetSettings>(
     _ => new UsageResetSettingsStore(
         Path.Combine(builder.Environment.ContentRootPath, "obj", "local-development", "usage-reset.settings.json")));
+// How many story points the reader gets through in a day, scoped to the content
+// root for the same reason. Roadmap reads it through IPlanningVelocity, answered
+// over this store by AddRoadmapCrossContextAdapters below.
+builder.Services.AddSingleton(
+    _ => new PlanningVelocitySettingsStore(
+        Path.Combine(builder.Environment.ContentRootPath, "obj", "local-development", "planning-velocity.settings.json")));
 // Which surface the shell was last showing. Scoped to the content root like the
 // harness's other settings files, so a session here never rewrites the real
 // per-user choice.
 builder.Services.AddSingleton(_ => CreateLocalDevelopmentShellNavigationStore(builder.Environment.ContentRootPath));
+// What can bring a surface forward from outside the user interface, which the
+// delivery surface's open_dashboard asks. Composed here exactly as in the desktop
+// head and with no local-development variant: there is nothing per-host about it,
+// and the harness is where this gets driven under Aspire. A circuit per browser tab
+// means several windows may attach at once, which is what the activator expects.
+builder.Services.AddSingleton<SessionsSurfaceActivator>();
+builder.Services.AddSingleton<ISessionsSurfaceActivator>(sp => sp.GetRequiredService<SessionsSurfaceActivator>());
 // Which machine this installation is. Scoped to the content root like the harness's
 // other settings files — and here that is more than tidiness: several worktrees serve
 // this harness at once, and one shared identity file would put the first-write race
@@ -259,6 +274,29 @@ builder.Services.AddSingleton(_ => new SyncServiceSettingsStore(
 builder.Services.AddSingleton<SyncServiceEndpoint>();
 builder.Services.AddSyncClient(SyncServiceAddress);
 builder.Services.AddTaskSyncClient(SyncServiceAddress);
+// The same MCP server the desktop head serves, on the Kestrel pipeline this
+// harness already has rather than a second listener of its own — which is what
+// local ADR 0012 §2 asks for, and what makes the tools reachable under Aspire
+// where QA drives them. One registration shared with the MAUI head, so the tools
+// and their feature gates cannot differ between the two.
+//
+// The Origin check comes with them; the bearer token does not. The two guards
+// answer different questions and only one of them is the installed app's.
+//
+// Origin is here because the tools are the same tools and the workspace under
+// them is the real one: this harness composes %LOCALAPPDATA%\Backlog.Debug, and
+// a repository configured there points its devbook folders at a clone on this
+// machine. QA has to turn the feature on to test it, and a harness left running
+// afterwards is reachable from any browser page on the machine by DNS rebinding
+// — Aspire's port being dynamic is not a secret, it is a number a page can find
+// by trying. The check costs QA nothing: a test client is not a browser and
+// sends no Origin at all.
+//
+// The token is not, and that is the difference. It is a secret a person copies
+// into a registration; here it would be one QA had to fetch out of a container
+// to drive a test, protecting a host that holds nothing the Origin check is not
+// already closing.
+builder.Services.AddBacklogMcpServer().WithHttpTransport();
 var azureFoundrySettings = CreateLocalDevelopmentAzureFoundrySettingsStore(builder.Environment.ContentRootPath);
 builder.Services.AddSingleton(azureFoundrySettings);
 // The chat client's pipeline is the adapter's own, sized for a completion rather
@@ -377,7 +415,9 @@ builder.Services.AddSingleton<DevbookChapterWriter>();
 // of the person's data and following the root the way the inbox store does.
 // Composed the same way in src/App/Backlog.Desktop/MauiProgram.cs.
 builder.Services.AddSingleton<IDevbookAnnotationStore>(sp =>
-    new DevbookAnnotationStore(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
+    new DevbookAnnotationStore(
+        () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory,
+        folders: sp.GetRequiredService<IDevbookFolderSource>()));
 builder.Services.AddSingleton<IFolderEditorLauncher, UnsupportedFolderEditorLauncher>();
 builder.Services.AddSingleton<DevbookFolderOpenService>();
 builder.Services.AddSingleton(_ => TasksCopilotCli.Unavailable);
@@ -523,9 +563,47 @@ if (!app.Environment.IsDevelopment())
 app.UseStaticFiles();
 app.UseAntiforgery();
 
+// The MCP endpoint answers to AppFeatures.McpServer, read per request rather
+// than once at startup. Mapping it conditionally here would have decided the
+// question when the harness booted, and QA flips feature switches on a running
+// harness — the whole point of driving the real app. Not Found rather than
+// Forbidden, because 08-crosscutting-concepts.md#feature-enablement asks that a
+// switched-off capability's entry points be "absent rather than
+// present-but-inert", and this is the entry point.
+app.UseWhen(
+    context => context.Request.Path.StartsWithSegments(BacklogMcpServerRegistration.EndpointPath),
+    branch => branch.Use(async (context, next) =>
+    {
+        if (!context.RequestServices.GetRequiredService<IAppFeatureSettings>().IsEnabled(AppFeatures.McpServer))
+        {
+            context.Response.StatusCode = StatusCodes.Status404NotFound;
+            return;
+        }
+
+        // The same predicate the desktop listener refuses on, and the same
+        // handling of a header sent twice — two Origins is not something a
+        // browser produces, so honouring either would be choosing which caller to
+        // believe. Forbidden rather than Unauthorized: there is no credential the
+        // caller could supply and retry with.
+        var origin = context.Request.Headers.Origin;
+
+        if (origin.Count > 1 || !McpLoopbackGuard.IsLoopbackOrigin(origin.Count == 0 ? null : origin[0]))
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            return;
+        }
+
+        await next(context);
+    }));
+
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode()
     .AddAdditionalAssemblies(typeof(Routes).Assembly);
+
+// The read-only tools, on the pipeline above. Aspire binds localhost:0 for every
+// endpoint in this repository, so this harness's port is whatever this run was
+// given — read it off the Aspire dashboard, never from a previous session.
+app.MapMcp(BacklogMcpServerRegistration.EndpointPath);
 
 app.Run();
 

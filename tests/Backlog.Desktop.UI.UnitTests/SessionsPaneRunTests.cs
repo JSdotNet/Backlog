@@ -487,6 +487,107 @@ public sealed class SessionsPaneRunTests
             Assert.Equal("true", pane.Find("[data-testid='sessions-view-all']").GetAttribute("aria-pressed")));
     }
 
+    [Fact]
+    public void A_run_this_product_recorded_claims_no_figure_it_could_not_measure()
+    {
+        // What the delivery surface writes: the resolved model, because a run states
+        // it, and no consumption, because this product cannot measure it — those
+        // figures come from a collector watching a session's own tool calls, and the
+        // server recording this run sees a tool call arrive rather than the session
+        // that made it. The reader fills an absent bucket with zeros, so the run
+        // arrives here carrying a token usage whose every number is nought.
+        var run = SessionRowsTests.Run("run-1", Worktree, Noon.AddMinutes(-90), Noon.AddMinutes(-10), title: "Surface lifecycle tools") with
+        {
+            Dashboard = "backlog",
+            SkillId = "flow-code",
+            Stages =
+            [
+                new DeliveryRunStage("Scope Discovery", "done", 60_000, 1),
+                new DeliveryRunStage("Implementation", "done", 3_600_000, 1)
+            ],
+            TokenUsage = new DeliveryRunTokenUsage(
+                new DeliveryRunTokens(0, 0, 0, 0, 0, 0),
+                new DeliveryRunTokens(0, 0, 0, 0, 0, 0),
+                [],
+                ["claude-opus-5"]),
+            Context = null
+        };
+
+        using var context = Context([Live], [run]);
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            var line = pane.Find("[data-testid='sessions-run']");
+            var trigger = line.QuerySelector(".fold__trigger")!;
+            var summary = trigger.TextContent.Trim().TrimStart('▸').Trim();
+
+            // The stage count is measured and is shown. The three figures this run
+            // does not carry are left out rather than shown as zero — the rule the
+            // area already states for a dashboard's own gaps, which a run recorded
+            // here is simply another case of.
+            Assert.Equal("2 of 2 stages done", summary);
+
+            Assert.DoesNotContain("0 output tokens", summary, StringComparison.Ordinal);
+            Assert.DoesNotContain("context peak", summary, StringComparison.Ordinal);
+            Assert.DoesNotContain("tool calls", summary, StringComparison.Ordinal);
+        });
+
+        // And the same inside the fold, which is where this first went wrong: the
+        // rule held on the trigger and not under it, so opening the fold on a run
+        // recorded here answered "0 calls · 0 out · 0 in · 0 cache read · 0 cache
+        // write" — a measurement nobody made, contradicting the line that opened it.
+        pane.Find(".fold__trigger").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            var tokens = pane.Find("[data-testid='sessions-run-tokens']").TextContent;
+
+            // The model is kept: the run states it, so it is observed rather than
+            // measured, and it is the one thing in here this product does know.
+            Assert.Contains("claude-opus-5", tokens, StringComparison.Ordinal);
+
+            Assert.DoesNotContain("0 calls", tokens, StringComparison.Ordinal);
+            Assert.DoesNotContain("0 out", tokens, StringComparison.Ordinal);
+            Assert.DoesNotContain("cache read", tokens, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void A_run_that_was_measured_still_shows_every_figure()
+    {
+        // The other side of the rule, so the fix above cannot be mistaken for
+        // "stop showing tokens": a run whose dashboard did measure consumption
+        // reports all of it, in the fold as well as on the trigger.
+        var run = SessionRowsTests.Run("run-1", Worktree, Noon.AddMinutes(-90), Noon.AddMinutes(-10)) with
+        {
+            Stages = [new DeliveryRunStage("Implementation", "done", 3_600_000, 1)],
+            TokenUsage = new DeliveryRunTokenUsage(
+                new DeliveryRunTokens(4789, 9578, 1_662_126, 0, 795_660_916, 21_577_798),
+                new DeliveryRunTokens(0, 0, 0, 0, 0, 0),
+                [],
+                ["claude-opus-5"])
+        };
+
+        using var context = Context([Live], [run]);
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() => Assert.Contains("1.7M output tokens", pane.Find(".fold__trigger").TextContent, StringComparison.Ordinal));
+
+        pane.Find(".fold__trigger").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            var tokens = pane.Find("[data-testid='sessions-run-tokens']").TextContent;
+
+            Assert.Contains("4,789 calls", tokens, StringComparison.Ordinal);
+            Assert.Contains("cache read", tokens, StringComparison.Ordinal);
+            Assert.Contains("claude-opus-5", tokens, StringComparison.Ordinal);
+        });
+    }
+
     private static BunitContext Context(
         IReadOnlyList<AgentSession> sessions,
         IReadOnlyList<DeliveryRun> runs,

@@ -1,3 +1,4 @@
+using Backlog.Desktop.Mcp;
 using Backlog.Desktop.Services;
 using Backlog.Desktop.UI.Inbox;
 using Backlog.Desktop.UI.Tasks;
@@ -46,6 +47,7 @@ using Backlog.Infrastructure.Sync.Sessions;
 using Backlog.UI.Components.Feedback;
 using Backlog.UI.Components.Diagrams;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -121,9 +123,22 @@ public static class MauiProgram
         // the same reason: the settings screen writes it and the dashboard cuts its
         // weeks with it. Null until set, and detection stands in.
         builder.Services.AddSingleton<IUsageResetSettings, UsageResetSettingsStore>();
+        // How many story points the reader gets through in a day. Registered as the
+        // concrete store because the settings screen writes it; Roadmap reads it
+        // through IPlanningVelocity, which AddRoadmapCrossContextAdapters answers
+        // over this — the module may not see a store. Its own per-user file beside
+        // the two above, and absent it reads as one point a day.
+        builder.Services.AddSingleton<PlanningVelocitySettingsStore>();
         // Which surface the shell was last showing, so it reopens there instead
         // of always defaulting to the workspace panes.
         builder.Services.AddSingleton<ShellNavigationStore>();
+        // The other direction: what can change which surface is showing, now, from
+        // outside the user interface. The shell attaches its window to this while it
+        // lives, and the delivery surface's open_dashboard is what asks. Registered
+        // twice over so the shell can resolve the concrete type it attaches to while
+        // every caller sees only the port.
+        builder.Services.AddSingleton<SessionsSurfaceActivator>();
+        builder.Services.AddSingleton<ISessionsSurfaceActivator>(sp => sp.GetRequiredService<SessionsSurfaceActivator>());
         // Which machine this installation is: minted once into device.json beside the
         // settings above, and stable across restarts and renames. Two contexts read it —
         // Sessions stamps every record it finds with it and the Dashboard offers it as a
@@ -278,6 +293,13 @@ public static class MauiProgram
             "Backlog",
             "backup-state.json")));
         builder.Services.AddSingleton<BackupWorker>();
+        // The loopback MCP listener local ADR 0012 decided. TryAdd rather than
+        // Add, the way AddTaskSyncClient registers its own worker: this head
+        // composes it once and a second registration would be a second listener
+        // fighting the first for one port. It takes the provider itself, because
+        // the listener it builds has a container of its own and forwards every
+        // port into this one rather than composing a second ITaskItems.
+        builder.Services.TryAddSingleton<McpServerWorker>();
         // Where the sync service is, asked per client rather than fixed here.
         // Under the AppHost it is "https+http://sync", which the service discovery
         // AddServiceDefaults wired up rewrites to this run's sync resource - ports
@@ -452,8 +474,12 @@ public static class MauiProgram
         // does so a moved backlog takes its remarks along. The panels resolve this
         // by interface and fall back to a session-scoped store when it is absent,
         // which is why leaving this line out would not fail — it would only forget.
+        // The folder source is what lets it name a chapter the way every other
+        // device names it, whichever folder this machine has an area pointed at.
         builder.Services.AddSingleton<IDevbookAnnotationStore>(sp =>
-            new DevbookAnnotationStore(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
+            new DevbookAnnotationStore(
+                () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory,
+                folders: sp.GetRequiredService<IDevbookFolderSource>()));
 
         // The MSIX head can manage its own updates when packaged; it degrades to
         // an "unsupported" report when running unpackaged (e.g. Debug), so this is
@@ -564,6 +590,14 @@ public static class MauiProgram
         // And the backup loop, on the same terms: a timer that only existed
         // while the Storage tab was open would miss every slot it was set for.
         _ = app.Services.GetRequiredService<BackupWorker>();
+
+        // And the MCP listener, on the same terms again - its constructor is
+        // what binds the port, so a singleton nobody resolves is a server no
+        // session can reach. It is the one of the five that does nothing at all
+        // until somebody switches it on: AppFeatures.McpServer is
+        // EnabledByDefault: false, so on an untouched machine this line
+        // constructs an object that reads one flag and stops.
+        _ = app.Services.GetRequiredService<McpServerWorker>();
 
         return app;
     }
