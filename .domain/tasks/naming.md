@@ -67,7 +67,7 @@ aliases: [TaskType]
 related: [.domain/tasks/domain.md#task-type, .domain/tasks/naming.md#dependency, .domain/tasks/naming.md#entry-kind]
 ```
 
-Classification of a task as prompt, task, or idea. A follow-up is not a type: it
+Classification of a task as prompt, task, idea, or test. A follow-up is not a type: it
 is an ordinary task carrying a `Dependency` on the task it comes after. Neither
 is `plan`, for a different reason — it classifies nothing about a task because
 what it describes is not one; see `Entry Kind`.

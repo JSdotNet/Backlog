@@ -202,7 +202,7 @@
     <div class="graph-wrap" id="graph-wrap"></div>
     <div class="legend">
       <span><i></i>prompt — an AI session runs it</span>
-      <span><i class="task"></i>task — only the user does it</span>
+      <span><i class="task"></i>task or test — only the user does it</span>
       <span><i class="flag"></i>has a failed check</span>
       <span>Arrows point from a prerequisite to what waits on it. Click a box to jump to the entry.</span>
     </div>
@@ -280,7 +280,7 @@
   }
 
   function parseToken(e, t) {
-    if (/^(prompt|task|idea)$/.test(t)) { e.type = t; return; }
+    if (/^(prompt|task|test|idea)$/.test(t)) { e.type = t; return; }
     const s = t[0];
     if (s === '!') { e.status = t.slice(1); return; }
     if (s === '*') { e.priority = t.slice(1); return; }
@@ -331,7 +331,7 @@
 
     // Metadata
     each('Every entry has a metadata line', e => !e.metaLine && { text: 'no backtick metadata line follows the title' });
-    each('Every entry is a prompt or a task', e => e.type !== 'prompt' && e.type !== 'task' && { text: e.type ? `type is ${e.type}` : 'no type on the metadata line' });
+    each('Every entry is a prompt, a task or a test', e => !['prompt', 'task', 'test'].includes(e.type) && { text: e.type ? `type is ${e.type}` : 'no type on the metadata line' });
     each('Every entry states !ready', e => e.status !== 'ready' && { text: e.status ? `status is !${e.status}` : 'no status; order is carried by after:, not by !draft' });
     each('Every entry has an effort on the 1/2/3/5/8/13/21 scale', e => {
       if (e.effort == null) return { text: 'no effort:' };
@@ -354,7 +354,7 @@
 
     // Prompts
     const prompts = entries.filter(e => e.type === 'prompt');
-    const tasks = entries.filter(e => e.type === 'task');
+    const manual = entries.filter(e => e.type === 'task' || e.type === 'test');
     const onPrompts = (label, fn) => {
       const failed = [];
       prompts.forEach(e => { const r = fn(e); if (r) failed.push({ e, r }); });
@@ -386,21 +386,21 @@
       return !has && { text: 'no ## sub-item reminding to update the repository knowledge folders or devbook' };
     });
     onPrompts('No prompt contains a manual step', e => {
-      if (e.subs.some(s => s.kind === 'manual')) return { text: 'a Manual: sub-item — make it a task entry of its own' };
+      if (e.subs.some(s => s.kind === 'manual')) return { text: 'a Manual: sub-item — make it a task or test entry of its own' };
       const txt = [...e.instructions, ...e.subs.flatMap(s => [s.title, ...s.lines])].join('\n');
       if (/\bask the user\b/i.test(txt)) return { level: 'warn', text: '"ask the user" — a step only the user can do is a task entry' };
     });
 
-    // Tasks
+    // Tasks and tests — the user's own work
     const onTasks = (label, fn) => {
       const failed = [];
-      tasks.forEach(e => { const r = fn(e); if (r) failed.push({ e, r }); });
+      manual.forEach(e => { const r = fn(e); if (r) failed.push({ e, r }); });
       if (!failed.length) add('pass', label);
       failed.forEach(f => add(f.r.level || 'fail', `${label} — ${f.r.text}`, f.e));
     };
-    onTasks('No task carries a marker or session-name line', e => (e.hasMarkerAnywhere || e.hasSessionAnywhere) && { text: 'those direct an AI session; a task has none' });
-    onTasks('No task carries Setup: or knowledge sub-items', e => e.subs.some(s => s.kind === 'setup' || s.kind === 'knowledge') && { text: 'those direct an AI session; a task has none' });
-    onTasks('Every task says what to do', e => !e.instructions.some(l => l.trim()) && { text: 'empty body' });
+    onTasks('No task or test carries a marker or session-name line', e => (e.hasMarkerAnywhere || e.hasSessionAnywhere) && { text: `those direct an AI session; a ${e.type} has none` });
+    onTasks('No task or test carries Setup: or knowledge sub-items', e => e.subs.some(s => s.kind === 'setup' || s.kind === 'knowledge') && { text: `those direct an AI session; a ${e.type} has none` });
+    onTasks('Every task or test says what to do', e => !e.instructions.some(l => l.trim()) && { text: 'empty body' });
 
     // Closing pair
     const n = entries.length;
@@ -480,13 +480,14 @@
     const tag = entries.map(e => e.tag).find(Boolean) || '';
     const prompts = entries.filter(e => e.type === 'prompt').length;
     const tasks = entries.filter(e => e.type === 'task').length;
+    const tests = entries.filter(e => e.type === 'test').length;
     const effort = entries.reduce((s, e) => s + (Number(e.effort) || 0), 0);
     const repos = [...new Set(entries.flatMap(e => e.repo))];
     const fails = checks.filter(c => c.level === 'fail').length, warns = checks.filter(c => c.level === 'warn').length, passes = checks.filter(c => c.level === 'pass').length;
 
     document.getElementById('plan-tag').textContent = tag ? (entries.find(e => e.tag).tagSigil + tag) : '';
     document.getElementById('stats').innerHTML = [
-      ['Entries', entries.length], ['Prompts', prompts], ['Tasks', tasks], ['Effort', effort + ' pt'],
+      ['Entries', entries.length], ['Prompts', prompts], ['Tasks', tasks], ['Tests', tests], ['Effort', effort + ' pt'],
     ].map(([k, v]) => `<div class="stat"><b>${v}</b><span>${k}</span></div>`).join('') +
       `<div class="stat"><b class="repos">${repos.map(esc).join(', ') || '—'}</b><span>Repositor${repos.length === 1 ? 'y' : 'ies'}</span></div>`;
 

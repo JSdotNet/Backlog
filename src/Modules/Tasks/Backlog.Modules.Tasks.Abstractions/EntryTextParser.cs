@@ -95,7 +95,8 @@ public static class EntryTextParser
     {
         ["prompt"] = EntryType.Prompt,
         ["task"] = EntryType.Task,
-        ["idea"] = EntryType.Idea
+        ["idea"] = EntryType.Idea,
+        ["test"] = EntryType.Test
     };
 
     /// <summary>
@@ -590,7 +591,7 @@ public static class EntryTextParser
             // and `continue`d by the switch above, which is what keeps "sigil
             // wins over guessing" true for this word too: `*plan` is a priority
             // token whose value is not a priority, not the type word wearing a
-            // sigil. A bare word that is none of the four is left unrecognized
+            // sigil. A bare word that is none of the five is left unrecognized
             // rather than guessed at.
             var normalized = NormalizeToken(token);
             if (normalized == PlanTypeToken) kind = EntryKind.Plan;
@@ -2028,6 +2029,7 @@ public static class EntryTextParser
         EntryType.Prompt => "prompt",
         EntryType.Task => "task",
         EntryType.Idea => "idea",
+        EntryType.Test => "test",
         _ => type.ToString().ToLowerInvariant()
     };
 

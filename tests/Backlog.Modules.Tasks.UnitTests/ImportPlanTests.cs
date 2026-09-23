@@ -210,13 +210,15 @@ public sealed class ImportPlanTests
         const string plan =
             "# A prompt to run\n`prompt` `#myplan`\n\n"
             + "# Work to do by hand\n`task` `#myplan`\n\n"
-            + "# Something to consider\n`idea` `#myplan`\n";
+            + "# Something to consider\n`idea` `#myplan`\n\n"
+            + "# Check it by hand\n`test` `#myplan`\n";
 
         var result = await Import(store, plan);
 
         Assert.Equal(EntryType.Prompt, TypeOf(store, result, "A prompt to run"));
         Assert.Equal(EntryType.Task, TypeOf(store, result, "Work to do by hand"));
         Assert.Equal(EntryType.Idea, TypeOf(store, result, "Something to consider"));
+        Assert.Equal(EntryType.Test, TypeOf(store, result, "Check it by hand"));
     }
 
     /// <summary>

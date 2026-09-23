@@ -35,12 +35,14 @@ mechanics; do not invent syntax beyond it.
    this plan is later regenerated, so Backlog's re-import recognizes it as a new version
    of this plan — clearing the entries nobody has started yet — instead of a second plan.
 3. Break the work into ordered entries, one per unit of work. Every entry is exactly one
-   of two kinds, decided by who does it — see the grammar's `## Entry kinds`:
+   of three kinds, decided by who does it — see the grammar's `## Entry kinds`:
    - **`prompt`** — work an AI session runs.
    - **`task`** — work only the user can do: a decision, a sign-off, an action in an
      account or on a machine the AI cannot reach.
+   - **`test`** — a check the user runs by hand against work already landed, where the
+     source material asks for manual acceptance or exploratory testing.
 
-   Never combine the two. A manual step is never a sub-item, checklist line or body
+   Never combine a prompt with either of the others. A manual step is never a sub-item, checklist line or body
    instruction inside a prompt, and a task never carries instructions for an AI. When one
    unit of work needs both, split it: the manual step becomes its own `task` entry, and
    every prompt that needs it done waits on it with `after:`.
@@ -70,8 +72,12 @@ mechanics; do not invent syntax beyond it.
    line, no `Setup:` or knowledge sub-item: those direct an AI session, and a task has
    none. `- [ ]` checklist lines are fine for the user's own steps.
 
-   The **metadata line** of every entry, either kind: the type — `prompt` or `task`, never
-   a third value; always `!ready`, on every entry whatever its place in the chain — order
+   A **`test`** entry is shaped like a task: a title naming what is checked, a body saying
+   what to exercise and what a pass looks like, `- [ ]` lines for the individual checks,
+   and `after:` on every prompt whose work it checks.
+
+   The **metadata line** of every entry, any kind: the type — `prompt`, `task` or `test`,
+   never `idea`; always `!ready`, on every entry whatever its place in the chain — order
    is carried by `after:`, never by holding a later entry at `!draft`; always an
    `effort:<points>` estimate off the 1/2/3/5/8/13/21 scale, sized from the instructions
    the entry actually carries; `repo:<name>` once per target repository (a task carries it
@@ -85,7 +91,7 @@ mechanics; do not invent syntax beyond it.
    either, however small the plan.
    - The **review prompt**, titled `Review the <plan subject> plan for anything missed`. It
      carries `id:review-plan`, `after:` each entry nothing else depends on — the plan's
-     leaves, which is every entry transitively, tasks included — and `repo:` once per
+     leaves, which is every entry transitively, tasks and tests included — and `repo:` once per
      repository the plan targeted. Its body asks whoever runs it to read the source material
      against what actually landed: every entry done, and nothing dropped, deferred or left
      half-finished along the way; anything still outstanding is written up as a new entry
@@ -119,11 +125,11 @@ mechanics; do not invent syntax beyond it.
 ## Output expectations
 
 - One Markdown document; every entry's body precedes its `##`/`- [ ]` sub-items.
-- Every entry is `prompt` or `task` and states `!ready`, an `effort:`, an `id:`, and the
+- Every entry is `prompt`, `task` or `test` and states `!ready`, an `effort:`, an `id:`, and the
   plan's shared `+tag`; every prompt also states `repo:` and opens with the marker line,
   then the session-name line.
 - No prompt contains a manual step in any form — no `Manual:` sub-item, no "ask the user
-  to…" instruction — and no task contains instructions for an AI.
+  to…" instruction — and no task or test contains instructions for an AI.
 - `after:` correctly expresses the plan's dependency order, including cross-repository
   dependencies and prompts that wait on a task.
 - The last two entries are the plan review, waiting on every leaf of that order, and the

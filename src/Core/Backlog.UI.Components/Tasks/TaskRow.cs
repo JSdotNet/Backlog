@@ -70,7 +70,7 @@ namespace Backlog.UI.Components.Tasks;
 /// showing — a checklist of sub-items has none at all — and a row that drew an
 /// empty badge would be claiming a state nobody set.
 /// </para></param>
-/// <param name="Kind">What kind of thing this is — a prompt, a task, an idea — as
+/// <param name="Kind">What kind of thing this is — a prompt, a task, an idea, a test — as
 /// the glyph that marks it and the word that names it. Already formatted, on the
 /// same bargain as <paramref name="Status"/>: the vocabulary is the host's, and so
 /// is the glyph, because this library ships no icon set and cannot know what a
@@ -326,7 +326,7 @@ public sealed record TaskDetail(TaskDetailKind Kind, string Text)
 /// </summary>
 /// <param name="Glyph">The mark. A text glyph, on the same terms as every other
 /// glyph on the metadata line: this library ships no icon font.</param>
-/// <param name="Name">The word — "prompt", "task", "idea" — already in the host's
+/// <param name="Name">The word — "prompt", "task", "idea", "test" — already in the host's
 /// own casing and language. Said in the tooltip and to a screen reader, never
 /// drawn beside the glyph.</param>
 public sealed record TaskKind(string Glyph, string Name);

@@ -3316,9 +3316,10 @@
 
     /// <summary>
     /// The mark a row wears for each type, with the word the panel's type badge
-    /// uses behind it. Three marks for three facts: a prompt is text you hand to
+    /// uses behind it. Four marks for four facts: a prompt is text you hand to
     /// an agent, so it takes the sparkle every AI surface has taught readers to
-    /// expect; a task is a thing on a list; an idea is the bulb. The word comes
+    /// expect; a task is a thing on a list; an idea is the bulb; a test is the
+    /// flask. The word comes
     /// from the same <see cref="Humanize"/> the badge's options do, so the tooltip
     /// on the row and the value in the panel are one spelling.
     /// </summary>
@@ -3327,6 +3328,7 @@
         {
             EntryType.Prompt => "✨",
             EntryType.Idea => "💡",
+            EntryType.Test => "🧪",
             _ => "📋"
         },
         Humanize(type.ToString()));

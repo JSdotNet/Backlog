@@ -30,7 +30,7 @@ Sigils (no colon; order sigils before named tokens):
 
 | Sigil | Kind | Values |
 |---|---|---|
-| *(none)* | type | `prompt`, `task`, `idea` |
+| *(none)* | type | `prompt`, `task`, `test`, `idea` |
 | `!` | status | `!draft`, `!ready`, `!in-progress`, `!done`, `!archived` — an entry stating none is imported at `ready`; write `!draft` to hold one back |
 | `*` | priority | `*low`, `*medium`, `*high`, `*critical` |
 | `@` | area | any slug, e.g. `@repos` |
@@ -55,7 +55,7 @@ back.
 
 ## Entry kinds
 
-Backlog accepts three types; a generated plan writes two of them, and the type says who
+Backlog accepts four types; a generated plan writes three of them, and the type says who
 does the work:
 
 - **`prompt`** — an AI session runs it. Opens with the [plan item marker](#plan-item-marker)
@@ -66,11 +66,18 @@ does the work:
   line, body saying what to do and what done looks like, `- [ ]` lines for the user's own
   steps. No marker, no session-name line, no `Setup:` or knowledge sub-item, and `repo:`
   only when the step is done in or to that repository.
+- **`test`** — the user checks by hand that work already landed behaves as agreed: an
+  acceptance or exploratory pass in the running app. Shaped exactly like a `task` — no
+  marker, no session-name line, no `Setup:` or knowledge sub-item — with a body naming what
+  to exercise and what a pass looks like, `- [ ]` lines for the checks, and `after:` on
+  every prompt whose work it checks. Automated tests are never a `test` entry: they belong
+  inside the prompt that writes the code.
 
-The two never mix. A manual step is never a sub-item, checklist line or instruction inside
-a `prompt`, and a `task` never carries instructions for an AI. Work that needs both is
-split: the manual step is its own `task`, and the prompts that need it done wait on it with
-`after:`. `idea` is a type Backlog holds, not one a plan emits.
+A `prompt` never mixes with the other two. A manual step or check is never a sub-item,
+checklist line or instruction inside a `prompt`, and a `task` or `test` never carries
+instructions for an AI. Work that needs both is split: the manual step is its own `task`
+(or `test`), and the prompts that need it done wait on it with `after:`. `idea` is a type
+Backlog holds, not one a plan emits.
 
 ## Worked example
 

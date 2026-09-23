@@ -66,12 +66,14 @@ public class TasksRowPickersTests
         var prompt = await host.WriteEntryAsync("# Write the ADR\n`prompt`\n");
         var task = await host.WriteEntryAsync("# Provision the box\n`task`\n");
         var idea = await host.WriteEntryAsync("# A kiosk mode\n`idea`\n");
+        var test = await host.WriteEntryAsync("# Try the export by hand\n`test`\n");
 
         var pane = host.Render();
 
         Assert.Equal(("✨", "Type: prompt"), Kind(pane, prompt));
         Assert.Equal(("📋", "Type: task"), Kind(pane, task));
         Assert.Equal(("💡", "Type: idea"), Kind(pane, idea));
+        Assert.Equal(("🧪", "Type: test"), Kind(pane, test));
     }
 
     [Fact]
