@@ -300,6 +300,15 @@ public static class MauiProgram
         // the listener it builds has a container of its own and forwards every
         // port into this one rather than composing a second ITaskItems.
         builder.Services.TryAddSingleton<McpServerWorker>();
+        // What the tools pane asks about that server: the switch, the port, the
+        // address they make, and whether the socket was taken. Beside the worker
+        // because it reads it — and through a Func, so that resolving the tool
+        // service is never what constructs the worker and binds the port. The
+        // line below is where that is meant to happen, after Build().
+        builder.Services.TryAddSingleton<IMcpEndpointSource>(sp => new DesktopMcpEndpointSource(
+            sp.GetRequiredService<IAppFeatureSettings>(),
+            sp.GetRequiredService<WorkspaceSettingsStore>(),
+            sp.GetRequiredService<McpServerWorker>));
         // Where the sync service is, asked per client rather than fixed here.
         // Under the AppHost it is "https+http://sync", which the service discovery
         // AddServiceDefaults wired up rewrites to this run's sync resource - ports
@@ -487,6 +496,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<IAppUpdateService, MsixAppUpdateService>();
         builder.Services.AddSingleton<IDevToolService>(sp => new DevToolService(
             sp.GetRequiredService<ITaskStore>(),
+            sp.GetRequiredService<IMcpEndpointSource>(),
             sp.GetService<ILogger<DevToolService>>()));
         // The tool catalog behind the shell's Ask AI port, beside the port it reads.
         builder.Services.AddToolsAiContentSource();

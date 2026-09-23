@@ -35,6 +35,13 @@ public sealed class LocalDevelopmentDevToolService : IDevToolService
     /// spelling the desktop head uses for it.</summary>
     private const string DisabledStatus = "Disabled in config";
 
+    /// <summary>What an HTTP row says here instead of a port and a token: which
+    /// host can answer for the endpoint, since this one cannot. The pane splits
+    /// it off the status behind a middle dot, the way it does every other note a
+    /// row carries.</summary>
+    private const string EndpointResolvedInTheApp =
+        "The Backlog MCP endpoint is resolved in the desktop app, so nothing here expands or registers this row";
+
     private readonly ITaskStore _store;
 
     /// <summary>What has been ticked this session, for the sample rows below.
@@ -318,6 +325,25 @@ public sealed class LocalDevelopmentDevToolService : IDevToolService
         });
     }
 
+    /// <summary>
+    /// Declared and never raised.
+    /// <para>
+    /// Nothing outside this adapter can change what a listing answers: it reads
+    /// two JSON files and starts no process, and there is no MCP endpoint source
+    /// here to hear from — see <see cref="McpServer"/> for why there deliberately
+    /// never will be.
+    /// </para>
+    /// <para>
+    /// Empty accessors rather than an auto-implemented event, which would be a
+    /// field nothing assigns and a warning this solution treats as an error.
+    /// </para>
+    /// </summary>
+    public event Action? Changed
+    {
+        add { }
+        remove { }
+    }
+
     private static string CacheKey(string key, string version) => $"{key}|{version}";
 
     /// <summary>The entry's <c>cachedVersions</c> — <c>{ "version", "installs" }</c>
@@ -546,14 +572,26 @@ public sealed class LocalDevelopmentDevToolService : IDevToolService
     /// here", where an empty string is a cell that looks like it broke; the desktop
     /// head answers the same shape the same way, and the two have to agree or the
     /// browser copy of this pane stops being worth looking at.</para>
+    ///
+    /// <para>And the third shape: a server reached over HTTP, which reports the
+    /// URL <em>exactly as the catalog spells it</em>. Nothing is expanded here and
+    /// nothing ever will be. This harness composes no <c>IMcpEndpointSource</c> —
+    /// it has no MCP settings, no listener and no port to answer with — and one
+    /// that resolved <c>${BACKLOG_MCP_TOKEN}</c> would have to mint a token, which
+    /// is to say write a credential to a machine from a development host. So the
+    /// placeholders stay on screen, which is also the honest thing for the row to
+    /// show: they are what is in the file.</para>
     /// </summary>
     private static DevToolInfo McpServer(JsonNode node, DevToolMcpServer server)
     {
         var enabled = server.Enabled;
         var hosts = server.Hosts;
+        var http = server.Mechanism is DevToolMcpMechanism.Http;
         var installedVersion = server.Installable
             ? VersionOr(node, "installedVersion", enabled ? "configured" : "disabled")
-            : server.CommandLine is { Length: > 0 } commandLine ? commandLine : DevToolOutput.NoVersion;
+            : server.CommandLine is { Length: > 0 } commandLine ? commandLine
+            : server.Url is { Length: > 0 } url ? url
+            : DevToolOutput.NoVersion;
         var availableVersion = server.Installable
             ? VersionOr(node, "availableVersion", "catalog")
             : DevToolOutput.NoVersion;
@@ -569,6 +607,7 @@ public sealed class LocalDevelopmentDevToolService : IDevToolService
                 {
                     DevToolMcpMechanism.DotNetTool => "The .NET tool, shared by both hosts",
                     DevToolMcpMechanism.Command => "Registered by the command it declares",
+                    DevToolMcpMechanism.Http => "Registered by the URL it declares",
                     _ => "Nothing here installs or registers this server"
                 })
         };
@@ -578,18 +617,22 @@ public sealed class LocalDevelopmentDevToolService : IDevToolService
         // process — but drawn, because the pane's per-host detail is one of the
         // shapes a browser session is here to look at.
         //
-        // Only for a .NET tool. For a command-registered server the command *is*
-        // the registration, so a second state repeating it would be the same fact
-        // twice — and its version columns would be the invented version the row
-        // above is careful not to have.
-        if (server.Installable && hosts.HasFlag(DevToolHosts.Claude) && node["claude"] is { } claude)
+        // For a .NET tool and for an HTTP server, and not for a command-registered
+        // one: there the command *is* the registration, so a second state
+        // repeating it would be the same fact twice — and its version columns
+        // would be the invented version the row above is careful not to have. An
+        // HTTP server's registration is a genuinely separate thing from the URL
+        // that reaches it, which is exactly what the guard used to hide.
+        if ((server.Installable || http) && hosts.HasFlag(DevToolHosts.Claude)
+            && DevToolConfiguration.McpRegistrationSection(node) is { } claude)
         {
             var claudeName = GetString(claude, "name") is { Length: > 0 } registered ? registered : server.Name;
+            var target = http ? GetString(claude, "url") : GetString(claude, "command");
             states.Add(new DevToolHostState(
                 DevToolHosts.Claude,
                 enabled,
-                GetString(claude, "command"),
-                GetString(claude, "command"),
+                target,
+                target,
                 $"Registered with Claude as '{claudeName}'"));
         }
 
@@ -598,9 +641,11 @@ public sealed class LocalDevelopmentDevToolService : IDevToolService
         // the shape the pane splits on and the shape the application rows below
         // already use for what an entry wanted said about itself.
         var status = enabled ? "Configured from local JSON" : DisabledStatus;
-        var note = server.MechanismRecognised
-            ? null
-            : $"\"{server.DeclaredMechanism}\" is not a mechanism this build knows, so nothing runs for this row";
+        var note = !server.MechanismRecognised
+            ? $"\"{server.DeclaredMechanism}\" is not a mechanism this build knows, so nothing runs for this row"
+            : http
+                ? EndpointResolvedInTheApp
+                : null;
 
         return new DevToolInfo(
             server.Key,

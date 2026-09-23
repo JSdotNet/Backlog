@@ -498,7 +498,11 @@ public sealed class McpServerWorker : IDisposable
 
                 IsListening = true;
                 LastError = null;
-                Address = new Uri($"http://{IPAddress.Loopback}:{port}{EndpointPath}");
+                // Built by the shared helper, not restated here: the tools pane
+                // writes a registration from the same helper, and a listener
+                // answering at one string while a row registers another would be
+                // drift this app caused itself.
+                Address = BacklogMcpServerRegistration.EndpointUri(port);
             }
 
             _log.LogInformation("The MCP server is listening on http://127.0.0.1:{Port}{Path}.", port, EndpointPath);

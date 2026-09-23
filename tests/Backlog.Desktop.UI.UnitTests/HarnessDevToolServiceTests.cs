@@ -280,6 +280,83 @@ public sealed class HarnessDevToolServiceTests
         Assert.False(row.CanUpdate);
     }
 
+    /// <summary>
+    /// The third mechanism the array holds, in the only copy of this pane a
+    /// driver can open.
+    ///
+    /// <para>The entry is addressable by its <c>name</c> and reachable at its
+    /// <c>url</c>, so it is a row — and it is a row with nothing to install,
+    /// because the thing at the other end of a URL is listening or it is
+    /// not.</para>
+    /// </summary>
+    [Fact]
+    public async Task An_http_server_becomes_one_row()
+    {
+        var tools = CreateService(HttpCatalog);
+
+        var row = await FindAsync(tools, "mcp:backlog");
+
+        Assert.Equal(DevToolKind.McpServer, row.Kind);
+        Assert.Equal("backlog", row.Name);
+        Assert.Equal(Endpoint, row.Source);
+        Assert.Equal(Endpoint, row.InstalledVersion);
+        Assert.Equal(DevToolOutput.NoVersion, row.AvailableVersion);
+
+        Assert.False(row.Installable);
+        Assert.False(row.CanInstall);
+        Assert.False(row.CanUpdate);
+
+        // Nothing here can repair a registration either: this harness has no
+        // endpoint to write one from, so the row reports and offers nothing.
+        Assert.False(row.CanReRegister);
+    }
+
+    /// <summary>
+    /// The per-host line, which the guard in front of it used to swallow.
+    ///
+    /// <para>It was drawn only for a .NET tool, on the reasoning that a
+    /// command-registered server's command <em>is</em> its registration. That
+    /// reasoning does not carry to a server reached over HTTP: the URL is where it
+    /// answers and the registration is a separate thing that can point somewhere
+    /// else entirely — which is the whole subject of this row.</para>
+    /// </summary>
+    [Fact]
+    public async Task An_http_server_draws_its_claude_registration()
+    {
+        var tools = CreateService(HttpCatalog);
+
+        var row = await FindAsync(tools, "mcp:backlog");
+
+        var claude = Assert.Single(row.HostStates, state => state.Status.Contains("Registered with Claude", StringComparison.Ordinal));
+        Assert.Equal("Registered with Claude as 'backlog'", claude.Status);
+        Assert.Equal(Endpoint, claude.InstalledVersion);
+    }
+
+    /// <summary>
+    /// The rule this harness is held to whatever else changes: it expands
+    /// nothing.
+    ///
+    /// <para>There is no <c>IMcpEndpointSource</c> here and there deliberately
+    /// never will be — no settings, no listener, no port, and an implementation
+    /// that resolved <c>${BACKLOG_MCP_TOKEN}</c> would have to mint one, which is
+    /// to say write a credential to a machine from a development host. So the
+    /// placeholders stay exactly as the file spells them, everywhere the row
+    /// carries them, and the row says which host can answer instead.</para>
+    /// </summary>
+    [Fact]
+    public async Task An_http_server_is_reported_unexpanded()
+    {
+        var tools = CreateService(HttpCatalog);
+
+        var row = await FindAsync(tools, "mcp:backlog");
+
+        Assert.Contains("${BACKLOG_MCP_PORT}", row.Source, StringComparison.Ordinal);
+        Assert.Contains("${BACKLOG_MCP_PORT}", row.InstalledVersion, StringComparison.Ordinal);
+        Assert.All(row.HostStates, state => Assert.DoesNotContain("Bearer", state.InstalledVersion, StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain("Bearer", row.Status, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("resolved in the desktop app", row.Status, StringComparison.Ordinal);
+    }
+
     /// <summary>AC8. A mechanism nobody here knows is read the way an unknown
     /// application <c>provider</c> is: the row is drawn, nothing runs for it, and
     /// the fact travels in the status rather than in a row that simply is not
@@ -430,6 +507,31 @@ public sealed class HarnessDevToolServiceTests
           "plugins": [],
           "mcpServers": [
             { "name": "aspire", "command": "aspire", "args": [ "agent", "mcp" ], "enabled": true }
+          ]
+        }
+        """;
+
+    /// <summary>The address this repository's own MCP server is reached at, with
+    /// the two placeholders it carries. Spelled once so the assertions and the
+    /// catalog below cannot drift apart.</summary>
+    private const string Endpoint = "http://127.0.0.1:${BACKLOG_MCP_PORT}/mcp";
+
+    /// <summary>An MCP server that is reached over HTTP rather than installed or
+    /// started — carrying, on purpose, an Authorization header with a token
+    /// placeholder in it. A catalog without one would prove nothing about the
+    /// harness not expanding it.</summary>
+    private const string HttpCatalog = $$"""
+        {
+          "plugins": [],
+          "mcpServers": [
+            {
+              "name": "backlog",
+              "type": "http",
+              "url": "{{Endpoint}}",
+              "headers": { "Authorization": "Bearer ${BACKLOG_MCP_TOKEN}" },
+              "hosts": [ "claude" ],
+              "enabled": true
+            }
           ]
         }
         """;

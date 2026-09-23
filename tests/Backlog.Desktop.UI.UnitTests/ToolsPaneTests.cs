@@ -25,6 +25,167 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 public sealed class ToolsPaneTests
 {
+    /// <summary>
+    /// The affordance this wave exists for. A registration that points at last
+    /// week's port is the one defect the pane could see and could not repair: the
+    /// row said "pointing elsewhere" in its status and then offered a note.
+    /// </summary>
+    [Fact]
+    public void A_drifted_registration_offers_re_registering()
+    {
+        using var context = Context(FakeDevToolService.With(EndpointServer(drifted: true)));
+
+        var button = context.Render<ToolsPane>().Find("[data-testid='tools-row-reregister']");
+
+        Assert.Equal("Re-register", button.TextContent.Trim());
+    }
+
+    /// <summary>The other direction, which is the half that makes the first one
+    /// mean anything: a button that is always there is not a finding, and a row
+    /// whose registration is correct has nothing to press.</summary>
+    [Fact]
+    public void A_matching_registration_offers_no_re_registration()
+    {
+        using var context = Context(FakeDevToolService.With(EndpointServer(drifted: false)));
+
+        var pane = context.Render<ToolsPane>();
+
+        Assert.Empty(pane.FindAll("[data-testid='tools-row-reregister']"));
+        Assert.NotEmpty(pane.FindAll(".tools-inventory__action-note"));
+    }
+
+    /// <summary>
+    /// Re-register is a label, not a fourth verb.
+    ///
+    /// <para>The port has one word for "make this machine match the config", and
+    /// behind it the host already removes and re-adds a registration whose target
+    /// differs. A new <c>DevToolAction</c> member would have been a second path to
+    /// the same call with its own chance to diverge — so what is pinned is that
+    /// pressing this names the row through <c>UpdateAsync</c>.</para>
+    /// </summary>
+    [Fact]
+    public void Re_registering_goes_through_the_update_verb()
+    {
+        var tools = FakeDevToolService.With(EndpointServer(drifted: true));
+        using var context = Context(tools);
+        var pane = context.Render<ToolsPane>();
+
+        pane.Find("[data-testid='tools-row-reregister']").Click();
+
+        pane.WaitForAssertion(() => Assert.Equal(["mcp:backlog"], tools.Updated));
+    }
+
+    /// <summary>
+    /// The port said something outside this pane changed what a listing would
+    /// answer, so the listing is taken again.
+    ///
+    /// <para>Raised from a thread pool thread on purpose: that is where the
+    /// desktop source raises it from — a bind or a release finishing — and a
+    /// handler that did not marshal would be touching the renderer off its own
+    /// thread.</para>
+    /// </summary>
+    [Fact]
+    public async Task A_change_raised_by_the_port_re_lists()
+    {
+        var tools = FakeDevToolService.With(EndpointServer(drifted: false));
+        using var context = Context(tools);
+        var pane = context.Render<ToolsPane>();
+
+        pane.WaitForAssertion(() => Assert.Equal(1, tools.Reads));
+
+        await Task.Run(tools.RaiseChanged, TestContext.Current.CancellationToken);
+
+        pane.WaitForAssertion(() => Assert.Equal(2, tools.Reads));
+    }
+
+    /// <summary>
+    /// The other half of subscribing, and the reason the pane grew an
+    /// <c>IDisposable</c>.
+    ///
+    /// <para>The service is a singleton and the pane is not: the shell renders it
+    /// only while its surface is open. A pane that stayed on the service's event
+    /// would be kept alive by it and would go on listing — walking the machine —
+    /// into a renderer that has gone.</para>
+    ///
+    /// <para>Read off the port's own subscriber list rather than off a count that
+    /// has not moved yet, because "Reads is still 1" is briefly true even when
+    /// <c>Dispose</c> does nothing at all: the handler marshals onto the renderer
+    /// before it re-lists, so the raise returns long before the read it started
+    /// would land. The subscription being gone is the property, and it is
+    /// answerable the moment the pane is disposed. The raise underneath it is
+    /// kept as the end-to-end half, with the renderer given its turn first so
+    /// that a handler which had somehow survived has already finished by the time
+    /// the count is read.</para>
+    /// </summary>
+    [Fact]
+    public async Task Disposing_the_pane_stops_listening()
+    {
+        var tools = FakeDevToolService.With(EndpointServer(drifted: false));
+        using var context = Context(tools);
+        var pane = context.Render<ToolsPane>();
+
+        pane.WaitForAssertion(() => Assert.Equal(1, tools.Reads));
+
+        // First, so that its absence below is something that was removed rather
+        // than something that never happened.
+        Assert.True(tools.Listening);
+
+        await context.DisposeComponentsAsync();
+
+        Assert.False(tools.Listening);
+
+        await Task.Run(tools.RaiseChanged, TestContext.Current.CancellationToken);
+        await context.Renderer.Dispatcher.InvokeAsync(() => { });
+
+        Assert.Equal(1, tools.Reads);
+    }
+
+    /// <summary>
+    /// A machine that has the MCP server switched off still draws the row, and
+    /// still offers nothing.
+    ///
+    /// <para>Drawn rather than hidden, because a registration made while it was on
+    /// is on the machine either way and still names the port. And offering
+    /// nothing, because registering calls <c>EnsureToken</c> — minting a secret
+    /// for a server nobody switched on is the one thing this button must not
+    /// do.</para>
+    /// </summary>
+    [Fact]
+    public void The_feature_being_off_says_so_and_offers_nothing()
+    {
+        const string note = "The MCP server is switched off, so nothing answers at the registered address.";
+        using var context = Context(FakeDevToolService.With(EndpointServer(drifted: false, note)));
+
+        var pane = context.Render<ToolsPane>();
+
+        Assert.Equal(note, pane.Find("[data-testid='tools-row-note']").TextContent.Trim());
+        Assert.Equal("Registered by the URL it declares", pane.Find(".tools-inventory__meta").TextContent.Split(" · ")[^1]);
+        Assert.Empty(pane.FindAll("[data-testid='tools-row-reregister']"));
+    }
+
+    /// <summary>
+    /// A port somebody else is holding is a fact about the listener, not about
+    /// the registration.
+    ///
+    /// <para>The server does not move to another port when it cannot bind — local
+    /// ADR 0012 is explicit that every registration names the port — so the
+    /// collision is carried as a note and the registration is still judged on its
+    /// own merits. The row that is both colliding and pointing elsewhere says both
+    /// and still offers the repair.</para>
+    /// </summary>
+    [Fact]
+    public void A_port_collision_is_a_note_rather_than_a_drift()
+    {
+        const string note = "Port 5757 is already in use, so the MCP server could not start. "
+            + "Close whatever is using it, or choose another port — and change it in every registration too.";
+        using var context = Context(FakeDevToolService.With(EndpointServer(drifted: true, note)));
+
+        var pane = context.Render<ToolsPane>();
+
+        Assert.Equal(note, pane.Find("[data-testid='tools-row-note']").TextContent.Trim());
+        Assert.NotEmpty(pane.FindAll("[data-testid='tools-row-reregister']"));
+    }
+
     [Fact]
     public void No_catalog_offers_creating_one_and_names_where_it_goes()
     {
@@ -1538,6 +1699,52 @@ public sealed class ToolsPaneTests
     private static DevToolInfo CachedPlugin(params DevToolCachedVersion[] cached) =>
         Tool("plugin:devbook", "devbook") with { CachedVersions = cached };
 
+    /// <summary>
+    /// The shape a server reached over HTTP arrives in: nothing to install,
+    /// nothing published to be behind, and one Claude registration that is either
+    /// pointing where the catalog says or is not.
+    ///
+    /// <para>Built by hand rather than through the desktop head, which is not a
+    /// preference: that head is a MAUI window no test project can reference. What
+    /// is pinned here is the pane's half of the contract — given a host state that
+    /// says it drifted, this is what the row offers.</para>
+    /// </summary>
+    private static DevToolInfo EndpointServer(bool drifted, string? note = null, bool enabled = true)
+    {
+        const string configured = "http://127.0.0.1:5757/mcp";
+        var registered = drifted ? "http://127.0.0.1:5656/mcp" : configured;
+        const string status = "Registered by the URL it declares";
+
+        return new DevToolInfo(
+            "mcp:backlog",
+            DevToolKind.McpServer,
+            "backlog",
+            configured,
+            ConfiguredEnabled: enabled,
+            Installed: true,
+            configured,
+            DevToolOutput.NoVersion,
+            note is null ? status : $"{status} · {note}")
+        {
+            Installable = false,
+            Hosts = DevToolHosts.Claude,
+            HostStates =
+            [
+                new DevToolHostState(
+                    DevToolHosts.Claude,
+                    Installed: true,
+                    registered,
+                    configured,
+                    drifted
+                        ? "Registered with Claude as 'backlog', pointing elsewhere"
+                        : "Registered with Claude as 'backlog'")
+                {
+                    RegistrationDrifted = drifted
+                }
+            ]
+        };
+    }
+
     private static BunitContext Context(IDevToolService service)
     {
         var context = new BunitContext();
@@ -1734,7 +1941,35 @@ public sealed class ToolsPaneTests
             };
         }
 
-        public Task<DevToolActionResult> UpdateAsync(string key, CancellationToken ct = default) => Answer();
+        /// <summary>Every key the pane asked to update, in order. The key matters
+        /// as much as the count: Re-register and Update are deliberately one verb
+        /// on this port, so the only evidence that the new button is wired to the
+        /// right row is which row it named.</summary>
+        public List<string> Updated { get; } = [];
+
+        public Task<DevToolActionResult> UpdateAsync(string key, CancellationToken ct = default)
+        {
+            Updated.Add(key);
+            return Answer();
+        }
+
+        /// <summary>What a real port raises when this machine's MCP server moved
+        /// under the pane — the port, the listener, the feature switch.</summary>
+        public event Action? Changed;
+
+        /// <summary>Raises it. From a test's own <c>Task.Run</c> where the point
+        /// is that the pane marshals: the desktop source raises this on whatever
+        /// thread a bind or a release finished on.</summary>
+        public void RaiseChanged() => Changed?.Invoke();
+
+        /// <summary>Whether anything is on that event at all.
+        ///
+        /// <para>The only answer about unsubscribing that is true the instant it
+        /// is asked. Everything downstream of a raise — the marshal, the re-list,
+        /// the count — lands later, so a test that watches the count cannot tell
+        /// "nobody is listening" from "nobody has got there yet", and passes
+        /// against a <c>Dispose</c> that does nothing.</para></summary>
+        public bool Listening => Changed is not null;
 
         public Task<DevToolActionResult> UpdateAllAsync(CancellationToken ct = default) => Answer();
 

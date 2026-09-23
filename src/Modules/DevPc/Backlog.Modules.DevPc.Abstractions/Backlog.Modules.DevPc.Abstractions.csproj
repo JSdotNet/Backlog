@@ -58,6 +58,18 @@
          person sees as "installed", so they are worth testing directly rather
          than only through whichever host happens to call them. -->
     <InternalsVisibleTo Include="Backlog.Desktop.UI.UnitTests" />
+
+    <!-- And the MAUI head, for McpPlaceholders alone.
+
+         The two resolvers on it are the whole point of it being internal: the
+         difference between "may this call site mint a token" and "may it not" is
+         which of the two a caller passed, and that decision is not one a public
+         surface should invite a fourth caller to make. The desktop head is the
+         one host that can answer a Backlog endpoint at all — the harness composes
+         no IMcpEndpointSource and never will — so naming it here keeps the
+         vocabulary closed to the one assembly that has to expand anything, rather
+         than opening it to everything that references this project. -->
+    <InternalsVisibleTo Include="Backlog.Desktop" />
   </ItemGroup>
 
 </Project>
