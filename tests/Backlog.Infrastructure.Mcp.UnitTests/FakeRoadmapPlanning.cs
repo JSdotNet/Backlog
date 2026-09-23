@@ -87,6 +87,12 @@ internal sealed class FakeRoadmapPlanning(RoadmapPlanDto plan) : IRoadmapPlannin
     public Task<Result> RemoveDependencyAsync(Guid nodeId, Guid dependsOnId, CancellationToken cancellationToken = default) =>
         throw Written(nameof(RemoveDependencyAsync));
 
+    public Task<Result<PlanImportResultDto>> ImportPlanItemsAsync(
+        IReadOnlyList<PlanImportEntryDto> entries,
+        IReadOnlyList<PlanTagEffortDto>? gatheredEffort = null,
+        CancellationToken cancellationToken = default) =>
+        throw Written(nameof(ImportPlanItemsAsync));
+
     private static InvalidOperationException Written(string member) =>
         new($"A read-only MCP tool called IRoadmapPlanning.{member}.");
 }

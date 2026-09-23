@@ -45,6 +45,10 @@ public static class RoadmapCrossContextAdapterRegistration
                 sp.GetRequiredService<ITaskItems>(),
                 () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
 
+        // The shelf of plans not yet on the roadmap reads the backlog the same way,
+        // so it is scoped for the same reason: ITaskItems is.
+        services.AddScoped<IImportedPlanSource, ImportedPlanSource>();
+
         // Singleton, unlike the two above, and deliberately: this one captures no
         // scoped service — only the settings store, which is a singleton in both
         // hosts — so there is no captive dependency to avoid, and the reader's pace

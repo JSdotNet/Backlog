@@ -474,6 +474,17 @@ Only a tag written as a plan tag reaches the shelf. A plan filed under a general
 tag before the plan sigil existed still gathers under an item whose tag matches
 it, but the item is the person's to create.
 
+The shelf sits under the timeline, or under the empty state when nothing is
+planned yet — the tasks-first order is exactly the one that starts with no
+roadmap. Each row names the plan tag and says how many tasks carry it, the
+points they registered, how many registered none, and the repositories they are
+filed against. Picking a row is one gesture, **Plan it**, and it runs the same
+import a roadmap document runs, with the effort those tasks registered: the item
+is titled from its tag, filed under those repositories, and placed from that
+effort, as an imported item is. The row then leaves the shelf, because an item
+now carries its tag, and what was planned is announced. A shelf with nothing to
+offer is not drawn at all.
+
 ## Sequencing work into tracks
 
 ```meta

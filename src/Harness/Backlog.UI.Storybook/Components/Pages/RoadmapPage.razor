@@ -3,7 +3,7 @@
 <PageTitle>Roadmap — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Roadmap"
-           Summary="`RoadmapTimeline` and `RoadmapTimelineBar`: a plan drawn against time. Quarters across the top, a two-level column of swimlanes down the left, and bars, milestones and dependency arrows placed by their dates. The component is handed the structure, draws it in the order it was handed, and reports what the reader did to it — it does not know what a group or a row means. What a bar, a milestone and an arrow mean to a reader is the rule linked above."
+           Summary="`RoadmapTimeline` and `RoadmapTimelineBar`: a plan drawn against time. Quarters across the top, a two-level column of swimlanes down the left, and bars, milestones and dependency arrows placed by their dates. The component is handed the structure, draws it in the order it was handed, and reports what the reader did to it — it does not know what a group or a row means. What a bar, a milestone and an arrow mean to a reader is the rule linked above. `RoadmapPlanShelf`, at the end, lists work that has no place on the chart yet."
            Guidelines="@Rules">
 
     <Story Name="A plan across a year"
@@ -157,6 +157,21 @@ A step is a proportion, not a date: a step drawn across March is not scheduled f
                          TestId="empty" />
     </Story>
 
+    <Story Name="Plans waiting for a place"
+           Description="`RoadmapPlanShelf` lists work that exists and has no place on the timeline yet — in the app, plans whose tasks were imported before anyone put them on the roadmap. Each row says how much work it holds and how big it is, with the unestimated tasks counted apart rather than folded into the total, and carries one action. The shelf reports which row was pressed and plans nothing itself; press one here and it leaves the list, the way a planned row does in the app.
+
+Every action is a real button named for its plan, and the shelf is a region named by its heading. When a row goes, focus moves to that heading, one Tab from the next row. With nothing left to offer the shelf renders nothing, so what was planned has to be announced by the host, from outside it."
+           Code="@ShelfCode">
+        <RoadmapPlanShelf Plans="@_shelf"
+                          OnPlan="PlanFromShelf"
+                          HeadingId="shelf-story-title"
+                          TestId="shelf" />
+        <div class="sb-row">
+            <AppButton Variant="ButtonVariant.Ghost" OnClick="ResetShelf">Put them back</AppButton>
+        </div>
+        <p class="sb-state" data-testid="shelf-last-planned">Last planned: @(_lastPlanned ?? "(none)")</p>
+    </Story>
+
 </StoryPage>
 
 @code {
@@ -175,6 +190,27 @@ A step is a proportion, not a date: a step drawn across March is not scheduled f
     private static DateOnly On(int month, int day) => new(2026, month, day);
 
     private string? _selectedId;
+
+    private static readonly RoadmapShelfPlan[] ShelfPlans =
+    [
+        new("release-q4", ["backlog", "web"], 6, 21, 2),
+        new("unplanned-plans-shelf", ["backlog"], 1, 3, 0)
+    ];
+
+    private IReadOnlyList<RoadmapShelfPlan> _shelf = ShelfPlans;
+    private string? _lastPlanned;
+
+    private void PlanFromShelf(RoadmapShelfPlan plan)
+    {
+        _lastPlanned = "+" + plan.Tag;
+        _shelf = [.. _shelf.Where(row => row.Tag != plan.Tag)];
+    }
+
+    private void ResetShelf()
+    {
+        _shelf = ShelfPlans;
+        _lastPlanned = null;
+    }
     private string? _lastChange;
 
     private void Select(string id) => _selectedId = id;
@@ -477,6 +513,13 @@ A step is a proportion, not a date: a step drawn across March is not scheduled f
                 new("timeline", "Draw steps", 5, RoadmapStepTone.InProgress, "In progress", "After Lay the plan out"),
                 new("docs", "Update the devbook", null, RoadmapStepTone.Ready, "Ready"),   // unestimated
             ]);
+        """;
+
+    private const string ShelfCode = """
+        <RoadmapPlanShelf Plans="@plans" OnPlan="Plan" Busy="@planning" />
+
+        new RoadmapShelfPlan("release-q4", ["backlog", "web"], TaskCount: 6, TotalEffort: 21, UnestimatedCount: 2),
+        new RoadmapShelfPlan("unplanned-plans-shelf", ["backlog"], TaskCount: 1, TotalEffort: 3, UnestimatedCount: 0),
         """;
 
     private const string EmptyCode = """

@@ -78,9 +78,20 @@ internal static class TasksTestHost
         new ServiceCollection()
             .AddSingleton<IRoadmapPlanRepository>(
                 new RootedSqliteRoadmapPlanRepository(() => store.RootDirectory))
+            // Import places a window by the reader's pace, which a host answers through
+            // the cross-context adapters; a point a day is the pace of nobody having
+            // chosen one.
+            .AddSingleton<IPlanningVelocity>(new OnePointADay())
             .AddRoadmapModule()
             .BuildServiceProvider()
             .GetRequiredService<IRoadmapPlanning>();
+
+    /// <summary>
+    /// The imported plans the roadmap shelf offers, read by the real adapter from the
+    /// backlog under the same storage root, with no repositories configured.
+    /// </summary>
+    public static IImportedPlanSource ImportedPlansFor(WorkspaceSettingsStore store) =>
+        new Backlog.Infrastructure.FileSystem.Roadmap.ImportedPlanSource(EntriesFor(store), new NoRepositoryDirectory());
 
     public static TasksDesktopState StateFor(
         WorkspaceSettingsStore store,
@@ -126,6 +137,11 @@ internal static class TasksTestHost
     /// state every test here wants: none of them is about repository resolution,
     /// and a name that resolves to nothing is stored exactly as it was typed.
     /// </summary>
+    private sealed class OnePointADay : IPlanningVelocity
+    {
+        public decimal StoryPointsPerDay => 1;
+    }
+
     private sealed class NoRepositoryDirectory : IRepositoryDirectory
     {
         public IReadOnlyList<TasksRepositoryRef> Repositories => [];

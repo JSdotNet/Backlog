@@ -4413,6 +4413,20 @@ h1, h2, h3 {
     font-size: var(--font-size-sm);
 }
 
+/* The shelf of imported plans with no item, under the chart. It keeps its own
+   height rather than sharing the chart's: the content row above takes whatever is
+   left, so a shelf that wraps to a second line shortens the chart by that line and
+   never pushes itself out of the band's clipped box. */
+.roadmap-band__shelf,
+.roadmap-band__shelf-news {
+    flex: none;
+}
+
+.roadmap-band__shelf-news {
+    margin: 0;
+    font-size: var(--font-size-sm);
+}
+
 /* The planning dialog.
 
    A dialog rather than a form inside the band, because the band spends all three

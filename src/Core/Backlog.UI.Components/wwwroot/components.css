@@ -11751,6 +11751,58 @@ select.field__input {
     font-weight: 700;
 }
 
+/* --- Roadmap plan shelf ---------------------------------------------------
+   Plans with work and no place on the timeline. One strip of rows that wrap, so
+   it costs a line or two of height rather than a panel beside a chart that is
+   already short of it. */
+.roadmap-shelf {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs) var(--spacing-md);
+    min-width: 0;
+    font-size: var(--font-size-sm);
+}
+
+.roadmap-shelf__title {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.roadmap-shelf__title:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.roadmap-shelf__list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs) var(--spacing-md);
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.roadmap-shelf__row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.roadmap-shelf__summary {
+    min-width: 0;
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+}
+
 /* While a drag is in flight the pointer belongs to the bar, not to the text
    under it — without this the browser starts selecting labels halfway through. */
 .roadmap-timeline--dragging {
