@@ -821,6 +821,60 @@ public sealed class ImportPlanTests
         Assert.All(result.Entries, entry => Assert.Equal(["newcomer/newcomer"], entry.RepoIds!));
     }
 
+    /// <summary>
+    /// A document may hold both kinds (ADR 0013 ruling 3). The task entries come
+    /// in as they always have; the <c>plan</c> entry is not one of them and does
+    /// not become a task — the one outcome ruling 2 rules out, and the one this
+    /// path could still have produced, since Import is the only caller the entry
+    /// editor's refusal does not stand in front of.
+    /// <para>
+    /// Carrying it across to Roadmap is the intake port's job and is not built
+    /// yet, so today it stops here. That is a roadmap item the person does not
+    /// get; letting it through would be a task typed from a word the task model
+    /// cannot hold, which the next canonical rewrite would strip in silence.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_plan_entry_in_the_document_does_not_become_a_task()
+    {
+        var store = new InMemoryTaskRepository();
+
+        const string plan =
+            "# Imported plans on the roadmap\n`plan` `+myplan` `id:the-item` `due:2026-10-31`\n\n"
+            + "What the plan is about.\n\n"
+            + "# First prompt\n`prompt` `+myplan` `id:first`\n\n"
+            + "# Second prompt\n`prompt` `+myplan` `id:second` `after:first`\n";
+
+        var result = await Import(store, plan);
+
+        Assert.Equal(2, result.Created);
+        Assert.Equal(["First prompt", "Second prompt"], Live(store).Select(entry => entry.Title).Order());
+        Assert.DoesNotContain(Live(store), entry => entry.Title == "Imported plans on the roadmap");
+    }
+
+    /// <summary>The dependency between the two task entries still resolves with a
+    /// plan entry sitting between them in the document: the <c>plan</c> entry is
+    /// dropped before the id pass, so it takes no part in the task-level
+    /// resolution and leaves nothing dangling behind it.</summary>
+    [Fact]
+    public async Task Dropping_a_plan_entry_leaves_the_task_entries_ids_intact()
+    {
+        var store = new InMemoryTaskRepository();
+
+        const string plan =
+            "# First prompt\n`prompt` `+myplan` `id:first`\n\n"
+            + "# Imported plans on the roadmap\n`plan` `+myplan` `id:the-item`\n\n"
+            + "# Second prompt\n`prompt` `+myplan` `id:second` `after:first`\n";
+
+        var result = await Import(store, plan);
+
+        Assert.Equal(2, result.Created);
+
+        var first = Assert.Single(Live(store), entry => entry.Title == "First prompt");
+        var second = Assert.Single(Live(store), entry => entry.Title == "Second prompt");
+        Assert.Equal([first.Id.ToString()], second.DependsOn!);
+    }
+
     private static async Task<ImportPlanResultDto> Import(
         ITaskRepository store,
         string rawText,

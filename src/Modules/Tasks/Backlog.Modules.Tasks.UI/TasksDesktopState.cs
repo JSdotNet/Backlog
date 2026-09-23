@@ -78,6 +78,8 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// <see cref="AnnounceRowFailure"/>.</summary>
     private const string GitHubFailureTestId = "github-error";
 
+    private const string PlanRefusedTestId = "plan-entry-refused";
+
     private const string CopilotFailureTestId = "copilot-cli-error";
 
     private readonly ITaskStore _store;
@@ -2543,6 +2545,30 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
         if (saved.IsFailure)
         {
+            // A plan entry is the one refusal here that a person has to be told
+            // about. The two below are states somebody is passing through; this
+            // is the module saying no to text that is finished and on screen
+            // (ADR 0013 ruling 2), and nothing about the row would show it — the
+            // text stays put and a band reading "Saved" would be asserting
+            // something untrue about work the reader can see.
+            //
+            // Announced on the way into the refusal rather than on every save:
+            // this runs on a debounce while somebody is still typing, and a
+            // commit can arrive twice for one gesture, so publishing per call
+            // would be a toast per keystroke.
+            if (saved.Error.Code == TaskEntryErrorCodes.PlanBelongsToImport)
+            {
+                SetSaveState(AppSaveState.Error);
+
+                if (!row.PlanRefused)
+                {
+                    row.PlanRefused = true;
+                    AnnounceRowFailure(row, saved.Error.Message, PlanRefusedTestId);
+                }
+
+                return saved;
+            }
+
             // Nothing has gone wrong *for a typist*: an entry still being typed
             // has no title yet, and one deleted from under us has nowhere to go.
             // Neither is worth alarming anybody about, so the indicator stays
@@ -2552,6 +2578,9 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
             SetSaveState(AppSaveState.Saved);
             return saved;
         }
+
+        // Out of the refusal, so the next one is announced again.
+        row.PlanRefused = false;
 
         var entry = saved.Value.Entry;
         _entries[entry.Id] = entry;
@@ -3161,6 +3190,11 @@ public sealed class EntryRow
     public string TaskId => (Id ?? Key).ToString();
 
     public string RawText { get; set; } = string.Empty;
+
+    /// <summary>Whether the last save of this row was refused for being a
+    /// <c>plan</c> entry. Held so the toast is raised on the way into that state
+    /// and not once per keystroke while the text sits there unchanged.</summary>
+    public bool PlanRefused { get; set; }
 
     public EntryType Type { get; set; } = EntryType.Task;
 

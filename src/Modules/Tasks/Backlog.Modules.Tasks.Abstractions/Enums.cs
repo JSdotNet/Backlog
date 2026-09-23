@@ -8,6 +8,31 @@ public enum EntryType
     Idea
 }
 
+/// <summary>
+/// Which half of the entry-text grammar a parsed segment belongs to.
+/// <para>
+/// The bare type word says what an entry <em>is</em>, and three of the four
+/// words it may be — <c>prompt</c>, <c>task</c>, <c>idea</c> — classify a task
+/// and live in <see cref="EntryType"/>. All three are <see cref="Task"/> here:
+/// the kind is not a fourth type, it is which thing the segment describes. The
+/// fourth word, <c>plan</c>, describes a roadmap item, which is not a task and
+/// has no row in <see cref="EntryType"/> — so the kind is read off the same
+/// token and kept beside the type rather than inside it, and a <c>plan</c>
+/// segment carries no <see cref="EntryType"/> at all.
+/// </para>
+/// <para>
+/// Import is the one way a <c>plan</c> segment may be acted on; every other
+/// path that turns entry text into a task refuses it. See
+/// <c>.arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md</c>
+/// and <c>.design/content-editing.md#structured-metadata-sigils</c>.
+/// </para>
+/// </summary>
+public enum EntryKind
+{
+    Task,
+    Plan
+}
+
 /// <summary>Lifecycle state of a backlog entry.</summary>
 public enum EntryStatus
 {
