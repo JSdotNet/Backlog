@@ -538,16 +538,24 @@
     /// <summary>The chapter's path as the rest of the product spells one:
     /// repository-relative, with the area folder on the front.
     ///
-    /// <para>The catalog reads the folder and names what it finds relative to it —
-    /// <c>08-concepts.md</c>, <c>adr/0001-….md</c> — which is the right spelling for
-    /// a menu selection and the wrong one for resolving a link against. A sibling
-    /// link in a chapter has to land in the arc42 folder, and against an
-    /// area-relative base it would land in the repository root instead: every link
-    /// in every chapter, one folder too high. So the prefix goes on here, at the
-    /// one place that knows which folder the catalog was read from, rather than
-    /// being guessed at inside the resolver.</para></summary>
+    /// <para>Which is what the catalog already spells, so there is nothing to add
+    /// here. It names its documents relative to the repository the folder was found
+    /// in, not relative to the folder — <c>.arc42/08-concepts.md</c>,
+    /// <c>.arc42/adr/0001-….md</c> — and <see cref="Arc42DevbookCatalog.IsDecisionRecord"/>
+    /// reading the <c>.arc42/adr/</c> prefix off the same string is the standing
+    /// proof of it.</para>
+    ///
+    /// <para>This used to prepend the folder again, on a comment claiming the
+    /// catalog spelled its paths folder-relative. It does not, so the base came out
+    /// as <c>.arc42/.arc42/adr/0001-….md</c> and a sibling link inside a chapter
+    /// resolved a folder deeper than anything on disk. Selection survived it
+    /// because <c>PathMatches</c> matches on a suffix and a doubled prefix still
+    /// ends the right way; link resolution walks the base segment by segment and
+    /// had no such tolerance. Naming the folder here at all was the mistake — it is
+    /// also why a folder pointed somewhere other than <c>.arc42</c> got a base
+    /// naming two different folders at once.</para></summary>
     private static string DocumentPath(DevbookDocument document) =>
-        ".arc42/" + document.Path.Replace('\\', '/').TrimStart('/');
+        document.Path.Replace('\\', '/').TrimStart('/');
 
     /// <summary>What kind of file the header calls this. arc42 keeps no per-file
     /// kind label the way Domain does, so the one distinction it does draw is the

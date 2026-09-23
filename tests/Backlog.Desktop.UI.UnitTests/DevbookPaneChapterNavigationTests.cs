@@ -150,6 +150,68 @@ public sealed class DevbookPaneChapterNavigationTests : IDisposable
         Assert.Empty(body.QuerySelectorAll("a.md-link"));
     }
 
+    [Fact]
+    public async Task A_decision_record_under_the_adr_folder_is_a_chapter_the_pane_opens()
+    {
+        // The shape of the report: the row went active and the prose did not
+        // change. arc42 keeps its decision records a folder down, and a selection
+        // the panel's catalog cannot match leaves the chapter already on screen —
+        // so the reader sees the chapter they came from under the name of the one
+        // they asked for. Nothing has indexed this folder, which is what made the
+        // catalog and the menu disagree about what it holds.
+        await using var harness = CreateHarness(withDecisionRecords: true);
+
+        var component = harness.Render();
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file']")));
+
+        Reference(component, ".arc42/03-context-and-scope.md").Click();
+        WaitForChapter(component, ".arc42/03-context-and-scope.md", "The system in its surroundings");
+
+        Reference(component, ".arc42/adr/0004-index.md").Click();
+
+        WaitForChapter(component, ".arc42/adr/0004-index.md", "The index is generated");
+    }
+
+    [Fact]
+    public async Task A_sibling_reference_inside_a_decision_record_lands_beside_it()
+    {
+        // A relative link resolves against the chapter holding it, so the base the
+        // panel hands the resolver has to be the chapter's own path and no other.
+        // Written as `0005-replica.md` from inside `adr/`, the only chapter it can
+        // mean is the one next to it — and a base with the area folder counted
+        // twice would send it a level deeper than anything on disk, which is a
+        // reference that reads correctly and goes nowhere.
+        await using var harness = CreateHarness(withDecisionRecords: true);
+
+        var component = harness.Render();
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file']")));
+
+        Reference(component, ".arc42/03-context-and-scope.md").Click();
+        WaitForChapter(component, ".arc42/03-context-and-scope.md", "The system in its surroundings");
+
+        Reference(component, ".arc42/adr/0004-index.md").Click();
+        WaitForChapter(component, ".arc42/adr/0004-index.md", "The index is generated");
+
+        // The resolved destination is on the control itself, so a base that named
+        // the folder twice fails here — on the reference — rather than later on
+        // what the pane did with it.
+        Reference(component, ".arc42/adr/0005-replica.md").Click();
+
+        WaitForChapter(component, ".arc42/adr/0005-replica.md", "A replica of the store.");
+    }
+
+    /// <summary>The chapter the arc42 panel is showing, waited for as one thing.
+    /// The file view's path is set from the selection and its body is read off disk
+    /// after it, so a check on the path alone passes while the prose underneath is
+    /// still the chapter the reader came from — which is the very confusion these
+    /// tests are about.</summary>
+    private static void WaitForChapter(IRenderedComponent<DevbookPane> component, string path, string prose) =>
+        component.WaitForAssertion(() =>
+        {
+            Assert.Equal(path, component.Find("[data-testid='arc42-chapter-file'] .file-view__path").TextContent);
+            Assert.Contains(prose, component.Find("[data-testid='arc42-chapter-file'] .file-view__body").TextContent, StringComparison.Ordinal);
+        });
+
     /// <summary>The reference as the reader sees it: a control in the prose, found
     /// by the path it carries rather than by its position, because the same chapter
     /// holds several.</summary>
@@ -157,7 +219,7 @@ public sealed class DevbookPaneChapterNavigationTests : IDisposable
         component.FindAll("button.devbook-ref--action")
             .Single(button => string.Equals(button.GetAttribute("title"), raw, StringComparison.Ordinal));
 
-    private Harness CreateHarness(string? contextMap = null)
+    private Harness CreateHarness(string? contextMap = null, bool withDecisionRecords = false)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-devbook-pane-navigation", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(Path.Combine(root, ".domain", "tasks"));
@@ -166,7 +228,18 @@ public sealed class DevbookPaneChapterNavigationTests : IDisposable
 
         File.WriteAllText(Path.Combine(root, ".domain", "context-map.md"), contextMap ?? ContextMap);
         File.WriteAllText(Path.Combine(root, ".domain", "tasks", "domain.md"), "# Domain\n\n```meta\nstatus: draft\n```\n\nWhat the tasks context is.\n");
-        File.WriteAllText(Path.Combine(root, ".arc42", "03-context-and-scope.md"), "# Context and scope\n\nThe system in its surroundings.\n");
+        File.WriteAllText(Path.Combine(root, ".arc42", "03-context-and-scope.md"), $"# Context and scope\n\nThe system in its surroundings{(withDecisionRecords ? ", decided in `.arc42/adr/0004-index.md`" : string.Empty)}.\n");
+
+        if (withDecisionRecords)
+        {
+            // Nothing indexes this folder, which is the state of a fresh clone and
+            // of every machine that has not built the database yet. The decision
+            // records still have to be reachable, and a sibling link inside one
+            // still has to land beside it.
+            Directory.CreateDirectory(Path.Combine(root, ".arc42", "adr"));
+            File.WriteAllText(Path.Combine(root, ".arc42", "adr", "0004-index.md"), "# ADR 0004: The index\n\nThe index is generated, as [ADR 0005](0005-replica.md) assumes.\n");
+            File.WriteAllText(Path.Combine(root, ".arc42", "adr", "0005-replica.md"), "# ADR 0005: The replica\n\nA replica of the store.\n");
+        }
 
         var settings = new WorkspaceSettingsStore(Path.Combine(root, "store"));
         var gitHub = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
