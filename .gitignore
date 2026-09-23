@@ -66,6 +66,12 @@ nunit-*.xml
 .qa-evidence/
 .playwright-evidence/
 
+# .qa-workspace holds the committed QA fixtures; anything else a QA run writes
+# there (screenshots, notes) is evidence and stays local.
+.qa-workspace/*
+!.qa-workspace/backlog.db
+!.qa-workspace/config/
+
 # Playwright MCP browser output (screenshots, page snapshots, console logs),
 # written to the working directory of whichever session drove the browser.
 .playwright-mcp/
