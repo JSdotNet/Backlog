@@ -119,6 +119,45 @@ public sealed class DevelopmentWorkspaceTests : IDisposable
         Assert.Equal(string.Empty, DevelopmentWorkspace.BuildTitleScript(marker: null));
     }
 
+    [Fact]
+    public void A_worktree_names_the_main_checkout_its_git_folder_belongs_to()
+    {
+        // The layout git writes: the worktree's .git file points into the main
+        // checkout's .git/worktrees/<name>, whose commondir leads back to .git.
+        var main = Clone("Backlog", "refs/heads/main");
+        var entry = Directory.CreateDirectory(Path.Combine(main, ".git", "worktrees", "keen-bose")).FullName;
+        File.WriteAllText(Path.Combine(entry, "commondir"), "../..\n");
+
+        var worktree = Directory.CreateDirectory(Path.Combine(main, ".claude", "worktrees", "keen-bose")).FullName;
+        File.WriteAllText(Path.Combine(worktree, ".git"), $"gitdir: {entry}\n");
+
+        Assert.Equal(main, DevelopmentWorkspace.MainCheckoutOf(worktree));
+    }
+
+    [Fact]
+    public void A_clone_is_its_own_main_checkout_so_there_is_no_other()
+    {
+        Assert.Null(DevelopmentWorkspace.MainCheckoutOf(Clone("Backlog", "refs/heads/main")));
+    }
+
+    [Fact]
+    public void A_worktree_git_folder_without_a_commondir_names_no_main_checkout()
+    {
+        var common = Directory.CreateDirectory(Path.Combine(_temp.FullName, "shared", "worktrees", "feature"));
+        var checkout = Directory.CreateDirectory(Path.Combine(_temp.FullName, "feature")).FullName;
+        File.WriteAllText(Path.Combine(checkout, ".git"), $"gitdir: {common.FullName}\n");
+
+        Assert.Null(DevelopmentWorkspace.MainCheckoutOf(checkout));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    public void No_checkout_means_no_main_checkout(string? checkoutRoot)
+    {
+        Assert.Null(DevelopmentWorkspace.MainCheckoutOf(checkoutRoot));
+    }
+
     private string Clone(string folderName, string head)
     {
         var checkout = Directory.CreateDirectory(Path.Combine(_temp.FullName, folderName)).FullName;

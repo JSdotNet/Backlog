@@ -503,8 +503,21 @@ builder.Services.AddSingleton<IAgentSessionRecordStore>(sp => new AgentSessionRe
 // same repository list the Repositories screen writes. The session readers
 // stamp the answer on each local session so a header scoped to one repository
 // can hold the Claude sessions running in its clone — Claude records none itself.
+// Run from a linked worktree, the seeded clone is that worktree alone, so its main
+// checkout is asked as well; see MainCheckoutSessionRepositoryResolver.
 builder.Services.AddSingleton<ISessionRepositoryResolver>(sp =>
-    new SettingsSessionRepositoryResolver(sp.GetRequiredService<GitHubSettingsStore>()));
+{
+    var settings = sp.GetRequiredService<GitHubSettingsStore>();
+    var registered = new SettingsSessionRepositoryResolver(settings);
+    var checkout = ResolveRepositoryRoot(builder.Environment.ContentRootPath);
+    var main = DevelopmentWorkspace.MainCheckoutOf(checkout);
+    var seeded = settings.Current.Repositories.FirstOrDefault(repository =>
+        string.Equals(repository.CloneDirectory, checkout, StringComparison.OrdinalIgnoreCase));
+
+    return main is null || seeded is null
+        ? registered
+        : new MainCheckoutSessionRepositoryResolver(registered, new RegisteredClone(seeded.FullName, main));
+});
 
 // When those sessions were actually producing, read out of the bodies of the
 // transcripts the call above only stats. A separate call because it is a separate
