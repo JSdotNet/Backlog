@@ -408,7 +408,9 @@ builder.Services.AddSingleton<DevbookChapterWriter>();
 // of the person's data and following the root the way the inbox store does.
 // Composed the same way in src/App/Backlog.Desktop/MauiProgram.cs.
 builder.Services.AddSingleton<IDevbookAnnotationStore>(sp =>
-    new DevbookAnnotationStore(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
+    new DevbookAnnotationStore(
+        () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory,
+        folders: sp.GetRequiredService<IDevbookFolderSource>()));
 builder.Services.AddSingleton<IFolderEditorLauncher, UnsupportedFolderEditorLauncher>();
 builder.Services.AddSingleton<DevbookFolderOpenService>();
 builder.Services.AddSingleton(_ => TasksCopilotCli.Unavailable);

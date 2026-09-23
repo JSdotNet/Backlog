@@ -152,84 +152,26 @@ public static class DevbookChapterResolver
         yield return normalized;
     }
 
-    /// <summary>
-    /// The folder names a selection may carry, most specific first, or nothing at
-    /// all for an area whose root is the repository itself.
-    /// <para>
-    /// Three spellings of one folder reach here, which is why this is a list
-    /// rather than a name. The document list of an area pointed at
-    /// <c>docs/arch</c> names the whole configured path; <c>Arc42DevbookReader</c>
-    /// falls back to spelling its documents relative to the folder's <em>parent</em>
-    /// when it is reading a folder configured off the clone, and so emits only the
-    /// last segment; and a store that stamps a literal <c>.domain/</c> onto every
-    /// path keeps naming the conventional folder wherever the folder actually
-    /// sits. The conventional folder is therefore always offered alongside the
-    /// configured one rather than instead of it.
-    /// </para>
-    /// <para>
-    /// A rooted override contributes nothing but its last segment, which is the
-    /// only part of it a selection can be spelled with.
-    /// </para>
-    /// </summary>
-    private static List<string> FolderPrefixes(string areaKey, string? folderPath)
-    {
-        var prefixes = new List<string>();
-        Add(folderPath);
-        Add(DefaultFolderPaths.GetValueOrDefault(areaKey));
+    /// <summary>The folder names a selection may carry for this area, most
+    /// specific first, or nothing at all for an area whose root is the repository
+    /// itself. Shared with the chapter key rather than repeated here: the two ask
+    /// the same question — which folder is this path spelled against? — and a
+    /// second copy of the answer is how a remark and the chapter it is about came
+    /// to disagree in the first place.</summary>
+    private static IReadOnlyList<string> FolderPrefixes(string areaKey, string? folderPath) =>
+        DevbookChapterKey.FolderPrefixes(areaKey, folderPath);
 
-        return prefixes;
-
-        void Add(string? path)
-        {
-            if (string.IsNullOrWhiteSpace(path)) return;
-
-            var normalized = DevbookChapterPaths.Normalize(path).TrimEnd('/');
-
-            // A rooted override names somewhere off the clone entirely, so the
-            // whole of it is not a prefix any selection carries; its last segment
-            // still is, because that is the folder the reader walked.
-            if (!Path.IsPathRooted(normalized)) AddPrefix(normalized);
-
-            var lastSeparator = normalized.LastIndexOf('/');
-            if (lastSeparator >= 0) AddPrefix(normalized[(lastSeparator + 1)..]);
-        }
-
-        void AddPrefix(string prefix)
-        {
-            AddOne(prefix);
-
-            // The panels trim the leading dot when they present an area, so a
-            // selection can name the same folder undotted. Kept after the dotted
-            // spelling because Candidates reads the two in opposite orders.
-            if (prefix.StartsWith('.')) AddOne(prefix[1..]);
-        }
-
-        void AddOne(string prefix)
-        {
-            if (prefix.Length > 0 && !prefixes.Contains(prefix, StringComparer.OrdinalIgnoreCase)) prefixes.Add(prefix);
-        }
-    }
-
+    /// <summary>Whether a selection lies under a folder rather than merely
+    /// starting with the same letters. Shared with the chapter key for the reason
+    /// the prefix list is: the two are reading one prefix list and must read it
+    /// the same way.</summary>
     private static bool StartsWithSegment(string path, string segment) =>
-        path.Length > segment.Length
-        && path[segment.Length] == '/'
-        && path.StartsWith(segment, StringComparison.OrdinalIgnoreCase);
-
-    /// <summary>The conventional folder of each area that has one, keyed the way
-    /// the menu and the area catalog name it. Read from the published settings
-    /// rather than written out again, so an area whose default moves does not
-    /// leave a second copy of it here — and so Instructions, whose default path is
-    /// empty because its root is the repository itself, is absent by construction
-    /// rather than by a <c>_ =&gt; null</c> arm somebody has to remember.</summary>
-    private static readonly Dictionary<string, string> DefaultFolderPaths =
-        DevbookFolderSetting.Defaults()
-            .Where(folder => !string.IsNullOrWhiteSpace(folder.DefaultRelativePath))
-            .ToDictionary(folder => NormalizeAreaKey(folder.Key), folder => folder.DefaultRelativePath, StringComparer.OrdinalIgnoreCase);
+        DevbookChapterKey.StartsWithSegment(path, segment);
 
     /// <summary>Areas are named without the dot everywhere the menu and the area
     /// catalog speak, but a caller holding a configured folder key (<c>.arc42</c>)
     /// is naming the same area and should not have to translate first.</summary>
-    private static string NormalizeAreaKey(string areaKey) => areaKey.Trim().TrimStart('.').ToLowerInvariant();
+    private static string NormalizeAreaKey(string areaKey) => DevbookChapterKey.NormalizeAreaKey(areaKey);
 }
 
 /// <summary>
@@ -246,20 +188,11 @@ public static class DevbookChapterResolver
 internal static class DevbookChapterPaths
 {
     /// <summary>One spelling for a selection: forward slashes, no anchor, no
-    /// leading <c>./</c> or <c>/</c>. The anchor is dropped rather than honoured
-    /// because a chapter is a file — a heading inside it is the same file, and the
-    /// domain panel names sections as <c>path#anchor</c>.</summary>
-    internal static string Normalize(string path)
-    {
-        var forward = path.Replace('\\', '/').Trim();
-
-        var anchor = forward.IndexOf('#', StringComparison.Ordinal);
-        if (anchor >= 0) forward = forward[..anchor].Trim();
-
-        while (forward.StartsWith("./", StringComparison.Ordinal)) forward = forward[2..];
-
-        return forward.TrimStart('/');
-    }
+    /// leading <c>./</c> or <c>/</c>. Shared with <see cref="DevbookChapterKey"/>,
+    /// which needs the same spelling before it can name an area — a selection and
+    /// the remark left on it have to normalize alike, or they are two different
+    /// chapters.</summary>
+    internal static string Normalize(string path) => DevbookChapterKey.Normalize(path);
 
     /// <summary>The full path of a relative path under a root, or null when it
     /// does not stay there. A rooted relative path is the case that makes this

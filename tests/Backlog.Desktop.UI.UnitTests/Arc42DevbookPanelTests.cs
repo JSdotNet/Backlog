@@ -303,6 +303,62 @@ public sealed class Arc42DevbookPanelTests : IDisposable
     }
 
     /// <summary>
+    /// A remark on an arc42 chapter names the chapter the way every other device
+    /// names it, whatever folder this machine has arc42 pointed at.
+    /// <para>
+    /// This is the panel-level statement of the key rule: the reader writes a
+    /// remark while the folder is configured at <c>docs/arch</c>, and the remark
+    /// is filed under <c>.arc42/adr/0001-decision.md</c> — the conventional
+    /// spelling — because that is the only name a second device, which may have
+    /// the folder somewhere else again, can look it up by.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_remark_is_filed_under_the_conventional_folder_when_arc42_is_configured_elsewhere()
+    {
+        await using var harness = CreateHarness(withArc42Folder: true, configuredPath: "docs/arch", withAnnotations: true);
+        var store = harness.Annotations!;
+
+        var component = harness.Render("docs/arch/adr/0001-decision.md");
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid^='markdown-comment-']")));
+
+        await component.Find("[data-testid='markdown-comment-0']").ClickAsync(new());
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".md-comment__edit textarea")));
+        component.Find(".md-comment__edit textarea").Input("Which alternative did we reject?");
+        component.Find(".md-comment__edit-actions [data-testid^='markdown-comment-save-']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".md-block-row[data-block='0'] .md-comment__body")));
+
+        var stored = Assert.Single(store.List(harness.RepositoryAlias, DecisionPath));
+        Assert.Equal("Which alternative did we reject?", stored.Body);
+        Assert.Equal(DecisionPath, stored.ChapterPath);
+    }
+
+    /// <summary>
+    /// The other half of the same rule, in the ordinary layout: a remark written
+    /// against the conventional folder is still there under that name. Pinned
+    /// beside the relocated case so that canonicalizing cannot be mistaken for
+    /// rewriting every arc42 remark into some third spelling.
+    /// </summary>
+    [Fact]
+    public async Task A_remark_in_the_conventional_layout_keeps_its_chapter_path()
+    {
+        await using var harness = CreateHarness(withArc42Folder: true, withAnnotations: true);
+        var store = harness.Annotations!;
+
+        var component = harness.Render(DecisionPath);
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid^='markdown-comment-']")));
+
+        await component.Find("[data-testid='markdown-comment-0']").ClickAsync(new());
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".md-comment__edit textarea")));
+        component.Find(".md-comment__edit textarea").Input("Same chapter, ordinary folder.");
+        component.Find(".md-comment__edit-actions [data-testid^='markdown-comment-save-']").Click();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".md-block-row[data-block='0'] .md-comment__body")));
+
+        var stored = Assert.Single(store.List(harness.RepositoryAlias, DecisionPath));
+        Assert.Equal(DecisionPath, stored.ChapterPath);
+    }
+
+    /// <summary>
     /// Deletes the temp folders once every test has awaited its harness away, so
     /// nothing this class rendered can still be writing into one of them. The
     /// catch stays as a courtesy for a lock this class does not own — a scanner
@@ -328,7 +384,21 @@ public sealed class Arc42DevbookPanelTests : IDisposable
     /// <c>_meta/index.json</c>. A folder that has never been indexed is the other
     /// half of what the panel has to read, and the reader names its documents
     /// differently there, so both spellings are worth arranging.</param>
-    private Harness CreateHarness(bool withArc42Folder, string? configuredPath = null, bool withIndex = true)
+    /// <param name="withAnnotations">Whether the host registers an annotation
+    /// store for the panel to find. It is the session-scoped
+    /// <c>SessionDevbookAnnotationStore</c> rather than the file-backed
+    /// <c>DevbookAnnotationStore</c> both real hosts compose — a remark surviving
+    /// the disk is that store's own tests' business, and the panel cannot tell the
+    /// two apart. What it does share with the hosts is the part under test here:
+    /// it is handed the folder source, which is what lets either store name a
+    /// chapter the way every other device names it. Left out, the panel falls back
+    /// to a session store of its own with no folder source, which is what every
+    /// other test here renders against.</param>
+    private Harness CreateHarness(
+        bool withArc42Folder,
+        string? configuredPath = null,
+        bool withIndex = true,
+        bool withAnnotations = false)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-arc42-panel-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
@@ -403,10 +473,18 @@ public sealed class Arc42DevbookPanelTests : IDisposable
         context.Services.AddSingleton<Arc42DevbookStore>();
         context.Services.AddSingleton<DevbookChapterWriter>();
 
-        return new Harness(root, context, repository.Alias, folders);
+        var annotations = withAnnotations ? new SessionDevbookAnnotationStore(folders: folders) : null;
+        if (annotations is not null) context.Services.AddSingleton<IDevbookAnnotationStore>(annotations);
+
+        return new Harness(root, context, repository.Alias, folders, annotations);
     }
 
-    private sealed record Harness(string Root, BunitContext Context, string RepositoryAlias, RecordingDevbookFolderSource Folders) : IAsyncDisposable
+    private sealed record Harness(
+        string Root,
+        BunitContext Context,
+        string RepositoryAlias,
+        RecordingDevbookFolderSource Folders,
+        SessionDevbookAnnotationStore? Annotations) : IAsyncDisposable
     {
         public IRenderedComponent<Arc42DevbookPanel> Render(string? selectedPath) =>
             Context.Render<Arc42DevbookPanel>(parameters => parameters
