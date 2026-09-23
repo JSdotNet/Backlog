@@ -1103,14 +1103,15 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     public async Task<string> ImportPlanAsync(
         string rawText,
         string? defaultRepo = null,
-        IReadOnlyDictionary<string, string>? repoMatches = null)
+        IReadOnlyDictionary<string, string>? repoMatches = null,
+        bool layOutOnRoadmap = false)
     {
         SetSaveState(AppSaveState.Saving);
 
         Result<ImportPlanResultDto> result;
         try
         {
-            result = await _entryUseCases.ImportPlanAsync(rawText, defaultRepo, repoMatches);
+            result = await _entryUseCases.ImportPlanAsync(rawText, defaultRepo, repoMatches, layOutOnRoadmap: layOutOnRoadmap);
         }
         catch
         {
@@ -1125,9 +1126,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         await ReloadRowsAsync();
         Changed?.Invoke();
 
-        var value = result.Value;
-        return $"Imported: {value.Created} created, {value.Replaced} replaced, {value.Updated} updated, "
-            + $"{value.Skipped} skipped, {value.Removed} removed.";
+        return ImportPlanResultSentence.Describe(result.Value);
     }
 
     // --- Editing ---------------------------------------------------------

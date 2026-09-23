@@ -166,6 +166,7 @@ internal sealed class FakeTaskItems(params TaskItemDto[] entries) : ITaskItems
         string? defaultRepo = null,
         IReadOnlyDictionary<string, string>? repoMatches = null,
         string? sourceInboxId = null,
+        bool layOutOnRoadmap = false,
         CancellationToken cancellationToken = default) => throw Written(nameof(ImportPlanAsync));
 
     private static InvalidOperationException Written(string member) =>

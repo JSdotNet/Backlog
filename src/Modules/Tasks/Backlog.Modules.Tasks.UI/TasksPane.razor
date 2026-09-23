@@ -385,6 +385,7 @@
                    OpenChanged="OnImportOpenChanged"
                    Busy="@_importBusy"
                    Options="@RepositoryOptions()"
+                   Preview="ImportPlanPreview.Of"
                    OnImport="OnImportAsync" />
 
 @* The menu a right-click on an entry row opens. What it holds is this pane's
@@ -1874,7 +1875,11 @@
         _importBusy = true;
         try
         {
-            var message = await State.ImportPlanAsync(submission.RawText, submission.DefaultRepo, submission.RepoMatches);
+            var message = await State.ImportPlanAsync(
+                submission.RawText,
+                submission.DefaultRepo,
+                submission.RepoMatches,
+                submission.LayOutOnRoadmap);
 
             // A validation failure ("nothing parsed to a title") is shown under
             // the paste box, where the text that caused it still is. A result

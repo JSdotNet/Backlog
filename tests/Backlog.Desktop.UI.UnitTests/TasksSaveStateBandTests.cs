@@ -375,6 +375,7 @@ public sealed class TasksSaveStateBandTests : IDisposable
             string? defaultRepo = null,
             IReadOnlyDictionary<string, string>? repoMatches = null,
             string? sourceInboxId = null,
+            bool layOutOnRoadmap = false,
             CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException("The store is not reachable.");
     }

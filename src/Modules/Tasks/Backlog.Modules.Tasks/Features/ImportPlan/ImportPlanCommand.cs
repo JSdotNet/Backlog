@@ -46,15 +46,31 @@ namespace Backlog.Modules.Tasks.Features.ImportPlan;
 /// stamped on are born Draft whatever their text says — see
 /// <c>CreateEntry</c> for why a model's plan about captured content gets no
 /// Ready without a person's look.</param>
+/// <param name="LayOutOnRoadmap">The Import dialog's "Lay out on the roadmap", off by
+/// default: for a document with task entries and no <c>plan</c> entry, lay out one
+/// roadmap item per plan tag its tasks carry where none exists yet (ADR 0013,
+/// ruling 3). Off, a plan re-imported for its tasks grows no item nobody asked
+/// for.</param>
 public sealed record ImportPlanCommand(
     string RawText,
     string? DefaultRepo = null,
     IReadOnlyDictionary<string, string>? RepoMatches = null,
-    string? SourceInboxId = null);
+    string? SourceInboxId = null,
+    bool LayOutOnRoadmap = false);
 
-public sealed class ImportPlanCommandHandler(ITaskRepository entries, IRepositoryDirectory repositories)
+/// <param name="roadmap">Where <c>plan</c> entries cross to the roadmap. Optional
+/// because a host may compose Tasks without Roadmap; a document with <c>plan</c>
+/// entries then imports its tasks and reports that nothing was laid out.</param>
+public sealed class ImportPlanCommandHandler(
+    ITaskRepository entries,
+    IRepositoryDirectory repositories,
+    IRoadmapPlanIntake? roadmap = null)
     : ICommandHandler<ImportPlanCommand, Result<ImportPlanResultDto>>
 {
+    /// <summary>The refusal a host with no roadmap reports for a document that asked
+    /// for one.</summary>
+    public const string RoadmapUnavailable = "The roadmap is not available here, so nothing was laid out on it.";
+
     /// <summary>Nothing in the pasted or uploaded text parsed to an entry with a
     /// title. Not a parse failure — an entry with no title is an ordinary
     /// half-typed state elsewhere in this module — but a plan that produces
@@ -80,17 +96,18 @@ public sealed class ImportPlanCommandHandler(ITaskRepository entries, IRepositor
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        var parsedEntries = EntryTextParser.SplitSegments(command.RawText)
+        var parsedAll = EntryTextParser.SplitSegments(command.RawText)
             .Select(EntryTextParser.Parse)
             .Where(parsed => !string.IsNullOrWhiteSpace(parsed.Title))
-            // Import is the one door a `plan` entry may come through, and this is
-            // still not the half that opens it. ADR 0013 ruling 3 puts the task
-            // entries down first and then hands the `plan` entries to Roadmap
-            // through IRoadmapPlanIntake; until that port exists they stop here.
-            // Dropping one costs the person a roadmap item they have no way to
-            // create yet — letting it through would cost them a task typed from a
-            // word the task model does not have, which ruling 2 rules out and the
-            // canonical rewrite would later strip in silence.
+            .ToList();
+
+        // One document, two kinds (ADR 0013, ruling 3). Import is the one door a
+        // `plan` entry may come through, and it never becomes a task: it is handed
+        // to Roadmap through IRoadmapPlanIntake once the task entries are down.
+        // Everything below about tasks — the shared tag, clear-then-write, the
+        // two-pass after: — runs over the task entries alone.
+        var planEntries = parsedAll.Where(parsed => parsed.Kind == EntryKind.Plan).ToList();
+        var parsedEntries = parsedAll
             .Where(parsed => parsed.Kind != EntryKind.Plan)
             .Select(parsed => ApplyDefaultRepo(parsed, command.DefaultRepo))
             .ToList();
@@ -100,8 +117,15 @@ public sealed class ImportPlanCommandHandler(ITaskRepository entries, IRepositor
         // write to the workspace exactly as creating an entry is. A plan Import
         // will not act on must not leave one behind for somebody to go and delete,
         // so nothing about it is resolved until it is known to be a plan at all.
-        if (parsedEntries.Count == 0) return EmptyPlan;
+        if (parsedAll.Count == 0) return EmptyPlan;
         if (FirstDuplicateItemId(parsedEntries) is { } duplicate) return DuplicateItemId(duplicate);
+
+        // Each level resolves after: against its own ids only. A task naming a
+        // `plan` entry would otherwise be stored as a dependency on an id no task
+        // has; it is dropped and reported instead.
+        var levels = LocalIds.Of(parsedEntries, planEntries);
+        var unresolvedTaskDependencies = new List<ImportUnresolvedDependencyDto>();
+        parsedEntries = [.. parsedEntries.Select(parsed => DropCrossLevel(parsed, levels, unresolvedTaskDependencies))];
 
         // One resolver for the whole run, because the memo it holds is a
         // within-run answer: a plan that names the same repository in ten entries
@@ -111,6 +135,34 @@ public sealed class ImportPlanCommandHandler(ITaskRepository entries, IRepositor
         var resolver = new RepositoryIdResolver(repositories);
         parsedEntries = [.. parsedEntries.Select(parsed => ResolveRepos(parsed, resolver, command.RepoMatches))];
 
+        // Tasks first, then the roadmap, so placement reads the effort this import
+        // just gathered rather than the previous version's.
+        var tasks = parsedEntries.Count == 0
+            ? TaskHalf.None
+            : await ImportTasksAsync(parsedEntries, command.SourceInboxId, cancellationToken);
+
+        var roadmap = await LayOutOnRoadmapAsync(planEntries, parsedEntries, levels, command, cancellationToken);
+
+        return new ImportPlanResultDto(
+            tasks.Created,
+            tasks.Replaced,
+            tasks.Updated,
+            tasks.Skipped,
+            tasks.Removed,
+            tasks.Entries,
+            roadmap,
+            unresolvedTaskDependencies.Count == 0 ? null : unresolvedTaskDependencies);
+    }
+
+    /// <summary>
+    /// The task half, exactly as ADR 0007 has it: the shared tag, clear-then-write,
+    /// and the two-pass <c>after:</c>.
+    /// </summary>
+    private async Task<TaskHalf> ImportTasksAsync(
+        List<EntryTextParser.ParsedEntry> parsedEntries,
+        string? sourceInboxId,
+        CancellationToken cancellationToken)
+    {
         var planId = SharedTag(parsedEntries);
         var existing = await entries.ListAsync(cancellationToken);
 
@@ -147,7 +199,7 @@ public sealed class ImportPlanCommandHandler(ITaskRepository entries, IRepositor
             {
                 // The prompt as this version of the plan writes it: either new,
                 // or written again in place of the copy just cleared.
-                outcomes.Add(Outcome.ForCreate(parsed, CreateEntry(parsed, nextOrder++, command.SourceInboxId)));
+                outcomes.Add(Outcome.ForCreate(parsed, CreateEntry(parsed, nextOrder++, sourceInboxId)));
             }
             else if (match.IsCompleted || match.Status is EntryStatus.Done or EntryStatus.Archived)
             {
@@ -237,7 +289,237 @@ public sealed class ImportPlanCommandHandler(ITaskRepository entries, IRepositor
 
         // What was cleared and not written again: the prompts this version of
         // the plan has stopped asking for.
-        return new ImportPlanResultDto(created, replaced, updated, skipped, cleared.Count - replaced, resultEntries);
+        return new TaskHalf(created, replaced, updated, skipped, cleared.Count - replaced, resultEntries);
+    }
+
+    /// <summary>
+    /// The roadmap half (ADR 0013, ruling 3): the document's <c>plan</c> entries, or —
+    /// with "Lay out on the roadmap" on and none written — one made-up entry per plan
+    /// tag its tasks carry, handed across with the effort now gathered under every tag
+    /// either kind names. A task-only import with plan tags crosses too, with no
+    /// entries, so an item still placed by effort is re-lengthened (ruling 5).
+    /// <para>
+    /// Null when nothing crossed and there is nothing to say, so an ordinary task
+    /// import reports exactly what it always did.
+    /// </para>
+    /// </summary>
+    private async Task<RoadmapIntakeResultDto?> LayOutOnRoadmapAsync(
+        List<EntryTextParser.ParsedEntry> planEntries,
+        List<EntryTextParser.ParsedEntry> taskEntries,
+        LocalIds levels,
+        ImportPlanCommand command,
+        CancellationToken cancellationToken)
+    {
+        var skipped = new List<string>();
+        var effortIgnored = new List<string>();
+        var unresolved = new List<ImportUnresolvedDependencyDto>();
+        var entriesToLayOut = new List<RoadmapPlanEntryDto>();
+
+        foreach (var plan in planEntries)
+        {
+            // Exactly one plan tag: it is the one thing a later task-level import
+            // finds the item by, so none is guessed (ruling 2).
+            var tags = PlanTags(plan.Tags);
+            if (tags.Count != 1)
+            {
+                skipped.Add(plan.Title.Trim());
+                continue;
+            }
+
+            if (plan.Effort is not null) effortIgnored.Add(plan.Title.Trim());
+
+            var after = new List<string>();
+            foreach (var value in plan.DependsOn ?? [])
+            {
+                if (levels.IsTaskOnly(value)) unresolved.Add(new ImportUnresolvedDependencyDto(plan.ImportItemId ?? tags[0], value));
+                else after.Add(value);
+            }
+
+            entriesToLayOut.Add(new RoadmapPlanEntryDto(
+                plan.Title.Trim(),
+                tags[0],
+                plan.ImportItemId,
+                MatchRepos(plan.RepoIds, command.RepoMatches),
+                plan.Priority,
+                plan.DueOn,
+                after,
+                string.IsNullOrWhiteSpace(plan.Body) ? null : plan.Body));
+        }
+
+        var taskTags = taskEntries
+            .SelectMany(entry => PlanTags(entry.Tags))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        // Only for a document that wrote no `plan` entry: one that did has said which
+        // items it means, and a made-up one beside them would be a guess.
+        var layOutIfMissing = command.LayOutOnRoadmap && planEntries.Count == 0
+            ? [.. taskTags.Select(tag => Synthesise(tag, taskEntries))]
+            : new List<RoadmapPlanEntryDto>();
+
+        RoadmapIntakeResultDto laidOut;
+        if (entriesToLayOut.Count == 0 && layOutIfMissing.Count == 0 && taskTags.Count == 0)
+        {
+            laidOut = RoadmapIntakeResultDto.Empty;
+        }
+        else if (roadmap is null)
+        {
+            // A host that composed no roadmap. The tasks are in; say what was not.
+            laidOut = entriesToLayOut.Count > 0 || layOutIfMissing.Count > 0
+                ? RoadmapIntakeResultDto.Refused(RoadmapUnavailable)
+                : RoadmapIntakeResultDto.Empty;
+        }
+        else
+        {
+            var gathered = await GatherEffortAsync(entriesToLayOut.Select(entry => entry.Tag).Concat(taskTags), cancellationToken);
+            laidOut = await roadmap.LayOutAsync(
+                new RoadmapPlanIntakeRequestDto(entriesToLayOut, layOutIfMissing, gathered),
+                cancellationToken);
+        }
+
+        var result = laidOut with
+        {
+            Skipped = [.. skipped, .. laidOut.Skipped],
+            EffortIgnored = [.. effortIgnored, .. laidOut.EffortIgnored],
+            UnresolvedDependencies = [.. unresolved, .. laidOut.UnresolvedDependencies]
+        };
+
+        return IsQuiet(result) ? null : result;
+    }
+
+    /// <summary>
+    /// What the stored tasks register under each tag, read after this import wrote
+    /// its own — the same gather the roadmap's rollup makes: by tag with the plan
+    /// sigil lifted, ignoring case, finished work included, tombstones not.
+    /// </summary>
+    private async Task<List<RoadmapPlanEffortDto>> GatherEffortAsync(
+        IEnumerable<string> tags,
+        CancellationToken cancellationToken)
+    {
+        var stored = await entries.ListAsync(cancellationToken);
+
+        return
+        [
+            .. tags
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Select(tag =>
+                {
+                    var slug = Bare(tag);
+                    var under = stored
+                        .Where(entry => entry.Tags.Any(carried => string.Equals(Bare(carried), slug, StringComparison.OrdinalIgnoreCase)))
+                        .ToList();
+
+                    return new RoadmapPlanEffortDto(tag, under.Sum(entry => entry.Effort ?? 0), under.Count(entry => entry.Effort is null));
+                })
+        ];
+    }
+
+    /// <summary>The one entry "Lay out on the roadmap" makes up for a plan tag: titled
+    /// from the tag, its repository scope the union of the <c>repo:</c> values of the
+    /// document's tasks carrying it.</summary>
+    private static RoadmapPlanEntryDto Synthesise(string tag, List<EntryTextParser.ParsedEntry> taskEntries)
+    {
+        var repos = taskEntries
+            .Where(entry => entry.Tags.Contains(tag, StringComparer.OrdinalIgnoreCase))
+            .SelectMany(entry => entry.RepoIds ?? [])
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return new RoadmapPlanEntryDto(TitleFromTag(tag), tag, null, repos, null, null, [], null);
+    }
+
+    /// <summary><c>+roadmap-imported-plans</c> reads as "Roadmap imported plans".</summary>
+    internal static string TitleFromTag(string tag)
+    {
+        var words = Bare(tag).Replace('-', ' ').Replace('_', ' ').Trim();
+        return words.Length == 0 ? tag : char.ToUpperInvariant(words[0]) + words[1..];
+    }
+
+    /// <summary>A plan entry's <c>repo:</c> values as the reader matched them in the
+    /// dialog, else as written. Never resolved against the registry and never
+    /// registered: an item needs no <c>repo_id</c>, and an alias the registry does not
+    /// hold is the roadmap's ordinary unresolved state (ruling 2).</summary>
+    private static List<string> MatchRepos(IReadOnlyList<string>? names, IReadOnlyDictionary<string, string>? matches) =>
+    [
+        .. (names ?? [])
+            .Select(name => matches is not null && matches.TryGetValue(name, out var matched) && !string.IsNullOrWhiteSpace(matched)
+                ? matched.Trim()
+                : name.Trim())
+            .Where(name => name.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+    ];
+
+    /// <summary>The rule the Import dialog's preview counts by, so the two cannot
+    /// disagree.</summary>
+    private static IReadOnlyList<string> PlanTags(IEnumerable<string> tags) => ImportPlanPreview.PlanTags(tags);
+
+    private static string Bare(string tag) => tag.StartsWith('+') ? tag[1..] : tag;
+
+    private static bool IsQuiet(RoadmapIntakeResultDto result) =>
+        result is { Created: 0, Updated: 0, Relengthened: 0, Refusal: null }
+        && result.Skipped.Count == 0
+        && result.EffortIgnored.Count == 0
+        && result.AmbiguousTags.Count == 0
+        && result.UnresolvedDependencies.Count == 0;
+
+    /// <summary>Drops a task-level <c>after:</c> that names a <c>plan</c> entry of this
+    /// document and no task, reporting it.</summary>
+    private static EntryTextParser.ParsedEntry DropCrossLevel(
+        EntryTextParser.ParsedEntry parsed,
+        LocalIds levels,
+        List<ImportUnresolvedDependencyDto> unresolved)
+    {
+        if ((parsed.DependsOn?.Count ?? 0) == 0) return parsed;
+
+        var kept = new List<string>();
+        foreach (var value in parsed.DependsOn!)
+        {
+            if (levels.IsPlanOnly(value)) unresolved.Add(new ImportUnresolvedDependencyDto(parsed.ImportItemId ?? parsed.Title.Trim(), value));
+            else kept.Add(value);
+        }
+
+        return kept.Count == parsed.DependsOn!.Count ? parsed : parsed with { DependsOn = kept };
+    }
+
+    /// <summary>
+    /// The names each level of the document answers to in <c>after:</c>: a task entry
+    /// by its <c>id:</c>; a <c>plan</c> entry by its <c>id:</c> and by its tag, which is
+    /// what its id defaults to. Ordinal, as every id comparison in Import is.
+    /// </summary>
+    private sealed class LocalIds
+    {
+        private readonly HashSet<string> _tasks = new(StringComparer.Ordinal);
+        private readonly HashSet<string> _plans = new(StringComparer.Ordinal);
+
+        public static LocalIds Of(
+            IEnumerable<EntryTextParser.ParsedEntry> taskEntries,
+            IEnumerable<EntryTextParser.ParsedEntry> planEntries)
+        {
+            var ids = new LocalIds();
+
+            foreach (var task in taskEntries)
+            {
+                if (!string.IsNullOrWhiteSpace(task.ImportItemId)) ids._tasks.Add(task.ImportItemId);
+            }
+
+            foreach (var plan in planEntries)
+            {
+                if (!string.IsNullOrWhiteSpace(plan.ImportItemId)) ids._plans.Add(plan.ImportItemId);
+                foreach (var tag in PlanTags(plan.Tags)) ids._plans.Add(Bare(tag));
+            }
+
+            return ids;
+        }
+
+        public bool IsPlanOnly(string value) => _plans.Contains(value.Trim()) && !_tasks.Contains(value.Trim());
+
+        public bool IsTaskOnly(string value) => _tasks.Contains(value.Trim()) && !_plans.Contains(value.Trim());
+    }
+
+    /// <summary>What the task half wrote, as the five counts the result reports.</summary>
+    private sealed record TaskHalf(int Created, int Replaced, int Updated, int Skipped, int Removed, IReadOnlyList<TaskItemDto> Entries)
+    {
+        public static TaskHalf None { get; } = new(0, 0, 0, 0, 0, []);
     }
 
     /// <summary>

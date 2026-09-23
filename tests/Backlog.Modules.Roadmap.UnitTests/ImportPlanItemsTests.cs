@@ -349,6 +349,85 @@ public class ImportPlanItemsTests
         Assert.Empty(result.Scheduled);
     }
 
+    // --- Task-level imports under an item (ruling 5) --------------------
+
+    private Task<Result<PlanImportResultDto>> ImportAsync(
+        IReadOnlyList<PlanImportEntryDto> entries,
+        IReadOnlyList<PlanImportEntryDto> createIfMissing,
+        params PlanTagEffortDto[] effort) =>
+        new ImportPlanItemsCommandHandler(_plans, _velocity, _clock)
+            .Handle(new ImportPlanItemsCommand(entries, effort, createIfMissing), TestContext.Current.CancellationToken);
+
+    [Fact]
+    public async Task GatheredEffortAlone_RelengthensAnEffortPlacedItem_KeepingItsStart()
+    {
+        await ImportedAsync([Entry("plan-a")]);
+        _clock.Advance(TimeSpan.FromDays(3)); // the start stays where it was placed
+
+        var result = await ImportedAsync([], new PlanTagEffortDto("plan-a", 8, 0));
+
+        Assert.Equal(PlannedWindow.Of(Today, Today.AddDays(7)), Stored("plan-a").Window);
+        Assert.Equal(Stored("plan-a").Id, Assert.Single(result.Relengthened).Id);
+        Assert.Empty(result.Created);
+        Assert.Empty(result.Updated);
+        var scheduled = Assert.Single(result.Scheduled);
+        Assert.Equal(Today.AddDays(4), scheduled.PreviousEnd);
+    }
+
+    [Fact]
+    public async Task GatheredEffortAlone_LeavesADueDateEndAndAHandPlacedWindow()
+    {
+        await ImportedAsync([Entry("plan-a", due: new DateOnly(2026, 3, 20))]);
+        var dueDated = Stored("plan-a").Window;
+
+        var plan = _plans.Current;
+        var handPlaced = PlannedWindow.Of(new DateOnly(2026, 5, 4), new DateOnly(2026, 5, 8));
+        plan.AddItem("Hand-made", handPlaced, tag: PlanningTag.Of("plan-b"));
+        _plans.Current = plan;
+        var saves = _plans.Saves;
+
+        var result = await ImportedAsync([], new PlanTagEffortDto("plan-a", 30, 0), new PlanTagEffortDto("plan-b", 30, 0));
+
+        Assert.Equal(dueDated, Stored("plan-a").Window);
+        Assert.Equal(handPlaced, Stored("plan-b").Window);
+        Assert.Empty(result.Relengthened);
+        Assert.Equal(saves, _plans.Saves); // nothing changed, so nothing was written
+    }
+
+    [Fact]
+    public async Task CreateIfMissing_CreatesAnItemForATagNoItemCarries()
+    {
+        var result = await ImportAsync([], [Entry("plan-a", "Plan a")], new PlanTagEffortDto("plan-a", 3, 0));
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Plan a", Assert.Single(result.Value.Created).Title);
+        Assert.Equal(PlannedWindow.Of(Today, Today.AddDays(2)), Stored("plan-a").Window);
+    }
+
+    /// <summary>An entry the importer made up does not rewrite an existing item's
+    /// title; the item is only re-lengthened from what it gathers.</summary>
+    [Fact]
+    public async Task CreateIfMissing_LeavesAnExistingItemToTheRelengthening()
+    {
+        await ImportedAsync([Entry("plan-a", "Chosen by a person")]);
+
+        var result = await ImportAsync([], [Entry("plan-a", "Plan a")], new PlanTagEffortDto("plan-a", 8, 0));
+
+        Assert.True(result.IsSuccess);
+        Assert.Empty(result.Value.Created);
+        Assert.Equal("Chosen by a person", Stored("plan-a").Title);
+        Assert.Single(result.Value.Relengthened);
+    }
+
+    [Fact]
+    public async Task CreateIfMissing_YieldsToAnEntryOfTheDocumentWithTheSameTag()
+    {
+        var result = await ImportAsync([Entry("plan-a", "Written")], [Entry("plan-a", "Made up")]);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Written", Assert.Single(result.Value.Created).Title);
+    }
+
     // --- The person's own gestures ----------------------------------------
 
     [Fact]

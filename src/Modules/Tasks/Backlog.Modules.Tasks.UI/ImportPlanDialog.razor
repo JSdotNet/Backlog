@@ -8,7 +8,13 @@
     A dumb dialog on purpose. It knows nothing about EntryTextParser, ITaskItems
     or what a plan is — it hands an ImportPlanSubmission to OnImport and shows
     whatever error the caller hands back. The parsing and the upsert both live
-    in the module; this is a place to type or drop text.
+    in the module; this is a place to type or drop text. The preview line is no
+    exception: the host hands in the module's own reading of the text
+    (ImportPlanPreview.Of) as a function, and this only shows its answer.
+
+    "Lay out on the roadmap" (ADR 0013, ruling 3) is offered for a document with
+    task entries and no `plan` entry, and is off by default: a plan re-imported for
+    its tasks should not grow a roadmap item nobody asked for.
 
     The "Target repository" field is the same kind of shortcut the file field
     already is for the paste box: a UI-level convenience over a grammar that
@@ -36,7 +42,8 @@
                 A plan is entry text with more than one <code>#</code> heading — the
                 same format a hand-typed entry uses. Each prompt becomes an entry;
                 <code>after:</code> and <code>id:</code> order them, and a shared
-                <code>#tag</code> is what a later re-import matches against.
+                <code>+tag</code> is what a later re-import matches against. A
+                <code>plan</code> entry becomes a roadmap item instead.
             </p>
             @if (Options.Count > 0)
             {
@@ -61,6 +68,19 @@
                       Rows="10"
                       Placeholder="@Placeholder"
                       TestId="import-plan-text" />
+            @if (OffersLayOut)
+            {
+                <Checkbox Checked="@_layOutOnRoadmap"
+                          CheckedChanged="OnLayOutChanged"
+                          Label="Lay out on the roadmap"
+                          TestId="import-plan-lay-out" />
+            }
+            @if (_preview is { } preview)
+            {
+                <p class="import-plan-form__note" data-testid="import-plan-preview" aria-live="polite">
+                    @PreviewSentence(preview)
+                </p>
+            }
             @if (Options.Count > 0 && _unmatchedRepos.Count > 0)
             {
                 <div class="import-plan-form__repo-matches">
@@ -98,8 +118,8 @@
 
 @code {
     private const string Placeholder =
-        "# First prompt\n`prompt` `#myplan` `id:one`\n\nDo the first thing.\n\n"
-        + "# Second prompt\n`prompt` `#myplan` `id:two` `after:one`\n\nDo the second thing.\n";
+        "# First prompt\n`prompt` `+myplan` `id:one`\n\nDo the first thing.\n\n"
+        + "# Second prompt\n`prompt` `+myplan` `id:two` `after:one`\n\nDo the second thing.\n";
 
     /// <summary>
     /// The `repo:` token as `.design/content-editing.md#scheduling-and-dependency-tokens`
@@ -118,6 +138,11 @@
     private string _text = string.Empty;
     private string? _defaultRepo;
     private string? _error;
+    private bool _layOutOnRoadmap;
+
+    /// <summary>What the text will produce, as the host's preview read it; null
+    /// with no preview function or nothing typed yet.</summary>
+    private ImportPlanPreview? _preview;
 
     /// <summary>The distinct repository names the pasted plan mentions that no
     /// configured repository already answers to, in the order they first appear.
@@ -153,6 +178,14 @@
     [Parameter]
     public bool Busy { get; set; }
 
+    /// <summary>The module's reading of the text and the "Lay out on the roadmap"
+    /// choice: how many roadmap items and tasks it will produce. Handed in rather
+    /// than called, so this dialog stays ignorant of the grammar. Null shows no
+    /// preview and offers the option unconditionally — the module ignores it for a
+    /// document that wrote `plan` entries.</summary>
+    [Parameter]
+    public Func<string, bool, ImportPlanPreview>? Preview { get; set; }
+
     /// <summary>The plan's raw text and the optional default repository, once
     /// the reader presses Import. The caller reports back through
     /// <see cref="SetError"/> when the text did not parse to anything, rather
@@ -168,6 +201,8 @@
         _text = string.Empty;
         _defaultRepo = null;
         _error = null;
+        _layOutOnRoadmap = false;
+        _preview = null;
         _repoMatches.Clear();
         _unmatchedRepos = [];
         Open = true;
@@ -215,6 +250,7 @@
         _text = text;
         _error = null;
         RefreshUnmatchedRepos();
+        RefreshPreview();
     }
 
     private void OnFileRejected(string message) => _error = message;
@@ -223,7 +259,27 @@
     {
         _text = text;
         RefreshUnmatchedRepos();
+        RefreshPreview();
     }
+
+    private void OnLayOutChanged(bool value)
+    {
+        _layOutOnRoadmap = value;
+        RefreshPreview();
+    }
+
+    /// <summary>Offered for a document with tasks and no `plan` entry — or always,
+    /// when there is no preview to tell.</summary>
+    private bool OffersLayOut =>
+        Preview is null || _preview is { HasPlanEntries: false, Tasks: > 0 };
+
+    private void RefreshPreview() =>
+        _preview = Preview is null || string.IsNullOrWhiteSpace(_text) ? null : Preview(_text, _layOutOnRoadmap);
+
+    private static string PreviewSentence(ImportPlanPreview preview) =>
+        $"This document will produce {Count(preview.RoadmapItems, "roadmap item")} and {Count(preview.Tasks, "task")}.";
+
+    private static string Count(int count, string noun) => count == 1 ? $"1 {noun}" : $"{count} {noun}s";
 
     /// <summary>Works out which repository names in the text still want an answer.
     /// Anything that already matches a configured alias is dropped — there is
@@ -270,6 +326,7 @@
         await OnImport.InvokeAsync(new ImportPlanSubmission(
             _text,
             defaultRepo,
-            matches.Count == 0 ? null : matches));
+            matches.Count == 0 ? null : matches,
+            OffersLayOut && _layOutOnRoadmap));
     }
 }

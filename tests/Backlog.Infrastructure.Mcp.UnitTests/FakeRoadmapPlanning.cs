@@ -90,6 +90,7 @@ internal sealed class FakeRoadmapPlanning(RoadmapPlanDto plan) : IRoadmapPlannin
     public Task<Result<PlanImportResultDto>> ImportPlanItemsAsync(
         IReadOnlyList<PlanImportEntryDto> entries,
         IReadOnlyList<PlanTagEffortDto>? gatheredEffort = null,
+        IReadOnlyList<PlanImportEntryDto>? createIfMissing = null,
         CancellationToken cancellationToken = default) =>
         throw Written(nameof(ImportPlanItemsAsync));
 
