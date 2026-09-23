@@ -19,6 +19,12 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Harness\Backlog.Desktop.WebHarness\Backlog.Desktop.WebHarness.csproj" Aliases="DesktopHarness" />
     <ProjectReference Include="..\..\src\Harness\Backlog.Mobile.WebHarness\Backlog.Mobile.WebHarness.csproj" Aliases="MobileHarness" />
+    <!-- The MCP group table, so the composition rule constructs whatever tool
+         classes the library publishes today rather than a list kept here. It
+         arrives through the desktop harness anyway; named because this project
+         uses it directly, and a reference nobody states is a reference somebody
+         removes. -->
+    <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Mcp\Backlog.Infrastructure.Mcp.csproj" />
   </ItemGroup>
 
   <ItemGroup>

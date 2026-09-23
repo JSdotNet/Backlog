@@ -1,0 +1,75 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The read-only MCP tools local ADR 0012 decided, with no transport under them.
+
+    The tool classes and their payloads live here rather than in Backlog.Desktop,
+    which is where §2 of that record puts them, for the reason §2 actually cares
+    about: the framework reference must never reach the net10.0-android head. A
+    leaf library nothing mobile references satisfies that and gains one thing the
+    desktop project cannot - the tools become testable without a host, and the
+    harness and the desktop head map the same implementation instead of one of
+    them owning it.
+
+    So the rule this project lives by is the one its name does not say:
+    NO <FrameworkReference> OF ANY KIND, ever. ModelContextProtocol.Core is the
+    transport-neutral half of the SDK - the attributes, McpServerTool and
+    McpException - and ModelContextProtocol.AspNetCore, which is the half that
+    pulls Microsoft.AspNetCore.App in, is referenced by the two hosts and never
+    from here.
+
+    Reference directions, all of them inward:
+      - a module's .Abstractions, never a module implementation and never a
+        module's .UI, which is the direction ModuleBoundaryTests already draws
+        for every other adapter under src/Infrastructure;
+      - src/Core, which is what everything may see;
+      - nothing under src/App, src/Harness or src/Aspire.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Backlog.Infrastructure.Mcp</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The transport-neutral half of the MCP SDK. .AspNetCore is deliberately
+         absent: it carries a Microsoft.AspNetCore.App framework reference, and
+         taking it here would put that reference one project reference away from
+         anything that ever wants to read a tool. -->
+    <PackageReference Include="ModelContextProtocol.Core" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- ITaskItems and IRepositoryDirectory: the backlog a session reads, and
+         the one place an `owner/name` becomes a repository this product knows. -->
+    <ProjectReference Include="..\..\Modules\Tasks\Backlog.Modules.Tasks.Abstractions\Backlog.Modules.Tasks.Abstractions.csproj" />
+    <!-- IRoadmapPlanning and RoadmapFeatures: the plan a session reads beside
+         the entries, and the key its own group is gated on. -->
+    <ProjectReference Include="..\..\Modules\Roadmap\Backlog.Modules.Roadmap.Abstractions\Backlog.Modules.Roadmap.Abstractions.csproj" />
+    <!-- IDevbookFolderSource and IDevbookAnnotationStore: where a chapter is,
+         and the private reading notes against it (local ADR 0011). -->
+    <ProjectReference Include="..\..\Modules\Devbook\Backlog.Modules.Devbook.Abstractions\Backlog.Modules.Devbook.Abstractions.csproj" />
+    <!-- IAgentSessionSource, for the sessions running on this machine. -->
+    <ProjectReference Include="..\..\Modules\Sessions\Backlog.Modules.Sessions.Abstractions\Backlog.Modules.Sessions.Abstractions.csproj" />
+    <!-- Result and Error, and IAppFeatureSettings for the exposure predicate the
+         host's list-tools filter reads. Arrives transitively through every
+         abstractions project above; named anyway, because this project uses it
+         directly and a reference nobody states is a reference somebody removes. -->
+    <ProjectReference Include="..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+    <!-- MarkdownPreview.ParseDocument and MetadataReader, which are what decides
+         what block 7 of a chapter is. The alternative was a second markdown
+         parser in this project, and a second parser is a second answer to that
+         question - the one thing read_knowledge_chapter's two modes may not
+         disagree about. The library is a Razor class library but carries no
+         framework reference of its own (Microsoft.AspNetCore.Components.Web is
+         an ordinary package), which is exactly why the net10.0-android head can
+         already compile it. -->
+    <ProjectReference Include="..\..\Core\Backlog.UI.Components\Backlog.UI.Components.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The chapter reading, the repository mapping and the raw-source cutting
+         and splicing are all internal and all worth testing directly rather than
+         only through a tool method's JSON. -->
+    <InternalsVisibleTo Include="Backlog.Infrastructure.Mcp.UnitTests" />
+  </ItemGroup>
+
+</Project>

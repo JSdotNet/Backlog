@@ -41,8 +41,19 @@
     <!-- The device half of cloud sync. The harness keeps its credential under
          its own content root, so it and the mobile harness are two devices. -->
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Sync\Backlog.Infrastructure.Sync.csproj" />
+    <!-- The read-only MCP tool classes this harness maps with MapMcp, so QA
+         drives the same tools the desktop head serves. -->
+    <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Mcp\Backlog.Infrastructure.Mcp.csproj" />
     <ProjectReference Include="..\..\Aspire\Backlog.Aspire.ServiceDefaults\Backlog.Aspire.ServiceDefaults.csproj" />
     <ProjectReference Include="..\..\App\Backlog.Desktop.UI\Backlog.Desktop.UI.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- WithHttpTransport and MapMcp. This project is already a
+         Microsoft.NET.Sdk.Web host, so the Microsoft.AspNetCore.App framework
+         reference this package carries is one it has anyway — it adds nothing
+         here and reaches nothing that compiles for net10.0-android. -->
+    <PackageReference Include="ModelContextProtocol.AspNetCore" />
   </ItemGroup>
 
   <ItemGroup>

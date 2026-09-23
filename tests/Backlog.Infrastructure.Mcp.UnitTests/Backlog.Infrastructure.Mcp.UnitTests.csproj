@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Mcp\Backlog.Infrastructure.Mcp.csproj" />
+    <!-- The ports the doubles implement, and the DTOs they answer with. Named
+         rather than left to flow through the subject, so a test that stops
+         compiling says which contract moved. -->
+    <ProjectReference Include="..\..\src\Modules\Tasks\Backlog.Modules.Tasks.Abstractions\Backlog.Modules.Tasks.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Roadmap\Backlog.Modules.Roadmap.Abstractions\Backlog.Modules.Roadmap.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Devbook\Backlog.Modules.Devbook.Abstractions\Backlog.Modules.Devbook.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Sessions\Backlog.Modules.Sessions.Abstractions\Backlog.Modules.Sessions.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+  </ItemGroup>
+
+</Project>

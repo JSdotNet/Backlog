@@ -13,6 +13,12 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.Web" />
+    <!-- AddMcpServer, WithTools and the request filters, for the registration
+         under Extensions/ that the MAUI head and the web harness both call.
+         The dependency-injection half of the SDK only: .AspNetCore carries the
+         Microsoft.AspNetCore.App framework reference and belongs to the two
+         hosts, and this package's nuspec declares none. -->
+    <PackageReference Include="ModelContextProtocol" />
   </ItemGroup>
 
   <ItemGroup>
@@ -84,6 +90,12 @@
          codes, and shows where the credential is kept — the same arrangement the
          screen already has with the GitHub, Claude and Azure Foundry adapters. -->
     <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Sync\Backlog.Infrastructure.Sync.csproj" />
+    <!-- The read-only MCP tool classes and the table saying which feature key
+         each group answers to. Referenced for the registration under Extensions/
+         that both MCP hosts call; no screen in this project reads a tool. The
+         library is a leaf with no framework reference — see its csproj, which
+         makes never gaining one its stated rule. -->
+    <ProjectReference Include="..\..\Infrastructure\Backlog.Infrastructure.Mcp\Backlog.Infrastructure.Mcp.csproj" />
   </ItemGroup>
 
 </Project>

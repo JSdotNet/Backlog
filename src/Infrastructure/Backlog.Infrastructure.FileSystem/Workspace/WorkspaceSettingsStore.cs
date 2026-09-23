@@ -1,4 +1,6 @@
+using System.Buffers.Text;
 using System.Globalization;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Backlog.Infrastructure.GitHub;
@@ -106,6 +108,12 @@ public sealed class WorkspaceSettingsStore
         RootRepository = settings?.RootRepository?.ToRepository();
         BackupSchedule = settings?.BackupSchedule?.ToSchedule() ?? BackupSchedule.Off;
 
+        // Absent reads as the default port and no token yet. No token is
+        // generated here: see EnsureMcpServerToken for why the first need rather
+        // than construction is the moment.
+        McpServerPort = settings?.McpServer?.ToPort() ?? DefaultMcpServerPort;
+        McpServerToken = Clean(settings?.McpServer?.Token);
+
         // The legacy name is consulted only when the current one is absent, so a
         // file written before the context was renamed reads as the same choice
         // and the next save carries it under the current name only.
@@ -181,6 +189,51 @@ public sealed class WorkspaceSettingsStore
     /// <see cref="RootChanged"/> because a backup setting moving is not a reason
     /// for every open view to reload the backlog.</summary>
     public event Action? BackupChanged;
+
+    /// <summary>The loopback port the MCP server listens on when nothing
+    /// overrides it. Local ADR 0012 §1 names 5757, and names it in the same
+    /// breath as the reason it is configurable: "a collision at start is
+    /// reported on the row, not retried on another port, because every
+    /// registration names the port".</summary>
+    public const int DefaultMcpServerPort = 5757;
+
+    /// <summary>The lowest port an override may name. Below 1024 is the
+    /// well-known range — reserved for services this app is not, and elevated on
+    /// several platforms — and 0 is worse than reserved here: it means "any free
+    /// port" to a socket, which is the one thing a server every registration
+    /// names by number may not do.</summary>
+    private const int LowestAllowedMcpServerPort = 1024;
+
+    /// <summary>Which loopback port the MCP server listens on.
+    /// <see cref="DefaultMcpServerPort"/> until somebody chooses otherwise, and
+    /// kept whether or not the feature is switched on, so a port chosen before
+    /// the feature is the port it binds when it is.</summary>
+    public int McpServerPort { get; private set; }
+
+    /// <summary>
+    /// The bearer token the MCP server requires, or null while nothing has
+    /// needed one yet.
+    /// <para>
+    /// Read-only, and deliberately not the thing that creates it:
+    /// <see cref="EnsureMcpServerToken"/> is. A property that wrote a file the
+    /// first time it was read would generate a token for a settings screen that
+    /// merely drew a blank field.
+    /// </para>
+    /// <para>
+    /// Plaintext, on local ADR 0012's own terms: "A token in a settings file.
+    /// Bearer over loopback is as strong as the user account is; it is not a
+    /// defence against a process already running as that user, and does not
+    /// claim to be."
+    /// </para>
+    /// </summary>
+    public string? McpServerToken { get; private set; }
+
+    /// <summary>Raised when the MCP port or token changes, for the worker that
+    /// has to rebind or start demanding a different token. Separate from
+    /// <see cref="BackupChanged"/> and <see cref="RootChanged"/> for the reason
+    /// those are separate from each other: a listener rebinding is not a reason
+    /// for a backup timer to re-arm or for every open view to reload.</summary>
+    public event Action? McpChanged;
 
     /// <summary>The folder somebody pointed branch snapshots at, or null while
     /// they go to <see cref="DefaultDevbookCacheDirectory"/>.</summary>
@@ -589,6 +642,94 @@ public sealed class WorkspaceSettingsStore
     }
 
     /// <summary>
+    /// Changes which loopback port the MCP server listens on.
+    /// <para>
+    /// A port outside the usable range is answered with a sentence rather than
+    /// an exception, the way every setter here answers a bad value: naming a
+    /// port is an ordinary thing to do in a settings field and getting it wrong
+    /// is an ordinary way to do it. Whether anything can actually <em>bind</em>
+    /// the port is not decided here and cannot be — the port may be free now and
+    /// taken by the time the listener starts. That failure is the worker's to
+    /// report, on its own state, per local ADR 0012 §1.
+    /// </para>
+    /// <para>
+    /// The in-memory value moves even when the write fails, the way every setter
+    /// here behaves: the person chose it, and the message says only that it will
+    /// not survive a restart.
+    /// </para>
+    /// </summary>
+    public string? SetMcpServerPort(int port)
+    {
+        if (port is < LowestAllowedMcpServerPort or > 65535)
+        {
+            return $"Choose a port between {LowestAllowedMcpServerPort} and 65535.";
+        }
+
+        if (port == McpServerPort) return null;
+
+        McpServerPort = port;
+        var error = SaveSettings("Port changed, but the choice couldn't be saved for next time.");
+        McpChanged?.Invoke();
+        return error;
+    }
+
+    /// <summary>
+    /// The bearer token the MCP server requires, generating and keeping one the
+    /// first time anything asks.
+    /// <para>
+    /// On first need rather than at construction, because construction happens
+    /// on every launch of every head — including the ones that will never listen
+    /// — and a secret written to disk for a feature nobody switched on is a
+    /// secret with no reason to exist. Once written it is kept: the token is
+    /// named by every registration that talks to this server, so rotating it
+    /// silently would break them all with nothing on screen to say why.
+    /// </para>
+    /// <para>
+    /// 256 bits from the OS random source, Base64Url-encoded — the same
+    /// construction and the same reasoning as
+    /// <c>IRegistrationCredentialGenerator.Next</c>, which is the product's
+    /// existing answer to "an opaque credential nobody guesses". Not
+    /// <see cref="Guid"/> and not <see cref="Random"/>: neither is a
+    /// cryptographic source, and a token is exactly the case where that is the
+    /// whole of the requirement.
+    /// </para>
+    /// <para>
+    /// <b>A corrupt settings file rotates it.</b> <see cref="ReadSettings"/>
+    /// answers null for a file it cannot parse as well as for one that is not
+    /// there — by design, so that a broken file never stops the app opening —
+    /// and this store cannot tell those two apart. A hand-edited file that no
+    /// longer parses therefore comes back as "no token yet" and the next need
+    /// writes a fresh one, which every existing registration then fails to
+    /// authenticate with. <see cref="McpChanged"/> firing is what keeps it from
+    /// being silent to the app; to the registrations it is not, and re-copying
+    /// the token is the repair.
+    /// </para>
+    /// </summary>
+    public string EnsureMcpServerToken()
+    {
+        if (McpServerToken is { } existing) return existing;
+
+        McpServerToken = Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(McpServerTokenBytes));
+
+        // The save failure is deliberately dropped rather than returned. The
+        // caller is the listener asking what token to demand, and a token it
+        // holds but could not persist still works for this run - which is a
+        // better answer than refusing to start. The next launch generates
+        // another one and the registration is re-pointed, exactly as for a
+        // corrupt file above.
+        _ = SaveSettings("MCP token created, but it couldn't be saved for next time.");
+        McpChanged?.Invoke();
+
+        return McpServerToken;
+    }
+
+    /// <summary>256 bits, which is what
+    /// <c>IRegistrationCredentialGenerator</c> uses and for the same reason: no
+    /// dictionary to price, and 43 Base64Url characters is still short enough to
+    /// paste.</summary>
+    private const int McpServerTokenBytes = 32;
+
+    /// <summary>
     /// Points branch snapshots at a different folder, or — with a blank path —
     /// back at the default one.
     /// <para>
@@ -683,6 +824,12 @@ public sealed class WorkspaceSettingsStore
                 // switch it back on.
                 BackupSchedule = StoreBackupScheduleSettings.From(BackupSchedule),
 
+                // Written as null until there is something to say - neither a
+                // token generated nor a port chosen - so a workspace that has
+                // never switched the MCP server on keeps producing the file it
+                // always did.
+                McpServer = StoreMcpServerSettings.From(McpServerPort, McpServerToken),
+
                 // Written as null while it is the default, so a workspace nobody
                 // has moved the cache in keeps producing the file it always did.
                 DevbookCacheDirectory = _devbookCacheOverride
@@ -728,6 +875,12 @@ public sealed class WorkspaceSettingsStore
         /// <summary>When the backlog is backed up, or null in a file written
         /// before there was a schedule to write. Absent reads as off.</summary>
         public StoreBackupScheduleSettings? BackupSchedule { get; init; }
+
+        /// <summary>The MCP server's port and bearer token, or null in a file
+        /// written before there was a server to write them for. Absent reads as
+        /// the default port and no token yet.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public StoreMcpServerSettings? McpServer { get; init; }
 
         /// <summary>Where branch snapshots are cached, or null for the default
         /// folder under the storage folder. Absent reads as the default, which
@@ -783,6 +936,54 @@ public sealed class WorkspaceSettingsStore
             At = schedule.At.ToString("HH:mm", CultureInfo.InvariantCulture),
             Day = schedule.Day.ToString()
         };
+    }
+
+    /// <summary>
+    /// The MCP server's row in the settings file: which loopback port it listens
+    /// on and the bearer token it demands.
+    /// <para>
+    /// One row rather than two fields for the reason the whole file is one file:
+    /// they are one decision — this port, with this token — and a registration
+    /// that has one and not the other cannot reach the server at all.
+    /// </para>
+    /// </summary>
+    private sealed record StoreMcpServerSettings
+    {
+        /// <summary>The bearer token, in plaintext. Local ADR 0012 accepts that
+        /// as a stated negative consequence rather than an oversight: this file
+        /// is machine-local by construction and never travels with synced
+        /// content, and a token encrypted against the same user account the
+        /// server already trusts would defend against nothing.</summary>
+        public string? Token { get; init; }
+
+        /// <summary>The chosen port, or null for
+        /// <see cref="DefaultMcpServerPort"/>.</summary>
+        public int? Port { get; init; }
+
+        /// <summary>The stored port as a port, or null when it does not read as
+        /// one — a hand-edited file is a file like any other here, and a number
+        /// outside the range <see cref="SetMcpServerPort"/> would have accepted
+        /// means the default rather than a failure to open. The same reasoning
+        /// as <see cref="StoreBackupScheduleSettings.ToSchedule"/>.</summary>
+        public int? ToPort() =>
+            Port is int port && port >= LowestAllowedMcpServerPort && port <= 65535 ? port : null;
+
+        /// <summary>The row to write, or null when there is nothing yet to say.
+        /// <para>
+        /// The default port with no token is the state every workspace starts
+        /// in, and writing it would put a row into the settings file of every
+        /// person who has never heard of this feature. A token on its own is
+        /// worth writing even at the default port — it is the part that cannot
+        /// be recomputed.
+        /// </para></summary>
+        public static StoreMcpServerSettings? From(int port, string? token) =>
+            token is null && port == DefaultMcpServerPort
+                ? null
+                : new StoreMcpServerSettings
+                {
+                    Token = token,
+                    Port = port == DefaultMcpServerPort ? null : port
+                };
     }
 
     private sealed record StoreRepositorySettings
