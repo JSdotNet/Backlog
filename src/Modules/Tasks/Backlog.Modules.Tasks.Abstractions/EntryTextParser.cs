@@ -99,6 +99,25 @@ public static class EntryTextParser
     };
 
     /// <summary>
+    /// The one bare type word that does not classify a task. It is absent from
+    /// <see cref="TypeTokens"/> deliberately: a <c>plan</c> entry describes a
+    /// roadmap item, so it maps to no <see cref="EntryType"/> and
+    /// <see cref="Parse(string)"/> reports it as <see cref="EntryKind.Plan"/>
+    /// while leaving the type unset.
+    /// <para>
+    /// It shares one mechanism with <see cref="RetiredTypeTokens"/> and nothing
+    /// else: both must be seen by <see cref="IsTypeToken"/> so a rewrite takes
+    /// the old word off the line before writing a new one. What they mean by it
+    /// is opposite. A retired word is being got rid of; this one is current
+    /// grammar and has to come back out of an ordinary save unchanged, which is
+    /// why <see cref="DefaultMetaTokens"/> writes it from the kind instead of
+    /// letting <see cref="TypeToken"/> — which only speaks
+    /// <see cref="EntryType"/> — default it to <c>`task`</c>.
+    /// </para>
+    /// </summary>
+    private const string PlanTypeToken = "plan";
+
+    /// <summary>
     /// Type words this grammar no longer means anything by, and still has to
     /// recognize. <c>DO NOT DELETE AS DEAD CODE</c> — the entry that made this
     /// necessary is the one already written on somebody's disk.
@@ -192,7 +211,8 @@ public static class EntryTextParser
         int? Effort = null,
         string? ImportItemId = null,
         IReadOnlyList<string>? RepoIds = null,
-        DateOnly? CompletedOn = null);
+        DateOnly? CompletedOn = null,
+        EntryKind Kind = EntryKind.Task);
 
     private sealed record Metadata(
         EntryType? Type,
@@ -211,7 +231,8 @@ public static class EntryTextParser
         int? Effort = null,
         string? ImportItemId = null,
         IReadOnlyList<string>? RepoIds = null,
-        DateOnly? CompletedOn = null)
+        DateOnly? CompletedOn = null,
+        EntryKind Kind = EntryKind.Task)
     {
         public static Metadata Empty { get; } = new(null, null, null, null, []);
     }
@@ -364,12 +385,14 @@ public static class EntryTextParser
             metadata.Effort,
             metadata.ImportItemId,
             metadata.RepoIds ?? [],
-            metadata.CompletedOn);
+            metadata.CompletedOn,
+            metadata.Kind);
     }
 
     private static Metadata ParseMetadataLine(string line)
     {
         EntryType? type = null;
+        var kind = EntryKind.Task;
         Priority? priority = null;
         EntryStatus? status = null;
         string? area = null;
@@ -563,8 +586,15 @@ public static class EntryTextParser
                 }
             }
 
+            // Only a bare word reaches here — every sigilled token was handled
+            // and `continue`d by the switch above, which is what keeps "sigil
+            // wins over guessing" true for this word too: `*plan` is a priority
+            // token whose value is not a priority, not the type word wearing a
+            // sigil. A bare word that is none of the four is left unrecognized
+            // rather than guessed at.
             var normalized = NormalizeToken(token);
-            if (TypeTokens.TryGetValue(normalized, out var t)) type = t;
+            if (normalized == PlanTypeToken) kind = EntryKind.Plan;
+            else if (TypeTokens.TryGetValue(normalized, out var t)) type = t;
             else if (PriorityTokens.TryGetValue(normalized, out var p)) priority = p;
             else if (StatusTokens.TryGetValue(normalized, out var s)) status = s;
         }
@@ -586,7 +616,8 @@ public static class EntryTextParser
             effort,
             importItemId,
             repoIds,
-            completedOn);
+            completedOn,
+            kind);
     }
 
     /// <summary>Blanks out fenced code so it cannot contribute tags. Structure
@@ -1933,7 +1964,13 @@ public static class EntryTextParser
     {
         var tokens = new List<string>
         {
-            TypeToken(parsed.Type ?? EntryType.Task),
+            // The kind is asked first, because TypeToken only speaks EntryType
+            // and a plan entry has none: left to the `?? EntryType.Task`
+            // fallback below, rebuilding the line would quietly retype a roadmap
+            // item as a task. That is the data loss the canonical-rewrite rule in
+            // .design/content-editing.md exists to prevent, which is why the
+            // token, the DTO and this line all changed together.
+            parsed.Kind == EntryKind.Plan ? PlanTypeToken : TypeToken(parsed.Type ?? EntryType.Task),
             "*" + PriorityToken(parsed.Priority ?? Priority.Medium),
             "!" + StatusToken(parsed.Status ?? EntryStatus.Draft)
         };
@@ -1955,15 +1992,25 @@ public static class EntryTextParser
         return tokens;
     }
 
-    // Retired words count as type tokens here and nowhere else: this is the only
-    // caller that has to see one, and it sees it in order to remove it. See
-    // RetiredTypeTokens.
+    // Retired words and `plan` count as type tokens here and nowhere else: this
+    // is the only caller that has to see one, and it sees it in order to remove
+    // it. See RetiredTypeTokens and PlanTypeToken.
+    //
+    // This runs only when a caller is setting a type, so it is not what keeps
+    // `plan` on the line through an ordinary edit — nothing removes a type token
+    // when no new one is being written. It is what stops the other outcome: miss
+    // `plan` here and retyping a plan entry prepends `task` and leaves `plan`
+    // standing behind it, so the entry comes out of one save claiming two types.
+    // Retyping a plan entry on purpose is a person saying it is a task after
+    // all, and that is allowed to replace the word.
     private static bool IsTypeToken(string token)
     {
         if (token.Length == 0 || token[0] is '!' or '*' or '@' or '#' or '+') return false;
 
         var normalized = NormalizeToken(token);
-        return TypeTokens.ContainsKey(normalized) || RetiredTypeTokens.Contains(normalized);
+        return TypeTokens.ContainsKey(normalized)
+            || RetiredTypeTokens.Contains(normalized)
+            || normalized == PlanTypeToken;
     }
 
     private static int FirstContentLine(IReadOnlyList<string> lines)

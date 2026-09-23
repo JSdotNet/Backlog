@@ -39,13 +39,40 @@ public sealed class SaveTaskFromTextCommandHandler(ITaskRepository entries, IRep
         "entry.not_found",
         "That entry no longer exists.");
 
+    /// <summary>
+    /// The text says <c>`plan`</c>, and a plan entry is a roadmap item rather
+    /// than a task. This is the choke point every hand-written entry passes
+    /// through — the editor, a paste, quick-add, a sub-item — so refusing here
+    /// is what makes ADR 0013 ruling 2's "a <c>plan</c> entry never becomes a
+    /// Task" true of all of them at once.
+    /// <para>
+    /// It has to be an outright refusal rather than a fallback, because the
+    /// fallback is silent and wrong: <c>TaskEntryFields</c> reads
+    /// <c>parsed.Type ?? EntryType.Task</c>, so a plan entry allowed through
+    /// would be stored as an ordinary task whose text still says <c>`plan`</c>,
+    /// and the next save that sets a type would strip the word. The person
+    /// would lose a roadmap item to a typo-shaped accident with nothing said.
+    /// </para>
+    /// </summary>
+    public static readonly Error PlanBelongsToImport = Error.Validation(
+        TaskEntryErrorCodes.PlanBelongsToImport,
+        "A `plan` entry is a roadmap item, not a task — bring it in through Import.");
+
     public async Task<Result<SavedTaskDto>> Handle(
         SaveTaskFromTextCommand command,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        var parsed = ResolveRepos(EntryTextParser.Parse(command.RawText));
+        var parsed = EntryTextParser.Parse(command.RawText);
+
+        // Before ResolveRepos for the same reason Import refuses before its own
+        // resolution: this path never registers a repository, but it does ask
+        // the registry, and nothing about an entry this module will not save is
+        // worth asking about.
+        if (parsed.Kind == EntryKind.Plan) return PlanBelongsToImport;
+
+        parsed = ResolveRepos(parsed);
 
         return command.Id is { } id
             ? await UpdateAsync(id, parsed, cancellationToken)

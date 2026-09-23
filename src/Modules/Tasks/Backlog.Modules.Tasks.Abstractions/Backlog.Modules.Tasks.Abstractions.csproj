@@ -7,6 +7,8 @@
       EntryTextParser       the entry text format, this context's published
                             language (.domain/tasks); pure text in, text out
       Enums                 the vocabulary those DTOs and that text are written in
+      TaskEntryErrorCodes   the error codes a host must branch on rather than
+                            merely show (guideline 0004)
     The aggregate, its repository port, and the use-case handlers stay in the
     implementation project. Nothing here may reference it, or anything else in
     the solution beyond the shared kernel.

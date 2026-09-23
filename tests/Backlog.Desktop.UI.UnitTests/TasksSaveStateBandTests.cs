@@ -3,6 +3,7 @@ using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.SharedKernel.Results;
+using Backlog.UI.Components.Feedback;
 
 using System.Diagnostics;
 
@@ -27,6 +28,10 @@ public sealed class TasksSaveStateBandTests : IDisposable
     /// <summary>Comfortably past the 2s dwell, and the same order of slack the
     /// other timed tests in this suite give the debounce.</summary>
     private const int PastTheDwell = 2600;
+
+    /// <summary>A roadmap-level entry: the same grammar, and the one type word
+    /// this path refuses.</summary>
+    private const string PlanEntry = "# Imported plans on the roadmap\n`plan` `+roadmap-imported-plans`\n";
 
     private readonly List<string> _tempDirs = [];
     private readonly List<TasksDesktopState> _states = [];
@@ -80,6 +85,77 @@ public sealed class TasksSaveStateBandTests : IDisposable
         await Task.Delay(PastTheDwell, TestContext.Current.CancellationToken);
 
         Assert.Equal(AppSaveState.Error, state.SaveState);
+    }
+
+    /// <summary>
+    /// A <c>plan</c> entry is refused outright (ADR 0013 ruling 2), and that is
+    /// not one of the failures this band holds quietly. The other two are states
+    /// somebody is passing through — no title yet, or an entry deleted from under
+    /// them. This is finished text, still on screen, that was not stored: a band
+    /// reading "Saved" would be asserting something untrue about it, and nothing
+    /// else on the row would say otherwise.
+    /// </summary>
+    [Fact]
+    public async Task A_refused_plan_entry_says_so_rather_than_claiming_a_save()
+    {
+        var toasts = new ToastChannel();
+        var (state, _) = Build(toasts: toasts);
+        await state.InitializeAsync();
+
+        await WriteEntryAsync(state, PlanEntry);
+
+        Assert.Equal(AppSaveState.Error, state.SaveState);
+
+        var toast = Assert.Single(toasts.Visible);
+        Assert.Equal(ToastSeverity.Error, toast.Severity);
+        Assert.Contains("Import", toast.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Saving runs on a debounce while somebody is still typing, and a commit can
+    /// arrive twice for one gesture, so the refusal is announced on the way into
+    /// it rather than once per save. Announced per save, a plan entry left sitting
+    /// on screen would raise a toast for every keystroke that followed it.
+    /// </summary>
+    [Fact]
+    public async Task A_refused_plan_entry_is_announced_once_however_often_it_is_saved()
+    {
+        var toasts = new ToastChannel();
+        var (state, _) = Build(toasts: toasts);
+        await state.InitializeAsync();
+
+        var row = await WriteEntryAsync(state, PlanEntry);
+
+        await state.EndEditAsync(row);
+        await state.EndEditAsync(row);
+
+        Assert.Single(toasts.Visible);
+        Assert.Equal(AppSaveState.Error, state.SaveState);
+    }
+
+    /// <summary>Fixing the type word lets the entry land, and re-arms the
+    /// announcement — a second mistake is reported rather than swallowed because
+    /// the first one already was.</summary>
+    [Fact]
+    public async Task Fixing_a_refused_plan_entry_saves_and_re_arms_the_announcement()
+    {
+        var toasts = new ToastChannel();
+        var (state, _) = Build(toasts: toasts);
+        await state.InitializeAsync();
+
+        var row = await WriteEntryAsync(state, PlanEntry);
+        Assert.Equal(AppSaveState.Error, state.SaveState);
+
+        state.OnRawTextInput(row, "# Imported plans on the roadmap\n`task` `+roadmap-imported-plans`\n");
+        await state.EndEditAsync(row);
+
+        Assert.Equal(AppSaveState.Saved, state.SaveState);
+
+        state.OnRawTextInput(row, PlanEntry);
+        await state.EndEditAsync(row);
+
+        Assert.Equal(AppSaveState.Error, state.SaveState);
+        Assert.Equal(2, toasts.Visible.Count);
     }
 
     /// <summary>
