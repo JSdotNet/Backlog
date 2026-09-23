@@ -57,6 +57,10 @@ public abstract class RoadmapBandHarness : IDisposable
         // it answers empty — enough for the editor to render.
         context.Services.AddSingleton<IRoadmapItemRollup>(
             new RoadmapItemRollupService(TasksTestHost.EntriesFor(Settings), () => Settings.RootDirectory));
+
+        // The shelf of imported plans with no item, read from the same backlog. The
+        // band tests that are not about the shelf write no imported tasks, so it is empty.
+        context.Services.AddSingleton(TasksTestHost.ImportedPlansFor(Settings));
         return context;
     }
 

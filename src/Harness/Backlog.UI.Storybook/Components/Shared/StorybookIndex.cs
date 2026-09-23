@@ -329,7 +329,7 @@ internal static class StorybookIndex
         // kind of content rather than as the one thing on the page.
         new("Roadmap",
         [
-            new("roadmap", "Roadmap", "RoadmapTimeline and RoadmapTimelineBar: a plan against a quarter-ruled time axis, with swimlanes, dependency arrows and bars you can drag.")
+            new("roadmap", "Roadmap", "RoadmapTimeline and RoadmapTimelineBar: a plan against a quarter-ruled time axis, with swimlanes, dependency arrows and bars you can drag — and RoadmapPlanShelf, the work still waiting for a place on it.")
         ]),
 
         new("Dashboard",

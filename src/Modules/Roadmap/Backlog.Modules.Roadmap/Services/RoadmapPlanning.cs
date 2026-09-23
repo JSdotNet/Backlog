@@ -7,6 +7,7 @@ using Backlog.Modules.Roadmap.Features.AddMilestone;
 using Backlog.Modules.Roadmap.Features.RemoveMilestone;
 using Backlog.Modules.Roadmap.Features.UpdateMilestone;
 using Backlog.Modules.Roadmap.Features.GetPlan;
+using Backlog.Modules.Roadmap.Features.ImportPlanItems;
 using Backlog.Modules.Roadmap.Features.PrioritiseItem;
 using Backlog.Modules.Roadmap.Features.RemoveDependency;
 using Backlog.Modules.Roadmap.Features.RemoveItem;
@@ -33,7 +34,8 @@ internal sealed class RoadmapPlanning(
     ICommandHandler<UpdateMilestoneCommand, Result<RoadmapMilestoneDto>> updateMilestone,
     ICommandHandler<RemoveMilestoneCommand, Result> removeMilestone,
     ICommandHandler<AddDependencyCommand, Result> addDependency,
-    ICommandHandler<RemoveDependencyCommand, Result> removeDependency) : IRoadmapPlanning
+    ICommandHandler<RemoveDependencyCommand, Result> removeDependency,
+    ICommandHandler<ImportPlanItemsCommand, Result<PlanImportResultDto>> importPlanItems) : IRoadmapPlanning
 {
     public Task<RoadmapPlanDto> GetPlanAsync(CancellationToken cancellationToken = default) =>
         getPlan.Handle(new GetPlanQuery(), cancellationToken);
@@ -127,4 +129,10 @@ internal sealed class RoadmapPlanning(
         Guid dependsOnId,
         CancellationToken cancellationToken = default) =>
         removeDependency.Handle(new RemoveDependencyCommand(nodeId, dependsOnId), cancellationToken);
+
+    public Task<Result<PlanImportResultDto>> ImportPlanItemsAsync(
+        IReadOnlyList<PlanImportEntryDto> entries,
+        IReadOnlyList<PlanTagEffortDto>? gatheredEffort = null,
+        CancellationToken cancellationToken = default) =>
+        importPlanItems.Handle(new ImportPlanItemsCommand(entries, gatheredEffort), cancellationToken);
 }

@@ -15,7 +15,7 @@ related: [.domain/context-map.md]
 | Depends on (context/module) | DDD pattern | Integration mechanism | Contract | Why |
 |---|---|---|---|---|
 | [Repository Management](../repository-management/domain.md#repository-registry) | Customer/Supplier (Roadmap Planning = customer) | Registry lookup by repository alias, on the read path | `.domain/repository-management/naming.md#repository` | Repository Scope aliases resolve to configured repositories so a portfolio plan can be read one project at a time. Roadmap conforms to the registry's identity and never becomes a second authority for what a repository is. |
-| [Tasks](../tasks/domain.md#task) | Partnership | Optional cross-link by foreign id, plus read-side gather by tag | `.domain/tasks/domain.md#task` | A planned item may name the task that executes it, and also gathers every task filed under its tag; over both it totals the tasks' registered effort. Ids only, in both directions; neither side holds the other's aggregate and neither writes to it, and Roadmap reads effort it never registers. |
+| [Tasks](../tasks/domain.md#task) | Partnership | Optional cross-link by foreign id, plus read-side gather by tag, plus a read of the imported plans the backlog holds (`IImportedPlanSource`) | `.domain/tasks/domain.md#task` | A planned item may name the task that executes it, and also gathers every task filed under its tag; over both it totals the tasks' registered effort. The [shelf](features.md#laying-out-a-plan-whose-tasks-arrived-first) reads the tasks grouped by the plan they were imported with, to offer the plans no item carries the tag of. Ids only, in both directions; neither side holds the other's aggregate and neither writes to it, and Roadmap reads effort it never registers. |
 | [Devbook](../devbook/domain.md#knowledge-note) | Customer/Supplier (Roadmap Planning = customer) | Read-side gather by `<path>#<slug>` reference and by tag | `.domain/devbook/domain.md#knowledge-note` | A Roadmap Item gathers the knowledge chapters it references directly (`knowledge_refs`) and the chapters whose own `roadmap` list names its tag, and totals their registered effort. Reads only, on the read path: Roadmap resolves chapters by reference or tag and reads the effort they registered, and never writes a chapter or owns an effort value. |
 
 ## Inbound dependents (known)
@@ -61,7 +61,7 @@ related: [.domain/context-map.md]
   *react*; being *told* by a person's command is how every edit reaches it.
 - The tag is also how an imported plan and its item stay one thing without a
   link. The item holds the bare slug, the plan's tasks carry it with the plan
-  sigil (`+slug`), and the adapters on both edges — the rollup reading, the
+  sigil (`+slug`), and the adapters on both edges — the rollup and the shelf reading, the
   intake writing — are the only places the sigil is lifted
   (`.arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md`).
 - There is no dependency on [Environment](../environment/domain.md#environment-catalog).

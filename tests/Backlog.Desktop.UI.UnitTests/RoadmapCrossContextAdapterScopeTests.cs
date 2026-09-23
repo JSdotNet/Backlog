@@ -107,10 +107,12 @@ public sealed class RoadmapCrossContextAdapterScopeTests : IDisposable
         var tagSource = scope.ServiceProvider.GetRequiredService<IRoadmapTagSource>();
         var rollup = scope.ServiceProvider.GetRequiredService<IRoadmapItemRollup>();
         var velocity = scope.ServiceProvider.GetRequiredService<IPlanningVelocity>();
+        var importedPlans = scope.ServiceProvider.GetRequiredService<IImportedPlanSource>();
 
         Assert.IsType<RoadmapPlanTagSource>(tagSource);
         Assert.IsType<RoadmapItemRollupService>(rollup);
         Assert.IsType<PlanningVelocitySource>(velocity);
+        Assert.IsType<ImportedPlanSource>(importedPlans);
     }
 
     [Fact]

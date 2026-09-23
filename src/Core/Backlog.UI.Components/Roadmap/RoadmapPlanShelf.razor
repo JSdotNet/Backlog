@@ -1,0 +1,94 @@
+@*
+    Plans that exist as work and have no place on the timeline yet, each with the
+    one action that gives it one.
+
+    Compact on purpose: it sits beside a chart that is short of height, so it is one
+    labelled strip of rows that wrap, not a panel. With nothing to offer it renders
+    nothing at all — an empty shelf would be a heading announcing an absence.
+
+    The component reports which plan was picked and does no planning itself. What
+    happens next, and what gets announced, is the host's: the row that was planned
+    disappears when the host hands the shelf its next list, and a live region inside
+    the shelf would disappear with the last row, taking the news with it.
+*@
+
+@if (Plans.Count > 0)
+{
+    <section class="@ClassValue" aria-labelledby="@HeadingId" data-testid="@TestId">
+        @* tabindex -1 so focus has somewhere to land when the row it was on is gone:
+           the reader stays on the shelf, on its name, one Tab from the next row. *@
+        <h3 id="@HeadingId" class="roadmap-shelf__title" tabindex="-1" @ref="_heading">@Title</h3>
+
+        <ul class="roadmap-shelf__list">
+            @foreach (var plan in Plans)
+            {
+                <li class="roadmap-shelf__row" data-testid="@RowTestId(plan)" @key="plan.Tag">
+                    <TagChip Text="@("+" + plan.Tag)" CssClass="roadmap-shelf__tag" />
+                    <span class="roadmap-shelf__summary">@plan.Summary</span>
+                    <AppButton Variant="ButtonVariant.Secondary"
+                               Size="ButtonSize.Small"
+                               Busy="@string.Equals(Busy, plan.Tag, StringComparison.OrdinalIgnoreCase)"
+                               BusyLabel="@($"Planning +{plan.Tag}")"
+                               Disabled="@(Busy is not null)"
+                               OnClick="() => PlanAsync(plan)"
+                               aria-label="@($"Plan it: +{plan.Tag}")"
+                               TestId="@ActionTestId(plan)">
+                        Plan it
+                    </AppButton>
+                </li>
+            }
+        </ul>
+    </section>
+}
+
+@code {
+    private ElementReference _heading;
+    private bool _refocus;
+
+    /// <summary>What to offer, in the order to offer it. Empty renders nothing.</summary>
+    [Parameter]
+    public IReadOnlyList<RoadmapShelfPlan> Plans { get; set; } = [];
+
+    /// <summary>Raised with the plan whose action was pressed.</summary>
+    [Parameter]
+    public EventCallback<RoadmapShelfPlan> OnPlan { get; set; }
+
+    /// <summary>The tag being planned right now, if any. Its button spins; every
+    /// other one waits, so one press cannot become two plans.</summary>
+    [Parameter]
+    public string? Busy { get; set; }
+
+    [Parameter]
+    public string Title { get; set; } = "Imported plans not on the roadmap";
+
+    [Parameter]
+    public string HeadingId { get; set; } = "roadmap-shelf-title";
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string TestId { get; set; } = "roadmap-shelf";
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "roadmap-shelf" : $"roadmap-shelf {CssClass}";
+
+    private string RowTestId(RoadmapShelfPlan plan) => $"{TestId}-row-{plan.Tag}";
+
+    private string ActionTestId(RoadmapShelfPlan plan) => $"{TestId}-plan-{plan.Tag}";
+
+    private async Task PlanAsync(RoadmapShelfPlan plan)
+    {
+        await OnPlan.InvokeAsync(plan);
+        _refocus = true;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_refocus) return;
+        _refocus = false;
+
+        // Only while there is still a shelf to stand on. Emptied, it is gone, and
+        // the host's announcement is what tells the reader where the plan went.
+        if (Plans.Count > 0) await _heading.FocusAsync();
+    }
+}

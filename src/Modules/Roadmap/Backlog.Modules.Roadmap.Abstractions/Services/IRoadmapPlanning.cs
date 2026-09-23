@@ -115,4 +115,19 @@ public interface IRoadmapPlanning
     /// <summary>Takes a dependency back out. Removing one that was never there is
     /// not an error.</summary>
     Task<Result> RemoveDependencyAsync(Guid nodeId, Guid dependsOnId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lays plan-level entries out on the plan: one item per tag, created or found
+    /// again, and placed from <paramref name="gatheredEffort"/> (ADR 0013, rulings 2,
+    /// 4 and 5). All or nothing — a refused dependency leaves the plan as it was.
+    /// <para>
+    /// Every door into an imported plan comes through here — a roadmap document, and
+    /// the shelf of plans whose tasks arrived first — so none of them can place an
+    /// item by a rule the others do not follow.
+    /// </para>
+    /// </summary>
+    Task<Result<PlanImportResultDto>> ImportPlanItemsAsync(
+        IReadOnlyList<PlanImportEntryDto> entries,
+        IReadOnlyList<PlanTagEffortDto>? gatheredEffort = null,
+        CancellationToken cancellationToken = default);
 }

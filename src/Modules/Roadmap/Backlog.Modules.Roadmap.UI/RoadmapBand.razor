@@ -27,10 +27,17 @@
     strip that shows and hides Inbox and Backlog. That is a binary: the band is
     either here at its normal size or it is not rendered at all. So there is no
     affordance on the band itself and no visibility state of its own to hold.
+
+    Under the chart, or under the empty state, sits the shelf of imported plans
+    that have no item yet: plans whose tasks arrived first (ADR 0013, ruling 3).
+    Picking one runs the same import a roadmap document runs, so the item lands
+    placed and sized exactly as an imported one does. With nothing to offer the
+    shelf renders nothing.
 *@
 @implements IDisposable
 @inject IRoadmapPlanning Planning
 @inject IRoadmapItemRollup Rollups
+@inject IImportedPlanSource ImportedPlans
 @inject GitHubSettingsStore Repositories
 
 <section class="roadmap-band" id="roadmap-band" aria-labelledby="roadmap-band-title" data-testid="roadmap-band">
@@ -88,6 +95,21 @@
         }
     </div>
 
+    <RoadmapPlanShelf Plans="@_unplanned"
+                      Busy="@_planning"
+                      OnPlan="PlanFromShelfAsync"
+                      CssClass="roadmap-band__shelf"
+                      TestId="roadmap-shelf" />
+
+    @* Outside the shelf, because planning its last row takes the shelf away and a
+       live region inside it would go with it. What was planned is only heard — the
+       bar appearing on the chart is what a sighted reader sees — and a refusal is
+       shown as well, since the row it concerns is still there. *@
+    <Alert Message="@_shelfNews"
+           Role="status"
+           CssClass="@(_shelfRefused ? "roadmap-band__shelf-news" : "sr-only")"
+           TestId="roadmap-shelf-news" />
+
     <RoadmapItemEditor @ref="_editor"
                        Open="@_editing"
                        OpenChanged="EditingChanged"
@@ -134,6 +156,14 @@
 
     private string? _selectedId;
     private string? _error;
+
+    // Imported plans no item carries the tag of, as the shelf offers them, and the
+    // reading they were built from — which is what a pressed row is planned with.
+    private IReadOnlyList<RoadmapShelfPlan> _unplanned = [];
+    private IReadOnlyList<ImportedPlanDto> _imported = [];
+    private string? _planning;
+    private string? _shelfNews;
+    private bool _shelfRefused;
 
     /// <summary>
     /// Shorter rows than the library's 2.75rem default.
@@ -210,6 +240,92 @@
         var rollups = await Rollups.GatherPlanAsync(_plan);
 
         _view = RoadmapPlanView.From(_plan, Configured(), rollups);
+
+        _imported = await ImportedPlans.ListAsync();
+        _unplanned = Unplanned(_imported, _plan);
+    }
+
+    /// <summary>
+    /// The imported plans no item on the plan carries the tag of, in the order the
+    /// backlog holds them.
+    /// <para>
+    /// Compared as slugs, the way the module stores an item's tag, so a plan tag
+    /// written with a capital is still recognised as planned once its item exists.
+    /// </para>
+    /// </summary>
+    internal static IReadOnlyList<RoadmapShelfPlan> Unplanned(
+        IReadOnlyList<ImportedPlanDto> imported,
+        RoadmapPlanDto plan)
+    {
+        var planned = plan.Items
+            .Where(item => !string.IsNullOrWhiteSpace(item.Tag))
+            .Select(item => RoadmapTagSlug.From(item.Tag))
+            .ToHashSet(StringComparer.Ordinal);
+
+        return
+        [
+            .. imported
+                .Where(candidate => !planned.Contains(RoadmapTagSlug.From(candidate.Tag)))
+                .Select(candidate => new RoadmapShelfPlan(
+                    candidate.Tag,
+                    candidate.RepositoryAliases,
+                    candidate.TaskCount,
+                    candidate.TotalEffort,
+                    candidate.UnestimatedCount))
+        ];
+    }
+
+    /// <summary>
+    /// Plans one shelf row: a single plan-level entry built from it, run through the
+    /// same import a roadmap document goes through, with the effort its tasks already
+    /// registered — so the window is the one an import would have drawn.
+    /// </summary>
+    private async Task PlanFromShelfAsync(RoadmapShelfPlan row)
+    {
+        if (_planning is not null) return;
+
+        var imported = _imported.FirstOrDefault(candidate =>
+            string.Equals(candidate.Tag, row.Tag, StringComparison.Ordinal));
+        if (imported is null) return;
+
+        _planning = row.Tag;
+        _shelfNews = null;
+        _shelfRefused = false;
+
+        try
+        {
+            var entry = new PlanImportEntryDto(
+                Title: TitleOf(imported.Tag),
+                Tag: imported.Tag,
+                RepositoryAliases: imported.RepositoryAliases);
+
+            var result = await Planning.ImportPlanItemsAsync([entry], [imported.Effort]);
+
+            if (result.IsFailure)
+            {
+                _shelfRefused = true;
+                _shelfNews = $"+{row.Tag} could not be planned: {result.Error.Message}";
+                return;
+            }
+
+            _shelfNews = $"Planned +{row.Tag} on the roadmap.";
+            await Load();
+        }
+        finally
+        {
+            _planning = null;
+        }
+    }
+
+    /// <summary>The item's title, read off its tag — the only name a tasks-first plan
+    /// has. <c>release-q4</c> becomes <c>Release q4</c>; the editor is where a person
+    /// gives it a better one.</summary>
+    internal static string TitleOf(string tag)
+    {
+        var words = tag.Replace('-', ' ').Replace('_', ' ').Trim();
+        return words.Length == 0
+            ? tag
+            : char.ToUpper(words[0], CultureInfo.InvariantCulture) + words[1..];
     }
 
     /// <summary>
