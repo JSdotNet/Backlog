@@ -38,12 +38,28 @@ namespace Backlog.Modules.Sessions.UI.Adapters;
 /// </summary>
 internal sealed partial class DeliveryRunReader
 {
+    /// <summary>
+    /// The folder this product writes its own runs into, and the third the reader
+    /// crosses.
+    /// <para>
+    /// A folder of its own rather than a share of <c>delivery-surface-dashboard</c>,
+    /// which is the obvious alternative and the wrong one: that folder belongs to the
+    /// dashboard server, which resumes runs out of it and rewrites them on its own
+    /// schedule, and two writers in one folder with nothing arbitrating between them
+    /// is the failure a single canonical writer exists to prevent. Sharing the
+    /// <em>shape</em> is what makes a run recorded here render like an imported one;
+    /// sharing the folder would only make the two collide.
+    /// </para>
+    /// </summary>
+    internal const string BacklogDashboard = "backlog";
+
     /// <summary>The dashboards this reader knows the layout of, by the folder each
     /// keeps under the profile. The plan that asked for this reader named the second
     /// <c>delivery-dashboard</c>; the server that ships writes
     /// <c>delivery-surface-dashboard</c>, and a folder nothing writes is not worth a
-    /// read.</summary>
-    internal static readonly string[] Dashboards = ["orch-dashboard", "delivery-surface-dashboard"];
+    /// read. The third is this product's own — see
+    /// <see cref="BacklogDashboard"/>.</summary>
+    internal static readonly string[] Dashboards = ["orch-dashboard", "delivery-surface-dashboard", BacklogDashboard];
 
     private readonly string _home;
     private readonly string _environmentId;

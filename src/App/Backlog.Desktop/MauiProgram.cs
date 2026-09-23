@@ -124,6 +124,13 @@ public static class MauiProgram
         // Which surface the shell was last showing, so it reopens there instead
         // of always defaulting to the workspace panes.
         builder.Services.AddSingleton<ShellNavigationStore>();
+        // The other direction: what can change which surface is showing, now, from
+        // outside the user interface. The shell attaches its window to this while it
+        // lives, and the delivery surface's open_dashboard is what asks. Registered
+        // twice over so the shell can resolve the concrete type it attaches to while
+        // every caller sees only the port.
+        builder.Services.AddSingleton<SessionsSurfaceActivator>();
+        builder.Services.AddSingleton<ISessionsSurfaceActivator>(sp => sp.GetRequiredService<SessionsSurfaceActivator>());
         // Which machine this installation is: minted once into device.json beside the
         // settings above, and stable across restarts and renames. Two contexts read it —
         // Sessions stamps every record it finds with it and the Dashboard offers it as a

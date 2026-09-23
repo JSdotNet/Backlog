@@ -27,7 +27,11 @@ namespace Backlog.Modules.Sessions.Abstractions;
 /// </summary>
 /// <param name="Id">The dashboard's own run id, unique within a worktree's folder.</param>
 /// <param name="Dashboard">Which dashboard wrote it — the folder name under the
-/// profile, <c>orch-dashboard</c> or <c>delivery-surface-dashboard</c>.</param>
+/// profile: <c>orch-dashboard</c> or <c>delivery-surface-dashboard</c> for a run
+/// imported from one of those servers, <c>backlog</c> for one this product recorded
+/// itself through <see cref="IDeliverySurfaceLifecycle"/>. The shape is the same
+/// either way; this is the only thing that tells them apart, and it is provenance
+/// rather than a difference in kind.</param>
 /// <param name="Worktree">
 /// The dashboard's key for the worktree the run belonged to: the folder's leaf plus
 /// eight hex characters of a hash of the whole path, exactly as the state folder is
