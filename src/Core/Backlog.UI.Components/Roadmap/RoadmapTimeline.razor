@@ -279,6 +279,13 @@
     // outside the bar, say) cannot leave this armed for somebody's next real click.
     private bool _clickEndsADrag;
 
+    // A bar whose button the next render replaces, and which should have the focus
+    // ring once it has. A bar is drawn inside its row's element, so a bar that
+    // changes row is a new button and the old one goes, focus and all, to <body>.
+    // Asked for after the render rather than at the keypress, because before it
+    // the button being named is the one about to be thrown away.
+    private string? _refocusId;
+
     private RoadmapDrag _kind = RoadmapDrag.Move;
     private int _steps;
     private int _rowOffset;
@@ -527,6 +534,19 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (_refocusId is { } refocus)
+        {
+            _refocusId = null;
+
+            try
+            {
+                await Js.InvokeVoidAsync("backlogFocus", BarButtonId(refocus));
+            }
+            catch (JSException)
+            {
+            }
+        }
+
         // Attached once the track exists, and only then. A plan with no rows
         // renders no track at all, so the reference would be to nothing.
         if (_attached || Rows.Count == 0) return;
@@ -660,6 +680,10 @@
 
         if (args.Key == "Escape")
         {
+            // Cancelling puts the bar back on the row it came from, which is
+            // another new button if the arrows had carried it off that row.
+            if (!Is(EffectiveRow(bar), bar.RowId)) _refocusId = bar.Id;
+
             DragCancel();
             return;
         }
@@ -707,9 +731,12 @@
 
         if (across == 0 || !AllowRowChange || _kind != RoadmapDrag.Move) return;
 
+        var from = EffectiveRow(bar);
+
         _rowOffset += across;
 
         Invalidate();
+        if (!Is(EffectiveRow(bar), from)) _refocusId = bar.Id;
         AnnouncePlacement(bar);
     }
 
@@ -738,15 +765,12 @@
 
         // The row it landed on may be rebuilt around it, and a moved bar whose
         // focus ring stayed with the old element is a bar the reader has to
-        // find again with the Tab key. Named by id, because it is now a
-        // different node.
-        try
-        {
-            await Js.InvokeVoidAsync("backlogFocus", BarButtonId(barId));
-        }
-        catch (JSException)
-        {
-        }
+        // find again with the Tab key. After the render the host's change
+        // causes, not now: a host applying it from inside this keypress has
+        // only queued that render, and focusing now would focus the node it
+        // is about to replace.
+        _refocusId = barId;
+        StateHasChanged();
     }
 
     private void Release()

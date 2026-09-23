@@ -1,4 +1,6 @@
 using System.Globalization;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.JSInterop;
 
 namespace Backlog.UI.Components.UnitTests;
 
@@ -795,6 +797,137 @@ public sealed class RoadmapTimelineTests
         bar.KeyDown(new KeyboardEventArgs { Key = " " });
 
         Assert.Null(reported);
+    }
+
+    // --- Where the focus ring goes when the bar changes row -------------------
+    //
+    // A bar is drawn inside its row's element, so moving it to another row makes
+    // a new button and throws the old one, focus and all, away. The browser drops
+    // the focus to <body>, and the reader's next Space goes nowhere. Each test
+    // below reads the rendered chart at the moment focus is asked for: asking
+    // before the render lands would focus a button that is about to be discarded.
+
+    [Fact]
+    public void A_grabbed_bar_walked_onto_another_row_takes_the_focus_ring_with_it()
+    {
+        using var context = new BunitContext();
+        var runtime = new FocusRecordingRuntime();
+        context.Services.AddSingleton<IJSRuntime>(runtime);
+
+        var view = context.Render<RoadmapTimeline>(parameters => parameters
+            .Add(timeline => timeline.Groups, Plan)
+            .Add(timeline => timeline.Bars, Work)
+            .Add(timeline => timeline.Window, Q1)
+            .Add(timeline => timeline.TestId, "rm"));
+        runtime.Chart = id => view.FindAll($"[id='{id}']").SingleOrDefault();
+
+        view.Find("[data-testid='rm-bar-alpha'] .roadmap-bar__body").KeyDown(new KeyboardEventArgs { Key = " " });
+        view.Find("[data-testid='rm-bar-alpha'] .roadmap-bar__body").KeyDown(new KeyboardEventArgs { Key = "ArrowDown" });
+
+        var focused = Assert.Single(runtime.Focused);
+        Assert.Equal(view.Find("[data-testid='rm-bar-alpha'] .roadmap-bar__body").Id, focused.Id);
+        Assert.Equal("ship", focused.Row);
+
+        // And the bar is still in hand: the Space that follows reaches it and drops it.
+        view.Find("[data-testid='rm-bar-alpha'] .roadmap-bar__body").KeyDown(new KeyboardEventArgs { Key = " " });
+
+        Assert.Contains("Dropped Alpha", Announcement(view), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_step_that_leaves_the_bar_on_its_row_does_not_move_the_focus()
+    {
+        using var context = new BunitContext();
+        var runtime = new FocusRecordingRuntime();
+        context.Services.AddSingleton<IJSRuntime>(runtime);
+
+        var view = context.Render<RoadmapTimeline>(parameters => parameters
+            .Add(timeline => timeline.Groups, Plan)
+            .Add(timeline => timeline.Bars, Work)
+            .Add(timeline => timeline.Window, Q1)
+            .Add(timeline => timeline.TestId, "rm"));
+        runtime.Chart = id => view.FindAll($"[id='{id}']").SingleOrDefault();
+
+        var bar = view.Find("[data-testid='rm-bar-alpha'] .roadmap-bar__body");
+        bar.KeyDown(new KeyboardEventArgs { Key = " " });
+        bar.KeyDown(new KeyboardEventArgs { Key = "ArrowRight" });
+
+        Assert.Empty(runtime.Focused);
+    }
+
+    [Fact]
+    public void Escape_after_a_row_change_brings_the_focus_back_to_the_row_it_started_on()
+    {
+        using var context = new BunitContext();
+        var runtime = new FocusRecordingRuntime();
+        context.Services.AddSingleton<IJSRuntime>(runtime);
+
+        var view = context.Render<RoadmapTimeline>(parameters => parameters
+            .Add(timeline => timeline.Groups, Plan)
+            .Add(timeline => timeline.Bars, Work)
+            .Add(timeline => timeline.Window, Q1)
+            .Add(timeline => timeline.TestId, "rm"));
+        runtime.Chart = id => view.FindAll($"[id='{id}']").SingleOrDefault();
+
+        view.Find("[data-testid='rm-bar-alpha'] .roadmap-bar__body").KeyDown(new KeyboardEventArgs { Key = " " });
+        view.Find("[data-testid='rm-bar-alpha'] .roadmap-bar__body").KeyDown(new KeyboardEventArgs { Key = "ArrowDown" });
+        view.Find("[data-testid='rm-bar-alpha'] .roadmap-bar__body").KeyDown(new KeyboardEventArgs { Key = "Escape" });
+
+        Assert.Equal("build", runtime.Focused[^1].Row);
+    }
+
+    [Fact]
+    public void A_bar_dropped_on_another_row_is_focused_where_the_host_put_it()
+    {
+        using var context = new BunitContext();
+        var runtime = new FocusRecordingRuntime();
+        context.Services.AddSingleton<IJSRuntime>(runtime);
+
+        var view = context.Render<RoadmapHostHarness>(parameters => parameters
+            .Add(host => host.Groups, Plan)
+            .Add(host => host.Bars, Work)
+            .Add(host => host.Window, Q1));
+        runtime.Chart = id => view.FindAll($"[id='{id}']").SingleOrDefault();
+
+        view.Find("[data-testid='rm-bar-alpha'] .roadmap-bar__body").KeyDown(new KeyboardEventArgs { Key = " " });
+        view.Find("[data-testid='rm-bar-alpha'] .roadmap-bar__body").KeyDown(new KeyboardEventArgs { Key = "ArrowDown" });
+        view.Find("[data-testid='rm-bar-alpha'] .roadmap-bar__body").KeyDown(new KeyboardEventArgs { Key = " " });
+
+        // Applied by the host, so the bar now lives on "ship" for good — and the
+        // last focus request was made once that was on screen.
+        view.Find("[data-testid='rm-row-ship'] [data-testid='rm-bar-alpha']");
+        Assert.Equal("ship", runtime.Focused[^1].Row);
+    }
+
+    /// <summary>
+    /// Answers every call the chart makes, and for each <c>backlogFocus</c> notes
+    /// which row the named button was in on the rendered chart at that moment —
+    /// null when no such button was drawn. Only that is worth recording: whether
+    /// focus was asked for is not the bug, when it was asked for is.
+    /// </summary>
+    private sealed class FocusRecordingRuntime : IJSRuntime
+    {
+        public Func<string, AngleSharp.Dom.IElement?>? Chart { get; set; }
+
+        public List<(string Id, string? Row)> Focused { get; } = [];
+
+        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args) =>
+            Record<TValue>(identifier, args);
+
+        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, CancellationToken cancellationToken, object?[]? args) =>
+            Record<TValue>(identifier, args);
+
+        private ValueTask<TValue> Record<TValue>(string identifier, object?[]? args)
+        {
+            if (identifier == "backlogFocus" && args is [string id, ..])
+            {
+                var row = Chart?.Invoke(id)?.Closest("[data-roadmap-row]")?.GetAttribute("data-roadmap-row");
+
+                Focused.Add((id, row));
+            }
+
+            return ValueTask.FromResult(default(TValue)!);
+        }
     }
 
     // --- What the timeline declines to invent ---------------------------------
