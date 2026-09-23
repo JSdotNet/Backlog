@@ -26,12 +26,52 @@ namespace Backlog.Infrastructure.Mcp.UnitTests;
 /// </summary>
 public class McpToolCreationTests
 {
-    /// <summary>Every tool builds, under the name the catalog claims, and carries
-    /// the read-only hint it declared all the way to the wire — which for
-    /// <c>resolve_annotation</c> means arriving as a write, not being quietly
-    /// flattened into one more read.</summary>
+    /// <summary>
+    /// The tools that only read, named. Everything else this library publishes
+    /// writes.
+    /// <para>
+    /// Pinned as a list rather than derived from the attributes, which would make
+    /// the assertion below agree with whatever the attribute happens to say. This
+    /// is the statement the attributes are checked against, and the point of it is
+    /// that turning a read into a write has to be done here as well as there.
+    /// </para>
+    /// </summary>
+    private static readonly string[] ReadOnly =
+    [
+        WorkTools.ListEntries,
+        WorkTools.GetPlanItems,
+        TrackerTools.FindItem,
+        TrackerTools.ReadItem,
+        RoadmapTools.GetRoadmap,
+        DevbookTools.ListKnowledgeContexts,
+        DevbookTools.ReadKnowledgeChapter,
+        DevbookTools.ListAnnotations,
+        SessionTools.ListSessions
+    ];
+
+    /// <summary>
+    /// Every tool builds, under the name the catalog claims, and reaches the wire
+    /// saying honestly whether it writes.
+    /// <para>
+    /// This asserted <c>ReadOnlyHint == true</c> for every tool once, which was a
+    /// true statement about a read-only assembly and stopped being one twice over
+    /// in the same week — <c>resolve_annotation</c> and the tracker operations
+    /// arrived independently, each the first write its own author had seen. It is
+    /// a per-tool expectation now rather than a check the writers are excused
+    /// from: the hint is what a client shows a person before it runs something, so
+    /// a write claiming to be a read is worse than an unstated hint, and a write
+    /// quietly flattened into one more read is how that happens. Every writer is
+    /// held to <c>DestructiveHint == false</c> besides — none of them destroys
+    /// anything, there being no delete tool to.
+    /// </para>
+    /// <para>
+    /// Naming the readers rather than the writers is deliberate. A tool added
+    /// later is a write until somebody says otherwise, which is the safe way round
+    /// for an assertion whose whole job is to catch the one nobody thought about.
+    /// </para>
+    /// </summary>
     [Fact]
-    public void Every_tool_builds_with_the_name_and_the_read_only_hint_it_claims()
+    public void Every_tool_builds_under_its_name_and_says_honestly_whether_it_writes()
     {
         var built = Tools().ToList();
 
@@ -39,16 +79,55 @@ public class McpToolCreationTests
 
         foreach (var tool in built)
         {
-            var write = tool.ProtocolTool.Name == DevbookTools.ResolveAnnotation;
+            var annotations = tool.ProtocolTool.Annotations;
 
-            Assert.Equal(
-                !write,
-                tool.ProtocolTool.Annotations?.ReadOnlyHint);
+            if (ReadOnly.Contains(tool.ProtocolTool.Name, StringComparer.Ordinal))
+            {
+                Assert.True(
+                    annotations?.ReadOnlyHint,
+                    $"{tool.ProtocolTool.Name} does not reach the wire as read-only.");
+            }
+            else
+            {
+                Assert.NotEqual(true, annotations?.ReadOnlyHint);
+
+                Assert.False(
+                    annotations?.DestructiveHint,
+                    $"{tool.ProtocolTool.Name} reaches the wire as destructive, and nothing here destroys an entry.");
+            }
 
             Assert.False(
                 string.IsNullOrWhiteSpace(tool.ProtocolTool.Description),
                 $"{tool.ProtocolTool.Name} reaches the wire with no description.");
         }
+    }
+
+    /// <summary>The list above is the whole catalog split in two, so a tool added
+    /// to neither half is a tool nobody said anything about.
+    /// <para>
+    /// The writers span two areas and arrived from two directions —
+    /// <c>resolve_annotation</c> against the devbook's private notes, the four
+    /// tracker operations against the backlog — which is the case this assertion
+    /// is for. Each author saw their own as the assembly's first write, and a
+    /// split derived from the attributes would have agreed with both of them
+    /// separately and with neither of them together.
+    /// </para></summary>
+    [Fact]
+    public void Every_published_tool_is_on_one_side_of_the_read_write_line()
+    {
+        Assert.All(ReadOnly, name => Assert.Contains(name, BacklogMcpTools.ToolNames));
+
+        var writers = BacklogMcpTools.ToolNames.Except(ReadOnly, StringComparer.Ordinal).Order();
+
+        Assert.Equal(
+            [
+                TrackerTools.Comment,
+                TrackerTools.CreateItem,
+                TrackerTools.LinkChange,
+                DevbookTools.ResolveAnnotation,
+                TrackerTools.Transition
+            ],
+            [.. writers]);
     }
 
     /// <summary>
@@ -65,6 +144,26 @@ public class McpToolCreationTests
 
         Assert.Equal(["repository"], schemas["list_entries"]);
         Assert.Equal(["planId"], schemas["get_plan_items"]);
+
+        // Every selector and every filter is advertised, because a model has to
+        // be told a narrowing exists to use it — and find_item's whole contract
+        // is that the caller picks one of the three rather than the tool picking
+        // for them.
+        Assert.Equal(
+            ["id", "repoId", "externalId", "title", "status", "repository", "tag"],
+            schemas["find_item"]);
+        Assert.Equal(["id"], schemas["read_item"]);
+        Assert.Equal(["id", "status"], schemas["transition"]);
+        Assert.Equal(["id", "text"], schemas["comment"]);
+        Assert.Equal(["id", "repository", "externalId"], schemas["link_change"]);
+        Assert.Equal(["rawText", "repository"], schemas["create_item"]);
+
+        // find_item requires none of its arguments at the schema level, on
+        // purpose: "exactly one of these three" is not something a JSON schema
+        // `required` list can say, and marking any one of them required would
+        // rule out the other two.
+        Assert.Empty(Required(Tools().Single(tool => tool.ProtocolTool.Name == "find_item")));
+
         Assert.Equal(["repository"], schemas["get_roadmap"]);
         Assert.Equal(["repository"], schemas["list_knowledge_contexts"]);
         Assert.Equal(["repository", "chapterPath", "review"], schemas["read_knowledge_chapter"]);
@@ -82,6 +181,7 @@ public class McpToolCreationTests
         var targets = new Dictionary<Type, object>
         {
             [typeof(WorkTools)] = new WorkTools(new FakeTaskItems(), new FakeRepositoryDirectory()),
+            [typeof(TrackerTools)] = new TrackerTools(new FakeTaskItems(), new FakeRepositoryDirectory()),
             [typeof(RoadmapTools)] = new RoadmapTools(
                 new FakeRoadmapPlanning(RoadmapPlanDto.Empty),
                 new FakeRepositoryDirectory()),

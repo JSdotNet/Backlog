@@ -7,14 +7,31 @@ using Backlog.SharedKernel;
 namespace Backlog.Infrastructure.Mcp;
 
 /// <summary>
-/// The seven read-only tools, the four groups they come in, and the feature key
-/// each group answers to.
+/// The thirteen tools, the five groups they come in, and the feature key each
+/// group answers to.
+/// <para>
+/// Seven of them read and six of those are all there used to be — the assembly
+/// was read-only until the tracker operations arrived, and several docs under it
+/// said so in those words. What replaced that claim is narrower and still worth
+/// stating: nothing here registers a repository (see <see cref="RepositoryScope"/>),
+/// nothing here deletes, and every write goes through the Tasks port's one text
+/// grammar rather than setting a field.
+/// </para>
 /// <para>
 /// Local ADR 0012 §7 exposes tools "in groups, each behind one
 /// <see cref="IAppFeatureSettings"/> check", and a group whose feature is off is
 /// <em>absent</em> from <c>tools/list</c> rather than present and refusing. A
 /// group is therefore a tool class — one <c>[McpServerToolType]</c> per switchable
 /// area — and this is the table that says which key each one reads.
+/// </para>
+/// <para>
+/// <b>A key may be read by two groups, and one is.</b> §7 asks for one check per
+/// group; it does not ask for one group per key, and the two are different
+/// requirements. A group is the unit the check is applied at, so that a class
+/// cannot half-appear; a key is the switchable <em>area</em> a person turns off.
+/// <see cref="Work"/> and <see cref="Tracker"/> are two classes because they are
+/// two descriptions of what a tool is for, and one key because reading the
+/// backlog and moving it are the same thing to switch off.
 /// </para>
 /// <para>
 /// It lives in this project rather than in the host because both hosts need it
@@ -49,6 +66,39 @@ public static class BacklogMcpTools
         TasksFeatures.Tasks,
         typeof(WorkTools),
         [WorkTools.ListEntries, WorkTools.GetPlanItems]);
+
+    /// <summary>
+    /// The tracker operations — find, read, transition, comment, link and create
+    /// — behind <c>backlog</c>, the same key <see cref="Work"/> reads.
+    /// <para>
+    /// <b>The shared key is the decision, not an oversight.</b> Local ADR 0012 §7
+    /// requires one <see cref="IAppFeatureSettings"/> check per group, which this
+    /// satisfies: the check runs once for this group and once for
+    /// <see cref="Work"/>, and each group's tools appear or vanish whole. What §7
+    /// does not require is a key per group. A key names a switchable area, and
+    /// reading the backlog and moving it are one area — somebody switching Tasks
+    /// off means "no backlog tools", not "no backlog tools except the ones that
+    /// write".
+    /// </para>
+    /// <para>
+    /// The split into two classes is about description rather than gating.
+    /// <see cref="WorkTools"/> answers one question two ways and says so; these
+    /// six do six different things, four of them writes. Folding them together
+    /// would leave one class whose doc could not honestly describe it, and a
+    /// model reads that doc to decide what it is looking at.
+    /// </para>
+    /// </summary>
+    public static McpToolGroup Tracker { get; } = new(
+        TasksFeatures.Tasks,
+        typeof(TrackerTools),
+        [
+            TrackerTools.FindItem,
+            TrackerTools.ReadItem,
+            TrackerTools.Transition,
+            TrackerTools.Comment,
+            TrackerTools.LinkChange,
+            TrackerTools.CreateItem
+        ]);
 
     /// <summary>The roadmap tool, behind <c>roadmap</c>.
     /// <para>
@@ -92,7 +142,7 @@ public static class BacklogMcpTools
         [SessionTools.ListSessions]);
 
     /// <summary>Every group, in the order a host should register them.</summary>
-    public static IReadOnlyList<McpToolGroup> Groups { get; } = [Work, Roadmap, Devbook, Sessions];
+    public static IReadOnlyList<McpToolGroup> Groups { get; } = [Work, Tracker, Roadmap, Devbook, Sessions];
 
     /// <summary>Every tool name this library publishes. What a <c>tools/list</c>
     /// with every flag on has to come back with.</summary>

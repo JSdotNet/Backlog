@@ -19,9 +19,17 @@ namespace Backlog.Infrastructure.Mcp;
 /// </para>
 /// <para>
 /// <see cref="IRepositoryDirectory.Register"/> is never called from this
-/// assembly, and that is the whole of the read-only claim on this side: "a
-/// session mentioning a repository is not a plan introducing one". A name the
-/// directory does not know is an ordinary answer that says so.
+/// assembly: "a session mentioning a repository is not a plan introducing one".
+/// A name the directory does not know is an ordinary answer that says so.
+/// </para>
+/// <para>
+/// That claim used to be stated as the read-only claim "on this side", and it
+/// outlived the read-only assembly: <see cref="TrackerTools"/> writes to the
+/// backlog. It survives unweakened about the thing it was always about, which is
+/// the <em>registry</em>. A tool that creates an entry against
+/// <c>JSdotNet/Backlog</c> still cannot bring <c>JSdotNet/Backlog</c> into
+/// existence — the create is refused instead, before anything is written, which
+/// is why every tool resolves before it reads or saves.
 /// </para>
 /// </summary>
 internal static class RepositoryScope
