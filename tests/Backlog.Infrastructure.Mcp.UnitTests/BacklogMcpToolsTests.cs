@@ -22,12 +22,18 @@ namespace Backlog.Infrastructure.Mcp.UnitTests;
 public class BacklogMcpToolsTests
 {
     [Fact]
-    public void The_seven_read_only_tools_are_the_ones_the_item_names()
+    public void The_thirteen_tools_are_the_ones_the_items_name()
     {
         Assert.Equal(
             [
                 "list_entries",
                 "get_plan_items",
+                "find_item",
+                "read_item",
+                "transition",
+                "comment",
+                "link_change",
+                "create_item",
                 "get_roadmap",
                 "list_knowledge_contexts",
                 "read_knowledge_chapter",
@@ -37,23 +43,62 @@ public class BacklogMcpToolsTests
             BacklogMcpTools.ToolNames);
     }
 
-    /// <summary>One check per group, each group behind its own context's flag
-    /// (local ADR 0012 §7). Four groups because four bounded contexts answer
-    /// here, and the roadmap is one of them: it has a key of its own and a person
-    /// switching it off has switched off the thing that tool reads.</summary>
+    /// <summary>
+    /// One check per group, each group behind the flag of the area it belongs to
+    /// (local ADR 0012 §7). Five groups over four bounded contexts, and the
+    /// roadmap is one of them: it has a key of its own and a person switching it
+    /// off has switched off the thing that tool reads.
+    /// </summary>
     [Fact]
     public void Each_group_reads_the_feature_key_its_area_owns()
     {
         Assert.Equal(TasksFeatures.Tasks, BacklogMcpTools.Work.FeatureKey);
+        Assert.Equal(TasksFeatures.Tasks, BacklogMcpTools.Tracker.FeatureKey);
         Assert.Equal(RoadmapFeatures.Roadmap, BacklogMcpTools.Roadmap.FeatureKey);
         Assert.Equal(DevbookFeatures.RepositoryDevbook, BacklogMcpTools.Devbook.FeatureKey);
         Assert.Equal(SessionFeatures.Sessions, BacklogMcpTools.Sessions.FeatureKey);
+    }
 
-        // And no two groups share one, which is what makes the gate per area
-        // rather than per tool class.
+    /// <summary>
+    /// The two task groups read one key, and that is the decision rather than a
+    /// duplicate to be cleaned up.
+    /// <para>
+    /// This used to assert that every group's key was distinct, which read §7's
+    /// "one check per group" as "one group per key". They are different
+    /// requirements. A group is the unit the check is applied at, so that a class
+    /// cannot half-appear in <c>tools/list</c>; a key is the switchable
+    /// <em>area</em>. Reading the backlog and moving it are one area — somebody
+    /// switching Tasks off means "no backlog tools", not "no backlog tools except
+    /// the ones that write" — while being two descriptions of what a tool class
+    /// is for, which is what a model reads.
+    /// </para>
+    /// <para>
+    /// What does still hold is that no key crosses a bounded context: the keys
+    /// the five groups name are four, one per context that answers here.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void The_two_task_groups_share_the_tasks_key_and_nothing_else_shares_one()
+    {
+        var byKey = BacklogMcpTools.Groups
+            .GroupBy(group => group.FeatureKey, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.ToList(), StringComparer.Ordinal);
+
+        Assert.Equal(4, byKey.Count);
+
+        Assert.Equal(
+            [BacklogMcpTools.Work, BacklogMcpTools.Tracker],
+            byKey[TasksFeatures.Tasks]);
+
+        Assert.All(
+            byKey.Where(pair => pair.Key != TasksFeatures.Tasks),
+            pair => Assert.Single(pair.Value));
+
+        // And two groups are two classes, which is what keeps the registration
+        // from listing one class's tools twice.
         Assert.Equal(
             BacklogMcpTools.Groups.Count,
-            BacklogMcpTools.Groups.Select(group => group.FeatureKey).Distinct(StringComparer.Ordinal).Count());
+            BacklogMcpTools.Groups.Select(group => group.ToolType).Distinct().Count());
     }
 
     /// <summary>The table and the attributes are one statement. Every name the
@@ -78,21 +123,46 @@ public class BacklogMcpToolsTests
     }
 
     /// <summary>
-    /// Every tool says it is read-only and says what it is for. The first is a
-    /// claim a client shows a person before it runs anything; the second is what
-    /// a model reads to decide whether to call it at all, and a tool with no
-    /// description is a tool that gets called for the wrong reason.
+    /// Every tool says whether it writes, and says what it is for.
+    /// <para>
+    /// This asserted <c>ReadOnly</c> of every tool once, which was true of a
+    /// read-only assembly. What it holds now is the property that survives the
+    /// tracker operations arriving: a writer never claims to be a read — the
+    /// claim a client shows a person before it runs anything — and no tool
+    /// declares itself destructive, there being nothing here that destroys an
+    /// entry. The description is the other half: a model reads it to decide
+    /// whether to call the tool at all, and a tool with no description is one
+    /// that gets called for the wrong reason.
+    /// </para>
     /// </summary>
     [Fact]
-    public void Every_tool_is_declared_read_only_and_described()
+    public void Every_tool_declares_what_it_does_and_is_described()
     {
+        string[] writers =
+        [
+            TrackerTools.Transition,
+            TrackerTools.Comment,
+            TrackerTools.LinkChange,
+            TrackerTools.CreateItem
+        ];
+
         foreach (var group in BacklogMcpTools.Groups)
         {
             foreach (var method in group.ToolType.GetMethods())
             {
                 if (method.GetCustomAttribute<McpServerToolAttribute>() is not { } tool) continue;
 
-                Assert.True(tool.ReadOnly, $"{tool.Name} does not declare itself read-only.");
+                var writes = writers.Contains(tool.Name, StringComparer.Ordinal);
+
+                Assert.Equal(!writes, tool.ReadOnly);
+
+                // Only asked of the writers, because the attribute's Destructive
+                // defaults to true when nobody sets it — the protocol's own
+                // default for a tool that has not said. A read-only tool never
+                // reaches the wire with the hint at all (the SDK omits it), so
+                // reading the attribute for one would be asserting against a
+                // default rather than against a claim anybody made.
+                if (writes) Assert.False(tool.Destructive, $"{tool.Name} declares itself destructive.");
                 Assert.False(
                     string.IsNullOrWhiteSpace(method.GetCustomAttribute<DescriptionAttribute>()?.Description),
                     $"{tool.Name} has no description for a model to read.");
@@ -150,14 +220,18 @@ public class BacklogMcpToolsTests
 
         features.SetEnabled(TasksFeatures.Tasks, enabled: false);
 
+        // Both task groups go, and they go together: the key names the area, so
+        // switching the backlog off takes reading it and moving it at once.
+        // Leaving the tracker operations listed would offer a session six tools
+        // for a pane the person has switched off.
         Assert.All(
-            BacklogMcpTools.Work.ToolNames,
+            BacklogMcpTools.Work.ToolNames.Concat(BacklogMcpTools.Tracker.ToolNames),
             name => Assert.False(BacklogMcpTools.IsExposed(name, features)));
 
-        // And only that group goes.
+        // And only the groups that read that key go.
         Assert.All(
             BacklogMcpTools.Groups
-                .Where(group => group != BacklogMcpTools.Work)
+                .Where(group => group.FeatureKey != TasksFeatures.Tasks)
                 .SelectMany(group => group.ToolNames),
             name => Assert.True(BacklogMcpTools.IsExposed(name, features)));
     }

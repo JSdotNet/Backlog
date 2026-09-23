@@ -48,6 +48,69 @@ public sealed record EntryListPayload(string Repository, string RepositoryAlias,
 /// <summary>The entries one import plan produced, in rank order.</summary>
 public sealed record PlanItemsPayload(string PlanId, int Count, IReadOnlyList<EntryPayload> Entries);
 
+/// <summary>
+/// One entry named: its id and where it stands.
+/// <para>
+/// What every tracker operation that is not a read of the text answers with, so
+/// a session that found, moved or created an entry has the two facts it needs to
+/// do the next thing — the id it will pass back, and the status it is now
+/// reasoning from. The whole <see cref="EntryPayload"/> would be a page of
+/// scheduling fields to say "it is in progress"; <c>read_item</c> is the tool
+/// for a session that wants the entry itself.
+/// </para>
+/// </summary>
+public sealed record EntryRefPayload(Guid Id, string Title, string Status);
+
+/// <summary>
+/// One entry as the text it is, which in this product is the entry itself.
+/// </summary>
+/// <param name="Markdown">Exactly what <c>EntryTextParser.ToRawText</c> composes,
+/// metadata line and all — byte for byte what the pane would save. A session
+/// reading anything less would be editing against a shape it could not write
+/// back.</param>
+public sealed record EntryTextPayload(Guid Id, string Title, string Status, string Markdown);
+
+/// <summary>
+/// What a requested status change did, or did not do.
+/// </summary>
+/// <param name="Status">Where the entry stands <em>now</em>. On a refusal this is
+/// the status it kept, not the one that was asked for — a refusal that echoed
+/// the target back would read as a success to anything skimming the field.</param>
+/// <param name="Changed">Whether the entry moved. False both for a refused move
+/// and for one that asked for the status the entry already had, which are
+/// different events and the <paramref name="Refusal"/> field is what tells them
+/// apart.</param>
+/// <param name="Refusal">Why the move was refused, in words, or null when there
+/// was nothing to refuse.</param>
+/// <param name="NextStatuses">Where the entry may go from
+/// <paramref name="Status"/>, off the module's own graph. Present on every
+/// answer rather than only on a refusal: a session that has just started work
+/// wants to know that <c>done</c> is the next step as much as one that was
+/// stopped wants to know why.</param>
+public sealed record TransitionPayload(
+    Guid Id,
+    string Status,
+    bool Changed,
+    string? Refusal,
+    IReadOnlyList<string> NextStatuses);
+
+/// <summary>
+/// A note left on an entry, and the sub-items that survived it.
+/// </summary>
+/// <param name="SubItems">How many the entry has now. Reported because the
+/// failure this tool's construction guards against — rewriting the entry's own
+/// prose and taking its steps with it — is invisible in a success message, and
+/// a session that appended one line has a right to see that it cost nothing.</param>
+public sealed record CommentPayload(Guid Id, string Title, string Status, int SubItems);
+
+/// <summary>
+/// The external object an entry's work produced, recorded against the entry.
+/// </summary>
+/// <param name="TargetType">The vocabulary this context keeps for what was
+/// linked — <c>pull-request</c> here, never <c>issue</c>, which is a different
+/// object with its own screen reading it.</param>
+public sealed record LinkPayload(Guid Id, string Repository, string ExternalId, string TargetType);
+
 /// <summary>One piece of planned work. Both days are inclusive — "through the
 /// 31st" means the 31st.</summary>
 public sealed record RoadmapItemPayload(

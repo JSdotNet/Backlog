@@ -542,6 +542,38 @@ public sealed class GitHubLinkTests
         Assert.Null(TasksIssues.FindLink(entry));
     }
 
+    /// <summary>
+    /// A pull request is one of those somethings, and this is the assertion that
+    /// keeps it one.
+    /// <para>
+    /// The MCP <c>link_change</c> tool records a pull request against an entry
+    /// under <c>EntryProjectionDto.PullRequestTargetType</c>, which is a separate
+    /// value from <c>IssueTargetType</c> precisely so this filter keeps excluding
+    /// it. A session opening a pull request must not take away the pane's offer
+    /// to file the issue — nor show a GitHub issue number that is a different
+    /// object with a different URL. The filter is deliberately left alone; this
+    /// says out loud that leaving it alone is what makes the new value safe.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void A_pull_request_is_not_the_issue_an_entry_was_pushed_to()
+    {
+        var entry = Entry(
+            new EntryProjectionDto("JSdotNet/Backlog", "582", EntryProjectionDto.PullRequestTargetType));
+
+        Assert.Null(TasksIssues.FindLink(entry));
+
+        // And an entry that has both keeps answering with the issue, whichever
+        // order they were recorded in. FindLink takes the last matching
+        // projection, so a pull request recorded after the push must not become
+        // the answer by being later.
+        var pushedThenMerged = Entry(
+            new EntryProjectionDto("JSdotNet/Backlog", "42", EntryProjectionDto.IssueTargetType),
+            new EntryProjectionDto("JSdotNet/Backlog", "582", EntryProjectionDto.PullRequestTargetType));
+
+        Assert.Equal(42, TasksIssues.FindLink(pushedThenMerged)!.IssueNumber);
+    }
+
     private static TaskItemDto Entry(params EntryProjectionDto[] projections) => new(
         Guid.NewGuid(),
         "Add GitHub support",

@@ -171,7 +171,7 @@ public static class AppFeatures
         new(
             McpServer,
             "MCP server",
-            "Let AI sessions on this PC read your backlog and devbook through the Model Context Protocol. Backlog opens a port on this machine (5757 unless you change it) that other programs on it can connect to, and hands out a token they have to present. Nothing outside this PC can reach it, and the tools only read: no session can change an entry, a plan, or a note through them.",
+            "Let AI sessions on this PC work with your backlog and devbook through the Model Context Protocol. Backlog opens a port on this machine (5757 unless you change it) that other programs on it can connect to, and hands out a token they have to present. Nothing outside this PC can reach it. A session can read your backlog, the roadmap and your devbook notes, and it can also move an entry along its lifecycle, comment on one, link a pull request to one, and create one. It can never delete anything.",
             EnabledByDefault: false,
             Status: AppFeatureStatus.Dev,
             Group: AppFeatureGroup.CrossCutting),

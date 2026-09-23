@@ -11,11 +11,18 @@ namespace Backlog.Infrastructure.Mcp;
 /// The work a session asks about: the backlog, and the items one import plan
 /// produced. Both read-only.
 /// <para>
-/// One class for the two because they are one switchable group
-/// (<see cref="BacklogMcpTools.Work"/>) and one read: the entries, narrowed two
+/// One class for the two because they are one read — the entries, narrowed two
 /// ways. The roadmap used to ride here and now has its own class, because it has
 /// its own context's feature key and its own port — see
 /// <see cref="RoadmapTools"/>.
+/// </para>
+/// <para>
+/// "Both read-only" is a statement about these two methods and no longer about
+/// the assembly around them. <see cref="TrackerTools"/> writes, and it sits in a
+/// second group (<see cref="BacklogMcpTools.Tracker"/>) behind the same feature
+/// key as this one — so this class is a group and an area's group is now two
+/// classes. What a session may do to the backlog is described there; what it may
+/// ask about it is described here.
 /// </para>
 /// <para>
 /// <b>An instance per call, and that is the point.</b> <c>ITaskItems</c> is

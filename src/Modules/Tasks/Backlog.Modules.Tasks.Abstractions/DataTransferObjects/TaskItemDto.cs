@@ -87,4 +87,28 @@ public sealed record EntryProjectionDto(string RepoId, string ExternalId, string
     /// entry, and a caller comparing against it should not have to reference the
     /// adapter that happened to create it.</summary>
     public const string IssueTargetType = "issue";
+
+    /// <summary>
+    /// The <see cref="TargetType"/> an entry carries once the work on it opened a
+    /// pull request.
+    /// <para>
+    /// A second value beside <see cref="IssueTargetType"/> rather than a reuse of
+    /// it, because the two are different facts about the entry and one screen
+    /// already tells them apart: <c>TasksIssues.FindLink</c> filters on
+    /// <see cref="IssueTargetType"/>, so an entry whose only projection is a pull
+    /// request still reads as unpushed and the detail pane still offers to file
+    /// the issue. Recording a pull request as an <c>issue</c> would take that
+    /// offer away and show the pane a GitHub issue number that is somebody else's
+    /// object.
+    /// </para>
+    /// <para>
+    /// Here rather than beside the MCP tool that writes it, on the same terms as
+    /// the value above: what an entry was projected onto is a fact about the
+    /// entry, and a caller comparing against it should not have to reference
+    /// whatever happened to record it. Local ADR 0012 §5 makes the pull request
+    /// the moment a session's work is finished, so this is the vocabulary that
+    /// moment is written in.
+    /// </para>
+    /// </summary>
+    public const string PullRequestTargetType = "pull-request";
 }

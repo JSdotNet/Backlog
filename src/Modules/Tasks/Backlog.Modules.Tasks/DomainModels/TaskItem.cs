@@ -10,16 +10,6 @@ namespace Backlog.Modules.Tasks.DomainModels;
 /// </summary>
 public sealed class TaskItem
 {
-    // Allowed lifecycle transitions per .domain/tasks/flow.md.
-    private static readonly Dictionary<EntryStatus, EntryStatus[]> AllowedTransitions = new()
-    {
-        [EntryStatus.Draft] = new[] { EntryStatus.Ready },
-        [EntryStatus.Ready] = new[] { EntryStatus.InProgress, EntryStatus.Draft },
-        [EntryStatus.InProgress] = new[] { EntryStatus.Done, EntryStatus.Ready },
-        [EntryStatus.Done] = new[] { EntryStatus.Archived, EntryStatus.InProgress },
-        [EntryStatus.Archived] = new[] { EntryStatus.Draft },
-    };
-
     private readonly List<SubItem> _subItems = new();
     private readonly List<UsageEvent> _usageEvents = new();
     private readonly List<ProjectionRef> _projectionRefs = new();
@@ -488,16 +478,28 @@ public sealed class TaskItem
 
     // --- Lifecycle ----------------------------------------------------------
 
+    // The graph these two answer from is EntryStatusFlow, in this module's
+    // abstractions, and the delegation is the point rather than an indirection to
+    // be tidied away. The table used to sit here, on the aggregate that enforces
+    // it, which was right while the aggregate was the only thing that asked. The
+    // MCP `transition` tool now asks as well, from a project that may not
+    // reference this one (local ADR 0012 §5: it "consults it rather than carrying
+    // a copy of the graph"), so the table moved to where both can see it and
+    // these two stayed, unchanged, because every caller in this module and in the
+    // desktop tests names them.
+
     /// <summary>Returns true if an entry at <paramref name="from"/> may move
-    /// directly to <paramref name="to"/>.</summary>
+    /// directly to <paramref name="to"/>. The published spelling of
+    /// <see cref="EntryStatusFlow.IsAllowed"/>.</summary>
     public static bool IsTransitionAllowed(EntryStatus from, EntryStatus to) =>
-        from == to || (AllowedTransitions.TryGetValue(from, out var allowed) && Array.IndexOf(allowed, to) >= 0);
+        EntryStatusFlow.IsAllowed(from, to);
 
     /// <summary>The statuses this entry may move to right now, excluding its
     /// current one. Callers use this to explain a refusal rather than just
-    /// swallow it.</summary>
+    /// swallow it. The published spelling of
+    /// <see cref="EntryStatusFlow.NextFrom"/>.</summary>
     public static IReadOnlyList<EntryStatus> NextStatusesFrom(EntryStatus from) =>
-        AllowedTransitions.TryGetValue(from, out var allowed) ? allowed : [];
+        EntryStatusFlow.NextFrom(from);
 
     /// <summary>Returns true if the entry may currently transition to <paramref name="target"/>.</summary>
     public bool CanChangeStatusTo(EntryStatus target) => IsTransitionAllowed(Status, target);
@@ -505,7 +507,7 @@ public sealed class TaskItem
     /// <summary>Sets the current status from canonical metadata without walking the lifecycle graph.
     /// <para>
     /// Restamps, and "without walking the lifecycle graph" is not a reason it
-    /// should not: what this bypasses is <c>AllowedTransitions</c>, not mutation.
+    /// should not: what this bypasses is <see cref="EntryStatusFlow"/>, not mutation.
     /// Every caller is a person's edit or an import — <c>!done</c> typed on the
     /// metadata line is the most consequential edit in the product — and the load
     /// path does not come through here at all, because storage passes status

@@ -1,6 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <!-- A comment is dated, and a date a test cannot pin is a date a test has to
+         reconstruct - which is the same arithmetic the subject does, asserted
+         against itself. FakeTimeProvider is what every other clock-reading test
+         in this solution uses. -->
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Mcp\Backlog.Infrastructure.Mcp.csproj" />
     <!-- The ports the doubles implement, and the DTOs they answer with. Named
          rather than left to flow through the subject, so a test that stops
