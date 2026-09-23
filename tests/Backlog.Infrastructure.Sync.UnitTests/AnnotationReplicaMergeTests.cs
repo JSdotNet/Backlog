@@ -156,4 +156,32 @@ public class AnnotationReplicaMergeTests
 
         Assert.Equal(local, back);
     }
+
+    [Fact]
+    public void The_anchor_digest_crosses_the_wire()
+    {
+        // The whole point of replicating it: the other device holds its own copy
+        // of the chapter, and the index alone cannot tell it whether that copy
+        // has moved the block. Dropping the digest here would leave every
+        // remark anchored by index the moment it left the machine that made it.
+        var local = Annotations.Local("Anchored.", Noon) with { BlockHash = "1f2e3d4c" };
+
+        var change = AnnotationReplicaMerge.ToChange(local);
+
+        Assert.Equal("1f2e3d4c", change.Annotation.BlockHash);
+        Assert.Equal("1f2e3d4c", AnnotationReplicaMerge.ToAnnotation(change).BlockHash);
+    }
+
+    [Fact]
+    public void A_payload_from_a_device_that_does_not_send_a_digest_is_anchored_by_index()
+    {
+        // An older build's push. The member is simply absent, which is null
+        // here, and null has always meant "trust the index".
+        var change = Annotations.Change(Guid.NewGuid(), "From an older build.", Noon);
+
+        var annotation = AnnotationReplicaMerge.ToAnnotation(change);
+
+        Assert.Null(annotation.BlockHash);
+        Assert.False(annotation.IsAnchored);
+    }
 }

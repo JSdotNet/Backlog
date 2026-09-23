@@ -81,12 +81,39 @@ const STALE_TECH_KIND = /is missing required `kind` for the tech folder[.]$/;
  *  what keeps that promotion honest. Delete this list when the generator is
  *  re-synced — at that point the schema and the validator agree again, and the
  *  tests below say what to expect when it goes. */
-const FIELDS_ADDED_SINCE_INSTALL = new Set(['type', 'date', 'tests', 'index', 'number']);
+const FIELDS_ADDED_SINCE_INSTALL = new Set([
+    'type', 'date', 'tests', 'index', 'number',
+    // The switch chapters' own fields. A `feature-flag` or `setting` chapter in a
+    // context's `context.md` carries `key` — the identifier as the code spells it —
+    // plus `default`, and `scope` on a setting; a feature chapter points at one
+    // through `setting`. The installed copy knows `feature-flag` as a bare-key list
+    // and nothing else of the shape.
+    'key', 'scope', 'default', 'setting',
+]);
+
+/** The two `type` values the installed generator's domain vocabulary predates.
+ *
+ *  Same case as `FIELDS_ADDED_SINCE_INSTALL` above, one level down: not a field
+ *  the block may carry, but a value `type` may take. The current schema gives a
+ *  bounded context a `context.md` — its boundary, and the flags and settings its
+ *  capabilities hang on — typed `context` at file level, holding `setting` and
+ *  `feature-flag` chapters. The installed copy's domain vocabulary has neither
+ *  name, so it reports both at *error* severity, which no field-name exemption
+ *  can reach.
+ *
+ *  Paired deliberately rather than matched loosely: `context` is legal only on a
+ *  file-level block and `setting` only on a chapter-level one, so a `type:
+ *  context` chapter or a `type: setting` file still blocks, as does every other
+ *  unknown value. Delete this with the list above when the generator is
+ *  re-synced. */
+const TYPES_ADDED_SINCE_INSTALL =
+    /has type "context", expected one of the file-level types:|has type "setting", expected one of the chapter-level types:/;
 
 /** Whether a finding blocks the build, is worth printing, or is an artifact of
  *  the pending generator re-sync. */
 export function classify(relPath, issue) {
     if (relPath.startsWith('.tech/') && STALE_TECH_KIND.test(issue.message)) return 'suppressed';
+    if (relPath.startsWith('.domain/') && TYPES_ADDED_SINCE_INSTALL.test(issue.message)) return 'suppressed';
 
     const unrecognized = UNRECOGNIZED_FIELD.exec(issue.message);
     if (unrecognized && FIELDS_ADDED_SINCE_INSTALL.has(unrecognized[1])) return 'suppressed';

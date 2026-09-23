@@ -189,6 +189,27 @@ public sealed class Arc42DevbookPanelTests : IDisposable
     }
 
     [Fact]
+    public async Task A_decision_record_in_an_unindexed_folder_is_the_chapter_that_opens()
+    {
+        // The menu walks the folder all the way down, so it lists adr/ whether or
+        // not anything has indexed the repository. The panel has to be able to
+        // open what the menu offered: a reader who clicks a decision record on a
+        // machine that has never built the index is not looking at a different
+        // repository from one who has.
+        //
+        // The failure this pins is quiet rather than loud. A selection the catalog
+        // cannot match leaves the previous chapter on screen, so the tree row goes
+        // active and the prose beside it does not change — which reads as nothing
+        // having happened rather than as something having gone wrong.
+        await using var harness = CreateHarness(withArc42Folder: true, withIndex: false);
+
+        var component = harness.Render(DecisionPath);
+
+        component.WaitForAssertion(() => Assert.Contains("Original prose.", component.Markup, StringComparison.Ordinal));
+        Assert.DoesNotContain("Goals.", component.Markup, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Changing_the_state_beside_the_heading_writes_it_to_the_file()
     {
         await using var harness = CreateHarness(withArc42Folder: true);

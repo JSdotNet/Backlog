@@ -22,7 +22,7 @@ namespace Backlog.Infrastructure.Mcp.UnitTests;
 public class BacklogMcpToolsTests
 {
     [Fact]
-    public void The_thirteen_tools_are_the_ones_the_items_name()
+    public void The_published_tools_are_the_ones_the_items_name()
     {
         Assert.Equal(
             [
@@ -38,6 +38,7 @@ public class BacklogMcpToolsTests
                 "list_knowledge_contexts",
                 "read_knowledge_chapter",
                 "list_annotations",
+                "resolve_annotation",
                 "list_sessions"
             ],
             BacklogMcpTools.ToolNames);
@@ -123,16 +124,34 @@ public class BacklogMcpToolsTests
     }
 
     /// <summary>
-    /// Every tool says whether it writes, and says what it is for.
+    /// Every tool says what it is for and whether it writes, and every writer is
+    /// honest about what repeating it costs.
     /// <para>
     /// This asserted <c>ReadOnly</c> of every tool once, which was true of a
-    /// read-only assembly. What it holds now is the property that survives the
-    /// tracker operations arriving: a writer never claims to be a read — the
-    /// claim a client shows a person before it runs anything — and no tool
-    /// declares itself destructive, there being nothing here that destroys an
-    /// entry. The description is the other half: a model reads it to decide
-    /// whether to call the tool at all, and a tool with no description is one
-    /// that gets called for the wrong reason.
+    /// read-only assembly and stopped being true twice in the same week:
+    /// <c>resolve_annotation</c> and the tracker operations arrived
+    /// independently, each the first write its own author had seen. The writers
+    /// are named here rather than matched by a pattern, so a sixth one has to be
+    /// a deliberate edit to this list rather than something a rule quietly
+    /// absorbs.
+    /// </para>
+    /// <para>
+    /// <b>Idempotency is a fact about each tool, not a property of writing.</b>
+    /// Resolving an already-resolved note is the state it is already in, and
+    /// moving an entry to the status it already has saves nothing — both are safe
+    /// to repeat. The other three are not, and say so:
+    /// <c>TaskItem.AddProjectionRef</c> appends without looking, so a repeated
+    /// <c>link_change</c> leaves two identical projections, a repeated
+    /// <c>comment</c> leaves two dated lines, and <c>create_item</c> creates a
+    /// second entry. A blanket "a write is idempotent" would be the kind of
+    /// true-of-one-tool rule that invites a client to retry the three it is false
+    /// for.
+    /// </para>
+    /// <para>
+    /// Nothing declares itself destructive, there being no delete tool here to
+    /// destroy anything with. The description is the other half: a model reads it
+    /// to decide whether to call the tool at all, and a tool with no description
+    /// is one that gets called for the wrong reason.
     /// </para>
     /// </summary>
     [Fact]
@@ -140,11 +159,18 @@ public class BacklogMcpToolsTests
     {
         string[] writers =
         [
+            DevbookTools.ResolveAnnotation,
             TrackerTools.Transition,
             TrackerTools.Comment,
             TrackerTools.LinkChange,
             TrackerTools.CreateItem
         ];
+
+        // The writes a client may safely repeat. Two of five, and which two is
+        // not guessable from the verb.
+        string[] repeatable = [DevbookTools.ResolveAnnotation, TrackerTools.Transition];
+
+        var seen = new List<string>();
 
         foreach (var group in BacklogMcpTools.Groups)
         {
@@ -156,18 +182,29 @@ public class BacklogMcpToolsTests
 
                 Assert.Equal(!writes, tool.ReadOnly);
 
-                // Only asked of the writers, because the attribute's Destructive
-                // defaults to true when nobody sets it — the protocol's own
-                // default for a tool that has not said. A read-only tool never
-                // reaches the wire with the hint at all (the SDK omits it), so
-                // reading the attribute for one would be asserting against a
-                // default rather than against a claim anybody made.
-                if (writes) Assert.False(tool.Destructive, $"{tool.Name} declares itself destructive.");
                 Assert.False(
                     string.IsNullOrWhiteSpace(method.GetCustomAttribute<DescriptionAttribute>()?.Description),
                     $"{tool.Name} has no description for a model to read.");
+
+                if (!writes) continue;
+
+                seen.Add(tool.Name!);
+
+                // Destructive is only asked of the writers, because the
+                // attribute's own default is true when nobody sets it — the
+                // protocol's default for a tool that has not said. A read-only
+                // tool never reaches the wire with the hint at all (the SDK omits
+                // it), so reading the attribute for one would be asserting against
+                // a default rather than against a claim anybody made.
+                Assert.False(tool.Destructive, $"{tool.Name} declares itself destructive.");
+
+                Assert.Equal(repeatable.Contains(tool.Name, StringComparer.Ordinal), tool.Idempotent);
             }
         }
+
+        // Both directions: every named writer was found, and nothing else
+        // declared itself one.
+        Assert.Equal([.. writers.Order()], [.. seen.Order()]);
     }
 
     /// <summary>

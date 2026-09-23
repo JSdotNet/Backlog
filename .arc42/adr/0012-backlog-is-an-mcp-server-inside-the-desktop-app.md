@@ -229,9 +229,12 @@ the same from the outside, and the person closes it, exactly as
   person's data, in Backlog's store, replicated between their desktops.
 - **The answer is a devbook `annotation` fence, written by the session.** The
   session puts its reply into the chapter as a fence — beside the passage the
-  remark's `BlockIndex` names, with the remark's wording as `quote` — through
-  the devbook convention's own `annotations.mjs`, in the session's checkout,
-  independent of Backlog. Then it **resolves the private note over MCP**
+  remark's `BlockIndex` names, with that passage's own text as `quote`, and the
+  remark's wording in the body — through the devbook convention's own
+  `annotations.mjs`, in the session's checkout, independent of Backlog. The
+  passage and the quote are one value, not two: `add` takes `--after` to find
+  the block and renders it as the fence's `quote`, and its CLI offers no way to
+  set them apart. Then it **resolves the private note over MCP**
   (`SetResolved(id, true)`), which is what tells the person, on every desktop,
   that the remark was answered and where.
 - **The MCP server never writes a fence.** The fence is a repository artefact

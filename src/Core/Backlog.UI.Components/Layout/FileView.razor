@@ -429,6 +429,25 @@
     [Parameter]
     public EventCallback<int> OnAddComment { get; set; }
 
+    /// <summary>
+    /// A digest of what the block at <paramref name="index"/> says, for a host
+    /// that wants to anchor a remark to the passage rather than to the number.
+    /// <para>
+    /// It lives here rather than travelling with <see cref="OnAddComment"/>
+    /// because this is where the block list actually is. The host holds the
+    /// file's whole text, frontmatter and all; the blocks a remark is indexed
+    /// against are parsed from the body alone, and only after this view has
+    /// decided whether the frontmatter is being shown. A host that re-parsed
+    /// its own copy would be numbering a different list.
+    /// </para>
+    /// <para>Null when the index names no block, or when the block has no text
+    /// worth digesting.</para>
+    /// </summary>
+    /// <remarks>Reads the blocks as they stand. They are reparsed in
+    /// <c>OnParametersSet</c>, so by the time a reader has pressed the
+    /// affordance on one they are the blocks being looked at.</remarks>
+    public string? BlockDigestAt(int index) => MdBlockDigest.Of(_blocks, index);
+
     [Parameter]
     public EventCallback<string> OnResolveComment { get; set; }
 

@@ -54,13 +54,20 @@ public class McpToolCreationTests
     /// saying honestly whether it writes.
     /// <para>
     /// This asserted <c>ReadOnlyHint == true</c> for every tool once, which was a
-    /// true statement about a read-only assembly and became a false one when the
-    /// tracker operations arrived. It is a per-tool expectation now rather than a
-    /// check the writers are excused from: the hint is what a client shows a
-    /// person before it runs something, so a write claiming to be a read is worse
-    /// than an unstated hint, and the four writers are held to
-    /// <c>DestructiveHint == false</c> besides — none of them destroys anything,
-    /// there being no delete tool to.
+    /// true statement about a read-only assembly and stopped being one twice over
+    /// in the same week — <c>resolve_annotation</c> and the tracker operations
+    /// arrived independently, each the first write its own author had seen. It is
+    /// a per-tool expectation now rather than a check the writers are excused
+    /// from: the hint is what a client shows a person before it runs something, so
+    /// a write claiming to be a read is worse than an unstated hint, and a write
+    /// quietly flattened into one more read is how that happens. Every writer is
+    /// held to <c>DestructiveHint == false</c> besides — none of them destroys
+    /// anything, there being no delete tool to.
+    /// </para>
+    /// <para>
+    /// Naming the readers rather than the writers is deliberate. A tool added
+    /// later is a write until somebody says otherwise, which is the safe way round
+    /// for an assertion whose whole job is to catch the one nobody thought about.
     /// </para>
     /// </summary>
     [Fact]
@@ -96,7 +103,15 @@ public class McpToolCreationTests
     }
 
     /// <summary>The list above is the whole catalog split in two, so a tool added
-    /// to neither half is a tool nobody said anything about.</summary>
+    /// to neither half is a tool nobody said anything about.
+    /// <para>
+    /// The writers span two areas and arrived from two directions —
+    /// <c>resolve_annotation</c> against the devbook's private notes, the four
+    /// tracker operations against the backlog — which is the case this assertion
+    /// is for. Each author saw their own as the assembly's first write, and a
+    /// split derived from the attributes would have agreed with both of them
+    /// separately and with neither of them together.
+    /// </para></summary>
     [Fact]
     public void Every_published_tool_is_on_one_side_of_the_read_write_line()
     {
@@ -109,6 +124,7 @@ public class McpToolCreationTests
                 TrackerTools.Comment,
                 TrackerTools.CreateItem,
                 TrackerTools.LinkChange,
+                DevbookTools.ResolveAnnotation,
                 TrackerTools.Transition
             ],
             [.. writers]);
@@ -152,6 +168,7 @@ public class McpToolCreationTests
         Assert.Equal(["repository"], schemas["list_knowledge_contexts"]);
         Assert.Equal(["repository", "chapterPath", "review"], schemas["read_knowledge_chapter"]);
         Assert.Equal(["repository", "chapterPath"], schemas["list_annotations"]);
+        Assert.Equal(["repository", "note"], schemas["resolve_annotation"]);
 
         // Optional, and optional means absent from `required` rather than absent
         // from the schema: a model has to be told the narrowing exists to use it.

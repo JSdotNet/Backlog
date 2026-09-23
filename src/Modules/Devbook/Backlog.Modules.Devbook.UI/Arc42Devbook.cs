@@ -140,10 +140,7 @@ public static class Arc42DevbookReader
         }
 
         var documentPaths = IndexedPaths(arc42Directory, rootDirectory)
-            ?? Directory.EnumerateFiles(arc42Directory, "*.md", SearchOption.TopDirectoryOnly)
-                .Select(path => Path.GetRelativePath(rootDirectory, path))
-                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
-                .ToList();
+            ?? ScannedPaths(arc42Directory, rootDirectory);
 
         var documents = new List<DevbookDocument>();
         foreach (var relativePath in documentPaths)
@@ -219,9 +216,65 @@ public static class Arc42DevbookReader
             .ToList();
 
         // An index that names nothing this folder actually has is no more use than
-        // no index: the scan below still finds the chapters.
+        // no index: the scan still finds the chapters.
         return paths.Count == 0 ? null : paths;
     }
+
+    /// <summary>
+    /// The chapters on disk, for a folder nothing has indexed.
+    ///
+    /// <para>Recursive, because the folder is. <c>adr/</c> and <c>tdr/</c> are where
+    /// this repository keeps its decision records, and <c>adr/guidelines/</c> is a
+    /// level below that again. The menu walks the whole folder whether or not an
+    /// index exists, so a scan that stopped at the top left the menu offering
+    /// chapters this catalog then had no document for — and an unmatched selection
+    /// keeps the chapter already on screen, so the tree row went active while the
+    /// prose beside it stayed put. That reads as a click that did nothing rather
+    /// than as something that failed, which is why it went unnoticed for as long as
+    /// it did.</para>
+    ///
+    /// <para>ADR 0004 is where the requirement comes from: an index is an
+    /// optimisation, and a repository nobody has indexed still browses. It has to
+    /// browse the whole folder to be the same repository.</para>
+    ///
+    /// <para>Underscored segments are left out on the rule the menu already leaves
+    /// them out on, so the two agree on what the folder holds rather than agreeing
+    /// by coincidence: <c>_meta</c> is the index itself, and <c>_c4</c> and
+    /// <c>_archify</c> are read by the surfaces that own them rather than as
+    /// chapters.</para>
+    /// </summary>
+    private static List<string> ScannedPaths(string arc42Directory, string rootDirectory) =>
+        [.. Directory.EnumerateFiles(arc42Directory, "*.md", Recursive)
+            .Where(path => !IsUnderscored(Path.GetRelativePath(arc42Directory, path)))
+            .Select(path => Path.GetRelativePath(rootDirectory, path))
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)];
+
+    /// <summary>Walking the folder rather than its top, and skipping what it is not
+    /// allowed to read. <see cref="SearchOption.AllDirectories"/> would do the first
+    /// and not the second — it throws on the first unreadable subdirectory, which
+    /// over a whole tree means one protected folder costs the reader every chapter
+    /// in the area rather than the ones inside it. The menu already degrades that
+    /// way round, and nothing above this call catches.
+    ///
+    /// <para>The other two are spelled out because <see cref="EnumerationOptions"/>
+    /// does not default to what the <see cref="SearchOption"/> overload did, and the
+    /// difference here is meant to be recursion and tolerance and nothing else. A
+    /// dot-prefixed file counts as hidden on Unix, and these folders are named
+    /// <c>.arc42</c>, so leaving the default in place would drop chapters on one
+    /// platform and keep them on another.</para></summary>
+    private static readonly EnumerationOptions Recursive = new()
+    {
+        RecurseSubdirectories = true,
+        IgnoreInaccessible = true,
+        AttributesToSkip = 0,
+        MatchType = MatchType.Win32,
+    };
+
+    /// <summary>Whether any segment of a folder-relative path is one the menu hides.
+    /// Checked against the folder rather than the repository, so a clone that itself
+    /// sits under an underscored directory does not hide every chapter in it.</summary>
+    private static bool IsUnderscored(string relativePath) =>
+        relativePath.Split('/', '\\').Any(segment => segment.StartsWith('_'));
 }
 
 /// <param name="CanEdit">Whether these documents may be written to. False for a

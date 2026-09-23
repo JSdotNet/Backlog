@@ -44,7 +44,8 @@ public static class DevbookAnnotationComments
         annotation.Body,
         string.Equals(annotation.Author, LocalAuthor, StringComparison.OrdinalIgnoreCase) ? "You" : annotation.Author,
         Ago(annotation.CreatedAt, now),
-        annotation.Resolved);
+        annotation.Resolved,
+        annotation.BlockHash);
 
     /// <summary>"just now" up to a minute, then minutes, hours and days, then
     /// the date — coarse on purpose, because a remark's age is context rather

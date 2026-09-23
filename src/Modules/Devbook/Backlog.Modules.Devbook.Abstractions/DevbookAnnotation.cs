@@ -18,9 +18,12 @@ namespace Backlog.Modules.Devbook.Abstractions;
 /// than by anything on disk, so the same remark names the same chapter on every
 /// device the person owns — the alias is the cross-device name a repository
 /// already has (.arc42/adr/0005 §Session records). Anchored by block index for
-/// the reason <c>MarkdownComment</c> gives; re-anchoring after the chapter
-/// changes is the host's problem and not yet solved, so an index that has gone
-/// out of range shows at the end of the chapter rather than vanishing.
+/// the reason <c>MarkdownComment</c> gives, and by
+/// <see cref="BlockHash"/> beside it, which is what lets the index be wrong:
+/// the index says where to look, the hash says whether the block found there is
+/// still the one the remark was about. A chapter edited above a remark is
+/// therefore re-anchored rather than silently pointing at its neighbour, and
+/// only a remark whose block has genuinely gone shows at the end of the chapter.
 /// </para>
 /// <para>
 /// <see cref="UpdatedAt"/> and <see cref="DeletedAt"/> are what let it
@@ -40,8 +43,20 @@ public sealed record DevbookAnnotation(
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
     bool Resolved = false,
-    DateTimeOffset? DeletedAt = null)
+    DateTimeOffset? DeletedAt = null,
+    string? BlockHash = null)
 {
+    /// <summary>Whether this remark can be re-anchored at all.
+    /// <para>
+    /// A remark made before anchoring carried a hash — and one on a block with
+    /// no text to digest — has none, and can only be believed rather than
+    /// checked. That is exactly the behaviour it already had, so nothing on
+    /// disk or on another device needs migrating for the hash to be safe to
+    /// add.
+    /// </para>
+    /// </summary>
+    public bool IsAnchored => !string.IsNullOrEmpty(BlockHash);
+
     /// <summary>A remark nobody has typed into yet.</summary>
     public bool IsDraft => DeletedAt is null && string.IsNullOrWhiteSpace(Body);
 

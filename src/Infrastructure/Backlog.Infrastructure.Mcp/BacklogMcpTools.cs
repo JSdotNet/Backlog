@@ -121,7 +121,17 @@ public static class BacklogMcpTools
     public static McpToolGroup Devbook { get; } = new(
         DevbookFeatures.RepositoryDevbook,
         typeof(DevbookTools),
-        [DevbookTools.ListKnowledgeContexts, DevbookTools.ReadKnowledgeChapter, DevbookTools.ListAnnotations]);
+        [
+            DevbookTools.ListKnowledgeContexts,
+            DevbookTools.ReadKnowledgeChapter,
+            DevbookTools.ListAnnotations,
+
+            // The one write. It is in this group rather than a group of its own
+            // because §7's rule is one check per area, not one per verb: somebody
+            // who has switched the devbook off has switched off the notes it
+            // would resolve just as much as the chapters it would read.
+            DevbookTools.ResolveAnnotation,
+        ]);
 
     /// <summary>The sessions tool, behind <c>sessions</c>. Its own group because
     /// it is its own switchable area: a person who has turned the sessions

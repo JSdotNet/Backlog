@@ -1,7 +1,8 @@
 # backlog-tools
 
 Backlog-native tooling — skills specific to the Backlog product itself, as opposed to
-general-purpose or knowledge-folder tooling. Two skills, one for each direction:
+general-purpose or knowledge-folder tooling. Three skills: one for each direction of a plan,
+and one for the remarks a person leaves while reading.
 
 - **`backlog-import-plan`** — turns an agreed specification into a Backlog import plan
   (ADR 0007: `.arc42/adr/0007-import-reuses-the-entry-text-grammar.md`). Every entry is
@@ -24,6 +25,15 @@ general-purpose or knowledge-folder tooling. Two skills, one for each direction:
   progress → Done back (`transition`), every call carrying the `repository` read off the
   git remote; without one it falls back to searching git and says the status has to be set
   by hand.
+- **`backlog-answer-notes`** — empties the other inbox: the private reading notes a person
+  left on a repository's Devbook chapters in the app. It reads them over MCP
+  (`list_annotations`), writes each answer into the chapter as a devbook `annotation` fence
+  through the devbook plugin's own `annotations.mjs`, and only then resolves the note
+  (`resolve_annotation`). Fence first, resolve second, because that is the order whose
+  half-done state is recoverable. The two annotation kinds stay two things —
+  `.arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md` §6 is the decision,
+  and the app is never the fence's writer. `backlog-run-plan-item` carries a short form of
+  the same procedure for the notes an item it just ran leaves answerable.
 
 The plan-item marker exists because a plan is written before the app has given its entries
 an id, so it restates the `id:`, `+tag`, `repo:` and `after:` the metadata line carries. The

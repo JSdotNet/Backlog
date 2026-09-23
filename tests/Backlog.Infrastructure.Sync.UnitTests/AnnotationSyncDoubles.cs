@@ -52,7 +52,12 @@ internal sealed class InMemoryDevbookAnnotationStore : IDevbookAnnotationStore
 
     public DevbookAnnotation? Find(Guid id) => _annotations.GetValueOrDefault(id);
 
-    public DevbookAnnotation Add(string? repositoryAlias, string chapterPath, int blockIndex, string author) =>
+    public DevbookAnnotation Add(
+        string? repositoryAlias,
+        string chapterPath,
+        int blockIndex,
+        string author,
+        string? blockHash = null) =>
         throw new NotSupportedException("Seed the store instead.");
 
     public void Edit(Guid id, string body) => throw new NotSupportedException();

@@ -386,6 +386,7 @@ chapter says what the feature does, not why the rulings fell the way they did.
 ```meta
 type: sub-feature
 status: proposed
+setting: [.domain/roadmap/context.md#story-points-a-day]
 related: [.domain/roadmap/domain.md#planned-window, .domain/roadmap/domain.md#plan-sequencing, .domain/roadmap/features.md#surfacing-contradictions-instead-of-fixing-them]
 ```
 
