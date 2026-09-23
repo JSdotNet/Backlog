@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Backlog.Modules.Sessions.Abstractions;
@@ -28,6 +29,10 @@ internal sealed class DeliveryRunStore
 {
     private static readonly JsonSerializerOptions Layout = new() { WriteIndented = true };
 
+    /// <summary>One gate per run file, shared by every store in the process — see
+    /// <see cref="LockAsync"/>.</summary>
+    private static readonly ConcurrentDictionary<string, SemaphoreSlim> Gates = new(StringComparer.OrdinalIgnoreCase);
+
     private readonly string _home;
 
     internal DeliveryRunStore(string home)
@@ -43,6 +48,38 @@ internal sealed class DeliveryRunStore
             ?? throw new ArgumentException("A run has to be about a folder.", nameof(worktree));
 
         return Path.Combine(_home, DeliveryRunReader.BacklogDashboard, key, "runs");
+    }
+
+    /// <summary>
+    /// Holds one run file for a read-modify-write, until the returned handle is
+    /// disposed.
+    /// <para>
+    /// Two writers share these files inside one process: the lifecycle operations a flow
+    /// calls, and the hook telemetry arriving beside them — often for the same run in
+    /// the same second, since a flow's <c>update_stage</c> is itself a tool call the
+    /// hooks report on. Each reads the whole document, changes its part and writes the
+    /// whole document back, so without a gate the later write silently drops the
+    /// earlier one's change. Keyed by path and static, because the two writers each
+    /// own a store of their own.
+    /// </para>
+    /// </summary>
+    internal async Task<IDisposable> LockAsync(string worktree, string runId, CancellationToken cancellationToken)
+    {
+        var gate = Gates.GetOrAdd(PathFor(worktree, runId), _ => new SemaphoreSlim(1, 1));
+
+        await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        return new Release(gate);
+    }
+
+    private sealed class Release(SemaphoreSlim gate) : IDisposable
+    {
+        private int _released;
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _released, 1) == 0) gate.Release();
+        }
     }
 
     /// <summary>One run's file, whether or not it exists.</summary>

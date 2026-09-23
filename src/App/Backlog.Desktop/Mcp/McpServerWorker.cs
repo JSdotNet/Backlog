@@ -6,6 +6,7 @@ using Backlog.Desktop.UI.Mcp;
 using Backlog.Desktop.UI.Shell;
 using Backlog.Infrastructure.FileSystem;
 using Backlog.Infrastructure.Mcp;
+using Backlog.Modules.Sessions.Abstractions;
 using Backlog.SharedKernel;
 
 using Microsoft.AspNetCore.Builder;
@@ -450,6 +451,17 @@ public sealed class McpServerWorker : IDisposable
 
         app.MapMcp(EndpointPath);
 
+        // The hook telemetry beside it, behind the same guard: the Use above covers
+        // every path on this listener, not only /mcp.
+        app.MapPost(BacklogTelemetryEndpoint.RoutePath, async context =>
+        {
+            context.Response.StatusCode = await BacklogTelemetryEndpoint.AcceptAsync(
+                context.Request.Body,
+                context.Request.ContentLength,
+                context.RequestServices.GetRequiredService<IDeliveryRunTelemetry>(),
+                context.RequestAborted).ConfigureAwait(false);
+        });
+
         return app;
     }
 
@@ -613,6 +625,8 @@ public sealed class McpServerWorker : IDisposable
     /// nothing constructs it: <see cref="BacklogMcpServerRegistration"/>'s
     /// filters resolve it from the request, so it appears in no tool's
     /// constructor and would be missed by the reflection below.
+    /// <see cref="IDeliveryRunTelemetry"/> is named for the same reason: the
+    /// telemetry route beside <c>/mcp</c> resolves it, and no tool does.
     /// </para>
     /// <para>
     /// The probe is <see cref="IServiceProviderIsService"/>, which every
@@ -629,6 +643,7 @@ public sealed class McpServerWorker : IDisposable
             .SelectMany(constructor => constructor.GetParameters())
             .Select(parameter => parameter.ParameterType)
             .Append(typeof(IAppFeatureSettings))
+            .Append(typeof(IDeliveryRunTelemetry))
             .Distinct();
 
     private IEnumerable<Type> ForwardedPorts(IServiceProviderIsService? probe)

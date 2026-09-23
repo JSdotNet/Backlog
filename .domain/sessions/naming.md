@@ -318,6 +318,20 @@ of an agent's activity here, and the two are different things that happen to sha
 word. Outside it, the dashboards' own words — orchestration run, flow run — resolve
 here.
 
+## Delivery Run Telemetry
+
+```meta
+type: term
+status: active
+aliases: [DeliveryRunTelemetry, hook telemetry, telemetry forwarder]
+related: [.domain/sessions/domain.md#delivery-run-telemetry]
+```
+
+What a session reports about its own work while a `Delivery Run` is under way — tool
+calls, delegated agents, tokens, the context gauge — as opposed to what the run is
+told through its operations. Say **telemetry** for these figures, never "insights"
+alone: that is one of the three fields they land in, not the whole.
+
 ## Delivery Run Reference
 
 ```meta

@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "hooks": {
+    "userPromptSubmit": [
+      {
+        "type": "prompt",
+        "prompt": "If this prompt contains a line beginning \"Backlog plan item `\" or \"/backlog-tools:backlog-run-plan-item entry `\", invoke the backlog-run-plan-item skill before doing anything else with it. Otherwise ignore this note."
+      }
+    ]
+  }
+}

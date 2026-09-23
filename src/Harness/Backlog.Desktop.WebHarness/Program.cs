@@ -587,7 +587,10 @@ app.UseAntiforgery();
 // switched-off capability's entry points be "absent rather than
 // present-but-inert", and this is the entry point.
 app.UseWhen(
-    context => context.Request.Path.StartsWithSegments(BacklogMcpServerRegistration.EndpointPath),
+    // The hook telemetry route beside /mcp is the same feature's entry point, so it
+    // goes behind the same switch and the same Origin check.
+    context => context.Request.Path.StartsWithSegments(BacklogMcpServerRegistration.EndpointPath)
+        || context.Request.Path.StartsWithSegments(BacklogTelemetryEndpoint.RoutePath),
     branch => branch.Use(async (context, next) =>
     {
         if (!context.RequestServices.GetRequiredService<IAppFeatureSettings>().IsEnabled(AppFeatures.McpServer))
@@ -620,6 +623,17 @@ app.MapRazorComponents<App>()
 // endpoint in this repository, so this harness's port is whatever this run was
 // given — read it off the Aspire dashboard, never from a previous session.
 app.MapMcp(BacklogMcpServerRegistration.EndpointPath);
+
+// And the hook telemetry a session forwards, attributed to the run it is driving —
+// into this harness's profile folders, which are the real ones.
+app.MapPost(BacklogTelemetryEndpoint.RoutePath, async context =>
+{
+    context.Response.StatusCode = await BacklogTelemetryEndpoint.AcceptAsync(
+        context.Request.Body,
+        context.Request.ContentLength,
+        context.RequestServices.GetRequiredService<IDeliveryRunTelemetry>(),
+        context.RequestAborted);
+});
 
 app.Run();
 

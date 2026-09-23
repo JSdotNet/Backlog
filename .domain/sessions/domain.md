@@ -420,10 +420,41 @@ the list is refused rather than ignored, because a caller one stage off is repor
 the wrong stage for the rest of the run and a silent nothing leaves it doing so.
 
 **It records what it observes and claims nothing else.** The model a run resolved is
-something the run states, so it is kept. What a run consumed is measured by watching a
-session's own tool calls, which this product does not see — it sees a call arrive, not
-the session that made it — so those figures are absent, and absent is shown as left
-out rather than as zero.
+something the run states, so it is kept. What a run consumed is not something an
+operation can say — a call arrives, not the session that made it — so those figures
+come from `Delivery Run Telemetry` or are absent, and absent is shown as left out
+rather than as zero.
+
+### Delivery Run Telemetry
+
+```meta
+type: domain-service
+status: active
+related: [.domain/sessions/domain.md#delivery-run-recording, .domain/sessions/features.md#what-a-run-cost-reported-by-the-session-itself]
+```
+
+The measured half of a `Delivery Run`: the events a coding session reports about
+itself — a tool starting and finishing, a delegated agent, the context being
+compacted, a turn or the session ending — attributed to the run that session is
+driving. What `Delivery Run Recording` is told, this is shown.
+
+**The run is found from the event, never from a pointer.** The event names the
+session and the folder it runs in; the worktree is that folder or the nearest one
+above it with runs filed, and the run is the one in progress there that lists the
+session, or else one in progress that lists no session yet, which the session then
+joins. A worktree whose runs in progress are all another session's takes nothing from
+this one.
+
+**Tokens are read from the session's transcript, once each.** The event carries no
+usage; the transcript it names does, with a delegated agent's in a file of its own
+beside it. Each is read on from where the last event left it, so a message is counted
+once — including a message written as several lines, which repeats its usage on each.
+A session first seen mid-way starts at the end of what is written: a gap is lost
+rather than a whole conversation counted as the run's.
+
+**Best effort, and never the session's problem.** An event that cannot be attributed,
+or a transcript that cannot be read, records nothing and raises nothing: the reporter
+is a hook that must never fail the tool call it reports on.
 
 ### Delivery Run Reference
 

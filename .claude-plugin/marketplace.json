@@ -8,7 +8,7 @@
       "name": "backlog-tools",
       "source": "./plugins/backlog-tools",
       "description": "Backlog-native Claude Code skills for the Backlog product itself.",
-      "version": "0.7.0"
+      "version": "0.8.0"
     }
   ]
 }

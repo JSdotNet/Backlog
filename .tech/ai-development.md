@@ -206,7 +206,11 @@ Deterministic commands the harness runs around a tool call.
 - **Used for** — `.claude/settings.json` registers one `PostToolUse` hook on
   `spawn_task`, running `.claude/hooks/spawn-task-to-issue.ps1` so an
   out-of-scope finding an agent flags mid-run becomes a GitHub issue rather than
-  a note that scrolls away.
+  a note that scrolls away. The `backlog-tools` plugin ships two more in
+  `plugins/backlog-tools/hooks/hooks.json`: a `UserPromptSubmit` nudge toward
+  `backlog-run-plan-item`, and `telemetry-forwarder.mjs` on `PreToolUse`,
+  `PostToolUse`, `SubagentStop`, `PreCompact`, `Stop` and `SessionEnd`, posting
+  each event to the desktop app's `/telemetry` endpoint beside `/mcp`.
 - **Why** — a hook executes whether or not the model decides to; anything that
   must happen every time belongs here rather than in an instruction file.
 
