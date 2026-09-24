@@ -51,6 +51,10 @@ builder.Services.AddScoped<ISpeechTranscriber, WebSpeechTranscriber>();
 // because it reads the address the current circuit was opened on.
 builder.Services.AddScoped<ISharedContentReceiver, QuerySharedContentReceiver>();
 
+// The shell's own state: the capture draft that outlives a tab switch, and the
+// sync status the app bar reads. The MAUI head calls the same method.
+builder.Services.AddMobileShell();
+
 var app = builder.Build();
 
 if (!app.Environment.IsDevelopment())

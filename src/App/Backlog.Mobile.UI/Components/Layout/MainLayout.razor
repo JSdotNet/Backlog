@@ -1,16 +1,57 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
+@using Backlog.Infrastructure.Sync
+@inject IDeviceCredentialStore Credentials
+@implements IDisposable
 
 @*
-    The shell is one page deep — Inbox is the only route — so there is no menu
-    to collapse and nothing for a sidebar to hold. What is left is a title bar:
-    the BlazorWebView fills the MAUI page edge to edge, so nothing else names
-    the app on screen.
+    The phone's shell: a title bar that says where sync stands, the page, and a
+    row of tabs along the bottom where a thumb already is. The BlazorWebView
+    fills the MAUI page edge to edge, so nothing else names the app on screen.
+
+    The pairing gate lives here rather than in a page. Every tab needs a paired
+    device, so every tab is gated once, the same way, and the pairing box is
+    what the app opens on whichever route it opens on. The tabs are withheld
+    until then: every one of them would lead back to the same box.
 *@
 
 <div class="page">
-    <header class="app-bar">Backlog</header>
+    <header class="app-bar">
+        <span class="app-bar__title">Backlog</span>
+        <SyncStatus />
+    </header>
 
     <main class="content">
-        @Body
+        @if (Paired)
+        {
+            @Body
+        }
+        else
+        {
+            <PairingGate />
+        }
     </main>
+
+    @if (Paired)
+    {
+        <TabBar Items="Tabs" AriaLabel="Sections" CssClass="app-tabs" TestId="tab-bar" />
+    }
 </div>
+
+@code {
+    private static readonly IReadOnlyList<NavItem> Tabs =
+    [
+        new("", "Inbox", Match: true),
+        new("note", "Note"),
+        new("tasks", "Tasks")
+    ];
+
+    private bool Paired => Credentials.Current is not null;
+
+    protected override void OnInitialized() => Credentials.Changed += OnCredentialsChanged;
+
+    // Pairing is redeemed on the render thread, but a store may raise from
+    // wherever it was saved; InvokeAsync is right in both cases.
+    private void OnCredentialsChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Credentials.Changed -= OnCredentialsChanged;
+}

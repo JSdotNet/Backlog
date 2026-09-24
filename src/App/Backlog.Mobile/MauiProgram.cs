@@ -73,6 +73,10 @@ public static class MauiProgram
 		builder.Services.AddSingleton<ISharedContentReceiver>(
 			services => services.GetRequiredService<AndroidShareTargetReceiver>());
 
+		// The shell's own state: the capture draft that outlives a tab switch, and
+		// the sync status the app bar reads. The browser harness calls the same method.
+		builder.Services.AddMobileShell();
+
 #if DEBUG
 		builder.Services.AddBlazorWebViewDeveloperTools();
 		builder.Logging.AddDebug();

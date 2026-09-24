@@ -1,0 +1,185 @@
+@*
+    The report behind the filter bar's open-work summary: what the open work in
+    scope adds up to, and which of it wants looking at.
+
+    A dumb dialog, like ImportPlanDialog beside it. The pane builds the report —
+    it holds the clock and the state that knows readiness, repositories and
+    dependencies — and this only draws it. The one thing it hands back is a task
+    somebody pressed in Needs attention, by id; opening that task is the pane's
+    job, because the pane is what knows how to reveal a row a filter is hiding.
+
+    Waiting names what each task waits on rather than counting it: "3 waiting"
+    is a number to go and look up, and the names are the answer
+    (`.design/typography-and-layout.md`, names not counts).
+*@
+
+@using Backlog.UI.Components.Metrics
+
+<Modal Open="@Open"
+       OpenChanged="OnOpenChanged"
+       Title="Open work"
+       CssClass="open-work-report"
+       RestoreFocusToId="@RestoreFocusToId"
+       TestId="open-work-report">
+    <ChildContent>
+        @if (Report is not { } report)
+        {
+            @* Closed: the host builds the report only while the dialog is up. *@
+        }
+        else if (report.IsEmpty)
+        {
+            <EmptyState Title="No open work"
+                        Description="@EmptyDescription(report)"
+                        TestId="open-work-report-empty" />
+        }
+        else
+        {
+            <div class="open-work-report__body">
+                <MetricGrid Label="Open work totals" MinColumnWidth="8rem" TestId="open-work-report-totals">
+                    <MetricTile Label="Open tasks" Value="@report.Totals.Open.ToString(CultureInfo.CurrentCulture)" Emphasis="true" TestId="open-work-tile-open" />
+                    <MetricTile Label="Points (estimated)" Value="@report.Totals.Points.ToString(CultureInfo.CurrentCulture)" TestId="open-work-tile-points" />
+                    <MetricTile Label="Unestimated" Value="@report.Totals.Unestimated.ToString(CultureInfo.CurrentCulture)" TestId="open-work-tile-unestimated" />
+                    <MetricTile Label="Done in the last 7 days" Value="@report.DoneLastSevenDays.ToString(CultureInfo.CurrentCulture)" TestId="open-work-tile-done" />
+                </MetricGrid>
+
+                <section class="open-work-report__section" aria-labelledby="open-work-plans-heading">
+                    <h3 id="open-work-plans-heading" class="open-work-report__heading">By plan</h3>
+                    @* Its own scrolling region: five columns do not fit a narrow
+                       window, and a table that set the body's width would push the
+                       tiles above it off the dialog's edge. Focusable, because a
+                       region that scrolls has to be reachable without a pointer. *@
+                    <div class="open-work-report__plans" role="region" aria-labelledby="open-work-plans-heading" tabindex="0">
+                        <table class="open-work-report__table" data-testid="open-work-report-plans">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Plan</th>
+                                    <th scope="col">Open</th>
+                                    <th scope="col">Points</th>
+                                    <th scope="col">Unestimated</th>
+                                    <th scope="col">Progress</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var plan in report.Plans)
+                                {
+                                    <tr data-testid="open-work-plan">
+                                        <th scope="row">@plan.Label</th>
+                                        <td>@plan.OpenCount</td>
+                                        <td>@plan.OpenPoints</td>
+                                        <td>@plan.UnestimatedCount</td>
+                                        <td>@(plan.Progress ?? "—")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section class="open-work-report__section" aria-labelledby="open-work-breakdowns-heading">
+                    <h3 id="open-work-breakdowns-heading" class="open-work-report__heading">Open work by</h3>
+                    <div class="open-work-report__breakdowns">
+                        <MetricBreakdownBar Label="Status" Parts="@Parts(report.ByStatus)" FormatValue="Count" TestId="open-work-by-status" />
+                        <MetricBreakdownBar Label="Priority" Parts="@Parts(report.ByPriority)" FormatValue="Count" TestId="open-work-by-priority" />
+                        <MetricBreakdownBar Label="Type" Parts="@Parts(report.ByType)" FormatValue="Count" TestId="open-work-by-type" />
+                        <MetricBreakdownBar Label="Repository" Parts="@Parts(report.ByRepository)" FormatValue="Count" TestId="open-work-by-repository" />
+                    </div>
+                </section>
+
+                <section class="open-work-report__section" aria-labelledby="open-work-attention-heading">
+                    <h3 id="open-work-attention-heading" class="open-work-report__heading">Needs attention</h3>
+                    @if (report.Overdue.Count == 0 && report.DueSoon.Count == 0 && report.Waiting.Count == 0)
+                    {
+                        <EmptyState Title="Nothing needs attention"
+                                    Description="Nothing open is overdue, due in the next 7 days or waiting."
+                                    TestId="open-work-attention-none" />
+                    }
+                    else
+                    {
+                        @AttentionList("Overdue", "open-work-overdue", report.Overdue)
+                        @AttentionList("Due in the next 7 days", "open-work-due-soon", report.DueSoon)
+                        @AttentionList("Waiting", "open-work-waiting", report.Waiting)
+                    }
+                </section>
+            </div>
+        }
+    </ChildContent>
+</Modal>
+
+@code {
+    [Parameter]
+    public bool Open { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> OpenChanged { get; set; }
+
+    /// <summary>What to draw; null while closed, since the host only builds it
+    /// while the dialog is up.</summary>
+    [Parameter]
+    public OpenWorkReport? Report { get; set; }
+
+    /// <summary>Where the focus goes back to when the dialog closes, should the
+    /// control that opened it not be there to take it.</summary>
+    [Parameter]
+    public string? RestoreFocusToId { get; set; }
+
+    /// <summary>A task pressed in Needs attention, by its <c>TaskId</c>. The host
+    /// closes the dialog and opens the task.</summary>
+    [Parameter]
+    public EventCallback<string> OnTaskSelected { get; set; }
+
+    private Task OnOpenChanged(bool open)
+    {
+        Open = open;
+        return OpenChanged.InvokeAsync(open);
+    }
+
+    private static string EmptyDescription(OpenWorkReport report) =>
+        report.DoneLastSevenDays switch
+        {
+            0 => "Everything in scope is ticked off.",
+            1 => "Everything in scope is ticked off — 1 task in the last 7 days.",
+            var done => $"Everything in scope is ticked off — {done} tasks in the last 7 days."
+        };
+
+    private static IReadOnlyList<MetricPart> Parts(IReadOnlyList<OpenWorkCount> counts) =>
+        [.. counts.Select(count => new MetricPart(count.Label, count.Count))];
+
+    private static string Count(decimal value) => value.ToString("0", CultureInfo.CurrentCulture);
+
+    private static string? DueText(OpenWorkTask task) =>
+        task.DueOn?.ToString("d", CultureInfo.CurrentCulture);
+
+    private RenderFragment AttentionList(string heading, string testId, IReadOnlyList<OpenWorkTask> tasks) => __builder =>
+    {
+        if (tasks.Count == 0) return;
+
+        <div class="open-work-report__attention" data-testid="@testId">
+            <h4 class="open-work-report__subheading">@heading</h4>
+            <ul class="open-work-report__tasks">
+                @foreach (var task in tasks)
+                {
+                    <li class="open-work-report__task">
+                        @* The look of a row's "Waiting for" names: a title to follow,
+                           not a small command. The detail sits beneath it, quieter,
+                           so a title that wraps cannot knock it off its line. *@
+                        <AppButton BaseClass="open-work-report__task-title"
+                                   Variant="ButtonVariant.None"
+                                   TestId="open-work-task"
+                                   data-task-id="@task.TaskId"
+                                   OnClick="() => OnTaskSelected.InvokeAsync(task.TaskId)">
+                            @task.Title
+                        </AppButton>
+                        @if (task.WaitingOn.Count > 0)
+                        {
+                            <span class="open-work-report__detail">Waiting for @string.Join(", ", task.WaitingOn)</span>
+                        }
+                        else if (DueText(task) is { } due)
+                        {
+                            <span class="open-work-report__detail">Due @due</span>
+                        }
+                    </li>
+                }
+            </ul>
+        </div>
+    };
+}
