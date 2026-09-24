@@ -254,9 +254,37 @@ public sealed class TasksBulkEditTests
         Assert.Single(pane.FindAll($"[data-testid='{RowTestId(one)}-select']"));
         Assert.Single(pane.FindAll($"[data-testid='{RowTestId(two)}-select']"));
 
-        // And still no bar, because nothing is picked. Asking to pick is not
-        // picking.
-        Assert.Empty(pane.FindAll("[data-testid='bulk-bar']"));
+        // The bar is up at once, because select-all is on it — but with no acts,
+        // because nothing is picked. Asking to pick is not picking.
+        Assert.Equal("0 tasks selected", pane.Find("[data-testid='bulk-bar-count']").TextContent.Trim());
+        Assert.Empty(pane.FindAll("[data-testid='bulk-bar-actions']"));
+    }
+
+    /// <summary>"Select all" means what the filters leave in view, and it is
+    /// reachable straight from the Select chip — not only after a first tick.</summary>
+    [Fact]
+    public async Task Select_all_takes_what_the_filters_show_without_a_first_pick()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var one = await host.WriteEntryAsync(First);
+        await host.WriteEntryAsync(Second);
+        await host.State.SelectAsync(null);
+
+        var pane = host.Render();
+        await EnterSelectionModeAsync(pane);
+
+        // Only the first row is ready, so the second drops out of view.
+        host.State.SetStatusFilter("ready");
+        pane.Render();
+
+        var box = pane.Find("[data-testid='bulk-bar-select-all']");
+        Assert.Equal("Select all 1", box.QuerySelector(".checkbox__label")!.TextContent.Trim());
+
+        await pane.Find("[data-testid='bulk-bar-select-all'] input").ChangeAsync(new() { Value = true });
+
+        Assert.Equal([one.TaskId], host.State.SelectedIds);
+        Assert.Equal("1 task selected", pane.Find("[data-testid='bulk-bar-count']").TextContent.Trim());
+        Assert.Single(pane.FindAll("[data-testid='bulk-bar-actions']"));
     }
 
     /// <summary>Leaving the mode empties the selection with it. A mode that came
@@ -1224,7 +1252,7 @@ public sealed class TasksBulkEditTests
     }
 
     [Fact]
-    public async Task A_selection_emptied_by_a_filter_takes_the_bar_with_it()
+    public async Task A_selection_emptied_by_a_filter_takes_the_acts_with_it()
     {
         using var host = await TasksPaneHost.CreateAsync();
         var (pane, _, _) = await TwoPickedAsync(host);
@@ -1235,8 +1263,10 @@ public sealed class TasksBulkEditTests
         host.State.SetMyDayFilter(new DateOnly(2020, 1, 1));
         pane.Render();
 
+        // The mode is still on, so the bar stays with its way out; the acts go,
+        // because there is nothing left for them to apply to.
         Assert.Equal(0, host.State.SelectionCount);
-        Assert.Empty(pane.FindAll("[data-testid='bulk-bar']"));
+        Assert.Empty(pane.FindAll("[data-testid='bulk-bar-actions']"));
     }
 
     /// <summary>Nothing selected, nothing written. Every bulk method is safe to
@@ -1305,7 +1335,7 @@ public sealed class TasksBulkEditTests
     }
 
     [Fact]
-    public async Task Deleting_the_selection_takes_every_picked_row_and_the_bar_with_it()
+    public async Task Deleting_the_selection_takes_every_picked_row_and_the_acts_with_it()
     {
         using var host = await TasksPaneHost.CreateAsync();
         var (pane, _, _) = await TwoPickedAsync(host);
@@ -1314,7 +1344,7 @@ public sealed class TasksBulkEditTests
 
         Assert.Empty(host.State.Rows);
         Assert.Equal(0, host.State.SelectionCount);
-        Assert.Empty(pane.FindAll("[data-testid='bulk-bar']"));
+        Assert.Empty(pane.FindAll("[data-testid='bulk-bar-actions']"));
         Assert.Contains("2 tasks deleted", Result(host), StringComparison.Ordinal);
     }
 

@@ -230,37 +230,37 @@
                     </div>
                 </div>
 
-                @* Between the filters and the list, and only once something is
-                   picked. Above the rows rather than floating over them: the bar is
+                @* Between the filters and the list, and only while the reader is
+                   picking. Above the rows rather than floating over them: the bar is
                    about a set the reader assembled out of that column, and a
                    docked bar keeps the column's own scroll intact.
 
-                   Nothing at all with nothing picked, which is what makes the
-                   gutter the way in: a bar that was always there would be a row of
-                   controls that apply to nothing, at the top of the surface a
-                   reader came to scan.
+                   Up as soon as Select is pressed rather than after the first
+                   tick, because select-all lives on it: a bar that waited for a
+                   picked row left "everything the filters show" one row away from
+                   being reachable. The acts wait for a selection instead — with
+                   nothing picked they would be controls that apply to nothing.
 
                    SelectionBar and not a bar of this pane's own. The count, the
                    live region, the way out and the indeterminate select-all are
                    the four things `.design/interaction-guidelines.md#focus-and-selection`
                    asks for by name, and they are the same four for every list in
                    the product. *@
-                @if (State.SelectionCount > 0)
+                @if (State.SelectionMode || State.SelectionCount > 0)
                 {
                     <SelectionBar Count="@State.SelectionCount"
                                   Total="@State.FilteredRows.Count"
                                   ItemNoun="task"
                                   AriaLabel="Selected tasks"
                                   ActionsLabel="Apply to the selected tasks"
+                                  SelectAllText="@($"Select all {State.FilteredRows.Count}")"
+                                  SelectAllLabel="@($"Select all {State.FilteredRows.Count} {TaskWord(State.FilteredRows.Count)} the filters show")"
                                   SelectAllChanged="OnSelectAllChanged"
                                   OnClear="OnClearSelection"
+                                  Actions="@(State.SelectionCount > 0 ? RenderBulkActions() : null)"
                                   CssClass="backlog-bulk-bar"
                                   TestId="bulk-bar"
-                                  @onkeydown="OnSelectionBarKeyDown">
-                        <Actions>
-                            @RenderBulkActions()
-                        </Actions>
-                    </SelectionBar>
+                                  @onkeydown="OnSelectionBarKeyDown" />
                 }
 
                 @if (State.FilteredRows.Count == 0)

@@ -38,6 +38,21 @@ public sealed class SelectionBarTests
     }
 
     [Fact]
+    public void The_select_all_box_is_bare_unless_the_host_names_it()
+    {
+        using var context = new BunitContext();
+
+        var bare = Render(context, p => p.Add(b => b.Count, 1).Add(b => b.Total, 4));
+        Assert.Equal(string.Empty, bare.Find("[data-testid='bulk-select-all'] .checkbox__label").TextContent);
+
+        var named = Render(context, p => p
+            .Add(b => b.Count, 1)
+            .Add(b => b.Total, 4)
+            .Add(b => b.SelectAllText, "Select all 4"));
+        Assert.Equal("Select all 4", named.Find("[data-testid='bulk-select-all'] .checkbox__label").TextContent);
+    }
+
+    [Fact]
     public void More_than_one_reads_in_the_plural()
     {
         using var context = new BunitContext();
