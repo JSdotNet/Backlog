@@ -822,7 +822,7 @@ public sealed class TagFilterTests
         host.State.ToggleTagFilter(TasksDesktopState.NoPlanTag);
 
         Assert.Equal(
-            [loose.Key, bare.Key],
+            new[] { loose.Key, bare.Key }.Order(),
             host.State.FilteredRows.Select(row => row.Key).Order());
     }
 
