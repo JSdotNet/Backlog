@@ -59,8 +59,23 @@ public sealed class SettingsDevbookFolderStatusTests
 
         var status = Status(settings.Component, ".arc42");
         Assert.Equal("found", status.GetAttribute("data-folder-state"));
-        Assert.Equal("Uses .arc42 at the repository root.", status.TextContent.Trim());
+        Assert.Equal("Uses .devbook/arc42.", status.TextContent.Trim());
         Assert.DoesNotContain("Folder found", status.TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>A repository still on the root layout is read from its legacy
+    /// folder, and the row names that folder rather than the default it did not
+    /// find.</summary>
+    [Fact]
+    public void A_section_found_at_its_legacy_root_folder_says_so()
+    {
+        using var settings = RenderSettings(cloneDirectory: CloneDirectory.WithLegacyArchitectureFolder);
+        OpenRepositoriesTab(settings.Component);
+
+        var status = Status(settings.Component, ".arc42");
+
+        Assert.Equal("found", status.GetAttribute("data-folder-state"));
+        Assert.Equal("Uses .arc42 at the repository root, the layout before .devbook/.", status.TextContent.Trim());
     }
 
     [Fact]
@@ -79,7 +94,8 @@ public sealed class SettingsDevbookFolderStatusTests
         // The space between the two clauses is asserted, not just each clause: Razor
         // drops whitespace-only text between elements, so the sentences run together
         // unless the separator is written out.
-        Assert.Contains("at the repository root. Architecture knowledge folder was not found at", status.TextContent, StringComparison.Ordinal);
+        Assert.Contains("Uses .devbook/arc42. Architecture knowledge folder was not found at", status.TextContent, StringComparison.Ordinal);
+        Assert.Contains(Path.Combine(settings.CloneDirectory!, ".devbook", "arc42"), status.TextContent, StringComparison.Ordinal);
         Assert.Contains(Path.Combine(settings.CloneDirectory!, ".arc42"), status.TextContent, StringComparison.Ordinal);
     }
 
@@ -186,7 +202,8 @@ public sealed class SettingsDevbookFolderStatusTests
     {
         None,
         Empty,
-        WithArchitectureFolder
+        WithArchitectureFolder,
+        WithLegacyArchitectureFolder
     }
 
     private static void OpenRepositoriesTab(IRenderedComponent<Settings> component) =>
@@ -214,7 +231,8 @@ public sealed class SettingsDevbookFolderStatusTests
         {
             clone = Path.Combine(root, "clone");
             Directory.CreateDirectory(clone);
-            if (cloneDirectory is CloneDirectory.WithArchitectureFolder) Directory.CreateDirectory(Path.Combine(clone, ".arc42"));
+            if (cloneDirectory is CloneDirectory.WithArchitectureFolder) Directory.CreateDirectory(Path.Combine(clone, ".devbook", "arc42"));
+            if (cloneDirectory is CloneDirectory.WithLegacyArchitectureFolder) Directory.CreateDirectory(Path.Combine(clone, ".arc42"));
         }
 
         var store = new WorkspaceSettingsStore(Path.Combine(root, "store"));

@@ -288,9 +288,20 @@ public sealed record Arc42DevbookCatalog(string RootDirectory, bool Exists, IRea
 
     public int DecisionRecordCount => Documents.Count(document => IsDecisionRecord(document.Path));
 
-    public static bool IsDecisionRecord(string path) =>
-        path.StartsWith(".arc42/adr/", StringComparison.OrdinalIgnoreCase) ||
-        path.StartsWith(".arc42/tdr/", StringComparison.OrdinalIgnoreCase);
+    /// <summary>Whether the path is an ADR or TDR, in either layout: the
+    /// catalog spells paths relative to the repository, so a folder under
+    /// <c>.devbook/</c> names them <c>.devbook/arc42/adr/…</c>.</summary>
+    public static bool IsDecisionRecord(string path)
+    {
+        var normalized = path.Replace('\\', '/');
+        var devbook = DevbookFolderSetting.DevbookRoot + "/";
+        var within = normalized.StartsWith(devbook, StringComparison.OrdinalIgnoreCase)
+            ? "." + normalized[devbook.Length..]
+            : normalized;
+
+        return within.StartsWith(".arc42/adr/", StringComparison.OrdinalIgnoreCase) ||
+               within.StartsWith(".arc42/tdr/", StringComparison.OrdinalIgnoreCase);
+    }
 }
 
 public sealed record DevbookDocument(

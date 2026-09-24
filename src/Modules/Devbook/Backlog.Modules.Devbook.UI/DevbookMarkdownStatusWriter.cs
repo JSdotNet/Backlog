@@ -1,3 +1,4 @@
+using Backlog.Modules.Devbook.Abstractions;
 using System.Text.RegularExpressions;
 
 namespace Backlog.Desktop.UI.Devbook;
@@ -69,12 +70,15 @@ internal static class DevbookMarkdownStatusWriter
     private static HeadingDocument Open(string folderRoot, string itemPath, string folderPrefix)
     {
         var (relativePath, anchor) = SplitItemPath(itemPath);
-        if (!relativePath.StartsWith(folderPrefix, StringComparison.OrdinalIgnoreCase))
-        {
-            throw new InvalidOperationException($"Devbook item path must be inside {folderPrefix.TrimEnd('/')}: {itemPath}");
-        }
 
-        var filePath = Path.GetFullPath(Path.Combine(folderRoot, relativePath[folderPrefix.Length..].Replace('/', Path.DirectorySeparatorChar)));
+        // A reader spells its paths relative to the repository, so a folder in the
+        // devbook layout names its chapters .devbook/arc42/... where one at the
+        // legacy root names them .arc42/... — the same folder either way.
+        var prefix = new[] { DevbookLayoutPrefix(folderPrefix), folderPrefix }
+            .FirstOrDefault(candidate => relativePath.StartsWith(candidate, StringComparison.OrdinalIgnoreCase))
+            ?? throw new InvalidOperationException($"Devbook item path must be inside {folderPrefix.TrimEnd('/')}: {itemPath}");
+
+        var filePath = Path.GetFullPath(Path.Combine(folderRoot, relativePath[prefix.Length..].Replace('/', Path.DirectorySeparatorChar)));
         var normalizedRoot = Path.GetFullPath(folderRoot).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
         if (!filePath.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase))
         {
@@ -96,6 +100,11 @@ internal static class DevbookMarkdownStatusWriter
 
         return new HeadingDocument(filePath, newline, lines, headingIndex);
     }
+
+    /// <summary>The same folder's prefix in the devbook layout:
+    /// <c>.arc42/</c> becomes <c>.devbook/arc42/</c>.</summary>
+    private static string DevbookLayoutPrefix(string folderPrefix) =>
+        $"{DevbookFolderSetting.DevbookRoot}/{folderPrefix.TrimStart('.')}";
 
     /// <summary>One knowledge file, opened at the heading a write is addressed
     /// to.</summary>

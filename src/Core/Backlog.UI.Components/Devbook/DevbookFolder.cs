@@ -46,6 +46,14 @@ public static class DevbookFolders
         if (trimmed.StartsWith("./", StringComparison.Ordinal)) trimmed = trimmed[2..];
         trimmed = trimmed.TrimStart('/');
 
+        // The devbook layout nests every folder under .devbook/ without its dot:
+        // .devbook/arc42/... is the same folder as .arc42/...
+        const string devbookRoot = ".devbook/";
+        if (trimmed.StartsWith(devbookRoot, StringComparison.OrdinalIgnoreCase))
+        {
+            trimmed = "." + trimmed[devbookRoot.Length..];
+        }
+
         var end = trimmed.IndexOf('/');
         var segment = end < 0 ? trimmed : trimmed[..end];
 

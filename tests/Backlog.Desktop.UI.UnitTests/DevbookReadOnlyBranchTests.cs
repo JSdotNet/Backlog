@@ -247,6 +247,9 @@ public sealed class DevbookReadOnlyBranchTests : IDisposable
         {
             var folder = DevbookFolderSetting.Defaults()
                 .First(setting => string.Equals(setting.Key, key, StringComparison.OrdinalIgnoreCase));
+            // The fixtures sit in the root layout, which the real source reaches
+            // through its fallback to the legacy folder.
+            folder = folder with { ResolvedPath = folder.LegacyRelativePath };
 
             var full = Path.Combine(root, folder.EffectivePath);
 

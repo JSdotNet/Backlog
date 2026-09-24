@@ -78,7 +78,7 @@ public sealed class DevbookAreaCatalogTests
 
         var ai = Assert.Single(normalized, folder => folder.Key == ".ai");
         Assert.True(ai.Enabled);
-        Assert.Equal(".ai", ai.EffectivePath);
+        Assert.Equal(".devbook/ai", ai.EffectivePath);
         Assert.Contains("ai", DevbookAreaCatalog.VisibleAreas(normalized).Select(area => area.Key));
     }
 
