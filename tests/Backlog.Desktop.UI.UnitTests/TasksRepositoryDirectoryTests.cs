@@ -214,6 +214,22 @@ public sealed class TasksRepositoryDirectoryTests : IDisposable
             registered.DevbookFolders.Select(folder => folder.Key));
     }
 
+    /// <summary>A repository removed in Settings is reported as removed, which is
+    /// what stops the reconcile pass registering it back. A plan that names it on
+    /// purpose still registers it, and the removal is forgotten.</summary>
+    [Fact]
+    public void A_removed_repository_is_reported_until_it_is_registered_again()
+    {
+        var settings = StoreWith("JSdotNet/Backlog\nfinance-finance = finance/finance");
+        var directory = new SettingsRepositoryDirectory(settings);
+
+        Assert.Null(settings.RemoveRepository("finance-finance"));
+        Assert.True(directory.WasRemoved("finance/finance"));
+
+        directory.Register("finance/finance");
+        Assert.False(directory.WasRemoved("finance/finance"));
+    }
+
     private GitHubSettingsStore StoreWith(string configuredLines)
     {
         var store = new GitHubSettingsStore(Path.Combine(_root, "github", "github.json"));

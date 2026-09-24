@@ -65,6 +65,24 @@ public sealed class GitHubSettings
     public List<RepositoryRename> Renames { get; init; } = [];
 
     /// <summary>
+    /// Every repository somebody removed, until it is configured again.
+    /// <para>
+    /// Shared for the reason <see cref="Renames"/> is. Entries that still name a
+    /// removed repository outlive it, and the start-up reconcile pass registers
+    /// an id nothing answers to, because that is how a repository registered on
+    /// another install arrives. Without this record the pass could not tell the
+    /// two apart, and a removal was undone on the next start.
+    /// </para>
+    /// </summary>
+    public List<RepositoryRemoval> Removals { get; init; } = [];
+
+    /// <summary>Whether an id is one somebody removed and has not configured
+    /// again. Compared without regard to case, as every id is.</summary>
+    public bool WasRemoved(string? id) =>
+        !string.IsNullOrWhiteSpace(id)
+        && Removals.Any(r => string.Equals(r.Id, id.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
     /// The repository a name refers to, or null when nothing configured answers
     /// to it.
     /// <para>
@@ -435,6 +453,12 @@ public sealed class GitHubSettings
 public sealed record RepositoryRename(string OldId, string NewId, DateTimeOffset At);
 
 /// <summary>
+/// One repository somebody removed: the <see cref="Id"/> it had, and
+/// <see cref="At"/> when. Kept until that id is configured again.
+/// </summary>
+public sealed record RepositoryRemoval(string Id, DateTimeOffset At);
+
+/// <summary>
 /// Reads and writes <see cref="GitHubSettings"/> across the two files a
 /// repository is configured in, and is the single façade over both.
 /// <para>
@@ -497,6 +521,10 @@ public sealed class GitHubSettingsStore
     /// them builds a fresh <see cref="GitHubSettings"/> and a mutator that forgot
     /// to carry the record would silently drop it.</summary>
     private List<RepositoryRename> _renames = [];
+
+    /// <summary>The registry's removal record, held as store state for the
+    /// reason <see cref="_renames"/> is.</summary>
+    private List<RepositoryRemoval> _removals = [];
 
     private RegistryState _registryState;
 
@@ -615,13 +643,23 @@ public sealed class GitHubSettingsStore
     /// <see cref="RenameRepository"/>, which is asked for by name.
     /// </para>
     /// </summary>
-    public string? SetRepositories(IEnumerable<GitHubRepositoryRef> repositories)
+    /// <param name="rememberRemovals">Whether a repository the new list drops is
+    /// remembered as removed. True for a person editing the list; false for a
+    /// host that seeds a fixed list at start-up, whose reset is not somebody
+    /// removing whatever was there before.</param>
+    public string? SetRepositories(IEnumerable<GitHubRepositoryRef> repositories, bool rememberRemovals = true)
     {
         if (_registryState is RegistryState.Unreadable) return RegistryUnreadable;
 
+        var next = NormalizeRepositories([.. repositories.Select(PreserveExistingRepositorySettings)]);
+
+        // A line dropped from the list is a removal, remembered like one from
+        // the card; a line kept or added again is spent by Save.
+        if (rememberRemovals) RememberRemoved(Current.Repositories.Where(r => !next.Any(n => IsSame(n, r))));
+
         return Save(new GitHubSettings
         {
-            Repositories = NormalizeRepositories([.. repositories.Select(PreserveExistingRepositorySettings)]),
+            Repositories = next,
             ApiEndpoint = Current.ApiEndpoint,
             ShowRepositoryColours = Current.ShowRepositoryColours,
             Accounts = [.. Current.Accounts]
@@ -632,7 +670,6 @@ public sealed class GitHubSettingsStore
     /// for the settings screen, which is the only caller.</summary>
     public const string RenameUnchanged = "That is already the repository's name.";
     public const string RenameNotACoordinate = "Write the new name as owner/repo.";
-    public const string RenameTaken = "Another configured repository already has that name.";
 
     /// <summary>
     /// Moves a configured repository to a new <c>owner/name</c>, keeping
@@ -649,8 +686,14 @@ public sealed class GitHubSettingsStore
     /// </para>
     /// <para>
     /// Refused, with the sentence to show, when the new name is not a
-    /// coordinate, is the name the repository already has, or is the name of
-    /// another configured repository — merging two rows is not a rename.
+    /// coordinate or is the name the repository already has.
+    /// </para>
+    /// <para>
+    /// A new name another configured repository already has merges the two:
+    /// the renamed row goes, the other is kept exactly as it is configured, and
+    /// the record points the old id at it. That is how a placeholder a plan
+    /// import registered is folded into the real repository it meant. The other
+    /// row's settings win, because it is the one somebody configured on purpose.
     /// </para>
     /// </summary>
     public string? RenameRepository(string alias, string newFullName, out RepositoryRename? rename)
@@ -665,19 +708,24 @@ public sealed class GitHubSettingsStore
         var parsed = GitHubRepositoryRef.TryParse(newFullName, out _);
         if (parsed is null) return RenameNotACoordinate;
         if (string.Equals(parsed.FullName, target.FullName, StringComparison.OrdinalIgnoreCase)) return RenameUnchanged;
-        if (Current.Repositories.Any(r => !IsSame(r, target) && IsSame(r, parsed))) return RenameTaken;
 
-        var moved = new RepositoryRename(target.FullName, parsed.FullName, _clock.GetUtcNow());
+        var into = Current.Repositories.FirstOrDefault(r => !IsSame(r, target) && IsSame(r, parsed));
+
+        // Recorded under the id the registry will state, so a merge names the
+        // kept row's own spelling rather than however the new name was typed.
+        var moved = new RepositoryRename(target.FullName, into?.FullName ?? parsed.FullName, _clock.GetUtcNow());
         _renames = [.. _renames, moved];
 
         var error = Save(new GitHubSettings
         {
-            Repositories =
-            [
-                .. Current.Repositories.Select(r => IsSame(r, target)
-                    ? r with { Owner = parsed.Owner, Name = parsed.Name }
-                    : r)
-            ],
+            Repositories = into is not null
+                ? [.. Current.Repositories.Where(r => !IsSame(r, target))]
+                :
+                [
+                    .. Current.Repositories.Select(r => IsSame(r, target)
+                        ? r with { Owner = parsed.Owner, Name = parsed.Name }
+                        : r)
+                ],
             ApiEndpoint = Current.ApiEndpoint,
             ShowRepositoryColours = Current.ShowRepositoryColours,
             Accounts = [.. Current.Accounts]
@@ -720,6 +768,8 @@ public sealed class GitHubSettingsStore
     {
         if (_registryState is RegistryState.Unreadable) return RegistryUnreadable;
         if (Find(alias) is not { } target) return NotConfigured;
+
+        RememberRemoved([target]);
 
         // The overlay row goes with it, which the reduced write does by itself: it
         // emits a row per repository that is still configured, so an id that is
@@ -1052,6 +1102,20 @@ public sealed class GitHubSettingsStore
     private static bool IsSame(GitHubRepositoryRef left, GitHubRepositoryRef right) =>
         string.Equals(left.FullName, right.FullName, StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>Adds the repositories about to be removed to the removal record,
+    /// once each. Called before <see cref="Save"/>, which is what drops a record
+    /// again when its id is still, or once more, configured.</summary>
+    private void RememberRemoved(IEnumerable<GitHubRepositoryRef> removed)
+    {
+        var at = _clock.GetUtcNow();
+
+        foreach (var repository in removed)
+        {
+            if (_removals.Any(r => string.Equals(r.Id, repository.FullName, StringComparison.OrdinalIgnoreCase))) continue;
+            _removals = [.. _removals, new RepositoryRemoval(repository.FullName, at)];
+        }
+    }
+
     /// <summary>
     /// Applies a whole value in memory, then persists it: the shared registry
     /// first, then the local file.
@@ -1082,6 +1146,10 @@ public sealed class GitHubSettingsStore
         // also what keeps a rename-and-rename-back from leaving a cycle behind.
         _renames = [.. _renames.Where(rename => !repositories.Any(r => string.Equals(r.FullName, rename.OldId, StringComparison.OrdinalIgnoreCase)))];
 
+        // Configured again is the person changing their mind, whether they typed
+        // the line or a plan import registered it, so the removal is spent too.
+        _removals = [.. _removals.Where(removal => !repositories.Any(r => string.Equals(r.FullName, removal.Id, StringComparison.OrdinalIgnoreCase)))];
+
         var normalized = new GitHubSettings
         {
             Repositories = repositories,
@@ -1089,7 +1157,8 @@ public sealed class GitHubSettingsStore
             Token = null,
             ApiEndpoint = CleanEndpoint(settings.ApiEndpoint) ?? GitHubSettings.DefaultApiEndpoint,
             ShowRepositoryColours = settings.ShowRepositoryColours,
-            Renames = [.. _renames]
+            Renames = [.. _renames],
+            Removals = [.. _removals]
         };
         Current = normalized;
 
@@ -1139,7 +1208,10 @@ public sealed class GitHubSettingsStore
                 Repositories = rows,
                 Renames = _renames.Count == 0
                     ? null
-                    : [.. _renames.Select(r => new RegistryRenameDto { From = r.OldId, To = r.NewId, At = r.At })]
+                    : [.. _renames.Select(r => new RegistryRenameDto { From = r.OldId, To = r.NewId, At = r.At })],
+                Removals = _removals.Count == 0
+                    ? null
+                    : [.. _removals.Select(r => new RegistryRemovalDto { Id = r.Id, At = r.At })]
             };
 
             File.WriteAllText(path, JsonSerializer.Serialize(dto, JsonOptions));
@@ -1307,6 +1379,7 @@ public sealed class GitHubSettingsStore
         _registryState = registry.State;
         RegistryError = registry.Error;
         _renames = registry.Renames;
+        _removals = registry.Removals;
 
         var rows = registry.Rows;
         var carriedOver = false;
@@ -1467,7 +1540,8 @@ public sealed class GitHubSettingsStore
             Token = CleanToken(local.Token),
             ApiEndpoint = CleanEndpoint(local.ApiEndpoint) ?? GitHubSettings.DefaultApiEndpoint,
             ShowRepositoryColours = local.ShowRepositoryColours,
-            Renames = [.. _renames]
+            Renames = [.. _renames],
+            Removals = [.. _removals]
         };
     }
 
@@ -1537,7 +1611,7 @@ public sealed class GitHubSettingsStore
             ? RegistryRow.From(id, row.Alias, CleanColour(row.Colour))
             : null;
 
-    private (RegistryState State, List<RegistryRow> Rows, List<RepositoryRename> Renames, string? Error) ReadRegistry()
+    private (RegistryState State, List<RegistryRow> Rows, List<RepositoryRename> Renames, List<RepositoryRemoval> Removals, string? Error) ReadRegistry()
     {
         try
         {
@@ -1546,15 +1620,16 @@ public sealed class GitHubSettingsStore
             // Missing is the ordinary first-run and fresh-workspace state, and it
             // is writable: the next save creates the file. Deliberately not an
             // error, so nothing tells somebody about a problem they do not have.
-            if (!File.Exists(path)) return (RegistryState.Missing, [], [], null);
+            if (!File.Exists(path)) return (RegistryState.Missing, [], [], [], null);
 
             var dto = JsonSerializer.Deserialize<RegistryDto>(File.ReadAllText(path), JsonOptions);
-            if (dto is null) return (RegistryState.Missing, [], [], null);
+            if (dto is null) return (RegistryState.Missing, [], [], [], null);
 
             return (
                 RegistryState.Loaded,
                 [.. dto.Repositories.Select(row => RegistryRow.From(row)).OfType<RegistryRow>()],
                 [.. (dto.Renames ?? []).Select(RenameFrom).OfType<RepositoryRename>()],
+                [.. (dto.Removals ?? []).Select(RemovalFrom).OfType<RepositoryRemoval>()],
                 null);
         }
         catch (Exception)
@@ -1564,7 +1639,7 @@ public sealed class GitHubSettingsStore
             // empty shared registry would prune every overlay row and refuse
             // nothing. So the state is remembered, and the writes that would act
             // on a list nobody has are refused instead.
-            return (RegistryState.Unreadable, [], [], RegistryUnreadable);
+            return (RegistryState.Unreadable, [], [], [], RegistryUnreadable);
         }
     }
 
@@ -1577,6 +1652,15 @@ public sealed class GitHubSettingsStore
         if (dto.From.Trim().Split('/').Length != 2 || dto.To.Trim().Split('/').Length != 2) return null;
 
         return new RepositoryRename(dto.From.Trim(), dto.To.Trim(), dto.At ?? DateTimeOffset.MinValue);
+    }
+
+    /// <summary>A stored removal read back, or null for one that names no
+    /// coordinate, dropped the way a malformed rename is.</summary>
+    private static RepositoryRemoval? RemovalFrom(RegistryRemovalDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.Id) || dto.Id.Trim().Split('/').Length != 2) return null;
+
+        return new RepositoryRemoval(dto.Id.Trim(), dto.At ?? DateTimeOffset.MinValue);
     }
 
     private LocalFile ReadLocal()
@@ -1841,6 +1925,18 @@ public sealed class GitHubSettingsStore
         /// writes the file it always wrote.</summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public List<RegistryRenameDto>? Renames { get; set; }
+
+        /// <summary>Every repository removed and not configured again. Omitted
+        /// while empty, as the rename record is.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<RegistryRemovalDto>? Removals { get; set; }
+    }
+
+    /// <summary>One removal: the coordinate the removed row had, and when.</summary>
+    private sealed class RegistryRemovalDto
+    {
+        public string? Id { get; set; }
+        public DateTimeOffset? At { get; set; }
     }
 
     /// <summary>One rename: the coordinate a row had, the one it has now, and

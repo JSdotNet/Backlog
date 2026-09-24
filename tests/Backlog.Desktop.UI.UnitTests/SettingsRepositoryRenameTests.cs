@@ -44,6 +44,30 @@ public sealed class SettingsRepositoryRenameTests
         Assert.Empty(settings.Component.FindAll(".setting__status--error"));
     }
 
+    /// <summary>
+    /// Renaming onto a repository that is already configured folds the renamed
+    /// one into it — how a placeholder a plan import registered is merged into
+    /// the real repository. The renamed card is gone, so the note lands on the
+    /// card that was kept, and that card is the one left open.
+    /// </summary>
+    [Fact]
+    public void Renaming_onto_a_configured_repository_merges_into_it_and_says_so_on_its_card()
+    {
+        using var settings = RenderSettings(entriesMoved: 3);
+        OpenRepositoriesTab(settings.Component);
+
+        Rename(settings.Component, "JSdotNet/Docs");
+
+        Assert.Equal([("JSdotNet/Backlog", "JSdotNet/Docs")], settings.Tasks.Renames);
+        Assert.Equal([("JSdotNet/Backlog", "JSdotNet/Docs")], settings.Inbox.Renames);
+        Assert.Equal("JSdotNet/Docs", Assert.Single(settings.GitHub.Current.Repositories).FullName);
+        Assert.Equal(
+            "Merged JSdotNet/Backlog into JSdotNet/Docs; 3 entries and 0 inbox items followed it.",
+            settings.Component.Find("[data-testid='repo-rename-note']").TextContent.Trim());
+        Assert.Equal("JSdotNet/Docs", settings.Component.Find(".repo-card__title").TextContent.Trim());
+        Assert.Empty(settings.Component.FindAll(".setting__status--error"));
+    }
+
     /// <summary>The Rename control sits before Remove: the one that keeps
     /// everything, then the one that keeps nothing.</summary>
     [Fact]

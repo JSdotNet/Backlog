@@ -51,7 +51,13 @@ internal sealed class FakeRepositoryDirectory : IRepositoryDirectory
     /// it is given up on, as the real one does.</summary>
     public Dictionary<string, string> Renamed { get; } = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>The coordinates the registry remembers somebody removing — what
+    /// the real adapter reads out of the registry's removal record.</summary>
+    public HashSet<string> Removed { get; } = new(StringComparer.OrdinalIgnoreCase);
+
     public List<string> Registered { get; } = [];
+
+    public bool WasRemoved(string id) => Removed.Contains(id.Trim());
 
     public IReadOnlyList<TasksRepositoryRef> Repositories => _repositories;
 

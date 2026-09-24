@@ -207,6 +207,27 @@ public class ReconcileRepositoryIdsTests
         Assert.Empty(directory.Registered);
     }
 
+    /// <summary>
+    /// The regression this exists for: a repository somebody removed in Settings
+    /// came back on the next start, because the entries still naming it read as
+    /// an assignment from another install. A removed id is left on the entry —
+    /// it reads "No repo" — and is never registered again.
+    /// </summary>
+    [Fact]
+    public async Task An_id_the_registry_remembers_removing_is_not_registered_again()
+    {
+        var store = StoreWith(["finance/finance"]);
+        var directory = new FakeRepositoryDirectory([Backlog]);
+        directory.Removed.Add("Finance/Finance");
+
+        var changed = await Reconcile(store, directory);
+
+        Assert.Equal(0, changed);
+        Assert.Equal(["finance/finance"], store.Entries.Single().RepoIds);
+        Assert.Empty(directory.Registered);
+        Assert.Equal([Backlog], directory.Repositories);
+    }
+
     private static async Task<int> Reconcile(InMemoryTaskRepository store, FakeRepositoryDirectory directory)
     {
         var result = await new ReconcileRepositoryIdsCommandHandler(store, directory)

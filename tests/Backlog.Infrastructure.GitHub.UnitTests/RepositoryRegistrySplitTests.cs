@@ -177,7 +177,7 @@ public class RepositoryRegistrySplitTests : IDisposable
     }
 
     [Fact]
-    public void A_rename_is_refused_for_a_non_coordinate_the_same_name_or_a_taken_one()
+    public void A_rename_is_refused_for_a_non_coordinate_or_the_same_name()
     {
         var store = Store();
         Assert.Null(store.SetRepositories([Repository("backlog", "Backlog"), Repository("docs", "Docs")]));
@@ -185,11 +185,132 @@ public class RepositoryRegistrySplitTests : IDisposable
         Assert.Equal(GitHubSettingsStore.RenameNotACoordinate, store.RenameRepository("backlog", "just-a-name", out var rename));
         Assert.Null(rename);
         Assert.Equal(GitHubSettingsStore.RenameUnchanged, store.RenameRepository("backlog", "jsdotnet/backlog", out _));
-        Assert.Equal(GitHubSettingsStore.RenameTaken, store.RenameRepository("backlog", "JSdotNet/Docs", out _));
         Assert.Equal("That repository is no longer configured.", store.RenameRepository("nobody", "JSdotNet/Other", out _));
 
         Assert.Empty(store.Current.Renames);
         Assert.Equal("JSdotNet/Backlog", store.Current.Find("backlog")!.FullName);
+    }
+
+    /// <summary>
+    /// Renaming onto a repository that is already configured folds the renamed
+    /// one into it. The case this exists for is a placeholder a plan import
+    /// registered — <c>finance/finance</c> — standing beside the real
+    /// <c>JSdotNet/finance</c>: the placeholder's row goes, the real one is left
+    /// exactly as somebody configured it, and the record makes the old id
+    /// resolve to it, so the entries that name it can follow.
+    /// </summary>
+    [Fact]
+    public void A_rename_onto_a_configured_repository_merges_into_it()
+    {
+        var clone = Path.Combine(_root, "finance");
+
+        var store = Store();
+        Assert.Null(store.SetRepositories(
+        [
+            new GitHubRepositoryRef("finance", "JSdotNet", "finance"),
+            new GitHubRepositoryRef("finance-finance", "finance", "finance")
+        ]));
+        Assert.Null(store.SetCloneDirectory("finance", clone));
+        Assert.Null(store.SetRepositoryColour("finance", 3));
+
+        Assert.Null(store.RenameRepository("finance-finance", "jsdotnet/Finance", out var rename));
+
+        Assert.Equal(("finance/finance", "JSdotNet/finance"), (rename!.OldId, rename.NewId));
+        var kept = Assert.Single(store.Current.Repositories);
+        Assert.Equal(("finance", "JSdotNet/finance", clone, 3), (kept.Alias, kept.FullName, kept.CloneDirectory, kept.Colour));
+        Assert.Equal("JSdotNet/finance", Store().Current.Find("finance/finance")!.FullName);
+    }
+
+    // --- Removal is remembered ------------------------------------------------
+
+    /// <summary>
+    /// Entries that still name a removed repository must not bring it back. The
+    /// start-up reconcile pass registers an id nothing answers to — that is how a
+    /// repository registered on another install arrives here — so a removal
+    /// that left no trace was undone on the next start. The registry remembers
+    /// it, beside the rename record and for the same reason: the entries travel
+    /// by a different route than the list.
+    /// </summary>
+    [Fact]
+    public void A_removed_repository_is_remembered_in_the_shared_registry()
+    {
+        var store = Store();
+        Assert.Null(store.SetRepositories([Repository("backlog", "Backlog"), new GitHubRepositoryRef("finance-finance", "finance", "finance")]));
+
+        Assert.Null(store.RemoveRepository("finance-finance"));
+
+        Assert.True(store.Current.WasRemoved("Finance/Finance"));
+        Assert.True(Store("install-2").Current.WasRemoved("finance/finance"));
+        Assert.False(store.Current.WasRemoved("JSdotNet/Backlog"));
+    }
+
+    [Fact]
+    public void A_line_dropped_from_the_list_is_a_removal_too()
+    {
+        var store = Store();
+        Assert.Null(store.SetRepositories([Repository("backlog", "Backlog"), Repository("docs", "Docs")]));
+
+        var (repositories, _) = GitHubSettings.ParseText("JSdotNet/Backlog");
+        Assert.Null(store.SetRepositories(repositories));
+
+        Assert.True(store.Current.WasRemoved("JSdotNet/Docs"));
+        Assert.False(store.Current.WasRemoved("JSdotNet/Backlog"));
+    }
+
+    /// <summary>A host that seeds a fixed list at start-up replaces whatever the
+    /// shared workspace held, and that reset is nobody's removal.</summary>
+    [Fact]
+    public void A_seeded_list_records_nothing_it_replaces_as_removed()
+    {
+        var store = Store();
+        Assert.Null(store.SetRepositories([Repository("backlog", "Backlog"), Repository("docs", "Docs")]));
+
+        Assert.Null(store.SetRepositories([Repository("backlog", "Backlog")], rememberRemovals: false));
+
+        Assert.Empty(store.Current.Removals);
+    }
+
+    /// <summary>A rename is not a removal: the old id is answered by the rename
+    /// record, and remembering it as removed as well would be a second, and
+    /// wrong, answer to the same question.</summary>
+    [Fact]
+    public void A_renamed_or_merged_id_is_not_recorded_as_removed()
+    {
+        var store = Store();
+        Assert.Null(store.SetRepositories([Repository("backlog", "Backlog"), Repository("docs", "Docs")]));
+
+        Assert.Null(store.RenameRepository("backlog", "JSdotNet/Backlog-2", out _));
+        Assert.Null(store.RenameRepository("docs", "JSdotNet/Backlog-2", out _));
+
+        Assert.Empty(store.Current.Removals);
+    }
+
+    /// <summary>Configuring the id again is the person changing their mind,
+    /// whether they typed it or a plan import registered it, so the record is
+    /// spent on the save that re-created the row.</summary>
+    [Fact]
+    public void Adding_a_removed_repository_again_forgets_the_removal()
+    {
+        var store = Store();
+        Assert.Null(store.SetRepositories([Repository("backlog", "Backlog"), Repository("docs", "Docs")]));
+        Assert.Null(store.RemoveRepository("docs"));
+
+        Assert.Null(store.SetRepositories([.. store.Current.Repositories, Repository("docs", "Docs")]));
+
+        Assert.False(store.Current.WasRemoved("JSdotNet/Docs"));
+        Assert.Empty(Store().Current.Removals);
+    }
+
+    [Fact]
+    public void The_removal_record_is_absent_from_the_file_until_there_is_one()
+    {
+        var store = Store();
+        Assert.Null(store.SetRepositories([Repository("backlog", "Backlog")]));
+
+        Assert.DoesNotContain("removals", File.ReadAllText(store.RegistryPath), StringComparison.OrdinalIgnoreCase);
+
+        Assert.Null(store.RemoveRepository("backlog"));
+        Assert.Contains("\"removals\"", File.ReadAllText(store.RegistryPath), StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -285,7 +406,12 @@ public class RepositoryRegistrySplitTests : IDisposable
         Assert.Null(store.RemoveRepository("docs"));
 
         Assert.DoesNotContain("ghp_docs", File.ReadAllText(store.SettingsPath), StringComparison.Ordinal);
-        Assert.DoesNotContain("JSdotNet/Docs", File.ReadAllText(store.RegistryPath), StringComparison.Ordinal);
+        Assert.DoesNotContain("JSdotNet/Docs", File.ReadAllText(store.SettingsPath), StringComparison.Ordinal);
+
+        // The registry keeps the id only as a removal record, never as a row.
+        var reread = Store("install-2").Current;
+        Assert.Null(reread.Find("JSdotNet/Docs"));
+        Assert.True(reread.WasRemoved("JSdotNet/Docs"));
     }
 
     /// <summary>The same pruning for the other way a repository leaves the list:

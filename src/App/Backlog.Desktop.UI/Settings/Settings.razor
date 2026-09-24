@@ -3496,8 +3496,14 @@
         SyncRepositoryDrafts();
         CancelRename();
 
-        _renameNote = await FollowRenameAsync(rename);
-        _renameNoteAlias = repository.Alias;
+        // A merge leaves no card under the renamed alias, so the note goes on the
+        // repository it was folded into, and the active card follows it there.
+        var kept = GitHub.Settings.Current.Find(rename.NewId);
+        var merged = kept is not null && kept.Alias != repository.Alias;
+        if (merged) _activeRepositoryAlias = kept!.Alias;
+
+        _renameNote = await FollowRenameAsync(rename, merged);
+        _renameNoteAlias = kept?.Alias ?? repository.Alias;
     }
 
     /// <summary>
@@ -3513,7 +3519,7 @@
     /// will try it again.
     /// </para>
     /// </summary>
-    private async Task<string> FollowRenameAsync(RepositoryRename rename)
+    private async Task<string> FollowRenameAsync(RepositoryRename rename, bool merged)
     {
         var tasks = Services.GetService<ITaskItems>();
         var inbox = Services.GetService<IInboxItems>();
@@ -3521,7 +3527,7 @@
         var entries = tasks is null ? 0 : await CountOrReport(tasks.RenameRepositoryAsync(rename.OldId, rename.NewId), "Entries");
         var items = inbox is null ? 0 : await CountOrReport(inbox.RenameRepositoryAsync(rename.OldId, rename.NewId), "Inbox items");
 
-        return $"Renamed {rename.OldId} to {rename.NewId}; {Plural(entries, "entry", "entries")} and {Plural(items, "inbox item", "inbox items")} followed it.";
+        return $"{(merged ? "Merged" : "Renamed")} {rename.OldId} {(merged ? "into" : "to")} {rename.NewId}; {Plural(entries, "entry", "entries")} and {Plural(items, "inbox item", "inbox items")} followed it.";
 
         async Task<int> CountOrReport(Task<Result<int>> rewrite, string what)
         {

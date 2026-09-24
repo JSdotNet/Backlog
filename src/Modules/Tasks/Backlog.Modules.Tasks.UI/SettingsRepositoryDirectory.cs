@@ -91,6 +91,8 @@ internal sealed class SettingsRepositoryDirectory(GitHubSettingsStore settings) 
         return new TasksRepositoryRef(registered.Alias, registered.Owner, registered.Name);
     }
 
+    public bool WasRemoved(string id) => settings.Current.WasRemoved(id);
+
     private static GitHubRepositoryRef Placeholder(string alias) => new(alias, alias, alias);
 
     /// <summary>

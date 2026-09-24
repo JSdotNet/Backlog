@@ -65,9 +65,16 @@ item that named the old repository follows it to the new one, including an
 entry's links to issues it created there; an inbox item's record of where it was
 routed is left as written, because that is the record of a decision already
 taken. The working set reports what happened and how many entries and inbox
-items followed. A new name that is not a repository coordinate, is the name the
-repository already has, or is the name of another registered repository is
-refused: merging two repositories is not a rename.
+items followed. A new name that is not a repository coordinate, or is the name
+the repository already has, is refused.
+
+A new name that another registered repository already has merges the two. This
+is how a placeholder, registered when a plan named a repository nobody had yet,
+is folded into the real repository it meant. The renamed repository goes, the
+other one keeps everything that was decided about it, and everything filed
+against the old name follows it there exactly as it would for a rename. The
+working set says it merged rather than renamed, on the card of the repository
+that was kept.
 
 The registered list also remembers each rename — the old name, the new one, and
 when — so that the old name keeps meaning the repository it became wherever it
@@ -79,6 +86,14 @@ itself on its next start, and a name given up twice is followed to where the
 second rename put it. The memory of a rename is kept until its old name is
 registered again: a repository re-created under a name once given up is that
 new repository, not the old one.
+
+A removal is remembered in the same way and for the same reason. Entries that
+still name a removed repository outlive it, and an entry naming a repository
+nobody has is otherwise read as one registered on another workspace and
+registered again, so a removal would be undone on the next start. Remembered,
+the removed name stays on those entries, which show no repository. The memory
+lasts until the name is registered again, on purpose, from the list or by an
+import that names it.
 
 Two edits look similar and are not renames. Relabelling the alias alone changes
 nothing about which repository is meant, so nothing has to follow it. Swapping
