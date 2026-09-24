@@ -163,20 +163,28 @@ public sealed class ImportPlanCommandHandler(
         string? sourceInboxId,
         CancellationToken cancellationToken)
     {
-        var planId = SharedTag(parsedEntries);
+        var sharedTag = SharedTag(parsedEntries);
+        string? PlanIdOf(EntryTextParser.ParsedEntry parsed) => sharedTag ?? OwnPlanTag(parsed);
+
         var existing = await entries.ListAsync(cancellationToken);
 
-        var cleared = await ClearNotStartedAsync(planId, existing, cancellationToken);
+        var cleared = new List<TaskItem>();
+        foreach (var id in parsedEntries.Select(PlanIdOf).OfType<string>().Distinct(StringComparer.Ordinal))
+        {
+            cleared.AddRange(await ClearNotStartedAsync(id, existing, cancellationToken));
+        }
+
         if (cleared.Count > 0) existing = [.. existing.Except(cleared)];
 
         // Which of the cleared entries this version can still be recognized as
         // having rewritten, rather than simply dropped. Read before pass 1 so
         // the counts can tell a replacement from a create — ImportPlanResultDto
-        // says why that distinction is worth keeping.
+        // says why that distinction is worth keeping. Keyed by plan as well, since
+        // two plans in one document may each own a step of the same id.
         var clearedItemIds = cleared
             .Where(entry => !string.IsNullOrWhiteSpace(entry.ImportItemId))
-            .Select(entry => entry.ImportItemId!)
-            .ToHashSet(StringComparer.Ordinal);
+            .Select(entry => (entry.ImportPlanId, entry.ImportItemId!))
+            .ToHashSet();
 
         // Pass 1: resolve each parsed entry's identity against what is left
         // standing, before anything about the batch is written. None of the
@@ -188,6 +196,7 @@ public sealed class ImportPlanCommandHandler(
         foreach (var parsed in parsedEntries)
         {
             TaskItem? match = null;
+            var planId = PlanIdOf(parsed);
             if (planId is not null && !string.IsNullOrWhiteSpace(parsed.ImportItemId))
             {
                 match = existing.FirstOrDefault(e =>
@@ -256,6 +265,7 @@ public sealed class ImportPlanCommandHandler(
             // (see DependencyResolution for the order it is asked in) — and only
             // what neither knows is written through as a real, already-existing
             // backlog_item_id, unchanged from ordinary `after:` behaviour.
+            var planId = PlanIdOf(outcome.Parsed);
             var resolvedDependsOn = DependencyResolution.ResolveAll(
                 (outcome.Parsed.DependsOn ?? [])
                     .Select(id => localIds.TryGetValue(id, out var real) ? real.ToString() : id),
@@ -273,7 +283,7 @@ public sealed class ImportPlanCommandHandler(
                 await entries.SaveAsync(entry, cancellationToken);
                 resultEntries.Add(entry.ToDto());
 
-                if (outcome.Parsed.ImportItemId is { } itemId && clearedItemIds.Contains(itemId)) replaced++;
+                if (outcome.Parsed.ImportItemId is { } itemId && clearedItemIds.Contains((planId, itemId))) replaced++;
                 else created++;
             }
             else
@@ -654,6 +664,23 @@ public sealed class ImportPlanCommandHandler(
         // plan, identified by the bare tag it was written with.
         var candidates = shared.ToList();
         return candidates.FirstOrDefault(tag => tag.StartsWith('+')) ?? candidates.FirstOrDefault();
+    }
+
+    /// <summary>An entry's own plan when the document shares no tag: the one
+    /// <c>+tag</c> it carries, or null when it carries none or several.
+    /// <para>
+    /// A roadmap document holds several plans and the task entries under them, so
+    /// nothing is common to every entry — and without this each of those entries had
+    /// no plan id, and every re-import of the document wrote all of them again. The
+    /// sigil is what makes the fallback safe: a <c>+tag</c> names a plan, so an entry
+    /// wearing exactly one belongs to that plan unambiguously. A general <c>#tag</c>
+    /// is only a plan id when every entry shares it, as ADR 0007 always had it.
+    /// </para></summary>
+    private static string? OwnPlanTag(EntryTextParser.ParsedEntry parsed)
+    {
+        var planTags = parsed.Tags.Where(tag => tag.StartsWith('+')).Distinct(StringComparer.Ordinal).ToList();
+
+        return planTags.Count == 1 ? planTags[0] : null;
     }
 
     /// <summary>Applies the dialog's default repository to a parsed entry that

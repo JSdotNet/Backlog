@@ -1,17 +1,20 @@
 # ADR 0007: Import reuses the entry text grammar; a plan is multi-task entry text
 
 ```meta
-status: proposed
+status: active
 related: [".domain/tasks/features.md#import", ".domain/tasks/domain.md#task", ".design/content-editing.md#scheduling-and-dependency-tokens", ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md", ".arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md"]
 issue: null
 ```
 
 ## Status
 
-Proposed. Import (`.domain/tasks/features.md#import`) is modelled but not built:
-this ADR fixes the format and the persistence path before the feature slice is
-written, so the implementation has one decision to follow rather than one to
-make up as it goes.
+Accepted and built. Written before Import (`.domain/tasks/features.md#import`)
+existed, to fix the format and the persistence path before the feature slice was
+written, so the implementation had one decision to follow rather than one to
+make up as it went. Validated end to end in the desktop harness on 2026-09-24,
+together with ADR 0013, through the `roadmap-imported-plans` plan's
+`validate-combined-import` entry; the one ruling that run changed is under
+[Deviations](#deviations).
 
 **Addendum, 2026-09-22.** Two things have moved since this was written, and
 neither reopens it. The shared tag this record calls `#tag` is now written with
@@ -224,6 +227,25 @@ the source text would be a second copy of the same fact with no consumer:
 nothing in the re-import flow, or anywhere else in the product, reads the
 original text back. Keeping it would be paying a permanent storage and
 provenance cost for an audit trail nobody has asked for and nothing queries.
+
+## Deviations
+
+Where what is built departs from what is written above:
+
+- **An entry's own plan tag is its plan when the document shares none.**
+  [Plan identity](#plan-identity-and-tagging-the-shared-tag-is-the-plan-id-nothing-else)
+  takes `import_plan_id` from the one tag every entry shares, and calls a
+  document with none an accepted limitation. A roadmap document (ADR 0013)
+  holds several plans' task entries in one paste, so it always shares none: its
+  steps had no plan id, and every re-import of the same document wrote all of
+  them again beside the first copy. When no tag is shared, an entry carrying
+  exactly one `+` plan tag now takes that tag as its `import_plan_id`, and
+  clear-then-write runs once per plan the document names. The sigil is what
+  makes this safe — a `+tag` names a plan, so one entry wearing one belongs to
+  it unambiguously — and a general `#tag` is still a plan id only when every
+  entry shares it, exactly as ruled above. Found by the validation run named in
+  [Status](#status); pinned by
+  `ImportPlanRoadmapIntakeTests.Reimporting_a_document_of_several_plans_replaces_each_plans_steps`.
 
 ## Consequences
 

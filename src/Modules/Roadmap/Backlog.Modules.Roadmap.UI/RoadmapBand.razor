@@ -39,6 +39,7 @@
 @inject IRoadmapItemRollup Rollups
 @inject IImportedPlanSource ImportedPlans
 @inject GitHubSettingsStore Repositories
+@inject IRoadmapWorkChanges WorkChanges
 
 <section class="roadmap-band" id="roadmap-band" aria-labelledby="roadmap-band-title" data-testid="roadmap-band">
     @* The heading lives in one of two places, and which one depends on whether
@@ -225,6 +226,7 @@
     {
         Repositories.Changed += OnRepositoriesChanged;
         Planning.Changed += OnPlanChanged;
+        WorkChanges.Changed += OnWorkChanged;
         await Load();
     }
 
@@ -232,6 +234,7 @@
     {
         Repositories.Changed -= OnRepositoriesChanged;
         Planning.Changed -= OnPlanChanged;
+        WorkChanges.Changed -= OnWorkChanged;
     }
 
     private async Task Load()
@@ -673,9 +676,49 @@
     /// apart from everyone else's would be a second bookkeeping of the plan.
     /// </para>
     /// </summary>
-    private void OnPlanChanged() => InvokeAsync(async () =>
+    private void OnPlanChanged() => ReloadForOutsideChange();
+
+    /// <summary>A gathered task was written — a step marked done, a task-level import —
+    /// so the steps, the fill and the shelf are read again from what Tasks now
+    /// holds.</summary>
+    private void OnWorkChanged() => ReloadForOutsideChange();
+
+    /// <summary>A reload is already under way when the next change lands.</summary>
+    private bool _reloading;
+
+    /// <summary>One more change arrived while it was.</summary>
+    private bool _reloadAgain;
+
+    /// <summary>
+    /// Reads the band again after a change made outside it.
+    /// <para>
+    /// Coalesced, because an import writes every entry it brings in one after another
+    /// and each write is heard: the changes that land during a reload are answered
+    /// by one more reload after it, not by one each.
+    /// </para>
+    /// </summary>
+    private void ReloadForOutsideChange() => InvokeAsync(async () =>
     {
-        await Load();
-        StateHasChanged();
+        if (_reloading)
+        {
+            _reloadAgain = true;
+            return;
+        }
+
+        _reloading = true;
+        try
+        {
+            do
+            {
+                _reloadAgain = false;
+                await Load();
+                StateHasChanged();
+            }
+            while (_reloadAgain);
+        }
+        finally
+        {
+            _reloading = false;
+        }
     });
 }

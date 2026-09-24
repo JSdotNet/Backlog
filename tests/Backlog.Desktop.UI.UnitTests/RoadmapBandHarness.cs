@@ -39,6 +39,8 @@ public abstract class RoadmapBandHarness : IDisposable
 
     protected IRoadmapPlanning Planning { get; }
 
+    protected RoadmapWorkChanges WorkChanges { get; } = TasksTestHost.WorkChanges();
+
     protected BunitContext Context()
     {
         var context = new BunitContext();
@@ -61,6 +63,10 @@ public abstract class RoadmapBandHarness : IDisposable
         // The shelf of imported plans with no item, read from the same backlog. The
         // band tests that are not about the shelf write no imported tasks, so it is empty.
         context.Services.AddSingleton(TasksTestHost.ImportedPlansFor(Settings));
+
+        // What tells an open band to read again. Raised by hand here, since the band
+        // tests write no backlog for the task signal to hear.
+        context.Services.AddSingleton<IRoadmapWorkChanges>(WorkChanges);
         return context;
     }
 

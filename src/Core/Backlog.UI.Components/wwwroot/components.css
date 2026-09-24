@@ -11756,7 +11756,10 @@ select.field__input {
     align-items: center;
     gap: var(--spacing-2xs);
     height: calc(var(--roadmap-bar-height, 1.5rem) * 0.8);
-    padding: 0 var(--spacing-2xs);
+    /* No inline padding: the width that arrives inline is the whole of the step.
+       Padded, a hairline step could not be drawn narrower than its padding, so in a
+       short bar each step ran into the next one. The inset is on what it holds. */
+    padding: 0;
     translate: 0 -50%;
     border: var(--border-width) solid var(--color-border-strong);
     border-radius: var(--border-radius-sm);
@@ -11768,6 +11771,7 @@ select.field__input {
 
 .roadmap-step__title {
     min-width: 0;
+    padding-inline: var(--spacing-2xs);
     white-space: nowrap;
     text-overflow: ellipsis;
     overflow: hidden;
@@ -11787,6 +11791,7 @@ select.field__input {
 
 .roadmap-step__marker {
     flex: none;
+    padding-inline: var(--spacing-2xs);
     font-weight: 700;
 }
 

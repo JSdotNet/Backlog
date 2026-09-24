@@ -1,4 +1,5 @@
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Tasks;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -61,6 +62,10 @@ public static class RoadmapCrossContextAdapterRegistration
         // reads through to the store on every call, so a pace changed on the
         // settings screen is live without a restart.
         services.AddSingleton<IPlanningVelocity, PlanningVelocitySource>();
+
+        // Singleton for the same reason: it holds only the task signal, itself a
+        // singleton, and a write in one window has to reach a band open in another.
+        services.AddSingleton<IRoadmapWorkChanges>(sp => new RoadmapWorkChanges(sp.GetService<ITaskChangeSignal>()));
 
         return services;
     }

@@ -354,7 +354,7 @@ observed downstream reaches back in and edits the plan.
 
 ```meta
 type: feature
-status: proposed
+status: active
 depends-on: [.domain/roadmap/features.md#tagging-planned-work, .domain/roadmap/features.md#gathering-work-under-an-item-and-totalling-its-effort, .domain/roadmap/features.md#dependency-planning]
 related: [.arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md, .domain/tasks/features.md#import, .domain/tasks/features.md#re-importing-an-updated-plan, .domain/roadmap/features.md#sequencing-work-into-tracks, .domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline, .domain/roadmap/domain.md#roadmap-item-gathering]
 ```
@@ -385,7 +385,7 @@ chapter says what the feature does, not why the rulings fell the way they did.
 
 ```meta
 type: sub-feature
-status: proposed
+status: active
 setting: [.domain/roadmap/context.md#story-points-a-day]
 related: [.domain/roadmap/domain.md#planned-window, .domain/roadmap/domain.md#plan-sequencing, .domain/roadmap/features.md#surfacing-contradictions-instead-of-fixing-them]
 ```
@@ -429,7 +429,7 @@ created and nothing revised, and the person sees which edge did not fit.
 
 ```meta
 type: sub-feature
-status: proposed
+status: active
 related: [.domain/roadmap/domain.md#roadmap-item-gathering, .domain/tasks/features.md#task-dependencies, .domain/tasks/features.md#effort-registration, .domain/roadmap/features.md#sizing-a-track-by-the-effort-it-gathers]
 ```
 
@@ -449,14 +449,16 @@ sizes, and the drawing puts the second inside the first. This is the reading
 [the tracks idea](#sizing-a-track-by-the-effort-it-gathers) asked for — how big
 each piece is, relative to the others — inside the dated plan the roadmap keeps,
 and it settles that idea's first question: dates stay, and effort sizes the steps
-within them. Everything drawn here is read from Tasks when the item is opened;
-the plan stores no status, no progress and no order of its own.
+within them. Everything drawn here is read from Tasks each time the band draws, and drawn
+again whenever a task it gathers is written or an import lays items out, so a
+step marked done shows as done without reopening anything; the plan stores no
+status, no progress and no order of its own.
 
 ### Laying out a plan whose tasks arrived first
 
 ```meta
 type: sub-feature
-status: proposed
+status: active
 related: [.domain/tasks/features.md#filing-a-task-against-a-roadmap-tag, .domain/roadmap/features.md#planning-work-that-has-no-task-yet]
 ```
 

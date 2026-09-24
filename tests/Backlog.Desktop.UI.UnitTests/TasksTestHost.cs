@@ -93,6 +93,10 @@ internal static class TasksTestHost
     public static IImportedPlanSource ImportedPlansFor(WorkspaceSettingsStore store) =>
         new Backlog.Infrastructure.FileSystem.Roadmap.ImportedPlanSource(EntriesFor(store), new NoRepositoryDirectory());
 
+    /// <summary>The roadmap's change signal with no task signal behind it: a band
+    /// under test reloads only when the test raises it.</summary>
+    public static Backlog.Infrastructure.FileSystem.Roadmap.RoadmapWorkChanges WorkChanges() => new(null);
+
     public static TasksDesktopState StateFor(
         WorkspaceSettingsStore store,
         GitHubIntegration gitHub,

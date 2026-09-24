@@ -32,13 +32,13 @@ between inherited ADRs 0005 and 0009.
 - **[0004 — One generated local database holds the derived knowledge layer; markdown stays canonical](0004-knowledge-index-is-a-generated-local-database.md)** *(proposed)*
 - **[0005 — An Azure-hosted task replica carries multi-device sync; the local store stays canonical](0005-azure-hosted-task-replica-for-multi-device-sync.md)** *(accepted)*
 - **[0006 — Additive, idempotent bootstrapping is the local store's migration mechanism](0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md)** *(proposed)*
-- **[0007 — Import reuses the entry text grammar; a plan is multi-task entry text](0007-import-reuses-the-entry-text-grammar.md)** *(proposed)*
+- **[0007 — Import reuses the entry text grammar; a plan is multi-task entry text](0007-import-reuses-the-entry-text-grammar.md)** *(accepted)*
 - **[0008 — The Devbook reads from a cached branch snapshot when there is no clone; only a clone is editable](0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md)** *(proposed)*
 - **[0009 — Captures are a document kind on the replica; the desktop acknowledges by tombstone](0009-captures-are-a-document-kind-on-the-replica.md)** *(accepted)*
 - **[0010 — A backup is the database committed to a GitHub repository, one way, on a schedule](0010-backup-is-the-database-committed-to-a-repository.md)** *(accepted)*
 - **[0011 — Devbook annotations are the person's data, in a Backlog-owned store, replicated through a third container](0011-devbook-annotations-are-a-third-replica-container.md)** *(accepted)*
 - **[0012 — Backlog is an MCP server hosted inside the running desktop application](0012-backlog-is-an-mcp-server-inside-the-desktop-app.md)** *(accepted, not yet built)*
-- **[0013 — An imported plan is one Roadmap Item; a `plan` entry is the same grammar, and the importer places it](0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md)** *(proposed)*
+- **[0013 — An imported plan is one Roadmap Item; a `plan` entry is the same grammar, and the importer places it](0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md)** *(accepted)*
 
 ## Inherited decisions
 

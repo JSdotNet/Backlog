@@ -71,6 +71,38 @@ public sealed class ImportPlanRoadmapIntakeTests
         Assert.Equal(1, effort.UnestimatedCount);
     }
 
+    /// <summary>A roadmap document naturally holds several plans, and so do the task
+    /// entries under them: no tag is common to every one, so none of them had a plan
+    /// id and a second import of the same document wrote every step again beside the
+    /// first. Each entry's own plan tag is its plan when the document shares none,
+    /// found in the desktop harness while validating the combined import.</summary>
+    [Fact]
+    public async Task Reimporting_a_document_of_several_plans_replaces_each_plans_steps()
+    {
+        const string twoPlans =
+            "# Foundation\n`plan` `+foundation` `id:foundation`\n\n"
+            + "# Rollout\n`plan` `+rollout` `id:rollout` `after:foundation`\n\n"
+            + "# Schema\n`prompt` `+foundation` `id:schema` `effort:3`\n\n"
+            + "# Store\n`prompt` `+foundation` `id:store` `after:schema` `effort:5`\n\n"
+            + "# Announce\n`prompt` `+rollout` `id:announce` `effort:2`\n\n"
+            + "# Migrate\n`prompt` `+rollout` `id:migrate` `after:announce` `effort:8`\n";
+
+        var store = new InMemoryTaskRepository();
+        var first = await Import(store, twoPlans, new RecordingIntake(store));
+
+        Assert.Equal(4, first.Created);
+        var byTitle = Live(store).ToDictionary(entry => entry.Title);
+        Assert.Equal("+foundation", byTitle["Schema"].ImportPlanId);
+        Assert.Equal("+rollout", byTitle["Migrate"].ImportPlanId);
+        Assert.Equal([byTitle["Announce"].Id.ToString()], byTitle["Migrate"].DependsOn!);
+
+        var second = await Import(store, twoPlans, new RecordingIntake(store));
+
+        Assert.Equal(0, second.Created);
+        Assert.Equal(4, second.Replaced);
+        Assert.Equal(4, Live(store).Count);
+    }
+
     [Fact]
     public async Task A_roadmap_refusal_is_reported_and_the_tasks_are_kept()
     {
