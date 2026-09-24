@@ -65,6 +65,7 @@ public class StorybookOrderTests
         ["Roadmap"] = ["roadmap"],
         ["Selection"] = ["selection-bar"],
         ["Selects"] = ["selects"],
+        ["Shell"] = ["app-shell"],
         ["Tasks"] = ["task-list", "inputs"]
     };
 

@@ -133,7 +133,13 @@ internal static class StorybookIndex
             // stories is a convention nobody reads. After Menus, and by the rule:
             // it opens the ContextMenu the page above introduces, and the Badge
             // and TextField it draws inside its rows are further up still.
-            new("menus/list-nav", "List navigation", "ListNav: fixed rows, folds of rows under headings, loose rows, each with its count — and a click, a right-click and a rename in place on every one.")
+            new("menus/list-nav", "List navigation", "ListNav: fixed rows, folds of rows under headings, loose rows, each with its count — and a click, a right-click and a rename in place on every one."),
+
+            // Last in the group: the chrome a phone app wears around its pages — the
+            // tabs along the bottom and the sync line in the title bar. It draws
+            // nothing but its own two components, so it could sit anywhere after
+            // Buttons; it sits with navigation because the tab bar is navigation.
+            new("app-shell", "App shell", "TabBar and SyncStatusLine: the destinations along the bottom of the phone, and where its sync stands.")
         ]),
 
         // Ahead of Content because Content composes it: a document that saves says
