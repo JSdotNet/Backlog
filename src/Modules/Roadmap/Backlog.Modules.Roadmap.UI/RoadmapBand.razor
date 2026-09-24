@@ -224,10 +224,15 @@
     protected override async Task OnInitializedAsync()
     {
         Repositories.Changed += OnRepositoriesChanged;
+        Planning.Changed += OnPlanChanged;
         await Load();
     }
 
-    public void Dispose() => Repositories.Changed -= OnRepositoriesChanged;
+    public void Dispose()
+    {
+        Repositories.Changed -= OnRepositoriesChanged;
+        Planning.Changed -= OnPlanChanged;
+    }
 
     private async Task Load()
     {
@@ -647,18 +652,28 @@
         await Load();
     }
 
-    /// <summary>The lane out of a row id, or null when the bar stayed on the row it
-    /// was on. Row ids are built as <c>group::lane</c> by the view.</summary>
-    private string? LaneOf(string rowId)
-    {
-        var separator = rowId.IndexOf("::", StringComparison.Ordinal);
-        if (separator < 0) return null;
-
-        var lane = rowId[(separator + 2)..];
-        return lane.Length == 0 ? null : lane;
-    }
+    /// <summary>The lane out of a row id, as the view built it. A stacked row of a
+    /// lane names that lane too, so a bar dropped onto one stays filed where it
+    /// was.</summary>
+    private static string? LaneOf(string rowId) => RoadmapPlanView.LaneOf(rowId);
 
     private void OnRepositoriesChanged() => InvokeAsync(async () =>
+    {
+        await Load();
+        StateHasChanged();
+    });
+
+    /// <summary>
+    /// The plan changed somewhere else — Import in the Tasks pane, an MCP tool — while
+    /// the band was on screen, so it is read again rather than left to wait for the
+    /// band to be toggled off and on.
+    /// <para>
+    /// The band's own writes raise this too, after it has already reloaded for them.
+    /// The second read is the same plan and costs one query; telling our own changes
+    /// apart from everyone else's would be a second bookkeeping of the plan.
+    /// </para>
+    /// </summary>
+    private void OnPlanChanged() => InvokeAsync(async () =>
     {
         await Load();
         StateHasChanged();

@@ -1,3 +1,5 @@
+using System.Globalization;
+
 using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.UI.Components.Roadmap;
@@ -103,11 +105,12 @@ public static class RoadmapPlanView
             .ThenBy(milestone => milestone.Title, StringComparer.CurrentCulture)
             .ToList();
 
-        var groups = BuildGroups(items, milestones.Count > 0, configured);
+        var stacked = Stack(items);
+        var groups = BuildGroups(items, stacked.Rows, milestones.Count > 0, configured);
         var drawn = groups.SelectMany(group => group.RowList).Select(row => row.Id).ToHashSet();
 
         var bars = items
-            .Select(entry => Bar(entry.Item, LaneRowId(entry.GroupId, entry.Item.Lane), contradicting, configured, StepsFor(entry.Item, rollups)))
+            .Select(entry => Bar(entry.Item, stacked.RowOf[entry.Item.Id], contradicting, configured, StepsFor(entry.Item, rollups)))
             .Where(bar => drawn.Contains(bar.RowId))
             .ToList();
 
@@ -163,12 +166,84 @@ public static class RoadmapPlanView
         return match is null ? UnfiledGroupId : match;
     }
 
-    private static string LaneRowId(string groupId, string? lane) => $"{groupId}::{Lane(lane)}";
+    /// <summary>
+    /// The lane a row belongs to, read back out of its id — for a drop onto a row, which
+    /// the timeline reports by id alone. Null for an id the view did not build.
+    /// <para>
+    /// A stacked row names its lane the same way the lane's first row does, so work
+    /// dropped onto the second row of "platform" is still filed under "platform".
+    /// </para>
+    /// </summary>
+    public static string? LaneOf(string rowId)
+    {
+        var separator = rowId.IndexOf("::", StringComparison.Ordinal);
+        if (separator < 0) return null;
+
+        var lane = rowId[(separator + 2)..];
+
+        var stack = lane.LastIndexOf("::", StringComparison.Ordinal);
+        if (stack >= 0 && int.TryParse(lane[(stack + 2)..], NumberStyles.None, CultureInfo.InvariantCulture, out _))
+        {
+            lane = lane[..stack];
+        }
+
+        return lane.Length == 0 ? null : lane;
+    }
+
+    /// <summary>
+    /// The first row of a lane is <c>group::lane</c>, as it always was; the rows stacked
+    /// under it add their position, <c>group::lane::2</c> and on.
+    /// </summary>
+    private static string LaneRowId(string groupId, string lane, int stack) =>
+        stack == 0 ? $"{groupId}::{lane}" : $"{groupId}::{lane}::{stack + 1}";
+
+    /// <summary>
+    /// Which row of its lane each item is drawn on, and how many rows each lane needs.
+    /// <para>
+    /// A row is one line of bars, so two items of one lane whose windows overlap cannot
+    /// share one: the later bar is drawn over the earlier and the reader sees one piece
+    /// of work where there are two. Each item takes the first row of its lane whose last
+    /// bar has ended before it starts, and a new row when none has. Work that follows
+    /// on in sequence still reads as one line; only real overlap costs a row.
+    /// </para>
+    /// <para>
+    /// The items arrive ordered by start, which is what makes first-fit a good packing
+    /// and keeps the picture the same from one read of the plan to the next.
+    /// </para>
+    /// </summary>
+    private static (Dictionary<Guid, string> RowOf, Dictionary<(string GroupId, string Lane), int> Rows) Stack(
+        List<(RoadmapItemDto Item, string GroupId)> items)
+    {
+        var rowOf = new Dictionary<Guid, string>();
+        var ends = new Dictionary<(string GroupId, string Lane), List<DateOnly>>();
+
+        foreach (var (item, groupId) in items)
+        {
+            var key = (groupId, Lane(item.Lane));
+            if (!ends.TryGetValue(key, out var rows)) ends[key] = rows = [];
+
+            var stack = rows.FindIndex(end => end < item.Start);
+            if (stack < 0)
+            {
+                stack = rows.Count;
+                rows.Add(item.End);
+            }
+            else
+            {
+                rows[stack] = item.End;
+            }
+
+            rowOf[item.Id] = LaneRowId(groupId, key.Item2, stack);
+        }
+
+        return (rowOf, ends.ToDictionary(entry => entry.Key, entry => entry.Value.Count));
+    }
 
     private static string Lane(string? lane) => string.IsNullOrWhiteSpace(lane) ? "Planned" : lane.Trim();
 
     private static List<RoadmapGroup> BuildGroups(
         List<(RoadmapItemDto Item, string GroupId)> items,
+        Dictionary<(string GroupId, string Lane), int> stackedRows,
         bool hasMilestones,
         List<PlannedRepository> configured)
     {
@@ -210,7 +285,13 @@ public static class RoadmapPlanView
 
             if (lanes.Count == 0) continue;
 
-            List<RoadmapRow> rows = [.. lanes.Select(lane => new RoadmapRow($"{id}::{lane}", lane))];
+            // Every row of a stacked lane carries the lane's name, not a blank: the name is
+            // how a bar on it describes where it sits to anyone who cannot see the chart.
+            List<RoadmapRow> rows =
+            [
+                .. lanes.SelectMany(lane => Enumerable.Range(0, stackedRows[(id, lane)])
+                    .Select(stack => new RoadmapRow(LaneRowId(id, lane, stack), lane)))
+            ];
 
             // The hue the repository wears, as Settings resolved it. The unfiled band
             // arrives with none and stays neutral, which reads as "nobody said" rather

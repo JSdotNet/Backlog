@@ -336,14 +336,14 @@ public sealed class TasksDetailPaneTests
 
     // --- Completing --------------------------------------------------------
 
-    /// <summary>The circle is the tick and only the tick: it writes the
-    /// <c>completed:</c> token and leaves the status exactly where it was, in
-    /// both directions. Done and Archived are the work being over
-    /// (<c>.domain/tasks/flow.md#task-lifecycle</c>); the tick is the person being
-    /// finished with the entry, and the two are separate facts so that a Done
-    /// entry can stay on the open list until they have looked at it.</summary>
+    /// <summary>The circle ticks the entry off and, from a status that is not
+    /// yet an end state, moves it to Done in the same save
+    /// (<c>.domain/tasks/flow.md#task-lifecycle</c>). Unticking clears the tick
+    /// and nothing else: the entry goes back on the list still Done, because the
+    /// work being over and the person being finished with it stay two facts in
+    /// that direction.</summary>
     [Fact]
-    public async Task The_circle_completes_the_entry_and_puts_it_back()
+    public async Task The_circle_completes_the_entry_as_done_and_puts_it_back()
     {
         using var host = await TasksPaneHost.CreateAsync();
         var row = await host.WriteEntryAsync("# Ship it\n`task` `!in-progress`\n");
@@ -352,9 +352,10 @@ public sealed class TasksDetailPaneTests
         await pane.Find($"[data-testid='{RowTestId(row)}-check']").ClickAsync(new());
 
         Assert.True(row.IsPreviewCompleted);
-        Assert.Equal(EntryStatus.InProgress, row.PreviewStatus);
+        Assert.Equal(EntryStatus.Done, row.PreviewStatus);
+        Assert.Equal(EntryStatus.Done, row.Status);
         Assert.Contains("`completed:", row.RawText, StringComparison.Ordinal);
-        Assert.DoesNotContain("`!done`", row.RawText, StringComparison.Ordinal);
+        Assert.Contains("`!done`", row.RawText, StringComparison.Ordinal);
 
         // Unticking clears the tick and nothing else. Read from the completed
         // section, where the shared list moved it.
@@ -363,27 +364,29 @@ public sealed class TasksDetailPaneTests
         await pane.Find($"[data-testid='{RowTestId(row)}-check']").ClickAsync(new());
 
         Assert.False(row.IsPreviewCompleted);
-        Assert.Equal(EntryStatus.InProgress, row.PreviewStatus);
+        Assert.Equal(EntryStatus.Done, row.PreviewStatus);
         Assert.DoesNotContain("`completed:", row.RawText, StringComparison.Ordinal);
     }
 
     /// <summary>
-    /// The circle ticks a draft entry too, and this is why it is a control on
-    /// every row rather than on some of them: the tick is not a lifecycle step, so
-    /// there is no status it is illegal from, and a checkbox that does nothing is
-    /// worse than none.
+    /// The circle ticks an entry from every open status, and each one lands on
+    /// Done: a checkbox that does nothing is worse than none, and one that left
+    /// "Draft" on a finished row would be the list contradicting itself.
     /// </summary>
-    [Fact]
-    public async Task The_circle_completes_a_draft_entry_because_the_tick_is_not_a_lifecycle_step()
+    [Theory]
+    [InlineData("draft")]
+    [InlineData("ready")]
+    [InlineData("in-progress")]
+    public async Task The_circle_moves_an_open_status_to_done(string status)
     {
         using var host = await TasksPaneHost.CreateAsync();
-        var row = await host.WriteEntryAsync("# Ship it\n`task` `!draft`\n");
+        var row = await host.WriteEntryAsync($"# Ship it\n`task` `!{status}`\n");
 
         var pane = host.Render();
         await pane.Find($"[data-testid='{RowTestId(row)}-check']").ClickAsync(new());
 
         Assert.True(row.IsPreviewCompleted);
-        Assert.Equal(EntryStatus.Draft, row.PreviewStatus);
+        Assert.Equal(EntryStatus.Done, row.PreviewStatus);
     }
 
     /// <summary>The other half of the split: reaching Done or Archived through
@@ -407,7 +410,8 @@ public sealed class TasksDetailPaneTests
         Assert.Empty(pane.FindAll("[data-testid='entry-list-completed']"));
         Assert.NotNull(pane.Find($"[data-testid='{RowTestId(row)}-check']"));
 
-        // And ticking it then moves it, with the status still what it was.
+        // And ticking it then moves it, with the status still what it was: an
+        // end state is not moved back to Done, and Archived is past it.
         await pane.Find($"[data-testid='{RowTestId(row)}-check']").ClickAsync(new());
         pane.Render();
 

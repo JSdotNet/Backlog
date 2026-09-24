@@ -24,6 +24,7 @@ mechanics; do not invent syntax beyond it.
   whether a name is already registered in Backlog — Import auto-registers an unknown one.
 - **Output.** A file path, or "paste it here" — ask if neither is stated. The review view
   (step 7) is produced either way; it is not an option.
+- **Level.** Step-level (the default) or, when asked, [roadmap-level](#roadmap-level-mode).
 
 ## Workflow
 
@@ -34,8 +35,12 @@ mechanics; do not invent syntax beyond it.
    the `+slug` the app's picker offers). Reuse the exact same slug if
    this plan is later regenerated, so Backlog's re-import recognizes it as a new version
    of this plan — clearing the entries nobody has started yet — instead of a second plan.
-3. Break the work into ordered entries, one per unit of work. Every entry is exactly one
-   of three kinds, decided by who does it — see the grammar's `## Entry kinds`:
+3. Open the document with one **`plan` entry** — the Roadmap Item the steps fill, shaped
+   by the grammar's `## Two levels`: titled with the plan subject; the `+tag`; `repo:` once
+   per target repository; the `*priority` the source implies; `due:` only when the source
+   states a date; no `effort:`, `!status`, `id:` or body boilerplate.
+   Then break the work into ordered step entries, one per unit of work. Every step is
+   exactly one of three kinds, decided by who does it — see the grammar's `## Entry kinds`:
    - **`prompt`** — work an AI session runs.
    - **`task`** — work only the user can do: a decision, a sign-off, an action in an
      account or on a machine the AI cannot reach.
@@ -76,7 +81,7 @@ mechanics; do not invent syntax beyond it.
    what to exercise and what a pass looks like, `- [ ]` lines for the individual checks,
    and `after:` on every prompt whose work it checks.
 
-   The **metadata line** of every entry, any kind: the type — `prompt`, `task` or `test`,
+   The **metadata line** of every step, any kind: the type — `prompt`, `task` or `test`,
    never `idea`; always `!ready`, on every entry whatever its place in the chain — order
    is carried by `after:`, never by holding a later entry at `!draft`; always an
    `effort:<points>` estimate off the 1/2/3/5/8/13/21 scale, sized from the instructions
@@ -87,12 +92,12 @@ mechanics; do not invent syntax beyond it.
    once per prerequisite, including across repositories and across kinds; the shared
    `+tag`; and only the `*priority`, `@area` or `due:` the source material actually
    implies.
-4. Close every plan with two entries, in this order and last in the document. Never omit
-   either, however small the plan.
+4. Close every step-level plan with two entries, in this order and last in the document.
+   Never omit either, however small the plan.
    - The **review prompt**, titled `Review the <plan subject> plan for anything missed`. It
-     carries `id:review-plan`, `after:` each entry nothing else depends on — the plan's
-     leaves, which is every entry transitively, tasks and tests included — and `repo:` once per
-     repository the plan targeted. Its body asks whoever runs it to read the source material
+     carries `id:review-plan`, `after:` each step nothing else depends on — the plan's
+     leaves, which is every step transitively, tasks and tests included, never the `plan`
+     entry — and `repo:` once per repository the plan targeted. Its body asks whoever runs it to read the source material
      against what actually landed: every entry done, and nothing dropped, deferred or left
      half-finished along the way; anything still outstanding is written up as a new entry
      rather than noted and forgotten. It opens with the marker and session-name line like
@@ -122,16 +127,26 @@ mechanics; do not invent syntax beyond it.
    count, the repositories targeted, and the dependency chain. Stop — do not open the
    Backlog app, run a prompt, or create a pull request.
 
+## Roadmap-level mode
+
+When asked for the roadmap level, the source is a set of agreed feature chapters and the
+document is `plan` entries only: one per chapter, shaped as in step 3, its `+tag` from the
+chapter's slug and `after:<tag>` once per chapter its `depends-on` list names. No steps, no
+review prompt, no sign-off task — each feature's steps come later from a step-level run
+under the same tag. Steps 5–8 apply unchanged.
+
 ## Output expectations
 
 - One Markdown document; every entry's body precedes its `##`/`- [ ]` sub-items.
-- Every entry is `prompt`, `task` or `test` and states `!ready`, an `effort:`, an `id:`, and the
+- It opens with its one `plan` entry (roadmap level: holds only `plan` entries), carrying
+  exactly one `+tag` and no `effort:`.
+- Every step is `prompt`, `task` or `test` and states `!ready`, an `effort:`, an `id:`, and the
   plan's shared `+tag`; every prompt also states `repo:` and opens with the marker line,
   then the session-name line.
 - No prompt contains a manual step in any form — no `Manual:` sub-item, no "ask the user
   to…" instruction — and no task or test contains instructions for an AI.
 - `after:` correctly expresses the plan's dependency order, including cross-repository
-  dependencies and prompts that wait on a task.
+  dependencies and prompts that wait on a task, and never names the other level.
 - The last two entries are the plan review, waiting on every leaf of that order, and the
   sign-off task waiting on the review.
 - A review view built from `assets/plan-review.html` accompanies the plan every time, and

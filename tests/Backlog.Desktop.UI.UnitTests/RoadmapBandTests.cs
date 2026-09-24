@@ -184,6 +184,63 @@ public class RoadmapBandTests : RoadmapBandHarness
     }
 
     [Fact]
+    public async Task DroppingSomethingOnAStackedRowOfItsOwnLane_KeepsTheLane()
+    {
+        Configure("JSdotNet/Backlog");
+        var added = await Planning.AddItemAsync(
+            "Work",
+            new DateOnly(2026, 1, 5),
+            new DateOnly(2026, 1, 9),
+            repositoryAliases: ["backlog"],
+            lane: "platform", cancellationToken: TestContext.Current.CancellationToken);
+        await Planning.AddItemAsync(
+            "Overlapping work",
+            new DateOnly(2026, 1, 5),
+            new DateOnly(2026, 1, 9),
+            repositoryAliases: ["backlog"],
+            lane: "platform", cancellationToken: TestContext.Current.CancellationToken);
+
+        using var context = Context();
+        var band = Drawn(context);
+        var timeline = band.FindComponent<RoadmapTimeline>();
+        var bar = timeline.Instance.Bars.Single(candidate => candidate.Id == added.Value.Id.ToString());
+        var otherRow = timeline.Instance.Groups
+            .SelectMany(group => group.RowList)
+            .First(row => row.Id != bar.RowId);
+
+        await band.InvokeAsync(() => timeline.Instance.OnBarChanged.InvokeAsync(
+            new RoadmapChange(bar.Id, otherRow.Id, bar.Start, bar.End, RoadmapDrag.Move)));
+
+        var plan = await Planning.GetPlanAsync(TestContext.Current.CancellationToken);
+        Assert.Equal("platform", plan.Items.Single(item => item.Id == added.Value.Id).Lane);
+    }
+
+    [Fact]
+    public async Task WorkPlannedFromOutsideTheBand_AppearsWithoutReopeningIt()
+    {
+        // The Tasks pane's Import writes through Roadmap's own import command while the
+        // band is on screen; nothing the band did asked for the change.
+        Configure("JSdotNet/Backlog");
+        await Planning.AddItemAsync(
+            "Work",
+            new DateOnly(2026, 1, 5),
+            new DateOnly(2026, 1, 9),
+            repositoryAliases: ["backlog"], cancellationToken: TestContext.Current.CancellationToken);
+
+        using var context = Context();
+        var band = Drawn(context);
+
+        var imported = await Planning.ImportPlanItemsAsync(
+            [new PlanImportEntryDto("Imported", "imported", RepositoryAliases: ["backlog"])],
+            cancellationToken: TestContext.Current.CancellationToken);
+        Assert.True(imported.IsSuccess);
+
+        band.WaitForAssertion(() =>
+            Assert.Equal(2, band.FindComponent<RoadmapTimeline>().Instance.Bars.Count));
+        Assert.Contains("Imported", band.Markup);
+    }
+
+    [Fact]
     public async Task ARefusedRescheduleIsExplained_AndTheChartGoesBackToWhatWasStored()
     {
         var added = await Planning.AddItemAsync("Work", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 9), cancellationToken: TestContext.Current.CancellationToken);

@@ -21,6 +21,17 @@ namespace Backlog.Modules.Roadmap.Abstractions.Services;
 /// </summary>
 public interface IRoadmapPlanning
 {
+    /// <summary>
+    /// Raised after any change to the plan was stored, whichever caller made it.
+    /// <para>
+    /// Heard across scopes: the roadmap band holds the port from its screen's scope,
+    /// while Tasks' Import reaches Roadmap through an adapter resolved in its own, and a
+    /// change the band did not ask for still has to redraw it. A refused change stored
+    /// nothing and raises nothing. It may arrive on any thread.
+    /// </para>
+    /// </summary>
+    event Action? Changed;
+
     /// <summary>The whole plan, with its contradictions worked out.</summary>
     Task<RoadmapPlanDto> GetPlanAsync(CancellationToken cancellationToken = default);
 

@@ -6,16 +6,25 @@ Restates the grammar a generated plan must match — nothing here is invented; i
 Backlog's own decision (`.arc42/adr/0007-import-reuses-the-entry-text-grammar.md`) and its
 entry-text rules (`.design/content-editing.md#scheduling-and-dependency-tokens`) in the
 Backlog product repository. A plan is not a file format of its own — it is the same
-Backlog Entry text grammar, with more than one entry in the document. The one thing this
+Backlog Entry text grammar, with more than one entry in the document, at up to two levels:
+`plan` entries that become Roadmap Items and the step entries that become tasks
+(`.arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md`). The one thing this
 file adds on top of that grammar is the [plan item marker](#plan-item-marker): a body-prose
 convention of these two skills, not a token Backlog parses. The [entry marker](#entry-marker)
 beside it is the app's own, documented here because the run skill reads both.
 
 ## Document shape
 
-One Markdown document. No wrapper heading, no front matter, no plan-level metadata: a
-second top-level `# Title` starts a new entry, exactly as pasting several hand-typed
-entries at once already does.
+One Markdown document. No wrapper heading and no front matter: a second top-level
+`# Title` starts a new entry, exactly as pasting several hand-typed entries at once already
+does. What a plan says about itself as a whole is a [`plan` entry](#two-levels), which is an
+entry like any other.
+
+A generated plan is one of two shapes:
+
+- **Step-level** (the default): one `plan` entry first, then the step entries, closing with
+  the review prompt and the sign-off task.
+- **Roadmap-level**: `plan` entries only, one per feature, and nothing else.
 
 Each entry, in this order:
 
@@ -30,7 +39,7 @@ Sigils (no colon; order sigils before named tokens):
 
 | Sigil | Kind | Values |
 |---|---|---|
-| *(none)* | type | `prompt`, `task`, `test`, `idea` |
+| *(none)* | type | `plan`, `prompt`, `task`, `test`, `idea` |
 | `!` | status | `!draft`, `!ready`, `!in-progress`, `!done`, `!archived` — an entry stating none is imported at `ready`; write `!draft` to hold one back |
 | `*` | priority | `*low`, `*medium`, `*high`, `*critical` |
 | `@` | area | any slug, e.g. `@repos` |
@@ -47,7 +56,8 @@ Named tokens (`name:value`):
 | `due:<YYYY-MM-DD>` | due date | no |
 | `effort:<points>` | size in story points; a non-negative whole number, and the app's picker offers `1`, `2`, `3`, `5`, `8`, `13`, `21` | no |
 
-A plan states `!ready` and an `effort:` on every entry. The order of the work is carried by
+A plan states `!ready` and an `effort:` on every step entry; a `plan` entry states
+neither (see [Two levels](#two-levels)). The order of the work is carried by
 `after:` alone, so a later entry in the chain is emitted `!ready` like the first rather than
 held at `!draft`; `!draft` is for an entry still being shaped, which a generated plan has
 none of. `effort:` sits after `repo:` on the line, which is where Backlog itself writes it
@@ -55,7 +65,8 @@ back.
 
 ## Entry kinds
 
-Backlog accepts four types; a generated plan writes three of them, and the type says who
+Backlog accepts five type words; a generated plan writes four of them. `plan` is the
+roadmap level ([Two levels](#two-levels)); the other three are steps, and the type says who
 does the work:
 
 - **`prompt`** — an AI session runs it. Opens with the [plan item marker](#plan-item-marker)
@@ -79,9 +90,56 @@ instructions for an AI. Work that needs both is split: the manual step is its ow
 (or `test`), and the prompts that need it done wait on it with `after:`. `idea` is a type
 Backlog holds, not one a plan emits.
 
+## Two levels
+
+A `plan` entry is a Roadmap Item written in the same grammar, discriminated by the bare type
+word `plan`. Import creates the item; it never becomes a task. On the metadata line it
+carries:
+
+- the **plan tag**, `+slug` — **required, exactly one**; a `plan` entry without one, or with
+  two, is reported and skipped;
+- `repo:` once per repository the plan targets (each becomes the item's repository scope;
+  an unknown name is held as written, not registered);
+- `*priority` only when the source implies one (absent reads as `medium`);
+- `due:` only when the source states a date — it is the item's end; there is no start
+  token, the importer places the start;
+- `after:` on other `plan` entries, by their `id:`. `id:` defaults to the tag, so a `plan`
+  entry need not write one.
+
+It carries **no** `effort:` (an item's size is the effort its steps gather; the token is
+reported and ignored), no `!status`, `@area` or `#tag` (ignored), no marker, no
+session-name line and no sub-items. Its body, if any, becomes the item's notes.
+
+The combination rules:
+
+- **One document, both levels.** `plan` entries and step entries may share a document, or
+  a document may hold only one kind. The steps are imported first, then the `plan` entries,
+  so an item is placed against the effort its steps just registered.
+- **The tag ties them.** A step does not inherit the `plan` entry's tag: every step writes
+  the same `+slug` itself, and the item gathers its steps by that tag.
+- **`after:` is scoped per level.** A step's `after:` resolves against step ids (then real
+  backlog item ids); a `plan` entry's against sibling `plan` entries' ids (then the tag or
+  id of an item already on the roadmap). An `after:` that names the other level is dropped
+  and reported. A cycle between `plan` entries refuses the whole import.
+- **Roadmap first and tasks first are both valid.** A roadmap-level document creates the
+  items; a later step-level import of each plan fills its item by tag. Or the steps come
+  first, and their tag waits on the roadmap's shelf until a `plan` entry, or a person,
+  creates the item.
+- **What a re-import changes.** On the step side, exactly what
+  [Plan identity and re-import](#plan-identity-and-re-import) says: entries not yet started
+  are replaced. On the roadmap side, an item matched by tag has its title, repository
+  scope, priority, dependencies and notes replaced from the new `plan` entry, and its window
+  re-placed only while the importer still owns it (a window a person moved is kept). An
+  item is never deleted by a re-import. A step-level re-import changes nothing on the item
+  but, while its window is still sized by effort, its length.
+
 ## Worked example
 
 ```markdown
+# VS Code desktop rollout
+
+`plan` `*high` `+vscode-desktop-rollout` `repo:backlog-desktop`
+
 # Confirm the export format with design
 
 `task` `!ready` `@repos` `+vscode-desktop-rollout` `id:confirm-format` `effort:1`
@@ -134,6 +192,18 @@ outstanding as a new entry.
 
 Read the review's outcome. Confirm the plan is complete, or pick up the follow-up entries
 it wrote.
+```
+
+A roadmap-level document is `plan` entries alone, one per feature, ordered by `after:`:
+
+```markdown
+# VS Code desktop rollout
+
+`plan` `*high` `+vscode-desktop-rollout` `repo:backlog-desktop`
+
+# VS Code marketplace listing
+
+`plan` `+vscode-marketplace-listing` `repo:backlog-desktop` `after:vscode-desktop-rollout` `due:2026-12-01`
 ```
 
 ## Plan item marker
@@ -222,3 +292,5 @@ These sub-items belong to `prompt` entries; a `task` entry carries none of them.
   an id is created new beside the entry it was meant to be.
 - `after:` and `repo:` may each repeat on one entry; order among repeats carries no
   meaning.
+- A `plan` entry is matched by its tag, not by an `id:`, and a re-import never deletes the
+  item — see [Two levels](#two-levels).
