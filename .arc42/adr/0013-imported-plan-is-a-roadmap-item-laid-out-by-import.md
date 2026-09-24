@@ -23,12 +23,10 @@ amendments made when the rulings were confirmed — in
 Written as the first entry of the `roadmap-imported-plans` plan, so that every
 later entry in it — the `plan` type word, the intake port, the placement rule,
 the velocity setting, the steps drawn inside an item, the shelf — implements one
-decision instead of each making its own. Built so far: the `plan` type word, the
-velocity setting, Roadmap's own import command
-(`Features/ImportPlanItems`, rulings 2, 4 and 5 on the Roadmap side), the steps
-drawn inside an item (ruling 6), the shelf, the combined Import path (ruling 3),
-and `plugins/backlog-tools`' plan generator, which opens every plan with its
-`plan` entry and can write a roadmap-level document of `plan` entries alone.
+decision instead of each making its own. All six rulings are built, and the
+whole feature was validated end to end in the desktop harness on 2026-09-24 by
+the plan's `validate-combined-import` entry; what that run changed is recorded
+under [Deviations](#deviations).
 
 ## The six rulings
 
@@ -477,6 +475,29 @@ that implement it know what they are changing:
   no dependency. It does, `after:`, since ADR 0007; the claim is corrected.
 - ADR 0007 speaks of the shared `#tag`. Its addendum points here for the `+`
   spelling; its decisions are unchanged.
+
+Found by the validation run, and changed with it:
+
+- **[Ruling 3](#3-one-document-two-kinds-one-path) computes the shared tag over
+  the task entries alone, and a roadmap document's task entries share none
+  either.** The reason the ruling gives for leaving `plan` entries out — a
+  roadmap-level document naturally holds several plans — is just as true of the
+  steps under them, so a document of two plans gave none of its steps a plan
+  id, and re-importing it wrote every step a second time. The fix is in ADR
+  0007's own Deviations, because the identity rule is that record's: an entry's
+  one `+` plan tag is its plan when the document shares no tag.
+- **[Ruling 6](#6-drawing-the-plans-steps-inside-its-item) reads the rollup on
+  every load, and the band reloaded only when the plan itself changed.** A step
+  marked done while the band was on screen stayed drawn as it was until the page
+  was reloaded, because a task write is not a plan write. Roadmap now has a
+  signal port, `IRoadmapWorkChanges` in
+  `Backlog.Modules.Roadmap.Abstractions/Services`, answered in
+  `RoadmapCrossContextAdapterRegistration` by `RoadmapWorkChanges`, which
+  forwards every local task write heard through Tasks' `ITaskChangeSignal`. The
+  band reloads on it as it does on `IRoadmapPlanning.Changed`, coalescing the
+  burst an import makes into one reload after another. A write the sync pull
+  applies is suppressed at the task signal, so another machine's edit is still
+  read on the next load rather than live.
 
 ## Consequences
 

@@ -154,7 +154,7 @@ related: [".arc42/04-solution-strategy.md"]
   under ADR 0003's idempotent `IF NOT EXISTS` DDL rather than one of the three
   column-level shapes, but any column added to it later is this record's business.
 - **[ADR 0007 — Import reuses the entry text grammar; a plan is multi-task entry text](adr/0007-import-reuses-the-entry-text-grammar.md)**
-  *(proposed)*: an import plan is entry text with more than one `#`-titled entry in it,
+  *(accepted)*: an import plan is entry text with more than one `#`-titled entry in it,
   not a format of its own, so `EntryTextParser` stays the only grammar the product has
   to parse and a plan stays hand-editable. Upload and paste feed one path, and `after:`
   across a fresh batch is resolved by Import in two passes rather than by the parser.
@@ -191,7 +191,7 @@ related: [".arc42/04-solution-strategy.md"]
   is a devbook fence the session writes itself. Tool groups follow the feature
   flags of the areas they serve.
 - **[ADR 0013 — An imported plan is one Roadmap Item; a `plan` entry is the same grammar, and the importer places it](adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md)**
-  *(proposed)*: an imported plan is represented on the roadmap by one item whose
+  *(accepted)*: an imported plan is represented on the roadmap by one item whose
   tag is the plan's shared tag with the `+` sigil lifted — `import_plan_id` keeps
   the sigil, the item holds the bare slug, and the existing gather-by-tag joins
   them. A roadmap-level entry is the entry grammar with the type word `plan`,
