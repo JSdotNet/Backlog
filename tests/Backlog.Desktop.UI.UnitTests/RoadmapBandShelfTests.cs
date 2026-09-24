@@ -69,7 +69,29 @@ public sealed class RoadmapBandShelfTests : RoadmapBandHarness
 
         Assert.Equal("roadmap-shelf-row-shelf", row.GetAttribute("data-testid"));
         Assert.Contains("+shelf", row.TextContent);
-        Assert.Contains("3 tasks · 8 points · 1 unestimated · backlog", row.TextContent);
+        Assert.Equal("3 tasks · 8 points · 1 unestimated", row.QuerySelector(".roadmap-shelf__summary")!.TextContent);
+        Assert.Equal("backlog", row.QuerySelector(".roadmap-shelf__repository")!.TextContent);
+    }
+
+    [Fact]
+    public void A_plan_across_repositories_lists_each_repositorys_share()
+    {
+        var spanning = new ImportedPlanDto(
+            "conventions", ["budgetbeheer", "spec-manager"], 23, 125, 0,
+            [new("budgetbeheer", 14, 78, 0), new("spec-manager", 9, 47, 0)]);
+
+        using var context = ContextWith(spanning);
+        var band = Loaded(context);
+
+        var row = band.WaitForElement("[data-testid=\"roadmap-shelf-row-conventions\"]");
+
+        Assert.Equal("23 tasks · 125 points", row.QuerySelector(".roadmap-shelf__summary")!.TextContent);
+        Assert.Equal(
+            ["budgetbeheer", "spec-manager"],
+            row.QuerySelectorAll(".roadmap-shelf__repository").Select(part => part.TextContent));
+        Assert.Equal(
+            ["14 tasks · 78 points", "9 tasks · 47 points"],
+            row.QuerySelectorAll(".roadmap-shelf__part-figures").Select(part => part.TextContent));
     }
 
     [Fact]
@@ -117,7 +139,7 @@ public sealed class RoadmapBandShelfTests : RoadmapBandHarness
         var shelf = band.WaitForElement("[data-testid=\"roadmap-shelf\"]");
         var heading = shelf.QuerySelector("h3")!;
         Assert.Equal(heading.Id, shelf.GetAttribute("aria-labelledby"));
-        Assert.Equal("Imported plans not on the roadmap", heading.TextContent);
+        Assert.Equal("Unplanned work", heading.TextContent);
 
         var action = band.Find("[data-testid=\"roadmap-shelf-plan-shelf\"]");
         Assert.Equal("BUTTON", action.TagName);

@@ -147,6 +147,20 @@ A step is a proportion, not a date: a step drawn across March is not scheduled f
                          TestId="steps" />
     </Story>
 
+    <Story Name="A plan across repositories, without its tasks"
+           Description="How the app draws a plan filed in two repositories: one bar in each repository's band, each that repository's part of the plan, with a progress fill read from the tasks filed there. `ShowSteps` off keeps the bars from opening into a row per task — the roadmap reads plans, and the tasks stay in the task list. The parts share one window, because they are one stored plan: moving either moves both, and the arrow runs within each repository."
+           Code="@PartsCode">
+        <RoadmapTimeline Groups="@PartsPlan"
+                         Bars="@PartsBars"
+                         Links="@PartsLinks"
+                         Title="Devbook conventions"
+                         HeadingLevel="3"
+                         Window="@EditWindow"
+                         ShowFilters="false"
+                         ShowSteps="false"
+                         TestId="parts" />
+    </Story>
+
     <Story Name="A plan nobody has written"
            Description="No groups, or groups with no rows, renders the empty state rather than an axis over nothing. The sentence is the caller's, because why the plan is empty is only knowable where the plan came from."
            Code="@EmptyCode">
@@ -193,7 +207,11 @@ Every action is a real button named for its plan, and the shelf is a region name
 
     private static readonly RoadmapShelfPlan[] ShelfPlans =
     [
-        new("release-q4", ["backlog", "web"], 6, 21, 2),
+        new("devbook-conventions", ["budgetbeheer", "spec-manager"], 23, 125, 0,
+            [new("budgetbeheer", 14, 78, 0), new("spec-manager", 9, 47, 0)]),
+        new("devbook-openspec-parity", ["devbook"], 9, 44, 0),
+        new("release-q4", ["backlog", "web"], 6, 21, 2,
+            [new("backlog", 4, 13, 1), new("web", 2, 8, 1)]),
         new("unplanned-plans-shelf", ["backlog"], 1, 3, 0)
     ];
 
@@ -515,10 +533,49 @@ Every action is a real button named for its plan, and the shelf is a region name
             ]);
         """;
 
+    private static IReadOnlyList<RoadmapGroup> PartsPlan =>
+    [
+        new("budgetbeheer", "budget", [new("budgetbeheer::planned", "Planned")], "var(--color-band-1)"),
+        new("spec-manager", "specs", [new("spec-manager::planned", "Planned")], "var(--color-band-2)")
+    ];
+
+    private static RoadmapStep Done(string id, int effort) => new(id, id, effort, RoadmapStepTone.Done, "Done");
+
+    private static RoadmapStep Open(string id, int effort) => new(id, id, effort, RoadmapStepTone.Draft, "Planned");
+
+    private static readonly RoadmapBar[] PartsBars =
+    [
+        new("conventions@budgetbeheer", "budgetbeheer::planned", "Devbook conventions", On(2, 2), On(3, 27), 1,
+            Detail: "one of 2 repository parts",
+            Steps: [Done("a", 30), Done("b", 20), Open("c", 28)]),
+        new("conventions@spec-manager", "spec-manager::planned", "Devbook conventions", On(2, 2), On(3, 27), 1,
+            Detail: "one of 2 repository parts",
+            Steps: [Done("d", 12), Open("e", 35)]),
+        new("rollout@budgetbeheer", "budgetbeheer::planned", "Roll out", On(4, 6), On(5, 29), 2,
+            Detail: "one of 2 repository parts"),
+        new("rollout@spec-manager", "spec-manager::planned", "Roll out", On(4, 6), On(5, 29), 2,
+            Detail: "one of 2 repository parts")
+    ];
+
+    private static readonly RoadmapLink[] PartsLinks =
+    [
+        new("conventions@budgetbeheer", "rollout@budgetbeheer"),
+        new("conventions@spec-manager", "rollout@spec-manager")
+    ];
+
+    private const string PartsCode = """
+        <RoadmapTimeline Groups="@groups" Bars="@bars" Links="@links" ShowSteps="false" />
+
+        // One stored plan, one bar per repository, each with that repository's tasks as steps
+        new RoadmapBar("conventions@budgetbeheer", "budgetbeheer::planned", "Devbook conventions", start, end, Steps: budgetbeheerTasks),
+        new RoadmapBar("conventions@spec-manager", "spec-manager::planned", "Devbook conventions", start, end, Steps: specManagerTasks),
+        """;
+
     private const string ShelfCode = """
         <RoadmapPlanShelf Plans="@plans" OnPlan="Plan" Busy="@planning" />
 
-        new RoadmapShelfPlan("release-q4", ["backlog", "web"], TaskCount: 6, TotalEffort: 21, UnestimatedCount: 2),
+        new RoadmapShelfPlan("release-q4", ["backlog", "web"], TaskCount: 6, TotalEffort: 21, UnestimatedCount: 2,
+            Parts: [new("backlog", 4, 13, 1), new("web", 2, 8, 1)]),
         new RoadmapShelfPlan("unplanned-plans-shelf", ["backlog"], TaskCount: 1, TotalEffort: 3, UnestimatedCount: 0),
         """;
 

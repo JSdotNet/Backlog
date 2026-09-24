@@ -66,10 +66,24 @@ public sealed class ImportedPlanSource : IImportedPlanSource
                      .GroupBy(entry => entry.ImportPlanId!, StringComparer.Ordinal))
         {
             var aliases = new List<string>();
-            foreach (var id in group.SelectMany(entry => entry.RepoIds ?? []))
+            var tasksByAlias = new Dictionary<string, List<TaskItemDto>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var entry in group)
             {
-                var alias = aliasById.TryGetValue(id, out var known) ? known : id;
-                if (!aliases.Contains(alias, StringComparer.OrdinalIgnoreCase)) aliases.Add(alias);
+                // Distinct per task, so a task naming one repository twice counts once.
+                var entryAliases = (entry.RepoIds ?? [])
+                    .Select(id => aliasById.TryGetValue(id, out var known) ? known : id)
+                    .Distinct(StringComparer.OrdinalIgnoreCase);
+
+                foreach (var alias in entryAliases)
+                {
+                    if (!tasksByAlias.TryGetValue(alias, out var tasks))
+                    {
+                        aliases.Add(alias);
+                        tasksByAlias[alias] = tasks = [];
+                    }
+
+                    tasks.Add(entry);
+                }
             }
 
             plans.Add(new ImportedPlanDto(
@@ -77,7 +91,15 @@ public sealed class ImportedPlanSource : IImportedPlanSource
                 RepositoryAliases: aliases,
                 TaskCount: group.Count(),
                 TotalEffort: group.Sum(entry => entry.Effort ?? 0),
-                UnestimatedCount: group.Count(entry => entry.Effort is null)));
+                UnestimatedCount: group.Count(entry => entry.Effort is null),
+                RepositoryParts:
+                [
+                    .. aliases.Select(alias => new ImportedPlanPartDto(
+                        alias,
+                        tasksByAlias[alias].Count,
+                        tasksByAlias[alias].Sum(entry => entry.Effort ?? 0),
+                        tasksByAlias[alias].Count(entry => entry.Effort is null)))
+                ]));
         }
 
         return plans;

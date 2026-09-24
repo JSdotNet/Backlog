@@ -10,7 +10,8 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// The band asks for every item's gathered work once, as the plan loads, and the
-/// bars carry it: the steps an item expands into and the fill it wears collapsed.
+/// bars carry it as a progress fill. The band shows plans rather than their tasks,
+/// so a bar never opens into a row per task.
 /// The rollup is a counting stand-in here, because what is pinned is the band's
 /// side of the port — how often it asks and what it does with the answer. What
 /// the real adapter gathers is pinned beside the adapter.
@@ -59,13 +60,13 @@ public sealed class RoadmapBandStepsTests : RoadmapBandHarness
 
         var band = Drawn(context);
 
-        band.WaitForAssertion(() => Assert.Equal(2, band.FindAll(".roadmap-bar__toggle").Count));
+        band.WaitForAssertion(() => Assert.Equal(2, band.FindAll(".roadmap-bar__fill").Count));
         Assert.Equal(1, rollup.PlanReads);
         Assert.Equal(0, rollup.ItemReads);
     }
 
     [Fact]
-    public async Task An_item_draws_its_gathered_tasks_as_ordered_steps_with_its_progress()
+    public async Task An_item_carries_its_gathered_progress_and_never_opens_into_its_tasks()
     {
         using var context = Context();
         context.Services.AddSingleton<IRoadmapItemRollup>(new CountingRollup(Gathered));
@@ -74,16 +75,14 @@ public sealed class RoadmapBandStepsTests : RoadmapBandHarness
 
         var band = Drawn(context);
 
-        band.WaitForAssertion(() => Assert.Single(band.FindAll(".roadmap-bar__toggle")));
+        band.WaitForAssertion(() => Assert.Single(band.FindAll(".roadmap-bar__fill")));
 
         // 1 of 4 estimated points done, one unsized.
         Assert.Contains("width: 25%", band.Find(".roadmap-bar__fill").GetAttribute("style"));
         Assert.Equal("1 unestimated", band.Find(".roadmap-bar__unestimated").TextContent);
 
-        band.Find(".roadmap-bar__toggle").Click();
-
-        band.WaitForAssertion(() => Assert.Equal(
-            ["First", "Second", "Unsized"],
-            band.FindAll(".roadmap-step__title").Select(title => title.TextContent)));
+        // The plan, not its tasks: no disclosure, and no step rows.
+        Assert.Empty(band.FindAll(".roadmap-bar__toggle"));
+        Assert.Empty(band.FindAll(".roadmap-step__title"));
     }
 }

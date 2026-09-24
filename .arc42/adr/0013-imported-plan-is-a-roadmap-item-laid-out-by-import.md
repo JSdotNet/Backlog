@@ -499,6 +499,22 @@ Found by the validation run, and changed with it:
   applies is suppressed at the task signal, so another machine's edit is still
   read on the next load rather than live.
 
+Changed on the owner's request, when the roadmap became a full-screen surface:
+
+- **[Ruling 6](#6-drawing-the-plans-steps-inside-its-item)'s expansion is not
+  offered in the app.** The roadmap shows plans, not their tasks: the band passes
+  `ShowSteps="false"` to `RoadmapTimeline`, so a bar keeps its progress fill and
+  its unestimated count but never opens into a row per task. The rollup is still
+  read on every load, because the fill is drawn from it, and the library still
+  supports the expansion for another host.
+- **An item filed in several repositories is drawn once per repository.** Each
+  band shows that repository's part, with a fill read from the gathered tasks
+  filed there (a task filed nowhere goes to the first part). The parts share the
+  item's one Planned Window, so moving any of them reschedules the item; a part's
+  bar id is `<item id>@<band>`, and `RoadmapPlanView.NodeIdOf` reads the item
+  back out of it. The shelf of plans not yet placed lists each repository's
+  share the same way.
+
 ## Consequences
 
 Positive:

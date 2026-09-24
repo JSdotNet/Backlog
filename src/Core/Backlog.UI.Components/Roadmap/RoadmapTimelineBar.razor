@@ -29,7 +29,7 @@
        says which way it is facing without the timeline having to. The timeline
        still announces the change, because a state read only on focus is missed by
        a reader whose focus is already there. *@
-    @if (Bar.HasSteps)
+    @if (Bar.HasSteps && Expandable)
     {
         <button type="button"
                 id="@ToggleId"
@@ -187,6 +187,11 @@
     [Parameter]
     public bool Expanded { get; set; }
 
+    /// <summary>Whether the bar offers its steps at all. Off, the fill and the
+    /// figures stay and the disclosure goes.</summary>
+    [Parameter]
+    public bool Expandable { get; set; } = true;
+
     /// <summary>The disclosure was used. Which way it now faces is the
     /// timeline's to decide, because the rows it opens are the timeline's.</summary>
     [Parameter]
@@ -222,7 +227,8 @@
     private string ClassValue => string.Join(' ', new[]
     {
         "roadmap-bar",
-        Bar.HasSteps ? "roadmap-bar--has-steps" : null,
+        Bar.HasSteps ? "roadmap-bar--has-progress" : null,
+        Bar.HasSteps && Expandable ? "roadmap-bar--has-steps" : null,
         Expanded ? "roadmap-bar--expanded" : null,
         $"roadmap-bar--shade-{Placement.ShadeStep}",
         Selected ? "roadmap-bar--selected" : null,
