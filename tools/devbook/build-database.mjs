@@ -1,9 +1,11 @@
 #!/usr/bin/env node
-// build-database.mjs — writes `_meta/devbook.db`, the generated devbook database.
+// build-database.mjs — writes `devbook.db`, the generated devbook database, into
+// `_meta/` or `.devbook/_meta/` depending on the repository's layout.
 //
-//   node tools/devbook/build-database.mjs              # write _meta/devbook.db
+//   node tools/devbook/build-database.mjs              # write the database
 //   node tools/devbook/build-database.mjs --check      # build it, report, write nothing
 //   node tools/devbook/build-database.mjs --root ../other-repo
+//   node tools/devbook/build-database.mjs --root ../other-repo --generator ../devbook/tools/devbook-meta
 //
 // ADR 0004 replaces the twelve committed `_meta/*.json` artifacts with one
 // SQLite file per repository. A scope is `WHERE folder = ?` rather than a
@@ -23,6 +25,13 @@
 // actually adopts. Nothing about the corpus is parsed twice, and nothing about
 // it is parsed here.
 //
+// Which generator that is follows the repository's layout, and so does where
+// the database goes: the installed copy and `_meta/devbook.db` for a
+// repository that keeps its folders at the root, the devbook plugin's own
+// generator and `.devbook/_meta/devbook.db` for one that keeps them under
+// `.devbook/`. `generator.mjs` decides; the rows carry whatever paths that
+// generator spells, which are the repository's real ones either way.
+//
 // The one thing it does not import is the outline. `buildOutlineDocument` reads
 // the reading order back out of the `_meta/index.json` it is regenerating, and
 // that file is going away; the authored order now lives in the committed
@@ -40,14 +49,8 @@ import { dirname, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import {
-    buildGraph,
-    discoverScopes,
-    KNOWLEDGE_FOLDERS,
-    REPO_SCOPE,
-} from '../../.github/tools/knowledge-meta/graph.mjs';
-import { folderKindForPath, parseDocument } from '../../.github/tools/knowledge-meta/metadata.mjs';
-import { DATABASE_PATH, DEVBOOK_SCHEMA, SCHEMA_VERSION } from './devbook-schema.mjs';
+import { DEVBOOK_SCHEMA, SCHEMA_VERSION } from './devbook-schema.mjs';
+import { loadGenerator } from './generator.mjs';
 import { resolveOutline } from './reading-order.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -252,7 +255,7 @@ function insertGraph(db, graph) {
     return { node: graph.nodes.length, node_attribute: attributes, edge: graph.edges.length };
 }
 
-function insertOutline(db, scope, entries) {
+function insertOutline(db, scope, entries, folderKindForPath) {
     const insert = db.prepare(`
         INSERT INTO outline_entry (scope, parent_id, ordinal, type, name, path, title, status, kind, is_root)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -285,7 +288,7 @@ function insertOutline(db, scope, entries) {
     return count;
 }
 
-async function insertChapters(db, repoRoot, folders) {
+async function insertChapters(db, repoRoot, folders, { parseDocument, folderKindForPath }) {
     const insert = db.prepare(`
         INSERT INTO chapter (path, folder, slug, level, title, status, line, text, search_text, content_hash, source_hash, size, mtime)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -410,14 +413,20 @@ async function insertArchify(db, repoRoot, folders, problems) {
  * to a replaced database is the one way this could hand a reader something worse
  * than no database at all.
  *
+ * `generator` is what `generator.mjs` loaded for `repoRoot`; omitted, it is
+ * loaded here.
+ *
  * Returns the row counts, per table, that the file came out with.
  */
-export async function buildDatabase(repoRoot, target) {
-    const scopes = await discoverScopes(repoRoot);
+export async function buildDatabase(repoRoot, target, generator = null) {
+    generator ??= await loadGenerator(repoRoot);
+    const { REPO_SCOPE } = generator;
+
+    const scopes = await generator.discoverScopes(repoRoot);
     if (!scopes.length) {
         throw new Error(
             `No knowledge folders found under ${repoRoot}. `
-            + `Expected at least one of: ${KNOWLEDGE_FOLDERS.join(', ')}.`
+            + `Expected at least one of: ${generator.folders.join(', ')}.`
         );
     }
 
@@ -445,7 +454,7 @@ export async function buildDatabase(repoRoot, target) {
 
         // One parse of the corpus, projected nowhere: `folder` is what a scope
         // narrows by, which is the point of holding one database instead of six.
-        const graph = await buildGraph(repoRoot);
+        const graph = await generator.buildGraph(repoRoot);
         for (const problem of graph.problems) {
             problems.push({ scope: REPO_SCOPE, ...problem });
         }
@@ -454,14 +463,14 @@ export async function buildDatabase(repoRoot, target) {
         counts.outline_entry = 0;
 
         for (const scope of scopes) {
-            const outline = await resolveOutline(repoRoot, scope, folders);
-            counts.outline_entry += insertOutline(db, scope, outline.entries);
+            const outline = await resolveOutline(repoRoot, scope, folders, generator);
+            counts.outline_entry += insertOutline(db, scope, outline.entries, generator.folderKindForPath);
             for (const problem of outline.problems) {
                 problems.push({ scope, ...problem });
             }
         }
 
-        const chapters = await insertChapters(db, repoRoot, folders);
+        const chapters = await insertChapters(db, repoRoot, folders, generator);
         counts.chapter = chapters.chapter;
         counts.files = chapters.files;
         counts.chapter_embedding = 0; // the semantic tier is wired and makes no live call yet.
@@ -520,8 +529,18 @@ if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.m
     };
 
     const repoRoot = resolve(optionValue('--root') ?? DEFAULT_ROOT);
-    const target = path.join(repoRoot, DATABASE_PATH);
     const checkOnly = args.includes('--check');
+
+    let generator;
+    try {
+        generator = await loadGenerator(repoRoot, { generatorDir: optionValue('--generator') });
+    } catch (error) {
+        console.error(`Failed to build the devbook database: ${error.message}`);
+        process.exit(2);
+    }
+
+    const databasePath = generator.databasePath;
+    const target = path.join(repoRoot, databasePath);
 
     // `--check` builds the whole database and then throws it away. There is
     // nothing to diff — the file is git-ignored and carries a timestamp — so the
@@ -530,14 +549,14 @@ if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.m
     const written = checkOnly ? `${target}.check-${process.pid}` : target;
 
     try {
-        const counts = await buildDatabase(repoRoot, written);
-        console.log(`${checkOnly ? 'checked' : 'wrote  '} ${DATABASE_PATH}`);
+        const counts = await buildDatabase(repoRoot, written, generator);
+        console.log(`${checkOnly ? 'checked' : 'wrote  '} ${databasePath} (${generator.layout} layout, ${generator.source})`);
         console.log(formatCounts(counts));
         if (counts.problem) {
             console.log(`\n${counts.problem} problem(s) recorded in the database.`);
         }
     } catch (error) {
-        console.error(`Failed to build ${DATABASE_PATH}: ${error.message}`);
+        console.error(`Failed to build ${databasePath}: ${error.message}`);
         process.exitCode = 2;
     } finally {
         if (checkOnly) await rm(written, { force: true });

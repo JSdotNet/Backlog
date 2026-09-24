@@ -48,10 +48,9 @@ public static class DevbookAreaCatalog
 
         // The same leniency DevbookFolders.FromPath allows, and for the same
         // reason: a hand-authored reference picks up a leading `./` or `/` often
-        // enough, and those spell the same file.
-        var trimmed = path.Trim().Replace('\\', '/');
-        if (trimmed.StartsWith("./", StringComparison.Ordinal)) trimmed = trimmed[2..];
-        trimmed = trimmed.TrimStart('/');
+        // enough, and those spell the same file. The devbook layout's
+        // .devbook/domain/… is the Domain section as much as .domain/… is.
+        var trimmed = DevbookLayout.ConventionalPath(path);
 
         var end = trimmed.IndexOf('/');
         if (end <= 0) return null;

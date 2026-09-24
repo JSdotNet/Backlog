@@ -33,6 +33,12 @@ public class DevbookSchemaContractTests
     }
 
     [Fact]
+    public void The_devbook_layout_database_path_matches_the_writers()
+    {
+        Assert.Equal(DevbookDatabaseSchema.DevbookLayoutRelativePath, DevbookSchemaSource.DevbookLayoutDatabasePath);
+    }
+
+    [Fact]
     public void The_writer_creates_every_table_the_reader_reads()
     {
         using var temporary = new TemporaryDatabase();

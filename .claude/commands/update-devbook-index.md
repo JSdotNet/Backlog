@@ -17,7 +17,10 @@ node tools/devbook/build-database.mjs
 
 It writes `_meta/devbook.db` and nothing else. A `_meta/knowledge.db` left by an
 earlier build is served by the app until this run replaces it and can be deleted
-afterwards.
+afterwards. Once the knowledge folders have moved under `.devbook/`, the same
+command writes `.devbook/_meta/devbook.db` instead, using the devbook generator
+materialized at `.devbook/_tools/devbook-meta/`; the first line of its output
+names the layout and generator it used.
 
 When `$ARGUMENTS` contains `--json`, also refresh the JSON indexes the installed
 generator writes (`_meta/graph.json`, `_meta/index.json` — ignored outputs, but

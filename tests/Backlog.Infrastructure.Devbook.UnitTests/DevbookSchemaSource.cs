@@ -37,6 +37,9 @@ internal static class DevbookSchemaSource
     /// <summary>The writer's <c>DATABASE_PATH</c>.</summary>
     public static string DatabasePath => Quoted("DATABASE_PATH");
 
+    /// <summary>The writer's <c>DEVBOOK_DATABASE_PATH</c>.</summary>
+    public static string DevbookLayoutDatabasePath => Quoted("DEVBOOK_DATABASE_PATH");
+
     /// <summary>
     /// A database created from that DDL, at <paramref name="path"/>, with
     /// <c>schemaVersion</c> already recorded — the state the generator leaves

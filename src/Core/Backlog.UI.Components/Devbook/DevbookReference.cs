@@ -172,6 +172,21 @@ public sealed record DevbookReference
             ? Normalize(fromDocument)
             : Resolve(target, fromDocument);
 
+        // A store may name its documents in the root layout's spelling
+        // (.domain/tasks/x.md) while the folder actually sits at
+        // .devbook/domain, where a relative link to a neighbouring folder is
+        // written ../../arc42/… rather than ../../.arc42/…. Walked from the
+        // spelling the store used, that lands outside every section; walked from
+        // where the file really is, it lands in one.
+        if ((resolved is null || DevbookFolders.FromPath(resolved) is DevbookFolder.Unknown)
+            && target.Trim().Length > 0
+            && DevbookLayoutSpelling(fromDocument) is { } nested
+            && Resolve(target, nested) is { } fromNested
+            && DevbookFolders.FromPath(fromNested) is not DevbookFolder.Unknown)
+        {
+            resolved = fromNested;
+        }
+
         if (resolved is null) return null;
 
         return ParseDevbookPath(slug.Trim().Length == 0 ? resolved : $"{resolved}#{slug}");
@@ -273,6 +288,19 @@ public sealed record DevbookReference
         if (segments.Count > 0) segments.RemoveAt(segments.Count - 1);
 
         return segments;
+    }
+
+    /// <summary>The same document in the devbook layout's spelling —
+    /// <c>.domain/tasks/x.md</c> as <c>.devbook/domain/tasks/x.md</c> — or
+    /// <see langword="null"/> for a document not spelled against a root-level
+    /// section folder.</summary>
+    private static string? DevbookLayoutSpelling(string? documentPath)
+    {
+        if (Normalize(documentPath) is not { } normalized) return null;
+        if (normalized.StartsWith(".devbook/", StringComparison.OrdinalIgnoreCase)) return null;
+        if (DevbookFolders.FromPath(normalized) is DevbookFolder.Unknown or DevbookFolder.Backlog) return null;
+
+        return ".devbook/" + normalized[1..];
     }
 
     /// <summary>One spelling for a repository path: forward slashes, and none of

@@ -31,8 +31,13 @@
  *  full-text index holds prose instead of the chapter's raw Markdown. */
 export const SCHEMA_VERSION = 2;
 
-/** The file the writer produces, relative to the repository root. */
+/** The file the writer produces, relative to the repository root, in a
+ *  repository that keeps its knowledge folders at the root (`.arc42`, …). */
 export const DATABASE_PATH = '_meta/devbook.db';
+
+/** The same file in a repository that keeps them under `.devbook/`, beside the
+ *  rest of that layout's rollup. */
+export const DEVBOOK_DATABASE_PATH = '.devbook/_meta/devbook.db';
 
 /**
  * Every table, virtual table and index of the devbook database.

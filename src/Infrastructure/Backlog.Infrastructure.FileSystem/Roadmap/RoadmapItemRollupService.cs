@@ -1,4 +1,5 @@
 using Backlog.Infrastructure.Devbook;
+using Backlog.Modules.Devbook.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
@@ -102,7 +103,9 @@ public sealed class RoadmapItemRollupService : IRoadmapItemRollup
 
     private IReadOnlyList<KnowledgeGraphNode> ReadGraphJsonNodes()
     {
-        var path = Path.Combine(_rootDirectory(), "_meta", "graph.json");
+        // Beside the folders it indexes: .devbook/_meta in the devbook layout.
+        var root = _rootDirectory();
+        var path = Path.Combine(DevbookLayout.MetaDirectoryFor(root, DevbookLayout.UsesDevbookLayout(root)), "graph.json");
         if (!File.Exists(path)) return [];
 
         try

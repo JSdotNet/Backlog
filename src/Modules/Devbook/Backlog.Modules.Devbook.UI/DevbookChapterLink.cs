@@ -1,3 +1,4 @@
+using Backlog.Modules.Devbook.Abstractions;
 using Backlog.UI.Components.Devbook;
 
 namespace Backlog.Desktop.UI.Devbook;
@@ -33,8 +34,9 @@ public sealed record DevbookChapterLink(string AreaKey, string Path, string? Anc
 {
     /// <summary>The same file as the Devbook menu spells it: beneath the area's
     /// own folder and without the area prefix, which is what a menu node carries
-    /// and what a selection is remembered by.</summary>
-    public string RelativePath => Path[(Path.IndexOf('/') + 1)..];
+    /// and what a selection is remembered by. Both layouts' folder prefixes come
+    /// off — <c>.domain/</c> and <c>.devbook/domain/</c>.</summary>
+    public string RelativePath => DevbookLayout.WithinFolder(Path);
 
     /// <summary>
     /// Whether this names a view of the C4 model beside the chapters rather than a
