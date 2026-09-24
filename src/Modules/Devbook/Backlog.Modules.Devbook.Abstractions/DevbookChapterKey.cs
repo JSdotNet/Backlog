@@ -19,8 +19,10 @@ namespace Backlog.Modules.Devbook.Abstractions;
 /// whatever folder the area is actually configured to. The conventional folder
 /// rather than the configured one for the reason the defect gives: a configured
 /// folder moves per machine, and a key that moves per machine is the bug. In the
-/// ordinary layout the two are the same string, so nothing changes for the
-/// repositories that never moved a folder — which is the point.
+/// root layout the two are the same string, so nothing changes for the
+/// repositories that never moved a folder — which is the point. The devbook
+/// layout (<c>.devbook/arc42</c>) is one more configured spelling and keys under
+/// the same legacy root folder.
 /// </para>
 /// <para>
 /// <c>instructions</c> is the exception, and by construction rather than by a
@@ -78,17 +80,23 @@ public static class DevbookChapterKey
     /// The conventional folder of each area that has one, keyed the way the menu
     /// and the area catalog name it.
     /// <para>
-    /// Read from the published settings rather than written out again, so an area
-    /// whose default moves does not leave a second copy of it here — and so
-    /// <c>instructions</c>, whose default path is empty because its root is the
+    /// Read from the published settings rather than written out again — and so
+    /// <c>instructions</c>, which has no folder of its own because its root is the
     /// repository itself, is absent by construction rather than by a
     /// <c>_ =&gt; null</c> arm somebody has to remember.
+    /// </para>
+    /// <para>
+    /// The legacy root folder (<c>.arc42</c>) rather than the devbook default
+    /// (<c>.devbook/arc42</c>): these prefixes are what stored and synced remarks
+    /// are keyed by, and the default moving under <c>.devbook/</c> is exactly the
+    /// kind of move a key must not follow. A <c>.devbook/arc42/…</c> path is a
+    /// configured spelling like any other and canonicalizes to <c>.arc42/…</c>.
     /// </para>
     /// </summary>
     private static readonly Dictionary<string, string> DefaultFolderPaths =
         DevbookFolderSetting.Defaults()
-            .Where(folder => !string.IsNullOrWhiteSpace(folder.DefaultRelativePath))
-            .ToDictionary(folder => NormalizeAreaKey(folder.Key), folder => folder.DefaultRelativePath, StringComparer.OrdinalIgnoreCase);
+            .Where(folder => !string.IsNullOrWhiteSpace(folder.LegacyRelativePath))
+            .ToDictionary(folder => NormalizeAreaKey(folder.Key), folder => folder.LegacyRelativePath, StringComparer.OrdinalIgnoreCase);
 
     /// <summary>The same folders as values, for the "is this already canonical?"
     /// test that has to ask about every area at once rather than about one.</summary>
@@ -215,6 +223,7 @@ public static class DevbookChapterKey
 
         Add(folderPath);
         Add(DefaultFolderPaths.GetValueOrDefault(area));
+        if (DefaultFolderPaths.ContainsKey(area)) Add($"{DevbookFolderSetting.DevbookRoot}/{area}");
 
         return prefixes;
 

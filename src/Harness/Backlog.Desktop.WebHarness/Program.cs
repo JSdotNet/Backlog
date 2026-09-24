@@ -655,6 +655,8 @@ static GitHubSettingsStore CreateLocalDevelopmentGitHubSettingsStore(string cont
         return settings;
     }
 
+    // A seed, not somebody removing what the shared workspace held before, so
+    // nothing it replaces is recorded as removed.
     const string alias = "backlog";
     settings.SetRepositories(
     [
@@ -663,7 +665,8 @@ static GitHubSettingsStore CreateLocalDevelopmentGitHubSettingsStore(string cont
             CloneDirectory = repositoryRoot,
             DevbookFolders = DevbookFolderSetting.Defaults()
         }
-    ]);
+    ],
+    rememberRemovals: false);
 
     foreach (var folder in DevbookFolderSetting.Defaults())
     {

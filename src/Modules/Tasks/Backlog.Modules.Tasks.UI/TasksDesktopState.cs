@@ -315,6 +315,13 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// produce a leading space.</summary>
     public const string UntaggedTag = " untagged";
 
+    /// <summary>Sentinel for "entries filed under no plan" — every entry wearing no
+    /// <c>+</c> tag, tagged otherwise or not at all. A member of the union like
+    /// <see cref="UntaggedTag"/>, and for the same reason it is a chip rather than a
+    /// way to unpress plans: the group can only ever say "these", never "not
+    /// these", so excluding every plan needs a chip of its own.</summary>
+    public const string NoPlanTag = " no-plan";
+
     /// <summary>
     /// The date the My Day scope is narrowing to, or null while the scope is off.
     /// <para>
@@ -952,8 +959,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         }
 
         if (_selectedTags.Count > 0
-            && !((row.PreviewTags.Count == 0 && _selectedTags.Contains(UntaggedTag))
-                || row.PreviewTags.Any(_selectedTags.Contains)))
+            && !MatchesSelectedTags(row))
         {
             _selectedTags.Clear();
             widened = true;
@@ -2882,9 +2888,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         // watches the list shrink under them.
         if (_selectedTags.Count > 0)
         {
-            rows = rows.Where(x =>
-                (x.PreviewTags.Count == 0 && _selectedTags.Contains(UntaggedTag))
-                || x.PreviewTags.Any(_selectedTags.Contains));
+            rows = rows.Where(MatchesSelectedTags);
         }
 
         // A row being written right now always stays put, even if what was just
@@ -3081,6 +3085,21 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
                 group.Count(wearing => wearing.Finished)));
         }
 
+        // "No plan" leads the group, so however many plans follow it the one-row
+        // strip never clips it. It earns its place off both halves: a live entry in
+        // some plan, or there is nothing to exclude, and a live entry in none, or
+        // pressing it would empty the list.
+        var unplanned = scopedRows.Where(row => !HasPlan(row)).ToList();
+
+        if (live.Any(HasPlan) && unplanned.Any(row => !IsFinished(row)))
+        {
+            options.Insert(0, new TagFilterOption(
+                "No plan",
+                NoPlanTag,
+                unplanned.Count(row => !IsFinished(row)),
+                unplanned.Count(IsFinished)));
+        }
+
         // "Untagged" is a chip like any other and earns its place the same way, off a
         // live entry carrying no tag — and splits its count the same way once it does.
         var untagged = scopedRows.Where(row => row.PreviewTags.Count == 0).ToList();
@@ -3112,6 +3131,16 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// text, the same reader the status filter uses, so a token just typed into
     /// the editor counts before it is saved.</summary>
     private static bool IsFinished(EntryRow row) => row.IsPreviewCompleted;
+
+    private static bool HasPlan(EntryRow row) =>
+        row.PreviewTags.Any(tag => TagText.Kind(tag) is TagKind.Plan);
+
+    /// <summary>The union the tag group asks for: a row wearing any pressed tag, or
+    /// matching a pressed sentinel.</summary>
+    private bool MatchesSelectedTags(EntryRow row) =>
+        (row.PreviewTags.Count == 0 && _selectedTags.Contains(UntaggedTag))
+        || (_selectedTags.Contains(NoPlanTag) && !HasPlan(row))
+        || row.PreviewTags.Any(_selectedTags.Contains);
 
     private static string StatusWire(EntryStatus status) => status switch
     {

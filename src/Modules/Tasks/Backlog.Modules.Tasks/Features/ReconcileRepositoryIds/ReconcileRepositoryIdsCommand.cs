@@ -139,6 +139,11 @@ public sealed class ReconcileRepositoryIdsCommandHandler(ITaskRepository entries
     /// it is picked up by the next session rather than by the keystroke.
     /// </para>
     /// <para>
+    /// An id somebody removed is not registered, even though it is id-shaped:
+    /// the entries naming it outlive the repository, and registering it would
+    /// undo the removal on every start. It stays on the entry, unresolved.
+    /// </para>
+    /// <para>
     /// This does not go through <c>RepositoryIdResolver</c>, and the difference is
     /// the point: that shared rule either registers everything unrecognised
     /// (Import) or nothing (the text save), and reconciliation needs a third
@@ -149,7 +154,7 @@ public sealed class ReconcileRepositoryIdsCommandHandler(ITaskRepository entries
     {
         if (repositories.Resolve(value) is { } known) return known.Id;
 
-        return IsIdShaped(value) ? repositories.Register(value).Id : value;
+        return IsIdShaped(value) && !repositories.WasRemoved(value) ? repositories.Register(value).Id : value;
     }
 
     /// <summary>Whether a value is an <c>owner/name</c> coordinate: exactly two

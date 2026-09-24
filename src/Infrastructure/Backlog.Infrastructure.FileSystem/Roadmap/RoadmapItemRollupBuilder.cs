@@ -121,7 +121,8 @@ public static class RoadmapItemRollupBuilder
                 entry.Effort,
                 Origin(direct, tagged),
                 Progress(entry.Status),
-                GatheredDependencies(entry, keys, candidates));
+                GatheredDependencies(entry, keys, candidates),
+                entry.RepoIds ?? []);
         }
     }
 

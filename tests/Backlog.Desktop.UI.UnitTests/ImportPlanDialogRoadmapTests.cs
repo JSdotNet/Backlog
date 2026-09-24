@@ -33,6 +33,19 @@ public sealed class ImportPlanDialogRoadmapTests
     }
 
     [Fact]
+    public void The_dialog_and_paste_box_carry_the_hooks_that_size_them_for_reading_a_plan()
+    {
+        using var dialog = Render();
+
+        // app.css widens `.import-plan-dialog` past the shared modal width and gives
+        // `.import-plan-form__text` the viewport's height; without either hook a pasted
+        // plan is read through the default ten-row box.
+        Assert.Single(dialog.Component.FindAll(".modal.import-plan-dialog"));
+        Assert.Single(dialog.Component.FindAll(
+            ".import-plan-form__text [data-testid='import-plan-text'], .import-plan-form__text textarea"));
+    }
+
+    [Fact]
     public void Nothing_typed_shows_no_preview_and_no_option()
     {
         using var dialog = Render();

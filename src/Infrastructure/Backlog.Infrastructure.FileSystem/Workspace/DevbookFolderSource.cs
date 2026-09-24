@@ -452,57 +452,71 @@ public sealed class DevbookFolderSource : IDevbookFolderSource
     {
         tree ??= DevbookDiskFileTree.Instance;
 
-        var path = folder.EffectivePath;
-        var fullPath = Path.IsPathRooted(path)
-            ? path
-            : Path.Combine(rootDirectory, path);
-
-        try
+        // An unconfigured folder is looked for under .devbook/ first and at its
+        // legacy root spot second, so a repository still on the root layout
+        // reads as it always did. The copy of the setting the location carries
+        // names the folder actually found, which is what the fetch selection,
+        // the chapter prefixes and the settings row all go on to read.
+        var missing = new List<string>();
+        foreach (var candidate in folder.CandidatePaths)
         {
-            fullPath = Path.GetFullPath(fullPath);
-        }
-        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
-        {
-            return DevbookFolderLocation.Unavailable(
-                key,
-                $"{folder.DisplayName} knowledge folder path is not valid: {ex.Message}",
-                repository?.FullName,
-                folder,
-                fullPath,
-                rootPath,
-                repositoryAlias: repository?.Alias,
-                source: source);
+            var fullPath = Path.IsPathRooted(candidate)
+                ? candidate
+                : Path.Combine(rootDirectory, candidate);
+
+            try
+            {
+                fullPath = Path.GetFullPath(fullPath);
+            }
+            catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+            {
+                return DevbookFolderLocation.Unavailable(
+                    key,
+                    $"{folder.DisplayName} knowledge folder path is not valid: {ex.Message}",
+                    repository?.FullName,
+                    folder,
+                    fullPath,
+                    rootPath,
+                    repositoryAlias: repository?.Alias,
+                    source: source);
+            }
+
+            if (tree.DirectoryExists(fullPath))
+            {
+                var found = string.Equals(candidate, folder.EffectivePath, StringComparison.Ordinal)
+                    ? folder
+                    : folder with { ResolvedPath = candidate };
+
+                return new DevbookFolderLocation(
+                    key,
+                    true,
+                    null,
+                    repository?.FullName,
+                    found,
+                    fullPath,
+                    rootPath,
+                    scopeLabel,
+                    repository?.Alias,
+                    source);
+            }
+
+            missing.Add(fullPath);
         }
 
-        if (!tree.DirectoryExists(fullPath))
-        {
-            // Worth different words when the tree came from a branch: the folder
-            // is not missing from somebody's disk, it is missing from the commit,
-            // and telling them to check their clone would send them looking in a
-            // folder that has nothing to do with it.
-            return DevbookFolderLocation.Unavailable(
-                key,
-                source is DevbookSourceKind.Branch
-                    ? $"{scopeLabel} has no {folder.DisplayName} knowledge folder at {folder.EffectivePath}."
-                    : $"{folder.DisplayName} knowledge folder was not found at {fullPath}.",
-                repository?.FullName,
-                folder,
-                fullPath,
-                rootPath,
-                repositoryAlias: repository?.Alias,
-                source: source);
-        }
-
-        return new DevbookFolderLocation(
+        // Worth different words when the tree came from a branch: the folder
+        // is not missing from somebody's disk, it is missing from the commit,
+        // and telling them to check their clone would send them looking in a
+        // folder that has nothing to do with it.
+        return DevbookFolderLocation.Unavailable(
             key,
-            true,
-            null,
+            source is DevbookSourceKind.Branch
+                ? $"{scopeLabel} has no {folder.DisplayName} knowledge folder at {string.Join(" or ", folder.CandidatePaths)}."
+                : $"{folder.DisplayName} knowledge folder was not found at {string.Join(" or ", missing)}.",
             repository?.FullName,
             folder,
-            fullPath,
+            missing[0],
             rootPath,
-            scopeLabel,
-            repository?.Alias,
-            source);
+            repositoryAlias: repository?.Alias,
+            source: source);
     }
 }

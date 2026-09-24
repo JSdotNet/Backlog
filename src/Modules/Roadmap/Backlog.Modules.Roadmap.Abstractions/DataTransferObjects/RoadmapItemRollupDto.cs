@@ -83,16 +83,25 @@ public enum RoadmapProgress
 /// the item is dropped rather than kept dangling: it still blocks the work, but it
 /// is not an edge between two steps drawn in this bar, and a key that resolves to
 /// no step would order nothing.</param>
+/// <param name="RepositoryIds">The repositories the work is filed against, as the
+/// backlog stores them (<c>owner/name</c>, or a name Import could not resolve).
+/// Opaque here: a reader matches them against the repositories it knows, which is
+/// how an item spanning several repositories is drawn as one part per repository.
+/// Empty for a knowledge chapter and for work filed nowhere.</param>
 public sealed record RoadmapGatheredLink(
     string Key,
     string Title,
     int? Effort,
     RollupOrigin Origin,
     RoadmapProgress? Progress = null,
-    IReadOnlyList<string>? DependsOn = null)
+    IReadOnlyList<string>? DependsOn = null,
+    IReadOnlyList<string>? RepositoryIds = null)
 {
     /// <summary>The gathered keys this waits on, never null.</summary>
     public IReadOnlyList<string> Waits => DependsOn ?? [];
+
+    /// <summary>The repositories the work is filed against, never null.</summary>
+    public IReadOnlyList<string> Repositories => RepositoryIds ?? [];
 
     /// <summary>Whether its work is over. Something that registered no progress is
     /// not done — it is unknown, and unknown never counts as finished.</summary>

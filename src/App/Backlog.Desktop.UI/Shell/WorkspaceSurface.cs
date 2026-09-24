@@ -3,10 +3,11 @@ namespace Backlog.Desktop.UI.Shell;
 /// <summary>
 /// Which surface the shell is showing below its chrome.
 /// <para>
-/// One field with three states, rather than a flag per takeover, and that is the
+/// One field with four states, rather than a flag per takeover, and that is the
 /// whole point: a takeover cannot coexist with the workspace, and the takeovers
-/// cannot coexist with each other. Each belongs to one context — Tools to Dev PC
-/// Management, Dashboard to the Dashboard — and opening any of them means the
+/// cannot coexist with each other. Each belongs to one context — Roadmap to
+/// Roadmap, Tools to Dev PC Management, Dashboard to the Dashboard — and opening
+/// any of them means the
 /// reader has stopped looking at the backlog, so there is no arrangement in which
 /// one shares the screen with the panes or with another. Two booleans would have
 /// to be kept out of the impossible states by hand; this cannot reach any of them.
@@ -41,7 +42,7 @@ namespace Backlog.Desktop.UI.Shell;
 /// </summary>
 internal enum WorkspaceSurface
 {
-    /// <summary>The three side-by-side panes, with the roadmap band above them.</summary>
+    /// <summary>The three side-by-side panes.</summary>
     Workspace,
 
     /// <summary>Dev PC Management's configuration, taking the whole screen.</summary>
@@ -49,7 +50,12 @@ internal enum WorkspaceSurface
 
     /// <summary>The Dashboard context, taking the whole screen — on one of its
     /// <see cref="DashboardTab"/>s.</summary>
-    Dashboard
+    Dashboard,
+
+    /// <summary>The Roadmap context's plan, taking the whole screen. It was a band
+    /// above the panes until a plan read in a strip of the screen proved to be a plan
+    /// paged through; written last so the stored names of the others are unchanged.</summary>
+    Roadmap
 }
 
 /// <summary>

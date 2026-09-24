@@ -17,28 +17,46 @@ namespace Backlog.UI.Components.Roadmap;
 /// <param name="TotalEffort">The effort they registered, summed.</param>
 /// <param name="UnestimatedCount">How many registered none. Said separately, because
 /// a total that silently left them out would read as the whole plan's size.</param>
+/// <param name="Parts">The same figures per repository, for a plan whose work is
+/// filed in more than one. The shelf lists them one line each, because a plan
+/// spanning repositories is read as the part each of them has to do.</param>
 public sealed record RoadmapShelfPlan(
     string Tag,
     IReadOnlyList<string> Repositories,
     int TaskCount,
     int TotalEffort,
+    int UnestimatedCount,
+    IReadOnlyList<RoadmapShelfPart>? Parts = null)
+{
+    public IReadOnlyList<RoadmapShelfPart> PartList => Parts ?? [];
+
+    /// <summary>How much work, and how big — without where.</summary>
+    public string Totals => RoadmapShelfPart.Figures(TaskCount, TotalEffort, UnestimatedCount);
+
+    /// <summary>The line under the tag: how much work, how big, and where.</summary>
+    public string Summary =>
+        Repositories.Count > 0 ? $"{Totals} · {string.Join(", ", Repositories)}" : Totals;
+}
+
+/// <summary>One repository's share of a <see cref="RoadmapShelfPlan"/>.</summary>
+public sealed record RoadmapShelfPart(
+    string Repository,
+    int TaskCount,
+    int TotalEffort,
     int UnestimatedCount)
 {
-    /// <summary>The line under the tag: how much work, how big, and where.</summary>
-    public string Summary
+    public string Totals => Figures(TaskCount, TotalEffort, UnestimatedCount);
+
+    internal static string Figures(int tasks, int effort, int unestimated)
     {
-        get
+        var parts = new List<string>
         {
-            var parts = new List<string>
-            {
-                TaskCount == 1 ? "1 task" : $"{TaskCount} tasks",
-                TotalEffort == 1 ? "1 point" : $"{TotalEffort} points"
-            };
+            tasks == 1 ? "1 task" : $"{tasks} tasks",
+            effort == 1 ? "1 point" : $"{effort} points"
+        };
 
-            if (UnestimatedCount > 0) parts.Add($"{UnestimatedCount} unestimated");
-            if (Repositories.Count > 0) parts.Add(string.Join(", ", Repositories));
+        if (unestimated > 0) parts.Add($"{unestimated} unestimated");
 
-            return string.Join(" · ", parts);
-        }
+        return string.Join(" · ", parts);
     }
 }

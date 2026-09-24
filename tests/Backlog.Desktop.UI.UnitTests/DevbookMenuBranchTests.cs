@@ -151,6 +151,9 @@ public sealed class DevbookMenuBranchTests : IDisposable
         public DevbookFolderLocation Resolve(string key, string? repositoryAlias = null)
         {
             var folder = DevbookFolderSetting.Defaults().Single(setting => string.Equals(setting.Key, key, StringComparison.OrdinalIgnoreCase));
+            // The fixtures sit in the root layout, which the real source reaches
+            // through its fallback to the legacy folder.
+            folder = folder with { ResolvedPath = folder.LegacyRelativePath };
             var fullPath = Path.Combine(_root, folder.EffectivePath.Replace('/', Path.DirectorySeparatorChar));
 
             return _tree.DirectoryExists(fullPath)

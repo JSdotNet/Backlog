@@ -76,4 +76,11 @@ public interface IRepositoryDirectory
     /// already has rather than added a second time, because a plan naming the
     /// same repository twice is one repository, not two.</summary>
     TasksRepositoryRef Register(string name);
+
+    /// <summary>Whether an <see cref="TasksRepositoryRef.Id"/> is one somebody
+    /// removed and has not configured again. The start-up reconcile pass asks
+    /// before registering an id nothing answers to, so a removal is not undone
+    /// by the entries that still name it. False by default, for a directory
+    /// with no memory of removals.</summary>
+    bool WasRemoved(string id) => false;
 }

@@ -206,6 +206,15 @@ public sealed class DevbookAtlasService(IDevbookFolderSource source)
             var candidate = Path.Combine(root, "_meta", "graph.json");
             if (File.Exists(candidate)) return candidate;
 
+            // A folder in the devbook layout sits one level deeper, under
+            // .devbook/, so the repository root is the level above that.
+            if (string.Equals(Path.GetFileName(root), DevbookFolderSetting.DevbookRoot, StringComparison.OrdinalIgnoreCase)
+                && Path.GetDirectoryName(root) is { Length: > 0 } repositoryRoot)
+            {
+                var beside = Path.Combine(repositoryRoot, "_meta", "graph.json");
+                if (File.Exists(beside)) return beside;
+            }
+
             fallback ??= candidate;
         }
 

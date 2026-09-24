@@ -69,11 +69,10 @@ h1, h2, h3 {
   `height`, not `min-height`, and both halves of that matter.
 
   It is `height` because the workspace below depends on a definite one. `.workspace`
-  is a grid with `grid-template-rows: fit-content(30%) minmax(0, 1fr)`, and both of
-  those track functions need a resolvable container height to mean anything — with an
-  indefinite height `fit-content(30%)` degrades to `max-content` and the roadmap band
-  grows to whatever it contains, taking the panes' `minmax(0, 1fr)` and every
-  `overflow: auto` underneath it down with it. The whole overflow discipline of this
+  is a grid with `grid-template-rows: minmax(0, 1fr)`, and that track needs a
+  resolvable container height to mean anything — with an indefinite height the pane
+  row grows to whatever it contains, taking every `overflow: auto` underneath it
+  down with it. The whole overflow discipline of this
   app rests on the height being definite from here down.
 
   It is `100vh` rather than `100%` because there is nothing above this to be a
@@ -517,11 +516,45 @@ h1, h2, h3 {
    the container query at the bottom of this file. What is left here is the width in
    between. */
 .filter-group--tags {
-    /* A zero basis, so the pile takes what the other groups leave on the first row
-       rather than claiming a row of its own now that the bar wraps. At `auto` a
-       long pile was as wide as all its chips, which in a wrapping bar pushes it —
-       and the statuses after it — onto rows of their own. */
+    /* A zero basis, so the strip takes what the other groups leave rather than
+       competing with them for it: at `auto` a long pile shrank the statuses too,
+       clipping them through a chip's name. What the strip cannot fit is the
+       toggle's to reach. The bar wraps too, and at `auto` a long pile would
+       claim a row of its own there and push the statuses onto a third. */
     flex: 1 1 0;
+    /* One row of whole chips. The strip wraps, and is cut to the height of one
+       chip, so a chip that does not fit drops out of view entirely instead of
+       being sliced through its name — and the "More" toggle beside it (below) is
+       the way to the rest. The font size is the chips' own, so `1lh` is a chip's
+       line box. */
+    flex-wrap: wrap;
+    align-content: flex-start;
+    font-size: var(--font-size-sm);
+    max-height: calc(1lh + 2 * var(--spacing-xs) + 2 * var(--border-width));
+}
+
+/* Opened by the toggle: every tag, on as many rows as it takes. The bar tops
+   its groups so the scopes and the statuses stay on the first row beside it. */
+.filter-group--tags--expanded {
+    max-height: none;
+    row-gap: var(--spacing-xs);
+}
+
+.filter-bar:has(.filter-group--tags--expanded) {
+    align-items: flex-start;
+}
+
+/* Pinned, like the scopes, because it is the only way to a chip the strip has
+   clipped. Absent while everything fits: components.js marks a strip whose last
+   chip wrapped with `data-overflowing`, and only the browser can know that. */
+.chip--more {
+    flex: 0 0 auto;
+    background: transparent;
+    border-style: dashed;
+}
+
+.filter-group--tags:not([data-overflowing]):not(.filter-group--tags--expanded) + .chip--more {
+    display: none;
 }
 
 /* The one group in the bar that is not a filter. It keeps its room for the same
@@ -1575,6 +1608,12 @@ h1, h2, h3 {
     .filter-group--tags--picked .chip:not(.chip--active) {
         display: none;
     }
+
+    /* Nothing for it to open down here: the step above shows only what was picked,
+       and the rows' own tags are the way to the rest. */
+    .chip--more {
+        display: none;
+    }
 }
 
 /* 38rem: the width the row's trailing cluster stops fitting at.
@@ -1803,9 +1842,25 @@ h1, h2, h3 {
   not parse is the same kind of error every other surface already shows.
 */
 
+/* Wider and taller than the shared 40rem modal: a plan is read here before it is
+   imported, and twenty entries in a ten-row box at that width is a keyhole. The
+   modal still scrolls as a whole past 92vh, so the footer is never out of reach. */
+.import-plan-dialog {
+    width: min(64rem, 100%);
+    max-height: 92vh;
+}
+
 .import-plan-form {
     display: grid;
     gap: var(--spacing-md);
+}
+
+/* The paste box takes the height the dialog has to give rather than its ten rows,
+   leaving room for the note, the file field and the footer around it. Rows stays
+   the floor on a short window. */
+.import-plan-form__text .field__input {
+    height: max(12rem, 100vh - 36rem);
+    resize: vertical;
 }
 
 .import-plan-form__note {
@@ -4117,50 +4172,19 @@ h1, h2, h3 {
     max-height: 22rem;
 }
 
-/* The workspace: the roadmap band above the pane row.
-
-   `fit-content(30%)` is what makes 30% a ceiling rather than a share. The band
-   takes only the height its own content needs, and never more than three tenths
-   of the area below the header, so the pane row is guaranteed at least seven
-   tenths no matter what the band later grows into. A plain `30%` would reserve
-   the share even while the band is empty; `max-content` alone would let a
-   timeline push the panes off the screen.
-
-   It was a quarter until the band held a chart rather than a placeholder. A
-   quarter fits an axis and three 2rem rows at a 900px-tall window, and a plan
-   filed across two repositories with a lane each is already four; three tenths
-   fits four from ~880px and five from ~1050px, which is where the windows this
-   is actually used in sit. The 5% comes off the pane row, which is the trade
-   being made deliberately: a plan you have to scroll to read is worth less than
-   five percent of a list you already scroll.
-
-   It has to be `fit-content()` rather than the `min(25%, max-content)` that reads
-   more obviously: `min()` is a math function and takes numeric arguments only, so
-   a track breadth keyword inside one is a parse error that would drop this whole
-   declaration and leave the workspace with no explicit rows at all.
-   `fit-content(25%)` is defined as exactly the intended `min(max-content, 25%)` —
-   its other term, the automatic minimum size, is 0 here because `.roadmap-band`
-   sets `overflow: hidden`, so the cap is firm rather than advisory. */
+/* The workspace: the pane row, and nothing above it. The roadmap used to be a band
+   in a capped track over the panes; it is a takeover of its own now, so the
+   workspace has one row and it is the panes'. */
 .workspace {
     display: grid;
-    grid-template-rows: fit-content(30%) minmax(0, 1fr);
-    gap: var(--spacing-md);
+    grid-template-rows: minmax(0, 1fr);
     width: 100%;
     flex: 1 1 auto;
     min-height: 0;
     overflow: hidden;
 }
 
-/* No band on screen, so no track for one. This is the only variant the grid has,
-   because showing and hiding the band is binary: it is here at the height its
-   content measures, or it is not rendered. The two ways it goes — the feature
-   being off and the header toggle being off — are the same layout, so they are
-   the same modifier. */
-.workspace--no-roadmap {
-    grid-template-rows: minmax(0, 1fr);
-}
-
-/* A takeover: Tools or the Dashboard, filling everything below the header. The
+/* A takeover: the Roadmap, Tools or the Dashboard, filling everything below the header. The
    panel inside owns the scrollbar rather than this landmark, so the header — and
    the control that closes the surface — can never be scrolled out of reach. */
 .workspace-surface {
@@ -4207,20 +4231,19 @@ h1, h2, h3 {
     outline-offset: -2px;
 }
 
+/* The roadmap takeover. The view fills the surface, and the chart inside it owns the
+   scrollbar, so the heading and the filters stay on screen while the rows scroll. */
+.workspace-surface > .roadmap-band {
+    flex: 1 1 auto;
+}
+
 .roadmap-band {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-sm);
     min-width: 0;
     min-height: 0;
-    /* A band is wide and short, so the block axis is the scarce one. A pane's
-       --spacing-lg on all four sides spent 48px of the quarter the band is
-       capped at, which at a 620px-tall window was more than the content below
-       the heading had left. The block padding came down again once the chart went
-       in: 1rem top and bottom is another 16px of a quarter that has to hold an
-       axis and as many rows as it can, and the band's border and background
-       already separate it from the panes without help from whitespace. */
-    padding: var(--spacing-sm) var(--spacing-lg);
+    padding: var(--spacing-md) var(--spacing-lg);
     border: var(--border-width) solid var(--color-border);
     border-radius: var(--border-radius-lg);
     background: color-mix(in srgb, var(--color-background-alt) 82%, var(--color-background));
@@ -4228,7 +4251,23 @@ h1, h2, h3 {
     overflow: hidden;
 }
 
-/* The heading, and the one control that adds to the plan, on a line.
+/* The chart, and beside it the unplanned work. Two columns on a wide window, the
+   column a fixed reading width so the chart takes every rem that is left; with no
+   unplanned work there is one column and the chart takes all of it. */
+.roadmap-band__body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    gap: var(--spacing-lg);
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.roadmap-band__body--with-shelf {
+    grid-template-columns: minmax(0, 1fr) 22rem;
+}
+
+/* The heading, and the controls that add to the plan, on a line.
 
    Only drawn when there is no plan: with one, the same content is handed to
    RoadmapTimeline as its heading and lands in the chart's own header row, beside the
@@ -4241,9 +4280,6 @@ h1, h2, h3 {
     gap: var(--spacing-sm);
 }
 
-/* The eyebrow over the h2. A block of their own after all, because the header they
-   used to be the only children of now also holds a button that has to sit beside
-   both lines rather than under one of them. */
 .roadmap-band__title-lines {
     display: flex;
     flex-direction: column;
@@ -4268,51 +4304,37 @@ h1, h2, h3 {
     font-size: var(--font-size-lg);
 }
 
-/* The row the timeline is drawn in.
-
-   It used to own the scrollbar, which meant the heading scrolled away from the plan
-   it described. It no longer scrolls at all: the height it is given is passed
-   straight down to the chart, and the chart's own bordered frame is what scrolls
-   when a plan has more rows than a quarter of the window can show. So the heading
-   and the filters stay on screen, and the scrollbar appears inside the diagram —
-   next to the rows it is actually moving.
-
-   `align-content: stretch` and the single 1fr row are what hand the height down.
-   Left at `start` the chart would take its content height, overflow the band, and
-   be clipped by the band's `overflow: hidden` with no way to reach the rest. */
+/* The cell the timeline is drawn in. It does not scroll: the height it is given is
+   passed straight down to the chart, whose own bordered frame scrolls when a plan
+   has more rows than the screen can show. `minmax(0, 1fr)` rather than `1fr`,
+   because a track that cannot go below its content cannot be scrolled inside. */
 .roadmap-band__content {
     display: grid;
     grid-template-rows: minmax(0, 1fr);
     align-content: stretch;
-    flex: 1 1 auto;
+    min-width: 0;
     min-height: 0;
     overflow: hidden;
 }
 
-/* The chart, told to fill the band rather than size to its own content.
+/* The empty state takes its own height at the top of the cell rather than being
+   stretched down the whole surface. */
+.roadmap-band__content:has(> .roadmap-band__empty) {
+    grid-template-rows: auto auto;
+    align-content: start;
+    gap: var(--spacing-sm);
+}
 
-   Two rows: the header — heading and filters on one line — at the height it needs,
-   and the frame taking everything left over. `minmax(0, 1fr)` rather than `1fr`
-   because a grid track's automatic minimum is its content, and a track that cannot
-   go below its content cannot be scrolled inside.
-
-   Scoped to the band rather than changed in the library, for the same reason
-   `.roadmap-band__empty` is: a chart on a page should size to its content, and only
-   a band is short enough for that to be the wrong answer. */
+/* The chart, told to fill the cell rather than size to its own content: the header
+   at the height it needs, and the frame taking everything left over. */
 .roadmap-band__timeline {
     min-height: 0;
     grid-template-rows: auto minmax(0, 1fr);
-    gap: var(--spacing-xs);
-
-    /* Half a rem off the axis strip. It is a column heading reading "Q3 2026", not
-       a section header, and the library's 2.75rem gives it room this band does not
-       have to spare. One variable drives both the axis and the blank cell above the
-       row labels, so shortening it here keeps the two aligned. */
-    --roadmap-axis-height: 2.25rem;
+    gap: var(--spacing-sm);
 }
 
-/* The scrollbar the band no longer has, put where the rows are. A plan that fits
-   still shows none — `auto`, not `scroll`. */
+/* The scrollbar goes where the rows are. A plan that fits shows none — `auto`, not
+   `scroll`. */
 .roadmap-band__timeline .roadmap-timeline__frame {
     min-height: 0;
     overflow-y: auto;
@@ -4321,24 +4343,14 @@ h1, h2, h3 {
 
 /* The band label, stopped from setting the floor on a band's height.
 
-   It is written down the side, so its own length is a minimum: sixteen characters
-   of "JSdotNet/Backlog" wanted 138px whatever its three 32px rows wanted, which was
-   enough on its own to put a scrollbar in a band with room for every row. Labelling
-   bands with the shorter alias fixed the case in front of us; taking the label out
-   of flow fixes the next long one too. Absolute inside a relative group, stretched
-   to the rows' height, so the group is exactly as tall as its rows and a label with
-   nowhere to go is clipped by the `overflow: hidden` it already carries.
-
-   The whole sidebar is aria-hidden and every bar names its own band, so a clipped
-   label costs a sighted reader a few characters and costs a screen reader nothing. */
+   It is written down the side, so its own length is a minimum: a long repository
+   name would make a one-row band as tall as the name. Absolute inside a relative
+   group, stretched to the rows' height, so the group is exactly as tall as its rows
+   and a label with nowhere to go is clipped. The whole sidebar is aria-hidden and
+   every bar names its own band, so a clipped label costs a screen reader nothing. */
 .roadmap-band__timeline .roadmap-timeline__group {
     position: relative;
     min-height: 0;
-
-    /* Taking the label out of flow stopped it setting the group's height; it did not
-       stop the text inside it reaching past the bottom of a one-row group and being
-       counted as scrollable overflow, which put the scrollbar back 31px at a time.
-       Clipping at the group is what actually removes it. */
     overflow: hidden;
 }
 
@@ -4349,20 +4361,16 @@ h1, h2, h3 {
     width: var(--roadmap-band-width);
 
     /* Anchored to one end rather than centred, so a label with less room than it
-       wants loses its tail instead of both ends: "backlo" reads, "ckl" does not. */
+       wants loses its tail instead of both ends. */
     justify-content: flex-start;
 }
 
-/* The rows now sit to the right of a label that no longer takes part in the flex
-   row, so they need the space the label used to claim. */
 .roadmap-band__timeline .roadmap-timeline__group-rows {
     margin-left: var(--roadmap-band-width);
 }
 
-/* The chart's heading row, once it is carrying the band's own heading: the heading
-   and its add control at one end, the filters at the other, on one line. Centred
-   rather than baseline-aligned, because the filter controls are taller than the text
-   beside them and matching their baselines would push the heading down. */
+/* The chart's heading row, once it is carrying the view's own heading: the heading
+   and its add controls at one end, the filters at the other. */
 .roadmap-band__timeline .roadmap-timeline__header {
     align-items: center;
 }
@@ -4375,63 +4383,40 @@ h1, h2, h3 {
     gap: var(--spacing-sm);
 }
 
-/* Narrower than the library's 12rem default. There are three of these in a band
-   and no visible labels above them, so they need to read as a row of filters
-   rather than as three wide empty fields. */
 .roadmap-band__timeline .roadmap-timeline__filter {
     min-width: 9rem;
 }
 
-/* The placeholder, reshaped for a band.
-
-   The library's .empty-state is built for a large empty pane: --spacing-xl all
-   round and an --font-size-xl title come to 140px, and 140px does not fit in a
-   quarter of a short window once the band's own padding, border, header and gap
-   have taken their 92.5px. It did not truncate, it clipped out of existence —
-   the content box measured 28px against a 140px scroll height at a 620px
-   viewport and 0px at 450px, so "No roadmap yet" and its description were 0%
-   visible while the heading above them stayed put and read as a band over
-   nothing.
-
-   Overridden from here rather than corrected in the library, because the
-   library's shape is right everywhere else it is used; only a band is short.
-   Left-aligned for the same reason: a band is read across, and the timeline that
-   replaces this will start at its left edge, not in the middle of it. */
 .roadmap-band__empty {
-    padding: var(--spacing-sm) var(--spacing-md);
+    padding: var(--spacing-md);
     text-align: left;
 }
 
-.roadmap-band__empty .empty-state__title {
-    font-size: var(--font-size-base);
-    line-height: var(--line-height-tight);
-    margin-bottom: var(--spacing-2xs);
+/* The unplanned work, in its column. It scrolls on its own, so a long list never
+   pushes the chart off the surface and the chart never hides the list. */
+.roadmap-band__shelf {
+    min-height: 0;
+    overflow-y: auto;
+    padding-left: var(--spacing-lg);
+    border-left: var(--border-width) solid var(--color-border);
+    scrollbar-width: thin;
 }
 
-.roadmap-band__empty .empty-state__body {
-    margin-bottom: 0;
-    font-size: var(--font-size-sm);
+.roadmap-band__shelf .roadmap-shelf__list {
+    grid-template-columns: minmax(0, 1fr);
 }
 
-/* The shelf of imported plans with no item, under the chart. It keeps its own
-   height rather than sharing the chart's: the content row above takes whatever is
-   left, so a shelf that wraps to a second line shortens the chart by that line and
-   never pushes itself out of the band's clipped box. */
-.roadmap-band__shelf,
 .roadmap-band__shelf-news {
     flex: none;
-}
-
-.roadmap-band__shelf-news {
     margin: 0;
     font-size: var(--font-size-sm);
 }
 
 /* The planning dialog.
 
-   A dialog rather than a form inside the band, because the band spends all three
-   tenths of its height on the chart and a form unfolding in it would push the plan
-   being edited off screen. Two columns where two fields belong together — the two
+   A dialog rather than a form inside the roadmap, because the chart spends the
+   surface's height on its rows and a form unfolding in it would push the plan being
+   edited off screen. Two columns where two fields belong together — the two
    ends of a window, a priority and the lane it sits in — and one column for the rest,
    so the eye pairs what the plan pairs. */
 .roadmap-editor__fields {
@@ -5240,10 +5225,9 @@ h1, h2, h3 {
     position: sticky;
     top: var(--spacing-lg);
     align-self: stretch;
-    /* The pane row no longer starts below the header alone — the roadmap band can
-       sit above it — so a cap measured off the viewport overflows by however tall
-       the band is. The row is already a sized grid track, so its own height is the
-       honest ceiling. */
+    /* The pane row does not start below the header alone — the app-shell footer
+       sits below it — so a cap measured off the viewport overflows. The row is
+       already a sized grid track, so its own height is the honest ceiling. */
     max-height: 100%;
     overflow: auto;
 }
@@ -5265,8 +5249,8 @@ h1, h2, h3 {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-lg);
-    /* Same reason as the inbox pane above: the roadmap band can sit between the
-       header and this row, so a viewport-height cap overruns the row it is in. */
+    /* Same reason as the inbox pane above: a viewport-height cap overruns the row
+       it is in. */
     max-height: 100%;
     overflow: hidden;
 }
@@ -5436,13 +5420,28 @@ h1, h2, h3 {
 
 
 @media (max-width: 72rem) {
-    /* The band stays. Its track is capped at a quarter of the area below the
-       header at every width, so it cannot take the pane row's space here either —
-       what a narrow or short viewport makes small is the band itself. The padding
-       comes down so the heading still fits inside that smaller quarter rather
-       than being the first thing clipped out of it. */
+    /* The roadmap has no room for a column beside its chart, so the unplanned
+       work goes under it — capped, so the chart keeps most of the surface — and
+       the cards flow side by side again across the full width. */
     .roadmap-band {
         padding: var(--spacing-sm) var(--spacing-md);
+    }
+
+    .roadmap-band__body--with-shelf {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: minmax(0, 1fr) auto;
+    }
+
+    .roadmap-band__shelf {
+        max-height: 40vh;
+        padding-left: 0;
+        padding-top: var(--spacing-sm);
+        border-left: none;
+        border-top: var(--border-width) solid var(--color-border);
+    }
+
+    .roadmap-band__shelf .roadmap-shelf__list {
+        grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
     }
 
     .devbook-layout,
@@ -6124,9 +6123,8 @@ h1, h2, h3 {
     grid-auto-rows: max-content;
     gap: var(--spacing-sm);
     /* Same reason as the inbox pane and the side pane stack above: this no longer
-       starts below the header alone — the roadmap band can sit above it and the
-       app-shell footer now sits below it — so a cap measured off the viewport
-       overruns the row it is in by however tall those are, and
+       starts below the header alone — the app-shell footer sits below it — so a
+       cap measured off the viewport overruns the row it is in, and
        `.devbook-layout`'s `overflow: hidden` clips the bottom of the menu
        silently. The row is already a sized grid track, so its own height is the
        honest ceiling. */
@@ -6932,70 +6930,6 @@ h1, h2, h3 {
     border: var(--border-width) solid var(--color-border);
     border-radius: var(--border-radius-md);
     padding: var(--spacing-2xs);
-}
-
-/* --- The roadmap band on a short window ---------------------------------- */
-/*
-  Two steps down, both measured off the same arithmetic. The workspace is the
-  viewport less 105px of shell padding, shell gap and app header, and the band's
-  track is capped at three tenths of it, so the band has (viewport - 105) x 0.3
-  to fit its own content into.
-
-  Compacted, the band's content measures 145.5px: 32px block padding, 2px
-  border, 42.5px header, an 8px gap, and a 61px placeholder. Three tenths first
-  covers that at (145.5 / 0.3) + 105 = 590px, so anything shorter than ~37rem
-  clips the description again. Dropping it and tightening further brings the
-  band to 98.5px, first covered at (98.5 / 0.3) + 105 = 434px.
-
-  The two steps stay at 48rem and 34rem, where the old quarter put them at 43rem
-  and 31.2rem. Raising the cap only moved both thresholds down, so the existing
-  steps have more headroom than they were drawn with rather than less — and they
-  are steps this stylesheet's breakpoint ladder already uses on the inline axis,
-  which is worth more than retuning them to the nearest rem.
-*/
-
-@media (max-height: 48rem) {
-    /* One honest line of placeholder beats a clipped paragraph. The eyebrow, the
-       heading and the placeholder's own title all stay; only the sentence
-       explaining what will be drawn here goes, and it is the one thing on screen
-       that a user loses nothing by not reading twice. */
-    .roadmap-band {
-        padding-block: var(--spacing-sm);
-    }
-
-    .roadmap-band__empty {
-        padding-block: var(--spacing-xs);
-    }
-
-    .roadmap-band__empty .empty-state__title {
-        margin-bottom: 0;
-    }
-
-    .roadmap-band__empty .empty-state__body {
-        display: none;
-    }
-}
-
-@media (max-height: 34rem) {
-    /* Below this a quarter of the screen cannot hold even a heading plus a line,
-       and a band showing a heading over blank space reads as broken. So the band
-       goes, and its track goes with it: without collapsing the row and its gap
-       the pane row would keep working around an empty quarter it can no longer
-       see.
-
-       Unscoped, because the band has one on-screen size and this is the safety
-       net under it: there is no smaller state left for a short window to fall back
-       to, so either the whole band fits the quarter or it goes. The header toggle
-       is the route back, and it is in the app header rather than on the band, so
-       hiding the band here never hides the control that brings it back. */
-    .roadmap-band {
-        display: none;
-    }
-
-    .workspace {
-        grid-template-rows: minmax(0, 1fr);
-        row-gap: 0;
-    }
 }
 
 /* --------------------------------------------------------------------------

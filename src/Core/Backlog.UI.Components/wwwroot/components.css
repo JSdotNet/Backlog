@@ -3139,10 +3139,16 @@ button.md-check {
     flex: none;
 }
 
-/* Named by aria-label rather than by a visible word, the same as the gutter's
-   box — so the empty label span is dropped rather than left holding room. */
-.selection-bar__all .checkbox__label {
+/* Named by aria-label unless the host hands over a visible word — so an empty
+   label span is dropped rather than left holding room. */
+.selection-bar__all .checkbox__label:empty {
     display: none;
+}
+
+.selection-bar__all .checkbox__label {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    white-space: nowrap;
 }
 
 /* The count is the subject of the bar, so it carries the weight the acts beside
@@ -6215,6 +6221,14 @@ select.field__input {
     border: none;
     background: transparent;
     resize: none;
+    overflow-y: auto;
+}
+
+/* Only the growing box hides its overflow: its replica keeps it exactly as tall
+   as its text, so a scrollbar there would only ever flash in for the frame
+   before the track catches up. A fixed-height box (AutoGrow false) has a row
+   count, not a replica, and text past it has to stay reachable. */
+.grow-wrap.field__grow > .field__input {
     overflow: hidden;
 }
 
@@ -11712,7 +11726,7 @@ select.field__input {
     position: relative;
 }
 
-.roadmap-bar--has-steps .roadmap-bar__body {
+.roadmap-bar--has-progress .roadmap-bar__body {
     container-type: inline-size;
 }
 
@@ -11796,16 +11810,27 @@ select.field__input {
 }
 
 /* --- Roadmap plan shelf ---------------------------------------------------
-   Plans with work and no place on the timeline. One strip of rows that wrap, so
-   it costs a line or two of height rather than a panel beside a chart that is
-   already short of it. */
+   Plans with work and no place on the timeline, one card each. The cards flow
+   into as many columns as the host's width offers — one in a side column, several
+   under a wide chart — so the shelf never decides its own placement. */
 .roadmap-shelf {
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--spacing-xs) var(--spacing-md);
+    flex-direction: column;
+    gap: var(--spacing-sm);
     min-width: 0;
     font-size: var(--font-size-sm);
+}
+
+.roadmap-shelf__header {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+}
+
+.roadmap-shelf__title-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
 }
 
 .roadmap-shelf__title {
@@ -11822,10 +11847,26 @@ select.field__input {
     outline-offset: 2px;
 }
 
+.roadmap-shelf__count {
+    min-width: 1.25rem;
+    padding: 0 var(--spacing-2xs);
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-alt);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0;
+    text-align: center;
+}
+
+.roadmap-shelf__description {
+    margin: 0;
+    color: var(--color-text-secondary);
+}
+
 .roadmap-shelf__list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--spacing-xs) var(--spacing-md);
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+    gap: var(--spacing-sm);
     min-width: 0;
     margin: 0;
     padding: 0;
@@ -11834,17 +11875,64 @@ select.field__input {
 
 .roadmap-shelf__row {
     display: flex;
-    align-items: center;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    min-width: 0;
+    padding: var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background);
+}
+
+/* The tag and its action on one line, the tag taking what the button leaves and
+   wrapping rather than being cut: the tag is the plan's name, and a name cut short
+   is two plans that read alike. */
+.roadmap-shelf__row-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
     gap: var(--spacing-xs);
     min-width: 0;
 }
 
+.roadmap-shelf__tag {
+    max-width: none;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
 .roadmap-shelf__summary {
-    min-width: 0;
+    margin: 0;
     color: var(--color-text-secondary);
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    overflow: hidden;
+}
+
+/* One line per repository: its name, then its share. */
+.roadmap-shelf__parts {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    margin: 0;
+    padding: var(--spacing-xs) 0 0;
+    border-top: var(--border-width) solid var(--color-border);
+    list-style: none;
+}
+
+.roadmap-shelf__part {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.roadmap-shelf__repository {
+    min-width: 0;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.roadmap-shelf__part-figures {
+    flex: none;
+    color: var(--color-text-secondary);
 }
 
 /* While a drag is in flight the pointer belongs to the bar, not to the text

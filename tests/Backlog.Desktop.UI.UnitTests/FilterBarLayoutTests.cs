@@ -111,9 +111,12 @@ public sealed class FilterBarLayoutTests
     /// bar whole instead, one step down.
     /// </para>
     /// <para>
-    /// Its basis is zero because the bar wraps: at <c>auto</c> a long pile is as wide
-    /// as all its chips, which in a wrapping bar claims a row of its own and pushes
-    /// the statuses onto a third.
+    /// A zero basis rather than <c>auto</c>: the slack is what the other groups leave,
+    /// not a width it competes for. At <c>auto</c> a long pile shrank the statuses
+    /// too and clipped them through a chip's name; what the strip cannot fit now is
+    /// the More toggle's to reach.
+    /// And the bar wraps, where a pile at <c>auto</c> would claim a row of its own and
+    /// push the statuses onto a third.
     /// </para>
     /// </summary>
     [Fact]

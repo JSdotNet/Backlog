@@ -13,26 +13,65 @@ namespace Backlog.Modules.Devbook.Abstractions;
 /// </summary>
 public sealed record DevbookFolderSetting(string Key, string DisplayName, string DefaultRelativePath, bool SupportsPathOverride = true)
 {
+    /// <summary>The folder every section lives under in the devbook layout.</summary>
+    public const string DevbookRoot = ".devbook";
+
     public bool Enabled { get; init; } = true;
 
     /// <summary>Optional repository-relative or absolute override. Null means the
-    /// conventional folder at the repository root is used.</summary>
+    /// conventional folder is used: <see cref="DefaultRelativePath"/>, or
+    /// <see cref="LegacyRelativePath"/> in a repository that has not moved to
+    /// <c>.devbook/</c> yet.</summary>
     public string? Path { get; init; }
 
-    public string EffectivePath => string.IsNullOrWhiteSpace(Path) ? DefaultRelativePath : Path.Trim();
+    /// <summary>
+    /// Where the section sat at the repository root before the devbook layout —
+    /// <c>.arc42</c> for <c>.devbook/arc42</c> — or empty for a section with no
+    /// folder of its own.
+    /// <para>
+    /// Two jobs. It is the second place an unconfigured folder is looked for, so a
+    /// repository still on the root layout keeps working; and it stays the prefix
+    /// of every canonical chapter key, because remarks already filed against
+    /// <c>.arc42/…</c> are stored and synced values that a moved default must not
+    /// orphan.
+    /// </para>
+    /// </summary>
+    public string LegacyRelativePath { get; init; } = string.Empty;
+
+    /// <summary>The folder a resolution actually found, when that is not the one
+    /// <see cref="Path"/> or the default names — the legacy root folder. Set only
+    /// on the copy a <c>DevbookFolderLocation</c> carries; never stored.</summary>
+    public string? ResolvedPath { get; init; }
+
+    public string EffectivePath =>
+        ResolvedPath ?? (string.IsNullOrWhiteSpace(Path) ? DefaultRelativePath : Path.Trim());
+
+    /// <summary>The folders a resolution tries, in order: the override alone when
+    /// there is one, otherwise the devbook default and then the legacy root
+    /// folder.</summary>
+    public IReadOnlyList<string> CandidatePaths =>
+        !string.IsNullOrWhiteSpace(Path) || string.IsNullOrEmpty(LegacyRelativePath)
+            ? [EffectivePath]
+            : [DefaultRelativePath, LegacyRelativePath];
 
     public static List<DevbookFolderSetting> Defaults() =>
     [
         new("instructions", "Instructions", string.Empty, SupportsPathOverride: false),
-        new(".domain", "Domain", ".domain"),
-        new(".arc42", "Architecture", ".arc42"),
-        new(".tech", "Technology", ".tech"),
-        new(".design", "Design", ".design"),
+        Area("domain", "Domain"),
+        Area("arc42", "Architecture"),
+        Area("tech", "Technology"),
+        Area("design", "Design"),
         // The AI adoption record. Last, after the registry it links into: a `.ai`
         // chapter points at the `.tech` chapter for the tool under it, never the
         // other way round, so the folder reads after the one it depends on.
-        new(".ai", "AI", ".ai")
+        Area("ai", "AI")
     ];
+
+    /// <summary>A section keyed by its legacy root folder (the key is a stored
+    /// value, so it did not move) and defaulting to its folder under
+    /// <c>.devbook/</c>.</summary>
+    private static DevbookFolderSetting Area(string name, string displayName) =>
+        new($".{name}", displayName, $"{DevbookRoot}/{name}") { LegacyRelativePath = $".{name}" };
 
     public static List<DevbookFolderSetting> Normalize(IEnumerable<DevbookFolderSetting>? configured)
     {
@@ -59,7 +98,10 @@ public sealed record DevbookFolderSetting(string Key, string DisplayName, string
     /// written down rather than a choice somebody made — installed settings
     /// files carry one for every section — and it has to fold, or the row reads
     /// "Uses <c>.arc42</c>." where it should read "at the repository root" and
-    /// the next save writes the leftover straight back.
+    /// the next save writes the leftover straight back. The legacy root folder
+    /// folds too: resolution falls back to it on its own, and keeping it as an
+    /// override would pin a repository to the root layout after it moved to
+    /// <c>.devbook/</c>.
     /// </para>
     /// </summary>
     private static string? ConfiguredOverride(DevbookFolderSetting folder, string? configured)
@@ -75,9 +117,12 @@ public sealed record DevbookFolderSetting(string Key, string DisplayName, string
         // which the simple name would bind to first.
         if (string.IsNullOrEmpty(folder.DefaultRelativePath) || System.IO.Path.IsPathRooted(trimmed)) return trimmed;
 
-        return string.Equals(Comparable(trimmed), Comparable(folder.DefaultRelativePath), StringComparison.OrdinalIgnoreCase)
-            ? null
-            : trimmed;
+        var comparable = Comparable(trimmed);
+        var conventional = string.Equals(comparable, Comparable(folder.DefaultRelativePath), StringComparison.OrdinalIgnoreCase)
+            || (folder.LegacyRelativePath.Length > 0
+                && string.Equals(comparable, Comparable(folder.LegacyRelativePath), StringComparison.OrdinalIgnoreCase));
+
+        return conventional ? null : trimmed;
 
         // Both separators are folded to one rather than to
         // Path.DirectorySeparatorChar, because this compares two written paths

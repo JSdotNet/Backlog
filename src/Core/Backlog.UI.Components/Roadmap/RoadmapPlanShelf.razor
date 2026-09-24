@@ -2,39 +2,86 @@
     Plans that exist as work and have no place on the timeline yet, each with the
     one action that gives it one.
 
-    Compact on purpose: it sits beside a chart that is short of height, so it is one
-    labelled strip of rows that wrap, not a panel. With nothing to offer it renders
-    nothing at all — an empty shelf would be a heading announcing an absence.
+    A list of cards, one per plan, rather than one wrapping strip. A strip put the
+    tag, the figures, the repositories and the action of every plan on one line, and
+    a reader could not tell where one plan ended and the next began; a long tag was
+    cut short to make room. A card gives each plan its own box: the tag in full with
+    its action beside it, the totals under it, and — for a plan filed in more than
+    one repository — a line per repository with that repository's share, because a
+    plan spanning repositories is read as the part each of them has to do.
+
+    The host decides where the list sits and how wide it is; the cards only flow into
+    whatever columns the width offers. With nothing to offer it renders nothing at
+    all — an empty shelf would be a heading announcing an absence.
 
     The component reports which plan was picked and does no planning itself. What
-    happens next, and what gets announced, is the host's: the row that was planned
+    happens next, and what gets announced, is the host's: the card that was planned
     disappears when the host hands the shelf its next list, and a live region inside
-    the shelf would disappear with the last row, taking the news with it.
+    the shelf would disappear with the last card, taking the news with it.
 *@
 
 @if (Plans.Count > 0)
 {
     <section class="@ClassValue" aria-labelledby="@HeadingId" data-testid="@TestId">
-        @* tabindex -1 so focus has somewhere to land when the row it was on is gone:
-           the reader stays on the shelf, on its name, one Tab from the next row. *@
-        <h3 id="@HeadingId" class="roadmap-shelf__title" tabindex="-1" @ref="_heading">@Title</h3>
+        <header class="roadmap-shelf__header">
+            @* tabindex -1 so focus has somewhere to land when the card it was on is
+               gone: the reader stays on the shelf, on its name, one Tab from the next
+               card. *@
+            <div class="roadmap-shelf__title-row">
+                <h3 id="@HeadingId" class="roadmap-shelf__title" tabindex="-1" @ref="_heading">@Title</h3>
+                @* Hidden from a screen reader, which already hears how many items the
+                   list below holds. *@
+                <span class="roadmap-shelf__count" aria-hidden="true" data-testid="@($"{TestId}-count")">@Plans.Count</span>
+            </div>
+            @if (!string.IsNullOrWhiteSpace(Description))
+            {
+                <p class="roadmap-shelf__description">@Description</p>
+            }
+        </header>
 
         <ul class="roadmap-shelf__list">
             @foreach (var plan in Plans)
             {
                 <li class="roadmap-shelf__row" data-testid="@RowTestId(plan)" @key="plan.Tag">
-                    <TagChip Text="@("+" + plan.Tag)" CssClass="roadmap-shelf__tag" />
-                    <span class="roadmap-shelf__summary">@plan.Summary</span>
-                    <AppButton Variant="ButtonVariant.Secondary"
-                               Size="ButtonSize.Small"
-                               Busy="@string.Equals(Busy, plan.Tag, StringComparison.OrdinalIgnoreCase)"
-                               BusyLabel="@($"Planning +{plan.Tag}")"
-                               Disabled="@(Busy is not null)"
-                               OnClick="() => PlanAsync(plan)"
-                               aria-label="@($"Plan it: +{plan.Tag}")"
-                               TestId="@ActionTestId(plan)">
-                        Plan it
-                    </AppButton>
+                    <div class="roadmap-shelf__row-head">
+                        <TagChip Text="@("+" + plan.Tag)" CssClass="roadmap-shelf__tag" />
+                        <AppButton Variant="ButtonVariant.Secondary"
+                                   Size="ButtonSize.Small"
+                                   Busy="@string.Equals(Busy, plan.Tag, StringComparison.OrdinalIgnoreCase)"
+                                   BusyLabel="@($"Planning +{plan.Tag}")"
+                                   Disabled="@(Busy is not null)"
+                                   OnClick="() => PlanAsync(plan)"
+                                   aria-label="@($"Plan it: +{plan.Tag}")"
+                                   TestId="@ActionTestId(plan)">
+                            Plan it
+                        </AppButton>
+                    </div>
+
+                    <p class="roadmap-shelf__summary">@plan.Totals</p>
+
+                    @if (plan.PartList.Count > 0)
+                    {
+                        <ul class="roadmap-shelf__parts" aria-label="@($"+{plan.Tag} by repository")">
+                            @foreach (var part in plan.PartList)
+                            {
+                                <li class="roadmap-shelf__part" @key="part.Repository" data-testid="@PartTestId(plan, part.Repository)">
+                                    <span class="roadmap-shelf__repository">@part.Repository</span>
+                                    <span class="roadmap-shelf__part-figures">@part.Totals</span>
+                                </li>
+                            }
+                        </ul>
+                    }
+                    else if (plan.Repositories.Count > 0)
+                    {
+                        <ul class="roadmap-shelf__parts" aria-label="@($"+{plan.Tag} repositories")">
+                            @foreach (var repository in plan.Repositories)
+                            {
+                                <li class="roadmap-shelf__part" @key="repository" data-testid="@PartTestId(plan, repository)">
+                                    <span class="roadmap-shelf__repository">@repository</span>
+                                </li>
+                            }
+                        </ul>
+                    }
                 </li>
             }
         </ul>
@@ -59,7 +106,11 @@
     public string? Busy { get; set; }
 
     [Parameter]
-    public string Title { get; set; } = "Imported plans not on the roadmap";
+    public string Title { get; set; } = "Unplanned work";
+
+    /// <summary>A sentence under the title saying what the list is. Null for none.</summary>
+    [Parameter]
+    public string? Description { get; set; } = "Imported plans whose tasks are in the backlog but that have no place on the roadmap yet.";
 
     [Parameter]
     public string HeadingId { get; set; } = "roadmap-shelf-title";
@@ -75,6 +126,8 @@
     private string RowTestId(RoadmapShelfPlan plan) => $"{TestId}-row-{plan.Tag}";
 
     private string ActionTestId(RoadmapShelfPlan plan) => $"{TestId}-plan-{plan.Tag}";
+
+    private string PartTestId(RoadmapShelfPlan plan, string repository) => $"{TestId}-part-{plan.Tag}-{repository}";
 
     private async Task PlanAsync(RoadmapShelfPlan plan)
     {
