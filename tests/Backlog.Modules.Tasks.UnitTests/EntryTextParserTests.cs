@@ -1764,5 +1764,24 @@ public class EntryTextParserTests
         Assert.Equal(EntryKind.Task, parsed.Kind);
         Assert.Equal(EntryType.Task, parsed.Type);
     }
+
+    /// <summary>The lines a cascading status writes under the steps are exactly
+    /// what comes off: a round trip through WithStatus and back leaves the body
+    /// as it was written, fence and all.</summary>
+    [Fact]
+    public void Taking_off_step_metadata_lines_undoes_a_cascading_status()
+    {
+        const string body =
+            "Do the first thing.\n\n"
+            + "```\n## Not a step\n`task` `!ready`\n```\n\n"
+            + "## Setup: install the plugin\n\nInstall it.\n\n"
+            + "### Update the devbook";
+
+        var cascaded = EntryTextParser.Parse(
+            EntryTextParser.WithStatus($"# First prompt\n`prompt` `!ready`\n\n{body}\n", EntryStatus.InProgress, cascadeSubItems: true)).Body;
+
+        Assert.Contains("`task` `*medium` `!in-progress`", cascaded, StringComparison.Ordinal);
+        Assert.Equal(body, EntryTextParser.WithoutSubItemMetaLines(cascaded).Trim());
+    }
 }
 
