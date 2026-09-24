@@ -318,3 +318,91 @@ public sealed record SessionsPayload(
     bool Capped,
     IReadOnlyList<string> Unreadable,
     IReadOnlyList<SessionPayload> Sessions);
+
+/*
+    The delivery surface's answers, and the three shapes its one rich argument
+    takes.
+
+    Inputs get project-local records here for the same reason answers do. The
+    preamble above argues it about answers because that was all this file held,
+    but the hazard is the argument's: a module DTO accepted as a tool parameter
+    is a published schema a caller has already been given, and the module is free
+    to reshape it for its own screens. An engine that wrote `update_stage` against
+    last month's schema is exactly the caller that cannot be told it moved.
+*/
+
+/// <summary>What <c>open_dashboard</c> did.</summary>
+/// <param name="Activation">The member name of the activation — <c>Shown</c>,
+/// <c>Unattached</c> or <c>Disabled</c> — never its ordinal.</param>
+/// <param name="Answer">The sentence to report, already written for a person.
+/// It carries the reason an unattached or switched-off surface gives, which is
+/// the part a caller is expected to pass on rather than summarize.</param>
+public sealed record SurfaceOpenedPayload(string Activation, string Answer);
+
+/// <summary>What <c>start_run</c> answered.</summary>
+/// <param name="Resumed">True when this reattached to a run already under way
+/// rather than starting one. A caller that ignores it restarts a flow from its
+/// first stage and redoes work the run has already recorded as done.</param>
+/// <param name="SessionTitle">A title the host may set on the session, where the
+/// run has one to suggest, else null.</param>
+public sealed record RunStartedPayload(string RunId, bool Resumed, string? SessionTitle);
+
+/// <summary>What <c>update_stage</c> answered.</summary>
+/// <param name="DoneCount">How many times this stage has completed. It
+/// increments on every transition to <c>done</c>, so a second pass after
+/// requested changes is visible rather than indistinguishable from the
+/// first.</param>
+public sealed record StageUpdatedPayload(
+    string RunId,
+    int StageIndex,
+    string Status,
+    int DoneCount,
+    string? SessionTitle);
+
+/// <summary>One stage of a run, as a session reads it back.</summary>
+public sealed record RunStagePayload(string Name, string Status, long? DurationMs, int DoneCount);
+
+/// <summary>
+/// One run, as a session reads it back.
+/// <para>
+/// Deliberately less than the pane shows. The run a flow reads back is the one
+/// it is driving, and what it needs is what it is and where it has got to —
+/// while token usage, the context gauge and the per-tool insight are measured by
+/// watching a session's own tool calls, never authored. Handing those figures to
+/// the author invites them into a summary as if the run had claimed them, which
+/// is the one thing the engine's contract says a summary must never do.
+/// </para>
+/// </summary>
+/// <param name="InProgress">Whether the run is still open. Derived from
+/// <paramref name="Status"/> and carried anyway, so a caller does not have to
+/// know which spelling of it counts.</param>
+/// <param name="SessionIds">The sessions that drove the run, where the writer
+/// recorded any.</param>
+public sealed record RunPayload(
+    string Id,
+    string Worktree,
+    string SkillId,
+    string Title,
+    string Status,
+    string? ChangeKind,
+    bool InProgress,
+    DateTimeOffset? StartedAt,
+    DateTimeOffset UpdatedAt,
+    IReadOnlyList<RunStagePayload> Stages,
+    IReadOnlyList<string> SessionIds);
+
+/// <summary>The runs of one worktree.</summary>
+public sealed record RunsPayload(string Worktree, int Count, IReadOnlyList<RunPayload> Runs);
+
+/// <summary>A link to show against a stage — the started application, a review
+/// target — so a gate renders a button rather than asking a person to copy a
+/// command.</summary>
+public sealed record StageLinkInput(string? Label, string? Url, string? Description);
+
+/// <summary>One QA scenario and how it went.</summary>
+/// <param name="Evidence">Paths to the evidence that settles it, relative to the
+/// worktree the run is in.</param>
+public sealed record ScenarioInput(string Name, string Status, string? Notes, IReadOnlyList<string>? Evidence);
+
+/// <summary>What a runtime monitor observed while a stage ran.</summary>
+public sealed record MonitoringInput(string? Summary, IReadOnlyList<string>? Findings);

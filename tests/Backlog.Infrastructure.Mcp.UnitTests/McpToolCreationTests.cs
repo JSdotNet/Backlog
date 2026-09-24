@@ -46,7 +46,9 @@ public class McpToolCreationTests
         DevbookTools.ListKnowledgeContexts,
         DevbookTools.ReadKnowledgeChapter,
         DevbookTools.ListAnnotations,
-        SessionTools.ListSessions
+        SessionTools.ListSessions,
+        SurfaceTools.ListRuns,
+        SurfaceTools.GetRun
     ];
 
     /// <summary>
@@ -123,9 +125,15 @@ public class McpToolCreationTests
             [
                 TrackerTools.Comment,
                 TrackerTools.CreateItem,
+                SurfaceTools.FinishRun,
                 TrackerTools.LinkChange,
+                SurfaceTools.OpenDashboard,
+                SurfaceTools.RecordPrompt,
                 DevbookTools.ResolveAnnotation,
-                TrackerTools.Transition
+                SurfaceTools.SetRunContext,
+                SurfaceTools.StartRun,
+                TrackerTools.Transition,
+                SurfaceTools.UpdateStage
             ],
             [.. writers]);
     }
@@ -174,6 +182,23 @@ public class McpToolCreationTests
         // from the schema: a model has to be told the narrowing exists to use it.
         Assert.Equal(["repository"], schemas["list_sessions"]);
         Assert.DoesNotContain("repository", Required(Tools().Single(tool => tool.ProtocolTool.Name == "list_sessions")));
+
+        // The surface is addressed by worktree rather than by repository, so
+        // every operation but one opens with it. open_dashboard is the one: there
+        // is a single application and it is either showing the pane or it is not,
+        // which is why its schema asks for nothing at all.
+        Assert.Empty(schemas["open_dashboard"]);
+        Assert.Equal(["worktree", "skillId", "title", "stages", "changeKind", "sessionId"], schemas["start_run"]);
+        Assert.Equal(["worktree", "runId", "prompt", "kind", "label"], schemas["record_prompt"]);
+        Assert.Equal(
+            ["worktree", "runId", "changeKind", "approval", "approvalNote", "model"],
+            schemas["set_run_context"]);
+        Assert.Equal(
+            ["worktree", "runId", "stageIndex", "status", "output", "links", "scenarios", "monitoring"],
+            schemas["update_stage"]);
+        Assert.Equal(["worktree", "runId", "status", "summary"], schemas["finish_run"]);
+        Assert.Equal(["worktree"], schemas["list_runs"]);
+        Assert.Equal(["worktree", "runId"], schemas["get_run"]);
     }
 
     private static IEnumerable<McpServerTool> Tools()
@@ -191,7 +216,8 @@ public class McpToolCreationTests
                 new FakeRepositoryDirectory()),
             [typeof(SessionTools)] = new SessionTools(
                 new FakeAgentSessionSource(AgentSessionCatalog.Empty),
-                new FakeRepositoryDirectory())
+                new FakeRepositoryDirectory()),
+            [typeof(SurfaceTools)] = new SurfaceTools(new FakeDeliverySurfaceLifecycle())
         };
 
         foreach (var group in BacklogMcpTools.Groups)

@@ -7,8 +7,15 @@ using Backlog.SharedKernel;
 namespace Backlog.Infrastructure.Mcp;
 
 /// <summary>
-/// The thirteen tools, the five groups they come in, and the feature key each
-/// group answers to.
+/// Every tool this assembly publishes, the groups they come in, and the feature
+/// key each group answers to.
+///
+/// <para>
+/// No count in this sentence, deliberately: it said "thirteen" while
+/// <see cref="ToolNames"/> held fourteen, because a number here is a second
+/// statement of something the table below already makes — and the table is the
+/// one the tests read. <see cref="ToolNames"/> is the count.
+/// </para>
 /// <para>
 /// Seven of them read and six of those are all there used to be — the assembly
 /// was read-only until the tracker operations arrived, and several docs under it
@@ -141,8 +148,43 @@ public static class BacklogMcpTools
         typeof(SessionTools),
         [SessionTools.ListSessions]);
 
+    /// <summary>
+    /// The delivery surface — the eight operations of
+    /// <c>delivery.surface.lifecycle@1</c> — behind <c>sessions</c>, the same key
+    /// <see cref="Sessions"/> reads.
+    /// <para>
+    /// <b>The shared key is the decision.</b> Local ADR 0012 §7 asks for one
+    /// feature check per group, each group behind its own context's flag, and the
+    /// delivery surface is the Sessions context: the port lives in that module's
+    /// abstractions and a run it records is drawn in the pane that key already
+    /// gates. Somebody switching the sessions inventory off means "Backlog is not
+    /// where I watch my agents work", which is as true of a run reported into it
+    /// as of a session read off the disk. <see cref="Work"/> and
+    /// <see cref="Tracker"/> are the precedent and the argument is the same one:
+    /// a key names a switchable area, not a class.
+    /// </para>
+    /// <para>
+    /// A separate group rather than eight more tools on <see cref="SessionTools"/>
+    /// because they are a different port and a different question — that class
+    /// reads what agents left on this machine, these write what a flow is doing
+    /// now — and because the tools of one group are constructed from one class.
+    /// </para>
+    /// <para>
+    /// The names come from <c>DeliverySurfaceOperations.All</c> rather than being
+    /// listed again here. They are a wire contract with the engine, matched
+    /// against a live tool list by a flow this repository does not ship; one
+    /// spelling of them, in the module that owns the capability, is what keeps
+    /// the catalog, the attributes and the contract from drifting apart in
+    /// threes.
+    /// </para>
+    /// </summary>
+    public static McpToolGroup Surface { get; } = new(
+        SessionFeatures.Sessions,
+        typeof(SurfaceTools),
+        DeliverySurfaceOperations.All);
+
     /// <summary>Every group, in the order a host should register them.</summary>
-    public static IReadOnlyList<McpToolGroup> Groups { get; } = [Work, Tracker, Roadmap, Devbook, Sessions];
+    public static IReadOnlyList<McpToolGroup> Groups { get; } = [Work, Tracker, Roadmap, Devbook, Sessions, Surface];
 
     /// <summary>Every tool name this library publishes. What a <c>tools/list</c>
     /// with every flag on has to come back with.</summary>

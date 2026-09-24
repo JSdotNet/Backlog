@@ -7,6 +7,7 @@ using System.Net.Http.Json;
 using Backlog.Desktop.UI.Extensions;
 using Backlog.Desktop.UI.Shell;
 using Backlog.Infrastructure.Mcp;
+using Backlog.Modules.Sessions.Abstractions;
 using Backlog.SharedKernel;
 
 using Microsoft.AspNetCore.Hosting;
@@ -46,7 +47,7 @@ public class McpEndpointGateTests
     /// <summary>Development for the reason <see cref="WebHarnessHostTests"/>
     /// gives — it is the only environment where the provider validates — plus the
     /// feature switches this class needs to decide.</summary>
-    private sealed class Harness(bool mcpServer) : WebApplicationFactory<DesktopHarness::Program>
+    private sealed class Harness(bool mcpServer, bool sessions = true) : WebApplicationFactory<DesktopHarness::Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
@@ -55,15 +56,23 @@ public class McpEndpointGateTests
             // After the harness's own registration, so this is the one resolved:
             // the last registration of a service wins.
             builder.ConfigureServices(services =>
-                services.AddSingleton<IAppFeatureSettings>(new FixedFeatures(mcpServer)));
+                services.AddSingleton<IAppFeatureSettings>(new FixedFeatures(mcpServer, sessions)));
         }
     }
 
     /// <summary>Hand-rolled, because this repository uses no mocking library.
-    /// Every key but the one under test answers true, so a gate that read the
+    /// Every key but the two under test answers true, so a gate that read the
     /// wrong key would let the request through and fail the first test
-    /// here.</summary>
-    private sealed class FixedFeatures(bool mcpServer) : IAppFeatureSettings
+    /// here.
+    /// <para>
+    /// The sessions key is separate from the endpoint's own because they gate
+    /// different things: <c>mcp-server</c> decides whether there is an endpoint
+    /// at all, and a context's key decides which of its tools that endpoint
+    /// lists. Both have to be switchable here to tell one from the other — an
+    /// absent tool and an absent endpoint look alike from the far side of an
+    /// HTTP call.
+    /// </para></summary>
+    private sealed class FixedFeatures(bool mcpServer, bool sessions = true) : IAppFeatureSettings
     {
         public event Action? Changed;
 
@@ -71,8 +80,12 @@ public class McpEndpointGateTests
 
         public string SettingsPath => "(replaced for this test)";
 
-        public bool IsEnabled(string key) =>
-            string.Equals(key, AppFeatures.McpServer, StringComparison.Ordinal) ? mcpServer : true;
+        public bool IsEnabled(string key) => key switch
+        {
+            _ when string.Equals(key, AppFeatures.McpServer, StringComparison.Ordinal) => mcpServer,
+            _ when string.Equals(key, SessionFeatures.Sessions, StringComparison.Ordinal) => sessions,
+            _ => true
+        };
 
         public string? SetEnabled(string key, bool enabled)
         {
@@ -284,6 +297,87 @@ public class McpEndpointGateTests
         // call resolving out of the first request's scope says so in these words.
         Assert.DoesNotContain("ObjectDisposedException", second, StringComparison.Ordinal);
         Assert.DoesNotContain("disposed", second, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// The delivery engine resolves a surface by matching operation names against
+    /// the live tool list, so what this asserts is the whole of what makes
+    /// Backlog bindable as one: the eight names of
+    /// <c>delivery.surface.lifecycle@1</c>, over the real endpoint, in a
+    /// <c>tools/list</c>.
+    /// <para>
+    /// The capability had been implemented and tested behind
+    /// <c>IDeliverySurfaceLifecycle</c> for as long as the run store has existed,
+    /// and none of that was reachable: with no tool under these names a flow
+    /// found nothing, reported "no surface bound" — a normal outcome, which is
+    /// why it was silent — and fell through to a dashboard. A unit test over the
+    /// catalog would not have caught it either, because the catalog was not where
+    /// it was missing.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task The_delivery_surface_is_listed_while_its_feature_is_on()
+    {
+        await using var harness = new Harness(mcpServer: true);
+        using var client = harness.CreateClient();
+
+        var body = await ListToolsAsync(client);
+
+        Assert.All(
+            DeliverySurfaceOperations.All,
+            operation => Assert.Contains($"\"{operation}\"", body, StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// And the other half of local ADR 0012 §7: a group whose area is switched
+    /// off is <em>absent</em> from the list rather than present and refusing. The
+    /// surface shares the sessions key with <c>list_sessions</c>, so both go, and
+    /// the tools of every other area stay — which is what tells a feature gate
+    /// from a broken endpoint.
+    /// </summary>
+    [Fact]
+    public async Task The_delivery_surface_is_absent_while_its_feature_is_off()
+    {
+        await using var harness = new Harness(mcpServer: true, sessions: false);
+        using var client = harness.CreateClient();
+
+        var body = await ListToolsAsync(client);
+
+        Assert.All(
+            DeliverySurfaceOperations.All,
+            operation => Assert.DoesNotContain($"\"{operation}\"", body, StringComparison.Ordinal));
+
+        Assert.DoesNotContain($"\"{BacklogMcpTools.Sessions.ToolNames.Single()}\"", body, StringComparison.Ordinal);
+
+        // The endpoint is answering and the other areas are listed: the eight are
+        // missing because the switch says so, not because nothing was published.
+        Assert.All(
+            BacklogMcpTools.Tracker.ToolNames,
+            tool => Assert.Contains($"\"{tool}\"", body, StringComparison.Ordinal));
+    }
+
+    /// <summary>A stateless <c>tools/list</c>, as its body. The transport this
+    /// harness maps is stateless, so there is no session to establish
+    /// first.</summary>
+    private static async Task<string> ListToolsAsync(HttpClient client)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, BacklogMcpServerRegistration.EndpointPath)
+        {
+            Content = JsonContent.Create(new { jsonrpc = "2.0", id = 1, method = "tools/list" })
+        };
+
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/event-stream"));
+
+        using var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+
+        var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(
+            response.IsSuccessStatusCode,
+            $"tools/list answered {(int)response.StatusCode} {response.StatusCode}. Body:\n{body}");
+
+        return body;
     }
 
     /// <summary>One <c>tools/call</c> on an established session, as its body.

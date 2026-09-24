@@ -39,14 +39,28 @@ public class BacklogMcpToolsTests
                 "read_knowledge_chapter",
                 "list_annotations",
                 "resolve_annotation",
-                "list_sessions"
+                "list_sessions",
+
+                // The delivery surface's eight, in the order the engine's
+                // capability lists them. Spelled out here rather than deferred to
+                // DeliverySurfaceOperations.All, which is what the catalog itself
+                // uses: a test that asserted the catalog equals the constant the
+                // catalog is built from would assert nothing.
+                "open_dashboard",
+                "start_run",
+                "record_prompt",
+                "set_run_context",
+                "update_stage",
+                "finish_run",
+                "list_runs",
+                "get_run"
             ],
             BacklogMcpTools.ToolNames);
     }
 
     /// <summary>
     /// One check per group, each group behind the flag of the area it belongs to
-    /// (local ADR 0012 §7). Five groups over four bounded contexts, and the
+    /// (local ADR 0012 §7). Six groups over four bounded contexts, and the
     /// roadmap is one of them: it has a key of its own and a person switching it
     /// off has switched off the thing that tool reads.
     /// </summary>
@@ -58,11 +72,12 @@ public class BacklogMcpToolsTests
         Assert.Equal(RoadmapFeatures.Roadmap, BacklogMcpTools.Roadmap.FeatureKey);
         Assert.Equal(DevbookFeatures.RepositoryDevbook, BacklogMcpTools.Devbook.FeatureKey);
         Assert.Equal(SessionFeatures.Sessions, BacklogMcpTools.Sessions.FeatureKey);
+        Assert.Equal(SessionFeatures.Sessions, BacklogMcpTools.Surface.FeatureKey);
     }
 
     /// <summary>
-    /// The two task groups read one key, and that is the decision rather than a
-    /// duplicate to be cleaned up.
+    /// Two pairs of groups read one key each, and that is the decision rather
+    /// than a duplicate to be cleaned up.
     /// <para>
     /// This used to assert that every group's key was distinct, which read §7's
     /// "one check per group" as "one group per key". They are different
@@ -74,12 +89,19 @@ public class BacklogMcpToolsTests
     /// is for, which is what a model reads.
     /// </para>
     /// <para>
+    /// The sessions key is the second pair and the same argument: reading what
+    /// agents left on this machine and recording what a flow is doing on it now
+    /// are one area, drawn in one pane, behind one switch. Somebody switching
+    /// sessions off means "Backlog is not where I watch my agents work", which
+    /// does not stop at the reads.
+    /// </para>
+    /// <para>
     /// What does still hold is that no key crosses a bounded context: the keys
-    /// the five groups name are four, one per context that answers here.
+    /// the six groups name are four, one per context that answers here.
     /// </para>
     /// </summary>
     [Fact]
-    public void The_two_task_groups_share_the_tasks_key_and_nothing_else_shares_one()
+    public void Groups_share_a_key_only_where_they_are_one_area()
     {
         var byKey = BacklogMcpTools.Groups
             .GroupBy(group => group.FeatureKey, StringComparer.Ordinal)
@@ -91,8 +113,16 @@ public class BacklogMcpToolsTests
             [BacklogMcpTools.Work, BacklogMcpTools.Tracker],
             byKey[TasksFeatures.Tasks]);
 
+        Assert.Equal(
+            [BacklogMcpTools.Sessions, BacklogMcpTools.Surface],
+            byKey[SessionFeatures.Sessions]);
+
+        // Every other key is one group's. Named as the two pairs rather than
+        // asserted as "at most two share", so adding a third group to a key is a
+        // failing test that asks for the reason to be written down here — which
+        // is the whole of what this assertion is for.
         Assert.All(
-            byKey.Where(pair => pair.Key != TasksFeatures.Tasks),
+            byKey.Where(pair => pair.Key != TasksFeatures.Tasks && pair.Key != SessionFeatures.Sessions),
             pair => Assert.Single(pair.Value));
 
         // And two groups are two classes, which is what keeps the registration
@@ -139,13 +169,14 @@ public class BacklogMcpToolsTests
     /// <b>Idempotency is a fact about each tool, not a property of writing.</b>
     /// Resolving an already-resolved note is the state it is already in, and
     /// moving an entry to the status it already has saves nothing — both are safe
-    /// to repeat. The other three are not, and say so:
+    /// to repeat. The three beside them are not, and say so:
     /// <c>TaskItem.AddProjectionRef</c> appends without looking, so a repeated
     /// <c>link_change</c> leaves two identical projections, a repeated
     /// <c>comment</c> leaves two dated lines, and <c>create_item</c> creates a
     /// second entry. A blanket "a write is idempotent" would be the kind of
-    /// true-of-one-tool rule that invites a client to retry the three it is false
-    /// for.
+    /// true-of-one-tool rule that invites a client to retry the ones it is false
+    /// for. The surface's six split the same way and for reasons just as
+    /// particular — the list below says which and why.
     /// </para>
     /// <para>
     /// Nothing declares itself destructive, there being no delete tool here to
@@ -163,12 +194,32 @@ public class BacklogMcpToolsTests
             TrackerTools.Transition,
             TrackerTools.Comment,
             TrackerTools.LinkChange,
-            TrackerTools.CreateItem
+            TrackerTools.CreateItem,
+            SurfaceTools.OpenDashboard,
+            SurfaceTools.StartRun,
+            SurfaceTools.RecordPrompt,
+            SurfaceTools.SetRunContext,
+            SurfaceTools.UpdateStage,
+            SurfaceTools.FinishRun
         ];
 
-        // The writes a client may safely repeat. Two of five, and which two is
-        // not guessable from the verb.
-        string[] repeatable = [DevbookTools.ResolveAnnotation, TrackerTools.Transition];
+        // The writes a client may safely repeat, and which ones is not guessable
+        // from the verb. On the surface: showing a pane that is already showing
+        // changes nothing, start_run reattaches rather than starting a second
+        // run, set_run_context overwrites the fields it is given, and finish_run
+        // closes a run that is already closed to the same place. The two that are
+        // not: record_prompt appends, and update_stage counts every transition to
+        // done — a stage re-run after requested changes has to read as a second
+        // pass rather than a retry of the first.
+        string[] repeatable =
+        [
+            DevbookTools.ResolveAnnotation,
+            TrackerTools.Transition,
+            SurfaceTools.OpenDashboard,
+            SurfaceTools.StartRun,
+            SurfaceTools.SetRunContext,
+            SurfaceTools.FinishRun
+        ];
 
         var seen = new List<string>();
 

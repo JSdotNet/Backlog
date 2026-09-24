@@ -97,4 +97,60 @@ internal static class Projections
         session.State.ToString(),
         session.TurnCount,
         session.Origin.ToString());
+
+    internal static SurfaceOpenedPayload SurfaceOpened(DeliverySurfaceOpened opened) => new(
+        // The member name, never the ordinal: DeliverySurfaceActivation's own
+        // doc calls its order load-bearing, which is exactly the kind of enum a
+        // number silently re-points the day somebody inserts a member.
+        opened.Activation.ToString(),
+        opened.Answer);
+
+    internal static RunStartedPayload RunStarted(DeliveryRunStarted started) => new(
+        started.RunId,
+        started.Resumed,
+        started.SessionTitle);
+
+    internal static StageUpdatedPayload StageUpdated(DeliveryStageUpdated updated) => new(
+        updated.RunId,
+        updated.StageIndex,
+        updated.Status,
+        updated.DoneCount,
+        updated.SessionTitle);
+
+    internal static RunPayload Run(DeliveryRun run) => new(
+        run.Id,
+        run.Worktree,
+        run.SkillId,
+        run.Title,
+        run.Status,
+        run.ChangeKind,
+        run.InProgress,
+        run.StartedAt,
+        run.UpdatedAt,
+        [.. run.Stages.Select(stage => new RunStagePayload(stage.Name, stage.Status, stage.DurationMs, stage.DoneCount))],
+        run.SessionIds);
+
+    internal static RunsPayload Runs(string worktree, IReadOnlyList<DeliveryRun> runs) => new(
+        worktree,
+        runs.Count,
+        [.. runs.Select(Run)]);
+
+    /// <summary>The argument records as the port's own. Null stays null rather
+    /// than becoming an empty list: the port reads absent as "this call says
+    /// nothing about links" and an empty list as "there are none", and a stage
+    /// updated for its status alone must not erase the links an earlier call set.</summary>
+    internal static IReadOnlyList<DeliveryStageLink>? StageLinks(IReadOnlyList<StageLinkInput>? links) =>
+        links is null ? null : [.. links.Select(link => new DeliveryStageLink(link.Label, link.Url, link.Description))];
+
+    internal static IReadOnlyList<DeliveryScenario>? Scenarios(IReadOnlyList<ScenarioInput>? scenarios) =>
+        scenarios is null
+            ? null
+            : [.. scenarios.Select(scenario => new DeliveryScenario(
+                scenario.Name,
+                scenario.Status,
+                scenario.Notes,
+                scenario.Evidence))];
+
+    internal static DeliveryMonitoring? Monitoring(MonitoringInput? monitoring) =>
+        monitoring is null ? null : new DeliveryMonitoring(monitoring.Summary, monitoring.Findings);
 }
