@@ -11,6 +11,9 @@ namespace Backlog.Infrastructure.Mcp.UnitTests;
 /// </summary>
 internal sealed class FakeRoadmapPlanning(RoadmapPlanDto plan) : IRoadmapPlanning
 {
+    // Nothing here writes, so there is never a change to announce.
+    public event Action? Changed { add { } remove { } }
+
     public Task<RoadmapPlanDto> GetPlanAsync(CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();

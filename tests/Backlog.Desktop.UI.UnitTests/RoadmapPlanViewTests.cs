@@ -166,6 +166,87 @@ public class RoadmapPlanViewTests
     }
 
     [Fact]
+    public void WorkThatOverlapsInOneLane_IsStackedOnRowsOfItsOwn_SoNoBarHidesAnother()
+    {
+        // Three imported plans in the default lane, every window overlapping the
+        // other two: each needs a row of its own.
+        var view = RoadmapPlanView.From(
+            Plan(
+            [
+                Item("A", startDay: 5, endDay: 16, repositories: ["backlog"]),
+                Item("C", startDay: 5, endDay: 9, repositories: ["backlog"]),
+                Item("B", startDay: 8, endDay: 30, repositories: ["backlog"])
+            ]),
+            Configured);
+
+        var rows = Assert.Single(view.Groups).RowList;
+        Assert.Equal(["Planned", "Planned", "Planned"], rows.Select(row => row.Title));
+        Assert.Equal(3, rows.Select(row => row.Id).Distinct().Count());
+
+        // Every bar is on a row the chart draws, and no two bars sharing a row overlap.
+        Assert.All(view.Bars, bar => Assert.Contains(bar.RowId, rows.Select(row => row.Id)));
+        foreach (var row in view.Bars.GroupBy(bar => bar.RowId))
+        {
+            var ordered = row.OrderBy(bar => bar.Start).ToList();
+            for (var index = 1; index < ordered.Count; index++)
+            {
+                Assert.True(ordered[index].Start > ordered[index - 1].End, $"{ordered[index - 1].Title} and {ordered[index].Title} overlap on {row.Key}");
+            }
+        }
+    }
+
+    [Fact]
+    public void WorkThatDoesNotOverlap_SharesItsLanesRow()
+    {
+        var view = RoadmapPlanView.From(
+            Plan(
+            [
+                Item("First", startDay: 5, endDay: 9, repositories: ["backlog"]),
+                Item("Second", startDay: 12, endDay: 16, repositories: ["backlog"]),
+                Item("Third", startDay: 10, endDay: 11, repositories: ["backlog"])
+            ]),
+            Configured);
+
+        var row = Assert.Single(Assert.Single(view.Groups).RowList);
+        Assert.All(view.Bars, bar => Assert.Equal(row.Id, bar.RowId));
+    }
+
+    [Fact]
+    public void AStackedRowIsReused_OnceTheWorkOnItHasEnded()
+    {
+        var view = RoadmapPlanView.From(
+            Plan(
+            [
+                Item("Long", startDay: 5, endDay: 30, repositories: ["backlog"]),
+                Item("Short", startDay: 5, endDay: 9, repositories: ["backlog"]),
+                Item("After short", startDay: 12, endDay: 16, repositories: ["backlog"])
+            ]),
+            Configured);
+
+        Assert.Equal(2, Assert.Single(view.Groups).RowList.Count);
+        Assert.Equal(
+            view.Bars.Single(bar => bar.Title == "Short").RowId,
+            view.Bars.Single(bar => bar.Title == "After short").RowId);
+    }
+
+    [Fact]
+    public void AStackedRow_StillNamesItsLane()
+    {
+        var view = RoadmapPlanView.From(
+            Plan(
+            [
+                Item("A", repositories: ["backlog"], lane: "platform"),
+                Item("B", repositories: ["backlog"], lane: "platform")
+            ]),
+            Configured);
+
+        var rows = Assert.Single(view.Groups).RowList;
+        Assert.Equal(2, rows.Count);
+        Assert.All(rows, row => Assert.Equal("platform", RoadmapPlanView.LaneOf(row.Id)));
+        Assert.Null(RoadmapPlanView.LaneOf("no-separator"));
+    }
+
+    [Fact]
     public void EveryDateSharesOneBandAtTheTopOfTheChart()
     {
         var view = RoadmapPlanView.From(
