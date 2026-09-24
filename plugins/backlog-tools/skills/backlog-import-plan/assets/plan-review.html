@@ -117,6 +117,7 @@
   .node { cursor: pointer; }
   .node rect { fill: var(--raised); stroke: var(--task); stroke-width: 1.5; rx: 4; }
   .node.prompt rect { stroke: var(--accent); }
+  .node.plan rect { stroke: var(--ok); }
   .node text { fill: var(--ink); font-family: var(--font-body); font-size: 12px; }
   .node .id { fill: var(--ink-3); font-family: var(--font-mono); font-size: 10px; }
   .node .pts { fill: var(--ink-2); font-family: var(--font-mono); font-size: 10px; text-anchor: end; }
@@ -127,6 +128,7 @@
   .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 8px; font-size: 0.8rem; color: var(--ink-2); }
   .legend i { display: inline-block; width: 14px; height: 10px; border: 1.5px solid var(--accent); border-radius: 2px; vertical-align: -1px; margin-right: 6px; }
   .legend i.task { border-color: var(--task); }
+  .legend i.plan { border-color: var(--ok); }
   .legend i.flag { border-color: var(--fail); border-style: dashed; }
 
   /* Entries */
@@ -138,6 +140,8 @@
   .entry-head h3 { font-size: 1.02rem; flex: 1 1 260px; }
   .kind { font-family: var(--font-mono); font-size: 0.72rem; font-weight: 500; letter-spacing: 0.04em; padding: 1px 7px; border-radius: 3px; color: var(--on-accent); background: var(--task); }
   .entry.prompt .kind { background: var(--accent); }
+  .entry.plan { border-left-color: var(--ok); }
+  .entry.plan .kind { background: var(--ok); }
   .pos { font-family: var(--font-mono); font-size: 0.75rem; color: var(--ink-3); }
   .effort { font-family: var(--font-mono); font-size: 0.85rem; color: var(--ink-2); white-space: nowrap; }
   .meta { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; font-family: var(--font-mono); font-size: 0.78rem; color: var(--ink-2); }
@@ -201,6 +205,7 @@
     <h2>Order</h2>
     <div class="graph-wrap" id="graph-wrap"></div>
     <div class="legend">
+      <span><i class="plan"></i>plan — a roadmap item; the diagram shows one level, steps when there are any</span>
       <span><i></i>prompt — an AI session runs it</span>
       <span><i class="task"></i>task or test — only the user does it</span>
       <span><i class="flag"></i>has a failed check</span>
@@ -249,7 +254,7 @@
   function parseEntry(e, index) {
     e.index = index;
     e.type = null; e.status = null; e.priority = null; e.area = null; e.tag = null; e.tagSigil = null;
-    e.id = null; e.after = []; e.repo = []; e.due = null; e.effort = null; e.unknownTokens = [];
+    e.id = null; e.after = []; e.repo = []; e.due = null; e.effort = null; e.unknownTokens = []; e.tags = [];
     e.metaLine = null; e.bodyLines = []; e.subs = []; e.findings = [];
 
     let i = 0;
@@ -280,12 +285,17 @@
   }
 
   function parseToken(e, t) {
-    if (/^(prompt|task|test|idea)$/.test(t)) { e.type = t; return; }
+    if (/^(plan|prompt|task|test|idea)$/.test(t)) { e.type = t; return; }
     const s = t[0];
     if (s === '!') { e.status = t.slice(1); return; }
     if (s === '*') { e.priority = t.slice(1); return; }
     if (s === '@') { e.area = t.slice(1); return; }
-    if (s === '#' || s === '+') { e.tag = t.slice(1); e.tagSigil = s; return; }
+    if (s === '#' || s === '+') {
+      e.tags.push({ sigil: s, slug: t.slice(1) });
+      // A plan tag (+) wins over a general tag (#) as the entry's identity.
+      if (!e.tag || (s === '+' && e.tagSigil !== '+')) { e.tag = t.slice(1); e.tagSigil = s; }
+      return;
+    }
     const c = t.indexOf(':');
     if (c > 0) {
       const k = t.slice(0, c), v = t.slice(c + 1).trim();
@@ -301,66 +311,118 @@
   }
 
   // ---------- checks ----------
+  // Two levels share one document: `plan` entries become roadmap items, every other entry is a
+  // step (a task-level entry). after: resolves within a level only — a step against step ids, a
+  // plan entry against plan entries' id:, which defaults to its tag — as Backlog's Import does.
+  const isPlan = e => e.type === 'plan';
+  const levelKey = e => isPlan(e) ? (e.id || e.tag) : e.id;
+  function resolverFor(entries) {
+    const maps = { plan: new Map(), step: new Map() };
+    entries.forEach(e => { const k = levelKey(e); if (k && !maps[isPlan(e) ? 'plan' : 'step'].has(k)) maps[isPlan(e) ? 'plan' : 'step'].set(k, e); });
+    const resolve = (e, a) => maps[isPlan(e) ? 'plan' : 'step'].get(a);
+    resolve.otherLevel = (e, a) => maps[isPlan(e) ? 'step' : 'plan'].get(a);
+    return resolve;
+  }
+
   function runChecks(entries) {
     const checks = [];
     const add = (level, text, entry) => { const c = { level, text, entry }; checks.push(c); if (entry && level !== 'pass') entry.findings.push(c); return c; };
-    const each = (label, fn) => {
+    const over = (list, label, fn) => {
+      if (!list.length) return; // a check about a kind the document does not hold says nothing
       const failed = [];
-      entries.forEach(e => { const r = fn(e); if (r) failed.push({ e, r }); });
+      list.forEach(e => { const r = fn(e); if (r) failed.push({ e, r }); });
       if (!failed.length) add('pass', label);
       failed.forEach(f => add(f.r.level || 'fail', `${label} — ${f.r.text}`, f.e));
     };
+    const each = (label, fn) => over(entries, label, fn);
     if (!entries.length) { add('fail', 'The document has no entries: no line starts with "# ".'); return checks; }
 
+    const plans = entries.filter(isPlan), steps = entries.filter(e => !isPlan(e));
+    const resolve = resolverFor(entries);
+
+    // Shape: one plan entry then its steps, or plan entries only
+    if (!steps.length) add('pass', `A roadmap-level document: ${plans.length} plan entr${plans.length === 1 ? 'y' : 'ies'} and no steps`);
+    else if (!plans.length) add('fail', 'The document opens with a plan entry — the roadmap item its steps fill; there is none');
+    else {
+      if (entries[0] !== plans[0]) add('fail', 'The plan entry is the first entry of the document', plans[0]);
+      plans.slice(1).forEach(e => add('fail', 'A step-level plan has exactly one plan entry — this is a second', e));
+      if (entries[0] === plans[0] && plans.length === 1) add('pass', 'The document opens with its one plan entry');
+    }
+
     // Plan identity
-    const tags = [...new Set(entries.map(e => e.tag).filter(Boolean))];
-    if (tags.length === 1) add('pass', `Every entry shares the plan tag ${tags[0]}`);
-    else if (!tags.length) add('fail', 'No entry carries a plan tag, so Backlog cannot recognize the plan on re-import.');
-    else add('fail', `Entries carry ${tags.length} different tags (${tags.join(', ')}); a plan has exactly one.`);
-    const sigils = [...new Set(entries.map(e => e.tagSigil).filter(Boolean))];
-    if (sigils.length > 1) add('fail', 'The plan tag is written with two different sigils; pick one.');
-    each('Every entry carries the plan tag', e => !e.tag && { text: 'no tag on the metadata line' });
+    if (steps.length) {
+      const tags = [...new Set(steps.map(e => e.tag).filter(Boolean))];
+      if (tags.length === 1) add('pass', `Every step shares the plan tag ${tags[0]}`);
+      else if (!tags.length) add('fail', 'No step carries a plan tag, so Backlog cannot recognize the plan on re-import.');
+      else add('fail', `Steps carry ${tags.length} different tags (${tags.join(', ')}); a plan has exactly one.`);
+      over(steps, 'Every step carries the plan tag with the + sigil', e => !e.tag ? { text: 'no tag on the metadata line' } : e.tagSigil !== '+' && { text: `#${e.tag} is a general tag, a different plan from the +${e.tag} the app shows` });
+      if (plans.length && tags.length === 1) over(plans, 'The plan entry carries the steps\' tag', e => e.tag !== tags[0] && { text: `it carries ${e.tag || 'no tag'}, the steps ${tags[0]}` });
+    }
+    if (plans.length) {
+      over(plans, 'Every plan entry carries exactly one +tag', e => {
+        const n = e.tags.filter(t => t.sigil === '+').length;
+        return n !== 1 && { text: n ? `${n} + tags; the import skips the entry` : 'no +tag; the import skips the entry' };
+      });
+      if (!steps.length) {
+        const seenTag = new Map();
+        plans.forEach(e => { if (e.tag) seenTag.set(e.tag, (seenTag.get(e.tag) || 0) + 1); });
+        const dup = plans.filter(e => e.tag && seenTag.get(e.tag) > 1);
+        if (dup.length) dup.forEach(e => add('fail', `Every plan entry has its own tag — ${e.tag} is used more than once`, e));
+        else add('pass', 'Every plan entry has its own tag');
+      }
+    }
 
     // Ids
-    each('Every entry has an id', e => !e.id && { text: 'no id:, so a regenerated plan cannot match it' });
-    const seen = new Map();
-    entries.forEach(e => { if (e.id) seen.set(e.id, (seen.get(e.id) || 0) + 1); });
-    const dupes = [...seen].filter(([, n]) => n > 1).map(([id]) => id);
-    if (dupes.length) entries.filter(e => dupes.includes(e.id)).forEach(e => add('fail', `Ids are unique — id ${e.id} is used more than once`, e));
-    else add('pass', 'Ids are unique');
+    over(steps, 'Every step has an id', e => !e.id && { text: 'no id:, so a regenerated plan cannot match it' });
+    const dupes = [];
+    ['plan', 'step'].forEach(level => {
+      const seen = new Map();
+      entries.filter(e => (level === 'plan') === isPlan(e)).forEach(e => { const k = levelKey(e); if (k) { if (seen.has(k)) dupes.push([e, k]); else seen.set(k, e); } });
+    });
+    if (dupes.length) dupes.forEach(([e, k]) => add('fail', `Ids are unique within their level — ${k} is used more than once`, e));
+    else add('pass', 'Ids are unique within their level');
 
     // Metadata
     each('Every entry has a metadata line', e => !e.metaLine && { text: 'no backtick metadata line follows the title' });
-    each('Every entry is a prompt, a task or a test', e => !['prompt', 'task', 'test'].includes(e.type) && { text: e.type ? `type is ${e.type}` : 'no type on the metadata line' });
-    each('Every entry states !ready', e => e.status !== 'ready' && { text: e.status ? `status is !${e.status}` : 'no status; order is carried by after:, not by !draft' });
-    each('Every entry has an effort on the 1/2/3/5/8/13/21 scale', e => {
+    each('Every entry is a plan, a prompt, a task or a test', e => !['plan', 'prompt', 'task', 'test'].includes(e.type) && { text: e.type ? `type is ${e.type}` : 'no type on the metadata line' });
+    over(steps, 'Every step states !ready', e => e.status !== 'ready' && { text: e.status ? `status is !${e.status}` : 'no status; order is carried by after:, not by !draft' });
+    over(steps, 'Every step has an effort on the 1/2/3/5/8/13/21 scale', e => {
       if (e.effort == null) return { text: 'no effort:' };
       const n = Number(e.effort);
       if (!Number.isInteger(n) || n < 0) return { text: `effort ${e.effort} is not a whole number` };
       if (!EFFORT_SCALE.includes(n)) return { level: 'warn', text: `effort ${n} is off the scale the app offers` };
     });
+    if (plans.length) {
+      over(plans, 'No plan entry carries an effort:', e => e.effort != null && { text: 'a roadmap item\'s size is the effort its steps gather; the import reports and ignores it' });
+      over(plans, 'No plan entry carries a task-only token', e => (e.status || e.area) && { level: 'warn', text: `${[e.status && '!' + e.status, e.area && '@' + e.area].filter(Boolean).join(' ')} describes a task and is ignored on a plan entry` });
+      over(plans, 'No plan entry carries a marker or session-name line', e => (e.hasMarkerAnywhere || e.hasSessionAnywhere) && { text: 'a plan entry is a roadmap item; nobody runs it' });
+      if (steps.length) {
+        const stepRepos = [...new Set(steps.flatMap(e => e.repo))];
+        over(plans, 'The plan entry names every repository its steps target', e => {
+          const missing = stepRepos.filter(r => !e.repo.includes(r)), extra = e.repo.filter(r => !stepRepos.includes(r));
+          if (missing.length) return { text: `missing repo:${missing.join(', repo:')}` };
+          if (extra.length) return { level: 'warn', text: `repo:${extra.join(', repo:')} is named by no step` };
+        });
+      }
+    }
     each('No unrecognized metadata token', e => e.unknownTokens.length && { level: 'warn', text: `unrecognized: ${e.unknownTokens.join(' ')}` });
 
     // Dependencies
-    const byId = new Map(entries.filter(e => e.id).map(e => [e.id, e]));
-    each('Every after: resolves to an entry in this document', e => {
-      const missing = e.after.filter(a => !byId.has(a));
-      return missing.length && { level: 'warn', text: `after:${missing.join(', after:')} is not in this document (it would have to be a real backlog item id)` };
+    each('Every after: resolves to an entry of its own level in this document', e => {
+      const crossed = e.after.filter(a => !resolve(e, a) && resolve.otherLevel(e, a));
+      if (crossed.length) return { text: `after:${crossed.join(', after:')} names ${isPlan(e) ? 'a step' : 'a plan entry'}; after: never crosses levels and the import drops it` };
+      const missing = e.after.filter(a => !resolve(e, a));
+      return missing.length && { level: 'warn', text: `after:${missing.join(', after:')} is not in this document (it would have to be ${isPlan(e) ? 'the tag or id of an item already on the roadmap' : 'a real backlog item id'})` };
     });
-    each('No entry waits on itself', e => e.id && e.after.includes(e.id) && { text: 'after: names its own id' });
-    const cyc = findCycle(entries, byId);
-    if (cyc) add('fail', `Dependencies form a cycle: ${cyc.join(' → ')}`);
+    each('No entry waits on itself', e => levelKey(e) && e.after.includes(levelKey(e)) && { text: 'after: names its own id' });
+    const cyc = findCycle(entries, resolve);
+    if (cyc) add('fail', `Dependencies form a cycle: ${cyc.join(' → ')}${cyc.length && plans.some(p => levelKey(p) === cyc[0]) ? ' — a cycle between plan entries refuses the whole import' : ''}`);
     else add('pass', 'Dependencies form no cycle');
 
     // Prompts
-    const prompts = entries.filter(e => e.type === 'prompt');
-    const manual = entries.filter(e => e.type === 'task' || e.type === 'test');
-    const onPrompts = (label, fn) => {
-      const failed = [];
-      prompts.forEach(e => { const r = fn(e); if (r) failed.push({ e, r }); });
-      if (!failed.length) add('pass', label);
-      failed.forEach(f => add(f.r.level || 'fail', `${label} — ${f.r.text}`, f.e));
-    };
+    const prompts = steps.filter(e => e.type === 'prompt');
+    const manual = steps.filter(e => e.type === 'task' || e.type === 'test');
+    const onPrompts = (label, fn) => over(prompts, label, fn);
     onPrompts('Every prompt names a repo:', e => !e.repo.length && { text: 'no repo:' });
     onPrompts('Every prompt opens with the plan item marker', e => !e.marker && { text: e.hasMarkerAnywhere ? 'the marker is not the first body line' : 'no marker line, so a copy pasted out of Backlog loses its id, tag, repo and after' });
     onPrompts('The marker restates the metadata line', e => {
@@ -392,40 +454,37 @@
     });
 
     // Tasks and tests — the user's own work
-    const onTasks = (label, fn) => {
-      const failed = [];
-      manual.forEach(e => { const r = fn(e); if (r) failed.push({ e, r }); });
-      if (!failed.length) add('pass', label);
-      failed.forEach(f => add(f.r.level || 'fail', `${label} — ${f.r.text}`, f.e));
-    };
+    const onTasks = (label, fn) => over(manual, label, fn);
     onTasks('No task or test carries a marker or session-name line', e => (e.hasMarkerAnywhere || e.hasSessionAnywhere) && { text: `those direct an AI session; a ${e.type} has none` });
     onTasks('No task or test carries Setup: or knowledge sub-items', e => e.subs.some(s => s.kind === 'setup' || s.kind === 'knowledge') && { text: `those direct an AI session; a ${e.type} has none` });
     onTasks('Every task or test says what to do', e => !e.instructions.some(l => l.trim()) && { text: 'empty body' });
 
-    // Closing pair
-    const n = entries.length;
-    const review = entries[n - 2], signoff = entries[n - 1];
-    if (n < 2 || !review || review.id !== 'review-plan') add('fail', 'The second-to-last entry is the review prompt (id:review-plan)', review && review.id !== 'review-plan' ? review : undefined);
-    else {
-      if (review.type !== 'prompt') add('fail', 'The review is a prompt', review); else add('pass', 'The review prompt is second to last');
-      const work = entries.filter(e => e !== review && e !== signoff);
-      const leaves = work.filter(e => e.id && !work.some(d => d.after.includes(e.id)));
-      const missed = leaves.filter(l => !review.after.includes(l.id)).map(l => l.id);
-      if (missed.length) add('fail', `The review waits on every leaf of the plan — missing after:${missed.join(', after:')}`, review);
-      else add('pass', 'The review waits on every leaf of the plan');
-      const repos = new Set(entries.flatMap(e => e.repo));
-      const missingRepos = [...repos].filter(r => !review.repo.includes(r));
-      if (missingRepos.length) add('fail', `The review names every repository the plan targets — missing repo:${missingRepos.join(', repo:')}`, review);
-      else add('pass', 'The review names every repository the plan targets');
-    }
-    if (!signoff || signoff.id !== 'sign-off-plan') add('fail', 'The last entry is the sign-off task (id:sign-off-plan)', signoff && signoff.id !== 'sign-off-plan' ? signoff : undefined);
-    else {
-      const p = [];
-      if (signoff.type !== 'task') p.push('it is not a task');
-      if (!signoff.after.includes('review-plan')) p.push('it does not wait on review-plan');
-      if (String(signoff.effort) !== '1') p.push(`effort is ${signoff.effort ?? 'missing'}, not 1`);
-      if (signoff.repo.length) p.push('it carries a repo:');
-      if (p.length) add('fail', `The sign-off task closes the plan — ${p.join('; ')}`, signoff); else add('pass', 'The sign-off task closes the plan');
+    // Closing pair — a step-level plan only; a roadmap-level document has no steps to review
+    if (steps.length) {
+      const n = entries.length;
+      const review = entries[n - 2], signoff = entries[n - 1];
+      if (n < 2 || !review || review.id !== 'review-plan') add('fail', 'The second-to-last entry is the review prompt (id:review-plan)', review && review.id !== 'review-plan' ? review : undefined);
+      else {
+        if (review.type !== 'prompt') add('fail', 'The review is a prompt', review); else add('pass', 'The review prompt is second to last');
+        const work = steps.filter(e => e !== review && e !== signoff);
+        const leaves = work.filter(e => e.id && !work.some(d => d.after.includes(e.id)));
+        const missed = leaves.filter(l => !review.after.includes(l.id)).map(l => l.id);
+        if (missed.length) add('fail', `The review waits on every leaf of the plan — missing after:${missed.join(', after:')}`, review);
+        else add('pass', 'The review waits on every leaf of the plan');
+        const repos = new Set(steps.flatMap(e => e.repo));
+        const missingRepos = [...repos].filter(r => !review.repo.includes(r));
+        if (missingRepos.length) add('fail', `The review names every repository the plan targets — missing repo:${missingRepos.join(', repo:')}`, review);
+        else add('pass', 'The review names every repository the plan targets');
+      }
+      if (!signoff || signoff.id !== 'sign-off-plan') add('fail', 'The last entry is the sign-off task (id:sign-off-plan)', signoff && signoff.id !== 'sign-off-plan' ? signoff : undefined);
+      else {
+        const p = [];
+        if (signoff.type !== 'task') p.push('it is not a task');
+        if (!signoff.after.includes('review-plan')) p.push('it does not wait on review-plan');
+        if (String(signoff.effort) !== '1') p.push(`effort is ${signoff.effort ?? 'missing'}, not 1`);
+        if (signoff.repo.length) p.push('it carries a repo:');
+        if (p.length) add('fail', `The sign-off task closes the plan — ${p.join('; ')}`, signoff); else add('pass', 'The sign-off task closes the plan');
+      }
     }
     entries.forEach(e => { if (e.findings.some(f => f.level === 'fail')) e.flagged = true; });
     return checks;
@@ -433,15 +492,15 @@
 
   function ticks(s) { return [...(s || '').matchAll(/`([^`]+)`/g)].map(m => m[1]); }
   function sameSet(a, b) { const A = new Set(a), B = new Set(b); return A.size === B.size && [...A].every(x => B.has(x)); }
-  function findCycle(entries, byId) {
+  function findCycle(entries, resolve) {
     const state = new Map(); let cycle = null;
     const visit = (e, path) => {
-      if (cycle || !e.id) return;
-      if (state.get(e.id) === 1) { cycle = [...path.slice(path.indexOf(e.id)), e.id]; return; }
-      if (state.get(e.id) === 2) return;
-      state.set(e.id, 1);
-      e.after.forEach(a => { const d = byId.get(a); if (d) visit(d, [...path, e.id]); });
-      state.set(e.id, 2);
+      if (cycle || !levelKey(e)) return;
+      if (state.get(e) === 1) { const ks = path.map(p => levelKey(p)); cycle = [...ks.slice(path.indexOf(e)), levelKey(e)]; return; }
+      if (state.get(e) === 2) return;
+      state.set(e, 1);
+      e.after.forEach(a => { const d = resolve(e, a); if (d) visit(d, [...path, e]); });
+      state.set(e, 2);
     };
     entries.forEach(e => visit(e, []));
     return cycle;
@@ -470,24 +529,25 @@
     flushP(); flushL();
     return out.join('');
   }
-  const anchor = e => 'entry-' + (e.id ? e.id.replace(/[^\w-]/g, '_') : 'n' + e.index);
+  const anchor = e => (isPlan(e) ? 'plan-' : 'entry-') + (levelKey(e) ? levelKey(e).replace(/[^\w-]/g, '_') : 'n' + e.index);
   const labelOf = e => e.id ? `<code>${esc(e.id)}</code>` : `entry ${e.index + 1}`;
 
   function render(text) {
     const entries = parsePlan(text);
     const checks = runChecks(entries);
-    const byId = new Map(entries.filter(e => e.id).map(e => [e.id, e]));
-    const tag = entries.map(e => e.tag).find(Boolean) || '';
+    const resolve = resolverFor(entries);
+    const plans = entries.filter(isPlan), steps = entries.filter(e => !isPlan(e));
+    const tagged = steps.find(e => e.tag) || (plans.length === 1 && plans[0].tag ? plans[0] : null);
     const prompts = entries.filter(e => e.type === 'prompt').length;
     const tasks = entries.filter(e => e.type === 'task').length;
     const tests = entries.filter(e => e.type === 'test').length;
-    const effort = entries.reduce((s, e) => s + (Number(e.effort) || 0), 0);
+    const effort = steps.reduce((s, e) => s + (Number(e.effort) || 0), 0);
     const repos = [...new Set(entries.flatMap(e => e.repo))];
     const fails = checks.filter(c => c.level === 'fail').length, warns = checks.filter(c => c.level === 'warn').length, passes = checks.filter(c => c.level === 'pass').length;
 
-    document.getElementById('plan-tag').textContent = tag ? (entries.find(e => e.tag).tagSigil + tag) : '';
+    document.getElementById('plan-tag').textContent = tagged ? tagged.tagSigil + tagged.tag : plans.length ? `${plans.length} plans` : '';
     document.getElementById('stats').innerHTML = [
-      ['Entries', entries.length], ['Prompts', prompts], ['Tasks', tasks], ['Tests', tests], ['Effort', effort + ' pt'],
+      ['Entries', entries.length], ...(plans.length ? [['Plans', plans.length]] : []), ['Prompts', prompts], ['Tasks', tasks], ['Tests', tests], ['Effort', effort + ' pt'],
     ].map(([k, v]) => `<div class="stat"><b>${v}</b><span>${k}</span></div>`).join('') +
       `<div class="stat"><b class="repos">${repos.map(esc).join(', ') || '—'}</b><span>Repositor${repos.length === 1 ? 'y' : 'ies'}</span></div>`;
 
@@ -501,7 +561,7 @@
       .join('') || '<li class="check"><span></span><span>No checks ran.</span></li>';
     applyPassedVisibility();
 
-    document.getElementById('graph-wrap').innerHTML = entries.length ? renderGraph(entries, byId) : '<div class="empty">Nothing to order yet.</div>';
+    document.getElementById('graph-wrap').innerHTML = entries.length ? renderGraph(steps.length ? steps : plans, resolve) : '<div class="empty">Nothing to order yet.</div>';
 
     document.getElementById('entries').innerHTML = entries.map(e => `
       <article class="entry ${e.type || ''}${e.flagged ? ' flagged' : ''}" id="${anchor(e)}">
@@ -509,13 +569,13 @@
           <span class="pos">${e.index + 1}</span>
           <span class="kind">${esc(e.type || '?')}</span>
           <h3>${esc(e.title)}</h3>
-          <span class="effort">${e.effort != null ? esc(e.effort) + ' pt' : '<span class="missing">no effort</span>'}</span>
+          <span class="effort">${e.effort != null ? esc(e.effort) + ' pt' : isPlan(e) ? 'gathered from its steps' : '<span class="missing">no effort</span>'}</span>
         </div>
         <div class="meta">
-          <span data-k="id:">${e.id ? esc(e.id) : '<span class="missing">missing</span>'}</span>
-          <span data-k="!">${esc(e.status || '—')}</span>
+          <span data-k="id:">${e.id ? esc(e.id) : isPlan(e) && e.tag ? esc(e.tag) + ' (the tag)' : '<span class="missing">missing</span>'}</span>
+          ${isPlan(e) ? '' : `<span data-k="!">${esc(e.status || '—')}</span>`}
           ${e.repo.length ? `<span data-k="repo:">${e.repo.map(esc).join(', ')}</span>` : ''}
-          ${e.after.length ? `<span data-k="after:">${e.after.map(a => byId.has(a) ? `<a href="#${anchor(byId.get(a))}">${esc(a)}</a>` : `<span class="missing">${esc(a)}</span>`).join(', ')}</span>` : '<span data-k="after:">—</span>'}
+          ${e.after.length ? `<span data-k="after:">${e.after.map(a => resolve(e, a) ? `<a href="#${anchor(resolve(e, a))}">${esc(a)}</a>` : `<span class="missing">${esc(a)}</span>`).join(', ')}</span>` : '<span data-k="after:">—</span>'}
           ${e.priority ? `<span data-k="*">${esc(e.priority)}</span>` : ''}
           ${e.area ? `<span data-k="@">${esc(e.area)}</span>` : ''}
           ${e.due ? `<span data-k="due:">${esc(e.due)}</span>` : ''}
@@ -528,13 +588,13 @@
   }
   const rank = c => c.level === 'fail' ? 0 : c.level === 'warn' ? 1 : 2;
 
-  function renderGraph(entries, byId) {
+  function renderGraph(entries, resolve) {
     const depth = new Map();
     const d = (e, stack) => {
       if (depth.has(e)) return depth.get(e);
       if (stack.has(e)) return 0;
       stack.add(e);
-      const pre = e.after.map(a => byId.get(a)).filter(Boolean);
+      const pre = e.after.map(a => resolve(e, a)).filter(Boolean);
       const v = pre.length ? 1 + Math.max(...pre.map(p => d(p, stack))) : 0;
       depth.set(e, v); return v;
     };
@@ -548,7 +608,7 @@
     const height = TOP + Math.max(...cols.map(c => c.length)) * (H + GY) - GY + PAD;
     const edges = [];
     entries.forEach(e => e.after.forEach(a => {
-      const p = byId.get(a); const to = pos.get(e);
+      const p = resolve(e, a); const to = pos.get(e);
       if (!p) { edges.push(`<path class="edge unresolved" d="M${to.x - 24},${to.y + H / 2} L${to.x},${to.y + H / 2}"/>`); return; }
       const from = pos.get(p);
       const x1 = from.x + W, y1 = from.y + H / 2, x2 = to.x, y2 = to.y + H / 2;

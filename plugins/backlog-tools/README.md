@@ -12,6 +12,23 @@ and one for the remarks a person leaves while reading.
   itself and shows its checks, dependency order and entries, published as an artifact where
   the host has one and written beside the plan otherwise. User-invoked only
   (`disable-model-invocation: true`); it never talks to the Backlog app or GitHub.
+  A plan imports at two levels (ADR 0013:
+  `.arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md`): it opens with
+  one `plan` entry, which Import turns into the Roadmap Item, and the step entries under it
+  share its `+tag`, so the item gathers them:
+
+  ```markdown
+  # VS Code desktop rollout
+
+  `plan` `*high` `+vscode-desktop-rollout` `repo:backlog-desktop`
+
+  # Add the export command
+
+  `prompt` `!ready` `+vscode-desktop-rollout` `id:add-command` `repo:backlog-desktop` `effort:5`
+  ```
+
+  Asked for the roadmap level, it writes `plan` entries only, one per agreed feature
+  chapter, ordered by `after:` from the chapters' `depends-on` lists.
 - **`backlog-run-plan-item`** — runs one entry of such a plan after it is copied out of the
   Backlog app and pasted into a session. The app puts the invocation on the first line of
   every entry it copies — `/backlog-tools:backlog-run-plan-item entry `<id>`:`, the entry
@@ -19,7 +36,8 @@ and one for the remarks a person leaves while reading.
   line every generated `prompt` entry opens with (`Backlog plan item `…``). Both shapes are
   defined in `skills/backlog-import-plan/assets/backlog-import-grammar.md`. It checks the
   item is still outstanding before doing anything — pasting the same item twice is expected
-  and must not redo finished work — and then carries out the instructions the way the
+  and must not redo finished work, and declines a `plan` entry in one line, since only
+  Import acts on one — and then carries out the instructions the way the
   current repository says work is done. When a `backlog` MCP server is in the session's
   tool list it reads the entry's status from it (`read_item`) and reports Ready → In
   progress → Done back (`transition`), every call carrying the `repository` read off the
