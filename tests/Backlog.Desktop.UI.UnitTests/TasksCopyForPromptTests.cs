@@ -1,4 +1,5 @@
-﻿using Bunit;
+﻿using Microsoft.AspNetCore.Components.Web;
+using Bunit;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
@@ -160,6 +161,45 @@ public sealed class TasksCopyForPromptTests
         Assert.Equal(copies[0], copies[1]);
         Assert.StartsWith(MarkerFor(row), copies[0], StringComparison.Ordinal);
         Assert.Contains("## Wire up the store", copies[0], StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Copying from the row leaves the side panel open.
+    /// <para>
+    /// The click itself never reached the row — the copy button stops it — but the
+    /// focus did move: pressing the button focuses it, the focusout climbs to the
+    /// pane, and a focus landing in the list outside the detail half used to read
+    /// as the reader walking away from the entry. The stand-in for
+    /// <c>backlogFocusOutside</c> answers the question against this render's own
+    /// DOM, with the row's copy button as the focused element, so it is the
+    /// selectors the pane actually sends that decide.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task Copying_from_the_row_leaves_the_side_panel_open()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        host.Context.JSInterop.Setup<bool>("backlogClipboard.copy", _ => true).SetResult(true);
+
+        var row = await host.WriteEntryAsync(EntryWithSteps);
+        await host.OpenAsync(row);
+        var pane = host.Render();
+
+        var rowCopy = $"[data-testid='entry-list-{EntryTaskId(row)}-copy']";
+
+        bool FocusIsOutside(JSRuntimeInvocation invocation) =>
+            !invocation.Arguments.Cast<string>().Any(selector =>
+                pane.FindAll(selector).Any(region => region.Matches(rowCopy) || region.QuerySelector(rowCopy) is not null));
+
+        host.Context.JSInterop.Setup<bool>("backlogFocusOutside", FocusIsOutside).SetResult(true);
+        host.Context.JSInterop.Setup<bool>("backlogFocusOutside", invocation => !FocusIsOutside(invocation)).SetResult(false);
+
+        pane.Find("[data-testid='entry-panel-copy']").Click();
+        pane.Find(rowCopy).Click();
+        await pane.Find("[data-testid='backlog-pane']").TriggerEventAsync("onfocusout", new FocusEventArgs());
+
+        Assert.Same(row, host.State.SelectedRow);
+        Assert.Single(pane.FindAll("[data-testid='entry-panel-copy']"));
     }
 
     /// <summary>An entry with nothing but a title still has a copy in the panel.

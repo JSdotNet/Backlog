@@ -202,7 +202,7 @@ public sealed class TasksPaneFocusTests
     /// <summary>Moving from the row into the pane is a move within the region the
     /// selection lives in, and clearing there would close the pane on its way to
     /// being used. The same answer covers dragging the separator — see
-    /// <see cref="The_focus_out_check_asks_about_the_detail_pane_and_its_separator_only"/>
+    /// <see cref="The_focus_out_check_asks_about_the_detail_pane_its_separator_and_the_row_copy_buttons"/>
     /// for why the separator counts as staying put despite sitting outside the
     /// detail element itself. Picking a status chip no longer shares this answer:
     /// that is the list, not the pane, and a focus landing there is the reader
@@ -226,9 +226,11 @@ public sealed class TasksPaneFocusTests
     /// <summary>What counts as "still inside" narrowed from both halves of the
     /// split to the detail half and its own separator — a focus landing anywhere
     /// else in the list, such as a status chip or blank list space, is now a
-    /// departure rather than a move the pane stayed open through.</summary>
+    /// departure rather than a move the pane stayed open through. A row's copy
+    /// button is the one exception in the list: copying changes nothing about
+    /// what is open.</summary>
     [Fact]
-    public async Task The_focus_out_check_asks_about_the_detail_pane_and_its_separator_only()
+    public async Task The_focus_out_check_asks_about_the_detail_pane_its_separator_and_the_row_copy_buttons()
     {
         using var host = await TasksPaneHost.CreateAsync();
         await host.WriteEntryAsync(Entry);
@@ -241,7 +243,7 @@ public sealed class TasksPaneFocusTests
         var invocation = Assert.Single(host.Context.JSInterop.Invocations["backlogFocusOutside"]);
 
         Assert.Equal(
-            ["#backlog-pane-detail", "[data-testid='backlog-split-separator']"],
+            ["#backlog-pane-detail", "[data-testid='backlog-split-separator']", "#backlog-pane .task-item__copy"],
             invocation.Arguments);
     }
 
