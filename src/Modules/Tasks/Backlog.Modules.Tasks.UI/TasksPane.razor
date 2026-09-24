@@ -468,15 +468,23 @@
     /// rather than the section holding both halves. Matches the <c>id</c> below.</summary>
     private const string DetailElementId = "backlog-pane-detail";
 
-    /// <summary>The two regions a focusout is not a departure from: the detail
-    /// pane itself, and the split's own separator, named by its stable
-    /// data-testid rather than a second id since nothing else needs to address it
-    /// directly. Selectors rather than plain ids because the separator has no id
-    /// of its own to match — see <see cref="OnPaneFocusOutAsync"/>.</summary>
+    /// <summary>The regions a focusout is not a departure from: the detail pane
+    /// itself, the split's own separator, and every row's copy button. The
+    /// separator is named by its stable data-testid rather than a second id since
+    /// nothing else needs to address it directly. Selectors rather than plain ids
+    /// because neither the separator nor a copy button has an id of its own to
+    /// match — see <see cref="OnPaneFocusOutAsync"/>.
+    /// <para>
+    /// The copy buttons are here because pressing one focuses it, and a focus
+    /// landing in the list reads as the reader having moved on. Copying a row
+    /// lifts its text and changes nothing about what is open — the row already
+    /// stops the click for that reason, and the focus has to be told the same.
+    /// </para></summary>
     private static readonly string[] DetailBoundarySelectors =
     [
         $"#{DetailElementId}",
-        "[data-testid='backlog-split-separator']"
+        "[data-testid='backlog-split-separator']",
+        "#backlog-pane .task-item__copy"
     ];
 
     /// <summary>Which of the selected entry's scheduling rows currently has its

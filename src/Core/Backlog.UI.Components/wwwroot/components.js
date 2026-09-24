@@ -310,7 +310,8 @@
         passes every element a focus landing there should still count as staying
         put, as CSS selectors rather than plain ids so a stable data-testid can
         be reused instead of minting a matching id for every element this needs
-        to name.
+        to name. A selector may match many elements — every row's copy button,
+        say — and each of them counts.
 
         The question a `focusout` handler actually has is "did the reader leave
         this region, or only move about inside it", and Blazor's FocusEventArgs
@@ -332,7 +333,7 @@
         they are in the middle of using.
     */
     window.backlogFocusOutside = (...selectors) => {
-        const elements = selectors.map((selector) => document.querySelector(selector)).filter(Boolean);
+        const elements = selectors.flatMap((selector) => Array.from(document.querySelectorAll(selector)));
         if (elements.length === 0) return false;
 
         const focused = document.activeElement;
