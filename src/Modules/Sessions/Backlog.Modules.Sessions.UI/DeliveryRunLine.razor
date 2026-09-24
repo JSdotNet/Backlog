@@ -105,21 +105,17 @@
                     <dd>@Run.ChangeKind</dd>
                 }
 
+                @* The stages are a flow, so they are drawn as one: a node per stage in
+                   run order, in the tone of where it stands, with who worked in it
+                   under it: the owner session, then each agent it delegated to and
+                   the model that agent ran on. *@
                 @if (Run.Stages.Count > 0)
                 {
                     <dt>Stages</dt>
                     <dd>
-                        <ul class="sessions-run__list" data-testid="sessions-run-stages">
-                            @foreach (var stage in Run.Stages)
-                            {
-                                <li>
-                                    <span class="sessions-run__stage-name">@stage.Name</span>
-                                    <span class="sessions-run__stage-facts">
-                                        @StatusLabel(stage.Status)@(stage.DurationMs is { } ms ? $" · {Duration(ms)}" : string.Empty)@(stage.DoneCount > 1 ? $" · done ×{stage.DoneCount}" : string.Empty)
-                                    </span>
-                                </li>
-                            }
-                        </ul>
+                        <FlowSteps Steps="@Flow"
+                                   AriaLabel="@($"Stages of run {Run.Title}")"
+                                   TestId="sessions-run-stages" />
                     </dd>
                 }
 
@@ -290,6 +286,67 @@
 
     private static bool IsDone(string status) =>
         status.ToLowerInvariant() is "done" or "completed" or "success";
+
+    private IReadOnlyList<FlowStep> Flow =>
+    [
+        .. Run.Stages.Select(stage => new FlowStep(
+            stage.Name,
+            Tone(stage.Status),
+            StatusLabel(stage.Status),
+            StageFacts(stage),
+            [.. Owner(stage), .. stage.Agents.Select(Note)]))
+    ];
+
+    /// <summary>
+    /// The owner session's line, on a stage it has worked in. The run file names the
+    /// models the run called for the run as a whole, never per stage — so the owner's
+    /// model is named only where the run called exactly one, and every call in every
+    /// stage was on it. With more than one the owner is named without a model rather
+    /// than with a guess.
+    /// </summary>
+    private IEnumerable<FlowStepNote> Owner(DeliveryRunStage stage)
+    {
+        if (Tone(stage.Status) is FlowStepTone.Pending or FlowStepTone.Skipped) yield break;
+
+        var models = Run.TokenUsage?.Models ?? [];
+
+        yield return new FlowStepNote("main session", models.Count == 1 ? models[0] : null);
+    }
+
+    /// <summary>The dashboards' stage words as the flow's tones. A word none of them
+    /// has written yet reads as not reached, which is the one claim that is never
+    /// wrong about a stage nobody reported on.</summary>
+    internal static FlowStepTone Tone(string status) => status.ToLowerInvariant() switch
+    {
+        "done" or "completed" or "success" => FlowStepTone.Done,
+        "in_progress" or "active" or "running" => FlowStepTone.Active,
+        "blocked" or "failed" or "error" => FlowStepTone.Blocked,
+        "skipped" => FlowStepTone.Skipped,
+        _ => FlowStepTone.Pending
+    };
+
+    private static string? StageFacts(DeliveryRunStage stage)
+    {
+        var facts = new List<string>();
+
+        if (stage.DurationMs is { } ms) facts.Add(Duration(ms));
+        if (stage.DoneCount > 1) facts.Add($"done ×{stage.DoneCount}");
+
+        return facts.Count == 0 ? null : string.Join(" · ", facts);
+    }
+
+    /// <summary>An agent under its stage: the name, then the model it ran on, how
+    /// often, and how many runs did not complete. A declared agent no record shows
+    /// running has no model to name, and says so rather than borrowing one.</summary>
+    private static FlowStepNote Note(DeliveryRunStageAgent agent)
+    {
+        List<string> detail = [agent.Model ?? (agent.Count == 0 ? "declared" : "model not recorded")];
+
+        if (agent.Count > 1) detail.Add($"×{agent.Count}");
+        if (agent.Failed > 0) detail.Add($"{agent.Failed} failed");
+
+        return new FlowStepNote(agent.Name, string.Join(" · ", detail));
+    }
 
     /// <summary>
     /// One of the run's references as the Integrations family draws one. No artifact

@@ -427,6 +427,7 @@ internal sealed partial class DeliveryRunReader
         if (phaseNames.Any(name => !Named(name))) phaseNames = [];
 
         var read = new List<DeliveryRunStage>();
+        var delegated = DelegatedAgents(root);
         var index = 0;
 
         foreach (var stage in stages.EnumerateArray())
@@ -446,11 +447,84 @@ internal sealed partial class DeliveryRunReader
                 name,
                 Text(stage, "status") ?? string.Empty,
                 Integer(stage, "durationMs"),
-                (int)(Integer(stage, "doneCount") ?? 0)));
+                (int)(Integer(stage, "doneCount") ?? 0))
+            {
+                Agents = StageAgents(stage, delegated.Where(agent => agent.Index == position || (agent.Index is null && agent.Stage == name)))
+            });
         }
 
         return read;
     }
+
+    /// <summary>
+    /// Every delegated agent the run's insights recorded, with the stage it ran in —
+    /// by index where the record has one, by name where it has only that. A record
+    /// with neither ran outside any stage and belongs to none.
+    /// </summary>
+    private static List<(int? Index, string? Stage, string Name, string? Model, bool Failed)> DelegatedAgents(JsonElement root)
+    {
+        var agents = new List<(int? Index, string? Stage, string Name, string? Model, bool Failed)>();
+
+        if (!root.TryGetProperty("insights", out var insights) || insights.ValueKind is not JsonValueKind.Array) return agents;
+
+        foreach (var insight in insights.EnumerateArray())
+        {
+            if (insight.ValueKind is not JsonValueKind.Object || Text(insight, "kind") is not "agent") continue;
+
+            var name = Text(insight, "agentDisplayName") is { Length: > 0 } display ? display : Text(insight, "agentName");
+
+            if (string.IsNullOrWhiteSpace(name)) continue;
+
+            var index = Integer(insight, "stageIndex") is { } value ? (int?)value : null;
+            var stage = Text(insight, "stageName");
+
+            if (index is null && !Named(stage)) continue;
+
+            agents.Add((index, stage, name, Text(insight, "model") is { Length: > 0 } model ? model : null, Failed(insight)));
+        }
+
+        return agents;
+    }
+
+    /// <summary>
+    /// A stage's agents: each one that ran, once per model it ran on, counted; then
+    /// each name the stage declared that no record shows running. A declared
+    /// <c>architecture:architect</c> is the same agent a record calls <c>architect</c>,
+    /// so it is not listed a second time.
+    /// </summary>
+    private static IReadOnlyList<DeliveryRunStageAgent> StageAgents(
+        JsonElement stage,
+        IEnumerable<(int? Index, string? Stage, string Name, string? Model, bool Failed)> ran)
+    {
+        var agents = ran
+            .GroupBy(agent => (agent.Name, agent.Model))
+            .Select(group => new DeliveryRunStageAgent(group.Key.Name, group.Key.Model, group.Count(), group.Count(agent => agent.Failed)))
+            .ToList();
+
+        if (stage.TryGetProperty("agents", out var declared) && declared.ValueKind is JsonValueKind.Array)
+        {
+            foreach (var entry in declared.EnumerateArray())
+            {
+                var name = entry.ValueKind switch
+                {
+                    JsonValueKind.String => entry.GetString(),
+                    JsonValueKind.Object => Text(entry, "name") ?? Text(entry, "agentName"),
+                    _ => null
+                };
+
+                if (string.IsNullOrWhiteSpace(name) || agents.Any(agent => SameAgent(agent.Name, name))) continue;
+
+                agents.Add(new DeliveryRunStageAgent(name, null, 0, 0));
+            }
+        }
+
+        return agents;
+    }
+
+    private static bool SameAgent(string recorded, string declared) =>
+        string.Equals(recorded, declared, StringComparison.OrdinalIgnoreCase)
+        || declared.EndsWith($":{recorded}", StringComparison.OrdinalIgnoreCase)
+        || recorded.EndsWith($":{declared}", StringComparison.OrdinalIgnoreCase);
 
     private static DeliveryRunTokenUsage? TokenUsage(JsonElement root)
     {

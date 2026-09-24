@@ -142,7 +142,7 @@ internal static class StorybookIndex
         // chapters below all reach for.
         new("Feedback",
         [
-            new("feedback", "Feedback", "Alert, EmptyState, Spinner, Skeleton, SaveIndicator, Toast, ToastTray."),
+            new("feedback", "Feedback", "Alert, EmptyState, SetupSteps, FlowSteps, Spinner, Skeleton, SaveIndicator, Toast, ToastTray."),
             new("overlays", "Overlays", "Modal and ConfirmDialog.")
         ]),
 

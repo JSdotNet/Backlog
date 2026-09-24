@@ -111,7 +111,15 @@ public sealed class SessionsPaneRunTests
     {
         var run = SessionRowsTests.Run("run-1", Worktree, Noon.AddMinutes(-90), Noon.AddMinutes(-10)) with
         {
-            Stages = [new DeliveryRunStage("Build & Test", "done", 125_000, 3)],
+            Stages =
+            [
+                new DeliveryRunStage("Build & Test", "done", 125_000, 3)
+                {
+                    Agents = [new("general-purpose", "claude-sonnet-5", 2, 1), new("delivery:builder", null, 0, 0)]
+                },
+                new DeliveryRunStage("Validation", "in_progress", null, 0),
+                new DeliveryRunStage("Summary", "pending", null, 0)
+            ],
             TokenUsage = new DeliveryRunTokenUsage(
                 new DeliveryRunTokens(66, 132, 32_875, 0, 5_586_145, 457_801),
                 new DeliveryRunTokens(49, 98, 13_252, 0, 2_211_729, 416_625),
@@ -144,6 +152,20 @@ public sealed class SessionsPaneRunTests
             // A re-entered stage says so; a stage done once is not decorated with ×1.
             Assert.Contains("Done · 2m 5s · done ×3", stages.TextContent);
 
+            // Drawn as a flow, in run order, each stage in the tone of where it stands.
+            var nodes = stages.QuerySelectorAll("[data-testid='flow-step']");
+            Assert.Equal(["done", "active", "pending"], nodes.Select(node => node.GetAttribute("data-tone")));
+
+            // Who worked in the stage: the owner session — with no model, because the
+            // run called two and the file does not say which the owner was on — then
+            // each agent on the model it ran on, a declared one with none to claim.
+            Assert.Equal(
+                ["main session", "general-purpose claude-sonnet-5 · ×2 · 1 failed", "delivery:builder declared"],
+                nodes[0].QuerySelectorAll(".flow-step__note").Select(note => string.Join(' ', note.Children.Select(part => part.TextContent.Trim()))));
+
+            // A stage not reached yet names nobody.
+            Assert.Null(nodes[2].QuerySelector(".flow-step__notes"));
+
             var tokens = line.QuerySelector("[data-testid='sessions-run-tokens']")!;
             Assert.Contains("66 calls · 32.9K out", tokens.TextContent);
             Assert.Contains("Sub-agents: 49 calls", tokens.TextContent);
@@ -158,6 +180,47 @@ public sealed class SessionsPaneRunTests
 
             Assert.Contains("plugin_qa_aspire", line.QuerySelector("[data-testid='sessions-run-servers']")!.TextContent);
 
+        });
+    }
+
+    /// <summary>A run that called one model called it for everything, the owner
+    /// session's work in every stage included, so that model can be named per stage
+    /// without being a guess.</summary>
+    [Fact]
+    public void A_run_on_one_model_names_it_for_the_owner_session_in_every_stage_it_worked()
+    {
+        var run = SessionRowsTests.Run("run-1", Worktree, Noon.AddMinutes(-90), Noon.AddMinutes(-10)) with
+        {
+            Stages =
+            [
+                new DeliveryRunStage("Scope Discovery", "done", 60_000, 1),
+                new DeliveryRunStage("Verification", "skipped", null, 0)
+            ],
+            TokenUsage = new DeliveryRunTokenUsage(
+                new DeliveryRunTokens(3, 1, 2, 0, 0, 0),
+                new DeliveryRunTokens(0, 0, 0, 0, 0, 0),
+                [],
+                ["claude-opus-5-5"])
+        };
+
+        using var context = Context([Live], [run]);
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='sessions-run'] .fold__trigger")));
+        pane.Find("[data-testid='sessions-run'] .fold__trigger").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            var nodes = pane.FindAll("[data-testid='sessions-run-stages'] [data-testid='flow-step']");
+
+            var owner = Assert.Single(nodes[0].QuerySelectorAll(".flow-step__note"));
+            Assert.Equal("main session", owner.QuerySelector(".flow-step__note-label")!.TextContent.Trim());
+            Assert.Equal("claude-opus-5-5", owner.QuerySelector(".flow-step__note-detail")!.TextContent.Trim());
+
+            // Skipped: nobody worked in it.
+            Assert.Equal("skipped", nodes[1].GetAttribute("data-tone"));
+            Assert.Null(nodes[1].QuerySelector(".flow-step__notes"));
         });
     }
 

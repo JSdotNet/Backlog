@@ -114,6 +114,12 @@
         </div>
     </Story>
 
+    <Story Name="FlowSteps"
+           Description="A process someone else is running, drawn as a flow: one node per step in order, joined by connectors, wrapping into rows in a narrow column. Five tones — pending, active, done, blocked, skipped — each drawn on the node's edge and mark, with its own glyph, and said in words on the status line, so colour is never the only carrier. The current step carries aria-current and the whole flow is an ordered list. Notes under a step say who worked in it and on what — the Sessions pane puts a delivery run's owner session and each delegated agent there, with the model it ran on."
+           Code="@FlowStepsCode">
+        <FlowSteps AriaLabel="Stages of the run" TestId="flow-steps-sample" Steps="@SampleFlow" />
+    </Story>
+
     <Story Name="Spinner"
            Description="Three sizes; the label is what a screen reader hears."
            Code="@SpinnerCode">
@@ -261,6 +267,33 @@ Bars inside a table's own cells — the tools pane's placeholder — are the Dat
             new("Enter the email your Claude Code use is attributed to", account.Actor is not null),
             new("Narrow it to one workspace", account.WorkspaceId is not null, Optional: true),
             new("Test this account", lastCheck?.Passed == true)
+        ];
+        """;
+
+    private static readonly FlowStep[] SampleFlow =
+    [
+        new("Update Base", FlowStepTone.Done, "Done", "4s", [new("main session", "claude-opus-5-5")]),
+        new("Scope Discovery", FlowStepTone.Done, "Done", "6m 12s",
+            [new("main session", "claude-opus-5-5"), new("Explore", "claude-opus-5-5")]),
+        new("Implementation", FlowStepTone.Done, "Done", "48m 3s · done ×2",
+            [new("main session", "claude-opus-5-5"), new("csharp-coding:coding", "sonnet · ×3")]),
+        new("Build & Test", FlowStepTone.Active, "In progress", Notes: [new("general-purpose", "sonnet · ×2 · 1 failed")]),
+        new("Validation", FlowStepTone.Blocked, "Blocked", Notes: [new("qa:qa", "declared")]),
+        new("Personal Validation", FlowStepTone.Pending, "Pending"),
+        new("Verification", FlowStepTone.Skipped, "Skipped"),
+        new("Summary", FlowStepTone.Pending, "Pending")
+    ];
+
+    private const string FlowStepsCode = """
+        <FlowSteps AriaLabel="Stages of the run" Steps="@Steps" />
+
+        private FlowStep[] Steps =>
+        [
+            new("Scope Discovery", FlowStepTone.Done, "Done", "6m 12s",
+                [new("main session", "claude-opus-5-5"), new("Explore", "claude-opus-5-5")]),
+            new("Build & Test", FlowStepTone.Active, "In progress",
+                Notes: [new("general-purpose", "sonnet · ×2 · 1 failed")]),
+            new("Summary", FlowStepTone.Pending, "Pending")
         ];
         """;
 

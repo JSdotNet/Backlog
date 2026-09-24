@@ -1,0 +1,84 @@
+@*
+    A sequence of steps drawn as a flow: one node per step, joined in order, each
+    in the tone of where it stands. Where SetupSteps is a checklist a person works
+    down, this is a process someone else is running — a delivery run's stages — so
+    a step is not only done or not done: it can be the current one, stopped, or
+    passed over.
+
+    An ordered list, so a screen reader announces "step 3 of 11" and hears the
+    steps in flow order; the connectors and the marks are drawn and aria-hidden.
+    The status is always said in words beside the mark, and the current step
+    carries aria-current. The nodes wrap: a flow of eleven steps in a narrow
+    column reads as rows of nodes, still left to right.
+*@
+
+<ol class="@ClassValue" data-testid="@TestId" aria-label="@AriaLabel" @attributes="AdditionalAttributes">
+    @foreach (var step in Steps)
+    {
+        var tone = Slug(step.Tone);
+
+        <li class="flow-step flow-step--@tone"
+            data-testid="flow-step"
+            data-tone="@tone"
+            aria-current="@(step.Tone is FlowStepTone.Active ? "step" : null)">
+            <span class="flow-step__head">
+                <span class="flow-step__mark" aria-hidden="true">@Mark(step.Tone)</span>
+                <span class="flow-step__title">@step.Title</span>
+            </span>
+            <span class="flow-step__status">@step.Status@(string.IsNullOrWhiteSpace(step.Facts) ? string.Empty : $" · {step.Facts}")</span>
+            @if (step.Notes is { Count: > 0 } notes)
+            {
+                <ul class="flow-step__notes">
+                    @foreach (var note in notes)
+                    {
+                        <li class="flow-step__note">
+                            <span class="flow-step__note-label">@note.Label</span>
+                            @if (!string.IsNullOrWhiteSpace(note.Detail))
+                            {
+                                <span class="flow-step__note-detail">@note.Detail</span>
+                            }
+                        </li>
+                    }
+                </ul>
+            }
+        </li>
+    }
+</ol>
+
+@code {
+    [Parameter, EditorRequired]
+    public IReadOnlyList<FlowStep> Steps { get; set; } = [];
+
+    [Parameter]
+    public string? AriaLabel { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "flow-steps" : $"flow-steps {CssClass}";
+
+    private static string Slug(FlowStepTone tone) => tone switch
+    {
+        FlowStepTone.Active => "active",
+        FlowStepTone.Done => "done",
+        FlowStepTone.Blocked => "blocked",
+        FlowStepTone.Skipped => "skipped",
+        _ => "pending"
+    };
+
+    /// <summary>A glyph per tone, so the tone reads without its colour too.</summary>
+    private static string Mark(FlowStepTone tone) => tone switch
+    {
+        FlowStepTone.Active => "●",
+        FlowStepTone.Done => "✓",
+        FlowStepTone.Blocked => "!",
+        FlowStepTone.Skipped => "–",
+        _ => "○"
+    };
+}

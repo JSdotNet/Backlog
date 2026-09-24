@@ -284,6 +284,56 @@ public sealed class DeliveryRunReaderTests : IDisposable
     /// knew perfectly well it was in Build &amp; Test would be throwing away a fact the
     /// file holds.
     /// </summary>
+    /// <summary>
+    /// Which agent ran in which stage, and on which model, is in the insights — one
+    /// record per delegated run, stamped with the stage it ran in. The stage's own
+    /// <c>agents</c> list only declares names, so it adds a name the insights never
+    /// showed running and nothing else.
+    /// </summary>
+    [Fact]
+    public async Task Each_stage_carries_the_agents_it_delegated_to_and_their_models()
+    {
+        GivenRun("delivery-surface-dashboard", "flow-diagram-0d4fe8-3b03b799", "run-agents.json", """
+            {
+              "id": "run-agents",
+              "skillId": "flow-code",
+              "title": "Agents per stage",
+              "status": "in_progress",
+              "updatedAt": "2026-09-24T22:45:46.652Z",
+              "stages": [
+                { "name": "Scope Discovery", "status": "done", "doneCount": 1, "agents": [] },
+                { "name": "Specification & Architecture Intake", "status": "done", "doneCount": 1, "agents": ["architecture:architect"] },
+                { "name": "Build & Test", "status": "in_progress", "doneCount": 0, "agents": ["delivery:builder"] },
+                { "name": "Summary", "status": "pending", "doneCount": 0, "agents": [] }
+              ],
+              "insights": [
+                { "kind": "agent", "agentName": "Explore", "agentDisplayName": "Explore", "model": "claude-opus-5-5", "status": "completed", "durationMs": 1259, "stageIndex": 0, "stageName": "Scope Discovery" },
+                { "kind": "agent", "agentName": "Explore", "model": "claude-opus-5-5", "status": "completed", "durationMs": 900, "stageIndex": 0, "stageName": "Scope Discovery" },
+                { "kind": "agent", "agentName": "Explore", "model": "haiku", "status": "failed", "durationMs": 10, "stageIndex": 0, "stageName": "Scope Discovery" },
+                { "kind": "agent", "agentName": "architect", "model": "opus", "status": "completed", "durationMs": 20, "stageIndex": null, "stageName": "Specification & Architecture Intake" },
+                { "kind": "agent", "agentName": "general-purpose", "model": "sonnet", "status": "completed", "durationMs": 5, "stageIndex": null, "stageName": null },
+                { "kind": "tool", "toolName": "Bash", "category": "Shell", "durationMs": 5, "success": true, "stageIndex": 2, "stageName": "Build & Test" }
+              ]
+            }
+            """);
+
+        var run = Assert.Single((await ReadAsync()).Runs);
+
+        Assert.Collection(
+            run.Stages,
+            stage => Assert.Equal(
+                [new DeliveryRunStageAgent("Explore", "claude-opus-5-5", 2, 0), new DeliveryRunStageAgent("Explore", "haiku", 1, 1)],
+                stage.Agents),
+            // Matched by name where the record has no index, and the declared
+            // "architecture:architect" is that same agent rather than a second one.
+            stage => Assert.Equal([new DeliveryRunStageAgent("architect", "opus", 1, 0)], stage.Agents),
+            // Declared, never seen running: named, with no model to claim. The
+            // stage's tool call is not an agent.
+            stage => Assert.Equal([new DeliveryRunStageAgent("delivery:builder", null, 0, 0)], stage.Agents),
+            // An agent outside every stage is in none.
+            stage => Assert.Empty(stage.Agents));
+    }
+
     [Fact]
     public async Task Nameless_stages_take_their_names_from_the_phase_counts()
     {

@@ -4892,6 +4892,12 @@ h1, h2, h3 {
     min-width: 0;
     min-height: 0;
     overflow: auto;
+    /* The table inside is wider than the pane and scrolls sideways, so its cells
+       are no measure of what a reader can see. This is: a run's details size to
+       it (below), and a stage flow wraps to the columns actually on screen rather
+       than running under the pane's edge. */
+    container-type: inline-size;
+    container-name: sessions-content;
 }
 
 .sessions-panel__notice {
@@ -5137,7 +5143,8 @@ h1, h2, h3 {
     grid-template-columns: max-content minmax(0, 1fr);
     gap: var(--spacing-2xs) var(--spacing-md);
     margin: var(--spacing-xs) 0 0;
-    max-width: 48rem;
+    /* No wider than the visible pane, less the cell's own inset. */
+    max-width: min(48rem, calc(100cqi - 2 * var(--spacing-md)));
 }
 
 .sessions-run__details dt {
