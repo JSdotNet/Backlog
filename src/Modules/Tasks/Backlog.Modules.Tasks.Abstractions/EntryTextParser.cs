@@ -924,6 +924,48 @@ public static class EntryTextParser
             : string.Join('\n', lines.Skip(start)).Trim('\n');
     }
 
+    /// <summary>
+    /// The text with every sub-item chapter's metadata line taken off — the line
+    /// directly under a <c>##</c>/<c>###</c> heading, found the way
+    /// <see cref="RewriteSubItemMetaLines"/> finds the one it writes.
+    /// <para>
+    /// For text leaving the app. A cascading status change writes
+    /// <c>`task` `*medium` `!in-progress`</c> under every step, and read outside
+    /// the app that line is the entry's own type: a pasted prompt ending on it
+    /// looks like a task. Prose, and a backtick line inside a fence, stay.
+    /// </para>
+    /// </summary>
+    public static string WithoutSubItemMetaLines(string text)
+    {
+        var lines = Normalize(text).Split('\n').ToList();
+        var inFence = false;
+
+        for (var i = 0; i < lines.Count; i++)
+        {
+            var trimmed = lines[i].TrimStart();
+            if (trimmed.StartsWith("```", StringComparison.Ordinal))
+            {
+                inFence = !inFence;
+                continue;
+            }
+
+            if (inFence) continue;
+
+            var heading = HeadingRegex.Match(trimmed);
+            if (!heading.Success || heading.Groups[1].Value.Length is not (2 or 3)) continue;
+
+            var metaIndex = i + 1;
+            while (metaIndex < lines.Count && string.IsNullOrWhiteSpace(lines[metaIndex])) metaIndex++;
+
+            if (metaIndex < lines.Count && MetaLineRegex.IsMatch(lines[metaIndex].Trim()))
+            {
+                lines.RemoveRange(i + 1, metaIndex - i);
+            }
+        }
+
+        return string.Join('\n', lines);
+    }
+
     // WithNote was here, the writer for that same region. It went with its only
     // caller: the surface that wrote a note is now a block over the whole body, and
     // a note-scoped writer left standing would be a supported-looking way to discard

@@ -810,6 +810,10 @@
     /// The metadata line does not come along, because the parser has already read
     /// it off. `task` `*high` `!ready` is this app writing down what it knows about
     /// the entry, not text a person wrote, and it means nothing anywhere else.
+    /// Nor do the steps' own metadata lines, for the same reason and one worse: a
+    /// cascading status writes `task` `*medium` `!in-progress` under every step,
+    /// and a paste ending on it reads as the entry's type — a prompt that looks
+    /// like a task to the skill deciding whether to run it.
     /// </para>
     /// <para>
     /// The first line (<see cref="EntryRunMarker"/>) is what makes the paste a
@@ -840,7 +844,7 @@
     /// into must not get two different texts for the same task.</summary>
     private static string? EntryCopyText(EntryRow entry)
     {
-        var body = EntryTextParser.Parse(entry.RawText).Body.Trim();
+        var body = EntryTextParser.WithoutSubItemMetaLines(EntryTextParser.Parse(entry.RawText).Body).Trim();
         var written = body.Length == 0 ? DetailTitle(entry) : $"{DetailTitle(entry)}\n\n{body}";
 
         if (entry.Id is not { } id) return body.Length == 0 ? null : written;

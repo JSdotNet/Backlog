@@ -119,6 +119,39 @@ public sealed class TasksCopyForPromptTests
             Assert.Single(host.Context.JSInterop.Invocations["backlogClipboard.copy"]).Arguments[0]);
     }
 
+    /// <summary>A step's metadata line stays behind as well. Moving an entry to In
+    /// progress writes `task` `*medium` `!in-progress` under every step, and a
+    /// copy that kept it ended on a line the run skill read as the entry's own
+    /// type — so an imported prompt pasted back arrived looking like a task. Only
+    /// the line directly under a step heading goes: prose, and a backtick line
+    /// inside a fence, are the reader's and stay as written.</summary>
+    [Fact]
+    public async Task An_entry_copies_without_its_steps_metadata_lines()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        host.Context.JSInterop.Setup<bool>("backlogClipboard.copy", _ => true).SetResult(true);
+
+        var row = await host.WriteEntryAsync(
+            "# First prompt\n`prompt` `!in-progress` `+myplan` `id:first` `repo:backlog`\n\n"
+            + "Backlog plan item `first` of plan `myplan` for `backlog` — run it with the `backlog-run-plan-item` skill.\n\n"
+            + "Do the first thing.\n\n"
+            + "```\n## Not a step\n`task` `!ready`\n```\n\n"
+            + "## Setup: install the plugin\n`task` `*medium` `!in-progress`\n\nInstall it.\n\n"
+            + "## Update the devbook once this prompt lands\n\n`task` `*medium` `!in-progress`\n");
+        var pane = host.Render();
+
+        pane.Find($"[data-testid='entry-list-{EntryTaskId(row)}-copy']").Click();
+
+        Assert.Equal(
+            $"{MarkerFor(row)}\nFirst prompt\n\n"
+            + "Backlog plan item `first` of plan `myplan` for `backlog` — run it with the `backlog-run-plan-item` skill.\n\n"
+            + "Do the first thing.\n\n"
+            + "```\n## Not a step\n`task` `!ready`\n```\n\n"
+            + "## Setup: install the plugin\n\nInstall it.\n\n"
+            + "## Update the devbook once this prompt lands",
+            Assert.Single(host.Context.JSInterop.Invocations["backlogClipboard.copy"]).Arguments[0]);
+    }
+
     [Fact]
     public async Task A_step_copies_its_own_title_and_note()
     {
