@@ -1,6 +1,7 @@
 using System.Text.Json;
 
 using Backlog.Infrastructure.Devbook;
+using Backlog.Modules.Devbook.Abstractions;
 
 namespace Backlog.Desktop.UI.Devbook;
 
@@ -137,8 +138,16 @@ public sealed class DevbookIndexDocument
         using var database = DevbookDatabase.TryOpenForFolder(folderPath);
         if (database is null) return null;
 
-        var scope = Path.GetFileName(Path.TrimEndingDirectorySeparator(folderPath));
+        var folder = Path.TrimEndingDirectorySeparator(folderPath);
+        var scope = Path.GetFileName(folder);
         if (string.IsNullOrEmpty(scope)) return null;
+
+        // A folder in the devbook layout is filed under its repository-relative
+        // path, .devbook/arc42, rather than its own name alone.
+        if (string.Equals(Path.GetFileName(Path.GetDirectoryName(folder)), DevbookFolderSetting.DevbookRoot, StringComparison.OrdinalIgnoreCase))
+        {
+            scope = $"{DevbookFolderSetting.DevbookRoot}/{scope}";
+        }
 
         var rows = database.Outline(scope);
         if (rows.Count == 0) return null;

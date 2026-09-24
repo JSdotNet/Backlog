@@ -24,6 +24,10 @@ public static class DevbookDatabaseLocation
     /// <summary>The folder the database sits in, at the repository root.</summary>
     private const string MetaDirectory = "_meta";
 
+    /// <summary>The folder the devbook layout nests every knowledge folder
+    /// under.</summary>
+    private const string DevbookLayoutRoot = ".devbook";
+
     /// <summary>The database's file name.</summary>
     public const string FileName = "devbook.db";
 
@@ -58,6 +62,11 @@ public static class DevbookDatabaseLocation
     /// The database for the repository a knowledge folder belongs to, found by
     /// going up one level from the folder — which is where the knowledge folders
     /// sit and where the root <c>_meta/</c> sits with them.
+    /// <para>
+    /// A folder in the devbook layout (<c>.devbook/arc42</c>) is one level
+    /// deeper, so when that first step lands in <c>.devbook</c> and finds no
+    /// database there, the repository root above it is tried as well.
+    /// </para>
     /// </summary>
     public static string? ForDevbookFolder(string? devbookFolderPath)
     {
@@ -66,7 +75,18 @@ public static class DevbookDatabaseLocation
         try
         {
             var parent = Directory.GetParent(Path.TrimEndingDirectorySeparator(Path.GetFullPath(devbookFolderPath)));
-            return parent is null ? null : ForRepositoryRoot(parent.FullName);
+            if (parent is null) return null;
+
+            var beside = ForRepositoryRoot(parent.FullName);
+            if (File.Exists(beside)
+                || !string.Equals(parent.Name, DevbookLayoutRoot, StringComparison.OrdinalIgnoreCase)
+                || parent.Parent is null)
+            {
+                return beside;
+            }
+
+            var root = ForRepositoryRoot(parent.Parent.FullName);
+            return File.Exists(root) ? root : beside;
         }
         catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException or IOException)
         {

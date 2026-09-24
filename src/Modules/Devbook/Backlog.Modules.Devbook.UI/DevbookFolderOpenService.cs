@@ -73,7 +73,11 @@ public sealed class DevbookFolderOpenService(IDevbookFolderSource source, IFolde
         return fullPath;
     }
 
-    private static bool IsAreaRoot(string areaKey, string nodePath) => areaKey.ToLowerInvariant() switch
+    private static bool IsAreaRoot(string areaKey, string nodePath) =>
+        IsLegacyAreaRoot(areaKey, nodePath)
+        || string.Equals(nodePath.Replace('\\', '/').Trim('/'), DevbookLayoutFolder(areaKey), StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsLegacyAreaRoot(string areaKey, string nodePath) => areaKey.ToLowerInvariant() switch
     {
         "domain" => string.Equals(nodePath, ".domain", StringComparison.OrdinalIgnoreCase),
         "arc42" => string.Equals(nodePath, ".arc42", StringComparison.OrdinalIgnoreCase),
@@ -92,11 +96,22 @@ public sealed class DevbookFolderOpenService(IDevbookFolderSource source, IFolde
             return normalized;
         }
 
+        // The same folder in the devbook layout, spelled from the repository root.
+        var devbookPrefix = DevbookLayoutFolder(areaKey) + "/";
+        if (normalized.StartsWith(devbookPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return normalized[devbookPrefix.Length..];
+        }
+
         var folderPrefix = FolderKey(areaKey).TrimStart('.') + "/";
         return normalized.StartsWith(folderPrefix, StringComparison.OrdinalIgnoreCase)
             ? normalized[folderPrefix.Length..]
             : normalized;
     }
+
+    /// <summary>The area's folder under <c>.devbook/</c>, e.g. <c>.devbook/arc42</c>.</summary>
+    private static string DevbookLayoutFolder(string areaKey) =>
+        $"{DevbookFolderSetting.DevbookRoot}/{FolderKey(areaKey).TrimStart('.')}";
 
     private static string FolderKey(string areaKey) => DevbookAreaCatalog.FolderKey(areaKey);
 

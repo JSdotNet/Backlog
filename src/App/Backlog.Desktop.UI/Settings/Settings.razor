@@ -1929,7 +1929,17 @@
                                                 {
                                                     @if (string.IsNullOrWhiteSpace(folder.Path))
                                                     {
-                                                        <span>Uses <code>@folder.DefaultRelativePath</code> at the repository root.</span>
+                                                        @* Resolution falls back to the legacy root folder on its own, so
+                                                           the row names the one it actually found: a repository still on
+                                                           the root layout should not read as if it were using .devbook/. *@
+                                                        @if (location!.Available && location.Folder?.ResolvedPath is { } legacy)
+                                                        {
+                                                            <span>Uses <code>@legacy</code> at the repository root, the layout before <code>@DevbookFolderSetting.DevbookRoot/</code>.</span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span>Uses <code>@folder.DefaultRelativePath</code>.</span>
+                                                        }
                                                     }
                                                     else
                                                     {

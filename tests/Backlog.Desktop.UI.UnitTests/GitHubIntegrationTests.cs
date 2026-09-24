@@ -32,7 +32,37 @@ public sealed class GitHubSettingsTests
         var architecture = DevbookFolderSetting.Defaults().Single(f => f.Key == ".arc42");
 
         Assert.Equal("Architecture", architecture.DisplayName);
-        Assert.Equal(".arc42", architecture.DefaultRelativePath);
+        Assert.Equal(".devbook/arc42", architecture.DefaultRelativePath);
+    }
+
+    /// <summary>
+    /// The devbook layout is the default, and the key and the legacy root folder
+    /// stay what they were: the key is stored in every settings file and the
+    /// legacy folder prefixes every remark key already synced.
+    /// </summary>
+    [Theory]
+    [InlineData(".domain", ".devbook/domain")]
+    [InlineData(".arc42", ".devbook/arc42")]
+    [InlineData(".tech", ".devbook/tech")]
+    [InlineData(".design", ".devbook/design")]
+    [InlineData(".ai", ".devbook/ai")]
+    public void Every_section_defaults_to_its_folder_under_devbook(string key, string expected)
+    {
+        var folder = DevbookFolderSetting.Defaults().Single(f => f.Key == key);
+
+        Assert.Equal(expected, folder.DefaultRelativePath);
+        Assert.Equal(expected, folder.EffectivePath);
+        Assert.Equal(key, folder.LegacyRelativePath);
+        Assert.Equal([expected, key], folder.CandidatePaths);
+    }
+
+    [Fact]
+    public void An_override_is_the_only_folder_a_resolution_tries()
+    {
+        var folder = DevbookFolderSetting.Normalize(
+            [new DevbookFolderSetting(".arc42", string.Empty, string.Empty) { Path = @"docs\arch" }]).Single(f => f.Key == ".arc42");
+
+        Assert.Equal([@"docs\arch"], folder.CandidatePaths);
     }
 
     /// <summary>
@@ -46,6 +76,8 @@ public sealed class GitHubSettingsTests
     [InlineData(".arc42\\")]
     [InlineData(".arc42/")]
     [InlineData(".ARC42")]
+    [InlineData(".devbook/arc42")]
+    [InlineData(@".devbook\arc42\")]
     public void An_override_naming_the_conventional_folder_is_not_an_override(string configured)
     {
         var normalized = DevbookFolderSetting.Normalize(
@@ -101,7 +133,7 @@ public sealed class GitHubSettingsTests
             var store = new GitHubSettingsStore(path);
             var architecture = store.Current.Find("backlog")!.DevbookFolders.Single(f => f.Key == ".arc42");
             Assert.Null(architecture.Path);
-            Assert.Equal(".arc42", architecture.EffectivePath);
+            Assert.Equal(".devbook/arc42", architecture.EffectivePath);
 
             Assert.Null(store.SetCloneDirectory("backlog", @"D:\Repos\Backlog"));
 
@@ -303,7 +335,7 @@ public sealed class GitHubSettingsTests
             Assert.Equal(@"D:\Repos\Backlog-docs", docs.CloneDirectory);
             Assert.False(docs.DevbookFolders.Single(f => f.Key == ".tech").Enabled);
             Assert.Equal(@"knowledge\domain", docs.DevbookFolders.Single(f => f.Key == ".domain").Path);
-            Assert.Equal(".arc42", docs.DevbookFolders.Single(f => f.Key == ".arc42").EffectivePath);
+            Assert.Equal(".devbook/arc42", docs.DevbookFolders.Single(f => f.Key == ".arc42").EffectivePath);
             var instructions = docs.DevbookFolders.Single(f => f.Key == "instructions");
             Assert.False(instructions.Enabled);
             Assert.Null(instructions.Path);
