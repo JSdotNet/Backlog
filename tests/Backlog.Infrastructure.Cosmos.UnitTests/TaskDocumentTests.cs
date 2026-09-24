@@ -153,6 +153,52 @@ public class TaskDocumentTests
         }));
     }
 
+    /// <summary>
+    /// A field this build has no member for survives the service. The path is the
+    /// whole of it: a newer device's push read the way the endpoint reads it, the
+    /// document written and read back the way the store does, and the change
+    /// written out the way a pull hands it back. A service built before the field
+    /// existed once dropped <c>completedOn</c> on exactly this path, and every other
+    /// device then overwrote the tick with the copy it had been handed.
+    /// </summary>
+    [Fact]
+    public void A_field_this_build_does_not_know_survives_the_round_trip()
+    {
+        var wire = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+
+        var pushed = JsonSerializer.SerializeToNode(Change(), wire)!;
+        pushed["task"]!["reviewedOn"] = "2026-09-24";
+        pushed["task"]!["subItems"]![0]!["estimate"] = 3;
+
+        var received = pushed.Deserialize<TaskChange>(wire)!;
+
+        var stored = JsonSerializer.Deserialize<TaskDocument>(
+            JsonSerializer.Serialize(TaskDocumentFactory.From(Scope, received, new CosmosOptions()), ReplicaDocumentSerialization.Options),
+            ReplicaDocumentSerialization.Options)!;
+
+        using var pulled = JsonDocument.Parse(
+            JsonSerializer.Serialize(TaskDocumentFactory.ToRecord(stored)!.Change, wire));
+
+        var task = pulled.RootElement.GetProperty("task");
+
+        Assert.Equal("2026-09-24", task.GetProperty("reviewedOn").GetString());
+        Assert.Equal(3, task.GetProperty("subItems")[0].GetProperty("estimate").GetInt32());
+        Assert.Equal("Call the dentist", task.GetProperty("title").GetString());
+    }
+
+    /// <summary>A payload with nothing unrecognised carries nothing extra, so a
+    /// payload a device builds still equals the same payload read back.</summary>
+    [Fact]
+    public void A_payload_with_nothing_unrecognised_carries_no_extension_data()
+    {
+        var wire = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+
+        var read = JsonSerializer.Deserialize<TaskChange>(JsonSerializer.Serialize(Change(), wire), wire)!;
+
+        Assert.Null(read.Task.Unrecognised);
+        Assert.Null(read.Task.SubItems[0].Unrecognised);
+    }
+
     private static TaskChange Change() => new(
         TaskId,
         new DateTimeOffset(2026, 9, 7, 10, 30, 0, TimeSpan.Zero),
