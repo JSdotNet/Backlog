@@ -24,8 +24,11 @@ Written as the first entry of the `roadmap-imported-plans` plan, so that every
 later entry in it — the `plan` type word, the intake port, the placement rule,
 the velocity setting, the steps drawn inside an item, the shelf — implements one
 decision instead of each making its own. Built so far: the `plan` type word, the
-velocity setting, and Roadmap's own import command
-(`Features/ImportPlanItems`, rulings 2, 4 and 5 on the Roadmap side).
+velocity setting, Roadmap's own import command
+(`Features/ImportPlanItems`, rulings 2, 4 and 5 on the Roadmap side), the steps
+drawn inside an item (ruling 6), the shelf, the combined Import path (ruling 3),
+and `plugins/backlog-tools`' plan generator, which opens every plan with its
+`plan` entry and can write a roadmap-level document of `plan` entries alone.
 
 ## The six rulings
 

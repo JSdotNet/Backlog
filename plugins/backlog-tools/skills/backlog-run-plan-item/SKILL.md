@@ -23,9 +23,11 @@ item's `##` headings mean.
    read them off the plan-item marker; with the connector, `read_item` answers them too. An
    entry carrying only the session-name line yields the tag alone — say so and continue.
    The body is the instructions; `## Setup:`, the knowledge/devbook reminder and `- [ ]`
-   lines are its steps. A `task` or `test` type on the metadata line, or from `read_item` — or a body
-   with neither marker nor session-name line — is the user's own work, not a prompt: say
-   so and stop.
+   lines are its steps. A `plan` type on the metadata line, or from `read_item`, is a
+   roadmap item, not work: reply in one line that a `plan` entry is brought in by Import
+   and never run — its steps are what to paste — and stop. A `task` or `test` type — or a
+   body with neither marker nor session-name line — is the user's own work, not a prompt:
+   say so and stop.
 2. **Session and place.** Add the plan tag to the session title where the host allows it.
    Read `repository` off the git remote (`owner/name`); every connector call carries it.
    Where the item names a repository, confirm it is this one; if not, stop and say which.
@@ -66,4 +68,4 @@ item's `##` headings mean.
 ## Never
 
 - Redo an item the evidence says has landed: re-pasting is expected, duplicating work is not.
-- Run a `task` or `test` entry, open a pull request, or mark anything done in Backlog unasked.
+- Run a `task`, `test` or `plan` entry, open a pull request, or mark anything done in Backlog unasked.
