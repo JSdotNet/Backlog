@@ -16,14 +16,13 @@
 /// That measurement is history and is left standing as history: it is the evidence
 /// these steps exist at all, and rewriting it to today's numbers would erase the
 /// case it was taken from. The strip is four chips and about 230px now — Done and
-/// Archived are gone from it — which is why the step that collapses it moved down
-/// to 30rem, where it is true, instead of hiding three chips at a width where four
-/// fit.
+/// Archived are gone from it.
 /// </para>
 /// <para>
-/// Status collapses and tags do not, until tags leave altogether. A tag exists
-/// because somebody typed it and its count is where the work is; status is one of a
-/// fixed four and only the chosen one has to stay legible.
+/// Status never collapses. It used to come down to the chosen chip below 30rem, and
+/// that collapsed radiogroup offered no way to choose another status; above that
+/// step the strip sat at the clipped right edge of a bar that did not wrap. The bar
+/// wraps now, and so does the strip, so every status is on screen at every width.
 /// </para>
 /// </summary>
 public sealed class FilterBarLayoutTests
@@ -36,11 +35,6 @@ public sealed class FilterBarLayoutTests
     private const string TagStep = "@container backlog-list (max-width: 48rem) {";
 
     private const string CollapseStep = "@container backlog-list (max-width: 38rem) {";
-
-    /// <summary>Where the status strip comes down to the chosen chip. Its own step,
-    /// below the one that takes the tag pile and the row cluster: those have
-    /// nothing to do with the strip's width and never did.</summary>
-    private const string StatusStep = "@container backlog-list (max-width: 30rem) {";
 
     private const string TightenStep = "@container backlog-list (max-width: 26rem) {";
 
@@ -58,39 +52,50 @@ public sealed class FilterBarLayoutTests
         Assert.Contains("min-width: 0;", list, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// Every status stays operable at every width.
+    /// <para>
+    /// The statuses are the only place to pick one, so a chip hidden or clipped is a
+    /// status the reader cannot filter by. Two ways that happened: between 30rem and
+    /// the width the whole bar needs, <c>.filter-bar { overflow: hidden }</c> cut In
+    /// progress and Done off the right edge of a bar that did not wrap; below 30rem a
+    /// container step hid every chip but the chosen one, leaving a radiogroup of one.
+    /// The bar and the strip both wrap now, and no step hides a status chip.
+    /// </para>
+    /// </summary>
     [Fact]
-    public void Only_the_status_chips_collapse()
+    public void Every_status_chip_stays_operable_at_every_width()
     {
         var css = Css();
-        var status = Block(css, StatusStep);
 
-        Assert.Contains(
-            ".filter-group--status .chip:not(.chip--active):not(:first-child)",
-            status,
-            StringComparison.Ordinal);
+        Assert.Contains("flex-wrap: wrap;", Block(css, ".filter-bar {"), StringComparison.Ordinal);
+        Assert.Contains("flex-wrap: wrap;", Block(css, ".filter-group--status {"), StringComparison.Ordinal);
 
-        // The rule this replaced was unscoped, so it hid every other group's chips
-        // as well — the room the collapse is supposed to be buying.
+        // No rule anywhere in the sheet hides a status chip, at any step.
+        Assert.DoesNotContain(".filter-group--status .chip", css, StringComparison.Ordinal);
+        Assert.DoesNotContain("@container backlog-list (max-width: 30rem)", css, StringComparison.Ordinal);
+
+        // The rule that collapsed the strip was unscoped once, so it hid every other
+        // group's chips as well.
         Assert.DoesNotContain(".filter-group .chip", css, StringComparison.Ordinal);
 
-        // One decision per group: status loses its unchosen chips, tags loses the
-        // group, and nothing else on the bar is touched at any step.
+        // The scopes are untouched at every step: turning one off is only possible
+        // from the chip itself.
         Assert.DoesNotContain(".filter-group--scope", Block(css, TagStep), StringComparison.Ordinal);
         Assert.DoesNotContain(".filter-group--scope", Block(css, CollapseStep), StringComparison.Ordinal);
-        Assert.DoesNotContain(".filter-group--scope", status, StringComparison.Ordinal);
 
         var tighten = Block(css, TightenStep);
 
         Assert.Contains(".chip__count", tighten, StringComparison.Ordinal);
         Assert.Contains("gap: var(--spacing-xs);", tighten, StringComparison.Ordinal);
+        Assert.DoesNotContain("display: none", Block(tighten, ".filter-group--status {"), StringComparison.Ordinal);
 
-        // Widest first, all four of them: each step matches everywhere the ones
-        // above it do, so a narrower rule written earlier would be overridden by
-        // the wider one it was supposed to replace.
+        // Widest first: each step matches everywhere the ones above it do, so a
+        // narrower rule written earlier would be overridden by the wider one it was
+        // supposed to replace.
         Assert.True(
             css.IndexOf(TagStep, StringComparison.Ordinal) < css.IndexOf(CollapseStep, StringComparison.Ordinal)
-            && css.IndexOf(CollapseStep, StringComparison.Ordinal) < css.IndexOf(StatusStep, StringComparison.Ordinal)
-            && css.IndexOf(StatusStep, StringComparison.Ordinal) < css.IndexOf(TightenStep, StringComparison.Ordinal),
+            && css.IndexOf(CollapseStep, StringComparison.Ordinal) < css.IndexOf(TightenStep, StringComparison.Ordinal),
             "Each narrower container step must come after the wider ones it overrides.");
     }
 
@@ -105,6 +110,11 @@ public sealed class FilterBarLayoutTests
     /// also why the group's own chips are never collapsed to buy room. It leaves the
     /// bar whole instead, one step down.
     /// </para>
+    /// <para>
+    /// Its basis is zero because the bar wraps: at <c>auto</c> a long pile is as wide
+    /// as all its chips, which in a wrapping bar claims a row of its own and pushes
+    /// the statuses onto a third.
+    /// </para>
     /// </summary>
     [Fact]
     public void The_tags_group_takes_the_middle_of_the_bar()
@@ -113,7 +123,7 @@ public sealed class FilterBarLayoutTests
 
         var tags = Block(css, ".filter-group--tags {");
 
-        Assert.Contains("flex: 1 1 auto;", tags, StringComparison.Ordinal);
+        Assert.Contains("flex: 1 1 0;", tags, StringComparison.Ordinal);
 
         // Nothing else grows into it: the scopes hold their room, status only shrinks.
         Assert.Contains("flex: 0 0 auto;", Block(css, ".filter-group--scope {"), StringComparison.Ordinal);
@@ -125,7 +135,6 @@ public sealed class FilterBarLayoutTests
         // chips and drops the rest, which is what stops the group going and taking
         // the only way out of the selection with it.
         Assert.DoesNotContain(".filter-group--tags .chip", css, StringComparison.Ordinal);
-        Assert.DoesNotContain(".filter-group--tags--picked .chip", Block(css, StatusStep), StringComparison.Ordinal);
         Assert.DoesNotContain(".filter-group--tags--picked .chip", Block(css, TightenStep), StringComparison.Ordinal);
     }
 
@@ -172,7 +181,6 @@ public sealed class FilterBarLayoutTests
         // on a bar that had no room for it, at every width between the two — which is
         // the band the list's floor now keeps it in.
         Assert.DoesNotContain(".filter-group--tags", Block(css, CollapseStep), StringComparison.Ordinal);
-        Assert.DoesNotContain(".filter-group--tags", Block(css, StatusStep), StringComparison.Ordinal);
         Assert.DoesNotContain(".filter-group--tags", Block(css, TightenStep), StringComparison.Ordinal);
     }
 

@@ -480,7 +480,13 @@ h1, h2, h3 {
     display: flex;
     align-items: center;
     gap: var(--spacing-md);
-    flex-wrap: nowrap;
+    /* Wraps rather than clipping. With `nowrap` a bar wider than its column lost
+       whatever sat at its right edge to `overflow: hidden` below, and what sits
+       there is the status radiogroup: between 30rem and the ~44rem the bar needs,
+       In progress and Done were drawn half-cut or not at all and could not be
+       pressed. A group that does not fit now takes the next row instead. */
+    flex-wrap: wrap;
+    row-gap: var(--spacing-xs);
     min-width: 0;
     overflow: hidden;
     margin-bottom: var(--spacing-md);
@@ -511,7 +517,11 @@ h1, h2, h3 {
    the container query at the bottom of this file. What is left here is the width in
    between. */
 .filter-group--tags {
-    flex: 1 1 auto;
+    /* A zero basis, so the pile takes what the other groups leave on the first row
+       rather than claiming a row of its own now that the bar wraps. At `auto` a
+       long pile was as wide as all its chips, which in a wrapping bar pushes it —
+       and the statuses after it — onto rows of their own. */
+    flex: 1 1 0;
 }
 
 /* The one group in the bar that is not a filter. It keeps its room for the same
@@ -524,8 +534,13 @@ h1, h2, h3 {
     flex: 0 0 auto;
 }
 
+/* The statuses wrap inside their own group too, for the column narrower than the
+   whole strip even on a row of its own. Every status stays on screen at every
+   width: this is the only place to pick one, so a chip hidden or clipped is a
+   status the reader cannot filter by. */
 .filter-group--status {
     flex: 0 1 auto;
+    flex-wrap: wrap;
     margin-left: auto;
 }
 
@@ -1511,11 +1526,10 @@ h1, h2, h3 {
   column is wider now that the panel is the fixed half, which makes that squeeze
   rarer rather than impossible: the reader can still drag the panel out to 48rem.
 
-  Status collapses first and areas never do. An area exists because somebody typed
-  it and its count is where the work is; status is one of a fixed few, and the
-  chosen one is the only one that has to stay legible. Collapsing gives back most
-  of those 369px, which is the only move here that actually buys the areas their
-  room — tightening the gaps first would have bought about 20px of it.
+  Status used to collapse first, down to the chosen chip, to buy the other groups
+  their room. It no longer collapses at all: a collapsed radiogroup offered no way
+  to choose another status, and the bar wraps now, so the room comes from a second
+  row rather than from hiding the only control for the question.
 */
 
 /* 48rem: the width the tag pile stops fitting at, measured rather than reasoned.
@@ -1566,8 +1580,8 @@ h1, h2, h3 {
 /* 38rem: the width the row's trailing cluster stops fitting at.
 
    This number used to be attributed to the status strip as well, back when that
-   strip was six chips and 369px wide. It is four chips and about 230px now, so the
-   status rule moved down to the 30rem step below, where it is actually true. It
+   strip was six chips and 369px wide. The status strip has no step of its own any
+   more — the bar wraps it onto a row of its own instead. It
    carried the tag pile too, until the pile was measured and moved up to the step
    above — the cluster's width never depended on either of them. */
 @container backlog-list (max-width: 38rem) {
@@ -1619,23 +1633,8 @@ h1, h2, h3 {
     }
 }
 
-/* 30rem: the four-chip strip (~230px) plus the gap between the groups plus the
-   ~200px the scope pile needs comes to about 440px, so it stops fitting a shade
-   below 480px. Below this the group shows the chosen status and nothing else,
-   which is the one chip a reader is looking for.
-
-   It used to collapse at 38rem, when the strip was six chips and 369px wide.
-   Losing Done and Archived shrank it, so the step that hides it moved down with
-   it rather than going on hiding three chips at a width where four fit — a bar
-   that collapses before it has to is a bar lying about what it can show. */
-@container backlog-list (max-width: 30rem) {
-    .filter-group--status .chip:not(.chip--active):not(:first-child) {
-        display: none;
-    }
-}
-
 /* 26rem: down here the column is close to the 20rem the separator can drag it to,
-   and one chip per group is all that fits. The count goes with the padding — a
+   and every chip is worth the width it saves. The count goes with the padding — a
    name and a number in a chip this narrow is neither. */
 @container backlog-list (max-width: 26rem) {
     .filter-bar {
@@ -1650,7 +1649,8 @@ h1, h2, h3 {
         display: none;
     }
 
-    /* Nothing left to push away from: the groups are one chip each. */
+    /* Down here the statuses sit on a row of their own, and a wrapped strip reads
+       from the left edge like every other row in the column. */
     .filter-group--status {
         margin-left: 0;
     }
