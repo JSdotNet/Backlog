@@ -9,7 +9,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// The dashboard surface: its fixed composition, its filter, and the independence
-/// its seven parts promise.
+/// its parts promise.
 /// </summary>
 public class DashboardPaneTests
 {
@@ -31,6 +31,8 @@ public class DashboardPaneTests
                      "dashboard-score",
                      "dashboard-rework",
                      "dashboard-trend",
+                     "dashboard-tasks-completed",
+                     "dashboard-tasks-effort",
                      "dashboard-sessions",
                      "dashboard-spend-month",
                      "dashboard-spend-trend",
@@ -2306,7 +2308,7 @@ public class DashboardPaneTests
     /// The surface is deliberately not configurable — no layout editing, no adding or
     /// removing a part, nothing persisted. This is the guard against that quietly
     /// changing: the only controls on the panel are the filter, the per-part refresh
-    /// and info mark, the three section folds, and the close button.
+    /// and info mark, the four section folds, and the close button.
     /// </summary>
     [Fact]
     public void The_panel_offers_no_way_to_configure_itself()
@@ -2341,18 +2343,18 @@ public class DashboardPaneTests
         Assert.Empty(pane.FindAll("[data-testid='dashboard-repository-filter']"));
         Assert.Single(pane.FindAll("[data-testid='dashboard-machine-filter'] select"));
         Assert.Equal(2, pane.FindAll("[data-testid='dashboard-window-filter'] button").Count);
-        Assert.Equal(8, pane.FindAll("[data-testid$='-refresh']").Count);
+        Assert.Equal(10, pane.FindAll("[data-testid$='-refresh']").Count);
         // The folds show and hide what is already there; they arrange nothing.
-        Assert.Equal(3, pane.FindAll("[data-testid$='-toggle'].fold__trigger").Count);
+        Assert.Equal(4, pane.FindAll("[data-testid$='-toggle'].fold__trigger").Count);
         // The info marks open a caption; they change nothing.
-        Assert.Equal(8, pane.FindAll("[data-testid$='-info'].info-hint__trigger").Count);
+        Assert.Equal(10, pane.FindAll("[data-testid$='-info'].info-hint__trigger").Count);
         Assert.Single(pane.FindAll("[aria-label='Close dashboard']"));
 
         var controls = pane.FindAll("button, select, input, textarea");
 
-        // One close, one filter select, two window buttons, eight refreshes, three
-        // folds, eight info marks.
-        Assert.Equal(1 + 1 + 2 + 8 + 3 + 8, controls.Count);
+        // One close, one filter select, two window buttons, ten refreshes, four
+        // folds, ten info marks.
+        Assert.Equal(1 + 1 + 2 + 10 + 4 + 10, controls.Count);
     }
 
     /// <summary>
@@ -2438,6 +2440,30 @@ public class DashboardPaneTests
         Assert.NotNull(header.QuerySelector(".dashboard-panel__header-actions button"));
     }
 
+    /// <summary>
+    /// The tasks section draws both weekly series from one answer, and follows the
+    /// header's repository chips: a chip pressed while the dashboard is open reaches
+    /// the tasks insight as the scope it is asked for.
+    /// </summary>
+    [Fact]
+    public void The_tasks_section_draws_completed_and_effort_per_week_and_follows_the_repository_scope()
+    {
+        var tasks = new RecordingTaskInsights();
+        using var context = Context(configure: services => services.AddSingleton<ITaskInsights>(tasks));
+
+        var pane = context.Render<DashboardPane>();
+
+        Assert.NotNull(pane.Find("[data-testid='dashboard-tasks-section']"));
+        Assert.Contains("3 in all", pane.Find("[data-testid='dashboard-tasks-completed']").TextContent, StringComparison.Ordinal);
+        Assert.Contains("8 in all", pane.Find("[data-testid='dashboard-tasks-effort']").TextContent, StringComparison.Ordinal);
+        Assert.Contains("One completed task had no estimate", pane.Markup, StringComparison.Ordinal);
+
+        FocusRepository(pane, "backlog");
+
+        pane.WaitForAssertion(() =>
+            Assert.Contains(tasks.Scopes, scope => scope.Repositories.Aliases.SequenceEqual(["backlog"])));
+    }
+
     /// <summary>What the shell does when a scope chip is pressed: hands the pane its
     /// scope through the parameter. The pane has no control of its own to press,
     /// which is the point of these tests going through the parameter.</summary>
@@ -2452,6 +2478,22 @@ public class DashboardPaneTests
         configure?.Invoke(context.Services);
 
         return context;
+    }
+
+    private sealed class RecordingTaskInsights : ITaskInsights
+    {
+        public List<DashboardScope> Scopes { get; } = [];
+
+        public Task<InsightResult<TaskThroughputInsight>> GetThroughputAsync(
+            DashboardScope scope,
+            CancellationToken cancellationToken = default)
+        {
+            Scopes.Add(scope);
+            return Task.FromResult(InsightResult<TaskThroughputInsight>.Ready(new TaskThroughputInsight(
+                [new InsightPoint("W37", 1), new InsightPoint("W38", 2)],
+                [new InsightPoint("W37", 3), new InsightPoint("W38", 5)],
+                Unestimated: 1)));
+        }
     }
 
     private sealed class RecordingProductivityInsights : IProductivityInsights

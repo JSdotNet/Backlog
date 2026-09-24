@@ -64,6 +64,21 @@ public interface ISessionInsights
 }
 
 /// <summary>
+/// What the tasks section of the dashboard asks for.
+/// <para>
+/// The repository scope and the window narrow the answer; the machine cannot, because a
+/// task records no machine it was ticked off on. The parts say so rather than leaving a
+/// figure that will not move to explain itself.
+/// </para>
+/// </summary>
+public interface ITaskInsights
+{
+    Task<InsightResult<TaskThroughputInsight>> GetThroughputAsync(
+        DashboardScope scope,
+        CancellationToken cancellationToken = default);
+}
+
+/// <summary>
 /// What the cost half of the dashboard asks for.
 /// <para>
 /// No <see cref="DashboardScope"/> anywhere, on purpose. Neither provider reports

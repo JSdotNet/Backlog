@@ -35,6 +35,11 @@ public static class DashboardCrossContextAdapterRegistration
         services.AddSingleton<IAssistantSessionSource, AgentSessionAssistantSessionSource>();
         services.AddSingleton<IAssistantActivitySource, AgentActivityAssistantActivitySource>();
 
+        // Scoped, unlike the two above: the backlog port it reads (ITaskItems) is scoped,
+        // and a singleton holding it would be the captive dependency the roadmap's
+        // adapters are scoped to avoid.
+        services.AddScoped<ICompletedTaskSource, TaskItemsCompletedTaskSource>();
+
         return services;
     }
 }

@@ -133,6 +133,23 @@
             </FoldControl>
         </div>
 
+        @* The backlog's side of the same question the productivity section asks of
+           GitHub. The repository chips narrow it; the machine filter does not, because
+           a task records no machine — both parts say so. *@
+        <div class="dashboard-section" data-testid="dashboard-tasks-section">
+            <FoldControl @bind-Expanded="_tasksExpanded"
+                         Label="Tasks"
+                         HeadingLevel="3"
+                         HeadingCssClass="dashboard-section__title"
+                         BaseClass="dashboard-section__fold"
+                         TestId="dashboard-tasks-toggle">
+                <div class="dashboard-section__split">
+                    <CompletedTasksPart Scope="_scope" />
+                    <TaskEffortPart Scope="_scope" />
+                </div>
+            </FoldControl>
+        </div>
+
         <div class="dashboard-section" data-testid="dashboard-sessions-section">
             <FoldControl @bind-Expanded="_sessionsExpanded"
                          Label="Sessions"
@@ -181,6 +198,7 @@
     /// that opens folded is a dashboard showing nothing; fields rather than anything
     /// persisted, for the same reason the scope is one.</summary>
     private bool _productivityExpanded = true;
+    private bool _tasksExpanded = true;
     private bool _sessionsExpanded = true;
     private bool _costExpanded = true;
 
