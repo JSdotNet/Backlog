@@ -1298,6 +1298,51 @@
         }
     }).observe(document.documentElement, { childList: true, subtree: true });
 
+    // The backlog's tag strip is one row that clips whole chips off its end, and
+    // the "More" toggle beside it is only worth drawing while it does. Where a chip
+    // wrapped is layout, so this marks the strip with `data-overflowing` and the
+    // CSS hides the toggle otherwise. An attribute rather than a class: Blazor
+    // rewrites the strip's class whenever a tag is picked, and would wipe one.
+    //
+    // Measured when the strip is resized (the column was dragged, the window
+    // moved) and when anything inside it changes (a tag came or went, a count
+    // grew a digit) — the strip's own box stays one row high through the second,
+    // so a ResizeObserver alone would never hear it.
+    const TAG_STRIP_SELECTOR = '.filter-group--tags';
+    const tagStrips = new WeakSet();
+
+    const measureTagStrip = (strip) => {
+        const chips = strip.children;
+        const wrapped = chips.length > 1 && chips[chips.length - 1].offsetTop > chips[0].offsetTop;
+        strip.toggleAttribute('data-overflowing', wrapped);
+    };
+
+    const tagStripResize = new ResizeObserver((entries) => {
+        for (const entry of entries) measureTagStrip(entry.target);
+    });
+
+    const watchTagStrips = () => {
+        for (const strip of document.querySelectorAll(TAG_STRIP_SELECTOR)) {
+            if (!tagStrips.has(strip)) {
+                tagStrips.add(strip);
+                tagStripResize.observe(strip);
+            }
+            measureTagStrip(strip);
+        }
+    };
+
+    new MutationObserver((records) => {
+        for (const record of records) {
+            const target = record.target instanceof Element ? record.target : record.target.parentElement;
+            if (target?.closest(TAG_STRIP_SELECTOR)
+                || [...record.addedNodes].some((node) => node instanceof Element
+                    && (node.matches(TAG_STRIP_SELECTOR) || node.querySelector(TAG_STRIP_SELECTOR)))) {
+                watchTagStrips();
+                return;
+            }
+        }
+    }).observe(document.documentElement, { childList: true, subtree: true, characterData: true });
+
     // The side pane is resized by dragging its edge. Pointer capture and the live
     // width both belong in the browser; C# only hears the settled value, so a drag
     // costs one interop call instead of one per frame.

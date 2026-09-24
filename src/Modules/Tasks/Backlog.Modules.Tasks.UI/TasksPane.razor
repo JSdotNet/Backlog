@@ -190,7 +190,8 @@
                         @* The modifier is what keeps the group reachable on a narrow
                            column: the bar drops it there to save the width, but only
                            while nothing is picked — see the 38rem step in app.css. *@
-                        <div class="filter-group filter-group--tags @(State.SelectedTags.Count > 0 ? "filter-group--tags--picked" : null)"
+                        <div id="tag-filter-strip"
+                             class="filter-group filter-group--tags @(State.SelectedTags.Count > 0 ? "filter-group--tags--picked" : null) @(_tagStripExpanded ? "filter-group--tags--expanded" : null)"
                              role="group"
                              aria-label="Filter by tag">
                             @foreach (var tag in State.TagFilters)
@@ -211,6 +212,24 @@
                                 </ToggleButton>
                             }
                         </div>
+
+                        @* The strip is one row and clips whole chips off its end, so
+                           with more plans than the column is wide this is the way to
+                           the rest: pressed, the strip wraps onto as many rows as it
+                           needs. A sibling of the strip rather than a chip in it, so
+                           the clipping can never take it too. It shows only while the
+                           strip overflows or is open — components.js measures that and
+                           marks the strip, because only the browser knows where a
+                           chip wrapped. *@
+                        <AppButton BaseClass="chip chip--filter chip--more"
+                                   Variant="ButtonVariant.None"
+                                   TestId="tag-filter-more"
+                                   aria-expanded="@(_tagStripExpanded ? "true" : "false")"
+                                   aria-controls="tag-filter-strip"
+                                   title="@(_tagStripExpanded ? "Show the tags on one row" : "Show every tag")"
+                                   OnClick="() => _tagStripExpanded = !_tagStripExpanded">
+                            @(_tagStripExpanded ? "Fewer" : "More")
+                        </AppButton>
                     }
 
                     <div class="filter-group filter-group--status" role="radiogroup" aria-label="Filter by status">
@@ -511,6 +530,10 @@
     private EntryRow? _rowMenuRow;
 
     private bool _rowMenuOpen;
+
+    /// <summary>Whether the tag strip is wrapped open onto every row rather than
+    /// clipped to one — the "More" toggle beside it.</summary>
+    private bool _tagStripExpanded;
 
     private double _rowMenuX;
 
@@ -3423,7 +3446,9 @@
     /// <summary>The bar's per-kind modifier, read off the stored value the way
     /// <c>TagChip</c> reads its own. "Untagged" is a general chip: it names no tag,
     /// so it wears no sigil and no shape of its own.</summary>
-    private static string TagFilterKindClass(TagFilterOption tag) => TagText.Kind(tag.Value) switch
+    private static string TagFilterKindClass(TagFilterOption tag) => tag.Value == TasksDesktopState.NoPlanTag
+        ? "chip--tag-plan"
+        : TagText.Kind(tag.Value) switch
     {
         TagKind.Person => "chip--tag-person",
         TagKind.Plan => "chip--tag-plan",

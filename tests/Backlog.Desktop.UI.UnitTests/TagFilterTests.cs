@@ -145,14 +145,15 @@ public sealed class TagFilterTests
         var pane = host.Render();
         var chips = pane.FindAll(Chip);
 
-        // Ordinal order puts the sigilled kinds first, then the bare general tag,
-        // then the chip that names no tag at all.
-        Assert.Equal(["+release-q4", "@bob", "#sync", "Untagged"], chips.Select(chip => chip.TextContent.TrimEnd('1')));
+        // "No plan" leads, then ordinal order puts the sigilled kinds first, then
+        // the bare general tag, then the chip that names no tag at all.
+        Assert.Equal(["No plan", "+release-q4", "@bob", "#sync", "Untagged"], chips.Select(chip => chip.TextContent.TrimEnd('1')));
 
         Assert.Contains("chip--tag-plan", chips[0].ClassList);
-        Assert.Contains("chip--tag-person", chips[1].ClassList);
-        Assert.Contains("chip--tag-general", chips[2].ClassList);
+        Assert.Contains("chip--tag-plan", chips[1].ClassList);
+        Assert.Contains("chip--tag-person", chips[2].ClassList);
         Assert.Contains("chip--tag-general", chips[3].ClassList);
+        Assert.Contains("chip--tag-general", chips[4].ClassList);
 
         // One kind each, never two.
         Assert.All(chips, chip => Assert.Single(
@@ -786,6 +787,118 @@ public sealed class TagFilterTests
         var untagged = pane.Find($"[data-testid='{RowTestId(none)}']");
 
         Assert.Null(untagged.QuerySelector(".task-item__line"));
+    }
+
+    /// <summary>Three entries: two plans and one filed under none. The shape the
+    /// "No plan" chip answers — see <see cref="No_plan_lists_what_is_filed_under_no_plan"/>.</summary>
+    private static async Task<(TasksPaneHost Host, EntryRow Release, EntryRow Import, EntryRow Loose, EntryRow Bare)> PlansAsync()
+    {
+        var host = await TasksPaneHost.CreateAsync();
+
+        var release = await host.WriteEntryAsync("# Ship it +release-q4\n`task` `!ready` `@platform` `#sync`\n");
+        var import = await host.WriteEntryAsync("# Import it +roadmap-import\n`task` `!ready` `@platform`\n");
+        var loose = await host.WriteEntryAsync("# Tidy the docs\n`task` `!ready` `@platform` `#sync`\n");
+        var bare = await host.WriteEntryAsync("# Write the runbook\n`task` `!ready` `@platform`\n");
+        await host.State.SelectAsync(null);
+
+        return (host, release, import, loose, bare);
+    }
+
+    /// <summary>With many plans in the backlog, the reader wants the work that is
+    /// part of none of them. One chip rather than unpressing every plan: the group
+    /// is a union, so there is no way to say "not these" with the plan chips
+    /// themselves.</summary>
+    [Fact]
+    public async Task No_plan_lists_what_is_filed_under_no_plan()
+    {
+        var (host, _, _, loose, bare) = await PlansAsync();
+        using var _host = host;
+
+        var noPlan = Option(host, TasksDesktopState.NoPlanTag);
+
+        Assert.Equal("No plan", noPlan.Label);
+        Assert.Equal(2, noPlan.OpenCount);
+
+        host.State.ToggleTagFilter(TasksDesktopState.NoPlanTag);
+
+        Assert.Equal(
+            [loose.Key, bare.Key],
+            host.State.FilteredRows.Select(row => row.Key).Order());
+    }
+
+    /// <summary>First in the group, so the one-row strip never pushes it out of
+    /// view however many plans follow it — and it reads as a plan chip.</summary>
+    [Fact]
+    public async Task No_plan_leads_the_group_and_wears_the_plan_kind()
+    {
+        var (host, _, _, _, _) = await PlansAsync();
+        using var _host = host;
+
+        Assert.Equal(TasksDesktopState.NoPlanTag, host.State.TagFilters[0].Value);
+
+        var chip = host.Render().FindAll(Chip)[0];
+
+        Assert.StartsWith("No plan", chip.TextContent, StringComparison.Ordinal);
+        Assert.Contains("chip--tag-plan", chip.ClassList);
+    }
+
+    /// <summary>A union like every other chip in the group: "No plan" beside a plan
+    /// is that plan's work and everything loose.</summary>
+    [Fact]
+    public async Task No_plan_and_a_plan_together_are_the_union()
+    {
+        var (host, release, _, loose, bare) = await PlansAsync();
+        using var _host = host;
+
+        host.State.ToggleTagFilter(TasksDesktopState.NoPlanTag);
+        host.State.ToggleTagFilter("+release-q4");
+
+        Assert.Equal(
+            new[] { release.Key, loose.Key, bare.Key }.Order(),
+            host.State.FilteredRows.Select(row => row.Key).Order());
+    }
+
+    /// <summary>Nothing to exclude while nobody plans, and nothing to show while
+    /// everything is planned — the chip earns its place the way "Untagged" does.</summary>
+    [Fact]
+    public async Task No_plan_is_absent_unless_it_would_narrow_something()
+    {
+        var (host, _, _, _, _) = await FourAsync();
+        using var _host = host;
+
+        Assert.DoesNotContain(host.State.TagFilters, option => option.Value == TasksDesktopState.NoPlanTag);
+
+        using var planned = await TasksPaneHost.CreateAsync();
+        await planned.WriteEntryAsync("# Ship it +release-q4\n`task` `!ready` `@platform`\n");
+        await planned.State.SelectAsync(null);
+
+        Assert.DoesNotContain(planned.State.TagFilters, option => option.Value == TasksDesktopState.NoPlanTag);
+    }
+
+    /// <summary>The strip is one row wide and clips the tags that do not fit, so
+    /// the toggle beside it is the way to every one of them: pressed, the group
+    /// wraps onto as many rows as it needs. Whether it shows at all is the
+    /// browser's to measure (components.js marks an overflowing strip); what is
+    /// pinned here is the state and the hook the CSS hangs on.</summary>
+    [Fact]
+    public async Task The_more_toggle_opens_the_strip_onto_every_row()
+    {
+        var (host, _, _, _, _) = await PlansAsync();
+        using var _host = host;
+
+        var pane = host.Render();
+        var more = pane.Find("[data-testid='tag-filter-more']");
+
+        Assert.Equal("false", more.GetAttribute("aria-expanded"));
+        Assert.DoesNotContain("filter-group--tags--expanded", pane.Find("[aria-label='Filter by tag']").ClassName);
+
+        await more.ClickAsync(new());
+
+        Assert.Equal("true", pane.Find("[data-testid='tag-filter-more']").GetAttribute("aria-expanded"));
+        Assert.Contains("filter-group--tags--expanded", pane.Find("[aria-label='Filter by tag']").ClassName);
+        Assert.Equal(
+            pane.Find("[aria-label='Filter by tag']").GetAttribute("id"),
+            pane.Find("[data-testid='tag-filter-more']").GetAttribute("aria-controls"));
     }
 
     private static TagFilterOption Option(TasksPaneHost host, string value) =>

@@ -105,6 +105,12 @@ public sealed class FilterBarLayoutTests
     /// also why the group's own chips are never collapsed to buy room. It leaves the
     /// bar whole instead, one step down.
     /// </para>
+    /// <para>
+    /// A zero basis rather than <c>auto</c>: the slack is what the other groups leave,
+    /// not a width it competes for. At <c>auto</c> a long pile shrank the statuses
+    /// too and clipped them through a chip's name; what the strip cannot fit now is
+    /// the More toggle's to reach.
+    /// </para>
     /// </summary>
     [Fact]
     public void The_tags_group_takes_the_middle_of_the_bar()
@@ -113,7 +119,7 @@ public sealed class FilterBarLayoutTests
 
         var tags = Block(css, ".filter-group--tags {");
 
-        Assert.Contains("flex: 1 1 auto;", tags, StringComparison.Ordinal);
+        Assert.Contains("flex: 1 1 0;", tags, StringComparison.Ordinal);
 
         // Nothing else grows into it: the scopes hold their room, status only shrinks.
         Assert.Contains("flex: 0 0 auto;", Block(css, ".filter-group--scope {"), StringComparison.Ordinal);
