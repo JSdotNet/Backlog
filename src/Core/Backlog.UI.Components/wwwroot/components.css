@@ -3139,10 +3139,16 @@ button.md-check {
     flex: none;
 }
 
-/* Named by aria-label rather than by a visible word, the same as the gutter's
-   box — so the empty label span is dropped rather than left holding room. */
-.selection-bar__all .checkbox__label {
+/* Named by aria-label unless the host hands over a visible word — so an empty
+   label span is dropped rather than left holding room. */
+.selection-bar__all .checkbox__label:empty {
     display: none;
+}
+
+.selection-bar__all .checkbox__label {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    white-space: nowrap;
 }
 
 /* The count is the subject of the bar, so it carries the weight the acts beside

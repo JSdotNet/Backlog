@@ -38,6 +38,7 @@
 
 <div @attributes="AdditionalAttributes" class="@ClassValue" role="group" aria-label="@AriaLabel" data-testid="@TestId">
     <Checkbox Checked="@AllSelected"
+              Label="@(SelectAllText ?? string.Empty)"
               Indeterminate="@Indeterminate"
               CheckedChanged="SelectAllChanged"
               Disabled="@(Total == 0)"
@@ -123,6 +124,12 @@
 
     [Parameter]
     public string SelectAllLabel { get; set; } = "Select all";
+
+    /// <summary>A visible word beside the select-all box. Unset, the box stands
+    /// bare and is named by <see cref="SelectAllLabel"/> alone; a host whose
+    /// readers were not finding it hands over the text to show.</summary>
+    [Parameter]
+    public string? SelectAllText { get; set; }
 
     [Parameter]
     public string ClearLabel { get; set; } = "Clear selection";
