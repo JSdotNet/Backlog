@@ -6215,6 +6215,14 @@ select.field__input {
     border: none;
     background: transparent;
     resize: none;
+    overflow-y: auto;
+}
+
+/* Only the growing box hides its overflow: its replica keeps it exactly as tall
+   as its text, so a scrollbar there would only ever flash in for the frame
+   before the track catches up. A fixed-height box (AutoGrow false) has a row
+   count, not a replica, and text past it has to stay reachable. */
+.grow-wrap.field__grow > .field__input {
     overflow: hidden;
 }
 
