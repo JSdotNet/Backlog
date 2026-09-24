@@ -125,18 +125,78 @@ public class RoadmapPlanViewTests
     }
 
     [Fact]
-    public void WorkNamingTwoRepositoriesIsDrawnOnce_UnderTheFirstConfiguredOne()
+    public void WorkNamingTwoRepositoriesIsDrawnOncePerRepository_EachPartInItsOwnBand()
     {
+        var item = Item("Spans both", repositories: ["backlog", "fincent"]);
+        var view = RoadmapPlanView.From(Plan([item]), Configured);
+
+        Assert.Equal(2, view.Bars.Count);
+        var backlog = Assert.Single(view.Bars, bar => bar.RowId.StartsWith("backlog::", StringComparison.Ordinal));
+        var fincent = Assert.Single(view.Bars, bar => bar.RowId.StartsWith("fincent::", StringComparison.Ordinal));
+
+        // Both parts are the one stored item, sharing its window: opening or moving
+        // either is opening or moving the item.
+        Assert.Equal(item.Id, RoadmapPlanView.NodeIdOf(backlog.Id));
+        Assert.Equal(item.Id, RoadmapPlanView.NodeIdOf(fincent.Id));
+        Assert.NotEqual(backlog.Id, fincent.Id);
+        Assert.Equal((backlog.Start, backlog.End), (fincent.Start, fincent.End));
+
+        // Each part is found under its own repository only.
+        Assert.Equal([new RoadmapFacet("Repository", "JSdotNet/Backlog")], backlog.FacetList.Where(facet => facet.Name == "Repository"));
+        Assert.Equal([new RoadmapFacet("Repository", "JSdotNet/Fincent")], fincent.FacetList.Where(facet => facet.Name == "Repository"));
+        Assert.Contains("one of 2 repository parts", backlog.Detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void WorkNamingOneRepositoryKeepsItsBareId()
+    {
+        var item = Item("One place", repositories: ["backlog"]);
+
+        var bar = Assert.Single(RoadmapPlanView.From(Plan([item]), Configured).Bars);
+
+        Assert.Equal(item.Id.ToString(), bar.Id);
+        Assert.DoesNotContain("repository parts", bar.Detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void EachRepositorysPart_CarriesTheTasksFiledThere()
+    {
+        var item = Item("Spans both", repositories: ["backlog", "fincent"]);
+        var rollup = new RoadmapItemRollupDto(
+        [
+            new RoadmapGatheredLink("a", "A", 3, RollupOrigin.Tag, RoadmapProgress.Done, null, ["JSdotNet/Backlog"]),
+            new RoadmapGatheredLink("b", "B", 5, RollupOrigin.Tag, RoadmapProgress.Planned, null, ["fincent"]),
+            // Filed in both: counted in both parts.
+            new RoadmapGatheredLink("c", "C", 2, RollupOrigin.Tag, RoadmapProgress.Planned, null, ["JSdotNet/Backlog", "JSdotNet/Fincent"]),
+            // Filed nowhere: goes to the first part, so it stays in the item's progress.
+            new RoadmapGatheredLink("d", "D", 1, RollupOrigin.Tag, RoadmapProgress.Planned)
+        ], []);
+
         var view = RoadmapPlanView.From(
-            Plan([Item("Spans both", repositories: ["backlog", "fincent"])]),
-            Configured);
+            Plan([item]),
+            Configured,
+            new Dictionary<Guid, RoadmapItemRollupDto> { [item.Id] = rollup });
 
-        var bar = Assert.Single(view.Bars);
-        Assert.StartsWith("backlog::", bar.RowId, StringComparison.Ordinal);
+        var backlog = Assert.Single(view.Bars, bar => bar.RowId.StartsWith("backlog::", StringComparison.Ordinal));
+        var fincent = Assert.Single(view.Bars, bar => bar.RowId.StartsWith("fincent::", StringComparison.Ordinal));
 
-        // Findable under either, because the filter is built from the facets.
-        Assert.Contains(new RoadmapFacet("Repository", "JSdotNet/Backlog"), bar.FacetList);
-        Assert.Contains(new RoadmapFacet("Repository", "JSdotNet/Fincent"), bar.FacetList);
+        Assert.Equal(["a", "c", "d"], backlog.StepList.Select(step => step.Id));
+        Assert.Equal(["b", "c"], fincent.StepList.Select(step => step.Id));
+        Assert.Equal(3, backlog.DoneEffort);
+        Assert.Equal(0, fincent.DoneEffort);
+    }
+
+    [Fact]
+    public void AnArrowToASplitItem_RunsWithinEachRepository()
+    {
+        var first = Item("First", repositories: ["backlog", "fincent"]);
+        var then = Item("Then", startDay: 12, endDay: 16, repositories: ["backlog", "fincent"], dependsOn: [first.Id]);
+
+        var view = RoadmapPlanView.From(Plan([first, then]), Configured);
+
+        Assert.Equal(2, view.Links.Count);
+        Assert.Contains(new RoadmapLink($"{first.Id}@backlog", $"{then.Id}@backlog"), view.Links);
+        Assert.Contains(new RoadmapLink($"{first.Id}@fincent", $"{then.Id}@fincent"), view.Links);
     }
 
     [Fact]

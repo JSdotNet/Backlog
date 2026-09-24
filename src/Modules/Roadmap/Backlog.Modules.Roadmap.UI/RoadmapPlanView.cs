@@ -36,7 +36,8 @@ public sealed record RoadmapTimelineModel(
 /// <summary>
 /// Turns a stored plan into what the timeline draws: a band per configured
 /// repository, the person's own lanes inside each, and the dependency arrows
-/// between them.
+/// between them. An item filed in several repositories is drawn once in each of
+/// their bands, as that repository's part of it.
 /// <para>
 /// A pure function of the plan and the configured repositories, deliberately
 /// separate from the component. Everything interesting about reading a plan — which
@@ -96,7 +97,7 @@ public static class RoadmapPlanView
         var items = plan.Items
             .OrderBy(item => item.Start)
             .ThenBy(item => item.Title, StringComparer.CurrentCulture)
-            .Select(item => (Item: item, GroupId: GroupIdFor(item.RepositoryAliases, configured)))
+            .SelectMany(item => PartsOf(item, configured, rollups))
             .ToList();
 
         // Milestones are not grouped by repository: they all share one band at the top.
@@ -110,7 +111,7 @@ public static class RoadmapPlanView
         var drawn = groups.SelectMany(group => group.RowList).Select(row => row.Id).ToHashSet();
 
         var bars = items
-            .Select(entry => Bar(entry.Item, stacked.RowOf[entry.Item.Id], contradicting, configured, StepsFor(entry.Item, rollups)))
+            .Select(part => Bar(part, stacked.RowOf[part.BarId], contradicting, configured))
             .Where(bar => drawn.Contains(bar.RowId))
             .ToList();
 
@@ -119,21 +120,125 @@ public static class RoadmapPlanView
             .Where(marker => drawn.Contains(marker.RowId))
             .ToList();
 
-        // What actually reached the chart, so an arrow is only drawn when both of its
-        // ends are on screen.
-        var placed = bars.Select(bar => bar.Id)
-            .Concat(markers.Select(marker => marker.Id))
-            .Select(NodeIdOf)
-            .OfType<Guid>()
-            .ToHashSet();
+        // What actually reached the chart, and in which band, so an arrow is only
+        // drawn when both of its ends are on screen — and between two parts in one
+        // repository's band where both ends have a part there.
+        var bandOfBar = items.ToDictionary(part => part.BarId, part => part.GroupId, StringComparer.Ordinal);
+        var placed = bars
+            .Select(bar => (bar.Id, GroupId: bandOfBar[bar.Id]))
+            .Concat(markers.Select(marker => (marker.Id, GroupId: MilestoneGroupId)))
+            .Where(placedBar => NodeIdOf(placedBar.Id) is not null)
+            .GroupBy(placedBar => NodeIdOf(placedBar.Id)!.Value)
+            .ToDictionary(group => group.Key, group => group.ToList());
 
         return new RoadmapTimelineModel(groups, bars, markers, Links(plan, placed));
     }
 
+    /// <summary>What separates an item's id from its band in the id of one of its
+    /// parts: <c>&lt;item id&gt;@&lt;band&gt;</c>. An item drawn in one band keeps
+    /// its bare id.</summary>
+    public const char PartSeparator = '@';
+
     /// <summary>The plan's own id behind a bar or a marker the timeline reported
-    /// on. The two are the same string; this names the fact so a caller does not
-    /// have to know that.</summary>
-    public static Guid? NodeIdOf(string? barId) => Guid.TryParse(barId, out var id) ? id : null;
+    /// on. A bar that is one repository's part of an item names the item, so moving
+    /// or opening any part moves or opens the item itself.</summary>
+    public static Guid? NodeIdOf(string? barId)
+    {
+        if (barId is null) return null;
+
+        var separator = barId.IndexOf(PartSeparator);
+        var node = separator < 0 ? barId : barId[..separator];
+
+        return Guid.TryParse(node, out var id) ? id : null;
+    }
+
+    /// <summary>
+    /// One item, as the bars it is drawn as: one per band its repositories land in.
+    /// <para>
+    /// A plan filed in two repositories is two pieces of work to the people doing it —
+    /// each repository holds its own share of the tasks — so each band shows its
+    /// share, with a progress fill read from the tasks filed there. The window is
+    /// still the item's: it is one stored item, so moving any part moves all of them.
+    /// </para>
+    /// <para>
+    /// A gathered task goes to the part of every repository it is filed in. One filed
+    /// nowhere, or somewhere none of the parts stands for, goes to the first part, so
+    /// no task drops out of the item's progress because of where it was filed.
+    /// </para>
+    /// </summary>
+    private static IEnumerable<ItemPart> PartsOf(
+        RoadmapItemDto item,
+        List<PlannedRepository> configured,
+        IReadOnlyDictionary<Guid, RoadmapItemRollupDto>? rollups)
+    {
+        var bands = item.RepositoryAliases
+            .Select(alias => (Alias: alias, GroupId: GroupIdFor([alias], configured)))
+            .GroupBy(entry => entry.GroupId, StringComparer.OrdinalIgnoreCase)
+            .Select(group => (GroupId: group.Key, Aliases: group.Select(entry => entry.Alias).ToList()))
+            .ToList();
+
+        var links = rollups is not null && rollups.TryGetValue(item.Id, out var rollup)
+            ? RoadmapRollup.InDependencyOrder(rollup.BacklogEntries)
+            : [];
+
+        if (bands.Count <= 1)
+        {
+            yield return new ItemPart(
+                item,
+                item.Id.ToString(),
+                GroupIdFor(item.RepositoryAliases, configured),
+                item.RepositoryAliases,
+                Steps(links),
+                PartCount: 1);
+            yield break;
+        }
+
+        var shares = bands.ToDictionary(
+            band => band.GroupId,
+            _ => new List<RoadmapGatheredLink>(),
+            StringComparer.OrdinalIgnoreCase);
+
+        foreach (var link in links)
+        {
+            var filed = link.Repositories
+                .Select(id => BandOfRepository(id, configured))
+                .Where(shares.ContainsKey)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (filed.Count == 0) filed.Add(bands[0].GroupId);
+
+            foreach (var groupId in filed) shares[groupId].Add(link);
+        }
+
+        foreach (var (groupId, aliases) in bands)
+        {
+            yield return new ItemPart(
+                item,
+                $"{item.Id}{PartSeparator}{groupId}",
+                groupId,
+                aliases,
+                Steps(shares[groupId]),
+                bands.Count);
+        }
+    }
+
+    /// <summary>The band a task's stored repository lands in: the configured
+    /// repository it names by alias or by full name, else the unfiled band.</summary>
+    private static string BandOfRepository(string repositoryId, List<PlannedRepository> configured) =>
+        configured.FirstOrDefault(repository =>
+                string.Equals(repository.Alias, repositoryId, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(repository.Title, repositoryId, StringComparison.OrdinalIgnoreCase))?.Alias
+            ?? UnfiledGroupId;
+
+    /// <summary>One bar's worth of an item: the whole of it, or one repository's part.</summary>
+    private sealed record ItemPart(
+        RoadmapItemDto Item,
+        string BarId,
+        string GroupId,
+        IReadOnlyList<string> Aliases,
+        IReadOnlyList<RoadmapStep> Steps,
+        int PartCount);
 
     private static List<PlannedRepository> Configured(IReadOnlyList<PlannedRepository>? repositories) =>
         [.. (repositories ?? [])
@@ -145,11 +250,10 @@ public static class RoadmapPlanView
     /// Which band a node belongs in: the first of its aliases that is actually
     /// configured, or the unfiled band.
     /// <para>
-    /// One band, not one per alias. Work scoped to two repositories is one piece of
-    /// work with one set of dates, and drawing it twice would mean dragging one copy
-    /// while the other sat still — a plan that appears to disagree with itself
-    /// because of how it was drawn. Every alias is kept as a facet instead, so the
-    /// filter still finds it under either repository.
+    /// Asked once per alias by <see cref="PartsOf"/>, which draws an item in every
+    /// band its aliases reach — each band showing that repository's part. The parts
+    /// share the item's window, so moving one moves all of them and the plan never
+    /// appears to disagree with itself.
     /// </para>
     /// <para>
     /// An alias that no longer matches a configured repository falls to the unfiled
@@ -211,13 +315,13 @@ public static class RoadmapPlanView
     /// and keeps the picture the same from one read of the plan to the next.
     /// </para>
     /// </summary>
-    private static (Dictionary<Guid, string> RowOf, Dictionary<(string GroupId, string Lane), int> Rows) Stack(
-        List<(RoadmapItemDto Item, string GroupId)> items)
+    private static (Dictionary<string, string> RowOf, Dictionary<(string GroupId, string Lane), int> Rows) Stack(
+        List<ItemPart> items)
     {
-        var rowOf = new Dictionary<Guid, string>();
+        var rowOf = new Dictionary<string, string>(StringComparer.Ordinal);
         var ends = new Dictionary<(string GroupId, string Lane), List<DateOnly>>();
 
-        foreach (var (item, groupId) in items)
+        foreach (var (item, barId, groupId, _, _, _) in items)
         {
             var key = (groupId, Lane(item.Lane));
             if (!ends.TryGetValue(key, out var rows)) ends[key] = rows = [];
@@ -233,7 +337,7 @@ public static class RoadmapPlanView
                 rows[stack] = item.End;
             }
 
-            rowOf[item.Id] = LaneRowId(groupId, key.Item2, stack);
+            rowOf[barId] = LaneRowId(groupId, key.Item2, stack);
         }
 
         return (rowOf, ends.ToDictionary(entry => entry.Key, entry => entry.Value.Count));
@@ -242,7 +346,7 @@ public static class RoadmapPlanView
     private static string Lane(string? lane) => string.IsNullOrWhiteSpace(lane) ? "Planned" : lane.Trim();
 
     private static List<RoadmapGroup> BuildGroups(
-        List<(RoadmapItemDto Item, string GroupId)> items,
+        List<ItemPart> items,
         Dictionary<(string GroupId, string Lane), int> stackedRows,
         bool hasMilestones,
         List<PlannedRepository> configured)
@@ -334,21 +438,20 @@ public static class RoadmapPlanView
     /// </para>
     /// </summary>
     private static RoadmapBar Bar(
-        RoadmapItemDto item,
+        ItemPart part,
         string rowId,
         HashSet<Guid> contradicting,
-        List<PlannedRepository> configured,
-        IReadOnlyList<RoadmapStep> steps) =>
+        List<PlannedRepository> configured) =>
         new(
-            item.Id.ToString(),
+            part.BarId,
             rowId,
-            item.Title,
-            item.Start,
-            item.End,
-            Shade(item.Priority),
-            Facets(item, configured),
-            Detail(item, contradicting),
-            Steps: steps);
+            part.Item.Title,
+            part.Item.Start,
+            part.Item.End,
+            Shade(part.Item.Priority),
+            Facets(part.Item, part.Aliases, configured),
+            Detail(part.Item, contradicting, part.PartCount),
+            Steps: part.Steps);
 
     /// <summary>
     /// The item's gathered tasks as the steps drawn inside its bar (ADR 0013,
@@ -366,13 +469,8 @@ public static class RoadmapPlanView
     /// progress are all read off the rollup each time the plan is drawn.
     /// </para>
     /// </summary>
-    private static IReadOnlyList<RoadmapStep> StepsFor(
-        RoadmapItemDto item,
-        IReadOnlyDictionary<Guid, RoadmapItemRollupDto>? rollups)
+    private static IReadOnlyList<RoadmapStep> Steps(IReadOnlyList<RoadmapGatheredLink> ordered)
     {
-        if (rollups is null || !rollups.TryGetValue(item.Id, out var rollup)) return [];
-
-        var ordered = RoadmapRollup.InDependencyOrder(rollup.BacklogEntries);
         // TryAdd rather than ToDictionary: the rollup has normally de-duplicated the
         // keys already, and a drawing is not the place to throw if it had not.
         var titles = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -438,13 +536,15 @@ public static class RoadmapPlanView
         _ => 3
     };
 
-    private static List<RoadmapFacet> Facets(RoadmapItemDto item, List<PlannedRepository> configured)
+    private static List<RoadmapFacet> Facets(RoadmapItemDto item, IReadOnlyList<string> aliases, List<PlannedRepository> configured)
     {
         var facets = new List<RoadmapFacet>();
 
-        // Every alias, not just the one whose band it landed in, so filtering by a
-        // repository finds work that only mentions it second.
-        facets.AddRange(item.RepositoryAliases.Select(alias => new RoadmapFacet("Repository", TitleFor(alias, configured))));
+        // The aliases this bar stands for. An item drawn once carries every one, so
+        // filtering by a repository finds work that only mentions it second; one
+        // repository's part of an item carries its own, so the filter shows that
+        // repository's part and not its neighbour's.
+        facets.AddRange(aliases.Select(alias => new RoadmapFacet("Repository", TitleFor(alias, configured))));
         facets.Add(new RoadmapFacet("Priority", Word(item.Priority)));
         facets.Add(new RoadmapFacet("Lane", Lane(item.Lane)));
 
@@ -455,11 +555,14 @@ public static class RoadmapPlanView
         return facets;
     }
 
-    private static string Detail(RoadmapItemDto item, HashSet<Guid> contradicting)
+    private static string Detail(RoadmapItemDto item, HashSet<Guid> contradicting, int partCount)
     {
         var parts = new List<string> { $"{Word(item.Priority)} priority" };
 
         if (!string.IsNullOrEmpty(item.Tag)) parts.Add($"tagged {item.Tag}");
+
+        // Said in words, because the other parts sit in bands a reader may not reach.
+        if (partCount > 1) parts.Add($"one of {partCount} repository parts");
 
         if (item.DependsOn.Count > 0)
         {
@@ -520,18 +623,30 @@ public static class RoadmapPlanView
         _ => RoadmapMarker.Diamond
     };
 
-    /// <summary>Arrows run from the thing that has to land first to the thing
-    /// waiting, which is the direction the library draws. An edge whose end is not
-    /// on screen is left out rather than pointing at nothing.</summary>
-    private static List<RoadmapLink> Links(RoadmapPlanDto plan, HashSet<Guid> placed) =>
+    /// <summary>
+    /// Arrows run from the thing that has to land first to the thing waiting, which
+    /// is the direction the library draws. An edge whose end is not on screen is left
+    /// out rather than pointing at nothing.
+    /// <para>
+    /// Every drawn part of the waiting node gets an arrow: from the part of what it
+    /// waits for in the same band when there is one, else from that node's first
+    /// part — so work split across repositories reads as waiting within each.
+    /// </para>
+    /// </summary>
+    private static List<RoadmapLink> Links(
+        RoadmapPlanDto plan,
+        Dictionary<Guid, List<(string Id, string GroupId)>> placed) =>
     [
         .. from node in plan.Items
                .Select(item => (item.Id, item.DependsOn))
                .Concat(plan.Milestones.Select(milestone => (milestone.Id, milestone.DependsOn)))
-           where placed.Contains(node.Id)
+           where placed.ContainsKey(node.Id)
            from dependsOnId in node.DependsOn
-           where placed.Contains(dependsOnId)
-           select new RoadmapLink(dependsOnId.ToString(), node.Id.ToString())
+           where placed.ContainsKey(dependsOnId)
+           from waiting in placed[node.Id]
+           let before = placed[dependsOnId]
+           let source = before.FirstOrDefault(part => part.GroupId == waiting.GroupId).Id ?? before[0].Id
+           select new RoadmapLink(source, waiting.Id)
     ];
 
     private static string TitleFor(string alias, List<PlannedRepository> configured) =>

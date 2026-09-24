@@ -26,25 +26,26 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("TestId=\"backlog-pane-option\"", home, StringComparison.Ordinal);
         Assert.Contains("TestId=\"devbook-pane-option\"", home, StringComparison.Ordinal);
 
-        // The roadmap toggle leads the strip in the markup, because the band is the
-        // thing highest on screen — and it is a toggle, not a pane option: it is
-        // outside the group and its test id does not end in -pane-option, so the
-        // selector the strip's tests use keeps matching the three panes and nothing
-        // else.
-        Assert.Contains("TestId=\"roadmap-band-toggle\"", home, StringComparison.Ordinal);
+        // The roadmap is a surface, not a pane: its option is in the surface
+        // switcher, before the panes strip, and its test id does not end in
+        // -pane-option, so the selector the strip's tests use keeps matching the
+        // three panes and nothing else.
+        Assert.Contains("TestId=\"roadmap-toggle-button\"", home, StringComparison.Ordinal);
         Assert.DoesNotContain("roadmap-pane-option", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("roadmap-band-toggle", home, StringComparison.Ordinal);
         Assert.True(
-            home.IndexOf("TestId=\"roadmap-band-toggle\"", StringComparison.Ordinal)
+            home.IndexOf("TestId=\"roadmap-toggle-button\"", StringComparison.Ordinal)
             < home.IndexOf("TestId=\"global-pane-multiselect\"", StringComparison.Ordinal),
-            "The Roadmap toggle comes before the panes strip: the band sits above the panes.");
+            "The Roadmap option is in the surface switcher, ahead of the panes strip.");
 
         // Each pane carries its own landmark id from its own folder; the shell
-        // only points the multiselect's aria-controls at them. The band is the same
-        // arrangement one level up — its landmark id lives in the Roadmap module.
+        // only points the multiselect's aria-controls at them. The roadmap's
+        // option points at the surface landmark the shell draws around it.
         Assert.Contains("id=\"inbox-pane\"", NormalizeLineEndings(File.ReadAllText(FindInboxPane())), StringComparison.Ordinal);
         Assert.Contains("id=\"backlog-pane\"", NormalizeLineEndings(File.ReadAllText(FindTasksPane())), StringComparison.Ordinal);
         Assert.Contains("id=\"repository-devbook-pane\"", NormalizeLineEndings(File.ReadAllText(FindDevbookPane())), StringComparison.Ordinal);
-        Assert.Contains("aria-controls=\"roadmap-band\"", home, StringComparison.Ordinal);
+        Assert.Contains("aria-controls=\"roadmap-surface\"", home, StringComparison.Ordinal);
+        Assert.Contains("id=\"roadmap-surface\"", home, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -68,6 +69,7 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("TestId=\"workspace-surface-option\"", home, StringComparison.Ordinal);
         Assert.Contains("TestId=\"tools-toggle-button\"", home, StringComparison.Ordinal);
         Assert.Contains("TestId=\"dashboard-toggle-button\"", home, StringComparison.Ordinal);
+        Assert.Contains("TestId=\"roadmap-toggle-button\"", home, StringComparison.Ordinal);
 
         // Sessions is a tab of the Dashboard surface, not a segment: one segment
         // for the surface, and the strip inside it chooses the view.
@@ -88,6 +90,7 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("PressedChanged=\"CloseSurface\"", home, StringComparison.Ordinal);
         Assert.Contains("PressedChanged=\"ToggleTools\"", home, StringComparison.Ordinal);
         Assert.Contains("PressedChanged=\"ToggleDashboard\"", home, StringComparison.Ordinal);
+        Assert.Contains("PressedChanged=\"ToggleRoadmap\"", home, StringComparison.Ordinal);
         Assert.DoesNotContain("aria-expanded=\"@(ToolsVisible", home, StringComparison.Ordinal);
         Assert.DoesNotContain("aria-expanded=\"@(DashboardVisible", home, StringComparison.Ordinal);
         // Written out, not bound to the bool: Blazor renders a true bool attribute
@@ -148,21 +151,23 @@ public sealed class GlobalPaneMarkupTests
             home,
             StringComparison.Ordinal);
 
-        // The roadmap band is not one of a set at all — on or off, touching no
-        // pane — so its toggle stands alone in the loose shape, outside any group.
+        // The roadmap is one surface among the others, so its option wears the
+        // loose shape inside the surface group rather than standing alone.
         Assert.Contains(
             "<ToggleButton BaseClass=\"header-group__option header-group__option--loose\"",
             home,
             StringComparison.Ordinal);
         Assert.True(
-            home.IndexOf("TestId=\"roadmap-band-toggle\"", StringComparison.Ordinal)
-            > home.IndexOf("@if (WorkspaceVisible && RoadmapPaneOptionVisible)", StringComparison.Ordinal),
-            "The roadmap toggle renders on its own gate, not inside the panes strip.");
+            home.IndexOf("TestId=\"roadmap-toggle-button\"", StringComparison.Ordinal)
+            < home.IndexOf("<ButtonGroup CssClass=\"header-group header-group--panes\"", StringComparison.Ordinal)
+            && home.IndexOf("TestId=\"roadmap-toggle-button\"", StringComparison.Ordinal)
+            > home.IndexOf("TestId=\"workspace-surface-switcher\"", StringComparison.Ordinal),
+            "The roadmap option renders inside the surface switcher.");
 
         // The loose modifier takes the group's own border and fill away and spaces
         // the members out; each member, loose in its own right, then draws the
         // border the group gave up. The option's modifier is its own rather than a
-        // descendant rule, so the roadmap toggle can wear it with no group at all.
+        // descendant rule, so an option could wear it with no group at all.
         var loose = RuleFor(css, ".header-group--loose {");
         Assert.Contains("border: 0;", loose, StringComparison.Ordinal);
         Assert.Contains("background: transparent;", loose, StringComparison.Ordinal);
@@ -250,41 +255,38 @@ public sealed class GlobalPaneMarkupTests
     }
 
     /// <summary>
-    /// The band's option is gated on its feature the way the Inbox option is, and it
-    /// is deliberately not gated on anything else. It carries no <c>Disabled</c>
-    /// binding, because <c>PaneToggleDisabled</c> exists for the three panes'
-    /// viewport-driven capacity rule and the band — a horizontal row with a grid track
-    /// of its own — has none. Nor is it a <c>GlobalPane</c>: joining that selection
-    /// would put it inside <c>TrimToCapacity</c>'s reach and let window width evict it.
+    /// The roadmap's option is gated on its feature the way the Inbox option is, and
+    /// it is a surface rather than a pane: it carries no <c>Disabled</c> binding,
+    /// because <c>PaneToggleDisabled</c> exists for the three panes' viewport-driven
+    /// capacity rule, and it is not a <c>GlobalPane</c>, whose selection would let
+    /// window width evict it. It lives in <c>WorkspaceSurface</c> beside Tools and the
+    /// Dashboard, which is what keeps it from ever sharing the screen with the task
+    /// list.
     /// </summary>
     [Fact]
-    public void Roadmap_option_is_feature_gated_and_stays_out_of_the_pane_selection()
+    public void Roadmap_option_is_feature_gated_and_is_a_surface_not_a_pane()
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
+        var surface = NormalizeLineEndings(File.ReadAllText(FindWorkspaceSurface()));
 
-        // One gate for both conditions, because the toggle stands on its own now
-        // rather than inside the strip the workspace gate already wraps.
-        Assert.Contains("@if (WorkspaceVisible && RoadmapPaneOptionVisible)", home, StringComparison.Ordinal);
+        Assert.Contains("@if (RoadmapPaneOptionVisible)", home, StringComparison.Ordinal);
         Assert.Contains("RoadmapFeatures.Roadmap", home, StringComparison.Ordinal);
-        Assert.Contains("private bool RoadmapBandVisible => RoadmapPaneOptionVisible && _roadmapVisible;", home, StringComparison.Ordinal);
+        Assert.Contains(
+            "private bool RoadmapVisible => _surface == WorkspaceSurface.Roadmap && RoadmapPaneOptionVisible;",
+            home,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "private bool WorkspaceVisible => !ToolsVisible && !DashboardVisible && !RoadmapVisible;",
+            home,
+            StringComparison.Ordinal);
+        Assert.Contains("private void ToggleRoadmap() => ToggleSurface(WorkspaceSurface.Roadmap);", home, StringComparison.Ordinal);
+        Assert.Contains("    Roadmap\n}", surface, StringComparison.Ordinal);
 
-        // Hidden unless the reader asks for it, and stated as the field default
-        // rather than an explicit false, the way the shell's other view-state flags
-        // are.
-        Assert.Contains("private bool _roadmapVisible;", home, StringComparison.Ordinal);
-        Assert.DoesNotContain("private bool _roadmapVisible = ", home, StringComparison.Ordinal);
-
-        // Its own shell field, flipped directly rather than through the selection.
-        // The toggle also tells Ask AI the band is the area just opened, which is
-        // why it is no longer a one-line expression body.
-        Assert.Contains("private void ToggleRoadmapBand()", home, StringComparison.Ordinal);
-        Assert.Contains("_roadmapVisible = !_roadmapVisible;", home, StringComparison.Ordinal);
+        // No band state left behind: the workspace has one row and it is the panes'.
         Assert.DoesNotContain("GlobalPane.Roadmap", home, StringComparison.Ordinal);
-
-        // And hiding it reuses the grid variant the feature flag already uses rather
-        // than introducing a second one for the same layout.
-        Assert.Contains("workspace workspace--no-roadmap", home, StringComparison.Ordinal);
-        Assert.DoesNotContain("workspace--roadmap-collapsed", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("_roadmapVisible", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("RoadmapBandVisible", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("workspace--no-roadmap", home, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -310,7 +312,7 @@ public sealed class GlobalPaneMarkupTests
 
         // ToggleButton derives aria-pressed from Pressed, so the visibility of a
         // pane is stated once and the attribute cannot drift away from it.
-        Assert.Contains("Pressed=\"RoadmapBandVisible\"", home, StringComparison.Ordinal);
+        Assert.Contains("Pressed=\"RoadmapVisible\"", home, StringComparison.Ordinal);
         Assert.Contains("Pressed=\"InboxPaneVisible\"", home, StringComparison.Ordinal);
         Assert.Contains("Pressed=\"TasksPaneVisible\"", home, StringComparison.Ordinal);
         Assert.Contains("Pressed=\"DevbookPaneVisible\"", home, StringComparison.Ordinal);
@@ -329,7 +331,7 @@ public sealed class GlobalPaneMarkupTests
             Assert.Contains($"OnClick=\"args => PressPane(GlobalPane.{pane}, args)\"", home, StringComparison.Ordinal);
             Assert.Contains($"Title=\"@PaneOptionTitle(GlobalPane.{pane}, \"", home, StringComparison.Ordinal);
         }
-        Assert.Contains("PressedChanged=\"ToggleRoadmapBand\"", home, StringComparison.Ordinal);
+        Assert.Contains("PressedChanged=\"ToggleRoadmap\"", home, StringComparison.Ordinal);
 
         Assert.Contains("if (_globalPanes.IsEnabled(pane))", home, StringComparison.Ordinal);
         Assert.Contains("return !_globalPanes.CanDisable(pane);", home, StringComparison.Ordinal);
@@ -523,8 +525,10 @@ public sealed class GlobalPaneMarkupTests
     {
         var home = NormalizeLineEndings(File.ReadAllText(FindHomeRazor()));
 
-        Assert.Contains("@if (ToolsVisible)", home, StringComparison.Ordinal);
+        Assert.Contains("@if (RoadmapVisible)", home, StringComparison.Ordinal);
+        Assert.Contains("else if (ToolsVisible)", home, StringComparison.Ordinal);
         Assert.Contains("else if (DashboardVisible)", home, StringComparison.Ordinal);
+        Assert.Contains("data-testid=\"roadmap-surface\"", home, StringComparison.Ordinal);
         Assert.DoesNotContain("SessionsVisible", home, StringComparison.Ordinal);
         Assert.Contains("data-testid=\"tools-surface\"", home, StringComparison.Ordinal);
         Assert.Contains("data-testid=\"dashboard-surface\"", home, StringComparison.Ordinal);
@@ -534,7 +538,7 @@ public sealed class GlobalPaneMarkupTests
         // One landmark per branch, and the branches are exclusive, so the page has
         // exactly one. Two <main> elements is the failure this counts, which is why
         // the number moves with each takeover rather than being loosened to "some".
-        Assert.Equal(3, CountOccurrences(home, "<main class="));
+        Assert.Equal(4, CountOccurrences(home, "<main class="));
 
         // The pane row keeps the test id the resizer's JavaScript selects on; what
         // changed is that it is no longer the landmark itself.
@@ -880,11 +884,10 @@ public sealed class GlobalPaneMarkupTests
         Assert.Contains("<TasksPane />", home, StringComparison.Ordinal);
         Assert.Contains("<DevbookPane RepositoryAlias=", home, StringComparison.Ordinal);
 
-        // The band and the dashboard are composed on the same terms. Their content
-        // belongs to Roadmap and Monitoring; the shell only decides where it goes.
-        // The band takes no parameters at all, and that is the point: showing and
-        // hiding it is binary, so the shell renders it or it does not, and there is
-        // no state to hand down for an in-between size.
+        // The roadmap and the dashboard are composed on the same terms. Their content
+        // belongs to Roadmap and the Dashboard; the shell only decides where it goes.
+        // The roadmap takes no parameters at all: the shell renders it as a surface
+        // or it does not.
         Assert.Contains("<RoadmapBand />", home, StringComparison.Ordinal);
         Assert.Contains("<DashboardPane OnClose=", home, StringComparison.Ordinal);
 

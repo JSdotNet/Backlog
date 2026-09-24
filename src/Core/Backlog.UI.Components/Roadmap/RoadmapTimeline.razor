@@ -262,6 +262,7 @@
                                                         PreventDefaultKeys="@Is(_grabbedId, bar.Id)"
                                                         ButtonId="@BarButtonId(bar.Id)"
                                                         Expanded="@IsExpanded(bar)"
+                                                        Expandable="@ShowSteps"
                                                         OnToggle="Toggle"
                                                         ToggleId="@ToggleButtonId(bar.Id)"
                                                         OnActivate="Activate"
@@ -423,6 +424,12 @@
     [Parameter]
     public bool ShowFilters { get; set; } = true;
 
+    /// <summary>Whether a bar with steps offers to expand into them. Off, a bar keeps
+    /// its progress fill and its figures but never opens into rows of its work — for a
+    /// host that reads the plan at its own level and leaves the work to the list.</summary>
+    [Parameter]
+    public bool ShowSteps { get; set; } = true;
+
     [Parameter]
     public string? SelectedId { get; set; }
 
@@ -564,7 +571,7 @@
     /// drawings of a bar's insides, not places to put one.</summary>
     private IReadOnlyList<PlacedRow> LandingRows => [.. Rows.Where(row => row.Step is null)];
 
-    private bool IsExpanded(RoadmapBar bar) => bar.HasSteps && _expanded.Contains(bar.Id);
+    private bool IsExpanded(RoadmapBar bar) => ShowSteps && bar.HasSteps && _expanded.Contains(bar.Id);
 
     /// <summary>
     /// The window being drawn: the caller's, or the narrowest one that holds
@@ -947,7 +954,7 @@
     /// </summary>
     private async Task Toggle(string barId)
     {
-        if (Bar(barId) is not { HasSteps: true } bar) return;
+        if (!ShowSteps || Bar(barId) is not { HasSteps: true } bar) return;
 
         if (_expanded.Remove(barId))
         {

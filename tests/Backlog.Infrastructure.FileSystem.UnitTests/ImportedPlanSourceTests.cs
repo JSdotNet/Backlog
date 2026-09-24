@@ -62,6 +62,29 @@ public class ImportedPlanSourceTests
     }
 
     [Fact]
+    public void Each_repository_gets_its_share_and_a_task_in_two_counts_in_both()
+    {
+        var plans = ImportedPlanSource.Summarise(
+            [
+                Entry("+conventions", 3, "owner/budgetbeheer"),
+                Entry("+conventions", 5, "owner/spec-manager"),
+                Entry("+conventions", null, "owner/budgetbeheer", "owner/spec-manager"),
+                Entry("+conventions", 2)
+            ],
+            [
+                new TasksRepositoryRef("budgetbeheer", "owner", "budgetbeheer"),
+                new TasksRepositoryRef("spec-manager", "owner", "spec-manager")
+            ]);
+
+        var plan = Assert.Single(plans);
+        Assert.Equal(4, plan.TaskCount);
+        Assert.Equal(["budgetbeheer", "spec-manager"], plan.RepositoryAliases);
+        Assert.Equal(
+            [new ImportedPlanPartDto("budgetbeheer", 2, 3, 1), new ImportedPlanPartDto("spec-manager", 2, 5, 1)],
+            plan.Parts);
+    }
+
+    [Fact]
     public void Only_a_plan_written_with_the_plan_sigil_is_answered()
     {
         // A task typed by hand has no plan id; a legacy plan's id is its bare tag.
