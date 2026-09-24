@@ -803,6 +803,24 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
     }
 
     /// <summary>
+    /// A Done entry saved unticked now stays unticked. The seed's bound is in the
+    /// past for every build that carries it, so nothing this build writes can fall
+    /// inside it — a bound still ahead of the clock would tick the entry on the
+    /// next open and overrule the person who left it unticked.
+    /// </summary>
+    [Fact]
+    public async Task A_done_entry_saved_unticked_now_stays_unticked()
+    {
+        var task = new TaskItem("Ship it", "Body.", EntryType.Task);
+        task.SetStatus(EntryStatus.Done);
+
+        await _repository.SaveAsync(task, TestContext.Current.CancellationToken);
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+
+        Assert.Null((await _repository.GetAsync(task.Id, TestContext.Current.CancellationToken))!.CompletedOn);
+    }
+
+    /// <summary>
     /// The assertion the whole sync design rests on, and the one a test over the
     /// aggregate structurally cannot make.
     /// <para>

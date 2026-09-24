@@ -428,11 +428,13 @@ public sealed class SqliteTaskRepository : ITaskRepository
 
     /// <summary>The instant <see cref="BackfillCompletedOnForDoneAsync"/> is bounded
     /// by: after the tick split had shipped and the stripped copies had spread, and
-    /// before any build carrying the backfill could be running — so no untick
-    /// made on this build falls inside it. Written in the <c>"O"</c> UTC form the
-    /// column holds, because the comparison is ordinal (see
-    /// <see cref="ListChangedSinceAsync"/>).</summary>
-    private const string TickSplitSeedBefore = "2026-09-25T00:00:00.0000000+00:00";
+    /// before any build carrying the backfill existed — so nothing written on this
+    /// build, an untick included, can ever fall inside it. It has to be in the past
+    /// for every build that runs it: a bound still ahead of the clock ticks a Done
+    /// entry the moment it is saved unticked, which is the choice this seed must
+    /// never overrule. Written in the <c>"O"</c> UTC form the column holds, because
+    /// the comparison is ordinal (see <see cref="ListChangedSinceAsync"/>).</summary>
+    private const string TickSplitSeedBefore = "2026-09-24T09:00:00.0000000+00:00";
 
     /// <summary>Ticks every live Done entry last changed before
     /// <see cref="TickSplitSeedBefore"/> on the UTC day it last changed — the
