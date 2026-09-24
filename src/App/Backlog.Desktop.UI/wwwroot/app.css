@@ -511,7 +511,44 @@ h1, h2, h3 {
    the container query at the bottom of this file. What is left here is the width in
    between. */
 .filter-group--tags {
-    flex: 1 1 auto;
+    /* A zero basis, so the strip takes what the other groups leave rather than
+       competing with them for it: at `auto` a long pile shrank the statuses too,
+       clipping them through a chip's name. What the strip cannot fit is the
+       toggle's to reach. */
+    flex: 1 1 0;
+    /* One row of whole chips. The strip wraps, and is cut to the height of one
+       chip, so a chip that does not fit drops out of view entirely instead of
+       being sliced through its name — and the "More" toggle beside it (below) is
+       the way to the rest. The font size is the chips' own, so `1lh` is a chip's
+       line box. */
+    flex-wrap: wrap;
+    align-content: flex-start;
+    font-size: var(--font-size-sm);
+    max-height: calc(1lh + 2 * var(--spacing-xs) + 2 * var(--border-width));
+}
+
+/* Opened by the toggle: every tag, on as many rows as it takes. The bar tops
+   its groups so the scopes and the statuses stay on the first row beside it. */
+.filter-group--tags--expanded {
+    max-height: none;
+    row-gap: var(--spacing-xs);
+}
+
+.filter-bar:has(.filter-group--tags--expanded) {
+    align-items: flex-start;
+}
+
+/* Pinned, like the scopes, because it is the only way to a chip the strip has
+   clipped. Absent while everything fits: components.js marks a strip whose last
+   chip wrapped with `data-overflowing`, and only the browser can know that. */
+.chip--more {
+    flex: 0 0 auto;
+    background: transparent;
+    border-style: dashed;
+}
+
+.filter-group--tags:not([data-overflowing]):not(.filter-group--tags--expanded) + .chip--more {
+    display: none;
 }
 
 /* The one group in the bar that is not a filter. It keeps its room for the same
@@ -1559,6 +1596,12 @@ h1, h2, h3 {
        has no room for. Each one that is left is a tag the reader chose and can press
        again to drop. */
     .filter-group--tags--picked .chip:not(.chip--active) {
+        display: none;
+    }
+
+    /* Nothing for it to open down here: the step above shows only what was picked,
+       and the rows' own tags are the way to the rest. */
+    .chip--more {
         display: none;
     }
 }
