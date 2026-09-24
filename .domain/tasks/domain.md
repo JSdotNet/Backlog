@@ -66,7 +66,10 @@ and `archived` say the work is over, the tick says the person has dealt with
 the task, and the two are recorded separately so that finished work can sit on
 the open list until they have looked at it. The tick carries no invariant -
 any status can be ticked, and unticking clears the date and changes nothing
-else. What "finished" means anywhere else in this context - the list's
+else. The list's checkbox writes two facts at once: ticking a task not yet in
+an end state through it also sets `done`, because a person who ticks something
+off has finished the work. That is the checkbox's choice, not a rule on the
+task - a `completed:` token typed into the text moves no status. What "finished" means anywhere else in this context - the list's
 Completed section, tag counts, dependency readiness, the next occurrence of a
 repeat - is the tick, never the status.
 

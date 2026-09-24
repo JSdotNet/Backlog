@@ -30,8 +30,12 @@ stateDiagram-v2
   finished with the task: that is the tick — `completed_on`, the checkbox in
   the list — which is a separate fact and not a state in this diagram. A task
   can reach `done` and stay on the open list, unticked, until the person has
-  looked at it; and it can be ticked from any state, because the tick is not a
-  transition. Unticking clears the date and moves nothing here. Everything
+  looked at it. It can be ticked from any state. The list's checkbox also moves
+  a task that is not yet in an end state to `done` in the same save — a
+  finished task that still read "in progress" was the list contradicting
+  itself — while `done` and `archived` keep their state; the tick itself is
+  still not a transition, and a typed `completed:` token moves nothing.
+  Unticking clears the date and moves nothing here. Everything
   that groups on "finished" — the Completed section, tag counts, dependency
   readiness, the next occurrence of a repeat — reads the tick, never these two
   states. See `.domain/tasks/domain.md#task`.
