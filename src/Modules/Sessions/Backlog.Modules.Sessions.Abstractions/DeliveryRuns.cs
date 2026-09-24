@@ -418,6 +418,35 @@ public sealed record SessionRow(AgentSession? Session, IReadOnlyList<DeliveryRun
         }
     }
 
+    /// <summary>
+    /// What a run's line on this row draws: the run's own references, and on the most
+    /// recently updated run, the <see cref="PullRequests"/> no run named. Those are still
+    /// the work the row's run delivered — the run just never wrote the link down, which
+    /// is what happens when a host's own Create PR button takes over from a flow — and
+    /// the run's line, under the State column, is where a reader looks for a delivered
+    /// pull request. One run and not every run, so a pull request stays one reference
+    /// on screen.
+    /// </summary>
+    public IReadOnlyList<DeliveryRunReference> ReferencesFor(DeliveryRun run)
+    {
+        if (Runs.Count == 0 || !ReferenceEquals(run, First)) return run.References;
+
+        var unnamed = PullRequests;
+
+        return unnamed.Count == 0
+            ? run.References
+            :
+            [
+                .. run.References,
+                .. unnamed.Select(pr => new DeliveryRunReference(
+                    DeliveryRunReferenceKind.PullRequest,
+                    $"PR #{pr.Number}",
+                    Title: null,
+                    pr.Url,
+                    string.IsNullOrWhiteSpace(pr.Repository) ? null : pr.Repository))
+            ];
+    }
+
     public DateTimeOffset? StartedAt => Session is { } session ? session.StartedAt : First.StartedAt;
 
     public DateTimeOffset LastActivityAt => Session?.LastActivityAt ?? First.UpdatedAt;

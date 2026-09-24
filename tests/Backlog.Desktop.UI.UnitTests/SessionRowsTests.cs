@@ -313,6 +313,54 @@ public sealed class SessionRowsTests
         Assert.Equal([589], row.PullRequests.Select(pr => pr.Number));
     }
 
+    /// <summary>
+    /// A pull request the session linked and no run named is still the work a run on
+    /// the row delivered — the run just never wrote it down, as when a host's own
+    /// Create PR button took over from the flow. It rides on the most recently updated
+    /// run's references, and on no other run's.
+    /// </summary>
+    [Fact]
+    public void A_pull_request_only_the_session_linked_joins_the_latest_runs_references()
+    {
+        var session = Session("unnamed", Folder, Noon.AddHours(-3), Noon) with
+        {
+            PullRequests =
+            [
+                new AgentPullRequest("acme/backlog", 587, "https://github.com/acme/backlog/pull/587", null),
+                new AgentPullRequest("acme/backlog", 623, "https://github.com/acme/backlog/pull/623", null)
+            ]
+        };
+        var latest = Run("run-2", Worktree, startedAt: Noon.AddHours(-1), updatedAt: Noon.AddMinutes(-5)) with
+        {
+            SessionIds = ["unnamed"]
+        };
+        var earlier = Run("run-1", Worktree, startedAt: Noon.AddHours(-3), updatedAt: Noon.AddHours(-2)) with
+        {
+            SessionIds = ["unnamed"],
+            References = [new DeliveryRunReference(DeliveryRunReferenceKind.PullRequest, "PR #587", null, "https://github.com/acme/backlog/pull/587", "acme/backlog")]
+        };
+
+        var row = Assert.Single(SessionRows.Of([session], [earlier, latest]));
+
+        Assert.Same(latest, row.Runs[0]);
+
+        var added = Assert.Single(row.ReferencesFor(latest));
+        Assert.Equal(new DeliveryRunReference(DeliveryRunReferenceKind.PullRequest, "PR #623", null, "https://github.com/acme/backlog/pull/623", "acme/backlog"), added);
+
+        Assert.Equal(["PR #587"], row.ReferencesFor(earlier).Select(reference => reference.Label));
+    }
+
+    [Fact]
+    public void A_row_with_no_run_has_no_run_references_to_add_to()
+    {
+        var row = SessionRow.Of(Session("alone", Folder, null, Noon) with
+        {
+            PullRequests = [new AgentPullRequest("acme/backlog", 623, "https://github.com/acme/backlog/pull/623", null)]
+        });
+
+        Assert.Equal([623], row.PullRequests.Select(pr => pr.Number));
+    }
+
     [Fact]
     public void A_session_that_could_not_say_and_one_that_linked_none_have_nothing_to_draw()
     {
