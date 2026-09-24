@@ -747,6 +747,62 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
     }
 
     /// <summary>
+    /// A Done entry from before the tick split reads back ticked, on the day it
+    /// last changed — and only that one. A Done entry changed since the split's
+    /// bound is left as it is, because unticked is by then something a person may
+    /// have chosen, and a tombstone is not touched at all. The stamp is not moved,
+    /// so the seed is not a sync edit.
+    /// </summary>
+    [Fact]
+    public async Task A_done_entry_from_before_the_tick_split_reads_back_ticked()
+    {
+        var before = Guid.NewGuid();
+        var after = Guid.NewGuid();
+        var deleted = Guid.NewGuid();
+        var open = Guid.NewGuid();
+
+        // The table has to exist before the raw inserts, and the repository's own
+        // open is what creates it.
+        await _repository.SaveAsync(Rehydrate("Something else entirely", Noon), TestContext.Current.CancellationToken);
+
+        await using (var seed = new Microsoft.Data.Sqlite.SqliteConnection(
+            new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder { DataSource = _repository.DatabasePath }.ToString()))
+        {
+            await seed.OpenAsync(TestContext.Current.CancellationToken);
+
+            async Task InsertAsync(Guid id, string status, string updatedAt, string? deletedAt)
+            {
+                await using var insert = seed.CreateCommand();
+                insert.CommandText = """
+                    INSERT INTO tasks (id, title, type, status, priority, created_at, updated_at, deleted_at)
+                    VALUES ($id, 'Entry', 'task', $status, 'medium', '2026-09-01T09:00:00.0000000+00:00', $updated_at, $deleted_at);
+                    """;
+                insert.Parameters.AddWithValue("$id", id.ToString());
+                insert.Parameters.AddWithValue("$status", status);
+                insert.Parameters.AddWithValue("$updated_at", updatedAt);
+                insert.Parameters.AddWithValue("$deleted_at", (object?)deletedAt ?? DBNull.Value);
+                await insert.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
+            }
+
+            await InsertAsync(before, "done", "2026-09-20T15:30:00.0000000+00:00", null);
+            await InsertAsync(after, "done", "2026-09-26T08:00:00.0000000+00:00", null);
+            await InsertAsync(deleted, "done", "2026-09-20T15:30:00.0000000+00:00", "2026-09-20T15:30:00.0000000+00:00");
+            await InsertAsync(open, "in_progress", "2026-09-20T15:30:00.0000000+00:00", null);
+        }
+
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+
+        var ticked = await _repository.GetAsync(before, TestContext.Current.CancellationToken);
+
+        Assert.Equal(new DateOnly(2026, 9, 20), ticked!.CompletedOn);
+        Assert.Equal(new DateTimeOffset(2026, 9, 20, 15, 30, 0, TimeSpan.Zero), ticked.UpdatedAt);
+
+        Assert.Null((await _repository.GetAsync(after, TestContext.Current.CancellationToken))!.CompletedOn);
+        Assert.Null((await _repository.GetIncludingDeletedAsync(deleted, TestContext.Current.CancellationToken))!.CompletedOn);
+        Assert.Null((await _repository.GetAsync(open, TestContext.Current.CancellationToken))!.CompletedOn);
+    }
+
+    /// <summary>
     /// The assertion the whole sync design rests on, and the one a test over the
     /// aggregate structurally cannot make.
     /// <para>

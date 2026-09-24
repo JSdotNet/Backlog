@@ -374,6 +374,23 @@ public sealed class SqliteTaskRepository : ITaskRepository
             // see .arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md.
             await BackfillUpdatedAtAsync(connection, cancellationToken).ConfigureAwait(false);
 
+            // And one value the tick needs seeding with. Until the checkbox became
+            // its own fact, a Done entry *was* a ticked one; the split read every
+            // existing Done row as unticked, and a sync service built before the
+            // split then stripped the tick from every copy it stored, so a person's
+            // finished work kept coming back onto their list.
+            //
+            // The seed shape of ADR 0006, with one bound that makes it idempotent by
+            // construction: `WHERE completed_on IS NULL` alone is not, because
+            // unticked is also a value a person sets — a Done entry deliberately
+            // unticked would be ticked again on every open. So only rows last
+            // changed before a fixed instant match. Any later write, an untick
+            // included, stamps updated_at past it, and the row never matches again.
+            // Not restamped: each device runs this on its own rows, and a restamp
+            // would make every one a fresh edit that beats whatever the other
+            // machine has not pushed yet.
+            await BackfillCompletedOnForDoneAsync(connection, cancellationToken).ConfigureAwait(false);
+
             return connection;
         }
         catch
@@ -406,6 +423,35 @@ public sealed class SqliteTaskRepository : ITaskRepository
     {
         await using var command = connection.CreateCommand();
         command.CommandText = "UPDATE tasks SET updated_at = created_at WHERE updated_at IS NULL;";
+        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>The instant <see cref="BackfillCompletedOnForDoneAsync"/> is bounded
+    /// by: after the tick split had shipped and the stripped copies had spread, and
+    /// before any build carrying the backfill could be running — so no untick
+    /// made on this build falls inside it. Written in the <c>"O"</c> UTC form the
+    /// column holds, because the comparison is ordinal (see
+    /// <see cref="ListChangedSinceAsync"/>).</summary>
+    private const string TickSplitSeedBefore = "2026-09-25T00:00:00.0000000+00:00";
+
+    /// <summary>Ticks every live Done entry last changed before
+    /// <see cref="TickSplitSeedBefore"/> on the UTC day it last changed — the
+    /// nearest honest date for when it was finished. Idempotent by construction:
+    /// a row it ticks no longer matches, and a row changed since never did. See the
+    /// comment at the call site for why the bound is there.</summary>
+    private static async Task BackfillCompletedOnForDoneAsync(
+        SqliteConnection connection,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            UPDATE tasks SET completed_on = substr(updated_at, 1, 10)
+            WHERE status = 'done'
+              AND completed_on IS NULL
+              AND deleted_at IS NULL
+              AND updated_at < $before;
+            """;
+        command.Parameters.AddWithValue("$before", TickSplitSeedBefore);
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
     }
 

@@ -1,3 +1,6 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
 namespace Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 
 /// <summary>
@@ -18,6 +21,10 @@ namespace Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 /// Every member is a plain value rather than a domain type for the same reason.
 /// The Sync module has no reference to Backlog.Modules.Tasks and must not grow
 /// one — the two contexts share a shape, not a model.
+/// </para>
+/// <para>
+/// <b>A field this build has no member for is carried, not dropped.</b> See
+/// <see cref="Unrecognised"/>.
 /// </para>
 /// </summary>
 public sealed record TaskPayload(
@@ -49,20 +56,61 @@ public sealed record TaskPayload(
     // Last, and defaulted, because it arrived after the contract did: a document
     // written by an older build carries no such property and reads as unticked,
     // which is what it was.
-    DateOnly? CompletedOn = null);
+    DateOnly? CompletedOn = null)
+{
+    /// <summary>
+    /// Every property the document carried that this build has no member for,
+    /// kept so it is written back out exactly as it arrived.
+    /// <para>
+    /// The service is deployed on its own schedule, and it reads a push into
+    /// this record and writes the record to the store. Without this, a field a
+    /// newer desktop added would be dropped by a service built before it: the
+    /// stored document would lack it, every other device would pull it without
+    /// it, and the next edit there would overwrite the originating device with
+    /// the field gone. That is how <see cref="CompletedOn"/> was lost from every
+    /// synced task until the service was redeployed. With the field held here,
+    /// the service passes through what it cannot read, which is what
+    /// .arc42/adr/0005's ignorant middle was always meant to do.
+    /// </para>
+    /// <para>
+    /// Null when there was nothing unrecognised, so a payload a device builds
+    /// compares and serialises as it did before.
+    /// </para>
+    /// </summary>
+    [JsonExtensionData]
+    public IDictionary<string, JsonElement>? Unrecognised { get; init; }
+}
 
 /// <summary>One checklist line under a task. <c>Status</c> is the same opaque
 /// token the local store writes — <c>pending</c> or <c>done</c>.</summary>
-public sealed record SubItemPayload(Guid Id, string Title, string Status, string? Notes, int Order);
+public sealed record SubItemPayload(Guid Id, string Title, string Status, string? Notes, int Order)
+{
+    /// <summary>What this build has no member for, carried through as it
+    /// arrived — see <see cref="TaskPayload.Unrecognised"/>.</summary>
+    [JsonExtensionData]
+    public IDictionary<string, JsonElement>? Unrecognised { get; init; }
+}
 
 /// <summary>One recorded interaction with a task, kept because the desktop
 /// ranks on it. The service never reads <c>Action</c>.</summary>
-public sealed record UsageEventPayload(DateTimeOffset Timestamp, string Action);
+public sealed record UsageEventPayload(DateTimeOffset Timestamp, string Action)
+{
+    /// <summary>What this build has no member for, carried through as it
+    /// arrived — see <see cref="TaskPayload.Unrecognised"/>.</summary>
+    [JsonExtensionData]
+    public IDictionary<string, JsonElement>? Unrecognised { get; init; }
+}
 
 /// <summary>A task's link to something in a repository — an issue, a pull
 /// request. Ids stay strings: they belong to the remote system's namespace and
 /// nothing here resolves them.</summary>
-public sealed record ProjectionPayload(string RepoId, string ExternalId, string TargetType);
+public sealed record ProjectionPayload(string RepoId, string ExternalId, string TargetType)
+{
+    /// <summary>What this build has no member for, carried through as it
+    /// arrived — see <see cref="TaskPayload.Unrecognised"/>.</summary>
+    [JsonExtensionData]
+    public IDictionary<string, JsonElement>? Unrecognised { get; init; }
+}
 
 /// <summary>
 /// One task's state at one moment, as a device pushes it or pulls it.
