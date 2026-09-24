@@ -228,6 +228,30 @@
                             </AppButton>
                         }
                     </div>
+
+                    @* The total the chips never gave: how much is open in the
+                       repository scope, before any status, tag or scope narrows
+                       it — the pool the chip counts are taken over, so pressing a
+                       filter changes the list and never this. Last on the bar and
+                       not a filter, so its own group rather than a chip in one;
+                       an AppButton because pressing it opens the report behind
+                       the number. It gives way rather than the bar: the detail
+                       half goes first at a narrow column and then the noun,
+                       leaving the number — see app.css — and the accessible name
+                       keeps the whole sentence either way. *@
+                    <div class="filter-group filter-group--summary">
+                        <AppButton BaseClass="chip chip--filter"
+                                   Variant="ButtonVariant.None"
+                                   CssClass="chip--summary"
+                                   id="@OpenWorkSummaryId"
+                                   TestId="open-work-summary"
+                                   title="@OpenWork.Description"
+                                   aria-label="@OpenWork.Description"
+                                   aria-haspopup="dialog"
+                                   OnClick="OnOpenWorkReport">
+                            <span class="open-work-summary__number">@OpenWork.Open</span><span class="open-work-summary__noun"> open</span><span class="open-work-summary__detail">@OpenWorkTail</span>
+                        </AppButton>
+                    </div>
                 </div>
 
                 @* Between the filters and the list, and only once something is
@@ -387,6 +411,12 @@
                    Options="@RepositoryOptions()"
                    Preview="ImportPlanPreview.Of"
                    OnImport="OnImportAsync" />
+
+<OpenWorkReportDialog Open="@_openWorkOpen"
+                      OpenChanged="open => _openWorkOpen = open"
+                      Report="@(_openWorkOpen ? BuildOpenWorkReport() : null)"
+                      RestoreFocusToId="@OpenWorkSummaryId"
+                      OnTaskSelected="OnOpenWorkTaskSelectedAsync" />
 
 @* The menu a right-click on an entry row opens. What it holds is this pane's
    answer and not the row's: the row reported the gesture and where it landed,
@@ -1940,6 +1970,63 @@
     /// it — see <c>TasksDesktopState.IsNotWaiting</c>.</summary>
     private int NotWaitingCount => State.ScopedRows.Count(State.IsNotWaiting);
 
+    // --- The open-work summary and its report --------------------------------
+
+    private const string OpenWorkSummaryId = "open-work-summary";
+
+    private bool _openWorkOpen;
+
+    /// <summary>What is open in the rows the repository scope leaves in view — the
+    /// pool every chip on the bar counts, so no filter moves it.</summary>
+    private OpenWorkTotals OpenWork => OpenWorkTotals.Of(State.ScopedRows);
+
+    /// <summary>The half of the summary that stays at every width.</summary>
+    private string OpenWorkHead => $"{OpenWork.Open} open";
+
+    /// <summary>The rest of it — " · N points · M unestimated" — which a narrow
+    /// column drops rather than clipping the bar.</summary>
+    private string OpenWorkTail => OpenWork.Summary[OpenWorkHead.Length..];
+
+    private void OnOpenWorkReport() => _openWorkOpen = true;
+
+    /// <summary>Built only while the report is up: it is the half that resolves
+    /// dependencies, and the button beside it needs none of that. Today is read
+    /// here for the reason My Day's is — one place reads the clock.</summary>
+    private OpenWorkReport BuildOpenWorkReport() =>
+        OpenWorkReport.Build(
+            State.ScopedRows,
+            Today,
+            State.IsNotWaiting,
+            OpenWorkRepositories,
+            OutstandingDependencyLabels);
+
+    /// <summary>Every repository a row targets that resolves to a configured one,
+    /// by alias — the same lookup <c>RepositoryFor</c> makes, but all of them
+    /// rather than the first, so a row filed against two counts under both.</summary>
+    private IReadOnlyList<string> OpenWorkRepositories(EntryRow row) =>
+        [.. row.PreviewRepoIds
+            .Select(State.RepositoryAliasFor)
+            .OfType<string>()
+            .Distinct(StringComparer.OrdinalIgnoreCase)];
+
+    /// <summary>What a waiting row still waits on, named the way the "Waiting
+    /// for" line names it. Only the steps not yet ticked off: a finished one is a
+    /// wait that is over, and naming it would send the reader to something they
+    /// cannot act on. An id naming nothing stays, because it still blocks.</summary>
+    private IReadOnlyList<string> OutstandingDependencyLabels(EntryRow row) =>
+        [.. State.ResolvedDependsOn(row)
+            .Where(id => RowById(id) is not { IsPreviewCompleted: true })
+            .Select(DependencyLabel)];
+
+    /// <summary>A task pressed in the report: the report goes, and the task opens
+    /// the way one named on a "Waiting for" line does — widening whatever scope was
+    /// hiding it first.</summary>
+    private async Task OnOpenWorkTaskSelectedAsync(string taskId)
+    {
+        _openWorkOpen = false;
+        await OnEntrySelectedAsync(taskId);
+    }
+
     /// <summary>Turning the scope on pins it to today. The date is read here rather
     /// than in the state for the reason <c>#feature-my-day</c> gives: membership is
     /// arithmetic against the reader's local date, and one place reads it.</summary>
@@ -3281,11 +3368,14 @@
         : null;
 
     private string DependencyLabel(string id) =>
-        State.Rows.FirstOrDefault(candidate =>
-            candidate.Id is { } candidateId
-            && string.Equals(candidateId.ToString(), id, StringComparison.OrdinalIgnoreCase)) is { } match
+        RowById(id) is { } match
             ? (string.IsNullOrWhiteSpace(match.PreviewTitle) ? "Untitled" : match.PreviewTitle)
             : $"{id} (not found)";
+
+    private EntryRow? RowById(string id) =>
+        State.Rows.FirstOrDefault(candidate =>
+            candidate.Id is { } candidateId
+            && string.Equals(candidateId.ToString(), id, StringComparison.OrdinalIgnoreCase));
 
     // What a date is called, and in what language, belongs to whatever is showing
     // it — TaskAction and TaskRow both take an already-formatted string precisely

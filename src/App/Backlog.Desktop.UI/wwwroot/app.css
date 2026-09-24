@@ -524,9 +524,27 @@ h1, h2, h3 {
     flex: 0 0 auto;
 }
 
+/* Neither grows nor shrinks. It used to shrink with the tag pile, and a shrunk
+   strip is a clipped one — `.filter-group { overflow: hidden }` — so a chip that
+   was pressed could be the one cut off, squeezed by whatever else on the bar held
+   its room. The pile is what gives way, and the open-work summary after it. */
 .filter-group--status {
-    flex: 0 1 auto;
+    flex: 0 0 auto;
     margin-left: auto;
+}
+
+/* The open-work total. Not a filter, and last on the bar: the status group's auto
+   margin already carries it to the right edge, so it takes no margin of its own
+   here — two auto margins would split the slack and float status off the edge.
+   It never shrinks and no step hides it: the tag pile gives way before it does,
+   below 60rem it drops its detail half and below 47rem its noun. */
+.filter-group--summary {
+    flex: 0 0 auto;
+}
+
+.chip--summary {
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
 }
 
 .chip {
@@ -1518,6 +1536,18 @@ h1, h2, h3 {
   room — tightening the gaps first would have bought about 20px of it.
 */
 
+/* 60rem: the open-work summary keeps "N open" and lets the points go. Measured in
+   the harness, select, the three scopes, the four-chip status strip (293px) and the
+   full summary (~236px) come to about 917px with the gaps, before the tag pile gets
+   a pixel of the bar; below this the full sentence would take its room out of the
+   pile and then out of nothing at all. The whole sentence stays the button's
+   tooltip and accessible name at every width, so only the shorthand is lost. */
+@container backlog-list (max-width: 60rem) {
+    .open-work-summary__detail {
+        display: none;
+    }
+}
+
 /* 48rem: the width the tag pile stops fitting at, measured rather than reasoned.
    The bar's four groups come to 48.1rem with a two-chip pile in front of them and
    30.2rem without it, so between those two numbers the pile is the whole difference
@@ -1559,6 +1589,20 @@ h1, h2, h3 {
        has no room for. Each one that is left is a tag the reader chose and can press
        again to drop. */
     .filter-group--tags--picked .chip:not(.chip--active) {
+        display: none;
+    }
+}
+
+/* 47rem: the open-work summary comes down to its number. With the tag pile gone at
+   the step above, select (~55px), the scopes (~270px), the status strip (293px) and
+   "N open" with the gaps come to about 47rem. The summary is what gives way, never
+   the strip: it keeps the number, its tooltip and accessible name keep the whole
+   sentence, and since it neither shrinks nor comes before the strip, a column too
+   narrow even for the number runs the summary off the bar's end while the strip
+   stays exactly where it would be without it. The strip's own collapse is left at
+   30rem — collapsed, it offers only the chosen chip. */
+@container backlog-list (max-width: 47rem) {
+    .open-work-summary__noun {
         display: none;
     }
 }
@@ -1653,6 +1697,11 @@ h1, h2, h3 {
     /* Nothing left to push away from: the groups are one chip each. */
     .filter-group--status {
         margin-left: 0;
+    }
+
+    /* Except the total, which is still the bar's last word and keeps the edge. */
+    .filter-group--summary {
+        margin-left: auto;
     }
 
     /* Nothing here about the rows any more, and that is the step above having
@@ -1831,6 +1880,149 @@ h1, h2, h3 {
 /* The result line this section used to style lives with the pane chrome instead,
    near the bottom of this file: it renders under the split rather than inside the
    dialog, so it is the workspace's footer and not one of the form's own blocks. */
+
+/* --- Open-work report ------------------------------------------------------ */
+/*
+  The dialog behind the filter bar's open-work summary. Wider than the modal's
+  default because the plan table has five columns and the breakdowns sit two to a
+  row; the tiles and bars are the library's own and are not restyled here.
+*/
+
+.open-work-report {
+    width: min(52rem, 100%);
+}
+
+/* minmax(0, 1fr) rather than the implicit auto column: an auto column is as wide
+   as its widest child's min-content, and the plans table's was wider than a
+   420px window — which stretched the tiles past the dialog's edge and scrolled the
+   whole dialog sideways. The table scrolls in its own region instead. */
+/* The library drops every metric grid to one column below a 40rem viewport. Here
+   the four tiles are short numbers, so they keep two to a row in a narrow window;
+   the min() lets a column never ask for more than the dialog has. */
+.open-work-report .metric-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(var(--metric-grid-min, 8rem), 100%), 1fr));
+}
+
+.open-work-report__body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--spacing-lg);
+}
+
+.open-work-report__section {
+    display: grid;
+    gap: var(--spacing-sm);
+}
+
+.open-work-report__heading {
+    margin: 0;
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+}
+
+.open-work-report__subheading {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-secondary);
+}
+
+.open-work-report__plans {
+    overflow-x: auto;
+}
+
+.open-work-report__plans:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.open-work-report__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--font-size-sm);
+    font-variant-numeric: tabular-nums;
+}
+
+/* One line per cell: "0 of 3 points done" folded over three lines is the cramped
+   table the region's scroll exists to replace. */
+.open-work-report__table th,
+.open-work-report__table td {
+    white-space: nowrap;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-bottom: var(--border-width) solid var(--color-border);
+    text-align: end;
+}
+
+.open-work-report__table th:first-child {
+    text-align: start;
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+}
+
+.open-work-report__table thead th {
+    color: var(--color-text-secondary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.open-work-report__breakdowns {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr));
+    gap: var(--spacing-md);
+}
+
+.open-work-report__attention {
+    display: grid;
+    gap: var(--spacing-xs);
+}
+
+.open-work-report__tasks {
+    display: grid;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/* Title over detail rather than side by side: on one baseline a title that wrapped
+   pushed its detail 9px off the line it belonged to. */
+.open-work-report__task {
+    display: grid;
+    justify-items: start;
+    gap: 0;
+}
+
+/* The title is the primary text and reads as something to follow — the same
+   dotted-underline link look a row's "Waiting for" names wear
+   (`.task-item__dependency`), at the report's body size. */
+.open-work-report__task-title {
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    font: inherit;
+    font-size: var(--font-size-sm);
+    text-align: start;
+    color: var(--color-text-link);
+    text-decoration: underline dotted;
+    text-underline-offset: 0.15em;
+    cursor: pointer;
+}
+
+.open-work-report__task-title:hover {
+    text-decoration: underline;
+}
+
+.open-work-report__task-title:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: 1px;
+    border-radius: var(--border-radius-sm);
+}
+
+.open-work-report__detail {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
 
 /* --- Settings -------------------------------------------------------------- */
 
