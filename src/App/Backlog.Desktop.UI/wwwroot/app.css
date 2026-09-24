@@ -1803,9 +1803,25 @@ h1, h2, h3 {
   not parse is the same kind of error every other surface already shows.
 */
 
+/* Wider and taller than the shared 40rem modal: a plan is read here before it is
+   imported, and twenty entries in a ten-row box at that width is a keyhole. The
+   modal still scrolls as a whole past 92vh, so the footer is never out of reach. */
+.import-plan-dialog {
+    width: min(64rem, 100%);
+    max-height: 92vh;
+}
+
 .import-plan-form {
     display: grid;
     gap: var(--spacing-md);
+}
+
+/* The paste box takes the height the dialog has to give rather than its ten rows,
+   leaving room for the note, the file field and the footer around it. Rows stays
+   the floor on a short window. */
+.import-plan-form__text .field__input {
+    height: max(12rem, 100vh - 36rem);
+    resize: vertical;
 }
 
 .import-plan-form__note {
