@@ -35,8 +35,17 @@ internal sealed class RoadmapPlanning(
     ICommandHandler<RemoveMilestoneCommand, Result> removeMilestone,
     ICommandHandler<AddDependencyCommand, Result> addDependency,
     ICommandHandler<RemoveDependencyCommand, Result> removeDependency,
-    ICommandHandler<ImportPlanItemsCommand, Result<PlanImportResultDto>> importPlanItems) : IRoadmapPlanning
+    ICommandHandler<ImportPlanItemsCommand, Result<PlanImportResultDto>> importPlanItems,
+    RoadmapPlanChanges changes) : IRoadmapPlanning
 {
+    // Forwarded rather than held, so a subscriber in one scope hears a write made
+    // through another.
+    public event Action? Changed
+    {
+        add => changes.Changed += value;
+        remove => changes.Changed -= value;
+    }
+
     public Task<RoadmapPlanDto> GetPlanAsync(CancellationToken cancellationToken = default) =>
         getPlan.Handle(new GetPlanQuery(), cancellationToken);
 
@@ -52,9 +61,9 @@ internal sealed class RoadmapPlanning(
         string? tag = null,
         IReadOnlyList<string>? knowledgeRefs = null,
         CancellationToken cancellationToken = default) =>
-        addItem.Handle(
+        Announce(addItem.Handle(
             new AddItemCommand(title, start, end, priority, repositoryAliases, lane, taskId, notes, tag, knowledgeRefs),
-            cancellationToken);
+            cancellationToken));
 
     public Task<Result<RoadmapItemDto>> UpdateItemAsync(
         Guid itemId,
@@ -69,9 +78,9 @@ internal sealed class RoadmapPlanning(
         string? tag = null,
         IReadOnlyList<string>? knowledgeRefs = null,
         CancellationToken cancellationToken = default) =>
-        updateItem.Handle(
+        Announce(updateItem.Handle(
             new UpdateItemCommand(itemId, title, start, end, priority, repositoryAliases, lane, taskId, notes, tag, knowledgeRefs),
-            cancellationToken);
+            cancellationToken));
 
     public Task<Result<RoadmapItemDto>> RescheduleItemAsync(
         Guid itemId,
@@ -79,16 +88,16 @@ internal sealed class RoadmapPlanning(
         DateOnly end,
         string? lane = null,
         CancellationToken cancellationToken = default) =>
-        rescheduleItem.Handle(new RescheduleItemCommand(itemId, start, end, lane), cancellationToken);
+        Announce(rescheduleItem.Handle(new RescheduleItemCommand(itemId, start, end, lane), cancellationToken));
 
     public Task<Result<RoadmapItemDto>> PrioritiseItemAsync(
         Guid itemId,
         PlanningPriority priority,
         CancellationToken cancellationToken = default) =>
-        prioritiseItem.Handle(new PrioritiseItemCommand(itemId, priority), cancellationToken);
+        Announce(prioritiseItem.Handle(new PrioritiseItemCommand(itemId, priority), cancellationToken));
 
     public Task<Result> RemoveItemAsync(Guid itemId, CancellationToken cancellationToken = default) =>
-        removeItem.Handle(new RemoveItemCommand(itemId), cancellationToken);
+        Announce(removeItem.Handle(new RemoveItemCommand(itemId), cancellationToken));
 
     public Task<Result<RoadmapMilestoneDto>> AddMilestoneAsync(
         string title,
@@ -98,9 +107,9 @@ internal sealed class RoadmapPlanning(
         string? lane = null,
         bool isPlanWide = false,
         CancellationToken cancellationToken = default) =>
-        addMilestone.Handle(
+        Announce(addMilestone.Handle(
             new AddMilestoneCommand(title, on, kind, repositoryAliases, lane, isPlanWide),
-            cancellationToken);
+            cancellationToken));
 
     public Task<Result<RoadmapMilestoneDto>> UpdateMilestoneAsync(
         Guid milestoneId,
@@ -111,29 +120,39 @@ internal sealed class RoadmapPlanning(
         string? lane = null,
         bool isPlanWide = false,
         CancellationToken cancellationToken = default) =>
-        updateMilestone.Handle(
+        Announce(updateMilestone.Handle(
             new UpdateMilestoneCommand(milestoneId, title, on, kind, repositoryAliases, lane, isPlanWide),
-            cancellationToken);
+            cancellationToken));
 
     public Task<Result> RemoveMilestoneAsync(Guid milestoneId, CancellationToken cancellationToken = default) =>
-        removeMilestone.Handle(new RemoveMilestoneCommand(milestoneId), cancellationToken);
+        Announce(removeMilestone.Handle(new RemoveMilestoneCommand(milestoneId), cancellationToken));
 
     public Task<Result> AddDependencyAsync(
         Guid nodeId,
         Guid dependsOnId,
         CancellationToken cancellationToken = default) =>
-        addDependency.Handle(new AddDependencyCommand(nodeId, dependsOnId), cancellationToken);
+        Announce(addDependency.Handle(new AddDependencyCommand(nodeId, dependsOnId), cancellationToken));
 
     public Task<Result> RemoveDependencyAsync(
         Guid nodeId,
         Guid dependsOnId,
         CancellationToken cancellationToken = default) =>
-        removeDependency.Handle(new RemoveDependencyCommand(nodeId, dependsOnId), cancellationToken);
+        Announce(removeDependency.Handle(new RemoveDependencyCommand(nodeId, dependsOnId), cancellationToken));
 
     public Task<Result<PlanImportResultDto>> ImportPlanItemsAsync(
         IReadOnlyList<PlanImportEntryDto> entries,
         IReadOnlyList<PlanTagEffortDto>? gatheredEffort = null,
         IReadOnlyList<PlanImportEntryDto>? createIfMissing = null,
         CancellationToken cancellationToken = default) =>
-        importPlanItems.Handle(new ImportPlanItemsCommand(entries, gatheredEffort, createIfMissing), cancellationToken);
+        Announce(importPlanItems.Handle(new ImportPlanItemsCommand(entries, gatheredEffort, createIfMissing), cancellationToken));
+
+    /// <summary>Hands a write's result back unchanged, telling every listener first
+    /// when it was stored. A refusal stored nothing, so it says nothing.</summary>
+    private async Task<TResult> Announce<TResult>(Task<TResult> write)
+        where TResult : Result
+    {
+        var result = await write;
+        if (result.IsSuccess) changes.Raise();
+        return result;
+    }
 }

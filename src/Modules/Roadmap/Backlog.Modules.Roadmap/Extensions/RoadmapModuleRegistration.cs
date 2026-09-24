@@ -55,6 +55,8 @@ public static class RoadmapModuleRegistration
         // Placement reads "today"; a host that already registered a clock keeps its own.
         services.TryAddSingleton(TimeProvider.System);
 
+        // One for the whole host, whatever scope a write or a listener comes from.
+        services.TryAddSingleton<RoadmapPlanChanges>();
         services.AddScoped<IRoadmapPlanning, RoadmapPlanning>();
 
         return services;

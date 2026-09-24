@@ -166,6 +166,29 @@ public sealed class ImportPlanAcrossRoadmapTests : IDisposable
         Assert.Equal(["First step", "Second step"], await StepTitlesAsync(item));
     }
 
+    [Fact]
+    public async Task An_import_in_one_scope_is_heard_by_a_roadmap_open_in_another()
+    {
+        // The band lives in the screen's scope and Import resolves its own; the
+        // change has to cross from one to the other, or the band draws a stale plan.
+        using var screen = _provider.CreateScope();
+        var planning = screen.ServiceProvider.GetRequiredService<IRoadmapPlanning>();
+        var heard = 0;
+        void Heard() => heard++;
+        planning.Changed += Heard;
+
+        await ImportAsync(RoadmapDocument);
+        Assert.Equal(1, heard);
+
+        // A refused plan leaves the roadmap as it was, so there is nothing to redraw.
+        await ImportAsync("# Plan a\n`plan` `+plan-a` `after:plan-b`\n\n# Plan b\n`plan` `+plan-b` `after:plan-a`\n");
+        Assert.Equal(1, heard);
+
+        planning.Changed -= Heard;
+        await ImportAsync(RoadmapDocument.Replace("Imported plans on the roadmap", "Renamed", StringComparison.Ordinal));
+        Assert.Equal(1, heard);
+    }
+
     private async Task<ImportPlanResultDto> ImportAsync(string document, bool layOut = false)
     {
         using var scope = _provider.CreateScope();
