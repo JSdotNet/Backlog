@@ -287,14 +287,18 @@ public static class DocumentDevbookParser
                 continue;
             }
 
-            if (trimmed.StartsWith("```", StringComparison.Ordinal))
+            // CommonMark's fence rather than "starts with three backticks", so a
+            // devbook `annotation` note holding a code sample closes where its
+            // own four-backtick run does. The note stays a code record, which
+            // DevbookBlocks hands to the library to draw as a review note.
+            if (MarkdownFence.Open(trimmed) is { } fence)
             {
                 FlushParagraph();
-                var language = trimmed[3..].Trim();
+                var language = fence.Language;
                 var code = new List<string>();
                 index++;
 
-                while (index < lines.Length && !lines[index].TrimStart().StartsWith("```", StringComparison.Ordinal))
+                while (index < lines.Length && !fence.IsClosedBy(lines[index]))
                 {
                     code.Add(lines[index]);
                     index++;

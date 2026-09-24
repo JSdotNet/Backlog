@@ -191,6 +191,14 @@ public sealed class ClassHookTests
     /// turns into <c>badge--unset</c>. A panel test would prove one screen; this
     /// proves the contract every screen using that vocabulary depends on.
     /// </para>
+    /// <para>
+    /// Contract 16 took the three editorial folders out of this chain. In
+    /// <c>.arc42</c>, <c>.domain</c> and <c>.design</c> an absent status is the
+    /// resting value <c>active</c> — a state, not a missing one — so there the
+    /// vocabulary answers <c>active</c>'s modifier and the select wears it. The
+    /// outline stays for a surface where absence states nothing, which is what the
+    /// vocabulary below is.
+    /// </para>
     /// </summary>
     [Theory]
     [InlineData(null)]
@@ -198,10 +206,11 @@ public sealed class ClassHookTests
     [InlineData("   ")]
     public void A_status_no_file_stated_draws_the_unset_outline(string? status)
     {
-        var vocabulary = DevbookStatus.Vocabulary(DevbookFolder.Design);
+        var vocabulary = new MetadataStatusVocabulary(["draft", "done"], value => value, allowsNone: true);
 
         // The half the Devbook panels rely on: no status, no modifier.
         Assert.Equal(string.Empty, vocabulary.SlugFor(status));
+        Assert.Equal("active", DevbookStatus.Vocabulary(DevbookFolder.Design).SlugFor(status));
 
         using var context = new BunitContext();
 

@@ -3,7 +3,7 @@
 <PageTitle>Metadata fields — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Fields"
-           Summary="A subpage of Devbook: every kind of metadata on its own, drawn by the smallest component for its value. The parent page shows one block with everything in it, which is how a reader meets a record and the wrong altitude for reviewing one field — a shape that only ever renders inside the record can only be looked at by assembling a record around it. There is one component per value shape and one story per field: eleven stories share nine shapes — a scalar, a list of plain strings, a list of addresses, a list of aliases, a list of application keys, a classification, an estimate, a GitHub reference, and the keys nobody modelled — so two fields with the same shape are drawn by the same component and cannot drift apart, and three fields draw no visible label because their value already says which field it is. `status` is not here: it is the same question as state, and it has a subpage of its own. Combinations are the parent page's job."
+           Summary="A subpage of Devbook: every kind of metadata on its own, drawn by the smallest component for its value. The parent page shows one block with everything in it, which is how a reader meets a record and the wrong altitude for reviewing one field — a shape that only ever renders inside the record can only be looked at by assembling a record around it. There is one component per value shape and one story per field: eighteen stories share ten shapes — a scalar, a list of plain strings, a list of addresses, a list of aliases, a list of application keys, a classification, an estimate, a GitHub reference, the extension namespace, and the keys nobody modelled — so two fields with the same shape are drawn by the same component and cannot drift apart, and three fields draw no visible label because their value already says which field it is. `status` is not here: it is the same question as state, and it has a subpage of its own — and so is the decision and review state beside it, which is never a row at all; Chapter and file draws it. Combinations are the parent page's job."
            Guidelines="@Rules">
 
     <Story Name="kind"
@@ -109,8 +109,8 @@ Nothing in the library orders anything by it. It is drawn as the addresses it ho
             @<MetadataReferenceList References="@DependsOnReferences" HrefFor="@ResolveAll" />)
     </Story>
 
-    <Story Name="implements"
-           Description="How a backlog item says what it delivers, addressed into `.domain`. The field that ties a work item to the feature it exists for, and the only one of the three relations that is folder-specific in one direction: it is written in `.backlog` and it points into `.domain`.
+    <Story Name="implements (legacy)"
+           Description="**Legacy.** How a `.backlog` item said what it delivers, addressed into `.domain`. `.backlog` is retiring, and devbook contract 16 no longer draws `implements` as an edge: the atlas stopped drawing it, and no current folder writes it. It is still parsed and still drawn here, because an older checkout still says it and a reader should see what the file says.
 
 Same value shape as the other two relations, drawn by the same component. Where the addresses may point is the convention's rule, not the component's — nothing here refuses an `implements` entry that names something else."
            Code="@ReferenceCode">
@@ -174,6 +174,73 @@ Twelve `.domain` chapters write it today. A key the reader does not model lands 
             <CodeView Source="feature-flag: inbox-pane" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="devbook-fields-feature-flag-single-source" />
             <dl class="devbook-fields">
                 <MetadataField Label="feature-flag" TestId="devbook-fields-feature-flag-single-keys"><MetadataKeyList Keys="@SingleFeatureFlag" /></MetadataField>
+            </dl>
+        </div>
+    </Story>
+
+    <Story Name="type"
+           Description="What kind of thing a chapter or file is — `aggregate`, `library`, `context` — out of the vocabulary its folder defines: `domain/`, `tech/` and `ai/` each have one, and `arc42/` and `design/` define none. A field of the record now rather than a key it happened to keep, and drawn exactly as it was before that: a plain value under its own label.
+
+In `.domain` the row usually is not drawn at all, because the heading above it carries the value as a mark and the same fact twice would be noise — that is the heading's page. `tech/`'s old spelling, `kind`, still reads into the same field; it keeps the classification chip above rather than being drawn a second time here, and the findings ask for the rename."
+           Code="@TypeCode">
+        @Field("type", "type: format", "domain/, tech/, ai/. A warning in arc42/ and design/, which define none.", "MetadataValueList",
+            @<MetadataValueList Values="@TypeValue" />)
+    </Story>
+
+    <Story Name="tests"
+           Description="The test cases that assert what the chapter claims, each a `<level>:<runner>:<selector>` identifier. The two below are the rule's own example.
+
+Plain strings in the value face, one code span per entry, and never links: an entry is something a runner can be handed, not an address in the repository, and it produces no graph edge. Only the first two colons delimit — a pytest node id or a `file:line` carries colons of its own — so nothing here splits an entry further; the whole string is what a reader copies into a terminal."
+           Code="@ValueListCode">
+        @Field("tests", "tests: [unit:dotnet:Ordering.Domain.Tests.OrderTests, e2e:playwright:tests/checkout.spec.ts#Guest checkout completes]",
+            "Every folder, chapter and file level.", "MetadataValueList",
+            @<MetadataValueList Values="@TestEntries" />)
+    </Story>
+
+    <Story Name="number"
+           Description="This document's place in its directory — arc42 chapter 9, TDR 2 — for the file whose name does not already say it. File-level only: a chapter's place is its place in the document, and the findings say so when a chapter writes one.
+
+A scalar, because it is a count and not a label; the row keeps its name because a bare `9` could be anything."
+           Code="@ScalarCode">
+        @Field("number", "number: 9", "File-level blocks, any folder. Rare: a numbered filename supplies it.", "MetadataScalar",
+            @<MetadataScalar Value="9" />)
+    </Story>
+
+    <Story Name="index"
+           Description="How a document steers the generated outline: `root` makes it its directory's entry point, `exclude` keeps it out of the reading outline while leaving it in the graph. File-level only, and one of those two words — anything else is reported rather than silently ignored."
+           Code="@ScalarCode">
+        @Field("index", "index: root", "File-level blocks — a context's context.md declares root.", "MetadataScalar",
+            @<MetadataScalar Value="root" />)
+    </Story>
+
+    <Story Name="date"
+           Description="The day the chapter records — when a decision was taken, when debt was logged. Part of the content, and deliberately never a last-modified stamp: git already knows that, and a hand-kept one goes stale the first time someone forgets. Drawn as authored."
+           Code="@ScalarCode">
+        @Field("date", "date: 2026-09-17", "Every folder, where the date is part of the content.", "MetadataScalar",
+            @<MetadataScalar Value="2026-09-17" />)
+    </Story>
+
+    <Story Name="deployment"
+           Description="How a bounded context ships: `service`, a deployable of its own, or `module`, inside a modular monolith beside other contexts. Written on the context map's `bounded-context` chapter and on that context's `context.md` file block, and nowhere else — an aggregate or a feature ships with its context, which is what the findings say to a chapter that writes one."
+           Code="@ScalarCode">
+        @Field("deployment", "deployment: module", "domain/: a bounded-context chapter, and context.md's file block.", "MetadataScalar",
+            @<MetadataScalar Value="module" />)
+    </Story>
+
+    <Story Name="ext"
+           Description="The extension namespace: state a plugin layered on top of devbook keeps about a chapter, written `ext.<plugin>.<key>`. The rule's own example is the first line below.
+
+One row, not one per key. These belong to somebody else — the convention carries them untouched, validates nothing, and forbids reading another plugin's keys as schema — so given a row each they would sit among the fields as though they were ours. Gathered under one `ext` label they read as what they are: present, verbatim, and visibly not devbook's. Shown rather than folded, because there are rarely more than a few and a hidden value is the invisible-field problem the record exists to avoid.
+
+The key keeps the author's casing, the value is exactly what follows the colon, and an empty value is kept and drawn as the key and its colon: omit-when-empty is one of the rules this namespace is exempt from. The tooltip carries the full key to search the fence for."
+           Code="@ExtCode">
+        <div class="sb-stack" data-testid="devbook-fields-ext">
+            <p class="sb-label">The lines an author writes</p>
+            <CodeView Source="@ExtBlock" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="devbook-fields-ext-source" />
+            <p class="sb-state">Every folder. Owned by whichever plugin wrote it; never validated here.</p>
+            <p class="sb-state">Drawn by <code>MetadataExtensionList</code> over what that block parsed to, inside the one row the record gives it</p>
+            <dl class="devbook-fields">
+                <MetadataField Label="ext" TestId="devbook-fields-ext-value"><MetadataExtensionList Ext="@ExtMetadata.Ext" /></MetadataField>
             </dl>
         </div>
     </Story>
@@ -319,6 +386,51 @@ A key the reader recognises and deliberately drops never arrives here. `order` i
         + $"The same block with order: [overview.md] added keeps "
         + $"{MetadataReader.Parse(ExtraBlock + "\norder: [overview.md]").Extra.Count} Extra keys — order is "
         + "recognised and dropped, not collected here.";
+
+    private static readonly IReadOnlyList<string> TypeValue = ["format"];
+
+    /// <summary>The rule's own <c>tests</c> example, entry for entry.</summary>
+    private static readonly IReadOnlyList<string> TestEntries =
+    [
+        "unit:dotnet:Ordering.Domain.Tests.OrderTests",
+        "e2e:playwright:tests/checkout.spec.ts#Guest checkout completes"
+    ];
+
+    /// <summary>The rule's extension example, and two keys that show what "verbatim"
+    /// covers: a plugin's own casing, and a key written with no value.</summary>
+    private const string ExtBlock = """
+        ext.some-plugin.checked: 2026-09-17
+        ext.Review-Bot.lastRun: "2026-09-20 08:00"
+        ext.some-plugin.seen:
+        """;
+
+    private static readonly MetadataRecord ExtMetadata = MetadataReader.Parse(ExtBlock);
+
+    private const string TypeCode = """
+        @* A field of the record, drawn as it always was: a plain value under its
+           own label. A value read from the legacy `kind` is the kind chip instead,
+           so the same fact is never drawn under two names. *@
+        @if (!string.IsNullOrWhiteSpace(Metadata.Type) && !Metadata.TypeReadFromKind)
+        {
+            <MetadataField Label="type"><MetadataValueList Values="@(new[] { Metadata.Type! })" /></MetadataField>
+        }
+        """;
+
+    private const string ScalarCode = """
+        @* One authored value in the value face. The row keeps its label: unlike a
+           version or an estimate, a bare `9`, `root` or `module` does not say which
+           field it came from. *@
+        <MetadataField Label="deployment"><MetadataScalar Value="@Metadata.Deployment" /></MetadataField>
+        """;
+
+    private const string ExtCode = """
+        @* One row for the whole namespace. Keys arrive without their `ext.`, in
+           the author's casing; values exactly as written, empty ones included. *@
+        <MetadataField Label="ext"><MetadataExtensionList Ext="@Metadata.Ext" /></MetadataField>
+
+        @* Inside: key and value as one scalar, the full key on the tooltip. *@
+        <MetadataScalar Value="@Entry(key, value)" Title="@($"ext.{key}")" />
+        """;
 
     private const string KindCode = """
         @* A closed vocabulary drawn as a classification. No Slug: the vocabulary

@@ -26,5 +26,8 @@ namespace Backlog.UI.Components.Devbook;
 /// reader chose to state none — which a host persists by removing the field from
 /// the chapter's fence rather than by writing a word into it. Null only ever
 /// arrives from a folder whose status is optional; where it is required, the
-/// control offers no such option.</param>
+/// control offers no such option. In the three folders that rest at
+/// <c>active</c> by omission this is also what picking <c>active</c> sends: the
+/// option that reads <c>active</c> <em>is</em> the empty one, so the resting
+/// value is never written out as a word.</param>
 public sealed record DevbookStatusChange(int BlockIndex, string? Heading, string? Status);

@@ -205,6 +205,14 @@ their endpoints. Local ADR 0004: the generator is still the only writer of
 its own lifecycle, which this store does not write and nothing yet promotes a
 remark into.
 
+> **Where the two meet, 2026-09-25.** The chapter views now show the fence as a
+> read-only *review note* attached to its passage
+> (`.domain/devbook/features.md#review-notes-in-a-chapter`), drawn apart from
+> the margin remarks this record stores and never converted into or out of one.
+> `DevbookAnnotationFence` reads the fence; `DevbookAnnotation` remains the
+> remark. Nothing in C# writes a fence — the convention's `annotations.mjs` is
+> its only writer — so this record's boundary holds unchanged.
+
 ## Consequences
 
 Positive:

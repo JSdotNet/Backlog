@@ -3,6 +3,7 @@ using System.Text.Json;
 using Backlog.Infrastructure.Devbook;
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.UI.Components.Devbook;
+using Backlog.UI.Components.Markdown;
 
 namespace Backlog.Desktop.UI.Devbook;
 
@@ -116,6 +117,10 @@ public sealed record TechnologyNode(
 {
     public string Status => Metadata.Status ?? "unknown";
 
+    /// <summary>What kind of technology this is — <c>library</c>, <c>tool</c>,
+    /// <c>format</c> — as the chapter's <c>type</c> states it (or the legacy
+    /// <c>kind</c>; see <see cref="DevbookMetadata.Kind"/>). A chapter that states
+    /// neither is a <c>technology</c>.</summary>
     public string Kind => Metadata.Kind ?? "technology";
 }
 
@@ -173,6 +178,11 @@ public sealed record TechnologyGraphStats(int Nodes, int Edges, IReadOnlyDiction
     public static TechnologyGraphStats Empty { get; } = new(0, 0, new Dictionary<string, int>());
 }
 
+/// <summary>The few fields a <c>.tech</c> chapter's block carries that the
+/// technology panel reads.</summary>
+/// <param name="Kind">The chapter's <c>type</c>, read from <c>type</c> first and the
+/// legacy <c>kind</c> second. Named for the property every caller already reads;
+/// the value is the field the convention now calls <c>type</c>.</param>
 public sealed record DevbookMetadata(
     string? Status,
     string? Kind,
@@ -706,9 +716,12 @@ internal static class TechnologyMarkdownParser
                 continue;
             }
 
-            if (marker.StartsWith("```", StringComparison.Ordinal))
+            if (MarkdownFence.Open(marker) is { } fence)
             {
-                var language = marker[3..].Trim();
+                // A devbook `annotation` note is review chatter about the file,
+                // not a diagram of it: stepped over whole, like any fence, and
+                // never offered to the graph as one more thing to draw.
+                var language = DevbookAnnotationFence.IsAnnotationBlock(fence.Language) ? string.Empty : fence.Language;
                 var (block, next) = ReadFence(lines, index);
                 if (language.Length > 0)
                 {
@@ -755,7 +768,10 @@ internal static class TechnologyMarkdownParser
                 continue;
             }
 
-            if (marker.StartsWith("```", StringComparison.Ordinal))
+            // Every other fence — a code sample, a diagram, a devbook
+            // `annotation` note — is stepped over whole and never becomes the
+            // chapter's summary text.
+            if (MarkdownFence.Open(marker) is not null)
             {
                 var (_, next) = ReadFence(lines, index);
                 index = next + 1;
@@ -769,14 +785,19 @@ internal static class TechnologyMarkdownParser
         return (new TechnologyMarkdownChapter(title, metadata, CleanSummary(body)), index);
     }
 
+    /// <summary>The fence opened at <paramref name="start"/>, closed by
+    /// CommonMark's rule rather than at the first line starting with three
+    /// backticks — which ended a four-backtick <c>annotation</c> note at the code
+    /// sample inside it and read the rest of the note as the chapter.</summary>
     private static (string Block, int ClosingLine) ReadFence(string[] lines, int start)
     {
         var body = new List<string>();
         var index = start + 1;
+        var fence = MarkdownFence.Open(lines[start]) ?? new MarkdownFence('`', 3, string.Empty);
 
         while (index < lines.Length)
         {
-            if (lines[index].TrimStart().StartsWith("```", StringComparison.Ordinal))
+            if (fence.IsClosedBy(lines[index]))
             {
                 return (string.Join('\n', body), index);
             }
@@ -801,7 +822,11 @@ internal static class TechnologyMarkdownParser
 
         return new DevbookMetadata(
             ReadString(values, "status"),
-            ReadString(values, "kind"),
+            // `type` is the field; `kind` is how `.tech` spelled it before, and
+            // the convention still parses it. Read in that order — the corpus
+            // writes `type`, and reading only `kind` left every node a generic
+            // "technology".
+            ReadString(values, "type") ?? ReadString(values, DevbookSchema.LegacyTechTypeField),
             ReadString(values, "version"),
             ReadList(values, "depends-on"),
             ReadList(values, "related"),

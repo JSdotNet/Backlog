@@ -46,6 +46,9 @@
               OnStatusChanged="@OnStatusChanged"
               OnNavigate="@OnNavigate"
               HrefFor="@HrefFor"
+              Folder="@Folder"
+              Level="DevbookMetadataLevel.Chapter"
+              FileName="@FileName"
               AriaLabel="@AriaLabel"
               CssClass="@CssClass"
               TestId="@TestId"
@@ -95,6 +98,17 @@
     /// instead of the select when it is false.</summary>
     [Parameter]
     public bool CanEditStatus { get; set; } = true;
+
+    /// <summary>The devbook folder this chapter's block was read from, which turns
+    /// on the findings — see <see cref="MetadataView.Folder"/>. Unknown, the
+    /// default, reports nothing.</summary>
+    [Parameter]
+    public DevbookFolder Folder { get; set; } = DevbookFolder.Unknown;
+
+    /// <summary>The file the block is in, by name or path. Only read with
+    /// <see cref="Folder"/>.</summary>
+    [Parameter]
+    public string? FileName { get; set; }
 
     /// <summary>The group's name for a screen reader. Defaulted to the record's own
     /// default rather than to something this component prefers: a chapter in a

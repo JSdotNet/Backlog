@@ -1,3 +1,4 @@
+using Backlog.UI.Components.Devbook;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -87,7 +88,7 @@ public sealed class DevbookChapterWriter
         // by something upstream rather than content: whether the file carries one
         // is decided from its bytes and nowhere else.
         var body = DevbookChapterText.ToLineFeeds(rawText.TrimStart('\uFEFF'));
-        var merged = MergeStatuses(body, original, baseline);
+        var merged = MergeStatuses(body, original, baseline, FolderOf(chapter));
 
         // Translated and re-terminated rather than split into lines and joined
         // with the file's newline: string.Join drops the trailing newline that
@@ -133,8 +134,8 @@ public sealed class DevbookChapterWriter
     /// Fences are paired between the two texts by the heading that owns them,
     /// because a heading is what the status writer addresses and because the body
     /// around a fence may have been edited out of all recognition in the meantime.
-    /// Three cases follow from that pairing, and all three resolve in favour of the
-    /// buffer:
+    /// Four cases follow from that pairing, and every one resolves in favour of the
+    /// buffer unless the buffer is still carrying the baseline:
     /// </para>
     /// <list type="bullet">
     /// <item>A fence in the buffer that disk has none of is new here — a section
@@ -148,17 +149,28 @@ public sealed class DevbookChapterWriter
     /// would put somebody's status change on a different section, which is worse
     /// than losing it: the buffer's own status for that heading is written instead,
     /// and the renamed section keeps whatever it was carrying.</item>
+    /// <item>A fence on disk that states <em>no</em> status where the baseline had
+    /// one is a removal, and it wins exactly as a changed value does: the line comes
+    /// out of the buffer, and the fence stays. This case used to be skipped on the
+    /// grounds that no writer in the product removed the field, so an absent status
+    /// was far likelier to be a chapter that never had one. Contract 16 made that
+    /// false twice over — "No status" in the selector removes the line, and in the
+    /// three folders that rest at <c>active</c> so does picking <c>active</c> — and
+    /// a buffer still holding the old line would put it back on the next keystroke.
+    /// Only a fence disk still has counts: a heading gone from disk altogether is
+    /// the rename case above, seen from the other side, and is left alone.</item>
     /// </list>
+    /// <para>
+    /// A status merged in goes through the folder's rules on the way, as it would
+    /// through the status writer: <c>active</c> in a folder that rests by omission
+    /// is a removal rather than a line, and in <c>domain/</c> the decision record
+    /// that no longer stands beside the merged status comes out with it — otherwise
+    /// the buffer would write back the record the status writer had just deleted.
+    /// </para>
     /// </summary>
-    private static string MergeStatuses(string body, string onDisk, DevbookChapterStatus? baseline)
+    private static string MergeStatuses(string body, string onDisk, DevbookChapterStatus? baseline, DevbookFolder folder)
     {
         var onDiskStatuses = DevbookChapterStatus.Read(onDisk);
-
-        // A status missing from disk is not disk having moved on: no writer in
-        // the product removes the field, so the far more likely story is a
-        // chapter that never had one. Nothing to merge in.
-        if (onDiskStatuses.IsEmpty) return body;
-
         var inText = DevbookChapterStatus.Read(body);
         var merged = body;
 
@@ -169,12 +181,36 @@ public sealed class DevbookChapterWriter
 
             if (textStillCarriesBaseline && diskHasMoved)
             {
-                merged = DevbookChapterText.WithStatus(merged, heading, onDiskValue);
+                merged = DevbookChapterText.WithStatus(merged, heading, onDiskValue, folder);
+            }
+        }
+
+        if (baseline is null) return merged;
+
+        var onDiskLines = DevbookChapterText.ToLineFeeds(onDisk);
+        foreach (var (heading, baselineValue) in baseline.ByHeading)
+        {
+            var diskRemovedIt = onDiskStatuses.For(heading) is null && DevbookChapterText.HasFence(onDiskLines, heading);
+            var textStillCarriesBaseline = Matches(inText.For(heading), baselineValue);
+
+            if (diskRemovedIt && textStillCarriesBaseline)
+            {
+                merged = DevbookChapterText.WithoutStatus(merged, heading, folder);
             }
         }
 
         return merged;
     }
+
+    /// <summary>
+    /// Which devbook folder the chapter belongs to, from the area key the ref
+    /// carries — <c>arc42</c>, <c>domain</c>, <c>design</c>. Its relative path
+    /// cannot say: it is spelled beneath the area's root, with no area prefix. An
+    /// area that is not a devbook folder — <c>instructions</c> — is
+    /// <see cref="DevbookFolder.Unknown"/>, where no folder rule applies.
+    /// </summary>
+    private static DevbookFolder FolderOf(DevbookChapterRef chapter) =>
+        DevbookFolders.FromPath($".{chapter.AreaKey.Trim().TrimStart('.')}/");
 
     private static bool Matches(string? left, string? right) =>
         string.Equals(left?.Trim(), right?.Trim(), StringComparison.OrdinalIgnoreCase);
@@ -387,6 +423,12 @@ public sealed class DevbookChapterStatus
 /// two spelled differently would be a fence this merge could not find and that one
 /// had already written to.
 /// </para>
+/// <para>
+/// What <em>is</em> shared is the decision-record rule — which fields cannot stand
+/// beside a status, and how they are cut out of one fence — because that is a
+/// contract fact rather than a parsing habit, and the two writers disagreeing about
+/// it would have the merge write back a record the status writer had just deleted.
+/// </para>
 /// </summary>
 internal static class DevbookChapterText
 {
@@ -428,9 +470,17 @@ internal static class DevbookChapterText
     /// with a different newline is the operation that loses a trailing newline,
     /// and it is not this one.
     /// </para>
+    /// <para>
+    /// Through the folder's rules, as the status writer applies them: the resting
+    /// value in a folder that rests by omission is <see cref="WithoutStatus"/>
+    /// instead, and in <c>domain/</c> the decision record that cannot stand beside
+    /// <paramref name="status"/> leaves the fence with the old status.
+    /// </para>
     /// </summary>
-    internal static string WithStatus(string lineFeedText, string heading, string status)
+    internal static string WithStatus(string lineFeedText, string heading, string status, DevbookFolder folder = DevbookFolder.Unknown)
     {
+        if (DevbookSchema.IsResting(folder, status)) return WithoutStatus(lineFeedText, heading, folder);
+
         var lines = lineFeedText.Split('\n').ToList();
         var owned = OwnedFence(lines, heading);
 
@@ -444,6 +494,11 @@ internal static class DevbookChapterText
             else
             {
                 lines.Insert(fence.Open + 1, $"status: {status}");
+            }
+
+            if (DevbookSchema.AllowsDecisionRungs(folder))
+            {
+                DevbookMarkdownStatusWriter.RemoveFields(lines, fence.Open, DevbookMarkdownStatusWriter.RecordFieldsThatNoLongerStand(status));
             }
 
             return string.Join('\n', lines);
@@ -471,6 +526,39 @@ internal static class DevbookChapterText
         // there is nowhere to put it that would still mean what it meant.
         return lineFeedText;
     }
+
+    /// <summary>
+    /// The same text with the <c>status</c> line under <paramref name="heading"/>
+    /// deleted — and, in <c>domain/</c>, the decision record with it, since no
+    /// status is not a rung. The fence stays even when that empties it, for the
+    /// reason <see cref="DevbookMarkdownStatusWriter.RemoveStatus"/> gives: it is
+    /// what keeps the heading an addressable chapter. Unchanged when the heading
+    /// has no fence here, or its fence states nothing to remove.
+    /// </summary>
+    internal static string WithoutStatus(string lineFeedText, string heading, DevbookFolder folder = DevbookFolder.Unknown)
+    {
+        var lines = lineFeedText.Split('\n').ToList();
+        if (OwnedFence(lines, heading) is not { } fence) return lineFeedText;
+
+        var changed = false;
+        if (fence.StatusLine >= 0)
+        {
+            lines.RemoveAt(fence.StatusLine);
+            changed = true;
+        }
+
+        if (DevbookSchema.AllowsDecisionRungs(folder))
+        {
+            changed |= DevbookMarkdownStatusWriter.RemoveFields(lines, fence.Open, DevbookMarkdownStatusWriter.RecordFieldsThatNoLongerStand(null)) > 0;
+        }
+
+        return changed ? string.Join('\n', lines) : lineFeedText;
+    }
+
+    /// <summary>Whether <paramref name="heading"/> owns a <c>meta</c> fence in
+    /// this text, whatever the fence states.</summary>
+    internal static bool HasFence(string lineFeedText, string heading) =>
+        OwnedFence(lineFeedText.Split('\n'), heading) is not null;
 
     /// <summary>The fence under <paramref name="heading"/>, or null when that
     /// heading has none — or is not in these lines at all.</summary>

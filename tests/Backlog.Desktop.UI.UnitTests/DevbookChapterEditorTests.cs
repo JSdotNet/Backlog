@@ -63,6 +63,30 @@ public sealed class DevbookChapterEditorTests : IDisposable
     }
 
     [Fact]
+    public async Task A_status_removed_while_the_body_is_being_typed_stays_removed()
+    {
+        // The status selector cleared the chapter — or picked `active`, which in
+        // arc42/ is the same write — while the editor held the old line. Under
+        // contract 9 the merge assumed nothing removed the field, so the next
+        // save wrote the line straight back.
+        await using var context = NewContext();
+        const string loaded = "# Notes\n\n```meta\nstatus: draft\n```\n\nProse.\n";
+        var (root, chapter) = Chapter("notes.md", loaded);
+        var component = Render(context, chapter, loaded);
+
+        component.Find("[data-testid='devbook-chapter-edit']").Click();
+        File.WriteAllText(Path.Combine(root, "notes.md"), "# Notes\n\n```meta\n```\n\nProse.\n");
+        component.Find("textarea").Input("# Notes\n\n```meta\nstatus: draft\n```\n\nTyped after the status was cleared.\n");
+        component.Find("textarea").Blur();
+
+        component.WaitForAssertion(
+            () => Assert.Equal(
+                "# Notes\n\n```meta\n```\n\nTyped after the status was cleared.\n",
+                File.ReadAllText(Path.Combine(root, "notes.md"))),
+            TimeSpan.FromSeconds(5));
+    }
+
+    [Fact]
     public async Task Done_flushes_the_pending_body_and_returns_to_reading()
     {
         await using var context = NewContext();

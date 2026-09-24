@@ -38,6 +38,10 @@ public sealed class DevbookStatusTests
     [InlineData(DevbookFolder.Domain, "proposed", DevbookStatusTone.Planned)]
     [InlineData(DevbookFolder.Domain, "active", DevbookStatusTone.Active)]
     [InlineData(DevbookFolder.Domain, "deprecated", DevbookStatusTone.Retired)]
+    // The decision rungs, domain/'s alone: an agreed specification waiting on
+    // work, and the build accepted against it.
+    [InlineData(DevbookFolder.Domain, "approved", DevbookStatusTone.Planned)]
+    [InlineData(DevbookFolder.Domain, "accepted", DevbookStatusTone.Complete)]
     [InlineData(DevbookFolder.Design, "draft", DevbookStatusTone.Provisional)]
     [InlineData(DevbookFolder.Design, "active", DevbookStatusTone.Active)]
     [InlineData(DevbookFolder.Design, "deprecated", DevbookStatusTone.Retired)]
@@ -115,6 +119,38 @@ public sealed class DevbookStatusTests
     {
         Assert.NotSame(DevbookStatus.Vocabulary(DevbookFolder.Tech), DevbookStatus.Vocabulary(DevbookFolder.Ai));
         Assert.Equal(DevbookStatus.Values(DevbookFolder.Tech), DevbookStatus.Values(DevbookFolder.Ai));
+    }
+
+    /// <summary>
+    /// The rungs are recognised in <c>domain/</c> and nowhere else, and are never
+    /// in a folder's offered list: the approval gate writes them with their
+    /// record. Everywhere else the rule calls them not in the folder's vocabulary,
+    /// so they carry no tone and are flagged like any other stray word.
+    /// </summary>
+    [Theory]
+    [InlineData(DevbookFolder.Arc42)]
+    [InlineData(DevbookFolder.Design)]
+    [InlineData(DevbookFolder.Tech)]
+    [InlineData(DevbookFolder.Ai)]
+    [InlineData(DevbookFolder.Backlog)]
+    public void A_decision_rung_outside_domain_is_a_word_the_folder_does_not_have(DevbookFolder folder)
+    {
+        foreach (var rung in DevbookSchema.DecisionRungs)
+        {
+            Assert.False(DevbookStatus.IsKnown(folder, rung));
+            Assert.Equal(DevbookStatusTone.Unknown, DevbookStatus.Tone(folder, rung));
+            Assert.True(DevbookStatus.Vocabulary(folder).IsUnrecognised(rung));
+        }
+
+        Assert.Empty(DevbookStatus.RecognisedOnly(folder));
+    }
+
+    [Fact]
+    public void Domain_recognises_its_rungs_without_listing_them_among_its_values()
+    {
+        Assert.Equal(DevbookSchema.DecisionRungs, DevbookStatus.RecognisedOnly(DevbookFolder.Domain));
+        Assert.DoesNotContain("approved", DevbookStatus.Values(DevbookFolder.Domain));
+        Assert.True(DevbookStatus.IsKnown(DevbookFolder.Domain, " Accepted "));
     }
 
     [Fact]

@@ -104,6 +104,44 @@ public sealed class DevbookStatusPillTests
         Assert.Contains("candidate, trial, adopted, hold, retired", span.GetAttribute("title"));
     }
 
+    /// <summary>
+    /// The same word, two verdicts: a decision rung is a real state in
+    /// <c>domain/</c> — drawn in its tone, unflagged, untitled — and a word
+    /// <c>arc42/</c> never defined, flagged like any other.
+    /// </summary>
+    [Fact]
+    public void A_decision_rung_is_a_state_in_domain_and_flagged_in_arc42()
+    {
+        using var context = new BunitContext();
+
+        var domain = context.Render<DevbookStatusPill>(parameters => parameters
+            .Add(p => p.Status, "accepted")
+            .Add(p => p.Folder, DevbookFolder.Domain)).Find("span");
+
+        Assert.Equal("badge badge--status badge--status-done", domain.GetAttribute("class"));
+        Assert.Null(domain.GetAttribute("title"));
+
+        var arc42 = context.Render<DevbookStatusPill>(parameters => parameters
+            .Add(p => p.Status, "accepted")
+            .Add(p => p.Folder, DevbookFolder.Arc42)).Find("span");
+
+        Assert.Contains("devbook-status--unrecognised", arc42.ClassList);
+        Assert.StartsWith("Unexpected status.", arc42.GetAttribute("title"), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void An_explicit_resting_status_keeps_its_tone_and_is_titled_as_reported()
+    {
+        using var context = new BunitContext();
+
+        var span = context.Render<DevbookStatusPill>(parameters => parameters
+            .Add(p => p.Status, "active")
+            .Add(p => p.Folder, DevbookFolder.Design)).Find("span");
+
+        Assert.Equal("badge badge--status badge--status-active", span.GetAttribute("class"));
+        Assert.Contains("omitting the status field", span.GetAttribute("title"), StringComparison.Ordinal);
+    }
+
     [Fact]
     public void A_caller_class_is_appended_and_never_displaces_the_ones_the_stylesheet_matches()
     {

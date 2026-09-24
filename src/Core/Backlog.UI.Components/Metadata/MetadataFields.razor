@@ -41,6 +41,50 @@
                 @RenderKeys("roadmap", Metadata.Roadmap, "devbook-roadmap-tags")
                 @RenderKeys("feature-flag", Metadata.FeatureFlag, "devbook-feature-flag-tags")
 
+                @* The fields contract 16 added, and `type` now that it is one.
+
+                   In a code block for the same reason as Extra below, and the
+                   reason is the markup rather than taste: every row above this
+                   line leaves its source indentation behind when it draws nothing,
+                   and a record written before these fields existed renders exactly
+                   the bytes it always did. `type` sits first, where it used to
+                   arrive as the first of the Extra rows — drawn by the same value
+                   list, under the same label — so a `.tech` chapter's row looks as
+                   it did. A value that came from the legacy `kind` is not drawn
+                   again here: it is already the kind chip above.
+
+                   Decision and review state is not here and never will be: it is
+                   not chapter content, and MetadataView draws it beside the
+                   status. *@
+                @if (ShowsTypeRow(Metadata))
+                {
+                    <MetadataField Label="type"><MetadataValueList Values="@(new[] { Metadata.Type! })" /></MetadataField>
+                }
+                @if (Metadata.Tests.Count > 0)
+                {
+                    <MetadataField Label="tests" TestId="devbook-tests"><MetadataValueList Values="@Metadata.Tests" /></MetadataField>
+                }
+                @if (Metadata.Number is not null)
+                {
+                    <MetadataField Label="number"><MetadataScalar Value="@Metadata.Number.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)" /></MetadataField>
+                }
+                @if (!string.IsNullOrWhiteSpace(Metadata.Index))
+                {
+                    <MetadataField Label="index"><MetadataScalar Value="@Metadata.Index" /></MetadataField>
+                }
+                @if (!string.IsNullOrWhiteSpace(Metadata.Date))
+                {
+                    <MetadataField Label="date"><MetadataScalar Value="@Metadata.Date" /></MetadataField>
+                }
+                @if (!string.IsNullOrWhiteSpace(Metadata.Deployment))
+                {
+                    <MetadataField Label="deployment"><MetadataScalar Value="@Metadata.Deployment" /></MetadataField>
+                }
+                @if (Metadata.Ext.Count > 0)
+                {
+                    <MetadataField Label="ext" TestId="devbook-ext"><MetadataExtensionList Ext="@Metadata.Ext" /></MetadataField>
+                }
+
                 @* Fields the schema does not define are shown as themselves. A
                    viewer that dropped them would make a genuine schema addition
                    look like a file that says nothing.
@@ -213,5 +257,18 @@
         || metadata.Effort is not null
         || metadata.Roadmap.Count > 0
         || metadata.FeatureFlag.Count > 0
+        || ShowsTypeRow(metadata)
+        || metadata.Tests.Count > 0
+        || metadata.Number is not null
+        || !string.IsNullOrWhiteSpace(metadata.Index)
+        || !string.IsNullOrWhiteSpace(metadata.Date)
+        || !string.IsNullOrWhiteSpace(metadata.Deployment)
+        || metadata.Ext.Count > 0
         || metadata.Extra.Count > 0;
+
+    /// <summary>Whether the record draws a <c>type</c> row: a value written as
+    /// <c>type</c>. One read from the legacy <c>kind</c> is already the kind chip,
+    /// and drawing it twice would be the same fact under two names.</summary>
+    private static bool ShowsTypeRow(MetadataRecord metadata) =>
+        !string.IsNullOrWhiteSpace(metadata.Type) && !metadata.TypeReadFromKind;
 }

@@ -474,10 +474,14 @@ public sealed class DesignDevbookViewTests : IDisposable
     /// all, which is the case that must draw no record and still keep its
     /// heading.
     /// </summary>
+    // The file's status is `draft` rather than the `active` it was under
+    // contract 9: `.design` now spells `active` by omitting the field, so an
+    // explicit one is reported and drawn as the badge, not the select the file-
+    // level write below needs.
     private const string Colors = """
         # Colors
         ```meta
-        status: active
+        status: draft
         related: [".design/interaction-guidelines.md"]
         ```
 

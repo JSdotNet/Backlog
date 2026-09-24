@@ -3,7 +3,7 @@
 <PageTitle>Chapter and file metadata — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Chapter and file"
-           Summary="A subpage of Devbook: the two shapes a whole record takes. A `##` block describes the chapter under it and folds into that heading; the block under the `#` title describes the document and is drawn wherever the surface says which file this is. Same fields, same components underneath, two different things being said — which is why each shape has a name: `MetadataChapterView` and `MetadataFileView`. The parent page shows one block with every field in it and Fields takes them one at a time; this is where they are assembled — over that same every-field block, so both shapes are shown drawing the whole schema rather than the four fields a sample happened to carry. Every story shows the `meta` fence its record was parsed from."
+           Summary="A subpage of Devbook: the two shapes a whole record takes. A `##` block describes the chapter under it and folds into that heading; the block under the `#` title describes the document and is drawn wherever the surface says which file this is. Same fields, same components underneath, two different things being said — which is why each shape has a name: `MetadataChapterView` and `MetadataFileView`. The parent page shows one block with every field in it and Fields takes them one at a time; this is where they are assembled — over that same every-field block, so both shapes are shown drawing the whole schema rather than the four fields a sample happened to carry. The last two stories are what a whole record adds beyond its fields: the decision and review state drawn beside the status, and the findings a host gets by naming the folder. Every story shows the `meta` fence its record was parsed from."
            Guidelines="@Rules">
 
     <Story Name="One record, both shapes"
@@ -172,6 +172,65 @@ The first pair is the point of the story and reads left to right. On the left, t
         </div>
     </Story>
 
+    <Story Name="Decision and review state"
+           Description="Where a `domain/` chapter stands on the way to a decision, drawn beside the status and never as rows in the body. The nine fields — the approval record, the acceptance record, the review triad — are not chapter content: a reader loading the chapter for context skips them, so the record keeps them apart and `MetadataStateLine` states them in the headline, one short outlined badge per fact, quieter than the status it qualifies.
+
+`approved` and `accepted` are a stack, not a choice: an accepted chapter keeps its approval record and states both, in the order they were climbed. The hash is never printed — it rides on the tooltip. The review triad says who owes the next move, and its badge is dashed because it is the one still in motion. None of these rungs is offered by the status control: they are written by the approval gate, not picked.
+
+Each example is a `.domain` chapter with its folder named, so the findings run too — and none of these blocks has any."
+           Code="@StateCode">
+        <div class="sb-stack" data-testid="devbook-shapes-state">
+            @foreach (var (label, block, testId) in StateExamples)
+            {
+                <div class="sb-columns">
+                    <div class="sb-stack">
+                        <p class="sb-label">@label</p>
+                        <CodeView Source="@block" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="@($"{testId}-source")" />
+                    </div>
+                    <div class="sb-stack">
+                        <p class="sb-label">Drawn</p>
+                        <MetadataChapterView Metadata="@MetadataReader.Parse(block)"
+                                             Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder.Domain)"
+                                             Folder="DevbookFolder.Domain"
+                                             FileName=".devbook/domain/orders/features.md"
+                                             AriaLabel="Guest Checkout metadata"
+                                             TestId="@testId"
+                                             Heading="@StateHeading" />
+                    </div>
+                </div>
+            }
+        </div>
+    </Story>
+
+    <Story Name="Findings"
+           Description="What a block states that the devbook convention reports, listed between the headline and the fields when the host names the folder the block came from. `DevbookMetadataFindings` judges one block against its folder and level; `MetadataFindingList` draws the result — the severity as a word on its tone, the field it is about in the value face, and one sentence.
+
+Opt-in by the `Folder` parameter, and nothing without it: every host written before findings existed renders exactly what it did. `.backlog` never reports, because it is a legacy folder the contract no longer describes. Extension keys are never judged at all.
+
+The examples are the reports an author meets most: the resting value written out, a `tech/` block still spelling `type` as `kind`, a decision rung in a folder that has none, a review triad written by halves, `deployment` on a chapter that is not a bounded context, and a file-level-only field on a chapter."
+           Code="@FindingsCode">
+        <div class="sb-stack" data-testid="devbook-shapes-findings">
+            @foreach (var (label, folder, block, testId) in FindingExamples)
+            {
+                <div class="sb-columns">
+                    <div class="sb-stack">
+                        <p class="sb-label">@label</p>
+                        <CodeView Source="@block" Language="markdown" AllowCopy="false" CssClass="sb-raw__code" TestId="@($"{testId}-source")" />
+                    </div>
+                    <div class="sb-stack">
+                        <p class="sb-label">Drawn, with the folder named</p>
+                        <MetadataChapterView Metadata="@MetadataReader.Parse(block)"
+                                             Vocabulary="@DevbookStatus.Vocabulary(folder)"
+                                             Folder="@folder"
+                                             AriaLabel="Example metadata"
+                                             TestId="@testId"
+                                             Heading="@FindingHeading" />
+                    </div>
+                </div>
+            }
+        </div>
+    </Story>
+
 </StoryPage>
 
 @code {
@@ -305,6 +364,108 @@ The first pair is the point of the story and reads left to right. On the left, t
 
     private readonly RenderFragment BareFileIdentity =
         @<h3 class="file-view__name">notes.md</h3>;
+
+    private readonly RenderFragment StateHeading =
+        @<p class="md-heading md-heading--2" role="heading" aria-level="2">Guest Checkout</p>;
+
+    private readonly RenderFragment FindingHeading =
+        @<p class="md-heading md-heading--2" role="heading" aria-level="2">Example chapter</p>;
+
+    /// <summary>The rungs and the review states a <c>domain/</c> chapter moves
+    /// through, each written the way the rule says it is written: an approval signed
+    /// and dated, an acceptance standing on it, a review triad written whole.</summary>
+    private static readonly (string Label, string Block, string TestId)[] StateExamples =
+    [
+        ("Approved — signed, dated, fingerprinted", """
+            status: approved
+            type: feature
+            approved-by: ana
+            approved-at: 2026-09-01
+            approved-hash: sha256:0a1b2c3d
+            """, "devbook-shapes-state-approved"),
+        ("Accepted — both records, in the order they were climbed", """
+            status: accepted
+            type: feature
+            approved-by: ana
+            approved-at: 2026-09-01
+            accepted-by: bo
+            accepted-at: 2026-09-17
+            """, "devbook-shapes-state-accepted"),
+        ("Review requested — waiting on the reviewer", """
+            status: proposed
+            type: feature
+            review: requested
+            reviewer: cy
+            review-at: 2026-09-20
+            """, "devbook-shapes-state-requested"),
+        ("Changes requested — waiting on the author", """
+            status: proposed
+            type: feature
+            review: changes-requested
+            reviewer: ana
+            review-at: 2026-09-21
+            """, "devbook-shapes-state-changes-requested"),
+        ("Cleared — ready for the approval decision", """
+            type: feature
+            review: cleared
+            reviewer: cy
+            review-at: 2026-09-22
+            """, "devbook-shapes-state-cleared")
+    ];
+
+    private static readonly (string Label, DevbookFolder Folder, string Block, string TestId)[] FindingExamples =
+    [
+        ("arc42/ — the resting value written out", DevbookFolder.Arc42, "status: active", "devbook-shapes-findings-resting"),
+        ("tech/ — the old spelling of type", DevbookFolder.Tech, """
+            status: adopted
+            kind: library
+            """, "devbook-shapes-findings-kind"),
+        ("design/ — a decision rung and its record, in a folder with none", DevbookFolder.Design, """
+            status: approved
+            approved-by: ana
+            approved-at: 2026-09-01
+            """, "devbook-shapes-findings-rung"),
+        ("domain/ — a review triad by halves, and a state it does not have", DevbookFolder.Domain, """
+            type: feature
+            review: approved
+            reviewer: cy
+            """, "devbook-shapes-findings-review"),
+        ("domain/ — deployment on an aggregate, and a file-level field on a chapter", DevbookFolder.Domain, """
+            type: aggregate
+            deployment: serverless
+            number: 3
+            """, "devbook-shapes-findings-deployment")
+    ];
+
+    private const string StateCode = """
+        @* State is drawn beside the status by MetadataView itself: nothing to wire.
+           The record keeps the nine fields apart, so they never reach the rows. *@
+        <MetadataChapterView Metadata="@record" Heading="@heading" ... />
+
+        @* Inside the headline, after the status. *@
+        @if (!Metadata.State.IsEmpty)
+        {
+            <MetadataStateLine State="@Metadata.State" />
+        }
+
+        @* One outlined badge per record that has anything in it. *@
+        <Badge Kind="decision" Slug="approval" Title="approved-hash: …">approved by ana on 2026-09-01</Badge>
+        """;
+
+    private const string FindingsCode = """
+        @* Name the folder and the level comes from the shape; the file name settles
+           a domain page's own type and whether a file-level deployment is on
+           context.md. Leave Folder out and nothing is reported. *@
+        <MetadataChapterView Metadata="@record"
+                             Vocabulary="@DevbookStatus.Vocabulary(folder)"
+                             Folder="@folder"
+                             FileName="@path"
+                             Heading="@heading" />
+
+        @* What MetadataView asks, and draws between the headline and the fields. *@
+        _findings = DevbookMetadataFindings.For(Folder, Level, Metadata, FileName);
+        <MetadataFindingList Findings="@_findings" />
+        """;
 
     private const string BothCode = """
         @* One record, two shapes. Which one a host draws is a fact about where

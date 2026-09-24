@@ -255,16 +255,125 @@ public sealed class DevbookChapterWriteTests : IDisposable
         var filePath = Path.Combine(root, "notes.md");
 
         // The status selector wrote while the body debounce was pending, so the
-        // buffer still carries the status it was loaded with.
-        File.WriteAllText(filePath, "# Notes\n\n```meta\nstatus: active\n```\n\nOriginal prose.\n");
+        // buffer still carries the status it was loaded with. `proposed` rather
+        // than the `active` this used under contract 9: in arc42/ `active` is now
+        // written by removing the line — see
+        // A_status_removed_on_disk_is_removed_from_the_buffer_that_still_carries_it.
+        File.WriteAllText(filePath, "# Notes\n\n```meta\nstatus: proposed\n```\n\nOriginal prose.\n");
 
         var result = await _writer.WriteAsync(chapter, "# Notes\n\n```meta\nstatus: draft\n```\n\nEdited prose.\n", Baseline("# Notes\n\n```meta\nstatus: draft\n```\n"), TestContext.Current.CancellationToken);
 
         var written = File.ReadAllText(filePath);
-        Assert.Contains("status: active", written, StringComparison.Ordinal);
+        Assert.Contains("status: proposed", written, StringComparison.Ordinal);
         Assert.DoesNotContain("status: draft", written, StringComparison.Ordinal);
         Assert.Contains("Edited prose.", written, StringComparison.Ordinal);
-        Assert.Equal("active", result.Status.For("notes"));
+        Assert.Equal("proposed", result.Status.For("notes"));
+    }
+
+    [Fact]
+    public async Task A_status_removed_on_disk_is_removed_from_the_buffer_that_still_carries_it()
+    {
+        // Contract 9's merge skipped this case on the grounds that no writer in
+        // the product removed the field. Contract 16 made that false: clearing a
+        // status removes the line, and so does picking the resting value. The
+        // removal wins exactly as a changed value does, and the fence stays.
+        var (root, chapter) = Chapter("notes.md", "# Notes\n\n```meta\nstatus: draft\nrelated: [.tech/shared.md]\n```\n\nOriginal prose.\n");
+        var filePath = Path.Combine(root, "notes.md");
+        File.WriteAllText(filePath, "# Notes\n\n```meta\nrelated: [.tech/shared.md]\n```\n\nOriginal prose.\n");
+
+        var result = await _writer.WriteAsync(
+            chapter,
+            "# Notes\n\n```meta\nstatus: draft\nrelated: [.tech/shared.md]\n```\n\nEdited prose.\n",
+            Baseline("# Notes\n\n```meta\nstatus: draft\n```\n"),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal("# Notes\n\n```meta\nrelated: [.tech/shared.md]\n```\n\nEdited prose.\n", File.ReadAllText(filePath));
+        Assert.Null(result.Status.For("notes"));
+    }
+
+    [Fact]
+    public async Task A_status_removed_on_disk_loses_to_one_typed_into_the_buffer()
+    {
+        var (root, chapter) = Chapter("notes.md", "# Notes\n\n```meta\nstatus: draft\n```\n\nOriginal prose.\n");
+        var filePath = Path.Combine(root, "notes.md");
+        File.WriteAllText(filePath, "# Notes\n\n```meta\n```\n\nOriginal prose.\n");
+
+        await _writer.WriteAsync(chapter, "# Notes\n\n```meta\nstatus: deprecated\n```\n\nEdited prose.\n", Baseline("# Notes\n\n```meta\nstatus: draft\n```\n"), TestContext.Current.CancellationToken);
+
+        Assert.Contains("status: deprecated", File.ReadAllText(filePath), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_heading_whose_fence_is_gone_from_disk_is_not_read_as_a_removal()
+    {
+        // Only a fence disk still has can have had its status removed: the status
+        // writer never takes a fence away. A heading gone from disk altogether is
+        // a rename seen from the other side, and the buffer keeps what it holds.
+        var (root, chapter) = Chapter("frontend.md", Layered);
+        var filePath = Path.Combine(root, "frontend.md");
+        File.WriteAllText(filePath, "# Frontend\n\n```meta\nstatus: active\n```\n\nLayer prose.\n");
+
+        await _writer.WriteAsync(chapter, Layered, Baseline(Layered), TestContext.Current.CancellationToken);
+
+        Assert.Contains("## Blazor Hybrid\n\n```meta\nstatus: draft\n```", File.ReadAllText(filePath), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task An_active_merged_in_from_disk_in_a_resting_folder_is_written_as_a_removal()
+    {
+        // Somebody hand-wrote `status: active` on disk. Carried into the buffer it
+        // would be written back in the spelling the convention reports, so it
+        // goes through the resting rule on the way: the line comes out.
+        var (root, chapter) = Chapter("notes.md", "# Notes\n\n```meta\nstatus: draft\n```\n\nOriginal prose.\n");
+        var filePath = Path.Combine(root, "notes.md");
+        File.WriteAllText(filePath, "# Notes\n\n```meta\nstatus: active\n```\n\nOriginal prose.\n");
+
+        await _writer.WriteAsync(chapter, "# Notes\n\n```meta\nstatus: draft\n```\n\nEdited prose.\n", Baseline("# Notes\n\n```meta\nstatus: draft\n```\n"), TestContext.Current.CancellationToken);
+
+        Assert.Equal("# Notes\n\n```meta\n```\n\nEdited prose.\n", File.ReadAllText(filePath));
+    }
+
+    [Fact]
+    public async Task An_active_merged_in_from_disk_in_a_rating_folder_is_written_as_it_stands()
+    {
+        // tech/ has no resting value; the merge is not the vocabulary's judge.
+        var (root, chapter) = Chapter("frontend.md", Layered, area: "tech");
+        var filePath = Path.Combine(root, "frontend.md");
+        File.WriteAllText(filePath, Layered.Replace("status: draft", "status: active", StringComparison.Ordinal));
+
+        await _writer.WriteAsync(chapter, Layered.Replace("Node prose.", "Edited.", StringComparison.Ordinal), Baseline(Layered), TestContext.Current.CancellationToken);
+
+        Assert.Contains("## Blazor Hybrid\n\n```meta\nstatus: active\n```", File.ReadAllText(filePath), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_domain_chapter_moved_off_its_rungs_on_disk_loses_its_record_in_the_buffer_too()
+    {
+        // The status writer took the chapter from accepted to draft and deleted
+        // the six record fields with it. A buffer still carrying the baseline
+        // would put all six back beside `draft` — a record stranded on a chapter
+        // no longer claiming its rung, which the rule reports.
+        const string loaded = "# Inbox Capture\n\n```meta\ntype: feature\nstatus: accepted\napproved-by: jobsc\napproved-at: 2026-09-01\naccepted-by: jobsc\naccepted-at: 2026-09-20\n```\n\nCapture text.\n";
+        var (root, chapter) = Chapter("features.md", loaded, area: "domain");
+        var filePath = Path.Combine(root, "features.md");
+        File.WriteAllText(filePath, "# Inbox Capture\n\n```meta\ntype: feature\nstatus: draft\n```\n\nCapture text.\n");
+
+        await _writer.WriteAsync(chapter, loaded.Replace("Capture text.", "Edited.", StringComparison.Ordinal), Baseline(loaded), TestContext.Current.CancellationToken);
+
+        Assert.Equal("# Inbox Capture\n\n```meta\ntype: feature\nstatus: draft\n```\n\nEdited.\n", File.ReadAllText(filePath));
+    }
+
+    [Fact]
+    public async Task A_domain_chapter_whose_approval_was_removed_on_disk_loses_the_record_in_the_buffer_too()
+    {
+        const string loaded = "# Inbox Capture\n\n```meta\ntype: feature\nstatus: approved\napproved-by: jobsc\napproved-at: 2026-09-01\napproved-hash: sha256:0a1b2c3d\n```\n\nCapture text.\n";
+        var (root, chapter) = Chapter("features.md", loaded, area: "domain");
+        var filePath = Path.Combine(root, "features.md");
+        File.WriteAllText(filePath, "# Inbox Capture\n\n```meta\ntype: feature\n```\n\nCapture text.\n");
+
+        await _writer.WriteAsync(chapter, loaded.Replace("Capture text.", "Edited.", StringComparison.Ordinal), Baseline(loaded), TestContext.Current.CancellationToken);
+
+        Assert.Equal("# Inbox Capture\n\n```meta\ntype: feature\n```\n\nEdited.\n", File.ReadAllText(filePath));
     }
 
     [Fact]
@@ -296,14 +405,14 @@ public sealed class DevbookChapterWriteTests : IDisposable
         var filePath = Path.Combine(root, "frontend.md");
         var baseline = Baseline(Layered);
 
-        File.WriteAllText(filePath, Layered.Replace("status: draft", "status: active", StringComparison.Ordinal));
+        File.WriteAllText(filePath, Layered.Replace("status: draft", "status: proposed", StringComparison.Ordinal));
 
         var result = await _writer.WriteAsync(chapter, Layered.Replace("Node prose.", "Edited node prose.", StringComparison.Ordinal), baseline, TestContext.Current.CancellationToken);
 
         var written = File.ReadAllText(filePath);
-        Assert.Contains("## Blazor Hybrid\n\n```meta\nstatus: active\n```", written, StringComparison.Ordinal);
+        Assert.Contains("## Blazor Hybrid\n\n```meta\nstatus: proposed\n```", written, StringComparison.Ordinal);
         Assert.Contains("Edited node prose.", written, StringComparison.Ordinal);
-        Assert.Equal("active", result.Status.For("blazor-hybrid"));
+        Assert.Equal("proposed", result.Status.For("blazor-hybrid"));
 
         // And the chapter's own fence, which nobody touched, is still what it was.
         Assert.Equal("active", result.Status.For("frontend"));
@@ -352,17 +461,19 @@ public sealed class DevbookChapterWriteTests : IDisposable
     [Fact]
     public async Task A_status_first_written_on_disk_is_merged_into_a_buffer_that_has_no_meta_fence()
     {
+        // `proposed`: an `active` merged in here would be the resting value, which
+        // arc42/ spells by writing nothing.
         var (root, chapter) = Chapter("notes.md", "# Notes\n\nOriginal prose.\n");
         var filePath = Path.Combine(root, "notes.md");
-        File.WriteAllText(filePath, "# Notes\n\n```meta\nstatus: active\n```\n\nOriginal prose.\n");
+        File.WriteAllText(filePath, "# Notes\n\n```meta\nstatus: proposed\n```\n\nOriginal prose.\n");
 
         var result = await _writer.WriteAsync(chapter, "# Notes\n\nEdited prose.\n", baseline: null, TestContext.Current.CancellationToken);
 
         var written = File.ReadAllText(filePath);
         Assert.Contains("```meta", written, StringComparison.Ordinal);
-        Assert.Contains("status: active", written, StringComparison.Ordinal);
+        Assert.Contains("status: proposed", written, StringComparison.Ordinal);
         Assert.Contains("Edited prose.", written, StringComparison.Ordinal);
-        Assert.Equal("active", result.Status.For("notes"));
+        Assert.Equal("proposed", result.Status.For("notes"));
     }
 
     [Fact]
@@ -446,15 +557,19 @@ public sealed class DevbookChapterWriteTests : IDisposable
     /// <summary>A chapter file in its own devbook root, plus the ref that names
     /// it — the pairing every one of these tests starts from. The text goes out
     /// through an explicit encoding rather than the default one, because whether
-    /// the file carries a byte-order mark is part of what is under test.</summary>
-    private (string Root, DevbookChapterRef Chapter) Chapter(string relativePath, string markdown, bool byteOrderMark = false)
+    /// the file carries a byte-order mark is part of what is under test.
+    ///
+    /// <para>The area decides which folder rules the merge applies — arc42/ rests
+    /// at <c>active</c> by omission, tech/ requires a status, domain/ has decision
+    /// rungs — so the tests that are about one of those name it.</para></summary>
+    private (string Root, DevbookChapterRef Chapter) Chapter(string relativePath, string markdown, bool byteOrderMark = false, string area = "arc42")
     {
         var root = TempDir();
         var filePath = Path.Combine(root, relativePath.Replace('/', Path.DirectorySeparatorChar));
         Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
         File.WriteAllText(filePath, markdown, new UTF8Encoding(encoderShouldEmitUTF8Identifier: byteOrderMark));
 
-        return (root, new DevbookChapterRef("arc42", root, relativePath));
+        return (root, new DevbookChapterRef(area, root, relativePath));
     }
 
     private string TempDir()

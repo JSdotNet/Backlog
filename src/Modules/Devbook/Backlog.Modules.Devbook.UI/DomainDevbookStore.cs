@@ -1,6 +1,8 @@
 using System.Text.RegularExpressions;
 
 using Backlog.Modules.Devbook.Abstractions;
+using Backlog.UI.Components.Devbook;
+using Backlog.UI.Components.Markdown;
 
 namespace Backlog.Desktop.UI.Devbook;
 
@@ -26,14 +28,57 @@ public sealed class DomainDevbookStore : IDisposable
     public void Dispose() => source.Changed -= _documents.Clear;
 
     private static readonly Regex Heading = new("^(#{1,6})[ \\t]+(.+?)\\s*$", RegexOptions.Compiled);
-    private static readonly Regex Fence = new("^```(?<lang>[A-Za-z0-9_-]*)\\s*$", RegexOptions.Compiled);
     private static readonly Regex DevbookLink = new("\\.(?:domain|arc42|backlog|tech|design)/[^\\s)`>,]+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-    /// <summary>The order a bounded context's chapters read in when the folder is
-    /// scanned rather than read from a declaration. `context.md` sits behind the root
-    /// document because it introduces the boundary; without it here it would fall to
-    /// the unknown bucket and render after `naming.md`, which is the one position the
-    /// document that opens a context must not be in.</summary>
-    private static readonly string[] PreferredContextFiles = ["domain.md", "context.md", "index.md", "features.md", "model.md", "flow.md", "dependencies.md", "naming.md"];
+    /// <summary>
+    /// The order a bounded context's files read in, by kind — the order
+    /// <c>devbook-domain.md</c> gives: "reading order comes from this convention,
+    /// not from a metadata field and not from filenames".
+    ///
+    /// <para><c>context.md</c> is first because it is the context's root document
+    /// (it declares <c>index: root</c>); then <c>domain.md</c>, <c>actors.md</c>,
+    /// <c>features.md</c> or <c>skills.md</c> — a context takes one of the two, so
+    /// their relative order never shows — <c>requirements.md</c>,
+    /// <c>invariants.md</c>, <c>model.md</c>, <c>flow.md</c> and
+    /// <c>dependencies.md</c>, and after all of them the additional pages the
+    /// convention does not name. A legacy <c>index.md</c>, which some contexts
+    /// used as their root before contract 11, reads straight after the model
+    /// narrative, where it always has.</para>
+    ///
+    /// <para>A split file reads directly after the file it is named after, and in
+    /// that file's place when the file itself is gone — which ranking by kind gives
+    /// for free, because a split file is the same kind as its base.</para>
+    /// </summary>
+    private static readonly DomainDevbookDocumentKind[] ContextReadingOrder =
+    [
+        DomainDevbookDocumentKind.Context,
+        DomainDevbookDocumentKind.Domain,
+        DomainDevbookDocumentKind.Other,
+        DomainDevbookDocumentKind.Actors,
+        DomainDevbookDocumentKind.Features,
+        DomainDevbookDocumentKind.Skills,
+        DomainDevbookDocumentKind.Requirements,
+        DomainDevbookDocumentKind.Invariants,
+        DomainDevbookDocumentKind.Model,
+        DomainDevbookDocumentKind.Flow,
+        DomainDevbookDocumentKind.Dependencies,
+        DomainDevbookDocumentKind.Page
+    ];
+
+    /// <summary>The files a split file may be named after —
+    /// <c>&lt;file&gt;.&lt;name&gt;.md</c>. <c>context.md</c> never splits (it is the
+    /// root, small by construction), and <c>actors.md</c> and
+    /// <c>dependencies.md</c> are themselves what <c>context.md</c> splits
+    /// into.</summary>
+    private static readonly Dictionary<string, DomainDevbookDocumentKind> SplittableFiles = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["domain"] = DomainDevbookDocumentKind.Domain,
+        ["features"] = DomainDevbookDocumentKind.Features,
+        ["skills"] = DomainDevbookDocumentKind.Skills,
+        ["requirements"] = DomainDevbookDocumentKind.Requirements,
+        ["invariants"] = DomainDevbookDocumentKind.Invariants,
+        ["model"] = DomainDevbookDocumentKind.Model,
+        ["flow"] = DomainDevbookDocumentKind.Flow
+    };
 
     /// <summary>Re-published from the folder source so an open panel can reload
     /// when the configured folder moves.</summary>
@@ -77,6 +122,7 @@ public sealed class DomainDevbookStore : IDisposable
             var contexts = index is null
                 ? ReadContexts(root, DevbookReadingOrder.ForFolder(root))
                 : ReadContextsFromIndex(index, root);
+            contexts = [.. contexts.Select(context => context with { MapChapter = MapChapterFor(contextMap, context.Slug) })];
             return new DomainDevbookView(location.ScopeLabel ?? "storage", location.RootPath ?? root, root, null, contextMap, contexts, location.CanEdit);
         }, cancellationToken).ConfigureAwait(false);
     }
@@ -141,7 +187,13 @@ public sealed class DomainDevbookStore : IDisposable
             var slug = directory.Name;
             if (string.IsNullOrWhiteSpace(slug)) continue;
 
-            var rootEntry = directory.RootDocument;
+            var files = InReadingOrder(directory.Children?.Where(child => child.IsFile) ?? [], child => child.Name).ToList();
+
+            // context.md when the context has one, whatever the outline marked:
+            // it is the root document under contract 16, and an outline written
+            // before contract 11 marks domain.md instead.
+            var rootEntry = files.FirstOrDefault(child => KindFromFile(child.Name) == DomainDevbookDocumentKind.Context)
+                ?? directory.RootDocument;
             var fresh = rootEntry is not null && index.IsStale(rootEntry)
                 ? ReadDocument(index.FullPath(rootEntry), root, KindFromFile(rootEntry.Name))
                 : null;
@@ -152,7 +204,6 @@ public sealed class DomainDevbookStore : IDisposable
                 : title.Replace("Domain: ", string.Empty, StringComparison.OrdinalIgnoreCase);
             var status = fresh?.Status ?? rootEntry?.StatusOrNone ?? "none";
 
-            var files = directory.Children?.Where(child => child.IsFile).ToList() ?? [];
             contexts.Add(new DomainDevbookContext(slug, displayName, status,
                 new LazyDevbookList<DomainDevbookDocument>(() => ReadIndexedDocuments(index, root, files))));
         }
@@ -178,21 +229,110 @@ public sealed class DomainDevbookStore : IDisposable
     private DomainDevbookContext ReadContext(string slug, string path, string root)
     {
         var docs = EnumerateContextDocuments(path).Select(p => ReadDocument(p, root, KindFromFile(Path.GetFileName(p)))).ToList();
-        var domain = docs.FirstOrDefault(d => d.Kind == DomainDevbookDocumentKind.Domain) ?? docs.FirstOrDefault();
-        var name = domain?.Title.Replace("Domain: ", string.Empty, StringComparison.OrdinalIgnoreCase) ?? Humanize(slug);
-        return new DomainDevbookContext(slug, name, domain?.Status ?? "none", docs);
+        var rootDocument = ContextRoot(docs);
+        var name = rootDocument?.Title.Replace("Domain: ", string.Empty, StringComparison.OrdinalIgnoreCase) ?? Humanize(slug);
+        return new DomainDevbookContext(slug, name, rootDocument?.Status ?? "none", docs);
     }
 
-    private static IReadOnlyList<string> EnumerateContextDocuments(string path)
-    {
-        var preferredOrder = PreferredContextFiles
-            .Select((file, index) => new { file, index })
-            .ToDictionary(item => item.file, item => item.index, StringComparer.OrdinalIgnoreCase);
+    /// <summary>
+    /// The document a context takes its name and status from: <c>context.md</c>,
+    /// the root document since contract 11, and <c>domain.md</c> for a context
+    /// written before it — then whatever reads first.
+    /// </summary>
+    internal static DomainDevbookDocument? ContextRoot(IReadOnlyList<DomainDevbookDocument> documents) =>
+        documents.FirstOrDefault(document => document.Kind == DomainDevbookDocumentKind.Context)
+        ?? documents.FirstOrDefault(document => document.Kind == DomainDevbookDocumentKind.Domain)
+        ?? documents.FirstOrDefault();
 
-        return [.. Directory.EnumerateFiles(path, "*.md", SearchOption.TopDirectoryOnly)
-            .Where(file => !Path.GetFileName(file).StartsWith('_'))
-            .OrderBy(file => preferredOrder.TryGetValue(Path.GetFileName(file), out var index) ? index : int.MaxValue)
-            .ThenBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase)];
+    /// <summary>
+    /// The <c>bounded-context</c> chapter in <c>context-map.md</c> that stands for
+    /// this context, or nothing.
+    ///
+    /// <para>First the chapter whose <c>related</c> names this context's
+    /// <c>context.md</c> — the pairing the rule itself checks ("where the chapter's
+    /// <c>related</c> names that <c>context.md</c>, the two must agree"). Failing
+    /// that, the chapter whose heading slugs to the context folder's name: the
+    /// convention names the folder after the context and heads the chapter with the
+    /// context's name, so <c>## Order Management</c> is <c>order-management/</c>
+    /// even in a map that forgot the reference. Only <c>bounded-context</c>
+    /// chapters are candidates either way; the map's structural sections carry no
+    /// block and name no single context.</para>
+    /// </summary>
+    internal static DomainDevbookSection? MapChapterFor(DomainDevbookDocument contextMap, string slug)
+    {
+        var chapters = contextMap.Sections
+            .Where(section => section.Metadata.TryGetValue("type", out var type)
+                && string.Equals(type.Trim(), "bounded-context", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        var contextFile = $"/{slug}/context.md";
+        return chapters.FirstOrDefault(section => section.Metadata.TryGetValue("related", out var related)
+                && ListValues(related).Any(value => ReferencePath(value).EndsWith(contextFile, StringComparison.OrdinalIgnoreCase)))
+            ?? chapters.FirstOrDefault(section => string.Equals(Slug(section.Title), slug, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>A reference's path, without its anchor and with <c>/</c>
+    /// separators, so a <c>.devbook/domain/…</c> and a <c>.domain/…</c> spelling
+    /// both end in the same <c>/&lt;slug&gt;/context.md</c>.</summary>
+    private static string ReferencePath(string value)
+    {
+        var path = value.Replace('\\', '/');
+        var hash = path.IndexOf('#');
+        return hash < 0 ? path : path[..hash];
+    }
+
+    /// <summary>A block value as its entries: <c>[a, b]</c>, <c>a, b</c> — the
+    /// flattened shape <see cref="ReadMeta"/> leaves a list in — or one plain
+    /// value.</summary>
+    private static IEnumerable<string> ListValues(string value) =>
+        value.Trim().Trim('[', ']')
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(entry => entry.Trim('"', '\''))
+            .Where(entry => entry.Length > 0);
+
+    private static IReadOnlyList<string> EnumerateContextDocuments(string path) =>
+        [.. InReadingOrder(
+            Directory.EnumerateFiles(path, "*.md", SearchOption.TopDirectoryOnly)
+                .Where(file => !Path.GetFileName(file).StartsWith('_')),
+            file => Path.GetFileName(file))];
+
+    /// <summary>
+    /// A context's files in the convention's reading order — see
+    /// <see cref="ContextReadingOrder"/>. Kind first; then the base file ahead of
+    /// its split files; then filename, which orders the split files among their
+    /// siblings and the additional pages among theirs.
+    /// <para>Applied to the index's outline as well as to the scan. The outline is
+    /// written by a generator that can lag the convention, and the convention is
+    /// what says where a file reads, so the two routes into a context agree with
+    /// each other and with the rule rather than with whichever generator last
+    /// ran.</para>
+    /// </summary>
+    internal static IEnumerable<T> InReadingOrder<T>(IEnumerable<T> files, Func<T, string> fileName) =>
+        files
+            .OrderBy(file => ReadingRank(KindFromFile(fileName(file))))
+            .ThenBy(file => IsSplitFile(fileName(file)) ? 1 : 0)
+            .ThenBy(fileName, StringComparer.OrdinalIgnoreCase);
+
+    private static int ReadingRank(DomainDevbookDocumentKind kind)
+    {
+        var rank = Array.IndexOf(ContextReadingOrder, kind);
+        return rank < 0 ? ContextReadingOrder.Length : rank;
+    }
+
+    /// <summary>Whether a file is <c>&lt;file&gt;.&lt;name&gt;.md</c> for a file that
+    /// splits — <c>domain.order.md</c>, <c>requirements.checkout.md</c>.</summary>
+    internal static bool IsSplitFile(string file) => SplitBase(file) is not null;
+
+    private static DomainDevbookDocumentKind? SplitBase(string file)
+    {
+        var name = Path.GetFileName(file);
+        if (!name.EndsWith(".md", StringComparison.OrdinalIgnoreCase)) return null;
+
+        var stem = name[..^3];
+        var dot = stem.IndexOf('.');
+        if (dot <= 0 || dot == stem.Length - 1) return null;
+
+        return SplittableFiles.TryGetValue(stem[..dot], out var kind) ? kind : null;
     }
 
     private DomainDevbookDocument ReadDocument(string path, string root, DomainDevbookDocumentKind kind) =>
@@ -237,6 +377,9 @@ public sealed class DomainDevbookStore : IDisposable
         }
         if (sectionStart >= 0) sections.Add(ReadSection(lines, sectionStart, lines.Length, relative));
 
+        // A review note under the title is about the document, not in it: its
+        // quote, its links and any sample it holds stay out of the summary.
+        intro = [.. WithoutAnnotationFences(intro)];
         var diagrams = new List<DomainDevbookDiagram>();
         CollectDiagrams(intro, title, diagrams);
         diagrams.AddRange(sections.SelectMany(s => s.Diagrams));
@@ -298,29 +441,68 @@ public sealed class DomainDevbookStore : IDisposable
     private static string AppendMetadataValue(string existing, string next) =>
         string.IsNullOrWhiteSpace(existing) ? next : $"{existing}, {next}";
 
+    /// <summary>
+    /// The <c>mermaid</c> fences in a run of lines, as diagrams.
+    /// <para>
+    /// Fences are read by CommonMark's rule — <see cref="MarkdownFence"/> — and a
+    /// whole fence is stepped over at once, so a <c>mermaid</c> sample quoted
+    /// inside a devbook <c>annotation</c> note is part of the note and never a
+    /// diagram of the context. The old reader matched <c>```lang</c> exactly and
+    /// closed at any line starting with three backticks, so a note opened with
+    /// four was not a fence to it at all and the sample inside it was.
+    /// </para>
+    /// </summary>
     private static void CollectDiagrams(IReadOnlyList<string> lines, string title, ICollection<DomainDevbookDiagram> diagrams)
     {
         for (var i = 0; i < lines.Count; i++)
         {
-            var fence = Fence.Match(lines[i].Trim());
-            if (!fence.Success) continue;
-            var lang = fence.Groups["lang"].Value;
+            if (MarkdownFence.Open(lines[i]) is not { } fence) continue;
             var code = new List<string>();
             i++;
-            while (i < lines.Count && !lines[i].TrimStart().StartsWith("```", StringComparison.Ordinal)) code.Add(lines[i++]);
-            if (string.Equals(lang, "mermaid", StringComparison.OrdinalIgnoreCase)) diagrams.Add(new DomainDevbookDiagram(title, MermaidKind(code), string.Join('\n', code), "mermaid"));
+            while (i < lines.Count && !fence.IsClosedBy(lines[i])) code.Add(lines[i++]);
+            if (string.Equals(fence.Language, "mermaid", StringComparison.OrdinalIgnoreCase)) diagrams.Add(new DomainDevbookDiagram(title, MermaidKind(code), string.Join('\n', code), "mermaid"));
         }
     }
 
-    private static IReadOnlyList<string> WithoutFences(IReadOnlyList<string> lines)
+    /// <summary>A run of lines with every fence taken out — what an excerpt and
+    /// a section's links are read from. That includes every devbook
+    /// <c>annotation</c> note: a note is review chatter about the chapter, not the
+    /// chapter, and an excerpt quoting a reviewer's question would put it on the
+    /// context map as though it were what the context says
+    /// (<c>devbook-annotations.md</c>, "An annotation is not chapter
+    /// content").</summary>
+    private static IReadOnlyList<string> WithoutFences(IReadOnlyList<string> lines) => Without(lines, _ => true);
+
+    /// <summary>A run of lines with only the <c>annotation</c> fences taken out,
+    /// for the part of a document read as content with its other fences left in —
+    /// the introduction above the first section, whose diagrams, quote and links
+    /// are all read from it.</summary>
+    private static IReadOnlyList<string> WithoutAnnotationFences(IReadOnlyList<string> lines) =>
+        Without(lines, fence => DevbookAnnotationFence.IsAnnotationBlock(fence.Language));
+
+    private static IReadOnlyList<string> Without(IReadOnlyList<string> lines, Func<MarkdownFence, bool> cut)
     {
         var output = new List<string>();
-        var fenced = false;
-        foreach (var line in lines)
+        for (var i = 0; i < lines.Count; i++)
         {
-            if (line.TrimStart().StartsWith("```", StringComparison.Ordinal)) { fenced = !fenced; continue; }
-            if (!fenced) output.Add(line);
+            if (MarkdownFence.Open(lines[i]) is not { } fence)
+            {
+                output.Add(lines[i]);
+                continue;
+            }
+
+            var remove = cut(fence);
+            if (!remove) output.Add(lines[i]);
+            i++;
+            while (i < lines.Count && !fence.IsClosedBy(lines[i]))
+            {
+                if (!remove) output.Add(lines[i]);
+                i++;
+            }
+
+            if (i < lines.Count && !remove) output.Add(lines[i]);
         }
+
         return output;
     }
 
@@ -340,18 +522,31 @@ public sealed class DomainDevbookStore : IDisposable
     /// answers the moment either gained a filename.
     /// <para><c>context-map.md</c> is here even though the loader passes its kind
     /// in directly: the map is a file like any other to a caller holding only a
-    /// name, and leaving it out made this mapping right for six of the seven.</para>
+    /// name, and leaving it out made this mapping right for all but one.</para>
+    /// <para>Contract 16's files, each by its name; a split file
+    /// (<c>domain.order.md</c>) as the file it is named after, because it
+    /// "carries the type of the file it came from"; and every other file as an
+    /// additional page, whose type is its own filename. <c>naming.md</c> used to
+    /// be a kind of its own — this repository's glossary page — and is now one of
+    /// those pages like any other. <c>index.md</c> stays
+    /// <see cref="DomainDevbookDocumentKind.Other"/>: a pre-contract-11 root, read
+    /// but not claimed to be a page the context chose to add.</para>
     /// </summary>
-    internal static DomainDevbookDocumentKind KindFromFile(string file) => file.ToLowerInvariant() switch
+    internal static DomainDevbookDocumentKind KindFromFile(string file) => Path.GetFileName(file).ToLowerInvariant() switch
     {
         "context-map.md" => DomainDevbookDocumentKind.ContextMap,
+        "context.md" => DomainDevbookDocumentKind.Context,
         "domain.md" => DomainDevbookDocumentKind.Domain,
-        "index.md" => DomainDevbookDocumentKind.Other,
+        "actors.md" => DomainDevbookDocumentKind.Actors,
         "features.md" => DomainDevbookDocumentKind.Features,
+        "skills.md" => DomainDevbookDocumentKind.Skills,
+        "requirements.md" => DomainDevbookDocumentKind.Requirements,
+        "invariants.md" => DomainDevbookDocumentKind.Invariants,
         "model.md" => DomainDevbookDocumentKind.Model,
         "flow.md" => DomainDevbookDocumentKind.Flow,
         "dependencies.md" => DomainDevbookDocumentKind.Dependencies,
-        "naming.md" => DomainDevbookDocumentKind.Naming,
+        "index.md" => DomainDevbookDocumentKind.Other,
+        var name when name.EndsWith(".md", StringComparison.Ordinal) => SplitBase(name) ?? DomainDevbookDocumentKind.Page,
         _ => DomainDevbookDocumentKind.Other
     };
 
@@ -379,7 +574,65 @@ public sealed record DomainDevbookView(string RepositoryLabel, string Repository
     public static DomainDevbookView Unavailable(string error) => new(string.Empty, string.Empty, string.Empty, error, DomainDevbookDocument.Empty, []);
 }
 
-public sealed record DomainDevbookContext(string Slug, string DisplayName, string Status, IReadOnlyList<DomainDevbookDocument> Documents);
+/// <param name="MapChapter">The <c>bounded-context</c> chapter in
+/// <c>context-map.md</c> that stands for this context, when the map has one —
+/// see <see cref="DomainDevbookStore.MapChapterFor"/>. Read with the map, which is
+/// read up front, so it costs nothing.</param>
+public sealed record DomainDevbookContext(string Slug, string DisplayName, string Status, IReadOnlyList<DomainDevbookDocument> Documents, DomainDevbookSection? MapChapter = null)
+{
+    /// <summary>The context's root document — <c>context.md</c>, or for a context
+    /// written before contract 11, <c>domain.md</c>. Reading it reads the context's
+    /// documents, which the index route otherwise defers until they are
+    /// shown.</summary>
+    public DomainDevbookDocument? RootDocument => DomainDevbookStore.ContextRoot(Documents);
+
+    /// <summary>
+    /// How the context ships, as its two statements of it say. The <c>context.md</c>
+    /// side is read off the context's documents, so like
+    /// <see cref="RootDocument"/> it is only worth asking of a context that is on
+    /// screen.
+    /// </summary>
+    public DomainDevbookDeployment Deployment => new(
+        MapChapter is { } chapter && chapter.Metadata.TryGetValue("deployment", out var mapValue) ? Blank(mapValue) : null,
+        Documents.FirstOrDefault(document => document.Kind == DomainDevbookDocumentKind.Context) is { } context
+            && context.Metadata.TryGetValue("deployment", out var contextValue) ? Blank(contextValue) : null);
+
+    private static string? Blank(string value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+}
+
+/// <summary>
+/// A bounded context's <c>deployment</c>, as the two places that state it state it:
+/// the <c>bounded-context</c> chapter in <c>context-map.md</c>, and the file-level
+/// block of the context's own <c>context.md</c>.
+/// <para>
+/// They have to agree, and a value on one side only is a disagreement too — the
+/// rule's own wording, which <see cref="DevbookSchema.DeploymentDisagrees"/> keeps.
+/// Neither side stating one is not: the choice is simply not made yet.
+/// </para>
+/// </summary>
+public sealed record DomainDevbookDeployment(string? MapValue, string? ContextValue)
+{
+    /// <summary>Whether either side states one.</summary>
+    public bool IsStated => MapValue is not null || ContextValue is not null;
+
+    /// <summary>Whether the two statements disagree, including one side stating
+    /// nothing.</summary>
+    public bool Disagrees => DevbookSchema.DeploymentDisagrees(MapValue, ContextValue);
+
+    /// <summary>The value to show: the context's own, which a reader of the context
+    /// sees without opening the map, and the map's when the context states none.
+    /// When the two disagree <see cref="Problem"/> names both, so showing one here
+    /// hides nothing.</summary>
+    public string? Value => ContextValue ?? MapValue;
+
+    /// <summary>The disagreement as a sentence naming both values, or nothing
+    /// when they agree.</summary>
+    public string? Problem => Disagrees
+        ? $"Deployment disagrees: the bounded-context chapter in context-map.md {Says(MapValue)}, and context.md {Says(ContextValue)}."
+        : null;
+
+    private static string Says(string? value) => value is null ? "states none" : $"says \"{value}\"";
+}
 
 public sealed record DomainDevbookDocument(string Path, string Title, DomainDevbookDocumentKind Kind, string Status, IReadOnlyDictionary<string, string> Metadata, string Summary, IReadOnlyList<DomainDevbookDiagram> Diagrams, IReadOnlyList<DomainDevbookSection> Sections, IReadOnlyList<string> Links)
 {
@@ -387,12 +640,17 @@ public sealed record DomainDevbookDocument(string Path, string Title, DomainDevb
     public string KindLabel => Kind switch
     {
         DomainDevbookDocumentKind.ContextMap => "Strategic context map",
+        DomainDevbookDocumentKind.Context => "Bounded context",
         DomainDevbookDocumentKind.Domain => "Domain model narrative",
+        DomainDevbookDocumentKind.Actors => "Actors",
         DomainDevbookDocumentKind.Features => "Features",
+        DomainDevbookDocumentKind.Skills => "Skills",
+        DomainDevbookDocumentKind.Requirements => "Requirements",
+        DomainDevbookDocumentKind.Invariants => "Invariants",
         DomainDevbookDocumentKind.Model => "Structural model",
         DomainDevbookDocumentKind.Flow => "Flow",
         DomainDevbookDocumentKind.Dependencies => "Dependencies",
-        DomainDevbookDocumentKind.Naming => "Ubiquitous language",
+        DomainDevbookDocumentKind.Page => "Additional page",
         _ => "Domain document"
     };
 }
@@ -400,21 +658,35 @@ public sealed record DomainDevbookDocument(string Path, string Title, DomainDevb
 public sealed record DomainDevbookSection(string Title, int Level, string Status, IReadOnlyDictionary<string, string> Metadata, string Excerpt, IReadOnlyList<DomainDevbookDiagram> Diagrams, IReadOnlyList<string> Links, string Anchor);
 public sealed record DomainDevbookDiagram(string Title, string Kind, string Source, string Language);
 
+/// <summary>What a <c>.domain</c> file is — contract 16's file types, plus the
+/// two this module needs of its own: an additional page, whose type is its own
+/// filename, and <see cref="Other"/>, which claims nothing.</summary>
 public enum DomainDevbookDocumentKind
 {
     ContextMap,
+    Context,
     Domain,
+    Actors,
     Features,
+    Skills,
+    Requirements,
+    Invariants,
     Model,
     Flow,
     Dependencies,
-    Naming,
+
+    /// <summary>A file the convention does not name, added by the context for
+    /// something no listed file holds. Its type is its filename.</summary>
+    Page,
+
+    /// <summary>A legacy <c>index.md</c>, or a document nobody has classified —
+    /// the map's empty stand-in.</summary>
     Other
 }
 
 /// <summary>
 /// The bridge between this module's document kind and the shared library's
-/// <c>type</c> vocabulary — the seven file-type marks
+/// <c>type</c> vocabulary — the file-type marks
 /// <see cref="Backlog.UI.Components.Devbook.DevbookTypeMarkers.FileTypes"/>
 /// draws.
 /// <para>
@@ -424,27 +696,42 @@ public enum DomainDevbookDocumentKind
 /// what <c>flow.md</c> is.
 /// </para>
 /// <para>
-/// <see cref="DomainDevbookDocumentKind.Other"/> has no mark, deliberately. It
-/// is what an <c>index.md</c> and every unrecognised filename fall to, and the
-/// marker's own rule is that an unknown value draws nothing rather than guessing.
+/// An additional page has no fixed value: its type is its own filename, so
+/// <see cref="Of(string)"/> answers it from the name and <see cref="Of(DomainDevbookDocumentKind)"/>,
+/// holding only the kind, cannot. A caller drawing it passes the file name to the
+/// marker beside the value, which is how the marker knows the value is a page's.
+/// <see cref="DomainDevbookDocumentKind.Other"/> has no mark, deliberately: an
+/// unknown value draws nothing rather than guessing.
 /// </para>
 /// </summary>
 public static class DomainDevbookFileTypes
 {
-    /// <summary>The mark for a file, from its name alone.</summary>
+    /// <summary>The <c>type</c> a file carries, from its name alone — for an
+    /// additional page, its own filename.</summary>
     public static string? Of(string fileName) =>
-        string.IsNullOrWhiteSpace(fileName) ? null : Of(DomainDevbookStore.KindFromFile(fileName));
+        string.IsNullOrWhiteSpace(fileName) ? null
+        : DomainDevbookStore.KindFromFile(fileName) is DomainDevbookDocumentKind.Page ? DevbookSchema.OwnFileType(fileName)
+        : Of(DomainDevbookStore.KindFromFile(fileName));
 
-    /// <summary>The mark for a document whose kind is already known.</summary>
+    /// <summary>The same for a document already read.</summary>
+    public static string? Of(DomainDevbookDocument document) =>
+        document.Kind is DomainDevbookDocumentKind.Page ? DevbookSchema.OwnFileType(document.Path) : Of(document.Kind);
+
+    /// <summary>The <c>type</c> for a document whose kind is already known, when
+    /// the kind alone says it.</summary>
     public static string? Of(DomainDevbookDocumentKind kind) => kind switch
     {
         DomainDevbookDocumentKind.ContextMap => "context-map",
+        DomainDevbookDocumentKind.Context => "context",
         DomainDevbookDocumentKind.Domain => "domain",
+        DomainDevbookDocumentKind.Actors => "actors",
         DomainDevbookDocumentKind.Features => "features",
+        DomainDevbookDocumentKind.Skills => "skills",
+        DomainDevbookDocumentKind.Requirements => "requirements",
+        DomainDevbookDocumentKind.Invariants => "invariants",
         DomainDevbookDocumentKind.Model => "model",
         DomainDevbookDocumentKind.Flow => "flow",
         DomainDevbookDocumentKind.Dependencies => "dependencies",
-        DomainDevbookDocumentKind.Naming => "naming",
         _ => null
     };
 }

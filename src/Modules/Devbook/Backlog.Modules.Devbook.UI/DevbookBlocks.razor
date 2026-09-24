@@ -15,6 +15,11 @@
     read view's `p` with a heading role, and a design table is a grid of *string*
     cells with a token modifier on its wrapper. Adopting either would mean
     changing markup, not renaming a class.
+
+    A devbook `annotation` fence arrives as a code record like any other and
+    leaves as a review note: the library draws it, attached under the block it
+    is about, because it is review state about the section and never a listing
+    in it.
 *@
 
 @foreach (var block in Blocks)
@@ -65,7 +70,8 @@
                                    ListCssClass="devbook-list"
                                    ListItemCssClass="@NoItemClass"
                                    DiagramTitle="@DiagramName"
-                                   IsDiagram="@(_ => block is DocumentDevbookDiagram)" />
+                                   IsDiagram="@(_ => block is DocumentDevbookDiagram)"
+                                   RenderDevbookAnnotations="true" />
             }
             break;
     }

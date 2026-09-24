@@ -1,0 +1,182 @@
+@*
+    One devbook `annotation` fence, drawn as the review note it is.
+
+    A note is a thread somebody left in the chapter itself, directly under the
+    passage it is about — the devbook convention's own review state, shared
+    through git. Drawn as code it read as part of the chapter: a YAML listing in
+    the middle of an architecture decision, with a question in it that a reader
+    had no way of telling apart from the decision's own text. That is the one
+    failure the rule warns about, seen by a person instead of a model.
+
+    Not the remark. Local ADR 0011 made the person's own margin remark —
+    MarkdownComment, kept in the app — a different thing from this fence, and the
+    two never merge. So this does not borrow the remark's markup or its classes:
+    the remark is a ruled list in the margin with Edit and Resolve on it; this is
+    a card that says "Review note" before anything else, and it has no controls at
+    all. The fence's only writer is the devbook plugin's `annotations.mjs`; C#
+    never writes one (ADR 0012 §6), so a button here would be a promise nothing
+    behind it keeps.
+
+    Attached, not free-standing. Position is the anchor — a fence annotates the
+    block immediately above it — so the card is drawn hard under that block,
+    indented and joined to it, rather than as a paragraph of its own. The host
+    decides where it goes; the class is what makes it look like it belongs there.
+
+    Forgiving about what it is handed. A fence nobody could parse, or an empty
+    one, is still a note shell — the label and whatever came through — and never
+    falls back to the raw listing: showing the YAML would be showing the chatter
+    as content again, which is what this component exists to stop.
+*@
+
+<div class="@ClassValue"
+     role="note"
+     aria-label="@AriaLabel"
+     data-testid="@TestId"
+     data-kind="@Note.Kind"
+     data-status="@Note.Status">
+    <p class="devbook-note__head">
+        <span class="devbook-note__label">Review note</span>
+        <Badge Kind="note-kind"
+               Slug="@(Note.HasKnownKind ? KindSlug : "unknown")"
+               Title="@(Note.HasKnownKind ? null : UnknownKindTitle)"
+               TestId="@Suffix("kind")">@Note.Kind</Badge>
+        <Badge Kind="note-state"
+               Slug="@(Note.IsOpen ? "open" : "resolved")"
+               TestId="@Suffix("status")">@(Note.IsOpen ? "Open" : "Resolved")</Badge>
+        @if (!string.IsNullOrWhiteSpace(Note.Author))
+        {
+            <span class="devbook-note__author" data-testid="@Suffix("author")">@Note.Author</span>
+        }
+        @if (!string.IsNullOrWhiteSpace(Note.Date))
+        {
+            <time class="devbook-note__date" datetime="@Note.Date" data-testid="@Suffix("date")">@Note.Date</time>
+        }
+    </p>
+
+    @if (!string.IsNullOrWhiteSpace(Note.Quote))
+    {
+        @* The phrase the note is about, for the eye only. A highlight in the
+           block above would be nicer, and would also be a claim about where the
+           phrase is — which the rule says the quote never decides. *@
+        <blockquote class="devbook-note__quote" data-testid="@Suffix("quote")">@Note.Quote</blockquote>
+    }
+
+    <div class="devbook-note__body" data-testid="@Suffix("body")">
+        @if (BodyBlocks.Count == 0)
+        {
+            <p class="devbook-note__none">This note says nothing yet.</p>
+        }
+        else
+        {
+            @RenderBlocks(BodyBlocks)
+        }
+    </div>
+
+    @if (Note.Replies.Count > 0)
+    {
+        <ol class="devbook-note__replies" aria-label="Replies" data-testid="@Suffix("replies")">
+            @for (var index = 0; index < Note.Replies.Count; index++)
+            {
+                var reply = Note.Replies[index];
+                <li class="devbook-note__reply" data-testid="@Suffix($"reply-{index}")">
+                    @if (!string.IsNullOrWhiteSpace(reply.Author) || !string.IsNullOrWhiteSpace(reply.Date))
+                    {
+                        <p class="devbook-note__who">
+                            @if (!string.IsNullOrWhiteSpace(reply.Author))
+                            {
+                                <span class="devbook-note__author">@reply.Author</span>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(reply.Date))
+                            {
+                                <time class="devbook-note__date" datetime="@reply.Date">@reply.Date</time>
+                            }
+                        </p>
+                    }
+                    <div class="devbook-note__body">@RenderBlocks(ReplyBlocks(index))</div>
+                </li>
+            }
+        </ol>
+    }
+</div>
+
+@code {
+    /// <summary>The note, read by <see cref="DevbookAnnotationFence.Parse"/>. A
+    /// host holding only the fence's text hands over <c>Parse(text)</c>; an empty
+    /// fence parses to a note with defaults and still draws.</summary>
+    [Parameter, EditorRequired]
+    public DevbookAnnotationFence Note { get; set; } = new();
+
+    /// <summary>How an inline in the note's body is read, forwarded to the block
+    /// renderer — the same hook the chapter around it uses, so a reference written
+    /// in a question leads where the same reference in the prose does.</summary>
+    [Parameter]
+    public MarkdownRender.MarkdownInlineTarget? InlineTarget { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string TestId { get; set; } = "devbook-annotation-note";
+
+    /// <summary>What an unknown kind's badge says on hover. The kind set is closed
+    /// — a reader sorts by it — so a word outside it is shown as authored and
+    /// flagged rather than dropped or coerced to <c>comment</c>.</summary>
+    private const string UnknownKindTitle = "Not a kind the devbook convention defines: comment, question, suggestion or flag.";
+
+    private string ClassValue =>
+        $"devbook-note devbook-note--{(Note.IsOpen ? "open" : "resolved")}{(string.IsNullOrWhiteSpace(CssClass) ? string.Empty : " " + CssClass)}";
+
+    private string KindSlug => BadgeSlug.Of(Note.Kind, "comment");
+
+    /// <summary>What a screen reader hears before the note: that it is a review
+    /// note, of which kind, and whether anyone is still waiting on it — the three
+    /// facts the head says with a label and two badges.</summary>
+    private string AriaLabel => $"Review note, {Note.Kind}, {(Note.IsOpen ? "open" : "resolved")}";
+
+    private IReadOnlyList<MdBlock> BodyBlocks => _body ??= MarkdownPreview.ParseDocument(Note.Body);
+
+    private IReadOnlyList<MdBlock>? _body;
+
+    private readonly Dictionary<int, IReadOnlyList<MdBlock>> _replies = [];
+
+    private DevbookAnnotationFence? _parsedFor;
+
+    protected override void OnParametersSet()
+    {
+        // The blocks are the note's, so a new note means new blocks; the same
+        // one handed in again on a re-render parses nothing.
+        if (ReferenceEquals(_parsedFor, Note)) return;
+
+        _parsedFor = Note;
+        _body = null;
+        _replies.Clear();
+    }
+
+    private IReadOnlyList<MdBlock> ReplyBlocks(int index)
+    {
+        if (_replies.TryGetValue(index, out var blocks)) return blocks;
+
+        blocks = MarkdownPreview.ParseDocument(Note.Replies[index].Body);
+        _replies[index] = blocks;
+        return blocks;
+    }
+
+    private string Suffix(string part) => $"{TestId}-{part}";
+
+    /// <summary>
+    /// A body as the library draws every block — the rule says it is Markdown,
+    /// so a code sample in it is a code sample and a list is a list.
+    ///
+    /// <para>Safe to reuse because nothing here asks the block renderer to read a
+    /// fence as anything but a fence. A note quoting a <c>meta</c> or an
+    /// <c>annotation</c> fence shows it as a listing, which is what a quoted
+    /// example is; the knowledge readings stay the chapter's.</para>
+    /// </summary>
+    private RenderFragment RenderBlocks(IReadOnlyList<MdBlock> blocks) => __builder =>
+    {
+        foreach (var block in blocks)
+        {
+            <MarkdownBlockView Block="@block" InlineTarget="@InlineTarget" />
+        }
+    };
+}
