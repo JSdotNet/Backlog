@@ -110,23 +110,49 @@ public sealed class TagFilterTests
     }
 
     /// <summary>The other half of "how much is over there": a count is about the pool,
-    /// so nothing anyone presses moves it. A chip whose count shrank as its neighbours
-    /// were pressed would be answering "what is left" — a different question, and one
-    /// the list below already answers.</summary>
+    /// so neither another tag nor the status moves it. A chip whose count shrank as its
+    /// neighbours were pressed would be answering "what is left" — a different
+    /// question, and one the list below already answers.</summary>
     [Fact]
-    public async Task A_count_does_not_move_when_the_rest_of_the_bar_does()
+    public async Task A_count_does_not_move_when_a_tag_or_the_status_does()
     {
         var (host, _, _, _, _) = await FourAsync();
         using var _host = host;
 
         host.State.ToggleTagFilter("desktop");
         host.State.SetStatusFilter("ready");
-        host.State.SetMyDayFilter(DateOnly.FromDateTime(DateTime.Today));
-        host.State.SetNoRepositoryFilter(true);
 
         Assert.Equal(2, Option(host, "sync").OpenCount);
         Assert.Equal(2, Option(host, "desktop").OpenCount);
         Assert.Equal(1, Option(host, TasksDesktopState.UntaggedTag).OpenCount);
+    }
+
+    /// <summary>The scopes are what the pool <em>is</em>, though, the way the
+    /// repository scope always was: a plan whose only open entry is waiting has
+    /// nothing to offer under "Not waiting", so it has no chip there — pressing one
+    /// would only ever have emptied the list.</summary>
+    [Fact]
+    public async Task A_scope_decides_which_tags_the_bar_offers_and_their_counts()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+
+        var step = await host.WriteEntryAsync("# Write the runbook\n`task` `!ready` `+docs`\n");
+        await host.WriteEntryAsync($"# Publish it\n`task` `!ready` `+release` `+docs` `after:{step.TaskId}`\n");
+        await host.WriteEntryAsync("# Renew the certificate\n`task` `!ready`\n");
+        await host.State.SelectAsync(null);
+
+        Assert.Equal(1, Option(host, "+release").OpenCount);
+        Assert.Equal(2, Option(host, "+docs").OpenCount);
+
+        host.State.SetNotWaitingFilter(true);
+
+        Assert.DoesNotContain(host.State.TagFilters, option => option.Value == "+release");
+        Assert.Equal(1, Option(host, "+docs").OpenCount);
+
+        host.State.SetNotWaitingFilter(false);
+
+        Assert.Equal(1, Option(host, "+release").OpenCount);
+        Assert.Equal(2, Option(host, "+docs").OpenCount);
     }
 
     /// <summary>The bar's chip wears the same kind as the row chip it filters for,
@@ -822,7 +848,7 @@ public sealed class TagFilterTests
         host.State.ToggleTagFilter(TasksDesktopState.NoPlanTag);
 
         Assert.Equal(
-            [loose.Key, bare.Key],
+            new[] { loose.Key, bare.Key }.Order(),
             host.State.FilteredRows.Select(row => row.Key).Order());
     }
 

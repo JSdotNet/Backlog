@@ -2840,7 +2840,6 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
         var repositoryScopedRows = rows.ToList();
         ForgetStaleRepositoryScope();
-        RebuildTagFilters(repositoryScopedRows);
         ScopedRows = repositoryScopedRows;
         rows = repositoryScopedRows;
 
@@ -2870,6 +2869,14 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         {
             rows = rows.Where(IsNotWaiting);
         }
+
+        // The tag bar is built from what every scope left in view, not the
+        // repository scope alone: a tag whose entries a scope took out is a chip
+        // that could only ever empty the list. Status and the tags themselves come
+        // after, and stay out of it — see RebuildTagFilters.
+        var scopedRows = rows.ToList();
+        RebuildTagFilters(scopedRows);
+        rows = scopedRows;
 
         if (!string.IsNullOrWhiteSpace(SelectedStatusFilterWire))
         {
@@ -2971,8 +2978,9 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
     /// <summary>
     /// Tags exist for the same reason areas do — somebody typed one — so the group
-    /// is rebuilt from what is in the current repository scope, and disappears
-    /// entirely while nothing in scope carries a tag. A bar that grew a fourth group
+    /// is rebuilt from what the scopes — the repository, My Day, No repo and Not
+    /// waiting — leave in view, and disappears entirely while nothing in scope
+    /// carries a tag. A bar that grew a fourth group
     /// with nothing pressable in it would be charging every reader for a feature only
     /// the taggers use.
     /// <para>
