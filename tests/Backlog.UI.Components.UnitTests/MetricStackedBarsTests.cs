@@ -193,7 +193,7 @@ public sealed class MetricStackedBarsTests
     }
 
     [Fact]
-    public void The_scale_and_a_title_read_through_the_formatter()
+    public void The_scale_and_the_tip_read_through_the_formatter()
     {
         using var context = new BunitContext();
 
@@ -202,7 +202,96 @@ public sealed class MetricStackedBarsTests
             .Add(c => c.FormatValue, value => $"{value}h"));
 
         Assert.Equal("30h", chart.Find(".metric-stacked-bars__scale-max").TextContent);
-        Assert.Equal("W1 · Producing: 25h", chart.Find(".metric-stacked-bars__segment").GetAttribute("title"));
+        Assert.Equal(
+            ["1h", "25h"],
+            chart.FindAll(".metric-stacked-bars__column")[0].QuerySelectorAll(".metric-stacked-bars__tip-value").Select(cell => cell.TextContent));
+    }
+
+    [Fact]
+    public void Hovering_a_column_lists_the_whole_stack_top_first_with_its_total_and_the_lines()
+    {
+        // One tip per column naming every shown series in it, in the order the eye
+        // meets them — the top of the stack first — rather than one box at a time.
+        using var context = new BunitContext();
+
+        var chart = context.Render<MetricStackedBars>(parameters => parameters
+            .Add(c => c.Series, Hours)
+            .Add(c => c.Lines, Counts)
+            .Add(c => c.TotalHeading, "Hours")
+            .Add(c => c.FormatValue, value => $"{value}h")
+            .Add(c => c.FormatLine, value => $"{value}"));
+
+        var tip = chart.FindAll(".metric-stacked-bars__column")[1].QuerySelector(".metric-stacked-bars__tip")!;
+
+        Assert.Equal("W2", tip.QuerySelector(".metric-stacked-bars__tip-title")!.TextContent);
+        Assert.Equal(
+            ["Waiting", "Producing", "Sessions", "Agents at once"],
+            tip.QuerySelectorAll(".metric-stacked-bars__tip-name").Select(cell => cell.TextContent));
+        Assert.Equal(
+            ["20h", "10h", "8", "3"],
+            tip.QuerySelectorAll(".metric-stacked-bars__tip-value").Select(cell => cell.TextContent));
+        Assert.Equal("Hours", tip.QuerySelector(".metric-stacked-bars__tip-total-name")!.TextContent);
+        Assert.Equal("30h", tip.QuerySelector(".metric-stacked-bars__tip-total-value")!.TextContent);
+
+        // No per-box native title under it: two tooltips at once is one too many.
+        Assert.Empty(chart.FindAll(".metric-stacked-bars__segment[title]"));
+    }
+
+    [Fact]
+    public void A_column_tip_opens_away_from_the_nearer_edge()
+    {
+        using var context = new BunitContext();
+
+        var chart = Render(context);
+        var tips = chart.FindAll(".metric-stacked-bars__tip");
+
+        Assert.Contains("metric-stacked-bars__tip--after", tips[0].ClassList);
+        Assert.Contains("metric-stacked-bars__tip--before", tips[2].ClassList);
+    }
+
+    [Fact]
+    public void Categorical_bands_each_take_their_own_hue_by_position_and_keep_it_while_off()
+    {
+        // A stack whose bands are told apart by hue rather than by shade, so the size
+        // of each is readable — for a caller whose bands carry no identity of their own.
+        using var context = new BunitContext();
+
+        var chart = context.Render<MetricStackedBars>(parameters => parameters
+            .Add(c => c.Series, [.. Enumerable.Range(0, 6).Select(index => new MetricSeries($"s{index}", [new MetricPoint("W1", index + 1m)]))])
+            .Add(c => c.Categorical, true)
+            .Add(c => c.TestId, "chart"));
+
+        var drawn = chart.FindAll(".metric-stacked-bars__segment")
+            .Select(segment => segment.ClassList.Single(name => name.StartsWith("metric-stacked-bars__segment--", StringComparison.Ordinal)))
+            .ToArray();
+
+        Assert.Equal(
+            [.. new[] { 1, 2, 3, 4, 5, 1 }.Select(step => $"metric-stacked-bars__segment--category-{step}")],
+            drawn);
+        Assert.Contains("metric-stacked-bars__swatch--category-2", chart.Find("[data-testid='chart-toggle-s1'] .metric-stacked-bars__swatch").ClassList);
+
+        chart.Find("[data-testid='chart-toggle-s0']").Click();
+
+        Assert.Contains("metric-stacked-bars__segment--category-2", chart.Find(".metric-stacked-bars__segment").ClassList);
+    }
+
+    [Fact]
+    public void Categorical_hues_step_aside_once_any_band_wears_an_identity()
+    {
+        // With the repository hues on, a category hue beside them would read as one
+        // more repository, so the bands without one go back to the ramp.
+        using var context = new BunitContext();
+
+        var chart = context.Render<MetricStackedBars>(parameters => parameters
+            .Add(c => c.Series, Hours)
+            .Add(c => c.Categorical, true)
+            .Add(c => c.IdentityOf, name => name == "Producing" ? 3 : null));
+
+        var segments = chart.FindAll(".metric-stacked-bars__column")[0].QuerySelectorAll(".metric-stacked-bars__segment");
+
+        Assert.Contains("metric-stacked-bars__segment--identity-3", segments[0].ClassList);
+        Assert.Contains("metric-stacked-bars__segment--4", segments[1].ClassList);
+        Assert.Empty(chart.FindAll("[class*='--category-']"));
     }
 
     /// <summary>Two counts to draw over the hours: a different unit, on purpose, so the

@@ -37,7 +37,10 @@
     columns are repositories may hand over IdentityOf, and a band that resolves to a
     band-identity token wears it — color-scheme.md's band identity set, whose consumer
     table names this chart. That colours which repository, never what kind of
-    quantity, which is the line the single-hue rule draws. Columns are CSS boxes rather
+    quantity, which is the line the single-hue rule draws. The other exception is a
+    caller that asks for Categorical: its bands take the category hues by position, so
+    a stack of five repositories or models reads as five sizes rather than four shades
+    — and only while no band wears an identity. Columns are CSS boxes rather
     than SVG for MetricBars' reason: the axis labels stay real text.
 
     Every figure is in a visually-hidden table, series by row. The picture is
@@ -103,11 +106,46 @@
                             @foreach (var segment in column.Segments)
                             {
                                 <span class="@SegmentClass(segment)"
-                                      style="@($"height: {Invariant(segment.Height)}%")"
-                                      title="@($"{column.Label} · {segment.Name}: {Format(segment.Value)}")"></span>
+                                      style="@($"height: {Invariant(segment.Height)}%")"></span>
                             }
                         </div>
                         <span class="@(Part("column-label"))">@(column.ShowLabel ? column.Label : null)</span>
+
+                        @* The whole column in one tip, on hover or focus: every shown
+                           series top of the stack first — the order the eye meets them —
+                           then the lines, then the total a stack claims. One per box
+                           made a reader sweep the column to add it up. It opens on the
+                           side away from the nearer edge so it stays on the chart, and
+                           it is part of the aria-hidden plot: the hidden table is still
+                           the reader's copy. *@
+                        <div class="@TipClass(column)">
+                            <div class="@(Part("tip-title"))">@column.Label</div>
+                            <ul class="@(Part("tip-list"))">
+                                @foreach (var segment in column.Segments.Reverse())
+                                {
+                                    <li class="@(Part("tip-row"))">
+                                        <span class="@SwatchClass(segment.Ramp, segment.Identity, segment.Category)"></span>
+                                        <span class="@(Part("tip-name"))">@segment.Name</span>
+                                        <span class="@(Part("tip-value"))">@Format(segment.Value)</span>
+                                    </li>
+                                }
+                                @foreach (var line in LineBands.Where(one => !one.Hidden && one.Values[column.Index] is not null))
+                                {
+                                    <li class="@(Part("tip-row"))">
+                                        <span class="@LineSwatchClass(line)"></span>
+                                        <span class="@(Part("tip-name"))">@line.Name</span>
+                                        <span class="@(Part("tip-value"))">@FormatLineValue(line.Values[column.Index]!.Value)</span>
+                                    </li>
+                                }
+                            </ul>
+                            @if (Mode == MetricBarsMode.Stacked && column.Segments.Count > 0)
+                            {
+                                <div class="@(Part("tip-total"))">
+                                    <span class="@(Part("tip-total-name"))">@TotalHeading</span>
+                                    <span class="@(Part("tip-total-value"))">@Format(column.Total)</span>
+                                </div>
+                            }
+                        </div>
                     </div>
                 }
 
@@ -222,7 +260,7 @@
                     inner.AddAttribute(sequence++, nameof(ToggleButton.CssClass), LegendItemClass(hidden));
                     inner.AddAttribute(sequence++, nameof(ToggleButton.Title), hidden ? $"Show {name}" : $"Hide {name}");
                     inner.AddAttribute(sequence++, nameof(ToggleButton.TestId), LegendTestId(name));
-                    inner.AddAttribute(sequence++, nameof(ToggleButton.ChildContent), LegendEntry(SwatchClass(band), name, band.Detail));
+                    inner.AddAttribute(sequence++, nameof(ToggleButton.ChildContent), LegendEntry(SwatchClass(band.Ramp, band.Identity, band.Category), name, band.Detail));
                     inner.CloseComponent();
                 }
 
@@ -256,7 +294,7 @@
             builder.OpenElement(index++, "li");
             builder.AddAttribute(index++, "class", $"{Part("legend-item")} {Part("legend-item")}--key");
             builder.AddAttribute(index++, "data-testid", LegendTestId(band.Name));
-            builder.AddContent(index++, LegendEntry(SwatchClass(band), band.Name, band.Detail));
+            builder.AddContent(index++, LegendEntry(SwatchClass(band.Ramp, band.Identity, band.Category), band.Name, band.Detail));
             builder.CloseElement();
         }
 
@@ -347,6 +385,18 @@
     [Parameter]
     public Func<string, int?>? IdentityOf { get; set; }
 
+    /// <summary>
+    /// Tells the column series apart by hue rather than by shade: each takes a category
+    /// hue by position, wrapping after five, so a reader can see how big each band is
+    /// against its neighbours — which four shades of one hue stop showing once a stack
+    /// has more than two or three bands. Only while no band resolves an identity through
+    /// <see cref="IdentityOf"/>: with the repository hues on, a category hue beside them
+    /// would read as one more repository, so the chart keeps the ramp for the rest.
+    /// Lines keep ink either way.
+    /// </summary>
+    [Parameter]
+    public bool Categorical { get; set; }
+
     /// <summary>What the row-name column is called in the hidden table.</summary>
     [Parameter]
     public string NameHeading { get; set; } = "Series";
@@ -427,16 +477,19 @@
     /// <summary>One column series as drawn: its ramp step or identity, whether the
     /// reader switched it off, and its value in every bucket — null where it named
     /// none.</summary>
-    private sealed record Band(string Name, string? Detail, int Ramp, int? Identity, bool Hidden, IReadOnlyList<decimal?> Values);
+    private sealed record Band(string Name, string? Detail, int Ramp, int? Identity, int? Category, bool Hidden, IReadOnlyList<decimal?> Values);
 
     /// <summary>One line as drawn: its dash pattern, and the polyline points in the
     /// overlay's own 0–100 space.</summary>
     private sealed record Line(string Name, string? Detail, int Dash, bool Hidden, IReadOnlyList<decimal?> Values, string Points);
 
     /// <summary>One box in one column: which series, how tall, how much.</summary>
-    private sealed record Segment(string Name, int Ramp, int? Identity, decimal Value, decimal Height);
+    private sealed record Segment(string Name, int Ramp, int? Identity, int? Category, decimal Value, decimal Height);
 
-    private sealed record Column(string Label, bool ShowLabel, decimal Total, bool Selected, IReadOnlyList<Segment> Segments);
+    private sealed record Column(int Index, string Label, bool ShowLabel, decimal Total, bool Selected, IReadOnlyList<Segment> Segments);
+
+    /// <summary>How many category hues there are before they repeat.</summary>
+    private const int CategoryCount = 5;
 
     private List<Band> Bands { get; set; } = [];
 
@@ -518,13 +571,17 @@
             if (seen.Add(point.Label)) labels.Add(point.Label);
         }
 
+        var identities = series.Select(one => IdentityOf?.Invoke(one.Name)).ToList();
+        var categorical = Categorical && identities.All(identity => identity is null);
+
         Bands =
         [
             .. series.Select((one, index) => new Band(
                 one.Name,
                 one.Detail,
                 Ramp(index, series.Count),
-                IdentityOf?.Invoke(one.Name),
+                identities[index],
+                categorical ? index % CategoryCount + 1 : null,
                 _hidden.Contains(one.Name),
                 ValuesOf(one, labels)))
         ];
@@ -550,6 +607,7 @@
         Columns =
         [
             .. labels.Select((label, bucket) => new Column(
+                bucket,
                 label,
                 bucket % stride == 0 || bucket == last,
                 totals[bucket],
@@ -559,6 +617,7 @@
                         band.Name,
                         band.Ramp,
                         band.Identity,
+                        band.Category,
                         band.Values[bucket] ?? 0m,
                         Math.Max(0m, band.Values[bucket] ?? 0m) / span * 100m))
                 ]))
@@ -638,14 +697,21 @@
         $"{Part("column-track")} {Part("column-track")}--{(Mode == MetricBarsMode.Stacked ? "stacked" : "grouped")}";
 
     private string SegmentClass(Segment segment) =>
-        segment.Identity is { } identity
-            ? $"{Part("segment")} {Part("segment")}--identity-{identity}"
-            : $"{Part("segment")} {Part("segment")}--{segment.Ramp}";
+        $"{Part("segment")} {Part("segment")}--{Fill(segment.Ramp, segment.Identity, segment.Category)}";
 
-    private string SwatchClass(Band band) =>
-        band.Identity is { } identity
-            ? $"{Part("swatch")} {Part("swatch")}--identity-{identity}"
-            : $"{Part("swatch")} {Part("swatch")}--{band.Ramp}";
+    private string SwatchClass(int ramp, int? identity, int? category) =>
+        $"{Part("swatch")} {Part("swatch")}--{Fill(ramp, identity, category)}";
+
+    /// <summary>The fill modifier: an identity wins, then a category, then the ramp step.</summary>
+    private static string Fill(int ramp, int? identity, int? category) =>
+        identity is { } hue ? $"identity-{hue}"
+        : category is { } step ? $"category-{step}"
+        : $"{ramp}";
+
+    /// <summary>The first half of the columns open their tip to the right, the rest to
+    /// the left, so it opens over the chart rather than past its edge.</summary>
+    private string TipClass(Column column) =>
+        $"{Part("tip")} {Part("tip")}--{(column.Index < Columns.Count / 2.0 - 0.5 ? "after" : "before")}";
 
     private string LineClass(Line line) =>
         $"{Part("line")} {Part("line")}--dash-{line.Dash}";
