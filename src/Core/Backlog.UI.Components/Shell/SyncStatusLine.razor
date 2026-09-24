@@ -1,0 +1,79 @@
+@*
+    One short line saying where a device's sync stands. It is a polite status
+    region, like SaveIndicator: offline is a calm, persistent fact rather than an
+    error (interaction-guidelines.md#offline), so it announces and never
+    interrupts.
+
+    The dot is decoration. The words carry the state on their own, because
+    colour alone is not a meaning (accessibility.md#target-sizes-and-text).
+*@
+
+<span class="@ClassValue" role="status" aria-live="polite" data-sync-state="@StateToken" data-testid="@TestId" @attributes="AdditionalAttributes">
+    <span class="sync-status__dot" aria-hidden="true"></span>
+    <span class="sync-status__text">@Text</span>
+</span>
+
+@code {
+    [Parameter]
+    public SyncStatusReading Reading { get; set; } = SyncStatusReading.NotPaired;
+
+    /// <summary>The moment "3m ago" is measured from. Null reads the clock, which
+    /// is what a host wants; a storybook or a test passes a fixed instant so the
+    /// line says the same thing every time it is drawn.</summary>
+    [Parameter]
+    public DateTimeOffset? Now { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string Text => Describe(Reading, Now ?? DateTimeOffset.UtcNow);
+
+    private string StateToken => Reading.Kind switch
+    {
+        SyncStatusKind.NotPaired => "not-paired",
+        SyncStatusKind.Offline => "offline",
+        _ => "synced"
+    };
+
+    private string ClassValue
+    {
+        get
+        {
+            var stem = $"sync-status sync-status--{StateToken}";
+            return string.IsNullOrWhiteSpace(CssClass) ? stem : $"{stem} {CssClass}";
+        }
+    }
+
+    /// <summary>The words for a reading. Public so a host that needs the same
+    /// phrase somewhere else — an accessible name, a log line — takes it from
+    /// here rather than writing a second copy that can drift.</summary>
+    public static string Describe(SyncStatusReading reading, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(reading);
+
+        return reading.Kind switch
+        {
+            SyncStatusKind.NotPaired => "Not paired",
+            SyncStatusKind.Offline => $"Offline — {reading.Waiting} waiting",
+            _ when reading.LastSyncedAt is { } at => $"Synced {Relative(now - at)}",
+            _ => "Not synced yet"
+        };
+    }
+
+    /// <summary>How long ago, in the unit a glance wants. A clock slightly ahead
+    /// of the one that stamped the reading gives a negative span, and that is
+    /// still "just now" rather than a time in the future.</summary>
+    public static string Relative(TimeSpan elapsed)
+    {
+        if (elapsed < TimeSpan.FromMinutes(1)) return "just now";
+        if (elapsed < TimeSpan.FromHours(1)) return $"{(int)elapsed.TotalMinutes}m ago";
+        if (elapsed < TimeSpan.FromDays(1)) return $"{(int)elapsed.TotalHours}h ago";
+        return $"{(int)elapsed.TotalDays}d ago";
+    }
+}

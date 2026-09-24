@@ -148,13 +148,14 @@ public sealed class InboxShareTargetTests
             _context.Services.AddSingleton(new CloudSyncClient(
                 new HttpClient(Sync) { BaseAddress = new Uri("https://sync.test") }));
 
-            // Already paired: sharing has nothing to do with pairing, and an
-            // unpaired screen renders the pairing box in place of the capture
-            // field these tests are about. InboxPairingTests owns the other half.
-            _context.Services.AddSingleton<IDeviceCredentialStore>(InboxPairingTests.PairedStore());
+            // Already paired: sharing has nothing to do with pairing, and the
+            // status tracker the screen reports to reads the credential store.
+            // PairingGateTests owns the unpaired half.
+            _context.Services.AddSingleton<IDeviceCredentialStore>(TestDevices.Paired());
             _context.Services.AddSingleton(new DevicePairingClient(
                 new HttpClient(Sync) { BaseAddress = new Uri("https://sync.test") },
                 new InMemoryDeviceCredentialStore()));
+            _context.Services.AddMobileShell();
         }
 
         public TestSharedContentReceiver Share { get; }

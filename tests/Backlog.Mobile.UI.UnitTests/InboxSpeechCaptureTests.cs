@@ -167,12 +167,13 @@ public sealed class InboxSpeechCaptureTests
                 new HttpClient(new EmptyInboxHandler()) { BaseAddress = new Uri("https://sync.test") }));
 
             // Already paired, for the same reason the share source is idle:
-            // dictation has nothing to do with pairing, and an unpaired screen
-            // renders the pairing box in place of the mic these tests press.
-            _context.Services.AddSingleton<IDeviceCredentialStore>(InboxPairingTests.PairedStore());
+            // dictation has nothing to do with pairing, and the status tracker
+            // the screen reports to reads the credential store.
+            _context.Services.AddSingleton<IDeviceCredentialStore>(TestDevices.Paired());
             _context.Services.AddSingleton(new DevicePairingClient(
                 new HttpClient(new EmptyInboxHandler()) { BaseAddress = new Uri("https://sync.test") },
                 new InMemoryDeviceCredentialStore()));
+            _context.Services.AddMobileShell();
         }
 
         public FakeSpeechTranscriber Speech { get; }

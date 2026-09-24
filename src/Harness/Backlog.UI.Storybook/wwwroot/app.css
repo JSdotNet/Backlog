@@ -333,6 +333,13 @@ html, body {
     max-width: 16rem;
 }
 
+/* A phone's width, for the chrome a phone app wears. A tab bar shown across the
+   whole page would be reviewed at a width no phone has, and equal columns that
+   far apart say nothing about where a thumb lands. */
+.sb-phone {
+    max-width: 23.4375rem;
+}
+
 /* A heading standing in for one a Devbook panel draws, so the type marker in
    front of it can be looked at on the line it actually lands on. The block
    margins go, because the sample sits in a flex row beside a status pill and a

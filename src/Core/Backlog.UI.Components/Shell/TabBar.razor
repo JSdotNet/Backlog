@@ -1,0 +1,49 @@
+@*
+    The row of destinations along the bottom of a phone screen. Links, not tabs:
+    each one is a route of its own, so it is a nav of anchors that the Router and
+    the back button already understand, rather than a tablist whose panels would
+    all have to live on one page.
+
+    NavLink does the matching, so "which one am I on" has the same answer here as
+    in every other link list in the product, and it survives a deep link and a
+    back press without the host telling it anything.
+*@
+
+<nav class="@ClassValue" aria-label="@AriaLabel" data-testid="@TestId" @attributes="AdditionalAttributes">
+    @foreach (var item in Items)
+    {
+        <NavLink class="tab-bar__tab"
+                 ActiveClass="tab-bar__tab--active"
+                 href="@item.Href"
+                 Match="@(item.Match ? NavLinkMatch.All : NavLinkMatch.Prefix)"
+                 data-testid="@TabTestId(item)">@item.Label</NavLink>
+    }
+</nav>
+
+@code {
+    /// <summary>The destinations, in the order they sit on screen. Give the root
+    /// route <c>Match: true</c>, or it matches every path as a prefix and stays
+    /// lit on all of them.</summary>
+    [Parameter]
+    public IReadOnlyList<NavItem> Items { get; set; } = [];
+
+    [Parameter]
+    public string? AriaLabel { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>The test id on the bar. Each tab gets <c>{TestId}-{label}</c>,
+    /// the label lower-cased and hyphenated, so a test can address one tab
+    /// without counting.</summary>
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "tab-bar" : $"tab-bar {CssClass}";
+
+    private string? TabTestId(NavItem item) =>
+        string.IsNullOrWhiteSpace(TestId) ? null : $"{TestId}-{item.Label.Trim().ToLowerInvariant().Replace(' ', '-')}";
+}

@@ -1,0 +1,77 @@
+@using Backlog.Infrastructure.Sync
+@inject DevicePairingClient Pairing
+
+@*
+    What every tab is before it is anything else: an unpaired phone. The layout
+    draws this in place of the page, so whichever route the app opens on asks
+    the same question the same way, and no page has to remember to ask it.
+
+    Everything behind it is bearer-only, so an unpaired device typing a capture
+    would get a 401 for its trouble - and "Cloud sync unavailable: 401" is not an
+    answer anybody can act on. One thing to do, and it is the thing that makes
+    the rest work. Redeeming a code saves a credential, the store says so, and
+    the layout puts the page back.
+*@
+
+<PageTitle>Pair this device</PageTitle>
+
+<h1>Pair this device</h1>
+
+<Alert Message="Enter the code shown on a device that is already paired to sync."
+       Role="status" BaseClass="capture__notice" TestId="pairing-notice" />
+
+<div class="capture">
+    <TextField @bind-Value="_pairingCode" AriaLabel="Pairing code" Placeholder="XXXX-XXXX"
+               CssClass="capture__field" TestId="pairing-code-field" />
+    <AppButton Variant="ButtonVariant.Primary" Disabled="@string.IsNullOrWhiteSpace(_pairingCode)"
+               OnClick="PairAsync" TestId="pairing-submit">Pair</AppButton>
+</div>
+
+@if (_pairingError is not null)
+{
+    <Alert Message="@_pairingError" BaseClass="error" TestId="pairing-error" />
+}
+
+@code {
+    private string _pairingCode = string.Empty;
+    private string? _pairingError;
+
+    /// <summary>
+    /// Redeems the code somebody read out on the device that is already in. The
+    /// client stores the credential it gets back, and storing it is what takes
+    /// this gate down — there is nothing further to do here.
+    /// <para>
+    /// The device is named rather than asked about: a phone has one name that
+    /// matters and it is already on the phone, and a second field between a
+    /// person and the one thing this screen is for would be a field they type
+    /// through rather than read.
+    /// </para>
+    /// </summary>
+    private async Task PairAsync()
+    {
+        _pairingError = null;
+
+        try
+        {
+            var result = await Pairing.PairAsync(_pairingCode, DeviceName);
+
+            if (result.IsFailure)
+            {
+                _pairingError = result.Error.Message;
+                return;
+            }
+
+            _pairingCode = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            // Expected failures come back as a result; anything still arriving as
+            // an exception has to reach the screen, because one swallowed in an
+            // event handler leaves the button looking like it did nothing.
+            _pairingError = ex.Message;
+        }
+    }
+
+    private static string DeviceName =>
+        string.IsNullOrWhiteSpace(Environment.MachineName) ? "Phone" : Environment.MachineName;
+}

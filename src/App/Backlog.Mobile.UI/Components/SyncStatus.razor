@@ -1,0 +1,51 @@
+@inject ISyncStatusSource Source
+@implements IDisposable
+
+@*
+    The app bar's status line, fed by ISyncStatusSource. The words and the look
+    are the library's SyncStatusLine; this only keeps it current.
+*@
+
+<SyncStatusLine Reading="Source.Current" CssClass="app-bar__status" TestId="sync-status" />
+
+@code {
+    private CancellationTokenSource? _ticking;
+
+    protected override void OnInitialized()
+    {
+        Source.Changed += OnChanged;
+
+        // "Synced 2m ago" goes stale on its own, so the line redraws once a
+        // minute. This re-reads a clock; it asks the service for nothing.
+        _ticking = new CancellationTokenSource();
+        _ = TickAsync(_ticking.Token);
+    }
+
+    private async Task TickAsync(CancellationToken cancellationToken)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(1));
+
+        try
+        {
+            while (await timer.WaitForNextTickAsync(cancellationToken))
+            {
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+    }
+
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        Source.Changed -= OnChanged;
+        _ticking?.Cancel();
+        _ticking?.Dispose();
+    }
+}

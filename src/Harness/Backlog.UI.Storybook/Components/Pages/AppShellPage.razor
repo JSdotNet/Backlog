@@ -1,0 +1,96 @@
+@page "/app-shell"
+@page "/app-shell/{Tab}"
+
+<PageTitle>App shell — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="App shell"
+           Summary="TabBar and SyncStatusLine: the row of destinations along the bottom of the phone, and the line in its title bar that says where sync stands."
+           Guidelines="@Rules">
+
+    <Story Name="Tab bar"
+           Description="One link per destination, each a route of its own, so the Router and the back button already understand it. NavLink decides which tab is lit — the root route is given Match: true, or it would match every path as a prefix.
+
+The tabs below are live: this page answers /app-shell/note and /app-shell/tasks too, so tapping one moves the lit tab and the address together."
+           Code="@TabBarCode">
+        <div class="sb-phone">
+            <TabBar Items="Tabs" AriaLabel="Sections" TestId="tab-bar" />
+        </div>
+    </Story>
+
+    <Story Name="Not paired"
+           Description="The device holds no credential, so there is nothing to sync with. The host shows this until a pairing code is redeemed."
+           Code="@NotPairedCode">
+        <SyncStatusLine Reading="SyncStatusReading.NotPaired" TestId="sync-not-paired" />
+    </Story>
+
+    <Story Name="Synced"
+           Description="Paired, and the service last answered this long ago. Now is fixed here so the sample reads the same every time; a host leaves it unset and the line reads the clock."
+           Code="@SyncedCode">
+        <SyncStatusLine Reading="SyncStatusReading.Synced(At.AddMinutes(-3))" Now="At" TestId="sync-synced" />
+    </Story>
+
+    <Story Name="Not synced yet"
+           Description="Paired, and nothing has come back from the service since. A reading with no time says so rather than inventing one."
+           Code="@NotSyncedCode">
+        <SyncStatusLine Reading="SyncStatusReading.Synced(null)" Now="At" TestId="sync-never" />
+    </Story>
+
+    <Story Name="Offline"
+           Description="Paired, and the service cannot be reached. The count is what is queued for when it can."
+           Code="@OfflineCode">
+        <SyncStatusLine Reading="SyncStatusReading.Offline(2)" Now="At" TestId="sync-offline" />
+    </Story>
+
+</StoryPage>
+
+@code {
+    /// <summary>The tab this page was opened on, from /app-shell/{Tab}. Unused
+    /// beyond making the route resolve: NavLink reads the address itself.</summary>
+    [Parameter]
+    public string? Tab { get; set; }
+
+    private static readonly DateTimeOffset At = new(2026, 9, 25, 9, 30, 0, TimeSpan.Zero);
+
+    private static readonly IReadOnlyList<NavItem> Tabs =
+    [
+        new("app-shell", "Inbox", Match: true),
+        new("app-shell/note", "Note"),
+        new("app-shell/tasks", "Tasks")
+    ];
+
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("accessibility.md#target-sizes-and-text", "How large a tab has to be under a thumb, and why the lit tab is not told apart by colour alone."),
+        new("interaction-guidelines.md#offline", "Why offline is a calm, persistent line rather than an error."),
+        new("accessibility.md#screen-reader--announcements", "What a status line announces, and that it never interrupts.")
+    ];
+
+    private const string TabBarCode = """
+        <TabBar Items="Tabs" AriaLabel="Sections" TestId="tab-bar" />
+
+        @code {
+            private static readonly IReadOnlyList<NavItem> Tabs =
+            [
+                new("", "Inbox", Match: true),
+                new("note", "Note"),
+                new("tasks", "Tasks")
+            ];
+        }
+        """;
+
+    private const string NotPairedCode = """
+        <SyncStatusLine Reading="SyncStatusReading.NotPaired" />
+        """;
+
+    private const string SyncedCode = """
+        <SyncStatusLine Reading="SyncStatusReading.Synced(lastSyncedAt)" />
+        """;
+
+    private const string NotSyncedCode = """
+        <SyncStatusLine Reading="SyncStatusReading.Synced(null)" />
+        """;
+
+    private const string OfflineCode = """
+        <SyncStatusLine Reading="SyncStatusReading.Offline(waiting: 2)" />
+        """;
+}
