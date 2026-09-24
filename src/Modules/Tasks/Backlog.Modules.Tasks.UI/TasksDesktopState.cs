@@ -168,13 +168,13 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// <summary>
     /// The statuses the strip offers, which is not every status the backlog has.
     /// <para>
-    /// Done and Archived are deliberately absent. Both are questions about work
-    /// that is over, and a backlog is scanned for what is still open — so the two
-    /// chips that were pressed least were also the two the strip could least
-    /// afford, because the group's width is what squeezes the tag pile beside it.
-    /// Neither status is unreachable: "All" still lists them, and
-    /// <see cref="SetStatusFilter"/> still takes their wire values for anything
-    /// that names one directly.
+    /// Archived is deliberately absent: it is a question about work that is over,
+    /// and the group's width is what squeezes the tag pile beside it. Done was
+    /// dropped on the same argument and asked for back — "what did I finish" is
+    /// asked often enough to earn its chip, where "All" answers it only by
+    /// scrolling past everything open. Archived is still reachable: "All" lists
+    /// it, and <see cref="SetStatusFilter"/> still takes its wire value for
+    /// anything that names it directly.
     /// </para>
     /// </summary>
     public List<StatusFilterOption> StatusFilters { get; } =
@@ -182,7 +182,8 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         new("All", string.Empty),
         new("Draft", "draft"),
         new("Ready", "ready"),
-        new("In progress", "in_progress")
+        new("In progress", "in_progress"),
+        new("Done", "done")
     ];
 
     public List<EntryRow> Rows { get; private set; } = [];
@@ -1405,22 +1406,41 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// <summary>
     /// Ticks the entry off on <paramref name="today"/>, or unticks it.
     /// <para>
-    /// The tick is its own fact and this writes only it: the status is left
-    /// exactly as it was, whichever it is. Done and Archived say the work is over
-    /// (<c>.domain/tasks/flow.md#task-lifecycle</c>); the tick says the person has
-    /// dealt with the entry, and they are two moves so that a Done entry can sit
-    /// on the open list until they have looked at it. Any status can be ticked,
-    /// so there is no refusal to explain, and unticking clears the date rather
-    /// than reopening anything — an entry that came off the list goes back on it
-    /// as whatever it still is. The day comes from the caller for the reason the
-    /// scheduling methods above give.
+    /// Ticking an entry whose status is not yet an end state also moves it to
+    /// Done, in the same save (<c>.domain/tasks/flow.md#task-lifecycle</c>): a
+    /// person who ticks something off has finished the work, and a row that read
+    /// "In progress" under Completed was the list contradicting itself. It goes
+    /// through the status picker's own rewrite, so the steps follow the same way.
+    /// An entry already Done or Archived keeps its status — Archived is further
+    /// along than Done, not short of it. The two stay separate facts in the other
+    /// direction: reaching Done through the picker does not tick, and unticking
+    /// clears the date without reopening anything. The day comes from the caller
+    /// for the reason the scheduling methods above give.
     /// </para>
     /// </summary>
     public async Task ToggleCompletedAsync(EntryRow row, DateOnly today)
     {
         ArgumentNullException.ThrowIfNull(row);
 
-        await ChangeCompletedAsync(row, row.IsPreviewCompleted ? null : today);
+        if (row.IsPreviewCompleted)
+        {
+            await ChangeCompletedAsync(row, null);
+            return;
+        }
+
+        if (row.PreviewStatus is EntryStatus.Done or EntryStatus.Archived)
+        {
+            await ChangeCompletedAsync(row, today);
+            return;
+        }
+
+        await RewriteMetadataAsync(
+            row,
+            EntryTextParser.WithStatus(
+                EntryTextParser.WithCompletedOn(row.RawText, today),
+                EntryStatus.Done,
+                cascadeSubItems: true),
+            forceWhenEqual: true);
     }
 
     /// <summary>Ticks the entry off on a day, or unticks it with null — the

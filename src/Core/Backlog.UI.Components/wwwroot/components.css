@@ -3389,10 +3389,49 @@ button.task-panel__check:focus-visible {
     outline: none;
 }
 
+/* An edge, never a fill: the tick is what says done, and a filled circle beside a
+   filled status badge was two solid shapes saying one thing. */
 .task-item--done .task-item__check,
 .task-panel--done .task-panel__check {
     border-color: var(--color-success);
-    background: var(--color-success);
+}
+
+/* The circle's edge wears its status badge's own colour — the exact value the
+   badge is filled with, or edged with for Archived — so the circle and the badge
+   beside it never disagree about what the row is. Read off the badge rather than
+   a row parameter because a host may show its status as a picker in a slot, and
+   the badge's slug is the one thing both shapes carry. The child combinators keep
+   a row from reading a sub-item's badge in the fold under it. The ancestor sits in
+   :where so each rule weighs no more than the circle's own: the hover and focus
+   edge above still repaints it, and a completed circle's edge still wins. */
+:where(.task-item:has(> :is(.task-item__body, .task-item__actions) .badge--status-draft)) > .task-item__check,
+:where(.task-panel__header:has(> .task-panel__status.badge--status-draft, > .task-panel__status .badge--status-draft)) .task-panel__check {
+    border-color: var(--color-background-raised);
+}
+
+:where(.task-item:has(> :is(.task-item__body, .task-item__actions) .badge--status-ready)) > .task-item__check,
+:where(.task-panel__header:has(> .task-panel__status.badge--status-ready, > .task-panel__status .badge--status-ready)) .task-panel__check {
+    border-color: var(--color-info);
+}
+
+:where(.task-item:has(> :is(.task-item__body, .task-item__actions) :is(.badge--status-active, .badge--status-inprogress))) > .task-item__check,
+:where(.task-panel__header:has(> .task-panel__status:is(.badge--status-active, .badge--status-inprogress), > .task-panel__status :is(.badge--status-active, .badge--status-inprogress))) .task-panel__check {
+    border-color: var(--color-primary);
+}
+
+:where(.task-item:has(> :is(.task-item__body, .task-item__actions) .badge--status-blocked)) > .task-item__check,
+:where(.task-panel__header:has(> .task-panel__status.badge--status-blocked, > .task-panel__status .badge--status-blocked)) .task-panel__check {
+    border-color: var(--color-error);
+}
+
+:where(.task-item:has(> :is(.task-item__body, .task-item__actions) .badge--status-done)) > .task-item__check,
+:where(.task-panel__header:has(> .task-panel__status.badge--status-done, > .task-panel__status .badge--status-done)) .task-panel__check {
+    border-color: var(--color-success);
+}
+
+:where(.task-item:has(> :is(.task-item__body, .task-item__actions) .badge--status-archived)) > .task-item__check,
+:where(.task-panel__header:has(> .task-panel__status.badge--status-archived, > .task-panel__status .badge--status-archived)) .task-panel__check {
+    border-color: var(--color-border);
 }
 
 /* The row's own hit area. A button rather than a click handler on the li, so it
