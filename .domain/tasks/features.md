@@ -190,6 +190,33 @@ item gathers this task, the points registered here are what it
 and a task left unestimated is counted as unestimated there, never silently as
 zero.
 
+## Open-work report
+
+```meta
+type: feature
+status: draft
+depends-on: [.domain/tasks/features.md#effort-registration]
+related: [.domain/roadmap/features.md#gathering-work-under-an-item-and-totalling-its-effort, .domain/tasks/features.md#task-dependencies]
+```
+
+Say how much work is open, not only how it splits. The filter chips each count
+a slice; the total sits at the end of the filter bar as one line — how many tasks
+are open, the points they carry, and how many carry none. It counts what the
+repository scope leaves in view, before any status, tag or other filter narrows
+the list, so pressing a filter changes what is shown and never the total. Open
+means not ticked off, and the points follow the
+[effort total's rule](../roadmap/features.md#gathering-work-under-an-item-and-totalling-its-effort):
+zero is an estimate, and the unestimated count is said beside the sum rather
+than folded into it.
+
+The line is also the way into a report of that same open work: the headline
+numbers and what was ticked off in the last seven days; each plan's open tasks,
+points and progress, with the work filed under no plan as its own line; how the
+open work splits by status, priority, type and repository; and what needs
+attention — overdue, due within the week, and waiting. A waiting task names
+[what it waits on](#task-dependencies) rather than being counted, and any task
+named there opens from the report.
+
 ## Scheduling and recurrence
 
 ```meta
