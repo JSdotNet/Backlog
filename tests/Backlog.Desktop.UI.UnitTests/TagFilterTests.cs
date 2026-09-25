@@ -870,10 +870,10 @@ public sealed class TagFilterTests
         Assert.Contains("chip--tag-plan", chip.ClassList);
     }
 
-    /// <summary>A union like every other chip in the group: "No plan" beside a plan
-    /// is that plan's work and everything loose.</summary>
+    /// <summary>A plan chip, "No plan" among them, lets go of the plan pressed
+    /// before it: the reader looks at one plan at a time.</summary>
     [Fact]
-    public async Task No_plan_and_a_plan_together_are_the_union()
+    public async Task No_plan_and_a_plan_replace_each_other()
     {
         var (host, release, _, loose, bare) = await PlansAsync();
         using var _host = host;
@@ -881,9 +881,57 @@ public sealed class TagFilterTests
         host.State.ToggleTagFilter(TasksDesktopState.NoPlanTag);
         host.State.ToggleTagFilter("+release-q4");
 
+        Assert.Equal(["+release-q4"], host.State.SelectedTags);
+        Assert.Equal([release.Key], host.State.FilteredRows.Select(row => row.Key));
+
+        host.State.ToggleTagFilter(TasksDesktopState.NoPlanTag);
+
+        Assert.Equal([TasksDesktopState.NoPlanTag], host.State.SelectedTags);
         Assert.Equal(
-            new[] { release.Key, loose.Key, bare.Key }.Order(),
+            new[] { loose.Key, bare.Key }.Order(),
             host.State.FilteredRows.Select(row => row.Key).Order());
+    }
+
+    /// <summary>Pressing a second plan chip on the bar swaps the plan in view, and
+    /// pressing the pressed one lets go of it.</summary>
+    [Fact]
+    public async Task Pressing_a_plan_chip_unpresses_the_other_plan()
+    {
+        var (host, _, import, _, _) = await PlansAsync();
+        using var _host = host;
+
+        var pane = host.Render();
+        AngleSharp.Dom.IElement ChipFor(string value) =>
+            pane.FindAll(Chip)[host.State.TagFilters.ToList().FindIndex(option => option.Value == value)];
+
+        await ChipFor("+release-q4").ClickAsync(new());
+        await ChipFor("+roadmap-import").ClickAsync(new());
+
+        Assert.Equal(["+roadmap-import"], host.State.SelectedTags);
+        Assert.Equal([import], host.State.FilteredRows);
+        Assert.Equal("false", ChipFor("+release-q4").GetAttribute("aria-pressed"));
+        Assert.Equal("true", ChipFor("+roadmap-import").GetAttribute("aria-pressed"));
+
+        await ChipFor("+roadmap-import").ClickAsync(new());
+
+        Assert.Empty(host.State.SelectedTags);
+    }
+
+    /// <summary>Only plans replace each other; a general tag pressed beside a plan
+    /// stays pressed when the plan changes.</summary>
+    [Fact]
+    public async Task Switching_plan_keeps_the_other_tags_pressed()
+    {
+        var (host, _, _, _, _) = await PlansAsync();
+        using var _host = host;
+
+        host.State.ToggleTagFilter("sync");
+        host.State.ToggleTagFilter("+release-q4");
+        host.State.ToggleTagFilter("+roadmap-import");
+
+        Assert.Equal(
+            new[] { "+roadmap-import", "sync" }.Order(),
+            host.State.SelectedTags.Order());
     }
 
     /// <summary>Nothing to exclude while nobody plans, and nothing to show while
