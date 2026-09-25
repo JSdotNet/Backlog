@@ -405,7 +405,7 @@ The points-per-day figure is **the person's own reading pace**, a workspace
 setting, and not an estimate the plan registers: the effort is still the tasks'
 own, added and never invented, and the only thing the placement adds is how fast
 the person says they work through it. Changing it moves nothing already placed —
-re-importing does.
+re-importing does, and so does asking one item to update from its tasks.
 
 An item the import placed remembers that it did. The first time a person moves
 it by hand, that memory is cleared and the importer never touches its dates
@@ -416,6 +416,18 @@ length of a window still sized by effort. **Nothing is ever removed** from the
 plan by an import: a plan the document has stopped describing stays planned,
 because taking work off the roadmap is a planning decision — other work waits on
 it — and the person makes it [in place](#editing-the-plan-in-place).
+
+Between imports, tasks get added and estimates change, and the window stays
+what the last import made it. So an item whose window is **still sized by its
+effort** offers to **update from its tasks**: the item shows what its tasks add
+up to now and the end that makes, beside the end it has, and the person decides.
+Taking the offer keeps the start, sets the end from what the tasks register now
+at the person's pace, and leaves the window the importer's — it is the same rule
+a re-import of the tasks applies, asked for rather than waited for. It is never
+offered for an item a person has moved or one that ends on its due date, and not
+when the tasks already make the window it has. Nothing moves but that item: work
+that waits on it and now starts before it finishes is
+[named, not moved](#surfacing-contradictions-instead-of-fixing-them).
 
 An import says what it could not do rather than guessing. A plan entry with no
 tag is skipped and named, because the tag is how the next import finds it. A tag

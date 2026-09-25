@@ -8,6 +8,7 @@ using Backlog.Modules.Roadmap.Features.UpdateMilestone;
 using Backlog.Modules.Roadmap.Features.GetPlan;
 using Backlog.Modules.Roadmap.Features.ImportPlanItems;
 using Backlog.Modules.Roadmap.Features.PrioritiseItem;
+using Backlog.Modules.Roadmap.Features.RelengthenItem;
 using Backlog.Modules.Roadmap.Features.RemoveDependency;
 using Backlog.Modules.Roadmap.Features.RemoveItem;
 using Backlog.Modules.Roadmap.Features.RescheduleItem;
@@ -51,6 +52,10 @@ public static class RoadmapModuleRegistration
         // adapters. IRoadmapPlanning hands it out, so a host resolving the port must
         // register a velocity too.
         services.AddScoped<ICommandHandler<ImportPlanItemsCommand, Result<PlanImportResultDto>>, ImportPlanItemsCommandHandler>();
+        // Both answer "Update from tasks" by the importer's own effort rule, so they
+        // need IPlanningVelocity as Import does.
+        services.AddScoped<IQueryHandler<ProposeRelengthQuery, RoadmapRelengthProposalDto?>, ProposeRelengthQueryHandler>();
+        services.AddScoped<ICommandHandler<RelengthenItemCommand, Result<RoadmapRelengthResultDto>>, RelengthenItemCommandHandler>();
 
         // Placement reads "today"; a host that already registered a clock keeps its own.
         services.TryAddSingleton(TimeProvider.System);

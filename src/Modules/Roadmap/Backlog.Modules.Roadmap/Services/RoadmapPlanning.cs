@@ -9,6 +9,7 @@ using Backlog.Modules.Roadmap.Features.UpdateMilestone;
 using Backlog.Modules.Roadmap.Features.GetPlan;
 using Backlog.Modules.Roadmap.Features.ImportPlanItems;
 using Backlog.Modules.Roadmap.Features.PrioritiseItem;
+using Backlog.Modules.Roadmap.Features.RelengthenItem;
 using Backlog.Modules.Roadmap.Features.RemoveDependency;
 using Backlog.Modules.Roadmap.Features.RemoveItem;
 using Backlog.Modules.Roadmap.Features.RescheduleItem;
@@ -36,6 +37,8 @@ internal sealed class RoadmapPlanning(
     ICommandHandler<AddDependencyCommand, Result> addDependency,
     ICommandHandler<RemoveDependencyCommand, Result> removeDependency,
     ICommandHandler<ImportPlanItemsCommand, Result<PlanImportResultDto>> importPlanItems,
+    IQueryHandler<ProposeRelengthQuery, RoadmapRelengthProposalDto?> proposeRelength,
+    ICommandHandler<RelengthenItemCommand, Result<RoadmapRelengthResultDto>> relengthenItem,
     RoadmapPlanChanges changes) : IRoadmapPlanning
 {
     // Forwarded rather than held, so a subscriber in one scope hears a write made
@@ -145,6 +148,25 @@ internal sealed class RoadmapPlanning(
         IReadOnlyList<PlanImportEntryDto>? createIfMissing = null,
         CancellationToken cancellationToken = default) =>
         Announce(importPlanItems.Handle(new ImportPlanItemsCommand(entries, gatheredEffort, createIfMissing), cancellationToken));
+
+    public Task<RoadmapRelengthProposalDto?> ProposeWindowFromEffortAsync(
+        Guid itemId,
+        int gatheredEffort,
+        CancellationToken cancellationToken = default) =>
+        proposeRelength.Handle(new ProposeRelengthQuery(itemId, gatheredEffort), cancellationToken);
+
+    public async Task<Result<RoadmapRelengthResultDto>> RelengthenFromEffortAsync(
+        Guid itemId,
+        int gatheredEffort,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await relengthenItem.Handle(new RelengthenItemCommand(itemId, gatheredEffort), cancellationToken);
+
+        // Announced only when the window moved. A window the tasks already made stored
+        // nothing, and a listener told otherwise would reload for a change nobody made.
+        if (result.IsSuccess && result.Value.PreviousEnd != result.Value.Item.End) changes.Raise();
+        return result;
+    }
 
     /// <summary>Hands a write's result back unchanged, telling every listener first
     /// when it was stored. A refusal stored nothing, so it says nothing.</summary>

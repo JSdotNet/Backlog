@@ -4699,6 +4699,13 @@ h1, h2, h3 {
     font-size: var(--font-size-sm);
 }
 
+/* "Update from tasks" said in numbers, under the total it was worked out from, so
+   the button in the footer never offers a date the reader has not been shown. */
+.roadmap-gathered__proposal {
+    margin: 0;
+    font-size: var(--font-size-sm);
+}
+
 /* Choosing which colour each band takes.
 
    A row per repository, its name at one end and the five choices at the other. The
