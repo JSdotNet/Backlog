@@ -73,6 +73,7 @@
                                  SelectedId="@_selectedId"
                                  OnBarSelected="Select"
                                  OnBarChanged="Apply"
+                                 OnLinkCreated="LinkAsync"
                                  CssClass="roadmap-band__timeline"
                                  TestId="roadmap-timeline" />
 
@@ -644,16 +645,64 @@
 
         _error = null;
 
+        var (start, end) = ItemWindowFor(change, itemId.Value);
+
         var rescheduled = await Planning.RescheduleItemAsync(
             itemId.Value,
-            change.Start,
-            change.End,
+            start,
+            end,
             LaneOf(change.RowId));
 
         // Reload either way. On success the plan is the truth; on failure the
         // redraw is what puts the bar back where it was, so a refused change never
         // leaves the chart showing something that was not stored.
         if (rescheduled.IsFailure) _error = rescheduled.Error.Message;
+
+        await Load();
+    }
+
+    /// <summary>
+    /// The item's own window, from where one of its bars was put.
+    /// <para>
+    /// A bar may be one segment of an item whose tasks hand over between
+    /// repositories, and then its dates are a slice of the item's window rather than
+    /// the window itself. So what is carried over is how far each edge moved: dragging
+    /// a segment a week moves the whole item a week, and pulling a segment's end out
+    /// lengthens the item by as much. For a bar that is the whole item, the two readings
+    /// are the same.
+    /// </para>
+    /// </summary>
+    private (DateOnly Start, DateOnly End) ItemWindowFor(RoadmapChange change, Guid itemId)
+    {
+        var bar = _view.Bars.FirstOrDefault(candidate => candidate.Id == change.BarId);
+        var item = _plan.Items.FirstOrDefault(candidate => candidate.Id == itemId);
+
+        return bar is null || item is null
+            ? (change.Start, change.End)
+            : RoadmapPlanView.ItemWindowFor(item, bar, change);
+    }
+
+    /// <summary>
+    /// A dependency drawn on the chart: the handle past one bar's end dropped on
+    /// another, which is to wait for it. Answered the way the editor's checkbox is —
+    /// the plan decides, a refusal such as a cycle is shown, and the arrow appears
+    /// from the reloaded plan rather than from the gesture.
+    /// </summary>
+    private async Task LinkAsync(RoadmapLink link)
+    {
+        var dependsOn = RoadmapPlanView.NodeIdOf(link.FromId);
+        var waiting = RoadmapPlanView.NodeIdOf(link.ToId);
+        if (dependsOn is null || waiting is null) return;
+
+        _error = dependsOn == waiting
+            ? "A plan cannot wait for another part of itself."
+            : null;
+
+        if (_error is null)
+        {
+            var added = await Planning.AddDependencyAsync(waiting.Value, dependsOn.Value);
+            if (added.IsFailure) _error = added.Error.Message;
+        }
 
         await Load();
     }
