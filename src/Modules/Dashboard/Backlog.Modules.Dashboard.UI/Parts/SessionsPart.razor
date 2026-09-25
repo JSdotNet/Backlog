@@ -222,6 +222,7 @@
                 <MetricStackedBars Series="@WeeklyColumns"
                                    Lines="@WeeklyLines"
                                    Mode="MetricBarsMode.Stacked"
+                                   Categorical="true"
                                    Label="@WeeklyLabel"
                                    Note="@WeeklyNote"
                                    NameHeading="Measure"
@@ -245,6 +246,8 @@
                identity hue when the header's Colors switch is on, because that hue says
                which repository and this chart is on the identity set's consumer table
                — or the unconfigured ones folded together, or the sessions with none.
+               With the switch off, every stack in this part takes a category hue per
+               band by position instead, so each band's size reads against the next.
                Claude records none, so a Claude session is in a repository's band only
                when its folder lies inside a registered clone, and in the last band
                otherwise: drawn, named for the fact, never dropped. With repositories in focus only their bands are here, the
@@ -255,6 +258,7 @@
             {
                 <MetricStackedBars Series="@RepositorySeries"
                                    Mode="MetricBarsMode.Stacked"
+                                   Categorical="true"
                                    Label="@RepositoryLabel"
                                    Note="@RepositoryNote"
                                    NameHeading="Repository"
@@ -289,6 +293,7 @@
                 </ButtonGroup>
                 <MetricStackedBars Series="@Bands(_tokensByRepository ? Value!.TokensByRepository : Value!.TokensByModel)"
                                    Mode="MetricBarsMode.Stacked"
+                                   Categorical="true"
                                    Label="@(_tokensByRepository ? "Output tokens per week, by repository" : "Output tokens per week, by model")"
                                    Note="@TokensNote"
                                    NameHeading="@(_tokensByRepository ? "Repository" : "Model")"
@@ -309,6 +314,7 @@
             {
                 <MetricStackedBars Series="@Bands(Value!.PullRequestsByRepository)"
                                    Mode="MetricBarsMode.Stacked"
+                                   Categorical="true"
                                    Label="Pull requests linked per week, by repository"
                                    Note="@PullRequestsNote"
                                    NameHeading="Repository"

@@ -154,6 +154,16 @@
     --chart-ramp-3: color-mix(in srgb, var(--color-primary) 80%, var(--chart-surface));
     --chart-ramp-4: var(--color-primary);
     --chart-track: color-mix(in srgb, var(--color-primary) 20%, var(--chart-surface));
+    /* Category hues: for a stack whose bands have to be told apart by size, where
+       four shades of one hue stop reading as separate bands. Aliases of the band
+       identity hues rather than colours of their own, so the palette gains nothing;
+       drawn only while no band on the chart wears an identity, so a category hue is
+       never mistaken for a repository. See color-scheme.md's chart roles. */
+    --chart-category-1: var(--color-band-1);
+    --chart-category-2: var(--color-band-2);
+    --chart-category-3: var(--color-band-3);
+    --chart-category-4: var(--color-band-4);
+    --chart-category-5: var(--color-band-5);
     --chart-grid: var(--color-border);
     --chart-axis: var(--color-border-strong);
     --chart-ink: var(--color-text-primary);
@@ -9501,6 +9511,7 @@ select.field__input {
 }
 
 .metric-bars__label,
+.metric-stacked-bars__label,
 .metric-heatmap__label {
     position: relative;
     display: flex;
@@ -9592,11 +9603,6 @@ select.field__input {
     min-width: 0;
 }
 
-.metric-stacked-bars__label {
-    color: var(--chart-ink-muted);
-    font-size: var(--font-size-sm);
-}
-
 .metric-stacked-bars__plot {
     display: flex;
     gap: var(--spacing-sm);
@@ -9671,6 +9677,7 @@ select.field__input {
 }
 
 .metric-stacked-bars__column {
+    position: relative;
     display: flex;
     flex: 1;
     flex-direction: column;
@@ -9763,6 +9770,98 @@ select.field__input {
 
 .metric-stacked-bars__segment--4 {
     background: var(--chart-ramp-4);
+}
+
+/* The column's tip: the whole stack as a list, shown on hover and focus. It sits
+   over the plot beside its column, on the side away from the nearer edge, so it
+   neither leaves the chart nor covers the column it describes; pointer-events: none
+   so moving to the next column is not blocked by the tip of this one. At rest it is
+   display: none, the info hint's reason: an invisible box still widens a scroller. */
+.metric-stacked-bars__tip {
+    display: none;
+    position: absolute;
+    top: 0;
+    z-index: 500;
+    width: max-content;
+    max-width: min(24rem, 60vw);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+    box-shadow: var(--shadow-lg);
+    font-size: var(--font-size-xs);
+    line-height: var(--line-height-normal);
+    pointer-events: none;
+}
+
+.metric-stacked-bars__tip--after {
+    left: calc(100% + var(--spacing-2xs));
+}
+
+.metric-stacked-bars__tip--before {
+    right: calc(100% + var(--spacing-2xs));
+}
+
+.metric-stacked-bars__column:hover .metric-stacked-bars__tip,
+.metric-stacked-bars__column:focus-visible .metric-stacked-bars__tip {
+    display: block;
+}
+
+.metric-stacked-bars__tip-title {
+    margin-bottom: var(--spacing-2xs);
+    font-weight: 700;
+}
+
+.metric-stacked-bars__tip-list {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: var(--spacing-2xs) var(--spacing-xs);
+    align-items: center;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/* A row's three cells join the list's grid, so every name and every figure lines
+   up down the tip whatever length the names are. */
+.metric-stacked-bars__tip-row {
+    display: contents;
+}
+
+.metric-stacked-bars__tip-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.metric-stacked-bars__tip-value,
+.metric-stacked-bars__tip-total-value {
+    font-family: var(--font-family-mono);
+    text-align: right;
+    white-space: nowrap;
+}
+
+/* The total under a rule: its heading may be a sentence — what a sum across
+   measures is not — so it wraps on the left and the figure keeps the right edge
+   the values above it hold. */
+.metric-stacked-bars__tip-total {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-2xs);
+    padding-top: var(--spacing-2xs);
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.metric-stacked-bars__tip-total-name {
+    color: var(--color-text-secondary);
+}
+
+.metric-stacked-bars__tip-total-value {
+    font-weight: 700;
 }
 
 .metric-stacked-bars__column-label {
@@ -9861,6 +9960,33 @@ select.field__input {
 .metric-stacked-bars__segment--identity-5,
 .metric-stacked-bars__swatch--identity-5 {
     background: var(--color-band-5);
+}
+
+/* A category rather than a step or an identity: the caller asked for the bands to be
+   told apart by hue, and none of them wears a repository's. */
+.metric-stacked-bars__segment--category-1,
+.metric-stacked-bars__swatch--category-1 {
+    background: var(--chart-category-1);
+}
+
+.metric-stacked-bars__segment--category-2,
+.metric-stacked-bars__swatch--category-2 {
+    background: var(--chart-category-2);
+}
+
+.metric-stacked-bars__segment--category-3,
+.metric-stacked-bars__swatch--category-3 {
+    background: var(--chart-category-3);
+}
+
+.metric-stacked-bars__segment--category-4,
+.metric-stacked-bars__swatch--category-4 {
+    background: var(--chart-category-4);
+}
+
+.metric-stacked-bars__segment--category-5,
+.metric-stacked-bars__swatch--category-5 {
+    background: var(--chart-category-5);
 }
 
 /* A line's swatch is a line: a short rule in the line's colour and dash, not a box,

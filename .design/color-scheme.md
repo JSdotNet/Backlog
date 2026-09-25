@@ -580,6 +580,7 @@ Measured on `color-background-alt`, which is the card a chart sits on.
 | `chart-axis` | `color-border-strong` | 3.45:1 |
 | `chart-ink` | `color-text-primary` | 15.42:1 |
 | `chart-ink-muted` | `color-text-secondary` | 10.88:1 |
+| `chart-category-1` … `-5` | `color-band-1` … `-5` | as the band hues |
 
 Rules:
 
@@ -590,6 +591,15 @@ Rules:
   belongs to — where this rule is about a *measure*. A second hue on one plot would
   say "this quantity is a different kind of quantity", which is exactly the claim
   one hue exists to avoid making.
+- **Deviation — category hues on a stack.** A stacked chart whose bands are
+  repositories or models, not measures, may ask for `chart-category-*` so each band's
+  size reads against its neighbours; four shades of one hue stopped doing that past
+  two or three bands. The hues are the band identity set, re-used by position, so the
+  palette gains nothing. They are drawn only while no band on the chart wears an
+  identity: with the header's Colors switch on, a category hue beside a repository's
+  would read as one more repository. The legend names every band, so the hue is
+  never the sole carrier. Consumer: the dashboard's Sessions part
+  (`MetricStackedBars` with `Categorical`).
 - Every ramp step clears the 3:1 a non-text mark owes its background. The track
   is deliberately below it, because it is the absence of data rather than data.
 - The baseline takes `chart-axis` rather than `chart-grid`, because a baseline
