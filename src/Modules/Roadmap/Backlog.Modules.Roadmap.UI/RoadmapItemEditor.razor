@@ -107,6 +107,11 @@
             @* Refusals from the module land here rather than beside a field, because
                a cycle is not any one field being wrong. *@
             <Alert Message="@_error" Role="status" TestId="roadmap-editor-error" />
+
+            @* What re-lengthening from the tasks ran into. The dependents keep their
+               dates — the plan reports a contradiction rather than correcting it — so
+               the person is told which ones to look at instead. *@
+            <Alert Message="@_overlaps" Role="status" TestId="roadmap-editor-overlaps" />
         </div>
 
         @* What this item has already gathered — read-only, and only for an item that
@@ -160,6 +165,16 @@
                         <span class="roadmap-gathered__effort-caveat">@EffortCaveat</span>
                     </div>
                 }
+
+                @* Outside the rollup's own branch: work that was taken off the item
+                   still makes a window — the default span — and the offer has to say
+                   so even with nothing left to list. *@
+                @if (Offered is { } proposal)
+                {
+                    <p class="roadmap-gathered__proposal" data-testid="roadmap-item-effort-proposal">
+                        @ProposalLine(proposal)
+                    </p>
+                }
             </section>
         }
     </ChildContent>
@@ -169,6 +184,17 @@
             <DeleteButton Lead="true"
                           OnClick="DeleteAsync"
                           TestId="roadmap-editor-delete" />
+        }
+
+        @* Only while the window is still the importer's to size and the tasks now
+           make a different one: the band asks the module before offering it. *@
+        @if (Offered is { } offered)
+        {
+            <AppButton Variant="ButtonVariant.Secondary"
+                       OnClick="() => OnUpdateFromTasks.InvokeAsync(offered)"
+                       TestId="roadmap-editor-update-from-tasks">
+                Update from tasks
+            </AppButton>
         }
 
         <AppButton Variant="ButtonVariant.Ghost" OnClick="CancelAsync" TestId="roadmap-editor-cancel">
@@ -204,6 +230,7 @@
     private string? _titleError;
     private string? _windowError;
     private string? _error;
+    private string? _overlaps;
 
     private Guid? _loadedId;
 
@@ -254,7 +281,34 @@
     [Parameter]
     public EventCallback<RoadmapDependencyChange> OnDependencyChanged { get; set; }
 
+    /// <summary>
+    /// The window this item's tasks would make now, when the module says it is worth
+    /// offering — or null, and "Update from tasks" is not drawn. Asked by the band from
+    /// the same rollup this dialog shows, so the number in the offer is the number
+    /// above it.
+    /// </summary>
+    [Parameter]
+    public RoadmapRelengthProposalDto? Proposal { get; set; }
+
+    /// <summary>Raised when the person takes the offer. The band applies it and tells
+    /// the dialog what came of it through <see cref="Relengthened"/> or
+    /// <see cref="Refuse"/>.</summary>
+    [Parameter]
+    public EventCallback<RoadmapRelengthProposalDto> OnUpdateFromTasks { get; set; }
+
     private bool IsNew => Item is null;
+
+    /// <summary>The proposal, when it is for the item on screen. A proposal left over
+    /// from another item is not an offer about this one.</summary>
+    private RoadmapRelengthProposalDto? Offered =>
+        Item is not null && Proposal is { } proposal && proposal.ItemId == Item.Id ? proposal : null;
+
+    private static string ProposalLine(RoadmapRelengthProposalDto proposal) =>
+        $"Its tasks now add up to {proposal.GatheredEffort} {Points(proposal.GatheredEffort)} — "
+        + $"ends {Day(proposal.ProposedEnd)} instead of {Day(proposal.CurrentEnd)}.";
+
+    /// <summary>A day the way the plan's own messages write one.</summary>
+    private static string Day(DateOnly date) => date.ToString("d MMM yyyy", CultureInfo.InvariantCulture);
 
     /// <summary>One gathered thing: what it is, how the item reached it, and — when it
     /// registered one — its effort. The origin is drawn as a badge rather than left to
@@ -345,6 +399,7 @@
         _titleError = null;
         _windowError = null;
         _error = null;
+        _overlaps = null;
 
         if (Item is null)
         {
@@ -398,6 +453,30 @@
     public void Refuse(string message)
     {
         _error = message;
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Shows the window "Update from tasks" stored, and names what now overlaps it.
+    /// <para>
+    /// The dates are written into the fields rather than left for a reload, because
+    /// the dialog keeps what is being typed and only reloads for another item: fields
+    /// still holding the old window would put it back on Save, and a Save that moves
+    /// the window is a hand move.
+    /// </para>
+    /// </summary>
+    public void Relengthened(RoadmapItemDto item, IReadOnlyList<RoadmapNodeRefDto> nowOverlapping)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+        ArgumentNullException.ThrowIfNull(nowOverlapping);
+
+        _start = Iso(item.Start);
+        _end = Iso(item.End);
+        _windowError = null;
+        _error = null;
+        _overlaps = nowOverlapping.Count == 0
+            ? null
+            : $"Now overlaps: {string.Join(", ", nowOverlapping.Select(node => node.Title))}. They keep their dates.";
         StateHasChanged();
     }
 

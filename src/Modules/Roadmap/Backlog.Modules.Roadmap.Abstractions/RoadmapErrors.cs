@@ -37,6 +37,16 @@ public static class RoadmapErrors
             "roadmap.placed_by_hand",
             $"'{title}' has been moved by hand since it was imported, so an import keeps its dates.");
 
+    /// <summary>Re-lengthening from the tasks is the importer's effort rule, so it
+    /// only applies while that rule still sizes the window. A null
+    /// <paramref name="placement"/> means a person placed it.</summary>
+    public static Error NotPlacedByEffort(string title, ImportPlacement? placement) =>
+        Error.Conflict(
+            "roadmap.not_placed_by_effort",
+            placement is ImportPlacement.DueDate
+                ? $"'{title}' ends on the due date its plan wrote, so its tasks do not decide how long it runs."
+                : $"'{title}' has been moved by hand, so its tasks no longer decide how long it runs.");
+
     /// <summary>A cycle is a conflict with the plan's current state rather than
     /// bad input: the same edge would have been fine before the others were
     /// added.</summary>
