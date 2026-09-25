@@ -1,0 +1,146 @@
+@*
+    The reader's pace, in the roadmap's heading: how many story points a day an
+    imported plan with no due date is drawn at (ADR 0013, ruling 4).
+
+    Four paces, one of them chosen. The one the reader types, and three measured
+    from the estimated work they finished over the last two, four and eight weeks.
+    A stretch that finished nothing estimated measured no pace, so its option says
+    so and cannot be chosen; a choice that has since gone empty places by the typed
+    pace, and the control says that too rather than quietly drawing by another
+    figure than the one pressed.
+
+    It lives here rather than on the settings screen because it is read here: the
+    figure only decides how long a bar is drawn, and the reader deciding between
+    their own guess and what they actually did wants to see both beside the chart.
+    It still moves nothing already placed — a window is stored, not recomputed —
+    so a change here is what the next import or planned shelf row divides by.
+*@
+@* For @onchange: without it the directive is a plain attribute and never fires. *@
+@using Microsoft.AspNetCore.Components.Web
+@implements IDisposable
+@inject IPlanningPace Pace
+@inject IRoadmapWorkChanges WorkChanges
+
+<div class="roadmap-pace" data-testid="roadmap-pace">
+    <span class="roadmap-pace__label" id="roadmap-pace-label">Points a day</span>
+
+    @* Committed on change rather than bound, so a half-typed pace never reaches the
+       store: "2." on the way to "2.5" is not a number. min and step are
+       affordances only — the store is the one gate, and refuses the 0 this min
+       still allows. *@
+    <TextField Compact="true"
+               Type="number"
+               AriaLabel="Your own pace, in story points a day"
+               CssClass="roadmap-pace__manual"
+               TestId="roadmap-pace-manual"
+               min="0"
+               step="0.5"
+               autocomplete="off"
+               ErrorMessage="@_error"
+               Value="@_draft"
+               @onchange="ApplyManual" />
+
+    <ButtonGroup CssClass="roadmap-pace__options"
+                 AriaLabel="Which pace places an imported plan"
+                 aria-describedby="roadmap-pace-label"
+                 TestId="roadmap-pace-options">
+        @foreach (var option in Options)
+        {
+            var value = _paces.Of(option.Source);
+            @* Small, to sit on the same line height as "Plan work" beside it. *@
+            <ToggleButton BaseClass="btn btn--toggle btn--small"
+                          Pressed="@(_paces.Source == option.Source)"
+                          Disabled="@(value is null)"
+                          Title="@option.Title(value)"
+                          OnClick="() => Choose(option.Source)"
+                          TestId="@($"roadmap-pace-{option.Key}")">
+                <span class="roadmap-pace__option-name">@option.Name</span>
+                @if (option.Source != PaceSource.Manual)
+                {
+                    <span class="roadmap-pace__option-value">@(value is { } measured ? Rounded(measured) : "—")</span>
+                }
+            </ToggleButton>
+        }
+    </ButtonGroup>
+
+    @if (_paces.FellBack)
+    {
+        <span class="roadmap-pace__note" role="status" data-testid="roadmap-pace-fell-back">
+            Nothing estimated was finished in that stretch, so your own pace is used.
+        </span>
+    }
+</div>
+
+@code {
+    private sealed record Option(PaceSource Source, string Key, string Name, string Stretch)
+    {
+        public string Title(decimal? value) => Source == PaceSource.Manual
+            ? "Place plans by the pace you typed"
+            : value is { } measured
+                ? $"Place plans by what you finished over the {Stretch}: {Rounded(measured)} points a day"
+                : $"Nothing with an estimate was finished over the {Stretch}";
+    }
+
+    private static readonly Option[] Options =
+    [
+        new(PaceSource.Manual, "manual-option", "Mine", "pace you typed"),
+        new(PaceSource.LastTwoWeeks, "two-weeks", "2 wk", "last two weeks"),
+        new(PaceSource.LastFourWeeks, "four-weeks", "4 wk", "last four weeks"),
+        new(PaceSource.LastEightWeeks, "eight-weeks", "8 wk", "last eight weeks")
+    ];
+
+    private PlanningPacesDto _paces = new(1m, null, null, null, PaceSource.Manual);
+    private string _draft = string.Empty;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Pace.Changed += OnChanged;
+        WorkChanges.Changed += OnChanged;
+        await Read();
+    }
+
+    public void Dispose()
+    {
+        Pace.Changed -= OnChanged;
+        WorkChanges.Changed -= OnChanged;
+    }
+
+    private async Task Read()
+    {
+        _paces = await Pace.ReadAsync();
+
+        // A refused value stays on screen beside its reason, so the reader can see
+        // what they typed; otherwise the field shows what is stored.
+        if (_error is null) _draft = Format(_paces.Manual);
+    }
+
+    private async Task ApplyManual(ChangeEventArgs e)
+    {
+        var typed = e.Value?.ToString() ?? string.Empty;
+        _draft = typed;
+        _error = Pace.SetManual(typed);
+        await Read();
+    }
+
+    private async Task Choose(PaceSource source)
+    {
+        _error = Pace.Choose(source);
+        await Read();
+    }
+
+    // Raised from whatever thread saved the pace or wrote a task.
+    private void OnChanged() => _ = InvokeAsync(async () =>
+    {
+        await Read();
+        StateHasChanged();
+    });
+
+    /// <summary>Four decimals, no trailing zeroes, invariant — how the store writes
+    /// a pace, so a committed value reads back spelled the way it was kept.</summary>
+    private static string Format(decimal pace) => pace.ToString("0.####", CultureInfo.InvariantCulture);
+
+    /// <summary>A measured pace to two decimals for reading at a glance. Placement
+    /// still divides by the four it was measured to.</summary>
+    private static string Rounded(decimal pace) => pace.ToString("0.##", CultureInfo.InvariantCulture);
+}

@@ -112,6 +112,21 @@
                     </Actions>
                 </SectionHeader>
 
+                @* How the context ships — `service` or `module` — from the two places
+                   contract 16 states it: the context's own context.md and its
+                   bounded-context chapter in the map. Shown as a chip in the same
+                   strip every other field is, because it is a field; and when the
+                   two statements disagree, or only one side makes one, reported as
+                   the problem it is, naming both values, rather than quietly
+                   picking one. *@
+                @if (SelectedContext.Deployment is { IsStated: true } deployment)
+                {
+                    <div class="domain-metadata" aria-label="Context deployment">
+                        <span class="domain-metadata__item" data-testid="domain-context-deployment"><strong>deployment</strong>@deployment.Value</span>
+                    </div>
+                    <Alert Message="@deployment.Problem" Role="status" TestId="domain-context-deployment-problem" />
+                }
+
                 <div class="domain-context__documents">
                     @foreach (var document in SelectedContext.Documents)
                     {
@@ -129,7 +144,9 @@
     // words `.domain` does not define, so the select offered states the index
     // generator rejects, and it was missing `proposed` and `deprecated`, which it
     // does. Asking DevbookStatus means the select cannot drift from the
-    // convention again, and it is what brings the "No status" option here.
+    // convention again, and it is what brings the empty option here — labelled
+    // `active`, because in .domain no status is the resting value — and keeps the
+    // decision rungs out of the list.
     private static MetadataStatusVocabulary DevbookVocabulary => DevbookStatus.Vocabulary(DevbookFolder.Domain);
     private static readonly HashSet<string> HeaderMetadataKeys = new(StringComparer.OrdinalIgnoreCase) { "status", "devbook-issue", "github-issue", "issue" };
     private static readonly HashSet<string> NavigableMetadataKeys = new(StringComparer.OrdinalIgnoreCase) { "implements", "implemented-by", "related", "depends-on", "refines", "supersedes" };
@@ -936,12 +953,17 @@
     private static string DocumentClass(DomainDevbookDocument document) => document.Kind switch
     {
         DomainDevbookDocumentKind.ContextMap => "domain-document--context-map",
+        DomainDevbookDocumentKind.Context => "domain-document--context",
         DomainDevbookDocumentKind.Domain => "domain-document--domain",
+        DomainDevbookDocumentKind.Actors => "domain-document--actors",
         DomainDevbookDocumentKind.Features => "domain-document--features",
+        DomainDevbookDocumentKind.Skills => "domain-document--skills",
+        DomainDevbookDocumentKind.Requirements => "domain-document--requirements",
+        DomainDevbookDocumentKind.Invariants => "domain-document--invariants",
         DomainDevbookDocumentKind.Model => "domain-document--model",
         DomainDevbookDocumentKind.Flow => "domain-document--flow",
         DomainDevbookDocumentKind.Dependencies => "domain-document--dependencies",
-        DomainDevbookDocumentKind.Naming => "domain-document--naming",
+        DomainDevbookDocumentKind.Page => "domain-document--page",
         _ => string.Empty
     };
 
@@ -984,7 +1006,8 @@
                        say it. Unlabelled deliberately: the kind label is right
                        there, and a mark announced beside its own text label is the
                        word twice. *@
-                    <p class="domain-document__kind"><DevbookTypeMarker Value="@DomainDevbookFileTypes.Of(document.Kind)"
+                    <p class="domain-document__kind"><DevbookTypeMarker Value="@DomainDevbookFileTypes.Of(document)"
+                                                                          FileName="@document.Path"
                                                                           CssClass="devbook-type-marker--leads"
                                                                           Labelled="false"
                                                                           TestId="domain-document-kind-mark" />@document.KindLabel</p>
@@ -1153,8 +1176,12 @@
            chapter says — but as the badge rather than the select, which is the
            same substitution MetadataView makes when a status cannot honestly be
            edited. Hiding it outright would take the information with the
-           control. *@
-        @if (showStatus && !CanEdit)
+           control. The same substitution covers a status the select cannot
+           honestly show: a decision rung, which is recognised and never offered,
+           and an explicit `status: active`, whose only option is the empty one —
+           both read as the badge, the second with the title saying how the
+           resting value is written. *@
+        @if (showStatus && (!CanEdit || !DevbookVocabulary.Selectable(DevbookActionMetadata.Status(item.Metadata))))
         {
             <MetadataStatusBadge Status="@DevbookActionMetadata.Status(item.Metadata)"
                                  Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder.Domain)"
@@ -1174,6 +1201,15 @@
                             Label="@($"State for {item.Title}")"
                             TestId="devbook-state-select"
                             OnChanged="value => ChangeDevbookStatusAsync(item, value)" />
+        }
+
+        @* The decision and review state, beside the status it qualifies — the one
+           place contract 16 lets the nine state fields be drawn. Tied to showStatus
+           for the same reason the select is: where the open file view is drawing
+           this heading's status, it is drawing the record around it too. *@
+        @if (showStatus && DomainDevbookDecisionState.Describe(item.Metadata) is { Count: > 0 } decisionState)
+        {
+            <span class="domain-devbook__decision" data-testid="devbook-decision-state">@string.Join("; ", decisionState)</span>
         }
 
         @if (DevbookActionMetadata.Issue(item.Metadata, _view?.RepositoryLabel) is { } issue)
@@ -1229,7 +1265,7 @@
     private RenderFragment RenderMetadata(IReadOnlyDictionary<string, string> metadata, IReadOnlyList<string> links, string label) => @<div class="domain-metadata" aria-label="@label">
         @foreach (var item in VisibleMetadata(metadata))
         {
-            <span class="domain-metadata__item">
+            <span class="@MetadataItemClass(item.Key)">
                 @if (DevbookMetadataDisplay.ShouldShowLabel(item.Key))
                 {
                     <strong>@item.Key</strong>
@@ -1362,8 +1398,25 @@
     private static bool HasVisibleMetadata(IReadOnlyDictionary<string, string> metadata, IReadOnlyList<string> links) =>
         VisibleMetadata(metadata).Any() || links.Count > 0;
 
+    /// <summary>
+    /// The fields drawn as rows: everything but what the header already carries,
+    /// the <c>type</c> the heading draws as a mark, and the nine decision and review
+    /// state fields.
+    /// <para>
+    /// The nine are not chapter content — contract 16 says a view draws them beside
+    /// the status and never as rows in the body — so they come off the strip here
+    /// and are said once, as <see cref="DomainDevbookDecisionState"/>'s line beside
+    /// the status in the header. <c>deployment</c>, <c>tests</c>, <c>date</c> and
+    /// the other ordinary fields stay rows. <c>ext.*</c> keys stay rows too, marked
+    /// as extension keys by their chip's class rather than hidden: opaque here is not
+    /// the same as absent.
+    /// </para>
+    /// </summary>
     private static IEnumerable<KeyValuePair<string, string>> VisibleMetadata(IReadOnlyDictionary<string, string> metadata) =>
-        metadata.Where(pair => !HeaderMetadataKeys.Contains(pair.Key) && !IsMarkedTypeRow(pair));
+        metadata.Where(pair => !HeaderMetadataKeys.Contains(pair.Key) && !IsMarkedTypeRow(pair) && !DevbookSchema.IsStateField(pair.Key));
+
+    private static string MetadataItemClass(string key) =>
+        DevbookSchema.IsExtensionKey(key) ? "domain-metadata__item domain-metadata__item--extension" : "domain-metadata__item";
 
     /// <summary>Whether this row is the <c>type</c> the heading above it is
     /// already drawing as a mark. Only when the value is one the marker knows: an

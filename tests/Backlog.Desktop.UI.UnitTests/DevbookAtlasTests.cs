@@ -66,7 +66,19 @@ public sealed class DevbookAtlasReaderTests
         Assert.DoesNotContain(graph.Edges, edge => edge.Kind == "contains");
         Assert.Contains(graph.Edges, edge => edge.Kind == "related");
         Assert.Contains(graph.Edges, edge => edge.Kind == "depends-on");
-        Assert.Contains(graph.Edges, edge => edge.Kind == "implements");
+    }
+
+    /// <summary><c>implements</c> belonged to the retiring <c>.backlog</c> folder,
+    /// and contract 16 stopped drawing it. An index that still carries one keeps it
+    /// out of the picture rather than claiming a relationship the convention no
+    /// longer does.</summary>
+    [Fact]
+    public void An_implements_edge_is_no_longer_drawn()
+    {
+        var graph = Read();
+
+        Assert.DoesNotContain(graph.Edges, edge => edge.Kind == "implements");
+        Assert.DoesNotContain(graph.Edges, edge => edge.Target == ".arc42/05-building-block-view.md#backlog");
     }
 
     /// <summary><c>related</c> is written on both chapters, so the same pair
@@ -146,11 +158,12 @@ public sealed class DevbookAtlasReaderTests
     {
         var graph = Read();
 
-        // One `related` (deduplicated) and one `implements` out; nothing in. The
-        // `contains` edge to its own chapter is not counted.
+        // One `related` (deduplicated) out; nothing in. The `contains` edge to its
+        // own chapter is not counted, and neither is the `implements` edge, which
+        // is no longer drawn.
         var backlog = NodeFor(graph, ".domain/tasks/domain.md");
 
-        Assert.Equal(2, backlog.OutDegree);
+        Assert.Equal(1, backlog.OutDegree);
         Assert.Equal(0, backlog.InDegree);
 
         Assert.Equal(1, NodeFor(graph, ".domain/context-map.md").InDegree);

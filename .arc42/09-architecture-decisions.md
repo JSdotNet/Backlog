@@ -200,3 +200,11 @@ related: [".arc42/04-solution-strategy.md"]
   gathered effort over a person-owned velocity) and never overrides a window a
   person moved; an item expands on the timeline into the tasks it gathers, sized
   by effort, with progress read from Tasks and never stored.
+- **[ADR 0014 — Attachments travel through a blob store beside the replica; the sync service is the only door](adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md)**
+  *(proposed)*: a phone capture's files — pictures, PDFs, documents — go into one
+  Azure Storage container beside the Cosmos replica, keyed by owner and
+  attachment id, and every byte passes through the sync service's owner-scoped,
+  size-capped, type-checked `PUT`/`GET` rather than a SAS URL on the device. The
+  capture document carries metadata only and is posted after its files; the
+  acknowledgement tombstone releases them and a 30-day lifecycle rule is the
+  backstop. Task attachments stay machine-local.

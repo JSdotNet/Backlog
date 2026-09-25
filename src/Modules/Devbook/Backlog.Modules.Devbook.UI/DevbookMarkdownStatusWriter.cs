@@ -1,4 +1,5 @@
 using Backlog.Modules.Devbook.Abstractions;
+using Backlog.UI.Components.Devbook;
 using System.Text.RegularExpressions;
 
 namespace Backlog.Desktop.UI.Devbook;
@@ -17,13 +18,25 @@ namespace Backlog.Desktop.UI.Devbook;
 /// <c>IsNullOrWhiteSpace</c> would have kept compiling and silently turned a
 /// clear into a no-op, and an accidental null anywhere upstream would have
 /// become a destructive write in folders where the status is required.</para>
+///
+/// <para>The folder is read off the prefix the caller already hands in, in
+/// either spelling — <c>.arc42/</c> or <c>.devbook/arc42/</c> — because three
+/// contract-16 rules depend on it, and every one of them is about what ends up in
+/// the file. Where a folder rests at <c>active</c> by omission, setting
+/// <c>active</c> deletes the line rather than writing the spelling the convention
+/// reports. A decision rung outside <c>domain/</c> is refused, as a blank is: it
+/// is not in that folder's vocabulary. And in <c>domain/</c>, a write that moves a
+/// chapter off a rung takes the record that no longer stands with it, in the same
+/// write — see <see cref="RecordFieldsThatNoLongerStand"/>.</para>
 /// </summary>
 internal static class DevbookMarkdownStatusWriter
 {
     private static readonly Regex Heading = new("^(#{1,6})[ \\t]+(.+?)\\s*$", RegexOptions.Compiled);
 
     /// <summary>Set the heading's status, inserting the field — or the whole
-    /// fence — when it is not there yet.</summary>
+    /// fence — when it is not there yet. The resting value in a folder that rests
+    /// by omission is a removal instead, and a decision rung outside
+    /// <c>domain/</c> is refused.</summary>
     public static void UpdateStatus(string folderRoot, string itemPath, string folderPrefix, string status)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(folderRoot);
@@ -31,14 +44,46 @@ internal static class DevbookMarkdownStatusWriter
         ArgumentException.ThrowIfNullOrWhiteSpace(folderPrefix);
         ArgumentException.ThrowIfNullOrWhiteSpace(status);
 
+        var folder = DevbookFolders.FromPath(folderPrefix);
+        var value = status.Trim().ToLowerInvariant();
+
+        // Refused before the file is opened, so a refused write leaves no trace.
+        // Outside domain/ a rung is not in the folder's vocabulary at all, and
+        // writing one would put a violation into the file on purpose.
+        if (DevbookSchema.IsDecisionRung(value) && !DevbookSchema.AllowsDecisionRungs(folder))
+        {
+            throw new ArgumentException(
+                $"'{value}' is a decision rung, and only domain/ has decision rungs: {itemPath}", nameof(status));
+        }
+
+        if (DevbookSchema.IsResting(folder, value))
+        {
+            RemoveStatus(folderRoot, itemPath, folderPrefix);
+            return;
+        }
+
         var document = Open(folderRoot, itemPath, folderPrefix);
-        UpsertStatus(document.Lines, document.HeadingIndex, status.Trim().ToLowerInvariant());
+        UpsertStatus(document.Lines, document.HeadingIndex, value);
+
+        if (DevbookSchema.AllowsDecisionRungs(folder))
+        {
+            var fenceIndex = FindFence(document.Lines, document.HeadingIndex);
+            RemoveFields(document.Lines, fenceIndex, RecordFieldsThatNoLongerStand(value));
+
+            // Writing a rung is what ends a review: the rule has approval delete
+            // the triad in the same change, because an approved chapter carries
+            // the decision and not the road to it. The product offers no rung, so
+            // this is only reached by an approval gate calling in directly.
+            if (DevbookSchema.IsDecisionRung(value)) RemoveFields(document.Lines, fenceIndex, DevbookSchema.ReviewFields);
+        }
+
         document.Save();
     }
 
     /// <summary>
     /// Delete the heading's <c>status</c> line, leaving the fence and every other
-    /// line exactly as they were.
+    /// line exactly as they were — save, in <c>domain/</c>, a decision record,
+    /// which cannot stand once the rung it records is gone.
     ///
     /// <para><b>The fence is never removed, even when the status was the only
     /// thing in it.</b> The fence is what marks a heading as an addressable
@@ -49,9 +94,9 @@ internal static class DevbookMarkdownStatusWriter
     /// tidying the fence away would silently drop the chapter out of the graph.</para>
     ///
     /// <para>A no-op where there is nothing to remove — a heading with no fence,
-    /// or a fence that states no status. Neither is an error: both are already the
-    /// state the caller asked for, and the file is left untouched rather than
-    /// rewritten identically.</para>
+    /// or a fence that states no status and carries no stranded record. Neither is
+    /// an error: both are already the state the caller asked for, and the file is
+    /// left untouched rather than rewritten identically.</para>
     /// </summary>
     public static void RemoveStatus(string folderRoot, string itemPath, string folderPrefix)
     {
@@ -59,10 +104,77 @@ internal static class DevbookMarkdownStatusWriter
         ArgumentException.ThrowIfNullOrWhiteSpace(itemPath);
         ArgumentException.ThrowIfNullOrWhiteSpace(folderPrefix);
 
+        var folder = DevbookFolders.FromPath(folderPrefix);
         var document = Open(folderRoot, itemPath, folderPrefix);
-        if (!TryRemoveStatus(document.Lines, document.HeadingIndex)) return;
+
+        var changed = TryRemoveStatus(document.Lines, document.HeadingIndex);
+        if (DevbookSchema.AllowsDecisionRungs(folder))
+        {
+            var fenceIndex = FindFence(document.Lines, document.HeadingIndex);
+            changed |= RemoveFields(document.Lines, fenceIndex, RecordFieldsThatNoLongerStand(null)) > 0;
+        }
+
+        if (!changed) return;
 
         document.Save();
+    }
+
+    /// <summary>
+    /// The decision-record fields that cannot stand beside
+    /// <paramref name="status"/>: none under <c>accepted</c>, which stands on both
+    /// records; the three <c>accepted-*</c> under <c>approved</c>, since the
+    /// acceptance is gone and the approval it stood on is not; and all six under
+    /// anything else, absent included, because the chapter is off the rungs
+    /// altogether.
+    ///
+    /// <para>Deleted in the same write as the status, as the rule asks. A record
+    /// left behind on a chapter no longer claiming its rung is itself reported, so
+    /// a status change that stranded one would trade one violation for another.
+    /// Asked by <see cref="DevbookChapterText"/> too, whose merge applies a status
+    /// by the same rule.</para>
+    /// </summary>
+    internal static IReadOnlyList<string> RecordFieldsThatNoLongerStand(string? status)
+    {
+        var value = status?.Trim();
+        if (string.Equals(value, DevbookSchema.DecisionRungs[1], StringComparison.OrdinalIgnoreCase)) return [];
+        if (string.Equals(value, DevbookSchema.DecisionRungs[0], StringComparison.OrdinalIgnoreCase)) return DevbookSchema.AcceptanceRecordFields;
+
+        return DevbookSchema.DecisionRecordFields;
+    }
+
+    /// <summary>Delete the named fields from the fence opened at
+    /// <paramref name="fenceIndex"/>, and only from it: the scan stops at the
+    /// closing fence, as <see cref="FindStatusLine"/>'s does, so a field of the
+    /// same name under another heading is never touched. Returns how many lines
+    /// went.</summary>
+    internal static int RemoveFields(List<string> lines, int fenceIndex, IReadOnlyList<string> fields)
+    {
+        if (fenceIndex < 0 || fields.Count == 0) return 0;
+
+        var removed = 0;
+        var i = fenceIndex + 1;
+        while (i < lines.Count && !lines[i].TrimStart().StartsWith("```", StringComparison.Ordinal))
+        {
+            if (IsField(lines[i], fields))
+            {
+                lines.RemoveAt(i);
+                removed++;
+                continue;
+            }
+
+            i++;
+        }
+
+        return removed;
+    }
+
+    private static bool IsField(string line, IReadOnlyList<string> fields)
+    {
+        var trimmed = line.TrimStart();
+        var colon = trimmed.IndexOf(':');
+        if (colon <= 0) return false;
+
+        return fields.Contains(trimmed[..colon].Trim(), StringComparer.OrdinalIgnoreCase);
     }
 
     /// <summary>Resolve the item path to a file inside the folder, read it, and

@@ -45,7 +45,7 @@
         <div class="md-block-row" data-block="@index">
             <div class="md-block @(NotesOn(index).Count > 0 ? "md-block--commented" : string.Empty) @AffordanceClass">
                 @RenderContent(block, index)
-                @if (CanComment || CanRewrite)
+                @if ((CanComment || CanRewrite) && !IsReviewNote(index))
                 {
                     @* The corner, as one row. Each control used to anchor itself
                        to it, which was fine while there was only one and put the
@@ -147,6 +147,8 @@
                    heading above it is drawing that same value as a mark. *@
                 <MetadataChapterView Metadata="@ShownMetadataOf(fence)"
                                      Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder)"
+                                     Folder="@DevbookFolder"
+                                     FileName="@DevbookDocumentPath"
                                      ShowFields="@RenderDevbookMetadataFields"
                                      CanEditStatus="@CanEditDevbookStatus"
                                      OnStatusChanged="status => ReportStatusAsync(index, status)"
@@ -232,6 +234,7 @@
                             InlineTarget="@InlineTarget"
                             RenderDevbookMetadata="@RenderDevbookMetadata"
                             RenderDevbookMetadataFields="@RenderDevbookMetadataFields"
+                            RenderDevbookAnnotations="@IsDevbookDocument"
                             CanEditDevbookStatus="@CanEditDevbookStatus"
                             DevbookFolder="@DevbookFolder"
                             OnDevbookNavigate="@OnDevbookNavigate"
@@ -1155,7 +1158,30 @@
     /// prose. Neither is anything an entry's body says.</para>
     /// </summary>
     private MarkdownRender.MarkdownInlineTarget? InlineTarget =>
-        RenderDevbookMetadata || !string.IsNullOrWhiteSpace(DevbookDocumentPath)
+        IsDevbookDocument
             ? DevbookInlineTargets.For(DevbookDocumentPath, DevbookHrefFor, OnDevbookNavigate)
             : null;
+
+    /// <summary>Whether a host has said either of the two things that make this a
+    /// knowledge document — see <see cref="InlineTarget"/> for why two. It is also
+    /// what turns an <c>annotation</c> fence into a review note: every chapter
+    /// view in the product says one of them, and an entry's body says neither, so
+    /// a fence there stays the fenced block it always was.</summary>
+    private bool IsDevbookDocument =>
+        RenderDevbookMetadata || !string.IsNullOrWhiteSpace(DevbookDocumentPath);
+
+    /// <summary>
+    /// Whether the block at this index is a devbook review note, drawn as one.
+    ///
+    /// <para>Asked so the note's row offers neither affordance. A remark on a
+    /// review note is a remark on somebody's question rather than on the chapter,
+    /// and a rewrite of one would be this app writing an <c>annotation</c> fence —
+    /// which it never does: the fence's one writer is the devbook plugin's
+    /// <c>annotations.mjs</c> (local ADR 0012 §6). The index still counts, so
+    /// every block after the note keeps the anchor a remark was left on.</para>
+    /// </summary>
+    private bool IsReviewNote(int index) =>
+        IsDevbookDocument
+        && Blocks[index] is MdCode fence
+        && DevbookAnnotationFence.IsAnnotationBlock(fence.Language);
 }

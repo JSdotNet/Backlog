@@ -68,8 +68,8 @@ It also registers `hooks/telemetry-forwarder.mjs` for `PreToolUse`, `PostToolUse
 `/telemetry` endpoint — beside `/mcp`, on the same port and behind the same bearer token — and
 the app attributes the tool calls, delegated agents, token usage and context gauge to the
 delivery run that session is driving, which the Sessions pane shows under the run's row. The
-port and token come from `BACKLOG_MCP_PORT` and `BACKLOG_MCP_TOKEN`, the variables the
-repository's `.mcp.json` reads, else from the app's own `settings.json`. The tool-call events
+port and token come from `BACKLOG_MCP_PORT` and `BACKLOG_MCP_TOKEN`, else from the app's own
+`settings.json`. The tool-call events
 are matched to shell, edits, sub-agents, skills and MCP tools, the calls a run's figures are
 read for, so a session is not paying a process spawn on every `Read` and `Grep`. The script
 needs Node, drops the tool's output before posting, gives up after two seconds and exits 0 on

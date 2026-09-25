@@ -1,0 +1,68 @@
+@*
+    The story points behind the tasks ticked off each week — the same tasks as the
+    count beside it, weighed by their estimates.
+
+    An unestimated task adds nothing and is not guessed at; the note says how many
+    there were, so a light week can be told apart from a week of unestimated work.
+*@
+@inherits DashboardPartBase<TaskThroughputInsight>
+@inject ITaskInsights Insights
+
+<PartFrame Title="Effort completed"
+           Note="@Note"
+           Busy="Status == MetricStatusKind.Loading"
+           OnRefresh="RefreshAsync"
+           TestId="dashboard-tasks-effort">
+    @if (IsReady)
+    {
+        <MetricBars Points="@Points"
+                    Label="@($"Story points completed per week, {MetricFormat.Compact(Value!.Effort)} in all")"
+                    BucketHeading="Week"
+                    ValueHeading="Points"
+                    HighlightLast="true"
+                    FormatValue="MetricFormat.Compact"
+                    TestId="dashboard-tasks-effort-bars" />
+    }
+    else
+    {
+        <MetricStatus Kind="Status" Message="@StatusMessage" TestId="dashboard-tasks-effort-status" />
+    }
+</PartFrame>
+
+@code {
+    private string Note
+    {
+        get
+        {
+            var basis = "The effort estimates, in story points, of the tasks ticked off each ISO week. "
+                + "The repository chips narrow it; the machine filter does not apply.";
+
+            if (IsReady && Value!.Unestimated > 0)
+            {
+                basis += Value!.Unestimated == 1
+                    ? " One completed task had no estimate and adds nothing, so this is a floor."
+                    : $" {Value!.Unestimated} completed tasks had no estimate and add nothing, so this is a floor.";
+            }
+
+            return basis;
+        }
+    }
+
+    private IReadOnlyList<MetricPoint> Points =>
+        IsReady
+            ? [.. Value!.EffortPerWeek.Select(point => new MetricPoint(point.Label, point.Value))]
+            : [];
+
+    protected override Task<InsightResult<TaskThroughputInsight>> FetchAsync(CancellationToken cancellationToken) =>
+        Insights.GetThroughputAsync(Scope, cancellationToken);
+
+    protected override bool IsEmpty(TaskThroughputInsight value) => value.Effort == 0m;
+
+    protected override string EmptyMessage =>
+        "No estimated task in scope was ticked off in this window.";
+
+    // Nothing to drop: the tasks insight reads the local backlog afresh on every call.
+    protected override void InvalidateSource()
+    {
+    }
+}

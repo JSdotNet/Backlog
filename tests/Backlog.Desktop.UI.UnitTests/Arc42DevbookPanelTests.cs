@@ -221,10 +221,12 @@ public sealed class Arc42DevbookPanelTests : IDisposable
         // file's top heading, so the write addresses the file itself and lands on
         // its own status fence.
         component.WaitForAssertion(() => Assert.Single(component.FindAll(".file-view__header .devbook-record__headline select")));
-        component.Find(".file-view__header .devbook-record__headline select").Change("accepted");
+        // `proposed`: under contract 16 `accepted` is a decision rung, domain/'s
+        // alone — the select does not offer it and the writer refuses it here.
+        component.Find(".file-view__header .devbook-record__headline select").Change("proposed");
 
         component.WaitForAssertion(
-            () => Assert.Contains("status: accepted", File.ReadAllText(chapterPath), StringComparison.Ordinal),
+            () => Assert.Contains("status: proposed", File.ReadAllText(chapterPath), StringComparison.Ordinal),
             TimeSpan.FromSeconds(5));
 
         var settled = File.ReadAllText(chapterPath);

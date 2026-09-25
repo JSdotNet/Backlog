@@ -320,8 +320,15 @@ internal static class DevbookAtlasReader
     /// every chapter and its own file, which is most of the graph and says nothing
     /// a reader cannot already see from the clustering. It is used to work out
     /// which file a chapter belongs to and then dropped.</para>
+    ///
+    /// <para><c>implements</c> is not among them either, any more. It was
+    /// <c>.backlog</c>'s way of saying what an item delivers, and <c>.backlog</c> is
+    /// retiring: devbook contract 16 no longer draws it as an edge, and a map that
+    /// did would show relationships the convention itself has stopped claiming. The
+    /// field still parses — an older checkout still says it — it is only no longer
+    /// drawn.</para>
     /// </summary>
-    private static readonly string[] DrawnEdgeKinds = ["related", "depends-on", "implements"];
+    private static readonly string[] DrawnEdgeKinds = ["related", "depends-on"];
 
     /// <summary>
     /// The atlas from a scoped <c>_meta/graph.json</c> — the fallback rung, for a
@@ -551,8 +558,10 @@ internal static class DevbookAtlasReader
         foreach (var entry in entries)
         {
             var fileId = fileOf.GetValueOrDefault(entry.Id, entry.Id);
-            var path = paths.GetValueOrDefault(fileId, entry.Path);
-            var segments = path.Replace('\\', '/').Split('/', StringSplitOptions.RemoveEmptyEntries);
+            // Folded to the root layout's spelling first, so the segment under
+            // the folder is the group in .devbook/arc42/adr/… as in .arc42/adr/….
+            var path = DevbookLayout.ConventionalPath(paths.GetValueOrDefault(fileId, entry.Path));
+            var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
 
             groups[entry.Id] = segments.Length > 2
                 ? Titleise(segments[1])

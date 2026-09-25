@@ -361,10 +361,11 @@
 
                         @* The pull requests the session linked itself to, drawn the way
                            a run draws its own: the Integrations reference, "PR #n", an
-                           anchor to GitHub. One the row's run already shows is left to
-                           the run's line, so a pull request is one reference on
-                           screen. *@
-                        @if (row.PullRequests.Count > 0)
+                           anchor to GitHub. Only on a row with no run: where there is
+                           one, they go to its line at the right, under State, with the
+                           run's own (SessionRow.ReferencesFor), so a pull request is one
+                           reference on screen and always in the same place. *@
+                        @if (row.Runs.Count == 0 && row.PullRequests.Count > 0)
                         {
                             <span class="data-table__detail sessions-table__pull-requests" data-testid="sessions-pull-requests">
                                 @foreach (var pr in row.PullRequests)
@@ -448,7 +449,7 @@
                         <div class="sessions-runs">
                             @foreach (var run in row.Runs)
                             {
-                                <DeliveryRunLine @key="@($"{run.Dashboard}/{run.Worktree}/{run.Id}")" Run="run" OnOpenTask="OnOpenTask" />
+                                <DeliveryRunLine @key="@($"{run.Dashboard}/{run.Worktree}/{run.Id}")" Run="run" References="@row.ReferencesFor(run)" OnOpenTask="OnOpenTask" />
                             }
                         </div>
                     }

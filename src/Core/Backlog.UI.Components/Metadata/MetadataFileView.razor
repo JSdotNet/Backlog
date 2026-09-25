@@ -49,6 +49,9 @@
                   OnStatusChanged="@OnStatusChanged"
                   OnNavigate="@OnNavigate"
                   HrefFor="@HrefFor"
+                  Folder="@Folder"
+                  Level="DevbookMetadataLevel.File"
+                  FileName="@FileName"
                   AriaLabel="@AriaLabel"
                   CssClass="@CssClass"
                   TestId="@TestId"
@@ -110,6 +113,17 @@ else
     /// instead of the select when it is false.</summary>
     [Parameter]
     public bool CanEditStatus { get; set; } = true;
+
+    /// <summary>The devbook folder this file's block was read from, which turns
+    /// on the findings — see <see cref="MetadataView.Folder"/>. Unknown, the
+    /// default, reports nothing.</summary>
+    [Parameter]
+    public DevbookFolder Folder { get; set; } = DevbookFolder.Unknown;
+
+    /// <summary>The file the block is in, by name or path. Only read with
+    /// <see cref="Folder"/>.</summary>
+    [Parameter]
+    public string? FileName { get; set; }
 
     /// <summary>The group's name for a screen reader. A file's record is worth
     /// naming for the file — several panes may be open at once — so a host passes

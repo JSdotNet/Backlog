@@ -358,7 +358,7 @@ public static class MarkdownPreview
     /// parsed as prose, and every fence inside it as a block of its own.
     /// </para>
     /// </summary>
-    private static (char Marker, int Length)? OpeningFence(string trimmed)
+    internal static (char Marker, int Length)? OpeningFence(string trimmed)
     {
         if (trimmed.Length < 3 || trimmed[0] is not ('`' or '~')) return null;
 
@@ -384,7 +384,7 @@ public static class MarkdownPreview
     /// rest of somebody's private annotation in text that says it carries none.
     /// </para>
     /// </summary>
-    private static bool ClosesFence(string line, (char Marker, int Length) fence)
+    internal static bool ClosesFence(string line, (char Marker, int Length) fence)
     {
         var trimmed = line.TrimStart();
 
@@ -394,6 +394,34 @@ public static class MarkdownPreview
             // An info string on a closing fence is not a closing fence. Only the
             // run and whatever whitespace follows it.
             && trimmed[run.Length..].Trim().Length == 0;
+    }
+
+    /// <summary>
+    /// One line's effect on whether the reading is inside a fence, for the two
+    /// walks that have to agree with <see cref="Parse"/> about where code is
+    /// without building its blocks — the footnote collector and
+    /// <see cref="ToggleTask"/>. True when the line is a fence's own or sits
+    /// inside one, so the caller skips it.
+    /// <para>
+    /// Both used to flip a flag on every line starting with three backticks. That
+    /// is the same wrong rule <see cref="ClosesFence"/> exists to replace, and it
+    /// disagreed with the parse exactly where a fence holds a fence: inside a
+    /// <c>````annotation</c> note quoting a code sample, the flag read the sample
+    /// as the prose between two blocks, so a <c>- [ ]</c> in it got a task index
+    /// the parse never handed out and every real checkbox after it toggled the
+    /// line above its own.
+    /// </para>
+    /// </summary>
+    private static bool StepFence(string line, ref (char Marker, int Length)? open)
+    {
+        if (open is { } fence)
+        {
+            if (ClosesFence(line, fence)) open = null;
+            return true;
+        }
+
+        open = OpeningFence(line.Trim());
+        return open is not null;
     }
 
     /// <summary>How deep a list line is indented, with a tab counting as four
@@ -473,17 +501,11 @@ public static class MarkdownPreview
     {
         var definitions = new Dictionary<string, string>(StringComparer.Ordinal);
 
-        var inFence = false;
+        (char Marker, int Length)? open = null;
         foreach (var line in lines)
         {
-            if (line.TrimStart().StartsWith("```", StringComparison.Ordinal))
-            {
-                inFence = !inFence;
-                continue;
-            }
-
             // A `[^1]:` inside a fence is a code sample, exactly as a `- [ ]` is.
-            if (inFence) continue;
+            if (StepFence(line, ref open)) continue;
 
             var match = FootnoteDefinitionRegex.Match(line.TrimEnd());
             if (match.Success) definitions.TryAdd(match.Groups["label"].Value, match.Groups["text"].Value.Trim());
@@ -614,18 +636,12 @@ public static class MarkdownPreview
         if (taskIndex < 0) return source;
 
         var lines = source.Replace("\r\n", "\n").Split('\n');
-        var inFence = false;
+        (char Marker, int Length)? open = null;
         var seen = 0;
 
         for (var i = 0; i < lines.Length; i++)
         {
-            if (lines[i].TrimStart().StartsWith("```", StringComparison.Ordinal))
-            {
-                inFence = !inFence;
-                continue;
-            }
-
-            if (inFence) continue;
+            if (StepFence(lines[i], ref open)) continue;
 
             // Matched against the trimmed line so the test is IsTaskLine's, but
             // spliced into the original: the marker sits before any trailing
@@ -772,6 +788,47 @@ public interface IMarkdownMetadataReader
 public sealed record MarkdownMetadata(object? Value, bool Done, IReadOnlyList<string> Tags)
 {
     public static MarkdownMetadata None { get; } = new(null, false, []);
+}
+
+/// <summary>
+/// A fence as a line opens it: the marker, how many of it, and the info string —
+/// which <see cref="MarkdownPreview"/> reads whole as the language, and so does
+/// this.
+/// <para>
+/// Public so the hand-rolled block readers in the Devbook panels can ask the
+/// question the way <see cref="MarkdownPreview"/> does instead of each keeping a
+/// "starts with three backticks" of its own. That shortcut ends a fence at the
+/// first inner <c>```</c>, and the devbook convention's <c>annotation</c> note is
+/// exactly the fence that holds one: a note quoting a code sample is opened with
+/// four backticks so the sample can sit inside it, and a reader that closed it at
+/// three turned the rest of somebody's review note into the chapter's prose.
+/// </para>
+/// </summary>
+/// <param name="Marker">The fence character, <c>`</c> or <c>~</c>.</param>
+/// <param name="Length">How many of it opened the fence; a closing run must be at
+/// least this long.</param>
+/// <param name="Language">The info string, trimmed — empty when the fence named
+/// none.</param>
+public readonly record struct MarkdownFence(char Marker, int Length, string Language)
+{
+    /// <summary>The fence <paramref name="line"/> opens, or null when it opens
+    /// none. Leading whitespace is allowed, as <see cref="MarkdownPreview"/> allows
+    /// it.</summary>
+    public static MarkdownFence? Open(string? line)
+    {
+        if (line is null) return null;
+
+        var trimmed = line.Trim();
+        return MarkdownPreview.OpeningFence(trimmed) is { } run
+            ? new MarkdownFence(run.Marker, run.Length, trimmed[run.Length..].Trim())
+            : null;
+    }
+
+    /// <summary>Whether <paramref name="line"/> closes this fence by CommonMark's
+    /// rule: its own marker, at least as many, and nothing after the run but
+    /// whitespace.</summary>
+    public bool IsClosedBy(string? line) =>
+        line is not null && MarkdownPreview.ClosesFence(line, (Marker, Length));
 }
 
 /// <summary>

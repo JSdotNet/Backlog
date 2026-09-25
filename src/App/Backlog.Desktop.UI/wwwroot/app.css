@@ -479,7 +479,13 @@ h1, h2, h3 {
     display: flex;
     align-items: center;
     gap: var(--spacing-md);
-    flex-wrap: nowrap;
+    /* Wraps rather than clipping. With `nowrap` a bar wider than its column lost
+       whatever sat at its right edge to `overflow: hidden` below, and what sits
+       there is the status radiogroup: between 30rem and the ~44rem the bar needs,
+       In progress and Done were drawn half-cut or not at all and could not be
+       pressed. A group that does not fit now takes the next row instead. */
+    flex-wrap: wrap;
+    row-gap: var(--spacing-xs);
     min-width: 0;
     overflow: hidden;
     margin-bottom: var(--spacing-md);
@@ -513,7 +519,8 @@ h1, h2, h3 {
     /* A zero basis, so the strip takes what the other groups leave rather than
        competing with them for it: at `auto` a long pile shrank the statuses too,
        clipping them through a chip's name. What the strip cannot fit is the
-       toggle's to reach. */
+       toggle's to reach. The bar wraps too, and at `auto` a long pile would
+       claim a row of its own there and push the statuses onto a third. */
     flex: 1 1 0;
     /* One row of whole chips. The strip wraps, and is cut to the height of one
        chip, so a chip that does not fit drops out of view entirely instead of
@@ -560,12 +567,17 @@ h1, h2, h3 {
     flex: 0 0 auto;
 }
 
-/* Neither grows nor shrinks. It used to shrink with the tag pile, and a shrunk
-   strip is a clipped one — `.filter-group { overflow: hidden }` — so a chip that
-   was pressed could be the one cut off, squeezed by whatever else on the bar held
-   its room. The pile is what gives way, and the open-work summary after it. */
+/* Pinned against the pile, and free to wrap on a row of its own. It used to
+   shrink with the tag pile, and a shrunk strip is a clipped one —
+   `.filter-group { overflow: hidden }` — so a chip that was pressed could be the
+   one cut off. The pile has a zero basis now and the bar wraps, so the strip only
+   shrinks when it is alone on a row narrower than itself, and then it wraps its
+   chips instead of clipping them. Every status stays on screen at every width:
+   this is the only place to pick one. The pile is what gives way, and the
+   open-work summary after it. */
 .filter-group--status {
-    flex: 0 0 auto;
+    flex: 0 1 auto;
+    flex-wrap: wrap;
     margin-left: auto;
 }
 
@@ -1565,11 +1577,10 @@ h1, h2, h3 {
   column is wider now that the panel is the fixed half, which makes that squeeze
   rarer rather than impossible: the reader can still drag the panel out to 48rem.
 
-  Status collapses first and areas never do. An area exists because somebody typed
-  it and its count is where the work is; status is one of a fixed few, and the
-  chosen one is the only one that has to stay legible. Collapsing gives back most
-  of those 369px, which is the only move here that actually buys the areas their
-  room — tightening the gaps first would have bought about 20px of it.
+  Status used to collapse first, down to the chosen chip, to buy the other groups
+  their room. It no longer collapses at all: a collapsed radiogroup offered no way
+  to choose another status, and the bar wraps now, so the room comes from a second
+  row rather than from hiding the only control for the question.
 */
 
 /* 60rem: the open-work summary keeps "N open" and lets the points go. Measured in
@@ -1640,9 +1651,8 @@ h1, h2, h3 {
    "N open" with the gaps come to about 47rem. The summary is what gives way, never
    the strip: it keeps the number, its tooltip and accessible name keep the whole
    sentence, and since it neither shrinks nor comes before the strip, a column too
-   narrow even for the number runs the summary off the bar's end while the strip
-   stays exactly where it would be without it. The strip's own collapse is left at
-   30rem — collapsed, it offers only the chosen chip. */
+   narrow even for the number wraps the summary onto the next row while the strip
+   stays exactly where it would be without it. */
 @container backlog-list (max-width: 47rem) {
     .open-work-summary__noun {
         display: none;
@@ -1652,8 +1662,8 @@ h1, h2, h3 {
 /* 38rem: the width the row's trailing cluster stops fitting at.
 
    This number used to be attributed to the status strip as well, back when that
-   strip was six chips and 369px wide. It is four chips and about 230px now, so the
-   status rule moved down to the 30rem step below, where it is actually true. It
+   strip was six chips and 369px wide. The status strip has no step of its own any
+   more — the bar wraps it onto a row of its own instead. It
    carried the tag pile too, until the pile was measured and moved up to the step
    above — the cluster's width never depended on either of them. */
 @container backlog-list (max-width: 38rem) {
@@ -1705,23 +1715,8 @@ h1, h2, h3 {
     }
 }
 
-/* 30rem: the four-chip strip (~230px) plus the gap between the groups plus the
-   ~200px the scope pile needs comes to about 440px, so it stops fitting a shade
-   below 480px. Below this the group shows the chosen status and nothing else,
-   which is the one chip a reader is looking for.
-
-   It used to collapse at 38rem, when the strip was six chips and 369px wide.
-   Losing Done and Archived shrank it, so the step that hides it moved down with
-   it rather than going on hiding three chips at a width where four fit — a bar
-   that collapses before it has to is a bar lying about what it can show. */
-@container backlog-list (max-width: 30rem) {
-    .filter-group--status .chip:not(.chip--active):not(:first-child) {
-        display: none;
-    }
-}
-
 /* 26rem: down here the column is close to the 20rem the separator can drag it to,
-   and one chip per group is all that fits. The count goes with the padding — a
+   and every chip is worth the width it saves. The count goes with the padding — a
    name and a number in a chip this narrow is neither. */
 @container backlog-list (max-width: 26rem) {
     .filter-bar {
@@ -1736,7 +1731,8 @@ h1, h2, h3 {
         display: none;
     }
 
-    /* Nothing left to push away from: the groups are one chip each. */
+    /* Down here the statuses sit on a row of their own, and a wrapped strip reads
+       from the left edge like every other row in the column. */
     .filter-group--status {
         margin-left: 0;
     }
@@ -4499,6 +4495,37 @@ h1, h2, h3 {
     font-size: var(--font-size-lg);
 }
 
+/* The reader's pace: the typed figure and the strip choosing which pace places a
+   plan, on one line after the buttons that add to the plan. Wraps under them on a
+   narrow window rather than pushing the filters off the header. */
+.roadmap-pace {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.roadmap-pace__label,
+.roadmap-pace__note {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.roadmap-pace__label {
+    font-weight: 600;
+}
+
+.roadmap-pace__manual {
+    width: 5.5rem;
+}
+
+.roadmap-pace__option-value {
+    margin-left: var(--spacing-2xs);
+    color: var(--color-text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
 /* The cell the timeline is drawn in. It does not scroll: the height it is given is
    passed straight down to the chart, whose own bordered frame scrolls when a plan
    has more rows than the screen can show. `minmax(0, 1fr)` rather than `1fr`,
@@ -5056,6 +5083,12 @@ h1, h2, h3 {
     min-width: 0;
     min-height: 0;
     overflow: auto;
+    /* The table inside is wider than the pane and scrolls sideways, so its cells
+       are no measure of what a reader can see. This is: a run's details size to
+       it (below), and a stage flow wraps to the columns actually on screen rather
+       than running under the pane's edge. */
+    container-type: inline-size;
+    container-name: sessions-content;
 }
 
 .sessions-panel__notice {
@@ -5183,15 +5216,21 @@ h1, h2, h3 {
    row's whole first cell, and the size holds: a run is a run wherever it is. */
 /* Two blocks across the row the run spans: the figures and the skill from the left
    edge, under the session's name, and the references with the outcome at the right,
-   under the row's own State column. `row-reverse` is what puts the summary — which
+   under the row's own State column. The grid's areas are what put the summary — which
    comes first in the markup, because the work and the outcome are what matter first
-   — on the right without reordering the markup for the eye's sake. */
+   — on the right without reordering the markup for the eye's sake.
+
+   And a third block under both, across the whole row: the fold's panel. The stages
+   are drawn as one line of them, and a line of eleven stages needs every column the
+   table has rather than the width left of the summary. */
 .sessions-run {
-    display: flex;
-    flex-direction: row-reverse;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: var(--spacing-md);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+        "facts summary"
+        "panel panel";
+    align-items: start;
+    column-gap: var(--spacing-md);
     margin-top: var(--spacing-xs);
     min-width: 0;
     color: var(--color-text-secondary);
@@ -5200,9 +5239,9 @@ h1, h2, h3 {
 }
 
 .sessions-run__facts {
+    grid-area: facts;
     display: grid;
     gap: var(--spacing-2xs);
-    flex: 1 1 auto;
     min-width: 0;
 }
 
@@ -5220,11 +5259,11 @@ h1, h2, h3 {
    show that column. The same mechanism the heading row already uses to stay put, on
    the other axis. */
 .sessions-run__summary {
+    grid-area: summary;
     display: flex;
     flex-direction: column;
     align-items: flex-end;
     gap: var(--spacing-2xs);
-    flex: 0 0 auto;
     min-width: 0;
     position: sticky;
     right: 0;
@@ -5296,12 +5335,64 @@ h1, h2, h3 {
     text-overflow: clip;
 }
 
+/* The fold's panel: the whole row, and no wider than the visible pane less the cell's
+   own inset, so the diagram's right edge is on screen rather than under State.
+
+   Sticky along the left edge, the mirror of the summary on the right: when the table
+   is scrolled sideways, the panel stays where the reader is looking instead of
+   scrolling off with the first column.
+
+   `display: grid` would override `hidden`, so the hidden state is said again. */
+.sessions-run__panel {
+    grid-area: panel;
+    display: grid;
+    gap: var(--spacing-md);
+    position: sticky;
+    left: 0;
+    width: min(100%, calc(100cqi - 2 * var(--spacing-md)));
+    min-width: 0;
+    margin-top: var(--spacing-sm);
+}
+
+.sessions-run__panel[hidden] {
+    display: none;
+}
+
+.sessions-run__diagram {
+    display: grid;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+/* The Mermaid side of the switch draws the same one line of stages, which is a
+   strip a few boxes tall — not the chapter-sized picture the library's 18rem opening
+   height is sized for, which left bands of empty panel above and below it. */
+.sessions-run__artifact .diagram-view__rendered {
+    min-height: 0;
+}
+
+.sessions-run__diagram-note {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+/* The figures under the diagram, in as many columns as fit — the run's identity and
+   context, its tokens, its tool calls and its servers side by side on a wide pane,
+   stacked on a narrow one. */
 .sessions-run__details {
     display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+    gap: var(--spacing-md) var(--spacing-lg);
+    margin: 0;
+}
+
+.sessions-run__group {
+    display: grid;
     grid-template-columns: max-content minmax(0, 1fr);
+    align-content: start;
     gap: var(--spacing-2xs) var(--spacing-md);
-    margin: var(--spacing-xs) 0 0;
-    max-width: 48rem;
+    min-width: 0;
 }
 
 .sessions-run__details dt {
@@ -5331,6 +5422,12 @@ h1, h2, h3 {
     list-style: none;
 }
 
+/* A name and its figures, and each keeps a floor against the other. In a column a
+   quarter of the pane wide, unwrapping figures used to squeeze the name to nothing —
+   "43 calls · 31.8K out · …" with no stage to say whose — and a long server name
+   squeezes the figures just as hard the other way. So both shrink from their natural
+   width: the name down to a few characters and an ellipsis (the whole name is in its
+   title), the figures down to about ten characters, where they wrap at their dots. */
 .sessions-run__list li {
     display: flex;
     justify-content: space-between;
@@ -5339,16 +5436,19 @@ h1, h2, h3 {
 }
 
 .sessions-run__stage-name {
-    min-width: 0;
+    flex: 1 1 auto;
+    min-width: 4rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
 .sessions-run__stage-facts {
-    flex: 0 0 auto;
+    flex: 0 1 auto;
+    min-width: min(10rem, 60%);
     color: var(--color-text-secondary);
-    white-space: nowrap;
+    text-align: right;
+    white-space: normal;
 }
 
 /* A grid item in `.workspace` now, not a flex child of `.shell`. `flex` is
@@ -6535,6 +6635,23 @@ h1, h2, h3 {
 
 .domain-metadata__item strong {
     color: var(--color-primary);
+}
+
+/* An `ext.<plugin>.<key>` field: carried through untouched and owned by a
+   plugin, not the schema. Still a chip — opaque is not absent — but dashed, so it
+   does not read as one of the convention's own fields. */
+.domain-metadata__item--extension {
+    background: transparent;
+    outline: 1px dashed var(--color-border);
+    outline-offset: -1px;
+}
+
+/* A chapter's decision and review state, beside its status: "approved by X ·
+   date", "review: requested · reviewer Y". Quiet text rather than a badge,
+   because the badge beside it is already the state; this is who and when. */
+.domain-devbook__decision {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
 }
 
 .domain-metadata__link {

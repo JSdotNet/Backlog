@@ -272,6 +272,50 @@ public sealed class DevbookTypeMarkerReadSurfaceTests
         Assert.NotEmpty(plain.FindAll("pre.md-code"));
     }
 
+    [Fact]
+    public void An_opened_additional_page_is_marked_as_the_page_it_is()
+    {
+        // Contract 16: a domain/ context's additional page states its own filename
+        // as its type. The pane knows the file's path, and with it the value is a
+        // known type — drawn as the page sheet, named with what the file says, and
+        // its row gone like any other marked type's.
+        using var context = new BunitContext();
+
+        const string page = """
+            # Billing
+
+            ```meta
+            type: go-live-takeover
+            status: draft
+            ```
+
+            How the predecessor system's data was taken over.
+            """;
+
+        var pane = context.Render<FileView>(parameters => parameters
+            .Add(view => view.Name, "go-live-takeover.md")
+            .Add(view => view.Body, page)
+            .Add(view => view.TestId, "file")
+            .Add(view => view.RenderDevbookMetadata, true)
+            .Add(view => view.DevbookFolder, DevbookFolder.Domain)
+            .Add(view => view.DevbookDocumentPath, ".domain/billing/go-live-takeover.md"));
+
+        var mark = pane.Find(".file-view__header h3.file-view__name [data-testid='file-file-type-mark']");
+        Assert.Equal("devbook-type-marker--page", Modifier(mark));
+        Assert.Equal("type: go-live-takeover", mark.GetAttribute("aria-label"));
+
+        // The same file under another name is not that page, and keeps its word.
+        var elsewhere = context.Render<FileView>(parameters => parameters
+            .Add(view => view.Name, "domain.md")
+            .Add(view => view.Body, page)
+            .Add(view => view.TestId, "file")
+            .Add(view => view.RenderDevbookMetadata, true)
+            .Add(view => view.DevbookFolder, DevbookFolder.Domain)
+            .Add(view => view.DevbookDocumentPath, ".domain/billing/domain.md"));
+
+        Assert.Empty(elsewhere.FindAll(".file-view__header h3.file-view__name svg"));
+    }
+
     /// <summary>The value a rendered mark is drawing, read back off its modifier
     /// class — the same thing the stylesheet matches on.</summary>
     private static string Modifier(AngleSharp.Dom.IElement mark) =>

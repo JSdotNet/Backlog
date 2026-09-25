@@ -233,7 +233,16 @@ Deployment considerations:
   app pays no vault round-trip on cold start. See
   `docs/deployment/sync.md#the-device-token-signing-key`, which also covers what a
   rotation invalidates.
-- **No blob storage** — attachments live on the desktop's local file system.
+- **Attachment blob store** *(proposed, local ADR 0014; not provisioned)* — one
+  Storage account beside the Cosmos replica, private container `attachments`,
+  blobs keyed `{ownerId}/{attachmentId}`, Azurite in the AppHost locally. It
+  carries the files on a phone capture: devices upload and download only through
+  the sync service (`PUT`/`GET /api/sync/attachments/{id}`, owner-scoped from the
+  token, with a size cap and a content-type allowlist), and never hold a storage
+  credential. The capture document holds metadata only. The desktop's
+  acknowledgement tombstone releases a capture's blobs, and a 30-day lifecycle
+  rule removes anything left behind. A task's own attachment is unchanged: a path
+  on the desktop's local file system.
 - **Scale-to-zero** — Container Apps on the consumption plan costs nothing while
   nobody is syncing, which is most of the time for a personal tool.
 - **No keys in configuration** — the container app reaches Cosmos through a

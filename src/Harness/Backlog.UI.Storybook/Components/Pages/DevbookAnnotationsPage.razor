@@ -1,0 +1,179 @@
+@page "/devbook/annotations"
+
+<PageTitle>Review notes in the devbook — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Review notes"
+           Summary="A subpage of Devbook: the convention's second fence. An `annotation` fence is a review note the repository keeps in the chapter itself, directly under the passage it is about — shared review state, written by the devbook plugin's own tool and never by this app. `DevbookAnnotationFence` reads one and `DevbookAnnotationNote` draws it: labelled as a review note, its kind and its state stated, its thread in order, and nothing on it to press. It is not the person's own remark in the margin (local ADR 0011), and it is never drawn as the YAML it is written in, because a reader must not mistake a reviewer's question for what the chapter says."
+           Guidelines="@Rules">
+
+    <Story Name="An open comment"
+           Description="The rule's own three-line note — author, date, body — which is a complete note. Kind and state are left to their defaults, `comment` and `open`, and the note says so rather than leaving a reader to know the defaults.
+
+An open note carries the brand edge down its left: somebody is waiting on it."
+           Code="@NoteCode"
+           Source="@OpenComment"
+           SourceLabel="Fence">
+        <DevbookAnnotationNote Note="@DevbookAnnotationFence.Parse(Inside(OpenComment))" TestId="devbook-annotations-open-comment" />
+    </Story>
+
+    <Story Name="An open question with a quote and replies"
+           Description="A full thread. The `quote` is the phrase in the passage above that the note is about — drawn for the eye, and never used to find the passage, which the fence's position already names. The body is Markdown, drawn by the same block renderer as the chapter, and the replies follow it in the order they were written.
+
+An open `question` is the one kind the convention treats as a hole in the chapter: until it is answered, the chapter is not agreed."
+           Code="@NoteCode"
+           Source="@OpenQuestion"
+           SourceLabel="Fence">
+        <DevbookAnnotationNote Note="@DevbookAnnotationFence.Parse(Inside(OpenQuestion))" TestId="devbook-annotations-open-question" />
+    </Story>
+
+    <Story Name="A resolved note"
+           Description="The rule's own full example, resolved. A resolved note gives up the brand edge, goes dashed and quiet, and stays legible: it lives for the rest of the branch so a reviewer sees the exchange in the pull request that raised it, and is then swept — deleting it is how a note is finished, and git keeps the record.
+
+The `ext` mapping in the fence is namespaced extension state; it is nobody's business here and is not drawn."
+           Code="@NoteCode"
+           Source="@ResolvedNote"
+           SourceLabel="Fence">
+        <DevbookAnnotationNote Note="@DevbookAnnotationFence.Parse(Inside(ResolvedNote))" TestId="devbook-annotations-resolved" />
+    </Story>
+
+    <Story Name="A kind outside the closed set"
+           Description="`kind` is a closed set — `comment`, `question`, `suggestion`, `flag` — because a reader sorts by it. A word outside it is shown as authored and flagged with a dashed edge and a title naming the set, rather than dropped or quietly read as a comment: a viewer is not the gate that refuses it.
+
+An empty or unreadable fence takes the same attitude and is still drawn as a note shell, never as the listing."
+           Code="@NoteCode"
+           Source="@UnknownKind"
+           SourceLabel="Fence">
+        <div class="sb-stack">
+            <DevbookAnnotationNote Note="@DevbookAnnotationFence.Parse(Inside(UnknownKind))" TestId="devbook-annotations-unknown-kind" />
+            <p class="sb-label">An empty fence</p>
+            <DevbookAnnotationNote Note="@DevbookAnnotationFence.Parse(string.Empty)" TestId="devbook-annotations-empty" />
+        </div>
+    </Story>
+
+    <Story Name="Attached under the passage it is about"
+           Description="Position is the anchor: a fence annotates the block immediately above it. In a chapter view — `MarkdownView` reading a knowledge document — the note is drawn tucked under that paragraph and indented from it, and the paragraph after it reads on as though the note were not in the flow.
+
+The second note quotes a code sample, so it is opened with four backticks and the sample's three sit inside it; the view reads it as one note by CommonMark's closing rule, and the sample is drawn as code inside the note rather than splitting it in two."
+           Code="@ChapterCode"
+           Source="@ChapterExcerpt">
+        <MarkdownStory Source="@ChapterExcerpt"
+                       RenderDevbookMetadata="true"
+                       DevbookFolder="DevbookFolder.Arc42"
+                       TestId="devbook-annotations-chapter" />
+    </Story>
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("content-editing.md#knowledge-metadata-blocks", "The fenced blocks a knowledge chapter carries, of which this is the second."),
+        new("color-scheme.md#badge-and-chip-tones", "Why the kind is an outlined classification and the state the one filled badge."),
+        new("design-principles.md#low-chrome-content-first", "How much of a chapter a note may take from the passage it is about.")
+    ];
+
+    /// <summary>The text between a fence's opening and closing lines — what the
+    /// chapter view hands the parser.</summary>
+    private static string Inside(string fence)
+    {
+        var lines = fence.Replace("\r\n", "\n").Split('\n');
+        return string.Join('\n', lines[1..^1]);
+    }
+
+    private const string NoteCode = """
+        <DevbookAnnotationNote Note="@DevbookAnnotationFence.Parse(fenceBody)" />
+        """;
+
+    private const string ChapterCode = """
+        <MarkdownView Blocks="@MarkdownPreview.ParseDocument(chapter)"
+                      RenderDevbookMetadata="true"
+                      DevbookFolder="DevbookFolder.Arc42" />
+        """;
+
+    private const string OpenComment = """
+        ```annotation
+        author: jobsc
+        date: 2026-09-02
+        body: Is this still true now the outline rollup is a view?
+        ```
+        """;
+
+    private const string OpenQuestion = """
+        ```annotation
+        kind: question
+        author: jobsc
+        date: 2026-09-02
+        quote: one indexed range read
+        body: |
+          Does this hold after the outline gained the roadmap rollup?
+          The rollup looked like it needed a **second scan**.
+        replies:
+          - author: claude/flow-spec
+            date: 2026-09-03
+            body: Checking against the index before answering.
+          - author: jobsc
+            date: 2026-09-03
+            body: Thanks — the rollup is the part I am unsure of.
+        ```
+        """;
+
+    private const string ResolvedNote = """
+        ```annotation
+        kind: question
+        status: resolved
+        author: jobsc
+        date: 2026-09-02
+        quote: one indexed range read
+        body: |
+          Does this hold after the outline gained the roadmap rollup?
+          The rollup looked like it needed a second scan.
+        replies:
+          - author: claude/flow-spec
+            date: 2026-09-02
+            body: No second scan — the rollup is a view over the same index.
+        ext:
+          your-plugin:
+            raised-in: 2026-09-02
+        ```
+        """;
+
+    private const string UnknownKind = """
+        ```annotation
+        kind: rant
+        author: jobsc
+        date: 2026-09-02
+        body: This whole section is too long.
+        ```
+        """;
+
+    private const string ChapterExcerpt = """
+        ## Outline
+
+        ```meta
+        status: draft
+        ```
+
+        The outline is one indexed range read over the generated database.
+
+        ```annotation
+        kind: question
+        author: jobsc
+        date: 2026-09-02
+        quote: one indexed range read
+        body: Is this still true now the outline rollup is a view?
+        ```
+
+        ````annotation
+        kind: suggestion
+        author: claude/flow-spec
+        date: 2026-09-03
+        body: |
+          Say where the read happens:
+          ```csharp
+          var rows = index.Range(chapter.Start, chapter.End);
+          ```
+          so the claim can be checked.
+        ````
+
+        A chapter that has changed since it was indexed is read from its Markdown instead.
+        """;
+}

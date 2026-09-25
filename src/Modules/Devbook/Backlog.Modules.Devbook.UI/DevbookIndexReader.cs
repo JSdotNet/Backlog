@@ -289,21 +289,17 @@ public sealed class DevbookIndexDocument
 
     /// <summary>
     /// The absolute path of an entry. Index paths are repository-relative and
-    /// always <c>/</c>-separated, and they lead with the knowledge folder's own
-    /// name (<c>.domain/inbox/domain.md</c>), so the folder segment is dropped
-    /// before combining with the folder path this index was read from — which is
-    /// where the folder actually is, wherever the workspace put it.
+    /// always <c>/</c>-separated, and they lead with the knowledge folder
+    /// (<c>.domain/inbox/domain.md</c>, or <c>.devbook/domain/inbox/domain.md</c>
+    /// in the devbook layout), so the folder is dropped before combining with the
+    /// folder path this index was read from — which is where the folder actually
+    /// is, wherever the workspace put it.
     /// </summary>
     public string FullPath(DevbookIndexEntry entry) => Path.Combine(FolderPath, RelativeToFolder(entry.Path));
 
     /// <summary>The entry's path relative to the knowledge folder, in the platform's separator.</summary>
-    public static string RelativeToFolder(string indexPath)
-    {
-        var normalized = indexPath.Replace('\\', '/');
-        var separator = normalized.IndexOf('/');
-        var withinFolder = separator >= 0 ? normalized[(separator + 1)..] : normalized;
-        return withinFolder.Replace('/', Path.DirectorySeparatorChar);
-    }
+    public static string RelativeToFolder(string indexPath) =>
+        DevbookLayout.WithinFolder(indexPath).Replace('/', Path.DirectorySeparatorChar);
 
     private static IEnumerable<DevbookIndexEntry> Flatten(IEnumerable<DevbookIndexEntry> entries)
     {

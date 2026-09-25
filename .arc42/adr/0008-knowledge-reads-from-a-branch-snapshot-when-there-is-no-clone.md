@@ -19,6 +19,15 @@ Proposed.
 > again into the new folder). The decision is unchanged, and the file name is
 > kept so that `ADR 0008` citations in code stay true.
 
+> **Amended 2026-09-25: either devbook layout.** A repository may keep its
+> knowledge folders under one parent — `.devbook/arc42`, `.devbook/domain`, … —
+> with its derived layer in `.devbook/_meta/`, or at the root as `.arc42`,
+> `.domain`, … with the derived layer in `_meta/`. The snapshot needed no change
+> for it: it fetches the subtree of whichever folder the resolution found, and
+> selects `_reading-order.json` and `_meta/index.json` at any depth. Where this
+> record says `_meta/`, read the derived layer beside the folders, in either
+> place. The decision is unchanged.
+
 > **Amended 2026-09-16: the cache defaults under the storage folder.** The
 > decision below said the cache location "defaults beside the per-user settings
 > rather than inside the backlog", on the reasoning that a snapshot has no
@@ -135,7 +144,7 @@ control does so on demand. Nothing waits on a pull.
 ## Why this, rather than the alternatives
 
 **Why a snapshot rather than reading files over the API on demand.** The panels
-already read a folder — `_meta/index.json`, then the one chapter somebody opened —
+already read a folder — its `_meta/index.json`, then the one chapter somebody opened —
 and a snapshot keeps every one of those readers working unchanged against a real
 directory. Fetching per file would mean rewriting all of them onto an async
 abstraction, needing the network on every chapter open, and spending rate limit
@@ -192,7 +201,7 @@ anything must not arrive telling their app to read a folder they do not have.
 ## What this narrows in ADR 0004
 
 ADR 0004's placement rule is kept for what it was about — the *derived* layer,
-`_meta/`, the generated index — and does not extend to a snapshot, for a reason
+`_meta/` (`.devbook/_meta/` in the devbook layout), the generated index — and does not extend to a snapshot, for a reason
 that dissolves its own argument. That rule guards against a second place that can
 *disagree* about a repository. A snapshot cannot disagree with the folders beside
 it, because there are none: it exists precisely where the repository was never

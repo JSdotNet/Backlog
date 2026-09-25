@@ -110,23 +110,49 @@ public sealed class TagFilterTests
     }
 
     /// <summary>The other half of "how much is over there": a count is about the pool,
-    /// so nothing anyone presses moves it. A chip whose count shrank as its neighbours
-    /// were pressed would be answering "what is left" — a different question, and one
-    /// the list below already answers.</summary>
+    /// so neither another tag nor the status moves it. A chip whose count shrank as its
+    /// neighbours were pressed would be answering "what is left" — a different
+    /// question, and one the list below already answers.</summary>
     [Fact]
-    public async Task A_count_does_not_move_when_the_rest_of_the_bar_does()
+    public async Task A_count_does_not_move_when_a_tag_or_the_status_does()
     {
         var (host, _, _, _, _) = await FourAsync();
         using var _host = host;
 
         host.State.ToggleTagFilter("desktop");
         host.State.SetStatusFilter("ready");
-        host.State.SetMyDayFilter(DateOnly.FromDateTime(DateTime.Today));
-        host.State.SetNoRepositoryFilter(true);
 
         Assert.Equal(2, Option(host, "sync").OpenCount);
         Assert.Equal(2, Option(host, "desktop").OpenCount);
         Assert.Equal(1, Option(host, TasksDesktopState.UntaggedTag).OpenCount);
+    }
+
+    /// <summary>The scopes are what the pool <em>is</em>, though, the way the
+    /// repository scope always was: a plan whose only open entry is waiting has
+    /// nothing to offer under "Not waiting", so it has no chip there — pressing one
+    /// would only ever have emptied the list.</summary>
+    [Fact]
+    public async Task A_scope_decides_which_tags_the_bar_offers_and_their_counts()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+
+        var step = await host.WriteEntryAsync("# Write the runbook\n`task` `!ready` `+docs`\n");
+        await host.WriteEntryAsync($"# Publish it\n`task` `!ready` `+release` `+docs` `after:{step.TaskId}`\n");
+        await host.WriteEntryAsync("# Renew the certificate\n`task` `!ready`\n");
+        await host.State.SelectAsync(null);
+
+        Assert.Equal(1, Option(host, "+release").OpenCount);
+        Assert.Equal(2, Option(host, "+docs").OpenCount);
+
+        host.State.SetNotWaitingFilter(true);
+
+        Assert.DoesNotContain(host.State.TagFilters, option => option.Value == "+release");
+        Assert.Equal(1, Option(host, "+docs").OpenCount);
+
+        host.State.SetNotWaitingFilter(false);
+
+        Assert.Equal(1, Option(host, "+release").OpenCount);
+        Assert.Equal(2, Option(host, "+docs").OpenCount);
     }
 
     /// <summary>The bar's chip wears the same kind as the row chip it filters for,
@@ -821,8 +847,10 @@ public sealed class TagFilterTests
 
         host.State.ToggleTagFilter(TasksDesktopState.NoPlanTag);
 
+        // Both sides sorted: the keys are random GUIDs, so an unsorted expectation
+        // passes only when the two happen to be generated in order.
         Assert.Equal(
-            [loose.Key, bare.Key],
+            new[] { loose.Key, bare.Key }.Order(),
             host.State.FilteredRows.Select(row => row.Key).Order());
     }
 
@@ -842,10 +870,10 @@ public sealed class TagFilterTests
         Assert.Contains("chip--tag-plan", chip.ClassList);
     }
 
-    /// <summary>A union like every other chip in the group: "No plan" beside a plan
-    /// is that plan's work and everything loose.</summary>
+    /// <summary>A plan chip, "No plan" among them, lets go of the plan pressed
+    /// before it: the reader looks at one plan at a time.</summary>
     [Fact]
-    public async Task No_plan_and_a_plan_together_are_the_union()
+    public async Task No_plan_and_a_plan_replace_each_other()
     {
         var (host, release, _, loose, bare) = await PlansAsync();
         using var _host = host;
@@ -853,9 +881,57 @@ public sealed class TagFilterTests
         host.State.ToggleTagFilter(TasksDesktopState.NoPlanTag);
         host.State.ToggleTagFilter("+release-q4");
 
+        Assert.Equal(["+release-q4"], host.State.SelectedTags);
+        Assert.Equal([release.Key], host.State.FilteredRows.Select(row => row.Key));
+
+        host.State.ToggleTagFilter(TasksDesktopState.NoPlanTag);
+
+        Assert.Equal([TasksDesktopState.NoPlanTag], host.State.SelectedTags);
         Assert.Equal(
-            new[] { release.Key, loose.Key, bare.Key }.Order(),
+            new[] { loose.Key, bare.Key }.Order(),
             host.State.FilteredRows.Select(row => row.Key).Order());
+    }
+
+    /// <summary>Pressing a second plan chip on the bar swaps the plan in view, and
+    /// pressing the pressed one lets go of it.</summary>
+    [Fact]
+    public async Task Pressing_a_plan_chip_unpresses_the_other_plan()
+    {
+        var (host, _, import, _, _) = await PlansAsync();
+        using var _host = host;
+
+        var pane = host.Render();
+        AngleSharp.Dom.IElement ChipFor(string value) =>
+            pane.FindAll(Chip)[host.State.TagFilters.ToList().FindIndex(option => option.Value == value)];
+
+        await ChipFor("+release-q4").ClickAsync(new());
+        await ChipFor("+roadmap-import").ClickAsync(new());
+
+        Assert.Equal(["+roadmap-import"], host.State.SelectedTags);
+        Assert.Equal([import], host.State.FilteredRows);
+        Assert.Equal("false", ChipFor("+release-q4").GetAttribute("aria-pressed"));
+        Assert.Equal("true", ChipFor("+roadmap-import").GetAttribute("aria-pressed"));
+
+        await ChipFor("+roadmap-import").ClickAsync(new());
+
+        Assert.Empty(host.State.SelectedTags);
+    }
+
+    /// <summary>Only plans replace each other; a general tag pressed beside a plan
+    /// stays pressed when the plan changes.</summary>
+    [Fact]
+    public async Task Switching_plan_keeps_the_other_tags_pressed()
+    {
+        var (host, _, _, _, _) = await PlansAsync();
+        using var _host = host;
+
+        host.State.ToggleTagFilter("sync");
+        host.State.ToggleTagFilter("+release-q4");
+        host.State.ToggleTagFilter("+roadmap-import");
+
+        Assert.Equal(
+            new[] { "+roadmap-import", "sync" }.Order(),
+            host.State.SelectedTags.Order());
     }
 
     /// <summary>Nothing to exclude while nobody plans, and nothing to show while

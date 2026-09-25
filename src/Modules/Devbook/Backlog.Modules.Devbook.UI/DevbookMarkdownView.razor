@@ -13,6 +13,11 @@
     change that markup rather than rename it. An arc42 table is a `div role="table"`
     of single-cell rows, which is not an MdTable with other names either. Both are
     worth revisiting; neither is a class rename.
+
+    A devbook `annotation` fence arrives as a code record like any other and
+    leaves as a review note: the library draws it, attached under the block it
+    is about, because it is review state about the chapter and never a listing
+    in it.
 *@
 
 @foreach (var block in Blocks)
@@ -79,7 +84,8 @@
                                    ListCssClass="devbook-list"
                                    ListItemCssClass="@NoItemClass"
                                    DiagramTitle="@DiagramName"
-                                   IsDiagram="@(block is DevbookDiagramBlock ? IsDiagramBlock : IsNotDiagramBlock)" />
+                                   IsDiagram="@(block is DevbookDiagramBlock ? IsDiagramBlock : IsNotDiagramBlock)"
+                                   RenderDevbookAnnotations="true" />
             }
             break;
     }

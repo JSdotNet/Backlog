@@ -1,0 +1,46 @@
+@*
+    What a block states that the devbook convention reports, listed under the
+    headline of the record it is about.
+
+    Under the headline and above the fields, because a finding is about the block
+    as a whole and is the thing an author has to act on; below the fields it would
+    read as one more field. Compact on purpose — one line each, the severity, the
+    field it names and one sentence — because a record is secondary to the chapter
+    it sits over, and a finding is secondary to the record.
+
+    A list, not an alert. Nothing here happened just now: a finding is a standing
+    property of the text, so it is announced the way the rest of the record is,
+    when a reader reaches it, rather than interrupting them with role="alert" on
+    every render of every chapter.
+
+    The severity is a Badge in a `finding` family, and it is a word as well as a
+    tone — "warning", "error" — so the colour never carries the meaning on its own.
+    The field is drawn through MetadataScalar, the same code span a field's value
+    wears, because it is a key an author will go looking for in the fence.
+
+    Empty in, nothing out.
+*@
+
+@if (Findings.Count > 0)
+{
+    <ul class="devbook-findings" aria-label="Metadata findings" data-testid="@TestId">@foreach (var finding in Findings)
+        {
+            <li class="@ItemClass(finding)"><Badge Kind="finding" Slug="@Slug(finding)">@Slug(finding)</Badge><MetadataScalar Value="@finding.Field" /><span class="devbook-findings__message">@finding.Message</span></li>
+        }</ul>
+}
+
+@code {
+    /// <summary>The findings, in the order <see cref="DevbookMetadataFindings"/>
+    /// produced them.</summary>
+    [Parameter]
+    public IReadOnlyList<DevbookMetadataFinding> Findings { get; set; } = [];
+
+    [Parameter]
+    public string? TestId { get; set; } = "devbook-findings";
+
+    private static string Slug(DevbookMetadataFinding finding) =>
+        finding.Severity == DevbookFindingSeverity.Error ? "error" : "warning";
+
+    private static string ItemClass(DevbookMetadataFinding finding) =>
+        $"devbook-findings__item devbook-findings__item--{Slug(finding)}";
+}

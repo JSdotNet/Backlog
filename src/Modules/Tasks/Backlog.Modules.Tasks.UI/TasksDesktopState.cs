@@ -874,15 +874,28 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// already there. Bare and lower-cased the way the parser stores one;
     /// <see cref="UntaggedTag"/> asks for the entries with no tags. Additive in
     /// both directions, so an empty selection — every tag unpressed — is how the
-    /// reader gets back to all of them.</summary>
+    /// reader gets back to all of them.
+    /// <para>
+    /// Plans are the exception: a reader looks at one plan at a time, so pressing a
+    /// plan — or <see cref="NoPlanTag"/>, which is a plan chip too — lets go of any
+    /// other plan pressed before it. People and general tags beside it stay.
+    /// </para></summary>
     public void ToggleTagFilter(string? tag)
     {
         if (string.IsNullOrEmpty(tag)) return;
 
-        if (!_selectedTags.Remove(tag)) _selectedTags.Add(tag);
+        if (!_selectedTags.Remove(tag))
+        {
+            if (IsPlanFilter(tag)) _selectedTags.RemoveWhere(IsPlanFilter);
+
+            _selectedTags.Add(tag);
+        }
 
         ApplyFilter();
     }
+
+    private static bool IsPlanFilter(string tag) =>
+        tag == NoPlanTag || TagText.Kind(tag) is TagKind.Plan;
 
     /// <summary>Turns the My Day scope on for a date, or off when handed null. The
     /// caller supplies the date because the caller is what has the clock; see
@@ -2840,7 +2853,6 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
         var repositoryScopedRows = rows.ToList();
         ForgetStaleRepositoryScope();
-        RebuildTagFilters(repositoryScopedRows);
         ScopedRows = repositoryScopedRows;
         rows = repositoryScopedRows;
 
@@ -2870,6 +2882,14 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         {
             rows = rows.Where(IsNotWaiting);
         }
+
+        // The tag bar is built from what every scope left in view, not the
+        // repository scope alone: a tag whose entries a scope took out is a chip
+        // that could only ever empty the list. Status and the tags themselves come
+        // after, and stay out of it — see RebuildTagFilters.
+        var scopedRows = rows.ToList();
+        RebuildTagFilters(scopedRows);
+        rows = scopedRows;
 
         if (!string.IsNullOrWhiteSpace(SelectedStatusFilterWire))
         {
@@ -2971,8 +2991,9 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
     /// <summary>
     /// Tags exist for the same reason areas do — somebody typed one — so the group
-    /// is rebuilt from what is in the current repository scope, and disappears
-    /// entirely while nothing in scope carries a tag. A bar that grew a fourth group
+    /// is rebuilt from what the scopes — the repository, My Day, No repo and Not
+    /// waiting — leave in view, and disappears entirely while nothing in scope
+    /// carries a tag. A bar that grew a fourth group
     /// with nothing pressable in it would be charging every reader for a feature only
     /// the taggers use.
     /// <para>

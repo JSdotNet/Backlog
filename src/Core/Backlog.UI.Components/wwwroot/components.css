@@ -154,6 +154,16 @@
     --chart-ramp-3: color-mix(in srgb, var(--color-primary) 80%, var(--chart-surface));
     --chart-ramp-4: var(--color-primary);
     --chart-track: color-mix(in srgb, var(--color-primary) 20%, var(--chart-surface));
+    /* Category hues: for a stack whose bands have to be told apart by size, where
+       four shades of one hue stop reading as separate bands. Aliases of the band
+       identity hues rather than colours of their own, so the palette gains nothing;
+       drawn only while no band on the chart wears an identity, so a category hue is
+       never mistaken for a repository. See color-scheme.md's chart roles. */
+    --chart-category-1: var(--color-band-1);
+    --chart-category-2: var(--color-band-2);
+    --chart-category-3: var(--color-band-3);
+    --chart-category-4: var(--color-band-4);
+    --chart-category-5: var(--color-band-5);
     --chart-grid: var(--color-border);
     --chart-axis: var(--color-border-strong);
     --chart-ink: var(--color-text-primary);
@@ -2148,6 +2158,93 @@ button.md-check {
     margin: 0;
 }
 
+/*
+   Decision and review state, beside the status it qualifies — "approved by ana on
+   2026-09-17", "review: requested · reviewer bo". Quieter than the status on
+   purpose: it answers who and when, and the pill beside it answers what.
+
+   It follows the status, so the status's auto margin has already taken it to the
+   right edge. With no status on the line — a resting domain/ chapter under review —
+   it takes that margin itself, for the same reason the pill does: the right edge is
+   a relationship with the heading. It may shrink and wrap, the pill may not.
+*/
+.devbook-record__state {
+    display: inline-flex;
+    flex: 0 1 auto;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-2xs) var(--spacing-xs);
+    min-width: 0;
+}
+
+.devbook-record__headline > .devbook-record__state:not(:first-child) {
+    margin-inline-start: auto;
+}
+
+.devbook-record__headline > .badge--status + .devbook-record__state {
+    margin-inline-start: 0;
+}
+
+/* Outlined and unfilled, the classification treatment: a signature and a date are
+   not something the product acts on, and must not compete with the status. The
+   review statement is dashed because it is the one still in motion. */
+.badge--decision {
+    background: transparent;
+    color: var(--color-text-secondary);
+    border: var(--border-width) solid var(--color-border);
+    padding-left: var(--spacing-xs);
+    padding-right: var(--spacing-xs);
+    font-size: var(--font-size-xs);
+    white-space: normal;
+}
+
+.badge--decision-review {
+    border-style: dashed;
+}
+
+/*
+   What the convention reports about a block, between its headline and its fields.
+   One compact line per finding: the severity as a word on its tone, the field it
+   names in the value face, then one sentence.
+*/
+.devbook-findings {
+    display: grid;
+    gap: var(--spacing-2xs);
+    margin: var(--spacing-2xs) 0 0;
+    padding: 0;
+    list-style: none;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.devbook-findings__item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-2xs) var(--spacing-xs);
+    min-width: 0;
+}
+
+.devbook-findings__message {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+/* Tone on a surface with text-primary on it, the rule the semantic colours are
+   sanctioned for; the word inside says the same thing for anyone the colour does
+   not reach. */
+.badge--finding {
+    color: var(--color-text-primary);
+    padding-left: var(--spacing-xs);
+    padding-right: var(--spacing-xs);
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.badge--finding-warning { background: var(--color-warning); }
+.badge--finding-error { background: var(--color-error); }
+
 .devbook-fields {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
@@ -2496,6 +2593,129 @@ button.md-check {
    every heading level. */
 .devbook-type-marker--leads {
     margin-right: 0.38em;
+}
+
+/* --- Devbook review note ------------------------------------------------- */
+/*
+   A devbook `annotation` fence, drawn by DevbookAnnotationNote: shared review
+   state kept in the chapter, never the person's own remark. The remark is a ruled
+   list in the margin (.md-comments); this is a card with a label, so the two are
+   never mistaken for each other on one page.
+
+   Existing tokens only, as color-scheme.md requires of anything new. The one
+   accent is the brand edge down the left of an open note — someone is waiting on
+   it — and a resolved note gives it up for the plain border and goes quiet, the
+   same way a resolved remark does: still legible, no longer asking for anything.
+*/
+.devbook-note {
+    margin: 0 0 var(--spacing-sm);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background: var(--color-background-alt);
+    border: var(--border-width) solid var(--color-border);
+    border-left: var(--border-width-2) solid var(--color-primary);
+    border-radius: var(--border-radius-sm);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+/* Position is the anchor: the note is about the block directly above it, so it
+   is drawn tucked under that block and indented from it rather than as a block
+   of its own. */
+.devbook-note--attached {
+    margin-top: calc(var(--spacing-xs) * -1);
+    margin-left: var(--spacing-md);
+}
+
+.devbook-note--resolved {
+    border-left-color: var(--color-border);
+    border-style: dashed;
+    opacity: 0.65;
+}
+
+.devbook-note__head,
+.devbook-note__who {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+    margin: 0 0 var(--spacing-2xs);
+    font-size: var(--font-size-xs);
+}
+
+.devbook-note__label {
+    color: var(--color-text-primary);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.devbook-note__author {
+    color: var(--color-text-primary);
+}
+
+.devbook-note__date {
+    color: var(--color-text-disabled);
+}
+
+.devbook-note__quote {
+    margin: 0 0 var(--spacing-2xs);
+    padding-left: var(--spacing-sm);
+    border-left: var(--border-width) solid var(--color-border-strong);
+    font-style: italic;
+}
+
+/* The body is markdown drawn by the library's own block renderer, so its blocks
+   bring their own bottom margins; the last one gives its back to the card. */
+.devbook-note__body > :last-child {
+    margin-bottom: 0;
+}
+
+.devbook-note__none {
+    margin: 0;
+    color: var(--color-text-disabled);
+    font-style: italic;
+}
+
+.devbook-note__replies {
+    margin: var(--spacing-xs) 0 0;
+    padding: 0 0 0 var(--spacing-sm);
+    border-left: var(--border-width) solid var(--color-border);
+    list-style: none;
+}
+
+.devbook-note__reply + .devbook-note__reply {
+    margin-top: var(--spacing-xs);
+}
+
+/* Kind is a classification out of a closed set, drawn outlined like .badge--kind.
+   A kind outside the set keeps its word and gains the dashed edge an
+   unrecognised status wears. */
+.badge--note-kind {
+    background: transparent;
+    color: var(--color-text-secondary);
+    border: var(--border-width) solid var(--color-border);
+    padding-left: var(--spacing-xs);
+    padding-right: var(--spacing-xs);
+}
+
+.badge--note-kind-unknown {
+    border-style: dashed;
+}
+
+.badge--note-state {
+    padding-left: var(--spacing-xs);
+    padding-right: var(--spacing-xs);
+}
+
+.badge--note-state-open {
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+}
+
+.badge--note-state-resolved {
+    background: transparent;
+    color: var(--color-text-disabled);
+    border: var(--border-width) solid var(--color-border);
 }
 
 /* --- Capture kind marker ------------------------------------------------ */
@@ -6011,6 +6231,173 @@ button.tag-chip__label {
     margin-left: 0.35em;
 }
 
+/* --- Flow steps ---------------------------------------------------------- */
+/*
+  A process drawn as a flow: nodes left to right, wrapping into rows, each
+  joined to the next by a connector in the gap. The tones are the badge tones
+  (color-scheme.md#badge-and-chip-tones) on the node's edge and mark rather than
+  as a fill, so a row of eleven nodes stays quiet and the one in progress is the
+  thing the eye lands on. Every tone also has its own glyph in the mark and its
+  word in the status line; colour is never the only carrier.
+
+  A grid whose columns fill the list edge to edge, rather than a wrapping flex
+  row, so a node that ends a row always ends it at the list's right edge. The
+  connector it draws toward a next node that has wrapped to the row below falls
+  outside the list and is clipped there; every other connector lands in a gap.
+  Nodes keep their own height instead of stretching to the row's tallest.
+*/
+
+.flow-steps {
+    --flow-steps-gap: var(--spacing-md);
+
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(10rem, 100%), 1fr));
+    align-items: start;
+    gap: var(--spacing-sm) var(--flow-steps-gap);
+    overflow: hidden;
+}
+
+.flow-step {
+    --flow-step-tone: var(--color-border-strong);
+
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-left: var(--border-width-4) solid var(--flow-step-tone);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+    font-size: var(--font-size-xs);
+    line-height: var(--line-height-normal);
+}
+
+/* The connector: a line with a head across the gap to the next node. */
+.flow-step:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    top: 1rem;
+    right: calc(-1 * var(--flow-steps-gap) - var(--border-width));
+    width: var(--flow-steps-gap);
+    height: 0;
+    border-top: var(--border-width) solid var(--color-border-strong);
+    pointer-events: none;
+}
+
+.flow-step:not(:last-child)::before {
+    content: "";
+    position: absolute;
+    top: calc(1rem - 3px);
+    right: calc(-1 * var(--flow-steps-gap) - var(--border-width));
+    border-top: 3.5px solid transparent;
+    border-bottom: 3.5px solid transparent;
+    border-left: 5px solid var(--color-border-strong);
+    pointer-events: none;
+}
+
+.flow-step--active {
+    --flow-step-tone: var(--color-primary);
+
+    border-color: var(--color-primary);
+    border-left-color: var(--flow-step-tone);
+}
+
+.flow-step--done {
+    --flow-step-tone: var(--color-success-text);
+}
+
+.flow-step--blocked {
+    --flow-step-tone: var(--color-error-text);
+
+    border-color: var(--color-error);
+    border-left-color: var(--flow-step-tone);
+}
+
+.flow-step--skipped {
+    --flow-step-tone: var(--color-text-disabled);
+
+    border-style: dashed;
+    border-left-style: solid;
+    background: transparent;
+}
+
+.flow-step__head {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.flow-step__mark {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.125rem;
+    height: 1.125rem;
+    border: var(--border-width) solid var(--flow-step-tone);
+    border-radius: var(--border-radius-full);
+    font-size: 0.625rem;
+    font-weight: var(--font-weight-semibold);
+    line-height: 1;
+    color: var(--flow-step-tone);
+}
+
+.flow-step__title {
+    min-width: 0;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    overflow-wrap: anywhere;
+}
+
+.flow-step--pending .flow-step__title,
+.flow-step--skipped .flow-step__title {
+    color: var(--color-text-secondary);
+}
+
+.flow-step__status {
+    color: var(--color-text-secondary);
+}
+
+.flow-step--active .flow-step__status {
+    color: var(--color-text-primary);
+}
+
+.flow-step__notes {
+    list-style: none;
+    margin: var(--spacing-2xs) 0 0 0;
+    padding: var(--spacing-2xs) 0 0 0;
+    border-top: var(--border-width) solid var(--color-border);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+}
+
+.flow-step__note {
+    display: flex;
+    flex-wrap: wrap;
+    column-gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.flow-step__note-label {
+    font-family: var(--font-family-mono);
+    color: var(--color-text-primary);
+    overflow-wrap: anywhere;
+}
+
+.flow-step__note-detail {
+    font-family: var(--font-family-mono);
+    color: var(--color-text-secondary);
+    overflow-wrap: anywhere;
+}
+
 /* --- Toasts -------------------------------------------------------------- */
 /*
   The host is the live region and stays in the DOM whether or not it holds
@@ -9501,6 +9888,7 @@ select.field__input {
 }
 
 .metric-bars__label,
+.metric-stacked-bars__label,
 .metric-heatmap__label {
     position: relative;
     display: flex;
@@ -9592,11 +9980,6 @@ select.field__input {
     min-width: 0;
 }
 
-.metric-stacked-bars__label {
-    color: var(--chart-ink-muted);
-    font-size: var(--font-size-sm);
-}
-
 .metric-stacked-bars__plot {
     display: flex;
     gap: var(--spacing-sm);
@@ -9671,6 +10054,7 @@ select.field__input {
 }
 
 .metric-stacked-bars__column {
+    position: relative;
     display: flex;
     flex: 1;
     flex-direction: column;
@@ -9763,6 +10147,98 @@ select.field__input {
 
 .metric-stacked-bars__segment--4 {
     background: var(--chart-ramp-4);
+}
+
+/* The column's tip: the whole stack as a list, shown on hover and focus. It sits
+   over the plot beside its column, on the side away from the nearer edge, so it
+   neither leaves the chart nor covers the column it describes; pointer-events: none
+   so moving to the next column is not blocked by the tip of this one. At rest it is
+   display: none, the info hint's reason: an invisible box still widens a scroller. */
+.metric-stacked-bars__tip {
+    display: none;
+    position: absolute;
+    top: 0;
+    z-index: 500;
+    width: max-content;
+    max-width: min(24rem, 60vw);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+    color: var(--color-text-primary);
+    box-shadow: var(--shadow-lg);
+    font-size: var(--font-size-xs);
+    line-height: var(--line-height-normal);
+    pointer-events: none;
+}
+
+.metric-stacked-bars__tip--after {
+    left: calc(100% + var(--spacing-2xs));
+}
+
+.metric-stacked-bars__tip--before {
+    right: calc(100% + var(--spacing-2xs));
+}
+
+.metric-stacked-bars__column:hover .metric-stacked-bars__tip,
+.metric-stacked-bars__column:focus-visible .metric-stacked-bars__tip {
+    display: block;
+}
+
+.metric-stacked-bars__tip-title {
+    margin-bottom: var(--spacing-2xs);
+    font-weight: 700;
+}
+
+.metric-stacked-bars__tip-list {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: var(--spacing-2xs) var(--spacing-xs);
+    align-items: center;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/* A row's three cells join the list's grid, so every name and every figure lines
+   up down the tip whatever length the names are. */
+.metric-stacked-bars__tip-row {
+    display: contents;
+}
+
+.metric-stacked-bars__tip-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.metric-stacked-bars__tip-value,
+.metric-stacked-bars__tip-total-value {
+    font-family: var(--font-family-mono);
+    text-align: right;
+    white-space: nowrap;
+}
+
+/* The total under a rule: its heading may be a sentence — what a sum across
+   measures is not — so it wraps on the left and the figure keeps the right edge
+   the values above it hold. */
+.metric-stacked-bars__tip-total {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-2xs);
+    padding-top: var(--spacing-2xs);
+    border-top: var(--border-width) solid var(--color-border);
+}
+
+.metric-stacked-bars__tip-total-name {
+    color: var(--color-text-secondary);
+}
+
+.metric-stacked-bars__tip-total-value {
+    font-weight: 700;
 }
 
 .metric-stacked-bars__column-label {
@@ -9861,6 +10337,33 @@ select.field__input {
 .metric-stacked-bars__segment--identity-5,
 .metric-stacked-bars__swatch--identity-5 {
     background: var(--color-band-5);
+}
+
+/* A category rather than a step or an identity: the caller asked for the bands to be
+   told apart by hue, and none of them wears a repository's. */
+.metric-stacked-bars__segment--category-1,
+.metric-stacked-bars__swatch--category-1 {
+    background: var(--chart-category-1);
+}
+
+.metric-stacked-bars__segment--category-2,
+.metric-stacked-bars__swatch--category-2 {
+    background: var(--chart-category-2);
+}
+
+.metric-stacked-bars__segment--category-3,
+.metric-stacked-bars__swatch--category-3 {
+    background: var(--chart-category-3);
+}
+
+.metric-stacked-bars__segment--category-4,
+.metric-stacked-bars__swatch--category-4 {
+    background: var(--chart-category-4);
+}
+
+.metric-stacked-bars__segment--category-5,
+.metric-stacked-bars__swatch--category-5 {
+    background: var(--chart-category-5);
 }
 
 /* A line's swatch is a line: a short rule in the line's colour and dash, not a box,
@@ -11697,6 +12200,61 @@ select.field__input {
 
 .roadmap-bar--locked .roadmap-bar__grip {
     display: none;
+}
+
+/* The dependency handle: a dot just past the bar's end, clear of the end grip, so
+   pulling it is never mistaken for resizing. Dragged onto another bar or milestone,
+   it makes that one wait for this one. Shown on hover and focus only, so a chart of
+   fifty bars is not also a chart of fifty dots. */
+.roadmap-bar__link-grip {
+    position: absolute;
+    top: 50%;
+    right: -0.875rem;
+    width: 0.625rem;
+    height: 0.625rem;
+    translate: 0 -50%;
+    border: var(--border-width-2) solid var(--color-primary);
+    border-radius: var(--border-radius-full);
+    background: var(--color-background-raised);
+    cursor: crosshair;
+    touch-action: none;
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+}
+
+.roadmap-bar:hover .roadmap-bar__link-grip,
+.roadmap-bar__body:focus-visible ~ .roadmap-bar__link-grip,
+.roadmap-timeline--linking .roadmap-bar__link-grip[data-roadmap-linking="true"] {
+    opacity: 1;
+}
+
+/* The line a dependency is drawn with while it is being made, and the thing it
+   would land on. Both are the JS gesture's: nothing here is committed until drop. */
+.roadmap-timeline__link-draft {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+    z-index: 3;
+}
+
+.roadmap-timeline__link-draft line {
+    stroke: var(--color-primary);
+    stroke-width: var(--border-width-2);
+    stroke-dasharray: 4 3;
+}
+
+.roadmap-timeline--linking .roadmap-bar__body,
+.roadmap-timeline--linking .roadmap-milestone__marker {
+    cursor: crosshair;
+}
+
+.roadmap-bar--link-target .roadmap-bar__body,
+.roadmap-milestone--link-target .roadmap-milestone__marker {
+    box-shadow: 0 0 0 var(--border-width-2) var(--color-primary);
 }
 
 /* --- Steps inside a bar -------------------------------------------------- */

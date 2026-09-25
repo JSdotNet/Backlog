@@ -1,6 +1,9 @@
 @using global::Microsoft.AspNetCore.Components.Web
 @using global::Backlog.UI.Components.Icons
 @using global::Backlog.UI.Components.Metrics
+@using global::Backlog.UI.Components.Diagrams
+@using global::Backlog.Modules.Sessions.UI.Adapters
+@using global::Microsoft.Extensions.DependencyInjection
 
 @*
     One delivery run, as a line in the sessions table: under the session that ran
@@ -58,8 +61,14 @@
 
     The summary comes first in the markup and second on screen. A reader with a screen
     reader gets the work and the outcome before the figures, which is the order the
-    facts matter in; the eye gets them at the right, which is where the column is. One
-    `row-reverse` buys both, and neither is bent to suit the other.
+    facts matter in; the eye gets them at the right, which is where the column is. The
+    grid's areas buy both, and neither is bent to suit the other.
+
+    What the fold opens is a third block under both, across the whole row. The trigger
+    is the library's; the region is this line's own, because the fold's own region
+    would sit inside the figures' column and leave the stages a quarter of the table's
+    width. The diagram is a row of stages, one line of them, so it takes every column,
+    and the figures sit under it in as many columns as fit.
 *@
 <div class="sessions-run" data-testid="sessions-run" data-run-id="@Run.Id">
     <span class="sessions-run__summary">
@@ -85,14 +94,77 @@
                      TestId="sessions-run-status" />
     </span>
     <span class="sessions-run__facts">
+        @* The trigger only. The region it folds is the line's own panel below, which
+           spans the whole row rather than the width left of the summary: the diagram
+           is a row of stages, and it needs every column the table has. *@
         <FoldControl Label="@Facts"
                      CssClass="sessions-run__fold"
                      AriaLabel="@($"Details of run {Run.Title}")"
-                     @bind-Expanded="_expanded"
-                     TestId="sessions-run-fold">
-            <dl class="sessions-run__details">
-                @* The run's own name for itself, which the line above deliberately does
-                   not repeat. *@
+                     Controls="@_panelId"
+                     Expanded="_expanded"
+                     ExpandedChanged="OnExpandedChanged"
+                     TestId="sessions-run-fold" />
+
+        @* Last, and quiet: which recipe produced the run is what a reader asks after
+           the work and the outcome, and it is the one thing two runs of the same flow
+           share. *@
+        <span class="sessions-run__skill" data-testid="sessions-run-skill">
+            <SparklesIcon Size="12" CssClass="sessions-run__icon" />
+            <span class="data-table__mono">@Run.SkillId</span>
+        </span>
+    </span>
+
+    @* The fold's region: the picture first and across the full width, so every stage
+       sits on one line, and the figures under it in columns. Kept in the DOM and
+       hidden while folded, the way the library's own region is. *@
+    <div class="sessions-run__panel"
+         id="@_panelId"
+         role="region"
+         aria-label="@($"Details of run {Run.Title}")"
+         hidden="@(!_expanded)"
+         data-testid="sessions-run-panel">
+        @* The stages are a flow, so they are drawn as one: an Archify artifact where
+           the generator could make one (animated, with its own zoom, present mode
+           and export) and the live flow otherwise, and while the first one is being
+           made. The flow is never wrong about a run; the artifact is at most one
+           render behind it. *@
+        @if (Run.Stages.Count > 0)
+        {
+            <div class="sessions-run__diagram">
+                @if (_diagram is { Html: { } html } diagram)
+                {
+                    <DiagramView Source="@DeliveryRunDiagramSpec.Mermaid(Run)"
+                                 Language="mermaid"
+                                 Title="Stages"
+                                 Artifact="@(new DiagramArtifact(html, diagram.ArtifactPath, null, "architecture", false))"
+                                 CssClass="sessions-run__artifact"
+                                 Compact="true" />
+                }
+                else
+                {
+                    @* A node per stage in run order, in the tone of where it stands,
+                       with who worked in it under it: the owner session, then each
+                       agent it delegated to and the model that agent ran on. *@
+                    <FlowSteps Steps="@Flow"
+                               AriaLabel="@($"Stages of run {Run.Title}")"
+                               TestId="sessions-run-stages" />
+                    @if (_diagramUnavailable is { } reason)
+                    {
+                        <Alert Role="note"
+                               BaseClass="sessions-run__diagram-note"
+                               TestId="sessions-run-diagram-note"
+                               Message="@reason" />
+                    }
+                }
+            </div>
+        }
+
+        @* Groups rather than one long list, so the grid can set them side by side:
+           each is a term and what it says, and a narrow pane stacks them. *@
+        <dl class="sessions-run__details">
+            @* The run's own name for itself, which the line above deliberately does
+               not repeat. *@
+            <div class="sessions-run__group">
                 <dt>Title</dt>
                 <dd data-testid="sessions-run-title">@Run.Title</dd>
 
@@ -105,36 +177,26 @@
                     <dd>@Run.ChangeKind</dd>
                 }
 
-                @if (Run.Stages.Count > 0)
+                @if (Run.Context is { } context)
                 {
-                    <dt>Stages</dt>
-                    <dd>
-                        <ul class="sessions-run__list" data-testid="sessions-run-stages">
-                            @foreach (var stage in Run.Stages)
-                            {
-                                <li>
-                                    <span class="sessions-run__stage-name">@stage.Name</span>
-                                    <span class="sessions-run__stage-facts">
-                                        @StatusLabel(stage.Status)@(stage.DurationMs is { } ms ? $" · {Duration(ms)}" : string.Empty)@(stage.DoneCount > 1 ? $" · done ×{stage.DoneCount}" : string.Empty)
-                                    </span>
-                                </li>
-                            }
-                        </ul>
-                    </dd>
+                    <dt>Context</dt>
+                    <dd data-testid="sessions-run-context">@Context(context)</dd>
                 }
+            </div>
 
-                @* A figure the run does not carry is left out rather than shown as
-                   zero — the same rule the trigger above already applies, and it has
-                   to hold in both places or the fold contradicts the line that opens
-                   it. It used to hold only above, which cost nothing while every run
-                   came from a dashboard that measured consumption; a run this product
-                   records carries the model it resolved and no consumption at all,
-                   because those figures are counted by watching a session's own tool
-                   calls and this product sees the call rather than the session. That
-                   made "0 calls · 0 out · 0 in" the normal case instead of a rare
-                   one. *@
-                @if (Run.TokenUsage is { } usage && (usage.Total.ModelCalls > 0 || usage.Models.Count > 0))
-                {
+            @* A figure the run does not carry is left out rather than shown as
+               zero — the same rule the trigger above already applies, and it has
+               to hold in both places or the fold contradicts the line that opens
+               it. It used to hold only above, which cost nothing while every run
+               came from a dashboard that measured consumption; a run this product
+               records carries the model it resolved and no consumption at all,
+               because those figures are counted by watching a session's own tool
+               calls and this product sees the call rather than the session. That
+               made "0 calls · 0 out · 0 in" the normal case instead of a rare
+               one. *@
+            @if (Run.TokenUsage is { } usage && (usage.Total.ModelCalls > 0 || usage.Models.Count > 0))
+            {
+                <div class="sessions-run__group">
                     <dt>Tokens</dt>
                     <dd data-testid="sessions-run-tokens">
                         @if (usage.Total.ModelCalls > 0)
@@ -155,67 +217,73 @@
                                 @foreach (var stage in usage.ByStage)
                                 {
                                     <li>
-                                        <span class="sessions-run__stage-name">@stage.StageName</span>
+                                        <span class="sessions-run__stage-name" title="@stage.StageName">@stage.StageName</span>
                                         <span class="sessions-run__stage-facts">@Tokens(stage.Total)</span>
                                     </li>
                                 }
                             </ul>
                         }
                     </dd>
-                }
+                </div>
+            }
 
-                @if (Run.Context is { } context)
-                {
-                    <dt>Context</dt>
-                    <dd data-testid="sessions-run-context">@Context(context)</dd>
-                }
-
-                @if (Run.InsightsByCategory.Count > 0)
-                {
+            @if (Run.InsightsByCategory.Count > 0)
+            {
+                <div class="sessions-run__group">
                     <dt>Tool calls</dt>
                     <dd>
                         <ul class="sessions-run__list" data-testid="sessions-run-insights">
                             @foreach (var group in Run.InsightsByCategory)
                             {
                                 <li>
-                                    <span class="sessions-run__stage-name">@group.Name</span>
+                                    <span class="sessions-run__stage-name" title="@group.Name">@group.Name</span>
                                     <span class="sessions-run__stage-facts">@Insight(group)</span>
                                 </li>
                             }
                         </ul>
                     </dd>
-                }
+                </div>
+            }
 
-                @if (Run.InsightsByServer.Count > 0)
-                {
+            @if (Run.InsightsByServer.Count > 0)
+            {
+                <div class="sessions-run__group">
                     <dt>MCP servers</dt>
                     <dd>
                         <ul class="sessions-run__list" data-testid="sessions-run-servers">
                             @foreach (var group in Run.InsightsByServer)
                             {
                                 <li>
-                                    <span class="sessions-run__stage-name data-table__mono">@group.Name</span>
+                                    <span class="sessions-run__stage-name data-table__mono" title="@group.Name">@group.Name</span>
                                     <span class="sessions-run__stage-facts">@Insight(group)</span>
                                 </li>
                             }
                         </ul>
                     </dd>
-                }
-            </dl>
-        </FoldControl>
-
-        @* Last, and quiet: which recipe produced the run is what a reader asks after
-           the work and the outcome, and it is the one thing two runs of the same flow
-           share. *@
-        <span class="sessions-run__skill" data-testid="sessions-run-skill">
-            <SparklesIcon Size="12" CssClass="sessions-run__icon" />
-            <span class="data-table__mono">@Run.SkillId</span>
-        </span>
-    </span>
+                </div>
+            }
+        </dl>
+    </div>
 </div>
 
 @code {
+    private readonly string _panelId = "sessions-run-" + Guid.NewGuid().ToString("N");
     private bool _expanded;
+    private IDeliveryRunDiagrams? _diagrams;
+    private bool _diagramsResolved;
+
+    /// <summary>The artifact on screen, kept while the next one renders so a moving
+    /// run does not flash back to the flow on every stage it finishes.</summary>
+    private DeliveryRunDiagram? _diagram;
+
+    /// <summary>The specification last sent to the renderer: what decides whether a
+    /// re-read run has anything new to draw.</summary>
+    private string? _requested;
+
+    private string? _diagramUnavailable;
+
+    [Inject]
+    private IServiceProvider Services { get; set; } = default!;
 
     [Parameter, EditorRequired]
     public DeliveryRun Run { get; set; } = default!;
@@ -226,15 +294,24 @@
     [Parameter]
     public EventCallback<DeliveryRunReference> OnOpenTask { get; set; }
 
+    /// <summary>What the line draws in place of the run's own references, where the row
+    /// knows more than the run file does — a pull request the session linked and the
+    /// run never recorded (<see cref="SessionRow.ReferencesFor"/>). Null draws the
+    /// run's own.</summary>
+    [Parameter]
+    public IReadOnlyList<DeliveryRunReference>? References { get; set; }
+
+    private IReadOnlyList<DeliveryRunReference> AllReferences => References ?? Run.References;
+
     /// <summary>The references drawn on the line: the work that lives elsewhere. The
     /// Backlog entry is not among them — the status badge is how this line reaches
     /// one, and a chip beside it would be a second control to the same place.</summary>
     private IEnumerable<DeliveryRunReference> Linked =>
-        Run.References.Where(reference => reference.Kind is not DeliveryRunReferenceKind.Task);
+        AllReferences.Where(reference => reference.Kind is not DeliveryRunReferenceKind.Task);
 
     /// <summary>The Backlog entry this run was started from, where it names one.</summary>
     private DeliveryRunReference? Entry =>
-        Run.References.FirstOrDefault(reference => reference.Kind is DeliveryRunReferenceKind.Task);
+        AllReferences.FirstOrDefault(reference => reference.Kind is DeliveryRunReferenceKind.Task);
 
     /// <summary>
     /// The four figures a reader wants before deciding whether to open the fold,
@@ -277,6 +354,50 @@
         }
     }
 
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!_diagramsResolved)
+        {
+            // Resolved rather than injected, as DiagramView resolves its artifact
+            // source: a host or a test that registered no renderer gets the live flow
+            // instead of failing to render the line at all.
+            _diagrams = Services.GetService<IDeliveryRunDiagrams>();
+            _diagramsResolved = true;
+        }
+
+        await RenderDiagramAsync();
+    }
+
+    private async Task OnExpandedChanged(bool expanded)
+    {
+        _expanded = expanded;
+        await RenderDiagramAsync();
+    }
+
+    /// <summary>
+    /// Asks for the artifact of the run as it stands now, and only while somebody is
+    /// looking: a folded run draws nothing, and a re-read run whose stages have not
+    /// moved produces the same specification and costs a string comparison.
+    /// </summary>
+    private async Task RenderDiagramAsync()
+    {
+        if (!_expanded || _diagrams is null || Run.Stages.Count == 0) return;
+
+        var specification = DeliveryRunDiagramSpec.Archify(Run);
+        if (string.Equals(specification, _requested, StringComparison.Ordinal)) return;
+
+        _requested = specification;
+
+        var diagram = await _diagrams.RenderAsync(specification);
+
+        // A newer request went out while this one was rendering; its answer is the
+        // one to show.
+        if (!ReferenceEquals(specification, _requested)) return;
+
+        _diagram = diagram.Html is null ? null : diagram;
+        _diagramUnavailable = diagram.Unavailable;
+    }
+
     /// <summary>The dashboards' status words, made readable. Anything unrecognised
     /// keeps its own spelling with the underscores spaced out, so a new word still
     /// says what the file said.</summary>
@@ -290,6 +411,67 @@
 
     private static bool IsDone(string status) =>
         status.ToLowerInvariant() is "done" or "completed" or "success";
+
+    private IReadOnlyList<FlowStep> Flow =>
+    [
+        .. Run.Stages.Select(stage => new FlowStep(
+            stage.Name,
+            Tone(stage.Status),
+            StatusLabel(stage.Status),
+            StageFacts(stage),
+            [.. Owner(stage), .. stage.Agents.Select(Note)]))
+    ];
+
+    /// <summary>
+    /// The owner session's line, on a stage it has worked in. The run file names the
+    /// models the run called for the run as a whole, never per stage — so the owner's
+    /// model is named only where the run called exactly one, and every call in every
+    /// stage was on it. With more than one the owner is named without a model rather
+    /// than with a guess.
+    /// </summary>
+    private IEnumerable<FlowStepNote> Owner(DeliveryRunStage stage)
+    {
+        if (Tone(stage.Status) is FlowStepTone.Pending or FlowStepTone.Skipped) yield break;
+
+        var models = Run.TokenUsage?.Models ?? [];
+
+        yield return new FlowStepNote("main session", models.Count == 1 ? models[0] : null);
+    }
+
+    /// <summary>The dashboards' stage words as the flow's tones. A word none of them
+    /// has written yet reads as not reached, which is the one claim that is never
+    /// wrong about a stage nobody reported on.</summary>
+    internal static FlowStepTone Tone(string status) => status.ToLowerInvariant() switch
+    {
+        "done" or "completed" or "success" => FlowStepTone.Done,
+        "in_progress" or "active" or "running" => FlowStepTone.Active,
+        "blocked" or "failed" or "error" => FlowStepTone.Blocked,
+        "skipped" => FlowStepTone.Skipped,
+        _ => FlowStepTone.Pending
+    };
+
+    private static string? StageFacts(DeliveryRunStage stage)
+    {
+        var facts = new List<string>();
+
+        if (stage.DurationMs is { } ms) facts.Add(Duration(ms));
+        if (stage.DoneCount > 1) facts.Add($"done ×{stage.DoneCount}");
+
+        return facts.Count == 0 ? null : string.Join(" · ", facts);
+    }
+
+    /// <summary>An agent under its stage: the name, then the model it ran on, how
+    /// often, and how many runs did not complete. A declared agent no record shows
+    /// running has no model to name, and says so rather than borrowing one.</summary>
+    private static FlowStepNote Note(DeliveryRunStageAgent agent)
+    {
+        List<string> detail = [agent.Model ?? (agent.Count == 0 ? "declared" : "model not recorded")];
+
+        if (agent.Count > 1) detail.Add($"×{agent.Count}");
+        if (agent.Failed > 0) detail.Add($"{agent.Failed} failed");
+
+        return new FlowStepNote(agent.Name, string.Join(" · ", detail));
+    }
 
     /// <summary>
     /// One of the run's references as the Integrations family draws one. No artifact

@@ -1,3 +1,5 @@
+using Backlog.Modules.Devbook.Abstractions;
+
 namespace Backlog.Infrastructure.Devbook;
 
 /// <summary>
@@ -56,7 +58,6 @@ public sealed record DevbookScopeProjection(
             return new DevbookScopeProjection(DevbookDatabaseSchema.RepositoryScope, nodes, edges);
         }
 
-        var prefix = scope + "/";
         var byId = new Dictionary<string, DevbookNodeRow>(StringComparer.Ordinal);
         var kept = new HashSet<string>(StringComparer.Ordinal);
 
@@ -64,8 +65,10 @@ public sealed record DevbookScopeProjection(
         {
             byId[node.Id] = node;
 
-            if (node.Path is { } path
-                && (string.Equals(path, scope, StringComparison.Ordinal) || path.StartsWith(prefix, StringComparison.Ordinal)))
+            // Either layout's spelling on either side: the scope arrives as a
+            // folder key (.tech) and the rows carry whatever the generator found
+            // on disk (.devbook/tech/…).
+            if (DevbookLayout.IsInFolder(node.Path, scope))
             {
                 kept.Add(node.Id);
             }

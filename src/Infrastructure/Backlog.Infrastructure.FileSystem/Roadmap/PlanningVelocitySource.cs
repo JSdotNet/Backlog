@@ -1,24 +1,24 @@
+using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 
 namespace Backlog.Infrastructure.FileSystem.Roadmap;
 
 /// <summary>
-/// Answers Roadmap's <see cref="IPlanningVelocity"/> from the per-device settings
-/// file.
+/// Answers Roadmap's <see cref="IPlanningVelocitySettings"/> from the per-device
+/// settings file.
 /// <para>
-/// A one-line adapter, and it exists for the boundary rather than for the logic:
-/// the module may not reference infrastructure, so it asks its own port and this —
-/// which may see both — reads
-/// <see cref="PlanningVelocitySettingsStore"/>. The same arrangement
-/// <see cref="RoadmapPlanTagSource"/> uses for the tag picker.
+/// A pass-through, and it exists for the boundary rather than for the logic: the
+/// module may not reference infrastructure, so it asks its own port and this —
+/// which may see both — reads <see cref="PlanningVelocitySettingsStore"/>. The same
+/// arrangement <see cref="RoadmapPlanTagSource"/> uses for the tag picker.
 /// </para>
 /// <para>
 /// Read per call rather than pinned at construction, so a pace changed on the
-/// settings screen is what the next placement divides by. Nothing already drawn
-/// moves — a window is stored, not recomputed (ADR 0013, ruling 5).
+/// roadmap is what the next placement divides by. Nothing already drawn moves — a
+/// window is stored, not recomputed (ADR 0013, ruling 5).
 /// </para>
 /// </summary>
-public sealed class PlanningVelocitySource : IPlanningVelocity
+public sealed class PlanningVelocitySource : IPlanningVelocitySettings
 {
     private readonly PlanningVelocitySettingsStore _settings;
 
@@ -28,5 +28,17 @@ public sealed class PlanningVelocitySource : IPlanningVelocity
         _settings = settings;
     }
 
-    public decimal StoryPointsPerDay => _settings.StoryPointsPerDay;
+    public event Action? Changed
+    {
+        add => _settings.Changed += value;
+        remove => _settings.Changed -= value;
+    }
+
+    public decimal Manual => _settings.StoryPointsPerDay;
+
+    public PaceSource Source => _settings.Source;
+
+    public string? SetManual(string? typed) => _settings.Set(typed);
+
+    public string? Choose(PaceSource source) => _settings.Choose(source);
 }

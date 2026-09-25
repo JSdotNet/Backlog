@@ -81,6 +81,10 @@
         and Alt with Left or Right to change its start date. Space drops it, Escape puts it back.
         A bar with steps has a button beside it that shows or hides them, one row each.
         A step is drawn by its share of the effort, not by date.
+        @if (OnLinkCreated.HasDelegate)
+        {
+            <text>With a pointer, drag the dot past a bar's end onto another bar or a date to make that one wait for it.</text>
+        }
     </p>
 
     <p class="sr-only" role="status" aria-live="polite" data-testid="@Suffix("announcement")">@_announcement</p>
@@ -121,7 +125,9 @@
                                    title="@Context(placed)">
                                     @if (first)
                                     {
-                                        <span class="roadmap-timeline__group-name">@group.Title</span>
+                                        @* The sidebar is narrow, so a long name is cut short with an
+                                           ellipsis; the title carries it whole. *@
+                                        <span class="roadmap-timeline__group-name" title="@group.Title">@group.Title</span>
                                     }
                                     @if (placed.Step is not null)
                                     {
@@ -295,6 +301,7 @@
                                                         Dragging="@Is(_dragId, bar.Id)"
                                                         Invalid="@(Refused && Is(ActiveId, bar.Id))"
                                                         AllowResize="@AllowResize"
+                                                        Linkable="@OnLinkCreated.HasDelegate"
                                                         ContextLabel="@Context(placed)"
                                                         DateLabel="@DateLabel"
                                                         DescribedById="@_helpId"
@@ -313,7 +320,8 @@
                                 {
                                     <span @key="milestone.Id"
                                           class="@MilestoneClass(milestone)"
-                                          style="left: @Rem(Geometry.XFor(milestone.On))">
+                                          style="left: @Rem(Geometry.XFor(milestone.On))"
+                                          data-roadmap-node="@milestone.Id">
                                         <button type="button"
                                                 class="roadmap-milestone__marker"
                                                 aria-current="@(Is(SelectedId, milestone.Id) ? "true" : null)"
@@ -488,6 +496,18 @@
     /// and never before: see RoadmapChange for why applying it is the host's.</summary>
     [Parameter]
     public EventCallback<RoadmapChange> OnBarChanged { get; set; }
+
+    /// <summary>
+    /// A dependency the reader drew: the handle past one bar's end dragged onto
+    /// another bar or a milestone, which is to wait for it. Proposed, not applied —
+    /// whether the plan accepts it, a cycle for one, is the host's to answer, and the
+    /// arrow appears when the host hands the link back in <see cref="Links"/>.
+    /// <para>
+    /// Left unset, no bar offers the handle.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public EventCallback<RoadmapLink> OnLinkCreated { get; set; }
 
     /// <summary>What is being filtered on now, for a host that wants to mirror
     /// it into a URL. The narrowing itself is done here — which bars are on
@@ -791,6 +811,22 @@
         }
 
         StateHasChanged();
+    }
+
+    /// <summary>
+    /// The dependency handle of <paramref name="fromId"/> was dropped on
+    /// <paramref name="toId"/>. Dropping it back on its own bar, or on nothing the
+    /// timeline drew, says nothing and is ignored.
+    /// </summary>
+    [JSInvokable]
+    public async Task LinkCommit(string fromId, string toId)
+    {
+        if (Is(fromId, toId) || Bar(fromId) is null) return;
+        if (Bar(toId) is null && MilestoneList.All(milestone => !Is(milestone.Id, toId))) return;
+
+        Announce($"{Name(toId)} now waits for {Name(fromId)}.");
+
+        await OnLinkCreated.InvokeAsync(new RoadmapLink(fromId, toId));
     }
 
     /// <summary>

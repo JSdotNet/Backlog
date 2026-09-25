@@ -133,6 +133,12 @@ works. Search is the one exception: without a database it is unavailable and say
 because scanning the corpus per query is a hang rather than a fallback.
 `Backlog.Infrastructure.Devbook` is the reader; **nothing in C# ever writes to it.**
 
+The product reads both layouts: `.devbook/<name>` first and the root-level `.<name>` as
+the legacy fallback. A repository whose knowledge folders sit under `.devbook/` keeps its
+database at `.devbook/_meta/devbook.db`, and `build-database.mjs` writes it there with that
+repository's own devbook generator (`.devbook/_tools/devbook-meta/`, or `--generator`);
+this repository is still on the root layout and builds `_meta/devbook.db`.
+
 `tools/devbook/build-database.mjs` is repo-native and *imports* the installed
 generator's exported functions. Everything under `.github/tools/knowledge-meta/`, both
 `knowledge-meta*` workflows, and `build/Update-KnowledgeIndex.ps1` are the unchanged

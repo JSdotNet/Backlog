@@ -106,6 +106,8 @@
                 SizeInBytes="@SizeInBytes"
                 Metadata="@_fileRecord?.Metadata"
                 Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder)"
+                MetadataFolder="@DevbookFolder"
+                MetadataFileName="@DevbookDocumentPath"
                 ShowMetadataFields="@RenderDevbookMetadataFields"
                 CanEditStatus="@CanEditDevbookStatus"
                 OnStatusChanged="ReportFileStatusAsync"
@@ -632,8 +634,9 @@
         // folder, or a value this library has no glyph for — the record is handed on
         // exactly as it was read, which is what keeps `.tech`'s own `type` row on
         // screen and what keeps a `.domain` type nobody has drawn yet visible as the
-        // word it is.
-        _fileType = DevbookTypeMarkers.MarkedIn(DevbookFolder, record?.Metadata.Type);
+        // word it is. Asked with the file's path, because a `.domain` additional
+        // page's type is its own filename and is known only beside it.
+        _fileType = DevbookTypeMarkers.MarkedFileIn(DevbookFolder, record?.Metadata.Type, DevbookDocumentPath);
         _fileRecord = record is not null && _fileType is not null
             ? record with { Metadata = record.Metadata.WithoutType() }
             : record;
@@ -663,6 +666,7 @@
         _fileType is null
             ? null
             : @<DevbookTypeMarker Value="@_fileType"
+                                    FileName="@DevbookDocumentPath"
                                     CssClass="devbook-type-marker--leads"
                                     Labelled="true"
                                     ShowTooltip="false"

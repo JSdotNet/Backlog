@@ -1,4 +1,5 @@
 using Backlog.Infrastructure.FileSystem.Roadmap;
+using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 
 namespace Backlog.Infrastructure.FileSystem.UnitTests;
@@ -223,29 +224,129 @@ public class PlanningVelocitySettingsStoreTests : IDisposable
         Assert.Equal(2.5m, Store().StoryPointsPerDay);
     }
 
+    // --- Which pace places a plan ------------------------------------------------
+
+    [Fact]
+    public void An_untouched_store_places_by_the_typed_pace()
+    {
+        Assert.Equal(PaceSource.Manual, Store().Source);
+    }
+
+    [Fact]
+    public void A_chosen_pace_survives_a_restart_and_keeps_the_typed_one()
+    {
+        var store = Store();
+        Assert.Null(store.Set(2.5m));
+
+        Assert.Null(store.Choose(PaceSource.LastFourWeeks));
+
+        var reopened = Store();
+        Assert.Equal(PaceSource.LastFourWeeks, reopened.Source);
+        Assert.Equal(2.5m, reopened.StoryPointsPerDay);
+    }
+
+    [Fact]
+    public void Typing_a_pace_keeps_the_choice()
+    {
+        var store = Store();
+        _ = store.Choose(PaceSource.LastTwoWeeks);
+
+        _ = store.Set(3m);
+
+        Assert.Equal(PaceSource.LastTwoWeeks, Store().Source);
+    }
+
+    [Fact]
+    public void Choosing_raises_changed()
+    {
+        var store = Store();
+        var raised = 0;
+        store.Changed += () => raised++;
+
+        _ = store.Choose(PaceSource.LastEightWeeks);
+        _ = store.Choose(PaceSource.LastEightWeeks);
+
+        Assert.Equal(1, raised);
+    }
+
+    [Fact]
+    public void A_value_that_is_not_a_pace_source_is_refused()
+    {
+        var store = Store();
+
+        Assert.NotNull(store.Choose((PaceSource)42));
+        Assert.Equal(PaceSource.Manual, store.Source);
+    }
+
+    /// <summary>A file from before the choice existed, a name a later build wrote,
+    /// and a number where a name belongs all place by the typed pace — and none of
+    /// them costs the reader the pace they typed.</summary>
+    [Theory]
+    [InlineData("""{ "storyPointsPerDay": 2.5 }""")]
+    [InlineData("""{ "storyPointsPerDay": 2.5, "source": "LastSixMonths" }""")]
+    [InlineData("""{ "storyPointsPerDay": 2.5, "source": "2" }""")]
+    [InlineData("""{ "storyPointsPerDay": 2.5, "source": null }""")]
+    public void A_source_the_store_does_not_know_reads_as_the_typed_pace(string contents)
+    {
+        File.WriteAllText(SettingsFile, contents);
+
+        var store = Store();
+
+        Assert.Equal(PaceSource.Manual, store.Source);
+        Assert.Equal(2.5m, store.StoryPointsPerDay);
+    }
+
+    [Fact]
+    public void A_source_is_read_whatever_its_case()
+    {
+        File.WriteAllText(SettingsFile, """{ "storyPointsPerDay": 2, "source": "lasttwoweeks" }""");
+
+        Assert.Equal(PaceSource.LastTwoWeeks, Store().Source);
+    }
+
     // --- The port the roadmap asks ------------------------------------------------
 
     /// <summary>The module never sees the store; it sees this. Both halves of the
     /// contract are asserted through the port rather than through the store, because
     /// the port is the only thing Roadmap is allowed to hold.</summary>
     [Fact]
-    public void The_port_answers_one_point_a_day_when_the_reader_has_chosen_nothing()
+    public void The_port_answers_one_point_a_day_typed_when_the_reader_has_chosen_nothing()
     {
-        IPlanningVelocity port = new PlanningVelocitySource(Store());
+        IPlanningVelocitySettings port = new PlanningVelocitySource(Store());
 
-        Assert.Equal(1m, port.StoryPointsPerDay);
+        Assert.Equal(1m, port.Manual);
+        Assert.Equal(PaceSource.Manual, port.Source);
     }
 
     [Fact]
     public void The_port_answers_a_pace_changed_after_it_was_built()
     {
         var store = Store();
-        IPlanningVelocity port = new PlanningVelocitySource(store);
+        IPlanningVelocitySettings port = new PlanningVelocitySource(store);
 
         _ = store.Set(2m);
+        _ = store.Choose(PaceSource.LastFourWeeks);
 
-        // Read through rather than pinned at construction: the settings screen writes
-        // the store, and the next placement has to divide by what it now says.
-        Assert.Equal(2m, port.StoryPointsPerDay);
+        // Read through rather than pinned at construction: the roadmap writes the
+        // store, and the next placement has to divide by what it now says.
+        Assert.Equal(2m, port.Manual);
+        Assert.Equal(PaceSource.LastFourWeeks, port.Source);
+    }
+
+    [Fact]
+    public void The_port_writes_through_to_the_store_and_relays_its_changes()
+    {
+        var store = Store();
+        IPlanningVelocitySettings port = new PlanningVelocitySource(store);
+        var raised = 0;
+        port.Changed += () => raised++;
+
+        Assert.Null(port.SetManual("3.5"));
+        Assert.Null(port.Choose(PaceSource.LastTwoWeeks));
+        Assert.NotNull(port.SetManual("0"));
+
+        Assert.Equal(3.5m, store.StoryPointsPerDay);
+        Assert.Equal(PaceSource.LastTwoWeeks, store.Source);
+        Assert.Equal(2, raised);
     }
 }

@@ -3,8 +3,19 @@
 <PageTitle>Domain type markers — Backlog UI Storybook</PageTitle>
 
 <StoryPage Title="Type markers"
-           Summary="A subpage of Devbook: the eighteen marks a `.domain` file's `type` is drawn as. Seven say what the file is and eleven say what a chapter in it describes, and because all eighteen values are distinct strings one component answers both. The whole set is built from three primitives — a filled dot for identity, a diamond for “defined by its value”, a boundary for one consistency unit — so `aggregate`, `entity` and `value-object` are one sentence read three ways rather than three drawings. What each mark replaces is a `type aggregate` row in the metadata strip, which said the same thing further down the page and in more words. The four families the stories are grouped under are headings on this page and nothing in the product: every mark is drawn in currentColor, and what tells one family from another is shape."
+           Summary="A subpage of Devbook: the marks a `.domain` file's `type` is drawn as, for contract 16 of the devbook convention. Eleven say what the file is and twenty-two say what a chapter in it describes; `requirements` and `invariants` are in both sets and mean the same thing at both levels, so they are one mark each and one component answers both questions. A thirty-second mark, a plain sheet, stands for every additional page — a file the convention does not name, whose `type` is its own filename. The whole set is built from three primitives — a filled dot for identity, a diamond for “defined by its value”, a boundary for one consistency unit — so `aggregate`, `entity` and `value-object` are one sentence read three ways rather than three drawings. What each mark replaces is a `type aggregate` row in the metadata strip, which said the same thing further down the page and in more words. The families the stories are grouped under are headings on this page and nothing in the product: every mark is drawn in currentColor, and what tells one family from another is shape."
            Guidelines="@Rules">
+
+    <Story Name="Boundary"
+           Description="The context itself, as the map addresses it. A `bounded-context` chapter in `context-map.md` is the context as one addressable thing — the chapter a building block or a technology points at, and the one that states its `deployment`. So it is the dashed boundary the `domain` and `context` files draw, with nothing modelled in it yet and one identity dot: this context, as a single thing on the map."
+           Code="@SpecimenCode">
+        <div class="sb-grid" data-testid="type-markers-boundary">
+            @foreach (var mark in Boundary)
+            {
+                @Specimen(mark)
+            }
+        </div>
+    </Story>
 
     <Story Name="Structure"
            Description="What the model is made of, and the family the three primitives were chosen for. Read the six together and the grammar is visible: a boundary means one consistency unit, so `aggregate` and `entity` both draw one and `value-object` draws none; a filled dot means identity, so `entity` has one and `value-object` never can; a diamond means defined by its value, so it is the whole of `value-object` and doubled for the shared set.
@@ -31,7 +42,9 @@ That is the property to protect in any edit. Redraw one glyph freehand and the s
     </Story>
 
     <Story Name="Capability"
-           Description="What the product offers. One flag, and the same flag on a pole hanging off the one above it — a sub-feature is a feature with a parent and nothing else, so it is the parent's glyph with the parent drawn in."
+           Description="What the product offers, and what switches it. One flag, and the same flag on a pole hanging off the one above it — a sub-feature is a feature with a parent and nothing else, so it is the parent's glyph with the parent drawn in.
+
+Then the two switches `context.md` holds, which the convention takes care to keep apart: a `feature-flag` is decided at release and is either on or off, so it is a toggle; a `setting` is a value a person moves at runtime, so it is a pair of sliders. Both knobs are hollow — a switch's position is configuration, not an identity."
            Code="@SpecimenCode">
         <div class="sb-grid" data-testid="type-markers-capability">
             @foreach (var mark in Capability)
@@ -41,8 +54,43 @@ That is the property to protect in any edit. Redraw one glyph freehand and the s
         </div>
     </Story>
 
+    <Story Name="Rules"
+           Description="What is either kept or broken — the chapters of `requirements.md` and `invariants.md`. A `requirement` is a promise to someone outside the product, so it is a box with a tick; an `invariant` is what a type will not let any caller break, so it is a padlock.
+
+Each plural is the singular with the list of them beside it, the same composition the `features` file draws. That plural is also a file type, and the rule is explicit that `requirements` and `invariants` “mean the same thing at both levels” — the file holds a context's, a chapter one feature's or one aggregate's — so it is one mark wherever it is read. The pair below is the same value read at the two levels."
+           Code="@RulesCode">
+        <div class="sb-grid" data-testid="type-markers-rules">
+            @foreach (var mark in RuleMarks)
+            {
+                @Specimen(mark)
+            }
+        </div>
+        <div class="sb-columns" data-testid="type-markers-rules-levels">
+            <div class="sb-stack">
+                <p class="sb-label">As a file — the `#` title of `requirements.md`</p>
+                <h3 class="sb-heading-sample"><DevbookTypeMarker Value="requirements" FileName=".domain/billing/requirements.md" CssClass="devbook-type-marker--leads" Labelled="true" ShowTooltip="false" />Billing</h3>
+            </div>
+            <div class="sb-stack">
+                <p class="sb-label">As a chapter — one feature's requirements inside it</p>
+                <h4 class="sb-heading-sample"><DevbookTypeMarker Value="requirements" CssClass="devbook-type-marker--leads" Labelled="true" ShowTooltip="false" />Invoicing</h4>
+                <h4 class="sb-heading-sample"><DevbookTypeMarker Value="requirement" CssClass="devbook-type-marker--leads" Labelled="true" ShowTooltip="false" />Requirement: An invoice is numbered once</h4>
+            </div>
+        </div>
+    </Story>
+
+    <Story Name="Actors"
+           Description="Who issues the commands — the actor chapters of `context.md` or `actors.md`. A `user` is a person with an account who operates the context; an `organisation` is a body the context acts toward without operating it; a `technical` actor is a system or timer that triggers a use case from outside, drawn as a clock because the scheduler that closes the month is the case the convention names first."
+           Code="@SpecimenCode">
+        <div class="sb-grid" data-testid="type-markers-actors">
+            @foreach (var mark in Actors)
+            {
+                @Specimen(mark)
+            }
+        </div>
+    </Story>
+
     <Story Name="Language"
-           Description="What the words mean. One mark, and it is deliberately the only speech bubble in the set: a term is the one chapter type that is about the vocabulary rather than about the model, and a reader scanning `naming.md` should be able to tell that at a glance from the shape alone."
+           Description="What the words mean. The speech bubble is kept for the vocabulary alone: a `term` is the one chapter type that is about the words rather than about the model, and the `ubiquitous-language` grouping at the end of `domain.md` that holds the terms is the same bubble with a second copy behind it — the “grouping of these” idiom the shared enums already use."
            Code="@SpecimenCode">
         <div class="sb-grid" data-testid="type-markers-language">
             @foreach (var mark in Language)
@@ -53,7 +101,7 @@ That is the property to protect in any edit. Redraw one glyph freehand and the s
     </Story>
 
     <Story Name="File types"
-           Description="The seven files a bounded context is written across, each drawn as what the file is for rather than as a document icon with a letter on it. `domain` reuses the boundary primitive — a dashed one, because a bounded context is a boundary that is agreed rather than enforced — and `context-map` is three of those contexts with the relationships between them.
+           Description="The files a bounded context is written across, each drawn as what the file is for rather than as a document icon with a letter on it. `domain` reuses the boundary primitive — a dashed one, because a bounded context is a boundary that is agreed rather than enforced — `context`, the context's root document, is the same boundary with the prose that says where it runs, and `context-map` is three of those contexts with the relationships between them. `requirements` and `invariants` are file types too, and are drawn under Rules once for both levels.
 
 These are the marks the Devbook tree draws, because a tree row is a file. One of them also leads the file's name in the file pane's header, read from the `type` under the document's `#` title — named there, because the header states no other word for it. The one place a file mark is drawn unlabelled is beside a kind label that already spells it out, where naming it would hand a screen reader the word twice."
            Code="@SpecimenCode">
@@ -65,10 +113,28 @@ These are the marks the Devbook tree draws, because a tree row is a file. One of
         </div>
     </Story>
 
+    <Story Name="An additional page"
+           Description="A context may add a page for something no listed file holds — a go-live takeover of a predecessor's data, a regulatory annex. Its `type` is its own filename, which no closed list can hold, so the mark is told the file's name and asks the schema whether the value is that page's own. It is, and every such page draws the same plain sheet; the accessible name is still what the file says, `type: go-live-takeover`.
+
+The same value on another file's name is not recognised, and draws nothing — the fallback below. This is also where `naming` went: contract 9 listed it as a file type because this repository's own `naming.md` is one, and under contract 16 it is simply an additional page."
+           Code="@PageCode">
+        <div class="sb-columns" data-testid="type-markers-page">
+            <div class="sb-stack">
+                <p class="sb-label">`go-live-takeover.md` stating `type: go-live-takeover`</p>
+                <h3 class="sb-heading-sample"><DevbookTypeMarker Value="go-live-takeover" FileName=".domain/billing/go-live-takeover.md" CssClass="devbook-type-marker--leads" Labelled="true" ShowTooltip="false" TestId="type-markers-page-own" />Billing</h3>
+                <p>The plain sheet, with a folded corner and two lines of prose: a page the context chose to add.</p>
+            </div>
+            <div class="sb-stack">
+                <p class="sb-label">The same value on `domain.md` — not that file's name, so no mark</p>
+                <h3 class="sb-heading-sample"><DevbookTypeMarker Value="go-live-takeover" FileName=".domain/billing/domain.md" CssClass="devbook-type-marker--leads" Labelled="true" ShowTooltip="false" TestId="type-markers-page-foreign" />Billing</h3>
+            </div>
+        </div>
+    </Story>
+
     <Story Name="In a rendered document"
            Description="The marks as a reader meets them: a real `.domain` file, parsed and drawn by the same `MarkdownView` the Devbook pane uses. Nothing on this story is hand-placed — every mark below was read out of a `type` field in the source beside it.
 
-Both levels are here, because a `.domain` file states two. The `#` title's `type` says what kind of file this is; each `##` chapter's says what that chapter describes. One component draws both, because all eighteen values are distinct strings and nothing has to be told which question a value came from.
+Both levels are here, because a `.domain` file states two. The `#` title's `type` says what kind of file this is; each `##` chapter's says what that chapter describes. One component draws both, because a value means the same thing at either level — the two words in both sets, `requirements` and `invariants`, included — and nothing has to be told which question a value came from.
 
 The last chapter is the fallback in place rather than as a specimen. `policy-fragment` is not a value this library draws, so the heading keeps its plain text and the row stays in the strip under it — beside the three that lost theirs.
 
@@ -164,7 +230,7 @@ That is why `DevbookTypeMarkers.IsRecognised` is published beside the component:
     [
         new("typography-and-layout.md#iconography", "The stroke, the size steps and the rule that an icon inherits its ink through currentColor."),
         new("accessibility.md#iconography-accessibility", "When a mark needs a name of its own, and when naming it would say the word twice."),
-        new("color-scheme.md#band-identity-tokens", "Why the four families are grouping and not four hues: the identity bands are a closed set with a listed set of consumers."),
+        new("color-scheme.md#band-identity-tokens", "Why the families are grouping and not hues: the identity bands are a closed set with a listed set of consumers."),
         new("content-editing.md#knowledge-metadata-blocks", "The fenced block the `type` these marks draw is written in."),
         new("typography-and-layout.md#metadata-lines", "The strip a recognised `type` stops being a row in.")
     ];
@@ -189,26 +255,51 @@ That is why `DevbookTypeMarkers.IsRecognised` is published beside the component:
         new("domain-event", "The bolt. Something already happened and it travelled, so there is nothing left to be inside anything.")
     ];
 
+    private static readonly TypeMark[] Boundary =
+    [
+        new("bounded-context", "The dashed boundary with one identity dot and nothing modelled inside: the context as one addressable thing on the map.")
+    ];
+
     private static readonly TypeMark[] Capability =
     [
         new("feature", "A flag on its pole: a capability planted somewhere."),
-        new("sub-feature", "The same flag on a pole hanging off the one above it. A sub-feature is a feature with a parent and nothing else.")
+        new("sub-feature", "The same flag on a pole hanging off the one above it. A sub-feature is a feature with a parent and nothing else."),
+        new("feature-flag", "A toggle: decided at release, on or off, and retired once the capability is simply there."),
+        new("setting", "Two sliders: a value a person moves at runtime, anywhere along its range.")
+    ];
+
+    private static readonly TypeMark[] RuleMarks =
+    [
+        new("requirement", "A box with a tick. One promise to someone outside the product, and it is either kept or not."),
+        new("requirements", "The tick box with the list of them beside it: one feature's promises as a chapter, a context's as a file."),
+        new("invariant", "A padlock. What the type will not let any caller break, wherever it is enforced."),
+        new("invariants", "The padlock with the list of them beside it: one aggregate's rules as a chapter, a context's as a file.")
+    ];
+
+    private static readonly TypeMark[] Actors =
+    [
+        new("user", "A person: an account that operates the context and needs a right to."),
+        new("organisation", "A building: a body the context acts toward or models without operating it."),
+        new("technical", "A clock: a system or timer that triggers a use case from outside.")
     ];
 
     private static readonly TypeMark[] Language =
     [
-        new("term", "A speech bubble with a definition in it — the one chapter type that is about the vocabulary rather than about the model.")
+        new("term", "A speech bubble with a definition in it — the one chapter type that is about the vocabulary rather than about the model."),
+        new("ubiquitous-language", "The term's bubble with a second copy behind it: the grouping at the end of domain.md that holds the terms.")
     ];
 
     private static readonly TypeMark[] Files =
     [
         new("context-map", "Three contexts and the relationships between them."),
+        new("context", "The dashed boundary again, holding the prose that says where it runs: the context's root document."),
         new("domain", "A dashed boundary — a bounded context is agreed rather than enforced — with the model inside it."),
-        new("model", "A table with a header row: structure, tabulated."),
+        new("actors", "The user's silhouette with a second one behind it: the file that holds all of them once context.md is too small."),
         new("features", "The feature flag, with the list of them beside it."),
+        new("skills", "The features file's composition with a run mark in the flag's place: capabilities that are procedures."),
+        new("model", "A table with a header row: structure, tabulated."),
         new("flow", "Two chevrons: one step after another."),
-        new("dependencies", "One box pointing at another."),
-        new("naming", "An A and a C. The alphabet, which is what a glossary is filed in.")
+        new("dependencies", "One box pointing at another.")
     ];
 
     private RenderFragment Specimen(TypeMark mark) => @<div class="sb-stack" data-testid="@($"type-marker-{mark.Value}")">
@@ -224,6 +315,21 @@ That is why `DevbookTypeMarkers.IsRecognised` is published beside the component:
            and with the tooltip the default leaves on. A mark drawn next to its own
            text label — a document header beside its kind — passes neither. *@
         <DevbookTypeMarker Value="aggregate" Size="22px" Labelled="true" />
+        """;
+
+    private const string RulesCode = """
+        @* One value, one mark, at either level. The file's title and a chapter
+           heading pass the same `requirements`; only the file passes its name,
+           and for a closed-set value that changes nothing. *@
+        <DevbookTypeMarker Value="requirements" FileName=".domain/billing/requirements.md" Labelled="true" ShowTooltip="false" />
+        <DevbookTypeMarker Value="requirements" Labelled="true" ShowTooltip="false" />
+        """;
+
+    private const string PageCode = """
+        @* An additional page's type is its own filename, so the mark needs the
+           name to know it. DevbookTypeMarkers.MarkedFileIn asks the same question
+           for a surface deciding whether to keep the plain `type` row. *@
+        <DevbookTypeMarker Value="go-live-takeover" FileName=".domain/billing/go-live-takeover.md" Labelled="true" />
         """;
 
     /// <summary>A `.domain` file as the convention writes one, cut down to four
@@ -271,7 +377,7 @@ That is why `DevbookTypeMarkers.IsRecognised` is published beside the component:
     private const string DocumentCode = """
         @* Nothing here places a mark. The view reads the `type` out of the fence
            under each heading, draws the glyph for it, and takes the row it replaced
-           out of the strip — and the folder is what says these eighteen values are
+           out of the strip — and the folder is what says the `.domain` values are
            the vocabulary in play, so a `.tech` file's own `type` is untouched. *@
         <MarkdownView Blocks="@Blocks"
                       RenderDevbookMetadata="true"

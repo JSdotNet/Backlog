@@ -1,5 +1,8 @@
 using Backlog.Modules.Devbook.Abstractions;
 using Backlog.SharedKernel.Ai;
+using Backlog.UI.Components.Devbook;
+using Backlog.UI.Components.Markdown;
+using Backlog.UI.Components.Metadata;
 
 namespace Backlog.Desktop.UI.Devbook;
 
@@ -198,7 +201,85 @@ internal sealed class DevbookAiContentSource(
         // the assistant can cite the chapter the way the devbook does.
         var heading = $"### {location.Key}/{content.Chapter.RelativePath.Replace('\\', '/')}";
 
-        return new ChapterRecord(content.Chapter.AreaKey, content.Chapter.RelativePath, heading + "\n" + content.Text.Trim(), Pinned: false);
+        return new ChapterRecord(content.Chapter.AreaKey, content.Chapter.RelativePath, heading + "\n" + ForContext(content.Text).Trim(), Pinned: false);
+    }
+
+    /// <summary>
+    /// A chapter as a model may be handed it for context: the file, less every
+    /// devbook <c>annotation</c> fence and less the <c>review</c>,
+    /// <c>reviewer</c> and <c>review-at</c> lines of its <c>meta</c> fences.
+    /// <para>
+    /// This is the one reader in the product that loads a chapter <em>for
+    /// context</em>, and <c>devbook-annotations.md</c> is explicit about what such
+    /// a reader does: it "skips every annotation fence, and the <c>review</c>,
+    /// <c>reviewer</c>, and <c>review-at</c> fields beside it". Notes live in the
+    /// canonical file, so a reviewer's open question — "is this still true?" —
+    /// ingested as context becomes the rule, and a chapter somebody has asked a
+    /// review of has not thereby stopped saying what it says. The MCP server's
+    /// ordinary read makes the same cut (<c>ChapterReading</c>); this is the Ask AI
+    /// half of it.
+    /// </para>
+    /// <para>
+    /// Only those. The rest of the record — the status, the relations — is
+    /// what a model citing the chapter needs, and a code listing or a diagram is
+    /// the chapter. Nothing is written back: the cut is of the text in hand, and
+    /// the file keeps its notes for the review they belong to.
+    /// </para>
+    /// <para>
+    /// Fences are found by CommonMark's rule (<see cref="MarkdownFence"/>), so a
+    /// note quoting a code sample is cut whole rather than at the sample.
+    /// </para>
+    /// </summary>
+    internal static string ForContext(string markdown)
+    {
+        var lines = markdown.Replace("\r\n", "\n").Split('\n');
+        var kept = new List<string>(lines.Length);
+
+        for (var index = 0; index < lines.Length; index++)
+        {
+            if (MarkdownFence.Open(lines[index]) is not { } fence)
+            {
+                kept.Add(lines[index]);
+                continue;
+            }
+
+            var note = DevbookAnnotationFence.IsAnnotationBlock(fence.Language);
+            var meta = MetadataReader.IsMetaBlock(fence.Language);
+            var inReviewField = false;
+
+            if (!note) kept.Add(lines[index]);
+
+            for (index++; index < lines.Length && !fence.IsClosedBy(lines[index]); index++)
+            {
+                if (note) continue;
+                if (meta && IsReviewLine(lines[index], ref inReviewField)) continue;
+
+                kept.Add(lines[index]);
+            }
+
+            // The closing line, when the fence had one. An unterminated fence ran
+            // to the end of the file, and so does the cut.
+            if (index < lines.Length && !note) kept.Add(lines[index]);
+        }
+
+        return string.Join('\n', kept);
+    }
+
+    /// <summary>Whether a line inside a <c>meta</c> fence belongs to one of the
+    /// review fields — its own <c>key:</c> line, or an indented or list line
+    /// continuing it — tracking which field the reading is in across calls.</summary>
+    private static bool IsReviewLine(string line, ref bool inReviewField)
+    {
+        if (line.Trim().Length == 0) return inReviewField = false;
+
+        var continues = char.IsWhiteSpace(line[0]) || line.StartsWith('-');
+        if (continues) return inReviewField;
+
+        var separator = line.IndexOf(':');
+        inReviewField = separator > 0
+            && DevbookSchema.ReviewFields.Contains(line[..separator].Trim(), StringComparer.OrdinalIgnoreCase);
+
+        return inReviewField;
     }
 
     /// <summary>One chapter as the body carries it.</summary>

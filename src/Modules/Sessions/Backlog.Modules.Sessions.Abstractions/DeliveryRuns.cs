@@ -160,7 +160,27 @@ public sealed record DeliveryRunReference(
 /// both were stamped.</param>
 /// <param name="DoneCount">How many times the stage was marked done. More than one is
 /// a stage that was re-entered — a build that ran three times before it passed.</param>
-public sealed record DeliveryRunStage(string Name, string Status, long? DurationMs, int DoneCount);
+public sealed record DeliveryRunStage(string Name, string Status, long? DurationMs, int DoneCount)
+{
+    /// <summary>
+    /// The agents the stage delegated to, in the order they first appeared, or empty
+    /// where it delegated nothing — the stage ran in the owner session, whose model
+    /// the run file records for the run as a whole and never per stage.
+    /// </summary>
+    public IReadOnlyList<DeliveryRunStageAgent> Agents { get; init; } = [];
+}
+
+/// <summary>
+/// One agent a stage delegated to, on one model.
+/// </summary>
+/// <param name="Name">The agent's name as the dashboard recorded it.</param>
+/// <param name="Model">The model it ran on, verbatim — the dashboards write both
+/// full ids and aliases. Null where only the stage's declaration names the agent,
+/// and nothing says what it ran on.</param>
+/// <param name="Count">How many times it ran on that model in this stage; zero for
+/// an agent the stage declared and no record shows running.</param>
+/// <param name="Failed">How many of those runs did not complete.</param>
+public sealed record DeliveryRunStageAgent(string Name, string? Model, int Count, int Failed);
 
 /// <summary>Model calls and the tokens they moved, as one bucket of a run's usage.</summary>
 public sealed record DeliveryRunTokens(
@@ -416,6 +436,35 @@ public sealed record SessionRow(AgentSession? Session, IReadOnlyList<DeliveryRun
                     .DistinctBy(pr => pr.Url.Trim(), StringComparer.OrdinalIgnoreCase)
             ];
         }
+    }
+
+    /// <summary>
+    /// What a run's line on this row draws: the run's own references, and on the most
+    /// recently updated run, the <see cref="PullRequests"/> no run named. Those are still
+    /// the work the row's run delivered — the run just never wrote the link down, which
+    /// is what happens when a host's own Create PR button takes over from a flow — and
+    /// the run's line, under the State column, is where a reader looks for a delivered
+    /// pull request. One run and not every run, so a pull request stays one reference
+    /// on screen.
+    /// </summary>
+    public IReadOnlyList<DeliveryRunReference> ReferencesFor(DeliveryRun run)
+    {
+        if (Runs.Count == 0 || !ReferenceEquals(run, First)) return run.References;
+
+        var unnamed = PullRequests;
+
+        return unnamed.Count == 0
+            ? run.References
+            :
+            [
+                .. run.References,
+                .. unnamed.Select(pr => new DeliveryRunReference(
+                    DeliveryRunReferenceKind.PullRequest,
+                    $"PR #{pr.Number}",
+                    Title: null,
+                    pr.Url,
+                    string.IsNullOrWhiteSpace(pr.Repository) ? null : pr.Repository))
+            ];
     }
 
     public DateTimeOffset? StartedAt => Session is { } session ? session.StartedAt : First.StartedAt;

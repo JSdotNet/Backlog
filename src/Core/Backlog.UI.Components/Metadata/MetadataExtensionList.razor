@@ -1,0 +1,42 @@
+@*
+    The extension namespace: every `ext.<plugin>.<key>` a block carries, drawn as
+    one row rather than one row per key.
+
+    One row because of what the keys are. They belong to plugins layered on top of
+    devbook, not to devbook, and the convention carries them untouched: no rule
+    about them, no meaning this library could draw, no edge. Given a row each they
+    would sit among the fields as though they were schema — which the rule forbids
+    anyone reading them as — and a plugin that remembers four things about a
+    chapter would out-shout its status. Gathered under one `ext` label they read as
+    what they are: somebody else's notes, visibly present and visibly not ours.
+
+    Shown rather than collapsed behind a disclosure. There are rarely more than a
+    few, a disclosure is a control in the middle of a description list, and a
+    hidden value is exactly the invisible-field problem MetadataExtraFields exists
+    to avoid.
+
+    Each entry is `key: value` exactly as written, the key being what follows
+    `ext.` with the author's casing. An empty value is kept and drawn as the key
+    and its colon — the omit-when-empty rule does not reach this namespace, so
+    `ext.some-plugin.seen:` is a statement too. The tooltip carries the full key a
+    reader would search the fence for.
+*@
+
+@foreach (var (key, value) in Ext)
+{
+    <MetadataScalar Value="@Entry(key, value)" Title="@($"{DevbookSchema.ExtensionPrefix}{key}")" ValueCssClass="@ValueCssClass" />
+}
+
+@code {
+    /// <summary>The extension keys (without <c>ext.</c>) and their verbatim
+    /// values. Empty draws nothing; whether the row belongs is the caller's
+    /// question.</summary>
+    [Parameter]
+    public IReadOnlyDictionary<string, string> Ext { get; set; } = new Dictionary<string, string>();
+
+    [Parameter]
+    public string? ValueCssClass { get; set; } = "devbook-value";
+
+    private static string Entry(string key, string value) =>
+        value.Length == 0 ? $"{key}:" : $"{key}: {value}";
+}

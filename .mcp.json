@@ -3,9 +3,7 @@
     "backlog": {
       "type": "http",
       "url": "http://127.0.0.1:${BACKLOG_MCP_PORT:-5757}/mcp",
-      "headers": {
-        "Authorization": "Bearer ${BACKLOG_MCP_TOKEN}"
-      }
+      "headersHelper": "node tools/mcp/backlog-mcp-headers.mjs"
     }
   }
 }

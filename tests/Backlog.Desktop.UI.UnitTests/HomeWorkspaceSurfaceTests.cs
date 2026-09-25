@@ -1675,6 +1675,7 @@ public sealed class HomeWorkspaceSurfaceTests
         context.Services.AddSingleton<IImportedPlanSource>(sp =>
             TasksTestHost.ImportedPlansFor(sp.GetRequiredService<WorkspaceSettingsStore>()));
         context.Services.AddSingleton<IRoadmapWorkChanges>(TasksTestHost.WorkChanges());
+        context.Services.AddSingleton(TasksTestHost.UntouchedPace());
         context.Services.AddSingleton<DesignDevbookProvider>();
         context.Services.AddSingleton<AiDevbookProvider>();
         context.Services.AddSingleton<TechnologyDevbookService>();

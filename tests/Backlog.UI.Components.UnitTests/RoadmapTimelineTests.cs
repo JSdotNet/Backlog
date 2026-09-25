@@ -995,6 +995,20 @@ public sealed class RoadmapTimelineTests
     }
 
     [Fact]
+    public void A_group_label_carries_its_whole_name_for_when_the_rows_beside_it_are_too_short_to_show_it()
+    {
+        using var context = new BunitContext();
+
+        var view = Chart(context);
+
+        // The label is clipped to its rows' height so the sidebar stays level with
+        // the track; the hover title is where a clipped name can still be read.
+        var label = view.Find("[data-testid='rm-group-dates'] .roadmap-timeline__group-name");
+        Assert.Equal("Dates", label.GetAttribute("title"));
+        Assert.Equal("Dates", label.TextContent);
+    }
+
+    [Fact]
     public void A_bar_is_drawn_from_its_dates_and_from_nothing_else()
     {
         using var context = new BunitContext();
@@ -1019,5 +1033,37 @@ public sealed class RoadmapTimelineTests
         // colour and a shade step of it, and an out-of-range shade lands on the
         // lightest defined step rather than on a class nothing styles.
         Assert.Equal("roadmap-bar roadmap-bar--shade-3", view.Find("[data-testid='rm-bar-solo']").ClassName);
+    }
+
+    [Fact]
+    public void Bars_offer_no_dependency_handle_unless_the_host_takes_links()
+    {
+        using var context = new BunitContext();
+        var view = Chart(context);
+
+        Assert.Empty(view.FindAll("[data-roadmap-grip='link']"));
+    }
+
+    [Fact]
+    public async Task Dropping_the_handle_on_a_bar_or_a_milestone_proposes_that_it_waits()
+    {
+        using var context = new BunitContext();
+        var proposed = new List<RoadmapLink>();
+        var view = Chart(context, extra: parameters => parameters
+            .Add(timeline => timeline.OnLinkCreated, (RoadmapLink link) => proposed.Add(link)));
+
+        Assert.Equal(3, view.FindAll("[data-roadmap-grip='link']").Count);
+
+        await view.InvokeAsync(() => view.Instance.LinkCommit("alpha", "beta"));
+        await view.InvokeAsync(() => view.Instance.LinkCommit("alpha", "launch"));
+
+        // Onto itself, or onto something the chart never drew, says nothing.
+        await view.InvokeAsync(() => view.Instance.LinkCommit("alpha", "alpha"));
+        await view.InvokeAsync(() => view.Instance.LinkCommit("alpha", "nowhere"));
+
+        Assert.Equal([new RoadmapLink("alpha", "beta"), new RoadmapLink("alpha", "launch")], proposed);
+
+        // Proposed, not drawn: the arrow is the host's to hand back.
+        Assert.Empty(view.FindAll(".roadmap-timeline__link"));
     }
 }
