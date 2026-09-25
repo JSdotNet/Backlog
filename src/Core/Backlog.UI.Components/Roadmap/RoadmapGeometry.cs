@@ -46,18 +46,77 @@ public sealed record RoadmapGeometry(
     /// link between two touching bars is still a line rather than a corner.</summary>
     public const double LinkGapRem = 0.5;
 
+    /// <summary>How wide a day is on a plain, all-quarters window. A
+    /// <see cref="RoadmapWindow.IsGraduated"/> window has no single answer; ask
+    /// <see cref="WeekWidthAt"/> there.</summary>
     public double DayWidthRem => QuarterWidthRem / RoadmapWindow.NominalQuarterDays;
 
     public double WeekWidthRem => DayWidthRem * 7;
 
-    public double TrackWidthRem => Window.TotalDays * DayWidthRem;
+    public double TrackWidthRem => XFor(Window.End.AddDays(1));
 
-    /// <summary>How far in from the track's left edge a date falls.</summary>
-    public double XFor(DateOnly date) => (date.DayNumber - Window.Start.DayNumber) * DayWidthRem;
+    /// <summary>
+    /// How far in from the track's left edge a date falls.
+    /// <para>
+    /// On a graduated window each column has a day width of its own, so this walks
+    /// the columns. A date outside the window carries on at the width of the nearest
+    /// end, which is what a bar hanging off either edge needs to be measured by.
+    /// </para>
+    /// </summary>
+    public double XFor(DateOnly date)
+    {
+        if (!Window.IsGraduated) return (date.DayNumber - Window.Start.DayNumber) * DayWidthRem;
+
+        var x = 0.0;
+        var columns = Window.Columns;
+
+        if (date < columns[0].Start) return (date.DayNumber - columns[0].Start.DayNumber) * DayWidthIn(columns[0]);
+
+        foreach (var column in columns)
+        {
+            var dayWidth = DayWidthIn(column);
+
+            if (date <= column.End) return x + (date.DayNumber - column.Start.DayNumber) * dayWidth;
+
+            x += column.TotalDays * dayWidth;
+        }
+
+        var tail = columns[^1];
+
+        return x + (date.DayNumber - tail.End.DayNumber - 1) * DayWidthIn(tail);
+    }
 
     /// <summary>How wide a span is, counting both end days.</summary>
     public double WidthFor(DateOnly start, DateOnly end) =>
-        Math.Max(MinBarWidthRem, (end.DayNumber - start.DayNumber + 1) * DayWidthRem);
+        Math.Max(MinBarWidthRem, XFor(end.AddDays(1)) - XFor(start));
+
+    /// <summary>How wide the week starting on a date is drawn — what a pointer
+    /// drag from that point counts one week step in.</summary>
+    public double WeekWidthAt(DateOnly date) => XFor(date.AddDays(7)) - XFor(date);
+
+    /// <summary>
+    /// How wide one whole column of a scale is drawn on a graduated window.
+    /// <para>
+    /// Every whole week is the same width, every whole month and every whole quarter
+    /// too, whatever its number of days — a ruler whose February is narrower than
+    /// its March reads as uneven, not as precise. Each tier is compressed against the
+    /// one nearer today: a week is three sixteenths of <see cref="QuarterWidthRem"/>,
+    /// a month five sixteenths and a quarter half, so there is room to read a week
+    /// where weeks matter and a year out still fits. All three follow
+    /// <see cref="QuarterWidthRem"/>, which stays the one zoom control.
+    /// </para>
+    /// </summary>
+    public double ColumnWidthRem(RoadmapColumnScale scale) => scale switch
+    {
+        RoadmapColumnScale.Week => QuarterWidthRem * 3 / 16,
+        RoadmapColumnScale.Month => QuarterWidthRem * 5 / 16,
+        _ => QuarterWidthRem / 2
+    };
+
+    /// <summary>How wide one day is inside a column: its scale's width shared over
+    /// the days of the whole week, month or quarter. A column clipped to part of
+    /// its period is that share of the width, so its days match its neighbours'.</summary>
+    public double DayWidthIn(RoadmapColumn column) => ColumnWidthRem(column.Scale) / column.NominalDays;
 
     public double RowTop(int rowIndex) => rowIndex * RowHeightRem;
 

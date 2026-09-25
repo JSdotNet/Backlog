@@ -11206,7 +11206,6 @@ select.field__input {
     --roadmap-group-color: var(--color-border-strong);
     --roadmap-axis-height: 2.75rem;
     --roadmap-sidebar-width: 11rem;
-    --roadmap-band-width: 1.25rem;
 
     display: grid;
     gap: var(--spacing-md);
@@ -11288,58 +11287,58 @@ select.field__input {
     border-bottom: var(--border-width) solid var(--color-border);
 }
 
-.roadmap-timeline__group {
-    display: flex;
-    align-items: stretch;
-    box-shadow: inset 0 -1px 0 var(--color-border);
-}
-
 /*
-  The band, written down its own length. Vertical because it has to be exactly
-  as tall as its rows and no taller — a group heading on a line of its own would
-  need a matching blank line in the track, and the two would drift apart the
-  first time one of them wrapped.
+  A group is a coloured stripe down its rows and a tint behind their names. Its
+  name is written once, across its first row, rather than down the band's side:
+  a sideways name has to fit the band's height, so a group with one row showed
+  a few letters of it — and read left to right it is the first thing a reader
+  looks for.
 
-  The whole sidebar is aria-hidden, so nothing is read sideways: every row in
+  The whole sidebar is aria-hidden, so nothing here is read out: every row in
   the track carries "group, row" as its accessible name, and every bar repeats
   it. This column is the sighted reader's copy of that.
 */
-.roadmap-timeline__group-name {
-    flex: 0 0 var(--roadmap-band-width);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0;
-    padding: var(--spacing-xs) 0;
-    background: color-mix(in srgb, var(--roadmap-group-color, var(--color-border-strong)) 24%, var(--color-background));
+.roadmap-timeline__group {
     border-left: var(--border-width-4) solid var(--roadmap-group-color, var(--color-border-strong));
-    color: var(--color-text-primary);
-    font-family: var(--font-family-heading);
-    font-size: var(--font-size-xs);
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    text-orientation: mixed;
-    writing-mode: vertical-rl;
-    rotate: 180deg;
-    overflow: hidden;
+    background: color-mix(in srgb, var(--roadmap-group-color, var(--color-border-strong)) 12%, var(--color-background));
+    box-shadow: inset 0 -1px 0 var(--color-border);
 }
 
 .roadmap-timeline__group-rows {
-    flex: 1;
     min-width: 0;
 }
 
 .roadmap-timeline__row-name {
     display: flex;
     align-items: center;
+    gap: var(--spacing-xs);
     margin: 0;
     padding: 0 var(--spacing-sm);
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
     white-space: nowrap;
+    overflow: hidden;
+}
+
+.roadmap-timeline__group-name {
+    flex: 0 1 auto;
+    min-width: 0;
+    color: var(--color-text-primary);
+    font-family: var(--font-family-heading);
+    font-weight: 600;
     text-overflow: ellipsis;
     overflow: hidden;
+}
+
+.roadmap-timeline__lane-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    text-overflow: ellipsis;
+    overflow: hidden;
+}
+
+.roadmap-timeline__group-name + .roadmap-timeline__lane-name::before {
+    content: "· ";
 }
 
 /*
@@ -11374,15 +11373,18 @@ select.field__input {
     background: var(--color-background);
 }
 
+/* Two fixed lines, the head and its caption, centred in the column and the pair
+   centred in the axis. The caption line is kept even when it is empty, so a head
+   with no caption sits on the same line as one with — every head on the axis
+   reads along one baseline. */
 .roadmap-timeline__quarter {
     position: absolute;
     top: 0;
     bottom: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    justify-content: center;
-    padding-left: var(--spacing-sm);
+    display: grid;
+    grid-template-rows: auto auto;
+    align-content: center;
+    justify-items: center;
     border-left: var(--border-width) solid var(--color-border);
     overflow: hidden;
 }
@@ -11395,9 +11397,36 @@ select.field__input {
 }
 
 .roadmap-timeline__quarter-year {
+    min-height: calc(var(--font-size-xs) * 1.1);
     color: var(--color-text-disabled);
     font-size: var(--font-size-xs);
     line-height: 1.1;
+}
+
+/* A week's head is its number, quieter than a month's or a quarter's; the month
+   it enters rides underneath only where the month changes. */
+.roadmap-timeline__quarter--week .roadmap-timeline__quarter-label {
+    font-weight: 400;
+}
+
+/* This week: its head in the primary hue, its column shaded down the chart. The
+   primary is the one saturated hue the scheme allows, spent here on "now" the
+   same way the today line spends it. */
+.roadmap-timeline__quarter--current {
+    background: color-mix(in srgb, var(--color-primary) 18%, var(--color-background));
+    box-shadow: inset 0 -2px 0 var(--color-primary);
+}
+
+.roadmap-timeline__quarter--current .roadmap-timeline__quarter-label {
+    color: var(--color-primary);
+    font-weight: 600;
+}
+
+.roadmap-timeline__current-week {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    background: color-mix(in srgb, var(--color-primary) 7%, transparent);
 }
 
 .roadmap-timeline__body {
@@ -11424,6 +11453,11 @@ select.field__input {
     bottom: 0;
     width: var(--border-width);
     background: var(--color-border);
+}
+
+/* Where the ruler changes scale — weeks to months, months to quarters. */
+.roadmap-timeline__rule--scale {
+    background: var(--color-border-strong);
 }
 
 /* A milestone's rule down the whole chart. Quieter than the today line and louder
@@ -12000,7 +12034,6 @@ select.field__input {
 @media (max-width: 40rem) {
     .roadmap-timeline {
         --roadmap-sidebar-width: 7.5rem;
-        --roadmap-band-width: 1rem;
     }
 
     .roadmap-timeline__filters {

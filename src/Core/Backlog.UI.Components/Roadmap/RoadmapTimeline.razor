@@ -106,15 +106,34 @@
                     <div class="roadmap-timeline__group"
                          style="@GroupStyle(group)"
                          data-testid="@Suffix($"group-{Slug(group.Id)}")">
-                        <p class="roadmap-timeline__group-name">@group.Title</p>
                         <div class="roadmap-timeline__group-rows">
                             @* Every placed row of the group, step rows included, so the
-                               two columns stay the same height in the same order. *@
+                               two columns stay the same height in the same order. The
+                               group is named once, across its first row; a row below
+                               it is named only where its name changes, so a lane
+                               stacked over three rows reads as one lane. *@
+                            @{ string? previous = null; var first = true; }
                             @foreach (var placed in Rows.Where(row => ReferenceEquals(row.Group, group)))
                             {
+                                var lane = placed.Step is null && placed.Row.Title != previous ? placed.Row.Title : null;
                                 <p class="@(placed.Step is null ? "roadmap-timeline__row-name" : "roadmap-timeline__row-name roadmap-timeline__row-name--step")"
                                    style="height: @Rem(Geometry.RowHeightRem)"
-                                   title="@placed.Row.Title">@placed.Row.Title</p>
+                                   title="@Context(placed)">
+                                    @if (first)
+                                    {
+                                        <span class="roadmap-timeline__group-name">@group.Title</span>
+                                    }
+                                    @if (placed.Step is not null)
+                                    {
+                                        @placed.Row.Title
+                                    }
+                                    else if (!string.IsNullOrWhiteSpace(lane))
+                                    {
+                                        <span class="roadmap-timeline__lane-name">@lane</span>
+                                    }
+                                </p>
+                                if (placed.Step is null) previous = placed.Row.Title;
+                                first = false;
                             }
                         </div>
                     </div>
@@ -128,12 +147,19 @@
                 <div @ref="_track" class="roadmap-timeline__track" style="width: @Rem(Geometry.TrackWidthRem)">
 
                     <div class="roadmap-timeline__axis" data-testid="@Suffix("axis")">
-                        @foreach (var quarter in Span.Quarters)
+                        @foreach (var column in Span.Columns)
                         {
-                            <div class="roadmap-timeline__quarter"
-                                 style="left: @Rem(Geometry.XFor(quarter.Start)); width: @Rem(Geometry.WidthFor(quarter.Start, quarter.End))">
-                                <span class="roadmap-timeline__quarter-label">@quarter.Label</span>
-                                <span class="roadmap-timeline__quarter-year">@quarter.Year</span>
+                            <div class="@ColumnClass(column)"
+                                 style="left: @Rem(Geometry.XFor(column.Start)); width: @Rem(Geometry.WidthFor(column.Start, column.End))"
+                                 title="@(IsCurrentWeek(column) ? column.LongLabel + " (this week)" : column.LongLabel)"
+                                 aria-current="@(IsCurrentWeek(column) ? "date" : null)">
+                                @* A week clipped to a few days at a month start has no
+                                   room for its number; the tooltip still names it. *@
+                                @if (Geometry.WidthFor(column.Start, column.End) >= MinLabelledColumnRem)
+                                {
+                                    <span class="roadmap-timeline__quarter-label">@column.Label</span>
+                                    <span class="roadmap-timeline__quarter-year">@column.Caption</span>
+                                }
                             </div>
                         }
                     </div>
@@ -141,9 +167,22 @@
                     <div class="roadmap-timeline__body" style="height: @Rem(TrackHeight)">
 
                         <div class="roadmap-timeline__grid" aria-hidden="true">
-                            @foreach (var quarter in Span.Quarters.Skip(1))
+                            @* This week, shaded down the whole chart behind the bars, so
+                               the near-term rows read against it without looking up. *@
+                            @if (Span.Columns.FirstOrDefault(IsCurrentWeek) is { } thisWeek)
                             {
-                                <span class="roadmap-timeline__rule" style="left: @Rem(Geometry.XFor(quarter.Start))"></span>
+                                <span class="roadmap-timeline__current-week"
+                                      style="left: @Rem(Geometry.XFor(thisWeek.Start)); width: @Rem(Geometry.WidthFor(thisWeek.Start, thisWeek.End))"></span>
+                            }
+
+                            @for (var index = 1; index < Span.Columns.Count; index++)
+                            {
+                                var column = Span.Columns[index];
+
+                                @* A stronger rule where the ruler changes scale, so the
+                                   reader sees where a column stops meaning a week. *@
+                                <span class="@(column.Scale != Span.Columns[index - 1].Scale ? "roadmap-timeline__rule roadmap-timeline__rule--scale" : "roadmap-timeline__rule")"
+                                      style="left: @Rem(Geometry.XFor(column.Start))"></span>
                             }
 
                             @* Today is the caller's to state. A component that read
@@ -368,6 +407,15 @@
     [Parameter]
     public RoadmapWindow? Window { get; set; }
 
+    /// <summary>
+    /// Whether the axis is ruled coarser the further it is from <see cref="Today"/>:
+    /// weeks for the next three months, months for the three after, quarters beyond.
+    /// See <see cref="RoadmapWindow.Graduated"/>. Ignored when a <see cref="Window"/>
+    /// is set, and off by default so a chart with no "today" keeps its plain quarters.
+    /// </summary>
+    [Parameter]
+    public bool Graduated { get; set; }
+
     /// <summary>Where to draw the "now" line, if anywhere. The caller's,
     /// because a component that read the clock could not be tested twice.</summary>
     [Parameter]
@@ -579,10 +627,13 @@
     /// included, so a launch three quarters past the last bar is still on the
     /// chart.
     /// </summary>
-    private RoadmapWindow Span => _span ??= Window ?? RoadmapWindow.Covering(
+    private RoadmapWindow Span => _span ??= Window ?? (Graduated
+        ? RoadmapWindow.Graduated(PlanDates, Today ?? DateOnly.FromDateTime(DateTime.Now), WeekStart)
+        : RoadmapWindow.Covering(PlanDates, Today ?? DateOnly.FromDateTime(DateTime.Now)));
+
+    private IEnumerable<DateOnly> PlanDates =>
         BarList.SelectMany(bar => new[] { bar.Start, bar.End })
-            .Concat(MilestoneList.Select(milestone => milestone.On)),
-        Today ?? DateOnly.FromDateTime(DateTime.Now));
+            .Concat(MilestoneList.Select(milestone => milestone.On));
 
     private RoadmapGeometry Geometry => new(Span, QuarterWidth, RowHeight, BarHeight);
 
@@ -1224,6 +1275,19 @@
     private static string? GroupStyle(RoadmapGroup group) =>
         string.IsNullOrWhiteSpace(group.Color) ? null : $"--roadmap-group-color: {group.Color};";
 
+    /// <summary>How narrow a column may be and still carry its head — room for
+    /// "W53" or "Oct" at the axis's type size, plus its padding.</summary>
+    private const double MinLabelledColumnRem = 2;
+
+    /// <summary>Whether a column is the week today falls in. Weeks only: a month or
+    /// a quarter shaded as "now" would claim far more of the chart than today is.</summary>
+    private bool IsCurrentWeek(RoadmapColumn column) =>
+        column.Scale == RoadmapColumnScale.Week && Today is { } today && today >= column.Start && today <= column.End;
+
+    private string ColumnClass(RoadmapColumn column) =>
+        $"roadmap-timeline__quarter roadmap-timeline__quarter--{column.Scale.ToString().ToLowerInvariant()}"
+        + (IsCurrentWeek(column) ? " roadmap-timeline__quarter--current" : null);
+
     private static string MilestoneClass(RoadmapMilestone milestone) =>
         "roadmap-milestone roadmap-milestone--" + milestone.Marker.ToString().ToLowerInvariant();
 
@@ -1231,7 +1295,7 @@
     /// then the line within it.</summary>
     private static string Context(PlacedRow placed) => placed.Owner is { } owner
         ? $"{placed.Group.Title}, {owner.Title}, step {placed.StepIndex + 1} of {owner.StepList.Count}"
-        : $"{placed.Group.Title}, {placed.Row.Title}";
+        : string.IsNullOrWhiteSpace(placed.Row.Title) ? placed.Group.Title : $"{placed.Group.Title}, {placed.Row.Title}";
 
     private static string Glyph(RoadmapMarker marker) => marker switch
     {

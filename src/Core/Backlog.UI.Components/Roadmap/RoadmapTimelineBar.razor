@@ -47,6 +47,7 @@
             id="@ButtonId"
             class="roadmap-bar__body"
             data-roadmap-grip="move"
+            data-roadmap-week-rem="@RoadmapGeometry.N(Geometry.WeekWidthAt(Bar.Start))"
             aria-describedby="@DescribedById"
             aria-current="@(Selected ? "true" : null)"
             title="@Tooltip"
@@ -89,8 +90,8 @@
        hundred of them between a reader and the row below. *@
     @if (Resizable)
     {
-        <span class="roadmap-bar__grip roadmap-bar__grip--start" data-roadmap-grip="start" aria-hidden="true"></span>
-        <span class="roadmap-bar__grip roadmap-bar__grip--end" data-roadmap-grip="end" aria-hidden="true"></span>
+        <span class="roadmap-bar__grip roadmap-bar__grip--start" data-roadmap-grip="start" data-roadmap-week-rem="@RoadmapGeometry.N(Geometry.WeekWidthAt(Bar.Start))" aria-hidden="true"></span>
+        <span class="roadmap-bar__grip roadmap-bar__grip--end" data-roadmap-grip="end" data-roadmap-week-rem="@RoadmapGeometry.N(Geometry.WeekWidthAt(Bar.End.AddDays(-6)))" aria-hidden="true"></span>
     }
 </div>
 
