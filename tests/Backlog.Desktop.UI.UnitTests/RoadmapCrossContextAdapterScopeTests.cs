@@ -106,7 +106,8 @@ public sealed class RoadmapCrossContextAdapterScopeTests : IDisposable
 
         var tagSource = scope.ServiceProvider.GetRequiredService<IRoadmapTagSource>();
         var rollup = scope.ServiceProvider.GetRequiredService<IRoadmapItemRollup>();
-        var velocity = scope.ServiceProvider.GetRequiredService<IPlanningVelocity>();
+        var velocity = scope.ServiceProvider.GetRequiredService<IPlanningVelocitySettings>();
+        var finished = scope.ServiceProvider.GetRequiredService<IRoadmapCompletedWork>();
         var importedPlans = scope.ServiceProvider.GetRequiredService<IImportedPlanSource>();
         var intake = scope.ServiceProvider.GetRequiredService<IRoadmapPlanIntake>();
 
@@ -114,14 +115,15 @@ public sealed class RoadmapCrossContextAdapterScopeTests : IDisposable
         Assert.IsType<RoadmapPlanIntake>(intake);
         Assert.IsType<RoadmapItemRollupService>(rollup);
         Assert.IsType<PlanningVelocitySource>(velocity);
+        Assert.IsType<RoadmapCompletedWork>(finished);
         Assert.IsType<ImportedPlanSource>(importedPlans);
     }
 
     [Fact]
     public void Roadmaps_own_import_command_resolves_in_the_host_graph()
     {
-        // It asks for the reader's pace, which the module never answers itself —
-        // only the cross-context adapters do.
+        // It asks for the reader's pace, which the module works out from what only
+        // the cross-context adapters answer: the typed pace and the finished work.
         using var provider = BuildHostLikeProvider();
         using var scope = provider.CreateScope();
 
@@ -129,5 +131,37 @@ public sealed class RoadmapCrossContextAdapterScopeTests : IDisposable
             ICommandHandler<ImportPlanItemsCommand, Result<PlanImportResultDto>>>();
 
         Assert.IsType<ImportPlanItemsCommandHandler>(import);
+    }
+
+    /// <summary>
+    /// The backlog's plan import reaches the roadmap importer, which asks the pace,
+    /// which counts finished work from the backlog. Taken eagerly that is a loop the
+    /// container cannot see through its factories, and a scope resolving any of them
+    /// deadlocks — so both ends are resolved here, in both orders, and the pace is
+    /// read, under a deadline that turns a hang back into a failure.
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task The_roadmaps_pace_and_the_backlog_resolve_together_in_the_host_graph(bool backlogFirst)
+    {
+        using var provider = BuildHostLikeProvider();
+
+        var resolved = Task.Run(async () =>
+        {
+            using var scope = provider.CreateScope();
+
+            if (backlogFirst) Assert.NotNull(scope.ServiceProvider.GetRequiredService<ITaskItems>());
+
+            var pace = scope.ServiceProvider.GetRequiredService<IPlanningPace>();
+            Assert.NotNull(scope.ServiceProvider.GetRequiredService<IPlanningVelocity>());
+            Assert.NotNull(scope.ServiceProvider.GetRequiredService<ITaskItems>());
+
+            return await pace.ReadAsync();
+        });
+
+        var paces = await resolved.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
+
+        Assert.Equal(1m, paces.InUse);
     }
 }

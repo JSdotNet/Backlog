@@ -208,6 +208,9 @@
             Add a date
         </AppButton>
 
+        @* After the controls that add to the plan: it decides how long the next
+           imported plan is drawn, not what is on the chart now. *@
+        <RoadmapPaceControl />
     </text>;
 
     /// <summary>Where the "now" line is drawn. A parameter so a test can put

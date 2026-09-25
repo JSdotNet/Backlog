@@ -4495,6 +4495,37 @@ h1, h2, h3 {
     font-size: var(--font-size-lg);
 }
 
+/* The reader's pace: the typed figure and the strip choosing which pace places a
+   plan, on one line after the buttons that add to the plan. Wraps under them on a
+   narrow window rather than pushing the filters off the header. */
+.roadmap-pace {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.roadmap-pace__label,
+.roadmap-pace__note {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.roadmap-pace__label {
+    font-weight: 600;
+}
+
+.roadmap-pace__manual {
+    width: 5.5rem;
+}
+
+.roadmap-pace__option-value {
+    margin-left: var(--spacing-2xs);
+    color: var(--color-text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
 /* The cell the timeline is drawn in. It does not scroll: the height it is given is
    passed straight down to the chart, whose own bordered frame scrolls when a plan
    has more rows than the screen can show. `minmax(0, 1fr)` rather than `1fr`,
