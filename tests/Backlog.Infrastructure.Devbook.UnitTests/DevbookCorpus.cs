@@ -47,16 +47,20 @@ internal static class DevbookCorpus
 
     /// <summary>
     /// Creates the database and fills every table the reader claims to read.
-    /// Also writes the Markdown file behind the chapter, under
-    /// <paramref name="databasePath"/>'s repository root, so the drift check has
-    /// something real to stat.
+    /// Also writes the Markdown file behind the chapter, under the temporary
+    /// repository root, so the drift check has something real to stat.
     /// </summary>
-    public static Seeded Seed(string databasePath, string? markdown = null)
+    public static Seeded Seed(TemporaryDatabase temporary, string? markdown = null) =>
+        Seed(temporary.DatabaseFile, temporary.RootDirectory, markdown);
+
+    /// <summary>The same, with the database wherever the caller says: since local
+    /// ADR 0015 it is never under the repository root.</summary>
+    public static Seeded Seed(string databasePath, string repositoryRoot, string? markdown = null)
     {
         DevbookSchemaSource.Create(databasePath, DevbookDatabaseSchema.Version);
 
         var source = markdown ?? "# Devbook\n\n" + ChapterText;
-        var root = Path.GetDirectoryName(Path.GetDirectoryName(databasePath))!;
+        var root = repositoryRoot;
         var file = Path.Combine(root, ChapterPath.Replace('/', Path.DirectorySeparatorChar));
         Directory.CreateDirectory(Path.GetDirectoryName(file)!);
         File.WriteAllText(file, source);

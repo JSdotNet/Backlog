@@ -1,19 +1,27 @@
 #!/usr/bin/env node
-// build-database.mjs — writes `devbook.db`, the generated devbook database, into
-// `_meta/` or `.devbook/_meta/` depending on the repository's layout.
+// build-database.mjs — builds `devbook.db`, the generated devbook database, from a
+// repository's devbook folders, and writes it where it is told.
 //
-//   node tools/devbook/build-database.mjs              # write the database
-//   node tools/devbook/build-database.mjs --check      # build it, report, write nothing
-//   node tools/devbook/build-database.mjs --root ../other-repo
-//   node tools/devbook/build-database.mjs --root ../other-repo --generator ../devbook/tools/devbook-meta
+//   node tools/devbook/build-database.mjs --check                  # build it, report, write nothing
+//   node tools/devbook/build-database.mjs --out <file>             # write the database to <file>
+//   node tools/devbook/build-database.mjs --root ../other-repo --check
+//   node tools/devbook/build-database.mjs --root ../other-repo --generator ../devbook/tools/devbook-meta --out <file>
+//
+// Local ADR 0015 moved the database the app reads out of every repository and
+// made the desktop app its writer: `Backlog.Infrastructure.Devbook` builds it
+// into the app's storage, one per repository path. This script stays for two
+// jobs and writes nothing into a repository for either. CI runs `--check`
+// against the real corpus as a blocking step. And `--out` produces the
+// reference the C# builder is held to: `DevbookBuilderParityTests` builds this
+// repository's own `.devbook/` both ways and compares every table but `meta`
+// and `problem`, row for row — which is how the two parsers stay in step.
 //
 // ADR 0004 replaces the twelve committed `_meta/*.json` artifacts with one
 // SQLite file per repository. A scope is `WHERE folder = ?` rather than a
 // separate file, which is most of the decision: the panels stop each carrying a
 // parser and a projection of the same corpus, and a reader asks the index a
-// question instead of reading it whole. The database is a build output — it is
-// git-ignored, it is regenerated per machine, and a fresh clone simply does not
-// have one, which search says out loud rather than pretending an empty result.
+// question instead of reading it whole. The database is a build output,
+// regenerated per machine and never committed.
 //
 // This is repo-native tooling, and deliberately not an edit to
 // `.github/tools/knowledge-meta/build.mjs`: everything under that folder is an
@@ -22,15 +30,14 @@
 // exported seam the way `check-metadata.mjs` already does — `buildGraph` for the
 // nodes and edges, `parseDocument` for the chapters, `folderKindForPath` for the
 // folder a path belongs to, `discoverScopes` for the folders this repository
-// actually adopts. Nothing about the corpus is parsed twice, and nothing about
-// it is parsed here.
+// actually adopts. Nothing about the corpus is parsed here — the C# builder's
+// port of the same parse is what the parity test holds to this output.
 //
-// Which generator that is follows the repository's layout, and so does where
-// the database goes: the installed copy and `_meta/devbook.db` for a
-// repository that keeps its folders at the root, the devbook plugin's own
-// generator and `.devbook/_meta/devbook.db` for one that keeps them under
-// `.devbook/`. `generator.mjs` decides; the rows carry whatever paths that
-// generator spells, which are the repository's real ones either way.
+// Which generator that is follows the repository's layout: the installed copy
+// for a repository that keeps its folders at the root, the devbook plugin's own
+// generator for one that keeps them under `.devbook/`. `generator.mjs` decides;
+// the rows carry whatever paths that generator spells, which are the
+// repository's real ones either way.
 //
 // The one thing it does not import is the outline. `buildOutlineDocument` reads
 // the reading order back out of the `_meta/index.json` it is regenerating, and
@@ -44,6 +51,7 @@
 
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, readdir, rename, rm, stat } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { dirname, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -432,12 +440,8 @@ export async function buildDatabase(repoRoot, target, generator = null) {
 
     const folders = scopes.filter((scope) => scope !== REPO_SCOPE);
 
-    // `_meta/` is not committed any more — local ADR 0004 took the whole derived
-    // layer out of version control — so on a fresh clone, and in CI, this
-    // directory does not exist until something makes it. The generator that used
-    // to write the JSON created it as a side effect of writing a file into it;
-    // nothing does that now, and `DatabaseSync` reports only "unable to open
-    // database file" for the missing parent.
+    // The target's folder may not exist yet, and `DatabaseSync` reports only
+    // "unable to open database file" for a missing parent.
     await mkdir(dirname(target), { recursive: true });
 
     const temporary = `${target}.building-${process.pid}`;
@@ -530,6 +534,16 @@ if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.m
 
     const repoRoot = resolve(optionValue('--root') ?? DEFAULT_ROOT);
     const checkOnly = args.includes('--check');
+    const out = optionValue('--out');
+
+    if (!checkOnly && !out) {
+        // No default target on purpose: the only place this used to write was
+        // inside the repository, and local ADR 0015 took the database out of it.
+        // The app builds the one it reads by itself.
+        console.error('Pass --check to build and discard, or --out <file> to write the database somewhere.');
+        console.error('The Backlog app builds the database it reads into its own storage (local ADR 0015).');
+        process.exit(2);
+    }
 
     let generator;
     try {
@@ -539,14 +553,14 @@ if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.m
         process.exit(2);
     }
 
-    const databasePath = generator.databasePath;
-    const target = path.join(repoRoot, databasePath);
-
     // `--check` builds the whole database and then throws it away. There is
-    // nothing to diff — the file is git-ignored and carries a timestamp — so the
-    // only question CI can usefully ask is whether it builds and what it reports
-    // while building, which is exactly this.
-    const written = checkOnly ? `${target}.check-${process.pid}` : target;
+    // nothing to diff — the file carries a timestamp — so the only question CI
+    // can usefully ask is whether it builds and what it reports while building,
+    // which is exactly this. It builds in the temp folder, not in the repository.
+    const written = checkOnly
+        ? path.join(tmpdir(), `devbook-check-${process.pid}.db`)
+        : resolve(out);
+    const databasePath = checkOnly ? 'devbook.db (check only)' : written;
 
     try {
         const counts = await buildDatabase(repoRoot, written, generator);

@@ -554,14 +554,14 @@ public sealed class DevbookMenuReadingOrderTests : IDisposable
     private sealed record OutlineRow(string Type, string Name, string Path, string Title, bool IsRoot, string? Parent = null);
 
     /// <summary>
-    /// A generated <c>_meta/devbook.db</c> at the repository root describing
+    /// A generated devbook database for the repository, describing
     /// <paramref name="scope"/>, built from the writer's own DDL in
-    /// <c>tools/devbook/devbook-schema.mjs</c> — nothing on the C# side
+    /// <c>tools/devbook/devbook-schema.sql</c> — nothing on the C# side
     /// restates that schema, fixtures included.
     /// </summary>
     private static void WriteDatabase(string repositoryRoot, string scope, IReadOnlyList<OutlineRow> rows)
     {
-        var databasePath = Path.Combine(repositoryRoot, "_meta", DevbookDatabaseLocation.FileName);
+        var databasePath = DevbookDatabaseLocation.ForRepositoryRoot(repositoryRoot)!;
         Directory.CreateDirectory(Path.GetDirectoryName(databasePath)!);
 
         using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
@@ -626,14 +626,7 @@ public sealed class DevbookMenuReadingOrderTests : IDisposable
         return Convert.ToInt64(command.ExecuteScalar());
     }
 
-    private static string WriterSchema()
-    {
-        var source = File.ReadAllText(RepositoryRootFile("tools", "devbook", "devbook-schema.mjs"));
-        var match = Regex.Match(source, @"export const DEVBOOK_SCHEMA = `(?<value>[^`]*)`", RegexOptions.Singleline);
-
-        Assert.True(match.Success, "tools/devbook/devbook-schema.mjs no longer exports DEVBOOK_SCHEMA.");
-        return match.Groups["value"].Value;
-    }
+    private static string WriterSchema() => DevbookDatabaseSchema.Ddl;
 
     private GitHubSettingsStore NewSettingsStore() => new(Path.Combine(TempDir(), "github.json"));
 

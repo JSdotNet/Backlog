@@ -8,11 +8,11 @@ namespace Backlog.Infrastructure.Devbook.UnitTests;
 /// <summary>
 /// The writing side of the contract, read from the file that owns it.
 ///
-/// <para><c>tools/devbook/devbook-schema.mjs</c> holds the DDL as one exported
-/// string precisely so the reading side can be pinned against it instead of
-/// restating it. Every database in this suite is created from that text, so a
-/// column renamed there fails a test here — which is the whole of ADR 0004's
-/// answer to "a schema written in Node and read in C# can drift silently".</para>
+/// <para><c>tools/devbook/devbook-schema.sql</c> holds the DDL both writers load
+/// — the Node writer reads it, the app's builder embeds it (local ADR 0015). Every
+/// database in this suite is created from the file on disk, so a column renamed
+/// there fails a test here, and <c>DevbookSchemaContractTests</c> pins the
+/// embedded copy to the same text.</para>
 ///
 /// <para>This is the same pairing <c>DiagramSourceHash.Normalize</c> and
 /// <c>normalizeDiagramSource</c> already have, and it exists for the same reason:
@@ -20,7 +20,7 @@ namespace Backlog.Infrastructure.Devbook.UnitTests;
 /// </summary>
 internal static class DevbookSchemaSource
 {
-    private static readonly string[] SchemaFile = ["tools", "devbook", "devbook-schema.mjs"];
+    private static readonly string[] SchemaFile = ["tools", "devbook", "devbook-schema.sql"];
 
     private static readonly Lazy<string> Text = new(() => File.ReadAllText(RepositoryRoot.File(SchemaFile)));
 
@@ -28,17 +28,19 @@ internal static class DevbookSchemaSource
     /// message that names where to look.</summary>
     public static string Path => RepositoryRoot.Combine(SchemaFile);
 
-    /// <summary>Every statement of <c>DEVBOOK_SCHEMA</c>, verbatim.</summary>
-    public static string Ddl => Literal("DEVBOOK_SCHEMA");
+    /// <summary>The schema file, verbatim.</summary>
+    public static string Ddl => Text.Value;
 
-    /// <summary>The writer's <c>SCHEMA_VERSION</c>.</summary>
-    public static int Version => int.Parse(Number("SCHEMA_VERSION"), CultureInfo.InvariantCulture);
-
-    /// <summary>The writer's <c>DATABASE_PATH</c>.</summary>
-    public static string DatabasePath => Quoted("DATABASE_PATH");
-
-    /// <summary>The writer's <c>DEVBOOK_DATABASE_PATH</c>.</summary>
-    public static string DevbookLayoutDatabasePath => Quoted("DEVBOOK_DATABASE_PATH");
+    /// <summary>The file's <c>-- schema-version: N</c> line.</summary>
+    public static int Version
+    {
+        get
+        {
+            var match = Regex.Match(Text.Value, @"^-- schema-version: (?<value>\d+)\s*$", RegexOptions.Multiline);
+            Assert.True(match.Success, $"{Path} no longer carries a `-- schema-version: N` line.");
+            return int.Parse(match.Groups["value"].Value, CultureInfo.InvariantCulture);
+        }
+    }
 
     /// <summary>
     /// A database created from that DDL, at <paramref name="path"/>, with
@@ -90,48 +92,27 @@ internal static class DevbookSchemaSource
         connection.Open();
         return connection;
     }
-
-    private static string Literal(string name)
-    {
-        var match = Regex.Match(Text.Value, $@"export const {Regex.Escape(name)} = `(?<value>[^`]*)`", RegexOptions.Singleline);
-
-        Assert.True(match.Success, $"{Path} no longer exports a template literal named {name}.");
-        return match.Groups["value"].Value;
-    }
-
-    private static string Number(string name)
-    {
-        var match = Regex.Match(Text.Value, $@"export const {Regex.Escape(name)} = (?<value>-?\d+)\s*;");
-
-        Assert.True(match.Success, $"{Path} no longer exports a number named {name}.");
-        return match.Groups["value"].Value;
-    }
-
-    private static string Quoted(string name)
-    {
-        var match = Regex.Match(Text.Value, $@"export const {Regex.Escape(name)} = '(?<value>[^']*)'\s*;");
-
-        Assert.True(match.Success, $"{Path} no longer exports a string named {name}.");
-        return match.Groups["value"].Value;
-    }
 }
 
-/// <summary>A database file that deletes itself and its sidecars when the test
-/// that made it is done.</summary>
+/// <summary>A repository root and the database the resolver keys to it, both
+/// deleted when the test that made them is done.</summary>
 internal sealed class TemporaryDatabase : IDisposable
 {
-    public TemporaryDatabase(string name = "devbook.db")
+    public TemporaryDatabase()
     {
         RootDirectory = Path.Combine(Path.GetTempPath(), "backlog-devbook-db", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(Path.Combine(RootDirectory, "_meta"));
-        DatabaseFile = Path.Combine(RootDirectory, "_meta", name);
+        Directory.CreateDirectory(RootDirectory);
+        DatabaseFile = DevbookDatabaseLocation.ForRepositoryRoot(RootDirectory)
+            ?? throw new InvalidOperationException("The test storage folder is not configured.");
+        Directory.CreateDirectory(System.IO.Path.GetDirectoryName(DatabaseFile)!);
     }
 
-    /// <summary>The repository root the database sits under, so a test can hand a
-    /// consumer a knowledge folder path the way the app does.</summary>
+    /// <summary>The repository root, so a test can hand a consumer a knowledge
+    /// folder path the way the app does.</summary>
     public string RootDirectory { get; }
 
-    /// <summary>The database itself, at the root's <c>_meta/</c>.</summary>
+    /// <summary>The database itself, where the resolver says this root's is:
+    /// under the suite's storage folder, never inside the root (local ADR 0015).</summary>
     public string DatabaseFile { get; }
 
     /// <summary>A knowledge folder inside this root, created on disk.</summary>
@@ -152,6 +133,8 @@ internal sealed class TemporaryDatabase : IDisposable
         {
             SqliteConnection.ClearAllPools();
             if (Directory.Exists(RootDirectory)) Directory.Delete(RootDirectory, recursive: true);
+            var databaseFolder = System.IO.Path.GetDirectoryName(DatabaseFile);
+            if (databaseFolder is not null && Directory.Exists(databaseFolder)) Directory.Delete(databaseFolder, recursive: true);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {

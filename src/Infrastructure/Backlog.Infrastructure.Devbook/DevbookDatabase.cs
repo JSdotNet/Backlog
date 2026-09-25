@@ -6,11 +6,11 @@ using Microsoft.Data.Sqlite;
 namespace Backlog.Infrastructure.Devbook;
 
 /// <summary>
-/// The read side of <c>_meta/devbook.db</c> — the generated devbook database
-/// local ADR 0004 puts the derived layer in.
+/// The read side of the generated devbook database local ADR 0004 puts the
+/// derived layer in, which local ADR 0015 keeps in the app's storage.
 ///
-/// <para><b>This never writes.</b> The Node generator creates the schema and is
-/// the only thing that fills it; the connection is opened
+/// <para><b>This never writes.</b> <see cref="DevbookDatabaseBuilder"/> creates
+/// the file and fills it; the connection here is opened
 /// <see cref="SqliteOpenMode.ReadOnly"/> rather than the <c>ReadWriteCreate</c>
 /// its sibling <c>SqliteTaskRepository</c> uses, and the difference is not a
 /// precaution. <c>ReadWriteCreate</c> would create an empty database where none
@@ -19,15 +19,18 @@ namespace Backlog.Infrastructure.Devbook;
 /// rung for and the one a panel cannot tell from a corpus that really is empty.</para>
 ///
 /// <para><b>Open, ask, dispose.</b> Instances are short-lived on purpose. The
-/// generator builds into a temporary file and renames it over this one, and on
-/// Windows a rename over a file somebody holds open fails — so a reader that kept
-/// a connection alive for the life of a panel would break the writer rather than
+/// builder writes a temporary file and moves it over this one, and on Windows a
+/// move over a file somebody holds open fails — so a reader that kept a
+/// connection alive for the life of a panel would break the writer rather than
 /// merely lag it. Holding one for the span of a single question costs an open and
-/// buys the property that a refresh can always land.</para>
+/// buys the property that a refresh can always land. For the same reason the
+/// connection is not pooled: a pooled connection outlives its disposal and keeps
+/// the file open.</para>
 ///
-/// <para><b>Absence is ordinary.</b> A fresh clone has no database until somebody
-/// runs the generator, a folder configured off the clone has no repository root
-/// above it, and a rebuild in flight may hand back a file that will not open. All
+/// <para><b>Absence is ordinary.</b> A repository has no database until the app
+/// first builds one in the background, a folder configured off the clone has no
+/// repository root above it, and a rebuild in flight may hand back a file that
+/// will not open. All
 /// three answer <see langword="null"/> from <see cref="TryOpen"/>, and every
 /// consumer's response is the same: read the Markdown, which is what it did before
 /// an index existed. The one exception is retrieval — see
@@ -90,7 +93,8 @@ public sealed partial class DevbookDatabase : IDisposable
             connection = new SqliteConnection(new SqliteConnectionStringBuilder
             {
                 DataSource = databasePath,
-                Mode = SqliteOpenMode.ReadOnly
+                Mode = SqliteOpenMode.ReadOnly,
+                Pooling = false
             }.ToString());
 
             connection.Open();

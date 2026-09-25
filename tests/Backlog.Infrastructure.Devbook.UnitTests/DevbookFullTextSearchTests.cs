@@ -175,7 +175,7 @@ public sealed class DevbookFullTextSearchTests
 
         Assert.True(answer.IsUnavailable);
         Assert.Empty(answer.Hits);
-        Assert.Contains(DevbookRetrieval.BuildCommand, answer.UnavailableMessage!, StringComparison.Ordinal);
+        Assert.Contains("has not been built yet", answer.UnavailableMessage!, StringComparison.Ordinal);
         Assert.Equal(DevbookRetrieval.UnavailableMessage("Search"), answer.UnavailableMessage);
     }
 

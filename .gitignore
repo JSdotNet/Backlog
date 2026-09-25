@@ -104,30 +104,9 @@ build/.local/
 # down in docs/deployment/sync.md instead.
 .azure/
 
-# The generated devbook database and its WAL sidecars. Local ADR 0004 makes the
-# derived knowledge layer a build output rather than a committed artifact: it is
-# what stopped two branches editing different chapters from conflicting on a file
-# neither of them authored. Rebuild it with
-# `node tools/devbook/build-database.mjs`; the authored half — each folder's
-# `_reading-order.json` — stays committed and is what the rebuild reads.
-_meta/devbook.db
-_meta/devbook.db-wal
-_meta/devbook.db-shm
-# The same database in the `.devbook/` layout, which keeps it at
-# `.devbook/_meta/devbook.db`. The root entries above stay for a checkout or
-# build that still writes the legacy location.
-/.devbook/_meta/devbook.db
-/.devbook/_meta/devbook.db-wal
-/.devbook/_meta/devbook.db-shm
-
-# The name the database had before the Devbook rename. Kept ignored so a
-# `knowledge.db` left on a machine by an earlier build stays out of the index;
-# the reader still serves it until the next build writes `devbook.db`.
-_meta/knowledge.db
-_meta/knowledge.db-wal
-_meta/knowledge.db-shm
-
-# The JSON the layer used to be, for the same reason. The installed generator
+# The JSON the derived devbook layer used to be (local ADR 0004). The devbook
+# database itself needs no entry: local ADR 0015 keeps it in the app's storage,
+# outside every repository. The installed generator
 # still writes `_meta/graph.json` and `_meta/index.json` on every run and is an
 # installed copy nothing here may edit, so they are ignored rather than stopped:
 # a build output that is written is fine, one that is committed is what put

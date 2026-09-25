@@ -1,15 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    The read side of the generated devbook database (local ADR 0004).
+    The generated devbook database: its reader, and since local ADR 0015 its
+    builder, which writes one database per repository path into the app's own
+    storage (local ADR 0004 for what the database is).
 
     Its own project rather than a folder inside Backlog.Infrastructure.Sqlite,
     which is the canonical local task store. This is a different file with a
-    different lifecycle and the opposite stance: `_meta/devbook.db` is a build
-    output written only by tools/devbook/build-database.mjs, and nothing here
-    ever writes to it - not a table, not a migration, not a row it can see is
-    stale. Sharing a project with a read-write store would mean a header that
-    keeps apologising for which half a reader is looking at.
+    different lifecycle: a build output rebuilt whole from the devbook folders,
+    never migrated and never repaired row by row, where the task store is data
+    nobody can regenerate.
 
     It is also what "one artifact, every channel" wants: the mobile head and the
     IDE extension can reference this later without taking the backlog store, its
@@ -21,6 +21,9 @@
          opinion about which native build is loaded. FtsAvailability is the test
          that says so out loud. -->
     <PackageReference Include="Microsoft.Data.Sqlite" />
+    <!-- DevbookDatabaseRefresher reports a failed background build rather than
+         losing it. -->
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
   </ItemGroup>
 
   <ItemGroup>
@@ -32,6 +35,14 @@
          take for IDevbookFolderSource, which is also what tells this project
          which repository's database to open. -->
     <ProjectReference Include="..\..\Modules\Devbook\Backlog.Modules.Devbook.Abstractions\Backlog.Modules.Devbook.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The one schema text both writers load (local ADR 0015): the Node writer
+         reads this file, the builder here embeds it. -->
+    <EmbeddedResource Include="..\..\..\tools\devbook\devbook-schema.sql"
+                      LogicalName="Backlog.Infrastructure.Devbook.devbook-schema.sql"
+                      Link="devbook-schema.sql" />
   </ItemGroup>
 
   <ItemGroup>

@@ -36,7 +36,7 @@ related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/ar
   Task aggregate, session records, the phone's captures, and the person's
   remarks on Devbook chapters. A remark is Devbook's own record — one JSON
   file per repository in `devbook-annotations/` under the storage folder,
-  moved with the backlog, never the repository's `_meta/devbook.db` and never
+  moved with the backlog, never the generated devbook database and never
   a table in `backlog.db` — and it travels through a third replica container
   on the task container's terms
   (`.devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md`).
