@@ -217,12 +217,13 @@ public class RoadmapPlanViewTests
     }
 
     [Fact]
-    public void WorkWithNoLaneGetsTheDefaultRow()
+    public void WorkWithNoLane_GetsTheRepositorysOwnRow_WithNoLaneTitle()
     {
         var view = RoadmapPlanView.From(Plan([Item("Unfiled lane", repositories: ["backlog"])]), Configured);
 
         var row = Assert.Single(view.Groups[0].RowList);
-        Assert.Equal("Planned", row.Title);
+        Assert.Equal(string.Empty, row.Title);
+        Assert.Equal("Planned", RoadmapPlanView.LaneOf(row.Id));
     }
 
     [Fact]
@@ -240,7 +241,7 @@ public class RoadmapPlanViewTests
             Configured);
 
         var rows = Assert.Single(view.Groups).RowList;
-        Assert.Equal(["Planned", "Planned", "Planned"], rows.Select(row => row.Title));
+        Assert.All(rows, row => Assert.Equal(string.Empty, row.Title));
         Assert.Equal(3, rows.Select(row => row.Id).Distinct().Count());
 
         // Every bar is on a row the chart draws, and no two bars sharing a row overlap.

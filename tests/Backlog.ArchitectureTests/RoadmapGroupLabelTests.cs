@@ -7,13 +7,14 @@ namespace Backlog.ArchitectureTests;
 /// same order: every track row is placed at its index times the row height, and
 /// every sidebar label has to land opposite it.
 /// <para>
-/// Found in the storybook: a group with one row and a name longer than that row is
-/// tall. The name is written down the side, so its length was a floor on the
-/// group's height, the sidebar group grew past its one track row, and every label
-/// after it sat a little lower than the row it names — 4px, then 28px. The desktop
-/// view had hidden this with an override of its own; every other host of the
-/// library drew it. bUnit has no layout to measure, so the rule is asserted where
-/// the defect was: the label must be out of flow, in a group that clips it.
+/// Found in the storybook: a group name written down the side of its rows had its
+/// length as a floor on the group's height, so a one-row group with a longer name
+/// grew past its one track row and every label after it sat lower than the row it
+/// names. The name is now written across the group's first row instead, inside that
+/// row's own label, so the group holds nothing but rows. What keeps the two columns
+/// level is then that a row label never grows: one line, clipped, and nothing in
+/// the group written sideways. bUnit has no layout to measure, so the rule is
+/// asserted in the stylesheet.
 /// </para>
 /// </summary>
 public class RoadmapGroupLabelTests
@@ -22,49 +23,29 @@ public class RoadmapGroupLabelTests
         Repository.Root.FullName, "src", "Core", "Backlog.UI.Components", "wwwroot", "components.css"));
 
     [Fact]
-    public void A_group_label_is_taken_out_of_flow_so_its_length_cannot_set_the_groups_height()
+    public void A_row_label_is_one_clipped_line_so_its_text_cannot_make_the_row_taller()
+    {
+        var row = Rule(".roadmap-timeline__row-name");
+
+        Assert.True(Declares(row, "white-space", "nowrap"),
+            ".roadmap-timeline__row-name must not wrap: a second line makes the sidebar row taller than its "
+            + "track row, and every label after it drifts below the row it names.");
+        Assert.True(Declares(row, "overflow", "hidden"),
+            ".roadmap-timeline__row-name must clip, so a long group or lane name is cut short inside its row "
+            + "rather than pushing the row's height or spilling over the next one.");
+    }
+
+    [Fact]
+    public void A_group_name_is_written_across_its_row_not_down_the_group()
     {
         var label = Rule(".roadmap-timeline__group-name");
 
-        Assert.True(
-            Declares(label, "position", "absolute"),
-            ".roadmap-timeline__group-name is in the group's flow. It is written vertically, so a name longer "
-            + "than its rows makes the sidebar group taller than the track group, and every later label drifts "
-            + "below its row. Position it absolutely inside the group.");
-        // Physical, not inset-block: a logical inset is read in the element's own
-        // writing mode, and the label is vertical-rl, so inset-block is left and
-        // right. That shipped once and left every label at its text's height.
-        Assert.True(
-            Declares(label, "top", "0") && Declares(label, "bottom", "0"),
-            ".roadmap-timeline__group-name must be stretched to the group's height with top: 0 and bottom: 0, "
-            + "so the label is exactly as tall as the rows beside it. Not inset-block: in the label's vertical "
-            + "writing mode that means left and right.");
-        Assert.False(
-            Regex.IsMatch(label, @"(^|[;\s])inset-block\s*:"),
-            ".roadmap-timeline__group-name declares inset-block, which its vertical writing mode reads as left "
-            + "and right. Use top and bottom.");
-    }
-
-    [Fact]
-    public void A_group_is_the_labels_containing_block_and_clips_what_does_not_fit()
-    {
-        var group = Rule(".roadmap-timeline__group");
-
-        Assert.True(Declares(group, "position", "relative"),
-            ".roadmap-timeline__group must be position: relative, or the absolute label is placed against "
-            + "some ancestor and spans the wrong height.");
-        Assert.True(Declares(group, "overflow", "hidden"),
-            ".roadmap-timeline__group must clip, so a label with less room than it wants is cut off inside "
-            + "its own group rather than drawn over the next one.");
-    }
-
-    [Fact]
-    public void The_group_rows_leave_room_for_the_label_they_no_longer_sit_beside_in_flow()
-    {
-        Assert.True(
-            Declares(Rule(".roadmap-timeline__group-rows"), "margin-left", "var(--roadmap-band-width)"),
-            "With the label out of flow, .roadmap-timeline__group-rows must step aside by --roadmap-band-width "
-            + "or the row names are drawn under the label.");
+        Assert.False(Regex.IsMatch(label, @"(^|[;\s])writing-mode\s*:"),
+            ".roadmap-timeline__group-name is written vertically again. Sideways, a name's length is a floor on "
+            + "its group's height; write it across the group's first row.");
+        Assert.False(Declares(label, "position", "absolute"),
+            ".roadmap-timeline__group-name is positioned out of its row. It belongs inside the first row's label, "
+            + "where the row's own height holds it.");
     }
 
     private static string Rule(string selector)

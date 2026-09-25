@@ -530,7 +530,11 @@ public static class RoadmapPlanView
         return (rowOf, ends.ToDictionary(entry => entry.Key, entry => entry.Value.Count));
     }
 
-    private static string Lane(string? lane) => string.IsNullOrWhiteSpace(lane) ? "Planned" : lane.Trim();
+    /// <summary>The lane work sits in when it names none. Its rows carry no title of
+    /// their own: they are the repository's lane, and the band already says which.</summary>
+    private const string DefaultLane = "Planned";
+
+    private static string Lane(string? lane) => string.IsNullOrWhiteSpace(lane) ? DefaultLane : lane.Trim();
 
     private static List<RoadmapGroup> BuildGroups(
         List<ItemPart> items,
@@ -578,10 +582,12 @@ public static class RoadmapPlanView
 
             // Every row of a stacked lane carries the lane's name, not a blank: the name is
             // how a bar on it describes where it sits to anyone who cannot see the chart.
+            // The default lane is the exception — it is the repository's own lane, so its
+            // rows are titled by the band alone rather than repeating "Planned" under it.
             List<RoadmapRow> rows =
             [
                 .. lanes.SelectMany(lane => Enumerable.Range(0, stackedRows[(id, lane)])
-                    .Select(stack => new RoadmapRow(LaneRowId(id, lane, stack), lane)))
+                    .Select(stack => new RoadmapRow(LaneRowId(id, lane, stack), lane == DefaultLane ? string.Empty : lane)))
             ];
 
             // The hue the repository wears, as Settings resolved it. The unfiled band

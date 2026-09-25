@@ -3408,7 +3408,7 @@
 
             const weekRem = Number(options?.weekRem) || 1;
             const rowRem = Number(options?.rowRem) || 1;
-            const drag = { active: false, pointerId: null, target: null, startX: 0, startY: 0, steps: 0, rows: 0 };
+            const drag = { active: false, pointerId: null, target: null, startX: 0, startY: 0, weekRem, steps: 0, rows: 0 };
 
             const reset = () => {
                 if (drag.target && drag.pointerId !== null && drag.target.hasPointerCapture?.(drag.pointerId)) {
@@ -3516,6 +3516,9 @@
                 drag.target = grip;
                 drag.startX = event.clientX;
                 drag.startY = event.clientY;
+                // Read per grip: on a graduated axis a week is wider near today
+                // than a year out, so the grip says what a week is where it sits.
+                drag.weekRem = Number(grip.dataset.roadmapWeekRem) || weekRem;
                 drag.steps = 0;
                 drag.rows = 0;
 
@@ -3540,7 +3543,7 @@
                 if (!drag.active || event.pointerId !== drag.pointerId) return;
 
                 const rem = backlogRootFontSize();
-                const steps = Math.round((event.clientX - drag.startX) / rem / weekRem);
+                const steps = Math.round((event.clientX - drag.startX) / rem / drag.weekRem);
 
                 // An edge has no row to land on, so vertical travel while
                 // resizing is a wobble in the reader's hand, not an instruction.
