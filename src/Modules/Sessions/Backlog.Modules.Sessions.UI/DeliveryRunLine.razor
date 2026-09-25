@@ -226,15 +226,24 @@
     [Parameter]
     public EventCallback<DeliveryRunReference> OnOpenTask { get; set; }
 
+    /// <summary>What the line draws in place of the run's own references, where the row
+    /// knows more than the run file does — a pull request the session linked and the
+    /// run never recorded (<see cref="SessionRow.ReferencesFor"/>). Null draws the
+    /// run's own.</summary>
+    [Parameter]
+    public IReadOnlyList<DeliveryRunReference>? References { get; set; }
+
+    private IReadOnlyList<DeliveryRunReference> AllReferences => References ?? Run.References;
+
     /// <summary>The references drawn on the line: the work that lives elsewhere. The
     /// Backlog entry is not among them — the status badge is how this line reaches
     /// one, and a chip beside it would be a second control to the same place.</summary>
     private IEnumerable<DeliveryRunReference> Linked =>
-        Run.References.Where(reference => reference.Kind is not DeliveryRunReferenceKind.Task);
+        AllReferences.Where(reference => reference.Kind is not DeliveryRunReferenceKind.Task);
 
     /// <summary>The Backlog entry this run was started from, where it names one.</summary>
     private DeliveryRunReference? Entry =>
-        Run.References.FirstOrDefault(reference => reference.Kind is DeliveryRunReferenceKind.Task);
+        AllReferences.FirstOrDefault(reference => reference.Kind is DeliveryRunReferenceKind.Task);
 
     /// <summary>
     /// The four figures a reader wants before deciding whether to open the fold,

@@ -1035,12 +1035,12 @@ public sealed class SessionsPaneTests
     }
 
     /// <summary>
-    /// The pull requests a session linked are drawn the way a run draws its own — the
-    /// Integrations reference, "PR #n", an anchor to GitHub — and one the row's run
-    /// already draws is not drawn a second time.
+    /// On a row with a run, every pull request is on the run's line at the right, under
+    /// State — the run's own and the ones only the session linked — each drawn once,
+    /// and the name cell carries none.
     /// </summary>
     [Fact]
-    public void A_sessions_linked_pull_requests_are_references_and_a_runs_own_is_drawn_once()
+    public void On_a_row_with_a_run_the_sessions_pull_requests_are_on_the_runs_line_once_each()
     {
         var session = Sample[0] with
         {
@@ -1063,13 +1063,40 @@ public sealed class SessionsPaneTests
 
         pane.WaitForAssertion(() =>
         {
+            Assert.Empty(pane.FindAll("[data-testid='sessions-pull-requests']"));
+
+            var links = pane.FindAll("[data-testid='sessions-run-pull-request']");
+
+            Assert.Equal(
+                ["https://github.com/JSdotNet/Backlog/pull/587", "https://github.com/JSdotNet/Backlog/pull/590"],
+                links.Select(link => link.GetAttribute("href")));
+            Assert.Contains("PR #590", links[1].TextContent);
+        });
+    }
+
+    /// <summary>
+    /// A row with no run has no run line to carry them, so the session's pull requests
+    /// stay under its name, drawn as the Integrations reference.
+    /// </summary>
+    [Fact]
+    public void On_a_row_with_no_run_the_sessions_pull_requests_are_under_its_name()
+    {
+        var session = Sample[0] with
+        {
+            PullRequests = [new AgentPullRequest("JSdotNet/Backlog", 623, "https://github.com/JSdotNet/Backlog/pull/623", Noon.AddHours(-1))]
+        };
+
+        using var context = Context([session]);
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
             var link = Assert.Single(pane.FindAll("[data-testid='sessions-pull-request']"));
 
-            Assert.Contains("PR #590", link.TextContent);
-            Assert.Equal("https://github.com/JSdotNet/Backlog/pull/590", link.GetAttribute("href"));
-
-            // PR #587 is the run's, on the run's own line, and only there.
-            Assert.Single(pane.FindAll("[data-testid='sessions-run-pull-request']"));
+            Assert.Contains("PR #623", link.TextContent);
+            Assert.Equal("https://github.com/JSdotNet/Backlog/pull/623", link.GetAttribute("href"));
+            Assert.Empty(pane.FindAll("[data-testid='sessions-run-pull-request']"));
         });
     }
 
