@@ -3039,7 +3039,7 @@
             that was cut off, which for a portrait diagram like
             `05-building-block-view.2` (1200x2458) is most of the picture.
         */
-        renderArtifact(element, id, html) {
+        renderArtifact(element, id, html, compact) {
             /*
                 `matchMedia` is lied to, and that is the part that does the work.
 
@@ -3297,6 +3297,27 @@
                 + 'html,body,.container,.diagram-container'
                 + '{background:transparent!important;background-image:none!important;box-shadow:none!important}'
                 + '.diagram-container>svg>rect[fill="url(#grid)"]{display:none}'
+
+                /*
+                    Compact, for a host that asked: the artifact's own header and
+                    its two floating toolbars out - Style, Live and Export top
+                    right, the view controls bottom right - while the frame is in
+                    the page.
+
+                    For a drawing that is one line of boxes across a panel - a
+                    delivery run's stages - where the header repeats a title the
+                    host has already shown and stands taller than the drawing, and
+                    the toolbars, pinned to the frame's corners, sit on top of the
+                    last few boxes. All of it comes back in fullscreen, where there is room
+                    for them and where a reader goes to explore. CSS rather than
+                    `data-embed`, for the reason above: embed switches the features
+                    off, and this only moves their controls out of a small frame.
+                */
+                + (compact
+                    ? 'html:not([data-host-fullscreen]) .header,'
+                        + 'html:not([data-host-fullscreen]) .toolbar,'
+                        + 'html:not([data-host-fullscreen]) .diagram-nav{display:none!important}'
+                    : '')
                 + '</style>';
 
             element.srcdoc = injected + chrome;

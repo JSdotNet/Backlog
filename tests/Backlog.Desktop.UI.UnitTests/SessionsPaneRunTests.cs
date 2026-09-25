@@ -1,4 +1,5 @@
 using Backlog.Modules.Sessions.UI;
+using Backlog.Modules.Sessions.UI.Adapters;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
@@ -82,10 +83,16 @@ public sealed class SessionsPaneRunTests
             Assert.Same(skill, facts.LastElementChild);
 
             // Two blocks, and the summary is the first of them in the markup: the
-            // work and the outcome before the figures, whatever side each takes.
+            // work and the outcome before the figures, whatever side each takes. The
+            // fold's panel comes after both, because it spans the row under them.
             Assert.Equal(
-                ["sessions-run__summary", "sessions-run__facts"],
+                ["sessions-run__summary", "sessions-run__facts", "sessions-run__panel"],
                 line.Children.Select(child => child.ClassName));
+
+            // The panel is the trigger's region, and hidden while folded.
+            var panel = line.QuerySelector("[data-testid='sessions-run-panel']")!;
+            Assert.True(panel.HasAttribute("hidden"));
+            Assert.Equal(panel.Id, line.QuerySelector(".fold__trigger")!.GetAttribute("aria-controls"));
 
             // The run's own title is not on the line: beside a reference to the work
             // it names, it is the same sentence twice. It is in the fold.
@@ -649,6 +656,90 @@ public sealed class SessionsPaneRunTests
             Assert.Contains("cache read", tokens, StringComparison.Ordinal);
             Assert.Contains("claude-opus-5", tokens, StringComparison.Ordinal);
         });
+    }
+
+    /// <summary>
+    /// Where the host can render one, the fold opens on the run's Archify artifact —
+    /// full width, above the figures — rather than the flow. Asked for only once the
+    /// fold is open, and not again for a re-read run whose stages have not moved.
+    /// </summary>
+    [Fact]
+    public void An_open_fold_shows_the_runs_archify_artifact_above_the_figures()
+    {
+        var run = DeliveryRunDiagramSpecTests.Eleven() with { Worktree = Worktree, StartedAt = Noon.AddMinutes(-90), UpdatedAt = Noon.AddMinutes(-10) };
+        var diagrams = new StubRunDiagrams(new DeliveryRunDiagram("<!doctype html><p>stages</p>", @"C:\Temp\run-0123456789abcdef.html", null));
+
+        using var context = Context([Live], [run]);
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        context.Services.AddSingleton<IDeliveryRunDiagrams>(diagrams);
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='sessions-run'] .fold__trigger")));
+
+        // Folded: nobody is looking, so nothing is generated.
+        Assert.Empty(diagrams.Requests);
+
+        pane.Find("[data-testid='sessions-run'] .fold__trigger").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            var panel = pane.Find("[data-testid='sessions-run-panel']");
+            Assert.False(panel.HasAttribute("hidden"));
+
+            // The artifact, in the library's diagram view, and no flow beside it.
+            var view = panel.QuerySelector("[data-testid='diagram-view']")!;
+            Assert.Contains("sessions-run__artifact", view.ClassName);
+            Assert.NotNull(view.QuerySelector("[data-testid='diagram-view-artifact']"));
+            Assert.Null(panel.QuerySelector("[data-testid='sessions-run-stages']"));
+
+            // Picture first, figures under it.
+            Assert.Equal(["sessions-run__diagram", "sessions-run__details"], panel.Children.Select(child => child.ClassName));
+        });
+
+        var request = Assert.Single(diagrams.Requests);
+        Assert.Contains("\"Personal Validation\"", request, StringComparison.Ordinal);
+
+        // The same run again, as a refresh delivers it: the same specification, so
+        // no second render.
+        pane.Render();
+
+        Assert.Single(diagrams.Requests);
+    }
+
+    /// <summary>Where the artifact cannot be made — no Node, no generator — the fold
+    /// keeps the live flow and says why, rather than showing an empty frame.</summary>
+    [Fact]
+    public void Without_an_artifact_the_fold_keeps_the_flow_and_says_why()
+    {
+        var run = DeliveryRunDiagramSpecTests.Eleven() with { Worktree = Worktree, StartedAt = Noon.AddMinutes(-90), UpdatedAt = Noon.AddMinutes(-10) };
+        var diagrams = new StubRunDiagrams(DeliveryRunDiagram.Failed("Node.js is not installed or not on the PATH, so the stages are drawn without Archify."));
+
+        using var context = Context([Live], [run]);
+        context.Services.AddSingleton<IDeliveryRunDiagrams>(diagrams);
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() => Assert.NotEmpty(pane.FindAll("[data-testid='sessions-run'] .fold__trigger")));
+        pane.Find("[data-testid='sessions-run'] .fold__trigger").Click();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(11, pane.FindAll("[data-testid='sessions-run-stages'] [data-testid='flow-step']").Count);
+            Assert.Empty(pane.FindAll("[data-testid='diagram-view']"));
+            Assert.Contains("Node.js is not installed", pane.Find("[data-testid='sessions-run-diagram-note']").TextContent, StringComparison.Ordinal);
+        });
+    }
+
+    private sealed class StubRunDiagrams(DeliveryRunDiagram answer) : IDeliveryRunDiagrams
+    {
+        public List<string> Requests { get; } = [];
+
+        public Task<DeliveryRunDiagram> RenderAsync(string specification, CancellationToken cancellationToken = default)
+        {
+            Requests.Add(specification);
+            return Task.FromResult(answer);
+        }
     }
 
     private static BunitContext Context(

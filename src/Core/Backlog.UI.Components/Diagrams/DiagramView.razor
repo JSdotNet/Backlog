@@ -9,7 +9,7 @@
 *@
 @inject IServiceProvider Services
 
-<figure class="diagram-view" data-testid="diagram-view" aria-label="@AriaLabel">
+<figure class="@FigureClass" data-testid="diagram-view" aria-label="@AriaLabel">
     <figcaption class="diagram-view__header">
         <span class="diagram-view__title">@DiagramName</span>
         <span class="diagram-view__badges">
@@ -212,6 +212,35 @@
     public string Title { get; set; } = "Diagram";
 
     /// <summary>
+    /// An artifact the caller already has, drawn in place of whatever the registered
+    /// <see cref="IDiagramArtifactSource"/> would have found for <see cref="Source"/>.
+    /// <para>
+    /// For a diagram that is not a fence in a chapter — a delivery run's stages, which
+    /// the host generates from live data and re-generates as they move. There is no
+    /// source text such a picture was authored from for the lookup to hash, so the
+    /// host hands the picture over and <see cref="Source"/> stays what the Mermaid side
+    /// of the switch draws. A changed <see cref="DiagramArtifact.ArtifactPath"/> is
+    /// what reloads the frame.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public DiagramArtifact? Artifact { get; set; }
+
+    /// <summary>Appended to <c>diagram-view</c>, for a host that places the figure
+    /// somewhere a chapter's column rules do not fit.</summary>
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>Asks the artifact to leave out its own header and view toolbar while
+    /// it is in the page, and to bring them back in full screen. For a drawing that is
+    /// one short line across a panel, where the header would stand taller than the
+    /// drawing and the toolbar would sit on top of it.</summary>
+    [Parameter]
+    public bool Compact { get; set; }
+
+    private string FigureClass => string.IsNullOrWhiteSpace(CssClass) ? "diagram-view" : $"diagram-view {CssClass}";
+
+    /// <summary>
     /// Raised once the renderer has drawn this diagram.
     /// <para>
     /// For a caller that has to work on the rendered SVG rather than on the source —
@@ -248,7 +277,7 @@
             _artifactsResolved = true;
         }
 
-        _artifact = _artifacts?.Find(Source, Language);
+        _artifact = Artifact ?? _artifacts?.Find(Source, Language);
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -267,7 +296,7 @@
 
             try
             {
-                await Js.InvokeVoidAsync("backlogDiagrams.renderArtifact", _frame, _diagramId, _artifact.Html);
+                await Js.InvokeVoidAsync("backlogDiagrams.renderArtifact", _frame, _diagramId, _artifact.Html, Compact);
             }
             catch (JSException)
             {

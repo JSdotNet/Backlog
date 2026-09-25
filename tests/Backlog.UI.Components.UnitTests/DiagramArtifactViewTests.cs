@@ -330,6 +330,64 @@ public sealed class DiagramArtifactViewTests
         Assert.Empty(diagram.FindAll("[data-testid='diagram-view-exit-fullscreen']"));
     }
 
+    /// <summary>
+    /// A picture the host generated from live data rather than found for a fence — a
+    /// delivery run's stages — is shown without any source being registered, and
+    /// wins over whatever a registered source would have found. The source stays
+    /// what the Mermaid side of the switch draws.
+    /// </summary>
+    [Fact]
+    public void An_artifact_the_caller_hands_over_is_shown_with_no_source_asked()
+    {
+        using var context = Context(artifact: null);
+
+        var diagram = context.Render<DiagramView>(parameters => parameters
+            .Add(view => view.Source, Flowchart)
+            .Add(view => view.Language, "mermaid")
+            .Add(view => view.CssClass, "sessions-run__artifact")
+            .Add(view => view.Compact, true)
+            .Add(view => view.Artifact, new DiagramArtifact(
+                "<!doctype html><html><body>Run</body></html>",
+                @"C:\Temp\run-0123456789abcdef.html",
+                null,
+                "architecture",
+                IsOutOfDate: false)));
+
+        Assert.Equal("diagram-view sessions-run__artifact", diagram.Find("figure").ClassName);
+        Assert.Equal("IFRAME", diagram.Find("[data-testid='diagram-view-artifact']").TagName);
+        var invocation = Assert.Single(context.JSInterop.Invocations["backlogDiagrams.renderArtifact"]);
+        Assert.Equal("<!doctype html><html><body>Run</body></html>", invocation.Arguments[2]);
+
+        // Compact asks the frame to leave its own header and toolbar out while it
+        // is in the page; a chapter diagram never asks.
+        Assert.Equal(true, invocation.Arguments[3]);
+        Assert.NotNull(diagram.Find("[data-testid='diagram-view-renderer-mermaid']"));
+    }
+
+    /// <summary>A new artifact path is a new picture — the run moved — and the frame
+    /// is handed the new document rather than left showing the old one.</summary>
+    [Fact]
+    public void A_new_artifact_path_reloads_the_frame()
+    {
+        using var context = Context(artifact: null);
+
+        static DiagramArtifact Artifact(string key) =>
+            new($"<!doctype html><p>{key}</p>", $@"C:\Temp\run-{key}.html", null, "architecture", IsOutOfDate: false);
+
+        var diagram = context.Render<DiagramView>(parameters => parameters
+            .Add(view => view.Source, Flowchart)
+            .Add(view => view.Language, "mermaid")
+            .Add(view => view.Artifact, Artifact("aaaa")));
+
+        diagram.Render(parameters => parameters.Add(view => view.Artifact, Artifact("bbbb")));
+
+        var documents = context.JSInterop.Invocations["backlogDiagrams.renderArtifact"]
+            .Select(invocation => invocation.Arguments[2])
+            .ToList();
+
+        Assert.Equal(["<!doctype html><p>aaaa</p>", "<!doctype html><p>bbbb</p>"], documents);
+    }
+
     private static BunitContext Context(DiagramArtifact? artifact, bool canAuthor = false)
     {
         var context = new BunitContext();
