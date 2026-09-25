@@ -9,6 +9,10 @@
 
 # Build results
 [Dd]ebug/
+# ...but not the `debug` procedure's host wrappers (devbook-procedures), which the rule above
+# would otherwise swallow.
+!/.claude/skills/debug/
+!/.github/skills/debug/
 [Dd]ebugPublic/
 [Rr]elease/
 [Rr]eleases/
