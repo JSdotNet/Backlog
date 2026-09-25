@@ -2,7 +2,7 @@
 
 ```meta
 status: active
-related: [".arc42/02-constraints.md#technical-constraints", ".arc42/07-deployment-view.md#cloud-deployment-azure", ".arc42/08-crosscutting-concepts.md#storage-and-sync", ".arc42/09-architecture-decisions.md", ".arc42/11-risks-and-technical-debt.md", ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md", ".arc42/adr/guidelines/0012-authentication-external-identity-providers.md", ".arc42/adr/guidelines/0013-authorization-zero-trust.md", ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md", ".domain/capture/domain.md#capture", ".domain/sessions/dependencies.md", ".domain/sessions/domain.md#session-log", ".domain/tasks/domain.md#task", ".domain/tasks/naming.md#device"]
+related: [".arc42/02-constraints.md#technical-constraints", ".arc42/07-deployment-view.md#cloud-deployment-azure", ".arc42/08-crosscutting-concepts.md#storage-and-sync", ".arc42/09-architecture-decisions.md", ".arc42/11-risks-and-technical-debt.md", ".arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md", ".arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".arc42/adr/guidelines/0012-authentication-external-identity-providers.md", ".arc42/adr/guidelines/0013-authorization-zero-trust.md", ".arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md", ".domain/capture/domain.md#capture", ".domain/sessions/dependencies.md", ".domain/sessions/domain.md#session-log", ".domain/tasks/domain.md#task", ".domain/tasks/naming.md#device"]
 issue: null
 ```
 
@@ -1032,13 +1032,16 @@ Neutral:
   device does with its own soft-deleted rows is not: nothing purges them today, and
   a local reaper has to expire no earlier than the cloud one or it will re-push a
   row the replica has already let go.
-- **Attachments, still deferred.** `.arc42/07-deployment-view.md` states attachments
-  live on the desktop file system and there is no blob storage. **The gap this
-  leaves is that a task can sync while its attachment does not** — the second
-  machine gets the task and a reference to a file it cannot reach. Widening scope to
-  sessions and captures does not widen it to attachments, and nothing in this record
-  makes the partial replica whole. Resolving it means either blob storage or an
-  explicit statement, on the screen, that attachments are machine-local.
+- **Attachments — answered for captures by local ADR 0014, still open for tasks.**
+  **The gap this record leaves is that a task can sync while its attachment does
+  not** — the second machine gets the task and a reference to a file it cannot
+  reach. Local ADR 0014 (proposed) answers the half the phone needs: an Azure
+  Storage account beside this replica, reached only through the sync service,
+  carries a capture's files, and the capture document carries their metadata but
+  never their bytes. It deliberately leaves a task's attachment — a path to a
+  desktop folder or archive — machine-local, so for tasks the choice is still
+  between putting those bytes in that store too and an explicit statement, on the
+  screen, that attachments are machine-local.
 - **Roadmap plan — half answered, and the half that remains is narrower.** Its share
   of the *hazard* is closed outright: as of 2026-09-05 the plan is a `roadmap_plan`
   row in `backlog.db` rather than `_roadmap/plan.json`, so there is no second file
