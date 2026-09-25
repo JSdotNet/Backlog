@@ -5,6 +5,7 @@ using Backlog.Infrastructure.FileSystem.Roadmap;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Sqlite;
 using Backlog.Infrastructure.Sqlite.Roadmap;
+using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Roadmap.UI;
 
@@ -12,6 +13,7 @@ using Bunit;
 
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
@@ -31,6 +33,7 @@ public abstract class RoadmapBandHarness : IDisposable
         Settings = new WorkspaceSettingsStore(_root, Path.Combine(_root, "settings.json"));
         RepositorySettings = new GitHubSettingsStore(Path.Combine(_root, "github.json"));
         Planning = TasksTestHost.PlanningFor(Settings);
+        PaceFile = new PlanningVelocitySettingsStore(Path.Combine(_root, "velocity", "planning-velocity.json"));
     }
 
     protected WorkspaceSettingsStore Settings { get; }
@@ -38,6 +41,15 @@ public abstract class RoadmapBandHarness : IDisposable
     protected GitHubSettingsStore RepositorySettings { get; }
 
     protected IRoadmapPlanning Planning { get; }
+
+    /// <summary>The reader's pace file, under this test's own root.</summary>
+    protected PlanningVelocitySettingsStore PaceFile { get; private set; } = null!;
+
+    /// <summary>What the measured paces count. Empty unless a test adds to it.</summary>
+    protected List<CompletedEffortDto> Finished { get; } = [];
+
+    /// <summary>"Today" for the measured paces.</summary>
+    protected static readonly DateOnly PaceToday = new(2026, 9, 25);
 
     protected RoadmapWorkChanges WorkChanges { get; } = TasksTestHost.WorkChanges();
 
@@ -67,6 +79,13 @@ public abstract class RoadmapBandHarness : IDisposable
         // What tells an open band to read again. Raised by hand here, since the band
         // tests write no backlog for the task signal to hear.
         context.Services.AddSingleton<IRoadmapWorkChanges>(WorkChanges);
+
+        // The pace control in the heading: the module's own service over a real pace
+        // file, counting whatever the test put in Finished, as of PaceToday.
+        context.Services.AddSingleton(TasksTestHost.PaceFor(
+            PaceFile,
+            new ListedWork(Finished),
+            new FakeTimeProvider(new DateTimeOffset(PaceToday.ToDateTime(new TimeOnly(12, 0)), TimeSpan.Zero))));
         return context;
     }
 
@@ -185,5 +204,13 @@ public abstract class RoadmapBandHarness : IDisposable
         }
 
         GC.SuppressFinalize(this);
+    }
+
+    private sealed class ListedWork(List<CompletedEffortDto> finished) : IRoadmapCompletedWork
+    {
+        public Task<IReadOnlyList<CompletedEffortDto>> CompletedSinceAsync(
+            DateOnly since,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<CompletedEffortDto>>([.. finished.Where(entry => entry.CompletedOn >= since)]);
     }
 }

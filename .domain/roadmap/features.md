@@ -401,11 +401,12 @@ before the plan could start is kept, and the plan is placed on that one day so
 the [contradiction shows](#surfacing-contradictions-instead-of-fixing-them)
 rather than being smoothed over.
 
-The points-per-day figure is **the person's own reading pace**, a workspace
-setting, and not an estimate the plan registers: the effort is still the tasks'
-own, added and never invented, and the only thing the placement adds is how fast
-the person says they work through it. Changing it moves nothing already placed —
-re-importing does.
+The points-per-day figure is **the person's own reading pace**, set in the
+roadmap's heading, and not an estimate the plan registers: the effort is still
+the tasks' own, added and never invented, and the only thing the placement adds
+is how fast the person works through it — the pace they typed, or the one they
+actually kept over the last two, four or eight weeks, whichever they pick.
+Changing it moves nothing already placed — re-importing does.
 
 An item the import placed remembers that it did. The first time a person moves
 it by hand, that memory is cleared and the importer never touches its dates

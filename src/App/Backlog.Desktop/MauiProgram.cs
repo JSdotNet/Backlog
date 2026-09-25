@@ -123,11 +123,11 @@ public static class MauiProgram
         // the same reason: the settings screen writes it and the dashboard cuts its
         // weeks with it. Null until set, and detection stands in.
         builder.Services.AddSingleton<IUsageResetSettings, UsageResetSettingsStore>();
-        // How many story points the reader gets through in a day. Registered as the
-        // concrete store because the settings screen writes it; Roadmap reads it
-        // through IPlanningVelocity, which AddRoadmapCrossContextAdapters answers
+        // How many story points the reader gets through in a day, and which pace the
+        // roadmap places by. Roadmap reads and writes it through
+        // IPlanningVelocitySettings, which AddRoadmapCrossContextAdapters answers
         // over this — the module may not see a store. Its own per-user file beside
-        // the two above, and absent it reads as one point a day.
+        // the two above, and absent it reads as one point a day, typed.
         builder.Services.AddSingleton<PlanningVelocitySettingsStore>();
         // Which surface the shell was last showing, so it reopens there instead
         // of always defaulting to the workspace panes.
