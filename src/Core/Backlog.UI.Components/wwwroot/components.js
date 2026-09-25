@@ -3399,16 +3399,96 @@
                 element.classList.remove('roadmap-timeline--dragging');
             };
 
+            /*
+                The dependency gesture: the handle past a bar's end, pulled onto
+                whatever should wait for it. Nothing is drawn by Blazor while it runs —
+                a line under the pointer is feedback, not state — so the draft line and
+                the target outline live here, and the host is told once, on drop.
+            */
+            const link = { active: false, pointerId: null, grip: null, fromId: null, line: null, svg: null, target: null };
+
+            const nodeAt = (x, y) => {
+                const hit = document.elementFromPoint(x, y);
+                const node = hit?.closest?.('[data-roadmap-bar], [data-roadmap-node]');
+                return node && element.contains(node) ? node : null;
+            };
+
+            const nodeId = (node) => node?.dataset.roadmapBar ?? node?.dataset.roadmapNode ?? null;
+
+            const markTarget = (node) => {
+                if (link.target === node) return;
+                link.target?.classList.remove('roadmap-bar--link-target', 'roadmap-milestone--link-target');
+                link.target = node;
+                if (!node || nodeId(node) === link.fromId) return;
+                node.classList.add(node.dataset.roadmapBar ? 'roadmap-bar--link-target' : 'roadmap-milestone--link-target');
+            };
+
+            const drawTo = (x, y) => {
+                const box = element.getBoundingClientRect();
+                link.line.setAttribute('x2', String(x - box.left));
+                link.line.setAttribute('y2', String(y - box.top));
+            };
+
+            const endLink = () => {
+                if (link.grip && link.pointerId !== null && link.grip.hasPointerCapture?.(link.pointerId)) {
+                    link.grip.releasePointerCapture(link.pointerId);
+                }
+                link.grip?.removeAttribute('data-roadmap-linking');
+                markTarget(null);
+                link.svg?.remove();
+                link.active = false;
+                link.pointerId = null;
+                link.grip = null;
+                link.fromId = null;
+                link.line = null;
+                link.svg = null;
+                element.classList.remove('roadmap-timeline--linking');
+            };
+
+            const beginLink = (event, grip, bar) => {
+                const box = element.getBoundingClientRect();
+                const from = grip.getBoundingClientRect();
+                const svgNs = 'http://www.w3.org/2000/svg';
+
+                link.svg = document.createElementNS(svgNs, 'svg');
+                link.svg.setAttribute('class', 'roadmap-timeline__link-draft');
+                link.svg.setAttribute('aria-hidden', 'true');
+                link.line = document.createElementNS(svgNs, 'line');
+                link.line.setAttribute('x1', String(from.left + from.width / 2 - box.left));
+                link.line.setAttribute('y1', String(from.top + from.height / 2 - box.top));
+                link.svg.appendChild(link.line);
+                element.appendChild(link.svg);
+
+                link.active = true;
+                link.pointerId = event.pointerId;
+                link.grip = grip;
+                link.fromId = bar.dataset.roadmapBar;
+                grip.setAttribute('data-roadmap-linking', 'true');
+                grip.setPointerCapture?.(event.pointerId);
+                element.classList.add('roadmap-timeline--linking');
+
+                drawTo(event.clientX, event.clientY);
+                event.preventDefault();
+            };
+
             const onPointerDown = (event) => {
                 // Secondary buttons open menus; a drag started on one would run
                 // under a context menu the reader is trying to read.
-                if (event.button !== 0 || drag.active) return;
+                if (event.button !== 0 || drag.active || link.active) return;
 
                 const grip = event.target.closest('[data-roadmap-grip]');
                 if (!grip || !element.contains(grip)) return;
 
                 const bar = grip.closest('[data-roadmap-bar]');
-                if (!bar || bar.dataset.roadmapLocked === 'true') return;
+                if (!bar) return;
+
+                // Before the lock check: a bar nobody may move can still be waited for.
+                if (grip.dataset.roadmapGrip === 'link') {
+                    beginLink(event, grip, bar);
+                    return;
+                }
+
+                if (bar.dataset.roadmapLocked === 'true') return;
 
                 drag.active = true;
                 drag.pointerId = event.pointerId;
@@ -3430,6 +3510,12 @@
             };
 
             const onPointerMove = (event) => {
+                if (link.active && event.pointerId === link.pointerId) {
+                    drawTo(event.clientX, event.clientY);
+                    markTarget(nodeAt(event.clientX, event.clientY));
+                    return;
+                }
+
                 if (!drag.active || event.pointerId !== drag.pointerId) return;
 
                 const rem = backlogRootFontSize();
@@ -3450,6 +3536,14 @@
             };
 
             const onPointerUp = (event) => {
+                if (link.active && event.pointerId === link.pointerId) {
+                    const fromId = link.fromId;
+                    const toId = nodeId(nodeAt(event.clientX, event.clientY));
+                    endLink();
+                    if (toId && toId !== fromId) reference.invokeMethodAsync('LinkCommit', fromId, toId);
+                    return;
+                }
+
                 if (!drag.active || event.pointerId !== drag.pointerId) return;
 
                 reset();
@@ -3457,6 +3551,11 @@
             };
 
             const onPointerCancel = (event) => {
+                if (link.active && event.pointerId === link.pointerId) {
+                    endLink();
+                    return;
+                }
+
                 if (!drag.active || event.pointerId !== drag.pointerId) return;
 
                 reset();
@@ -3468,6 +3567,11 @@
             // same key, and a drag that could only be cancelled by dropping it
             // somewhere would have no way out at all.
             const onKeyDown = (event) => {
+                if (link.active && event.key === 'Escape') {
+                    endLink();
+                    return;
+                }
+
                 if (!drag.active || event.key !== 'Escape') return;
 
                 reset();
@@ -3497,6 +3601,7 @@
 
             backlogRoadmapTimelines.set(id, () => {
                 reset();
+                endLink();
                 element.removeEventListener('pointerdown', onPointerDown);
                 element.removeEventListener('pointermove', onPointerMove);
                 element.removeEventListener('pointerup', onPointerUp);

@@ -92,6 +92,18 @@
         <span class="roadmap-bar__grip roadmap-bar__grip--start" data-roadmap-grip="start" aria-hidden="true"></span>
         <span class="roadmap-bar__grip roadmap-bar__grip--end" data-roadmap-grip="end" aria-hidden="true"></span>
     }
+
+    @* A pointer affordance like the edges, and for the same reason no tab stop: the
+       keyboard declares the same dependency through the host's editor. Offered on a
+       locked bar too — a commitment somebody else holds can still be waited for. *@
+    @if (Linkable)
+    {
+        <span class="roadmap-bar__link-grip"
+              data-roadmap-grip="link"
+              title="Drag onto what waits for @Bar.Title"
+              aria-hidden="true"
+              data-testid="@Suffix("link-grip")"></span>
+    }
 </div>
 
 @code {
@@ -133,6 +145,11 @@
     /// <summary>Whether the edges offer themselves to be dragged.</summary>
     [Parameter]
     public bool AllowResize { get; set; } = true;
+
+    /// <summary>Whether the bar offers a handle past its end that is dragged onto
+    /// something else to make that wait for this.</summary>
+    [Parameter]
+    public bool Linkable { get; set; }
 
     /// <summary>Where the bar is, said in full — group, row, and anything else
     /// only the timeline knows. Read out after the title.</summary>

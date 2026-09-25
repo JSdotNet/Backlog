@@ -161,6 +161,25 @@ A step is a proportion, not a date: a step drawn across March is not scheduled f
                          TestId="parts" />
     </Story>
 
+    <Story Name="A plan handed over between repositories, and drawing what waits"
+           Description="How the app draws a plan whose tasks hand over from one repository to another: backlog's part first, then web's part that waits on it, then backlog again. Each segment is one repository's share of one phase, the window shared out by effort, and the arrows between them are the task dependencies that cross a repository — a wait inside one repository stays that segment's own business.
+
+With `OnLinkCreated` set, every bar offers a dot past its end. Drag it onto another bar or a date and that one waits for it; the chart proposes the link and the host decides whether it stands, so the arrow appears when this page hands it back. Escape abandons the gesture."
+           Code="@HandOverCode">
+        <RoadmapTimeline Groups="@HandOverPlan"
+                         Bars="@HandOverBars"
+                         Milestones="@HandOverMilestones"
+                         Links="@_handOverLinks"
+                         Title="Release across repositories"
+                         HeadingLevel="3"
+                         Window="@EditWindow"
+                         ShowFilters="false"
+                         ShowSteps="false"
+                         OnLinkCreated="AddHandOverLink"
+                         TestId="hand-over" />
+        <p class="sb-state" data-testid="hand-over-last-link">Last link: @(_lastLink ?? "(none)")</p>
+    </Story>
+
     <Story Name="A plan nobody has written"
            Description="No groups, or groups with no rows, renders the empty state rather than an axis over nothing. The sentence is the caller's, because why the plan is empty is only knowable where the plan came from."
            Code="@EmptyCode">
@@ -577,6 +596,57 @@ Every action is a real button named for its plan, and the shelf is a region name
         new RoadmapShelfPlan("release-q4", ["backlog", "web"], TaskCount: 6, TotalEffort: 21, UnestimatedCount: 2,
             Parts: [new("backlog", 4, 13, 1), new("web", 2, 8, 1)]),
         new RoadmapShelfPlan("unplanned-plans-shelf", ["backlog"], TaskCount: 1, TotalEffort: 3, UnestimatedCount: 0),
+        """;
+
+    // --- Handed over between repositories ------------------------------------
+
+    private static IReadOnlyList<RoadmapGroup> HandOverPlan =>
+    [
+        new("dates", "Dates", [new("dates::all", "Milestones", RoadmapRowKind.Milestones)]),
+        new("backlog", "backlog", [new("backlog::planned", "Planned")], "var(--color-band-1)"),
+        new("web", "web", [new("web::planned", "Planned")], "var(--color-band-2)")
+    ];
+
+    private static readonly RoadmapBar[] HandOverBars =
+    [
+        new("release@backlog#1", "backlog::planned", "Release", On(2, 2), On(2, 27), 1,
+            Detail: "one of 3 parts, handed over between repositories"),
+        new("release@web#2", "web::planned", "Release", On(2, 28), On(4, 10), 1,
+            Detail: "one of 3 parts, handed over between repositories"),
+        new("release@backlog#3", "backlog::planned", "Release", On(4, 11), On(4, 30), 1,
+            Detail: "one of 3 parts, handed over between repositories"),
+        new("docs", "web::planned", "Docs", On(5, 4), On(5, 29), 2)
+    ];
+
+    private static IReadOnlyList<RoadmapMilestone> HandOverMilestones =>
+        [new("launch", "dates::all", "Launch", On(6, 15), RoadmapMarker.Star)];
+
+    private IReadOnlyList<RoadmapLink> _handOverLinks =
+    [
+        new("release@backlog#1", "release@web#2"),
+        new("release@web#2", "release@backlog#3")
+    ];
+
+    private string? _lastLink;
+
+    /// <summary>What a host does with a drawn link: decide, then hand it back. This
+    /// page accepts every one; the app asks the plan, which refuses a cycle.</summary>
+    private void AddHandOverLink(RoadmapLink link)
+    {
+        _handOverLinks = [.. _handOverLinks.Append(link).Distinct()];
+        _lastLink = $"{link.ToId} now waits for {link.FromId}";
+    }
+
+    private const string HandOverCode = """
+        <RoadmapTimeline Groups="@groups" Bars="@bars" Links="@links" OnLinkCreated="AddLink" />
+
+        // One stored plan, a segment per repository per phase, arrows where tasks cross
+        new RoadmapBar("release@backlog#1", "backlog::planned", "Release", feb2, feb27),
+        new RoadmapBar("release@web#2", "web::planned", "Release", feb28, apr10),
+        new RoadmapBar("release@backlog#3", "backlog::planned", "Release", apr11, apr30),
+
+        // Dropping the handle proposes a link; the host decides and hands it back
+        void AddLink(RoadmapLink link) => links = [.. links, link];
         """;
 
     private const string EmptyCode = """
