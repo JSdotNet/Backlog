@@ -53,7 +53,9 @@ It is a **reading preference, not an estimate** (ADR 0013, ruling 4). The effort
 stays the tasks' own, added and never invented; the only thing the placement
 adds is how fast the reader says they work through it. Changing the pace moves
 nothing already on the roadmap, because a window is stored rather than
-recomputed (ruling 5) — a re-import is what re-places a plan.
+recomputed (ruling 5) — a re-import is what re-places a plan, and so does asking
+one item still sized by its effort to
+[update from its tasks](features.md#placing-a-plan-in-time).
 
 Per value:
 
