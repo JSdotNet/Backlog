@@ -3,7 +3,7 @@
 Backlog deploys the cloud sync tier through Bicep in `infra/sync/` and the Azure
 Developer CLI (`azd`), driven by the `Deploy Sync` GitHub Actions workflow. The
 decision this implements is local ADR 0005,
-[`.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md`](../../.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md);
+[`.devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md`](../../.devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md);
 read that first for *why* the containers are split, why the TTLs are what they are,
 and why nothing domain-shaped is allowed into the telemetry.
 
@@ -242,7 +242,7 @@ built-in **Cosmos DB Data Contributor** data-plane role. Three things follow:
   identity holds `AcrPull`.
 
 The identity is user-assigned rather than system-assigned, which is a deviation from
-what `.arc42/07-deployment-view.md` used to say. A system-assigned identity does not
+what `.devbook/arc42/07-deployment-view.md` used to say. A system-assigned identity does not
 exist until its container app does, so the `AcrPull` assignment the app needs in order
 to pull its own image cannot be granted before the app is created. Splitting the
 identity out breaks that cycle and lets one deployment grant every role.

@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    Roadmap module — the Roadmap Planning bounded context (.domain/roadmap).
+    Roadmap module — the Roadmap Planning bounded context (.devbook/domain/roadmap).
     Clean architecture, inside out:
       DomainModels/  the Roadmap Plan aggregate, its entities, value objects, enums
       Features/      one vertical slice per use case (command/query + handler)

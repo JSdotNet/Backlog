@@ -355,7 +355,7 @@ internal sealed partial class DeliveryRunReader
     /// <summary>
     /// The Backlog entry the run was started from, where its prompt names one. The
     /// marker is the product's own convention for a pasted plan item
-    /// (<c>.design/content-editing.md</c> and the import plan's grammar), and it is
+    /// (<c>.devbook/design/content-editing.md</c> and the import plan's grammar), and it is
     /// the only thing in a run file that names a Backlog entry — so it is read rather
     /// than guessed, and a run started any other way simply has none.
     /// </summary>

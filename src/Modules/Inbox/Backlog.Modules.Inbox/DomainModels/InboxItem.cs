@@ -9,7 +9,7 @@ namespace Backlog.Modules.Inbox.DomainModels;
 /// <para>
 /// Two things never change once the item exists: <see cref="CapturedAt"/> and
 /// <see cref="SourceUrl"/>. They are what the capture <em>was</em>, and an
-/// invariant of the domain (<c>.domain/inbox/domain.md</c>) rather than a
+/// invariant of the domain (<c>.devbook/domain/inbox/domain.md</c>) rather than a
 /// convenience — so they have no setter at all instead of a guarded one.
 /// </para>
 /// <para>

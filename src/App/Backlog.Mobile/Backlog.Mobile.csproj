@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Razor">
 
     <PropertyGroup>
-        <!-- Android-first per .tech/mobile.md#android; iOS is out of the current baseline. -->
+        <!-- Android-first per .devbook/tech/mobile.md#android; iOS is out of the current baseline. -->
         <TargetFramework>net10.0-android</TargetFramework>
 
         <OutputType>Exe</OutputType>
@@ -24,7 +24,7 @@
         <!-- App Icon -->
         <!-- Color is the adaptive-icon background layer Android composites the
              foreground over: color-background (#121214) from
-             .design/color-scheme.md, matching appicon.svg's rect. -->
+             .devbook/design/color-scheme.md, matching appicon.svg's rect. -->
         <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#121214" />
 
         <!-- Splash Screen -->

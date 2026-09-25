@@ -7,7 +7,7 @@ public static class SyncFeatures
     /// pair a second one to it, push local task changes to the replica and pull
     /// the owner's change feed back, and do the same for this machine's session
     /// records - only their metadata, never a prompt, a transcript, a working
-    /// folder, or a title (.arc42/adr/0005 §Session records).
+    /// folder, or a title (.devbook/arc42/adr/0005 §Session records).
     /// <para>
     /// One switch where there used to be three (<c>device-pairing</c>,
     /// <c>task-sync</c>, <c>session-sync</c>). They were split so that somebody

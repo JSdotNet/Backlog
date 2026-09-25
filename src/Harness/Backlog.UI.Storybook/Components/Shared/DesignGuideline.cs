@@ -5,10 +5,10 @@ using System.Text;
 namespace Backlog.UI.Storybook.Components.Shared;
 
 /// <summary>
-/// A rule from `.design` that governs a storybook page, and the text of it.
+/// A rule from `.devbook/design` that governs a storybook page, and the text of it.
 ///
 /// <para>The storybook says how a component is used; it does not say what the
-/// rules are. Those live in `.design`, which is the checked-in, reviewable record
+/// rules are. Those live in `.devbook/design`, which is the checked-in, reviewable record
 /// of the product's design and UX guidelines — and the two used to disagree,
 /// because a rule written into a story description is a second copy of a rule
 /// nobody diffs against the first.</para>
@@ -21,7 +21,7 @@ namespace Backlog.UI.Storybook.Components.Shared;
 /// host runs.</para>
 /// </summary>
 /// <param name="Path">The chapter, and optionally its anchor, relative to
-/// `.design` — <c>color-scheme.md#role-tokens</c>. The anchor is a GitHub-style
+/// `.devbook/design` — <c>color-scheme.md#role-tokens</c>. The anchor is a GitHub-style
 /// heading slug, so it is the same string that works in a link.</param>
 /// <param name="Governs">What that chapter decides for this page, in one line.
 /// Not a summary of the chapter: the reason to read it.</param>
@@ -31,7 +31,7 @@ public sealed record DesignGuideline(string Path, string Governs)
 
     /// <summary>The repository-relative address, which is what a reader greps
     /// for and what the fold is labelled with.</summary>
-    public string Label => ".design/" + Path;
+    public string Label => ".devbook/design/" + Path;
 
     private string File => Path.Split('#')[0];
 
@@ -53,7 +53,7 @@ public sealed record DesignGuideline(string Path, string Governs)
 
         if (chapter is null)
         {
-            return $"> `.design/{File}` is not embedded in this host, so the rule cannot be shown here. "
+            return $"> `.devbook/design/{File}` is not embedded in this host, so the rule cannot be shown here. "
                  + "Read it in the repository.";
         }
 
@@ -62,7 +62,7 @@ public sealed record DesignGuideline(string Path, string Governs)
         var section = Section(chapter, Anchor);
 
         return section
-            ?? $"> `.design/{File}` has no heading matching `#{Anchor}` any more. "
+            ?? $"> `.devbook/design/{File}` has no heading matching `#{Anchor}` any more. "
              + "Either the heading was renamed or this page is pointing at a rule that has moved.";
     }
 

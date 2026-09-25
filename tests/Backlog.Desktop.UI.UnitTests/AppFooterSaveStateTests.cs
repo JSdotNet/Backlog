@@ -44,7 +44,7 @@ public sealed class AppFooterSaveStateTests
     }
 
     /// <summary>The wording is the app's and moved here verbatim from Home's
-    /// header, because <c>.design/interaction-guidelines.md#save-state-indicator-vocabulary</c>
+    /// header, because <c>.devbook/design/interaction-guidelines.md#save-state-indicator-vocabulary</c>
     /// fixes it across channels — "Couldn't save", not the library's default.</summary>
     [Fact]
     public void A_failed_save_says_so_in_the_products_own_words()

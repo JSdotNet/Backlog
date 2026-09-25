@@ -80,7 +80,7 @@ public sealed class SettingsRepositoryColourTests
         }
 
         // A sixth swatch would be product code inventing a colour, which
-        // .design/color-scheme.md does not let it do.
+        // .devbook/design/color-scheme.md does not let it do.
         Assert.Empty(settings.Component.FindAll($"[data-testid='repo-colour-{RepositoryColours.Available + 1}']"));
     }
 

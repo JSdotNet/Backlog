@@ -29,12 +29,12 @@ public sealed class C4WorkspaceTests
     /// <summary>A reference to a workspace as a chapter would spell one. Present in a
     /// chapter it is a problem rather than a feature — see the test that says why.</summary>
     private static readonly Regex WorkspaceReferencePattern =
-        new(@"\.arc42/_c4/[A-Za-z0-9._-]+\.dsl", RegexOptions.Compiled);
+        new(@"(?:\.devbook/arc42|\.arc42)/_c4/[A-Za-z0-9._-]+\.dsl", RegexOptions.Compiled);
 
     /// <summary>The authored view-to-chapters map beside the workspace.</summary>
     private static Dictionary<string, string[]> References()
     {
-        var path = Path.Combine(RepositoryRoot.Root.FullName, ".arc42", WorkspaceFolder, "references.json");
+        var path = Path.Combine(RepositoryRoot.Root.FullName, ".devbook", "arc42", WorkspaceFolder, "references.json");
         Assert.True(File.Exists(path), $"Expected an authored reference map at {path}.");
 
         using var document = JsonDocument.Parse(File.ReadAllText(path));
@@ -48,15 +48,15 @@ public sealed class C4WorkspaceTests
 
     private static IReadOnlyList<FileInfo> Workspaces()
     {
-        var folder = new DirectoryInfo(Path.Combine(RepositoryRoot.Root.FullName, ".arc42", WorkspaceFolder));
+        var folder = new DirectoryInfo(Path.Combine(RepositoryRoot.Root.FullName, ".devbook", "arc42", WorkspaceFolder));
         return folder.Exists ? [.. folder.EnumerateFiles("*.dsl", SearchOption.TopDirectoryOnly)] : [];
     }
 
     private static IEnumerable<FileInfo> Chapters()
     {
-        foreach (var knowledge in new[] { ".arc42", ".domain" })
+        foreach (var knowledge in new[] { ".devbook/arc42", ".devbook/domain" })
         {
-            var folder = new DirectoryInfo(Path.Combine(RepositoryRoot.Root.FullName, knowledge));
+            var folder = new DirectoryInfo(Path.Combine([RepositoryRoot.Root.FullName, .. knowledge.Split('/')]));
             if (!folder.Exists) continue;
 
             foreach (var file in folder.EnumerateFiles("*.md", SearchOption.AllDirectories))
@@ -74,7 +74,7 @@ public sealed class C4WorkspaceTests
     }
 
     private static C4Workspace Read(string name) =>
-        C4DslReader.Read(File.ReadAllText(Path.Combine(RepositoryRoot.Root.FullName, ".arc42", WorkspaceFolder, name)));
+        C4DslReader.Read(File.ReadAllText(Path.Combine(RepositoryRoot.Root.FullName, ".devbook", "arc42", WorkspaceFolder, name)));
 
     [Fact]
     public void The_architecture_folder_carries_at_least_one_workspace()
@@ -323,8 +323,8 @@ public sealed class C4WorkspaceTests
     {
         var documented = References().Values.SelectMany(chapters => chapters).ToList();
 
-        Assert.Contains(documented, chapter => chapter.StartsWith(".arc42/", StringComparison.OrdinalIgnoreCase));
-        Assert.Contains(documented, chapter => chapter.StartsWith(".domain/", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(documented, chapter => chapter.StartsWith(".devbook/arc42/", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(documented, chapter => chapter.StartsWith(".devbook/domain/", StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>
@@ -336,8 +336,8 @@ public sealed class C4WorkspaceTests
     [Fact]
     public void No_knowledge_folder_other_than_arc42_carries_a_C4_workspace()
     {
-        var stray = new[] { ".domain", ".tech", ".design" }
-            .Select(folder => new DirectoryInfo(Path.Combine(RepositoryRoot.Root.FullName, folder)))
+        var stray = new[] { ".devbook/domain", ".devbook/tech", ".devbook/design", ".devbook/ai" }
+            .Select(folder => new DirectoryInfo(Path.Combine([RepositoryRoot.Root.FullName, .. folder.Split('/')])))
             .Where(folder => folder.Exists)
             .SelectMany(folder => folder.EnumerateDirectories(WorkspaceFolder, SearchOption.AllDirectories))
             .Select(Relative)
@@ -352,9 +352,9 @@ public sealed class C4WorkspaceTests
     /// test because the pairing is the feature.
     /// </summary>
     [Theory]
-    [InlineData(".arc42/03-context-and-scope.md")]
-    [InlineData(".arc42/05-building-block-view.md")]
-    [InlineData(".arc42/07-deployment-view.md")]
+    [InlineData(".devbook/arc42/03-context-and-scope.md")]
+    [InlineData(".devbook/arc42/05-building-block-view.md")]
+    [InlineData(".devbook/arc42/07-deployment-view.md")]
     public void The_architecture_chapters_with_C4_content_are_documented_by_a_view(string chapter)
     {
         var documented = References().Values
@@ -371,8 +371,8 @@ public sealed class C4WorkspaceTests
     /// do.
     /// </summary>
     [Theory]
-    [InlineData(".arc42/03-context-and-scope.md", "C4Context")]
-    [InlineData(".arc42/05-building-block-view.md", "C4Container")]
+    [InlineData(".devbook/arc42/03-context-and-scope.md", "C4Context")]
+    [InlineData(".devbook/arc42/05-building-block-view.md", "C4Container")]
     public void The_existing_mermaid_C4_fences_are_still_in_their_chapters(string chapter, string keyword)
     {
         var text = File.ReadAllText(Path.Combine(RepositoryRoot.Root.FullName, chapter.Replace('/', Path.DirectorySeparatorChar)));

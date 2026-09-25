@@ -74,7 +74,7 @@ public sealed class FeedbackDialogTests
 
         // And says so as the answer it is. A clipboard holding text is the normal
         // state of a clipboard, not a fault, and the live-region table in
-        // .design/accessibility.md keeps role="alert" and the error tone for
+        // .devbook/design/accessibility.md keeps role="alert" and the error tone for
         // Conflict and Error — an answer that interrupts to say nothing is wrong
         // spends the one thing assertive announcement has.
         var status = host.Dialog.Find(".feedback-status");

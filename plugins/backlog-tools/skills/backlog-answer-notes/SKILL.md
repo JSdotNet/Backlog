@@ -10,7 +10,7 @@ empties that inbox: read the open ones, work out each answer, write the answer i
 chapter where a reviewer will find it, and mark the remark answered.
 
 **Two different things are both called an annotation, and neither becomes the other**
-(`.arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md`, §6):
+(`.devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md`, §6):
 
 - the **private note** — Backlog's `DevbookAnnotation`: the person's own data, on their
   devices, never in the repository. It is the inbox, read and resolved over MCP.

@@ -25,7 +25,7 @@ public sealed record PullSessionsQuery(OwnerScope Scope, string? Since, int MaxI
 /// store continuation carries its own feed range, so handing an unverified one
 /// to the replica would read whichever partition it was minted for — the store
 /// will not object, because the service reaches it under one identity that can
-/// see every partition (.arc42/adr/0005 §Identity). §Consequences asks for that
+/// see every partition (.devbook/arc42/adr/0005 §Identity). §Consequences asks for that
 /// boundary to be tested as a negative rather than only as a positive, and this
 /// is the line those tests are about.
 /// </para>

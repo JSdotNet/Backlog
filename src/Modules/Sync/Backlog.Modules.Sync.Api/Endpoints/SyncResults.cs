@@ -70,7 +70,7 @@ internal static class SyncResults
         // had to hold: an inbox id is a guess, and answering 404 keeps a guess
         // from confirming anything, whereas a correctly-signed cursor for
         // another owner's feed can only have been obtained, and pretending it
-        // does not exist would hide the one event .arc42/adr/0005 asks to be
+        // does not exist would hide the one event .devbook/arc42/adr/0005 asks to be
         // loud about.
         SyncErrorCodes.SyncCursorNotYours => StatusCodes.Status403Forbidden,
 

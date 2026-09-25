@@ -66,7 +66,7 @@ public sealed class IntegrationLinkListTests
     [Fact]
     public void An_unheaded_group_wears_no_mark()
     {
-        // .design/color-scheme.md#band-identity-tokens requires the alias to be written
+        // .devbook/design/color-scheme.md#band-identity-tokens requires the alias to be written
         // wherever the hue is shown, and the heading is where it is written. One group
         // gets no heading, so it gets no hue either — a coloured edge with nothing
         // naming it would be colour as the sole carrier.

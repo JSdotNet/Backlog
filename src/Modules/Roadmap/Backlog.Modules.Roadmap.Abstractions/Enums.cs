@@ -8,7 +8,7 @@ namespace Backlog.Modules.Roadmap.Abstractions;
 /// make every conversation about priority start with "which kind". They stay
 /// different types owned by different contexts — Backlog ranks a work item for
 /// execution, this ranks intent across projects — and neither is converted into
-/// the other. See <c>.domain/roadmap/naming.md#term-planning-priority</c>.
+/// the other. See <c>.devbook/domain/roadmap/domain.md#planning-priority</c>.
 /// </para>
 /// </summary>
 public enum PlanningPriority

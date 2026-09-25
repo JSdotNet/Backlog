@@ -53,7 +53,7 @@ public sealed record ToastMessage
         new() { Message = message, TestId = testId, Severity = ToastSeverity.Warning, DurationMilliseconds = ErrorDuration };
 
     /// <summary>Nothing landed. <c>Toast</c> raises this to <c>role="alert"</c> on
-    /// its own, per <c>.design/accessibility.md#screen-reader--announcements</c>.
+    /// its own, per <c>.devbook/design/accessibility.md#screen-reader--announcements</c>.
     /// </summary>
     public static ToastMessage Error(string message, string? testId = null) =>
         new() { Message = message, TestId = testId, Severity = ToastSeverity.Error, DurationMilliseconds = ErrorDuration };
@@ -68,7 +68,7 @@ public sealed record ToastMessage
 public interface IToastChannel
 {
     /// <summary>The messages showing right now — at most <see cref="ToastChannel.MaxVisible"/>
-    /// of them, per <c>.design/interaction-guidelines.md#feedback-and-toasts</c>.
+    /// of them, per <c>.devbook/design/interaction-guidelines.md#feedback-and-toasts</c>.
     /// A snapshot: the list handed back never changes underneath a render.</summary>
     IReadOnlyList<ToastMessage> Visible { get; }
 
@@ -102,7 +102,7 @@ public interface IToastChannel
 /// </summary>
 public sealed class ToastChannel : IToastChannel
 {
-    /// <summary><c>.design/interaction-guidelines.md#feedback-and-toasts</c>: show
+    /// <summary><c>.devbook/design/interaction-guidelines.md#feedback-and-toasts</c>: show
     /// no more than three at once and queue the rest. A fourth simultaneous toast
     /// is a band, and a band is the thing a toast exists not to be.</summary>
     public const int MaxVisible = 3;

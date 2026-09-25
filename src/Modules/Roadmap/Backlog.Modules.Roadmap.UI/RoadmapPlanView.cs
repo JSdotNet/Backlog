@@ -17,7 +17,7 @@ namespace Backlog.Modules.Roadmap.UI;
 /// it holds aliases as opaque strings precisely so it stays independent of repository
 /// management. It is also the answer three other surfaces are reading, and a roadmap
 /// that decided its own would be a second answer to the same question. See
-/// <c>.design/color-scheme.md#band-identity-tokens</c>.
+/// <c>.devbook/design/color-scheme.md#band-identity-tokens</c>.
 /// </para></param>
 public sealed record PlannedRepository(string Alias, string Title, int? Colour = null);
 
@@ -413,7 +413,7 @@ public static class RoadmapPlanView
     /// hues a repository wears was settled in Settings, because it is a fact about the
     /// repository rather than about this plan and because three other surfaces are
     /// reading the same answer. See
-    /// <c>.design/color-scheme.md#band-identity-tokens</c>.
+    /// <c>.devbook/design/color-scheme.md#band-identity-tokens</c>.
     /// </para>
     /// <para>
     /// It says which repository and nothing else — no status, no severity, no priority
@@ -429,7 +429,7 @@ public static class RoadmapPlanView
     /// <summary>
     /// A group is handed no colour, deliberately.
     /// <para>
-    /// `.design/color-scheme.md` allows the product exactly one saturated hue and
+    /// `.devbook/design/color-scheme.md` allows the product exactly one saturated hue and
     /// forbids a second semantic palette, so six separable band colours are not
     /// available to spend here. A colourless group draws neutral, which the library
     /// documents as "nobody said" rather than as another category — and priority is

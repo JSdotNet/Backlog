@@ -5,7 +5,7 @@
     allowed to see (ADR 0005, ADR 0009):
       DataTransferObjects/  what a caller receives instead of the aggregate
       EntryTextParser       the entry text format, this context's published
-                            language (.domain/tasks); pure text in, text out
+                            language (.devbook/domain/tasks); pure text in, text out
       Enums                 the vocabulary those DTOs and that text are written in
       TaskEntryErrorCodes   the error codes a host must branch on rather than
                             merely show (guideline 0004)

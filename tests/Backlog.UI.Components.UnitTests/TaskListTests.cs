@@ -2527,7 +2527,7 @@ public sealed class TaskListTests
     /// wore <c>task-item--selected</c>, so a second meaning on that class would
     /// have made "the row I am reading" and "one of the rows I am about to
     /// retag" look identical — and
-    /// <c>.design/interaction-guidelines.md#focus-and-selection</c> asks for
+    /// <c>.devbook/design/interaction-guidelines.md#focus-and-selection</c> asks for
     /// selection to be distinct from hover and from focus, not for it to borrow
     /// another state's paint.</summary>
     [Fact]

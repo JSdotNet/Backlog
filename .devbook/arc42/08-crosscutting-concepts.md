@@ -1,0 +1,491 @@
+# 08. Cross-cutting Concepts
+
+```meta
+status: active
+```
+
+Concepts that apply across multiple channels and domains and must be handled
+uniformly. Shared data types define the vocabulary exchanged between them.
+
+## Storage and Sync
+
+```meta
+status: active
+related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".devbook/arc42/06-runtime-view.md#copilot-app-session-capture", ".devbook/arc42/08-crosscutting-concepts.md#session-record-sync", ".devbook/arc42/08-crosscutting-concepts.md#task-sync", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/domain/capture/domain.md#source-adapter", ".devbook/domain/sessions/domain.md#session-log"]
+```
+
+- **Local-first, one canonical local store** — the desktop's own store is the single
+  source of truth. Tasks live in one SQLite database (`backlog.db`) under the
+  workspace root, with a task's content held as markdown text, and the roadmap plan
+  is one document row in that same database; JSON files hold the workspace settings
+  and feature flags, which are per-device and deliberately not shared. Markdown is
+  the content of a task, not the storage format. One database file, three owners —
+  Tasks (`tasks`), Roadmap Planning (`roadmap_plan`) and the Inbox (`inbox_items`,
+  `inbox_lists`, `inbox_groups`) share the file and not the schema. See
+  `.devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md`.
+- **The Devbook is the other way round** — a repository's knowledge folders stay
+  markdown-canonical, and only the layer derived from them is a database. The two
+  decisions are not in tension: a task is owned by the app, a knowledge chapter is
+  owned by the repository and edited outside it. See
+  `.devbook/arc42/08-crosscutting-concepts.md#devbook-database`.
+- **Configurable repo paths** via a repo registry (`config/repos.json`).
+- **Scope-portable dot-folder contract** — `.inbox/`, `.backlog/`, `.brain/` exist at
+  workspace, repo, and project levels; shared tags/relationships live in the
+  workspace-root `.tags/` (`tags.json`, `tag-graph.json`).
+- **Optional cloud sync** for multi-device, carrying four kinds of state: the
+  Task aggregate, session records, the phone's captures, and the person's
+  remarks on Devbook chapters. A remark is Devbook's own record — one JSON
+  file per repository in `devbook-annotations/` under the storage folder,
+  moved with the backlog, never the repository's `_meta/devbook.db` and never
+  a table in `backlog.db` — and it travels through a third replica container
+  on the task container's terms
+  (`.devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md`).
+  A capture travels as
+  a task-shaped document in the same `tasks` container rather than as a third
+  shape, but it carries its own kind token (`type: "capture"`): on the desktop it
+  is handed to the Inbox's intake before the task merge and becomes an inbox item
+  with the capture's own id, never a task row, and the desktop acknowledges it by
+  pushing a tombstone of that document from an outbox
+  (`.devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md`). Lists and
+  groups the Inbox organises items into stay on the machine.
+  Conflict resolution for tasks: **new items always create; edits are
+  last-write-wins**. Session records do not reconcile at all — only the machine
+  that ran a session writes records for it, so there is never a second version to
+  discard and the lost-edit failure mode does not reach them.
+- **Six kinds of state deliberately stay on the machine** — agent transcripts
+  (the sanitization boundary that lets session records travel at all), workspace
+  settings (they describe one machine's disk), feature flags (per-device by
+  design, so an experiment on one machine is not a change on both), the
+  derived knowledge layer (regenerated on the second machine, not shipped to it),
+  the branch snapshot cache (the index of a named commit plus whichever of
+  its files have been read, refetched on the second machine rather than shipped
+  to it, and safe to delete), and the dashboard's settled-fact caches (three
+  folders beside the per-user settings — `activity-cache` for the merged pull
+  requests, closed issues and per-pull-request detail a listing walk found,
+  `spend-cache` for Claude Code days and Copilot months that are over, and
+  `session-activity-cache` for what a pass over this machine's own transcripts
+  established; each is a copy of a provider's answer about something that cannot
+  change again, keyed per author, login, actor or file so a second identity
+  never reads the first's, refetched rather than shipped, and safe to delete —
+  and none of them may sit under the workspace root, because a per-machine
+  cache carried by a file-sync product is the hazard
+  `.devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md` exists to
+  remove).
+  The roadmap plan is on neither list, and since 2026-09-05 the reason is narrower
+  than it was: it is a document row in `backlog.db` rather than a file beside it, so
+  it no longer carries the database's file-sync hazard, and the row stamps
+  `updated_at` so it *could* replicate on a task's terms. Whether it should is the
+  open question — see `.devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md`.
+- **Three containers in the cloud replica** — `tasks`, `sessions` and
+  `annotations`, all partitioned on `/ownerId`. Separate because each wants its
+  own change feed, its own indexing policy, and its own retention, and because
+  serverless billing levies no per-container charge to trade against. Two more
+  beside them,
+  `devices` and `pairingCodes`, hold the device registry; they are not replicas —
+  no change feed is read from them — and they are partitioned on `/id`, because
+  the read on every token mint has only the device id in hand.
+- **Retention is a store setting, not code.** Container TTL expires task and
+  annotation tombstones after 180 days and whole session records after 12 months. Nothing
+  reaps, so there is no scheduled job to fail silently at exactly the moment
+  nobody is watching — which is when a code-based reaper stops running.
+- **The sync service, not the store, keeps a device inside its own data.** The
+  service holds an account-scoped managed identity and can see every partition of
+  both containers; what confines a device is service code reading the `ownerId`
+  out of that device's JWT and refusing to issue a query outside the partition it
+  names. The isolation is one check in one service, not a property of the storage
+  layer.
+- **Never file-sync the local store.** The workspace root is a local folder. A
+  binary SQLite database in OneDrive or any other file-sync product is
+  unmergeable, and its WAL sidecars sync out of step with it, so committed
+  transactions silently roll back. Multi-device use goes through the sync service.
+  See `.devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md`.
+- **Desktop works fully standalone**; the cloud connection is purely additive. The
+  one qualification is a repository configured to read its knowledge from a branch
+  rather than from a clone: that needs the network to list the branch and the
+  first time each area is opened, and what has been opened reads offline
+  afterwards. A repository with a clone is unaffected, and is what an install with
+  no stored preference reads. See
+  `.devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md`.
+- **Local credential handling includes Copilot sessions** — desktop workers and
+  GitHub Copilot App session adapters both run on the same machine and pass local
+  context (`session_id`, `worktree_path`, `branch`) without routing credentials
+  through the optional Cloud Service.
+- **Copilot capture vs. Copilot session tracking** — capture uses session context to
+  create Inbox/Backlog/Devbook items, while Dev PC Management tracking is a
+  separate compliance/monitoring concern.
+
+## Task Sync
+
+```meta
+status: active
+related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/domain/capture/domain.md#capture", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/tasks/domain.md#task"]
+```
+
+How the general sync position above is realized for the Task aggregate. The
+direction is settled by local ADR 0005, which is accepted, and as of 2026-09-07
+this section describes code rather than intent: the identity model below —
+pairing, tokens, and the query-scoping check — plus the Cosmos replica, the change
+feed over it, and the reconciliation it carries. Two qualifications, because
+"built" is not "in service": nothing is provisioned in Azure yet (see
+`.devbook/arc42/07-deployment-view.md#provisioning-and-delivery`), and the desktop half
+is a `Dev`-status feature flag that is off by default. Tombstone expiry is the
+one behaviour here that nothing local can exercise, and it is called out where it
+appears.
+
+Tasks are one of four kinds of state that sync. Session records travel on
+different terms, covered under
+`.devbook/arc42/08-crosscutting-concepts.md#session-record-sync`; Devbook annotations
+travel on exactly these terms over their own container
+(`.devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md`); the phone's
+captures are not a third shape at all, because a capture is written as a
+task-shaped document in the same `tasks` container the moment it is pushed —
+distinguished by its `capture` kind token, which routes it to the desktop's Inbox
+intake instead of the task table
+(`.devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md`). What stays on the machine
+— agent transcripts, workspace settings, feature flags, and the derived
+knowledge layer — is listed under
+`.devbook/arc42/08-crosscutting-concepts.md#storage-and-sync`.
+
+**Reconciliation between equals, not client and server.** Each device's SQLite
+database is canonical for that device. Azure holds a replica and the change feed
+over it, and carries no invariant, no query path, and no domain logic.
+
+```mermaid
+sequenceDiagram
+    participant A as Desktop A (canonical)
+    participant S as Sync Service
+    participant C as Cosmos DB (tasks container)
+    participant B as Desktop B (canonical)
+
+    Note over A: Edit applied locally first — never blocks on network
+    A->>A: status = in_progress, stamp updated_at
+    A->>S: POST /sync/tasks (changed since watermark)
+    S->>C: Upsert document, Cosmos assigns _ts
+    B->>S: GET /sync/tasks?since={token}
+    S->>C: Read change feed from token
+    C-->>S: Changed documents, ordered by _ts
+    S-->>B: Documents + next token
+    B->>B: Last-write-wins, then persist locally
+```
+
+- **Every task carries `updated_at` and `deleted_at`.** The first is stamped by
+  the device on each mutation; the second is a tombstone, because a deletion has
+  to replicate and a row that is simply gone cannot.
+- **The server orders, the device does not.** Two machines' clocks disagree, and
+  last-write-wins decided by a skewed clock discards real edits. The Cosmos `_ts`
+  assigned on write orders the feed; `updated_at` breaks ties, and the device id
+  breaks those, so two devices never flap. Whether a copy *replaces* one already
+  held is a different question with one answer at both ends: only a later
+  version by `updated_at` — or a tombstone of the very version held — is taken,
+  by the replica on a push and by the device on a pull, so nothing ever moves a
+  document backwards (local ADR 0005, amendments of 2026-09-18 and 2026-09-21).
+- **Whole-document resolution**, matching how the aggregate is already persisted
+  everywhere else. A per-field merge would invent a reconciliation the domain has
+  no rule for.
+- **A local write is pushed within seconds, not on the next tick.** The
+  five-minute schedule is the budget for a quiet machine; it is also the whole of
+  the window in which two machines can edit one task without either knowing, and
+  whole-document resolution drops one side when they do. The repository announces
+  every local write and the loop runs a cycle a few seconds after the last one,
+  so the window is seconds wide. A document applied from the replica is written
+  through the same repository and is deliberately not announced.
+- **Progress belongs to one identity.** The push watermark says what one owner's
+  replica has accepted from one device, and the pull cursor is signed for one
+  owner. Both are recorded with the owner and device ids they were written under,
+  and a device whose credential names a different pair — one that forgot its
+  registration and registered or paired again — starts both from nothing. Carrying
+  them across that line is how a second machine came to see a fraction of the
+  first one's tasks and none of its sessions, with nothing anywhere to say why.
+- **Pairing, not accounts.** A first device generates an `ownerId`; a second is
+  paired with a short code entered once, out of band. Each holds its own
+  registration credential in the OS credential store and exchanges it for a
+  short-lived JWT. `ownerId` is the Cosmos partition key of both replica
+  containers; the registry that holds the devices and codes is persisted in
+  Cosmos as well, so a pairing survives a restart of the service.
+- **The service, not the partition key, is what keeps a device inside its own
+  data.** The partition key organizes the store; it authorizes nothing. Access to
+  Cosmos is a managed identity with an account-scoped data-plane role, so as far
+  as Cosmos is concerned the service may read every partition. What confines a
+  device is the service reading `ownerId` out of the presented JWT and refusing
+  to issue a query outside that partition — one check, in one service, standing
+  in front of a credential that can see everything. Cosmos cannot authorize a
+  device-session principal it has never heard of, so this is the only place the
+  check can live.
+- **Tombstones expire by container TTL**, at 180 days, rather than by anything
+  the service runs. The number is chosen against how long a device may plausibly
+  stay offline: a tombstone that expired first would let a returning device push
+  its still-live copy and resurrect a task the person deleted. The adapter stamps
+  the expiry on every tombstone it writes, but **nothing local can show it
+  working** — the Cosmos emulator does not honour TTL, so this is deployed-only
+  behaviour that no test or QA run here has exercised.
+- **Offline is unchanged.** Losing connectivity costs cross-device freshness and
+  nothing else.
+
+## Session Record Sync
+
+```meta
+status: active
+related: [".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/08-crosscutting-concepts.md#task-sync", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/sessions/features.md#sessions-from-another-machine"]
+```
+
+Session records replicate through the same service and the same pairing identity,
+into the `sessions` container, and reconcile on different terms — which is not a
+special case bolted on, but a consequence of who writes them.
+
+As of 2026-09-08 this section describes code rather than intent. The two
+operations local ADR 0005 names exist — `POST /api/sync/sessions` pushes the
+records a machine has read since its watermark and
+`GET /api/sync/sessions?since={token}` pulls the other environments' from a
+cursor — served by `Backlog.Modules.Sync.Api` over the `sessions` container the
+AppHost and `infra/sync/main.bicep` declare, behind the same paired-device
+identity and the same query-scoping check task sync uses. On the device side an
+exchange runs on its own schedule, and what it pulls is composed into the session
+list a person already reads rather than shown apart from it.
+
+The same two qualifications apply as above, and a third this half carries alone.
+Nothing is provisioned in Azure
+(`.devbook/arc42/07-deployment-view.md#provisioning-and-delivery`), and the desktop half
+is behind the one `Beta`-status `sync` feature flag, off by default, that also
+gates pairing and the task loop. Until 2026-09-14 it had a flag of its own,
+`session-sync`, on the argument that wanting one backlog on two machines is not
+the same as wanting a record of what the assistants did to leave either of them;
+the three switches were folded into one because the question a person actually
+answers is whether this machine takes part in sync at all, and the sanitization
+boundary above is what makes that one answer safe to give. The third is
+that two behaviours here rest on a store nothing local has exercised: the change
+feed the pull reads needs a real Cosmos, emulator or deployed, and the unit suite
+runs against an in-memory replica standing in for one; the twelve-month container
+`defaultTtl` is worse off still, for the reason the 180-day tombstone TTL above
+is — the emulator does not honour TTL, so that number is deployed-only behaviour
+rather than something anything here has shown.
+
+As of 2026-09-23 a device keeps the records it pushed when they come back down the
+feed, rather than dropping its own echo, so a session whose transcript the assistant
+has cleaned away is still answered from its record; the local reading of a session
+wins wherever there is one. The record carries nineteen fields — a title, the
+delivery dashboards' worktree key, the usage-limit refusals, the entrypoint, the
+pull requests a session linked and its token usage per model joined the thirteen —
+and local ADR 0005 argues each.
+
+- **Single-writer, so last-write-wins does not apply.** A session ran on one
+  machine and only that machine holds the evidence for it, so there is never a
+  second version to discard. The conflict policy under
+  `.devbook/arc42/08-crosscutting-concepts.md#task-sync`, and the silent loss it accepts,
+  is not reachable here.
+- **Machine-stamped and append-only.** Each record names the machine that wrote
+  it, and that machine is not on the wire: the service stamps it from the caller's
+  validated token, so a caller cannot compose a record attributed to another box.
+  The document is keyed on that machine, the agent kind and the session id
+  together, which puts single-writer in the shape of the store rather than in a
+  check somebody has to keep — a machine can only address records under its own
+  device id. A session that moves gets a later record rather than an edit to an
+  earlier one, so the container needs neither a tombstone nor an `updated_at`.
+- **The sanitization boundary is a whitelist, not a filter.** A record carries
+  session id, agent kind, machine id, machine name, repository alias (not path),
+  branch, started at, last activity at, turn count, duration count, and — since
+  2026-09-22 — the resolved repository alias (the registered clone the working
+  folder lay in, as an alias and never the folder) and the agent's active runs
+  and waits as pairs of timestamps. Never
+  prompts, never tool output, never file contents. A filter that misses a field
+  leaks it; a whitelist that misses one merely omits it, and adding a field is a
+  decision taken in local ADR 0005 rather than settled in the pushing code — as
+  agent kind and machine name were, on 2026-09-08, the first two fields added
+  since the list was written, and as the resolved alias and the two interval
+  lists were after them. The
+  name travels as a display label only: a section is still keyed on the machine
+  id, which is the thing a rename does not move. The intervals travel because a
+  transcript does not: the Dashboard's per-machine active and waiting time is
+  folded out of transcript bodies, so the machine that holds them folds and the
+  result crosses — capped at 500 per list and refused above it, with null meaning
+  "no record" and an empty list meaning "a record that held nothing", a
+  distinction the wire, the replica file and the store all keep.
+- **Retention is a 12-month container TTL**, and nothing else removes a record.
+
+## Devbook Database
+
+```meta
+status: active
+related: [".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/domain/devbook/features.md#repository-devbook-areas"]
+```
+
+How every channel reads the knowledge a repository carries alongside its code.
+
+- **Markdown is canonical and the layer over it is generated** — the graph between
+  chapters, the resolved reading outline, the retrieval indexes and the diagram
+  artifact index are all derived. Nothing that is derived is authoritative, and
+  nothing that is authored lives only in the derived layer.
+- **One generated SQLite database per knowledge repository**, at `_meta/devbook.db`
+  beside the folders it describes rather than in the workspace root, because an area
+  is resolved per registered repository and the app reads repositories it did not
+  build.
+- **Generated, not committed.** The database is a build output and is ignored by
+  git, which is what keeps two branches editing different chapters from conflicting
+  on a file neither of them authored.
+- **The authored half stays text** — each directory's reading order and root
+  document, the hand-written Archify specifications, and the Structurizr C4
+  workspace under `.devbook/arc42/_c4/`, are committed and reviewed in diffs. Only what a
+  generator produces goes into the database. The C4 workspace has no derived half
+  at all: it is not attached to a fence and nothing is rendered from it ahead of
+  time, so there is nothing about it for an index to hold or to go stale.
+- **Structural first, semantic optional** — the structural tier is deterministic and
+  builds offline; embeddings are keyed by chapter content hash, need a model, and
+  are versioned by it. A reader must work correctly with the semantic tier absent,
+  falling back to full-text search.
+- **The generator is the only writer.** The app reads and never writes, so the
+  markdown parse has exactly one implementation. A chapter the app has just edited
+  is treated as drifted and served from its markdown, rather than re-indexed by a
+  second parser in C#.
+- **Refresh is an optimisation, never a precondition** — nothing on the app's own
+  write, a stat-per-file check when an area is opened, a debounced watcher while a
+  folder is in view, and a cancellable idle-time background pass for repositories
+  nobody has opened and for embeddings. **Not on startup**: startup only stats each
+  registered repository to learn whether an index exists, and schedules rather than
+  performs the work.
+- **A reader degrades in defined steps** rather than on or off: current row →
+  drifted file read from its markdown → unrecognised schema version ignored
+  entirely → absent, locked or unreadable database → markdown, which is the path
+  the panels take today. Browsing therefore always works. Search is the one
+  exception — without an index it is unavailable and says so, because scanning the
+  corpus per query is a hang, not a fallback.
+- **One artifact, every channel** — desktop, mobile, the IDE extensions and a future
+  MCP server read the same schema rather than each carrying its own markdown parser.
+
+> Implemented on 2026-09-08, with two deliberate gaps. The derived layer is
+> `_meta/devbook.db`, written by `tools/devbook/build-database.mjs` and
+> git-ignored; each knowledge folder carries a committed `_reading-order.json`
+> holding the authored half; and `Backlog.Infrastructure.Devbook` reads the
+> database read-only, down every rung of the ladder above.
+>
+> The gaps are the refresh paths that need the app to start the generator — the
+> debounced watcher and the idle background pass — which stay unbuilt because how
+> the app invokes it is still open, and the semantic tier's live call, which does
+> not happen: the embedding table, its port and a brute-force cosine reader exist,
+> and nothing fills them, so retrieval is full-text alone. Neither gap costs
+> correctness, because the floor of the ladder is the Markdown reader the panels
+> already had. See
+> `.devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md` for the
+> reasoning, what the implementation departed from, and the questions it still
+> leaves open.
+
+## Feature Enablement
+
+```meta
+status: proposed
+related: [".devbook/arc42/04-solution-strategy.md", ".devbook/domain/devbook/features.md#repository-devbook-areas", ".devbook/domain/dev-pc-management/features.md#copilot-tool-catalog"]
+```
+
+- **Optional capabilities are switchable per installation** — repository knowledge,
+  the individual knowledge areas, additional repositories, system tools, GitHub
+  integration, feedback reporting, Copilot CLI, and AI assistance can each be turned
+  on. Core backlog editing is always available and is never switchable.
+- **Disabled is the default**; the stored setting records only what has been switched
+  *on*, so a capability added later stays out of the way until it is deliberately
+  chosen.
+- **A disabled capability leaves no surface behind** — its entry points are absent
+  rather than present-but-inert, and dependent settings disappear with it.
+- **The switch is local to the installation**, kept with the other machine-local
+  settings rather than inside the backlog folder, so it never travels with synced
+  content.
+- **Unreadable or unknown settings fall back to "everything disabled"** rather than
+  failing startup, leaving only the always-available core.
+
+> Not yet implemented: the current build defaults every optional capability to
+> enabled and stores only the disabled ones. This section records the intended
+> reversal, so treat it as the target state rather than a description of today's
+> behavior.
+
+## Tagging and Organization
+
+```meta
+status: active
+related: [".devbook/domain/roadmap/domain.md#roadmap-item-gathering"]
+```
+
+- `#tags` embedded inside markdown, multiple per item.
+- Project tags, cross-cutting tags, and PARA-inspired grouping (Projects, Areas,
+  Resources, Archive).
+- A tag index enables search across all domains.
+
+Tags are not drawn from a single vocabulary. Alongside freely authored tags, every
+roadmap item contributes its own slug as an available tag in both the backlog and the
+knowledge base, which is how a roadmap item gathers contributing work without having to
+reference each piece explicitly. A roadmap slug is derived from the item's title when it
+is created and stays editable, but is deliberately **not** rewritten when the title is
+later renamed — tags already written elsewhere would otherwise silently stop matching.
+Because a knowledge chapter's `roadmap:` entries are tag slugs rather than chapter
+references, they stay node attributes and produce no edges in the knowledge graph.
+
+## Authentication and Authorization
+
+```meta
+status: active
+related: [".devbook/arc42/09-architecture-decisions.md"]
+```
+
+- **No account required** for personal use in standalone mode.
+- **OAuth 2.0** for GitHub integration (issue sync, webhook registration).
+- **Cloud connection uses device-based auth** — JWT device sessions, no user login.
+  Implemented in `Backlog.Modules.Sync.Api`: every sync request is bearer-only,
+  the JWT's issuer, audience, lifetime, signature, and algorithm are all
+  validated, a fallback-deny policy covers any endpoint not explicitly opened,
+  and an owner-scoping filter reads the owner out of the token and refuses to
+  serve a query outside it — see
+  `.devbook/arc42/08-crosscutting-concepts.md#task-sync` for the pairing flow that
+  issues the token.
+- The current architecture assumes a single personal user and does not include team-oriented authorization roles.
+
+For the cloud service specifically, the inherited identity, authorization, and
+error-contract decisions apply — `.devbook/arc42/adr/guidelines/0012-authentication-external-identity-providers.md`,
+`0013-authorization-zero-trust.md`, and `0017-http-error-contract-and-problem-details.md`.
+
+## Observability
+
+```meta
+status: active
+related: [".devbook/arc42/09-architecture-decisions.md"]
+```
+
+Monitoring dashboards read telemetry signals from Application Insights (errors,
+latency per project) alongside local queue/backlog health metrics. Telemetry follows
+`.devbook/arc42/adr/guidelines/0010-opentelemetry-observability.md`, wired once in
+`Backlog.Aspire.ServiceDefaults` for services and MAUI hosts alike.
+
+## Shared Data Types
+
+```meta
+status: active
+related: [".devbook/arc42/12-glossary.md", ".devbook/domain/inbox/domain.md#inbox-item", ".devbook/domain/tasks/domain.md#task", ".devbook/domain/devbook/domain.md#knowledge-note", ".devbook/domain/monitoring/domain.md#progress-signal", ".devbook/domain/dev-pc-management/domain.md#machine-registry", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/repository-management/domain.md#repository-registry", ".devbook/domain/technology-stack/domain.md#technology-registry", ".devbook/domain/roadmap/domain.md#roadmap-item-gathering"]
+```
+
+The vocabulary exchanged across all applications and domains is owned per
+bounded context in `.devbook/domain` (aggregate shape, invariants, and lifecycle) — this
+chapter only names which types cross container boundaries and are therefore an
+architectural concern:
+
+| Type | Owning aggregate |
+|---|---|
+| **InboxItem** | `.devbook/domain/inbox/domain.md#inbox-item` |
+| **TaskItem** (ubiquitous term: Task) | `.devbook/domain/tasks/domain.md#task` |
+| **KnowledgeNote** | `.devbook/domain/devbook/domain.md#knowledge-note` |
+| **ProgressSignal** | `.devbook/domain/monitoring/domain.md#progress-signal` |
+| **RoutingRule** | Not yet modeled in `.devbook/domain` — tracked in `.devbook/arc42/11-risks-and-technical-debt.md` |
+| **MachineRegistration** | `.devbook/domain/dev-pc-management/domain.md#machine-registry` |
+| **SessionLog** | `.devbook/domain/sessions/domain.md#session-log` |
+| **RepositoryRegistration** | `.devbook/domain/repository-management/domain.md#repository-registry` |
+| **TechBaseline** | `.devbook/domain/technology-stack/domain.md#technology-registry` |
+
+**Effort** is the one shared *scalar* rather than a shared type: an optional
+non-negative story-point estimate that appears on tasks, on knowledge
+chapters (as the `effort` field of a `meta` block, emitted into the knowledge graph as
+a number), and as the arithmetic rollup a roadmap item reports over what it gathers. It
+is architectural only because the same unit has to mean the same thing in all three
+places. Absent means *not estimated* and is distinct from `0`, which is a real estimate
+contributing zero; a rollup total is therefore always reported alongside a count of
+gathered items carrying no estimate, so the total is never mistaken for the whole
+picture.
+
+The cloud service persists only sync-oriented state derived from these types
+(`SyncState`, `SyncPayload`, `WebhookEvents`, `GitHubWebhookConfig`,
+`MachineRegistry`, `TeamConfig`) — never the canonical domain data itself.
+
+

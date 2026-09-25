@@ -5,7 +5,7 @@ namespace Backlog.Modules.Capture.UnitTests;
 /// <summary>
 /// The spelling the vocabulary is written in on disk and in the Inbox.
 /// <para>
-/// The slugs are the strings <c>.domain/capture/domain.md#capture-source</c>
+/// The slugs are the strings <c>.devbook/domain/capture/domain.md#capture-source</c>
 /// lists, and they are also what the Inbox pane's <c>InboxSource.Channel</c>
 /// carries — a raw string there by design, since Inbox may not reference this
 /// project. Two spellings would be a badge that no longer names its channel.

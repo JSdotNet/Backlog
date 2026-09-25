@@ -8,7 +8,7 @@
 // asserts against this string and against `SCHEMA_VERSION` below, so a column
 // renamed here fails a test rather than a panel.
 //
-// Read `.arc42/adr/0004-devbook-index-is-a-generated-local-database.md` before
+// Read `.devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md` before
 // changing anything here. Two rules from it govern this file:
 //
 //   * The Node generator is the only writer. Nothing in C# creates a table,

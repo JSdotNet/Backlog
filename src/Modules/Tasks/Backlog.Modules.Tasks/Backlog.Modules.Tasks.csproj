@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    Tasks module — the Tasks bounded context (.domain/tasks).
+    Tasks module — the Tasks bounded context (.devbook/domain/tasks).
     Clean architecture, inside out:
       DomainModels/  aggregates, value objects, enums, domain exceptions
       Features/      one vertical slice per use case (command/query + handler)

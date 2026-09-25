@@ -10,7 +10,7 @@ namespace Backlog.Modules.Sync.DomainModels;
 /// handed to a client, which sends it back; a Cosmos continuation embeds the
 /// feed range it was minted for, so replaying somebody else's continuation
 /// reads somebody else's partition and the store will not object
-/// (.arc42/adr/0005 §Identity). Carrying the owner inside the value means an
+/// (.devbook/arc42/adr/0005 §Identity). Carrying the owner inside the value means an
 /// unverified cursor cannot be handed to <c>ITaskReplica</c> at all — there is
 /// no way to construct one without having said whose it is.
 /// </para>

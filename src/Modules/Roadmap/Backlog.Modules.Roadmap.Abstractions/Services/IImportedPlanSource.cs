@@ -17,7 +17,7 @@ namespace Backlog.Modules.Roadmap.Abstractions.Services;
 /// Only a plan identified by a plan tag — one written with the <c>+</c> sigil — is
 /// answered. A legacy plan filed under a general tag still gathers under an item
 /// whose tag matches it, but the shelf does not offer it
-/// (<c>.domain/roadmap/features.md#laying-out-a-plan-whose-tasks-arrived-first</c>).
+/// (<c>.devbook/domain/roadmap/features.md#laying-out-a-plan-whose-tasks-arrived-first</c>).
 /// </para>
 /// </summary>
 public interface IImportedPlanSource

@@ -23,7 +23,7 @@ namespace Backlog.Infrastructure.Cosmos.Extensions;
 /// registration ran second would be the one anything resolved. A method per
 /// adapter would either have to do that or carry an "is it already there" probe,
 /// and both are worse than saying once that the sync service reaches one account
-/// with four containers in it (.arc42/adr/0005 §Storage, §Identity).
+/// with four containers in it (.devbook/arc42/adr/0005 §Storage, §Identity).
 /// </para>
 /// </summary>
 public static class CosmosReplicaRegistration

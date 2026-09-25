@@ -6,7 +6,7 @@ namespace Backlog.UI.Components.UnitTests;
 /// <para>
 /// It is tested without rendering anything, and that is the point of it holding
 /// the queue rather than the tray holding it: the "no more than three at once"
-/// rule from <c>.design/interaction-guidelines.md#feedback-and-toasts</c> is a
+/// rule from <c>.devbook/design/interaction-guidelines.md#feedback-and-toasts</c> is a
 /// design decision, not a layout accident, so it is stated in one place and
 /// checked here rather than being read back out of markup.
 /// </para>

@@ -8,7 +8,7 @@ using Microsoft.Extensions.Options;
 namespace Backlog.Infrastructure.Cosmos.Devices;
 
 /// <summary>
-/// The device registry, in Cosmos DB (.arc42/adr/0005 §Identity).
+/// The device registry, in Cosmos DB (.devbook/arc42/adr/0005 §Identity).
 /// <para>
 /// One container, partitioned on <c>/id</c> rather than on the owner — the
 /// reasoning is on <see cref="DeviceDocument"/>. The consequence for this class

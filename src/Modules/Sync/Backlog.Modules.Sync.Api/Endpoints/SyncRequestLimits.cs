@@ -7,7 +7,7 @@ namespace Backlog.Modules.Sync.Api.Endpoints;
 /// How much one caller may send in one request.
 /// <para>
 /// The numbers live together because they answer one question. Registration is
-/// anonymous and mints a fresh owner with no gate (.arc42/adr/0005 §Identity), so
+/// anonymous and mints a fresh owner with no gate (.devbook/arc42/adr/0005 §Identity), so
 /// every write surface here is reachable by anybody who can reach the service,
 /// and the store behind them is durable and billed per request. Bounding what a
 /// single request can carry is the only thing standing between that and an
@@ -116,7 +116,7 @@ internal static class SyncRequestLimits
     /// <summary>How long an agent kind may be. It names the assistant that ran
     /// the session — <c>claude</c>, <c>copilot</c> — so anything longer is not an
     /// agent kind. It stays a string rather than becoming an enum
-    /// (.arc42/adr/0005 §Storage: no domain logic runs against the replica), and
+    /// (.devbook/arc42/adr/0005 §Storage: no domain logic runs against the replica), and
     /// this length is what a string costs instead.</summary>
     internal const int MaximumAgentKind = 50;
 
@@ -126,7 +126,7 @@ internal static class SyncRequestLimits
     internal const int MaximumMachineName = 255;
 
     /// <summary>How long a repository alias may be. An alias, never a path
-    /// (.arc42/adr/0005 §Session records), so it is a short name rather than
+    /// (.devbook/arc42/adr/0005 §Session records), so it is a short name rather than
     /// something that grows with a directory tree.</summary>
     internal const int MaximumRepositoryAlias = 200;
 

@@ -122,7 +122,7 @@ public sealed class HomeRepositoryScopeTests
 
         var chips = component.WaitForElements("[data-testid='repository-filter-option']");
 
-        // .design/color-scheme.md#band-identity-tokens requires it: the alias is written
+        // .devbook/design/color-scheme.md#band-identity-tokens requires it: the alias is written
         // on the chip, so a reader who never sees a hue loses nothing.
         Assert.Equal("backlog", chips[0].TextContent.Trim());
         Assert.Equal("docs", chips[1].TextContent.Trim());

@@ -14,7 +14,7 @@ namespace Backlog.Modules.Tasks.UnitTests;
 /// mediator between a caller and the use case it means.
 /// <para>
 /// Completing is the tick — the <c>completed:</c> token — and not the status
-/// reaching Done. The two are separate facts (<c>.domain/tasks/flow.md#task-lifecycle</c>),
+/// reaching Done. The two are separate facts (<c>.devbook/domain/tasks/flow.md#task-lifecycle</c>),
 /// and it is the tick that says the person is finished with this occurrence.
 /// </para>
 /// </summary>

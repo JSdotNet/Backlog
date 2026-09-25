@@ -89,7 +89,7 @@
     /* Syntax highlighting.
        A theme, not a second semantic palette: these name what a run of code is,
        never what a piece of UI means, and nothing outside a code block may use
-       them. .design/design-principles.md requires syntax themes to be authored
+       them. .devbook/design/design-principles.md requires syntax themes to be authored
        for dark surfaces rather than borrowed from a light editor, so each value
        below is checked against --color-background, which is what a code block
        sits on: every run of actual code is above 9.3:1, and the two deliberately
@@ -113,7 +113,7 @@
 
     /* Band identity.
        One hue per configured repository, so a portfolio plan can be read one
-       project at a time. See .design/color-scheme.md#band-identity-tokens: this is
+       project at a time. See .devbook/design/color-scheme.md#band-identity-tokens: this is
        a theme rather than a second palette — each token says *which* repository a
        row belongs to, never what anything means — and it introduces no new colour,
        because every value here is one the palette or the code theme already
@@ -133,7 +133,7 @@
        every value below is derived — a var() of a palette token, or a
        color-mix() of one against the surface it is drawn on. None of them holds
        a colour of its own, so the palette is still twenty-two colours and
-       .design/color-scheme.md has no new value to disagree with.
+       .devbook/design/color-scheme.md has no new value to disagree with.
 
        The product palette carries exactly one saturated hue, so charts are
        single-hue by rule. Part-to-whole takes an ordinal ramp of that hue —
@@ -176,7 +176,7 @@
        the product actually acts on — and every value below is derived. Each is a
        var() of a palette token or a color-mix() of one against the surface it is
        drawn on, so the palette is still twenty-two colours and
-       .design/color-scheme.md has no new value to disagree with.
+       .devbook/design/color-scheme.md has no new value to disagree with.
 
        Measured on --color-background-alt, which is what a chip sits on: live
        11.27:1, live-edge 7.19:1, ink 15.42:1, ink-muted 10.88:1, ink-quiet
@@ -191,7 +191,7 @@
        quiet-state ink: it measures 3.43:1 here, and a closed pull request is
        information rather than an unavailable control, so quiet states take
        --color-secondary and the disabled token stays on disabled controls, which
-       is the one place .design/color-scheme.md exempts it. And the two filled
+       is the one place .devbook/design/color-scheme.md exempts it. And the two filled
        chips take --integration-edge-strong as their boundary rather than a mix of
        their own surface, because --color-warning is 1.31:1 and --color-error is
        1.04:1 against this surface — as boundaries they are invisible. The
@@ -232,7 +232,7 @@
        sub-family of the type scale never declared here. Three rules asked for
        semibold by name and got normal instead, which is the whole visible weight
        difference between a heading and its body. Only this step is declared,
-       because it is the only one referenced: .design/typography-and-layout.md
+       because it is the only one referenced: .devbook/design/typography-and-layout.md
        reserves it for body emphasis in place of bold, and the other weights are
        still written as literals where they are used. */
     --font-weight-semibold: 600;
@@ -253,7 +253,7 @@
     --spacing-xl: 2rem;
 
     /* Radius / border / shadow
-       Names and values from .design/typography-and-layout.md#border-radius-and-width.
+       Names and values from .devbook/design/typography-and-layout.md#border-radius-and-width.
        The three below were in that table all along but had never been declared,
        so they lived in the rules as raw literals — the pill was written 999px in
        fourteen places and 9999px in one. */
@@ -312,7 +312,7 @@
 
   The thumb is --color-border, which is 2.49:1 on the base surface — under the
   3:1 the contrast rules ask of component boundaries. That is the known gap
-  recorded in .design/color-scheme.md, inherited from the org palette rather than
+  recorded in .devbook/design/color-scheme.md, inherited from the org palette rather than
   chosen here; hover lifts the thumb to --color-border-strong at 3.97:1.
 */
 * {
@@ -511,7 +511,7 @@ button.badge {
    The stronger border and the primary ink, which is `.badge--gh-open`'s pair and
    `.badge--priority-high`'s — the idiom this library already spends on "this one,
    out of the row". The fill is deliberately untouched:
-   `.design/color-scheme.md#badge-and-chip-tones` reserves a filled surface for
+   `.devbook/design/color-scheme.md#badge-and-chip-tones` reserves a filled surface for
    something the product acts on, and following a link is the reader acting.
 
    `border-color` and not `border`, so no followable badge is a different size from
@@ -675,7 +675,7 @@ button.badge:hover {
   anything else this stylesheet sets.
 
   Outlined and never filled. An alias is information rather than something the
-  product acts on, and `.design/color-scheme.md#badge-and-chip-tones` reserves a
+  product acts on, and `.devbook/design/color-scheme.md#badge-and-chip-tones` reserves a
   filled surface for the latter.
 
   The padding and the minimum height are here for the shapes that take a click.
@@ -966,7 +966,7 @@ button.badge:hover {
 
 /*
    Which repository something belongs to, as a 4px rule down its leading edge.
-   See .design/color-scheme.md#band-identity-tokens, which sanctions the five hues
+   See .devbook/design/color-scheme.md#band-identity-tokens, which sanctions the five hues
    and names the four surfaces allowed to wear one.
 
    An inset shadow rather than a border, and that is the whole point of the thing.
@@ -992,7 +992,7 @@ button.badge:hover {
 /*
    The control that offers the choice. The one place a hue is a fill rather than an
    edge, because a swatch you cannot see the colour of is not a swatch — argued in
-   .design/color-scheme.md#band-identity-tokens rather than assumed here.
+   .devbook/design/color-scheme.md#band-identity-tokens rather than assumed here.
 
    The ring is the chosen state and it is drawn outside the swatch, so picking one
    does not change how much of the hue is on screen. Every swatch carries its own
@@ -1117,7 +1117,7 @@ button.badge:hover {
   That leaves the brand gold meaning "general tag" and nothing else.
 
   Three carriers, not one: the `@` sigil is drawn in the label, the shape changes,
-  and the colour changes. .design/color-scheme.md is explicit that a fill may
+  and the colour changes. .devbook/design/color-scheme.md is explicit that a fill may
   never be the sole carrier of a distinction, and the sigil is the carrier that
   survives being unable to see either.
 */
@@ -1132,7 +1132,7 @@ button.badge:hover {
   A plan tag — `+release-q4` — the roadmap item an entry is filed under. The
   third kind, and it has to read apart from both of the others at a glance.
 
-  It wears the `live` tone from .design/color-scheme.md#badge-and-chip-tones:
+  It wears the `live` tone from .devbook/design/color-scheme.md#badge-and-chip-tones:
   primary-light ink inside a primary-dark edge, the pair .badge--gh-open already
   uses for "in progress, and the product may act on it" — which is what a plan
   is. No new hue: the two tokens are the brand's own, at different depths.
@@ -1451,7 +1451,7 @@ button.badge:hover {
     color: var(--color-text-disabled);
 }
 
-/* Focus-visibility exemption (.design/accessibility.md#focus-visibility): the ring
+/* Focus-visibility exemption (.devbook/design/accessibility.md#focus-visibility): the ring
    belongs to the card and not to the field inside it. `.entry-doc--editing` below
    repaints the card's border in --color-border-focus for as long as the editor is
    open — a border rather than a shadow, so Windows High Contrast keeps it — and a
@@ -2972,12 +2972,12 @@ button.md-check {
    7.5rem is a fixed price and the pane paying it is not fixed at all. In the
    desktop knowledge side pane the reading column measures about 240px, so half
    of it was gutter and a paragraph rendered at about 95px — two words a line,
-   nowhere near the 72–90 characters .design/typography-and-layout.md#density
+   nowhere near the 72–90 characters .devbook/design/typography-and-layout.md#density
    asks for. A column that costs half the measure is not a column; it is a
    document with a margin where the words were.
 
    48rem is the `md` breakpoint
-   .design/typography-and-layout.md#layout-grid-and-breakpoints lists, and it is
+   .devbook/design/typography-and-layout.md#layout-grid-and-breakpoints lists, and it is
    the width at which the reservation is still affordable: 48 less 7.5 leaves
    40.5rem, about eighty characters, inside the measure rather than under it.
    Asked of the reading body's own container and not of the window, because the
@@ -2993,7 +2993,7 @@ button.md-check {
 
    What the status does not lose is the heading it belongs to. The headline is
    the same row it always was — heading first, status held at its trailing edge
-   (.design/content-editing.md#knowledge-metadata-blocks) — and it was already
+   (.devbook/design/content-editing.md#knowledge-metadata-blocks) — and it was already
    drawn at the block's full width, reaching back over the reservation. Only the
    prose beneath it changes: it stops at the pane's edge instead of at a rule
    held open for a pill on another line.
@@ -3476,13 +3476,13 @@ button.md-check {
    than tuned. The reveal was there because the gutter was drawn on every row of
    the backlog all the time, so the resting state of the column had to be the work
    rather than a column of empty boxes
-   (.design/design-principles.md#low-chrome-content-first). Selection is a mode
+   (.devbook/design/design-principles.md#low-chrome-content-first). Selection is a mode
    now — TaskListView.SelectionEnabled, which the backlog turns on from a chip
    above the list — so the resting state has no boxes in it at all and the reveal
    was answering a question nobody asks any more.
 
    Keeping it would cost something rather than nothing.
-   .design/interaction-guidelines.md#focus-and-selection requires selection to be
+   .devbook/design/interaction-guidelines.md#focus-and-selection requires selection to be
    visually distinct from hover *and* from focus, and a box that appears under the
    pointer is hover drawing a control that is only ever about selection: the two
    states share one paint, which is the collision that rule names. A checkbox
@@ -3505,7 +3505,7 @@ button.md-check {
 
 /*
    Picked, and distinct from both hover and focus —
-   .design/interaction-guidelines.md#focus-and-selection asks for exactly that,
+   .devbook/design/interaction-guidelines.md#focus-and-selection asks for exactly that,
    and names the accent strip as the way to draw it. Hover is a border and focus
    is an outline, so neither is touched here: a picked row that also holds the
    focus still shows its ring.
@@ -3603,7 +3603,7 @@ button.md-check {
     cursor: pointer;
 }
 
-/* Focus-visibility exemption (.design/accessibility.md#focus-visibility): the circle
+/* Focus-visibility exemption (.devbook/design/accessibility.md#focus-visibility): the circle
    is its own ring. It already draws a --border-width-2 edge, and focus repaints that
    edge in --color-border-focus rather than hanging a second ring around a 1.25rem
    target — a border rather than a shadow, so High Contrast keeps it. */
@@ -4327,7 +4327,7 @@ button.task-panel__check:focus-visible {
 
    So the ring is paid for rather than borrowed off the border, the way every
    other component here pays for it and the way
-   `.design/accessibility.md#focus-visibility` asks: --color-border-focus at
+   `.devbook/design/accessibility.md#focus-visibility` asks: --color-border-focus at
    --border-width-2, offset, and an outline rather than a shadow so it survives
    Windows High Contrast. A text field matches :focus-visible however the caret
    got there, so the field the pencil opens is ringed from the moment it opens —
@@ -4425,7 +4425,7 @@ button.task-panel__check:focus-visible {
 
   The focus ring is a rule of its own rather than a declaration in the pair above,
   and the pencil's is written the same way now. An outline may be removed only
-  where something compliant replaces it — `.design/accessibility.md#focus-visibility`
+  where something compliant replaces it — `.devbook/design/accessibility.md#focus-visibility`
   — and a colour change is not that: it is the cue hover already spends, so focus
   and hover stop being told apart. Both controls therefore pay for the ring the way
   every other component here pays for it: an outline rather than a shadow, so it
@@ -4948,7 +4948,7 @@ button.task-panel__check:focus-visible {
     font: inherit;
 }
 
-/* Focus-visibility exemption (.design/accessibility.md#focus-visibility): the line
+/* Focus-visibility exemption (.devbook/design/accessibility.md#focus-visibility): the line
    under this field is drawn in --color-border-focus and is permanent, and the field
    only exists while the title is being edited — so the indicator is on screen for the
    whole life of the control. `TaskRenameFieldUnderlineTests` holds that line in place;
@@ -5189,7 +5189,7 @@ button.task-panel__check:focus-visible {
     color: var(--color-text-disabled);
 }
 
-/* Focus-visibility exemption (.design/accessibility.md#focus-visibility): the field's
+/* Focus-visibility exemption (.devbook/design/accessibility.md#focus-visibility): the field's
    own ring would draw a box inside a box. `.markdown-editor:focus-within` below takes
    it instead, on the border the reader actually sees. */
 .markdown-editor__input:focus-visible {
@@ -6715,7 +6715,7 @@ select.field__input {
     font-size: var(--font-size-sm);
 }
 
-/* Focus-visibility exemption (.design/accessibility.md#focus-visibility): the box
+/* Focus-visibility exemption (.devbook/design/accessibility.md#focus-visibility): the box
    takes the ring — `.search-box:focus-within` above repaints its border in
    --color-border-focus — so the field inside it does not draw a second one. */
 .search-box__input:focus-visible {
@@ -6980,7 +6980,7 @@ select.field__input {
     font-size: var(--font-size-sm);
 }
 
-/* Focus-visibility exemption (.design/accessibility.md#focus-visibility): the control
+/* Focus-visibility exemption (.devbook/design/accessibility.md#focus-visibility): the control
    takes the ring — `.tag-select__control:focus-within` above repaints its border in
    --color-border-focus — so the field among the chips does not draw a second one. */
 .tag-select__input:focus-visible {
@@ -7170,7 +7170,7 @@ select.field__input {
     background: transparent;
 }
 
-/* Focus-visibility exemption (.design/accessibility.md#focus-visibility): the backdrop
+/* Focus-visibility exemption (.devbook/design/accessibility.md#focus-visibility): the backdrop
    only takes focus so it can hear Escape. It is not a control, so it must not draw a
    focus ring across the whole screen. */
 .context-menu__backdrop:focus {
@@ -7793,7 +7793,7 @@ select.field__input {
    when the pane does, holding the whole row wider than the space it has. Here it
    gives, and the values wrap, so the strip stays a strip rather than growing the
    header at the body's expense
-   (.design/design-principles.md#low-chrome-content-first). */
+   (.devbook/design/design-principles.md#low-chrome-content-first). */
 .file-view__record .devbook-fields {
     grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
 }
@@ -7810,7 +7810,7 @@ select.field__input {
    and costs the name most of the row. In a knowledge side pane the header is about
    272px and the pill was 120px of it, which left the name — the thing the pill is
    qualifying — a couple of characters and an ellipsis. A header identifies; it is
-   not a second document (.design/design-principles.md#low-chrome-content-first).
+   not a second document (.devbook/design/design-principles.md#low-chrome-content-first).
 
    So here it is as wide as the word in it. `min-width` as well as `width`: the
    floor is the half that was actually holding the box open, and one without the
@@ -8348,7 +8348,7 @@ select.field__input {
    describing itself rather than identifying itself. No surface of its own and no
    heading — one rule under the header's is enough to say the two are different
    things, which is as much chrome as
-   .design/design-principles.md#low-chrome-content-first allows for something a
+   .devbook/design/design-principles.md#low-chrome-content-first allows for something a
    reader passes on the way to the body. */
 .file-view__frontmatter {
     display: flex;
@@ -8511,7 +8511,7 @@ select.field__input {
    --folder-tree-depth; it is not a design-system value and nothing outside this
    block reads it.
 
-   No prefers-color-scheme block either: .design/design-principles.md is
+   No prefers-color-scheme block either: .devbook/design/design-principles.md is
    dark-mode-only - one theme, no toggle - so the light/dark check is satisfied
    vacuously, and this would be the first such block in the product.
 */
@@ -8579,7 +8579,7 @@ select.field__input {
    Hover is a fill and nothing else; selection is a fill plus two borders; focus
    is an outline sitting outside the box where the selection border sits on it.
    All three can be true of one row at once and still be told apart, which is
-   what .design/accessibility.md asks for under "Distinct states".
+   what .devbook/design/accessibility.md asks for under "Distinct states".
 
    The fill is the raised surface rather than --color-background-alt, because
    the card underneath is already --color-background-alt and a hover the same
@@ -12533,7 +12533,7 @@ select.field__input {
 /*
   Everything the product does to something outside itself: an act on a tool, or a
   reference to an artifact. The rule underneath all of it is the one in
-  .design/accessibility.md — colour MUST NOT be the only carrier of state — so
+  .devbook/design/accessibility.md — colour MUST NOT be the only carrier of state — so
   every chip below is ink plus a stroked icon plus a word, and no rule here
   paints a state without the other two arriving with it.
 
@@ -12696,7 +12696,7 @@ select.field__input {
     gap: var(--spacing-xs);
 }
 
-/* .design/accessibility.md asks for a 44 x 44 target even where the glyph is 16,
+/* .devbook/design/accessibility.md asks for a 44 x 44 target even where the glyph is 16,
    and the row is spaced to match: two icon buttons at the minimum size with
    nothing between them are two buttons a reader will mis-activate. */
 .integration-bar--compact {
@@ -12887,7 +12887,7 @@ select.field__input {
 
 /* --- A suggestion held for review ---------------------------------------- */
 
-/* Tinted and edged, because .design/design-principles.md#ai-first-surfaces asks
+/* Tinted and edged, because .devbook/design/design-principles.md#ai-first-surfaces asks
    for AI content to be visually distinguishable — and labelled for assistive
    technology, which the aria-label on the article does. Both, because a tint
    alone is invisible to a screen reader and a label alone is invisible to

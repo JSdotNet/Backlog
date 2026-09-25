@@ -128,7 +128,7 @@ public sealed record LimitHitRecord(
 
 /// <summary>
 /// One coding-agent session as it crosses the wire — the whole of what
-/// .arc42/adr/0005 §Session records permits to leave the machine, and nothing
+/// .devbook/arc42/adr/0005 §Session records permits to leave the machine, and nothing
 /// else.
 /// <para>
 /// <strong>This is a whitelist, not a filter, and the record type is where that
@@ -148,8 +148,8 @@ public sealed record LimitHitRecord(
 /// strings: it carries whatever token the device writes — <c>claude</c>,
 /// <c>copilot</c> — and the service never parses one. An enum here would have to
 /// be redeployed the day the desktop learns a third assistant, and
-/// .arc42/adr/0005 §Storage says no domain logic runs against the replica. It
-/// still travels, because .domain/sessions/naming.md#session-identity puts a
+/// .devbook/arc42/adr/0005 §Storage says no domain logic runs against the replica. It
+/// still travels, because .devbook/domain/sessions/domain.md#session-identity puts a
 /// session's identity at the agent plus the id that agent issued: a record
 /// arriving without its agent would let the receiving log merge two unrelated
 /// sessions, which is the one failure that rule exists to prevent.
@@ -158,7 +158,7 @@ public sealed record LimitHitRecord(
 /// <strong>There is no machine id and no owner id on this record, and that
 /// absence is the security property</strong> — the same one
 /// <see cref="TaskChange"/> relies on. Both come from the caller's validated
-/// token (.arc42/adr/0005 §Identity), so there is no batch a client could
+/// token (.devbook/arc42/adr/0005 §Identity), so there is no batch a client could
 /// compose that writes a record attributed to another machine. That is what
 /// makes §Session records' rule — <em>"a caller may only write records stamped
 /// with its own machine id"</em> — hold by construction rather than by a check
@@ -193,7 +193,7 @@ public sealed record LimitHitRecord(
 /// from.
 /// <para>
 /// Nullable, and <c>0</c> is deliberately not the stand-in for "not recorded".
-/// <c>.domain/sessions/domain.md#session-log</c> holds that the log never fills a
+/// <c>.devbook/domain/sessions/domain.md#session-log</c> holds that the log never fills a
 /// gap the agent left, and <c>0</c> is not a gap — it is a count, and it says a
 /// person opened a session and never spoke in it. Copilot records no turn count at
 /// all, so mapping absence onto <c>0</c> would have every Copilot record on every
@@ -208,12 +208,12 @@ public sealed record LimitHitRecord(
 /// folder lying inside a registered clone — the alias where that machine has
 /// one, the <c>owner/name</c> otherwise — or null where no registered clone
 /// contained the folder. The eleventh whitelisted field, added to
-/// .arc42/adr/0005 §Session records on 2026-09-22.
+/// .devbook/arc42/adr/0005 §Session records on 2026-09-22.
 /// <para>
 /// Beside <paramref name="RepositoryAlias"/> rather than folded into it. That
 /// field is what the agent wrote and this is what the product worked out, and
 /// a receiving machine cannot tell the two apart once they share a slot —
-/// which is the failure <c>.domain/sessions/domain.md#working-location</c>
+/// which is the failure <c>.devbook/domain/sessions/domain.md#working-location</c>
 /// names. It is still not a path: the folder itself never leaves, only which
 /// registered clone it was under.
 /// </para>
@@ -261,7 +261,7 @@ public sealed record LimitHitRecord(
 /// <param name="Title">
 /// What the session is called in a list — the agent's own name for it where it
 /// wrote one, the folder's leaf or a short id otherwise — or null from a device
-/// that predates the field. Added to .arc42/adr/0005 §Session records on
+/// that predates the field. Added to .devbook/arc42/adr/0005 §Session records on
 /// 2026-09-23, reversing the rule that kept it home: the owner decided that a
 /// session they can recognise on their other machine, and after its transcript
 /// is gone on this one, is worth a line of prompt-derived text in their own
@@ -315,7 +315,7 @@ public sealed record SessionRecord(
 /// sends. It lets a client tell its own records from the other machines' — it keeps
 /// both, and answers from its own only for a session whose transcript it can no
 /// longer read — and it is what a reading device groups by —
-/// .domain/sessions/naming.md#environment keys an environment on its id and not
+/// .devbook/domain/sessions/domain.md#environment keys an environment on its id and not
 /// on the name it displays, because a name can be shared by two machines and
 /// changed on one.
 /// </para>
@@ -323,7 +323,7 @@ public sealed record SessionRecord(
 /// <paramref name="ServerTimestamp"/> is the store's stamp rather than a clock
 /// any device controls, so two machines with skewed clocks still agree on the
 /// order the service saw. Session records are single-writer and have no
-/// last-write-wins tie to break (.arc42/adr/0005 §Session records); the stamp
+/// last-write-wins tie to break (.devbook/arc42/adr/0005 §Session records); the stamp
 /// orders the feed, and that is all it is for.
 /// </para>
 /// </summary>

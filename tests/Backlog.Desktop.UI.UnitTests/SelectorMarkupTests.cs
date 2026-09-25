@@ -169,7 +169,7 @@ public sealed class SelectorMarkupTests
     /// hand-off arrived through <c>TaskListView.RowActions</c>. The slot is still the
     /// right answer to "where does a host put its own controls on a row" — that rule
     /// has not changed — but the question was wrong. A step is not a thing this
-    /// product files as an issue: <c>.domain/tasks/domain.md</c> gives
+    /// product files as an issue: <c>.devbook/domain/tasks/domain.md</c> gives
     /// <c>ProjectionRef</c> to the entry, and a Sub-Item projects to checkboxes
     /// <em>inside</em> that entry's issue.
     /// </para>

@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    Capture module — the Capture bounded context (.domain/capture).
+    Capture module — the Capture bounded context (.devbook/domain/capture).
     Clean architecture, inside out:
       Features/      one vertical slice per use case (command + handler)
       Ports/         ICaptureSourceAdapter, one per source kind, and ICaptureDelivery,

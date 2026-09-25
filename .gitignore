@@ -109,6 +109,12 @@ build/.local/
 _meta/devbook.db
 _meta/devbook.db-wal
 _meta/devbook.db-shm
+# The same database in the `.devbook/` layout, which keeps it at
+# `.devbook/_meta/devbook.db`. The root entries above stay for a checkout or
+# build that still writes the legacy location.
+/.devbook/_meta/devbook.db
+/.devbook/_meta/devbook.db-wal
+/.devbook/_meta/devbook.db-shm
 
 # The name the database had before the Devbook rename. Kept ignored so a
 # `knowledge.db` left on a machine by an earlier build stays out of the index;

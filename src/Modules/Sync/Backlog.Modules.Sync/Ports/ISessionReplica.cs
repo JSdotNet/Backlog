@@ -12,7 +12,7 @@ namespace Backlog.Modules.Sync.Ports;
 /// <see cref="ITaskReplica"/>'s, which is itself deliberately small.</strong>
 /// There is no <c>Find</c> and no equivalent of <c>ListCaptures</c>, because
 /// nothing queries session records: the fleet view is answered from the reading
-/// device's own session log, and .arc42/adr/0005 §Storage asks that no query
+/// device's own session log, and .devbook/arc42/adr/0005 §Storage asks that no query
 /// serve a UI out of the replica. The moment a screen could be answered from
 /// here, the replica and the log that owns the evidence would start to disagree
 /// about which one is true — and for sessions that is worse than it is for
@@ -21,7 +21,7 @@ namespace Backlog.Modules.Sync.Ports;
 /// </para>
 /// <para>
 /// Two operations, and neither of them is an update. Session records are
-/// single-writer and append-only (.arc42/adr/0005 §Session records): a session
+/// single-writer and append-only (.devbook/arc42/adr/0005 §Session records): a session
 /// that moves gets a later record rather than an edit to an earlier one, there
 /// is no tombstone, there is no <c>updated_at</c>, and there is no conflict to
 /// resolve because no second machine has anything to say about a session it did
@@ -31,7 +31,7 @@ namespace Backlog.Modules.Sync.Ports;
 /// Every method takes the owner, and the owner comes from the caller's
 /// validated token. Nothing underneath re-checks it: the service reaches its
 /// store under one identity that can see every partition, so these parameters
-/// are the boundary (.arc42/adr/0005 §Identity).
+/// are the boundary (.devbook/arc42/adr/0005 §Identity).
 /// </para>
 /// </summary>
 public interface ISessionReplica

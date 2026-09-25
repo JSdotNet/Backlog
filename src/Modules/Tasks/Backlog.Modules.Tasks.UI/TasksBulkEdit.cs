@@ -13,7 +13,7 @@ namespace Backlog.Desktop.UI.Tasks;
 /// </para>
 /// <para>
 /// A value and never an exception
-/// (<c>.arc42/adr/guidelines/0004-result-objects-for-expected-failures.md</c>).
+/// (<c>.devbook/arc42/adr/guidelines/0004-result-objects-for-expected-failures.md</c>).
 /// A refusal on row seven is a thing the caller is expected to handle — it does
 /// not stop rows eight to twenty, and it does not unwind the seven already
 /// saved, because there is no transaction over N saves here and pretending

@@ -56,7 +56,7 @@ public class SessionSyncEndpointTests : IDisposable
 
     /// <summary>
     /// The request has nowhere to put a machine id, so the one that comes back is
-    /// the token's and can be nothing else. That is .arc42/adr/0005 §Session
+    /// the token's and can be nothing else. That is .devbook/arc42/adr/0005 §Session
     /// records' "a caller may only write records stamped with its own machine id"
     /// held by construction rather than by a check — there is no field to lie in.
     /// </summary>
@@ -98,7 +98,7 @@ public class SessionSyncEndpointTests : IDisposable
     }
 
     /// <summary>
-    /// Append-only in the sense .arc42/adr/0005 means: a session that is still
+    /// Append-only in the sense .devbook/arc42/adr/0005 means: a session that is still
     /// running reports later evidence under the same identity, and that replaces
     /// the machine's own record rather than accumulating a second one. There is
     /// no tombstone and no updated_at to reconcile.
@@ -314,7 +314,7 @@ public class SessionSyncEndpointTests : IDisposable
     }
 
     /// <summary>
-    /// The case .arc42/adr/0005 §Consequences asks for by name, on the second
+    /// The case .devbook/arc42/adr/0005 §Consequences asks for by name, on the second
     /// container. A Cosmos continuation embeds the feed range it was minted for,
     /// so replaying one belonging to somebody else reads their partition and the
     /// store has no opinion about it — the service reaches Cosmos under one

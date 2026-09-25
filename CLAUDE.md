@@ -57,8 +57,8 @@ and one-shot, so it is not an orchestration entrypoint and does not go through t
 item's instructions *through* the gate — the matching `orch-*` skill — rather than adding
 an execution path beside it.
 
-Changes confined to `.arc42/`, `.domain/`, `.backlog/`, `.tech/`, `.design/`, `.github/`,
-or `README.md` are documentation work and do not pass through the code gate. See
+Changes confined to the devbook folders under `.devbook/` (`arc42/`, `domain/`, `tech/`,
+`design/`, `ai/`), `.backlog/`, `.github/`, or `README.md` are documentation work and do not pass through the code gate. See
 `## QA Depth` in `.github/copilot-orch-context.md` for how they are verified instead.
 
 ## Dashboard
@@ -108,11 +108,11 @@ dotnet test Backlog.sln
 
 ## Devbook database
 
-The derived knowledge layer is **one generated SQLite database**, `_meta/devbook.db`,
+The derived knowledge layer is **one generated SQLite database**, `.devbook/_meta/devbook.db`,
 holding the reference graph, the resolved reading outline, every chapter's text and
 hashes, the FTS5 index and the Archify artifact rows. It is a build output: git-ignored,
 rebuilt per machine, and **absent on a fresh clone until you build it**. Local ADR 0004
-(`.arc42/adr/0004-knowledge-index-is-a-generated-local-database.md`) is the decision and
+(`.devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md`) is the decision and
 the reasoning.
 
 ```powershell
@@ -134,26 +134,32 @@ because scanning the corpus per query is a hang rather than a fallback.
 `Backlog.Infrastructure.Devbook` is the reader; **nothing in C# ever writes to it.**
 
 The product reads both layouts: `.devbook/<name>` first and the root-level `.<name>` as
-the legacy fallback. A repository whose knowledge folders sit under `.devbook/` keeps its
-database at `.devbook/_meta/devbook.db`, and `build-database.mjs` writes it there with that
-repository's own devbook generator (`.devbook/_tools/devbook-meta/`, or `--generator`);
-this repository is still on the root layout and builds `_meta/devbook.db`.
+the legacy fallback. This repository is on the `.devbook/` layout, adopted through the
+`devbook` plugin (`components.devbook` in `.devbook/config.json` records the release,
+contract, adopted folders, and what it materialized). `build-database.mjs` writes the
+database with the devbook generator materialized at `.devbook/_tools/devbook-meta/`.
 
-`tools/devbook/build-database.mjs` is repo-native and *imports* the installed
-generator's exported functions. Everything under `.github/tools/knowledge-meta/`, both
-`knowledge-meta*` workflows, and `build/Update-KnowledgeIndex.ps1` are the unchanged
-install from `knowledge-base`, the `devbook` plugin's predecessor: never edit them here,
-and never hand-edit anything under `_meta/`. Re-syncing them from `devbook` is the
-contract v6 follow-up, not something already done. The installed generator still writes
-`_meta/graph.json` and `_meta/index.json`; both are ignored now rather than committed.
-The convention behind all of this is that plugin's
-`knowledge-derived-artifacts.instructions.md`, and where this repository departs from it
-— on format, and on committing — ADR 0004 says so and says why. The plugin's
-`devbook-check` skill replaces its predecessor's `knowledge-base-validate`;
-`update-devbook-index` is this repository's own command and still ships as
-`.claude/commands/update-devbook-index.md`. This repository still authors against the
-installed generator, and adopting the plugin's contract v6 through `devbook-sync` is a
-follow-up.
+The devbook folders follow the plugin's rules, installed as `.agents/rules/devbook-*.md`
+with a wrapper per host, and its section of `AGENTS.md`. Check them before committing; the
+check writes nothing, and `.github/workflows/devbook-meta.yml` runs it in CI:
+
+```powershell
+node .devbook/_tools/devbook-meta/build.mjs --check
+```
+
+Never edit anything under `.devbook/_tools/`, the `AGENTS.md` markers, or the
+`devbook-*` rule trios by hand: `devbook:update` refreshes them, and a hand edit makes it
+report the file customized and stop maintaining it. Never hand-edit anything under
+`_meta/`.
+
+`tools/devbook/build-database.mjs` is repo-native. Everything under
+`.github/tools/knowledge-meta/`, both `knowledge-meta*` workflows, and
+`build/Update-KnowledgeIndex.ps1` are the unchanged install from `knowledge-base`, the
+`devbook` plugin's predecessor, which knows only the root layout: never edit them here.
+Retiring them is a follow-up. Where this repository departs from the derived-artifacts
+convention — on format, and on committing — ADR 0004 says so and says why.
+`update-devbook-index` is this repository's own command and ships as
+`.claude/commands/update-devbook-index.md`.
 
 ## UI components
 
@@ -174,18 +180,18 @@ Repository guidance is **checked in, not fetched**. The `jsdotnet-project-guidel
 `jsdotnet-project-design` MCP servers were retired on 2026-08-27 and their relevant content
 lives in the repository:
 
-- `.arc42/adr/guidelines/` — the inherited organization architecture decisions that govern this
+- `.devbook/arc42/adr/guidelines/` — the inherited organization architecture decisions that govern this
   repository's .NET code (framework, package management, Aspire, Result objects, module and
   feature-slice structure, CQRS, Minimal APIs, observability, styling tokens, identity,
   authorization, persistence, resilience, error contract, configuration). Read the single
   document that governs the change you are making; `README.md` indexes them, and each one
   ends with a **Deviations and gaps** section recording where Backlog actually stands.
-- `.arc42/adr/` — the decisions Backlog took for itself. Both sequences start at 0001, so
+- `.devbook/arc42/adr/` — the decisions Backlog took for itself. Both sequences start at 0001, so
   name the folder when citing one.
-- `.design/` — design and UX guidance, tokens, and the color scheme.
+- `.devbook/design/` — design and UX guidance, tokens, and the color scheme.
 
 An `orch-*` skill that instructs you to consult `jsdotnet-guidelines-mcpserver` is served
-from `.arc42/adr/guidelines/` instead; the absent server is not a blocked precondition. The MCP
+from `.devbook/arc42/adr/guidelines/` instead; the absent server is not a blocked precondition. The MCP
 servers still in use are runtime and tooling servers — Aspire, Playwright, and the
 orchestration dashboard.
 
@@ -200,7 +206,7 @@ Path-scoped rules are authored once under `.agents/rules/` and wrapped per host 
 - `.agents/rules/ui-components.md` — shared component adoption in the
   application screens.
 - `.agents/rules/storybook.md` — authoring a storybook page and a
-  story; the rules it satisfies are in `.design/README.md#living-reference-the-ui-storybook`.
+  story; the rules it satisfies are in `.devbook/design/README.md#living-reference-the-ui-storybook`.
 - `.agents/rules/mcp-usage.md` — guidance authority order and which MCP servers remain in use.
 - `.github/copilot-orch-context.md` — repo runtime and QA context.
 - `plugins/backlog-tools/skills/backlog-import-plan/SKILL.md` — generates a Backlog import

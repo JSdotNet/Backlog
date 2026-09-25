@@ -18,7 +18,7 @@ namespace Backlog.Infrastructure.Sync.Sessions;
 /// </para>
 /// <para>
 /// Plaintext, like both stores beside it, because nothing in it is a secret —
-/// it is the metadata .arc42/adr/0005 §Session records permits to leave a machine
+/// it is the metadata .devbook/arc42/adr/0005 §Session records permits to leave a machine
 /// in the first place, which is the whole basis on which it travelled here. It
 /// carries no working folder and no transcript, because those never crossed the
 /// wire. It holds this machine's own records beside the other machines', so a
@@ -174,7 +174,7 @@ public sealed class FileReplicatedSessionStore : IReplicatedSessionStore
     }
 
     /// <summary>The three-part identity a session record has.
-    /// <c>.domain/sessions/naming.md#session-identity</c> puts it at the agent plus
+    /// <c>.devbook/domain/sessions/domain.md#session-identity</c> puts it at the agent plus
     /// the id that agent issued, because two agents may issue the same string; the
     /// machine leads it because two environments may too.</summary>
     private static (Guid, string, string) Identity(SessionRecordEntry entry) =>

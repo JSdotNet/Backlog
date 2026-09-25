@@ -6,8 +6,8 @@
 
   Tokens sourced from the jsdotnet-project-design MCP style guide
   (01-color-palette, 02-typography, 03-spacing-and-layout, 04-motion-and-interaction),
-  materialized for this dark-mode-only product in .design/color-scheme.md,
-  .design/typography-and-layout.md, and .design/interaction-guidelines.md.
+  materialized for this dark-mode-only product in .devbook/design/color-scheme.md,
+  .devbook/design/typography-and-layout.md, and .devbook/design/interaction-guidelines.md.
   Dark is the only theme: there is no light palette or toggle.
 
   What stays here is what is about this app rather than about the design system.
@@ -137,7 +137,7 @@ h1, h2, h3 {
 
   It does not step down to `--font-size-xs` the way the harness build footers do,
   and the difference is what is in the band. Those carry fine print; this carries
-  two things a reader clicks. `.design/accessibility.md` puts the floor for readable
+  two things a reader clicks. `.devbook/design/accessibility.md` puts the floor for readable
   text at `--font-size-sm`, and it applies to a control wherever on the page that
   control happens to sit — so the two keep `.header-util`'s own type and its
   `min-height: 2.25rem` rather than shrinking to match a footer they only resemble.
@@ -147,7 +147,7 @@ h1, h2, h3 {
 
   Which leaves the block padding as the only thing on this band that was not already
   standing on a floor, and it is where the height came out of. `--spacing-xs` rather
-  than zero, and that is a floor too: `.design/accessibility.md#focus-visibility`
+  than zero, and that is a floor too: `.devbook/design/accessibility.md#focus-visibility`
   draws focus as an outline at `--border-width-2` offset 2px, so a focused control
   puts 4px of ink outside its border box. With no block padding the bottom of that
   ring lands on or past this band's own edge and `.app-shell`'s `overflow: hidden`
@@ -210,7 +210,7 @@ h1, h2, h3 {
    `--spacing-lg` on the inline end is not arbitrary: it repeats `.shell`'s and
    `.app-footer`'s own horizontal padding, so a toast's right edge lines up with the
    page content above it and the Report issue button below it. `--spacing-sm` on the
-   block end is the gap `.design/interaction-guidelines.md#feedback-and-toasts` gives
+   block end is the gap `.devbook/design/interaction-guidelines.md#feedback-and-toasts` gives
    toasts to stack with, spent here between the stack and the band. */
 .toast-host.app-toast-tray {
     position: absolute;
@@ -659,7 +659,7 @@ h1, h2, h3 {
    color-primary, and color-band-1 *is* color-primary — a band-1 chip would paint its
    identity rule in the fill's own colour and lose it entirely. So the rule is held off
    the fill by a 1px seam in color-background, which clears 3:1 against both sides.
-   See .design/color-scheme.md#band-identity-tokens.
+   See .devbook/design/color-scheme.md#band-identity-tokens.
 
    The second inset shadow paints behind the first, so what shows of it is the strip
    between 4px and 5px — the seam, and nothing over the rule itself.
@@ -1166,7 +1166,7 @@ h1, h2, h3 {
 /* --- The raw-markdown escape hatch --------------------------------------- */
 /*
   Always available and never the default, per
-  .design/content-editing.md#raw-markdown-escape-hatch. Reached by Ctrl+Shift+M
+  .devbook/design/content-editing.md#raw-markdown-escape-hatch. Reached by Ctrl+Shift+M
   rather than by a control of its own — the toggle that used to open it sat under
   the body saying "Markdown" beside a view switch that already said "Markdown",
   and the switch is the one a reader means.
@@ -2083,7 +2083,7 @@ h1, h2, h3 {
 /* The settings screen's own container. It was 720px wide and named `--narrow`
    for it, which on a 1600px window spent more than half the screen on margin
    and pushed tabs that had room to spare into a scrollbar. The cap is now the
-   design system's default container - 1280px, `.design/typography-and-layout.md`
+   design system's default container - 1280px, `.devbook/design/typography-and-layout.md`
    - and the blocks inside a tab spread into columns rather than stacking into
    one long ribbon, so a tab whose content fits shows no scrollbar at all.
    `auto` still gives one to the tabs that genuinely overflow, and the stable
@@ -2300,7 +2300,7 @@ h1, h2, h3 {
    in warning rather than error colours: the folder is a hazard the reader chose
    and may keep, not a value the app refused.
 
-   --color-warning is a background, as .design/color-scheme.md says the semantic
+   --color-warning is a background, as .devbook/design/color-scheme.md says the semantic
    tokens are, so the ink on it is text-primary. The boundary is the strong border
    token rather than a mix of the surface, for the reason components.css records
    twice: warning measures 1.31:1 against the page and would be no boundary at
@@ -2904,7 +2904,7 @@ h1, h2, h3 {
   others — the shape of the group arguing with the mark. The bottom edge is
   free: the anchor's mark is a text underline, which sits under the word and
   not on the box. Still an inset shadow, still additive
-  (.design/color-scheme.md#the-identity-edge), and the seam on the active chip
+  (.devbook/design/color-scheme.md#the-identity-edge), and the seam on the active chip
   is the same 1px of color-background it was, turned through a right angle.
 
   The room for it is stated on every fused chip, marked or not (the
@@ -3194,7 +3194,7 @@ h1, h2, h3 {
    container-type sits here rather than on .inbox-pane__body because a query
    styles a container's descendants and never the container itself. Every
    colour below is a token or a token mixed with transparent; the old block
-   carried rgba literals and .design/color-scheme.md forbids them. */
+   carried rgba literals and .devbook/design/color-scheme.md forbids them. */
 .inbox-pane {
     display: flex;
     flex-direction: column;
@@ -3481,7 +3481,7 @@ h1, h2, h3 {
    `.btn`: the library's button brings padding, a weight and a centred label,
    and a row is a left-aligned line of metadata. Selection is the border in
    --color-border-focus plus the strip down the leading edge that
-   .design/interaction-guidelines.md#focus-and-selection asks for — distinct
+   .devbook/design/interaction-guidelines.md#focus-and-selection asks for — distinct
    from hover, which is a tint, and from focus, which is the outline. The strip
    is an inset shadow rather than a wider border so choosing a row does not
    move its text. */

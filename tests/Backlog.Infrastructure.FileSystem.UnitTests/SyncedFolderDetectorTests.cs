@@ -10,7 +10,7 @@ namespace Backlog.Infrastructure.FileSystem.UnitTests;
 /// is neither. A test that only passed on a machine with OneDrive would prove
 /// nothing about the one that lost somebody's edits.</para>
 ///
-/// <para>R9 in <c>.arc42/11-risks-and-technical-debt.md</c> is what this is for,
+/// <para>R9 in <c>.devbook/arc42/11-risks-and-technical-debt.md</c> is what this is for,
 /// and local ADR 0005's <c>### The database filename</c> is why it is a warning
 /// on the root rather than a per-device file name. Detection is heuristic, so it
 /// fails open throughout: an absent variable, a throwing probe or a machine it

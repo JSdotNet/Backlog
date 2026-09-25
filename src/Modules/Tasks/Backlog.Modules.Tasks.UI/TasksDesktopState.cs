@@ -17,7 +17,7 @@ namespace Backlog.Desktop.UI.Tasks;
 /// <summary>
 /// Persistence state for the quick-edit list, per the save-state indicator
 /// vocabulary in
-/// <c>.design/interaction-guidelines.md#save-state-indicator-vocabulary</c>.
+/// <c>.devbook/design/interaction-guidelines.md#save-state-indicator-vocabulary</c>.
 /// Offline/Conflict states are out of scope here because this desktop slice
 /// talks to a single local file store with no sync layer yet.
 /// </summary>
@@ -47,12 +47,12 @@ public enum AppSaveState
 /// write did not go through it would be a second source of truth.
 /// <para>
 /// The markdown itself is one toggle away rather than what a click opens — an
-/// escape hatch per <c>.design/content-editing.md#raw-markdown-escape-hatch</c>
+/// escape hatch per <c>.devbook/design/content-editing.md#raw-markdown-escape-hatch</c>
 /// rather than the primary mode <c>#editing-model</c> rules out.
 /// </para>
 /// <para>
 /// Text saves on a debounce while typing and flushes the moment focus leaves,
-/// per <c>.design/interaction-guidelines.md#auto-save-no-save-buttons</c>;
+/// per <c>.devbook/design/interaction-guidelines.md#auto-save-no-save-buttons</c>;
 /// discrete changes save immediately. Re-ranking — for entries and for steps —
 /// is the shared task list's gesture, pointer and keyboard alike, and arrives
 /// here as "this row landed on that one".
@@ -259,7 +259,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// True while the view is narrowed to the entries that are not waiting on
     /// anything: open, and with every step they named finished.
     /// <para>
-    /// The domain's readiness (<c>.domain/tasks/naming.md#readiness</c>), asked as
+    /// The domain's readiness (<c>.devbook/domain/tasks/domain.md#readiness</c>), asked as
     /// a scope. "Ready" is the answer this keeps, and it is not the <c>ready</c>
     /// status two groups to the right: status is recorded, readiness is concluded
     /// from <c>after:</c>, and a row can be <c>!ready</c> and still waiting. That
@@ -326,7 +326,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// The date the My Day scope is narrowing to, or null while the scope is off.
     /// <para>
     /// A date rather than a flag, and one this class is told rather than one it
-    /// works out. <c>.domain/tasks/features.md#feature-my-day</c> makes My Day
+    /// works out. <c>.devbook/domain/tasks/features.md#feature-my-day</c> makes My Day
     /// membership arithmetic against "the reader's current local date", and the
     /// clock that answers that belongs to the pane — one place reads it, so there
     /// is one answer. Holding the date the reader turned the scope on with keeps
@@ -355,7 +355,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// <summary>Which identity hue each configured repository wears, keyed by alias,
     /// and empty while the visualization is off. Read from the settings store rather
     /// than worked out here, so the filter, the list and the roadmap are all reading one
-    /// answer — see <c>.design/color-scheme.md#band-identity-tokens</c>. The gated
+    /// answer — see <c>.devbook/design/color-scheme.md#band-identity-tokens</c>. The gated
     /// answer rather than the raw one, because a surface is exactly what the gate is
     /// for: this is the hue somebody may be shown, not the hue they chose.</summary>
     public IReadOnlyDictionary<string, int> RepositoryColours => _gitHub.Settings.Current.VisibleColours();
@@ -511,7 +511,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// every row of this pane, quiet until a pointer or the keyboard reached it,
     /// which put a checkbox within reach of every row a reader hovered while
     /// scanning — chrome in a column whose whole job is reading
-    /// (<c>.design/design-principles.md#low-chrome-content-first</c>). Turning it
+    /// (<c>.devbook/design/design-principles.md#low-chrome-content-first</c>). Turning it
     /// on is now a decision, and while it is off the column is only the work.
     /// </para>
     /// <para>
@@ -656,7 +656,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
     /// <summary>
     /// Whether the selected entry is showing its canonical markdown rather than
-    /// its fields — the escape hatch `.design/content-editing.md#raw-markdown-escape-hatch`
+    /// its fields — the escape hatch `.devbook/design/content-editing.md#raw-markdown-escape-hatch`
     /// requires be always available.
     /// <para>
     /// Derived rather than held: the hatch <em>is</em> the selected row being the
@@ -1005,7 +1005,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
         // Selected, and no editor opened on it. The canonical markdown stays behind
         // Ctrl+Shift+M, because that is what makes it the escape hatch
-        // `.design/content-editing.md#raw-markdown-escape-hatch` describes rather
+        // `.devbook/design/content-editing.md#raw-markdown-escape-hatch` describes rather
         // than "the primary surface #editing-model rules out" — and opening it here
         // put two writing surfaces on one entry: a mono textarea holding the
         // placeholder template, under the entry's own empty body editor.
@@ -1360,7 +1360,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         // what the author wrote rather than by this method. A heading carrying a
         // literal `[ ]` has its marker flipped, because the checkbox glyph is
         // reserved for literal task-list syntax
-        // (.design/content-editing.md#backlog-entry-structure). A plain heading has
+        // (.devbook/design/content-editing.md#backlog-entry-structure). A plain heading has
         // no marker to flip, and inventing one would put checkbox syntax into
         // somebody's document because they pressed a control — so its completion
         // goes on its own metadata line as `!done`, which is the same form the
@@ -1413,7 +1413,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// Ticks the entry off on <paramref name="today"/>, or unticks it.
     /// <para>
     /// Ticking an entry whose status is not yet an end state also moves it to
-    /// Done, in the same save (<c>.domain/tasks/flow.md#task-lifecycle</c>): a
+    /// Done, in the same save (<c>.devbook/domain/tasks/flow.md#task-lifecycle</c>): a
     /// person who ticks something off has finished the work, and a row that read
     /// "In progress" under Completed was the list contradicting itself. It goes
     /// through the status picker's own rewrite, so the steps follow the same way.
@@ -2227,7 +2227,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
     // PushSubItemToGitHubAsync used to sit here, filing one step as an issue of its
     // own. It is gone with the two buttons that reached it, and deliberately this
-    // time: `.domain/tasks/domain.md` gives ProjectionRef to TaskItem and says
+    // time: `.devbook/domain/tasks/domain.md` gives ProjectionRef to TaskItem and says
     // a Sub-Item "may project to GitHub issue task-list checkboxes" — checkboxes
     // inside the entry's issue. A step that was its own issue had nowhere to record
     // the link, so nothing could tell that it had already been pushed. The method
@@ -2280,7 +2280,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// Says out loud that one row's integration failed, on top of the line the row
     /// already carries.
     /// <para>
-    /// Both, not one or the other, and <c>.design/interaction-guidelines.md#error-states</c>
+    /// Both, not one or the other, and <c>.devbook/design/interaction-guidelines.md#error-states</c>
     /// is why: a widget that failed is a <em>Section</em>-level error and gets an
     /// inline card within that section, while the push or the read the reader asked
     /// for is an <em>Action</em>-level error and gets a toast. A GitHub failure is
@@ -2697,7 +2697,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// TasksPane, and <c>SetSaveState(Saved)</c> runs at the end of every debounce
     /// flush — so without it a person typing would redraw the list on every flush
     /// for a state that had not moved. It is also what
-    /// <c>.design/accessibility.md#screen-reader--announcements</c> requires:
+    /// <c>.devbook/design/accessibility.md#screen-reader--announcements</c> requires:
     /// routine Saving/Saved transitions must be throttled, and re-raising a polite
     /// live region for a state that did not change is the flood that rule names.
     /// </para>
@@ -2731,7 +2731,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// write does and needs no timer, and <c>Error</c> deliberately has none: a
     /// failure must stay until the next successful save, because there is nowhere
     /// else on the shell a reader could afterwards find out that the write did not
-    /// land. <c>.design/interaction-guidelines.md</c> gives an error a retry
+    /// land. <c>.devbook/design/interaction-guidelines.md</c> gives an error a retry
     /// affordance rather than a timeout.
     /// </para>
     /// <para>
@@ -3547,7 +3547,7 @@ public sealed class EntryRow
     /// The steps view lists chapters, and the prose an entry opens with is not one.
     /// A view that quietly hid it would make the markdown look like it had lost
     /// text, so the pane says so instead and puts the block one press away —
-    /// <c>.design/content-editing.md#round-trip-fidelity</c> is about the text
+    /// <c>.devbook/design/content-editing.md#round-trip-fidelity</c> is about the text
     /// surviving, and a reader who cannot see it has no way to know that it did.
     /// </para>
     /// </summary>

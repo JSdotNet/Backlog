@@ -17,7 +17,7 @@ namespace Backlog.Modules.Devbook.Abstractions;
 /// Addressed by repository alias and repository-relative chapter path rather
 /// than by anything on disk, so the same remark names the same chapter on every
 /// device the person owns — the alias is the cross-device name a repository
-/// already has (.arc42/adr/0005 §Session records). Anchored by block index for
+/// already has (.devbook/arc42/adr/0005 §Session records). Anchored by block index for
 /// the reason <c>MarkdownComment</c> gives, and by
 /// <see cref="BlockHash"/> beside it, which is what lets the index be wrong:
 /// the index says where to look, the hash says whether the block found there is

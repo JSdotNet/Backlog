@@ -65,7 +65,7 @@ public sealed record SessionSyncState(
 /// watermark that had already advanced. And a file that cannot be read is
 /// answered with "got nowhere" by design, so a half-written session save would
 /// reset the task watermark too and re-push the whole machine. Neither failure
-/// announces itself, which is exactly the class of failure .arc42/adr/0005
+/// announces itself, which is exactly the class of failure .devbook/arc42/adr/0005
 /// exists to remove.
 /// </para>
 /// <para>

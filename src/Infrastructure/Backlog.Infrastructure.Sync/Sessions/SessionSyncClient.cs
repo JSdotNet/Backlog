@@ -25,11 +25,11 @@ namespace Backlog.Infrastructure.Sync.Sessions;
 /// <see cref="ISessionSyncStateStore"/>, and what arrives is kept by
 /// <see cref="IReplicatedSessionStore"/>. Kept apart because the sanitization
 /// boundary is the part worth asserting without a socket, and folding it in here
-/// would put .arc42/adr/0005 §Session records' whitelist behind an HTTP fixture.
+/// would put .devbook/arc42/adr/0005 §Session records' whitelist behind an HTTP fixture.
 /// </para>
 /// <para>
 /// Neither call names a machine. The service stamps the machine id from this
-/// device's own token (.arc42/adr/0005 §Identity), so there is no field a caller
+/// device's own token (.devbook/arc42/adr/0005 §Identity), so there is no field a caller
 /// could set that would write a record attributed to another box — which is what
 /// makes "a caller may only write records stamped with its own machine id" hold
 /// by construction rather than by a check somebody could delete.
@@ -63,7 +63,7 @@ public sealed class SessionSyncClient
     /// document key is derived from the machine id, the agent and the session id,
     /// so the same record sent twice lands on the same document rather than
     /// beside it. Session records are single-writer and have no lost-edit failure
-    /// mode at all (.arc42/adr/0005 §Session records), so there is nothing a
+    /// mode at all (.devbook/arc42/adr/0005 §Session records), so there is nothing a
     /// second send could discard.
     /// </para>
     /// </summary>

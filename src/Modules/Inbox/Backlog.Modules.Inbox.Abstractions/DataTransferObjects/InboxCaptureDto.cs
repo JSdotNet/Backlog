@@ -18,7 +18,7 @@ namespace Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 /// </para>
 /// <para>
 /// <paramref name="SourceUrl"/> and <paramref name="BodyMd"/> are the
-/// <c>source_url</c> and <c>body_md</c> of <c>.domain/capture/domain.md#itemcaptured</c>.
+/// <c>source_url</c> and <c>body_md</c> of <c>.devbook/domain/capture/domain.md#itemcaptured</c>.
 /// A channel that knows the link — a feed entry has one — says so here rather
 /// than hiding it in the title for the intake to find again; one that does not
 /// leaves both null and the intake reads the title as it always has. Last and

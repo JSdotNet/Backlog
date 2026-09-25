@@ -120,7 +120,7 @@ public class InMemoryAnnotationReplicaPrecedenceTests
         Assert.Equal(expected, AnnotationChangePrecedence.Supersedes(inbound, stored));
     }
 
-    /// <summary>The port has no <c>Find</c> — by design (.arc42/adr/0011) — so
+    /// <summary>The port has no <c>Find</c> — by design (.devbook/arc42/adr/0011) — so
     /// the copy held is what the feed hands out for that id, read from the
     /// beginning.</summary>
     private static async Task<AnnotationChangeRecord> Stored(InMemoryAnnotationReplica replica, Guid id)
