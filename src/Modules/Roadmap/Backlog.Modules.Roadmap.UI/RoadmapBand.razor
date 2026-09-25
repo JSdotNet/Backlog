@@ -66,7 +66,8 @@
                                  Bars="@_view.Bars"
                                  Milestones="@_view.Milestones"
                                  Links="@_view.Links"
-                                 Today="@Today"
+                                 Today="@(Today ?? DateOnly.FromDateTime(DateTime.Today))"
+                                 Graduated="true"
                                  TitleContent="@BandHeading"
                                  LabelledBy="roadmap-band-title"
                                  ShowSteps="false"
@@ -121,12 +122,14 @@
                        OpenChanged="EditingChanged"
                        Item="@_edited"
                        Rollup="@_rollup"
+                       Proposal="@_proposal"
                        Repositories="@Configured()"
                        DependencyOptions="@DependencyOptions()"
                        Today="@(Today ?? DateOnly.FromDateTime(DateTime.Today))"
                        OnSave="SaveAsync"
                        OnDelete="DeleteAsync"
-                       OnDependencyChanged="ChangeDependencyAsync" />
+                       OnDependencyChanged="ChangeDependencyAsync"
+                       OnUpdateFromTasks="UpdateFromTasksAsync" />
 
     <RoadmapMilestoneEditor @ref="_dateEditor"
                             Open="@_editingDate"
@@ -154,6 +157,7 @@
     private RoadmapItemEditor? _editor;
     private RoadmapItemDto? _edited;
     private RoadmapItemRollupDto _rollup = RoadmapItemRollupDto.Empty;
+    private RoadmapRelengthProposalDto? _proposal;
     private bool _editing;
 
     private RoadmapMilestoneEditor? _dateEditor;
@@ -425,6 +429,11 @@
             // module port; the adapter behind it is the one thing allowed to read both
             // the backlog and the knowledge graph.
             _rollup = await Rollups.GatherAsync(item);
+
+            // Asked from the total the dialog is about to show, so "Update from tasks"
+            // is offered against the number the person is reading. Null — no offer —
+            // unless the window is still sized by effort and that total changes it.
+            _proposal = await Planning.ProposeWindowFromEffortAsync(item.Id, _rollup.TotalEffort);
             _edited = item;
             _editing = true;
             return;
@@ -441,6 +450,7 @@
     {
         // Nothing to gather for work that does not exist yet.
         _rollup = RoadmapItemRollupDto.Empty;
+        _proposal = null;
         _edited = null;
         _editing = true;
     }
@@ -460,7 +470,10 @@
     private void EditingChanged(bool open)
     {
         _editing = open;
-        if (!open) _edited = null;
+        if (open) return;
+
+        _edited = null;
+        _proposal = null;
     }
 
     /// <summary>Everything in the plan an item could be told to wait for, itself
@@ -629,6 +642,38 @@
         {
             _editedDate = _plan.Milestones.FirstOrDefault(date => date.Id == _editedDate.Id) ?? _editedDate;
         }
+    }
+
+    /// <summary>
+    /// "Update from tasks", taken: the item's window re-lengthened from what its tasks
+    /// register now, by the rule a task-level re-import applies.
+    /// <para>
+    /// The dialog stays open either way, the way a dependency change keeps it open. A
+    /// refusal is shown where the button was. An accepted one puts the new dates in the
+    /// fields and names the work that now overlaps it — which the chart behind the
+    /// dialog cannot say while the dialog covers it, and which is the one thing the
+    /// person has to act on next. The offer is asked for again, so it goes once the
+    /// window matches.
+    /// </para>
+    /// </summary>
+    private async Task UpdateFromTasksAsync(RoadmapRelengthProposalDto proposal)
+    {
+        var result = await Planning.RelengthenFromEffortAsync(proposal.ItemId, proposal.GatheredEffort);
+
+        await Load();
+
+        _edited = _plan.Items.FirstOrDefault(item => item.Id == proposal.ItemId) ?? _edited;
+        _proposal = _edited is null
+            ? null
+            : await Planning.ProposeWindowFromEffortAsync(_edited.Id, _rollup.TotalEffort);
+
+        if (result.IsFailure)
+        {
+            _editor?.Refuse(result.Error.Message);
+            return;
+        }
+
+        _editor?.Relengthened(result.Value.Item, result.Value.NowOverlapping);
     }
 
     /// <summary>

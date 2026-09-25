@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace Backlog.UI.Components.Roadmap;
 
 /// <summary>
@@ -32,6 +34,17 @@ public sealed record RoadmapWindow
         Start = start <= end ? start : end;
         End = start <= end ? end : start;
         Quarters = QuartersBetween(Start, End);
+        Columns = [.. Quarters.Select(quarter => new RoadmapColumn(
+            RoadmapColumnScale.Quarter, quarter.Start, quarter.End, quarter.Label, quarter.Year.ToString(CultureInfo.InvariantCulture), quarter.LongLabel))];
+    }
+
+    private RoadmapWindow(IReadOnlyList<RoadmapColumn> columns)
+    {
+        Start = columns[0].Start;
+        End = columns[^1].End;
+        Quarters = QuartersBetween(Start, End);
+        Columns = columns;
+        IsGraduated = true;
     }
 
     /// <summary>First day of the window, inclusive.</summary>
@@ -42,6 +55,15 @@ public sealed record RoadmapWindow
 
     /// <summary>The quarter columns the axis is ruled with, in order.</summary>
     public IReadOnlyList<RoadmapQuarter> Quarters { get; }
+
+    /// <summary>The columns the axis is actually ruled with, in order. For a plain
+    /// window these are <see cref="Quarters"/>; for a <see cref="Graduated"/> one
+    /// they run from weeks to months to quarters as they get further from today.</summary>
+    public IReadOnlyList<RoadmapColumn> Columns { get; }
+
+    /// <summary>Whether the columns are of mixed length, so a day is not the same
+    /// width everywhere along the track.</summary>
+    public bool IsGraduated { get; }
 
     /// <summary>How many days the window spans, counting both ends. Never zero,
     /// so it is always safe to divide by.</summary>
@@ -81,6 +103,121 @@ public sealed record RoadmapWindow
 
         return new RoadmapWindow(StartOfQuarter(first), EndOfQuarter(last));
     }
+
+    /// <summary>
+    /// A window ruled coarser the further it reaches from today: a column per week
+    /// for this week and the <see cref="GraduatedWeeks"/> minus one after it, a
+    /// column per month for roughly three months after that, and a column per
+    /// quarter beyond.
+    /// <para>
+    /// The near term is what gets planned in detail and rescheduled by the week, so
+    /// that is where the ruler is fine enough to read a week off. Next quarter is a
+    /// month-level commitment, and anything further out is an intention, which a
+    /// weekly ruler would only make look more certain than it is.
+    /// </para>
+    /// <para>
+    /// The weeks are whole, so they rarely end on a month start: the month they end
+    /// in is drawn as a column covering only its remaining days, and every month
+    /// after it is whole. The months run up to a quarter start, so every quarter is
+    /// whole too. Work before this week is ruled in months, the last clipped to meet
+    /// the first week.
+    /// </para>
+    /// <para>
+    /// It always reaches at least to the end of the monthly tier, so the horizon's
+    /// shape is visible even for a plan that stops next month, and further when
+    /// the plan does.
+    /// </para>
+    /// </summary>
+    /// <summary>How many week columns a graduated window rules, counting this week.</summary>
+    public const int GraduatedWeeks = 4;
+
+    public static RoadmapWindow Graduated(IEnumerable<DateOnly> dates, DateOnly today, DayOfWeek weekStart)
+    {
+        var days = dates as ICollection<DateOnly> ?? [.. dates];
+
+        var weeksFrom = StartOfWeek(today, weekStart);
+        var monthsFrom = weeksFrom.AddDays(7 * GraduatedWeeks);
+        var quartersFrom = FirstOfQuarterOnOrAfter(monthsFrom.AddMonths(3));
+
+        var first = days.Count == 0 ? weeksFrom : days.Min();
+        var last = days.Count == 0 ? quartersFrom.AddDays(-1) : days.Max();
+        var end = last < quartersFrom ? quartersFrom.AddDays(-1) : EndOfQuarter(last);
+
+        var columns = new List<RoadmapColumn>();
+        var previousYear = 0;
+        var previousMonth = 0;
+
+        // Before this week: months, the last one clipped to meet the first week.
+        for (var cursor = first < weeksFrom ? new DateOnly(first.Year, first.Month, 1) : weeksFrom; cursor < weeksFrom; cursor = cursor.AddMonths(1))
+        {
+            columns.Add(Month(cursor, Min(cursor.AddMonths(1).AddDays(-1), weeksFrom.AddDays(-1)), previousYear != cursor.Year));
+            previousYear = cursor.Year;
+        }
+
+        for (var cursor = weeksFrom; cursor < monthsFrom && cursor <= end; cursor = cursor.AddDays(7))
+        {
+            var close = cursor.AddDays(6);
+            var newMonth = cursor.Month != previousMonth;
+
+            columns.Add(new RoadmapColumn(
+                RoadmapColumnScale.Week,
+                cursor,
+                close,
+                $"W{WeekNumber(cursor, weekStart)}",
+                newMonth ? cursor.ToString("MMM", CultureInfo.CurrentCulture) : null,
+                $"Week {WeekNumber(cursor, weekStart)}, from {cursor.ToString("d MMM yyyy", CultureInfo.CurrentCulture)}"));
+
+            previousMonth = cursor.Month;
+            previousYear = cursor.Year;
+        }
+
+        for (var cursor = monthsFrom; cursor < quartersFrom && cursor <= end; cursor = new DateOnly(cursor.Year, cursor.Month, 1).AddMonths(1))
+        {
+            columns.Add(Month(cursor, new DateOnly(cursor.Year, cursor.Month, 1).AddMonths(1).AddDays(-1), previousYear != cursor.Year));
+            previousYear = cursor.Year;
+        }
+
+        for (var cursor = quartersFrom; cursor <= end; cursor = cursor.AddMonths(3))
+        {
+            columns.Add(new RoadmapColumn(
+                RoadmapColumnScale.Quarter,
+                cursor,
+                EndOfQuarter(cursor),
+                $"Q{QuarterOf(cursor)}",
+                cursor.Year.ToString(CultureInfo.InvariantCulture),
+                $"Q{QuarterOf(cursor)} {cursor.Year}"));
+        }
+
+        return new RoadmapWindow(columns);
+
+        static RoadmapColumn Month(DateOnly start, DateOnly end, bool showYear) => new(
+            RoadmapColumnScale.Month,
+            start,
+            end,
+            start.ToString("MMM", CultureInfo.CurrentCulture),
+            showYear ? start.Year.ToString(CultureInfo.InvariantCulture) : null,
+            start.ToString("MMMM yyyy", CultureInfo.CurrentCulture));
+    }
+
+    /// <summary>
+    /// The week number a week is known by: ISO 8601 when weeks start on Monday,
+    /// which is the numbering a planner in most of Europe already uses, and the
+    /// calendar's first-four-day rule from the given start day otherwise.
+    /// </summary>
+    public static int WeekNumber(DateOnly weekStartDay, DayOfWeek weekStart) =>
+        weekStart == DayOfWeek.Monday
+            ? ISOWeek.GetWeekOfYear(weekStartDay.ToDateTime(TimeOnly.MinValue))
+            : CultureInfo.InvariantCulture.Calendar.GetWeekOfYear(
+                weekStartDay.AddDays(3).ToDateTime(TimeOnly.MinValue), CalendarWeekRule.FirstFourDayWeek, weekStart);
+
+    /// <summary>The first day of the week a date falls in.</summary>
+    public static DateOnly StartOfWeek(DateOnly date, DayOfWeek weekStart) =>
+        date.AddDays(-(((int)date.DayOfWeek - (int)weekStart + 7) % 7));
+
+    private static DateOnly FirstOfQuarterOnOrAfter(DateOnly date) =>
+        StartOfQuarter(date) == date ? date : StartOfQuarter(date).AddMonths(3);
+
+    private static DateOnly Min(DateOnly left, DateOnly right) => left < right ? left : right;
 
     /// <summary>The first day of the quarter a date falls in.</summary>
     public static DateOnly StartOfQuarter(DateOnly date) =>
@@ -155,4 +292,40 @@ public sealed record RoadmapQuarter(int Year, int Number, DateOnly Start, DateOn
     public string LongLabel => $"Q{Number} {Year}";
 
     public int TotalDays => End.DayNumber - Start.DayNumber + 1;
+}
+
+/// <summary>How much time one column of the axis stands for.</summary>
+public enum RoadmapColumnScale
+{
+    Week,
+    Month,
+    Quarter
+}
+
+/// <summary>One column of the axis, whatever length of time it rules.</summary>
+/// <param name="Scale">Week, month or quarter.</param>
+/// <param name="Start">First day drawn.</param>
+/// <param name="End">Last day drawn.</param>
+/// <param name="Label">The column head.</param>
+/// <param name="Caption">The smaller line under it — the year, or the month a run
+/// of weeks enters — or null where it would only repeat the column before.</param>
+/// <param name="LongLabel">The unambiguous form, for a tooltip or a test.</param>
+public sealed record RoadmapColumn(
+    RoadmapColumnScale Scale,
+    DateOnly Start,
+    DateOnly End,
+    string Label,
+    string? Caption,
+    string LongLabel)
+{
+    public int TotalDays => End.DayNumber - Start.DayNumber + 1;
+
+    /// <summary>How many days the whole week, month or quarter this column belongs
+    /// to has, clipped or not — what a column's width is shared over.</summary>
+    public int NominalDays => Scale switch
+    {
+        RoadmapColumnScale.Week => 7,
+        RoadmapColumnScale.Month => DateTime.DaysInMonth(Start.Year, Start.Month),
+        _ => RoadmapWindow.EndOfQuarter(Start).DayNumber - RoadmapWindow.StartOfQuarter(Start).DayNumber + 1
+    };
 }

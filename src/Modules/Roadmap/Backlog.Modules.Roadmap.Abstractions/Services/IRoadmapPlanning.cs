@@ -147,4 +147,30 @@ public interface IRoadmapPlanning
         IReadOnlyList<PlanTagEffortDto>? gatheredEffort = null,
         IReadOnlyList<PlanImportEntryDto>? createIfMissing = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The window an item's tasks would make now, when that is worth offering: null
+    /// when there is no such item, when its window is not sized by effort, or when the
+    /// effort makes the window it already has.
+    /// </summary>
+    /// <param name="gatheredEffort">What the item gathers now — the rollup total the
+    /// person is reading.</param>
+    Task<RoadmapRelengthProposalDto?> ProposeWindowFromEffortAsync(
+        Guid itemId,
+        int gatheredEffort,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Re-lengthens an item from what its tasks register now, on a person's say-so:
+    /// the start is kept, the end recomputed at the reader's pace, and the window stays
+    /// the importer's (ADR 0013, ruling 5). Refused for an item a person placed or one
+    /// placed by its due date. Nothing that waits on it moves; what now overlaps it is
+    /// named in the result.
+    /// </summary>
+    /// <param name="gatheredEffort">What the item gathers now — the rollup total the
+    /// person is reading.</param>
+    Task<Result<RoadmapRelengthResultDto>> RelengthenFromEffortAsync(
+        Guid itemId,
+        int gatheredEffort,
+        CancellationToken cancellationToken = default);
 }
