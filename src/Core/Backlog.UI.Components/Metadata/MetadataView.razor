@@ -63,6 +63,19 @@
     so the pair a screen reader depends on is still a pair. Every other row keeps
     the name, because every other row still needs it.
 
+    Decision and review state — the approval and acceptance records, the review
+    triad — is a third thing, and it is drawn on the first tier, not the second.
+    It is not chapter content: it says who signed the status off, or who owes the
+    next move towards one, so it belongs beside the status as MetadataStateLine
+    and never as a row in the list. The record keeps it apart for the same reason
+    (MetadataRecord.State), so there is no row to suppress.
+
+    Findings are the one addition a caller has to ask for. Given the folder the
+    block came from, the record lists what the convention would report about it —
+    an explicit resting status, a rung outside domain/, `kind` where `type` is
+    meant — between the headline and the fields. No folder, no findings: the
+    default is every caller's markup unchanged.
+
     Empty in, nothing out, exactly as the metadata strip behaves — and that now
     includes a block with nothing left to draw. Fields suppressed and no status
     stated leaves a bordered, labelled group holding a heading or nothing at all,
@@ -85,7 +98,20 @@
             {
                 <MetadataStatusBadge Status="@_status" Vocabulary="@Vocabulary" />
             }
+            @* Decision and review state goes beside the status and nowhere else:
+               it says who signed that status off, or who owes the next move
+               towards it, and none of it is chapter content. In a code block so a
+               record with no state renders the headline it always did. *@
+            @if (!Metadata.State.IsEmpty)
+            {
+                <MetadataStateLine State="@Metadata.State" />
+            }
         </div>
+
+        @if (_findings.Count > 0)
+        {
+            <MetadataFindingList Findings="@_findings" />
+        }
 
         @if (ShowFields && HasSecondaryFields)
         {
@@ -145,6 +171,32 @@
     [Parameter]
     public bool ShowFields { get; set; } = true;
 
+    /// <summary>
+    /// The devbook folder the block was read from, when the caller knows it — and
+    /// the one thing that turns on the findings.
+    ///
+    /// <para>Separate from <see cref="Vocabulary"/>, which is only the status
+    /// words: the findings need the folder's whole contract — which folders rest by
+    /// omission, which define a <c>type</c>, where the decision rungs are legal.
+    /// Defaulted to <see cref="DevbookFolder.Unknown"/>, which reports nothing, so
+    /// every caller outside the devbook folders — and every devbook caller written
+    /// before this — renders exactly what it did.</para>
+    /// </summary>
+    [Parameter]
+    public DevbookFolder Folder { get; set; } = DevbookFolder.Unknown;
+
+    /// <summary>Whether this is a file's own block or a chapter's. Only read with
+    /// <see cref="Folder"/>: <c>number</c> and <c>index</c> are file-level only,
+    /// and a folder's file types are not its chapter types.</summary>
+    [Parameter]
+    public DevbookMetadataLevel Level { get; set; } = DevbookMetadataLevel.Chapter;
+
+    /// <summary>The file the block came from, by name or path. Only read with
+    /// <see cref="Folder"/>; see <see cref="DevbookMetadataFindings.For"/> for the
+    /// two answers it settles.</summary>
+    [Parameter]
+    public string? FileName { get; set; }
+
     [Parameter]
     public string AriaLabel { get; set; } = "Devbook metadata";
 
@@ -187,8 +239,17 @@
     /// </summary>
     private MetadataRecord? _seeded;
 
+    /// <summary>What the block states that the convention reports, judged against
+    /// <see cref="Folder"/>. Empty for an unknown folder. Asked on every parameter
+    /// set rather than cached with the status seed: it is a handful of string
+    /// comparisons, and a folder or file name can change under the same
+    /// record.</summary>
+    private IReadOnlyList<DevbookMetadataFinding> _findings = [];
+
     protected override void OnParametersSet()
     {
+        _findings = DevbookMetadataFindings.For(Folder, Level, Metadata, FileName);
+
         if (Equals(_seeded, Metadata)) return;
 
         _seeded = Metadata;
@@ -271,9 +332,11 @@
     /// no way to set one again after the file was re-read.</para>
     private bool RendersAnything =>
         StatusIsSelectable
+        || _findings.Count > 0
         || (!Metadata.IsEmpty
             && (Heading is not null
                 || !string.IsNullOrWhiteSpace(_status)
+                || !Metadata.State.IsEmpty
                 || (ShowFields && HasSecondaryFields)));
 
     /// <summary>Whether anything but the status has a value. Status is drawn in

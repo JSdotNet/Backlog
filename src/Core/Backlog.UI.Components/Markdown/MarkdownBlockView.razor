@@ -74,6 +74,14 @@
                                OnNavigate="@OnDevbookNavigate"
                                HrefFor="@DevbookHrefFor" />
         }
+        else if (RenderDevbookAnnotations && DevbookAnnotationFence.IsAnnotationBlock(codeBlock.Language))
+        {
+            @* A review note, never a listing. Asked before the diagram question
+               so no host's diagram hook can claim the fence first. *@
+            <DevbookAnnotationNote Note="@AnnotationOf(codeBlock)"
+                                   InlineTarget="@InlineTarget"
+                                   CssClass="devbook-note--attached" />
+        }
         else if (DrawsDiagram(codeBlock.Language))
         {
             <DiagramView Title="@DiagramTitle"
@@ -170,6 +178,21 @@
     [Parameter]
     public bool RenderDevbookMetadataFields { get; set; } = true;
 
+    /// <summary>
+    /// Whether a fenced <c>annotation</c> block is drawn as the review note it is
+    /// — <see cref="DevbookAnnotationNote"/> — rather than as a code listing.
+    ///
+    /// <para>A switch of its own rather than riding on
+    /// <see cref="RenderDevbookMetadata"/>, because the Devbook panels' older
+    /// block renderers never read a <c>meta</c> fence through here at all — their
+    /// parsers took it off the heading first — and still have notes to draw.
+    /// <c>MarkdownView</c> turns it on wherever it knows it is reading a knowledge
+    /// document. Off by default for the same reason the metadata switch is: in an
+    /// entry's body an <c>annotation</c> fence is only a fenced block.</para>
+    /// </summary>
+    [Parameter]
+    public bool RenderDevbookAnnotations { get; set; }
+
     /// <summary>Whether a metadata record's status may be changed here.
     /// Forwarded verbatim to <c>MetadataView.CanEditStatus</c>, which draws the
     /// static badge instead of the select when it is false.</summary>
@@ -216,6 +239,21 @@
     /// than its blocks change — every comment edit redraws all of them — and
     /// re-parsing the same fence each time buys nothing.</summary>
     private readonly Dictionary<MdCode, MetadataRecord> _metadata = [];
+
+    /// <summary>Parsed notes, kept per block for the reason
+    /// <see cref="_metadata"/> is — and because the note component keys its own
+    /// parse of the body on the record's identity, so a fresh record per render
+    /// would re-parse the thread every time.</summary>
+    private readonly Dictionary<MdCode, DevbookAnnotationFence> _annotations = [];
+
+    private DevbookAnnotationFence AnnotationOf(MdCode block)
+    {
+        if (_annotations.TryGetValue(block, out var parsed)) return parsed;
+
+        parsed = DevbookAnnotationFence.Parse(block.Text);
+        _annotations[block] = parsed;
+        return parsed;
+    }
 
     private bool DrawsDiagram(string? language) =>
         IsDiagram?.Invoke(language) ?? DiagramView.IsDiagram(language);

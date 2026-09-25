@@ -290,7 +290,14 @@ internal static class StorybookIndex
             // mark lands is a chapter's heading and a file's kind line, which is
             // exactly the pair the page above documents. A reader who has not met
             // both shapes would be looking at a mark with nowhere to put it.
-            new("devbook/type-markers", "Type markers", "The eighteen marks a `.domain` type is drawn as: seven for what the file is, eleven for what a chapter describes, all built from a dot, a diamond and a boundary so the set reads as one grammar rather than eighteen drawings.")
+            new("devbook/type-markers", "Type markers", "The eighteen marks a `.domain` type is drawn as: seven for what the file is, eleven for what a chapter describes, all built from a dot, a diamond and a boundary so the set reads as one grammar rather than eighteen drawings."),
+
+            // Last, because it is the one page of the group that is not about the
+            // meta block: a review note is the convention's second fence, and the
+            // chapter it sits in — heading, record, prose — is everything the pages
+            // above have introduced. It draws Badge and MarkdownView, both from
+            // groups higher up, so nothing here is shown before its parts.
+            new("devbook/annotations", "Review notes", "DevbookAnnotationNote: the devbook convention's `annotation` fence drawn as a read-only review note under the passage it is about — never as the YAML it is written in, and never as the person's own margin remark.")
         ]),
 
         // The second subject-named group with subpages, for the reason recorded

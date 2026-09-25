@@ -396,13 +396,18 @@ public static class DevbookMarkdownParser
             var line = lines[index].TrimEnd();
             var trimmed = line.TrimStart();
 
-            if (trimmed.StartsWith("```", StringComparison.Ordinal))
+            // CommonMark's fence, not "starts with three backticks": a devbook
+            // `annotation` note quoting a code sample is opened with four so the
+            // sample can sit inside it, and closing at the first inner ``` spilled
+            // the rest of the note into the chapter as prose. The note itself
+            // stays a code record here and DevbookMarkdownView draws it as one.
+            if (MarkdownFence.Open(trimmed) is { } fence)
             {
                 FlushAll();
-                var language = trimmed[3..].Trim();
+                var language = fence.Language;
                 var code = new List<string>();
                 index++;
-                while (index < lines.Length && !lines[index].TrimStart().StartsWith("```", StringComparison.Ordinal))
+                while (index < lines.Length && !fence.IsClosedBy(lines[index]))
                 {
                     code.Add(lines[index]);
                     index++;

@@ -1,0 +1,116 @@
+@*
+    Decision and review state, drawn where the status is.
+
+    The nine state fields — the approval record, the acceptance record, the review
+    triad — are not chapter content, and the convention says so twice: a reader
+    loading a chapter for context skips them, and a view renders them as state
+    beside the status and never as rows in the body. So this is not a
+    MetadataField and never sits in the description list. It is one short
+    statement per fact, in the headline, after the status it qualifies: the status
+    says `approved`, and this says by whom and on which day.
+
+    Three statements at most, in the order a chapter climbs: approval, acceptance,
+    review. A review and an approval are not normally written together — approval
+    deletes the triad in the same change — but a file is what it is, and a reader
+    who sees both is looking at a block the findings will also point at.
+
+    Each statement is a Badge, the library's own shape for a short fact read at a
+    glance, in a `decision` family of its own: outlined and unfilled, because this
+    is who and when rather than a state the product acts on, and it must not
+    compete with the status pill beside it. The hash is never printed — eight hex
+    characters mean nothing to a reader — and rides on the tooltip for the one who
+    wants to compare it.
+
+    Values are drawn as authored. Whether they are legal — a `review` outside its
+    three states, an acceptance with no approval under it — is
+    DevbookMetadataFindings's question, which knows the folder; this component
+    only knows the block.
+
+    Empty in, nothing out: no wrapper around no state.
+*@
+
+@if (Entries.Count > 0)
+{
+    <span class="devbook-record__state" role="group" aria-label="Decision and review state" data-testid="@TestId">@foreach (var entry in Entries)
+        {
+            <Badge Kind="decision" Slug="@entry.Slug" Title="@entry.Title" TestId="@($"devbook-state-{entry.Slug}")">@entry.Text</Badge>
+        }</span>
+}
+
+@code {
+    /// <summary>The block's state, as <see cref="MetadataReader"/> read it.</summary>
+    [Parameter]
+    public MetadataState State { get; set; } = MetadataState.Empty;
+
+    [Parameter]
+    public string? TestId { get; set; } = "devbook-record-state";
+
+    private IReadOnlyList<Entry> Entries => Describe(State);
+
+    /// <summary>
+    /// The statements this state makes, one per record that has anything in it.
+    ///
+    /// <para>Static and public so a host that draws state somewhere other than a
+    /// record's headline — a list row, a tooltip — says it in the same words.</para>
+    /// </summary>
+    public static IReadOnlyList<(string Slug, string Text)> Statements(MetadataState state) =>
+        [.. Describe(state).Select(entry => (entry.Slug, entry.Text))];
+
+    private static List<Entry> Describe(MetadataState state)
+    {
+        var entries = new List<Entry>(3);
+
+        if (state.HasApproval)
+        {
+            entries.Add(new Entry(
+                "approval",
+                Signed("approved", state.ApprovedBy, state.ApprovedAt),
+                Hashed("approved", state.ApprovedHash)));
+        }
+
+        if (state.HasAcceptance)
+        {
+            entries.Add(new Entry(
+                "acceptance",
+                Signed("accepted", state.AcceptedBy, state.AcceptedAt),
+                Hashed("accepted", state.AcceptedHash)));
+        }
+
+        if (state.HasReview)
+        {
+            // "review: changes-requested · reviewer ana · 2026-09-17". The state
+            // comes first because it is the answer to "who owes the next move?",
+            // and a triad written partly still says what it says.
+            var parts = new List<string>(3)
+            {
+                $"review: {Or(state.Review, "unstated")}"
+            };
+            if (Stated(state.Reviewer)) parts.Add($"reviewer {state.Reviewer!.Trim()}");
+            if (Stated(state.ReviewAt)) parts.Add(state.ReviewAt!.Trim());
+
+            entries.Add(new Entry("review", string.Join(" · ", parts), null));
+        }
+
+        return entries;
+    }
+
+    /// <summary>"approved by ana on 2026-09-17", with whichever half is missing
+    /// left out rather than filled with a placeholder — an unsigned approval is a
+    /// finding, and the statement should not paper over it.</summary>
+    private static string Signed(string verb, string? by, string? at)
+    {
+        var text = verb;
+        if (Stated(by)) text += $" by {by!.Trim()}";
+        if (Stated(at)) text += $" on {at!.Trim()}";
+        return text;
+    }
+
+    private static string? Hashed(string verb, string? hash) =>
+        Stated(hash) ? $"{verb}-hash: {hash!.Trim()}" : null;
+
+    private static string Or(string? value, string fallback) => Stated(value) ? value!.Trim() : fallback;
+
+    private static bool Stated(string? value) => !string.IsNullOrWhiteSpace(value);
+
+    private sealed record Entry(string Slug, string Text, string? Title);
+}

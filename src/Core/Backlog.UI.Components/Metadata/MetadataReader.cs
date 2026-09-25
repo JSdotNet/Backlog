@@ -34,13 +34,22 @@ public static class MetadataReader
     /// this set would not remove it — it would move it into <c>Extra</c> and draw
     /// it as an unrecognised field, which states the field more loudly than
     /// modelling it ever did. So it is recognised and dropped.</para>
+    ///
+    /// <para>The nine decision and review state fields are in it too, and are
+    /// modelled apart — see <see cref="MetadataRecord.State"/>. <c>ext.*</c> keys
+    /// are not in it and do not need to be: they are recognised by their prefix and
+    /// read on a pass of their own, because they keep the author's casing and an
+    /// empty value that every field here loses.</para>
     /// </summary>
-    private static readonly HashSet<string> KnownFields = new(StringComparer.Ordinal)
-    {
-        "status", "related", "depends-on", "implements", "issue",
-        "order", "aliases", "alternatives", "kind", "version",
-        "effort", "roadmap", "feature-flag"
-    };
+    private static readonly HashSet<string> KnownFields = new(
+        [
+            "status", "related", "depends-on", "implements", "issue",
+            "order", "aliases", "alternatives", "type", "kind", "version",
+            "effort", "roadmap", "feature-flag", "tests", "number", "index",
+            "date", "deployment",
+            .. DevbookSchema.StateFields
+        ],
+        StringComparer.Ordinal);
 
     /// <summary>Whether a fence opened a metadata block.</summary>
     public static bool IsMetaBlock(string? language) =>
@@ -62,13 +71,14 @@ public static class MetadataReader
         if (string.IsNullOrWhiteSpace(body)) return MetadataRecord.Empty;
 
         var fields = ReadFields(body);
-        if (fields.Count == 0) return MetadataRecord.Empty;
+        var ext = ReadExtensions(body);
+        if (fields.Count == 0 && ext.Count == 0) return MetadataRecord.Empty;
 
         var extra = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
 
         foreach (var (key, values) in fields)
         {
-            if (KnownFields.Contains(key)) continue;
+            if (KnownFields.Contains(key) || DevbookSchema.IsExtensionKey(key)) continue;
             extra[key] = values;
         }
 
@@ -98,22 +108,89 @@ public static class MetadataReader
             if (rejected.Count > 0) extra[field] = rejected;
         }
 
+        // `type` is the field; `kind` is how `tech/` used to spell it, and the
+        // convention still parses the old name so a repository is not broken by a
+        // sync. Read here in that order, and marked, so the report can say which.
+        var type = Scalar(fields, "type");
+        var kind = Scalar(fields, DevbookSchema.LegacyTechTypeField);
+
         return new MetadataRecord
         {
             Status = Scalar(fields, "status"),
+            Type = type ?? kind,
+            TypeReadFromKind = type is null && kind is not null,
             Related = references.GetValueOrDefault("related", []),
             DependsOn = references.GetValueOrDefault("depends-on", []),
             Implements = references.GetValueOrDefault("implements", []),
             Issue = Scalar(fields, "issue"),
             Aliases = fields.GetValueOrDefault("aliases", []),
             Alternatives = fields.GetValueOrDefault("alternatives", []),
-            Kind = Scalar(fields, "kind"),
+            Kind = kind,
             Version = Scalar(fields, "version"),
             Effort = ParseEffort(Scalar(fields, "effort")),
             Roadmap = fields.GetValueOrDefault("roadmap", []),
             FeatureFlag = fields.GetValueOrDefault("feature-flag", []),
+            Tests = fields.GetValueOrDefault("tests", []),
+            Number = ParseNonNegative(Scalar(fields, "number")),
+            Index = Scalar(fields, "index"),
+            Date = Scalar(fields, "date"),
+            Deployment = Scalar(fields, "deployment"),
+            Ext = ext,
+            State = new MetadataState
+            {
+                ApprovedBy = Scalar(fields, "approved-by"),
+                ApprovedAt = Scalar(fields, "approved-at"),
+                ApprovedHash = Scalar(fields, "approved-hash"),
+                AcceptedBy = Scalar(fields, "accepted-by"),
+                AcceptedAt = Scalar(fields, "accepted-at"),
+                AcceptedHash = Scalar(fields, "accepted-hash"),
+                Review = Scalar(fields, "review"),
+                Reviewer = Scalar(fields, "reviewer"),
+                ReviewAt = Scalar(fields, "review-at")
+            },
             Extra = extra
         };
+    }
+
+    /// <summary>
+    /// Every <c>ext.&lt;plugin&gt;.&lt;key&gt;</c> line, keyed by what follows
+    /// <c>ext.</c> and valued by what follows the first colon — both exactly as
+    /// the author wrote them.
+    ///
+    /// <para>A pass of its own rather than a lookup in <see cref="ReadFields"/>,
+    /// because that reader normalises the two things an extension key must keep. It
+    /// lower-cases keys, and an extension's key belongs to its plugin, which may
+    /// spell it however it likes; and it drops a key with no value, which is the
+    /// omit-when-empty rule the convention explicitly exempts <c>ext</c> from. So an
+    /// empty value comes back as an empty string, and a value is never unquoted,
+    /// split into a list, or read as <c>null</c> — the reader has no opinion on what
+    /// it means, and neither does anything downstream of it.</para>
+    ///
+    /// <para>The same key written twice keeps the last value, which is what the
+    /// field reader does with any other key.</para>
+    /// </summary>
+    private static Dictionary<string, string> ReadExtensions(string body)
+    {
+        var ext = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        foreach (var raw in body.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n'))
+        {
+            var line = raw.Trim();
+            if (line.Length == 0 || IsItem(line)) continue;
+
+            var separator = line.IndexOf(':');
+            if (separator <= 0) continue;
+
+            var key = line[..separator].Trim();
+            if (!DevbookSchema.IsExtensionKey(key)) continue;
+
+            var name = key[DevbookSchema.ExtensionPrefix.Length..];
+            if (name.Length == 0) continue;
+
+            ext[name] = line[(separator + 1)..].Trim();
+        }
+
+        return ext;
     }
 
     // Story points are an integer the UI wants to show and compare, and this
@@ -121,8 +198,13 @@ public static class MetadataReader
     // treated as "no effort" rather than allowed to throw. The raw text is not
     // kept — the number is the whole value, and an unparseable one carries
     // nothing a viewer could honestly display.
-    private static int? ParseEffort(string? value) =>
-        int.TryParse(value, out var effort) && effort >= 0 ? effort : null;
+    //
+    // `number` is read the same way and for the same reason: a document's place
+    // in its directory is a count, and one that does not parse is no place.
+    private static int? ParseEffort(string? value) => ParseNonNegative(value);
+
+    private static int? ParseNonNegative(string? value) =>
+        int.TryParse(value, out var number) && number >= 0 ? number : null;
 
     private static string? Scalar(IReadOnlyDictionary<string, IReadOnlyList<string>> fields, string key) =>
         fields.TryGetValue(key, out var values) && values.Count > 0 ? values[0] : null;

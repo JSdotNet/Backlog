@@ -125,6 +125,36 @@ cross-reference may name a chapter in the repository's backlog folder even thoug
 that folder is not a browsable area, and it is read with that folder's own status
 vocabulary rather than as an unknown one.
 
+The metadata is read against the devbook convention the repository's own checks
+enforce, folder by folder, so a chapter the app shows as fine is not one those
+checks reject:
+
+- **A status at rest says nothing.** Architecture, domain and design chapters
+  that are simply current carry no status at all and are shown as current;
+  choosing "current" for one removes the word rather than writing it, and a
+  chapter that spells it out anyway is pointed out. Technology and AI-adoption
+  chapters are ratings, so theirs is always stated.
+- **A decision is state, not content.** A domain chapter can stand approved —
+  someone agreed it — and above that accepted — someone saw the built work
+  against it and accepted it. Who decided and when, and where a review stands on
+  the way there (requested, changes requested, cleared, and who owes the next
+  move), is shown beside the chapter's status rather than among its fields. The
+  app never offers those two steps as a status to pick: they are recorded by the
+  approval step that makes the decision. Moving a chapter off either step takes
+  its decision record with it. No other area has them, and a chapter outside the
+  domain that carries one is pointed out.
+- **Kinds.** Each area that classifies its chapters is read with its own set of
+  kinds, including a domain context's boundary document, its requirements and
+  invariants and the single rules inside them, its switches and settings, its
+  actors, and a page of its own that the convention does not name. How a
+  bounded context ships — as a service of its own or as a module inside a shared
+  host — is shown with it, and said out loud when the context map and the
+  context's own boundary document disagree about it.
+- **Everything else a chapter declares** — the tests that back it, its number
+  and place in the reading order, the day it records — is shown as it was
+  written, and state another tool keeps on the chapter under its own name is
+  carried through untouched.
+
 ### Remarks on a chapter
 
 ```meta
@@ -143,13 +173,40 @@ edit. A remark can be resolved, which keeps it visible and quiet, or deleted.
 
 This is a different thing from the devbook convention's own note, the
 `annotation` fence written into a chapter for a review to read: that is a
-shared repository artefact with its own lifecycle. Turning a private remark
-into one is a possible later step, not something the app does today.
+shared repository artefact with its own lifecycle, shown as a
+[review note](#review-notes-in-a-chapter). Turning a private remark into one is a
+possible later step, not something the app does today.
 
 A remark is anchored to the block it was left on, and remembers what that block
 said. When the chapter changes above it the remark follows its own passage to
 wherever it has moved to. A remark whose passage has been deleted, or rewritten
 into something else, is shown at the end of the chapter rather than lost.
+
+### Review notes in a chapter
+
+```meta
+type: sub-feature
+status: active
+related: [.arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md, .arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md, .domain/devbook/features.md#remarks-on-a-chapter]
+```
+
+Show the review notes a repository keeps in its own chapters — a comment, a
+question, a suggestion or a flag, written beside the passage it is about, with
+its replies — as notes attached to that passage, open or resolved, rather than
+as the raw text they are stored in. They are the repository's shared review
+state: whoever reviews the chapter reads the same notes, and they leave with the
+change that resolves them.
+
+A review note is never read as what the chapter says. An open question about
+whether a rule still holds is not the rule, so anything the app hands on as the
+chapter's content — to an assistant, to search, to an excerpt — leaves the notes
+out, together with where the chapter's review stands.
+
+The app shows these notes and does not write them; the convention's own tooling
+does. They are also not the reader's [remarks](#remarks-on-a-chapter): a remark
+is the person's own and stays in the app, a review note is the repository's and
+stays in the chapter, and the two are shown apart and never merged — the
+decision local ADR 0011 records.
 
 ### A devbook that stays current
 

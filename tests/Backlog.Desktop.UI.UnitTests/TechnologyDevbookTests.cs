@@ -137,6 +137,70 @@ public sealed class TechnologyDevbookReaderTests
         Assert.Contains(view.Graph.Edges, edge => edge.Source == ".tech/shared.md#net" && edge.Target == ".tech/desktop.md#blazor" && edge.Label == "depends on");
     }
 
+    [Fact]
+    public void A_nodes_kind_is_read_from_type_first_and_from_the_legacy_kind_second()
+    {
+        // The corpus writes `type`, the field contract 16 names; `kind` is the old
+        // `.tech` spelling the convention still parses. Reading only `kind` left
+        // every current chapter a generic "technology".
+        using var workspace = TestWorkspace.Create();
+        var techPath = Path.Combine(workspace.RepositoryPath, ".tech");
+        Directory.CreateDirectory(techPath);
+        WriteTechReadingOrder(techPath, "shared.md");
+        File.WriteAllText(Path.Combine(techPath, "technology-graph.md"), """
+            # Technology graph
+            ```meta
+            status: adopted
+            ```
+            """);
+        File.WriteAllText(Path.Combine(techPath, "shared.md"), """
+            # Shared Technologies
+            ```meta
+            status: adopted
+            ```
+
+            ## Markdig
+            ```meta
+            status: adopted
+            type: library
+            ```
+
+            Markdown parser.
+
+            ## .NET
+            ```meta
+            status: adopted
+            kind: runtime
+            ```
+
+            Cross-platform runtime.
+
+            ## Both
+            ```meta
+            status: adopted
+            type: tool
+            kind: runtime
+            ```
+
+            Written mid-rename.
+
+            ## Neither
+            ```meta
+            status: adopted
+            ```
+
+            Not classified.
+            """);
+
+        var view = TechnologyDevbookReader.Read(new DevbookFolderLocation(".tech", true, null, null, null, techPath));
+
+        var kinds = view.Layers.Single().Nodes.ToDictionary(node => node.Label, node => node.Kind);
+        Assert.Equal("library", kinds["Markdig"]);
+        Assert.Equal("runtime", kinds[".NET"]);
+        Assert.Equal("tool", kinds["Both"]);
+        Assert.Equal("technology", kinds["Neither"]);
+    }
+
 
     [Fact]
     public async Task Updates_layer_and_node_status_metadata()

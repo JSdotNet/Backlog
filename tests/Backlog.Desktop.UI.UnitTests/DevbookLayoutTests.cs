@@ -102,9 +102,11 @@ public sealed class DevbookLayoutTests : IDisposable
         Assert.Equal(".devbook/arc42/adr/0001-use-sqlite.md", document.Path);
         Assert.Equal(1, catalog.DecisionRecordCount);
 
-        await knowledge.UpdateStatusAsync("backlog", document.Path, "accepted", TestContext.Current.CancellationToken);
+        // `deprecated` rather than `accepted`: under contract 16 `accepted` is a
+        // decision rung, domain/'s alone, and the writer refuses it in arc42/.
+        await knowledge.UpdateStatusAsync("backlog", document.Path, "deprecated", TestContext.Current.CancellationToken);
 
-        Assert.Contains("status: accepted", File.ReadAllText(Path.Combine(arc42, "adr", "0001-use-sqlite.md")), StringComparison.Ordinal);
+        Assert.Contains("status: deprecated", File.ReadAllText(Path.Combine(arc42, "adr", "0001-use-sqlite.md")), StringComparison.Ordinal);
     }
 
     /// <summary>Remarks already synced are keyed <c>.arc42/…</c>; a folder moving

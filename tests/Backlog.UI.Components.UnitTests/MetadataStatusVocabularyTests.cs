@@ -61,12 +61,21 @@ public sealed class MetadataStatusVocabularyTests
         {
             var vocabulary = DevbookStatus.Vocabulary(folder);
 
-            foreach (var status in DevbookStatus.Values(folder))
+            foreach (var status in DevbookStatus.Values(folder).Concat(DevbookStatus.RecognisedOnly(folder)))
             {
-                Assert.True(vocabulary.Offers(status));
+                // Every word but two kinds is offered: the resting value of a
+                // folder that spells it by omission, whose option is the empty
+                // one, and domain/'s decision rungs, which are never picked.
+                var offered = status != vocabulary.RestingValue && !DevbookSchema.IsDecisionRung(status);
+                Assert.Equal(offered, vocabulary.Offers(status));
                 Assert.True(vocabulary.Recognises(status));
                 Assert.False(vocabulary.IsUnrecognised(status));
-                Assert.Null(vocabulary.Expectation(status));
+
+                // The resting value written out is the one recognised word with
+                // something to say about it — see
+                // The_resting_value_written_out_keeps_its_tone_and_says_how_it_is_written.
+                if (status == vocabulary.RestingValue) Assert.NotNull(vocabulary.Expectation(status));
+                else Assert.Null(vocabulary.Expectation(status));
 
                 // Not the empty string: every value of every vocabulary has a
                 // tone, so a bare `badge--status` would mean a word fell through
@@ -213,7 +222,16 @@ public sealed class MetadataStatusVocabularyTests
             var vocabulary = DevbookStatus.Vocabulary(folder);
             foreach (var value in vocabulary.Values)
             {
-                Assert.True(vocabulary.Selectable(value));
+                // Except the resting value spelled out, which contract 16 made
+                // the one word of a list that is not an option: its option is
+                // the empty one, and `status: active` keeps the badge that says
+                // how it is written.
+                Assert.Equal(value != vocabulary.RestingValue, vocabulary.Selectable(value));
+            }
+
+            foreach (var rung in vocabulary.RecognisedOnly)
+            {
+                Assert.False(vocabulary.Selectable(rung));
             }
 
             // And a typo still is not, so it keeps falling through to the pill
@@ -225,17 +243,102 @@ public sealed class MetadataStatusVocabularyTests
     [Fact]
     public void The_options_lead_with_no_status_only_where_none_is_allowed()
     {
+        // Under contract 9 this read "No status", "draft", "active",
+        // "deprecated": two options for one state. Contract 16 spells `active` by
+        // omitting the field, so the empty option is `active`, and the word is
+        // not offered a second time.
         Assert.Equal(
-            ["No status", "draft", "active", "deprecated"],
+            ["active", "draft", "deprecated"],
             DevbookStatus.Vocabulary(DevbookFolder.Design).Options().Select(option => option.Label));
 
         // Value empty, because that is what a browser hands back for an option
         // with no value — there is no sentinel to translate out of later.
-        Assert.Equal(string.Empty, DevbookStatus.Vocabulary(DevbookFolder.Design).Options()[0].Value);
+        Assert.Equal(
+            [string.Empty, "draft", "deprecated"],
+            DevbookStatus.Vocabulary(DevbookFolder.Design).Options().Select(option => option.Value));
 
         Assert.Equal(
             DevbookStatus.Values(DevbookFolder.Tech),
             DevbookStatus.Vocabulary(DevbookFolder.Tech).Options().Select(option => option.Value).ToList());
+    }
+
+    [Theory]
+    [InlineData(DevbookFolder.Arc42, "active,draft,proposed,deprecated")]
+    [InlineData(DevbookFolder.Domain, "active,draft,proposed,deprecated")]
+    [InlineData(DevbookFolder.Design, "active,draft,deprecated")]
+    public void A_resting_folder_offers_its_resting_value_once_as_the_empty_option(DevbookFolder folder, string labels)
+    {
+        var options = DevbookStatus.Vocabulary(folder).Options();
+
+        Assert.Equal(labels.Split(','), options.Select(option => option.Label));
+        Assert.Equal(DevbookSchema.RestingStatus, options[0].Label);
+        Assert.Equal(string.Empty, options[0].Value);
+        Assert.DoesNotContain(options, option => option.Value == DevbookSchema.RestingStatus);
+    }
+
+    [Fact]
+    public void A_generic_surface_that_allows_none_still_leads_with_no_status()
+    {
+        // The resting label is a knowledge folder's fact. A caller that allows
+        // none and names no resting value keeps the plain "No status" entry.
+        var vocabulary = new MetadataStatusVocabulary(["open", "closed"], allowsNone: true);
+
+        Assert.Equal(["No status", "open", "closed"], vocabulary.Options().Select(option => option.Label));
+        Assert.Null(vocabulary.RestingValue);
+    }
+
+    [Fact]
+    public void The_resting_value_written_out_keeps_its_tone_and_says_how_it_is_written()
+    {
+        // The "reported" case: right state, wrong spelling. Not a typo — it keeps
+        // `active`'s modifier and no flag — but not offered either, and the title
+        // says the value is written by omitting the field.
+        var vocabulary = DevbookStatus.Vocabulary(DevbookFolder.Domain);
+
+        Assert.True(vocabulary.Recognises("active"));
+        Assert.False(vocabulary.IsUnrecognised("active"));
+        Assert.False(vocabulary.Offers("active"));
+        Assert.Equal("active", vocabulary.SlugFor("active"));
+        Assert.Contains("omitting the status field", vocabulary.Expectation("active"), StringComparison.Ordinal);
+
+        // A rating folder has no resting value, so `adopted` there is an ordinary
+        // offered word with nothing to say about it.
+        Assert.Null(DevbookStatus.Vocabulary(DevbookFolder.Tech).Expectation("adopted"));
+    }
+
+    [Fact]
+    public void A_blank_in_a_resting_folder_wears_the_resting_tone()
+    {
+        // The select a chapter with no status shows reads `active`, so it wears
+        // `active`'s badge rather than the "no opinion" one.
+        foreach (var folder in new[] { DevbookFolder.Arc42, DevbookFolder.Domain, DevbookFolder.Design })
+        {
+            Assert.Equal("active", DevbookStatus.Vocabulary(folder).SlugFor(null));
+        }
+    }
+
+    [Fact]
+    public void Words_recognised_and_not_offered_wear_their_tone_and_are_never_options()
+    {
+        var asked = new List<string>();
+        var vocabulary = new MetadataStatusVocabulary(
+            ["draft", "live"],
+            status =>
+            {
+                asked.Add(status);
+                return status == "signed-off" ? "done" : "active";
+            },
+            recognisedOnly: ["signed-off"]);
+
+        Assert.True(vocabulary.Recognises("signed-off"));
+        Assert.False(vocabulary.IsUnrecognised("signed-off"));
+        Assert.False(vocabulary.Offers("signed-off"));
+        Assert.False(vocabulary.Selectable("signed-off"));
+        Assert.Equal("done", vocabulary.SlugFor("signed-off"));
+        Assert.DoesNotContain(vocabulary.Options(), option => option.Value == "signed-off");
+
+        // And a typo names it among the words that were expected, since it is one.
+        Assert.Equal("Unexpected status. Expected one of: draft, live, signed-off.", vocabulary.Expectation("signed"));
     }
 
     [Fact]
@@ -254,7 +357,9 @@ public sealed class MetadataStatusVocabularyTests
             Assert.False(vocabulary.IsUnrecognised(null));
             Assert.False(vocabulary.IsUnrecognised("   "));
 
-            Assert.Equal(string.Empty, vocabulary.SlugFor(string.Empty));
+            // No modifier, except where a blank states the resting value and so
+            // wears its tone — see A_blank_in_a_resting_folder_wears_the_resting_tone.
+            Assert.Equal(vocabulary.RestingValue is null ? string.Empty : "active", vocabulary.SlugFor(string.Empty));
             Assert.Null(vocabulary.Expectation(string.Empty));
         }
     }

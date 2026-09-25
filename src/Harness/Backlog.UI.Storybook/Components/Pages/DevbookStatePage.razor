@@ -9,7 +9,9 @@
     <Story Name="Six folders, one scale, and both forms of a status"
            Description="Six folders, five vocabularies, one tone scale under all of them. Read a row for one folder's whole vocabulary and a column for the words the folders spell the same tone with. `.ai` is the row that repeats one: it rates a way of working with a technology on the ladder `.tech` rates the technology on, deliberately the same five words, so a tool can be `adopted` in `.tech` while its use at one stage is still `trial` — and a reader needs only one vocabulary to see that.
 
-Both forms are here: `DevbookStatusPill` for a status that is only being shown, and the select for one that can be changed."
+Both forms are here: `DevbookStatusPill` for a status that is only being shown, and the select for one that can be changed.
+
+Two kinds of cell keep the badge on both sides. `.domain`'s decision rungs, `approved` and `accepted`, are real states with tones of their own and are never offered — the approval gate writes them. And `active` in `.arc42`, `.domain` and `.design` is the resting value, spelled by leaving the field out: the select offers it as its empty option, so a file that writes the word out gets the badge, titled with how it is meant to be written."
            Code="@ValuesCode">
         <div class="sb-table-scroll" data-testid="devbook-state-matrix">
             <table class="sb-table">
@@ -106,6 +108,65 @@ It stays the same badge as every other status here, flagged by a dashed border r
                                    TestId="devbook-state-unrecognised-blind" />
             </div>
         </div>
+    </Story>
+
+    <Story Name="Decision rungs, and the resting value spelled by omission"
+           Description="Two contract-16 rules, both about what a select may offer.
+
+`.domain` alone has two decision rungs above its ladder: `approved`, a person agreed the chapter, and `accepted`, a person accepted what was built against it. They are recognised there — each wears its tone, nothing is flagged — and never offered, because a rung is written by the approval gate together with the record that signs and dates it, not picked from a list. The same word in `.arc42` or `.tech` is not in that folder's vocabulary and is flagged like any other.
+
+`.arc42`, `.domain` and `.design` rest at `active`, and the rule spells it by omitting the field. So the select offers `active` once, as its empty option: picking it removes the line. A chapter that writes `status: active` out is the right state in the spelling the convention reports — it keeps `active`'s tone, is not flagged, and its title says how the value is written. `.tech` and `.ai` require a status, and their select has no empty option at all."
+           Code="@RungsCode">
+        <dl class="sb-grid" data-testid="devbook-state-rungs">
+            @foreach (var rung in DevbookSchema.DecisionRungs)
+            {
+                <div class="sb-stack">
+                    <dt class="sb-label">.domain — @rung, recognised and not offered</dt>
+                    <dd class="sb-row">
+                        <MetadataView Metadata="@RungMetadata[rung]"
+                                      Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder.Domain)"
+                                      AriaLabel="@($".domain {rung} status")"
+                                      TestId="@($"devbook-state-rung-domain-{rung}")" />
+                    </dd>
+                </div>
+            }
+            @foreach (var folder in new[] { DevbookFolder.Arc42, DevbookFolder.Tech })
+            {
+                <div class="sb-stack">
+                    <dt class="sb-label">@FolderName(folder) — accepted, which has no rungs</dt>
+                    <dd class="sb-row">
+                        <DevbookStatusPill Status="accepted"
+                                           Folder="@folder"
+                                           TestId="@($"devbook-state-rung-{Slug(folder)}-accepted")" />
+                    </dd>
+                </div>
+            }
+        </dl>
+        <p class="sb-state" data-testid="devbook-state-rung-options">@DomainOptionsSummary</p>
+
+        <dl class="sb-grid" data-testid="devbook-state-resting">
+            @foreach (var folder in RestingFolders)
+            {
+                <div class="sb-stack">
+                    <dt class="sb-label">@FolderName(folder) — no status stated</dt>
+                    <dd class="sb-row">
+                        <MetadataView Metadata="@MetadataRecord.Empty"
+                                      Vocabulary="@DevbookStatus.Vocabulary(folder)"
+                                      AriaLabel="@($"{FolderName(folder)} status")"
+                                      TestId="@($"devbook-state-resting-{Slug(folder)}")" />
+                    </dd>
+                </div>
+            }
+            <div class="sb-stack">
+                <dt class="sb-label">.design — status: active, written out</dt>
+                <dd class="sb-row">
+                    <MetadataView Metadata="@ExplicitActive"
+                                  Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder.Design)"
+                                  AriaLabel=".design status"
+                                  TestId="devbook-state-resting-reported" />
+                </dd>
+            </div>
+        </dl>
     </Story>
 
     <Story Name="A folder is one vocabulary, not the only one"
@@ -225,16 +286,41 @@ Derive the folder rather than asking for it: `DevbookFolders.FromPath` answers f
     /// <summary>Every value of every folder, read out of DevbookStatus rather
     /// than restated here, so the matrix cannot disagree with the component
     /// beside it. The pill and the select in a cell are both drawn from this one
-    /// entry, which is what makes them a comparison rather than two claims.</summary>
+    /// entry, which is what makes them a comparison rather than two claims. The
+    /// words a folder recognises and never offers — <c>.domain</c>'s rungs — are
+    /// in it too, which is how they land in their tone's column.</summary>
     private static readonly IReadOnlyList<StatusCell> Cells =
     [
-        .. Folders.SelectMany(folder => DevbookStatus.Values(folder).Select(value =>
+        .. Folders.SelectMany(folder => DevbookStatus.Values(folder).Concat(DevbookStatus.RecognisedOnly(folder)).Select(value =>
             new StatusCell(
                 folder,
                 value,
                 DevbookStatus.Tone(folder, value),
                 MetadataReader.Parse($"status: {value}"))))
     ];
+
+    private static readonly IReadOnlyList<DevbookFolder> RestingFolders =
+        [.. Folders.Where(DevbookSchema.RestsByOmission)];
+
+    /// <summary>A domain chapter at each rung, with the record the rule has the
+    /// approval gate write beside it. Held once, for the reason the matrix's cells
+    /// are.</summary>
+    private static readonly IReadOnlyDictionary<string, MetadataRecord> RungMetadata = new Dictionary<string, MetadataRecord>
+    {
+        ["approved"] = MetadataReader.Parse("type: feature\nstatus: approved\napproved-by: jobsc\napproved-at: 2026-09-01"),
+        ["accepted"] = MetadataReader.Parse("type: feature\nstatus: accepted\napproved-by: jobsc\napproved-at: 2026-09-01\naccepted-by: jobsc\naccepted-at: 2026-09-20")
+    };
+
+    private static readonly MetadataRecord ExplicitActive = MetadataReader.Parse("status: active");
+
+    /// <summary>What the <c>.domain</c> select offers, evaluated rather than
+    /// restated: the empty option labelled with the resting value, the ladder
+    /// without it, and no rung.</summary>
+    private static string DomainOptionsSummary =>
+        "The .domain select offers: "
+        + string.Join(", ", DevbookStatus.Vocabulary(DevbookFolder.Domain).Options()
+            .Select(option => option.Value.Length == 0 ? $"{option.Label} (no status)" : option.Label))
+        + ".";
 
     private const string TypoBlock = """
         status: activ
@@ -259,7 +345,8 @@ Derive the folder rather than asking for it: `DevbookFolders.FromPath` answers f
     private static readonly IReadOnlyList<Verdict> Verdicts =
     [
         new(".design — active is in force", DevbookFolder.Design, "active",
-            "Known, tone Active.", "devbook-state-active-design"),
+            "Known, tone Active — and titled as reported, since .design writes its resting value by leaving the field out.",
+            "devbook-state-active-design"),
 
         new(".tech — the same rung is called adopted", DevbookFolder.Tech, "adopted",
             "Known, tone Active — a different word for the same place on the scale.",
@@ -377,6 +464,26 @@ Derive the folder rather than asking for it: `DevbookFolders.FromPath` answers f
         }
 
         <MetadataStatusBadge Status="@release.Status" Vocabulary="@Shipping" />
+        """;
+
+    private const string RungsCode = """
+        @* A rung in .domain: recognised, drawn in its tone, never an option. The
+           record shows the badge, because the select has nothing to show it with. *@
+        <MetadataView Metadata="@MetadataReader.Parse("status: accepted")"
+                      Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder.Domain)" />
+
+        @* The same word where the folder has no rungs: flagged. *@
+        <DevbookStatusPill Status="accepted" Folder="DevbookFolder.Arc42" />
+
+        @* No status in a resting folder: the select, on its empty option, which
+           reads `active`. Picking it sends null, and the host removes the line. *@
+        <MetadataView Metadata="@MetadataRecord.Empty"
+                      Vocabulary="@DevbookStatus.Vocabulary(DevbookFolder.Design)"
+                      OnStatusChanged="@(status => status is null ? RemoveAsync() : WriteAsync(status))" />
+
+        @* A vocabulary of your own can do both: words it recognises and never
+           offers, and a word that stating nothing stands for. *@
+        new MetadataStatusVocabulary(values, slugFor, recognisedOnly: ["signed-off"], restingValue: "live");
         """;
 
     private const string UnrecognisedCode = """

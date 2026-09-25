@@ -6565,6 +6565,23 @@ h1, h2, h3 {
     color: var(--color-primary);
 }
 
+/* An `ext.<plugin>.<key>` field: carried through untouched and owned by a
+   plugin, not the schema. Still a chip — opaque is not absent — but dashed, so it
+   does not read as one of the convention's own fields. */
+.domain-metadata__item--extension {
+    background: transparent;
+    outline: 1px dashed var(--color-border);
+    outline-offset: -1px;
+}
+
+/* A chapter's decision and review state, beside its status: "approved by X ·
+   date", "review: requested · reviewer Y". Quiet text rather than a badge,
+   because the badge beside it is already the state; this is who and when. */
+.domain-devbook__decision {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
 .domain-metadata__link {
     appearance: none;
     background: transparent;

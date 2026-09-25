@@ -2158,6 +2158,93 @@ button.md-check {
     margin: 0;
 }
 
+/*
+   Decision and review state, beside the status it qualifies — "approved by ana on
+   2026-09-17", "review: requested · reviewer bo". Quieter than the status on
+   purpose: it answers who and when, and the pill beside it answers what.
+
+   It follows the status, so the status's auto margin has already taken it to the
+   right edge. With no status on the line — a resting domain/ chapter under review —
+   it takes that margin itself, for the same reason the pill does: the right edge is
+   a relationship with the heading. It may shrink and wrap, the pill may not.
+*/
+.devbook-record__state {
+    display: inline-flex;
+    flex: 0 1 auto;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-2xs) var(--spacing-xs);
+    min-width: 0;
+}
+
+.devbook-record__headline > .devbook-record__state:not(:first-child) {
+    margin-inline-start: auto;
+}
+
+.devbook-record__headline > .badge--status + .devbook-record__state {
+    margin-inline-start: 0;
+}
+
+/* Outlined and unfilled, the classification treatment: a signature and a date are
+   not something the product acts on, and must not compete with the status. The
+   review statement is dashed because it is the one still in motion. */
+.badge--decision {
+    background: transparent;
+    color: var(--color-text-secondary);
+    border: var(--border-width) solid var(--color-border);
+    padding-left: var(--spacing-xs);
+    padding-right: var(--spacing-xs);
+    font-size: var(--font-size-xs);
+    white-space: normal;
+}
+
+.badge--decision-review {
+    border-style: dashed;
+}
+
+/*
+   What the convention reports about a block, between its headline and its fields.
+   One compact line per finding: the severity as a word on its tone, the field it
+   names in the value face, then one sentence.
+*/
+.devbook-findings {
+    display: grid;
+    gap: var(--spacing-2xs);
+    margin: var(--spacing-2xs) 0 0;
+    padding: 0;
+    list-style: none;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.devbook-findings__item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-2xs) var(--spacing-xs);
+    min-width: 0;
+}
+
+.devbook-findings__message {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+/* Tone on a surface with text-primary on it, the rule the semantic colours are
+   sanctioned for; the word inside says the same thing for anyone the colour does
+   not reach. */
+.badge--finding {
+    color: var(--color-text-primary);
+    padding-left: var(--spacing-xs);
+    padding-right: var(--spacing-xs);
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.badge--finding-warning { background: var(--color-warning); }
+.badge--finding-error { background: var(--color-error); }
+
 .devbook-fields {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
@@ -2506,6 +2593,129 @@ button.md-check {
    every heading level. */
 .devbook-type-marker--leads {
     margin-right: 0.38em;
+}
+
+/* --- Devbook review note ------------------------------------------------- */
+/*
+   A devbook `annotation` fence, drawn by DevbookAnnotationNote: shared review
+   state kept in the chapter, never the person's own remark. The remark is a ruled
+   list in the margin (.md-comments); this is a card with a label, so the two are
+   never mistaken for each other on one page.
+
+   Existing tokens only, as color-scheme.md requires of anything new. The one
+   accent is the brand edge down the left of an open note — someone is waiting on
+   it — and a resolved note gives it up for the plain border and goes quiet, the
+   same way a resolved remark does: still legible, no longer asking for anything.
+*/
+.devbook-note {
+    margin: 0 0 var(--spacing-sm);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background: var(--color-background-alt);
+    border: var(--border-width) solid var(--color-border);
+    border-left: var(--border-width-2) solid var(--color-primary);
+    border-radius: var(--border-radius-sm);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+/* Position is the anchor: the note is about the block directly above it, so it
+   is drawn tucked under that block and indented from it rather than as a block
+   of its own. */
+.devbook-note--attached {
+    margin-top: calc(var(--spacing-xs) * -1);
+    margin-left: var(--spacing-md);
+}
+
+.devbook-note--resolved {
+    border-left-color: var(--color-border);
+    border-style: dashed;
+    opacity: 0.65;
+}
+
+.devbook-note__head,
+.devbook-note__who {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+    margin: 0 0 var(--spacing-2xs);
+    font-size: var(--font-size-xs);
+}
+
+.devbook-note__label {
+    color: var(--color-text-primary);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.devbook-note__author {
+    color: var(--color-text-primary);
+}
+
+.devbook-note__date {
+    color: var(--color-text-disabled);
+}
+
+.devbook-note__quote {
+    margin: 0 0 var(--spacing-2xs);
+    padding-left: var(--spacing-sm);
+    border-left: var(--border-width) solid var(--color-border-strong);
+    font-style: italic;
+}
+
+/* The body is markdown drawn by the library's own block renderer, so its blocks
+   bring their own bottom margins; the last one gives its back to the card. */
+.devbook-note__body > :last-child {
+    margin-bottom: 0;
+}
+
+.devbook-note__none {
+    margin: 0;
+    color: var(--color-text-disabled);
+    font-style: italic;
+}
+
+.devbook-note__replies {
+    margin: var(--spacing-xs) 0 0;
+    padding: 0 0 0 var(--spacing-sm);
+    border-left: var(--border-width) solid var(--color-border);
+    list-style: none;
+}
+
+.devbook-note__reply + .devbook-note__reply {
+    margin-top: var(--spacing-xs);
+}
+
+/* Kind is a classification out of a closed set, drawn outlined like .badge--kind.
+   A kind outside the set keeps its word and gains the dashed edge an
+   unrecognised status wears. */
+.badge--note-kind {
+    background: transparent;
+    color: var(--color-text-secondary);
+    border: var(--border-width) solid var(--color-border);
+    padding-left: var(--spacing-xs);
+    padding-right: var(--spacing-xs);
+}
+
+.badge--note-kind-unknown {
+    border-style: dashed;
+}
+
+.badge--note-state {
+    padding-left: var(--spacing-xs);
+    padding-right: var(--spacing-xs);
+}
+
+.badge--note-state-open {
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+}
+
+.badge--note-state-resolved {
+    background: transparent;
+    color: var(--color-text-disabled);
+    border: var(--border-width) solid var(--color-border);
 }
 
 /* --- Capture kind marker ------------------------------------------------ */

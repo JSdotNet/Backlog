@@ -21,13 +21,14 @@ public enum DevbookStatusTone
     /// <summary>Written down but not agreed — <c>draft</c>, <c>trial</c>.</summary>
     Provisional,
 
-    /// <summary>Agreed and waiting — <c>proposed</c>, <c>ready</c>, <c>candidate</c>.</summary>
+    /// <summary>Agreed and waiting — <c>proposed</c>, <c>ready</c>, <c>candidate</c>,
+    /// and <c>domain/</c>'s <c>approved</c>.</summary>
     Planned,
 
     /// <summary>Live and current — <c>active</c>, <c>in-progress</c>, <c>adopted</c>.</summary>
     Active,
 
-    /// <summary>Finished — <c>done</c>.</summary>
+    /// <summary>Finished — <c>done</c>, and <c>domain/</c>'s <c>accepted</c>.</summary>
     Complete,
 
     /// <summary>Stuck or being avoided — <c>blocked</c>, <c>hold</c>.</summary>
@@ -95,9 +96,20 @@ public static class DevbookStatus
     /// resolver. The resolver is only ever asked about a value the vocabulary
     /// recognises — the unrecognised case belongs to
     /// <see cref="MetadataStatusVocabulary"/> — so this is the tone mapping and
-    /// nothing else.</summary>
+    /// nothing else.
+    ///
+    /// <para>The two contract-16 additions arrive the same way. The decision rungs
+    /// go in as words recognised and never offered, and the resting value as the
+    /// word the empty option stands for — both taken from
+    /// <see cref="DevbookSchema"/> rather than restated, so the folder that rests
+    /// and the folder that has rungs are decided in one place.</para></summary>
     private static MetadataStatusVocabulary For(DevbookFolder folder) =>
-        new(Values(folder), status => Modifier(Tone(folder, status)), AllowsNone(folder));
+        new(
+            Values(folder),
+            status => Modifier(Tone(folder, status)),
+            AllowsNone(folder),
+            recognisedOnly: RecognisedOnly(folder),
+            restingValue: DevbookSchema.RestsByOmission(folder) ? DevbookSchema.RestingStatus : null);
 
     /// <summary>
     /// Whether the folder lets a chapter state no status at all.
@@ -111,12 +123,29 @@ public static class DevbookStatus
     /// in <c>.backlog</c> a work state; there every value is a claim the reader
     /// needs, and an absent one would be indistinguishable from <c>candidate</c>
     /// or from untracked. So those three keep it required.</para>
+    ///
+    /// <para>Contract 16 states the same split as a rule — the editorial folders
+    /// rest at <c>active</c> by omission, the rating folders require the field —
+    /// so it is asked of <see cref="DevbookSchema.RestsByOmission"/> rather than
+    /// kept as a second list here. <c>.backlog</c> is in neither of the rule's
+    /// rows and keeps its status required.</para>
     /// </summary>
-    private static bool AllowsNone(DevbookFolder folder) => folder switch
-    {
-        DevbookFolder.Arc42 or DevbookFolder.Domain or DevbookFolder.Design => true,
-        _ => false
-    };
+    private static bool AllowsNone(DevbookFolder folder) => DevbookSchema.RestsByOmission(folder);
+
+    /// <summary>
+    /// The words a folder recognises and never offers: <c>domain/</c>'s two
+    /// decision rungs, and nothing anywhere else.
+    ///
+    /// <para>Kept out of <see cref="Values"/> because that list is what a select
+    /// offers and what the installed generator's <c>STATUS_BY_FOLDER</c> is pinned
+    /// against. A rung is not a step a reader takes: the approval gate writes it
+    /// together with the record that signs and dates it. Outside <c>domain/</c> the
+    /// rule says a rung is not in the folder's vocabulary at all, so there it is
+    /// unrecognised and flagged like any other word the folder never
+    /// defined.</para>
+    /// </summary>
+    public static IReadOnlyList<string> RecognisedOnly(DevbookFolder folder) =>
+        DevbookSchema.AllowsDecisionRungs(folder) ? DevbookSchema.DecisionRungs : [];
 
     /// <summary>Which of the application's status badges a tone wears.
     ///
@@ -152,14 +181,16 @@ public static class DevbookStatus
         _ => []
     };
 
-    /// <summary>Whether a status is one the folder recognises. Trimmed and
-    /// case-insensitive: a stray capital is not a different status.</summary>
+    /// <summary>Whether a status is one the folder recognises — one of its
+    /// <see cref="Values"/>, or one of the words it recognises and never offers.
+    /// Trimmed and case-insensitive: a stray capital is not a different
+    /// status.</summary>
     public static bool IsKnown(DevbookFolder folder, string? status)
     {
         if (string.IsNullOrWhiteSpace(status)) return false;
 
         var value = status.Trim();
-        foreach (var known in Values(folder))
+        foreach (var known in Values(folder).Concat(RecognisedOnly(folder)))
         {
             if (known.Equals(value, StringComparison.OrdinalIgnoreCase)) return true;
         }
@@ -188,6 +219,15 @@ public static class DevbookStatus
                 "proposed" when folder is not DevbookFolder.Design => DevbookStatusTone.Planned,
                 "active" => DevbookStatusTone.Active,
                 "deprecated" => DevbookStatusTone.Retired,
+                // The decision rungs, domain/'s alone. `approved` is a specification
+                // a person agreed and nothing has been built against yet — "agreed
+                // and waiting" is exactly what Planned says, and it sits beside
+                // `proposed` on purpose: both are the chapter's content waiting on
+                // work, one asked for and one granted. `accepted` is the build
+                // judged against it, the one state in this folder that is
+                // finished, so it takes Complete — the tone `.backlog` gives `done`.
+                "approved" when folder is DevbookFolder.Domain => DevbookStatusTone.Planned,
+                "accepted" when folder is DevbookFolder.Domain => DevbookStatusTone.Complete,
                 _ => DevbookStatusTone.Unknown
             },
             DevbookFolder.Backlog => value switch

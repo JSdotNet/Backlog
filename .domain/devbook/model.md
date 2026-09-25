@@ -86,3 +86,109 @@ classDiagram
   to. Neither draws an edge: `Tag` groups notes here, and `RoadmapContribution`
   *names* a roadmap item rather than *addressing* a chapter, so — like an alias —
   it stays a node attribute and produces no cross-reference in the knowledge graph.
+
+## Chapter metadata the panels read
+
+A repository devbook chapter is not a `KnowledgeNote`: it is a file this context
+reads and never owns (see [Repository devbook areas](features.md#repository-devbook-areas)).
+What the panels read off one is modelled here because it is what they show, and
+because three of its parts are easy to confuse.
+
+```mermaid
+classDiagram
+    class ChapterMetadata {
+        <<value object>>
+        +String status
+        +String type
+        +References related
+        +String issue
+        +Integer effort
+        +Slugs roadmap
+        +TestIds tests
+        +Date date
+        +Integer number
+        +String index
+        +String deployment
+    }
+    class DecisionState {
+        <<value object>>
+        +String approved_by
+        +Date approved_at
+        +String approved_hash
+        +String accepted_by
+        +Date accepted_at
+        +String accepted_hash
+    }
+    class ReviewState {
+        <<value object>>
+        +ReviewStep review
+        +String reviewer
+        +Date review_at
+    }
+    class ExtensionState {
+        <<value object>>
+        +Map ext
+    }
+    class ReviewNote {
+        <<value object>>
+        +String author
+        +Date date
+        +NoteKind kind
+        +NoteStatus status
+        +String quote
+        +String body
+        +Replies replies
+    }
+    class Remark {
+        <<aggregate root>>
+    }
+    class ReviewStep {
+        <<enumeration>>
+        requested
+        changes-requested
+        cleared
+    }
+    class NoteKind {
+        <<enumeration>>
+        comment
+        question
+        suggestion
+        flag
+    }
+    class NoteStatus {
+        <<enumeration>>
+        open
+        resolved
+    }
+
+    ChapterMetadata "1" *-- "0..1" DecisionState : domain chapters only
+    ChapterMetadata "1" *-- "0..1" ReviewState : on the way to a decision
+    ChapterMetadata "1" *-- "0..1" ExtensionState : carried, never read
+    ReviewState --> ReviewStep
+    ReviewNote --> NoteKind
+    ReviewNote --> NoteStatus
+```
+
+- **`status` is folder-relative, and absent is a value.** In the architecture,
+  domain and design areas an absent status *is* `active`, the resting state,
+  and the panels write it by removing the line. In the technology and AI areas
+  it is a rating and always present. The domain area alone adds two decision
+  steps above the ladder, `approved` and `accepted`.
+- **`DecisionState` and `ReviewState` are state, not content.** They sit in the
+  chapter's `meta` block but describe the road to a decision, so the panels draw
+  them beside the status and hand none of them on as what the chapter says.
+  `DecisionState` exists only while its step stands and leaves with it;
+  `ReviewState` is replaced by `DecisionState` when approval is written. Neither
+  is legal outside the domain area.
+- **`type` is folder-relative too.** Domain, technology and AI chapters each
+  draw from their own set; architecture and design define none. A domain
+  context's additional page takes its own filename as its type.
+- **`ExtensionState` belongs to whoever wrote it.** Keys under `ext.` are
+  carried through verbatim and never validated or interpreted here.
+- **`ReviewNote` and `Remark` are two things on purpose.** A `ReviewNote` is an
+  `annotation` fence in the chapter file: the repository's shared review state,
+  read-only here, attached to the passage above it, and never chapter content.
+  A `Remark` is the person's own note on a block, owned and replicated by this
+  context — local ADR 0011 (`.arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md`)
+  records why the two are kept apart and why neither is converted into the
+  other.

@@ -3,7 +3,8 @@ using AngleSharp.Dom;
 namespace Backlog.UI.Components.UnitTests;
 
 /// <summary>
-/// The eighteen domain-type marks.
+/// The domain-type marks: every value of contract 16's two `.domain` sets, and
+/// the generic sheet an additional page draws.
 ///
 /// <para>Three properties carry the whole component and each is pinned here. It
 /// draws something for every value the vocabulary publishes, so a value added to
@@ -28,12 +29,16 @@ public sealed class DevbookTypeMarkerTests
     {
         using var context = new BunitContext();
 
-        // Eighteen, and the count is asserted so a value quietly dropped from one
-        // of the two sets cannot make this pass by having less to check.
-        Assert.Equal(11, DevbookTypeMarkers.ChapterTypes.Count);
-        Assert.Equal(7, DevbookTypeMarkers.FileTypes.Count);
-        Assert.Equal(18, DevbookTypeMarkers.All.Count);
-        Assert.Equal(18, DevbookTypeMarkers.All.Distinct(StringComparer.OrdinalIgnoreCase).Count());
+        // Contract 16's sets, and the counts are asserted so a value quietly
+        // dropped from one of them cannot make this pass by having less to check.
+        // Twenty-two and eleven make thirty-one, not thirty-three: `requirements`
+        // and `invariants` are in both sets with one meaning, so the union lists
+        // each once. (Contract 9 was eleven and seven, all distinct, with `naming`
+        // among the files — see Naming_is_an_additional_page_not_a_file_type.)
+        Assert.Equal(22, DevbookTypeMarkers.ChapterTypes.Count);
+        Assert.Equal(11, DevbookTypeMarkers.FileTypes.Count);
+        Assert.Equal(31, DevbookTypeMarkers.All.Count);
+        Assert.Equal(31, DevbookTypeMarkers.All.Distinct(StringComparer.OrdinalIgnoreCase).Count());
 
         foreach (var value in DevbookTypeMarkers.All)
         {
@@ -106,13 +111,105 @@ public sealed class DevbookTypeMarkerTests
         // broken — the caller goes on showing the plain word.
         using var context = new BunitContext();
 
-        foreach (var value in new[] { "policy-fragment", "kind", "invariant", "aggregate-root" })
+        // `invariant` used to be in this list; contract 16 made it a chapter type,
+        // and `naming` fell out of the file set the same way the other way round.
+        foreach (var value in new[] { "policy-fragment", "kind", "naming", "skill", "aggregate-root" })
         {
             var marker = context.Render<DevbookTypeMarker>(parameters => parameters
                 .Add(mark => mark.Value, value));
 
             Assert.Equal(string.Empty, marker.Markup.Trim());
         }
+    }
+
+    [Fact]
+    public void Requirements_and_invariants_are_one_glyph_at_both_levels()
+    {
+        // The rule: the two words "mean the same thing at both levels". So they
+        // are in both published sets, listed once in the union, and a raw value
+        // draws the same mark whichever level it was read from.
+        using var context = new BunitContext();
+
+        foreach (var value in new[] { "requirements", "invariants" })
+        {
+            Assert.Contains(value, DevbookTypeMarkers.ChapterTypes);
+            Assert.Contains(value, DevbookTypeMarkers.FileTypes);
+            Assert.Single(DevbookTypeMarkers.All, candidate => candidate == value);
+
+            var asChapter = context.Render<DevbookTypeMarker>(parameters => parameters.Add(mark => mark.Value, value)).Markup;
+            var asFile = context.Render<DevbookTypeMarker>(parameters => parameters
+                .Add(mark => mark.Value, value)
+                .Add(mark => mark.FileName, $".domain/billing/{value}.md")).Markup;
+
+            Assert.Equal(asChapter, asFile);
+        }
+
+        // And the singular is a different glyph from its plural: one rule, and
+        // the list of them.
+        var requirement = context.Render<DevbookTypeMarker>(parameters => parameters.Add(mark => mark.Value, "requirement")).Find("svg");
+        var requirements = context.Render<DevbookTypeMarker>(parameters => parameters.Add(mark => mark.Value, "requirements")).Find("svg");
+        Assert.NotEqual(requirement.InnerHtml, requirements.InnerHtml);
+    }
+
+    [Fact]
+    public void An_additional_page_stating_its_own_filename_draws_the_page_sheet()
+    {
+        // Contract 16: an additional page's file type is its own filename, which
+        // no closed list can hold. Recognised through the schema with the file's
+        // name beside it, drawn as the one generic sheet, and still named with
+        // what the file says.
+        using var context = new BunitContext();
+
+        var svg = context.Render<DevbookTypeMarker>(parameters => parameters
+                .Add(mark => mark.Value, "regulatory-annex")
+                .Add(mark => mark.FileName, ".domain/billing/regulatory-annex.md")
+                .Add(mark => mark.Labelled, true))
+            .Find("svg");
+
+        Assert.Contains("devbook-type-marker--page", svg.ClassList);
+        Assert.Equal("type: regulatory-annex", svg.GetAttribute("aria-label"));
+        Assert.NotEmpty(svg.QuerySelectorAll(ShapeSelector));
+
+        Assert.True(DevbookTypeMarkers.IsAdditionalPage("regulatory-annex", "regulatory-annex.md"));
+        Assert.Equal(DevbookTypeMarkers.AdditionalPage, DevbookTypeMarkers.GlyphFor("regulatory-annex", "regulatory-annex.md"));
+    }
+
+    [Fact]
+    public void A_filename_type_is_known_only_beside_its_own_filename_and_only_on_a_file()
+    {
+        using var context = new BunitContext();
+
+        // Another file's name, no file name at all: not this page's type.
+        foreach (var fileName in new string?[] { ".domain/billing/other.md", null })
+        {
+            var marker = context.Render<DevbookTypeMarker>(parameters => parameters
+                .Add(mark => mark.Value, "regulatory-annex")
+                .Add(mark => mark.FileName, fileName));
+
+            Assert.Equal(string.Empty, marker.Markup.Trim());
+        }
+
+        // A closed-set value is never an additional page, even on a file named
+        // after it: domain.md is a domain file.
+        Assert.False(DevbookTypeMarkers.IsAdditionalPage("domain", "domain.md"));
+        Assert.Equal("domain", DevbookTypeMarkers.GlyphFor("domain", "domain.md"));
+
+        // And the folder gate holds for it too.
+        Assert.Null(DevbookTypeMarkers.MarkedFileIn(DevbookFolder.Tech, "regulatory-annex", "regulatory-annex.md"));
+        Assert.Equal("regulatory-annex", DevbookTypeMarkers.MarkedFileIn(DevbookFolder.Domain, " Regulatory-Annex ", "regulatory-annex.md"));
+        Assert.Null(DevbookTypeMarkers.MarkedIn(DevbookFolder.Domain, "regulatory-annex"));
+    }
+
+    [Fact]
+    public void Naming_is_an_additional_page_not_a_file_type()
+    {
+        // Contract 9 listed `naming` as a file type, because this repository's
+        // own `.domain/devbook/naming.md` is one. Under contract 16 it is an
+        // additional page: its type is its filename, and it draws the page sheet
+        // rather than a glyph of its own.
+        Assert.DoesNotContain("naming", DevbookTypeMarkers.All);
+        Assert.False(DevbookTypeMarkers.IsRecognised("naming"));
+        Assert.Equal(DevbookTypeMarkers.AdditionalPage, DevbookTypeMarkers.GlyphFor("naming", ".domain/devbook/naming.md"));
     }
 
     [Fact]

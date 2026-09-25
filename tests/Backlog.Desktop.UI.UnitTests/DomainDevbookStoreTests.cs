@@ -72,7 +72,11 @@ public sealed class DomainDevbookStoreTests : IDisposable
             [".domain/inbox/domain.md", ".domain/inbox/index.md", ".domain/inbox/features.md", ".domain/inbox/model.md", ".domain/inbox/config.md"],
             context.Documents.Select(document => document.Path));
         Assert.Contains(context.Documents, document => document.Title == "Inbox overview" && document.Kind == DomainDevbookDocumentKind.Other);
-        Assert.Contains(context.Documents, document => document.Title == "Inbox config" && document.Kind == DomainDevbookDocumentKind.Other);
+
+        // Contract 16 names what config.md is: an additional page, whose type is
+        // its own filename. Under contract 9 it fell to Other with index.md; the
+        // legacy root keeps that bucket, and the page reads after the listed files.
+        Assert.Contains(context.Documents, document => document.Title == "Inbox config" && document.Kind == DomainDevbookDocumentKind.Page);
     }
 
     [Fact]

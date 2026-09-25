@@ -104,7 +104,7 @@ The bottom pair is the same two rows pointed at names that are not the library&#
     </Story>
 
     <Story Name="Every field, and which folder writes it"
-           Description="The schema is small, closed and mostly folder-specific: `kind` and `version` describe a technology, `implements` is how a backlog item says what it delivers, `aliases` belongs to the one file per context that names terms.
+           Description="The schema is small, closed and mostly folder-specific: `kind` and `version` describe a technology (`kind` is the old spelling of `type`, still read and reported), `implements` is how a legacy `.backlog` item says what it delivers — still read, no longer drawn as an atlas edge, because that folder is retiring — `aliases` belongs to the one file per context that names terms.
 
 The middle column is the one that catches people. Three fields hold references — addresses that parse into a path and an optional chapter — and three hold plain strings that are never parsed. Every row carries the line as a file actually writes it: a scalar takes its value bare, and both list kinds take a list.">
         <dl class="sb-grid" data-testid="devbook-fields">

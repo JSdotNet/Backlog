@@ -108,6 +108,12 @@ public sealed class MetadataViewTests
         {
             foreach (var status in DevbookStatus.Values(folder))
             {
+                // The one word in a list that is not offered: the resting value of
+                // a folder that spells it by omission. Its option is the empty one,
+                // and an explicit `status: active` keeps the badge — see
+                // An_explicit_resting_status_keeps_the_badge_and_says_how_it_is_written.
+                if (!DevbookStatus.Vocabulary(folder).Offers(status)) continue;
+
                 var pill = context.Render<DevbookStatusPill>(parameters => parameters
                     .Add(p => p.Status, status)
                     .Add(p => p.Folder, folder));
@@ -240,25 +246,42 @@ public sealed class MetadataViewTests
 
         // Absent rather than `value=""`: a null status renders no attribute at
         // all, which leaves the browser on the first option — and the first
-        // option is the blank one, so what shows is "No status".
+        // option is the blank one. In `.design` no status is the resting value,
+        // so the blank one reads `active` and the word is not offered twice.
         Assert.True(string.IsNullOrEmpty(select.GetAttribute("value")));
         Assert.Equal(
-            ["No status", "draft", "active", "deprecated"],
+            ["active", "draft", "deprecated"],
             select.QuerySelectorAll("option").Select(option => option.TextContent));
         Assert.Equal(string.Empty, select.QuerySelectorAll("option")[0].GetAttribute("value"));
 
-        // And it claims no state — not `archived`, which is what an unrecognised
-        // word gets, and not `draft`, which is a real state.
-        //
-        // `badge--unset` is what it wears instead of a state, and this record is
-        // the second caller that needed it: a badge carrying only the kind is
-        // filled with `--color-background-raised`, the same colour as the raised
-        // surface a knowledge headline sits on, so "No status" was a control drawn
-        // in the colour of the card behind it. The outline is the appearance the
-        // absent value has, rather than no appearance at all.
+        // And it wears the state it is: absent means `active` here, so the
+        // control takes `active`'s tone. Under contract 9 it wore `badge--unset`,
+        // the outline for a value nobody gave — right while "No status" was a
+        // state of its own, wrong once the rule made it the resting value.
         Assert.Equal(
-            "status-editor badge badge--status badge--unset",
+            "status-editor badge badge--status badge--status-active",
             view.Find("label.status-editor").GetAttribute("class"));
+    }
+
+    [Fact]
+    public void An_explicit_resting_status_keeps_the_badge_and_says_how_it_is_written()
+    {
+        // `status: active` in a folder that rests by omission is the right state
+        // in the spelling the convention reports. The select cannot show it — its
+        // only option for `active` is the empty one — so it keeps the badge, in
+        // `active`'s tone, not flagged as a typo, titled with how it is written.
+        using var context = new BunitContext();
+
+        var view = context.Render<MetadataView>(parameters => parameters
+            .Add(v => v.Metadata, MetadataReader.Parse("status: active"))
+            .Add(v => v.Vocabulary, DevbookStatus.Vocabulary(DevbookFolder.Arc42)));
+
+        Assert.Empty(view.FindAll("select"));
+
+        var status = view.Find(".devbook-record__headline .badge--status");
+        Assert.Contains("badge--status-active", status.ClassList);
+        Assert.DoesNotContain("devbook-status--unrecognised", status.ClassList);
+        Assert.Contains("omitting the status field", status.GetAttribute("title"), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -272,7 +295,7 @@ public sealed class MetadataViewTests
 
         var heard = new List<string?>();
         var view = context.Render<MetadataView>(parameters => parameters
-            .Add(v => v.Metadata, MetadataReader.Parse("status: active"))
+            .Add(v => v.Metadata, MetadataReader.Parse("status: proposed"))
             .Add(v => v.Vocabulary, DevbookStatus.Vocabulary(DevbookFolder.Arc42))
             .Add(v => v.OnStatusChanged, status => heard.Add(status)));
 

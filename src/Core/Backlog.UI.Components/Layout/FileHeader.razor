@@ -87,6 +87,8 @@
                caller whose heading is not a row still needs the other one. *@
             <MetadataFileView Metadata="@Metadata"
                               Vocabulary="@Vocabulary"
+                              Folder="@MetadataFolder"
+                              FileName="@MetadataFileName"
                               ShowFields="false"
                               CanEditStatus="@CanEditStatus"
                               OnStatusChanged="@OnStatusChanged"
@@ -366,6 +368,26 @@
     /// resolves it here.</para></summary>
     [Parameter]
     public MetadataStatusVocabulary Vocabulary { get; set; } = MetadataStatusVocabulary.None;
+
+    /// <summary>
+    /// The knowledge folder the record was read from, handed straight on to
+    /// <see cref="MetadataFileView"/> so it can report what the folder's rules
+    /// say about the record — an explicit resting status, a field that is not in
+    /// this folder's vocabulary.
+    ///
+    /// <para>Passed through rather than resolved here, which keeps the reason
+    /// <see cref="Vocabulary"/> gives for not taking a folder: this component
+    /// still asks nothing of it. <see cref="DevbookFolder.Unknown"/>, the default,
+    /// reports nothing, so every header outside a Devbook pane is unchanged.</para>
+    /// </summary>
+    [Parameter]
+    public DevbookFolder MetadataFolder { get; set; } = DevbookFolder.Unknown;
+
+    /// <summary>The document's path, for the one rule that depends on it: a
+    /// <c>domain/</c> page the convention does not name takes its filename as its
+    /// <c>type</c>.</summary>
+    [Parameter]
+    public string? MetadataFileName { get; set; }
 
     /// <summary>Whether the rest of the record — everything it states but its
     /// status — is drawn at all. On by default; a surface that wants the status
