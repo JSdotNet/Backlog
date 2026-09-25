@@ -60,3 +60,27 @@ public enum ImportPlacement
     /// <summary>Start from the predecessors, end from the entry's <c>due:</c>.</summary>
     DueDate
 }
+
+/// <summary>
+/// Which of the reader's paces places an imported plan: the one they typed, or one
+/// measured from the effort they finished over a recent stretch.
+/// <para>
+/// Persisted by name in the per-device pace file, so a member is never renamed — a
+/// renamed one reads back as <see cref="Manual"/> and the reader's choice is lost
+/// without a word.
+/// </para>
+/// </summary>
+public enum PaceSource
+{
+    /// <summary>The figure the reader typed.</summary>
+    Manual,
+
+    /// <summary>Effort finished over the last two weeks, per day.</summary>
+    LastTwoWeeks,
+
+    /// <summary>Effort finished over the last four weeks, per day.</summary>
+    LastFourWeeks,
+
+    /// <summary>Effort finished over the last eight weeks, per day.</summary>
+    LastEightWeeks
+}

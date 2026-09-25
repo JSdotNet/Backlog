@@ -52,6 +52,23 @@ internal static class SyncRequestLimits
     /// source.</summary>
     internal const int MaximumCaptureSource = 100;
 
+    /// <summary>How long the notes beneath a capture's title may be. Several
+    /// pages of text typed or pasted on a phone, and still a small fraction of
+    /// the two-megabyte document ceiling this keeps off the store.</summary>
+    internal const int MaximumCaptureBody = 32_000;
+
+    /// <summary>The most tags one capture may carry. More than anybody types on
+    /// a phone; the bound is on callers that are not ours.</summary>
+    internal const int MaximumCaptureTags = 20;
+
+    /// <summary>How long one capture tag may be. A tag is a word or two, and
+    /// this is the same length as a source, which is also a name.</summary>
+    internal const int MaximumCaptureTag = 100;
+
+    /// <summary>How long a capture's person may be — a handle, <c>@alex</c>,
+    /// not a sentence.</summary>
+    internal const int MaximumCapturePerson = 100;
+
     /// <summary>
     /// The most session records one push may carry.
     /// <para>

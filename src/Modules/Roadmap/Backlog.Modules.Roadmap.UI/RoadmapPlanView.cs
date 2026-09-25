@@ -98,6 +98,10 @@ public static class RoadmapPlanView
             .OrderBy(item => item.Start)
             .ThenBy(item => item.Title, StringComparer.CurrentCulture)
             .SelectMany(item => PartsOf(item, configured, rollups))
+            // Again by start once split, so a segment late in its item's window is
+            // stacked after work that begins before it — first-fit needs the order.
+            .OrderBy(part => part.Start)
+            .ThenBy(part => part.Item.Title, StringComparer.CurrentCulture)
             .ToList();
 
         // Milestones are not grouped by repository: they all share one band at the top.
@@ -124,14 +128,20 @@ public static class RoadmapPlanView
         // drawn when both of its ends are on screen — and between two parts in one
         // repository's band where both ends have a part there.
         var bandOfBar = items.ToDictionary(part => part.BarId, part => part.GroupId, StringComparer.Ordinal);
+        var segmented = items.Where(part => part.IsSegment).Select(part => part.Item.Id).ToHashSet();
         var placed = bars
-            .Select(bar => (bar.Id, GroupId: bandOfBar[bar.Id]))
-            .Concat(markers.Select(marker => (marker.Id, GroupId: MilestoneGroupId)))
+            .Select(bar => (bar.Id, GroupId: bandOfBar[bar.Id], bar.Start, bar.End))
+            .Concat(markers.Select(marker => (marker.Id, GroupId: MilestoneGroupId, Start: marker.On, End: marker.On)))
             .Where(placedBar => NodeIdOf(placedBar.Id) is not null)
             .GroupBy(placedBar => NodeIdOf(placedBar.Id)!.Value)
             .ToDictionary(group => group.Key, group => group.ToList());
 
-        return new RoadmapTimelineModel(groups, bars, markers, Links(plan, placed));
+        var handOvers = items
+            .Where(part => drawn.Contains(stacked.RowOf[part.BarId]))
+            .SelectMany(part => (part.WaitsForParts ?? []).Select(before => new RoadmapLink(before, part.BarId)))
+            .Where(link => bars.Any(bar => bar.Id == link.FromId));
+
+        return new RoadmapTimelineModel(groups, bars, markers, [.. Links(plan, placed, segmented), .. handOvers]);
     }
 
     /// <summary>What separates an item's id from its band in the id of one of its
@@ -198,6 +208,8 @@ public static class RoadmapPlanView
             _ => new List<RoadmapGatheredLink>(),
             StringComparer.OrdinalIgnoreCase);
 
+        var bandOfTask = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
         foreach (var link in links)
         {
             var filed = link.Repositories
@@ -209,6 +221,18 @@ public static class RoadmapPlanView
             if (filed.Count == 0) filed.Add(bands[0].GroupId);
 
             foreach (var groupId in filed) shares[groupId].Add(link);
+
+            bandOfTask.TryAdd(link.Key, filed[0]);
+        }
+
+        // Work whose tasks hand over from one repository to another is drawn as the
+        // sequence it is: a segment per repository per phase, rather than one bar per
+        // repository all spanning the same window as though the parts ran side by side.
+        var segments = Sequence(item, links, bandOfTask, bands);
+        if (segments is not null)
+        {
+            foreach (var segment in segments) yield return segment;
+            yield break;
         }
 
         foreach (var (groupId, aliases) in bands)
@@ -223,6 +247,157 @@ public static class RoadmapPlanView
         }
     }
 
+    /// <summary>
+    /// An item's parts as the sequence its tasks hand over in, or null when nothing
+    /// hands over — when no task waits on a task filed in another repository, every
+    /// repository's part can run the whole window and is drawn that way.
+    /// <para>
+    /// A task's phase is the number of repository hand-overs on the longest chain of
+    /// waits leading to it: waiting on a task in its own repository keeps the phase,
+    /// waiting on one elsewhere starts the next. Every repository's tasks in one phase
+    /// form one segment. The window is shared out between the phases by effort — each
+    /// phase as long as its largest segment, an unestimated task counted as one point
+    /// so it still takes some time — and every segment of a phase spans that phase.
+    /// </para>
+    /// <para>
+    /// A repository the item is filed in that holds none of its tasks keeps a part
+    /// running the whole window: the item still names it, and dropping it would hide
+    /// that.
+    /// </para>
+    /// </summary>
+    private static List<ItemPart>? Sequence(
+        RoadmapItemDto item,
+        IReadOnlyList<RoadmapGatheredLink> ordered,
+        Dictionary<string, string> bandOfTask,
+        List<(string GroupId, List<string> Aliases)> bands)
+    {
+        // Ordered so a task's waits are seen before it; a wait inside a cycle, or on
+        // something not gathered, counts as nothing.
+        var phaseOf = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var handsOver = false;
+
+        foreach (var link in ordered)
+        {
+            var band = bandOfTask[link.Key];
+            var phase = 0;
+
+            foreach (var wait in link.Waits)
+            {
+                if (!phaseOf.TryGetValue(wait, out var before)) continue;
+
+                var crosses = !string.Equals(bandOfTask[wait], band, StringComparison.OrdinalIgnoreCase);
+                handsOver |= crosses;
+                phase = Math.Max(phase, before + (crosses ? 1 : 0));
+            }
+
+            phaseOf[link.Key] = phase;
+        }
+
+        if (!handsOver) return null;
+
+        var groups = ordered
+            .GroupBy(link => (Phase: phaseOf[link.Key], Band: bandOfTask[link.Key]))
+            .OrderBy(group => group.Key.Phase)
+            .ThenBy(group => bands.FindIndex(band => string.Equals(band.GroupId, group.Key.Band, StringComparison.OrdinalIgnoreCase)))
+            .Select(group => (group.Key.Phase, group.Key.Band, Links: group.ToList()))
+            .ToList();
+
+        var phases = groups.Max(group => group.Phase) + 1;
+        var weights = Enumerable.Range(0, phases)
+            .Select(phase => groups
+                .Where(group => group.Phase == phase)
+                .Select(group => group.Links.Sum(link => Math.Max(1, link.Effort ?? 1)))
+                .DefaultIfEmpty(0)
+                .Max())
+            .ToList();
+
+        var slices = Slices(item.Start, item.End, weights);
+
+        string BarIdOf(int phase, string band) => $"{item.Id}{PartSeparator}{band}{SegmentSeparator}{phase + 1}";
+
+        var parts = new List<ItemPart>();
+        var partCount = groups.Count + bands.Count(band => groups.All(group => !string.Equals(group.Band, band.GroupId, StringComparison.OrdinalIgnoreCase)));
+
+        foreach (var (phase, band, links) in groups)
+        {
+            var keys = links.Select(link => link.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            // Only the waits that cross into another repository become arrows: a wait
+            // inside one repository is that segment's own business, drawn in its steps.
+            var waitsFor = links
+                .SelectMany(link => link.Waits)
+                .Where(wait => !keys.Contains(wait) && phaseOf.ContainsKey(wait)
+                    && !string.Equals(bandOfTask[wait], band, StringComparison.OrdinalIgnoreCase))
+                .Select(wait => BarIdOf(phaseOf[wait], bandOfTask[wait]))
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+
+            parts.Add(new ItemPart(
+                item,
+                BarIdOf(phase, band),
+                band,
+                bands.First(entry => string.Equals(entry.GroupId, band, StringComparison.OrdinalIgnoreCase)).Aliases,
+                Steps(links),
+                partCount,
+                slices[phase].Start,
+                slices[phase].End,
+                waitsFor));
+        }
+
+        foreach (var (groupId, aliases) in bands.Where(band =>
+                     groups.All(group => !string.Equals(group.Band, band.GroupId, StringComparison.OrdinalIgnoreCase))))
+        {
+            parts.Add(new ItemPart(item, $"{item.Id}{PartSeparator}{groupId}", groupId, aliases, [], partCount));
+        }
+
+        return parts;
+    }
+
+    /// <summary>The item's window cut into consecutive, non-overlapping slices, one
+    /// per weight and each as long as its share of the total — at least one day, so a
+    /// phase never vanishes on a short window.</summary>
+    private static List<(DateOnly Start, DateOnly End)> Slices(DateOnly start, DateOnly end, List<int> weights)
+    {
+        var days = Math.Max(weights.Count, end.DayNumber - start.DayNumber + 1);
+        var total = Math.Max(1, weights.Sum());
+
+        var slices = new List<(DateOnly, DateOnly)>();
+        var used = 0;
+        var weightSoFar = 0;
+
+        for (var index = 0; index < weights.Count; index++)
+        {
+            weightSoFar += weights[index];
+
+            var boundary = index == weights.Count - 1
+                ? days
+                : (int)Math.Round((double)days * weightSoFar / total, MidpointRounding.AwayFromZero);
+
+            // Every slice keeps at least a day, and leaves one for each slice after it.
+            boundary = Math.Clamp(boundary, used + 1, days - (weights.Count - index - 1));
+
+            slices.Add((start.AddDays(used), start.AddDays(boundary - 1)));
+            used = boundary;
+        }
+
+        return slices;
+    }
+
+    /// <summary>The item's window after one of its bars was moved or resized to
+    /// <paramref name="change"/>: each edge of the item moves as far as that edge of the
+    /// bar did. For a bar that is the whole item that is the change itself; for one
+    /// segment of a hand-over it moves the whole sequence with it.</summary>
+    public static (DateOnly Start, DateOnly End) ItemWindowFor(RoadmapItemDto item, RoadmapBar bar, RoadmapChange change) =>
+    (
+        item.Start.AddDays(change.Start.DayNumber - bar.Start.DayNumber),
+        item.End.AddDays(change.End.DayNumber - bar.End.DayNumber)
+    );
+
+    /// <summary>What separates a part's band from its place in the sequence, in the id
+    /// of one segment of an item whose tasks hand over between repositories:
+    /// <c>&lt;item id&gt;@&lt;band&gt;#&lt;phase&gt;</c>.</summary>
+    public const char SegmentSeparator = '#';
+
     /// <summary>The band a task's stored repository lands in: the configured
     /// repository it names by alias or by full name, else the unfiled band.</summary>
     private static string BandOfRepository(string repositoryId, List<PlannedRepository> configured) =>
@@ -231,14 +406,26 @@ public static class RoadmapPlanView
                 || string.Equals(repository.Title, repositoryId, StringComparison.OrdinalIgnoreCase))?.Alias
             ?? UnfiledGroupId;
 
-    /// <summary>One bar's worth of an item: the whole of it, or one repository's part.</summary>
+    /// <summary>One bar's worth of an item: the whole of it, one repository's part, or
+    /// one segment of the sequence its tasks hand over in — which alone has dates of
+    /// its own, and the other segments it waits on.</summary>
     private sealed record ItemPart(
         RoadmapItemDto Item,
         string BarId,
         string GroupId,
         IReadOnlyList<string> Aliases,
         IReadOnlyList<RoadmapStep> Steps,
-        int PartCount);
+        int PartCount,
+        DateOnly? SegmentStart = null,
+        DateOnly? SegmentEnd = null,
+        IReadOnlyList<string>? WaitsForParts = null)
+    {
+        public DateOnly Start => SegmentStart ?? Item.Start;
+
+        public DateOnly End => SegmentEnd ?? Item.End;
+
+        public bool IsSegment => SegmentStart is not null;
+    }
 
     private static List<PlannedRepository> Configured(IReadOnlyList<PlannedRepository>? repositories) =>
         [.. (repositories ?? [])
@@ -321,23 +508,23 @@ public static class RoadmapPlanView
         var rowOf = new Dictionary<string, string>(StringComparer.Ordinal);
         var ends = new Dictionary<(string GroupId, string Lane), List<DateOnly>>();
 
-        foreach (var (item, barId, groupId, _, _, _) in items)
+        foreach (var part in items)
         {
-            var key = (groupId, Lane(item.Lane));
+            var key = (part.GroupId, Lane(part.Item.Lane));
             if (!ends.TryGetValue(key, out var rows)) ends[key] = rows = [];
 
-            var stack = rows.FindIndex(end => end < item.Start);
+            var stack = rows.FindIndex(end => end < part.Start);
             if (stack < 0)
             {
                 stack = rows.Count;
-                rows.Add(item.End);
+                rows.Add(part.End);
             }
             else
             {
-                rows[stack] = item.End;
+                rows[stack] = part.End;
             }
 
-            rowOf[barId] = LaneRowId(groupId, key.Item2, stack);
+            rowOf[part.BarId] = LaneRowId(part.GroupId, key.Item2, stack);
         }
 
         return (rowOf, ends.ToDictionary(entry => entry.Key, entry => entry.Value.Count));
@@ -446,11 +633,11 @@ public static class RoadmapPlanView
             part.BarId,
             rowId,
             part.Item.Title,
-            part.Item.Start,
-            part.Item.End,
+            part.Start,
+            part.End,
             Shade(part.Item.Priority),
             Facets(part.Item, part.Aliases, configured),
-            Detail(part.Item, contradicting, part.PartCount),
+            Detail(part.Item, contradicting, part.PartCount, part.IsSegment),
             Steps: part.Steps);
 
     /// <summary>
@@ -555,14 +742,19 @@ public static class RoadmapPlanView
         return facets;
     }
 
-    private static string Detail(RoadmapItemDto item, HashSet<Guid> contradicting, int partCount)
+    private static string Detail(RoadmapItemDto item, HashSet<Guid> contradicting, int partCount, bool segment = false)
     {
         var parts = new List<string> { $"{Word(item.Priority)} priority" };
 
         if (!string.IsNullOrEmpty(item.Tag)) parts.Add($"tagged {item.Tag}");
 
         // Said in words, because the other parts sit in bands a reader may not reach.
-        if (partCount > 1) parts.Add($"one of {partCount} repository parts");
+        if (partCount > 1)
+        {
+            parts.Add(segment
+                ? $"one of {partCount} parts, handed over between repositories"
+                : $"one of {partCount} repository parts");
+        }
 
         if (item.DependsOn.Count > 0)
         {
@@ -635,7 +827,8 @@ public static class RoadmapPlanView
     /// </summary>
     private static List<RoadmapLink> Links(
         RoadmapPlanDto plan,
-        Dictionary<Guid, List<(string Id, string GroupId)>> placed) =>
+        Dictionary<Guid, List<(string Id, string GroupId, DateOnly Start, DateOnly End)>> placed,
+        HashSet<Guid> segmented) =>
     [
         .. from node in plan.Items
                .Select(item => (item.Id, item.DependsOn))
@@ -643,11 +836,35 @@ public static class RoadmapPlanView
            where placed.ContainsKey(node.Id)
            from dependsOnId in node.DependsOn
            where placed.ContainsKey(dependsOnId)
-           from waiting in placed[node.Id]
-           let before = placed[dependsOnId]
-           let source = before.FirstOrDefault(part => part.GroupId == waiting.GroupId).Id ?? before[0].Id
-           select new RoadmapLink(source, waiting.Id)
+           from link in Between(placed[dependsOnId], placed[node.Id], segmented.Contains(dependsOnId) || segmented.Contains(node.Id))
+           select link
     ];
+
+    /// <summary>
+    /// The arrows for one dependency. Between parts that run side by side, one per
+    /// band, as <see cref="Links"/> describes. Once either end is a sequence of segments that would be an arrow
+    /// into the middle of a hand-over, so it is one arrow instead: from where the work
+    /// waited for finishes last to where the waiting work starts first.
+    /// </summary>
+    private static IEnumerable<RoadmapLink> Between(
+        List<(string Id, string GroupId, DateOnly Start, DateOnly End)> before,
+        List<(string Id, string GroupId, DateOnly Start, DateOnly End)> waiting,
+        bool sequenced)
+    {
+        if (sequenced)
+        {
+            var last = before.OrderByDescending(part => part.End).First();
+            var first = waiting.OrderBy(part => part.Start).First();
+            yield return new RoadmapLink(last.Id, first.Id);
+            yield break;
+        }
+
+        foreach (var part in waiting)
+        {
+            var source = before.FirstOrDefault(candidate => candidate.GroupId == part.GroupId).Id ?? before[0].Id;
+            yield return new RoadmapLink(source, part.Id);
+        }
+    }
 
     private static string TitleFor(string alias, List<PlannedRepository> configured) =>
         configured.FirstOrDefault(repository =>

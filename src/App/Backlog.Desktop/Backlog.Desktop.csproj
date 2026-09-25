@@ -72,6 +72,22 @@
 
   <ItemGroup>
     <!--
+      The vendored Archify generator, beside the executable as archify\. The Sessions
+      pane draws a delivery run's stages as an Archify artifact generated on demand,
+      because a run changes while it runs and cannot be rendered once and committed;
+      ArchifyDeliveryRunDiagrams looks here first. A debug build would find
+      tools\archify up the tree anyway — an installed app has no tree to look up.
+      The examples stay behind (3.4 MB of sample output nothing runs); the rest is
+      2 MB with no install step, which is why it was vendored rather than fetched.
+    -->
+    <Content Include="..\..\..\tools\archify\**"
+             Exclude="..\..\..\tools\archify\examples\**;..\..\..\tools\archify\node_modules\**"
+             Link="archify\%(RecursiveDir)%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
       THE ONE PLACE THIS MAY APPEAR. Local ADR 0012 §2 puts
       Microsoft.AspNetCore.App in Backlog.Desktop.csproj "and nowhere else —
       never Backlog.Desktop.UI, never a module, an infrastructure project or

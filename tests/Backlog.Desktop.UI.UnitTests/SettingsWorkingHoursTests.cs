@@ -220,71 +220,18 @@ public sealed class SettingsWorkingHoursTests
         Assert.True(settings.Component.Find("[data-testid='usage-reset-clear-button']").HasAttribute("disabled"));
     }
 
-    // --- The reader's pace, beside the two weeks ---------------------------------
+    // --- The reader's pace moved to the roadmap ---------------------------------
 
-    /// <summary>Opens at one point a day, the figure the roadmap divides by when
-    /// nobody has said otherwise, and says what the field is for — that it sizes a
-    /// bar and registers no estimate (ADR 0013, ruling 4).</summary>
+    /// <summary>The pace is set beside the chart it sizes now, so the Storage tab no
+    /// longer carries a field for it.</summary>
     [Fact]
-    public void The_pace_opens_at_one_point_a_day_and_says_it_registers_no_estimate()
+    public void The_storage_tab_no_longer_carries_the_pace()
     {
         using var settings = RenderSettings();
         OpenStorageTab(settings.Component);
 
-        Assert.Equal("1", settings.Component.Find("[data-testid='planning-velocity']").GetAttribute("value"));
-
-        var group = settings.Component.Find("[data-testid='planning-velocity-settings']");
-
-        Assert.Contains("registers no estimate", group.TextContent, StringComparison.Ordinal);
-        Assert.Contains("timeline", group.TextContent, StringComparison.Ordinal);
-    }
-
-    /// <summary>The field is the shared number control rather than a hand-rolled
-    /// input — asserted here and not only by <c>SharedControlAdoptionTests</c>,
-    /// because a text box would take "quickly" from the keyboard and only the store
-    /// would object.</summary>
-    [Fact]
-    public void The_pace_is_a_number_field()
-    {
-        using var settings = RenderSettings();
-        OpenStorageTab(settings.Component);
-
-        Assert.Equal("number", settings.Component.Find("[data-testid='planning-velocity']").GetAttribute("type"));
-    }
-
-    [Fact]
-    public void A_committed_pace_is_stored_straight_away()
-    {
-        using var settings = RenderSettings();
-        OpenStorageTab(settings.Component);
-
-        settings.Component.Find("[data-testid='planning-velocity']").Change("2.5");
-
-        Assert.Equal(2.5m, settings.PlanningVelocity.StoryPointsPerDay);
-        Assert.Equal("2.5", settings.Component.Find("[data-testid='planning-velocity']").GetAttribute("value"));
-    }
-
-    /// <summary>A pace the roadmap could not divide by is refused with the reason
-    /// beside the field, and the stored figure is left exactly as it was.</summary>
-    [Theory]
-    [InlineData("0")]
-    [InlineData("-2")]
-    [InlineData("quickly")]
-    public void A_pace_the_roadmap_could_not_divide_by_says_so_and_changes_nothing(string refused)
-    {
-        using var settings = RenderSettings();
-        OpenStorageTab(settings.Component);
-
-        settings.Component.Find("[data-testid='planning-velocity']").Change("4");
-        Assert.Equal(4m, settings.PlanningVelocity.StoryPointsPerDay);
-
-        settings.Component.Find("[data-testid='planning-velocity']").Change(refused);
-
-        Assert.Equal(4m, settings.PlanningVelocity.StoryPointsPerDay);
-        Assert.Contains(
-            "field__error",
-            settings.Component.Find("[data-testid='planning-velocity-settings']").InnerHtml,
-            StringComparison.Ordinal);
+        Assert.Empty(settings.Component.FindAll("[data-testid='planning-velocity-settings']"));
+        Assert.Empty(settings.Component.FindAll("[data-testid='planning-velocity']"));
     }
 
     private static void OpenStorageTab(IRenderedComponent<Settings> component) =>
@@ -302,7 +249,6 @@ public sealed class SettingsWorkingHoursTests
 
         var workingWeek = new WorkingHoursSettingsStore(Path.Combine(root, "working-hours", "working-hours.json"));
         var usageReset = new UsageResetSettingsStore(Path.Combine(root, "usage-reset", "usage-reset.json"));
-        var planningVelocity = new PlanningVelocitySettingsStore(Path.Combine(root, "velocity", "planning-velocity.json"));
         var githubSettings = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
 
         var context = new BunitContext();
@@ -310,7 +256,6 @@ public sealed class SettingsWorkingHoursTests
         context.Services.AddSingleton<IAppFeatureSettings>(features);
         context.Services.AddSingleton<IWorkingHoursSettings>(workingWeek);
         context.Services.AddSingleton<IUsageResetSettings>(usageReset);
-        context.Services.AddSingleton(planningVelocity);
         context.Services.AddSingleton<ICaptureSourceSettings>(
             new CaptureSourcesSettingsStore(Path.Combine(root, "capture", "capture-sources.json")));
         context.Services.AddSingleton(new AzureFoundrySettingsStore(Path.Combine(root, "azure", "azure-foundry.json")));
@@ -321,7 +266,7 @@ public sealed class SettingsWorkingHoursTests
         context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(githubSettings, store));
         context.Services.AddSingleton(new DevbookSourceSelection(githubSettings, new StubBranchCatalog()));
 
-        return new SettingsRenderContext(root, context, context.Render<Settings>(), workingWeek, usageReset, planningVelocity);
+        return new SettingsRenderContext(root, context, context.Render<Settings>(), workingWeek, usageReset);
     }
 
     private sealed class NoGitHub : IGitHubClient
@@ -367,8 +312,7 @@ public sealed class SettingsWorkingHoursTests
         BunitContext TestContext,
         IRenderedComponent<Settings> Component,
         WorkingHoursSettingsStore WorkingWeek,
-        UsageResetSettingsStore UsageReset,
-        PlanningVelocitySettingsStore PlanningVelocity) : IDisposable
+        UsageResetSettingsStore UsageReset) : IDisposable
     {
         public void Dispose()
         {

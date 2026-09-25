@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Backlog.Modules.Roadmap.Abstractions;
 
 namespace Backlog.Infrastructure.FileSystem;
 
@@ -22,6 +23,12 @@ namespace Backlog.Infrastructure.FileSystem;
 /// an imported plan's bar is drawn when the plan states no due date — gathered
 /// effort ÷ this, rounded up — and it registers no estimate against anything. A
 /// change here does not move a window already placed; only a re-import does that.
+/// </para>
+/// <para>
+/// It also keeps which pace the roadmap places by (<see cref="Source"/>): the typed
+/// one, or one the roadmap measures from finished work. A file written before that
+/// choice existed has no <c>source</c> and reads as <see cref="PaceSource.Manual"/>,
+/// which is what it meant.
 /// </para>
 /// </summary>
 public sealed class PlanningVelocitySettingsStore
@@ -107,7 +114,7 @@ public sealed class PlanningVelocitySettingsStore
             Directory.CreateDirectory(directory);
         }
 
-        _pace = new Pace(Read());
+        _pace = Read();
     }
 
     public event Action? Changed;
@@ -116,6 +123,10 @@ public sealed class PlanningVelocitySettingsStore
     /// write without losing it: anything else was refused on the way in, and a file
     /// holding anything else reads as <see cref="Default"/>.</summary>
     public decimal StoryPointsPerDay => _pace.StoryPointsPerDay;
+
+    /// <summary>Which pace the roadmap places by. Only ever a defined member: an
+    /// unknown name in the file reads as <see cref="PaceSource.Manual"/>.</summary>
+    public PaceSource Source => _pace.Source;
 
     public string SettingsPath => _path;
 
@@ -146,7 +157,19 @@ public sealed class PlanningVelocitySettingsStore
 
         if (StoryPointsPerDay == storable) return null;
 
-        return Save(storable);
+        return Save(_pace with { StoryPointsPerDay = storable });
+    }
+
+    /// <summary>Chooses the pace the roadmap places by. Returns <c>null</c> when it
+    /// took and was saved, a refusal for a value that is not a pace source, and a
+    /// warning when it took but could not be written for next time.</summary>
+    public string? Choose(PaceSource source)
+    {
+        if (!Enum.IsDefined(source)) return "That is not a pace the roadmap offers.";
+
+        if (Source == source) return null;
+
+        return Save(_pace with { Source = source });
     }
 
     /// <summary>The same setter over what a text field hands back, so the screen
@@ -167,9 +190,9 @@ public sealed class PlanningVelocitySettingsStore
         return Set(storyPointsPerDay);
     }
 
-    private string? Save(decimal storyPointsPerDay)
+    private string? Save(Pace pace)
     {
-        _pace = new Pace(storyPointsPerDay);
+        _pace = pace;
 
         string? error = null;
 
@@ -177,7 +200,8 @@ public sealed class PlanningVelocitySettingsStore
         {
             File.WriteAllText(_path, JsonSerializer.Serialize(new PlanningVelocityDto
             {
-                StoryPointsPerDay = storyPointsPerDay
+                StoryPointsPerDay = pace.StoryPointsPerDay,
+                Source = pace.Source.ToString()
             }, JsonOptions));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -205,32 +229,40 @@ public sealed class PlanningVelocitySettingsStore
     /// A missing file, an unreadable one, a value that is not a number, and a number
     /// that is not positive all read as <see cref="Default"/>. A corrupt or
     /// unreachable preference must never stop the app from opening, and a velocity
-    /// the roadmap cannot divide by is worse than one nobody chose.
+    /// the roadmap cannot divide by is worse than one nobody chose. The pace and the
+    /// source are read independently: a bad one does not cost the reader the other.
     /// </summary>
-    private decimal Read()
+    private Pace Read()
     {
         try
         {
-            if (!File.Exists(_path)) return Default;
+            if (!File.Exists(_path)) return new Pace(Default, PaceSource.Manual);
 
             var dto = JsonSerializer.Deserialize<PlanningVelocityDto>(File.ReadAllText(_path), JsonOptions);
 
-            if (dto?.StoryPointsPerDay is not { } storyPointsPerDay || storyPointsPerDay < Smallest)
-            {
-                return Default;
-            }
+            var storyPointsPerDay = dto?.StoryPointsPerDay is { } typed && typed >= Smallest
+                ? Normalize(typed)
+                : Default;
 
-            return Normalize(storyPointsPerDay);
+            // Parsed by name and checked against the members, so a number spelled in
+            // the file or a name from a later version reads as the typed pace.
+            var source = Enum.TryParse<PaceSource>(dto?.Source, ignoreCase: true, out var chosen)
+                         && Enum.IsDefined(chosen)
+                         && !int.TryParse(dto?.Source, out _)
+                ? chosen
+                : PaceSource.Manual;
+
+            return new Pace(storyPointsPerDay, source);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
-            return Default;
+            return new Pace(Default, PaceSource.Manual);
         }
     }
 
     /// <summary>The published figure, as one object so that swapping it is atomic.
     /// See <see cref="_pace"/>.</summary>
-    private sealed record Pace(decimal StoryPointsPerDay);
+    private sealed record Pace(decimal StoryPointsPerDay, PaceSource Source);
 
     /// <summary>
     /// Written as a JSON number, which is culture-free by the format's own rules —
@@ -244,5 +276,10 @@ public sealed class PlanningVelocitySettingsStore
     {
         [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
         public decimal? StoryPointsPerDay { get; init; }
+
+        /// <summary>A <see cref="PaceSource"/> name. A string rather than the enum,
+        /// so a name this build does not know reads as the typed pace instead of
+        /// failing the whole file and losing the pace with it.</summary>
+        public string? Source { get; init; }
     }
 }

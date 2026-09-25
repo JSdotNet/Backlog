@@ -488,16 +488,32 @@ public sealed class TaskReplicaMerge(
         string.Equals(change.Task.Type, CaptureType, StringComparison.Ordinal);
 
     /// <summary>The capture as the Inbox wants it: the document's id, title,
-    /// source and stamps, and nothing of the task shape around them. The
-    /// tombstone stamp travels as <c>WithdrawnAt</c>; a source the service did
-    /// not record is filed as unknown rather than dropped.</summary>
-    private static InboxCaptureDto ToCapture(TaskChangeRecord record) => new(
-        record.Change.Id,
-        record.Change.Task.Title,
-        record.Change.Task.SourceInboxId ?? "unknown",
-        record.Change.Task.CreatedAt,
-        record.Change.UpdatedAt,
-        record.Change.DeletedAt);
+    /// source, stamps, body, tags and person, and nothing else of the task shape
+    /// around them. The tombstone stamp travels as <c>WithdrawnAt</c>; a source
+    /// the service did not record is filed as unknown rather than dropped.
+    /// <para>
+    /// The service writes the capture's person among the document's tags as
+    /// <c>@name</c> — the task shape has no field for one — and refuses any other
+    /// tag carrying the sigil, so the first such tag is the person and the rest
+    /// are tags. A second one cannot come from the service, and is dropped
+    /// here rather than stored as a tag.
+    /// </para></summary>
+    private static InboxCaptureDto ToCapture(TaskChangeRecord record)
+    {
+        var tags = record.Change.Task.Tags ?? [];
+        var person = tags.FirstOrDefault(tag => tag.StartsWith('@'));
+
+        return new(
+            record.Change.Id,
+            record.Change.Task.Title,
+            record.Change.Task.SourceInboxId ?? "unknown",
+            record.Change.Task.CreatedAt,
+            record.Change.UpdatedAt,
+            record.Change.DeletedAt,
+            BodyMd: string.IsNullOrWhiteSpace(record.Change.Task.ContentMd) ? null : record.Change.Task.ContentMd,
+            Tags: [.. tags.Where(tag => !tag.StartsWith('@'))],
+            Person: person);
+    }
 
     /// <summary>The apply-against-local decision on its own, by the rule in
     /// <see cref="ApplyOneAsync"/>'s remarks. Word for word the replica's

@@ -10,9 +10,10 @@ namespace Backlog.Infrastructure.FileSystem.Roadmap;
 /// may see both sides: the backlog's tag picker offers the plan's tags
 /// (<see cref="IRoadmapTagSource"/>), Import lays a document's <c>plan</c> entries
 /// out on the plan (<see cref="IRoadmapPlanIntake"/>), a roadmap item rolls up the backlog entries
-/// and knowledge chapters it gathers (<see cref="IRoadmapItemRollup"/>), and the
-/// reader's own pace is read from the settings file
-/// (<see cref="IPlanningVelocity"/>).
+/// and knowledge chapters it gathers (<see cref="IRoadmapItemRollup"/>), the
+/// reader's typed pace is read from the settings file
+/// (<see cref="IPlanningVelocitySettings"/>), and the finished work a measured pace
+/// counts comes from the backlog (<see cref="IRoadmapCompletedWork"/>).
 /// <para>
 /// Registered here — in one place both hosts and the scope-validation guard call —
 /// so the lifetimes cannot drift between the desktop app and the web harness. The
@@ -55,13 +56,20 @@ public static class RoadmapCrossContextAdapterRegistration
         // so it is scoped for the same reason: ITaskItems is.
         services.AddScoped<IImportedPlanSource, ImportedPlanSource>();
 
-        // Singleton, unlike the two above, and deliberately: this one captures no
+        // The finished work a measured pace is counted from, read from the backlog —
+        // scoped because ITaskItems is, and resolving it per call because the backlog's
+        // plan import reaches the roadmap importer, which reaches the pace, which
+        // reaches this: taken in the constructor, that loop deadlocks the scope.
+        services.AddScoped<IRoadmapCompletedWork>(sp =>
+            new RoadmapCompletedWork(() => sp.GetRequiredService<ITaskItems>()));
+
+        // Singleton, unlike the adapters above, and deliberately: this one captures no
         // scoped service — only the settings store, which is a singleton in both
-        // hosts — so there is no captive dependency to avoid, and the reader's pace
-        // is one per-device figure rather than something a request owns. It still
-        // reads through to the store on every call, so a pace changed on the
-        // settings screen is live without a restart.
-        services.AddSingleton<IPlanningVelocity, PlanningVelocitySource>();
+        // hosts — so there is no captive dependency to avoid, and the reader's typed
+        // pace is one per-device figure rather than something a request owns. It
+        // reads through to the store on every call, so a pace changed on the roadmap
+        // is live without a restart.
+        services.AddSingleton<IPlanningVelocitySettings, PlanningVelocitySource>();
 
         // Singleton for the same reason: it holds only the task signal, itself a
         // singleton, and a write in one window has to reach a band open in another.

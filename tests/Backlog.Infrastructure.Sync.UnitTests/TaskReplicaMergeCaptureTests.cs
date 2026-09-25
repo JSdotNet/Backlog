@@ -36,6 +36,42 @@ public sealed class TaskReplicaMergeCaptureTests
         Assert.Null(received.WithdrawnAt);
     }
 
+    /// <summary>The service writes the capture's person among the document's
+    /// tags as <c>@name</c>, because the task shape has no field for one. The
+    /// merge hands it over as the person and the rest as tags, and the body as
+    /// the capture's body — so the intake never sees a person among the tags.</summary>
+    [Fact]
+    public async Task A_captures_person_tag_arrives_as_its_person_and_its_body_as_its_body()
+    {
+        var inbox = new RecordingInboxIntake();
+        var capture = Captures.Change("Ask about the offsite", Noon);
+        capture = capture with { Task = capture.Task with { ContentMd = "Dates, budget.", Tags = ["planning", "@alex", "team"] } };
+
+        await new TaskReplicaMerge(new InMemoryTaskStore(), inbox)
+            .ApplyAsync([Captures.Record(capture, Phone, 100)], TestContext.Current.CancellationToken);
+
+        var received = Assert.Single(inbox.Received);
+        Assert.Equal("@alex", received.Person);
+        Assert.Equal(["planning", "team"], received.Tags);
+        Assert.Equal("Dates, budget.", received.BodyMd);
+    }
+
+    /// <summary>A capture from a client that sent neither — every capture before
+    /// this change — arrives with no person, no tags and no body.</summary>
+    [Fact]
+    public async Task A_two_field_capture_arrives_with_no_person_tags_or_body()
+    {
+        var inbox = new RecordingInboxIntake();
+
+        await new TaskReplicaMerge(new InMemoryTaskStore(), inbox)
+            .ApplyAsync([Captures.Record(Captures.Change("Call the dentist", Noon), Phone, 100)], TestContext.Current.CancellationToken);
+
+        var received = Assert.Single(inbox.Received);
+        Assert.Null(received.Person);
+        Assert.Empty(received.Tags!);
+        Assert.Null(received.BodyMd);
+    }
+
     [Fact]
     public async Task A_tombstoned_capture_carries_its_withdrawal_stamp()
     {

@@ -874,15 +874,28 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// already there. Bare and lower-cased the way the parser stores one;
     /// <see cref="UntaggedTag"/> asks for the entries with no tags. Additive in
     /// both directions, so an empty selection — every tag unpressed — is how the
-    /// reader gets back to all of them.</summary>
+    /// reader gets back to all of them.
+    /// <para>
+    /// Plans are the exception: a reader looks at one plan at a time, so pressing a
+    /// plan — or <see cref="NoPlanTag"/>, which is a plan chip too — lets go of any
+    /// other plan pressed before it. People and general tags beside it stay.
+    /// </para></summary>
     public void ToggleTagFilter(string? tag)
     {
         if (string.IsNullOrEmpty(tag)) return;
 
-        if (!_selectedTags.Remove(tag)) _selectedTags.Add(tag);
+        if (!_selectedTags.Remove(tag))
+        {
+            if (IsPlanFilter(tag)) _selectedTags.RemoveWhere(IsPlanFilter);
+
+            _selectedTags.Add(tag);
+        }
 
         ApplyFilter();
     }
+
+    private static bool IsPlanFilter(string tag) =>
+        tag == NoPlanTag || TagText.Kind(tag) is TagKind.Plan;
 
     /// <summary>Turns the My Day scope on for a date, or off when handed null. The
     /// caller supplies the date because the caller is what has the clock; see

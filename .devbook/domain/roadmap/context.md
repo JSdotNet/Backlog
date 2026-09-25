@@ -33,6 +33,17 @@ related: [.devbook/domain/roadmap/features.md#placing-a-plan-in-time]
 How many story points the reader gets through in a day. A positive decimal,
 held to four places.
 
+There are four paces and the reader picks one: the pace they **type**, and three
+**measured** from the estimated work they finished over the last two, four and
+eight weeks — the effort of every backlog entry completed in that stretch, today
+included, divided by the stretch's calendar days (14, 28 or 56). Calendar days,
+weekends included, because a window is drawn in calendar days; a pace per
+working day would draw every bar shorter than the stretch it was measured over
+took. A stretch that finished nothing estimated measured no pace and cannot be
+picked; if the one picked has since gone empty, the typed pace places the plan
+and the roadmap says so. Only the typed pace and the choice are stored — the
+measured ones are counted afresh on every read.
+
 It is the divisor behind one thing only: an imported plan that states no due
 date gets a **length from its effort** — the story points its gathered tasks and
 chapters registered, divided by this — never shorter than a day. A plan that
@@ -59,7 +70,8 @@ Per value:
   every imported plan would be a tenth of its proper length with nothing on
   screen looking wrong.
 
-Changed on the settings screen and read per placement rather than pinned at
+Changed on the roadmap, in its heading beside the chart it sizes, and read per placement rather than pinned at
 startup, so the next plan laid out uses the pace now in force. Stored per device
-beside the working week, with the same `scope: user` caveat: the choice is one
+beside the working week — the typed pace and the chosen `source`, a file
+without one reading as the typed pace — with the same `scope: user` caveat: the choice is one
 person's, nothing syncs it, and a second machine starts again at one.

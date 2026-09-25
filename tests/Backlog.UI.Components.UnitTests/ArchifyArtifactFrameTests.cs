@@ -112,6 +112,24 @@ public sealed class ArchifyArtifactFrameTests
     }
 
     /// <summary>
+    /// Compact is asked for, never assumed: a chapter's diagram keeps its header and
+    /// toolbar, and a host that asks for compact gets both hidden only while the
+    /// frame is in the page. In fullscreen they come back, because that is where a
+    /// reader goes to use them. CSS rather than the embed attribute, which would
+    /// switch the features off rather than move their controls.
+    /// </summary>
+    [Fact]
+    public void Compact_hides_the_header_and_toolbar_only_on_request_and_only_outside_fullscreen()
+    {
+        var render = RenderArtifact();
+
+        Assert.Contains("(compact", render, StringComparison.Ordinal);
+        Assert.Contains("'html:not([data-host-fullscreen]) .header,'", render, StringComparison.Ordinal);
+        Assert.Contains("'html:not([data-host-fullscreen]) .toolbar,'", render, StringComparison.Ordinal);
+        Assert.Contains("'html:not([data-host-fullscreen]) .diagram-nav{display:none!important}'", render, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// The one rule that would break the sizing outright. The frame's viewport
     /// height is the height this host just gave it from the content, so a body
     /// insisting on filling the viewport can never report less than the frame
@@ -152,10 +170,16 @@ public sealed class ArchifyArtifactFrameTests
         Assert.Contains("#btn-present{display:none!important}", render, StringComparison.Ordinal);
 
         // Everything else the viewer ships stays. These were hidden while the
-        // artifact was in embed mode and are the reason it no longer is.
+        // artifact was in embed mode and are the reason it no longer is. Asked of
+        // the rules every artifact gets: the compact branch is a host's opt-in, and
+        // Compact_hides_the_header_and_toolbar_only_on_request_and_only_outside_fullscreen
+        // pins what it hides and when.
+        var compact = render.IndexOf("(compact", StringComparison.Ordinal);
+        var always = render[..compact] + render[render.IndexOf(": '')", compact, StringComparison.Ordinal)..];
+
         foreach (var kept in new[] { "#btn-export", ".diagram-nav", ".node-finder", ".guided-views" })
         {
-            Assert.DoesNotContain($"{kept}{{display:none", render, StringComparison.Ordinal);
+            Assert.DoesNotContain($"{kept}{{display:none", always, StringComparison.Ordinal);
         }
 
         var chrome = render.IndexOf("const chrome =", StringComparison.Ordinal);
@@ -418,7 +442,7 @@ public sealed class ArchifyArtifactFrameTests
     /// about it cannot be satisfied by an unrelated line elsewhere in a four
     /// thousand line script.</summary>
     private static string RenderArtifact() =>
-        Region("        renderArtifact(element, id, html) {", "        renderGraph(element, id, data) {");
+        Region("        renderArtifact(element, id, html, compact) {", "        renderGraph(element, id, data) {");
 
     /// <summary>The receiving half, which lives outside <c>backlogDiagrams</c>
     /// because it is the parent's side of the exchange.</summary>

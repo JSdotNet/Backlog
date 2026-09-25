@@ -56,10 +56,13 @@ internal static class InboxEndpoints
     /// it is a task nobody can act on, and one the size of a document is a store
     /// failure the person can do nothing about — both are 400s naming the field
     /// rather than something Cosmos answers for.</param>
+    /// <remarks>201 for a capture this call wrote; 200 with the stored capture
+    /// for a retry whose client id is already here, so a phone that lost its
+    /// first answer gets the same item back rather than a second one.</remarks>
     private static async Task<IResult> CaptureInboxItem(
         HttpContext context,
         CaptureRequest request,
-        ICommandHandler<CaptureInboxItemCommand, Result<InboxItem>> handler,
+        ICommandHandler<CaptureInboxItemCommand, Result<CaptureOutcome>> handler,
         CancellationToken cancellationToken)
     {
         if (OutOfBounds(request) is { } refusal)
@@ -68,7 +71,15 @@ internal static class InboxEndpoints
         }
 
         var result = await handler.Handle(
-            new CaptureInboxItemCommand(context.GetOwnerScope(), request.Title, request.Source), cancellationToken);
+            new CaptureInboxItemCommand(
+                context.GetOwnerScope(),
+                request.Title,
+                request.Source,
+                request.Id,
+                request.BodyMd,
+                request.Tags,
+                request.Person),
+            cancellationToken);
 
         return SyncResults.From(
             context,
@@ -76,36 +87,75 @@ internal static class InboxEndpoints
             // The collection, not a per-item route: there is no GET for one
             // capture, and a Location naming an unmapped URL would send a client
             // that followed it to a 404.
-            item => Results.Created(SyncRoutes.Absolute(SyncRoutes.Inbox), item));
+            outcome => outcome.Created
+                ? Results.Created(SyncRoutes.Absolute(SyncRoutes.Inbox), outcome.Item)
+                : Results.Ok(outcome.Item));
     }
 
     /// <summary>What is wrong with a capture, or null when nothing is.
     /// <para>
-    /// Both fields are required and both are bounded, and the two failures are
-    /// one code with two messages: a client cannot do anything different about
-    /// them, and the message says which field it was.
+    /// Title and source are required; the rest are optional and bounded when
+    /// present. Every failure is one code with its own message: a client cannot
+    /// do anything different about them, and the message says which field it
+    /// was.
     /// </para>
     /// </summary>
     private static Error? OutOfBounds(CaptureRequest request) => request switch
     {
         { Title: var title } when string.IsNullOrWhiteSpace(title) =>
-            Error.Validation(SyncErrorCodes.CaptureInvalid, "A capture needs a title."),
+            Invalid("A capture needs a title."),
 
         { Title.Length: var length } when length > SyncRequestLimits.MaximumCaptureTitle =>
-            Error.Validation(
-                SyncErrorCodes.CaptureInvalid,
-                $"A capture's title may be at most {SyncRequestLimits.MaximumCaptureTitle} characters."),
+            Invalid($"A capture's title may be at most {SyncRequestLimits.MaximumCaptureTitle} characters."),
 
         { Source: var source } when string.IsNullOrWhiteSpace(source) =>
-            Error.Validation(SyncErrorCodes.CaptureInvalid, "A capture needs to say where it came from."),
+            Invalid("A capture needs to say where it came from."),
 
         { Source.Length: var length } when length > SyncRequestLimits.MaximumCaptureSource =>
-            Error.Validation(
-                SyncErrorCodes.CaptureInvalid,
-                $"A capture's source may be at most {SyncRequestLimits.MaximumCaptureSource} characters."),
+            Invalid($"A capture's source may be at most {SyncRequestLimits.MaximumCaptureSource} characters."),
+
+        { Id: var id } when id == Guid.Empty =>
+            Invalid("A capture's id, when given, may not be empty."),
+
+        { BodyMd.Length: var length } when length > SyncRequestLimits.MaximumCaptureBody =>
+            Invalid($"A capture's body may be at most {SyncRequestLimits.MaximumCaptureBody} characters."),
+
+        { Person.Length: var length } when length > SyncRequestLimits.MaximumCapturePerson =>
+            Invalid($"A capture's person may be at most {SyncRequestLimits.MaximumCapturePerson} characters."),
+
+        // One handle, because the desktop reads it back as one @name token.
+        { Person: { } person } when person.Trim().TrimStart('@').Any(char.IsWhiteSpace) =>
+            Invalid("A capture's person is one name, with no spaces."),
+
+        { Tags: { } tags } => TagsOutOfBounds(tags),
 
         _ => null,
     };
+
+    private static Error? TagsOutOfBounds(IReadOnlyList<string> tags)
+    {
+        if (tags.Count > SyncRequestLimits.MaximumCaptureTags)
+            return Invalid($"A capture may carry at most {SyncRequestLimits.MaximumCaptureTags} tags.");
+
+        foreach (var tag in tags)
+        {
+            if (string.IsNullOrWhiteSpace(tag))
+                return Invalid("A capture's tags may not be empty.");
+
+            if (tag.Length > SyncRequestLimits.MaximumCaptureTag)
+                return Invalid($"A capture's tags may be at most {SyncRequestLimits.MaximumCaptureTag} characters each.");
+
+            // The person travels among the document's tags as @name, and the
+            // desktop reads the sigil as "a person" — so a person sent as a tag
+            // would arrive as one. It has a field of its own.
+            if (tag.Trim().TrimStart('#').TrimStart().StartsWith('@'))
+                return Invalid($"'{tag.Trim()}' names a person, and a person is not a tag; send it as the person.");
+        }
+
+        return null;
+    }
+
+    private static Error Invalid(string message) => Error.Validation(SyncErrorCodes.CaptureInvalid, message);
 
     private static async Task<IResult> AcknowledgeInboxItem(
         HttpContext context,
