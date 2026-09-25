@@ -558,8 +558,10 @@ internal static class DevbookAtlasReader
         foreach (var entry in entries)
         {
             var fileId = fileOf.GetValueOrDefault(entry.Id, entry.Id);
-            var path = paths.GetValueOrDefault(fileId, entry.Path);
-            var segments = path.Replace('\\', '/').Split('/', StringSplitOptions.RemoveEmptyEntries);
+            // Folded to the root layout's spelling first, so the segment under
+            // the folder is the group in .devbook/arc42/adr/… as in .arc42/adr/….
+            var path = DevbookLayout.ConventionalPath(paths.GetValueOrDefault(fileId, entry.Path));
+            var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
 
             groups[entry.Id] = segments.Length > 2
                 ? Titleise(segments[1])

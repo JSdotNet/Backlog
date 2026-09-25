@@ -291,10 +291,12 @@ public sealed record C4ViewEntry(
 
     /// <summary>A reference's path with its heading and any leading <c>./</c> removed,
     /// and back slashes folded — the spelling two references to the same file agree
-    /// on.</summary>
+    /// on. The devbook layout's <c>.devbook/arc42/…</c> folds to the same spelling
+    /// as <c>.arc42/…</c>, so a view and a chapter match whichever layout wrote
+    /// either.</summary>
     internal static string FileOf(string reference)
     {
-        var path = reference.Trim().Replace('\\', '/').TrimStart('.', '/');
+        var path = DevbookLayout.ConventionalPath(reference).TrimStart('.', '/');
         var hash = path.IndexOf('#', StringComparison.Ordinal);
         return hash < 0 ? path : path[..hash];
     }

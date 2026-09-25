@@ -29,8 +29,11 @@ const ARCHIFY = join(REPO, 'tools', 'archify', 'bin', 'archify.mjs');
 
 /** The knowledge folders `DevbookFolderSetting.Defaults()` names, which are the
  *  folders the app resolves chapters out of. A diagram anywhere else is not a
- *  knowledge chapter diagram and is left alone. */
-const KNOWLEDGE_FOLDERS = ['.domain', '.arc42', '.tech', '.design', '.ai'];
+ *  knowledge chapter diagram and is left alone. Both layouts: the devbook
+ *  layout's `.devbook/<name>` and the root-level `.<name>` before it — a folder a
+ *  repository does not have is simply empty here. */
+const KNOWLEDGE_FOLDERS = ['domain', 'arc42', 'tech', 'design', 'ai']
+    .flatMap((name) => [`.devbook/${name}`, `.${name}`]);
 
 /** The artifact folder beside a chapter. Underscore-prefixed so it sorts away from
  *  the chapters and reads as machinery rather than as content — the knowledge

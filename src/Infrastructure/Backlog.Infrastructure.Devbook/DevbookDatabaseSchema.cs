@@ -38,6 +38,11 @@ public static class DevbookDatabaseSchema
     /// repository root's <c>_meta/</c> is exactly that place.</summary>
     public const string RelativePath = "_meta/devbook.db";
 
+    /// <summary>The same file in a repository on the devbook layout, whose
+    /// knowledge folders and rollup both sit under <c>.devbook/</c> — the path
+    /// <c>DEVBOOK_DATABASE_PATH</c> names on the writing side.</summary>
+    public const string DevbookLayoutRelativePath = ".devbook/_meta/devbook.db";
+
     /// <summary>The generator's <c>meta</c> key for the version.</summary>
     public const string SchemaVersionKey = "schemaVersion";
 

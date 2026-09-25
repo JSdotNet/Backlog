@@ -321,6 +321,10 @@ internal static class TechnologyDevbookReader
         string target,
         IReadOnlyDictionary<string, TechnologyNode> nodes)
     {
+        // Node ids are spelled .tech/…, whichever layout the folder is in, so a
+        // target authored as .devbook/tech/… is folded to the same spelling.
+        target = DevbookLayout.ConventionalPath(target);
+
         var label = nodes.TryGetValue(target, out var node)
             ? node.Label
             : target[(target.LastIndexOf('#') + 1)..].Replace('-', ' ');
@@ -505,7 +509,7 @@ internal static class TechnologyDevbookReader
         {
             if (!node.OutOfScope) continue;
 
-            boundary[node.Id] = new TechnologyBoundaryNode(
+            boundary[DevbookLayout.ConventionalPath(node.Id)] = new TechnologyBoundaryNode(
                 node.Label ?? string.Empty,
                 FolderTitle(node.Folder),
                 node.Status ?? string.Empty);
@@ -585,7 +589,7 @@ internal static class TechnologyDevbookReader
             if (!data.TryGetProperty("outOfScope", out var outOfScope) || !outOfScope.ValueKind.Equals(JsonValueKind.True)) continue;
             if (!data.TryGetProperty("id", out var id) || id.GetString() is not { Length: > 0 } reference) continue;
 
-            boundary[reference] = new TechnologyBoundaryNode(
+            boundary[DevbookLayout.ConventionalPath(reference)] = new TechnologyBoundaryNode(
                 data.TryGetProperty("label", out var label) ? label.GetString() ?? string.Empty : string.Empty,
                 data.TryGetProperty("folder", out var folder) ? FolderTitle(folder.GetString()) : string.Empty,
                 data.TryGetProperty("status", out var status) ? status.GetString() ?? string.Empty : string.Empty);

@@ -1,3 +1,5 @@
+using Backlog.Modules.Devbook.Abstractions;
+
 namespace Backlog.Infrastructure.Devbook;
 
 /// <summary>
@@ -21,13 +23,6 @@ namespace Backlog.Infrastructure.Devbook;
 /// </summary>
 public static class DevbookDatabaseLocation
 {
-    /// <summary>The folder the database sits in, at the repository root.</summary>
-    private const string MetaDirectory = "_meta";
-
-    /// <summary>The folder the devbook layout nests every knowledge folder
-    /// under.</summary>
-    private const string DevbookLayoutRoot = ".devbook";
-
     /// <summary>The database's file name.</summary>
     public const string FileName = "devbook.db";
 
@@ -40,33 +35,46 @@ public static class DevbookDatabaseLocation
     /// <summary>
     /// The database inside a repository root, whether or not it exists.
     /// <para>
-    /// <c>_meta/devbook.db</c> when it exists; else <c>_meta/knowledge.db</c> when
-    /// that exists, so an index built before the rename keeps serving until the
-    /// generator runs again; else the <c>devbook.db</c> path regardless — "absent"
-    /// still resolves to the current name, so every caller's "does it exist" check
-    /// behaves as it always did and nothing ever writes under the old one.
+    /// Where it is depends on the layout, because the generator writes it beside
+    /// the folders it indexed: <c>.devbook/_meta/devbook.db</c> in a repository
+    /// that keeps its folders under <c>.devbook/</c>, <c>_meta/devbook.db</c> in
+    /// one that keeps them at the root. The layout's own location is tried first
+    /// and the other one after it, so a database built before a repository moved
+    /// keeps serving until the next build — its rows then name no folder the
+    /// reader asks about, which is the same answer as no database. In each
+    /// location <c>devbook.db</c> is preferred and <c>knowledge.db</c>, the name
+    /// before the rename, is still read.
+    /// </para>
+    /// <para>
+    /// Absent everywhere, the answer is still the layout's own <c>devbook.db</c>
+    /// path, so every caller's "does it exist" check behaves as it always did and
+    /// nothing ever writes under an old name or the other layout's folder.
     /// </para>
     /// </summary>
     public static string? ForRepositoryRoot(string? repositoryRoot)
     {
         if (string.IsNullOrWhiteSpace(repositoryRoot)) return null;
 
-        var current = Path.Combine(repositoryRoot, MetaDirectory, FileName);
-        if (File.Exists(current)) return current;
+        var devbookLayout = DevbookLayout.UsesDevbookLayout(repositoryRoot);
+        var primary = DevbookLayout.MetaDirectoryFor(repositoryRoot, devbookLayout);
+        var secondary = DevbookLayout.MetaDirectoryFor(repositoryRoot, !devbookLayout);
 
-        var legacy = Path.Combine(repositoryRoot, MetaDirectory, LegacyFileName);
-        return File.Exists(legacy) ? legacy : current;
+        foreach (var directory in (string[])[primary, secondary])
+        {
+            foreach (var name in (string[])[FileName, LegacyFileName])
+            {
+                var candidate = Path.Combine(directory, name);
+                if (File.Exists(candidate)) return candidate;
+            }
+        }
+
+        return Path.Combine(primary, FileName);
     }
 
     /// <summary>
-    /// The database for the repository a knowledge folder belongs to, found by
-    /// going up one level from the folder — which is where the knowledge folders
-    /// sit and where the root <c>_meta/</c> sits with them.
-    /// <para>
-    /// A folder in the devbook layout (<c>.devbook/arc42</c>) is one level
-    /// deeper, so when that first step lands in <c>.devbook</c> and finds no
-    /// database there, the repository root above it is tried as well.
-    /// </para>
+    /// The database for the repository a knowledge folder belongs to. The
+    /// repository root is one level up from a root-layout folder (<c>.arc42</c>)
+    /// and two from a devbook-layout one (<c>.devbook/arc42</c>).
     /// </summary>
     public static string? ForDevbookFolder(string? devbookFolderPath)
     {
@@ -77,16 +85,11 @@ public static class DevbookDatabaseLocation
             var parent = Directory.GetParent(Path.TrimEndingDirectorySeparator(Path.GetFullPath(devbookFolderPath)));
             if (parent is null) return null;
 
-            var beside = ForRepositoryRoot(parent.FullName);
-            if (File.Exists(beside)
-                || !string.Equals(parent.Name, DevbookLayoutRoot, StringComparison.OrdinalIgnoreCase)
-                || parent.Parent is null)
-            {
-                return beside;
-            }
+            var root = string.Equals(parent.Name, DevbookFolderSetting.DevbookRoot, StringComparison.OrdinalIgnoreCase) && parent.Parent is not null
+                ? parent.Parent
+                : parent;
 
-            var root = ForRepositoryRoot(parent.Parent.FullName);
-            return File.Exists(root) ? root : beside;
+            return ForRepositoryRoot(root.FullName);
         }
         catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException or IOException)
         {

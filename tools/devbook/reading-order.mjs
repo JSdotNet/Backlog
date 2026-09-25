@@ -68,9 +68,13 @@ export const READING_ORDER_VERSION = 1;
  *  Underscore-prefixed and at the scope root, so `readDirectory` below (and
  *  `outline.mjs:92`, and every `.md` filter in the corpus) already skips it, and
  *  deliberately *not* under `_meta/`, which the derived-artifacts convention
- *  reserves for generated output. This file is authored. */
-export function readingOrderPathFor(scope) {
-    return scope === REPO_SCOPE ? '_reading-order.json' : `${scope}/_reading-order.json`;
+ *  reserves for generated output. This file is authored.
+ *
+ *  The repository scope's file orders the areas and sits beside them: at the
+ *  root in the root layout, `.devbook/_reading-order.json` in the devbook one —
+ *  which is what `repoReadingOrderPath` says. */
+export function readingOrderPathFor(scope, repoReadingOrderPath = '_reading-order.json') {
+    return scope === REPO_SCOPE ? repoReadingOrderPath : `${scope}/_reading-order.json`;
 }
 
 /**
@@ -83,9 +87,9 @@ export function readingOrderPathFor(scope) {
  * carries `declaredIn` so a warning can name the file that should have listed
  * the entry.
  */
-export async function loadDeclarations(repoRoot, scope) {
+export async function loadDeclarations(repoRoot, scope, repoReadingOrderPath = undefined) {
     const declarations = new Map();
-    const relPath = readingOrderPathFor(scope);
+    const relPath = readingOrderPathFor(scope, repoReadingOrderPath);
 
     let document;
     try {
@@ -117,10 +121,10 @@ export async function loadDeclarations(repoRoot, scope) {
  * adopted area's own file, because an area's directories are declared once, by
  * the area.
  */
-async function loadDeclarationsFor(repoRoot, scope, folders) {
+async function loadDeclarationsFor(repoRoot, scope, folders, repoReadingOrderPath) {
     if (scope !== REPO_SCOPE) return loadDeclarations(repoRoot, scope);
 
-    const declarations = await loadDeclarations(repoRoot, REPO_SCOPE);
+    const declarations = await loadDeclarations(repoRoot, REPO_SCOPE, repoReadingOrderPath);
     for (const folder of folders) {
         for (const [directory, declared] of await loadDeclarations(repoRoot, folder)) {
             declarations.set(directory, declared);
@@ -130,7 +134,7 @@ async function loadDeclarationsFor(repoRoot, scope, folders) {
 }
 
 /** Read one directory into ordered `file` and `directory` outline entries. */
-async function readDirectory(repoRoot, relDir, problems, declarations) {
+async function readDirectory(repoRoot, relDir, problems, declarations, parse) {
     let entries;
     try {
         entries = await readdir(path.join(repoRoot, relDir), { withFileTypes: true });
@@ -151,7 +155,7 @@ async function readDirectory(repoRoot, relDir, problems, declarations) {
     const parsed = new Map();
     for (const name of files.sort()) {
         const relPath = `${relDir}/${name}`;
-        const { fileTitle, fileMeta } = parseDocument(await readFile(path.join(repoRoot, relPath), 'utf8'));
+        const { fileTitle, fileMeta } = parse(await readFile(path.join(repoRoot, relPath), 'utf8'));
         parsed.set(name, { relPath, title: fileTitle, meta: fileMeta ?? {} });
     }
 
@@ -193,7 +197,7 @@ async function readDirectory(repoRoot, relDir, problems, declarations) {
             });
         } else {
             const child = `${relDir}/${name}`;
-            const children = await readDirectory(repoRoot, child, problems, declarations);
+            const children = await readDirectory(repoRoot, child, problems, declarations, parse);
             outline.push({
                 type: 'directory',
                 name,
@@ -246,11 +250,20 @@ function orderAreas(folders, declarations, problems) {
  * without changing what it expects an entry to look like. There is no
  * `schemaVersion` or `generatedBy` here: this is not an artifact, it is the
  * input to one.
+ *
+ * `generator` is the one `generator.mjs` loaded for the repository: its
+ * `parseDocument` and `folderKindForPath` read titles and folder kinds in the
+ * spelling of the repository's own layout, and its `repoReadingOrderPath` says
+ * where the area order is kept. Omitted, the installed root-layout generator
+ * answers, which is what every caller did before the devbook layout existed.
  */
-export async function resolveOutline(repoRoot, scope = REPO_SCOPE, folders = KNOWLEDGE_FOLDERS) {
+export async function resolveOutline(repoRoot, scope = REPO_SCOPE, folders = KNOWLEDGE_FOLDERS, generator = {}) {
+    const parse = generator.parseDocument ?? parseDocument;
+    const folderKind = generator.folderKindForPath ?? folderKindForPath;
+
     const problems = [];
     const roots = scope === REPO_SCOPE ? folders : [scope];
-    const declarations = await loadDeclarationsFor(repoRoot, scope, folders);
+    const declarations = await loadDeclarationsFor(repoRoot, scope, folders, generator.repoReadingOrderPath);
 
     let entries;
     if (scope === REPO_SCOPE) {
@@ -258,18 +271,18 @@ export async function resolveOutline(repoRoot, scope = REPO_SCOPE, folders = KNO
         // its own outline nested underneath.
         entries = [];
         for (const folder of orderAreas(roots, declarations, problems)) {
-            const children = await readDirectory(repoRoot, folder, problems, declarations);
+            const children = await readDirectory(repoRoot, folder, problems, declarations, parse);
             entries.push({
                 type: 'area',
                 name: folder,
                 path: folder,
-                kind: folderKindForPath(`${folder}/x.md`),
+                kind: folderKind(`${folder}/x.md`),
                 title: children.find((c) => c.root)?.title ?? folder,
                 children,
             });
         }
     } else {
-        entries = await readDirectory(repoRoot, scope, problems, declarations);
+        entries = await readDirectory(repoRoot, scope, problems, declarations, parse);
     }
 
     return { scope, sources: roots, problems, entries };
