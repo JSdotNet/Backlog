@@ -38,7 +38,7 @@ public sealed class ProposeRelengthQueryHandler(IRoadmapPlanRepository plans, IP
             current.Start,
             due: null,
             Math.Max(0, query.GatheredEffort),
-            velocity.StoryPointsPerDay);
+            await velocity.GetStoryPointsPerDayAsync(cancellationToken));
 
         return proposed == current
             ? null

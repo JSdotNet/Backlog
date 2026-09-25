@@ -4495,6 +4495,37 @@ h1, h2, h3 {
     font-size: var(--font-size-lg);
 }
 
+/* The reader's pace: the typed figure and the strip choosing which pace places a
+   plan, on one line after the buttons that add to the plan. Wraps under them on a
+   narrow window rather than pushing the filters off the header. */
+.roadmap-pace {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.roadmap-pace__label,
+.roadmap-pace__note {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.roadmap-pace__label {
+    font-weight: 600;
+}
+
+.roadmap-pace__manual {
+    width: 5.5rem;
+}
+
+.roadmap-pace__option-value {
+    margin-left: var(--spacing-2xs);
+    color: var(--color-text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
 /* The cell the timeline is drawn in. It does not scroll: the height it is given is
    passed straight down to the chart, whose own bordered frame scrolls when a plan
    has more rows than the screen can show. `minmax(0, 1fr)` rather than `1fr`,
@@ -4530,34 +4561,6 @@ h1, h2, h3 {
     min-height: 0;
     overflow-y: auto;
     scrollbar-width: thin;
-}
-
-/* The band label, stopped from setting the floor on a band's height.
-
-   It is written down the side, so its own length is a minimum: a long repository
-   name would make a one-row band as tall as the name. Absolute inside a relative
-   group, stretched to the rows' height, so the group is exactly as tall as its rows
-   and a label with nowhere to go is clipped. The whole sidebar is aria-hidden and
-   every bar names its own band, so a clipped label costs a screen reader nothing. */
-.roadmap-band__timeline .roadmap-timeline__group {
-    position: relative;
-    min-height: 0;
-    overflow: hidden;
-}
-
-.roadmap-band__timeline .roadmap-timeline__group-name {
-    position: absolute;
-    inset-block: 0;
-    left: 0;
-    width: var(--roadmap-band-width);
-
-    /* Anchored to one end rather than centred, so a label with less room than it
-       wants loses its tail instead of both ends. */
-    justify-content: flex-start;
-}
-
-.roadmap-band__timeline .roadmap-timeline__group-rows {
-    margin-left: var(--roadmap-band-width);
 }
 
 /* The chart's heading row, once it is carrying the view's own heading: the heading
@@ -5220,15 +5223,21 @@ h1, h2, h3 {
    row's whole first cell, and the size holds: a run is a run wherever it is. */
 /* Two blocks across the row the run spans: the figures and the skill from the left
    edge, under the session's name, and the references with the outcome at the right,
-   under the row's own State column. `row-reverse` is what puts the summary — which
+   under the row's own State column. The grid's areas are what put the summary — which
    comes first in the markup, because the work and the outcome are what matter first
-   — on the right without reordering the markup for the eye's sake. */
+   — on the right without reordering the markup for the eye's sake.
+
+   And a third block under both, across the whole row: the fold's panel. The stages
+   are drawn as one line of them, and a line of eleven stages needs every column the
+   table has rather than the width left of the summary. */
 .sessions-run {
-    display: flex;
-    flex-direction: row-reverse;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: var(--spacing-md);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+        "facts summary"
+        "panel panel";
+    align-items: start;
+    column-gap: var(--spacing-md);
     margin-top: var(--spacing-xs);
     min-width: 0;
     color: var(--color-text-secondary);
@@ -5237,9 +5246,9 @@ h1, h2, h3 {
 }
 
 .sessions-run__facts {
+    grid-area: facts;
     display: grid;
     gap: var(--spacing-2xs);
-    flex: 1 1 auto;
     min-width: 0;
 }
 
@@ -5257,11 +5266,11 @@ h1, h2, h3 {
    show that column. The same mechanism the heading row already uses to stay put, on
    the other axis. */
 .sessions-run__summary {
+    grid-area: summary;
     display: flex;
     flex-direction: column;
     align-items: flex-end;
     gap: var(--spacing-2xs);
-    flex: 0 0 auto;
     min-width: 0;
     position: sticky;
     right: 0;
@@ -5333,13 +5342,64 @@ h1, h2, h3 {
     text-overflow: clip;
 }
 
+/* The fold's panel: the whole row, and no wider than the visible pane less the cell's
+   own inset, so the diagram's right edge is on screen rather than under State.
+
+   Sticky along the left edge, the mirror of the summary on the right: when the table
+   is scrolled sideways, the panel stays where the reader is looking instead of
+   scrolling off with the first column.
+
+   `display: grid` would override `hidden`, so the hidden state is said again. */
+.sessions-run__panel {
+    grid-area: panel;
+    display: grid;
+    gap: var(--spacing-md);
+    position: sticky;
+    left: 0;
+    width: min(100%, calc(100cqi - 2 * var(--spacing-md)));
+    min-width: 0;
+    margin-top: var(--spacing-sm);
+}
+
+.sessions-run__panel[hidden] {
+    display: none;
+}
+
+.sessions-run__diagram {
+    display: grid;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+/* The Mermaid side of the switch draws the same one line of stages, which is a
+   strip a few boxes tall — not the chapter-sized picture the library's 18rem opening
+   height is sized for, which left bands of empty panel above and below it. */
+.sessions-run__artifact .diagram-view__rendered {
+    min-height: 0;
+}
+
+.sessions-run__diagram-note {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+/* The figures under the diagram, in as many columns as fit — the run's identity and
+   context, its tokens, its tool calls and its servers side by side on a wide pane,
+   stacked on a narrow one. */
 .sessions-run__details {
     display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+    gap: var(--spacing-md) var(--spacing-lg);
+    margin: 0;
+}
+
+.sessions-run__group {
+    display: grid;
     grid-template-columns: max-content minmax(0, 1fr);
+    align-content: start;
     gap: var(--spacing-2xs) var(--spacing-md);
-    margin: var(--spacing-xs) 0 0;
-    /* No wider than the visible pane, less the cell's own inset. */
-    max-width: min(48rem, calc(100cqi - 2 * var(--spacing-md)));
+    min-width: 0;
 }
 
 .sessions-run__details dt {
@@ -5369,6 +5429,12 @@ h1, h2, h3 {
     list-style: none;
 }
 
+/* A name and its figures, and each keeps a floor against the other. In a column a
+   quarter of the pane wide, unwrapping figures used to squeeze the name to nothing —
+   "43 calls · 31.8K out · …" with no stage to say whose — and a long server name
+   squeezes the figures just as hard the other way. So both shrink from their natural
+   width: the name down to a few characters and an ellipsis (the whole name is in its
+   title), the figures down to about ten characters, where they wrap at their dots. */
 .sessions-run__list li {
     display: flex;
     justify-content: space-between;
@@ -5377,16 +5443,19 @@ h1, h2, h3 {
 }
 
 .sessions-run__stage-name {
-    min-width: 0;
+    flex: 1 1 auto;
+    min-width: 4rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
 .sessions-run__stage-facts {
-    flex: 0 0 auto;
+    flex: 0 1 auto;
+    min-width: min(10rem, 60%);
     color: var(--color-text-secondary);
-    white-space: nowrap;
+    text-align: right;
+    white-space: normal;
 }
 
 /* A grid item in `.workspace` now, not a flex child of `.shell`. `flex` is

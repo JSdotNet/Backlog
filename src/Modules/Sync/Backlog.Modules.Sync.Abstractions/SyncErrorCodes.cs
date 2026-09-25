@@ -38,10 +38,16 @@ public static class SyncErrorCodes
     /// from the owner and never sees it.</summary>
     public const string InboxItemNotFound = "inbox.item_not_found";
 
-    /// <summary>A capture whose title or source is missing or longer than the
-    /// service will store. Refused at the edge, so an oversized capture is a 400
+    /// <summary>A capture whose title or source is missing, or any of whose
+    /// fields is longer than the service will store — or which puts a person
+    /// among its tags. Refused at the edge, so an oversized capture is a 400
     /// naming the field rather than a store failure nobody can act on.</summary>
     public const string CaptureInvalid = "inbox.capture_invalid";
+
+    /// <summary>A capture's client id already names one of this owner's tasks
+    /// that is not a capture. Refused rather than written over, because the
+    /// capture would replace that task on every device.</summary>
+    public const string CaptureIdTaken = "inbox.capture_id_taken";
 
     /// <summary>More task changes in one push than the service will take. The
     /// client batches well below the cap, so reaching it is either a client that

@@ -132,7 +132,8 @@ themselves.
 
 - **Used for** — the Aspire and Playwright servers the `qa` plugin supplies, the
   orchestration dashboard, and Backlog's own `backlog` server, which `.mcp.json`
-  declares and the running desktop app hosts (`.arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md`).
+  declares — its bearer token supplied by `tools/mcp/backlog-mcp-headers.mjs` as a
+  `headersHelper` — and the running desktop app hosts (`.arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md`).
   `.devbook/config.json` binds that server as this repository's delivery tracker
   (`bindings["delivery.tracker"]`, provider `backlog`) and on the `spec` and
   `deliver` points of `bindings["delivery.mcp"]`, so a flow moves the entry it is

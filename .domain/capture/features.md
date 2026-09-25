@@ -27,6 +27,12 @@ status: draft
 
 Rapid title + body capture with optional tags and source context.
 
+The sync service takes the body, the tags and a person alongside the title and
+the source, each optional and each bounded. A person is sent as the person and
+never as a tag; on the desktop it becomes the item's source person, and the tags
+are stored bare and once each. A phone that sends only a title and a source is
+answered exactly as before.
+
 ### Speech-to-text capture
 
 ```meta
@@ -46,6 +52,10 @@ status: draft
 
 Local storage of captures when offline and background synchronization when the
 network returns.
+
+Each capture carries an id the phone mints before its first send, so resending
+it after a lost answer delivers it once: the service answers with the capture it
+already holds instead of storing a second one.
 
 ### Share-sheet and shortcuts
 

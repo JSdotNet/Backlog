@@ -125,6 +125,18 @@ public static class SessionRegistration
         services.AddSingleton<IDeliveryRunSource>(sp =>
             new LocalDeliveryRunSource(sp.GetRequiredService<IDeviceIdentitySource>()));
 
+        // And the picture of one: a run's stages as an Archify artifact, generated on
+        // demand because a run keeps moving. Here rather than behind a call of its own
+        // for the reason the reader is — the pane is its only consumer. The generator
+        // is looked for once, beside the application and then up the tree it was
+        // built in; where there is none, the port says so on every call and the line
+        // keeps drawing its live flow.
+        services.AddSingleton<IDeliveryRunDiagrams>(_ =>
+            new ArchifyDeliveryRunDiagrams(
+                ArchifyDeliveryRunDiagrams.Locate(AppContext.BaseDirectory),
+                Path.Combine(Path.GetTempPath(), "Backlog", "delivery-run-diagrams"),
+                TimeSpan.FromSeconds(30)));
+
         // The writing half, beside the reading one. GetService and not
         // GetRequiredService for the activator: it is the shell's own type, composed
         // by a host that has a window, and a headless host recording runs is a host

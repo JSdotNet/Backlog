@@ -5,6 +5,8 @@ using Backlog.Modules.Tasks;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.Extensions;
 using Backlog.Modules.Roadmap;
+using Backlog.Modules.Roadmap.Abstractions;
+using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Roadmap.Extensions;
 using Backlog.Infrastructure.Sqlite.Roadmap;
@@ -78,13 +80,42 @@ internal static class TasksTestHost
         new ServiceCollection()
             .AddSingleton<IRoadmapPlanRepository>(
                 new RootedSqliteRoadmapPlanRepository(() => store.RootDirectory))
-            // Import places a window by the reader's pace, which a host answers through
-            // the cross-context adapters; a point a day is the pace of nobody having
+            // Import places a window by the reader's pace, read from settings and
+            // finished work a host answers through the cross-context adapters; a
+            // point a day, typed, with nothing finished is the pace of nobody having
             // chosen one.
-            .AddSingleton<IPlanningVelocity>(new OnePointADay())
+            .AddSingleton<IPlanningVelocitySettings>(new OnePointADay())
+            .AddSingleton<IRoadmapCompletedWork>(new NothingFinished())
             .AddRoadmapModule()
             .BuildServiceProvider()
             .GetRequiredService<IRoadmapPlanning>();
+
+    /// <summary>
+    /// The reader's paces as the roadmap reads them: the module's own service over a
+    /// real pace file, with the finished work and the clock the test chooses.
+    /// </summary>
+    public static IPlanningPace PaceFor(
+        PlanningVelocitySettingsStore paceFile,
+        IRoadmapCompletedWork finished,
+        TimeProvider clock) =>
+        new ServiceCollection()
+            .AddSingleton<IPlanningVelocitySettings>(new Backlog.Infrastructure.FileSystem.Roadmap.PlanningVelocitySource(paceFile))
+            .AddSingleton(finished)
+            .AddSingleton(clock)
+            .AddRoadmapModule()
+            .BuildServiceProvider()
+            .GetRequiredService<IPlanningPace>();
+
+    /// <summary>The pace of nobody having chosen one — a point a day, typed, with
+    /// nothing finished — for a host that renders the roadmap but is not about its
+    /// pace.</summary>
+    public static IPlanningPace UntouchedPace() =>
+        new ServiceCollection()
+            .AddSingleton<IPlanningVelocitySettings>(new OnePointADay())
+            .AddSingleton<IRoadmapCompletedWork>(new NothingFinished())
+            .AddRoadmapModule()
+            .BuildServiceProvider()
+            .GetRequiredService<IPlanningPace>();
 
     /// <summary>
     /// The imported plans the roadmap shelf offers, read by the real adapter from the
@@ -141,9 +172,25 @@ internal static class TasksTestHost
     /// state every test here wants: none of them is about repository resolution,
     /// and a name that resolves to nothing is stored exactly as it was typed.
     /// </summary>
-    private sealed class OnePointADay : IPlanningVelocity
+    private sealed class OnePointADay : IPlanningVelocitySettings
     {
-        public decimal StoryPointsPerDay => 1;
+        public event Action? Changed { add { } remove { } }
+
+        public decimal Manual => 1;
+
+        public PaceSource Source => PaceSource.Manual;
+
+        public string? SetManual(string? typed) => null;
+
+        public string? Choose(PaceSource source) => null;
+    }
+
+    private sealed class NothingFinished : IRoadmapCompletedWork
+    {
+        public Task<IReadOnlyList<CompletedEffortDto>> CompletedSinceAsync(
+            DateOnly since,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<CompletedEffortDto>>([]);
     }
 
     private sealed class NoRepositoryDirectory : IRepositoryDirectory

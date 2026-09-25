@@ -48,9 +48,8 @@ public static class RoadmapModuleRegistration
         services.AddScoped<ICommandHandler<RemoveMilestoneCommand, Result>, RemoveMilestoneCommandHandler>();
         services.AddScoped<ICommandHandler<AddDependencyCommand, Result>, AddDependencyCommandHandler>();
         services.AddScoped<ICommandHandler<RemoveDependencyCommand, Result>, RemoveDependencyCommandHandler>();
-        // Needs IPlanningVelocity, which the host answers through the cross-context
-        // adapters. IRoadmapPlanning hands it out, so a host resolving the port must
-        // register a velocity too.
+        // Needs IPlanningVelocity, registered below over the host's pace settings and
+        // finished work.
         services.AddScoped<ICommandHandler<ImportPlanItemsCommand, Result<PlanImportResultDto>>, ImportPlanItemsCommandHandler>();
         // Both answer "Update from tasks" by the importer's own effort rule, so they
         // need IPlanningVelocity as Import does.
@@ -59,6 +58,13 @@ public static class RoadmapModuleRegistration
 
         // Placement reads "today"; a host that already registered a clock keeps its own.
         services.TryAddSingleton(TimeProvider.System);
+
+        // The reader's paces, typed and measured. Needs IPlanningVelocitySettings and
+        // IRoadmapCompletedWork, which the host answers through the cross-context
+        // adapters. One instance answers both the view's port and the importer's.
+        services.AddScoped<PlanningPace>();
+        services.AddScoped<IPlanningPace>(sp => sp.GetRequiredService<PlanningPace>());
+        services.AddScoped<IPlanningVelocity>(sp => sp.GetRequiredService<PlanningPace>());
 
         // One for the whole host, whatever scope a write or a listener comes from.
         services.TryAddSingleton<RoadmapPlanChanges>();

@@ -100,7 +100,7 @@ builder.Services.AddSingleton<IUsageResetSettings>(
     _ => new UsageResetSettingsStore(
         Path.Combine(builder.Environment.ContentRootPath, "obj", "local-development", "usage-reset.settings.json")));
 // How many story points the reader gets through in a day, scoped to the content
-// root for the same reason. Roadmap reads it through IPlanningVelocity, answered
+// root for the same reason. Roadmap reads it through IPlanningVelocitySettings, answered
 // over this store by AddRoadmapCrossContextAdapters below.
 builder.Services.AddSingleton(
     _ => new PlanningVelocitySettingsStore(

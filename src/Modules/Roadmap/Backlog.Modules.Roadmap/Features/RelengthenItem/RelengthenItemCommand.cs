@@ -59,7 +59,7 @@ public sealed class RelengthenItemCommandHandler(IRoadmapPlanRepository plans, I
             previous.Start,
             due: null,
             Math.Max(0, command.GatheredEffort),
-            velocity.StoryPointsPerDay);
+            await velocity.GetStoryPointsPerDayAsync(cancellationToken));
 
         // Nothing to write, and a save that changes nothing is still a write the other
         // devices would sync.

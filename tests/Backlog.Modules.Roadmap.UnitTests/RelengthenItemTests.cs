@@ -250,5 +250,8 @@ public class RelengthenItemTests
     private sealed class FixedVelocity(decimal storyPointsPerDay) : IPlanningVelocity
     {
         public decimal StoryPointsPerDay { get; set; } = storyPointsPerDay;
+
+        public Task<decimal> GetStoryPointsPerDayAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(StoryPointsPerDay);
     }
 }
