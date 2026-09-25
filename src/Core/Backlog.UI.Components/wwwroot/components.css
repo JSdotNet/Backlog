@@ -6231,6 +6231,173 @@ button.tag-chip__label {
     margin-left: 0.35em;
 }
 
+/* --- Flow steps ---------------------------------------------------------- */
+/*
+  A process drawn as a flow: nodes left to right, wrapping into rows, each
+  joined to the next by a connector in the gap. The tones are the badge tones
+  (color-scheme.md#badge-and-chip-tones) on the node's edge and mark rather than
+  as a fill, so a row of eleven nodes stays quiet and the one in progress is the
+  thing the eye lands on. Every tone also has its own glyph in the mark and its
+  word in the status line; colour is never the only carrier.
+
+  A grid whose columns fill the list edge to edge, rather than a wrapping flex
+  row, so a node that ends a row always ends it at the list's right edge. The
+  connector it draws toward a next node that has wrapped to the row below falls
+  outside the list and is clipped there; every other connector lands in a gap.
+  Nodes keep their own height instead of stretching to the row's tallest.
+*/
+
+.flow-steps {
+    --flow-steps-gap: var(--spacing-md);
+
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(10rem, 100%), 1fr));
+    align-items: start;
+    gap: var(--spacing-sm) var(--flow-steps-gap);
+    overflow: hidden;
+}
+
+.flow-step {
+    --flow-step-tone: var(--color-border-strong);
+
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+    min-width: 0;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-left: var(--border-width-4) solid var(--flow-step-tone);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+    font-size: var(--font-size-xs);
+    line-height: var(--line-height-normal);
+}
+
+/* The connector: a line with a head across the gap to the next node. */
+.flow-step:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    top: 1rem;
+    right: calc(-1 * var(--flow-steps-gap) - var(--border-width));
+    width: var(--flow-steps-gap);
+    height: 0;
+    border-top: var(--border-width) solid var(--color-border-strong);
+    pointer-events: none;
+}
+
+.flow-step:not(:last-child)::before {
+    content: "";
+    position: absolute;
+    top: calc(1rem - 3px);
+    right: calc(-1 * var(--flow-steps-gap) - var(--border-width));
+    border-top: 3.5px solid transparent;
+    border-bottom: 3.5px solid transparent;
+    border-left: 5px solid var(--color-border-strong);
+    pointer-events: none;
+}
+
+.flow-step--active {
+    --flow-step-tone: var(--color-primary);
+
+    border-color: var(--color-primary);
+    border-left-color: var(--flow-step-tone);
+}
+
+.flow-step--done {
+    --flow-step-tone: var(--color-success-text);
+}
+
+.flow-step--blocked {
+    --flow-step-tone: var(--color-error-text);
+
+    border-color: var(--color-error);
+    border-left-color: var(--flow-step-tone);
+}
+
+.flow-step--skipped {
+    --flow-step-tone: var(--color-text-disabled);
+
+    border-style: dashed;
+    border-left-style: solid;
+    background: transparent;
+}
+
+.flow-step__head {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.flow-step__mark {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.125rem;
+    height: 1.125rem;
+    border: var(--border-width) solid var(--flow-step-tone);
+    border-radius: var(--border-radius-full);
+    font-size: 0.625rem;
+    font-weight: var(--font-weight-semibold);
+    line-height: 1;
+    color: var(--flow-step-tone);
+}
+
+.flow-step__title {
+    min-width: 0;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    overflow-wrap: anywhere;
+}
+
+.flow-step--pending .flow-step__title,
+.flow-step--skipped .flow-step__title {
+    color: var(--color-text-secondary);
+}
+
+.flow-step__status {
+    color: var(--color-text-secondary);
+}
+
+.flow-step--active .flow-step__status {
+    color: var(--color-text-primary);
+}
+
+.flow-step__notes {
+    list-style: none;
+    margin: var(--spacing-2xs) 0 0 0;
+    padding: var(--spacing-2xs) 0 0 0;
+    border-top: var(--border-width) solid var(--color-border);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xs);
+}
+
+.flow-step__note {
+    display: flex;
+    flex-wrap: wrap;
+    column-gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.flow-step__note-label {
+    font-family: var(--font-family-mono);
+    color: var(--color-text-primary);
+    overflow-wrap: anywhere;
+}
+
+.flow-step__note-detail {
+    font-family: var(--font-family-mono);
+    color: var(--color-text-secondary);
+    overflow-wrap: anywhere;
+}
+
 /* --- Toasts -------------------------------------------------------------- */
 /*
   The host is the live region and stays in the DOM whether or not it holds
