@@ -847,6 +847,8 @@ public sealed class TagFilterTests
 
         host.State.ToggleTagFilter(TasksDesktopState.NoPlanTag);
 
+        // Both sides sorted: the keys are random GUIDs, so an unsorted expectation
+        // passes only when the two happen to be generated in order.
         Assert.Equal(
             new[] { loose.Key, bare.Key }.Order(),
             host.State.FilteredRows.Select(row => row.Key).Order());
