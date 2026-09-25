@@ -1,0 +1,60 @@
+@*
+    Tasks ticked off per ISO week — the backlog's own answer to "how much got done",
+    beside the pull-request figures GitHub gives.
+
+    Ticked off, not Done. A task's status carries no date, and the tick is the one
+    completion fact the backlog records a day for, so it is the only thing a weekly
+    count can be honest about.
+
+    The repository chips narrow this part; the machine filter does not, because a task
+    records no machine. Both are said in the note rather than left for a figure that
+    will not move to explain.
+*@
+@inherits DashboardPartBase<TaskThroughputInsight>
+@inject ITaskInsights Insights
+
+<PartFrame Title="Tasks completed"
+           Note="@Note"
+           Busy="Status == MetricStatusKind.Loading"
+           OnRefresh="RefreshAsync"
+           TestId="dashboard-tasks-completed">
+    @if (IsReady)
+    {
+        <MetricBars Points="@Points"
+                    Label="@($"Tasks completed per week, {MetricFormat.Compact(Value!.Completed)} in all")"
+                    BucketHeading="Week"
+                    ValueHeading="Completed"
+                    HighlightLast="true"
+                    FormatValue="MetricFormat.Compact"
+                    TestId="dashboard-tasks-completed-bars" />
+    }
+    else
+    {
+        <MetricStatus Kind="Status" Message="@StatusMessage" TestId="dashboard-tasks-completed-status" />
+    }
+</PartFrame>
+
+@code {
+    private const string Note =
+        "Tasks ticked off in the backlog, by the ISO week they were ticked off in. "
+        + "The repository chips narrow this to tasks targeting one of them; the machine filter does not apply, "
+        + "because a task records no machine. The last week is the week so far.";
+
+    private IReadOnlyList<MetricPoint> Points =>
+        IsReady
+            ? [.. Value!.CompletedPerWeek.Select(point => new MetricPoint(point.Label, point.Value))]
+            : [];
+
+    protected override Task<InsightResult<TaskThroughputInsight>> FetchAsync(CancellationToken cancellationToken) =>
+        Insights.GetThroughputAsync(Scope, cancellationToken);
+
+    protected override bool IsEmpty(TaskThroughputInsight value) => value.Completed == 0;
+
+    protected override string EmptyMessage =>
+        "No task in scope was ticked off in this window.";
+
+    // Nothing to drop: the tasks insight reads the local backlog afresh on every call.
+    protected override void InvalidateSource()
+    {
+    }
+}
