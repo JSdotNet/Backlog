@@ -15,7 +15,7 @@
   },
   "components": {
     "delivery": {
-      "pluginVersion": "1.5.0"
+      "pluginVersion": "1.7.0"
     },
     "devbook": {
       "pluginVersion": "1.7.0",
@@ -266,6 +266,23 @@
           "managed": true
         }
       }
+    },
+    "schedule": {
+      "pluginVersion": "1.7.0",
+      "enabled": [
+        "issue-sweep",
+        "merge-review",
+        "morning-brief",
+        "devbook-validate",
+        "instruction-review",
+        "devbook-verify",
+        "prose-check",
+        "package-update",
+        "tech-update",
+        "weekly-update",
+        "change-report"
+      ],
+      "overrides": {}
     }
   }
 }
