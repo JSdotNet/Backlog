@@ -21,8 +21,8 @@ Proposed.
 
 > **Amended 2026-09-25: either devbook layout.** A repository may keep its
 > knowledge folders under one parent — `.devbook/arc42`, `.devbook/domain`, … —
-> with its derived layer in `.devbook/_meta/`, or at the root as `.devbook/arc42`,
-> `.devbook/domain`, … with the derived layer in `_meta/`. The snapshot needed no change
+> with its derived layer in `.devbook/_meta/`, or at the root as `.arc42`,
+> `.domain`, … with the derived layer in `_meta/`. The snapshot needed no change
 > for it: it fetches the subtree of whichever folder the resolution found, and
 > selects `_reading-order.json` and `_meta/index.json` at any depth. Where this
 > record says `_meta/`, read the derived layer beside the folders, in either
