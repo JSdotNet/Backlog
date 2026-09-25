@@ -4532,34 +4532,6 @@ h1, h2, h3 {
     scrollbar-width: thin;
 }
 
-/* The band label, stopped from setting the floor on a band's height.
-
-   It is written down the side, so its own length is a minimum: a long repository
-   name would make a one-row band as tall as the name. Absolute inside a relative
-   group, stretched to the rows' height, so the group is exactly as tall as its rows
-   and a label with nowhere to go is clipped. The whole sidebar is aria-hidden and
-   every bar names its own band, so a clipped label costs a screen reader nothing. */
-.roadmap-band__timeline .roadmap-timeline__group {
-    position: relative;
-    min-height: 0;
-    overflow: hidden;
-}
-
-.roadmap-band__timeline .roadmap-timeline__group-name {
-    position: absolute;
-    inset-block: 0;
-    left: 0;
-    width: var(--roadmap-band-width);
-
-    /* Anchored to one end rather than centred, so a label with less room than it
-       wants loses its tail instead of both ends. */
-    justify-content: flex-start;
-}
-
-.roadmap-band__timeline .roadmap-timeline__group-rows {
-    margin-left: var(--roadmap-band-width);
-}
-
 /* The chart's heading row, once it is carrying the view's own heading: the heading
    and its add controls at one end, the filters at the other. */
 .roadmap-band__timeline .roadmap-timeline__header {

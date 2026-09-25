@@ -11791,9 +11791,10 @@ select.field__input {
     border-bottom: var(--border-width) solid var(--color-border);
 }
 
+/* The label's containing block, and the edge that clips it. See the label. */
 .roadmap-timeline__group {
-    display: flex;
-    align-items: stretch;
+    position: relative;
+    overflow: hidden;
     box-shadow: inset 0 -1px 0 var(--color-border);
 }
 
@@ -11803,16 +11804,32 @@ select.field__input {
   need a matching blank line in the track, and the two would drift apart the
   first time one of them wrapped.
 
+  Absolute, stretched to the rows' height, rather than in the group's flow. Written
+  vertically, a label's length is its height, so in flow it was a floor on the
+  group's: a one-row group with a longer name grew past its one track row, and every
+  label after it sat lower than the row it names. Out of flow the group is exactly as
+  tall as its rows, and a name with nowhere to go is clipped — its title still
+  carries it whole. Stretched with top and bottom, not inset-block: a logical inset
+  is read in the element's own writing mode, and in vertical-rl that is left and
+  right, so the label would keep its text's height and never be centred.
+
   The whole sidebar is aria-hidden, so nothing is read sideways: every row in
   the track carries "group, row" as its accessible name, and every bar repeats
   it. This column is the sighted reader's copy of that.
 */
 .roadmap-timeline__group-name {
-    flex: 0 0 var(--roadmap-band-width);
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: var(--roadmap-band-width);
     display: flex;
     align-items: center;
-    justify-content: center;
+    /* Centred while it fits; anchored to its start once it does not, so a clipped
+       name loses its tail rather than both ends. */
+    justify-content: safe center;
     margin: 0;
+    white-space: nowrap;
     padding: var(--spacing-xs) 0;
     background: color-mix(in srgb, var(--roadmap-group-color, var(--color-border-strong)) 24%, var(--color-background));
     border-left: var(--border-width-4) solid var(--roadmap-group-color, var(--color-border-strong));
@@ -11829,7 +11846,7 @@ select.field__input {
 }
 
 .roadmap-timeline__group-rows {
-    flex: 1;
+    margin-left: var(--roadmap-band-width);
     min-width: 0;
 }
 
