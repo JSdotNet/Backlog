@@ -40,6 +40,7 @@ between inherited ADRs 0005 and 0009.
 - **[0012 — Backlog is an MCP server hosted inside the running desktop application](0012-backlog-is-an-mcp-server-inside-the-desktop-app.md)** *(accepted, not yet built)*
 - **[0013 — An imported plan is one Roadmap Item; a `plan` entry is the same grammar, and the importer places it](0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md)** *(accepted)*
 - **[0014 — Attachments travel through a blob store beside the replica; the sync service is the only door](0014-attachments-travel-through-a-blob-store-beside-the-replica.md)** *(proposed)*
+- **[0015 — The devbook database lives in the app's storage, one per repository path, and the app builds it](0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md)** *(accepted; supersedes parts of 0004)*
 
 ## Inherited decisions
 

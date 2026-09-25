@@ -119,7 +119,8 @@ related: [".devbook/arc42/04-solution-strategy.md"]
   conflicting on files nobody authored and every channel — desktop, mobile, IDE, a
   future MCP server — reads one schema instead of carrying its own markdown parser.
   Extends local ADR 0003 to a second corpus without making a database canonical for
-  knowledge.
+  knowledge. Where the database lives and who writes it were superseded on
+  2026-09-25 by local ADR 0015.
 - **[ADR 0005 — An Azure-hosted task replica carries multi-device sync; the local store stays canonical](adr/0005-azure-hosted-task-replica-for-multi-device-sync.md)**
   *(accepted)*: answers the question local ADR 0003 did not ask — what happens when
   one person runs the desktop on two machines. A serverless Cosmos DB account with
@@ -208,3 +209,10 @@ related: [".devbook/arc42/04-solution-strategy.md"]
   capture document carries metadata only and is posted after its files; the
   acknowledgement tombstone releases them and a 30-day lifecycle rule is the
   backstop. Task attachments stay machine-local.
+- **[ADR 0015 — The devbook database lives in the app's storage, one per repository path, and the app builds it](adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md)**
+  *(accepted)*: supersedes ADR 0004's placement and single-writer sections. The
+  database moves out of every repository into `_databases/<name>-<hash>/` under
+  the devbook cache folder ADR 0008's snapshots use, keyed by the repository's
+  absolute path so each worktree has its own; the desktop builds it in C# in the
+  background when a repository is first read, and `build-database.mjs` stays as
+  CI's build check and the reference a comparison test holds the C# builder to.
