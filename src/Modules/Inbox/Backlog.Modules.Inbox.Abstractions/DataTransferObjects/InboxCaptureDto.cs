@@ -31,6 +31,14 @@ namespace Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 /// never seen and says false, so that routing or archiving the item does not
 /// push a tombstone for a document that was never there.
 /// </para>
+/// <para>
+/// <paramref name="Tags"/> and <paramref name="Person"/> are what the channel
+/// said about the capture beyond its text: tag names, with or without the
+/// <c>#</c>, and the person as <c>@name</c> or bare. The intake stores the tags
+/// bare and de-duplicated and the person as the item's source person — never
+/// among the tags. Defaulted like the two before them, so a channel that knows
+/// neither says nothing.
+/// </para>
 /// </summary>
 public sealed record InboxCaptureDto(
     Guid Id,
@@ -41,4 +49,6 @@ public sealed record InboxCaptureDto(
     DateTimeOffset? WithdrawnAt,
     string? SourceUrl = null,
     string? BodyMd = null,
-    bool ReplicaBacked = true);
+    bool ReplicaBacked = true,
+    IReadOnlyList<string>? Tags = null,
+    string? Person = null);

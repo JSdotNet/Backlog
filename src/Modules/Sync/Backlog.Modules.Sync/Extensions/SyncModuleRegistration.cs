@@ -53,7 +53,7 @@ public static class SyncModuleRegistration
         services.AddScoped<ICommandHandler<PushAnnotationsCommand, Result<PushAnnotationsResponse>>, PushAnnotationsCommandHandler>();
         services.AddScoped<IQueryHandler<PullAnnotationsQuery, Result<PullAnnotationsResponse>>, PullAnnotationsQueryHandler>();
         services.AddScoped<IQueryHandler<ListInboxQuery, Result<IReadOnlyList<InboxItem>>>, ListInboxQueryHandler>();
-        services.AddScoped<ICommandHandler<CaptureInboxItemCommand, Result<InboxItem>>, CaptureInboxItemCommandHandler>();
+        services.AddScoped<ICommandHandler<CaptureInboxItemCommand, Result<CaptureOutcome>>, CaptureInboxItemCommandHandler>();
         services.AddScoped<ICommandHandler<AcknowledgeInboxItemCommand, Result>, AcknowledgeInboxItemCommandHandler>();
 
         services.TryAddSingleton<ICredentialHasher, Sha256CredentialHasher>();
