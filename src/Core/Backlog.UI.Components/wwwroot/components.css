@@ -220,6 +220,7 @@
     --font-family-heading: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     --font-family-mono: 'Fira Code', 'Courier New', monospace;
 
+    --font-size-2xs: 0.625rem;
     --font-size-xs: 0.75rem;
     --font-size-sm: 0.875rem;
     --font-size-base: 1rem;
@@ -655,6 +656,18 @@ button.badge:hover {
 
 .badge--feature-dev { background: var(--color-error); }
 .badge--feature-beta { background: var(--color-warning); }
+
+/* The status flag is a qualifier on the label beside it — "Roadmap DEV" — so it
+   sits a step below the scale's floor rather than level with a 12 px label,
+   which is the one use `font-size-2xs` exists for. Three bold capitals stay
+   legible at that size where a flag key such as INBOX-FILTERS would not, which
+   is why the size lands here and not on `.badge--feature` itself. */
+.badge--feature-dev,
+.badge--feature-beta {
+    font-size: var(--font-size-2xs);
+    line-height: 1;
+    padding: 1px 3px;
+}
 
 /*
   An alias, drawn as the qualifier it is.

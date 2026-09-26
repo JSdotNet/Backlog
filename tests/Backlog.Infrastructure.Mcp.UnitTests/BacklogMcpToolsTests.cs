@@ -33,6 +33,7 @@ public class BacklogMcpToolsTests
                 "transition",
                 "comment",
                 "link_change",
+                "link_session",
                 "create_item",
                 "get_roadmap",
                 "list_knowledge_contexts",
@@ -194,6 +195,7 @@ public class BacklogMcpToolsTests
             TrackerTools.Transition,
             TrackerTools.Comment,
             TrackerTools.LinkChange,
+            TrackerTools.LinkSession,
             TrackerTools.CreateItem,
             SurfaceTools.OpenDashboard,
             SurfaceTools.StartRun,
@@ -215,6 +217,7 @@ public class BacklogMcpToolsTests
         [
             DevbookTools.ResolveAnnotation,
             TrackerTools.Transition,
+            TrackerTools.LinkSession,
             SurfaceTools.OpenDashboard,
             SurfaceTools.StartRun,
             SurfaceTools.SetRunContext,

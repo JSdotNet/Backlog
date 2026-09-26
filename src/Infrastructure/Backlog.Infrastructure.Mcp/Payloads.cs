@@ -111,6 +111,14 @@ public sealed record CommentPayload(Guid Id, string Title, string Status, int Su
 /// object with its own screen reading it.</param>
 public sealed record LinkPayload(Guid Id, string Repository, string ExternalId, string TargetType);
 
+/// <summary>
+/// The AI session recorded against an entry.
+/// </summary>
+/// <param name="AlreadyLinked">True when the entry already named this session and
+/// nothing was written, so a session that records itself again learns it was a
+/// no-op rather than wondering whether it now appears twice.</param>
+public sealed record SessionLinkPayload(Guid Id, string Repository, string SessionId, bool AlreadyLinked);
+
 /// <summary>One piece of planned work. Both days are inclusive — "through the
 /// 31st" means the 31st.</summary>
 public sealed record RoadmapItemPayload(

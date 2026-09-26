@@ -111,4 +111,17 @@ public sealed record EntryProjectionDto(string RepoId, string ExternalId, string
     /// </para>
     /// </summary>
     public const string PullRequestTargetType = "pull-request";
+
+    /// <summary>
+    /// The <see cref="TargetType"/> an entry carries for an AI session that worked
+    /// on it; the <see cref="ExternalId"/> is the session's id.
+    /// <para>
+    /// A projection rather than a field of its own because it is the same kind of
+    /// fact as the two above — something outside the backlog the entry's work
+    /// touched — and the projection list already persists, replicates and merges
+    /// that fact. The entry does not know what a session is beyond its id: opening
+    /// one is the shell's business, as it is for an issue URL.
+    /// </para>
+    /// </summary>
+    public const string SessionTargetType = "session";
 }

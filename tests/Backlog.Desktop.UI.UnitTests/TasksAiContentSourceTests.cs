@@ -21,9 +21,48 @@ public class TasksAiContentSourceTests
         // way in — what matters is that nothing is derived from them here.
         var row = Assert.Single(host.State.Rows);
         Assert.Equal("tasks", content.AreaKey);
-        Assert.Equal($"Tasks: 1 entry.\n{row.RawText.Trim()}", content.Body);
+        Assert.Equal($"Tasks: 1 entry.\n{Totals(open: 1, ready: 1, task: 1)}\n{row.RawText.Trim()}", content.Body);
         Assert.Contains("# Provision the box", content.Body, StringComparison.Ordinal);
     }
+
+    /// <summary>"How many open tasks do I have?" used to be answered "I can't
+    /// tell" — the body held the eleven entries that fit, not the backlog. The
+    /// totals line counts the whole scope, whatever the budget let through.</summary>
+    [Fact]
+    public async Task The_totals_line_counts_the_whole_scope_when_the_records_are_trimmed()
+    {
+        using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
+        await host.WriteEntryAsync("# Ready one\n`task` `!ready` `repo:backlog`\n");
+        await host.WriteEntryAsync("# Started one\n`task` `!in-progress` `repo:backlog`\n");
+        await host.WriteEntryAsync("# Finished one\n`task` `!done` `repo:backlog`\n");
+        await host.WriteEntryAsync("# Idea one\n`idea` `!draft` `repo:backlog`\n");
+
+        // Room for the header and the totals line and nothing else.
+        var budget = AiContentBudget.HeaderReserve("Tasks", 4) + Totals(open: 3, draft: 1, ready: 1, inProgress: 1, done: 1, task: 3, idea: 1).Length + 1;
+        var content = await new TasksAiContentSource(host.State).ComposeAsync(new AiContentRequest("how many open tasks", budget), TestContext.Current.CancellationToken);
+
+        Assert.True(content.Trimmed);
+        Assert.Equal(0, content.Shown);
+        Assert.Equal(
+            $"Tasks: 0 of 4 entries, selected by relevance to the question.\n{Totals(open: 3, draft: 1, ready: 1, inProgress: 1, done: 1, task: 3, idea: 1)}",
+            content.Body);
+        Assert.True(content.Body.Length <= budget);
+    }
+
+    [Fact]
+    public async Task An_empty_scope_carries_no_totals_line()
+    {
+        using var host = await TasksPaneHost.CreateAsync("backlog = JSdotNet/Backlog");
+
+        var content = await new TasksAiContentSource(host.State).ComposeAsync(new AiContentRequest("how many", 6000), TestContext.Current.CancellationToken);
+
+        Assert.Equal("Tasks: 0 entries.", content.Body);
+    }
+
+    private static string Totals(int open, int draft = 0, int ready = 0, int inProgress = 0, int done = 0, int archived = 0, int prompt = 0, int task = 0, int idea = 0, int test = 0) =>
+        $"Totals across all entries in scope: {open} open (not done or archived). " +
+        $"By status: {draft} draft, {ready} ready, {inProgress} in progress, {done} done, {archived} archived. " +
+        $"By type: {prompt} prompt, {task} task, {idea} idea, {test} test.";
 
     /// <summary>The old panel read <c>FilteredRows</c>, so pressing "Draft"
     /// changed the answer. The status chip is screen state; the body is the
@@ -73,8 +112,12 @@ public class TasksAiContentSourceTests
         var plain = await host.WriteEntryAsync("# Water the plants\n`task` `repo:backlog`\n");
         await host.OpenAsync(plain);
 
-        var budget = AiContentBudget.HeaderReserve("Tasks", 2) + plain.RawText.Trim().Length;
-        var content = await new TasksAiContentSource(host.State).ComposeAsync(new AiContentRequest("sync", budget), TestContext.Current.CancellationToken);
+        var source = new TasksAiContentSource(host.State);
+        var whole = await source.ComposeAsync(new AiContentRequest("sync", 6000), TestContext.Current.CancellationToken);
+        var totals = whole.Body.Split('\n')[1];
+
+        var budget = AiContentBudget.HeaderReserve("Tasks", 2) + totals.Length + 1 + plain.RawText.Trim().Length;
+        var content = await source.ComposeAsync(new AiContentRequest("sync", budget), TestContext.Current.CancellationToken);
 
         Assert.True(content.Trimmed);
         Assert.Contains("# Water the plants", content.Body, StringComparison.Ordinal);

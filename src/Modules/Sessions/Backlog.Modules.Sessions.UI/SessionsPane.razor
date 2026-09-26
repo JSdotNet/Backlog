@@ -1,8 +1,10 @@
 @using Microsoft.Extensions.DependencyInjection
+@using Microsoft.JSInterop
 @using global::Backlog.UI.Components.Metrics
 @inject IAgentSessionSource Sessions
 @inject IDeliveryRunSource Runs
 @inject IServiceProvider Services
+@inject IJSRuntime JS
 
 @*
     The sessions pane: the Claude and Copilot sessions this environment has a record
@@ -226,6 +228,10 @@
         {
             <Alert Message="@_recordsMessage" BaseClass="sessions-panel__notice" Role="status" TestId="sessions-records-updated" />
         }
+        @if (FocusMessage is { } focusMessage)
+        {
+            <Alert Message="@focusMessage" BaseClass="sessions-panel__notice" Role="status" TestId="sessions-focus-missing" />
+        }
         @if (Unreadable.Count > 0)
         {
             @* Named, not swallowed. One agent's folder being unreadable leaves the
@@ -258,6 +264,8 @@
                        Columns="Columns"
                        Sections="Sections"
                        RowKey="@(row => (object)row.Key)"
+                       RowCssClass="@(row => IsFocused(row) ? "sessions-table__row--focused" : null)"
+                       RowAttributes="@FocusAttributes"
                        RowNoun="session"
                        AriaLabel="Claude and Copilot sessions this PC has a record of"
                        EmptyMessage="@EmptyMessage"
@@ -786,6 +794,7 @@
             _catalog = await sessions;
             _runs = await runs;
             _rows = SessionRows.Of(_catalog.Sessions, _runs.Runs);
+            _read = true;
             _readAt = DateTimeOffset.UtcNow;
 
             // A re-read can lose the environment the list was narrowed to — its only
@@ -801,6 +810,114 @@
         finally
         {
             _loading = false;
+        }
+
+        RevealFocused();
+    }
+
+    /// <summary>
+    /// The session the pane was opened on — by a task that names it — or null.
+    /// <para>
+    /// The row is marked and receives focus, and the pane's own filters widen when
+    /// they would hide it: the reader asked for this session, and "Live" hiding a
+    /// finished one would answer with nothing. The shell's repository scope is left
+    /// alone, because it is the shell's; a row outside it is said out loud instead.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public string? FocusSessionId { get; set; }
+
+    /// <summary>The <see cref="FocusSessionId"/> last acted on, so re-rendering with
+    /// the same one does not widen the filters the reader has since narrowed.</summary>
+    private string? _focusApplied;
+
+    private bool _focusPending;
+
+    private bool _focusMissing;
+
+    /// <summary>Whether the list has been read once, so an empty list is an answer
+    /// rather than a reading still in flight.</summary>
+    private bool _read;
+
+    protected override void OnParametersSet()
+    {
+        if (string.Equals(FocusSessionId, _focusApplied, StringComparison.OrdinalIgnoreCase)) return;
+
+        _focusApplied = FocusSessionId;
+        _focusMissing = false;
+        _focusPending = !string.IsNullOrWhiteSpace(FocusSessionId);
+
+        RevealFocused();
+    }
+
+    /// <summary>A row is the focused session when it is that session, or when one of
+    /// its runs was driven by it — a run-only row still answers for the session id
+    /// its run recorded.</summary>
+    internal bool IsFocused(SessionRow row) =>
+        !string.IsNullOrWhiteSpace(FocusSessionId)
+        && (string.Equals(row.Session?.Id, FocusSessionId, StringComparison.OrdinalIgnoreCase)
+            || row.Runs.Any(run => run.SessionIds.Contains(FocusSessionId, StringComparer.OrdinalIgnoreCase)));
+
+    private void RevealFocused()
+    {
+        if (!_focusPending || !_read) return;
+
+        if (!ScopedSessions.Any(IsFocused))
+        {
+            _focusMissing = true;
+            _focusPending = false;
+
+            return;
+        }
+
+        if (!Visible.Any(IsFocused))
+        {
+            _view = AgentSessionView.All;
+            _withRuns = false;
+            _environmentId = null;
+        }
+    }
+
+    private string? FocusMessage => _focusMissing && FocusSessionId is { } id
+        ? _rows.Any(IsFocused)
+            ? $"Session {id} is outside the repositories the header is scoped to."
+            : $"This PC has no record of session {id}."
+        : null;
+
+    private static string RowDomId(SessionRow row) => $"sessions-row-{row.Key}";
+
+    private IReadOnlyDictionary<string, object>? FocusAttributes(SessionRow row) =>
+        IsFocused(row)
+            ? new Dictionary<string, object>
+            {
+                ["id"] = RowDomId(row),
+                ["tabindex"] = "-1",
+                ["aria-current"] = "true",
+                ["data-testid"] = "sessions-focused-row",
+            }
+            : null;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_focusPending || _loading) return;
+
+        var row = Visible.FirstOrDefault(IsFocused);
+        if (row is null) return;
+
+        _focusPending = false;
+
+        try
+        {
+            await JS.InvokeVoidAsync("backlogFocus", RowDomId(row));
+        }
+        catch (JSDisconnectedException)
+        {
+            // The pane went with its circuit; there is nothing left to focus.
+        }
+        catch (InvalidOperationException)
+        {
+            // Prerendering, or a test host with no JavaScript: the row is still
+            // marked, which is the part a reader sees.
         }
     }
 

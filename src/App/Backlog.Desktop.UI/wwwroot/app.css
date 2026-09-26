@@ -682,6 +682,15 @@ h1, h2, h3 {
     padding-left: calc(var(--spacing-sm) + var(--border-width-4) + var(--border-width));
 }
 
+/* A glyph standing in for a chip's word (the Tasks scopes). Shifted below the
+   baseline by the amount that puts its centre on the chip's, measured in the
+   harness: text-bottom and middle both leave it 1.5–2px low. Inline rather than
+   an inline-flex chip, so a chip with a glyph keeps the line box — and the
+   height — of a chip with a word. */
+.chip__icon {
+    vertical-align: -0.175em;
+}
+
 /* The count turns the area filter into a sense of where the work actually is. */
 .chip__count {
     margin-left: var(--spacing-xs);
@@ -1369,6 +1378,13 @@ h1, h2, h3 {
 .entry-doc__meta-end {
     margin-left: auto;
     justify-content: flex-end;
+}
+
+/* A pull request or session the entry's work produced. Short labels ("PR #n",
+   "Session 1a2b3c4d") that wrap with the strip rather than clamp, as the
+   Sessions pane draws the same references. */
+.entry-doc__work-link {
+    min-width: 0;
 }
 
 /* --- Scheduling and dependency rows -------------------------------------- */
@@ -3066,6 +3082,50 @@ h1, h2, h3 {
 }
 
 /*
+  The DEV and BETA flags on header controls, pinned to the control's top-right
+  corner rather than set inline after its label. Inline, every flagged option was
+  wider by the flag and its gap, and a row of them spent a fifth of the navigation
+  on the word DEV. On the corner the option is as wide as its label, and the flag
+  still reads as belonging to it — the notification-badge position a reader
+  already knows. The ring in the page colour separates it from the border it
+  straddles. It stays a child of the button, so the accessible name is unchanged.
+
+  Only the status variants move: a flag key wearing `.badge--feature` alone is
+  not a qualifier on a control and never sits in one.
+*/
+.header-group__option,
+.header-accent {
+    position: relative;
+}
+
+.header-group__option > :is(.badge--feature-dev, .badge--feature-beta),
+.header-accent > :is(.badge--feature-dev, .badge--feature-beta) {
+    position: absolute;
+    top: -6px;
+    right: -4px;
+    z-index: 1;
+    margin: 0;
+    box-shadow: 0 0 0 var(--border-width) var(--color-background);
+}
+
+/* A fused group clips its members to its rounded corners, and would clip a flag
+   standing past them just the same. Where one carries a flag the group stops
+   clipping, and its end members take the corners the clip used to cut. */
+.header-group:has(> .header-group__option > :is(.badge--feature-dev, .badge--feature-beta)) {
+    overflow: visible;
+}
+
+.header-group:has(> .header-group__option > :is(.badge--feature-dev, .badge--feature-beta)) > .header-group__option:first-child {
+    border-top-left-radius: calc(var(--border-radius-md) - var(--border-width));
+    border-bottom-left-radius: calc(var(--border-radius-md) - var(--border-width));
+}
+
+.header-group:has(> .header-group__option > :is(.badge--feature-dev, .badge--feature-beta)) > .header-group__option:last-child {
+    border-top-right-radius: calc(var(--border-radius-md) - var(--border-width));
+    border-bottom-right-radius: calc(var(--border-radius-md) - var(--border-width));
+}
+
+/*
   The utility-button shape: borderless and secondary at rest, growing a border only
   when reached for. Chrome that appears on approach rather than shouting the whole
   time, which is how it stays behind whatever the loud thing on its row is.
@@ -4386,7 +4446,7 @@ h1, h2, h3 {
     overflow: hidden;
 }
 
-/* A takeover: the Roadmap, Tools or the Dashboard, filling everything below the header. The
+/* A takeover: the Roadmap, Tools, the Dashboard or Sessions, filling everything below the header. The
    panel inside owns the scrollbar rather than this landmark, so the header — and
    the control that closes the surface — can never be scrolled out of reach. */
 .workspace-surface {
@@ -4397,40 +4457,13 @@ h1, h2, h3 {
     overflow: hidden;
 }
 
-/* The panel is the scroll container whether it sits in the surface directly or
-   inside one of the Dashboard's tab panels: the tab panel below is the same kind
-   of column as the surface, so the rule reaches the same element either way. */
+/* The panel inside a takeover is the scroll container. */
 .workspace-surface > .tools-panel,
 .workspace-surface > .dashboard-panel,
-.workspace-surface > .sessions-panel,
-.workspace-surface__tabpanel > .dashboard-panel,
-.workspace-surface__tabpanel > .sessions-panel {
+.workspace-surface > .sessions-panel {
     flex: 1 1 auto;
     min-height: 0;
     overflow: auto;
-}
-
-/* The Dashboard's tab strip: Overview beside Sessions. The library's tabs__list
-   draws it; this only fixes it at the top of the column so the panel below takes
-   the rest, and lifts the bottom rule off the panel's own frame. */
-.workspace-surface__tabs {
-    flex: none;
-    margin-bottom: var(--spacing-sm);
-}
-
-/* One tab panel is on screen and the other carries `hidden`. Only the visible one
-   is made a flex column — display on both would override the attribute and put an
-   empty panel in the column beside the live one. */
-.workspace-surface__tabpanel:not([hidden]) {
-    display: flex;
-    flex-direction: column;
-    flex: 1 1 auto;
-    min-height: 0;
-}
-
-.workspace-surface__tabpanel:focus-visible {
-    outline: var(--border-width-2) solid var(--color-border-focus);
-    outline-offset: -2px;
 }
 
 /* The roadmap takeover. The view fills the surface, and the chart inside it owns the
@@ -5193,6 +5226,23 @@ h1, h2, h3 {
 
 .sessions-table__pull-request {
     min-width: 0;
+}
+
+/* The session a task opened the pane on. The accent rule down its leading edge
+   and the selection tint say "this one" without moving anything; the row keeps
+   its place in whatever grouping is chosen. Focus lands on it too, so the
+   outline is the row's own focus ring. The inbox's selected row, in a table. */
+.sessions-table__row--focused > td {
+    background: color-mix(in srgb, var(--color-primary) 14%, transparent);
+}
+
+.sessions-table__row--focused > td:first-child {
+    box-shadow: inset 3px 0 0 var(--color-primary);
+}
+
+.sessions-table__row--focused:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: -2px;
 }
 
 /* Two short figures, read across rather than wrapped. */
