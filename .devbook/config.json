@@ -197,12 +197,13 @@
       ]
     },
     "devbook-procedures": {
-      "pluginVersion": "1.7.0",
+      "pluginVersion": "1.9.0",
       "adopted": [
         "start",
         "show",
         "capture",
-        "debug"
+        "debug",
+        "estimate"
       ],
       "materialized": {
         ".agents/skills/start.md": {
@@ -263,6 +264,21 @@
         ".github/skills/debug/SKILL.md": {
           "from": "1.7.0",
           "hash": "sha256:3b4d67c5f8385574f04d6b8ffba870edfee2ba9ac0c8a015e3267537143514ff",
+          "managed": true
+        },
+        ".agents/skills/estimate.md": {
+          "from": "1.9.0",
+          "hash": "sha256:1ec1eb40f13561840e2c6c8b785eac82db64924ee2bb3f38722bb1a7d973f6a9",
+          "managed": false
+        },
+        ".claude/skills/estimate/SKILL.md": {
+          "from": "1.9.0",
+          "hash": "sha256:d212a7d5fd773047598ef7f586588d6f879dd585734a9b6f3b0e1aa4bce604c7",
+          "managed": true
+        },
+        ".github/skills/estimate/SKILL.md": {
+          "from": "1.9.0",
+          "hash": "sha256:d212a7d5fd773047598ef7f586588d6f879dd585734a9b6f3b0e1aa4bce604c7",
           "managed": true
         }
       }

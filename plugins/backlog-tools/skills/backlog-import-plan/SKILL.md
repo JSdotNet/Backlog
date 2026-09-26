@@ -85,9 +85,9 @@ mechanics; do not invent syntax beyond it.
    The **metadata line** of every step, any kind: the type — `prompt`, `task` or `test`,
    never `idea`; always `!ready`, on every entry whatever its place in the chain — order
    is carried by `after:`, never by holding a later entry at `!draft`; always an
-   `effort:<points>` estimate off the 1/2/3/5/8/13/21 scale, sized from the instructions
-   the entry actually carries; `repo:<name>` once per target repository (a task carries it
-   only when the step is done in or to that repository); `id:<slug>` on every entry — a
+   `effort:<points>` estimate off the 1/2/3/5/8/13/21 scale, sized per
+   [Sizing the steps](#sizing-the-steps); `repo:<name>` once per target repository (a task
+   carries it only when the step is done in or to that repository); `id:<slug>` on every entry — a
    stable slug from its title, reused verbatim when the plan is regenerated, since it is
    how Backlog recognizes an entry already under way or already finished; `after:<id>`
    once per prerequisite, including across repositories and across kinds; the shared
@@ -129,8 +129,27 @@ mechanics; do not invent syntax beyond it.
    glance what the plan gets wrong; when the user reports a failed check, fix the plan and
    regenerate the view rather than patching the view.
 8. Report the output location (if written), the review view's link or path, the entry
-   count, the repositories targeted, and the dependency chain. Stop — do not open the
-   Backlog app, run a prompt, or create a pull request.
+   count, the repositories targeted, the dependency chain, and which sizing answered — the
+   `estimate` skill, or this skill's fallback and the step it anchored on. Stop — do
+   not open the Backlog app, run a prompt, or create a pull request.
+
+## Sizing the steps
+
+Size every step in one pass once all of them are drafted, never one at a time as each is
+written — a point only means something beside the others.
+
+- **An `estimate` skill, when the session has one.** It is the repository's own sizing
+  procedure (devbook-procedures seeds it), held to reference work that already landed, so
+  a point means the same in every plan. Invoke it with each step's title, kind and
+  instructions and write the points it returns unchanged.
+- **Otherwise, this fallback**, which is relative within this plan only. Anchor on the most
+  typical step and give it `3`; size every other step against it on the 1/2/3/5/8/13/21
+  scale — a fraction of its work is `1` or `2`, about twice is `5`, about three times is
+  `8`. Size a `task` or `test` by the user's work the same way. Then compare the steps
+  pairwise and fix any pair whose points disagree with how their work compares. A step at
+  `13` or `21` is usually two steps: split it unless the source names it one unit.
+
+Either way the sign-off task stays `effort:1`.
 
 ## Roadmap-level mode
 
