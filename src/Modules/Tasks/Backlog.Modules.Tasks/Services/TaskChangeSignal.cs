@@ -1,3 +1,5 @@
+using Backlog.Modules.Tasks.Abstractions.Services;
+
 namespace Backlog.Modules.Tasks.Services;
 
 /// <summary>

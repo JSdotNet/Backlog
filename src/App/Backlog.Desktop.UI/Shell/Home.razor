@@ -714,6 +714,7 @@
             .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
 
         State.Changed += HandleStateChanged;
+        State.WrittenElsewhere += HandleTasksWrittenElsewhere;
         InboxState.Changed += HandleStateChanged;
         InboxState.Routed += HandleInboxRouted;
         Features.Changed += HandleFeaturesChanged;
@@ -1386,6 +1387,53 @@
     /// a cycle that applied nothing since — reloads it no second time.</summary>
     private DateTimeOffset? _lastAppliedSyncAt;
 
+    /// <summary>
+    /// A task was written somewhere other than the Tasks pane — most often the
+    /// MCP server an agent drives while the person watches the list — so the
+    /// pane reloads from the store.
+    /// <para>
+    /// On the renderer's dispatcher, because the state raises this on the
+    /// writer's thread and a reload replaces the rows the renderer reads. And
+    /// coalesced, because an agent's burst — an import, a run of transitions — is
+    /// one signal per write: a signal that lands while a reload is running marks
+    /// one more as owed instead of starting a second over the first, so at most one
+    /// reload is in flight and the last write is always read. The reload keeps its
+    /// own guard and waits out an open editor; see
+    /// <c>TasksDesktopState.ReloadFromStoreAsync</c>.
+    /// </para></summary>
+    private void HandleTasksWrittenElsewhere() => _ = InvokeAsync(async () =>
+    {
+        _tasksReloadOwed = true;
+        if (_tasksReloadRunning) return;
+
+        _tasksReloadRunning = true;
+
+        try
+        {
+            while (_tasksReloadOwed)
+            {
+                _tasksReloadOwed = false;
+                await State.ReloadFromStoreAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            _tasksReloadOwed = false;
+            Toasts.Publish(ToastMessage.Error($"The backlog could not be refreshed after a change made outside it: {ex.Message}", TasksReloadErrorTestId));
+        }
+        finally
+        {
+            _tasksReloadRunning = false;
+        }
+    });
+
+    /// <summary>Whether <see cref="HandleTasksWrittenElsewhere"/> has a reload
+    /// running, and whether another is owed behind it. Only touched on the
+    /// renderer's dispatcher.</summary>
+    private bool _tasksReloadRunning;
+
+    private bool _tasksReloadOwed;
+
     /// <summary>Where the two discarded reloads report a failure, for a test
     /// to find and a reader to read.</summary>
     private const string InboxReloadErrorTestId = "inbox-reload-error";
@@ -1776,6 +1824,7 @@
     {
         CancelAsk();
         State.Changed -= HandleStateChanged;
+        State.WrittenElsewhere -= HandleTasksWrittenElsewhere;
         InboxState.Changed -= HandleStateChanged;
         InboxState.Routed -= HandleInboxRouted;
         Features.Changed -= HandleFeaturesChanged;
