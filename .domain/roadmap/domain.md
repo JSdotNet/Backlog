@@ -115,8 +115,13 @@ placed its window — `placed_by_import`.
 velocity) or `due-date` (end from the `due:` the plan wrote). Absent means a
 person placed it. It is cleared the moment a person moves the window, and never
 set again except by an import creating the item anew; an import re-places only a
-window that still carries it. A drop onto another lane that leaves the dates
-alone keeps it, because no date the importer chose was overruled.
+window that still carries it. While it is still `effort`, a person may also ask
+for that same re-length between imports: the start stays, the end is recomputed
+from the total registered effort at the reader's velocity, and the value stays
+`effort`, because the window is still the importer's rule applied, not a hand
+move. An item carrying `due-date`, or none, is refused. A drop onto another lane
+that leaves the dates alone keeps it, because no date the importer chose was
+overruled.
 
 It has no status and no percentage. Both are questions about execution, and
 execution belongs to Tasks: an item that names a task shows that
