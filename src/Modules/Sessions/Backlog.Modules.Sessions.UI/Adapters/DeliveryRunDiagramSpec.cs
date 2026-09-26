@@ -25,6 +25,15 @@ namespace Backlog.Modules.Sessions.UI.Adapters;
 /// stage's sublabel, so colour is never the only carrier of it.
 /// </para>
 /// <para>
+/// Who worked in each stage hangs under it: a box for the owner session and one for
+/// every agent it delegated to, each sublabelled with the model it ran on — the same
+/// lines the live flow writes under its nodes, taken from the same place. The
+/// architecture type gives a box a label and a sublabel and nothing else, so a
+/// worker is a box of its own rather than a line in the stage's; and the boxes are
+/// left unconnected, because a worker is not a step the run walked through, and a
+/// stack of them is closer together than Archify lets a connection be.
+/// </para>
+/// <para>
 /// Deterministic on purpose: the same run gives byte-for-byte the same specification,
 /// because the renderer caches the artifact by a hash of it. Nothing that changes
 /// without the stages changing — the clock, the token figures — goes in.
@@ -44,6 +53,11 @@ internal static class DeliveryRunDiagramSpec
     private const int MinimumNodeWidth = 96;
     private const int NodePadding = 20;
     private const int NodeHeight = 64;
+    private const int WorkerHeight = 52;
+
+    /// <summary>From a stage to its first worker, and between workers.</summary>
+    private const int WorkerOffset = 28;
+    private const int WorkerGap = 16;
 
     /// <summary>Just over Archify's 24px minimum for a connection, so there is an
     /// arrow to see without the gaps adding up to more than the boxes.</summary>
@@ -66,11 +80,13 @@ internal static class DeliveryRunDiagramSpec
         var components = new JsonArray();
         var connections = new JsonArray();
         var x = Margin;
+        var bottom = Top + NodeHeight;
 
         for (var index = 0; index < stages.Count; index++)
         {
             var stage = stages[index];
-            var width = Width(stage);
+            var workers = DeliveryRunLine.Workers(run, stage);
+            var width = Width(stage, workers);
 
             components.Add(new JsonObject
             {
@@ -81,6 +97,26 @@ internal static class DeliveryRunDiagramSpec
                 ["pos"] = new JsonArray(x, Top),
                 ["size"] = new JsonArray(width, NodeHeight)
             });
+
+            var y = Top + NodeHeight + WorkerOffset;
+
+            for (var slot = 0; slot < workers.Count; slot++)
+            {
+                var worker = new JsonObject
+                {
+                    ["id"] = $"{Id(index)}w{slot}",
+                    ["type"] = "cloud",
+                    ["label"] = workers[slot].Label,
+                    ["pos"] = new JsonArray(x, y),
+                    ["size"] = new JsonArray(width, WorkerHeight)
+                };
+
+                if (workers[slot].Detail is { } detail) worker["sublabel"] = detail;
+
+                components.Add(worker);
+                bottom = Math.Max(bottom, y + WorkerHeight);
+                y += WorkerHeight + WorkerGap;
+            }
 
             x += width + Gap;
 
@@ -123,7 +159,7 @@ internal static class DeliveryRunDiagramSpec
                 ["quality_profile"] = "standard",
                 ["viewBox"] = new JsonArray(
                     Math.Max(320, x - Gap + Margin),
-                    Math.Max(240, Top + NodeHeight + 72)),
+                    Math.Max(240, bottom + 72)),
                 ["legend"] = new JsonObject
                 {
                     ["mode"] = "auto",
@@ -132,7 +168,8 @@ internal static class DeliveryRunDiagramSpec
                         ["backend"] = new JsonObject { ["label"] = "Done" },
                         ["frontend"] = new JsonObject { ["label"] = "In progress" },
                         ["security"] = new JsonObject { ["label"] = "Blocked" },
-                        ["external"] = new JsonObject { ["label"] = "Not reached" }
+                        ["external"] = new JsonObject { ["label"] = "Not reached" },
+                        ["cloud"] = new JsonObject { ["label"] = "Worker" }
                     }
                 }
             },
@@ -157,7 +194,11 @@ internal static class DeliveryRunDiagramSpec
         for (var index = 0; index < run.Stages.Count; index++)
         {
             var stage = run.Stages[index];
-            var node = $"{Id(index)}[\"{Escape(stage.Name)}<br/>{Escape(DeliveryRunLine.StatusLabel(stage.Status))}\"]";
+            var lines = new List<string> { stage.Name, DeliveryRunLine.StatusLabel(stage.Status) };
+            lines.AddRange(DeliveryRunLine.Workers(run, stage).Select(worker =>
+                worker.Detail is { } detail ? $"{worker.Label} · {detail}" : worker.Label));
+
+            var node = $"{Id(index)}[\"{string.Join("<br/>", lines.Select(Escape))}\"]";
 
             builder.Append('\n').Append("    ");
             builder.Append(index == 0 ? node : $"{Id(index - 1)} --> {node}");
@@ -168,12 +209,18 @@ internal static class DeliveryRunDiagramSpec
 
     private static string Id(int index) => $"s{index}";
 
-    private static int Width(DeliveryRunStage stage) =>
+    /// <summary>The column's width: the stage's own box and every worker under it,
+    /// which share it so the column reads as one.</summary>
+    private static int Width(DeliveryRunStage stage, IReadOnlyList<FlowStepNote> workers) =>
         Math.Max(
             MinimumNodeWidth,
-            (int)Math.Ceiling(Math.Max(
-                stage.Name.Length * LabelPixelsPerCharacter,
-                Sublabel(stage).Length * SublabelPixelsPerCharacter)) + NodePadding);
+            (int)Math.Ceiling(workers.Aggregate(
+                Math.Max(
+                    stage.Name.Length * LabelPixelsPerCharacter,
+                    Sublabel(stage).Length * SublabelPixelsPerCharacter),
+                (widest, worker) => Math.Max(widest, Math.Max(
+                    worker.Label.Length * LabelPixelsPerCharacter,
+                    (worker.Detail?.Length ?? 0) * SublabelPixelsPerCharacter)))) + NodePadding);
 
     /// <summary>The tone as the component type Archify colours by; the legend
     /// relabels each of the four used.</summary>
@@ -185,28 +232,13 @@ internal static class DeliveryRunDiagramSpec
         _ => "external"
     };
 
-    /// <summary>
-    /// Where the stage stands, then who worked in it: the one agent it delegated to
-    /// where there was one — with a count of the rest — and the owner session
-    /// otherwise. A stage nobody has reached names nobody, as the flow beside it
-    /// does. The models stay in the fold's figures; a model id is the longest thing
-    /// a box could carry and the least read.
-    /// </summary>
-    private static string Sublabel(DeliveryRunStage stage)
-    {
-        var status = DeliveryRunLine.StatusLabel(stage.Status);
-
-        if (DeliveryRunLine.Tone(stage.Status) is FlowStepTone.Pending or FlowStepTone.Skipped) return status;
-
-        var worker = stage.Agents.Count switch
-        {
-            0 => "main session",
-            1 => stage.Agents[0].Name,
-            var count => $"{stage.Agents[0].Name} +{count - 1}"
-        };
-
-        return $"{status} · {worker}";
-    }
+    /// <summary>Where the stage stands, and how long it took where the run says: the
+    /// tone in words, so colour is never its only carrier. Who worked in it is in the
+    /// boxes under it.</summary>
+    private static string Sublabel(DeliveryRunStage stage) =>
+        DeliveryRunLine.StageFacts(stage) is { } facts
+            ? $"{DeliveryRunLine.StatusLabel(stage.Status)} · {facts}"
+            : DeliveryRunLine.StatusLabel(stage.Status);
 
     /// <summary>A mermaid label is a quoted string, so a quote in a stage name would
     /// end it early.</summary>
