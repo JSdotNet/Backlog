@@ -414,9 +414,12 @@ public sealed class TaskListTests
         Assert.NotNull(line.QuerySelector(".task-item__body"));
         Assert.NotNull(line.QuerySelector(".task-item__meta"));
 
+        // The pencil goes with the title it sits beside, in the head the box holds.
+        Assert.NotNull(line.QuerySelector(".task-item__head > .task-item__edit"));
+
         // And the controls after it are still the row's, so they stay on the row's
         // one flex line rather than following the metadata onto another.
-        foreach (var control in new[] { ".task-item__edit", ".task-item__copy", ".task-item__delete" })
+        foreach (var control in new[] { ".task-item__copy", ".task-item__delete" })
         {
             var element = row.QuerySelector(control);
 

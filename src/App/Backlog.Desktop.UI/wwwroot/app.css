@@ -1758,7 +1758,11 @@ h1, h2, h3 {
        to most of a 38rem column, and every one of them is a control the reader
        reached the row *through* rather than for. All four are still one click away
        inside the entry, which is the difference between a control moved and a
-       control lost. */
+       control lost.
+
+       The pencil beside the title goes with them: it no longer sits in the
+       cluster, but it is the title's width it takes, and at this width the title
+       is the one thing on the row that has none to spare. */
     .task-item__edit,
     .task-item__copy,
     .entry-row__pickers .metadata-editor--repo {
