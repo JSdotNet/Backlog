@@ -216,3 +216,12 @@ related: [".devbook/arc42/04-solution-strategy.md"]
   absolute path so each worktree has its own; the desktop builds it in C# in the
   background when a repository is first read, and `build-database.mjs` stays as
   CI's build check and the reference a comparison test holds the C# builder to.
+- **[ADR 0016 — The knowledge folders adopt the devbook convention under `.devbook/`; the derived layer stays a local build output](adr/0016-knowledge-folders-adopt-the-devbook-convention.md)**
+  *(accepted, partly built)*: all five folders, including a new `ai/`, sit under
+  `.devbook/` at the installed contract. `.backlog/` and every
+  `_reading-order.json` are retired. The generated database stays uncommitted,
+  so `devbook-derived` is not adopted, and the repo-native writer imports the
+  installed generator at `.devbook/_tools/devbook-meta/`. The four procedures
+  and the schedule catalog are adopted as shipped. The delivery engine replaces
+  the orch-* gate, with its roles bound to the `jsdotnet-ai-plugins` agents.
+  Local ADR 0011 stands unchanged.
