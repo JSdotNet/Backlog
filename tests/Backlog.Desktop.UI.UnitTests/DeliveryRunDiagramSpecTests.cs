@@ -25,7 +25,7 @@ public sealed class DeliveryRunDiagramSpecTests
         Assert.Equal("architecture", root.GetProperty("diagram_type").GetString());
         Assert.Equal("trace", root.GetProperty("meta").GetProperty("animation").GetString());
 
-        var components = root.GetProperty("components").EnumerateArray().ToList();
+        var components = Stages(root);
         Assert.Equal(11, components.Count);
         Assert.Equal("Scope Discovery", components[0].GetProperty("label").GetString());
         Assert.Equal("Summary", components[^1].GetProperty("label").GetString());
@@ -50,7 +50,7 @@ public sealed class DeliveryRunDiagramSpecTests
     public void The_tone_is_the_colour_and_the_word_and_the_legend_names_it()
     {
         using var spec = JsonDocument.Parse(DeliveryRunDiagramSpec.Archify(Eleven()));
-        var components = spec.RootElement.GetProperty("components").EnumerateArray().ToList();
+        var components = Stages(spec.RootElement);
 
         Assert.Equal("backend", components[0].GetProperty("type").GetString());
         Assert.Equal("frontend", components[6].GetProperty("type").GetString());
@@ -58,16 +58,58 @@ public sealed class DeliveryRunDiagramSpecTests
         Assert.Equal("external", components[8].GetProperty("type").GetString());
 
         // Never colour alone: the word is in the box.
-        Assert.Equal("Done · main session", components[0].GetProperty("sublabel").GetString());
-        Assert.Equal("Done · qa:qa +1", components[5].GetProperty("sublabel").GetString());
-        Assert.Equal("In progress · main session", components[6].GetProperty("sublabel").GetString());
-
-        // A stage nobody reached names nobody.
+        Assert.Equal("Done · 1m 0s", components[0].GetProperty("sublabel").GetString());
+        Assert.Equal("In progress", components[6].GetProperty("sublabel").GetString());
         Assert.Equal("Pending", components[8].GetProperty("sublabel").GetString());
 
         var legend = spec.RootElement.GetProperty("meta").GetProperty("legend").GetProperty("entries");
         Assert.Equal("Done", legend.GetProperty("backend").GetProperty("label").GetString());
         Assert.Equal("In progress", legend.GetProperty("frontend").GetProperty("label").GetString());
+    }
+
+    /// <summary>
+    /// Who worked in each stage, drawn under it: the main session, then every agent
+    /// with the model it ran on — what the flow this artifact replaced listed, and
+    /// what a first version of the artifact folded into "qa:qa +1" with no model.
+    /// </summary>
+    [Fact]
+    public void Every_worker_and_its_model_is_drawn_under_its_stage()
+    {
+        var run = Eleven() with
+        {
+            TokenUsage = new DeliveryRunTokenUsage(
+                new DeliveryRunTokens(3, 10, 20, 0, 0, 0),
+                new DeliveryRunTokens(0, 0, 0, 0, 0, 0),
+                [],
+                ["claude-opus-5-5"])
+        };
+
+        using var spec = JsonDocument.Parse(DeliveryRunDiagramSpec.Archify(run));
+        var all = spec.RootElement.GetProperty("components").EnumerateArray().ToList();
+        var validation = all.Single(component => component.GetProperty("id").GetString() == "s5");
+
+        var workers = Workers(all, "s5");
+        Assert.Equal(["main session", "qa:qa", "qa:qa-monitor"], workers.Select(worker => worker.GetProperty("label").GetString()));
+        Assert.Equal(["claude-opus-5-5", "claude-sonnet-5", "declared"], workers.Select(worker => worker.GetProperty("sublabel").GetString()));
+
+        // In the stage's column, under it, one under the other.
+        Assert.All(workers, worker => Assert.Equal(validation.GetProperty("pos")[0].GetInt32(), worker.GetProperty("pos")[0].GetInt32()));
+        var tops = workers.Select(worker => worker.GetProperty("pos")[1].GetInt32()).ToList();
+        Assert.True(tops[0] > validation.GetProperty("pos")[1].GetInt32() + validation.GetProperty("size")[1].GetInt32());
+        Assert.True(tops.Zip(tops.Skip(1)).All(pair => pair.Second > pair.First));
+
+        // The main session alone in a stage nobody delegated from; nobody in one
+        // nobody reached.
+        Assert.Equal(["main session"], Workers(all, "s0").Select(worker => worker.GetProperty("label").GetString()));
+        Assert.Empty(Workers(all, "s8"));
+
+        // And the viewBox is tall enough for the deepest column.
+        var deepest = workers[^1];
+        Assert.True(spec.RootElement.GetProperty("meta").GetProperty("viewBox")[1].GetInt32()
+            >= deepest.GetProperty("pos")[1].GetInt32() + deepest.GetProperty("size")[1].GetInt32());
+
+        var legend = spec.RootElement.GetProperty("meta").GetProperty("legend").GetProperty("entries");
+        Assert.Equal("Worker", legend.GetProperty("cloud").GetProperty("label").GetString());
     }
 
     [Fact]
@@ -83,11 +125,12 @@ public sealed class DeliveryRunDiagramSpecTests
     }
 
     [Fact]
-    public void The_mermaid_side_draws_the_same_stages_left_to_right()
+    public void The_mermaid_side_draws_the_same_stages_and_workers_left_to_right()
     {
         var mermaid = DeliveryRunDiagramSpec.Mermaid(Eleven());
 
-        Assert.StartsWith("flowchart LR\n    s0[\"Scope Discovery<br/>Done\"]", mermaid, StringComparison.Ordinal);
+        Assert.StartsWith("flowchart LR\n    s0[\"Scope Discovery<br/>Done<br/>main session\"]", mermaid, StringComparison.Ordinal);
+        Assert.Contains("s5[\"Validation<br/>Done<br/>main session<br/>qa:qa · claude-sonnet-5<br/>qa:qa-monitor · declared\"]", mermaid, StringComparison.Ordinal);
         Assert.Contains("s9 --> s10[\"Summary<br/>Pending\"]", mermaid, StringComparison.Ordinal);
     }
 
@@ -146,6 +189,12 @@ public sealed class DeliveryRunDiagramSpecTests
         Assert.Null(diagram.Html);
         Assert.Contains("not part of this installation", diagram.Unavailable, StringComparison.Ordinal);
     }
+
+    private static List<JsonElement> Stages(JsonElement root) =>
+        [.. root.GetProperty("components").EnumerateArray().Where(component => !component.GetProperty("id").GetString()!.Contains('w', StringComparison.Ordinal))];
+
+    private static List<JsonElement> Workers(List<JsonElement> components, string stage) =>
+        [.. components.Where(component => component.GetProperty("id").GetString()!.StartsWith(stage + "w", StringComparison.Ordinal))];
 
     private static bool NodeInstalled()
     {

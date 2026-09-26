@@ -419,8 +419,14 @@
             Tone(stage.Status),
             StatusLabel(stage.Status),
             StageFacts(stage),
-            [.. Owner(stage), .. stage.Agents.Select(Note)]))
+            Workers(Run, stage)))
     ];
+
+    /// <summary>Who worked in a stage: the owner session, then each agent it
+    /// delegated to and the model that agent ran on. Shared with the Archify drawing,
+    /// so the artifact names exactly the workers the flow does.</summary>
+    internal static IReadOnlyList<FlowStepNote> Workers(DeliveryRun run, DeliveryRunStage stage) =>
+        [.. Owner(run, stage), .. stage.Agents.Select(Note)];
 
     /// <summary>
     /// The owner session's line, on a stage it has worked in. The run file names the
@@ -429,11 +435,11 @@
     /// stage was on it. With more than one the owner is named without a model rather
     /// than with a guess.
     /// </summary>
-    private IEnumerable<FlowStepNote> Owner(DeliveryRunStage stage)
+    private static IEnumerable<FlowStepNote> Owner(DeliveryRun run, DeliveryRunStage stage)
     {
         if (Tone(stage.Status) is FlowStepTone.Pending or FlowStepTone.Skipped) yield break;
 
-        var models = Run.TokenUsage?.Models ?? [];
+        var models = run.TokenUsage?.Models ?? [];
 
         yield return new FlowStepNote("main session", models.Count == 1 ? models[0] : null);
     }
@@ -450,7 +456,7 @@
         _ => FlowStepTone.Pending
     };
 
-    private static string? StageFacts(DeliveryRunStage stage)
+    internal static string? StageFacts(DeliveryRunStage stage)
     {
         var facts = new List<string>();
 
