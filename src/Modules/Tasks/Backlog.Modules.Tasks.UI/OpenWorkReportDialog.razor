@@ -41,7 +41,8 @@
                     <MetricTile Label="Open tasks" Value="@report.Totals.Open.ToString(CultureInfo.CurrentCulture)" Emphasis="true" TestId="open-work-tile-open" />
                     <MetricTile Label="Points (estimated)" Value="@report.Totals.Points.ToString(CultureInfo.CurrentCulture)" TestId="open-work-tile-points" />
                     <MetricTile Label="Unestimated" Value="@report.Totals.Unestimated.ToString(CultureInfo.CurrentCulture)" TestId="open-work-tile-unestimated" />
-                    <MetricTile Label="Done in the last 7 days" Value="@report.DoneLastSevenDays.ToString(CultureInfo.CurrentCulture)" TestId="open-work-tile-done" />
+                    <MetricTile Label="Tasks done in the last 7 days" Value="@report.DoneLastSevenDays.ToString(CultureInfo.CurrentCulture)" TestId="open-work-tile-done" />
+                    <MetricTile Label="Points done in the last 7 days" Value="@report.DonePointsLastSevenDays.ToString(CultureInfo.CurrentCulture)" Footnote="@DoneUnestimatedFootnote(report)" TestId="open-work-tile-done-points" />
                 </MetricGrid>
 
                 <section class="open-work-report__section" aria-labelledby="open-work-plans-heading">
@@ -144,6 +145,13 @@
         Open = open;
         return OpenChanged.InvokeAsync(open);
     }
+
+    /// <summary>The done tasks with no estimate, said beside the points as every
+    /// effort total says them; nothing when there are none.</summary>
+    private static string? DoneUnestimatedFootnote(OpenWorkReport report) =>
+        report.DoneUnestimatedLastSevenDays > 0
+            ? $"{report.DoneUnestimatedLastSevenDays} unestimated"
+            : null;
 
     private static string EmptyDescription(OpenWorkReport report) =>
         report.DoneLastSevenDays switch

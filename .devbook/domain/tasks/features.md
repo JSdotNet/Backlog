@@ -202,7 +202,8 @@ zero is an estimate, and the unestimated count is said beside the sum rather
 than folded into it.
 
 The line is also the way into a report of that same open work: the headline
-numbers and what was ticked off in the last seven days; each plan's open tasks,
+numbers and what was ticked off in the last seven days, as tasks and as points
+under the same rule; each plan's open tasks,
 points and progress, with the work filed under no plan as its own line; how the
 open work splits by status, priority, type and repository; and what needs
 attention — overdue and due within the week, each task named and opening from

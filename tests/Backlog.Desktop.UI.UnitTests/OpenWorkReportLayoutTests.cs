@@ -90,6 +90,19 @@ public sealed class OpenWorkReportLayoutTests
         Assert.DoesNotContain("open-work-report", library, StringComparison.Ordinal);
     }
 
+    /// <summary>Labels wrap to one line or two; the tiles share the grid's rows as a
+    /// subgrid so every number in a row sits on one baseline regardless.</summary>
+    [Fact]
+    public void The_tile_numbers_line_up_across_a_row()
+    {
+        var tile = Block(Css(), ".open-work-report .metric-tile {");
+        Assert.Contains("grid-row: span 3;", tile, StringComparison.Ordinal);
+        Assert.Contains("grid-template-rows: subgrid;", tile, StringComparison.Ordinal);
+
+        Assert.Contains("align-self: baseline;", Block(Css(), ".open-work-report .metric-tile__value {"), StringComparison.Ordinal);
+        Assert.Contains("align-self: start;", Block(Css(), ".open-work-report .metric-tile__label {"), StringComparison.Ordinal);
+    }
+
     /// <summary>The title is the primary text and reads as a link — the look a
     /// row's "Waiting for" names have — and the detail is quieter and smaller.
     /// Stacked rather than side by side, so a title that wraps cannot push its
