@@ -25,6 +25,13 @@ namespace Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 /// from, with or without the <c>@</c> — and it is the only place a person goes:
 /// a tag that reads as one is refused, because a person is never a tag.
 /// </para>
+/// <para>
+/// <paramref name="Attachments"/> names files already uploaded through
+/// <c>PUT /api/sync/attachments/{id}</c> (local ADR 0014). The service refuses a
+/// capture naming one this owner has not uploaded, or one whose size or digest
+/// differs from what was stored, so a capture on the replica never names a blob
+/// that is not there.
+/// </para>
 /// </summary>
 public sealed record CaptureRequest(
     string Title,
@@ -32,7 +39,8 @@ public sealed record CaptureRequest(
     Guid? Id = null,
     string? BodyMd = null,
     IReadOnlyList<string>? Tags = null,
-    string? Person = null);
+    string? Person = null,
+    IReadOnlyList<AttachmentMetadata>? Attachments = null);
 
 /// <summary>
 /// An unsynced capture awaiting pickup by the desktop.
@@ -47,6 +55,8 @@ public sealed record CaptureRequest(
 /// the desktop pane, the editor extension — reads the same record it always
 /// did. The person is split back out of the <c>@name</c> tag it travels as, so
 /// a reader never has to know that convention to show who a capture is about.
+/// <paramref name="Attachments"/> is the metadata of the files the capture
+/// names; the bytes are fetched one by one from the attachment store.
 /// </para>
 /// </summary>
 public sealed record InboxItem(
@@ -56,4 +66,5 @@ public sealed record InboxItem(
     DateTimeOffset CapturedAt,
     string? BodyMd = null,
     IReadOnlyList<string>? Tags = null,
-    string? Person = null);
+    string? Person = null,
+    IReadOnlyList<AttachmentMetadata>? Attachments = null);

@@ -17,6 +17,9 @@
          port, so the two Cosmos packages stay in that project and this one
          depends on a port implementation rather than on a database driver. -->
     <ProjectReference Include="..\..\..\Infrastructure\Backlog.Infrastructure.Cosmos\Backlog.Infrastructure.Cosmos.csproj" />
+    <!-- The blob-backed IAttachmentStore (.devbook/arc42/adr/0014), for the same
+         reason: the storage packages stay in that project. -->
+    <ProjectReference Include="..\..\..\Infrastructure\Backlog.Infrastructure.BlobStorage\Backlog.Infrastructure.BlobStorage.csproj" />
     <ProjectReference Include="..\Backlog.Modules.Sync\Backlog.Modules.Sync.csproj" />
   </ItemGroup>
 

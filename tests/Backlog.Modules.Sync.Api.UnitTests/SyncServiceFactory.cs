@@ -63,6 +63,11 @@ internal sealed class SyncServiceFactory : WebApplicationFactory<Program>
     /// present.</summary>
     internal (string Key, string? Value)? Configuration { get; init; }
 
+    /// <summary>More settings of the same kind, for the deployed shape, which
+    /// needs every store configured before the one thing under test can be the
+    /// thing that is missing.</summary>
+    internal IReadOnlyList<(string Key, string? Value)> MoreConfiguration { get; init; } = [];
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment(Environment);
@@ -71,6 +76,11 @@ internal sealed class SyncServiceFactory : WebApplicationFactory<Program>
         if (Configuration is { } setting)
         {
             builder.UseSetting(setting.Key, setting.Value);
+        }
+
+        foreach (var (key, value) in MoreConfiguration)
+        {
+            builder.UseSetting(key, value);
         }
 
         if (TestServices is not null)

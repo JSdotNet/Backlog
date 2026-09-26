@@ -99,6 +99,9 @@ var appInsightsName = 'appi-${resourceToken}'
 var identityName = 'id-sync-${resourceToken}'
 var containerAppsEnvironmentName = 'cae-${resourceToken}'
 var containerAppName = 'ca-sync-${resourceToken}'
+// Storage account names are 3-24 lowercase letters and digits, no hyphen, and
+// globally unique; 'st' plus the 13-character token fits.
+var storageAccountName = 'st${resourceToken}'
 
 // First provision has no built image yet. A public placeholder lets the container
 // app and its ingress come up so the rest of the template can be validated; azd
@@ -112,6 +115,9 @@ var keyVaultSecretsUserRoleId = '4633458b-17de-408a-b874-0445c86b69e6'
 // Cosmos DB Built-in Data Contributor. A *data-plane* role: it grants no control-plane
 // rights over the account, which is the whole point of reaching Cosmos this way.
 var cosmosDataContributorRoleId = '00000000-0000-0000-0000-000000000002'
+// Storage Blob Data Contributor: read, write and delete blobs, and nothing on the
+// account's control plane.
+var storageBlobDataContributorRoleId = 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
 
 // ---------------------------------------------------------------------------
 // Identity
@@ -496,6 +502,100 @@ resource cosmosDataContributor 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAss
 }
 
 // ---------------------------------------------------------------------------
+// Attachment store (local ADR 0014)
+//
+// Where a capture's files wait between the phone that uploaded them and the
+// desktop that fetches them. Bytes only: the capture document in Cosmos carries
+// their metadata. Every byte goes in and out through the sync service, so nothing
+// here is public and no key is ever usable.
+// ---------------------------------------------------------------------------
+
+resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
+  name: storageAccountName
+  location: location
+  tags: allTags
+  kind: 'StorageV2'
+  sku: {
+    name: 'Standard_LRS'
+  }
+  properties: {
+    accessTier: 'Hot'
+    // The Cosmos account's disableLocalAuth, for Storage: the account keys cannot
+    // be used even by someone who obtained them. The service reaches the blobs
+    // with its managed identity and nothing else does.
+    allowSharedKeyAccess: false
+    allowBlobPublicAccess: false
+    minimumTlsVersion: 'TLS1_2'
+    supportsHttpsTrafficOnly: true
+  }
+}
+
+resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-05-01' = {
+  parent: storageAccount
+  name: 'default'
+}
+
+resource attachmentsContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = {
+  parent: blobService
+  name: 'attachments'
+  properties: {
+    publicAccess: 'None'
+  }
+}
+
+// The backstop behind the acknowledgement's release: any attachment not modified
+// for 30 days is deleted — the uploads whose capture never arrived, and the
+// releases that failed. Thirty days is far longer than a conference trip and far
+// shorter than the 180-day tombstone horizon; a desktop away longer loses a waiting
+// capture's files but not the capture (ADR 0014 Consequences). Azurite runs no
+// management policies, so this is deployed-only behaviour.
+resource attachmentsLifecycle 'Microsoft.Storage/storageAccounts/managementPolicies@2023-05-01' = {
+  parent: storageAccount
+  name: 'default'
+  properties: {
+    policy: {
+      rules: [
+        {
+          name: 'expire-attachments-after-30-days'
+          enabled: true
+          type: 'Lifecycle'
+          definition: {
+            filters: {
+              blobTypes: [
+                'blockBlob'
+              ]
+              prefixMatch: [
+                '${attachmentsContainer.name}/'
+              ]
+            }
+            actions: {
+              baseBlob: {
+                delete: {
+                  daysAfterModificationGreaterThan: 30
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
+
+// Scoped to the container rather than the account. Like the Cosmos role it spans
+// every owner's prefix; the service's owner prefixing is what keeps a device
+// inside its own.
+resource attachmentsDataContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(attachmentsContainer.id, syncIdentity.id, storageBlobDataContributorRoleId)
+  scope: attachmentsContainer
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', storageBlobDataContributorRoleId)
+    principalId: syncIdentity.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Container registry
 //
 // Not named in ADR 0005's resource list, but `azd` deploying a container app has
@@ -683,6 +783,13 @@ resource syncApp 'Microsoft.App/containerApps@2024-03-01' = {
               name: 'Sync__Cosmos__AnnotationTombstoneTtlSeconds'
               value: string(annotationTombstoneTtlSeconds)
             }
+            // The attachment container, in the form Aspire's blob container
+            // client reads: an endpoint and a container name, no key. The
+            // credential is the managed identity, as it is for Cosmos.
+            {
+              name: 'ConnectionStrings__attachments'
+              value: 'Endpoint=${storageAccount.properties.primaryEndpoints.blob};ContainerName=${attachmentsContainer.name}'
+            }
             // Double underscore is how .NET reads a ':' configuration path from
             // an environment variable, so this lands on SyncTokenOptions as
             // Modules:Sync:Tokens:SigningKey. No Key Vault endpoint is passed:
@@ -706,6 +813,7 @@ resource syncApp 'Microsoft.App/containerApps@2024-03-01' = {
   }
   dependsOn: [
     acrPull
+    attachmentsDataContributor
     cosmosDataContributor
     keyVaultSecretsUser
   ]
@@ -733,6 +841,9 @@ output SYNC_IDENTITY_CLIENT_ID string = syncIdentity.properties.clientId
 output COSMOS_ACCOUNT_NAME string = cosmosAccount.name
 output COSMOS_ACCOUNT_ENDPOINT string = cosmosAccount.properties.documentEndpoint
 output COSMOS_DATABASE_NAME string = cosmosDatabase.name
+
+output STORAGE_ACCOUNT_NAME string = storageAccount.name
+output STORAGE_BLOB_ENDPOINT string = storageAccount.properties.primaryEndpoints.blob
 
 output APPLICATIONINSIGHTS_NAME string = appInsights.name
 output LOG_ANALYTICS_WORKSPACE_NAME string = logAnalytics.name

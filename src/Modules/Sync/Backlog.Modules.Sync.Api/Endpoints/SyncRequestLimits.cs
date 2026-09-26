@@ -69,6 +69,20 @@ internal static class SyncRequestLimits
     /// not a sentence.</summary>
     internal const int MaximumCapturePerson = 100;
 
+    /// <summary>The most attachments one capture may name — a slide photo and a
+    /// handout are two, and a talk's worth of slides is well under this. The
+    /// per-file cap is a setting (<c>SyncAttachmentOptions</c>); this bounds what
+    /// one capture document carries about them.</summary>
+    internal const int MaximumCaptureAttachments = 20;
+
+    /// <summary>How long an attachment's file name may be. Every file system's
+    /// own limit on one path segment.</summary>
+    internal const int MaximumAttachmentName = 255;
+
+    /// <summary>How long an attachment's content type may be — a media type and
+    /// its parameters, never a sentence.</summary>
+    internal const int MaximumAttachmentContentType = 255;
+
     /// <summary>
     /// The most session records one push may carry.
     /// <para>

@@ -14,6 +14,7 @@
       "src\\Harness\\Backlog.UI.Storybook\\Backlog.UI.Storybook.csproj",
       "src\\Infrastructure\\Backlog.Infrastructure.AzureFoundry\\Backlog.Infrastructure.AzureFoundry.csproj",
       "src\\Infrastructure\\Backlog.Infrastructure.Capture\\Backlog.Infrastructure.Capture.csproj",
+      "src\\Infrastructure\\Backlog.Infrastructure.BlobStorage\\Backlog.Infrastructure.BlobStorage.csproj",
       "src\\Infrastructure\\Backlog.Infrastructure.Claude\\Backlog.Infrastructure.Claude.csproj",
       "src\\Infrastructure\\Backlog.Infrastructure.Copilot\\Backlog.Infrastructure.Copilot.csproj",
       "src\\Infrastructure\\Backlog.Infrastructure.Cosmos\\Backlog.Infrastructure.Cosmos.csproj",

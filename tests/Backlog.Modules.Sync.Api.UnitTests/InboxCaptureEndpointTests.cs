@@ -52,6 +52,8 @@ public sealed class InboxCaptureEndpointTests : IDisposable
         Assert.Equal("capture", document.Task.Type);
         Assert.Equal(string.Empty, document.Task.ContentMd);
         Assert.Empty(document.Task.Tags);
+        Assert.Null(document.Task.Attachments);
+        Assert.Null(item.Attachments);
     }
 
     /// <summary>Everything the phone can now say lands on the document the
