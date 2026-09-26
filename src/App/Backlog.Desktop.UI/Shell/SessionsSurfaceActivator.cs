@@ -8,9 +8,8 @@ namespace Backlog.Desktop.UI.Shell;
 /// can ask them to bring the Sessions pane forward.
 /// <para>
 /// This exists because there was no way to do that. The surfaces are an
-/// implementation detail of <c>Home</c> — <see cref="WorkspaceSurface"/> and
-/// <see cref="DashboardTab"/> are internal, and the live values are private fields of
-/// one component — so the only thing that could change what a window is showing was
+/// implementation detail of <c>Home</c> — <see cref="WorkspaceSurface"/> is internal,
+/// and the live value is a private field of one component — so the only thing that could change what a window is showing was
 /// the window itself, in response to a click. <c>ShellNavigationStore</c> looks like
 /// the missing piece and is not: it remembers where the reader was so the next launch
 /// can start there, and remembering is not showing.

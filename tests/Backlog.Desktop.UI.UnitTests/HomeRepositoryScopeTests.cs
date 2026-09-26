@@ -323,20 +323,19 @@ public sealed class HomeRepositoryScopeTests
     }
 
     /// <summary>
-    /// The sessions tab takes the same scope, and the shell hands it the lookup that
+    /// The session list takes the same scope, and the shell hands it the lookup that
     /// turns a session's recorded repository — an <c>owner/name</c>, or an alias
     /// that arrived on the wire — into the alias the scope is written in.
     /// </summary>
     [Fact]
-    public void The_sessions_tab_is_handed_the_scope_and_the_alias_lookup()
+    public void The_sessions_list_is_handed_the_scope_and_the_alias_lookup()
     {
         using var harness = CreateHarness();
         var component = Render(harness);
 
         Chips(component)[0].Click();
 
-        component.WaitForElement("[data-testid='dashboard-toggle-button']").Click();
-        component.WaitForElement("[data-testid='dashboard-sessions-tab']").Click();
+        component.WaitForElement("[data-testid='sessions-toggle-button']").Click();
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='sessions-panel']")));
 
         var pane = component.FindComponent<SessionsPane>().Instance;
@@ -600,9 +599,7 @@ public sealed class HomeRepositoryScopeTests
         using var harness = CreateHarness();
         var component = Render(harness);
 
-        // The list is the Dashboard's second tab: the segment, then the tab.
-        component.WaitForElement("[data-testid='dashboard-toggle-button']").Click();
-        component.WaitForElement("[data-testid='dashboard-sessions-tab']").Click();
+        component.WaitForElement("[data-testid='sessions-toggle-button']").Click();
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='sessions-panel']")));
 
         // The pane is handed a function rather than a dictionary, so the gate has to be
