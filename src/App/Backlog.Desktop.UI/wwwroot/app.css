@@ -3055,6 +3055,50 @@ h1, h2, h3 {
 }
 
 /*
+  The DEV and BETA flags on header controls, pinned to the control's top-right
+  corner rather than set inline after its label. Inline, every flagged option was
+  wider by the flag and its gap, and a row of them spent a fifth of the navigation
+  on the word DEV. On the corner the option is as wide as its label, and the flag
+  still reads as belonging to it — the notification-badge position a reader
+  already knows. The ring in the page colour separates it from the border it
+  straddles. It stays a child of the button, so the accessible name is unchanged.
+
+  Only the status variants move: a flag key wearing `.badge--feature` alone is
+  not a qualifier on a control and never sits in one.
+*/
+.header-group__option,
+.header-accent {
+    position: relative;
+}
+
+.header-group__option > :is(.badge--feature-dev, .badge--feature-beta),
+.header-accent > :is(.badge--feature-dev, .badge--feature-beta) {
+    position: absolute;
+    top: -6px;
+    right: -4px;
+    z-index: 1;
+    margin: 0;
+    box-shadow: 0 0 0 var(--border-width) var(--color-background);
+}
+
+/* A fused group clips its members to its rounded corners, and would clip a flag
+   standing past them just the same. Where one carries a flag the group stops
+   clipping, and its end members take the corners the clip used to cut. */
+.header-group:has(> .header-group__option > :is(.badge--feature-dev, .badge--feature-beta)) {
+    overflow: visible;
+}
+
+.header-group:has(> .header-group__option > :is(.badge--feature-dev, .badge--feature-beta)) > .header-group__option:first-child {
+    border-top-left-radius: calc(var(--border-radius-md) - var(--border-width));
+    border-bottom-left-radius: calc(var(--border-radius-md) - var(--border-width));
+}
+
+.header-group:has(> .header-group__option > :is(.badge--feature-dev, .badge--feature-beta)) > .header-group__option:last-child {
+    border-top-right-radius: calc(var(--border-radius-md) - var(--border-width));
+    border-bottom-right-radius: calc(var(--border-radius-md) - var(--border-width));
+}
+
+/*
   The utility-button shape: borderless and secondary at rest, growing a border only
   when reached for. Chrome that appears on approach rather than shouting the whole
   time, which is how it stays behind whatever the loud thing on its row is.
