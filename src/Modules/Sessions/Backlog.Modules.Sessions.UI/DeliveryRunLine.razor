@@ -138,7 +138,8 @@
                                  Title="Stages"
                                  Artifact="@(new DiagramArtifact(html, diagram.ArtifactPath, null, "architecture", false))"
                                  CssClass="sessions-run__artifact"
-                                 Compact="true" />
+                                 Compact="true"
+                                 HideNodeDetails="true" />
                 }
                 else
                 {
@@ -177,10 +178,25 @@
                     <dd>@Run.ChangeKind</dd>
                 }
 
+                @* A peak against a limit is a meter. Without a limit there is no track
+                   to fill, and the figures stay words. *@
                 @if (Run.Context is { } context)
                 {
                     <dt>Context</dt>
-                    <dd data-testid="sessions-run-context">@Context(context)</dd>
+                    <dd data-testid="sessions-run-context">
+                        @if (context.PeakShare is { } share)
+                        {
+                            <MetricMeter Value="@context.PeakTokens"
+                                         Max="@context.TokenLimit"
+                                         AriaLabel="Context peak"
+                                         Caption="@($"{MetricFormat.Percent(share, 0)} at peak · last sample {MetricFormat.Compact(context.CurrentTokens)}")"
+                                         TestId="sessions-run-context-meter" />
+                        }
+                        else
+                        {
+                            @($"Peak {MetricFormat.Compact(context.PeakTokens)}; last sample {MetricFormat.Compact(context.CurrentTokens)}")
+                        }
+                    </dd>
                 }
             </div>
 
@@ -199,29 +215,36 @@
                 <div class="sessions-run__group">
                     <dt>Tokens</dt>
                     <dd data-testid="sessions-run-tokens">
+                        @* The four kinds are one whole, so they are one bar — cheapest
+                           first, as the component orders tokens — and the legend under it
+                           is where each figure is read. The calls are a count of a
+                           different thing and stay words. *@
                         @if (usage.Total.ModelCalls > 0)
                         {
-                            <span class="sessions-run__fact">@Tokens(usage.Total)</span>
+                            <MetricBreakdownBar Label="@CallCount(usage.Total.ModelCalls)"
+                                                Parts="@Kinds(usage.Total)"
+                                                TestId="sessions-run-token-mix" />
                         }
                         @if (usage.SubAgent.ModelCalls > 0)
                         {
-                            <span class="sessions-run__fact">Sub-agents: @Tokens(usage.SubAgent)</span>
+                            <MetricBreakdownBar Label="@($"Sub-agents · {CallCount(usage.SubAgent.ModelCalls)}")"
+                                                Parts="@Kinds(usage.SubAgent)"
+                                                TestId="sessions-run-subagent-mix" />
                         }
                         @if (usage.Models.Count > 0)
                         {
                             <span class="sessions-run__fact">Models: @string.Join(", ", usage.Models)</span>
                         }
+                        @* Stages ranked by what they produced, as the tool calls beside
+                           them are ranked by time: a stage's cache reads grow with every
+                           turn it takes, so output is the figure that says where the
+                           work went. The diagram above already gives the run order. *@
                         @if (usage.ByStage.Count > 0)
                         {
-                            <ul class="sessions-run__list">
-                                @foreach (var stage in usage.ByStage)
-                                {
-                                    <li>
-                                        <span class="sessions-run__stage-name" title="@stage.StageName">@stage.StageName</span>
-                                        <span class="sessions-run__stage-facts">@Tokens(stage.Total)</span>
-                                    </li>
-                                }
-                            </ul>
+                            <MetricRanking Label="Output by stage"
+                                           Items="@StageRanking(usage.ByStage)"
+                                           FormatValue="@(tokens => $"{MetricFormat.Compact(tokens)} out")"
+                                           TestId="sessions-run-stage-tokens" />
                         }
                     </dd>
                 </div>
@@ -500,18 +523,31 @@
         _ => "task"
     };
 
-    private static string Tokens(DeliveryRunTokens tokens) =>
-        $"{MetricFormat.Compact(tokens.ModelCalls)} calls · {TokenFigures(tokens.OutputTokens, tokens.InputTokens, tokens.CacheReadTokens, tokens.CacheWriteTokens)}";
-
     /// <summary>The four token counts in the order and the words this table uses for
-    /// them everywhere — a run's here, a session's in its own row.</summary>
+    /// them everywhere — a session's in its own row.</summary>
     internal static string TokenFigures(long output, long input, long cacheRead, long cacheWrite) =>
         $"{MetricFormat.Compact(output)} out · {MetricFormat.Compact(input)} in · {MetricFormat.Compact(cacheRead)} cache read · {MetricFormat.Compact(cacheWrite)} cache write";
 
-    private static string Context(DeliveryRunContext context) =>
-        context.PeakShare is { } share
-            ? $"Peak {MetricFormat.Compact(context.PeakTokens)} of {MetricFormat.Compact(context.TokenLimit)} ({MetricFormat.Percent(share, 0)}); last sample {MetricFormat.Compact(context.CurrentTokens)}"
-            : $"Peak {MetricFormat.Compact(context.PeakTokens)}; last sample {MetricFormat.Compact(context.CurrentTokens)}";
+    private static string CallCount(long calls) =>
+        calls == 1 ? "1 call" : $"{MetricFormat.Compact(calls)} calls";
+
+    /// <summary>The four kinds as parts of one whole, cheapest first. A kind the run
+    /// did not spend is dropped by the bar itself rather than drawn as a sliver.</summary>
+    private static IReadOnlyList<MetricPart> Kinds(DeliveryRunTokens tokens) =>
+    [
+        new("Cache read", tokens.CacheReadTokens),
+        new("Input", tokens.InputTokens),
+        new("Cache write", tokens.CacheWriteTokens),
+        new("Output", tokens.OutputTokens)
+    ];
+
+    /// <summary>A stage's output with its call count beside it, as a tool category's
+    /// time is. Its other three counts stay off the row: in a column a quarter of the
+    /// pane wide they squeezed the stage's own name to an ellipsis.</summary>
+    private static IReadOnlyList<MetricRankItem> StageRanking(IEnumerable<DeliveryRunStageTokens> stages) =>
+    [
+        .. stages.Select(stage => new MetricRankItem(stage.StageName, stage.Total.OutputTokens, CallCount(stage.Total.ModelCalls)))
+    ];
 
     /// <summary>A group of tool activity as a ranking row: the time it took is what
     /// ranks it, and the calls and failures ride beside that figure.</summary>
@@ -522,7 +558,7 @@
 
     private static string Calls(DeliveryRunInsightGroup group)
     {
-        var calls = group.Count == 1 ? "1 call" : $"{MetricFormat.Compact(group.Count)} calls";
+        var calls = CallCount(group.Count);
 
         return group.Failed == 0 ? calls : $"{calls} · {group.Failed} failed";
     }

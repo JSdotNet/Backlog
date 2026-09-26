@@ -21,7 +21,8 @@ public sealed record CaptureInboxItemCommand(
     Guid? Id = null,
     string? BodyMd = null,
     IReadOnlyList<string>? Tags = null,
-    string? Person = null);
+    string? Person = null,
+    IReadOnlyList<AttachmentMetadata>? Attachments = null);
 
 /// <summary>The capture the caller now has, and whether this call is what
 /// wrote it. <see cref="Created"/> is false for a retry that found its own
@@ -71,8 +72,17 @@ public sealed record CaptureOutcome(InboxItem Item, bool Created);
 /// rest as its tags. The endpoint refuses a tag that reads as a person, so the
 /// sigil on the document is only ever this one.
 /// </para>
+/// <para>
+/// <b>Every attachment it names must already be stored</b> (local ADR 0014): a
+/// client uploads the files first and posts the capture after. Each is looked up
+/// under this owner and must match the size and digest the capture claims;
+/// otherwise the whole capture is refused, naming the ids, and nothing is
+/// written. So a capture on the replica never names a blob that is not there.
+/// What the document carries is the metadata as the capture sent it — the name
+/// is the capture's to give — and never a byte of the file.
+/// </para>
 /// </summary>
-public sealed class CaptureInboxItemCommandHandler(ITaskReplica replica, TimeProvider clock)
+public sealed class CaptureInboxItemCommandHandler(ITaskReplica replica, IAttachmentStore attachments, TimeProvider clock)
     : ICommandHandler<CaptureInboxItemCommand, Result<CaptureOutcome>>
 {
     /// <summary>The document kind of a capture. Not a task type: the desktop's
@@ -106,6 +116,15 @@ public sealed class CaptureInboxItemCommandHandler(ITaskReplica replica, TimePro
             }
 
             return new CaptureOutcome(ListInboxQueryHandler.Project(stored.Change), Created: false);
+        }
+
+        var named = command.Attachments is { Count: > 0 } list ? list : null;
+
+        if (named is not null && await NotUploaded(command.Scope.OwnerId, named, cancellationToken) is { Count: > 0 } missing)
+        {
+            return Result.Failure<CaptureOutcome>(Error.Validation(
+                SyncErrorCodes.CaptureAttachmentMissing,
+                $"Upload these attachments before the capture that names them, with the size and SHA-256 it claims: {string.Join(", ", missing)}."));
         }
 
         var now = clock.GetUtcNow();
@@ -142,11 +161,36 @@ public sealed class CaptureInboxItemCommandHandler(ITaskReplica replica, TimePro
                 DependsOn: [],
                 SubItems: [],
                 UsageEvents: [],
-                ProjectionRefs: []));
+                ProjectionRefs: [],
+                Attachments: named));
 
         await replica.Upsert(command.Scope, [change], cancellationToken);
 
         return new CaptureOutcome(ListInboxQueryHandler.Project(change), Created: true);
+    }
+
+    /// <summary>The ids of the named attachments this owner has not stored as
+    /// claimed — absent, or held with a different size or digest.</summary>
+    private async Task<List<Guid>> NotUploaded(
+        OwnerId owner,
+        IReadOnlyList<AttachmentMetadata> named,
+        CancellationToken cancellationToken)
+    {
+        var missing = new List<Guid>();
+
+        foreach (var attachment in named)
+        {
+            var stored = await attachments.Find(owner, attachment.Id, cancellationToken);
+
+            if (stored is null
+                || stored.SizeBytes != attachment.SizeBytes
+                || !string.Equals(stored.Sha256, attachment.Sha256, StringComparison.OrdinalIgnoreCase))
+            {
+                missing.Add(attachment.Id);
+            }
+        }
+
+        return missing;
     }
 
     /// <summary>The tags as sent, trimmed, followed by the person as one

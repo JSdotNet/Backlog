@@ -1,7 +1,6 @@
 # TDR 0001: Archify artifacts are invisible when the Devbook reads from a branch snapshot
 
 ```meta
-status: active
 date: 2026-09-16
 related: [".devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md", ".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/11-risks-and-technical-debt.md#technical-debt", ".devbook/domain/devbook/features.md#repository-devbook-areas"]
 ```

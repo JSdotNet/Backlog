@@ -3039,7 +3039,7 @@
             that was cut off, which for a portrait diagram like
             `05-building-block-view.2` (1200x2458) is most of the picture.
         */
-        renderArtifact(element, id, html, compact) {
+        renderArtifact(element, id, html, compact, hideNodeDetails) {
             /*
                 `matchMedia` is lied to, and that is the part that does the work.
 
@@ -3318,6 +3318,16 @@
                         + 'html:not([data-host-fullscreen]) .toolbar,'
                         + 'html:not([data-host-fullscreen]) .diagram-nav{display:none!important}'
                     : '')
+
+                /*
+                    And the card a focused node opens - Archify's "Semantic
+                    passport" - for a host that asked. Unlike the compact rules it
+                    stays out in fullscreen too: it is not a control crowded out of
+                    a small frame but a card with nothing to say, since for a
+                    delivery run's stages it only restates the arrows either side.
+                    Focusing a node still highlights it; only the card goes.
+                */
+                + (hideNodeDetails ? '#focus-chip{display:none!important}' : '')
                 + '</style>';
 
             element.srcdoc = injected + chrome;

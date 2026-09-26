@@ -1,10 +1,8 @@
 # ADR 0011: Devbook annotations are the person's data, in a Backlog-owned store, replicated through a third container
 
 ```meta
-status: active
 date: 2026-09-16
 related: [".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/08-crosscutting-concepts.md#task-sync", ".devbook/arc42/08-crosscutting-concepts.md#devbook-database", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/domain/devbook/features.md"]
-issue: null
 ```
 
 ## Status

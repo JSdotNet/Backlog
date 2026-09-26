@@ -22,7 +22,7 @@ namespace Backlog.Infrastructure.Devbook;
 ///
 /// <para>Nothing here is a stemmer or a spell-checker, deliberately. This corpus
 /// is full of exact identifiers — <c>schemaVersion</c>, <c>bm25</c>,
-/// <c>_reading-order.json</c> — where a lexical index earns its keep precisely by
+/// <c>open_annotations</c> — where a lexical index earns its keep precisely by
 /// being literal, and where the tier that forgives a reader's vocabulary is the
 /// semantic one beside it.</para>
 /// </summary>

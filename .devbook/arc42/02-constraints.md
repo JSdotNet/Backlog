@@ -1,7 +1,6 @@
 # 02. Constraints
 
 ```meta
-status: active
 ```
 
 Constraints the architecture must respect. They are stable design boundaries, not
@@ -10,7 +9,6 @@ decisions open for reconsideration per feature.
 ## Technical Constraints
 
 ```meta
-status: active
 related: [".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync"]
 ```
 
@@ -28,7 +26,6 @@ related: [".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync"]
 ## Organizational & Process Constraints
 
 ```meta
-status: active
 ```
 
 | Constraint | Implication |

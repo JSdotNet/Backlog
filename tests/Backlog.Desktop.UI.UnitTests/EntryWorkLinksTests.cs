@@ -33,7 +33,7 @@ public sealed class EntryWorkLinksTests
         var pr = Assert.Single(EntryLinks.PullRequests(entry));
 
         Assert.Equal("https://github.com/JSdotNet/Backlog/pull/655", pr.Url);
-        Assert.Equal("PR #655", pr.Label);
+        Assert.Equal("#655", pr.Label);
     }
 
     [Fact]
@@ -77,13 +77,57 @@ public sealed class EntryWorkLinksTests
         var pr = pane.Find("[data-testid='entry-pull-request']");
         Assert.Equal("a", pr.TagName, ignoreCase: true);
         Assert.Equal("https://github.com/JSdotNet/Backlog/pull/655", pr.GetAttribute("href"));
-        Assert.Contains("PR #655", pr.TextContent, StringComparison.Ordinal);
+        Assert.Equal("#655", pr.QuerySelector(".integration-link__label")!.TextContent.Trim());
+        Assert.Equal("Pull request JSdotNet/Backlog#655", pr.GetAttribute("title"));
 
         var session = pane.Find("[data-testid='entry-session']");
         Assert.Equal("button", session.TagName, ignoreCase: true);
-        Assert.Contains("Session e711d47d", session.TextContent, StringComparison.Ordinal);
+        Assert.Equal("e711d47d", session.QuerySelector(".integration-link__label")!.TextContent.Trim());
+        Assert.Contains("Session e711d47d-3e09-4254", session.GetAttribute("title"), StringComparison.Ordinal);
 
         await session.ClickAsync(new());
+
+        Assert.Equal("e711d47d-3e09-4254", opened);
+    }
+
+    /// <summary>The panel keeps them out of the way of the fields: in the footer
+    /// beside the creation date, not in the filing strip among the tags.</summary>
+    [Fact]
+    public async Task The_panel_draws_the_work_in_its_footer_not_the_filing_strip()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync(Entry);
+        row.PullRequestLinks = [new EntryPullRequestLink("JSdotNet/Backlog", 655)];
+
+        var pane = host.Render();
+
+        var footer = pane.Find(".entry-detail__footer");
+        Assert.NotNull(footer.QuerySelector("[data-testid='entry-work-links'] [data-testid='entry-pull-request']"));
+        Assert.Null(pane.Find("[data-testid='entry-panel-filing']").QuerySelector("[data-testid='entry-pull-request']"));
+    }
+
+    [Fact]
+    public async Task The_list_row_links_the_latest_pull_request_and_opens_the_latest_session()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync(Entry);
+        row.PullRequestLinks = [new EntryPullRequestLink("JSdotNet/Backlog", 650), new EntryPullRequestLink("JSdotNet/Backlog", 655)];
+        row.SessionLinks = [new EntrySessionLink("JSdotNet/Backlog", "first-session"), new EntrySessionLink("JSdotNet/Backlog", "e711d47d-3e09-4254")];
+
+        string? opened = null;
+        var pane = host.Context.Render<TasksPane>(parameters => parameters
+            .Add(p => p.OnOpenSession, (string id) => opened = id));
+
+        var list = pane.Find("[data-testid='entry-list']");
+        var pr = Assert.Single(list.QuerySelectorAll("[data-testid='row-pull-request']"));
+        Assert.Equal("https://github.com/JSdotNet/Backlog/pull/655", pr.GetAttribute("href"));
+        Assert.Equal("#655", pr.QuerySelector(".integration-link__label")!.TextContent.Trim());
+
+        var session = Assert.Single(list.QuerySelectorAll("[data-testid='row-session']"));
+        Assert.Equal("e711d47d", session.QuerySelector(".integration-link__label")!.TextContent.Trim());
+        Assert.Equal("+2", list.QuerySelector("[data-testid='row-work-more']")!.TextContent.Trim());
+
+        await pane.Find("[data-testid='row-session']").ClickAsync(new());
 
         Assert.Equal("e711d47d-3e09-4254", opened);
     }
@@ -112,6 +156,8 @@ public sealed class EntryWorkLinksTests
 
         Assert.Empty(pane.FindAll("[data-testid='entry-pull-request']"));
         Assert.Empty(pane.FindAll("[data-testid='entry-session']"));
+        Assert.Empty(pane.FindAll("[data-testid='entry-work-links']"));
+        Assert.Empty(pane.FindAll("[data-testid='row-work-links']"));
     }
 
     private static TaskItemDto Dto(params EntryProjectionDto[] projections) => new(

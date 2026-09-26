@@ -216,7 +216,7 @@ public sealed partial class DevbookDatabase : IDisposable
 
         return Query(
             """
-            SELECT path, folder, slug, level, title, status, line, text, content_hash, source_hash, size, mtime
+            SELECT path, folder, slug, level, title, status, line, text, content_hash, source_hash, size, mtime, open_annotations
             FROM chapter
             WHERE path = $path
             ORDER BY line
@@ -234,7 +234,8 @@ public sealed partial class DevbookDatabase : IDisposable
                 reader.GetString(8),
                 reader.GetString(9),
                 reader.GetInt64(10),
-                reader.GetInt64(11)));
+                reader.GetInt64(11),
+                reader.GetInt32(12)));
     }
 
     /// <summary>Every graph node, unprojected — the whole repository in one table,

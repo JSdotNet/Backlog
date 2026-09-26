@@ -1,7 +1,6 @@
 # Color Scheme
 
 ```meta
-status: active
 related: [".devbook/design/design-principles.md#dark-mode-only", ".devbook/design/accessibility.md#contrast", ".devbook/arc42/04-solution-strategy.md#technology-choices"]
 ```
 
@@ -19,7 +18,6 @@ related: [".devbook/design/design-principles.md#dark-mode-only", ".devbook/desig
 ## Provenance
 
 ```meta
-status: active
 ```
 
 - **Source:** the JSdotNet design style guide, document `01-color-palette`,
@@ -36,7 +34,6 @@ status: active
 ## Dark Palette
 
 ```meta
-status: active
 related: [".devbook/design/design-principles.md#dark-mode-only"]
 ```
 
@@ -178,7 +175,6 @@ adjustment does not quietly push it back under.
 ## Surface and Border Deviation
 
 ```meta
-status: active
 related: [".devbook/design/accessibility.md#contrast", ".devbook/design/design-principles.md#dark-mode-only"]
 ```
 
@@ -233,7 +229,6 @@ current base if the heavier divider weight is judged acceptable.
 ## Full Token Reference
 
 ```meta
-status: active
 ```
 
 Copy-paste reference of every color token and its single dark value.
@@ -272,7 +267,6 @@ a token.
 ## Syntax Highlighting Tokens
 
 ```meta
-status: active
 related: [".devbook/design/design-principles.md#dark-mode-only", ".devbook/design/content-editing.md#supported-constructs"]
 ```
 
@@ -310,7 +304,6 @@ Rules:
 ## Band Identity Tokens
 
 ```meta
-status: active
 related: [".devbook/design/design-principles.md#dark-mode-only", ".devbook/design/accessibility.md#contrast", ".devbook/domain/roadmap/features.md#repository-scoped-planning"]
 ```
 
@@ -484,7 +477,6 @@ one the file already carries.
 ## Role Tokens
 
 ```meta
-status: active
 related: [".devbook/design/design-principles.md#dark-mode-only", ".devbook/design/accessibility.md#contrast"]
 ```
 
@@ -656,7 +648,6 @@ value of its own would be a second palette, which
 ## Contrast Rules (WCAG AA minimum)
 
 ```meta
-status: active
 related: [".devbook/design/accessibility.md#contrast"]
 ```
 
@@ -683,7 +674,6 @@ Rules:
 ## Elevation by Color
 
 ```meta
-status: active
 related: [".devbook/design/design-principles.md#dark-mode-only"]
 ```
 
@@ -710,7 +700,6 @@ Rules:
 ## Per-Stack Token Mapping
 
 ```meta
-status: active
 related: [".devbook/design/component-libraries.md", ".devbook/arc42/04-solution-strategy.md#technology-choices"]
 ```
 
@@ -746,7 +735,6 @@ Rules:
 ## Materialization
 
 ```meta
-status: active
 related: [".devbook/design/README.md#living-reference-the-ui-storybook"]
 ```
 

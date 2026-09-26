@@ -25,6 +25,10 @@ public sealed class ScopeGlyphIconTests
     public void The_play_mark_keeps_the_icon_contract() =>
         AssertIconContract<PlayIcon>("play-icon");
 
+    [Fact]
+    public void The_sort_mark_keeps_the_icon_contract() =>
+        AssertIconContract<ArrowUpDownIcon>("arrow-up-down-icon");
+
     private static void AssertIconContract<TIcon>(string ownClass) where TIcon : IComponent
     {
         using var context = new BunitContext();

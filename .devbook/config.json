@@ -4,6 +4,15 @@
     "delivery.tracker": {
       "provider": "backlog"
     },
+    "delivery.roles": {
+      "architecture": "architecture",
+      "qa": "qa",
+      "domain": "domain-design",
+      "ux": "ux-design",
+      "docs": "documentation",
+      "product": null,
+      "security": null
+    },
     "delivery.mcp": {
       "spec": [
         "backlog"
@@ -12,6 +21,16 @@
         "backlog"
       ]
     }
+  },
+  "extensions": {
+    "session.start": [
+      "devbook:validate"
+    ],
+    "verify": "devbook:verify-change",
+    "flow.end": [
+      "devbook:update"
+    ],
+    "app.start": "repo:start"
   },
   "components": {
     "delivery": {

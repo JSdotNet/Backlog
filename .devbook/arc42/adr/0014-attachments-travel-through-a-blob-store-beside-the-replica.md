@@ -1,17 +1,27 @@
 # ADR 0014: Attachments travel through a blob store beside the replica; the sync service is the only door
 
 ```meta
-status: active
 date: 2026-09-25
 related: [".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md", ".devbook/arc42/adr/guidelines/0003-aspire-for-web-services.md", ".devbook/arc42/adr/guidelines/0012-authentication-external-identity-providers.md", ".devbook/arc42/adr/guidelines/0013-authorization-zero-trust.md", ".devbook/arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md", ".devbook/domain/capture/domain.md#capture", ".devbook/domain/inbox/domain.md#inbox-item"]
-issue: null
 ```
 
 ## Status
 
-Proposed, 2026-09-25, for the `mobile-inbox-slice` plan. Nothing here is built:
-no storage account is provisioned, no route exists, and no capture carries an
-attachment today.
+Accepted, 2026-09-26, as proposed on 2026-09-25 for the `mobile-inbox-slice`
+plan: the per-file cap stays at 25 MB, the allowlist is the one under **The
+transport**, and upload and download go through the service rather than by SAS.
+
+The service side is built: the `storage` resource (Azurite) and its
+`attachments` container in the AppHost, the storage account, lifecycle rule
+and role in `infra/sync/main.bicep`, both routes, the capture's attachment
+list, and the release on acknowledgement. The cap and the allowlist are
+`Modules:Sync:Attachments` settings (`MaxBytes`, `AllowedContentTypes`). Not
+yet built: the phone's upload and the desktop's intake, which are later items
+of the same plan.
+
+Two details the record left open are settled in the build. The upload declares
+its digest in an `X-Attachment-Sha256` header, as hex. The metadata field is
+`sizeBytes` on the wire, not `size`.
 
 A **local** decision, numbered in the local sequence — not to be confused with
 inherited ADR 0014 under `.devbook/arc42/adr/guidelines/`, which is about persistence

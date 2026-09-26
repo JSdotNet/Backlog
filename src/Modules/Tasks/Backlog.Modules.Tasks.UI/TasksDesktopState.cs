@@ -89,6 +89,15 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     private readonly TasksCopilotCli _copilot;
     private readonly IRoadmapTagSource _roadmapTags;
 
+    /// <summary>Where every task write on this machine is announced, or null in a
+    /// host that composes none. See <see cref="OnTaskWritten"/>.</summary>
+    private readonly ITaskChangeSignal? _taskWrites;
+
+    /// <summary>Set inside the asynchronous flow of each write this list makes,
+    /// so the signal that write raises can be told from one raised by somebody
+    /// else. See <see cref="SelfAttributedTaskItems"/>.</summary>
+    private readonly AsyncLocal<bool> _writingHere = new();
+
     /// <summary>Where a failure the reader may not be looking at is announced, or
     /// null in a host that mounts no tray. Absent rather than silent-by-default:
     /// a host that wires no channel has said nothing about notifications, and a
@@ -148,10 +157,11 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         GitHubIntegration gitHub,
         TasksCopilotCli? copilot = null,
         IRoadmapTagSource? roadmapTags = null,
-        IToastChannel? toasts = null)
+        IToastChannel? toasts = null,
+        ITaskChangeSignal? taskWrites = null)
     {
         _store = store;
-        _entryUseCases = entryUseCases;
+        _entryUseCases = new SelfAttributedTaskItems(entryUseCases, _writingHere);
         _gitHub = gitHub;
         _issues = new TasksIssues(gitHub);
         _copilot = copilot ?? TasksCopilotCli.Unavailable;
@@ -159,11 +169,20 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         _untilDisposed = _lifetime.Token;
         _toasts = toasts;
         _store.RootChanged += OnRootChanged;
+
+        _taskWrites = taskWrites;
+        if (_taskWrites is not null) _taskWrites.Changed += OnTaskWritten;
     }
 
     /// <summary>Raised whenever rows or save state change from a background
     /// callback (a debounce timer) so the component can re-render.</summary>
     public event Action? Changed;
+
+    /// <summary>Raised when a task was written somewhere other than this list —
+    /// the MCP server an agent drives, the Inbox routing an item — on the thread
+    /// that wrote it. The shell answers with <see cref="ReloadFromStoreAsync"/> on
+    /// its own dispatcher. See <see cref="OnTaskWritten"/>.</summary>
+    public event Action? WrittenElsewhere;
 
     /// <summary>
     /// The statuses the strip offers, which is not every status the backlog has.
@@ -2098,6 +2117,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         _disposed = true;
 
         _store.RootChanged -= OnRootChanged;
+        if (_taskWrites is not null) _taskWrites.Changed -= OnTaskWritten;
 
         _lifetime.Cancel();
 
@@ -2123,9 +2143,10 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
     /// <summary>
     /// Starts over from the store because something else wrote to it: the Inbox
-    /// routing an item into entries, or a sync pull landing another device's
-    /// edits. The shell is what calls, because only the shell sees both the
-    /// pane and whatever wrote.
+    /// routing an item into entries, a sync pull landing another device's
+    /// edits, or anything else on this machine that raised
+    /// <see cref="WrittenElsewhere"/> — the MCP server, above all. The shell is
+    /// what calls, because only the shell sees both the pane and whatever wrote.
     /// <para>
     /// This used to sit beside a timer that watched the database's timestamp
     /// for a second machine writing to the same file through a synced folder —
@@ -2166,6 +2187,25 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         if (_untilDisposed.IsCancellationRequested) return;
 
         Changed?.Invoke();
+    }
+
+    /// <summary>
+    /// A task was written on this machine. Passed on as
+    /// <see cref="WrittenElsewhere"/> unless the write was this list's own.
+    /// <para>
+    /// Only passed on, never answered here: the signal arrives on the writer's
+    /// thread — a request thread for the MCP server — and a reload replaces the
+    /// rows the renderer is reading, so it belongs on the shell's dispatcher,
+    /// which is where the shell's other reloads already run. A write the sync
+    /// merge applies never gets this far, because the merge suppresses the
+    /// signal; the shell reloads for a pull on the worker's own event instead.
+    /// </para>
+    /// </summary>
+    private void OnTaskWritten()
+    {
+        if (_writingHere.Value || _untilDisposed.IsCancellationRequested) return;
+
+        WrittenElsewhere?.Invoke();
     }
 
     /// <summary>Whether a reload is owed and waiting for the caret to go. The

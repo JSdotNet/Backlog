@@ -12,8 +12,10 @@ using Backlog.Modules.Sync.Features.PullTasks;
 using Backlog.Modules.Sync.Features.PushAnnotations;
 using Backlog.Modules.Sync.Features.PushSessions;
 using Backlog.Modules.Sync.Features.PushTasks;
+using Backlog.Modules.Sync.Features.ReadAttachment;
 using Backlog.Modules.Sync.Features.RedeemPairingCode;
 using Backlog.Modules.Sync.Features.RegisterFirstDevice;
+using Backlog.Modules.Sync.Features.StoreAttachment;
 using Backlog.Modules.Sync.Ports;
 using Backlog.Modules.Sync.Services;
 using Backlog.SharedKernel.Handlers;
@@ -55,6 +57,9 @@ public static class SyncModuleRegistration
         services.AddScoped<IQueryHandler<ListInboxQuery, Result<IReadOnlyList<InboxItem>>>, ListInboxQueryHandler>();
         services.AddScoped<ICommandHandler<CaptureInboxItemCommand, Result<CaptureOutcome>>, CaptureInboxItemCommandHandler>();
         services.AddScoped<ICommandHandler<AcknowledgeInboxItemCommand, Result>, AcknowledgeInboxItemCommandHandler>();
+        services.AddScoped<ICommandHandler<StoreAttachmentCommand, Result<StoreAttachmentOutcome>>, StoreAttachmentCommandHandler>();
+        services.AddScoped<IQueryHandler<ReadAttachmentQuery, Result<AttachmentContent>>, ReadAttachmentQueryHandler>();
+        services.AddScoped<CaptureAttachmentRelease>();
 
         services.TryAddSingleton<ICredentialHasher, Sha256CredentialHasher>();
         services.TryAddSingleton<IPairingCodeGenerator, RandomPairingCodeGenerator>();
@@ -71,6 +76,7 @@ public static class SyncModuleRegistration
         services.TryAddSingleton<ITaskReplica, InMemoryTaskReplica>();
         services.TryAddSingleton<ISessionReplica, InMemorySessionReplica>();
         services.TryAddSingleton<IAnnotationReplica, InMemoryAnnotationReplica>();
+        services.TryAddSingleton<IAttachmentStore, InMemoryAttachmentStore>();
 
         return services;
     }

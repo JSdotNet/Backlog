@@ -57,6 +57,11 @@ public sealed record TaskPayload(
     // written by an older build carries no such property and reads as unticked,
     // which is what it was.
     DateOnly? CompletedOn = null,
+    // Only a capture carries these — the files it names in the attachment store
+    // (local ADR 0014), metadata only. Defaulted for the reason CompletedOn is,
+    // and null rather than empty on every document that has none, so a task
+    // document serialises exactly as it did before.
+    IReadOnlyList<AttachmentMetadata>? Attachments = null,
     // The day work first moved to in progress. Last and defaulted for the same
     // reason: an older document carries none and reads as never stamped.
     DateOnly? StartedOn = null)

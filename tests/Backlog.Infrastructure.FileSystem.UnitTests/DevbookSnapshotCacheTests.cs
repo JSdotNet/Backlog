@@ -181,16 +181,16 @@ public class DevbookSnapshotCacheTests : IDisposable
     public async Task A_file_at_any_depth_is_found_by_its_suffix()
     {
         var trees = new StubTreeClient()
-            .WithFile(".arc42/_reading-order.json", "{}")
-            .WithFile(".domain/inbox/_reading-order.json", "{}")
+            .WithFile(".arc42/_meta/index.json", "{}")
+            .WithFile(".domain/inbox/_meta/index.json", "{}")
             .WithFile(".domain/inbox/features.md", "x");
         var cache = Cache(trees, new StubBranchCatalog("main", "sha-1"));
 
-        await cache.EnsureAsync(Repository, "main", ["**/_reading-order.json"], Token);
+        await cache.EnsureAsync(Repository, "main", ["**/_meta/index.json"], Token);
 
         Assert.Equal(2, trees.Blobs);
-        Assert.True(File.Exists(TreePath(cache, ".arc42/_reading-order.json")));
-        Assert.True(File.Exists(TreePath(cache, ".domain/inbox/_reading-order.json")));
+        Assert.True(File.Exists(TreePath(cache, ".arc42/_meta/index.json")));
+        Assert.True(File.Exists(TreePath(cache, ".domain/inbox/_meta/index.json")));
         Assert.False(File.Exists(TreePath(cache, ".domain/inbox/features.md")));
     }
 

@@ -20,7 +20,7 @@ The language a task's content is written in, and the format of this repository's
 own knowledge folders.
 
 - **Used for** — the text of an entry, held as a column in the SQLite store; the
-  `.devbook/arc42`/`.devbook/domain`/`.backlog`/`.devbook/tech`/`.devbook/design` documents; and the knowledge
+  `.devbook/arc42`/`.devbook/domain`/`.devbook/tech`/`.devbook/design`/`.devbook/ai` documents; and the knowledge
   notes the product manages.
 - **Why** — plain text is durable, diffable, greppable, and editable without the
   app. Note the boundary drawn by

@@ -131,6 +131,7 @@ public class DevbookSchemaContractTests
         Assert.Equal(seeded.SourceHash, chapter.SourceHash);
         Assert.Equal(seeded.Size, chapter.Size);
         Assert.Equal(seeded.Mtime, chapter.Mtime);
+        Assert.Equal(2, chapter.OpenAnnotations);
 
         // chapter_embedding
         Assert.True(database.HasEmbeddings);

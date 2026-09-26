@@ -257,21 +257,21 @@ public class DevbookFolderSourceBranchTests : IDisposable
 
     // --- Preparing a branch ---------------------------------------------------
 
-    /// <summary>Listing is the index and the reading-order files, and nothing
+    /// <summary>Listing is the index and the generated titles, and nothing
     /// else: a menu costs one listing, never a chapter. The listing joins the
     /// download the resolve inside it started, so one menu is one fetch.</summary>
     [Fact]
     public async Task Preparing_the_listing_of_an_unfetched_branch_fetches_the_index_once_and_no_chapter()
     {
         var settings = Settings();
-        var cache = new StubSnapshotCache(Path.Combine(_root, "snapshot"), fetched: false, ".arc42/01-intro.md", ".arc42/_reading-order.json");
+        var cache = new StubSnapshotCache(Path.Combine(_root, "snapshot"), fetched: false, ".arc42/01-intro.md", ".arc42/_meta/index.json");
 
         var location = await Source(settings, cache).PrepareListingAsync(".arc42", "backlog", TestContext.Current.CancellationToken);
 
         Assert.True(location.Available);
         Assert.False(location.Pending);
         Assert.Equal(1, cache.Fetches);
-        Assert.Equal([["**/_reading-order.json", "**/_meta/index.json"]], cache.Selections);
+        Assert.Equal([["**/_meta/index.json"]], cache.Selections);
     }
 
     /// <summary>An index on disk is served at once. The head re-check the

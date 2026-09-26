@@ -1,9 +1,7 @@
 # ADR 0005: Modular monolith structure
 
 ```meta
-status: active
 related: [".devbook/arc42/05-building-block-view.md", ".devbook/domain/context-map.md", ".devbook/arc42/09-architecture-decisions.md"]
-issue: null
 ```
 
 Inherited from the organization's ADR 0005 (decided 2025-11-10,

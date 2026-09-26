@@ -14,7 +14,7 @@ namespace Backlog.ArchitectureTests;
 /// <para><c>tools/devbook/check-metadata.mjs</c> is the missing caller and
 /// <c>.github/workflows/devbook-metadata.yml</c> is where it blocks a pull
 /// request. Both are repo-native on purpose: everything under
-/// <c>.github/tools/knowledge-meta/</c>, both <c>knowledge-meta*</c> workflows and
+/// <c>.github/tools/knowledge-meta/</c> and
 /// <c>build/Update-KnowledgeIndex.ps1</c> are installed copies of the
 /// devbook plugin's tooling, which CLAUDE.md says to re-sync and never edit
 /// here. The rules below are what stops the next change putting the gate back
@@ -29,9 +29,6 @@ public class DevbookMetadataGateTests
     private static readonly string[] GateWorkflow =
         [".github", "workflows", "devbook-metadata.yml"];
 
-    /// <summary>The installed workflow it sits beside, which stays untouched.</summary>
-    private static readonly string[] InstalledWorkflow =
-        [".github", "workflows", "knowledge-meta.yml"];
 
     /// <summary>The repository's own metadata check, by name stem.</summary>
     /// <remarks>
@@ -60,26 +57,6 @@ public class DevbookMetadataGateTests
             + "was about.");
     }
 
-    /// <summary>
-    /// Index drift stays a warning.
-    ///
-    /// <para>Refresh of the generated <c>_meta</c> indexes is deliberate rather
-    /// than per-pull-request, because making every knowledge change carry a
-    /// regenerated index is what turns those files into merge conflicts. Adding a
-    /// hard failure for metadata values is not an excuse to harden the drift step
-    /// on the way past, so this pins the split.</para>
-    /// </summary>
-    [Fact]
-    public void The_index_drift_report_stays_advisory()
-    {
-        var workflow = File.ReadAllText(RepositoryRoot.File(InstalledWorkflow));
-
-        Assert.True(
-            workflow.Contains("::warning::", StringComparison.Ordinal),
-            $"{Path.Combine(InstalledWorkflow)} no longer reports index drift as a '::warning::'. "
-            + "Drift is advisory by design — see knowledge-derived-artifacts.instructions.md — and the "
-            + "nightly refresh is the other half of that trade.");
-    }
 
     /// <summary>
     /// The installed generator folder holds installed files only.

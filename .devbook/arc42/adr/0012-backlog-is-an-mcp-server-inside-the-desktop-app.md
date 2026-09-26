@@ -1,7 +1,6 @@
 # ADR 0012: Backlog is an MCP server hosted inside the running desktop application
 
 ```meta
-status: active
 date: 2026-09-22
 related: [".devbook/arc42/03-context-and-scope.md#access-channels-scope", ".devbook/arc42/05-building-block-view.md#desktop-app", ".devbook/arc42/07-deployment-view.md#local-deployment-desktop", ".devbook/arc42/08-crosscutting-concepts.md#feature-enablement", ".devbook/arc42/08-crosscutting-concepts.md#authentication-and-authorization", ".devbook/arc42/adr/0002-backlog-module-owns-the-entry-text-language.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/arc42/adr/guidelines/0007-minimal-apis-over-controllers.md", ".devbook/domain/tasks/flow.md#task-lifecycle", ".devbook/domain/devbook/features.md#remarks-on-a-chapter", ".devbook/domain/dev-pc-management/features.md#configuration-and-tool-version-tracking"]
 ```

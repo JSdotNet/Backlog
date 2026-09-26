@@ -8,6 +8,7 @@ using Backlog.Infrastructure.Sync;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.DomainModels;
+using Backlog.Modules.Tasks.Services;
 using Microsoft.Extensions.Time.Testing;
 using System.Net;
 using System.Net.Http.Json;
@@ -92,6 +93,37 @@ public sealed class HomeInboxWiringTests
 
         component.WaitForAssertion(
             () => Assert.Contains(state.Rows, row => row.PreviewTitle == "Pulled from the other machine"),
+            TimeSpan.FromSeconds(10));
+    }
+
+    /// <summary>
+    /// The third writer from outside the pane: the app's own MCP server, which an
+    /// agent uses to move an entry along while the person watches the list. It
+    /// writes through the same use cases the pane does, on a request thread, and
+    /// the pane used to go on showing the old status until the app restarted —
+    /// nothing told it, because only the sync worker listened to the signal.
+    /// </summary>
+    [Fact]
+    public async Task A_task_written_outside_the_pane_reloads_the_tasks_pane()
+    {
+        using var harness = CreateHarness(inboxOpenOnStart: false);
+        harness.ShellNavigation.SetLastPanes(["Tasks"]);
+        var saved = await harness.Entries.SaveFromTextAsync(null, "# Moved along by an agent\n`task` `!ready`\n", 0, cancellationToken: TestContext.Current.CancellationToken);
+        Assert.True(saved.IsSuccess);
+
+        var component = Render(harness);
+        var state = State(harness);
+        component.WaitForAssertion(() => Assert.Contains(
+            state.Rows, row => row.PreviewTitle == "Moved along by an agent" && row.Status == EntryStatus.Ready));
+
+        // Off the renderer's thread, as a request to the MCP endpoint is.
+        var moved = await Task.Run(() => harness.Entries.SaveFromTextAsync(
+            saved.Value.Entry.Id, "# Moved along by an agent\n`task` `!done`\n", 0));
+        Assert.True(moved.IsSuccess);
+
+        component.WaitForAssertion(
+            () => Assert.Contains(
+                state.Rows, row => row.PreviewTitle == "Moved along by an agent" && row.Status == EntryStatus.Done),
             TimeSpan.FromSeconds(10));
     }
 
@@ -235,11 +267,19 @@ public sealed class HomeInboxWiringTests
         context.Services.AddCaptureModule();
         InboxTestHost.AddCaptureDelivery(context.Services);
 
+        // One change signal and one set of use cases for the pane and for the
+        // test's writes outside it, which is how the hosts compose them: the
+        // MCP server's tools and the pane both hold the singleton ITaskItems.
+        var taskWrites = new TaskChangeSignal();
+        var entries = TasksTestHost.EntriesFor(TasksTestHost.RepositoryFor(store, taskWrites));
+
         TasksTestHost.AddToastChannel(context.Services);
-        context.Services.AddScoped(sp => TasksTestHost.StateFor(
-            sp.GetRequiredService<WorkspaceSettingsStore>(),
+        context.Services.AddScoped(sp => new TasksDesktopState(
+            TasksTestHost.TaskStoreFor(sp.GetRequiredService<WorkspaceSettingsStore>()),
+            entries,
             sp.GetRequiredService<GitHubIntegration>(),
-            TasksCopilotCli.Unavailable));
+            TasksCopilotCli.Unavailable,
+            taskWrites: taskWrites));
         var inbox = InboxTestHost.AddInboxState(context.Services);
 
         // A task sync worker over a scripted replica that hands back one task,
@@ -263,7 +303,7 @@ public sealed class HomeInboxWiringTests
                 sp, featureSettings, credentials, syncState, new FakeTimeProvider()));
         }
 
-        return new Harness(root, context, shellNavigation, TasksTestHost.EntriesFor(store), inbox);
+        return new Harness(root, context, shellNavigation, entries, inbox);
     }
 
     private sealed record Harness(

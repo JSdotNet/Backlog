@@ -1,7 +1,6 @@
 # Design Principles
 
 ```meta
-status: active
 related: [".devbook/arc42/04-solution-strategy.md#local-first-architecture", ".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/design/interaction-guidelines.md", ".devbook/design/accessibility.md"]
 ```
 
@@ -18,7 +17,6 @@ review acceptance criteria.
 ## Dark Mode Only
 
 ```meta
-status: active
 related: [".devbook/design/color-scheme.md#dark-palette"]
 ```
 
@@ -40,7 +38,6 @@ the MAUI (mobile-native), Razor/webview (desktop, IDE), and webview channels.
 ## Local-First, Offline-First UX
 
 ```meta
-status: active
 related: [".devbook/arc42/04-solution-strategy.md#local-first-architecture", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync"]
 ```
 
@@ -58,7 +55,6 @@ connectivity; the cloud is additive only.
 ## No Save Buttons — Auto-Save Everywhere
 
 ```meta
-status: active
 related: [".devbook/design/interaction-guidelines.md#auto-save-no-save-buttons"]
 ```
 
@@ -73,7 +69,6 @@ Every change is persisted automatically. There is no manual save.
 ## Keyboard-First
 
 ```meta
-status: active
 related: [".devbook/design/accessibility.md#keyboard-navigation", ".devbook/design/interaction-guidelines.md#keyboard-accessible-reordering"]
 ```
 
@@ -91,7 +86,6 @@ pointer is an accelerator, not a requirement.
 ## Low-Chrome, Content-First
 
 ```meta
-status: active
 ```
 
 Chrome recedes so the user's Markdown content is the primary surface.
@@ -107,7 +101,6 @@ Chrome recedes so the user's Markdown content is the primary surface.
 ## AI-First Surfaces
 
 ```meta
-status: active
 ```
 
 AI assistance (capture, summarization, routing suggestions, Copilot session
@@ -124,7 +117,6 @@ context) is a designed, first-class surface — not a bolt-on.
 ## Consistency Across Channels
 
 ```meta
-status: active
 related: [".devbook/design/component-libraries.md"]
 ```
 
@@ -142,7 +134,6 @@ though they use different component libraries.
 ## Materialization
 
 ```meta
-status: active
 related: [".devbook/design/README.md#living-reference-the-ui-storybook"]
 ```
 

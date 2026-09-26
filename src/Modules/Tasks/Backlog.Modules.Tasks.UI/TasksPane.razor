@@ -260,18 +260,20 @@
                        among the slots those rows already hold — see
                        TasksDesktopState.SortVisibleByStatusAsync. Disabled rather
                        than hidden once the view is in order, so it never reads as a
-                       thing the list cannot do. *@
+                       thing the list cannot do. A glyph rather than a label, so
+                       it costs the bar a square; the name stays "Sort by status"
+                       and the tooltip says what pressing it does. *@
                     <div class="filter-group filter-group--arrange">
-                        <AppButton BaseClass="chip chip--filter"
-                                   Variant="ButtonVariant.None"
-                                   TestId="sort-by-status"
-                                   Disabled="@(!State.CanSortVisibleByStatus)"
-                                   title="@(State.CanSortVisibleByStatus
-                                            ? "Move the tasks in view into status order: in progress, ready, draft, done, archived. Tasks the filters hide keep their place."
-                                            : "The tasks in view are already in status order.")"
-                                   OnClick="State.SortVisibleByStatusAsync">
-                            Sort by status
-                        </AppButton>
+                        <IconButton BaseClass="chip chip--filter chip--icon"
+                                    AriaLabel="Sort by status"
+                                    TestId="sort-by-status"
+                                    Disabled="@(!State.CanSortVisibleByStatus)"
+                                    Title="@(State.CanSortVisibleByStatus
+                                             ? "Sort by status: move the tasks in view into status order — in progress, ready, draft, done, archived. Tasks the filters hide keep their place."
+                                             : "The tasks in view are already in status order.")"
+                                    OnClick="State.SortVisibleByStatusAsync">
+                            <ArrowUpDownIcon />
+                        </IconButton>
                     </div>
 
                     @* The total the chips never gave: how much is open in the
@@ -768,17 +770,57 @@
             IntegrationProvider.GitHub,
             IntegrationLinkKind.PullRequest,
             pr.Label,
-            $"{pr.Repository}#{pr.Number}",
+            $"Pull request {pr.Repository}#{pr.Number}",
             pr.Url,
             Repository: new IntegrationRepositoryRef(pr.Repository, pr.Repository));
 
+    /// <summary>The short id alone, beside the Claude mark; the words are in the
+    /// tooltip, where the whole id is too.</summary>
     private static IntegrationLinkRef Link(EntrySessionLink session) =>
         new(
             session.SessionId,
             IntegrationProvider.Claude,
             IntegrationLinkKind.Session,
-            $"Session {session.ShortId}",
-            $"Open session {session.SessionId} in Sessions");
+            session.ShortId,
+            $"Session {session.SessionId} — open in Sessions");
+
+    /// <summary>
+    /// The work links, drawn once for both surfaces: every recorded pull request
+    /// (less the one the issue badge already shows) and every session, mark plus
+    /// number. The row asks for the latest of each, since a row is scanned rather
+    /// than read and a column of five session ids would take the title's width.
+    /// </summary>
+    private RenderFragment RenderWorkLinks(EntryRow row, string testIdPrefix, bool latestOnly) =>
+        __builder =>
+        {
+            var pulls = PullRequestsBesideSnapshot(row).ToList();
+            var sessions = row.SessionLinks;
+
+            foreach (var pr in latestOnly ? pulls.TakeLast(1) : pulls)
+            {
+                <IntegrationLink Link="@Link(pr)"
+                                 ShowTitle="false"
+                                 CssClass="entry-doc__work-link"
+                                 TestId="@($"{testIdPrefix}pull-request")" />
+            }
+
+            foreach (var session in latestOnly ? sessions.TakeLast(1) : sessions)
+            {
+                <IntegrationLink Link="@Link(session)"
+                                 ShowTitle="false"
+                                 CssClass="entry-doc__work-link"
+                                 OnOpen="SessionOpener"
+                                 TestId="@($"{testIdPrefix}session")" />
+            }
+
+            var hidden = latestOnly ? Math.Max(0, pulls.Count - 1) + Math.Max(0, sessions.Count - 1) : 0;
+            if (hidden > 0)
+            {
+                <span class="entry-row__work-more"
+                      data-testid="@($"{testIdPrefix}work-more")"
+                      title="@($"{hidden} more on the open entry")">+@hidden</span>
+            }
+        };
 
     private bool AdditionalRepositoriesEnabled => IsFeatureEnabled(TasksFeatures.AdditionalRepositories);
 
@@ -1011,6 +1053,16 @@
     /// </summary>
     private RenderFragment RenderRowPickers(EntryRow row, string title) =>
         @<span class="entry-row__pickers">
+            @* What work on the entry produced, before the pickers: a fact to follow
+               rather than a field to set. In the slot, so its click stops here and
+               neither opens the row nor starts a rename. *@
+            @if (row.SessionLinks.Count > 0 || PullRequestsBesideSnapshot(row).Any())
+            {
+                <span class="entry-row__work" data-testid="row-work-links">
+                    @RenderWorkLinks(row, "row-", latestOnly: true)
+                </span>
+            }
+
             @if (DevbookRepositories.Count > 0)
             {
                 @* The same list, the same resolve and the same write the panel's
@@ -2270,6 +2322,22 @@
                            TaskAction row with nothing to set. Local time in words,
                            the instant in the attribute, and absent until the entry
                            has been saved — an unsaved row has no birth to report. *@
+                        @* What work on the entry produced — the pull requests it opened
+                           and the AI sessions that ran it, recorded by link_change and
+                           link_session. In the footer beside the creation date because,
+                           like it, it is a record about the entry rather than a field of
+                           it, and the fields above are what a reader came to edit; the
+                           list row already shows the latest of each at a glance. Not
+                           behind the GitHub integration: these were recorded by the
+                           session, not read from GitHub, and the pull request the issue
+                           snapshot already shows is not drawn twice. *@
+                        @if (row.SessionLinks.Count > 0 || PullRequestsBesideSnapshot(row).Any())
+                        {
+                            <span class="entry-doc__work" role="group" aria-label="Work on this entry" data-testid="entry-work-links">
+                                @RenderWorkLinks(row, "entry-", latestOnly: false)
+                            </span>
+                        }
+
                         @if (row.CreatedAt is { } createdAt)
                         {
                             <time class="entry-detail__created"
@@ -2625,29 +2693,6 @@
                             </a>
                         }
                     }
-                }
-
-                @* What work on the entry produced: the pull requests it opened and the
-                   AI sessions that ran it, recorded by the link_change and
-                   link_session tools. Not behind the GitHub integration — these were
-                   recorded by the session, not read from GitHub, and a pull request is
-                   a link whether or not this workspace polls it. The one the issue
-                   snapshot already shows above is not drawn twice. *@
-                @foreach (var pr in PullRequestsBesideSnapshot(row))
-                {
-                    <IntegrationLink Link="@Link(pr)"
-                                     ShowTitle="false"
-                                     CssClass="entry-doc__work-link"
-                                     TestId="entry-pull-request" />
-                }
-
-                @foreach (var session in row.SessionLinks)
-                {
-                    <IntegrationLink Link="@Link(session)"
-                                     ShowTitle="false"
-                                     CssClass="entry-doc__work-link"
-                                     OnOpen="SessionOpener"
-                                     TestId="entry-session" />
                 }
 
                 @if (!row.IsPersisted)

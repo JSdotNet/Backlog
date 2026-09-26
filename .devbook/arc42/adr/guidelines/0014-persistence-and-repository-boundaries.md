@@ -1,9 +1,7 @@
 # ADR 0014: Persistence and repository boundaries
 
 ```meta
-status: active
 related: [".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/09-architecture-decisions.md"]
-issue: null
 ```
 
 Inherited from the organization's ADR 0014 (decided 2026-06-04,

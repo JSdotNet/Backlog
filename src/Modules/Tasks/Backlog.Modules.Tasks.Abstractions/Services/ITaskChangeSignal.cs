@@ -1,4 +1,4 @@
-namespace Backlog.Modules.Tasks;
+namespace Backlog.Modules.Tasks.Abstractions.Services;
 
 /// <summary>
 /// Says that a task was written on this machine, to whatever wants to act soon
@@ -15,9 +15,17 @@ namespace Backlog.Modules.Tasks;
 /// </para>
 /// <para>
 /// It is a signal and not an event stream: it carries no task, no id and no
-/// count, because the one listener wants to know that <em>something</em> changed
+/// count, because every listener wants to know that <em>something</em> changed
 /// and will read what through the repository as it always has. A payload here
 /// would be a second description of the change for the two to disagree about.
+/// </para>
+/// <para>
+/// Sync is no longer the only listener, which is why this is published rather
+/// than kept inside the module: the roadmap re-reads its rollups on it, and the
+/// desktop's task list reloads on it, so a write the MCP server makes on a
+/// request thread reaches the open pane. The list tells its own writes apart by
+/// marking the asynchronous flow they run in, not by suppressing the signal —
+/// a suppression would silence sync for them too.
 /// </para>
 /// <para>
 /// <see cref="Suppress"/> is for the one writer that is not a local change. The

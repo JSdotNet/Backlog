@@ -1,3 +1,4 @@
+using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
@@ -259,7 +260,7 @@ public sealed class TaskReplicaMerge(
             [.. task.UsageEvents.Select(u => new UsageEventPayload(u.Timestamp, u.Action))],
             [.. task.ProjectionRefs.Select(p => new ProjectionPayload(p.RepoId, p.ExternalId, p.TargetType))],
             task.CompletedOn,
-            task.StartedOn);
+            StartedOn: task.StartedOn);
     }
 
     /// <summary>

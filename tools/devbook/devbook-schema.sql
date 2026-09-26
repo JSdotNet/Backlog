@@ -1,6 +1,6 @@
 -- devbook-schema.sql - the DDL of the generated devbook database, as one text.
 --
--- schema-version: 2
+-- schema-version: 3
 --
 -- One file read by both writers: tools/devbook/devbook-schema.mjs loads it for
 -- the Node writer, and Backlog.Infrastructure.Devbook embeds it for the app's own
@@ -71,7 +71,8 @@ CREATE TABLE chapter (
     content_hash TEXT NOT NULL,
     source_hash  TEXT NOT NULL,
     size         INTEGER NOT NULL,
-    mtime        INTEGER NOT NULL
+    mtime        INTEGER NOT NULL,
+    open_annotations INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE VIRTUAL TABLE chapter_fts USING fts5(

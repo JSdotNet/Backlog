@@ -1,7 +1,6 @@
 # 04. Solution Strategy
 
 ```meta
-status: active
 related: [".devbook/arc42/09-architecture-decisions.md"]
 ```
 
@@ -11,7 +10,6 @@ into a coherent architecture.
 ## Local-first Architecture
 
 ```meta
-status: active
 related: [".devbook/arc42/02-constraints.md#technical-constraints"]
 ```
 
@@ -33,7 +31,6 @@ This directly serves quality goals 1 (availability) and 2 (credential privacy) i
 ## Domain Decomposition
 
 ```meta
-status: active
 related: [".devbook/arc42/01-introduction-and-goals.md#requirements-overview"]
 ```
 
@@ -48,7 +45,6 @@ domains without owning domain lifecycle rules.
 ## Thin Cloud, Rich Desktop
 
 ```meta
-status: active
 related: [".devbook/arc42/07-deployment-view.md#cloud-deployment-azure"]
 ```
 
@@ -65,7 +61,6 @@ Responsibilities are deliberately pushed to the desktop; the cloud is minimized:
 ## Technology Choices
 
 ```meta
-status: active
 related: [".devbook/arc42/09-architecture-decisions.md"]
 ```
 
@@ -83,7 +78,6 @@ per platform and are intentionally not governed by the .NET ADRs.
 ## Cross-cutting Strategy
 
 ```meta
-status: active
 related: [".devbook/arc42/08-crosscutting-concepts.md"]
 ```
 

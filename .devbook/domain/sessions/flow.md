@@ -2,7 +2,6 @@
 
 ```meta
 type: flow
-status: active
 related: [.devbook/domain/sessions/domain.md#liveness-assessment, .devbook/domain/sessions/domain.md#session-activity-publishing, .devbook/domain/sessions/domain.md#session-activity-enrichment]
 ```
 

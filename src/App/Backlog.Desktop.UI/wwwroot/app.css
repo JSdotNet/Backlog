@@ -590,10 +590,26 @@ h1, h2, h3 {
     flex: 0 0 auto;
 }
 
-/* Sort by status: an act on the rows in view, not a filter. Sized to its label,
-   and dimmed when the view is already in order. */
+/* Sort by status: an act on the rows in view, not a filter. A glyph on a square
+   chip as tall as its labelled neighbours, and dimmed when the view is already
+   in order. */
 .filter-group--arrange {
     flex: 0 0 auto;
+}
+
+.chip.chip--icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-xs);
+    min-width: calc(1lh + 2 * var(--spacing-xs) + 2 * var(--border-width));
+}
+
+/* One line box tall, so the chip is exactly as high as a labelled one. */
+.chip--icon > span {
+    display: inline-flex;
+    align-items: center;
+    height: 1lh;
 }
 
 .filter-group--arrange .chip:disabled {
@@ -1380,11 +1396,50 @@ h1, h2, h3 {
     justify-content: flex-end;
 }
 
-/* A pull request or session the entry's work produced. Short labels ("PR #n",
-   "Session 1a2b3c4d") that wrap with the strip rather than clamp, as the
-   Sessions pane draws the same references. */
+/* A pull request or session the entry's work produced: the provider's mark and a
+   number or short id ("#669", "1a2b3c4d"), the words in the tooltip. */
 .entry-doc__work-link {
     min-width: 0;
+}
+
+/* In the primary colour, mark and number both, so a reference to work that
+   happened stands out from the muted chrome around it wherever it is drawn. Only
+   the followable shapes: an inert one keeps its quiet ink rather than looking
+   like a link it is not. */
+.entry-doc__work-link.integration-link--link,
+.entry-doc__work-link.integration-link--action {
+    color: var(--color-primary);
+}
+
+.entry-doc__work-link.integration-link--link:hover,
+.entry-doc__work-link.integration-link--action:hover {
+    color: var(--color-primary-light);
+}
+
+/* The panel's: in the footer beside the creation date, small like it, wrapping
+   onto a second line of the footer rather than pushing delete and close apart. */
+.entry-doc__work {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+    min-width: 0;
+    margin-right: var(--spacing-xs);
+    font-size: var(--font-size-xs);
+}
+
+/* The row's: the latest pull request and session, set smaller than the title so
+   the title stays the thing the eye lands on. */
+.entry-row__work {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    font-size: var(--font-size-xs);
+}
+
+.entry-row__work-more {
+    color: var(--color-text-secondary);
+    font-variant-numeric: tabular-nums;
 }
 
 /* --- Scheduling and dependency rows -------------------------------------- */
@@ -1612,7 +1667,8 @@ h1, h2, h3 {
 
 /* 60rem: the open-work summary keeps "N open" and lets the points go. Measured in
    the harness, select, the three scopes, the four-chip status strip (293px) and the
-   full summary (~236px) come to about 917px with the gaps, before the tag pile gets
+   full summary (~236px then; ~176px since its face went to "pts" and "unest.", which
+   leaves this step conservative) come to about 917px with the gaps, before the tag pile gets
    a pixel of the bar; below this the full sentence would take its room out of the
    pile and then out of nothing at all. The whole sentence stays the button's
    tooltip and accessible name at every width, so only the shorthand is lost. */
@@ -5489,43 +5545,6 @@ h1, h2, h3 {
        that is identifiers rather than prose. */
     white-space: normal;
     overflow-wrap: anywhere;
-}
-
-.sessions-run__list {
-    display: grid;
-    gap: 2px;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-}
-
-/* A name and its figures, and each keeps a floor against the other. In a column a
-   quarter of the pane wide, unwrapping figures used to squeeze the name to nothing —
-   "43 calls · 31.8K out · …" with no stage to say whose — and a long server name
-   squeezes the figures just as hard the other way. So both shrink from their natural
-   width: the name down to a few characters and an ellipsis (the whole name is in its
-   title), the figures down to about ten characters, where they wrap at their dots. */
-.sessions-run__list li {
-    display: flex;
-    justify-content: space-between;
-    gap: var(--spacing-sm);
-    min-width: 0;
-}
-
-.sessions-run__stage-name {
-    flex: 1 1 auto;
-    min-width: 4rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.sessions-run__stage-facts {
-    flex: 0 1 auto;
-    min-width: min(10rem, 60%);
-    color: var(--color-text-secondary);
-    text-align: right;
-    white-space: normal;
 }
 
 /* A grid item in `.workspace` now, not a flex child of `.shell`. `flex` is

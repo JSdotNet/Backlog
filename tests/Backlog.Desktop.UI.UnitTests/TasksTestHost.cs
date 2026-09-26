@@ -26,8 +26,8 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </summary>
 internal static class TasksTestHost
 {
-    public static ITaskRepository RepositoryFor(WorkspaceSettingsStore store) =>
-        new RootedSqliteTaskRepository(() => store.RootDirectory);
+    public static ITaskRepository RepositoryFor(WorkspaceSettingsStore store, ITaskChangeSignal? changes = null) =>
+        new RootedSqliteTaskRepository(() => store.RootDirectory, changes);
 
     public static ITaskItems EntriesFor(WorkspaceSettingsStore store) =>
         EntriesFor(RepositoryFor(store));

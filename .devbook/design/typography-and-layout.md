@@ -1,7 +1,6 @@
 # Typography and Layout
 
 ```meta
-status: active
 related: [".devbook/design/color-scheme.md", ".devbook/design/design-principles.md#low-chrome-content-first", ".devbook/design/accessibility.md"]
 ```
 
@@ -15,7 +14,6 @@ related: [".devbook/design/color-scheme.md", ".devbook/design/design-principles.
 ## Font Families
 
 ```meta
-status: active
 ```
 
 | Token | Value | Usage |
@@ -36,7 +34,6 @@ Rules:
 ## Type Scale
 
 ```meta
-status: active
 related: [".devbook/design/accessibility.md#target-sizes-and-text"]
 ```
 
@@ -110,7 +107,6 @@ document surface MUST use the table above. See
 ## Spacing Scale
 
 ```meta
-status: active
 ```
 
 4 px (0.25 rem) base, geometric progression. MUST always use a scale token;
@@ -131,7 +127,6 @@ never one-off values like `13px`.
 ## Density
 
 ```meta
-status: active
 related: [".devbook/design/design-principles.md#low-chrome-content-first"]
 ```
 
@@ -148,7 +143,6 @@ The product is an authoring tool used in long sessions; default to a
 ## Layout Grid and Breakpoints
 
 ```meta
-status: active
 ```
 
 | Concept | Value |
@@ -172,7 +166,6 @@ Channel guidance:
 ## Border Radius and Width
 
 ```meta
-status: active
 ```
 
 | Radius token | Value | Usage | Width token | Value |
@@ -190,7 +183,6 @@ states use `border-width-2`.
 ## Shadows and Elevation
 
 ```meta
-status: active
 related: [".devbook/design/color-scheme.md#elevation-by-color"]
 ```
 
@@ -224,7 +216,6 @@ MUST NOT use arbitrary z-index values (e.g. `9999`); use only the scale.
 ## Iconography
 
 ```meta
-status: active
 related: [".devbook/design/accessibility.md#target-sizes-and-text"]
 ```
 
@@ -259,7 +250,6 @@ Rules:
 ## Metadata Lines
 
 ```meta
-status: active
 related: [".devbook/design/color-scheme.md#badge-and-chip-tones", ".devbook/design/accessibility.md#iconography-accessibility"]
 ```
 
@@ -286,7 +276,6 @@ and *Integrations* → **References**.
 ## Materialization
 
 ```meta
-status: active
 related: [".devbook/design/README.md#living-reference-the-ui-storybook", ".devbook/design/color-scheme.md#materialization"]
 ```
 

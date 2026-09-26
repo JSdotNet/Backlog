@@ -1,7 +1,6 @@
 # Accessibility
 
 ```meta
-status: active
 related: [".devbook/design/color-scheme.md#contrast-rules-wcag-aa-minimum", ".devbook/design/interaction-guidelines.md", ".devbook/design/design-principles.md#keyboard-first"]
 ```
 
@@ -17,7 +16,6 @@ related: [".devbook/design/color-scheme.md#contrast-rules-wcag-aa-minimum", ".de
 ## Target and Scope
 
 ```meta
-status: active
 ```
 
 | Rule | Requirement |
@@ -30,7 +28,6 @@ status: active
 ## Contrast
 
 ```meta
-status: active
 related: [".devbook/design/color-scheme.md#contrast-rules-wcag-aa-minimum"]
 ```
 
@@ -52,7 +49,6 @@ Contrast values and pairings are declared in
 ## Keyboard Navigation
 
 ```meta
-status: active
 related: [".devbook/design/design-principles.md#keyboard-first", ".devbook/design/interaction-guidelines.md#keyboard-accessible-reordering"]
 ```
 
@@ -69,7 +65,6 @@ related: [".devbook/design/design-principles.md#keyboard-first", ".devbook/desig
 ## Screen Reader / Announcements
 
 ```meta
-status: active
 related: [".devbook/design/interaction-guidelines.md#save-state-indicator-vocabulary", ".devbook/design/interaction-guidelines.md#drag-and-drop-reordering"]
 ```
 
@@ -117,7 +112,6 @@ grab).
 ## Focus Visibility
 
 ```meta
-status: active
 related: [".devbook/design/interaction-guidelines.md#focus-and-selection"]
 ```
 
@@ -132,7 +126,6 @@ related: [".devbook/design/interaction-guidelines.md#focus-and-selection"]
 ## Reduced Motion
 
 ```meta
-status: active
 related: [".devbook/design/interaction-guidelines.md#motion-and-reduced-motion"]
 ```
 
@@ -145,7 +138,6 @@ related: [".devbook/design/interaction-guidelines.md#motion-and-reduced-motion"]
 ## Target Sizes and Text
 
 ```meta
-status: active
 related: [".devbook/design/typography-and-layout.md#iconography"]
 ```
 
@@ -160,7 +152,6 @@ related: [".devbook/design/typography-and-layout.md#iconography"]
 ## Iconography Accessibility
 
 ```meta
-status: active
 related: [".devbook/design/typography-and-layout.md#iconography"]
 ```
 
@@ -175,7 +166,6 @@ related: [".devbook/design/typography-and-layout.md#iconography"]
 ## Per-Channel Notes
 
 ```meta
-status: active
 related: [".devbook/design/component-libraries.md", ".devbook/arc42/04-solution-strategy.md#technology-choices"]
 ```
 
@@ -191,7 +181,6 @@ release, and which assistive technologies are in the supported test matrix.
 ## Materialization
 
 ```meta
-status: active
 related: [".devbook/design/README.md#living-reference-the-ui-storybook", ".devbook/design/interaction-guidelines.md#materialization"]
 ```
 

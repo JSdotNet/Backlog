@@ -1,7 +1,6 @@
 # 05. Building Block View
 
 ```meta
-status: active
 ```
 
 Static decomposition of Prompt Backlog, from the system-level container view down to
@@ -10,7 +9,6 @@ the internal structure of each access channel.
 ## Container View
 
 ```meta
-status: active
 related: [".devbook/arc42/03-context-and-scope.md#access-channels-scope", ".devbook/domain/context-map.md"]
 ```
 
@@ -159,7 +157,6 @@ flowchart TB
 ## Desktop App
 
 ```meta
-status: active
 related: [".devbook/arc42/06-runtime-view.md#task-to-github-issue", ".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md"]
 ```
 
@@ -291,7 +288,6 @@ press of Capture free, with no seen-store of its own. See
 ## Mobile App
 
 ```meta
-status: active
 related: [".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push", ".devbook/arc42/06-runtime-view.md#sync-item-lifecycle"]
 ```
 
@@ -341,7 +337,6 @@ other — is not a supported path and corrupts the store; see
 ## IDE Extensions
 
 ```meta
-status: active
 related: [".devbook/arc42/06-runtime-view.md#ide-context-aware-capture", ".devbook/arc42/06-runtime-view.md#copilot-app-session-capture"]
 ```
 
@@ -401,8 +396,7 @@ compliance/monitoring; capture uses session context to create backlog/knowledge 
 ## Cloud Service
 
 ```meta
-status: active
-related: [".devbook/arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure"]
+related: [".devbook/arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md"]
 ```
 
 A thin sync and coordination layer — deliberately not the backbone. It coordinates
@@ -431,6 +425,20 @@ served from the same project against two more containers, `devices` and
 in-memory adapters remain for the endpoint tests and for a run with no Cosmos
 configured.
 
+Attachment bytes take the same shape with a fifth project (local ADR 0014): the
+module declares an `IAttachmentStore` port beside `ITaskReplica`, with an
+in-memory stand-in in its `Adapters`, and
+`src/Infrastructure/Backlog.Infrastructure.BlobStorage` implements it against
+the `attachments` blob container — the only project that references the Storage
+SDK. It stages an upload as uncommitted blocks and commits them only once the
+handler has checked the size and digest, so a refused upload never becomes a
+blob. The API head exposes it as `PUT`/`GET /api/sync/attachments/{id}`, behind
+the same authorization, owner-scope and replica-fault filters as every other
+sync route, with the per-file cap and the type allowlist as
+`Modules:Sync:Attachments` settings. A capture names its files as metadata, and
+the acknowledgement tombstone — the phone's own or the desktop's pushed one —
+releases them, best effort.
+
 ```mermaid
 flowchart TB
   subgraph "Cloud Service (thin sync layer)"
@@ -444,6 +452,7 @@ flowchart TB
     end
     subgraph "Data Layer"
       DB["Cloud Database\n(Sync state only)"]
+      Blobs["Attachment Store\n(capture files, 30-day backstop)"]
     end
   end
 
@@ -461,6 +470,7 @@ flowchart TB
 
   Gateway --> SyncAPI
   SyncAPI --> DB
+  SyncAPI -->|"Upload / download, owner-prefixed"| Blobs
 
   GitHub -->|Webhooks| GitHubWebhooks
   GitHubWebhooks -->|Forward event| SyncAPI

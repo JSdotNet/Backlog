@@ -37,7 +37,7 @@ delivery tracker in `.devbook/config.json`.
 ## Knowledge folders are task-scoped
 
 Checked-in knowledge folders are **task-scoped local context**, not default context. Load
-`.devbook/arc42/`, `.devbook/domain/`, `.backlog/`, `.devbook/tech/`, or `.devbook/design/` only when the selected
+`.devbook/arc42/`, `.devbook/domain/`, `.devbook/tech/`, or `.devbook/design/` only when the selected
 orchestration or specialist agent needs that knowledge, and then prefer the relevant
 chapter(s) over whole-folder reads.
 

@@ -118,7 +118,6 @@ rather than an archive.
 
 ```meta
 type: sub-feature
-status: active
 ```
 
 Poll a subscribed channel's video feed — given as a feed URL, a channel id, or
@@ -129,7 +128,6 @@ the Inbox; no folder filing and no `#capture/youtube` auto-tag yet.
 
 ```meta
 type: sub-feature
-status: active
 ```
 
 Watch a configured URL for a discoverable feed — `<link rel=alternate>`, a

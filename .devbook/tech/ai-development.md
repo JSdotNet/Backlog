@@ -238,10 +238,8 @@ formerly `knowledge-base`, renamed with the Devbook context on 2026-09-15.
   contract v6 follow-up. The per-folder writing flows moved out: `flow-arc42-content`, `flow-domain`,
   `flow-tech`, `flow-design` (and `flow-ai` for an `.ai/` folder this repository
   has not adopted) ship in the companion `devbook-flows` plugin, which depends on
-  this one and on `delivery`. `.backlog` has no flow there, because the plugin's
-  contract v6 drops that folder — this repository still carries `.backlog` and
-  still authors against the installed generator; adopting v6 through
-  `devbook-sync` is a follow-up.
+  this one and on `delivery`. `.backlog` has no flow there, because the convention
+  has no such folder, and this repository retired its own (local ADR 0016).
 - **Why** — the convention is reusable across repositories, so it lives in one
   versioned plugin instead of being duplicated per repository.
 - **Sourced from** — `JSdotNet/ai-agent-stack:plugins/devbook`
@@ -259,7 +257,7 @@ related: [".devbook/tech/ai-development.md#devbook-plugin"]
 The `devbook` plugin's canvas (`devbook-canvas`, formerly `knowledge-canvas`) for
 viewing knowledge folders.
 
-- **Used for** — rendering `.devbook/arc42`, `.devbook/domain`, `.backlog`, `.devbook/tech`, and
+- **Used for** — rendering `.devbook/arc42`, `.devbook/domain`, `.devbook/tech`, and
   `.devbook/design` Markdown with live Mermaid diagrams and a metadata/lint side panel,
   plus the `knowledge-graph` view that walks the derived reference graph.
 - **Why** — the metadata convention is designed for machine reading, so a viewer

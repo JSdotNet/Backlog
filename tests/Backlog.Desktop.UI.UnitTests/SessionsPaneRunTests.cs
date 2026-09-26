@@ -130,7 +130,10 @@ public sealed class SessionsPaneRunTests
             TokenUsage = new DeliveryRunTokenUsage(
                 new DeliveryRunTokens(66, 132, 32_875, 0, 5_586_145, 457_801),
                 new DeliveryRunTokens(49, 98, 13_252, 0, 2_211_729, 416_625),
-                [],
+                [
+                    new("Build & Test", new DeliveryRunTokens(10, 20, 500, 0, 1_000, 100), new DeliveryRunTokens(0, 0, 0, 0, 0, 0)),
+                    new("Validation", new DeliveryRunTokens(5, 10, 2_000, 0, 500, 50), new DeliveryRunTokens(0, 0, 0, 0, 0, 0))
+                ],
                 ["claude-opus-5", "claude-sonnet-5"]),
             Context = new DeliveryRunContext(120_000, 200_000, 180_000),
             InsightsByCategory = [new("Shell", 3, 3500, 1), new("Agents", 1, 22_069, 0)],
@@ -174,11 +177,34 @@ public sealed class SessionsPaneRunTests
             Assert.Null(nodes[2].QuerySelector(".flow-step__notes"));
 
             var tokens = line.QuerySelector("[data-testid='sessions-run-tokens']")!;
-            Assert.Contains("66 calls · 32.9K out", tokens.TextContent);
-            Assert.Contains("Sub-agents: 49 calls", tokens.TextContent);
+            Assert.Contains("66 calls", tokens.TextContent);
             Assert.Contains("claude-opus-5, claude-sonnet-5", tokens.TextContent);
 
-            Assert.Contains("Peak 180.0K of 200.0K (90%)", line.QuerySelector("[data-testid='sessions-run-context']")!.TextContent);
+            // The four token kinds as one part-to-whole bar, cheapest first, each
+            // part also a legend row carrying its figure.
+            var mix = tokens.QuerySelector("[data-testid='sessions-run-token-mix']")!;
+            Assert.Equal(
+                ["Cache read", "Input", "Cache write", "Output"],
+                mix.QuerySelectorAll(".metric-breakdown-bar__legend-label").Select(label => label.TextContent));
+            var output = mix.QuerySelectorAll(".metric-breakdown-bar__legend-item")
+                .Single(item => item.QuerySelector(".metric-breakdown-bar__legend-label")!.TextContent == "Output");
+            Assert.Equal("32.9K", output.QuerySelector(".metric-breakdown-bar__legend-value")!.TextContent);
+
+            Assert.Contains("Sub-agents · 49 calls", tokens.QuerySelector("[data-testid='sessions-run-subagent-mix']")!.TextContent);
+
+            // Stages ranked by the output they produced, the calls beside it.
+            var stageTokens = tokens.QuerySelector("[data-testid='sessions-run-stage-tokens']")!;
+            Assert.Equal(
+                ["Validation", "Build & Test"],
+                stageTokens.QuerySelectorAll(".metric-ranking__name").Select(name => name.TextContent));
+            Assert.Equal("5 calls", stageTokens.QuerySelector(".metric-ranking__detail")!.TextContent);
+            Assert.Equal("2,000 out", stageTokens.QuerySelector(".metric-ranking__value")!.TextContent);
+
+            // Context against its limit is a meter, with the reading and the last
+            // sample in words beside it.
+            var meter = line.QuerySelector("[data-testid='sessions-run-context'] [role='meter']")!;
+            Assert.Equal("180.0K of 200.0K", meter.GetAttribute("aria-valuetext"));
+            Assert.Contains("90% at peak", line.QuerySelector("[data-testid='sessions-run-context']")!.TextContent);
 
             // Ranked by time spent, each group's calls and failures printed beside
             // the time it took.
@@ -628,7 +654,7 @@ public sealed class SessionsPaneRunTests
 
             Assert.DoesNotContain("0 calls", tokens, StringComparison.Ordinal);
             Assert.DoesNotContain("0 out", tokens, StringComparison.Ordinal);
-            Assert.DoesNotContain("cache read", tokens, StringComparison.Ordinal);
+            Assert.DoesNotContain("cache read", tokens, StringComparison.OrdinalIgnoreCase);
         });
     }
 
@@ -661,7 +687,7 @@ public sealed class SessionsPaneRunTests
             var tokens = pane.Find("[data-testid='sessions-run-tokens']").TextContent;
 
             Assert.Contains("4,789 calls", tokens, StringComparison.Ordinal);
-            Assert.Contains("cache read", tokens, StringComparison.Ordinal);
+            Assert.Contains("Cache read", tokens, StringComparison.Ordinal);
             Assert.Contains("claude-opus-5", tokens, StringComparison.Ordinal);
         });
     }
