@@ -260,18 +260,20 @@
                        among the slots those rows already hold — see
                        TasksDesktopState.SortVisibleByStatusAsync. Disabled rather
                        than hidden once the view is in order, so it never reads as a
-                       thing the list cannot do. *@
+                       thing the list cannot do. A glyph rather than a label, so
+                       it costs the bar a square; the name stays "Sort by status"
+                       and the tooltip says what pressing it does. *@
                     <div class="filter-group filter-group--arrange">
-                        <AppButton BaseClass="chip chip--filter"
-                                   Variant="ButtonVariant.None"
-                                   TestId="sort-by-status"
-                                   Disabled="@(!State.CanSortVisibleByStatus)"
-                                   title="@(State.CanSortVisibleByStatus
-                                            ? "Move the tasks in view into status order: in progress, ready, draft, done, archived. Tasks the filters hide keep their place."
-                                            : "The tasks in view are already in status order.")"
-                                   OnClick="State.SortVisibleByStatusAsync">
-                            Sort by status
-                        </AppButton>
+                        <IconButton BaseClass="chip chip--filter chip--icon"
+                                    AriaLabel="Sort by status"
+                                    TestId="sort-by-status"
+                                    Disabled="@(!State.CanSortVisibleByStatus)"
+                                    Title="@(State.CanSortVisibleByStatus
+                                             ? "Sort by status: move the tasks in view into status order — in progress, ready, draft, done, archived. Tasks the filters hide keep their place."
+                                             : "The tasks in view are already in status order.")"
+                                    OnClick="State.SortVisibleByStatusAsync">
+                            <ArrowUpDownIcon />
+                        </IconButton>
                     </div>
 
                     @* The total the chips never gave: how much is open in the

@@ -42,15 +42,16 @@ public sealed record OpenWorkTotals(int Open, int Points, int Unestimated)
         return new OpenWorkTotals(open, points, unestimated);
     }
 
-    /// <summary>The button's face, in <c>RoadmapShelfPlan.Summary</c>'s words so a
-    /// total reads the same on the roadmap shelf and here.</summary>
+    /// <summary>The button's face, in shorthand — "pts" and "unest." — so it costs
+    /// the filter bar as little width as it can; <see cref="Description"/> spells
+    /// it out for the tooltip and the accessible name.</summary>
     public string Summary
     {
         get
         {
-            var parts = new List<string> { $"{Open} open", OpenWorkReport.PointsText(Points) };
+            var parts = new List<string> { $"{Open} open", Points == 1 ? "1 pt" : $"{Points} pts" };
 
-            if (Unestimated > 0) parts.Add($"{Unestimated} unestimated");
+            if (Unestimated > 0) parts.Add($"{Unestimated} unest.");
 
             return string.Join(" · ", parts);
         }

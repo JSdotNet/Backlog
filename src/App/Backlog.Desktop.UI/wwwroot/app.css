@@ -590,10 +590,26 @@ h1, h2, h3 {
     flex: 0 0 auto;
 }
 
-/* Sort by status: an act on the rows in view, not a filter. Sized to its label,
-   and dimmed when the view is already in order. */
+/* Sort by status: an act on the rows in view, not a filter. A glyph on a square
+   chip as tall as its labelled neighbours, and dimmed when the view is already
+   in order. */
 .filter-group--arrange {
     flex: 0 0 auto;
+}
+
+.chip.chip--icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-xs);
+    min-width: calc(1lh + 2 * var(--spacing-xs) + 2 * var(--border-width));
+}
+
+/* One line box tall, so the chip is exactly as high as a labelled one. */
+.chip--icon > span {
+    display: inline-flex;
+    align-items: center;
+    height: 1lh;
 }
 
 .filter-group--arrange .chip:disabled {
@@ -1651,7 +1667,8 @@ h1, h2, h3 {
 
 /* 60rem: the open-work summary keeps "N open" and lets the points go. Measured in
    the harness, select, the three scopes, the four-chip status strip (293px) and the
-   full summary (~236px) come to about 917px with the gaps, before the tag pile gets
+   full summary (~236px then; ~176px since its face went to "pts" and "unest.", which
+   leaves this step conservative) come to about 917px with the gaps, before the tag pile gets
    a pixel of the bar; below this the full sentence would take its room out of the
    pile and then out of nothing at all. The whole sentence stays the button's
    tooltip and accessible name at every width, so only the shorthand is lost. */
