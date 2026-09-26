@@ -6,6 +6,8 @@ disable-model-invocation: true
 
 # Build a Backlog import plan
 
+Open the reply with `backlog-tools@<version>`, `version` read from `../../.claude-plugin/plugin.json`, not recalled.
+
 A one-shot handoff: the spec is settled and it is time to generate the next batch of AI
 prompts for the Backlog app to import. This skill reads the agreed material, writes one
 Backlog import plan document plus a review view of it, and stops — it never talks to the
