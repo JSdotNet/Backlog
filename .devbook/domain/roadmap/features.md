@@ -354,7 +354,6 @@ observed downstream reaches back in and edits the plan.
 
 ```meta
 type: feature
-status: active
 depends-on: [.devbook/domain/roadmap/features.md#tagging-planned-work, .devbook/domain/roadmap/features.md#gathering-work-under-an-item-and-totalling-its-effort, .devbook/domain/roadmap/features.md#dependency-planning]
 related: [.devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md, .devbook/domain/tasks/features.md#import, .devbook/domain/tasks/features.md#re-importing-an-updated-plan, .devbook/domain/roadmap/features.md#sequencing-work-into-tracks, .devbook/domain/roadmap/features.md#reading-and-rescheduling-on-a-timeline, .devbook/domain/roadmap/domain.md#roadmap-item-gathering]
 ```
@@ -385,7 +384,6 @@ chapter says what the feature does, not why the rulings fell the way they did.
 
 ```meta
 type: sub-feature
-status: active
 setting: [.devbook/domain/roadmap/context.md#story-points-a-week]
 related: [.devbook/domain/roadmap/domain.md#planned-window, .devbook/domain/roadmap/domain.md#plan-sequencing, .devbook/domain/roadmap/features.md#surfacing-contradictions-instead-of-fixing-them]
 ```
@@ -454,7 +452,6 @@ created and nothing revised, and the person sees which edge did not fit.
 
 ```meta
 type: sub-feature
-status: active
 related: [.devbook/domain/roadmap/domain.md#roadmap-item-gathering, .devbook/domain/tasks/features.md#task-dependencies, .devbook/domain/tasks/features.md#effort-registration, .devbook/domain/roadmap/features.md#sizing-a-track-by-the-effort-it-gathers]
 ```
 
@@ -483,7 +480,6 @@ status, no progress and no order of its own.
 
 ```meta
 type: sub-feature
-status: active
 related: [.devbook/domain/tasks/features.md#filing-a-task-against-a-roadmap-tag, .devbook/domain/roadmap/features.md#planning-work-that-has-no-task-yet]
 ```
 

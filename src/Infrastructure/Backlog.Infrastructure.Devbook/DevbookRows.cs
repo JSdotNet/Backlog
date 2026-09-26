@@ -67,6 +67,8 @@ public sealed record DevbookOutlineRow(
 /// repeated on every chapter of that file so one <c>stat</c> answers for all of
 /// them at once.</param>
 /// <param name="Mtime">Milliseconds since the Unix epoch.</param>
+/// <param name="OpenAnnotations">The open review notes addressed to this chapter —
+/// a note above a file's first heading counts on its first row.</param>
 public sealed record DevbookChapterRow(
     string Path,
     string? Folder,
@@ -79,7 +81,8 @@ public sealed record DevbookChapterRow(
     string ContentHash,
     string SourceHash,
     long Size,
-    long Mtime);
+    long Mtime,
+    int OpenAnnotations = 0);
 
 /// <summary>
 /// One row of <c>archify_artifact</c>: which rendered diagram belongs to which

@@ -31,11 +31,9 @@ on:
       - '.devbook/tech/**'
       - '.devbook/design/**'
       - '.devbook/ai/**'
-      - '.backlog/**'
       - '.github/tools/knowledge-meta/**'
       - '.devbook/_tools/devbook-meta/**'
       - 'tools/devbook/**'
-      - '.devbook/_reading-order.json'
       - '.github/workflows/devbook-metadata.yml'
   pull_request:
     branches:
@@ -46,11 +44,9 @@ on:
       - '.devbook/tech/**'
       - '.devbook/design/**'
       - '.devbook/ai/**'
-      - '.backlog/**'
       - '.github/tools/knowledge-meta/**'
       - '.devbook/_tools/devbook-meta/**'
       - 'tools/devbook/**'
-      - '.devbook/_reading-order.json'
       - '.github/workflows/devbook-metadata.yml'
   workflow_dispatch:
 

@@ -762,7 +762,6 @@ A plan may name a task by id and read its progress; it never writes to it.
 
 ```meta
 type: term
-status: active
 aliases: [machine, PC]
 related: [.devbook/domain/tasks/features.md#multi-device-sync, .devbook/domain/tasks/features.md#pairing-a-device, .devbook/domain/tasks/domain.md#owner, .devbook/domain/tasks/domain.md#registration-credential, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md]
 ```
@@ -783,7 +782,6 @@ than an authority. **Paired** describes two devices that share one
 
 ```meta
 type: term
-status: active
 aliases: [ownerId, owner id]
 related: [.devbook/domain/tasks/domain.md#device, .devbook/domain/tasks/features.md#multi-device-sync, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md#identity]
 ```
@@ -800,7 +798,6 @@ call may touch.
 
 ```meta
 type: term
-status: active
 aliases: [pairing code, XXXX-XXXX code]
 related: [.devbook/domain/tasks/features.md#pairing-a-device, .devbook/domain/tasks/domain.md#device]
 ```
@@ -816,7 +813,6 @@ own, and a code cannot be redeemed twice.
 
 ```meta
 type: term
-status: active
 aliases: [device credential, credential]
 related: [.devbook/domain/tasks/features.md#pairing-a-device, .devbook/domain/tasks/domain.md#device-token, .devbook/domain/tasks/domain.md#device]
 ```
@@ -831,7 +827,6 @@ sync call rather than presenting the credential itself on the wire.
 
 ```meta
 type: term
-status: active
 aliases: [access token, device session token, sync token]
 related: [.devbook/domain/tasks/domain.md#registration-credential, .devbook/domain/tasks/domain.md#owner, .devbook/arc42/adr/guidelines/0012-authentication-external-identity-providers.md]
 ```

@@ -30,22 +30,24 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { validateDocument as validateLegacyDocument } from '../../.github/tools/knowledge-meta/metadata.mjs';
 import { validateDocument as validateDevbookDocument } from '../../.devbook/_tools/devbook-meta/metadata.mjs';
+import { DEVBOOK_FOLDERS } from '../../.devbook/_tools/devbook-meta/graph.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
 /** The repository root, two levels up from `tools/devbook/`. */
 export const DEFAULT_ROOT = resolve(HERE, '..', '..');
 
-/** The root-level folders the installed generator's `folderKindForPath`
- *  recognises: the legacy layout. `.backlog` has no `.devbook/` successor, so it
- *  is only ever found here. */
-export const LEGACY_FOLDERS = ['.domain', '.arc42', '.backlog', '.tech', '.design'];
+/** The root-level folders the predecessor generator's `folderKindForPath`
+ *  recognises: the legacy layout. `.backlog` is not among them any more — local
+ *  ADR 0016 dropped it with no `.devbook/` successor, so a stray one is not
+ *  devbook content and is not gated. */
+export const LEGACY_FOLDERS = ['.domain', '.arc42', '.tech', '.design'];
 
-/** The folders under `.devbook/`: the current layout. These are validated by the
- *  devbook checker materialized at `.devbook/_tools/devbook-meta/`, whose schema
- *  is the one the corpus is written against, so none of the pending-re-sync
- *  suppressions below apply to them. */
-export const DEVBOOK_FOLDERS = ['.devbook/arc42', '.devbook/domain', '.devbook/tech', '.devbook/design', '.devbook/ai'];
+/** The folders under `.devbook/`: the current layout, as the installed devbook
+ *  generator at `.devbook/_tools/devbook-meta/` names them. These are validated
+ *  by that generator's checker, whose schema is the one the corpus is written
+ *  against, so none of the pending-re-sync suppressions below apply to them. */
+export { DEVBOOK_FOLDERS };
 
 /** Every folder the gate knows. Only the ones present are scanned, so adopting
  *  another folder is a matter of listing it here and nothing else. */

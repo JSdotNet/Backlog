@@ -1,9 +1,7 @@
 # ADR 0010: OpenTelemetry for observability
 
 ```meta
-status: active
 related: [".devbook/arc42/08-crosscutting-concepts.md#observability", ".devbook/arc42/09-architecture-decisions.md"]
-issue: null
 ```
 
 Inherited from the organization's ADR 0010 (decided 2025-11-26,

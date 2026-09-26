@@ -1,10 +1,8 @@
 # ADR 0010: A backup is the database committed to a GitHub repository, one way, on a schedule
 
 ```meta
-status: active
 date: 2026-09-16
 related: [".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/11-risks-and-technical-debt.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md", ".devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md", ".devbook/domain/tasks/features.md#backup-to-a-repository"]
-issue: null
 ```
 
 ## Status

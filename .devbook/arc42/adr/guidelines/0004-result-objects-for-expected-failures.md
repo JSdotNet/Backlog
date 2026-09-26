@@ -1,9 +1,7 @@
 # ADR 0004: Result objects for expected failures
 
 ```meta
-status: active
 related: [".devbook/arc42/05-building-block-view.md", ".devbook/arc42/09-architecture-decisions.md"]
-issue: null
 ```
 
 Inherited from the organization's ADR 0004 (decided 2026-06-01,

@@ -49,8 +49,8 @@ public interface IDevbookFolderSource
     /// Makes the folder listable, then resolves it.
     /// <para>
     /// A local folder is always listable and this is <see cref="Resolve"/>. A
-    /// branch is listable once its index — every path the commit contains, plus
-    /// the reading-order files the menu is built from — is on this machine, so
+    /// branch is listable once its index — every path the commit contains, which
+    /// is all the menu's reading order is derived from — is on this machine, so
     /// the first call for a branch nobody has fetched goes and gets that, and
     /// nothing else: no chapter is downloaded to draw a menu. Every later call
     /// answers from disk.

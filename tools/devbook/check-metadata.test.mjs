@@ -1,4 +1,4 @@
-// Tests for check-metadata.mjs, run with `node --test tools/devbook`.
+// Tests for check-metadata.mjs, run with `node --test "tools/devbook/*.test.mjs"`.
 //
 // Two kinds of case. The first reads this repository's own corpus and asserts
 // the gate is green on it, because a gate that is red the day it lands gets
@@ -78,8 +78,8 @@ test('the repository corpus passes', async () => {
     );
     assert.deepEqual(
         result.folders.map((folder) => folder.folder).sort(),
-        [...DEVBOOK_FOLDERS, '.backlog'].sort(),
-        'This repository keeps every devbook folder under .devbook/ and .backlog at the root, '
+        [...DEVBOOK_FOLDERS].sort(),
+        'This repository keeps every devbook folder under .devbook/, '
         + 'so all of them have to be scanned. A gate that quietly covers fewer is the defect '
         + 'issue #241 is about.'
     );
@@ -195,14 +195,17 @@ test('each folder is judged against its own ladder', async () => {
     assert.equal(design.blocking.length, 1, blockingText(design));
     assert.match(design.blocking[0].message, /"adopted"/);
     assert.match(design.blocking[0].message, /draft, active, deprecated/);
+});
 
-    const backlog = await checkFixture(
+test('a root-level .backlog folder is not a devbook folder and is not gated', async () => {
+    // Local ADR 0016 dropped `.backlog` with no `.devbook/` successor, so a stray
+    // one is somebody's own folder: invalid metadata in it blocks nothing.
+    const result = await checkFixture(
         '.backlog/sample.md',
-        chapter({ status: 'draft' }, { status: 'active' })
+        chapter({ status: 'draft' }, { status: 'not-a-status' })
     );
-    assert.equal(backlog.blocking.length, 1, blockingText(backlog));
-    assert.match(backlog.blocking[0].message, /"active"/);
-    assert.match(backlog.blocking[0].message, /draft, ready, in-progress, done, blocked/);
+    assert.equal(result.blocking.length, 0, blockingText(result));
+    assert.deepEqual(result.folders, []);
 });
 
 test('a bad type value blocks', async () => {

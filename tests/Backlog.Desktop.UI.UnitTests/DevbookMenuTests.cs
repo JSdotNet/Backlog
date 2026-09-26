@@ -138,7 +138,9 @@ public sealed class DevbookMenuTests : IDisposable
     {
         // Alphabetically the design folder's README lands between
         // "interaction-guidelines" and "typography"; it is the chapter that
-        // introduces the rest, so it opens the folder instead.
+        // introduces the rest, so it opens the folder instead — and the
+        // convention's prescribed guidelines follow in its sequence, which reads
+        // typography before accessibility.
         var repo = TempDir();
         Directory.CreateDirectory(Path.Combine(repo, ".design"));
         File.WriteAllText(Path.Combine(repo, ".design", "accessibility.md"), "# Accessibility");
@@ -152,12 +154,12 @@ public sealed class DevbookMenuTests : IDisposable
 
         var design = Assert.Single(tree.Roots);
         Assert.Equal(
-            ["README.md", "accessibility.md", "typography-and-layout.md"],
+            ["README.md", "typography-and-layout.md", "accessibility.md"],
             design.Children.Select(node => node.Path));
     }
 
     /// <summary>
-    /// <c>.ai</c> declares no reading order: its root is the adoption map by the
+    /// <c>.ai</c> prescribes no files: its root is the adoption map by the
     /// folder's own convention and its stage files are numbered. Alphabetically
     /// the map lands after every stage, so the rail has to know the root.
     /// <c>concepts.md</c> sorting after the flow is what the numbering buys and

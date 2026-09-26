@@ -1,9 +1,7 @@
 # ADR 0001: Desktop channel uses .NET MAUI Blazor Hybrid, not plain WinUI 3
 
 ```meta
-status: active
 related: [".devbook/arc42/04-solution-strategy.md", ".devbook/arc42/02-constraints.md", ".devbook/arc42/09-architecture-decisions.md"]
-issue: null
 ```
 
 ## Status

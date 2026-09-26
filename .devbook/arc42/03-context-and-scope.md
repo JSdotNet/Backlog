@@ -1,7 +1,6 @@
 # 03. Context and Scope
 
 ```meta
-status: active
 ```
 
 Prompt Backlog's boundary, the external systems it depends on, and the internal
@@ -10,7 +9,6 @@ domain boundaries that shape its scope.
 ## Business Context
 
 ```meta
-status: active
 related: [".devbook/arc42/01-introduction-and-goals.md#requirements-overview"]
 ```
 
@@ -41,7 +39,6 @@ C4Context
 ### Domain boundary: Capture vs. Inbox
 
 ```meta
-status: active
 related: [".devbook/domain/context-map.md", ".devbook/domain/capture/domain.md#capture", ".devbook/domain/inbox/domain.md#inbox-item"]
 ```
 
@@ -66,7 +63,6 @@ if capture tooling becomes independently owned (tracked in
 ## External Interfaces
 
 ```meta
-status: active
 ```
 
 | External system | Direction | Interface | Purpose |
@@ -85,7 +81,6 @@ desktop workers**, so their credentials never leave the user's machine.
 ## Access Channels (Scope)
 
 ```meta
-status: active
 related: [".devbook/arc42/05-building-block-view.md#container-view"]
 ```
 

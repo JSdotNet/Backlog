@@ -238,7 +238,7 @@ internal static class TechnologyDevbookReader
         }
 
         var root = Parse(rootPath, cache);
-        var files = OrderedLayerFiles(folderPath, DevbookReadingOrder.ForFolder(folderPath));
+        var files = OrderedLayerFiles(folderPath);
         var documents = files.Select(path => Parse(path, cache)).ToList();
 
         var layers = documents.Select(document => ToLayer(document)).ToList();
@@ -266,26 +266,27 @@ internal static class TechnologyDevbookReader
     }
 
     /// <summary>
-    /// The layer files in reading order. <paramref name="order"/> is the folder's
-    /// committed reading order, which leads with <c>technology-graph.md</c> — the
-    /// root document is the graph itself, not a layer of it, so it is dropped here
-    /// exactly as the alphabetical fallback below drops it.
+    /// The layer files in reading order: every <c>.md</c> in the folder but the
+    /// root, in the order the folder convention derives from their names
+    /// (<see cref="DevbookReadingConvention"/>) — <c>shared.md</c> first,
+    /// <c>tooling.md</c> last, anything else by name between them.
+    /// <para>The root document, <c>technology-graph.md</c>, is the graph itself,
+    /// not a layer of it, so it is dropped. Every other file is a layer whether
+    /// or not the convention names it: a repository's own layer is placed among
+    /// the rest rather than left out, which is what the retired
+    /// <c>_reading-order.json</c> did to a layer it did not declare (local ADR
+    /// 0016). Names only — a pane that is already reading every layer still does
+    /// not read one to learn where it goes.</para>
     /// </summary>
-    private static IReadOnlyList<string> OrderedLayerFiles(string folderPath, IReadOnlyList<string> order)
+    private static IReadOnlyList<string> OrderedLayerFiles(string folderPath)
     {
-        var ordered = order
-            .Where(file => file.EndsWith(".md", StringComparison.OrdinalIgnoreCase))
-            .Where(file => !string.Equals(file, "technology-graph.md", StringComparison.OrdinalIgnoreCase))
-            .Select(file => Path.Combine(folderPath, file))
-            .Where(File.Exists)
-            .ToList();
+        var names = Directory.GetFiles(folderPath, "*.md")
+            .Select(Path.GetFileName)
+            .OfType<string>()
+            .Where(name => !name.StartsWith('_'))
+            .Where(name => !string.Equals(name, "technology-graph.md", StringComparison.OrdinalIgnoreCase));
 
-        if (ordered.Count > 0) return ordered;
-
-        return Directory.GetFiles(folderPath, "*.md")
-            .Where(path => !string.Equals(Path.GetFileName(path), "technology-graph.md", StringComparison.OrdinalIgnoreCase))
-            .OrderBy(path => Path.GetFileName(path), StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        return [.. DevbookReadingConvention.Order("tech", 0, names).Select(name => Path.Combine(folderPath, name))];
     }
 
     private static TechnologyLayer ToLayer(TechnologyMarkdownDocument document)

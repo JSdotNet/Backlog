@@ -29,9 +29,9 @@ namespace Backlog.Desktop.UI.Devbook;
 /// <param name="Folder">The component library's name for it, which picks the
 /// status vocabulary.</param>
 /// <param name="RootDocument">The file that opens the folder and sorts first,
-/// <c>README.md</c> or <c>adoption-map.md</c>. The folder's own
-/// <c>_reading-order.json</c> may name one too; this is the convention that holds
-/// when it does not.</param>
+/// <c>README.md</c> or <c>adoption-map.md</c> — the root the folder convention
+/// names for it (<c>DevbookReadingConvention</c>), which is what orders the
+/// pane.</param>
 public sealed record DocumentDevbookFolder(
     string Key,
     string AreaKey,
@@ -46,8 +46,7 @@ public sealed record DocumentDevbookFolder(
     /// <summary>
     /// The AI adoption record: how this project develops <em>with</em> AI, stage
     /// by stage. The root is the adoption map rather than a README, and the
-    /// stage files are numbered so the flow orders itself — which is why the
-    /// folder declares no reading order and this record has to know its root.
+    /// stage files are numbered so the flow orders itself behind it.
     /// </summary>
     public static DocumentDevbookFolder Ai { get; } =
         new(".ai", "ai", "AI", DevbookFolder.Ai, "adoption-map.md");

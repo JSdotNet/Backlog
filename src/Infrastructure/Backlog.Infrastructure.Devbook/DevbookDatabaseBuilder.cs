@@ -22,8 +22,8 @@ namespace Backlog.Infrastructure.Devbook;
 /// <c>DevbookBuilderParityTests</c> on this repository's own corpus.</para>
 ///
 /// <para>What it does not do is validate. <c>problem</c> holds what the build
-/// could not use — an unreadable Archify index, an entry the reading order does
-/// not list — and not the convention's metadata rules, which stay the devbook
+/// could not use — an unreadable Archify index, a directory with no root
+/// document — and not the convention's metadata rules, which stay the devbook
 /// checker's to report where somebody can fix them.</para>
 ///
 /// <para>The database is built whole into a temporary file beside the target and
@@ -40,7 +40,7 @@ public static class DevbookDatabaseBuilder
 
     /// <summary>
     /// The <c>meta</c> key holding a fingerprint of every input the build read —
-    /// each Markdown file, reading order and Archify index, by path, size and
+    /// each Markdown file and Archify index, by path, size and
     /// modification time. <see cref="IsCurrent"/> recomputes it from a directory
     /// walk and a <c>stat</c> per file, without opening one.
     /// </summary>
@@ -224,8 +224,8 @@ public static class DevbookDatabaseBuilder
     private static void InsertChapters(SqliteConnection connection, SqliteTransaction transaction, string root, DevbookBuildLayout layout, CancellationToken cancellationToken)
     {
         using var insert = Command(connection, transaction, """
-            INSERT INTO chapter (path, folder, slug, level, title, status, line, text, search_text, content_hash, source_hash, size, mtime)
-            VALUES ($path, $folder, $slug, $level, $title, $status, $line, $text, $searchText, $contentHash, $sourceHash, $size, $mtime)
+            INSERT INTO chapter (path, folder, slug, level, title, status, line, text, search_text, content_hash, source_hash, size, mtime, open_annotations)
+            VALUES ($path, $folder, $slug, $level, $title, $status, $line, $text, $searchText, $contentHash, $sourceHash, $size, $mtime, $openAnnotations)
             """);
 
         foreach (var folder in layout.Folders)
@@ -241,6 +241,7 @@ public static class DevbookDatabaseBuilder
                 var slices = DevbookChapterText.Slices(markdown, chapters);
                 var sourceHash = DevbookMarkdown.Sha256(markdown);
                 var folderKind = layout.FolderKindForPath(relativePath);
+                var openAnnotations = DevbookAnnotations.OpenCounts(markdown, chapters);
 
                 for (var index = 0; index < chapters.Count; index++)
                 {
@@ -250,7 +251,8 @@ public static class DevbookDatabaseBuilder
                         ("$title", chapter.Text), ("$status", chapter.Meta?.GetValueOrDefault("status") as string), ("$line", chapter.Line),
                         ("$text", slices[index].Text), ("$searchText", slices[index].SearchText),
                         ("$contentHash", DevbookMarkdown.Sha256(slices[index].Text)), ("$sourceHash", sourceHash),
-                        ("$size", file.Length), ("$mtime", DevbookFileState.UnixMilliseconds(file.LastWriteTimeUtc)));
+                        ("$size", file.Length), ("$mtime", DevbookFileState.UnixMilliseconds(file.LastWriteTimeUtc)),
+                        ("$openAnnotations", openAnnotations[index]));
                     insert.ExecuteNonQuery();
                 }
             }
@@ -332,9 +334,12 @@ public static class DevbookDatabaseBuilder
     }
 
     /// <summary>
-    /// A fingerprint of every input a build reads: each Markdown file, each
-    /// <c>_reading-order.json</c> and each Archify index, by path, size and
-    /// modification time — one directory walk and a <c>stat</c> per file.
+    /// A fingerprint of every input a build reads: each Markdown file and each
+    /// Archify index, by path, size and modification time — one directory walk
+    /// and a <c>stat</c> per file. The reading order is derived from those names
+    /// and files (local ADR 0016), so a rename or an added file is already here;
+    /// a stray <c>_reading-order.json</c> is not an input and touching one
+    /// rebuilds nothing.
     /// </summary>
     internal static string InputsFingerprint(string root, DevbookBuildLayout layout)
     {
@@ -343,10 +348,8 @@ public static class DevbookDatabaseBuilder
         {
             inputs.AddRange(DevbookBuildFiles.Markdown(root, folder, skipGenerated: false));
             inputs.AddRange(DevbookBuildFiles.ArchifyIndexes(root, folder));
-            inputs.Add($"{folder}/_reading-order.json");
         }
 
-        inputs.Add(layout.RepositoryReadingOrderPath);
         inputs.Sort(StringComparer.Ordinal);
 
         var text = new StringBuilder();

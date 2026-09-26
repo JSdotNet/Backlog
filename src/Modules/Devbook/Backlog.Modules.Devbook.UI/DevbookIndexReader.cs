@@ -163,9 +163,11 @@ public sealed class DevbookIndexDocument
     /// The outline rows, which arrive flat and already ordered, rebuilt into the
     /// nested shape <see cref="DevbookIndexEntry"/> has always had.
     /// <para>
-    /// Nothing sorts here. The order is the authored one, resolved by the writer
-    /// out of <c>_reading-order.json</c> and recorded as an ordinal, and re-sorting
-    /// it on this side would be a second opinion about a fact somebody wrote down.
+    /// Nothing sorts here. The order is the convention's, derived by the writer
+    /// from the folder's names and each document's own <c>index</c> and
+    /// <c>number</c> fields (local ADR 0016) and recorded as an ordinal, and
+    /// re-sorting it on this side would be a second opinion the writer already
+    /// settled with information — the <c>meta</c> blocks — this side has not read.
     /// </para>
     /// </summary>
     private static List<DevbookIndexEntry> BuildTree(IReadOnlyList<DevbookOutlineRow> rows)

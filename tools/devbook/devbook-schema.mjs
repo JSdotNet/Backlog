@@ -35,7 +35,12 @@ const SCHEMA_TEXT = readFileSync(new URL('./devbook-schema.sql', import.meta.url
  *  `-- schema-version: N` line of `devbook-schema.sql`.
  *
  *  2 — `chapter.search_text` was added and `chapter_fts` moved onto it, so the
- *  full-text index holds prose instead of the chapter's raw Markdown. */
+ *  full-text index holds prose instead of the chapter's raw Markdown.
+ *
+ *  3 — `chapter.open_annotations` was added, and `outline_entry` is derived by
+ *  the devbook generator's convention (`buildOutlineDocument`) rather than read
+ *  from `_reading-order.json`, so its `status` is the resolved status and a
+ *  file's `kind` is its resolved `type`. */
 export const SCHEMA_VERSION = (() => {
     const match = /^-- schema-version: (\d+)\s*$/m.exec(SCHEMA_TEXT);
     if (!match) throw new Error('devbook-schema.sql carries no `-- schema-version: N` line.');
@@ -92,6 +97,30 @@ export const SCHEMA_VERSION = (() => {
  * is nothing but a diagram is findable by its title and its metadata-derived
  * columns rather than by the words inside the fence, and its `text` still holds
  * every one of them for anything that wants to look.
+ *
+ * `chapter.open_annotations` — how many open annotation threads the chapter
+ * carries, so a reader can badge a chapter without parsing its fences. The
+ * threads are the installed generator's `collectAnnotations` over every adopted
+ * folder, and the counts are its `openCountsByAddress`: one count per address,
+ * over the threads whose resolved `status` is `open` — a resolved thread counts
+ * nowhere. A thread's address is `<path>#<slug>`, `<slug>` being the slug of the
+ * last heading above its fence, or the bare `<path>` when no heading precedes
+ * it. Each count is written to exactly one row: the count for `<path>#<slug>`
+ * to the row whose `path` is `<path>` and whose `slug` is `<slug>`, the one
+ * with the smallest `line` when several share that slug; the count for a bare
+ * `<path>` to the row whose `path` is `<path>` with the smallest `line`. When a
+ * row receives both, they are added. An address that matches no row is counted
+ * nowhere. Every other row is 0.
+ *
+ * `outline_entry` — the devbook generator's `buildOutlineDocument` for each
+ * scope, flattened: one row per entry, `parent_id` and `ordinal` holding its
+ * place. `status` is the generator's resolved status (a file that omits it in
+ * an editorial folder carries the folder's resting value), `kind` is the
+ * entry's own `kind` — an area's folder, a file's resolved `type` — and
+ * otherwise the folder its path belongs to, and `is_root` marks the entry the
+ * generator flags `root: true`. The order is the convention's and nothing
+ * authored: no `_reading-order.json` is read in any repository. The outline's
+ * `problems` are rows of `problem` under the same scope.
  *
  * `chapter_fts` — external-content FTS5 over `chapter`, so the corpus text is
  * stored once. Its columns are named for the `chapter` columns they mirror,

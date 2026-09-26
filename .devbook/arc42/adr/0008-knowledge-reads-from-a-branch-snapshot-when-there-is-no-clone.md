@@ -3,7 +3,6 @@
 ```meta
 status: proposed
 related: [".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/08-crosscutting-concepts.md#devbook-database", ".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/guidelines/0015-resilience-for-outbound-dependencies.md", ".devbook/domain/devbook/features.md#repository-devbook-areas"]
-issue: null
 ```
 
 ## Status
@@ -27,6 +26,11 @@ Proposed.
 > selects `_reading-order.json` and `_meta/index.json` at any depth. Where this
 > record says `_meta/`, read the derived layer beside the folders, in either
 > place. The decision is unchanged.
+
+> **Amended 2026-09-26: no reading-order file.** `_reading-order.json` is retired
+> (local ADR 0016) and ignored in any repository, so the snapshot selects
+> `_meta/index.json` alone; the rail orders a snapshot by the same filename
+> convention it applies to a clone. The decision is unchanged.
 
 > **Amended 2026-09-16: the cache defaults under the storage folder.** The
 > decision below said the cache location "defaults beside the per-user settings

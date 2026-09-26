@@ -1,9 +1,7 @@
 # ADR 0002: The Backlog module owns the entry text language
 
 ```meta
-status: active
 related: [".devbook/domain/tasks/domain.md", ".devbook/domain/context-map.md", ".devbook/arc42/05-building-block-view.md"]
-issue: null
 ```
 
 ## Status

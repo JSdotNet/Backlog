@@ -27,7 +27,7 @@ component library on its own, with no app or cloud reference, so a single compon
 validated without the application around it.
 
 This repository also carries the checked-in knowledge folders (`.devbook/arc42/`, `.devbook/domain/`,
-`.backlog/`, `.devbook/tech/`, `.devbook/design/`, `.devbook/ai/`) and generator tooling under
+`.devbook/tech/`, `.devbook/design/`, `.devbook/ai/`) and generator tooling under
 `.github/tools/knowledge-meta/`. Changes confined to those folders are documentation work —
 see `## QA Depth`.
 
@@ -213,7 +213,7 @@ when a single shared component can be validated without the application around i
 
 Two standing exceptions:
 
-- **Documentation-only changes** — edits confined to `.devbook/arc42/`, `.devbook/domain/`, `.backlog/`,
+- **Documentation-only changes** — edits confined to `.devbook/arc42/`, `.devbook/domain/`,
   `.devbook/tech/`, `.devbook/design/`, `.devbook/ai/`, `.github/`, `.claude/`, or `README.md` have no runtime surface.
   Verification is documentation review plus `build.mjs --check`; skip startup and Playwright.
 - **Non-UI code changes** — work confined to `tests/`, `src/Shared/`, or

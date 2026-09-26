@@ -1,9 +1,7 @@
 # ADR 0002: Central Package Management
 
 ```meta
-status: active
 related: [".devbook/arc42/09-architecture-decisions.md"]
-issue: null
 ```
 
 Inherited from the organization's ADR 0002 (decided 2026-05-28,

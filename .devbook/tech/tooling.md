@@ -328,7 +328,7 @@ indexes.
 ```meta
 status: adopted
 type: tool
-depends-on: [".devbook/tech/shared.md#nodejs", ".devbook/tech/shared.md#sqlite", ".devbook/tech/tooling.md#knowledge-meta-generator"]
+depends-on: [".devbook/tech/shared.md#nodejs", ".devbook/tech/shared.md#sqlite"]
 related: [".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/08-crosscutting-concepts.md#devbook-database"]
 ```
 
@@ -339,8 +339,9 @@ writer it is held to.
 - **Used for** — the app builds `devbook.db` into its own storage, one per
   repository path (`<devbook cache folder>/_databases/<name>-<hash>/devbook.db`),
   in the background when a repository is first read: the reference graph, the
-  resolved reading outline, every chapter's text and hashes, the FTS5 index, the
-  Archify artifact rows, and an empty embedding table. `node
+  resolved reading outline, every chapter's text and hashes with its count of open
+  review notes, the FTS5 index, the Archify artifact rows, and an empty embedding
+  table. `node
   tools/devbook/build-database.mjs` builds the same tables from the command line:
   `--check` builds to a temporary file and deletes it, `--out <file>` writes where
   it is told. Neither writes into a repository.
@@ -349,10 +350,13 @@ writer it is held to.
   folders still had to be ignored per layout and was only there if somebody had
   run the script (local ADR 0015). The app building it into its own storage is
   what gives every clone, worktree and branch snapshot search without a step.
-- **How** — the Node writer *imports* the devbook plugin's generator seam
-  (`buildGraph`, `parseDocument`, `folderKindForPath`, `discoverScopes`) rather
-  than forking it, and resolves the committed `_reading-order.json` files for the
-  outline. `node:sqlite` provides SQLite and FTS5 with no dependency added.
+- **How** — the Node writer *imports* the generator `devbook:init` materialized at
+  `.devbook/_tools/devbook-meta/` rather than forking it: `buildGraph`,
+  `discoverScopes`, `parseDocument` and `folderKindForPath` for the graph,
+  `buildOutlineDocument` for the outline, and `collectAnnotations` with
+  `openCountsByAddress` for each chapter's open-note count. There is no authored
+  order file: the outline is the convention's (local ADR 0016). It builds the
+  `.devbook/` layout only; the C# builder still reads a root-layout repository. `node:sqlite` provides SQLite and FTS5 with no dependency added.
   `.github/workflows/devbook-metadata.yml` runs its tests and then `--check`
   against the real corpus as a **blocking** step. The C# builder in
   `Backlog.Infrastructure.Devbook` ports that parse; a .NET test builds this

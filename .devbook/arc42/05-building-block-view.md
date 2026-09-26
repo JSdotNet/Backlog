@@ -1,7 +1,6 @@
 # 05. Building Block View
 
 ```meta
-status: active
 ```
 
 Static decomposition of Prompt Backlog, from the system-level container view down to
@@ -10,7 +9,6 @@ the internal structure of each access channel.
 ## Container View
 
 ```meta
-status: active
 related: [".devbook/arc42/03-context-and-scope.md#access-channels-scope", ".devbook/domain/context-map.md"]
 ```
 
@@ -159,7 +157,6 @@ flowchart TB
 ## Desktop App
 
 ```meta
-status: active
 related: [".devbook/arc42/06-runtime-view.md#task-to-github-issue", ".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md"]
 ```
 
@@ -291,7 +288,6 @@ press of Capture free, with no seen-store of its own. See
 ## Mobile App
 
 ```meta
-status: active
 related: [".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push", ".devbook/arc42/06-runtime-view.md#sync-item-lifecycle"]
 ```
 
@@ -341,7 +337,6 @@ other — is not a supported path and corrupts the store; see
 ## IDE Extensions
 
 ```meta
-status: active
 related: [".devbook/arc42/06-runtime-view.md#ide-context-aware-capture", ".devbook/arc42/06-runtime-view.md#copilot-app-session-capture"]
 ```
 
@@ -401,7 +396,6 @@ compliance/monitoring; capture uses session context to create backlog/knowledge 
 ## Cloud Service
 
 ```meta
-status: active
 related: [".devbook/arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure"]
 ```
 

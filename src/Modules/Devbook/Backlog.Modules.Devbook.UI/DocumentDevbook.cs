@@ -91,7 +91,7 @@ public abstract class DocumentDevbookProvider : IDisposable
                 $"No Markdown files were found in the {Folder.DisplayName} knowledge folder at {folderPath}.");
         }
 
-        files = OrderFiles(files, folderPath);
+        files = OrderFiles(files);
         return DocumentDevbookModel.Available(location.ScopeLabel ?? "storage", folderPath, files, location.CanEdit);
     }
 
@@ -143,40 +143,36 @@ public abstract class DocumentDevbookProvider : IDisposable
     }
 
     /// <summary>
-    /// The folder in reading order: the root document first, then the siblings
-    /// in the order the folder's <c>_reading-order.json</c> records, then anything
-    /// it does not mention, alphabetically.
+    /// The folder in reading order, as the folder convention derives it from the
+    /// file names (<see cref="DevbookReadingConvention"/>): the root document
+    /// first, then — <c>.ai</c>, whose stage files are numbered — the numbered
+    /// flow, or — <c>.design</c> — the prescribed guidelines in the convention's
+    /// sequence, and the rest by name.
     ///
-    /// <para>The order used to be read off the README's own <c>meta</c> fence. It
-    /// is not metadata about a chapter — it is a directory listing — so it now
-    /// lives in the declaration that describes the directory, which is also the
-    /// one place the generator and the pane can agree on it. A folder that
-    /// declares nothing — <c>.ai</c>, whose stage files are numbered — gets its
-    /// root ahead of the alphabet and nothing else, which for numbered files is
-    /// the flow.</para>
+    /// <para>The order used to be read off the README's own <c>meta</c> fence and
+    /// then off a committed <c>_reading-order.json</c>; local ADR 0016 retired the
+    /// file, and one left in the folder is ignored. Names only, never the files'
+    /// own <c>meta</c> blocks: the database's outline honours a document's
+    /// <c>index</c> and <c>number</c> fields, and this pane is the fallback that
+    /// does not open a Markdown file to find an order. A folder the convention
+    /// has no entry for keeps its root first and the alphabet after it.</para>
     /// </summary>
-    private List<DocumentDevbookFile> OrderFiles(List<DocumentDevbookFile> files, string folderPath)
+    private List<DocumentDevbookFile> OrderFiles(List<DocumentDevbookFile> files)
     {
         var byName = files.ToDictionary(f => f.FileName, StringComparer.OrdinalIgnoreCase);
-        var ordered = new List<DocumentDevbookFile>();
 
-        if (byName.TryGetValue(Folder.RootDocument, out var root))
+        if (DevbookReadingConvention.For(Folder.AreaKey, 0) is null)
         {
-            ordered.Add(root);
-            foreach (var fileName in DevbookReadingOrder.ForFolder(folderPath))
-            {
-                if (byName.TryGetValue(fileName, out var file) && !ordered.Contains(file))
-                {
-                    ordered.Add(file);
-                }
-            }
+            return
+            [
+                .. files.Where(file => string.Equals(file.FileName, Folder.RootDocument, StringComparison.OrdinalIgnoreCase)),
+                .. files
+                    .Where(file => !string.Equals(file.FileName, Folder.RootDocument, StringComparison.OrdinalIgnoreCase))
+                    .OrderBy(file => file.FileName, StringComparer.OrdinalIgnoreCase)
+            ];
         }
 
-        ordered.AddRange(files
-            .Where(file => !ordered.Contains(file))
-            .OrderBy(file => file.FileName, StringComparer.OrdinalIgnoreCase));
-
-        return ordered;
+        return [.. DevbookReadingConvention.Order(Folder.AreaKey, 0, byName.Keys).Select(name => byName[name])];
     }
 }
 
@@ -506,7 +502,8 @@ public sealed record DocumentDevbookFile(
     // it, so a folder that wanted its reading order had to parse it itself. `main`
     // then moved the declaration into the committed `_meta/index.json`, which is a
     // better home for a directory listing than a chapter's metadata, so the parse
-    // has nothing left to read and `DevbookReadingOrder.ForFolder` answers instead.
+    // has nothing left to read. The order is now the folder convention's, derived
+    // from the file names — `DevbookReadingConvention` answers instead.
 
     public IEnumerable<DocumentDevbookTable> TokenTables =>
         Sections.SelectMany(section => section.Blocks.OfType<DocumentDevbookTable>()).Where(table => table.IsTokenTable);

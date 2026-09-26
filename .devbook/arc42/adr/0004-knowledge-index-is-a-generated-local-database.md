@@ -1,9 +1,7 @@
 # ADR 0004: One generated local database holds the derived knowledge layer; markdown stays canonical
 
 ```meta
-status: active
 related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/08-crosscutting-concepts.md#devbook-database", ".devbook/arc42/07-deployment-view.md#local-deployment-desktop", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0016-knowledge-folders-adopt-the-devbook-convention.md", ".devbook/domain/devbook/features.md#repository-devbook-areas", ".devbook/tech/tooling.md#knowledge-meta-generator", ".devbook/tech/shared.md#sqlite"]
-issue: null
 ```
 
 ## Status

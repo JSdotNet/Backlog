@@ -1,69 +1,55 @@
-// Tests for generator.mjs and the devbook-layout path through
-// build-database.mjs, run with `node --test tools/devbook`.
+// Tests for generator.mjs and the generator it hands build-database.mjs, run
+// with `node --test "tools/devbook/*.test.mjs"`.
 //
-// The devbook-layout fixture carries its own generator under
-// `.devbook/_tools/devbook-meta/`, the way `devbook:init` materializes one. It
-// is a stand-in rather than the devbook plugin's real generator, which this
-// repository does not vendor: it re-exports the installed parser and spells
-// every path under `.devbook/`, which is all the database build asks of it. What
-// is under test is the plumbing — which generator is chosen, where the database
-// goes, and that its rows carry the repository's real paths.
+// The fixture carries its own generator under `.devbook/_tools/devbook-meta/`,
+// the way `devbook:init` materializes one: a copy of the modules this
+// repository has installed there. What is under test is the plumbing — which
+// generator is chosen, where the database goes, that its rows carry the
+// repository's real paths — and that the outline is the convention's, whatever
+// a stray `_reading-order.json` says.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, rm, stat, writeFile } from 'node:fs/promises';
+import { copyFile, mkdtemp, mkdir, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 
 import { buildDatabase } from './build-database.mjs';
 import { loadGenerator, usesDevbookLayout } from './generator.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const INSTALLED_METADATA = pathToFileURL(resolve(HERE, '..', '..', '.github', 'tools', 'knowledge-meta', 'metadata.mjs')).href;
-
-const STAND_IN_METADATA = `
-export { parseDocument } from ${JSON.stringify(INSTALLED_METADATA)};
-export function folderKindForPath(relPath) {
-    const match = /^\\.devbook\\/(arc42|domain|tech|design|ai)\\//.exec(String(relPath).replace(/\\\\/g, '/'));
-    return match ? match[1] : null;
-}
-`;
-
-const STAND_IN_GRAPH = `
-import { stat } from 'node:fs/promises';
-import path from 'node:path';
-export const REPO_SCOPE = '.';
-const NAMES = ['arc42', 'domain', 'tech', 'design', 'ai'];
-export async function discoverScopes(repoRoot) {
-    const folders = [];
-    for (const name of NAMES) {
-        try {
-            if ((await stat(path.join(repoRoot, '.devbook', name))).isDirectory()) folders.push('.devbook/' + name);
-        } catch {}
-    }
-    return folders.length ? ['.', ...folders] : [];
-}
-export async function buildGraph() {
-    const id = '.devbook/domain/inbox/domain.md';
-    return { nodes: [{ id, type: 'file', label: 'Inbox', folder: 'domain', path: id }], edges: [], problems: [] };
-}
-`;
+const INSTALLED_GENERATOR = resolve(HERE, '..', '..', '.devbook', '_tools', 'devbook-meta');
 
 const FIXTURE = {
     '.devbook/config.json': '{}',
-    '.devbook/_tools/devbook-meta/graph.mjs': STAND_IN_GRAPH,
-    '.devbook/_tools/devbook-meta/metadata.mjs': STAND_IN_METADATA,
+    '.devbook/domain/context-map.md': '# Context Map\n',
+    '.devbook/domain/inbox/context.md': '# Inbox\n\n```meta\ntype: context\n```\n',
     '.devbook/domain/inbox/domain.md': '# Inbox\n\nQuick capture never blocks on a decision.\n',
+    // Ignored: were it read, `domain.md` would be the context's root and first.
+    '.devbook/domain/_reading-order.json': JSON.stringify({
+        version: 1,
+        scope: '.devbook/domain',
+        directories: { '.devbook/domain/inbox': { root: 'domain.md', order: ['context.md'] } },
+    }),
 };
 
-async function writeTree(files) {
+async function writeTree(files, { withGenerator = false } = {}) {
     const root = await mkdtemp(join(tmpdir(), 'devbook-layout-'));
     for (const [relPath, content] of Object.entries(files)) {
         const file = join(root, ...relPath.split('/'));
         await mkdir(dirname(file), { recursive: true });
         await writeFile(file, content, 'utf8');
+    }
+    if (withGenerator) {
+        const target = join(root, '.devbook', '_tools', 'devbook-meta');
+        await mkdir(target, { recursive: true });
+        for (const name of await readdir(INSTALLED_GENERATOR)) {
+            if (name.endsWith('.mjs') && !name.endsWith('.test.mjs')) {
+                await copyFile(join(INSTALLED_GENERATOR, name), join(target, name));
+            }
+        }
     }
     return root;
 }
@@ -77,26 +63,28 @@ const exists = async (target) => {
     }
 };
 
-test('a .devbook/ holding only configuration is still the root layout', async () => {
+test('a .devbook/ holding only configuration is the root layout, which is not built here', async () => {
     const root = await writeTree({ '.devbook/config.json': '{}', '.domain/domain.md': '# Domain\n' });
     try {
         assert.equal(await usesDevbookLayout(root), false);
-
-        const generator = await loadGenerator(root);
-        assert.equal(generator.layout, 'root');
+        await assert.rejects(loadGenerator(root), /root layout/);
     } finally {
         await rm(root, { recursive: true, force: true });
     }
 });
 
-test('a devbook-layout repository uses its own generator', async () => {
-    const root = await writeTree(FIXTURE);
+test('a devbook-layout repository uses its own generator, outline and annotation index included', async () => {
+    const root = await writeTree(FIXTURE, { withGenerator: true });
     try {
         const generator = await loadGenerator(root);
 
         assert.equal(generator.layout, 'devbook');
         assert.equal(generator.source, '.devbook/_tools/devbook-meta');
-        assert.equal(generator.repoReadingOrderPath, '.devbook/_reading-order.json');
+        assert.equal(generator.repoReadingOrderPath, undefined, 'nothing names a reading-order file any more');
+        for (const name of ['buildGraph', 'discoverScopes', 'parseDocument', 'folderKindForPath',
+            'buildOutlineDocument', 'collectAnnotations', 'openCountsByAddress']) {
+            assert.equal(typeof generator[name], 'function', `${name} is not loaded`);
+        }
     } finally {
         await rm(root, { recursive: true, force: true });
     }
@@ -111,8 +99,22 @@ test('a devbook-layout repository without a generator says how to get one', asyn
     }
 });
 
-test('the devbook-layout database carries the repository\'s real paths', async () => {
-    const root = await writeTree(FIXTURE);
+test('a generator directory missing the outline module is not a generator', async () => {
+    const root = await writeTree({ '.devbook/domain/domain.md': '# Domain\n' });
+    const partial = await mkdtemp(join(tmpdir(), 'devbook-partial-'));
+    try {
+        for (const name of ['graph.mjs', 'metadata.mjs']) {
+            await copyFile(join(INSTALLED_GENERATOR, name), join(partial, name));
+        }
+        await assert.rejects(loadGenerator(root, { generatorDir: partial }), /outline\.mjs/);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+        await rm(partial, { recursive: true, force: true });
+    }
+});
+
+test('the devbook-layout database carries the repository\'s real paths and the convention order', async () => {
+    const root = await writeTree(FIXTURE, { withGenerator: true });
     // Local ADR 0015: the database lives outside the repository, wherever the
     // caller says, and the build writes nothing into the tree it read.
     const outside = await mkdtemp(join(tmpdir(), 'devbook-out-'));
@@ -129,13 +131,17 @@ test('the devbook-layout database carries the repository\'s real paths', async (
             const scopes = db.prepare('SELECT DISTINCT scope FROM outline_entry ORDER BY scope').all().map((row) => row.scope);
             assert.deepEqual(scopes, ['.', '.devbook/domain']);
 
-            const chapter = db.prepare('SELECT path, folder FROM chapter').get();
+            const chapter = db.prepare("SELECT path, folder FROM chapter WHERE path LIKE '%/inbox/domain.md'").get();
             assert.equal(chapter.path, '.devbook/domain/inbox/domain.md');
             assert.equal(chapter.folder, 'domain');
 
-            const file = db.prepare("SELECT path, kind FROM outline_entry WHERE scope = '.devbook/domain' AND type = 'file'").get();
-            assert.equal(file.path, '.devbook/domain/inbox/domain.md');
-            assert.equal(file.kind, 'domain');
+            const inbox = db.prepare(`
+                SELECT e.name, e.is_root, e.kind FROM outline_entry e JOIN outline_entry p ON p.id = e.parent_id
+                WHERE e.scope = '.devbook/domain' AND p.name = 'inbox' ORDER BY e.ordinal
+            `).all().map((row) => ({ ...row }));
+            assert.deepEqual(inbox.map((row) => row.name), ['context.md', 'domain.md']);
+            assert.deepEqual(inbox.map((row) => row.is_root), [1, 0]);
+            assert.equal(inbox[0].kind, 'context');
 
             const area = db.prepare("SELECT name, kind FROM outline_entry WHERE scope = '.' AND type = 'area'").get();
             assert.deepEqual({ ...area }, { name: '.devbook/domain', kind: 'domain' });

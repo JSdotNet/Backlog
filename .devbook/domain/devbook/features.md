@@ -125,6 +125,11 @@ cross-reference may name a chapter in the repository's backlog folder even thoug
 that folder is not a browsable area, and it is read with that folder's own status
 vocabulary rather than as an unknown one.
 
+Documents appear in the order the convention gives them — each directory's
+introducing document first, numbered chapters by their number, a folder's usual
+chapters in their usual places, and the rest by name — so a repository never has
+to write its reading order down, and a file that tries to is ignored.
+
 The metadata is read against the devbook convention the repository's own checks
 enforce, folder by folder, so a chapter the app shows as fine is not one those
 checks reject:
@@ -159,7 +164,6 @@ checks reject:
 
 ```meta
 type: sub-feature
-status: active
 related: [.devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md, .devbook/arc42/08-crosscutting-concepts.md#storage-and-sync]
 ```
 
@@ -186,7 +190,6 @@ into something else, is shown at the end of the chapter rather than lost.
 
 ```meta
 type: sub-feature
-status: active
 related: [.devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md, .devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md, .devbook/domain/devbook/features.md#remarks-on-a-chapter]
 ```
 

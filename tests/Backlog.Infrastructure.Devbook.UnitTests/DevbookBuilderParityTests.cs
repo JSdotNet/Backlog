@@ -39,6 +39,161 @@ public class DevbookBuilderParityTests : IDisposable
         RunNodeWriter(repository, fromNode);
         Assert.True(DevbookDatabaseBuilder.Build(repository, fromApp, TestContext.Current.CancellationToken));
 
+        var differences = CompareDatabases(fromNode, fromApp);
+
+        Assert.True(
+            differences.Count == 0,
+            $"The C# builder and {GeneratorName} disagree ({differences.Count} difference(s), first 20 shown):\n"
+            + string.Join('\n', differences.Take(20)));
+
+        // And the comparison compared something.
+        using var app = Open(fromApp);
+        Assert.True(Rows(app, "chapter", "id").Count > 500, "this repository's corpus came out nearly empty");
+    }
+
+    /// <summary>
+    /// The same comparison on a small corpus built to hold what this repository's
+    /// own does not: every reading-order rule of the convention — a missing root,
+    /// <c>index: root</c> and <c>index: exclude</c>, a <c>number</c> field, split
+    /// files and an invariants subpage, a stray <c>_reading-order.json</c> — and
+    /// annotation fences open, resolved, above the first heading, under a repeated
+    /// slug and hidden inside another fence. The Node writer builds it with this
+    /// repository's installed generator.
+    /// </summary>
+    [Fact]
+    public void The_app_matches_the_node_writer_on_the_convention_s_and_the_annotations_edge_cases()
+    {
+        var fixture = Path.Combine(_scratch, "fixture");
+        foreach (var (path, text) in EdgeCases)
+        {
+            var file = Path.Combine(fixture, path.Replace('/', Path.DirectorySeparatorChar));
+            Directory.CreateDirectory(Path.GetDirectoryName(file)!);
+            File.WriteAllText(file, text);
+        }
+
+        var fromNode = Path.Combine(_scratch, "fixture-node.db");
+        var fromApp = Path.Combine(_scratch, "fixture-app.db");
+
+        RunNodeWriter(fixture, fromNode, generator: Path.Combine(RepositoryRoot.Root.FullName, ".devbook", "_tools", "devbook-meta"));
+        Assert.True(DevbookDatabaseBuilder.Build(fixture, fromApp, TestContext.Current.CancellationToken));
+
+        var differences = CompareDatabases(fromNode, fromApp);
+
+        Assert.True(
+            differences.Count == 0,
+            $"The C# builder and {GeneratorName} disagree on the fixture ({differences.Count} difference(s), first 20 shown):\n"
+            + string.Join('\n', differences.Take(20)));
+
+        // And the fixture exercised what it is for.
+        using var app = Open(fromApp);
+        Assert.Contains(Rows(app, "chapter", "id"), row => row.Contains("open_annotations=INTEGER:2", StringComparison.Ordinal));
+        Assert.Contains(Rows(app, "outline_entry", "id"), row => row.Contains("name=TEXT:domain.invariants.md", StringComparison.Ordinal));
+    }
+
+    private static readonly (string Path, string Text)[] EdgeCases =
+    [
+        (".devbook/_reading-order.json", """{ "version": 1, "directories": { ".": { "order": [".devbook/ai"] } } }"""),
+        (".devbook/arc42/_reading-order.json", """{ "version": 1, "directories": { ".devbook/arc42": { "root": "10-quality.md", "order": [] } } }"""),
+        (".devbook/arc42/10-quality.md", "# 10. Quality\n"),
+        (".devbook/arc42/02-constraints.md", "# 02. Constraints\n"),
+        (".devbook/arc42/01-introduction.md", "# 01. Introduction\n"),
+        (".devbook/arc42/adr/README.md", "# Architecture Decision Records\n"),
+        (".devbook/arc42/adr/0002-second.md", "# ADR 0002: Second\n"),
+        (".devbook/arc42/adr/0001-first.md", "# ADR 0001: First\n"),
+        (".devbook/arc42/adr/renumbered.md", "# Renumbered\n\n```meta\nnumber: 3\n```\n"),
+        (".devbook/arc42/tdr/README.md", "# Technical Debt Records\n\n```meta\nindex: root\n```\n"),
+        (".devbook/arc42/tdr/0001-debt.md", "# TDR 0001: Debt\n"),
+        (".devbook/arc42/tdr/0002-hidden.md", "# TDR 0002: Hidden\n\n```meta\nindex: exclude\n```\n"),
+        (".devbook/domain/context-map.md", "# Context Map\n"),
+        (".devbook/domain/zeta/context.md", "# Zeta\n"),
+        (".devbook/domain/zeta/model.md", "# Zeta\n\n```meta\ntype: aggregate\nstatus: draft\n```\n"),
+        (".devbook/domain/zeta/domain.md", """
+            Above the first heading.
+
+            ```annotation
+            author: ada
+            date: 2026-09-01
+            body: On the file.
+            ```
+
+            # Zeta
+
+            ## Capture
+
+            ```meta
+            status: draft
+            ```
+
+            ```annotation
+            author: ada
+            date: 2026-09-01
+            body: |
+              status: resolved
+              is body text, not the status.
+            ```
+
+            ```annotation
+            status: resolved
+            author: bo
+            date: 2026-09-02
+            body: Settled.
+            ```
+
+            ## Capture
+
+            ```annotation
+            kind: question
+            author: cy
+            date: 2026-09-03
+            body: Same slug.
+            ```
+
+            ## Fenced
+
+            ```mermaid
+            flowchart TB
+            # Not a heading
+            ```
+
+            ```annotation
+            status:
+            author: di
+            date: 2026-09-04
+            body: Empty status.
+            replies:
+              - author: ada
+                date: 2026-09-05
+                body: Agreed.
+            ```
+
+            ````markdown
+            ```annotation
+            author: ex
+            body: Inside another fence.
+            ```
+            ````
+            """),
+        (".devbook/domain/zeta/domain.invariants.md", "# Zeta\n"),
+        (".devbook/domain/zeta/domain.order.md", "# Zeta\n"),
+        (".devbook/domain/zeta/notes.md", "# Zeta\n"),
+        (".devbook/domain/alpha/features.checkout.md", "# Alpha\n"),
+        (".devbook/domain/alpha/actors.md", "# Alpha\n"),
+        (".devbook/tech/tooling.md", "# Tooling\n"),
+        (".devbook/tech/cloud.md", "# Cloud\n"),
+        (".devbook/tech/technology-graph.md", "# Technology Graph\n"),
+        (".devbook/tech/shared.md", "# Shared\n\n```meta\nstatus: adopted\n```\n"),
+        (".devbook/design/README.md", "# Design\n"),
+        (".devbook/design/content-editing.md", "# Content Editing\n"),
+        (".devbook/design/color-scheme.md", "# Color Scheme\n"),
+        (".devbook/design/design-principles.md", "# Design Principles\n"),
+        (".devbook/ai/concepts.md", "# Concepts\n"),
+        (".devbook/ai/02-code.md", "# Code\n"),
+        (".devbook/ai/adoption-map.md", "# Adoption Map\n"),
+        (".devbook/ai/01-plan.md", "# Plan\n")
+    ];
+
+    private static List<string> CompareDatabases(string fromNode, string fromApp)
+    {
         using var node = Open(fromNode);
         using var app = Open(fromApp);
 
@@ -58,20 +213,14 @@ public class DevbookBuilderParityTests : IDisposable
         }
 
         differences.AddRange(Compare("chapter_fts MATCH devbook", Fts(node, "devbook"), Fts(app, "devbook")));
-
-        Assert.True(
-            differences.Count == 0,
-            $"The C# builder and {GeneratorName} disagree ({differences.Count} difference(s), first 20 shown):\n"
-            + string.Join('\n', differences.Take(20)));
-
-        // And the comparison compared something.
-        Assert.True(Rows(app, "chapter", "id").Count > 500, "this repository's corpus came out nearly empty");
+        return differences;
     }
 
     private const string GeneratorName = "tools/devbook/build-database.mjs";
 
-    private static void RunNodeWriter(string repository, string target)
+    private static void RunNodeWriter(string repository, string target, string? generator = null)
     {
+        var writer = Path.Combine(RepositoryRoot.Root.FullName, "tools", "devbook", "build-database.mjs");
         var start = new ProcessStartInfo("node")
         {
             WorkingDirectory = repository,
@@ -80,11 +229,17 @@ public class DevbookBuilderParityTests : IDisposable
             RedirectStandardInput = true,
             UseShellExecute = false
         };
-        start.ArgumentList.Add(Path.Combine(repository, "tools", "devbook", "build-database.mjs"));
+        start.ArgumentList.Add(writer);
         start.ArgumentList.Add("--root");
         start.ArgumentList.Add(repository);
         start.ArgumentList.Add("--out");
         start.ArgumentList.Add(target);
+
+        if (generator is not null)
+        {
+            start.ArgumentList.Add("--generator");
+            start.ArgumentList.Add(generator);
+        }
 
         Process process;
         try

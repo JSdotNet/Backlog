@@ -23,27 +23,22 @@
 // question instead of reading it whole. The database is a build output,
 // regenerated per machine and never committed.
 //
-// This is repo-native tooling, and deliberately not an edit to
-// `.github/tools/knowledge-meta/build.mjs`: everything under that folder is an
-// installed copy of the devbook plugin's tooling, which CLAUDE.md says to
-// re-sync and never edit here. So this file *imports* the installed generator's
-// exported seam the way `check-metadata.mjs` already does — `buildGraph` for the
-// nodes and edges, `parseDocument` for the chapters, `folderKindForPath` for the
-// folder a path belongs to, `discoverScopes` for the folders this repository
-// actually adopts. Nothing about the corpus is parsed here — the C# builder's
-// port of the same parse is what the parity test holds to this output.
+// This is repo-native tooling, and deliberately not an edit to the generator:
+// everything under `.devbook/_tools/devbook-meta/` is materialized by the
+// devbook plugin, which CLAUDE.md says never to edit here. So this file
+// *imports* the installed generator's exported seam, which `generator.mjs`
+// finds — `buildGraph` for the nodes and edges, `buildOutlineDocument` for the
+// reading order, `parseDocument` for the chapters, `collectAnnotations` and
+// `openCountsByAddress` for each chapter's open-note count, `folderKindForPath`
+// for the folder a path belongs to, `discoverScopes` for the folders this
+// repository actually adopts. Nothing about the corpus is parsed here — the C#
+// builder's port of the same parse is what the parity test holds to this output.
 //
-// Which generator that is follows the repository's layout: the installed copy
-// for a repository that keeps its folders at the root, the devbook plugin's own
-// generator for one that keeps them under `.devbook/`. `generator.mjs` decides;
-// the rows carry whatever paths that generator spells, which are the
-// repository's real ones either way.
-//
-// The one thing it does not import is the outline. `buildOutlineDocument` reads
-// the reading order back out of the `_meta/index.json` it is regenerating, and
-// that file is going away; the authored order now lives in the committed
-// `_reading-order.json` files, which `reading-order.mjs` resolves. Slice 1's
-// migration and this writer share that one implementation.
+// The reading order is the generator's convention and nothing authored beside
+// it: a directory's `index: root` document, else the root its folder convention
+// names, then numbered entries by number, else the convention's slots with the
+// rest filename-sorted between them (local ADR 0016). A `_reading-order.json`
+// found in any repository is ignored; the generator never opens one.
 //
 // SQLite comes from `node:sqlite`, which ships with Node 22 and later and has
 // FTS5 compiled in — verified against the Node 24 this repository builds with.
@@ -59,7 +54,6 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { DEVBOOK_SCHEMA, SCHEMA_VERSION } from './devbook-schema.mjs';
 import { loadGenerator } from './generator.mjs';
-import { resolveOutline } from './reading-order.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -280,10 +274,13 @@ function insertOutline(db, scope, entries, folderKindForPath) {
                 entry.name,
                 entry.path,
                 entry.title ?? null,
+                // The generator's resolved status: a file that omits it in an
+                // editorial folder is at that folder's resting value.
                 entry.status ?? null,
-                // An area carries its own folder kind; everything else derives
-                // one from its path, so a reader can filter any row by folder
-                // without walking back up to the area that contains it.
+                // The entry's own kind where the generator gives one — an
+                // area's folder, a file's resolved `type` — and otherwise one
+                // derived from the path, so a reader can filter any row by
+                // folder without walking back up to the area that contains it.
                 entry.kind ?? folderKindForPath(entry.path.endsWith('.md') ? entry.path : `${entry.path}/x.md`),
                 entry.root === true ? 1 : 0
             );
@@ -296,10 +293,44 @@ function insertOutline(db, scope, entries, folderKindForPath) {
     return count;
 }
 
-async function insertChapters(db, repoRoot, folders, { parseDocument, folderKindForPath }) {
+/**
+ * Which chapter row of `chapters` (one file's, in document order) carries the
+ * open-note count of each address, as a map from chapter index to count.
+ *
+ * The rule `devbook-schema.mjs` states for `chapter.open_annotations`: an
+ * address `<path>#<slug>` counts on the row of that path with that slug and the
+ * smallest line, a bare `<path>` — a note above the file's first heading — on
+ * the row of that path with the smallest line, and an address that names no
+ * row is not counted anywhere.
+ */
+function openCountsForFile(relPath, chapters, openCounts) {
+    const counts = new Map();
+    if (!chapters.length) return counts;
+
+    const firstBySlug = new Map();
+    let first = 0;
+    chapters.forEach((chapter, index) => {
+        const current = firstBySlug.get(chapter.slug);
+        if (current === undefined || chapter.line < chapters[current].line) firstBySlug.set(chapter.slug, index);
+        if (chapter.line < chapters[first].line) first = index;
+    });
+
+    const add = (index, count) => counts.set(index, (counts.get(index) ?? 0) + count);
+
+    const bare = openCounts.get(relPath);
+    if (bare) add(first, bare);
+    for (const [slug, index] of firstBySlug) {
+        const count = openCounts.get(`${relPath}#${slug}`);
+        if (count) add(index, count);
+    }
+
+    return counts;
+}
+
+async function insertChapters(db, repoRoot, folders, { parseDocument, folderKindForPath }, openCounts) {
     const insert = db.prepare(`
-        INSERT INTO chapter (path, folder, slug, level, title, status, line, text, search_text, content_hash, source_hash, size, mtime)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO chapter (path, folder, slug, level, title, status, line, text, search_text, content_hash, source_hash, size, mtime, open_annotations)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     let count = 0;
@@ -312,6 +343,7 @@ async function insertChapters(db, repoRoot, folders, { parseDocument, folderKind
             const { chapters } = parseDocument(markdown);
             const slices = chapterSlices(markdown, chapters);
             const sourceHash = sha256(markdown);
+            const open = openCountsForFile(relPath, chapters, openCounts);
             files++;
 
             chapters.forEach((chapter, index) => {
@@ -331,7 +363,8 @@ async function insertChapters(db, repoRoot, folders, { parseDocument, folderKind
                     sha256(slices[index].text),
                     sourceHash,
                     stats.size,
-                    Math.round(stats.mtimeMs)
+                    Math.round(stats.mtimeMs),
+                    open.get(index) ?? 0
                 );
                 count++;
             });
@@ -467,15 +500,21 @@ export async function buildDatabase(repoRoot, target, generator = null) {
         counts.outline_entry = 0;
 
         for (const scope of scopes) {
-            const outline = await resolveOutline(repoRoot, scope, folders, generator);
+            const outline = await generator.buildOutlineDocument(repoRoot, scope, folders);
             counts.outline_entry += insertOutline(db, scope, outline.entries, generator.folderKindForPath);
             for (const problem of outline.problems) {
                 problems.push({ scope, ...problem });
             }
         }
 
-        const chapters = await insertChapters(db, repoRoot, folders, generator);
+        const threads = await generator.collectAnnotations(repoRoot, folders);
+        const openCounts = generator.openCountsByAddress(threads);
+
+        const chapters = await insertChapters(db, repoRoot, folders, generator, openCounts);
         counts.chapter = chapters.chapter;
+        // What the rows carry, not what the corpus holds: an open note whose
+        // address names no chapter row is counted nowhere.
+        counts.open_annotations = Number(db.prepare('SELECT coalesce(sum(open_annotations), 0) AS total FROM chapter').get().total);
         counts.files = chapters.files;
         counts.chapter_embedding = 0; // the semantic tier is wired and makes no live call yet.
         counts.archify_artifact = await insertArchify(db, repoRoot, folders, problems);
@@ -514,7 +553,7 @@ export async function buildDatabase(repoRoot, target, generator = null) {
 /** The row counts, one table per line, widest label first. */
 export function formatCounts(counts) {
     const order = [
-        'files', 'chapter', 'node', 'node_attribute', 'edge',
+        'files', 'chapter', 'open_annotations', 'node', 'node_attribute', 'edge',
         'outline_entry', 'archify_artifact', 'chapter_embedding', 'problem', 'meta',
     ];
     return order

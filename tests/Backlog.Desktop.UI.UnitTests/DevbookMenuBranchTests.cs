@@ -18,8 +18,9 @@ public sealed class DevbookMenuBranchTests : IDisposable
     {
         var source = new IndexedBranchSource(_root,
             ".domain/context-map.md",
+            ".domain/inbox/model.md",
             ".domain/inbox/domain.md",
-            ".domain/inbox/_reading-order.json",
+            ".domain/inbox/actors.md",
             ".domain/_meta/index.json",
             ".design/color-scheme.md");
 
@@ -31,7 +32,9 @@ public sealed class DevbookMenuBranchTests : IDisposable
         Assert.True(domain.Available);
         Assert.Equal("context-map.md", domain.Children.First().Path);
         var inbox = Assert.Single(domain.Children, node => node.Kind == DevbookMenuNodeKind.Folder && node.Path == "inbox");
-        Assert.Contains(inbox.Children, node => node.Kind == DevbookMenuNodeKind.File && node.Path == "inbox/domain.md");
+        // Ordered by the convention from the index's names alone — nothing about
+        // the order is fetched, because nothing about it is authored.
+        Assert.Equal(["inbox/domain.md", "inbox/actors.md", "inbox/model.md"], inbox.Children.Select(node => node.Path));
         Assert.DoesNotContain(domain.Children, node => node.Path.StartsWith("_meta", StringComparison.OrdinalIgnoreCase));
 
         var design = Assert.Single(tree.Roots, node => node.AreaKey == "design");

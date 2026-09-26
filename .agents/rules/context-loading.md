@@ -1,6 +1,6 @@
 ---
 name: context-loading
-description: Repository-specific orchestration policy - the gate on code changes under src/ and tests/, and when the checked-in knowledge folders (.devbook/arc42, .devbook/domain, .backlog, .devbook/tech, .devbook/design) may be loaded as working context.
+description: Repository-specific orchestration policy - the gate on code changes under src/ and tests/, and when the checked-in knowledge folders (.devbook/arc42, .devbook/domain, .devbook/tech, .devbook/design) may be loaded as working context.
 paths:
   - "**"
 ---
@@ -74,10 +74,6 @@ when no reproduction has been written up yet.
   should load only the chapter(s) relevant to the requested scope.
 - `flow-domain` and `domain-design:domain-architect` may load `.devbook/domain/` as
   working context, but should load only the relevant bounded-context chapters.
-- Backlog-writing or issue-writing workflows may load `.backlog/` as working context,
-  but should load only the relevant work-item chapters. (`orch-backlog` has no
-  successor in `devbook-flows`; the folder goes with the devbook contract v6, a
-  follow-up.)
 - `flow-tech` may load `.devbook/tech/` as working context, plus the
   `.devbook/arc42` chapters (solution strategy, deployment view, ADRs) that ground the
   stack choices it records.

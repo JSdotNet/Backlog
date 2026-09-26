@@ -1,9 +1,7 @@
 # ADR 0009: Feature slices inside a module
 
 ```meta
-status: active
 related: [".devbook/arc42/05-building-block-view.md", ".devbook/arc42/adr/0002-backlog-module-owns-the-entry-text-language.md", ".devbook/arc42/09-architecture-decisions.md"]
-issue: null
 ```
 
 Inherited from the organization's ADR 0009 (decided 2026-04-07,

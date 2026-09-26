@@ -1,41 +1,45 @@
-using System.Text.Json;
+using System.Globalization;
+
+using Backlog.Modules.Devbook.Abstractions;
 
 namespace Backlog.Infrastructure.Devbook.Building;
 
 /// <summary>
-/// A scope's reading outline, resolved from the committed
-/// <c>_reading-order.json</c> files.
+/// A scope's reading outline, derived from the folder convention.
 ///
-/// <para>A port of <c>tools/devbook/reading-order.mjs</c>, whose header states
-/// the five ordering rules; they are applied here unchanged. In short: a
-/// directory's declared root document sorts first, the declared order follows,
-/// anything on disk the declaration does not name is appended in filename order
-/// with a warning, anything declared but gone is dropped, and a directory with no
-/// root document is sorted by filename.</para>
+/// <para>A port of <c>buildOutlineDocument</c> and <c>readDirectory</c> in the
+/// devbook generator's <c>outline.mjs</c>, which is what
+/// <c>tools/devbook/build-database.mjs</c> imports. The name-only rules — the
+/// convention table, the root it names, filename numbers and the convention's
+/// slots — are <see cref="DevbookReadingConvention"/>, shared with the panels;
+/// this layers on what only a parse can say: a document's own
+/// <c>index: root</c>, which wins over the convention root, its
+/// <c>index: exclude</c>, which keeps it out of the outline, and its
+/// <c>number</c> field, which wins over the number in its filename. Nothing is
+/// authored per repository — local ADR 0016 retired <c>_reading-order.json</c>,
+/// and one left in a repository is ignored.</para>
+///
+/// <para>The areas of the repository scope come in the layout's fixed folder
+/// order (<see cref="DevbookBuildLayout.Folders"/>), as the generator's
+/// discovered folders do.</para>
 /// </summary>
 internal static class DevbookOutlineBuilder
 {
-    private const int ReadingOrderVersion = 1;
-
     public static IReadOnlyList<DevbookOutlineEntry> Resolve(
         string repositoryRoot,
         string scope,
         DevbookBuildLayout layout,
         List<DevbookBuildProblem> problems)
     {
-        var declarations = scope == DevbookBuildLayout.RepositoryScope
-            ? RepositoryDeclarations(repositoryRoot, layout)
-            : Load(repositoryRoot, $"{scope}/_reading-order.json");
-
         if (scope != DevbookBuildLayout.RepositoryScope)
         {
-            return ReadDirectory(repositoryRoot, scope, scope, declarations, problems);
+            return ReadDirectory(repositoryRoot, scope, scope, scope, layout, problems);
         }
 
         var entries = new List<DevbookOutlineEntry>();
-        foreach (var folder in OrderAreas(layout.Folders, declarations, problems))
+        foreach (var folder in layout.Folders)
         {
-            var children = ReadDirectory(repositoryRoot, folder, scope, declarations, problems);
+            var children = ReadDirectory(repositoryRoot, folder, folder, scope, layout, problems);
             entries.Add(new DevbookOutlineEntry(
                 "area",
                 folder,
@@ -50,99 +54,12 @@ internal static class DevbookOutlineBuilder
         return entries;
     }
 
-    private static Dictionary<string, Declaration> RepositoryDeclarations(string repositoryRoot, DevbookBuildLayout layout)
-    {
-        var declarations = Load(repositoryRoot, layout.RepositoryReadingOrderPath);
-        foreach (var folder in layout.Folders)
-        {
-            foreach (var (directory, declared) in Load(repositoryRoot, $"{folder}/_reading-order.json"))
-            {
-                declarations[directory] = declared;
-            }
-        }
-
-        return declarations;
-    }
-
-    /// <summary>One committed file's declarations by directory. Absent,
-    /// unreadable, malformed or another version: none at all.</summary>
-    private static Dictionary<string, Declaration> Load(string repositoryRoot, string relativePath)
-    {
-        var declarations = new Dictionary<string, Declaration>(StringComparer.Ordinal);
-
-        JsonDocument document;
-        try
-        {
-            document = JsonDocument.Parse(DevbookBuildFiles.ReadText(repositoryRoot, relativePath));
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException)
-        {
-            return declarations;
-        }
-
-        using (document)
-        {
-            var root = document.RootElement;
-            if (root.ValueKind != JsonValueKind.Object
-                || !root.TryGetProperty("version", out var version)
-                || version.ValueKind != JsonValueKind.Number
-                || !version.TryGetDouble(out var number)
-                || number != ReadingOrderVersion
-                || !root.TryGetProperty("directories", out var directories)
-                || directories.ValueKind != JsonValueKind.Object)
-            {
-                return declarations;
-            }
-
-            foreach (var directory in directories.EnumerateObject())
-            {
-                if (directory.Value.ValueKind != JsonValueKind.Object) continue;
-
-                var rootName = directory.Value.TryGetProperty("root", out var r) && r.ValueKind == JsonValueKind.String ? r.GetString() : null;
-                var order = directory.Value.TryGetProperty("order", out var o) && o.ValueKind == JsonValueKind.Array
-                    ? o.EnumerateArray().Where(e => e.ValueKind == JsonValueKind.String).Select(e => e.GetString()!).ToList()
-                    : [];
-
-                declarations[directory.Name] = new Declaration(rootName, order, relativePath);
-            }
-        }
-
-        return declarations;
-    }
-
-    private static List<string> OrderAreas(IReadOnlyList<string> folders, Dictionary<string, Declaration> declarations, List<DevbookBuildProblem> problems)
-    {
-        declarations.TryGetValue(DevbookBuildLayout.RepositoryScope, out var declared);
-        var remaining = new List<string>(folders);
-        var sequence = new List<string>();
-
-        foreach (var name in declared?.Order ?? [])
-        {
-            if (remaining.Remove(name)) sequence.Add(name);
-        }
-
-        foreach (var name in remaining.Order(StringComparer.Ordinal))
-        {
-            if (declared is not null)
-            {
-                problems.Add(new DevbookBuildProblem(
-                    DevbookBuildLayout.RepositoryScope,
-                    "warning",
-                    name,
-                    $"{name} is not listed in the area order declared in `{declared.DeclaredIn}`; appended alphabetically. Move it there to pin its position."));
-            }
-
-            sequence.Add(name);
-        }
-
-        return sequence;
-    }
-
     private static List<DevbookOutlineEntry> ReadDirectory(
         string repositoryRoot,
         string relativeDirectory,
+        string folderRoot,
         string scope,
-        Dictionary<string, Declaration> declarations,
+        DevbookBuildLayout layout,
         List<DevbookBuildProblem> problems)
     {
         var files = new List<string>();
@@ -158,63 +75,68 @@ internal static class DevbookOutlineBuilder
 
         files.Sort(StringComparer.Ordinal);
 
-        var parsed = new Dictionary<string, (string Path, string? Title, IReadOnlyDictionary<string, object?>? Meta)>(StringComparer.Ordinal);
+        var parsed = new Dictionary<string, ParsedFile>(StringComparer.Ordinal);
+        var excluded = new HashSet<string>(StringComparer.Ordinal);
         foreach (var name in files)
         {
             var relativePath = $"{relativeDirectory}/{name}";
             var document = DevbookMarkdown.Parse(DevbookBuildFiles.ReadText(repositoryRoot, relativePath));
-            parsed[name] = (relativePath, document.FileTitle, document.FileMeta);
-        }
+            var meta = document.FileMeta ?? new Dictionary<string, object?>(StringComparer.Ordinal);
 
-        declarations.TryGetValue(relativeDirectory, out var declared);
-        var rootName = declared?.Root is { } root && parsed.ContainsKey(root) ? root : null;
-        var declaredOrder = rootName is not null ? declared!.Order : [];
-
-        // Insertion order matters to nothing below (it is sorted), but the set is
-        // the generator's: every file, then every directory, less the root.
-        var remaining = new List<string>(files.Concat(directories).Where(name => name != rootName).Distinct(StringComparer.Ordinal));
-
-        var sequence = new List<string>();
-        foreach (var name in declaredOrder)
-        {
-            if (remaining.Remove(name)) sequence.Add(name);
-        }
-
-        foreach (var name in remaining.Order(StringComparer.Ordinal))
-        {
-            if (rootName is not null)
+            // Dropped here rather than filtered later, so an excluded document can
+            // never be picked as the root or occupy a number.
+            if (IndexRole(meta) == "exclude")
             {
-                problems.Add(new DevbookBuildProblem(
-                    scope,
-                    "warning",
-                    $"{relativeDirectory}/{name}",
-                    $"{relativeDirectory}/{name} is not listed in the reading order declared in `{declared!.DeclaredIn}`; appended alphabetically. Move it there to pin its position."));
+                excluded.Add(name);
+                continue;
             }
 
-            sequence.Add(name);
+            parsed[name] = new ParsedFile(relativePath, document.FileTitle, meta, DocumentNumber(name, meta));
         }
 
-        if (rootName is not null) sequence.Insert(0, rootName);
+        var folderKind = layout.FolderKindForPath($"{relativeDirectory}/x.md");
+        var convention = DevbookReadingConvention.For(folderKind, Depth(relativeDirectory, folderRoot));
+        var rootName = ResolveRoot(relativeDirectory, parsed, excluded, convention, scope, problems);
+
+        // A subdirectory has no metadata block, so its number can only come from
+        // its name.
+        var numbers = new Dictionary<string, long?>(StringComparer.Ordinal);
+        foreach (var (name, file) in parsed) numbers[name] = file.Number;
+        foreach (var name in directories) numbers[name] = DevbookReadingConvention.FileNumber(name);
+
+        ReportDuplicateNumbers(relativeDirectory, numbers, rootName, scope, problems);
+
+        var sequence = DevbookReadingConvention.Order(
+            convention,
+            parsed.Keys.Concat(directories),
+            rootName,
+            name => numbers.GetValueOrDefault(name));
 
         var outline = new List<DevbookOutlineEntry>();
         foreach (var name in sequence)
         {
             if (parsed.TryGetValue(name, out var document))
             {
+                var fileFolder = layout.FolderKindForPath(document.Path);
+                var type = DevbookBuildLayout.ResolveType(fileFolder, document.Meta);
+
                 outline.Add(new DevbookOutlineEntry(
                     "file",
                     name,
                     document.Path,
                     document.Title ?? Path.GetFileNameWithoutExtension(name),
-                    document.Meta?.GetValueOrDefault("status") as string,
-                    null,
+                    ResolveStatus(fileFolder, document.Meta),
+                    // The file's resolved `type` where it has one, as the
+                    // generator's entry carries it; otherwise the row derives its
+                    // folder kind from the path when it is written.
+                    type is null ? null : Scalar(type),
                     name == rootName,
                     []));
             }
             else
             {
                 var child = $"{relativeDirectory}/{name}";
-                var children = ReadDirectory(repositoryRoot, child, scope, declarations, problems);
+                var children = ReadDirectory(repositoryRoot, child, folderRoot, scope, layout, problems);
                 outline.Add(new DevbookOutlineEntry(
                     "directory",
                     name,
@@ -230,11 +152,105 @@ internal static class DevbookOutlineBuilder
         return outline;
     }
 
-    private sealed record Declaration(string? Root, IReadOnlyList<string> Order, string DeclaredIn);
+    /// <summary>
+    /// The directory's root document: the one declaring <c>index: root</c>, or
+    /// failing that the convention's root when it is there. Two declarations is
+    /// an error — the first by name wins — and a convention root that is missing
+    /// or excluded is a warning.
+    /// </summary>
+    private static string? ResolveRoot(
+        string relativeDirectory,
+        Dictionary<string, ParsedFile> parsed,
+        HashSet<string> excluded,
+        DevbookDirectoryConvention? convention,
+        string scope,
+        List<DevbookBuildProblem> problems)
+    {
+        var declared = parsed.Where(entry => IndexRole(entry.Value.Meta) == "root").Select(entry => entry.Key).ToList();
+        if (declared.Count > 1)
+        {
+            problems.Add(new DevbookBuildProblem(scope, "error", relativeDirectory,
+                $"{relativeDirectory} has more than one document declaring `index: root` ({string.Join(", ", declared)}); a directory has exactly one entry point."));
+        }
+
+        if (declared.Count > 0) return declared[0];
+        if (convention is null) return null;
+        if (parsed.ContainsKey(convention.Root)) return convention.Root;
+
+        problems.Add(excluded.Contains(convention.Root)
+            ? new DevbookBuildProblem(scope, "warning", $"{relativeDirectory}/{convention.Root}",
+                $"{relativeDirectory}/{convention.Root} is the directory's root document by convention but declares `index: exclude`, so the directory now has no entry point. Drop the field, or mark another file `index: root`.")
+            : new DevbookBuildProblem(scope, "warning", relativeDirectory,
+                $"{relativeDirectory} has no {convention.Root}; the convention makes it this directory's root document and the first thing read. Declare `index: root` on another file to name a different entry point."));
+
+        return null;
+    }
+
+    private static void ReportDuplicateNumbers(
+        string relativeDirectory,
+        Dictionary<string, long?> numbers,
+        string? rootName,
+        string scope,
+        List<DevbookBuildProblem> problems)
+    {
+        var byNumber = new Dictionary<long, string>();
+        foreach (var name in numbers.Keys.Where(name => name != rootName).Order(StringComparer.Ordinal))
+        {
+            if (numbers[name] is not { } number) continue;
+
+            if (byNumber.TryGetValue(number, out var first))
+            {
+                problems.Add(new DevbookBuildProblem(scope, "error", $"{relativeDirectory}/{name}",
+                    $"{relativeDirectory}/{name} and {relativeDirectory}/{first} are both numbered {number.ToString(CultureInfo.InvariantCulture)}; a number identifies one document in its directory."));
+            }
+            else
+            {
+                byNumber[number] = name;
+            }
+        }
+    }
+
+    /// <summary>How many levels <paramref name="relativeDirectory"/> sits below
+    /// its folder's root — the <c>*</c> count of the generator's convention key.</summary>
+    private static int Depth(string relativeDirectory, string folderRoot) =>
+        relativeDirectory.Length <= folderRoot.Length
+            ? 0
+            : relativeDirectory[(folderRoot.Length + 1)..].Split('/').Length;
+
+    /// <summary>The generator's <c>indexRole</c>: <c>root</c>, <c>exclude</c>, or
+    /// <see langword="null"/> for an ordinary listed document.</summary>
+    private static string? IndexRole(IReadOnlyDictionary<string, object?> meta) =>
+        meta.GetValueOrDefault("index") is string value && value is "root" or "exclude" ? value : null;
+
+    /// <summary>The generator's <c>documentNumber</c>: an all-digit <c>number</c>
+    /// field, else the number in the filename.</summary>
+    private static long? DocumentNumber(string name, IReadOnlyDictionary<string, object?> meta)
+    {
+        if (meta.GetValueOrDefault("number") is string declared
+            && declared.Length > 0
+            && declared.All(char.IsAsciiDigit)
+            && long.TryParse(declared, NumberStyles.None, CultureInfo.InvariantCulture, out var number))
+        {
+            return number;
+        }
+
+        return DevbookReadingConvention.FileNumber(name);
+    }
+
+    /// <summary>The generator's <c>resolveStatus</c>: the declared status, else the
+    /// folder's resting one.</summary>
+    private static string? ResolveStatus(string? folder, IReadOnlyDictionary<string, object?> meta) =>
+        meta.GetValueOrDefault("status") is { } declared ? Scalar(declared) : DevbookBuildLayout.RestingStatusFor(folder);
+
+    private static string Scalar(object value) =>
+        value is IReadOnlyList<string> list ? string.Join(',', list) : Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty;
+
+    private sealed record ParsedFile(string Path, string? Title, IReadOnlyDictionary<string, object?> Meta, long? Number);
 }
 
 /// <summary>One outline row before it is numbered. <see cref="Kind"/> is set
-/// for an area; every other row's kind is derived from its path when written.</summary>
+/// for an area (its folder kind) and for a file with a resolved <c>type</c>;
+/// every other row's kind is derived from its path when written.</summary>
 internal sealed record DevbookOutlineEntry(
     string Type,
     string Name,

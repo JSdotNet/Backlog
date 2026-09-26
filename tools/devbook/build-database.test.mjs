@@ -1,15 +1,19 @@
-// Tests for build-database.mjs, run with `node --test tools/devbook`.
+// Tests for build-database.mjs, run with `node --test "tools/devbook/*.test.mjs"`.
 //
 // Two kinds of case, following check-metadata.test.mjs. Most build a throwaway
-// knowledge corpus in a temp directory, because a fixture is the only way to
+// devbook corpus in a temp directory, because a fixture is the only way to
 // assert an ordering rule against a folder small enough to write the expected
 // answer down. One builds this repository's own corpus, because a writer that is
 // only ever pointed at fixtures proves nothing about the file the desktop opens.
 //
-// The fixture is deliberately lopsided: `.domain` declares a reading order and
-// holds a file the declaration does not list, `.tech` declares none at all. That
-// is rules 3 and 5 of the reading order in one tree, and they are the two rules
-// a database can silently get wrong — a wrong order still renders.
+// The fixture is indexed by the generator this repository has installed at
+// `.devbook/_tools/devbook-meta/`, passed in as `generatorDir`, so the reading
+// order under test is the real convention rather than a stand-in's. Each folder
+// exercises one of its rules: `domain/` the convention roots and slots, a context
+// that names its own root with `index: root`, and one that has no root at all;
+// `arc42/` a numbered set that filename sort would get wrong; `tech/` pinned
+// first and last files. And two stray `_reading-order.json` files that declare a
+// different order, which nothing may read.
 
 import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -22,10 +26,11 @@ import { fileURLToPath } from 'node:url';
 
 import { buildDatabase, DEFAULT_ROOT, GENERATOR } from './build-database.mjs';
 import { DEVBOOK_SCHEMA, SCHEMA_VERSION } from './devbook-schema.mjs';
-import { resolveOutline } from './reading-order.mjs';
+import { loadGenerator } from './generator.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..', '..');
+const INSTALLED_GENERATOR = join(REPO, '.devbook', '_tools', 'devbook-meta');
 
 const sha256 = (text) => createHash('sha256').update(text, 'utf8').digest('hex');
 
@@ -44,45 +49,52 @@ function meta(fields) {
     return ['```meta', body, '```'].join('\n');
 }
 
+/** A fenced ```annotation block, built from `key: value` pairs. */
+function annotation(fields) {
+    const body = Object.entries(fields).map(([key, value]) => `${key}: ${value}`).join('\n');
+    return ['```annotation', body, '```'].join('\n');
+}
+
+/** A one-heading document. */
+const page = (title, fields = {}) => `# ${title}\n\n${meta(fields)}\n`;
+
 /** The fixture corpus, as repo-relative path to file content. */
 const FIXTURE = {
-    // The repository scope declares the area order and nothing else. Reversed
-    // against the generator's own KNOWLEDGE_FOLDERS constant on purpose: if the
-    // areas came from that constant rather than from this file, the assertion
-    // below would still pass on alphabetical luck.
-    '_reading-order.json': JSON.stringify({
+    // Stray reading-order files, each declaring an order the convention does
+    // not give. Local ADR 0016 retired the file: were either read, the outline
+    // assertions below would come out in these orders instead.
+    '.devbook/_reading-order.json': JSON.stringify({
         version: 1,
         scope: '.',
-        directories: { '.': { root: null, order: ['.tech', '.domain'] } },
+        directories: { '.': { root: null, order: ['.devbook/tech', '.devbook/domain', '.devbook/arc42'] } },
     }),
-
-    '.domain/_reading-order.json': JSON.stringify({
+    '.devbook/domain/_reading-order.json': JSON.stringify({
         version: 1,
-        scope: '.domain',
+        scope: '.devbook/domain',
         directories: {
-            '.domain': { root: 'context-map.md', order: ['inbox', 'shared.md'] },
-            '.domain/inbox': { root: 'domain.md', order: ['features.md'] },
+            '.devbook/domain': { root: 'context-map.md', order: ['legacy', 'inbox', 'billing'] },
+            '.devbook/domain/inbox': { root: 'notes.md', order: ['features.md', 'domain.md'] },
         },
     }),
-    '.domain/context-map.md': `# Context Map\n\n${meta({ status: 'draft' })}\n`,
-    '.domain/shared.md': `# Shared\n\n${meta({ status: 'active' })}\n`,
-    // Listed nowhere: rule 3, appended alphabetically and warned about.
-    '.domain/unlisted.md': `# Unlisted\n\n${meta({ status: 'draft' })}\n`,
+
+    '.devbook/domain/context-map.md': page('Context Map', { status: 'draft' }),
+
+    // A bounded context by the convention: `context.md` is its root, then the
+    // pinned slots in the convention's order, then everything else by name.
+    '.devbook/domain/inbox/context.md': page('Inbox', { type: 'context' }),
     // Three kinds of fence in one chapter, because `search_text` has to drop all
-    // three: the metadata block, the annotation block a `.domain` chapter may
-    // carry, and a diagram.
-    '.domain/inbox/domain.md': [
+    // three: the metadata block, the annotation block a `domain/` chapter may
+    // carry, and a diagram. The annotation is open, so this chapter counts one.
+    '.devbook/domain/inbox/domain.md': [
         '# Inbox',
         '',
-        meta({ status: 'active', related: '.tech/shared.md' }),
+        meta({ status: 'active', related: '.devbook/tech/shared.md' }),
         '',
         '## Aggregate: Inbox Item',
         '',
-        meta({ status: 'active', 'feature-flag': '[inbox, capture]' }),
+        meta({ status: 'active', roadmap: '[inbox, capture]' }),
         '',
-        '```annotation',
-        'open-question: does a triaged item keep its capture source?',
-        '```',
+        annotation({ kind: 'question', body: 'does a triaged item keep its capture source?' }),
         '',
         'A captured note waits here until it is triaged.',
         '',
@@ -95,7 +107,7 @@ const FIXTURE = {
     // A `#` line inside a fence, which `parseDocument` reads as a heading
     // because it does not track fences. The chapter it invents is the case the
     // whole-document fence mask exists for.
-    '.domain/inbox/features.md': [
+    '.devbook/domain/inbox/features.md': [
         '# Inbox Features',
         '',
         meta({ status: 'draft' }),
@@ -110,13 +122,49 @@ const FIXTURE = {
         'More prose after the fence.',
         '',
     ].join('\n'),
+    '.devbook/domain/inbox/dependencies.md': page('Inbox Dependencies'),
+    // Not a convention file: after the pinned slots, by name. It also carries
+    // the two annotations the open-count rule has to tell apart from the one
+    // above: one before any heading, which counts on the file's first chapter,
+    // and one resolved, which counts nowhere.
+    '.devbook/domain/inbox/notes.md': [
+        annotation({ kind: 'comment', body: 'a note on the whole file' }),
+        '',
+        '# Inbox Notes',
+        '',
+        meta({ status: 'draft' }),
+        '',
+        '## Open Item',
+        '',
+        annotation({ kind: 'question', status: 'resolved', body: 'settled' }),
+        '',
+        'Nothing is open here any more.',
+        '',
+    ].join('\n'),
 
-    // No `_reading-order.json`: rule 5, filename sort, no warning.
-    '.tech/technology-graph.md': `# Technology Graph\n\n${meta({ status: 'adopted' })}\n`,
-    '.tech/shared.md': `# Shared Technologies\n\n${meta({ status: 'adopted' })}\n`,
-    '.tech/desktop.md': `# Desktop Stack\n\n${meta({ status: 'adopted' })}\n`,
+    // `index: root` names a root the convention would not: `overview.md` beats
+    // `context.md`, which then sorts with the rest.
+    '.devbook/domain/billing/context.md': page('Billing Context', { type: 'context' }),
+    '.devbook/domain/billing/overview.md': page('Billing', { index: 'root' }),
 
-    '.domain/inbox/_archify/index.json': JSON.stringify({
+    // A context with no `context.md` and no `index: root` has no entry point,
+    // which the outline reports rather than guessing one.
+    '.devbook/domain/legacy/domain.md': page('Legacy'),
+
+    // Numbered: by number, not by name, so `9-` reads before `10-`; the
+    // unnumbered file follows the numbered ones.
+    '.devbook/arc42/01-introduction.md': page('Introduction'),
+    '.devbook/arc42/10-quality.md': page('Quality'),
+    '.devbook/arc42/9-risks.md': page('Risks'),
+    '.devbook/arc42/about.md': page('About'),
+
+    // Root, pinned first, the rest by name, pinned last.
+    '.devbook/tech/technology-graph.md': page('Technology Graph', { status: 'adopted' }),
+    '.devbook/tech/tooling.md': page('Tooling', { status: 'adopted' }),
+    '.devbook/tech/shared.md': page('Shared Technologies', { status: 'adopted' }),
+    '.devbook/tech/desktop.md': page('Desktop Stack', { status: 'adopted' }),
+
+    '.devbook/domain/inbox/_archify/index.json': JSON.stringify({
         schemaVersion: 1,
         entries: {
             abc123: {
@@ -149,6 +197,9 @@ async function writeFixture() {
     return root;
 }
 
+/** The fixture's generator: this repository's installed one. */
+const fixtureGenerator = (root) => loadGenerator(root, { generatorDir: INSTALLED_GENERATOR });
+
 /**
  * Build the fixture, hand its database to `body`, and clean up afterwards.
  *
@@ -160,7 +211,7 @@ async function withFixture(body) {
     const root = await writeFixture();
     const target = join(root, '_meta', 'devbook.db');
     try {
-        const counts = await buildDatabase(root, target);
+        const counts = await buildDatabase(root, target, await fixtureGenerator(root));
         const db = new DatabaseSync(target, { readOnly: true });
         try {
             await body({ root, target, counts, db, all: (sql, ...p) => db.prepare(sql).all(...p) });
@@ -172,15 +223,28 @@ async function withFixture(body) {
     }
 }
 
+/** The names of one directory's outline entries in `scope`, in order. */
+function namesUnder(all, scope, parentName) {
+    const rows = parentName === null
+        ? all('SELECT name FROM outline_entry WHERE scope = ? AND parent_id IS NULL ORDER BY ordinal', scope)
+        : all(`
+            SELECT e.name FROM outline_entry e
+            JOIN outline_entry p ON p.id = e.parent_id
+            WHERE e.scope = ? AND p.name = ? ORDER BY e.ordinal
+        `, scope, parentName);
+    return rows.map((row) => row.name);
+}
+
 test('the database builds into a folder that does not exist yet', async () => {
     const root = await writeFixture();
     const outside = await mkdtemp(join(tmpdir(), 'devbook-out-'));
     try {
         const target = join(outside, 'not-yet', 'devbook.db');
-        await buildDatabase(root, target);
+        await buildDatabase(root, target, await fixtureGenerator(root));
 
         assert.equal(await exists(target), true);
         assert.equal(await exists(join(root, '_meta')), false, 'nothing is written into the repository');
+        assert.equal(await exists(join(root, '.devbook', '_meta')), false, 'nothing is written under .devbook/');
     } finally {
         await rm(root, { recursive: true, force: true });
         await rm(outside, { recursive: true, force: true });
@@ -218,7 +282,7 @@ test('the meta table records the schema version, the generator and a timestamp',
 
 test("a chapter's text and hashes round-trip", async () => {
     await withFixture(async ({ root, all }) => {
-        const rows = all("SELECT * FROM chapter WHERE path = '.domain/inbox/domain.md' ORDER BY line");
+        const rows = all("SELECT * FROM chapter WHERE path = '.devbook/domain/inbox/domain.md' ORDER BY line");
         assert.equal(rows.length, 2, 'both headings of the fixture document should be chapters');
 
         const [file, aggregate] = rows;
@@ -238,8 +302,8 @@ test("a chapter's text and hashes round-trip", async () => {
             assert.equal(row.content_hash, sha256(row.text), 'content_hash is sha256 of the chapter slice');
         }
 
-        const source = FIXTURE['.domain/inbox/domain.md'];
-        const stats = await stat(join(root, '.domain', 'inbox', 'domain.md'));
+        const source = FIXTURE['.devbook/domain/inbox/domain.md'];
+        const stats = await stat(join(root, '.devbook', 'domain', 'inbox', 'domain.md'));
         assert.equal(file.source_hash, sha256(source), 'source_hash is sha256 of the whole file');
         assert.equal(file.size, stats.size);
         assert.equal(file.mtime, Math.round(stats.mtimeMs));
@@ -259,7 +323,7 @@ test('FTS5 matches a phrase and names the chapter it came from', async () => {
         `, '"waits here until it is triaged"');
 
         assert.equal(hits.length, 1);
-        assert.equal(hits[0].path, '.domain/inbox/domain.md');
+        assert.equal(hits[0].path, '.devbook/domain/inbox/domain.md');
         assert.equal(hits[0].slug, 'aggregate-inbox-item');
 
         // A phrase in no chapter is an empty result, not an error — the search
@@ -270,7 +334,7 @@ test('FTS5 matches a phrase and names the chapter it came from', async () => {
 
 test('search_text is the chapter as prose: fences dropped, heading text kept', async () => {
     await withFixture(({ all }) => {
-        const [file, aggregate] = all("SELECT * FROM chapter WHERE path = '.domain/inbox/domain.md' ORDER BY line");
+        const [file, aggregate] = all("SELECT * FROM chapter WHERE path = '.devbook/domain/inbox/domain.md' ORDER BY line");
 
         // `text` is still the chapter as authored — a hash is taken over it and
         // the Archify fence addressing reads it, so nothing may be missing.
@@ -291,13 +355,13 @@ test('a word that only appears inside a fence no longer matches', async () => {
     await withFixture(({ all }) => {
         const matches = (query) => all('SELECT rowid FROM chapter_fts WHERE chapter_fts MATCH ?', query).length;
 
-        // `status: draft` sits in three of the fixture's metadata blocks and in
-        // none of its prose. Before `search_text`, this was three hits — which is
-        // the noisy half of the same defect the excerpts showed: a reader asking
-        // for "draft" got every chapter whose metadata happened to say so.
+        // `status: draft` sits in several of the fixture's metadata blocks and in
+        // none of its prose. Before `search_text`, each was a hit — which is the
+        // noisy half of the same defect the excerpts showed: a reader asking for
+        // "draft" got every chapter whose metadata happened to say so.
         assert.equal(matches('draft'), 0);
         assert.equal(matches('status'), 0);
-        assert.equal(matches('question'), 0, 'the annotation fence is not chapter content');
+        assert.equal(matches('triaged AND keep'), 0, 'the annotation fence is not chapter content');
         assert.equal(matches('statediagram'), 0, 'diagram source is not prose');
 
         // The prose beside those fences is still there, so this is a narrower
@@ -321,7 +385,7 @@ test('an excerpt reads as prose rather than as fence debris', async () => {
         // `snippet()` returns the indexed column, so this is the assertion that
         // the fix is at the index and not post-processed on the way out.
         assert.doesNotMatch(hit.excerpt, /```/);
-        assert.doesNotMatch(hit.excerpt, /status:|feature-flag:/);
+        assert.doesNotMatch(hit.excerpt, /status:|roadmap:/);
     });
 });
 
@@ -331,7 +395,7 @@ test('a heading inside a fence cannot swallow the prose around it', async () => 
         // starts a chapter there. The fence mask is computed over the whole
         // document rather than per slice precisely so that this chapter's prose
         // survives and its fence lines still do not.
-        const rows = all("SELECT * FROM chapter WHERE path = '.domain/inbox/features.md' ORDER BY line");
+        const rows = all("SELECT * FROM chapter WHERE path = '.devbook/domain/inbox/features.md' ORDER BY line");
         assert.equal(rows.length, 2);
 
         assert.equal(rows[0].search_text, 'Inbox Features\n\nRouting moves a triaged item onward.');
@@ -341,61 +405,124 @@ test('a heading inside a fence cannot swallow the prose around it', async () => 
     });
 });
 
-test('the outline honours _reading-order.json', async () => {
+test('the domain outline follows the convention: context-map.md, then the contexts by name', async () => {
     await withFixture(({ all }) => {
         const top = all(`
             SELECT name, type, is_root FROM outline_entry
-            WHERE scope = '.domain' AND parent_id IS NULL ORDER BY ordinal
+            WHERE scope = '.devbook/domain' AND parent_id IS NULL ORDER BY ordinal
         `);
 
-        assert.deepEqual(top.map((row) => row.name), [
-            'context-map.md', // rule 1: the root document always sorts first
-            'inbox',          // rules 2: declared order, subdirectory before sibling file
-            'shared.md',
-            'unlisted.md',    // rule 3: on disk, undeclared, appended alphabetically
-        ]);
+        // Not the stray file's legacy, inbox, billing.
+        assert.deepEqual(top.map((row) => row.name), ['context-map.md', 'billing', 'inbox', 'legacy']);
         assert.deepEqual(top.map((row) => row.is_root), [1, 0, 0, 0]);
-        assert.equal(top.find((row) => row.name === 'inbox').type, 'directory');
-
-        const inbox = all(`
-            SELECT e.name, e.is_root FROM outline_entry e
-            JOIN outline_entry p ON p.id = e.parent_id
-            WHERE e.scope = '.domain' AND p.name = 'inbox' ORDER BY e.ordinal
-        `);
-        assert.deepEqual(inbox.map((row) => row.name), ['domain.md', 'features.md']);
-
-        // Rule 5: `.tech` declares nothing, so it falls back to filename sort —
-        // which is a different answer from its declared order would have been.
-        const tech = all(`
-            SELECT name FROM outline_entry
-            WHERE scope = '.tech' AND parent_id IS NULL ORDER BY ordinal
-        `);
-        assert.deepEqual(tech.map((row) => row.name), ['desktop.md', 'shared.md', 'technology-graph.md']);
-
-        // The repository scope orders the areas from its own file, not from the
-        // generator's KNOWLEDGE_FOLDERS constant.
-        const areas = all(`
-            SELECT name, kind FROM outline_entry
-            WHERE scope = '.' AND parent_id IS NULL ORDER BY ordinal
-        `);
-        assert.deepEqual(areas.map((row) => row.name), ['.tech', '.domain']);
-        assert.deepEqual(areas.map((row) => row.kind), ['tech', 'domain']);
+        assert.deepEqual(top.map((row) => row.type), ['file', 'directory', 'directory', 'directory']);
     });
 });
 
-test('an undeclared file is a warning, and an undeclared directory is not', async () => {
+test('within a context, context.md is the root, then the convention slots, then the rest by name', async () => {
     await withFixture(({ all }) => {
-        const problems = all("SELECT scope, severity, path, message FROM problem WHERE path LIKE '%unlisted%'");
+        // Not the stray file's notes.md root and features-before-domain order.
+        assert.deepEqual(namesUnder(all, '.devbook/domain', 'inbox'), [
+            'context.md', 'domain.md', 'features.md', 'dependencies.md', 'notes.md',
+        ]);
 
-        const problem = problems.find((row) => row.scope === '.domain');
-        assert.ok(problem, `expected a .domain problem for the unlisted file, got: ${JSON.stringify(problems)}`);
-        assert.equal(problem.severity, 'warning');
-        assert.match(problem.message, /_reading-order\.json/);
-        assert.match(problem.message, /appended alphabetically/);
+        const root = all(`
+            SELECT e.name FROM outline_entry e JOIN outline_entry p ON p.id = e.parent_id
+            WHERE e.scope = '.devbook/domain' AND p.name = 'inbox' AND e.is_root = 1
+        `);
+        assert.deepEqual(root.map((row) => row.name), ['context.md']);
 
-        // `.tech` has no root document, so nothing there is out of order — rule 5
-        // means undeclared, not unordered.
-        assert.equal(all("SELECT 1 FROM problem WHERE path LIKE '.tech/%'").length, 0);
+        // A directory is titled by its own root document.
+        const inbox = all("SELECT title FROM outline_entry WHERE scope = '.devbook/domain' AND name = 'inbox'")[0];
+        assert.equal(inbox.title, 'Inbox');
+    });
+});
+
+test('index: root wins over the convention root', async () => {
+    await withFixture(({ all }) => {
+        assert.deepEqual(namesUnder(all, '.devbook/domain', 'billing'), ['overview.md', 'context.md']);
+
+        const rows = all(`
+            SELECT e.name, e.is_root FROM outline_entry e JOIN outline_entry p ON p.id = e.parent_id
+            WHERE e.scope = '.devbook/domain' AND p.name = 'billing' ORDER BY e.ordinal
+        `);
+        assert.deepEqual(rows.map((row) => row.is_root), [1, 0]);
+    });
+});
+
+test('a numbered set sorts by number, unnumbered entries after it', async () => {
+    await withFixture(({ all }) => {
+        // Filename sort would put 10-quality.md before 9-risks.md.
+        assert.deepEqual(namesUnder(all, '.devbook/arc42', null), [
+            '01-introduction.md', '9-risks.md', '10-quality.md', 'about.md',
+        ]);
+    });
+});
+
+test('tech/ reads its root, its pinned first file, the rest, then its pinned last file', async () => {
+    await withFixture(({ all }) => {
+        assert.deepEqual(namesUnder(all, '.devbook/tech', null), [
+            'technology-graph.md', 'shared.md', 'desktop.md', 'tooling.md',
+        ]);
+    });
+});
+
+test('the repository scope lists the areas in the generator order, not a stray file\'s', async () => {
+    await withFixture(({ all }) => {
+        const areas = all(`
+            SELECT name, kind, title FROM outline_entry
+            WHERE scope = '.' AND parent_id IS NULL ORDER BY ordinal
+        `);
+        assert.deepEqual(areas.map((row) => row.name), ['.devbook/arc42', '.devbook/domain', '.devbook/tech']);
+        assert.deepEqual(areas.map((row) => row.kind), ['arc42', 'domain', 'tech']);
+        assert.equal(areas[1].title, 'Context Map');
+    });
+});
+
+test('outline rows carry the resolved status and the entry kind', async () => {
+    await withFixture(({ all }) => {
+        const row = (path) => all("SELECT status, kind FROM outline_entry WHERE scope = '.devbook/domain' AND path = ?", path)[0];
+
+        // Declared.
+        assert.equal(row('.devbook/domain/context-map.md').status, 'draft');
+        // Omitted in an editorial folder: the folder's resting value, not null.
+        assert.equal(row('.devbook/domain/legacy/domain.md').status, 'active');
+        // A file's resolved `type` is its kind.
+        assert.equal(row('.devbook/domain/inbox/context.md').kind, 'context');
+        // A directory has no kind of its own, so it takes its folder's.
+        assert.equal(row('.devbook/domain/inbox').kind, 'domain');
+    });
+});
+
+test('a directory with no root is an outline problem, and a stray _reading-order.json is none', async () => {
+    await withFixture(({ all }) => {
+        const problems = all("SELECT scope, severity, path, message FROM problem WHERE path LIKE '%legacy%' AND scope = '.devbook/domain'");
+        assert.equal(problems.length, 1, JSON.stringify(problems));
+        assert.equal(problems[0].severity, 'warning');
+        assert.equal(problems[0].path, '.devbook/domain/legacy');
+        assert.match(problems[0].message, /context\.md/);
+
+        assert.equal(all("SELECT 1 FROM problem WHERE message LIKE '%_reading-order%'").length, 0);
+        assert.equal(all("SELECT 1 FROM problem WHERE path LIKE '.devbook/tech/%' OR path LIKE '.devbook/arc42/%'").length, 0);
+    });
+});
+
+test('open_annotations counts open threads on their chapter, and a note above every heading on the first', async () => {
+    await withFixture(({ all, counts }) => {
+        const open = Object.fromEntries(
+            all('SELECT path, slug, open_annotations FROM chapter WHERE open_annotations > 0')
+                .map((row) => [`${row.path}#${row.slug}`, row.open_annotations]));
+
+        assert.deepEqual(open, {
+            // The open question under the aggregate heading.
+            '.devbook/domain/inbox/domain.md#aggregate-inbox-item': 1,
+            // The note above `# Inbox Notes`: its address is the bare path, so it
+            // counts on that file's first chapter.
+            '.devbook/domain/inbox/notes.md#inbox-notes': 1,
+        });
+        // The resolved thread under `## Open Item` counts nowhere.
+        assert.equal(all("SELECT open_annotations AS n FROM chapter WHERE slug = 'open-item'")[0].n, 0);
+        assert.equal(counts.open_annotations, 2);
     });
 });
 
@@ -403,24 +530,24 @@ test('a scope filter returns only that folder', async () => {
     await withFixture(({ all }) => {
         const paths = all("SELECT DISTINCT path FROM node WHERE folder = 'tech' ORDER BY path").map((r) => r.path);
         assert.ok(paths.length > 0);
-        assert.ok(paths.every((p) => p.startsWith('.tech/')), `leaked out of .tech: ${paths}`);
+        assert.ok(paths.every((p) => p.startsWith('.devbook/tech/')), `leaked out of tech: ${paths}`);
 
         const chapters = all("SELECT DISTINCT path FROM chapter WHERE folder = 'domain'").map((r) => r.path);
         assert.ok(chapters.length > 0);
-        assert.ok(chapters.every((p) => p.startsWith('.domain/')), `leaked out of .domain: ${chapters}`);
+        assert.ok(chapters.every((p) => p.startsWith('.devbook/domain/')), `leaked out of domain: ${chapters}`);
 
-        const outline = all("SELECT DISTINCT path FROM outline_entry WHERE scope = '.tech'").map((r) => r.path);
-        assert.ok(outline.every((p) => p.startsWith('.tech/')), `leaked out of .tech: ${outline}`);
+        const outline = all("SELECT DISTINCT path FROM outline_entry WHERE scope = '.devbook/tech'").map((r) => r.path);
+        assert.ok(outline.every((p) => p.startsWith('.devbook/tech/')), `leaked out of tech: ${outline}`);
     });
 });
 
 test('list-valued metadata becomes attribute rows, references become edges', async () => {
     await withFixture(({ all }) => {
-        const flags = all("SELECT value FROM node_attribute WHERE name = 'feature-flag' ORDER BY value");
-        assert.deepEqual(flags.map((row) => row.value), ['capture', 'inbox']);
+        const roadmap = all("SELECT value FROM node_attribute WHERE name = 'roadmap' ORDER BY value");
+        assert.deepEqual(roadmap.map((row) => row.value), ['capture', 'inbox']);
 
-        const related = all("SELECT target FROM edge WHERE type = 'related' AND source = '.domain/inbox/domain.md'");
-        assert.deepEqual(related.map((row) => row.target), ['.tech/shared.md']);
+        const related = all("SELECT target FROM edge WHERE type = 'related' AND source = '.devbook/domain/inbox/domain.md'");
+        assert.deepEqual(related.map((row) => row.target), ['.devbook/tech/shared.md']);
     });
 });
 
@@ -432,9 +559,9 @@ test('the archify rows load, addressed repo-relatively', async () => {
         const [row] = rows;
         assert.equal(row.fence_hash, 'abc123');
         // The index records `domain.md`; the database records where that is.
-        assert.equal(row.chapter_path, '.domain/inbox/domain.md');
-        assert.equal(row.spec_path, '.domain/inbox/_archify/domain.1.domain.json');
-        assert.equal(row.artifact_path, '.domain/inbox/_archify/domain.1.domain.html');
+        assert.equal(row.chapter_path, '.devbook/domain/inbox/domain.md');
+        assert.equal(row.spec_path, '.devbook/domain/inbox/_archify/domain.1.domain.json');
+        assert.equal(row.artifact_path, '.devbook/domain/inbox/_archify/domain.1.domain.html');
         assert.equal(row.ordinal, 1);
         assert.equal(row.kind, 'flowchart');
         assert.equal(row.quality, 'showcase');
@@ -456,22 +583,6 @@ test('the build leaves no temporary file and no journal sidecar behind', async (
         const written = await readdir(join(root, '_meta'));
         assert.deepEqual(written.sort(), ['devbook.db']);
     });
-});
-
-test('the resolver reads the same order the database records', async () => {
-    const root = await writeFixture();
-    try {
-        // The database is the writer's projection of this; if they disagree, the
-        // bug is in the projection rather than in the reading order.
-        const outline = await resolveOutline(root, '.domain', ['.domain', '.tech']);
-        assert.deepEqual(outline.entries.map((entry) => entry.name), [
-            'context-map.md', 'inbox', 'shared.md', 'unlisted.md',
-        ]);
-        assert.equal(outline.problems.length, 1);
-        assert.equal(outline.problems[0].severity, 'warning');
-    } finally {
-        await rm(root, { recursive: true, force: true });
-    }
 });
 
 test("this repository's own corpus builds", async () => {
@@ -496,6 +607,10 @@ test("this repository's own corpus builds", async () => {
             // that quietly stopped resolving cannot pass as "nothing to order".
             const scopes = db.prepare('SELECT DISTINCT scope FROM outline_entry ORDER BY scope').all().map((r) => r.scope);
             assert.deepEqual(scopes, ['.', '.devbook/ai', '.devbook/arc42', '.devbook/design', '.devbook/domain', '.devbook/tech']);
+
+            // The domain folder opens on its convention root.
+            const first = db.prepare("SELECT name, is_root FROM outline_entry WHERE scope = '.devbook/domain' AND parent_id IS NULL AND ordinal = 0").get();
+            assert.deepEqual({ ...first }, { name: 'context-map.md', is_root: 1 });
         } finally {
             db.close();
         }
