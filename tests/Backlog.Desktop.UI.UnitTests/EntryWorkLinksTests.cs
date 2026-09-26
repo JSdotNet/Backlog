@@ -127,6 +127,15 @@ public sealed class EntryWorkLinksTests
         Assert.Equal("e711d47d", session.QuerySelector(".integration-link__label")!.TextContent.Trim());
         Assert.Equal("+2", list.QuerySelector("[data-testid='row-work-more']")!.TextContent.Trim());
 
+        // Ahead of the link handle, and not among the pickers after it.
+        var item = pr.Closest("li.task-item")!;
+        var parts = item.Children.Select(child => child.ClassName ?? string.Empty).ToList();
+        var badges = parts.FindIndex(name => name.Contains("task-item__badges", StringComparison.Ordinal));
+        Assert.NotNull(item.QuerySelector(".task-item__badges [data-testid='row-work-links']"));
+        Assert.Null(item.QuerySelector(".task-item__actions [data-testid='row-work-links']"));
+        Assert.True(badges >= 0);
+        Assert.True(badges < parts.FindIndex(name => name.Contains("task-item__link", StringComparison.Ordinal)));
+
         await pane.Find("[data-testid='row-session']").ClickAsync(new());
 
         Assert.Equal("e711d47d-3e09-4254", opened);
