@@ -4,9 +4,6 @@
 related: [".devbook/arc42/09-architecture-decisions.md"]
 ```
 
-The core strategic decisions that turn the goals and constraints of chapters 01–02
-into a coherent architecture.
-
 ## Local-first Architecture
 
 ```meta

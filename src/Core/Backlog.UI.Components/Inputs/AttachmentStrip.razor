@@ -1,0 +1,79 @@
+@*
+    The files attached to something being written — a talk note's slide photos
+    and handouts. One tile per file with its name, type and size; a tile the
+    caller refused says why on the tile itself, so the person sees the reason
+    beside the file rather than in a message that has scrolled away.
+*@
+
+@if (Tiles.Count > 0)
+{
+    <ul class="@ClassValue" aria-label="@AriaLabel" data-testid="@TestId" @attributes="AdditionalAttributes">
+        @foreach (var tile in Tiles)
+        {
+            <li class="@TileClass(tile)" data-testid="attachment-tile" data-refused="@(tile.Refusal is null ? "false" : "true")" @key="tile.Key">
+                <span class="attachment-tile__glyph" aria-hidden="true">
+                    @if (tile.IsPicture)
+                    {
+                        <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor"
+                             stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+                            <rect x="1.75" y="2.75" width="12.5" height="10.5" rx="1.5" />
+                            <circle cx="5.5" cy="6.25" r="1.25" />
+                            <path d="M14.25 10.5 10.5 7l-6 6.25" />
+                        </svg>
+                    }
+                    else
+                    {
+                        <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor"
+                             stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+                            <path d="M9.25 1.75h-5a1.5 1.5 0 0 0-1.5 1.5v9.5a1.5 1.5 0 0 0 1.5 1.5h7.5a1.5 1.5 0 0 0 1.5-1.5v-7.25z" />
+                            <path d="M9.25 1.75V5.5h3.75" />
+                        </svg>
+                    }
+                </span>
+                <span class="attachment-tile__text">
+                    <span class="attachment-tile__name" title="@tile.Name" data-testid="attachment-tile-name">@tile.Name</span>
+                    <span class="attachment-tile__facts" data-testid="attachment-tile-facts">@tile.TypeLabel · @tile.SizeLabel</span>
+                    @if (tile.Refusal is not null)
+                    {
+                        <span class="attachment-tile__refusal" data-testid="attachment-tile-refusal">@tile.Refusal</span>
+                    }
+                </span>
+                @if (OnRemove.HasDelegate)
+                {
+                    <IconButton AriaLabel="@($"Remove {tile.Name}")" Title="@($"Remove {tile.Name}")"
+                                Disabled="Disabled" CssClass="attachment-tile__remove"
+                                OnClick="() => OnRemove.InvokeAsync(tile)" TestId="attachment-tile-remove">&#215;</IconButton>
+                }
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    [Parameter]
+    public IReadOnlyList<AttachmentTile> Tiles { get; set; } = [];
+
+    /// <summary>Takes a tile off. Without a handler the strip only shows.</summary>
+    [Parameter]
+    public EventCallback<AttachmentTile> OnRemove { get; set; }
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    [Parameter]
+    public string AriaLabel { get; set; } = "Attachments";
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string ClassValue => string.IsNullOrWhiteSpace(CssClass) ? "attachment-strip" : $"attachment-strip {CssClass}";
+
+    private static string TileClass(AttachmentTile tile) =>
+        tile.Refusal is null ? "attachment-tile" : "attachment-tile attachment-tile--refused";
+}

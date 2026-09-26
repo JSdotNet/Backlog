@@ -269,7 +269,7 @@
                                     TestId="sort-by-status"
                                     Disabled="@(!State.CanSortVisibleByStatus)"
                                     Title="@(State.CanSortVisibleByStatus
-                                             ? "Sort by status: move the tasks in view into status order — in progress, ready, draft, done, archived. Tasks the filters hide keep their place."
+                                             ? "Sort by status: move the tasks in view into status order — done, in progress, ready, draft, archived. Tasks the filters hide keep their place."
                                              : "The tasks in view are already in status order.")"
                                     OnClick="State.SortVisibleByStatusAsync">
                             <ArrowUpDownIcon />

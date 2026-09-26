@@ -528,7 +528,7 @@ How far along a session is, as far as the evidence goes:
 
 - `running` — the agent is present on the environment and something moved recently.
 - `stalled` — still registered as present, but nothing has moved for longer than the
-  `Stale Threshold`. A left-open window, usually.
+  `Stale Threshold`.
 - `finished` — over. Only its record is left.
 
 Three values, and deliberately not five. Starting, waiting and failed are all
@@ -593,10 +593,8 @@ Decides whether a session with liveness evidence is `running` or `stalled`, by
 comparing its `last_activity_at` against the `Stale Threshold`.
 
 A service rather than a property of the session, because the answer depends on the
-current time and an `Agent Session` holds no clock. That is also why the threshold is
-this context's and not a rendering concern: "how long is too long" is a policy, and a
-policy that lived in a control library would be a product rule in the one place
-nobody would look for it.
+current time and an `Agent Session` holds no clock. The threshold itself is a policy
+of this context; see [Stale Threshold](#stale-threshold).
 
 Invocation semantics: query-oriented; evaluated per reading, never persisted. A
 session is not moved into `stalled` by anything — it simply reads as stalled while
@@ -606,7 +604,7 @@ the silence lasts, and reads as running again the moment the agent writes.
 
 ```meta
 type: domain-service
-related: [.devbook/domain/sessions/domain.md#session-log, .devbook/domain/sessions/domain.md#session-state, .devbook/domain/sessions/features.md#open-on-the-live-sessions, .devbook/domain/sessions/domain.md#session-view]
+related: [.devbook/domain/sessions/domain.md#session-log, .devbook/domain/sessions/domain.md#session-state, .devbook/domain/sessions/features.md#open-on-the-live-sessions]
 aliases: [AgentSessionView, view, live, all]
 ```
 
@@ -620,8 +618,7 @@ place that worked out for itself whether a session was still going would be a se
 definition of live, free to drift from the first, and the two would disagree first on
 exactly the sessions a reader most needs to trust.
 
-A service of its own rather than one more member of `Session Grouping`, and that is
-the part worth arguing. Grouping guarantees that every session in is a session out; a
+A service of its own rather than one more member of `Session Grouping`. Grouping guarantees that every session in is a session out; a
 "live" grouping would falsify that guarantee while sitting in the same strip as
 environment and agent, leaving the reader one control whose options sometimes
 rearrange the list and sometimes shorten it. Two operations with two guarantees is the
@@ -719,8 +716,7 @@ type: shared-value-objects
 > Value Objects used by more than one aggregate in this bounded context.
 
 Sessions has a single aggregate; every value object is documented under it.
-This chapter is reserved for the day a second aggregate arrives — a fleet-level view
-would be the likely first one.
+This chapter is reserved for a second aggregate.
 
 ## Shared Enums
 
@@ -823,7 +819,7 @@ so. It applies to the list's reading only; a reading since a horizon
 ```meta
 type: term
 aliases: [AgentSessionLimits.History, ReplicatedSessionLimits.History, AgentSessionQuery.Since]
-related: [.devbook/domain/sessions/features.md#say-how-much-was-left-out, #session-limit]
+related: [.devbook/domain/sessions/features.md#say-how-much-was-left-out, .devbook/domain/sessions/domain.md#session-limit]
 ```
 
 How far back a reading since a horizon is promised to reach on every source: twelve

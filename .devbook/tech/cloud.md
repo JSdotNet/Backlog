@@ -30,8 +30,9 @@ The HTTP surface of the cloud service.
   bearer-protected `/api/sync/inbox` capture, list, and acknowledge endpoints,
   with webhook intake, push dispatch, and the remote PC registry to follow.
 - **Why** — the organization's governed .NET stack for services; minimal APIs fit
-  a handful of endpoints without ceremony. The whole service is one `Program.cs`
-  plus a store, which is the point.
+  a handful of endpoints without ceremony. The API head sits over the
+  `Backlog.Modules.Sync` module, with its stores in `Backlog.Infrastructure.Cosmos`
+  and `Backlog.Infrastructure.BlobStorage`.
 
 ## Microsoft.AspNetCore.Authentication.JwtBearer
 
@@ -135,16 +136,17 @@ alternatives: ["Azure PostgreSQL", "Azure Table Storage"]
 ```
 
 The cloud data store for cross-device coordination state: serverless, one account,
-one database, **two containers**.
+one database, **five containers**.
 
 - **Used for** — the replica the devices reconcile through. `tasks` holds the
   Task aggregate, and the phone's captures land in it as task documents rather
   than as a shape of their own; `sessions` holds machine-stamped, append-only
-  session records. Both are partitioned on `/ownerId`. Buffered webhook events and
-  the machine registry sit on the same account with their own short expiries
-  (7 days / 24 hours). Two containers and not one because each wants its own
-  change feed, its own indexing policy, and its own retention — and serverless
-  levies no per-container charge to trade against.
+  session records; `annotations` holds the person's remarks on Devbook chapters
+  (local ADR 0011). All three are partitioned on `/ownerId`. `devices` and
+  `pairingCodes` hold the device registry and are partitioned on `/id`. The
+  replicas are separate containers because each wants its own change feed, its
+  own indexing policy, and its own retention — and serverless levies no
+  per-container charge to trade against.
 - **Why** — settled by local ADR 0005 rather than left open. **TTL is the
   retention mechanism**, and the numbers are concrete: 180 days on `tasks`,
   expiring a tombstone and never a live task, and 12 months on `sessions`,
@@ -163,8 +165,8 @@ one database, **two containers**.
   live tasks too. Local runs use the Cosmos preview emulator started by the
   Aspire AppHost, so no Azure account is needed to build or test the sync path.
 - **Status** — `candidate` and no higher. The template and its `Deploy Sync`
-  workflow exist, but nothing is provisioned in Azure, the sync service still
-  holds state in memory, and none of it has been validated by real use.
+  workflow exist, but nothing is provisioned in Azure and none of it has been
+  validated by real use.
 
 ## Azure Key Vault
 

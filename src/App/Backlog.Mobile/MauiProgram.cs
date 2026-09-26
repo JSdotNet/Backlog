@@ -62,6 +62,10 @@ public static class MauiProgram
 		// harness registers WebSpeechTranscriber against the same abstraction.
 		builder.Services.AddScoped<ISpeechTranscriber, AndroidSpeechTranscriber>();
 
+		// The camera and the platform pickers for a talk note's attachments. The
+		// browser harness registers WebAttachmentPicker, over <InputFile>, instead.
+		builder.Services.AddScoped<IAttachmentPicker, AndroidAttachmentPicker>();
+
 		// The Android share target, not the harness's query-string reader: an
 		// ACTION_SEND intent cannot reach a browser and a WebView URL is not how a
 		// share reaches a MAUI app, which is why there are two registrations rather

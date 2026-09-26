@@ -17,7 +17,7 @@ status: draft
 ```meta
 type: aggregate
 status: draft
-related: [.devbook/domain/inbox/domain.md#inbox-item]
+related: [.devbook/domain/inbox/domain.md#inbox-item, .devbook/domain/capture/domain.invariants.md#capture]
 aliases: [ItemCaptured]
 ```
 
@@ -31,15 +31,6 @@ separate captures. Edits follow last-write-wins by most recent timestamp.
 The Capture aggregate has no owned entities beyond its root; its variability is
 carried by the `Source Metadata` value object and the `Capture Source` enum, and
 the files it brings with it by the `Capture Attachment` value object.
-
-### Invariants
-
-| Rule | Enforced at | Evidence |
-|---|---|---|
-| A capture names only attachments already stored for its owner, each with the size and SHA-256 the capture claims; otherwise the whole capture is refused, naming the ids. | `CaptureInboxItemCommandHandler` | `unit:dotnet:Backlog.Modules.Sync.UnitTests.AttachmentStoreHandlerTests.A_capture_naming_an_attachment_not_uploaded_is_refused_with_its_id` |
-| A capture carries its attachments' metadata and never their bytes. | `CaptureInboxItemCommandHandler` (writes `TaskPayload.Attachments`) | `unit:dotnet:Backlog.Modules.Sync.Api.UnitTests.AttachmentSyncEndpointTests.A_capture_naming_an_uploaded_attachment_carries_its_metadata_to_the_pull_and_the_list` |
-| An attachment's bytes are stored only when they hash to the digest the upload declared and fit the per-file cap; a refused upload leaves nothing stored. | `StoreAttachmentCommandHandler` | `unit:dotnet:Backlog.Modules.Sync.UnitTests.AttachmentStoreHandlerTests.Bytes_that_miss_their_declared_digest_are_refused_and_not_committed` |
-| Acknowledging a capture releases the attachments the held capture named — never ones the tombstone names — and a failed release never fails the acknowledgement. | `CaptureAttachmentRelease`, from `AcknowledgeInboxItemCommandHandler` and `PushTasksCommandHandler` | `unit:dotnet:Backlog.Modules.Sync.UnitTests.AttachmentStoreHandlerTests.An_acknowledgement_succeeds_and_logs_when_the_release_fails` |
 
 ### Source Metadata
 

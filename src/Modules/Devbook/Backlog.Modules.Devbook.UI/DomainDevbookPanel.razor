@@ -61,8 +61,11 @@
            from the Devbook pane: the pane always hands one in. A path naming a
            bounded context rather than a file is how the pane asks for this view,
            and a path naming a chapter that has since been renamed away lands here
-           too — with the tabs, which is a way out, instead of on a dead end. *@
-        @if (SelectedDocument is null)
+           too — with the tabs, which is a way out, instead of on a dead end.
+           Only where the host has no menu of its own, though: the pane's Devbook
+           menu already lists every context, and a second list of the same names
+           above the page is the same way out drawn twice. *@
+        @if (ShowContextTabs && SelectedDocument is null)
         {
             <nav class="domain-devbook__contexts" aria-label="Bounded contexts">
                 <ToggleButton BaseClass="domain-context-tab"
@@ -223,6 +226,12 @@
 
     [Parameter]
     public bool Compact { get; set; }
+
+    /// <summary>Whether the panel draws its own row of bounded-context tabs.
+    /// On for the standalone page, which has nothing else to choose a context
+    /// with; off in the Devbook pane, whose menu already lists them.</summary>
+    [Parameter]
+    public bool ShowContextTabs { get; set; } = true;
 
     [Parameter]
     public DomainDevbookView? View { get; set; }

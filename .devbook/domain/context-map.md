@@ -155,7 +155,7 @@ flowchart LR
 - `Monitoring & Dashboard` is an observer/read context. Its only write-back into
   the core flow is the published `FollowUpCaptured` contract into `Inbox`.
 - `Productivity` measures personal and AI-assisted work from published activity
-  signals. It never changes backlog status, Copilot sessions, or repository state.
+  signals. It never changes backlog status, agent sessions (`Sessions`), or repository state.
 - `Environment` owns the user's launchable environment shortcuts and access
   preferences. It resolves repository and health facts through suppliers instead
   of duplicating Repository Management or Monitoring data.
@@ -173,10 +173,12 @@ flowchart LR
   edge draws solid without a table row. The day Monitoring consumes it too, or
   Sessions begins publishing an event of its own, the event belongs in
   `.devbook/domain/sessions/domain.md` and in that table in the same change.
-- A `Sessions` **Environment** is not an `Environment`-context Environment, and not
-  a `Dev PC Management` **Machine**. It is wherever an agent ran. The two words
+- A `Sessions` [Environment](sessions/domain.md#environment) is not an
+  [`Environment`-context Environment](environment/domain.md#environment), and not a
+  `Dev PC Management` [Machine](dev-pc-management/domain.md#machine). The two words
   collide across three contexts and the concepts do not; each context defines its own
-  in its `naming.md`, and no aggregate holds another context's identity for it. Its
+  under `## Ubiquitous Language` in its `domain.md`, and no aggregate holds another
+  context's identity for it. Its
   `EnvironmentId` is the product-wide device identity issued by the shared kernel
   (`.devbook/domain/tasks/domain.md#device`), which no bounded context owns, so the rule
   stands unchanged — that identity is still not Dev PC Management's Machine.

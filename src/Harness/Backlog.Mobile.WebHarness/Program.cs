@@ -44,6 +44,11 @@ builder.Services.AddHttpClient<CloudSyncClient>(client =>
 // other's host, which is why there are two registrations rather than one.
 builder.Services.AddScoped<ISpeechTranscriber, WebSpeechTranscriber>();
 
+// The browser half of IAttachmentPicker: hidden <InputFile> elements on the
+// Note page, which Playwright can hand a fixture to. The MAUI head registers the
+// Android camera and pickers against the same abstraction.
+builder.Services.AddScoped<IAttachmentPicker, WebAttachmentPicker>();
+
 // The browser half of ISharedContentReceiver: a share arrives as ?shared=&subject=
 // because a browser cannot be given an Android intent. The MAUI head registers the
 // share target against the same abstraction; neither implementation runs in the

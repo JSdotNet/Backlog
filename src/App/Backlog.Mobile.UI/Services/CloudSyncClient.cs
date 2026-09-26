@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 
+using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 
 namespace Backlog.Mobile.UI.Services;
@@ -45,6 +46,34 @@ public sealed class CloudSyncClient(HttpClient http)
     public async Task<(HttpStatusCode Status, string? Detail)> PostCaptureAsync(CaptureRequest request, CancellationToken ct = default)
     {
         using var response = await http.PostAsJsonAsync(InboxRoute, request, ct);
+
+        if (response.IsSuccessStatusCode) return (response.StatusCode, null);
+
+        var problem = await SyncProblem.ReadAsync(response, ct);
+        return (response.StatusCode, problem.Detail);
+    }
+
+    /// <summary>
+    /// One attempt at one attachment's bytes, under its own id, with the digest
+    /// the service checks them against. 201 is a new upload and 200 the same
+    /// bytes already there — both mean the capture may now name it. Throws only
+    /// when there was no answer at all.
+    /// </summary>
+    public async Task<(HttpStatusCode Status, string? Detail)> PutAttachmentAsync(
+        AttachmentMetadata attachment,
+        Stream content,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(attachment);
+
+        using var body = new StreamContent(content);
+        body.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(attachment.ContentType);
+        body.Headers.ContentLength = attachment.SizeBytes;
+
+        using var request = new HttpRequestMessage(HttpMethod.Put, SyncRoutes.AttachmentFor(attachment.Id)) { Content = body };
+        request.Headers.Add(SyncRoutes.AttachmentSha256Header, attachment.Sha256);
+
+        using var response = await http.SendAsync(request, ct);
 
         if (response.IsSuccessStatusCode) return (response.StatusCode, null);
 

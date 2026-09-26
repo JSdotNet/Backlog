@@ -137,6 +137,107 @@ public class RoadmapItemRollupBuilderTests
         Assert.Null(link.CreatedOn);
     }
 
+    private static EntryProjectionDto Session(string id) =>
+        new("owner/repo", id, EntryProjectionDto.SessionTargetType);
+
+    private static DateTimeOffset At(int month, int day) => new(2026, month, day, 12, 0, 0, TimeSpan.Zero);
+
+    private static DateOnly Local(DateTimeOffset instant) => DateOnly.FromDateTime(instant.LocalDateTime);
+
+    [Fact]
+    public void AnUndatedEntry_WithLinkedSessions_StartsWithTheFirstSession()
+    {
+        var id = Guid.NewGuid();
+        var sessions = new Dictionary<string, RoadmapSessionActivity>
+        {
+            ["later"] = new(At(9, 10), At(9, 12)),
+            // No start recorded: its last activity is the earliest it is known to work.
+            ["earlier"] = new(null, At(9, 4)),
+            ["unlinked"] = new(At(8, 1), At(8, 2))
+        };
+
+        var rollup = RoadmapItemRollupBuilder.Build(
+            Item("sync", taskId: id),
+            [Entry(id, "Worked in sessions", tags: [], effort: 1) with
+            {
+                Projections = [Session("later"), Session("earlier"), Session("never-seen")],
+                CreatedAt = At(8, 20)
+            }],
+            [],
+            sessions);
+
+        var link = Assert.Single(rollup.BacklogEntries);
+        Assert.Equal(Local(At(9, 4)), link.StartedOn);
+
+        // Open work is not over, however long ago its last session ended.
+        Assert.Null(link.CompletedOn);
+    }
+
+    [Theory]
+    [InlineData(EntryStatus.Done)]
+    [InlineData(EntryStatus.Archived)]
+    public void AFinishedUntickedEntry_WithLinkedSessions_CompletesWithTheLastSession(EntryStatus status)
+    {
+        var id = Guid.NewGuid();
+        var sessions = new Dictionary<string, RoadmapSessionActivity>
+        {
+            ["first"] = new(At(9, 1), At(9, 3)),
+            ["last"] = new(At(9, 5), At(9, 9))
+        };
+
+        var rollup = RoadmapItemRollupBuilder.Build(
+            Item("sync", taskId: id),
+            [Entry(id, "Finished in sessions", tags: [], effort: 1, status: status) with
+            {
+                Projections = [Session("last"), Session("first")]
+            }],
+            [],
+            sessions);
+
+        var link = Assert.Single(rollup.BacklogEntries);
+        Assert.Equal(Local(At(9, 1)), link.StartedOn);
+        Assert.Equal(Local(At(9, 9)), link.CompletedOn);
+    }
+
+    [Fact]
+    public void AnEntrysOwnDates_WinOverItsSessions()
+    {
+        var id = Guid.NewGuid();
+        var sessions = new Dictionary<string, RoadmapSessionActivity>
+        {
+            ["worked"] = new(At(9, 1), At(9, 30))
+        };
+
+        var rollup = RoadmapItemRollupBuilder.Build(
+            Item("sync", taskId: id),
+            [Entry(id, "Dated", tags: [], effort: 1, status: EntryStatus.Done) with
+            {
+                Projections = [Session("worked")],
+                StartedOn = new DateOnly(2026, 9, 10),
+                CompletedOn = new DateOnly(2026, 9, 20)
+            }],
+            [],
+            sessions);
+
+        var link = Assert.Single(rollup.BacklogEntries);
+        Assert.Equal(new DateOnly(2026, 9, 10), link.StartedOn);
+        Assert.Equal(new DateOnly(2026, 9, 20), link.CompletedOn);
+    }
+
+    [Fact]
+    public void NeedsSessionDates_OnlyForAnEntryWithSessionsAndAMissingDate()
+    {
+        var linked = Entry(Guid.NewGuid(), "Linked", tags: [], effort: 1) with { Projections = [Session("s")] };
+
+        Assert.True(RoadmapItemRollupBuilder.NeedsSessionDates(linked));
+        Assert.False(RoadmapItemRollupBuilder.NeedsSessionDates(linked with { Projections = [] }));
+        Assert.False(RoadmapItemRollupBuilder.NeedsSessionDates(linked with { StartedOn = new DateOnly(2026, 9, 1) }));
+        Assert.True(RoadmapItemRollupBuilder.NeedsSessionDates(
+            linked with { StartedOn = new DateOnly(2026, 9, 1), Status = EntryStatus.Done }));
+        Assert.False(RoadmapItemRollupBuilder.NeedsSessionDates(
+            linked with { StartedOn = new DateOnly(2026, 9, 1), CompletedOn = new DateOnly(2026, 9, 2), Status = EntryStatus.Done }));
+    }
+
     [Fact]
     public void AnEntryBothLinkedAndTagged_IsCountedOnce_WearingBoth()
     {

@@ -5,8 +5,8 @@ status: adopted
 related: [".devbook/tech/technology-graph.md", ".devbook/arc42/02-constraints.md#technical-constraints"]
 ```
 
-> Technologies used by more than one channel. Every layer file points at these
-> chapters with `depends-on` instead of redefining them locally.
+> Every layer file points at these chapters with `depends-on` instead of
+> redefining them locally.
 
 ## Markdown
 
@@ -37,8 +37,7 @@ related: [".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync"]
 
 The derived-data and settings format sitting beside the canonical stores.
 
-- **Used for** — the knowledge folders' derived indexes (`_meta/*.json`), the
-  Archify artifact indexes (`_archify/index.json`), settings, the repo registry
+- **Used for** — the Archify artifact indexes (`_archify/index.json`), settings, the repo registry
   (`config/repos.json`), the dev-tool catalog the DevPc module reads, and the
   owned-collection columns inside the SQLite schema.
 - **Why** — cheap to write from every channel's stack and fast to load, with no
@@ -323,9 +322,13 @@ alternatives: ["Markdown files with YAML frontmatter", "LiteDB", "Azure Cosmos D
 
 The embedded database that is the canonical local store for tasks.
 
-- **Used for** — one `tasks` table: scalar columns for the scalar fields, JSON
-  text columns for the six owned collections, and the entry's markdown as one of
-  those columns.
+- **Used for** — `backlog.db`, which three modules share without sharing a
+  schema: Tasks keeps one `tasks` table (scalar columns for the scalar fields,
+  JSON text columns for the six owned collections, and the entry's markdown as
+  one of those columns), Roadmap Planning one `roadmap_plan` document row, and
+  the Inbox `inbox_items`, `inbox_lists` and `inbox_groups`. The phone keeps its
+  outbox and task view in a SQLite file of its own, and the generated devbook
+  database is SQLite too.
 - **Why** — accepted by
   `.devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md`, which retired
   an arrangement of three files that could disagree about one task. It
@@ -343,10 +346,11 @@ depends-on: [".devbook/tech/shared.md#sqlite", ".devbook/tech/shared.md#net-runt
 
 The ADO.NET provider the SQLite adapter is written against.
 
-- **Used for** — `Backlog.Infrastructure.Sqlite`, the only project that
-  references it; everything else reaches the store through a port.
-- **Why** — the first-party, dependency-light provider. No ORM is wanted for a
-  single-table schema.
+- **Used for** — `Backlog.Infrastructure.Sqlite`, `Backlog.Infrastructure.Devbook`
+  and `Backlog.Mobile.UI`, the three projects that reference it; everything else
+  reaches a store through a port.
+- **Why** — the first-party, dependency-light provider. No ORM is wanted for
+  schemas this small.
 
 ## Microsoft.Extensions.DependencyInjection
 

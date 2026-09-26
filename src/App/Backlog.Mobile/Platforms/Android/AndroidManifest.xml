@@ -6,12 +6,20 @@
     <!-- Speech capture on the Inbox screen. The runtime prompt is raised by
          Permissions.RequestAsync<Permissions.Microphone>; this only declares it. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- A talk note's slide photo. MediaPicker.CapturePhotoAsync raises the
+         runtime prompt; this only declares it. -->
+    <uses-permission android:name="android.permission.CAMERA" />
     <!-- Android 11 package visibility: without this the recognition service is
          invisible to us and SpeechRecognizer.IsRecognitionAvailable reports
          false on a device that has one installed. -->
     <queries>
         <intent>
             <action android:name="android.speech.RecognitionService" />
+        </intent>
+        <!-- The camera app MediaPicker hands the capture to, which Android 11
+             package visibility would otherwise hide. -->
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE" />
         </intent>
     </queries>
 </manifest>

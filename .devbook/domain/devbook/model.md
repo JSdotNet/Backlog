@@ -75,9 +75,7 @@ classDiagram
 - `TaskLink` references a Task by id only, never by object reference,
   so the two contexts stay decoupled; the Cross-Linking service keeps both
   directions consistent.
-- `effort` is a plain scalar of story points on the root, with the same three-value
-  meaning as a Task's `effort` (`null`/absent = not estimated, `0` a real
-  estimate, negative rejected). It carries no relationship to another type. Roadmap
+- `effort` is the [Effort](domain.md#effort) scalar on the root. It carries no relationship to another type. Roadmap
   Planning reads and totals it; Devbook owns it.
 - `Tag` and `RoadmapContribution` are **two different value objects on purpose**,
   even though both read as "tags". `Tag` is a `#keyword` this context owns for

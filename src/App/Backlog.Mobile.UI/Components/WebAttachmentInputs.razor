@@ -1,0 +1,34 @@
+@using Backlog.Mobile.UI.Services
+
+@*
+    The three file inputs WebAttachmentPicker clicks, kept out of sight: the
+    buttons a person presses are the Note page's own AppButtons, and these only
+    exist because a browser opens its dialog for an input in the page.
+*@
+
+<div class="web-attachment-inputs" hidden>
+    <InputFile @ref="_camera" OnChange="Picker.OnChanged" accept="image/*" capture="environment"
+               aria-label="Take a photo" data-testid="note-input-camera" />
+    <InputFile @ref="_pictures" OnChange="Picker.OnChanged" multiple accept="image/*"
+               aria-label="Choose pictures" data-testid="note-input-pictures" />
+    <InputFile @ref="_files" OnChange="Picker.OnChanged" multiple accept="@WebAttachmentPicker.FilesAccept"
+               aria-label="Choose files" data-testid="note-input-files" />
+</div>
+
+@code {
+    private InputFile? _camera;
+    private InputFile? _pictures;
+    private InputFile? _files;
+
+    [Parameter, EditorRequired]
+    public WebAttachmentPicker Picker { get; set; } = default!;
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        if (_camera?.Element is { } camera) Picker.Register(WebAttachmentSource.Camera, camera);
+        if (_pictures?.Element is { } pictures) Picker.Register(WebAttachmentSource.Pictures, pictures);
+        if (_files?.Element is { } files) Picker.Register(WebAttachmentSource.Files, files);
+    }
+}

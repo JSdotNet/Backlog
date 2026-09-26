@@ -3,9 +3,6 @@
 ```meta
 ```
 
-Concepts that apply across multiple channels and domains and must be handled
-uniformly. Shared data types define the vocabulary exchanged between them.
-
 ## Storage and Sync
 
 ```meta
@@ -27,9 +24,6 @@ related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/ar
   owned by the repository and edited outside it. See
   `.devbook/arc42/08-crosscutting-concepts.md#devbook-database`.
 - **Configurable repo paths** via a repo registry (`config/repos.json`).
-- **Scope-portable dot-folder contract** — `.inbox/`, `.backlog/`, `.brain/` exist at
-  workspace, repo, and project levels; shared tags/relationships live in the
-  workspace-root `.tags/` (`tags.json`, `tag-graph.json`).
 - **Optional cloud sync** for multi-device, carrying four kinds of state: the
   Task aggregate, session records, the phone's captures, and the person's
   remarks on Devbook chapters. A remark is Devbook's own record — one JSON
@@ -82,8 +76,9 @@ related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/ar
   `devices` and `pairingCodes`, hold the device registry; they are not replicas —
   no change feed is read from them — and they are partitioned on `/id`, because
   the read on every token mint has only the device id in hand.
-- **Retention is a store setting, not code.** Container TTL expires task and
-  annotation tombstones after 180 days and whole session records after 12 months. Nothing
+- **Retention is a store setting, not code.** Cosmos TTL expires task and
+  annotation tombstones after 180 days, stamped on each tombstone, and whole
+  session records after 12 months, set on the `sessions` container. Nothing
   reaps, so there is no scheduled job to fail silently at exactly the moment
   nobody is watching — which is when a code-based reaper stops running.
 - **The sync service, not the store, keeps a device inside its own data.** The
@@ -129,19 +124,10 @@ is a `Dev`-status feature flag that is off by default. Tombstone expiry is the
 one behaviour here that nothing local can exercise, and it is called out where it
 appears.
 
-Tasks are one of four kinds of state that sync. Session records travel on
-different terms, covered under
-`.devbook/arc42/08-crosscutting-concepts.md#session-record-sync`; Devbook annotations
-travel on exactly these terms over their own container
-(`.devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md`); the phone's
-captures are not a third shape at all, because a capture is written as a
-task-shaped document in the same `tasks` container the moment it is pushed —
-distinguished by its `capture` kind token, which routes it to the desktop's Inbox
-intake instead of the task table
-(`.devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md`). What stays on the machine
-— agent transcripts, workspace settings, feature flags, and the derived
-knowledge layer — is listed under
-`.devbook/arc42/08-crosscutting-concepts.md#storage-and-sync`.
+Tasks are one of four kinds of state that sync, listed with what stays on the
+machine under `.devbook/arc42/08-crosscutting-concepts.md#storage-and-sync`;
+session records travel on different terms, under
+`.devbook/arc42/08-crosscutting-concepts.md#session-record-sync`.
 
 **Reconciliation between equals, not client and server.** Each device's SQLite
 database is canonical for that device. Azure holds a replica and the change feed
@@ -166,8 +152,9 @@ sequenceDiagram
 ```
 
 - **Every task carries `updated_at` and `deleted_at`.** The first is stamped by
-  the device on each mutation; the second is a tombstone, because a deletion has
-  to replicate and a row that is simply gone cannot.
+  the device on each mutation; the second marks a tombstone
+  (`.devbook/domain/tasks/domain.md#tombstone`), because a deletion has to
+  replicate and a row that is simply gone cannot.
 - **The server orders, the device does not.** Two machines' clocks disagree, and
   last-write-wins decided by a skewed clock discards real edits. The Cosmos `_ts`
   assigned on write orders the feed; `updated_at` breaks ties, and the device id
@@ -208,7 +195,7 @@ sequenceDiagram
   in front of a credential that can see everything. Cosmos cannot authorize a
   device-session principal it has never heard of, so this is the only place the
   check can live.
-- **Tombstones expire by container TTL**, at 180 days, rather than by anything
+- **Tombstones expire by Cosmos TTL**, at 180 days, rather than by anything
   the service runs. The number is chosen against how long a device may plausibly
   stay offline: a tombstone that expired first would let a returning device push
   its still-live copy and resurrect a task the person deleted. The adapter stamps
@@ -295,15 +282,12 @@ and local ADR 0005 argues each.
   result crosses — capped at 500 per list and refused above it, with null meaning
   "no record" and an empty list meaning "a record that held nothing", a
   distinction the wire, the replica file and the store all keep.
-- **Retention is a 12-month container TTL**, and nothing else removes a record.
 
 ## Devbook Database
 
 ```meta
 related: [".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/domain/devbook/features.md#repository-devbook-areas"]
 ```
-
-How every channel reads the knowledge a repository carries alongside its code.
 
 - **Markdown is canonical and the layer over it is generated** — the graph between
   chapters, the resolved reading outline, the retrieval indexes and the diagram
@@ -346,29 +330,8 @@ How every channel reads the knowledge a repository carries alongside its code.
   the panels take today. Browsing therefore always works. Search is the one
   exception — without an index it is unavailable and says so, because scanning the
   corpus per query is a hang, not a fallback.
-- **One artifact, every channel** — desktop, mobile, the IDE extensions and a future
-  MCP server read the same schema rather than each carrying its own markdown parser.
-
-> Moved on 2026-09-25 (local ADR 0015): the database left the repository for the
-> app's storage, and the app became its writer, which is what the first gap below
-> was waiting on. The note that follows is the 2026-09-08 state.
->
-> Implemented on 2026-09-08, with two deliberate gaps. The derived layer is
-> `_meta/devbook.db`, written by `tools/devbook/build-database.mjs` and
-> git-ignored; each knowledge folder carries a committed `_reading-order.json`
-> holding the authored half; and `Backlog.Infrastructure.Devbook` reads the
-> database read-only, down every rung of the ladder above.
->
-> The gaps are the refresh paths that need the app to start the generator — the
-> debounced watcher and the idle background pass — which stay unbuilt because how
-> the app invokes it is still open, and the semantic tier's live call, which does
-> not happen: the embedding table, its port and a brute-force cosine reader exist,
-> and nothing fills them, so retrieval is full-text alone. Neither gap costs
-> correctness, because the floor of the ladder is the Markdown reader the panels
-> already had. See
-> `.devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md` for the
-> reasoning, what the implementation departed from, and the questions it still
-> leaves open.
+- **One artifact, every channel** — desktop, mobile and the IDE extensions read
+  the same schema rather than each carrying its own markdown parser.
 
 ## Feature Enablement
 
@@ -473,18 +436,15 @@ architectural concern:
 | **RepositoryRegistration** | `.devbook/domain/repository-management/domain.md#repository-registry` |
 | **TechBaseline** | `.devbook/domain/technology-stack/domain.md#technology-registry` |
 
-**Effort** is the one shared *scalar* rather than a shared type: an optional
-non-negative story-point estimate that appears on tasks, on knowledge
-chapters (as the `effort` field of a `meta` block, emitted into the knowledge graph as
-a number), and as the arithmetic rollup a roadmap item reports over what it gathers. It
-is architectural only because the same unit has to mean the same thing in all three
-places. Absent means *not estimated* and is distinct from `0`, which is a real estimate
-contributing zero; a rollup total is therefore always reported alongside a count of
-gathered items carrying no estimate, so the total is never mistaken for the whole
-picture.
+**Effort** (`.devbook/domain/tasks/domain.md#effort`) is the one shared *scalar*
+rather than a shared type. It appears on tasks, on knowledge chapters (as the
+`effort` field of a `meta` block, emitted into the knowledge graph as a number), and
+as the arithmetic rollup a roadmap item reports over what it gathers, and it is
+architectural only because the same unit has to mean the same thing in all three
+places.
 
-The cloud service persists only sync-oriented state derived from these types
-(`SyncState`, `SyncPayload`, `WebhookEvents`, `GitHubWebhookConfig`,
-`MachineRegistry`, `TeamConfig`) — never the canonical domain data itself.
+The cloud service persists only sync-oriented state derived from these types — the
+`tasks`, `sessions` and `annotations` replica containers, the `devices` and
+`pairingCodes` registry, and the `attachments` blob container — never the canonical domain data itself.
 
 

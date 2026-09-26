@@ -1,0 +1,88 @@
+using System.Security.Cryptography;
+
+using Backlog.Mobile.UI.Outbox;
+using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
+
+namespace Backlog.Mobile.UI.TalkNotes;
+
+/// <summary>
+/// Turns the draft into the one outbox entry a saved talk note is: each
+/// picture downscaled unless the note keeps originals, each file moved from the
+/// strip's folder to the outbox's, the metadata the service checks — size and
+/// SHA-256 of the bytes that will actually go — and a title when the note had
+/// none.
+/// </summary>
+public sealed class TalkNoteComposer(TalkNoteFiles files, DeviceOutbox outbox, TimeProvider clock)
+{
+    /// <summary>Queues the note and returns its entry id, or null when the draft
+    /// cannot be saved as it stands.</summary>
+    public async Task<Guid?> SaveAsync(TalkNoteDraft draft, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(draft);
+        if (!draft.CanSave) return null;
+
+        Directory.CreateDirectory(files.OutboxFolder);
+
+        var attachments = new List<AttachmentMetadata>();
+        foreach (var picked in draft.Accepted)
+        {
+            attachments.Add(await PrepareAsync(picked, draft.SendOriginals, cancellationToken));
+        }
+
+        var today = DateOnly.FromDateTime(clock.GetLocalNow().DateTime);
+        var title = TalkNoteTitle.For(draft.Title, draft.Body, [.. attachments.Select(a => (a.Name, a.ContentType))], today);
+        var body = draft.Body.Trim();
+        var tags = draft.TagList;
+
+        var id = Guid.CreateVersion7();
+        var capture = new CaptureRequest(
+            title,
+            CaptureOutboxKind.Source,
+            id,
+            body.Length > 0 ? body : null,
+            tags.Count > 0 ? tags : null,
+            draft.Person,
+            attachments.Count > 0 ? attachments : null);
+
+        await outbox.EnqueueAsync(TalkNoteOutboxKind.Token, id, TalkNoteOutboxKind.Write(new TalkNotePayload(capture, [])), cancellationToken);
+
+        draft.LastSaved = id;
+        draft.Clear();
+
+        return id;
+    }
+
+    private async Task<AttachmentMetadata> PrepareAsync(DraftAttachment picked, bool sendOriginals, CancellationToken cancellationToken)
+    {
+        var target = files.OutboxPath(picked.Id);
+        var name = picked.Name;
+        var contentType = picked.ContentType;
+
+        byte[]? downscaled = null;
+        if (!sendOriginals && PictureDownscaler.Handles(contentType))
+        {
+            await using var source = File.OpenRead(picked.StagedPath);
+            downscaled = PictureDownscaler.Downscale(source);
+        }
+
+        if (downscaled is not null)
+        {
+            await File.WriteAllBytesAsync(target, downscaled, cancellationToken);
+            TalkNoteFiles.Discard(picked);
+
+            name = Path.ChangeExtension(name, ".jpg");
+            contentType = PictureDownscaler.ContentType;
+        }
+        else
+        {
+            // As taken: a file, a GIF, a picture kept original, or one this
+            // device cannot decode.
+            File.Move(picked.StagedPath, target, overwrite: true);
+        }
+
+        await using var stream = File.OpenRead(target);
+        var sha256 = Convert.ToHexStringLower(await SHA256.HashDataAsync(stream, cancellationToken));
+
+        return new AttachmentMetadata(picked.Id, name, contentType, stream.Length, sha256);
+    }
+}

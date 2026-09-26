@@ -20,13 +20,6 @@
       "deliver": [
         "backlog"
       ]
-    },
-    "delivery.roles": {
-      "architecture": "architecture",
-      "domain": "domain-design",
-      "qa": "qa",
-      "ux": "ux-design",
-      "docs": "documentation"
     }
   },
   "extensions": {
@@ -37,17 +30,14 @@
     },
     "qa.run": {
       "provider": "qa:qa"
-    }
-  },
-  "extensions": {
+    },
     "session.start": [
       "devbook:validate"
     ],
     "verify": "devbook:verify-change",
     "flow.end": [
       "devbook:update"
-    ],
-    "app.start": "repo:start"
+    ]
   },
   "components": {
     "delivery": {

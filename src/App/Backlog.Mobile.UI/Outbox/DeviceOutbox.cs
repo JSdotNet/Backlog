@@ -93,6 +93,10 @@ public sealed class DeviceOutbox : IDisposable
     /// delivery.</summary>
     public bool Unreachable { get; private set; }
 
+    /// <summary>The entry an attempt is under way for, or null between attempts.
+    /// A screen reads it to say "uploading" rather than "waiting".</summary>
+    public Guid? Sending { get; private set; }
+
     /// <summary>The wait after <paramref name="failedAttempts"/> failures.</summary>
     public static TimeSpan DelayAfter(int failedAttempts) =>
         FirstRetryDelay * Math.Pow(2, Math.Max(0, failedAttempts - 1));
@@ -218,6 +222,10 @@ public sealed class DeviceOutbox : IDisposable
 
             var delivery = await SendAsync(entry, cancellationToken);
 
+            // A staged kind may have checkpointed while it ran; what follows
+            // builds on the entry as it now stands, not on the copy it was sent.
+            var latest = Find(entry.Id) ?? entry;
+
             switch (delivery.Kind)
             {
                 case OutboxDeliveryKind.Delivered:
@@ -232,12 +240,12 @@ public sealed class DeviceOutbox : IDisposable
                 case OutboxDeliveryKind.Refused:
                     // Not a network problem, and not one a timer will fix — so it
                     // is set aside rather than holding up the entries behind it.
-                    await ReplaceAsync(entry with { Refused = true, LastError = delivery.Error }, cancellationToken);
+                    await ReplaceAsync(latest with { Refused = true, LastError = delivery.Error }, cancellationToken);
                     Changed?.Invoke();
                     continue;
 
                 default:
-                    var failed = entry with { Attempts = entry.Attempts + 1, LastError = delivery.Error };
+                    var failed = latest with { Attempts = latest.Attempts + 1, LastError = delivery.Error };
                     await ReplaceAsync(failed, cancellationToken);
                     Unreachable = true;
                     Changed?.Invoke();
@@ -272,9 +280,14 @@ public sealed class DeviceOutbox : IDisposable
             return OutboxDelivery.Refused($"Nothing on this phone sends a '{entry.Kind}' entry.");
         }
 
+        Sending = entry.Id;
+        Changed?.Invoke();
+
         try
         {
-            return await kind.SendAsync(entry, cancellationToken);
+            return kind is IStagedOutboxKind staged
+                ? await staged.SendAsync(entry, (payload, ct) => CheckpointAsync(entry.Id, payload, ct), cancellationToken)
+                : await kind.SendAsync(entry, cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
@@ -282,6 +295,25 @@ public sealed class DeviceOutbox : IDisposable
             // treated as the network's, which is the case a retry can cure.
             return OutboxDelivery.Transient(ex.Message);
         }
+        finally
+        {
+            Sending = null;
+        }
+    }
+
+    /// <summary>A staged kind's request landed: keep what it has sent, and give
+    /// the entry its attempts back for the next one.</summary>
+    private async Task CheckpointAsync(Guid id, string payloadJson, CancellationToken cancellationToken)
+    {
+        if (Find(id) is not { } current) return;
+
+        await ReplaceAsync(current with { PayloadJson = payloadJson, Attempts = 0, LastError = null }, cancellationToken);
+        Changed?.Invoke();
+    }
+
+    private OutboxEntry? Find(Guid id)
+    {
+        lock (_entriesLock) return _entries.Find(queued => queued.Id == id);
     }
 
     private async Task ReplaceAsync(OutboxEntry entry, CancellationToken cancellationToken)

@@ -88,6 +88,9 @@ rendering technology as the IDE webviews.
 
 ### Mobile — .NET MAUI
 
+```meta
+```
+
 | Aspect | Recommendation |
 |---|---|
 | Base controls | **.NET MAUI + .NET MAUI Community Toolkit.** Preferred per architecture. Fallbacks: Blazor Hybrid / Blazor WASM PWA. |
@@ -97,6 +100,9 @@ rendering technology as the IDE webviews.
 | A11y (C5) | `SemanticProperties`; test Narrator/VoiceOver/TalkBack + OS text scaling. |
 
 ### IDE — VS Code extension (TypeScript webview)
+
+```meta
+```
 
 | Aspect | Recommendation |
 |---|---|
@@ -108,6 +114,9 @@ rendering technology as the IDE webviews.
 
 ### IDE — Visual Studio extension (C#, WPF)
 
+```meta
+```
+
 | Aspect | Recommendation |
 |---|---|
 | Base controls | **WPF** with VS shell theming; reuse the same token set as a WPF `ResourceDictionary`. |
@@ -116,6 +125,9 @@ rendering technology as the IDE webviews.
 | A11y (C5) | UIA/`AutomationProperties`. |
 
 ### Cloud — ASP.NET Core Minimal APIs
+
+```meta
+```
 
 | Aspect | Recommendation |
 |---|---|

@@ -38,8 +38,7 @@ The queue offers the two ways something gets into it from its own header:
 which runs the watched sources. Add asks for a title and, optionally, notes —
 nothing else, because the Inbox is where deciding happens and a dialog that
 asked where the item goes would be asking for triage before the item exists.
-The result is an `unprocessed` Inbox Item with channel `manual`, the notes as
-its body, captured and received at the same instant; it lands unfiled in the
+The result is a [Capture (manual)](domain.md#capture-manual), captured and received at the same instant; it lands unfiled in the
 queue the reader is filling and opens in the detail beside it rather than
 anywhere else. It needs no paired device, which makes it the offline path and
 the way an inbox is seeded without a phone.
@@ -156,7 +155,7 @@ depends-on: [.devbook/domain/inbox/features.md#triage-workflow]
 related: [.devbook/domain/tasks/features.md#task-creation, .devbook/domain/devbook/features.md#knowledge-capture]
 ```
 
-Move a triaged item to its destination.
+Routing is the terminal outcome of triage and happens exactly once.
 
 ### Route to Tasks
 
@@ -201,7 +200,7 @@ status: draft
 related: [.devbook/domain/devbook/features.md#knowledge-capture]
 ```
 
-Create a Knowledge Note from the item.
+Create a Knowledge Note from the item. Modelled, not built.
 
 ### Defer
 

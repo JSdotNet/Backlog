@@ -56,6 +56,9 @@ mobile's native .NET MAUI. MUST NOT introduce sizes outside this scale.
 
 ### Weights, Line Heights, Letter Spacing
 
+```meta
+```
+
 | Weight token | Value | Line-height token | Value | Letter-spacing token | Value |
 |---|---|---|---|---|---|
 | `font-weight-light` | 300 | `line-height-none` | 1 | `letter-spacing-tight` | -0.025em |
@@ -80,6 +83,9 @@ Rules:
   `line-height-tight`.
 
 ### Heading Defaults
+
+```meta
+```
 
 | Element | Size | Weight | Line height | Family |
 |---|---|---|---|---|
@@ -200,6 +206,9 @@ reduced opacity (~30% less than the raw token) in dark mode.
 | `shadow-inner` | inset 0 2px 4px rgba(0,0,0,0.06) | Pressed / active states, inset inputs |
 
 ### Z-Index Scale
+
+```meta
+```
 
 | Token | Value | Layer |
 |---|---|---|

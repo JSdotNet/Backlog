@@ -14,7 +14,7 @@ only the rest of the repository.
 ## Casing
 
 Use kebab-case for files and folders (`plugins/backlog-tools/`,
-`copilot-orch-context.md`). Keep any casing an external tool requires, such as
+`orch-context.md`). Keep any casing an external tool requires, such as
 `SKILL.md`, `README.md`, `CODEOWNERS`, and workflow filenames the platform
 expects.
 

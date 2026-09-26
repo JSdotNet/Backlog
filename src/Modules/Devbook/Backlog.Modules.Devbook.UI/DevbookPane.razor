@@ -922,7 +922,7 @@
             "design" => @<DesignDevbookView RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" OnNavigateToChapter="SelectChapter" />,
             "ai" => @<AiDevbookView RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" OnNavigateToChapter="SelectChapter" />,
             "arc42" => @<Arc42DevbookPanel RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" SelectedC4View="@_selectedC4View" OnNavigateToChapter="SelectChapter" />,
-            "domain" => @<DomainDevbookPanel Compact="true" RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" OnNavigateToChapter="SelectChapter" />,
+            "domain" => @<DomainDevbookPanel Compact="true" ShowContextTabs="false" RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" OnNavigateToChapter="SelectChapter" />,
             "tech" => @<TechnologyDevbookPanel RepositoryAlias="@ActiveRepositoryAlias" OnNavigateToChapter="SelectChapter" />,
             "instructions" => @<InstructionsDevbookPanel RepositoryAlias="@ActiveRepositoryAlias" SelectedPath="@SelectedChapterPath" OnNavigateToChapter="SelectChapter" />,
             _ => @<Alert Message="Turn on Devbook sections in Settings to read the repository's devbook here." BaseClass="devbook-empty" Role="status" />

@@ -1,13 +1,8 @@
-# Orchestration Repo Context
+# Repo Runtime Context
 
-Repo-specific startup and QA context for `orch-*` orchestration runs in `JSdotNet/Backlog`,
-read by the `claude-desktop` plugin's orchestrator once per run.
-
-This is the Claude Code copy of the runtime facts. `.github/copilot-orch-context.md` is the
-GitHub Copilot copy and carries the same facts; neither toolchain supports includes, so the
-two files are maintained side by side. **When the AppHost path, resource names, startup
-signals, or QA depth change, update both.** Model choice is not configured in this
-repository; orchestration runs use the plugin defaults unless overridden per run.
+Repo-specific startup and QA context for delivery flow runs in `JSdotNet/Backlog`: how the
+application starts, what to validate against, and the default QA depth. Model choice is not
+configured in this repository; flows use the plugin defaults unless overridden per run.
 
 ## Application
 
@@ -166,13 +161,13 @@ inherited architecture decisions, `.devbook/arc42/adr/` for local ones, and `.de
 UX guidance. A plugin skill that tells you to query `jsdotnet-guidelines-mcpserver` should be
 served from `.devbook/arc42/adr/guidelines/` instead — its absence is not a blocked precondition.
 
-Available to orchestration runs in Claude Code:
+Available to flow runs in Claude Code:
 
 - `plugin_qa_aspire` — Aspire resource state, console logs, structured logs, and traces.
 - `plugin_qa_playwright` — browser automation for QA validation.
-- `plugin_claude-desktop_orch-dashboard` — orchestration progress reporting. Its tools are
-  namespaced `mcp__plugin_claude-desktop_orch-dashboard__*`, **not** `mcp__orch-dashboard__*`.
-- `jsdotnet-publish-results` — publishing orchestration reports and artifacts.
+- `plugin_delivery-surface-backlog_delivery-surface-backlog` and
+  `plugin_delivery-surface-dashboard_delivery-surface-dashboard` — run progress reporting.
+- `backlog` — the running desktop app's own server, bound as the delivery tracker.
 
 If a runtime MCP server is unavailable, say so plainly rather than substituting a guess —
 and for guidance, there is nothing to fall back from: the checked-in documents are the
