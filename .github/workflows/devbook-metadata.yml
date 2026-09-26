@@ -100,5 +100,8 @@ jobs:
       # second copy for a branch to disagree with and nothing for a failure here
       # to be about except the build actually being broken. Local ADR 0004 buys
       # exactly this back — a derived artifact that CI may enforce again.
+      # `--check` builds into the temp folder and deletes it: since local ADR 0015
+      # the script writes nothing into a repository, and the app builds the
+      # database it reads for itself.
       - name: Build it on the real corpus
-        run: node tools/devbook/build-database.mjs
+        run: node tools/devbook/build-database.mjs --check

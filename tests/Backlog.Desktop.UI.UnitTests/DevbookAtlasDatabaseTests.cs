@@ -80,7 +80,7 @@ public sealed class DevbookAtlasDatabaseTests : IDisposable
 
         Assert.False(graph.Available);
         Assert.Empty(graph.Nodes);
-        Assert.Contains("has not been written yet", graph.Message);
+        Assert.Contains("has not been built yet", graph.Message);
     }
 
     private IDevbookFolderSource Arrange(bool withDatabase)
@@ -95,7 +95,7 @@ public sealed class DevbookAtlasDatabaseTests : IDisposable
 
     private void WriteDatabase()
     {
-        var databasePath = Path.Combine(_root, "_meta", "devbook.db");
+        var databasePath = DevbookDatabaseLocation.ForRepositoryRoot(_root)!;
         Directory.CreateDirectory(Path.GetDirectoryName(databasePath)!);
 
         using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
@@ -107,13 +107,8 @@ public sealed class DevbookAtlasDatabaseTests : IDisposable
         connection.Open();
         Execute(connection, "PRAGMA journal_mode = WAL");
 
-        // Read from tools/devbook/devbook-schema.mjs rather than restated here,
-        // for the reason that file's own header gives.
-        var source = File.ReadAllText(RepositoryRoot.File("tools", "devbook", "devbook-schema.mjs"));
-        var ddl = Regex.Match(source, @"export const DEVBOOK_SCHEMA = `(?<value>[^`]*)`", RegexOptions.Singleline);
-        Assert.True(ddl.Success, "tools/devbook/devbook-schema.mjs no longer exports DEVBOOK_SCHEMA.");
-
-        Execute(connection, ddl.Groups["value"].Value);
+        // The schema both writers load (tools/devbook/devbook-schema.sql), not a copy.
+        Execute(connection, DevbookDatabaseSchema.Ddl);
         Execute(
             connection,
             $"INSERT INTO meta (key, value) VALUES ('schemaVersion', '{DevbookDatabaseSchema.Version}')");

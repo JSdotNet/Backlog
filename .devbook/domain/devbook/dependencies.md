@@ -38,7 +38,8 @@ status: draft
   aggregation is by discovering all `.brain/` folders, not by a shared store.
 - A repository's knowledge folders are read **in place and never owned**: they
   belong to the repository, are edited outside this context, and any prepared view
-  over them is derived and must give way to the folder itself. That is why
+  over them is derived, kept outside the repository, and must give way to the
+  folder itself. That is why
   Roadmap Planning's gather is described as reading chapters by reference and by
   tag rather than as reading an index — which index exists, and whether one exists
   at all, is not part of the contract.

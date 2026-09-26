@@ -1,43 +1,46 @@
-// devbook-schema.mjs — the DDL of `_meta/devbook.db`, as one string.
+// devbook-schema.mjs — the DDL of the generated devbook database, as one text,
+// and the notes on its columns.
 //
-// One exported constant rather than a list of statements, and one file rather
-// than a literal inside `build-database.mjs`, for a single reason: ADR 0004's
-// named risk is that a schema written in Node and read in C# drifts silently,
-// the way the Archify hash rule already can. A schema that exists as one exact
-// piece of text can be pinned from the reading side — the C# contract test
-// asserts against this string and against `SCHEMA_VERSION` below, so a column
-// renamed here fails a test rather than a panel.
+// The DDL itself lives in `devbook-schema.sql` beside this file, and this module
+// only reads it. Local ADR 0015 made the desktop app the writer that matters, so
+// the schema now has two writers — this repository's Node tooling and the C#
+// builder in `Backlog.Infrastructure.Devbook` — and one text both of them load:
+// the C# assembly embeds the same `.sql` file. ADR 0004's named risk, a schema
+// written in one language and read in another drifting silently, is answered by
+// there being nothing to restate.
 //
-// Read `.devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md` before
-// changing anything here. Two rules from it govern this file:
+// Read `.devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md`
+// and `0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md`
+// before changing anything here. Two rules govern this file:
 //
-//   * The Node generator is the only writer. Nothing in C# creates a table,
-//     migrates one, or repairs a row it can see is stale — a drifted file is
-//     served from its Markdown instead. That is why there is no migration
-//     machinery: the database is a build output, and the answer to a schema
-//     change is to rebuild it.
-//   * A reader that does not recognise `SCHEMA_VERSION` ignores the database
-//     entirely and reads Markdown. So bumping the version is a safe, blunt
-//     instrument, and it is the *only* instrument. Bump it for any change to
-//     the text below that a reader could notice.
+//   * There is no migration machinery. The database is a build output, rebuilt
+//     whole, and the answer to a schema change is to rebuild it. A drifted file
+//     is served from its Markdown until the next build.
+//   * A reader that does not recognise the schema version ignores the database
+//     entirely and reads Markdown. So bumping it is a safe, blunt instrument, and
+//     it is the *only* instrument. Bump the `schema-version` line in the `.sql`
+//     file for any change a reader could notice; `DevbookDatabaseSchema.Version`
+//     is pinned to it by a C# test.
 //
-// No `PRAGMA` lives here. Journal mode and synchronous settings are properties
-// of the file the writer produces, not of the shape the reader is pinned to, and
-// mixing them in would make the pinned text depend on how it was applied.
+// No `PRAGMA` lives in the DDL. Journal mode and synchronous settings are
+// properties of the file a writer produces, not of the shape the reader is
+// pinned to.
 
-/** Bumped for any change to `DEVBOOK_SCHEMA` a reader could notice.
+import { readFileSync } from 'node:fs';
+
+/** The schema text, exactly as `devbook-schema.sql` holds it. */
+const SCHEMA_TEXT = readFileSync(new URL('./devbook-schema.sql', import.meta.url), 'utf8');
+
+/** Bumped for any change to `DEVBOOK_SCHEMA` a reader could notice, in the
+ *  `-- schema-version: N` line of `devbook-schema.sql`.
  *
  *  2 — `chapter.search_text` was added and `chapter_fts` moved onto it, so the
  *  full-text index holds prose instead of the chapter's raw Markdown. */
-export const SCHEMA_VERSION = 2;
-
-/** The file the writer produces, relative to the repository root, in a
- *  repository that keeps its knowledge folders at the root (`.arc42`, …). */
-export const DATABASE_PATH = '_meta/devbook.db';
-
-/** The same file in a repository that keeps them under `.devbook/`, beside the
- *  rest of that layout's rollup. */
-export const DEVBOOK_DATABASE_PATH = '.devbook/_meta/devbook.db';
+export const SCHEMA_VERSION = (() => {
+    const match = /^-- schema-version: (\d+)\s*$/m.exec(SCHEMA_TEXT);
+    if (!match) throw new Error('devbook-schema.sql carries no `-- schema-version: N` line.');
+    return Number(match[1]);
+})();
 
 /**
  * Every table, virtual table and index of the devbook database.
@@ -120,114 +123,4 @@ export const DEVBOOK_DATABASE_PATH = '.devbook/_meta/devbook.db';
  * that lists the same reference twice in one field would abort a build that
  * insisted on it — for a label, not for data anything joins on.
  */
-export const DEVBOOK_SCHEMA = `
-CREATE TABLE meta (
-    key   TEXT PRIMARY KEY,
-    value TEXT
-);
-
-CREATE TABLE node (
-    id           TEXT PRIMARY KEY,
-    type         TEXT NOT NULL,
-    label        TEXT,
-    folder       TEXT,
-    path         TEXT,
-    slug         TEXT,
-    level        INTEGER,
-    line         INTEGER,
-    status       TEXT,
-    out_of_scope INTEGER NOT NULL DEFAULT 0,
-    effort       INTEGER,
-    kind         TEXT,
-    version      TEXT,
-    issue        TEXT
-);
-
-CREATE TABLE node_attribute (
-    node_id TEXT NOT NULL,
-    name    TEXT NOT NULL,
-    value   TEXT NOT NULL
-);
-
-CREATE TABLE edge (
-    id     TEXT NOT NULL,
-    type   TEXT NOT NULL,
-    source TEXT NOT NULL,
-    target TEXT NOT NULL
-);
-
-CREATE TABLE outline_entry (
-    id        INTEGER PRIMARY KEY,
-    scope     TEXT NOT NULL,
-    parent_id INTEGER,
-    ordinal   INTEGER NOT NULL,
-    type      TEXT NOT NULL,
-    name      TEXT NOT NULL,
-    path      TEXT NOT NULL,
-    title     TEXT,
-    status    TEXT,
-    kind      TEXT,
-    is_root   INTEGER NOT NULL DEFAULT 0
-);
-
-CREATE TABLE chapter (
-    id           INTEGER PRIMARY KEY,
-    path         TEXT NOT NULL,
-    folder       TEXT,
-    slug         TEXT NOT NULL,
-    level        INTEGER NOT NULL,
-    title        TEXT,
-    status       TEXT,
-    line         INTEGER NOT NULL,
-    text         TEXT NOT NULL,
-    search_text  TEXT NOT NULL,
-    content_hash TEXT NOT NULL,
-    source_hash  TEXT NOT NULL,
-    size         INTEGER NOT NULL,
-    mtime        INTEGER NOT NULL
-);
-
-CREATE VIRTUAL TABLE chapter_fts USING fts5(
-    title,
-    search_text,
-    content='chapter',
-    content_rowid='id',
-    tokenize='unicode61 remove_diacritics 2'
-);
-
-CREATE TABLE chapter_embedding (
-    content_hash TEXT PRIMARY KEY,
-    model        TEXT NOT NULL,
-    dimensions   INTEGER NOT NULL,
-    vector       BLOB NOT NULL
-);
-
-CREATE TABLE archify_artifact (
-    chapter_path  TEXT NOT NULL,
-    fence_hash    TEXT NOT NULL,
-    ordinal       INTEGER NOT NULL,
-    type          TEXT,
-    quality       TEXT,
-    kind          TEXT,
-    spec_path     TEXT,
-    artifact_path TEXT,
-    checks_passed INTEGER,
-    check_count   INTEGER
-);
-
-CREATE TABLE problem (
-    scope    TEXT NOT NULL,
-    severity TEXT NOT NULL,
-    path     TEXT,
-    message  TEXT NOT NULL
-);
-
-CREATE INDEX node_folder ON node (folder);
-CREATE INDEX node_path ON node (path);
-CREATE INDEX node_attribute_node ON node_attribute (node_id, name);
-CREATE INDEX edge_source ON edge (source);
-CREATE INDEX edge_target ON edge (target);
-CREATE INDEX outline_entry_scope ON outline_entry (scope, parent_id, ordinal);
-CREATE INDEX chapter_path ON chapter (path);
-CREATE INDEX archify_artifact_fence ON archify_artifact (fence_hash);
-`;
+export const DEVBOOK_SCHEMA = SCHEMA_TEXT;

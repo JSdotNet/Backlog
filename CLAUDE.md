@@ -108,16 +108,20 @@ dotnet test Backlog.sln
 
 ## Devbook database
 
-The derived knowledge layer is **one generated SQLite database**, `.devbook/_meta/devbook.db`,
+The derived knowledge layer is **one generated SQLite database per repository path**,
 holding the reference graph, the resolved reading outline, every chapter's text and
-hashes, the FTS5 index and the Archify artifact rows. It is a build output: git-ignored,
-rebuilt per machine, and **absent on a fresh clone until you build it**. Local ADR 0004
-(`.devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md`) is the decision and
-the reasoning.
-
-```powershell
-node tools/devbook/build-database.mjs
-```
+hashes, the FTS5 index and the Archify artifact rows. It lives in the **app's storage,
+never in a repository**: `_databases/<name>-<hash>/devbook.db` under the devbook cache
+folder (`devbook-cache` under the storage folder by default —
+`%LOCALAPPDATA%\Backlog.Debug\devbook-cache` for a debug build and the harness), keyed by
+the repository root's absolute path, so every worktree has its own. **The app builds it**,
+in the background, the first time a repository's devbook is read and again whenever an
+input changed; nothing needs running and nothing needs ignoring. Local ADR 0004
+(`.devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md`) is what the
+database is; local ADR 0015
+(`.devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md`)
+is where it lives and who writes it. A `.devbook/_meta/devbook.db` or `_meta/devbook.db`
+left by the old writer is ignored by the app and safe to delete.
 
 The authored half stays committed text: each knowledge folder carries a
 `_reading-order.json` naming its root document and the order of everything beside it.
@@ -130,14 +134,26 @@ that has changed since it was indexed is read from its Markdown, an unrecognised
 version is ignored entirely, and an absent or unreadable database falls back to scanning
 the folder — which is what the panels did before any index existed. So browsing always
 works. Search is the one exception: without a database it is unavailable and says so,
-because scanning the corpus per query is a hang rather than a fallback.
-`Backlog.Infrastructure.Devbook` is the reader; **nothing in C# ever writes to it.**
+because scanning the corpus per query is a hang rather than a fallback — until the first
+background build lands. `Backlog.Infrastructure.Devbook` holds the reader, the builder
+(`DevbookDatabaseBuilder`, a port of the Node writer's parse) and the refresher that
+schedules it.
 
 The product reads both layouts: `.devbook/<name>` first and the root-level `.<name>` as
 the legacy fallback. This repository is on the `.devbook/` layout, adopted through the
 `devbook` plugin (`components.devbook` in `.devbook/config.json` records the release,
-contract, adopted folders, and what it materialized). `build-database.mjs` writes the
-database with the devbook generator materialized at `.devbook/_tools/devbook-meta/`.
+contract, adopted folders, and what it materialized).
+
+`tools/devbook/build-database.mjs` stays as the reference the C# builder is held to: it
+imports the devbook generator materialized at `.devbook/_tools/devbook-meta/`, and
+`DevbookBuilderParityTests` builds this repository's `.devbook/` both ways and compares
+the tables, which needs Node 22.5+ on the path. A devbook plugin release that changes the
+parse fails that test; port the change into `Backlog.Infrastructure.Devbook/Building/`
+in the same pull request. The schema both writers load is `tools/devbook/devbook-schema.sql`.
+
+```powershell
+node tools/devbook/build-database.mjs --check
+```
 
 The devbook folders follow the plugin's rules, installed as `.agents/rules/devbook-*.md`
 with a wrapper per host, and its section of `AGENTS.md`. Check them before committing; the

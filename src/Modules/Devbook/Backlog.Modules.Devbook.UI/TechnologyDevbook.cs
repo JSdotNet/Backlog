@@ -204,7 +204,7 @@ internal static class TechnologyDevbookReader
     /// What one service remembers between reads: each layer file's parse, and
     /// the graph projection out of the database. Two caches because they are
     /// stamped by different files — a chapter by itself, the projection by
-    /// <c>_meta/devbook.db</c>, which the projection reads whole and which is the
+    /// the devbook database, which the projection reads whole and which is the
     /// most expensive single read on this panel.
     /// </summary>
     internal sealed class Cache

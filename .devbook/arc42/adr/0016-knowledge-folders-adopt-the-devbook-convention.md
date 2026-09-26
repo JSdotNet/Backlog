@@ -2,7 +2,7 @@
 
 ```meta
 date: 2026-09-26
-related: [".devbook/arc42/08-crosscutting-concepts.md#devbook-database", ".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md", ".devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/domain/devbook/features.md#repository-devbook-areas", ".devbook/domain/roadmap/domain.md#roadmap-plan", ".devbook/tech/tooling.md#knowledge-meta-generator"]
+related: [".devbook/arc42/08-crosscutting-concepts.md#devbook-database", ".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md", ".devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/domain/devbook/features.md#repository-devbook-areas", ".devbook/domain/roadmap/domain.md#roadmap-plan", ".devbook/tech/tooling.md#knowledge-meta-generator"]
 ```
 
 ## Status
@@ -16,7 +16,7 @@ landed first, so this record is written after the fact rather than beforehand.
 The plan asked for this record before any folder moved, numbered 0014. It is
 late because pull request #645 adopted `devbook` 1.7.0 and moved the folders
 before the record was written. It is numbered 0016 because local 0014
-(attachments) and 0015 (the database in app storage, proposed in #654) were
+(attachments) and 0015 (the database in app storage, from #654) were
 already taken. The plan was written against contract 16. The installation
 landed at **contract 17**, and this record states what landed.
 
@@ -24,7 +24,7 @@ landed at **contract 17**, and this record states what landed.
 |---|---|
 | Five folders under `.devbook/`, contract 17 | Built (#645) |
 | `ai/` created | Scaffolded (#645); filled by the plan's `write-ai-adoption-record` |
-| Derived layer stays a local build output | Built (ADR 0004; #645 ignores `.devbook/_meta/devbook.db*`) |
+| Derived layer stays a local build output | Built (ADR 0004; in app storage since ADR 0015) |
 | Writer imports the installed generator | Built for the `.devbook/` layout (`tools/devbook/generator.mjs`) |
 | Four procedures, schedule catalog | Built (#645: four procedures in `.agents/skills/`, `components.schedule` stamped) |
 | `.backlog/` retired | Pending: the folder is still at the root |
@@ -85,15 +85,18 @@ person's settings.
 **The derived layer stays a local build output, per ADR 0004.** So the
 `devbook-derived` component is not adopted, and nothing under `_meta/` is
 committed. The generated database remains the artifact the panels read, and the
-build writes it; it is never checked in. The proposed ADR 0015 (#654) changes
-*where* the database lives, moving it from the clone to app storage. It keeps
-the database a local, uncommitted build output, which is the call made here.
+build writes it; it is never checked in. Local ADR 0015 has since moved *where*
+the database lives, out of the clone into the app's storage, where the desktop
+builds it. It keeps the database a local, uncommitted build output, which is the
+call made here.
 
 **The installed generator is `.devbook/_tools/devbook-meta/`, and the
 repo-native writer imports it.** `devbook:init` materializes it there and
 `devbook:update` refreshes it; it is never edited by hand.
 `tools/devbook/build-database.mjs` stays this repository's own and imports the
-generator's exported seam instead of forking it. ADR 0004's
+generator's exported seam instead of forking it. Under ADR 0015 it is CI's build
+check and the reference the C# builder is held to, so the seam still matters.
+ADR 0004's
 [amendment](0004-knowledge-index-is-a-generated-local-database.md#status)
 already requires that. The predecessor install under
 `.github/tools/knowledge-meta/` no longer has anything left to index.

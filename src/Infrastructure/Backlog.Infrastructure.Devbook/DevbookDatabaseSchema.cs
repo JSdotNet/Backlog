@@ -1,47 +1,45 @@
 namespace Backlog.Infrastructure.Devbook;
 
 /// <summary>
-/// The half of the devbook database's contract this side is allowed to state:
-/// the version it understands, where the file is, and the names of the tables it
-/// reads.
+/// The devbook database's contract as this side states it: the version it
+/// understands, the DDL it builds with, and the names of the tables it reads.
 ///
-/// <para>The DDL itself is deliberately absent. It lives in
-/// <c>tools/devbook/devbook-schema.mjs</c> as one exported string, because
-/// ADR 0004's named risk is a schema written in Node and read in C# drifting
-/// silently — and a schema restated in two languages is that drift with extra
-/// steps. What this file holds is the smallest set of facts a reader cannot avoid
-/// knowing, and every one of them is pinned against that file by
-/// <c>DevbookSchemaContractTests</c>.</para>
+/// <para>The DDL is not restated here. It is <c>tools/devbook/devbook-schema.sql</c>,
+/// embedded in this assembly, and the same file the Node writer loads — one text
+/// for both writers (local ADR 0015), so a column cannot be renamed on one side
+/// only. <c>DevbookSchemaContractTests</c> pins <see cref="Version"/> to that
+/// file's <c>schema-version</c> line.</para>
 ///
-/// <para><see cref="Version"/> is the whole compatibility story. The writer bumps
-/// it for any change a reader could notice; a reader that does not recognise the
-/// number ignores the database entirely and reads Markdown, so a database written
-/// by newer tooling can never break an older app. There is no migration
-/// machinery here for the same reason there is none there: the database is a
-/// build output, and the answer to a schema change is to rebuild it.</para>
+/// <para><see cref="Version"/> is the whole compatibility story. A reader that does
+/// not recognise the number ignores the database entirely and reads Markdown, so a
+/// database written by newer tooling can never break an older app, and the app
+/// rebuilds its own in the version it reads. There is no migration machinery: the
+/// database is a build output, and the answer to a schema change is to rebuild
+/// it.</para>
 /// </summary>
 public static class DevbookDatabaseSchema
 {
-    /// <summary>The one <c>schemaVersion</c> this reader understands, and the
-    /// value <c>SCHEMA_VERSION</c> carries in <c>devbook-schema.mjs</c>.
+    /// <summary>The one <c>schemaVersion</c> this reader understands and this
+    /// builder writes — the <c>schema-version</c> line of <c>devbook-schema.sql</c>.
     /// <para>2 added <c>chapter.search_text</c> and moved <c>chapter_fts</c> onto
-    /// it, so the index holds each chapter's prose instead of its raw Markdown.
-    /// A database still at 1 is ignored rather than read with fenced metadata in
-    /// its excerpts — which is the bump doing its job, and the Markdown path
-    /// answering until <c>build-database.mjs</c> runs again.</para></summary>
+    /// it, so the index holds each chapter's prose instead of its raw
+    /// Markdown.</para></summary>
     public const int Version = 2;
 
-    /// <summary>The database's location, relative to the repository root — the
-    /// same path <c>DATABASE_PATH</c> names on the writing side. It is
-    /// <c>_meta/</c> because the derived-artifacts convention puts a cross-cutting
-    /// generated artifact one level below the thing it describes, and the
-    /// repository root's <c>_meta/</c> is exactly that place.</summary>
-    public const string RelativePath = "_meta/devbook.db";
+    /// <summary>The embedded resource holding <c>devbook-schema.sql</c>.</summary>
+    internal const string DdlResourceName = "Backlog.Infrastructure.Devbook.devbook-schema.sql";
 
-    /// <summary>The same file in a repository on the devbook layout, whose
-    /// knowledge folders and rollup both sit under <c>.devbook/</c> — the path
-    /// <c>DEVBOOK_DATABASE_PATH</c> names on the writing side.</summary>
-    public const string DevbookLayoutRelativePath = ".devbook/_meta/devbook.db";
+    private static readonly Lazy<string> DdlText = new(() =>
+    {
+        using var stream = typeof(DevbookDatabaseSchema).Assembly.GetManifestResourceStream(DdlResourceName)
+            ?? throw new InvalidOperationException($"The embedded schema {DdlResourceName} is missing from the assembly.");
+        using var reader = new StreamReader(stream);
+        return reader.ReadToEnd();
+    });
+
+    /// <summary>Every table, virtual table and index of the database, exactly as
+    /// <c>tools/devbook/devbook-schema.sql</c> holds them.</summary>
+    public static string Ddl => DdlText.Value;
 
     /// <summary>The generator's <c>meta</c> key for the version.</summary>
     public const string SchemaVersionKey = "schemaVersion";

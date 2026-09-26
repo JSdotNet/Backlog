@@ -14,10 +14,10 @@ namespace Backlog.Infrastructure.FileSystem;
 /// <see cref="WorkspaceSettingsStore.OwnedRootFolders"/>), and is what a second
 /// device wants a copy of. It is deliberately not a table in <c>backlog.db</c>:
 /// that file has three owners already and a remark on a repository's chapter is
-/// Devbook's, not Tasks'. And it is deliberately not <c>_meta/devbook.db</c> in
-/// the repository, which .devbook/arc42/adr/0004 makes a generated, ignored build output
-/// the app never writes — a remark kept there would be lost on the next
-/// generator run and could never leave the machine.
+/// Devbook's, not Tasks'. And it is deliberately not the devbook database, which
+/// local ADRs 0004 and 0015 make a generated build output rebuilt whole from the
+/// Markdown — a remark kept there would be lost on the next build and could
+/// never leave the machine.
 /// </para>
 /// <para>
 /// One file per repository rather than one for everything, so that the file a

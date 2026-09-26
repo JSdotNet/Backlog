@@ -329,38 +329,41 @@ indexes.
 status: adopted
 type: tool
 depends-on: [".devbook/tech/shared.md#nodejs", ".devbook/tech/shared.md#sqlite", ".devbook/tech/tooling.md#knowledge-meta-generator"]
-related: [".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/08-crosscutting-concepts.md#devbook-database"]
+related: [".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/08-crosscutting-concepts.md#devbook-database"]
 ```
 
-The repo-native writer that compiles the knowledge corpus into one generated
-SQLite database.
+The two writers of the generated devbook database: the desktop app's own C#
+builder, which produces the database the app reads, and the repo-native Node
+writer it is held to.
 
-- **Used for** — `node tools/devbook/build-database.mjs`, producing
-  `_meta/devbook.db`: the reference graph, the resolved reading outline, every
-  chapter's text and hashes, the FTS5 index, the Archify artifact rows, and an
-  empty embedding table. One database for the repository, so a scope is
-  `WHERE folder = ?` rather than another pair of files. It is git-ignored and
-  rebuilt per machine; `Backlog.Infrastructure.Devbook` reads it read-only and
-  falls back to the Markdown for anything it cannot trust.
+- **Used for** — the app builds `devbook.db` into its own storage, one per
+  repository path (`<devbook cache folder>/_databases/<name>-<hash>/devbook.db`),
+  in the background when a repository is first read: the reference graph, the
+  resolved reading outline, every chapter's text and hashes, the FTS5 index, the
+  Archify artifact rows, and an empty embedding table. `node
+  tools/devbook/build-database.mjs` builds the same tables from the command line:
+  `--check` builds to a temporary file and deletes it, `--out <file>` writes where
+  it is told. Neither writes into a repository.
 - **Why** — twelve committed JSON artifacts were 1.8 MB of derived output that
-  every branch collided on and that CI had already been softened to stop
-  enforcing. Removing them from git finishes what the warning-only check started,
-  and the database gives retrieval somewhere to live.
-- **How** — repo-native, beside `check-metadata.mjs` and for the same reason:
-  everything under `.github/tools/knowledge-meta/` is an installed plugin copy
-  that CLAUDE.md says to re-sync and never edit, so this *imports* its exported
-  `buildGraph`, `parseDocument`, `folderKindForPath` and `discoverScopes` instead
-  of forking them. The authored reading order it resolves from each folder's
-  committed `_reading-order.json`, which is the one thing the installed outline
-  builder cannot supply, because it reads that order back out of the very
-  `index.json` this decision removed. `node:sqlite` provides SQLite and FTS5 with
-  no dependency added. `.github/workflows/devbook-metadata.yml` runs its tests
-  and then builds it against the real corpus as a **blocking** step — which a
-  committed artifact could never be, and an uncommitted one can.
-- **Caveat** — the schema is written here and read from C#, which is a contract
-  that can drift silently. It is one exported string in
-  `tools/devbook/devbook-schema.mjs`, and the C# contract tests build their
-  fixtures from that text rather than restating it.
+  every branch collided on (local ADR 0004), and a database kept beside the
+  folders still had to be ignored per layout and was only there if somebody had
+  run the script (local ADR 0015). The app building it into its own storage is
+  what gives every clone, worktree and branch snapshot search without a step.
+- **How** — the Node writer *imports* the devbook plugin's generator seam
+  (`buildGraph`, `parseDocument`, `folderKindForPath`, `discoverScopes`) rather
+  than forking it, and resolves the committed `_reading-order.json` files for the
+  outline. `node:sqlite` provides SQLite and FTS5 with no dependency added.
+  `.github/workflows/devbook-metadata.yml` runs its tests and then `--check`
+  against the real corpus as a **blocking** step. The C# builder in
+  `Backlog.Infrastructure.Devbook` ports that parse; a .NET test builds this
+  repository's `.devbook/` with both writers and compares every table but `meta`
+  and `problem` row for row, which is why the .NET test job installs Node.
+- **Caveat** — two parsers of one corpus, one of them a port of code the devbook
+  plugin owns and changes on release. The comparison test is what keeps them in
+  step: a release that changes the parse fails it, and the C# port is updated in
+  the pull request that takes the release. The schema is one text,
+  `tools/devbook/devbook-schema.sql`, which the Node tooling reads and the C#
+  assembly embeds, so neither side restates it.
 
 ## Archify
 

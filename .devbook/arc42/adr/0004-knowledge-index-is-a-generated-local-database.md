@@ -12,6 +12,15 @@ Accepted, and built — with the exceptions the note below names rather than
 leaves to be discovered. What is not built is the refresh machinery that was
 never required for correctness, and the semantic tier's one live call.
 
+> **Partly superseded 2026-09-25 by local ADR 0015.** The database no longer lives
+> in the repository and the Node generator is no longer its only writer: it lives
+> in the app's storage, one per repository path, and the desktop app builds it in
+> C#. The sections *Where it lives* and *The generator is the only writer*, and the
+> location sentence of *One database, not one per scope*, are superseded and
+> marked where they stand; the first open question is closed. Everything else
+> below stands. See
+> `0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md`.
+
 > **Amended 2026-09-15: Knowledge → Devbook.** The context, module, pane, database
 > and tooling this record is about were renamed: `Backlog.Infrastructure.Knowledge`
 > is `Backlog.Infrastructure.Devbook`, `tools/knowledge/` is `tools/devbook/`,
@@ -220,6 +229,10 @@ things nobody authored.
 
 ### One database, not one per scope
 
+> **Superseded 2026-09-25 by local ADR 0015** for the location only: the one
+> database per repository now lives in the app's storage, keyed by the repository
+> path, not at `_meta/devbook.db`. One database rather than one per scope stands.
+
 `_meta/devbook.db` at the repository root. A scope becomes `WHERE folder = …`,
 not another file — which is what removes the double serialization the context
 describes, without a consumer having to choose between a scoped file and a
@@ -284,6 +297,13 @@ line by line into something that parses and is wrong. Ignored, the question does
 not arise.
 
 ### The generator is the only writer
+
+> **Superseded 2026-09-25 by local ADR 0015.** The desktop app builds the
+> database in C#; `build-database.mjs` survives as CI's build check and as the
+> reference a comparison test holds the C# builder to. The drift hazard this
+> section avoided is accepted there and pinned by that test. The app still never
+> repairs a row on its own write: an edited file is drifted and served from its
+> Markdown until the next check rebuilds.
 
 The Node generator creates the schema and is the only thing that writes to the
 database. The app reads and never writes — not even to repair a row it can see is
@@ -364,6 +384,13 @@ an index existed. This changes what the reader opens, not how it decides whether
 to trust what it finds.
 
 ### Where it lives
+
+> **Superseded 2026-09-25 by local ADR 0015.** The database lives outside every
+> repository, under the app's devbook cache folder, keyed by the repository's
+> path — so nothing about it needs ignoring and a repository the app reads is
+> left untouched. The argument below against a *workspace-root* copy was about a
+> copy that could disagree with the folders; a per-path database rebuilt from them
+> cannot disagree for longer than the drift check takes to notice.
 
 In the repository that owns the knowledge folders, not in the workspace root.
 `IDevbookFolderSource` resolves an area per registered repository, so the app
@@ -471,6 +498,7 @@ Neutral:
 Open, and deliberately not decided here:
 
 - **How the app invokes the generator for the background and on-open refresh.**
+  *Closed 2026-09-25 by local ADR 0015: it does not — the app is the writer.*
   Since the generator is the only writer, every refresh path the app drives has to
   start it. Spawning the vendored Node generator as a process keeps one
   implementation of the parse and makes Node a runtime dependency of the desktop

@@ -132,15 +132,12 @@ public sealed class DevbookLayoutTests : IDisposable
     }
 
     [Fact]
-    public void The_database_is_found_at_the_repository_root_above_devbook()
+    public void The_database_is_keyed_to_the_repository_root_above_devbook()
     {
         var arc42 = Path.Combine(_root, ".devbook", "arc42");
         Directory.CreateDirectory(arc42);
-        Directory.CreateDirectory(Path.Combine(_root, "_meta"));
-        var database = Path.Combine(_root, "_meta", DevbookDatabaseLocation.FileName);
-        File.WriteAllText(database, string.Empty);
 
-        Assert.Equal(database, DevbookDatabaseLocation.ForDevbookFolder(arc42));
+        Assert.Equal(DevbookDatabaseLocation.ForRepositoryRoot(_root), DevbookDatabaseLocation.ForDevbookFolder(arc42));
     }
 
     private DevbookFolderSource Source() => new(Settings());
