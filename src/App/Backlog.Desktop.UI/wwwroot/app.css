@@ -1380,6 +1380,13 @@ h1, h2, h3 {
     justify-content: flex-end;
 }
 
+/* A pull request or session the entry's work produced. Short labels ("PR #n",
+   "Session 1a2b3c4d") that wrap with the strip rather than clamp, as the
+   Sessions pane draws the same references. */
+.entry-doc__work-link {
+    min-width: 0;
+}
+
 /* --- Scheduling and dependency rows -------------------------------------- */
 
 /* TaskActionPane lays the rows out now — one lead row across the top and the
@@ -5219,6 +5226,23 @@ h1, h2, h3 {
 
 .sessions-table__pull-request {
     min-width: 0;
+}
+
+/* The session a task opened the pane on. The accent rule down its leading edge
+   and the selection tint say "this one" without moving anything; the row keeps
+   its place in whatever grouping is chosen. Focus lands on it too, so the
+   outline is the row's own focus ring. The inbox's selected row, in a table. */
+.sessions-table__row--focused > td {
+    background: color-mix(in srgb, var(--color-primary) 14%, transparent);
+}
+
+.sessions-table__row--focused > td:first-child {
+    box-shadow: inset 3px 0 0 var(--color-primary);
+}
+
+.sessions-table__row--focused:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: -2px;
 }
 
 /* Two short figures, read across rather than wrapped. */

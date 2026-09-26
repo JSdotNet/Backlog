@@ -2852,6 +2852,8 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         row.SubItemCount = entry.TotalSubItems;
         row.CompletedSubItemCount = entry.CompletedSubItems;
         row.IssueLink = TasksIssues.FindLink(entry);
+        row.PullRequestLinks = EntryLinks.PullRequests(entry);
+        row.SessionLinks = EntryLinks.Sessions(entry);
         row.CreatedAt = entry.CreatedAt;
         row.ImportPlanId = entry.ImportPlanId;
 
@@ -3339,6 +3341,14 @@ public sealed class EntryRow
     /// <summary>The GitHub issue this entry was pushed to, or null. Persisted on
     /// the entry as a <c>ProjectionRef</c>, so it survives a restart.</summary>
     public GitHubIssueLink? IssueLink { get; set; }
+
+    /// <summary>The pull requests work on this entry opened. Persisted as
+    /// projections, like <see cref="IssueLink"/>.</summary>
+    public IReadOnlyList<EntryPullRequestLink> PullRequestLinks { get; set; } = [];
+
+    /// <summary>The AI sessions that worked on this entry. Persisted as
+    /// projections, like <see cref="IssueLink"/>.</summary>
+    public IReadOnlyList<EntrySessionLink> SessionLinks { get; set; } = [];
 
     /// <summary>Last known issue and pull-request state. Deliberately not
     /// persisted: it is a view of something GitHub owns, and a stale copy in the

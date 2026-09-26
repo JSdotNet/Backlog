@@ -730,6 +730,56 @@
 
     private bool IsFeatureEnabled(string featureKey) => Features.IsEnabled(featureKey);
 
+    /// <summary>
+    /// How the shell opens an AI session this entry names, by the session's id.
+    /// Wired by the host because a session belongs to the Sessions context and this
+    /// pane holds entries — the same split <c>SessionsPane.OnOpenTask</c> makes the
+    /// other way round. Without it a session renders as inert text rather than as a
+    /// button that would have to refuse the click.
+    /// </summary>
+    [Parameter]
+    public EventCallback<string> OnOpenSession { get; set; }
+
+    private Task OpenSessionAsync(IntegrationLinkRef link) => OnOpenSession.InvokeAsync(link.Id);
+
+    /// <summary>The session opener handed to the link, or none when the host wired
+    /// nothing, so an unopenable session is inert text.</summary>
+    private EventCallback<IntegrationLinkRef> SessionOpener =>
+        OnOpenSession.HasDelegate
+            ? EventCallback.Factory.Create<IntegrationLinkRef>(this, OpenSessionAsync)
+            : default;
+
+    /// <summary>The recorded pull requests less the one the issue badge already
+    /// shows, so the same pull request is one badge on screen.</summary>
+    private IEnumerable<EntryPullRequestLink> PullRequestsBesideSnapshot(EntryRow row)
+    {
+        var shown = IsFeatureEnabled(TasksFeatures.GitHubIntegration) && State.GitHubConfigured
+            && row.IssueLink is { } issue && row.Snapshot?.Headline is { } headline
+                ? new EntryPullRequestLink(issue.RepoFullName, headline.Number)
+                : null;
+
+        return row.PullRequestLinks.Where(pr => !string.Equals(pr.Repository, shown?.Repository, StringComparison.OrdinalIgnoreCase)
+            || pr.Number != shown?.Number);
+    }
+
+    private static IntegrationLinkRef Link(EntryPullRequestLink pr) =>
+        new(
+            pr.Url,
+            IntegrationProvider.GitHub,
+            IntegrationLinkKind.PullRequest,
+            pr.Label,
+            $"{pr.Repository}#{pr.Number}",
+            pr.Url,
+            Repository: new IntegrationRepositoryRef(pr.Repository, pr.Repository));
+
+    private static IntegrationLinkRef Link(EntrySessionLink session) =>
+        new(
+            session.SessionId,
+            IntegrationProvider.Claude,
+            IntegrationLinkKind.Session,
+            $"Session {session.ShortId}",
+            $"Open session {session.SessionId} in Sessions");
+
     private bool AdditionalRepositoriesEnabled => IsFeatureEnabled(TasksFeatures.AdditionalRepositories);
 
     /// <summary>The repositories an entry may be filed against. Without the
@@ -2585,6 +2635,29 @@
                             </a>
                         }
                     }
+                }
+
+                @* What work on the entry produced: the pull requests it opened and the
+                   AI sessions that ran it, recorded by the link_change and
+                   link_session tools. Not behind the GitHub integration — these were
+                   recorded by the session, not read from GitHub, and a pull request is
+                   a link whether or not this workspace polls it. The one the issue
+                   snapshot already shows above is not drawn twice. *@
+                @foreach (var pr in PullRequestsBesideSnapshot(row))
+                {
+                    <IntegrationLink Link="@Link(pr)"
+                                     ShowTitle="false"
+                                     CssClass="entry-doc__work-link"
+                                     TestId="entry-pull-request" />
+                }
+
+                @foreach (var session in row.SessionLinks)
+                {
+                    <IntegrationLink Link="@Link(session)"
+                                     ShowTitle="false"
+                                     CssClass="entry-doc__work-link"
+                                     OnOpen="SessionOpener"
+                                     TestId="entry-session" />
                 }
 
                 @if (!row.IsPersisted)

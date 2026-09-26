@@ -53,10 +53,13 @@ and the session-name line, `## Sub-item conventions` what the item's `##` headin
    and ask whether to proceed; never silently build on a step that has not landed. Without
    the connector, an `after:` id that names a `task` or `test` the user does leaves no trace in the
    repository — ask whether it is done instead of searching for it.
-5. **Do it.** With the connector, `transition` the entry Ready → In progress first. Then
+5. **Do it.** With the connector, first put the entry on record as being worked here:
+   `transition` it to In progress — an entry already there is fine — then `link_session`
+   with this session's id, so the task can open the session. Then
    `Setup:` sub-items in order, then the instructions, exactly the way the repository's own
    instructions say work is done there — its orchestration gate, review and validation
-   rules; this skill adds no execution path of its own. Tick `- [ ]` lines as they land.
+   rules; this skill adds no execution path of its own. Tick `- [ ]` lines as they land;
+   a sub-item's status line cannot be changed through the connector — no tool edits one.
 6. **Answer the notes the item leaves open.** With the connector, `list_annotations` for the
    repository; a chapter this item rewrote may carry a remark the change now answers. For
    each open note: work out the answer, then write it into the chapter with the devbook
@@ -68,11 +71,21 @@ and the session-name line, `## Sub-item conventions` what the item's `##` headin
    full procedure and is the skill to invoke when notes are the whole job.
 7. **Close.** The knowledge/devbook reminder is a real step — do it through the repository's
    knowledge skills. Report `(tag, id)`, what was done, and the evidence behind anything
-   skipped as already done. With the connector, `transition` In progress → Done once the
-   pull request is open; without it, say that the item's status in Backlog has to be set by
-   hand.
+   skipped as already done. The flow's own Work Item Update phase is the one that speaks to
+   the entry; with the connector it is these calls, once each, after the pull request opens:
+   - `link_change` with the pull request number, so the task links to it — not idempotent,
+     so never twice;
+   - `comment` with the pull request link, the Personal Validation decision, the check or QA
+     result, anything the item asked for that changed on the way, and every sub-item that
+     landed but still reads open — the person ticks those by hand;
+   - `transition` In progress → Done.
+   The run itself — `record_prompt` with the pasted entry, `set_run_context` with the
+   approval, the pull request URL in the Create Pull Request stage's `links` — follows the
+   flow's surface contract. Without the connector, say that the item's status, its sub-items
+   and the pull request link have to be set in Backlog by hand.
 
 ## Never
 
 - Redo an item the evidence says has landed: re-pasting is expected, duplicating work is not.
-- Run a `task`, `test` or `plan` entry, open a pull request, or mark anything done in Backlog unasked.
+- Run a `task`, `test` or `plan` entry, or open a pull request, unasked; mark an entry done
+  before its pull request is open.

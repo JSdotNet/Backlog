@@ -1476,6 +1476,69 @@ public sealed class SessionsPaneTests
         }
     }
 
+    /// <summary>
+    /// A task opens the list on the session that worked on it. That session
+    /// finished hours ago, so Live would hide it: the pane widens its own view
+    /// rather than answer the request with nothing, marks the row, and hands it
+    /// focus so the reader's keyboard is where their eyes are.
+    /// </summary>
+    [Fact]
+    public void A_session_a_task_asks_for_is_shown_marked_and_focused_even_when_live_hides_it()
+    {
+        using var context = Context(Sample);
+        var focus = context.JSInterop.SetupVoid("backlogFocus", _ => true);
+
+        var pane = context.Render<SessionsPane>(parameters => parameters
+            .Add(p => p.FocusSessionId, "0012E2C7"));
+
+        pane.WaitForAssertion(() =>
+        {
+            var row = pane.Find("[data-testid='sessions-focused-row']");
+
+            Assert.Contains("JSdotNet/Backlog", row.TextContent);
+            Assert.Contains("sessions-table__row--focused", row.ClassName);
+            Assert.Equal("-1", row.GetAttribute("tabindex"));
+            Assert.Single(pane.FindAll(".sessions-table__row--focused"));
+
+            var call = Assert.Single(focus.Invocations);
+            Assert.Equal(row.Id, call.Arguments[0]);
+        });
+    }
+
+    /// <summary>A session this PC has no record of is said out loud, and no row
+    /// pretends to be it.</summary>
+    [Fact]
+    public void A_session_this_pc_never_saw_is_named_rather_than_silently_missing()
+    {
+        using var context = Context(Sample);
+
+        var pane = context.Render<SessionsPane>(parameters => parameters
+            .Add(p => p.FocusSessionId, "not-here"));
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Contains("no record of session not-here", pane.Find("[data-testid='sessions-focus-missing']").TextContent);
+            Assert.Empty(pane.FindAll(".sessions-table__row--focused"));
+        });
+    }
+
+    /// <summary>Opened without a session, the pane is exactly what it was: Live,
+    /// nothing marked, no focus moved.</summary>
+    [Fact]
+    public void Without_a_session_to_open_nothing_is_marked()
+    {
+        using var context = Context(Sample);
+
+        var pane = context.Render<SessionsPane>();
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(2, pane.FindAll(".data-table__row").Count);
+            Assert.Empty(pane.FindAll(".sessions-table__row--focused"));
+            Assert.Empty(pane.FindAll("[data-testid='sessions-focus-missing']"));
+        });
+    }
+
     private static BunitContext Context(
         IReadOnlyList<AgentSession> sessions,
         IReadOnlyList<string>? unreadable = null,
