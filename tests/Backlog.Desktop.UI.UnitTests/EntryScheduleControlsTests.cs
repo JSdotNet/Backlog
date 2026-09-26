@@ -569,7 +569,7 @@ public sealed class EntryScheduleControlsTests
         await pane.Find("[data-testid='entry-detail']")
             .KeyDownAsync(new KeyboardEventArgs { Key = "M", CtrlKey = true, ShiftKey = true });
 
-        var source = pane.Find("[data-testid='entry-raw-input']").TextContent;
+        var source = pane.Find("[data-testid='entry-raw-input']").GetAttribute("value") ?? string.Empty;
 
         Assert.Contains("## Wire up the store", source, StringComparison.Ordinal);
         Assert.Contains("Notes on the parent.", source, StringComparison.Ordinal);

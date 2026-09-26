@@ -210,7 +210,7 @@ public sealed class MarkdownDocumentTests
 
         // Against the DOM's own line endings rather than the file's: what is
         // being pinned is that no line went missing on the way to the textarea.
-        Assert.Equal(Frontmattered.ReplaceLineEndings("\n"), view.Find("textarea").TextContent);
+        Assert.Equal(Frontmattered.ReplaceLineEndings("\n"), view.Find("textarea").GetAttribute("value"));
     }
 
     [Fact]

@@ -142,6 +142,18 @@ else
         }
     }
 
+    // The text goes in as `value`, never as the element's content. Content is only
+    // a textarea's default, and a browser stops showing the default the moment
+    // somebody types in the box — so a host that changed the text afterwards (a
+    // reload bringing in what an MCP comment wrote) changed nothing on screen, and
+    // the next keystroke reported the old text back and saved it over the new.
+    // Blazor writes a `value` attribute to the element's live value instead.
+    //
+    // Through @bind rather than a bare `value` beside `@oninput`, and that is not
+    // style: only a binding tells the renderer the handler updates `value`, which is
+    // what lets it take each keystroke's text as already on screen. Without it every
+    // keystroke's echo is written back a round trip late, over the character typed
+    // since, and a fast typist loses letters.
     private RenderFragment FieldParts =>
         @<text>
             @if (!string.IsNullOrWhiteSpace(Label))
@@ -159,8 +171,10 @@ else
                           aria-invalid="@(HasError ? "true" : null)"
                           aria-describedby="@DescribedBy"
                           aria-label="@(string.IsNullOrWhiteSpace(Label) ? AriaLabel : null)"
-                          @oninput="OnInput"
-                          @attributes="AdditionalAttributes">@Value</textarea>
+                          @bind:get="Value"
+                          @bind:set="OnInput"
+                          @bind:event="oninput"
+                          @attributes="AdditionalAttributes"></textarea>
             </div>
             @if (!string.IsNullOrWhiteSpace(HelpText))
             {
@@ -172,11 +186,11 @@ else
             }
         </text>;
 
-    private Task OnInput(ChangeEventArgs e)
+    private Task OnInput(string? value)
     {
         // The replica reads from Value, so it has to be current before the next
         // render or the box lags one keystroke behind the text.
-        Value = e.Value?.ToString() ?? string.Empty;
+        Value = value ?? string.Empty;
         return ValueChanged.InvokeAsync(Value);
     }
 }
