@@ -35,6 +35,17 @@ public sealed class OpenWorkReportLayoutTests
     }
 
     [Fact]
+    public void A_plan_row_paints_its_progress_as_its_background()
+    {
+        var row = Block(Css(), ".open-work-report__plan--progress {");
+
+        // The fill runs from the row's start to the width the row carries, in the
+        // colour the roadmap's bars use for done work, and plain behind the rest.
+        Assert.Contains("var(--color-success) var(--open-work-progress, 0%)", row, StringComparison.Ordinal);
+        Assert.Contains("transparent var(--open-work-progress, 0%)", row, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void The_breakdowns_never_ask_for_more_than_the_dialog_has()
     {
         var breakdowns = Block(Css(), ".open-work-report__breakdowns {");

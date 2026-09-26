@@ -64,7 +64,11 @@
                             <tbody>
                                 @foreach (var plan in report.Plans)
                                 {
-                                    <tr data-testid="open-work-plan">
+                                    @* The row is its own progress bar: filled to the done share of
+                                       its points, so the plans compare at a glance. *@
+                                    <tr class="@(plan.DonePercent is null ? null : "open-work-report__plan--progress")"
+                                        style="@(plan.DonePercent is { } percent ? $"--open-work-progress: {percent.ToString(CultureInfo.InvariantCulture)}%" : null)"
+                                        data-testid="open-work-plan">
                                         <th scope="row">@plan.Label</th>
                                         <td>@plan.OpenCount</td>
                                         <td>@plan.OpenPoints</td>

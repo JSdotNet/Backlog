@@ -2041,6 +2041,16 @@ h1, h2, h3 {
     color: var(--color-text-primary);
 }
 
+/* A plan's row is its own progress bar: filled from its start to the done share
+   of its points, which the row carries as --open-work-progress. The roadmap's
+   colour for done work, dark enough that the row's text reads over it. No plan
+   has nothing to fill and carries no class. */
+.open-work-report__plan--progress {
+    background: linear-gradient(to right,
+        var(--color-success) var(--open-work-progress, 0%),
+        transparent var(--open-work-progress, 0%));
+}
+
 .open-work-report__table thead th {
     color: var(--color-text-secondary);
     font-weight: var(--font-weight-semibold);
