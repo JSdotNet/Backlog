@@ -222,10 +222,10 @@ depends-on: [".devbook/tech/ai-development.md#claude-code-plugins", ".devbook/te
 related: [".devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md", ".devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md"]
 ```
 
-This repository's own plugin, `plugins/backlog-tools`, with a manifest per host.
+This repository's own plugin, `plugins/backlog-tools`, with a Claude Code manifest.
 
-- **Used for** — three skills (`backlog-import-plan`, `backlog-run-plan-item`,
-  `backlog-answer-notes`) and two hooks (the plan-item nudge and the telemetry
+- **Used for** — four skills (`backlog-import-plan`, `backlog-run-plan-item`,
+  `backlog-import-inbox`, `backlog-answer-notes`) and two hooks (the plan-item nudge and the telemetry
   forwarder). Installed on demand from this repository as a marketplace; see
   its `README.md`.
 - **Why** — the skills speak Backlog's own entry grammar and MCP tools, so they
@@ -237,7 +237,7 @@ This repository's own plugin, `plugins/backlog-tools`, with a manifest per host.
 status: adopted
 type: tool
 depends-on: [".devbook/tech/ai-development.md#claude-code-plugins", ".devbook/tech/shared.md#nodejs"]
-related: [".devbook/tech/tooling.md#knowledge-meta-generator"]
+related: [".devbook/tech/tooling.md#devbook-meta-generator"]
 date: 2026-09-25
 ```
 

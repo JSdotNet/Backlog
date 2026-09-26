@@ -1010,7 +1010,213 @@ public sealed class InboxPaneTests
         Assert.True(harness.State.IsGroupExpanded(areas.Id));
     }
 
+    // --- Picking several ----------------------------------------------------
+
+    [Fact]
+    public async Task Select_puts_a_box_on_every_row_and_a_shift_click_takes_the_range_with_a_running_count()
+    {
+        using var harness = Harness.Create();
+        var items = SeedNewestFirst(harness, "One", "Two", "Three", "Four");
+
+        var pane = await harness.RenderAsync();
+
+        // No boxes and no bar until the reader asks for them.
+        Assert.Empty(pane.FindAll("[data-testid^='inbox-pick-']"));
+        Assert.Empty(pane.FindAll("[data-testid='inbox-bulk-bar']"));
+
+        await pane.Find("[data-testid='inbox-select-toggle']").ClickAsync(new());
+
+        Assert.Equal(4, pane.FindAll("[data-testid^='inbox-pick-']").Count);
+        Assert.Equal("0 items selected", pane.Find("[data-testid='inbox-bulk-bar-count']").TextContent.Trim());
+
+        await PickAsync(pane, items[0].Id);
+        await PickAsync(pane, items[2].Id, shift: true);
+
+        Assert.Equal("3 items selected", pane.Find("[data-testid='inbox-bulk-bar-count']").TextContent.Trim());
+        Assert.Equal([items[0].Id, items[1].Id, items[2].Id], harness.State.SelectedItems.Select(item => item.Id));
+        Assert.Equal(3, pane.FindAll(".inbox-pane__item--picked").Count);
+
+        // A shift press that unticks gives the run back, measured from the last press.
+        await PickAsync(pane, items[1].Id, shift: true);
+
+        Assert.Equal([items[0].Id], harness.State.SelectedItems.Select(item => item.Id));
+        Assert.Equal("1 item selected", pane.Find("[data-testid='inbox-bulk-bar-count']").TextContent.Trim());
+    }
+
+    [Fact]
+    public async Task Archive_across_the_selection_goes_through_one_batch_and_says_how_many()
+    {
+        using var harness = Harness.Create();
+        var items = SeedNewestFirst(harness, "One", "Two", "Three");
+
+        var pane = await harness.RenderAsync();
+        await pane.Find("[data-testid='inbox-select-toggle']").ClickAsync(new());
+        await PickAsync(pane, items[0].Id);
+        await PickAsync(pane, items[1].Id);
+        await pane.Find("[data-testid='inbox-bulk-archive']").ClickAsync(new());
+
+        var batch = Assert.Single(harness.Inbox.Batches);
+        Assert.Equal("archive", batch.Act);
+        Assert.Equal([items[0].Id, items[1].Id], batch.Ids);
+        Assert.Equal(["Three"], Titles(pane));
+
+        // The archived rows left the view, and the selection with them.
+        Assert.Equal(0, harness.State.SelectionCount);
+
+        var toast = Assert.Single(harness.Toasts.Visible, toast => toast.TestId == InboxDesktopState.BulkResultTestId);
+        Assert.Equal(ToastSeverity.Info, toast.Severity);
+        Assert.Equal("2 items archived.", toast.Message);
+    }
+
+    [Fact]
+    public async Task A_partial_failure_names_the_item_it_could_not_change_rather_than_reporting_success()
+    {
+        using var harness = Harness.Create();
+        var items = SeedNewestFirst(harness, "Fine", "Stubborn");
+        harness.Inbox.Refuse[items[1].Id] = InboxErrors.InvalidTransition("An item that is triaged cannot be archived.");
+
+        var pane = await harness.RenderAsync();
+        await pane.Find("[data-testid='inbox-select-toggle']").ClickAsync(new());
+        await pane.Find("[data-testid='inbox-bulk-bar-select-all'] input").ChangeAsync(new ChangeEventArgs { Value = true });
+        await pane.Find("[data-testid='inbox-bulk-archive']").ClickAsync(new());
+
+        var toast = Assert.Single(harness.Toasts.Visible, toast => toast.TestId == InboxDesktopState.BulkResultTestId);
+        Assert.Equal(ToastSeverity.Warning, toast.Severity);
+        Assert.Equal(
+            "1 item archived. Not changed — \"Stubborn\": An item that is triaged cannot be archived.",
+            toast.Message);
+
+        // The refused item is still on screen and still picked, so the reader can see what is left.
+        Assert.Equal(["Stubborn"], Titles(pane));
+        Assert.Equal([items[1].Id], harness.State.SelectedIds);
+    }
+
+    [Fact]
+    public async Task Move_to_list_across_the_selection_files_every_item_there()
+    {
+        using var harness = Harness.Create();
+        var reading = harness.Inbox.SeedList("Reading");
+        var items = SeedNewestFirst(harness, "One", "Two");
+
+        var pane = await harness.RenderAsync();
+        await pane.Find("[data-testid='inbox-select-toggle']").ClickAsync(new());
+        await PickAsync(pane, items[0].Id);
+        await PickAsync(pane, items[1].Id);
+        await pane.Find("[data-testid='inbox-bulk-move']").ClickAsync(new());
+        await pane.Find($"[data-testid='inbox-bulk-move-list-{InboxDesktopState.ListNavId(reading.Id)}']").ClickAsync(new());
+
+        Assert.All(items, item => Assert.Equal(reading.Id, harness.Inbox.Find(item.Id)!.ListId));
+        Assert.Empty(Titles(pane));
+        Assert.Equal("2 items moved to Reading.", harness.Toasts.Visible.Single(toast => toast.TestId == InboxDesktopState.BulkResultTestId).Message);
+    }
+
+    [Fact]
+    public async Task Adding_tags_keeps_each_items_own_and_leaves_an_item_that_has_them_alone()
+    {
+        using var harness = Harness.Create();
+        var items = SeedNewestFirst(harness, "Tagged already", "Has its own", "Bare");
+        await harness.Inbox.SetTagsAsync(items[0].Id, ["q4"], TestContext.Current.CancellationToken);
+        await harness.Inbox.SetTagsAsync(items[1].Id, ["reading"], TestContext.Current.CancellationToken);
+
+        var pane = await harness.RenderAsync();
+        await pane.InvokeAsync(() => harness.State.SetSelectAllVisible(true));
+        var outcome = await pane.InvokeAsync(() => harness.State.BulkAddTagsAsync(["q4"]));
+
+        Assert.Equal(2, outcome.Changed);
+        Assert.Equal(1, outcome.Unchanged);
+        // The item already carrying the tag was not written at all.
+        Assert.Equal([items[1].Id, items[2].Id], Assert.Single(harness.Inbox.Batches).Ids);
+        Assert.Equal(["reading", "q4"], harness.Inbox.Find(items[1].Id)!.Tags.Select(tag => tag.Name));
+        Assert.Equal(["q4"], harness.Inbox.Find(items[2].Id)!.Tags.Select(tag => tag.Name));
+        Assert.Equal("2 items tagged q4, 1 already up to date.", harness.Toasts.Visible.Single(toast => toast.TestId == InboxDesktopState.BulkResultTestId).Message);
+
+        var removed = await pane.InvokeAsync(() => harness.State.BulkRemoveTagAsync("q4"));
+
+        Assert.Equal(3, removed.Changed);
+        Assert.Equal(["reading"], harness.Inbox.Find(items[1].Id)!.Tags.Select(tag => tag.Name));
+    }
+
+    [Fact]
+    public async Task Assigning_repositories_replaces_them_and_names_a_routed_item_it_will_not_touch()
+    {
+        using var harness = Harness.Create();
+        var open = harness.Inbox.Seed("Open", repoIds: ["JSdotNet/Old"], capturedAt: harness.Inbox.Now.AddMinutes(1));
+        var routed = harness.Inbox.Seed("Routed", status: InboxStatus.Triaged);
+
+        var pane = await harness.RenderAsync();
+        await pane.InvokeAsync(() => harness.State.SetSelectAllVisible(true));
+        var outcome = await pane.InvokeAsync(() => harness.State.BulkAssignRepositoriesAsync([Repo]));
+
+        Assert.Equal(1, outcome.Changed);
+        var failure = Assert.Single(outcome.Failures);
+        Assert.Equal(routed.Id, failure.Id);
+        Assert.Equal(InboxErrors.ItemAlreadyDecided, failure.Error);
+        Assert.Equal([Repo], harness.Inbox.Find(open.Id)!.RepoIds);
+        Assert.Empty(harness.Inbox.Find(routed.Id)!.RepoIds);
+        Assert.Contains("\"Routed\"", harness.Toasts.Visible.Single(toast => toast.TestId == InboxDesktopState.BulkResultTestId).Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task The_selection_survives_a_refresh_is_pruned_by_a_filter_and_clears_when_the_slice_changes()
+    {
+        using var harness = Harness.Create();
+        var reading = harness.Inbox.SeedList("Reading");
+        var video = harness.Inbox.Seed("A video", ContentKind.YouTube, capturedAt: harness.Inbox.Now.AddMinutes(1));
+        var note = harness.Inbox.Seed("A note");
+
+        var pane = await harness.RenderAsync();
+        await pane.InvokeAsync(() => harness.State.SetSelectAllVisible(true));
+
+        // A refresh — a sync landing, say — keeps what is still there.
+        harness.Inbox.Seed("Arrived meanwhile", capturedAt: harness.Inbox.Now.AddMinutes(2));
+        await pane.InvokeAsync(harness.State.ReloadAsync);
+        Assert.Equal([video.Id, note.Id], harness.State.SelectedItems.Select(item => item.Id));
+
+        // A filter that hides a picked row takes it out of the selection.
+        await pane.InvokeAsync(() => harness.State.ToggleKind(video.KindSlug));
+        Assert.Equal([video.Id], harness.State.SelectedIds);
+
+        // Another slice is another set of rows: nothing picked there yet.
+        await pane.InvokeAsync(() => harness.State.SelectSlice(InboxDesktopState.ListNavId(reading.Id)));
+        Assert.Equal(0, harness.State.SelectionCount);
+        Assert.True(harness.State.SelectionMode);
+    }
+
+    [Fact]
+    public async Task Escape_on_the_bar_puts_the_selection_down()
+    {
+        using var harness = Harness.Create();
+        var item = harness.Inbox.Seed("One");
+
+        var pane = await harness.RenderAsync();
+        await pane.Find("[data-testid='inbox-select-toggle']").ClickAsync(new());
+        await PickAsync(pane, item.Id);
+        await pane.Find("[data-testid='inbox-bulk-bar']").KeyDownAsync(new KeyboardEventArgs { Key = "Escape" });
+
+        Assert.False(harness.State.SelectionMode);
+        Assert.Empty(pane.FindAll("[data-testid='inbox-bulk-bar']"));
+        Assert.Empty(pane.FindAll("[data-testid^='inbox-pick-']"));
+    }
+
     // --- The state's own arithmetic -----------------------------------------
+
+    [Fact]
+    public void A_bulk_sentence_leads_with_what_landed_and_names_what_did_not()
+    {
+        var outcome = new InboxBulkOutcome(
+            3,
+            1,
+            [
+                new InboxBulkFailure(Guid.NewGuid(), "Gone", InboxErrors.ItemNotFound),
+                new InboxBulkFailure(Guid.NewGuid(), "Routed", InboxErrors.ItemAlreadyDecided)
+            ]);
+
+        Assert.Equal(
+            "3 items archived, 1 already up to date. Not changed — \"Gone\": That inbox item no longer exists. \"Routed\": Already routed or archived, so there is nothing left to change.",
+            InboxDesktopState.BulkMessage(outcome, "archived"));
+
+        Assert.Equal("No items changed, 2 already up to date.", InboxDesktopState.BulkMessage(new InboxBulkOutcome(0, 2, []), "archived"));
+    }
 
     [Theory]
     [InlineData(0, "just now")]
@@ -1030,6 +1236,14 @@ public sealed class InboxPaneTests
 
     private static IReadOnlyList<string> Titles(IRenderedComponent<InboxPane> pane) =>
         [.. pane.FindAll("[data-testid='inbox-pane-item-title']").Select(title => title.TextContent.Trim())];
+
+    /// <summary>Seeds items a minute apart so the list draws them in the order
+    /// given — newest capture first, so the first title is the newest.</summary>
+    private static IReadOnlyList<InboxItemDto> SeedNewestFirst(Harness harness, params string[] titles) =>
+        [.. titles.Select((title, index) => harness.Inbox.Seed(title, capturedAt: harness.Inbox.Now.AddMinutes(titles.Length - index)))];
+
+    private static Task PickAsync(IRenderedComponent<InboxPane> pane, Guid id, bool shift = false) =>
+        pane.Find($"[data-testid='inbox-pick-{id:D}'] input").ClickAsync(new MouseEventArgs { ShiftKey = shift });
 
     private static IReadOnlyList<string> MenuIds(IRenderedComponent<InboxPane> pane) =>
         [.. pane.FindAll("[data-testid='inbox-nav-menu'] [role='menuitem']")

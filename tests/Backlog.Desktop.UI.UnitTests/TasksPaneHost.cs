@@ -154,6 +154,12 @@ internal sealed class TasksPaneHost : IDisposable
         await write(elsewhere);
     }
 
+    /// <summary>The module's use cases over this host's folder, composed apart from
+    /// the pane's own — what the MCP server's tools or a sync pull write through, as
+    /// far as the pane can tell. A write through these is never the pane's own.</summary>
+    public ITaskItems EntriesElsewhere() =>
+        TasksTestHost.EntriesFor(new WorkspaceSettingsStore(StorageRoot, Path.Combine(StorageRoot, "elsewhere.json")));
+
     /// <summary>As <see cref="FromElsewhereAsync"/>, for the one act every test
     /// of it wants: the other machine wrote a new entry.</summary>
     public Task WriteFromElsewhereAsync(string text) =>

@@ -25,6 +25,14 @@ public static class InboxErrors
         "inbox.item.invalid_transition",
         detail);
 
+    /// <summary>The item has been routed or archived, and its tags and
+    /// repositories are what that decision was made with — changing them now
+    /// would change nothing it produced. Said by the pane, which keeps such an
+    /// item out of a tag or repository change across a selection.</summary>
+    public static readonly Error ItemAlreadyDecided = Error.Validation(
+        "inbox.item.already_decided",
+        "Already routed or archived, so there is nothing left to change.");
+
     public static readonly Error PersonIsNotATag = Error.Validation(
         "inbox.tag.person_not_a_tag",
         "A person (@name) is a source, not a tag.");

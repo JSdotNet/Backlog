@@ -22,8 +22,8 @@ component library on its own, with no app or cloud reference, so a single compon
 validated without the application around it.
 
 This repository also carries the checked-in knowledge folders (`.devbook/arc42/`, `.devbook/domain/`,
-`.devbook/tech/`, `.devbook/design/`, `.devbook/ai/`) and generator tooling under
-`.github/tools/knowledge-meta/`. Changes confined to those folders are documentation work —
+`.devbook/tech/`, `.devbook/design/`, `.devbook/ai/`) and the devbook generator under
+`.devbook/_tools/devbook-meta/`. Changes confined to those folders are documentation work —
 see `## QA Depth`.
 
 ## How to Run
@@ -191,11 +191,11 @@ checks pass:
 - Every rule under `.agents/rules/` keeps `name`, `description` and `paths`, and its two
   wrappers stay derived from it: `.claude/rules/<topic>.md` copies `paths`,
   `.github/instructions/<topic>.instructions.md` sets `applyTo` to `paths` comma-joined.
-- Derived `_meta/` artifacts are regenerated rather than hand-edited, and
-  `node .github/tools/knowledge-meta/build.mjs --check` passes. Nothing under
-  `_meta/` is committed any more, so there is no `git diff` to be clean: what
-  replaces it is `node tools/devbook/build-database.mjs --check` building without
-  error, which is a blocking step in `devbook-metadata.yml`. The database the app
+- `node .devbook/_tools/devbook-meta/build.mjs --check` and
+  `node tools/devbook/check-metadata.mjs` pass. Nothing under `_meta/` is
+  committed, so there is no `git diff` to be clean: what replaces it is
+  `node tools/devbook/build-database.mjs --check` building without error, which is
+  a blocking step in `devbook-metadata.yml`. The database the app
   reads is built by the app into its own storage (local ADR 0015).
 
 ## QA Depth

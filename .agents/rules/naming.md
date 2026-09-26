@@ -14,7 +14,7 @@ the repository.
 
 ## Casing
 
-Use kebab-case for files and folders (`.github/tools/knowledge-meta/`,
+Use kebab-case for files and folders (`.devbook/_tools/devbook-meta/`,
 `orch-context.md`). Keep any casing an external tool requires, such as
 `SKILL.md`, `README.md`, `CODEOWNERS`, and workflow filenames the platform
 expects.

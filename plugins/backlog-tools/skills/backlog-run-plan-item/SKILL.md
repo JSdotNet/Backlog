@@ -5,6 +5,8 @@ description: Run one item of a Backlog import plan that the user pasted into the
 
 # Run a Backlog plan item
 
+Open the reply with `backlog-tools@<version>`, `version` read from `../../.claude-plugin/plugin.json`, not recalled.
+
 The user copied an entry out of the Backlog app (or a plan document) and pasted it here.
 Recognize it, decide whether it still needs doing, and only then do it. When a `backlog`
 MCP server is in the live tool list, the entry's status is read from it and reported back

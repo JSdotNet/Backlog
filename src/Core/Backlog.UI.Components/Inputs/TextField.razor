@@ -214,29 +214,57 @@ else
 
     /// <summary>Its own fragment only so the suffix can be wrapped around it
     /// without the input being written twice - two copies of this attribute list
-    /// is how they stop matching.</summary>
+    /// is how they stop matching.
+    /// <para>
+    /// Through @bind rather than a bare <c>value</c> beside <c>@oninput</c>, and that
+    /// is not style: only a binding tells the renderer the handler updates
+    /// <c>value</c>, which is what lets it take each keystroke's text as already on
+    /// screen. Without it every keystroke's echo is written back a round trip late,
+    /// over the characters typed since, and a fast typist on a slow circuit loses
+    /// letters.
+    /// </para></summary>
     private RenderFragment InputPart =>
         @<input id="@FieldId"
                 class="@InputClass"
                 data-testid="@BareTestId"
                 type="@Type"
-                value="@Value"
                 placeholder="@Placeholder"
                 disabled="@Disabled"
                 readonly="@Readonly"
                 aria-invalid="@(HasError ? "true" : null)"
                 aria-describedby="@DescribedBy"
                 aria-label="@(string.IsNullOrWhiteSpace(Label) ? AriaLabel : null)"
-                @oninput="OnInput"
+                @bind:get="_text"
+                @bind:set="OnInput"
+                @bind:event="oninput"
                 @attributes="AdditionalAttributes" />;
 
     private string InputClass =>
         Compact ? $"{InputCssClass} field__input--compact" : InputCssClass;
 
+    // What the input shows, which is the host's Value only until somebody types.
+    // Binding to Value itself would write the host's copy back on any re-render
+    // that brings it unchanged — and a host that commits on a splatted onchange
+    // passes the same value for as long as the typing lasts, so a re-render from its
+    // own onkeydown would wipe the text. The host's value is taken when the host
+    // changes it, which is exactly when `value="@Value"` used to write it.
+    private string? _text;
+    private string? _hostValue;
+
     protected override void OnParametersSet()
     {
         if (Type is not ("text" or "number" or "url" or "email" or "password" or "date" or "time" or "datetime-local")) Type = "text";
+
+        if (Value != _hostValue)
+        {
+            _hostValue = Value;
+            _text = Value;
+        }
     }
 
-    private Task OnInput(ChangeEventArgs e) => ValueChanged.InvokeAsync(e.Value?.ToString() ?? string.Empty);
+    private Task OnInput(string? value)
+    {
+        _text = value ?? string.Empty;
+        return ValueChanged.InvokeAsync(_text);
+    }
 }
