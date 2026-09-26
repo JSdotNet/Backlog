@@ -6368,6 +6368,32 @@ h1, h2, h3 {
     scrollbar-gutter: stable;
 }
 
+/* The chapter sits inside the Chapters tab, so the pane's height has to pass
+   through the tab strip's wrappers to reach the document that scrolls. As plain
+   blocks they grew to the chapter's length and the pane clipped them: no
+   scrollbar, and no way to the end of a long chapter. The panel rule skips
+   `hidden`, which a display rule would otherwise override for the tab not shown. */
+.devbook-stack__section > .devbook-pane--arc42 > .tabs {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.devbook-stack__section > .devbook-pane--arc42 .tabs__panels {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.devbook-stack__section > .devbook-pane--arc42 .tabs__panel:not([hidden]) {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+}
+
 .devbook-stack__section > .devbook-pane--arc42 .arc42-devbook-layout {
     display: flex;
     flex: 1 1 auto;
