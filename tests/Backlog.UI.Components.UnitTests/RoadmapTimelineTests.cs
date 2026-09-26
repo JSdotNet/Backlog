@@ -641,6 +641,70 @@ public sealed class RoadmapTimelineTests
     }
 
     [Fact]
+    public void Pointing_at_a_bar_traces_its_arrows_and_what_is_at_their_other_ends()
+    {
+        using var context = new BunitContext();
+
+        var view = Chart(context, extra: parameters => parameters.Add(
+            timeline => timeline.Links,
+            new RoadmapLink[] { new("alpha", "beta"), new("gamma", "launch") }));
+
+        Assert.Empty(view.FindAll(".roadmap-timeline__links--tracing"));
+
+        view.Find("[data-testid='rm-bar-beta']").PointerEnter();
+
+        // Only the arrow beta is an end of stands out; the other one recedes, and
+        // the bar at the far end says it is the one being pointed at.
+        view.Find(".roadmap-timeline__links--tracing");
+        var traced = Assert.Single(view.FindAll(".roadmap-timeline__link--traced"));
+        Assert.Equal(2, view.FindAll(".roadmap-timeline__link").Count);
+        Assert.Contains("traced", traced.GetAttribute("marker-end")!, StringComparison.Ordinal);
+        Assert.Contains("roadmap-bar--related", view.Find("[data-testid='rm-bar-alpha']").ClassName, StringComparison.Ordinal);
+        Assert.DoesNotContain("roadmap-bar--related", view.Find("[data-testid='rm-bar-gamma']").ClassName, StringComparison.Ordinal);
+
+        view.Find("[data-testid='rm-bar-beta']").PointerLeave();
+
+        Assert.Empty(view.FindAll(".roadmap-timeline__links--tracing"));
+        Assert.Empty(view.FindAll(".roadmap-timeline__link--traced"));
+        Assert.Empty(view.FindAll(".roadmap-bar--related"));
+    }
+
+    [Fact]
+    public void Focusing_a_milestone_traces_its_arrows_the_way_a_pointer_does()
+    {
+        using var context = new BunitContext();
+
+        var view = Chart(context, extra: parameters => parameters.Add(
+            timeline => timeline.Links,
+            new RoadmapLink[] { new("alpha", "launch"), new("beta", "gamma") }));
+
+        view.Find("[data-testid='rm-milestone-launch']").FocusIn();
+
+        Assert.Single(view.FindAll(".roadmap-timeline__link--traced"));
+        Assert.Contains("roadmap-bar--related", view.Find("[data-testid='rm-bar-alpha']").ClassName, StringComparison.Ordinal);
+
+        view.Find("[data-testid='rm-milestone-launch']").FocusOut();
+
+        Assert.Empty(view.FindAll(".roadmap-timeline__link--traced"));
+    }
+
+    [Fact]
+    public void Pointing_at_something_with_no_arrows_dims_nothing()
+    {
+        using var context = new BunitContext();
+
+        var view = Chart(context, extra: parameters => parameters.Add(
+            timeline => timeline.Links,
+            new RoadmapLink[] { new("alpha", "beta") }));
+
+        view.Find("[data-testid='rm-bar-gamma']").PointerEnter();
+
+        // Fading every arrow because the pointer crossed an unrelated bar would
+        // make the chart flicker for nothing.
+        Assert.Empty(view.FindAll(".roadmap-timeline__links--tracing"));
+    }
+
+    [Fact]
     public void The_badge_on_a_bar_counts_the_arrows_that_were_actually_drawn()
     {
         using var context = new BunitContext();
