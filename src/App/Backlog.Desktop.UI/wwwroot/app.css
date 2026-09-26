@@ -590,6 +590,17 @@ h1, h2, h3 {
     flex: 0 0 auto;
 }
 
+/* Sort by status: an act on the rows in view, not a filter. Sized to its label,
+   and dimmed when the view is already in order. */
+.filter-group--arrange {
+    flex: 0 0 auto;
+}
+
+.filter-group--arrange .chip:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
 .chip--summary {
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
