@@ -84,7 +84,7 @@
                 </Actions>
             </SectionHeader>
 
-            @if (!open)
+            @if (!open || item.Status == InboxStatus.Deferred)
             {
                 <Alert BaseClass="inbox-pane__state"
                        Role="status"
@@ -213,6 +213,33 @@
                                Message="No repositories are configured in Settings, so the entry will not be targeted at one."
                                TestId="inbox-detail-no-repos" />
                     }
+
+                    @* Deferral sits with the pickers rather than in the header: the
+                       header's four acts are the toolbar budget, and a date is a
+                       field before it is an act. *@
+                    <div class="inbox-pane__defer" data-testid="inbox-detail-defer">
+                        <TextField Label="Review on"
+                                   Type="date"
+                                   Compact="true"
+                                   Value="@_deferDate"
+                                   ValueChanged="value => _deferDate = value"
+                                   CssClass="inbox-pane__defer-date"
+                                   TestId="inbox-defer-date" />
+                        <ButtonGroup AriaLabel="Deferral" CssClass="inbox-pane__defer-actions" TestId="inbox-defer-actions">
+                            <AppButton Size="ButtonSize.Small"
+                                       Disabled="@Busy"
+                                       Title="Back in the inbox on the review date; with no date, it stays aside until you return it"
+                                       OnClick="() => State.DeferAsync(ParseDate(_deferDate))"
+                                       TestId="inbox-defer">@(item.Status == InboxStatus.Deferred ? "Change date" : "Defer")</AppButton>
+                            @if (item.Status == InboxStatus.Deferred)
+                            {
+                                <AppButton Size="ButtonSize.Small"
+                                           Disabled="@Busy"
+                                           OnClick="State.ResurfaceAsync"
+                                           TestId="inbox-return">Return to inbox</AppButton>
+                            }
+                        </ButtonGroup>
+                    </div>
                 }
                 else if (item.Tags.Count > 0 || item.RepoIds.Count > 0)
                 {
@@ -255,6 +282,32 @@
 
     private bool _moveOpen;
 
+    /// <summary>The review date as the date field holds it, <c>yyyy-MM-dd</c> or
+    /// empty. Held here until "Defer" is pressed rather than written on every
+    /// change, because a date field reports half-typed dates as empty.</summary>
+    private string? _deferDate;
+
+    /// <summary>The item <see cref="_deferDate"/> was filled for, so choosing
+    /// another item — or the same one coming back with a new date — refills it.</summary>
+    private (Guid Id, DateOnly? Until)? _deferFilledFor;
+
+    protected override void OnParametersSet()
+    {
+        if (State.SelectedItem is not { } item) return;
+
+        var current = (item.Id, item.DeferredUntil);
+        if (_deferFilledFor == current) return;
+
+        _deferFilledFor = current;
+        _deferDate = item.DeferredUntil?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    private static DateOnly? ParseDate(string? value) =>
+        DateOnly.TryParseExact(value, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.None, out var date)
+            ? date
+            : null;
+
     private bool Busy => State.PlanRunning || State.RouteRunning;
 
     private (bool Available, string? Reason) Availability => State.PlanDrafterAvailability;
@@ -286,6 +339,9 @@
     private string StateLine(InboxItemDto item) => item switch
     {
         { Status: InboxStatus.Archived } => "Archived.",
+        { Status: InboxStatus.Deferred, DeferredUntil: { } until } =>
+            $"Deferred until {until.ToString("d MMM yyyy", System.Globalization.CultureInfo.InvariantCulture)}.",
+        { Status: InboxStatus.Deferred } => "Deferred with no review date.",
         { Routing: { } routing } =>
             $"Routed to {InboxDesktopState.Counted(routing.TaskIds.Count, "task", "tasks")} on {routing.RoutedAt.ToLocalTime().ToString("d MMM yyyy", System.Globalization.CultureInfo.InvariantCulture)}.",
         _ => InboxLabels.Status(item.Status) + "."

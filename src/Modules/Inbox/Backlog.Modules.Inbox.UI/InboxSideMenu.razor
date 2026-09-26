@@ -1,5 +1,5 @@
 @*
-    The side menu: the fixed Inbox row, the groups with their lists folded
+    The side menu: the fixed Inbox and Deferred rows, the groups with their lists folded
     under them, the lists filed under no group — each with how many items are
     still waiting in it. Drawn by the library's ListNav from a model built off
     the state, so this file owns no row markup at all; what it owns is the
@@ -128,8 +128,13 @@
     /// asked.</summary>
     private Guid? _deleteListId;
 
+    /// <summary>The two rows that are not lists: the unfiled inbox, and every
+    /// deferred item wherever it is filed.</summary>
     private IReadOnlyList<ListNavEntry> Fixed =>
-        [new(InboxDesktopState.InboxSliceId, "Inbox", State.InboxCount, "✉")];
+    [
+        new(InboxDesktopState.InboxSliceId, "Inbox", State.InboxCount, "✉"),
+        new(InboxDesktopState.DeferredSliceId, "Deferred", State.DeferredCount, "⏾")
+    ];
 
     private IReadOnlyList<ListNavGroup> GroupModel =>
         [.. State.Groups
@@ -172,9 +177,9 @@
         _menuOpen = true;
     }
 
-    /// <summary>What the menu offers on what was clicked. The fixed Inbox row
-    /// is not a list — it cannot be renamed, moved or deleted — so it offers the
-    /// root's items, which is where a new list comes from.</summary>
+    /// <summary>What the menu offers on what was clicked. The fixed Inbox and
+    /// Deferred rows are not lists — they cannot be renamed, moved or deleted —
+    /// so they offer the root's items, which is where a new list comes from.</summary>
     private static IReadOnlyList<MenuItem> MenuItemsFor(ListNavTarget? target) => target switch
     {
         { Kind: ListNavTargetKind.Group } => GroupItems,

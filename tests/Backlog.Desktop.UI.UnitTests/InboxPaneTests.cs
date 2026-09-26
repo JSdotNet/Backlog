@@ -582,6 +582,108 @@ public sealed class InboxPaneTests
         Assert.Equal(InboxStatus.Archived, harness.Inbox.Find(item.Id)!.Status);
     }
 
+    // --- Deferral ------------------------------------------------------------
+
+    [Fact]
+    public async Task Deferring_with_a_date_moves_the_row_to_the_deferred_slice_and_counts_it_there()
+    {
+        using var harness = Harness.Create();
+        var item = harness.Inbox.Seed("Read it next week");
+        harness.Inbox.Seed("Keep me");
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, item.Id);
+        await pane.Find("[data-testid='inbox-defer-date'] input").InputAsync(new ChangeEventArgs { Value = "2026-09-21" });
+        await pane.Find("[data-testid='inbox-defer']").ClickAsync(new());
+
+        Assert.Equal(["Keep me"], Titles(pane));
+        Assert.Equal("1", pane.Find("[data-testid='inbox-nav-inbox-count']").TextContent.Trim());
+        Assert.Equal("1", pane.Find("[data-testid='inbox-nav-deferred-count']").TextContent.Trim());
+        Assert.Equal("Deferred until 21 Sep 2026.", pane.Find("[data-testid='inbox-detail-state']").TextContent.Trim());
+        Assert.Equal(new DateOnly(2026, 9, 21), harness.Inbox.Find(item.Id)!.DeferredUntil);
+
+        await pane.Find("[data-testid='inbox-nav-deferred']").ClickAsync(new());
+
+        Assert.Equal(["Read it next week"], Titles(pane));
+    }
+
+    [Fact]
+    public async Task Deferring_with_no_date_keeps_it_aside_until_returned()
+    {
+        using var harness = Harness.Create();
+        var item = harness.Inbox.Seed("Someday");
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, item.Id);
+        await pane.Find("[data-testid='inbox-defer']").ClickAsync(new());
+
+        Assert.Equal("Deferred with no review date.", pane.Find("[data-testid='inbox-detail-state']").TextContent.Trim());
+        Assert.Equal("Change date", pane.Find("[data-testid='inbox-defer']").TextContent.Trim());
+
+        await pane.Find("[data-testid='inbox-return']").ClickAsync(new());
+
+        Assert.Equal(InboxStatus.Unprocessed, harness.Inbox.Find(item.Id)!.Status);
+        Assert.Equal(["Someday"], Titles(pane));
+        Assert.Empty(pane.FindAll("[data-testid='inbox-return']"));
+    }
+
+    /// <summary>The deferred slice spans lists and runs in the order items will
+    /// come back: soonest date first, undated last.</summary>
+    [Fact]
+    public async Task The_deferred_slice_lists_every_deferred_item_soonest_first()
+    {
+        using var harness = Harness.Create();
+        var resources = harness.Inbox.SeedList("Resources");
+        harness.Inbox.Seed("Undated", status: InboxStatus.Deferred);
+        harness.Inbox.Seed("Later", status: InboxStatus.Deferred, deferredUntil: new DateOnly(2026, 12, 1), listId: resources.Id);
+        harness.Inbox.Seed("Sooner", status: InboxStatus.Deferred, deferredUntil: new DateOnly(2026, 10, 1));
+        harness.Inbox.Seed("Waiting");
+
+        var pane = await harness.RenderAsync();
+
+        Assert.Equal("3", pane.Find("[data-testid='inbox-nav-deferred-count']").TextContent.Trim());
+        Assert.Equal("0", pane.Find($"[data-testid='inbox-nav-{InboxDesktopState.ListNavId(resources.Id)}-count']").TextContent.Trim());
+
+        await pane.Find("[data-testid='inbox-nav-deferred']").ClickAsync(new());
+
+        Assert.Equal(["Sooner", "Later", "Undated"], Titles(pane));
+    }
+
+    /// <summary>Opening the pane is the sweep: an item whose date has passed is
+    /// in the queue before anyone reads it, and the toast says why.</summary>
+    [Fact]
+    public async Task Opening_the_pane_brings_back_every_deferred_item_whose_date_has_passed()
+    {
+        using var harness = Harness.Create();
+        harness.Inbox.Seed("Due yesterday", status: InboxStatus.Deferred, deferredUntil: new DateOnly(2026, 9, 13));
+        harness.Inbox.Seed("Due tomorrow", status: InboxStatus.Deferred, deferredUntil: new DateOnly(2026, 9, 15));
+
+        var pane = await harness.RenderAsync();
+
+        Assert.Equal(1, harness.Inbox.ResurfaceDueCalls);
+        Assert.Equal(["Due yesterday"], Titles(pane));
+        Assert.Equal("1", pane.Find("[data-testid='inbox-nav-deferred-count']").TextContent.Trim());
+        Assert.Contains(harness.Toasts.Visible, toast => toast.TestId == "inbox-resurfaced");
+
+        // Open again later: the sweep runs again.
+        harness.Inbox.Now = harness.Inbox.Now.AddDays(1);
+        await pane.InvokeAsync(harness.State.OpenedAsync);
+
+        Assert.Equal(2, harness.Inbox.ResurfaceDueCalls);
+        Assert.Equal("0", pane.Find("[data-testid='inbox-nav-deferred-count']").TextContent.Trim());
+    }
+
+    [Fact]
+    public async Task A_sweep_that_brings_nothing_back_says_nothing()
+    {
+        using var harness = Harness.Create();
+        harness.Inbox.Seed("Not yet", status: InboxStatus.Deferred, deferredUntil: new DateOnly(2026, 10, 1));
+
+        await harness.RenderAsync();
+
+        Assert.DoesNotContain(harness.Toasts.Visible, toast => toast.TestId == "inbox-resurfaced");
+    }
+
     [Fact]
     public async Task Move_to_list_files_the_item_and_the_row_moves_to_that_list()
     {

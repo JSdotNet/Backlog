@@ -88,11 +88,14 @@ public enum RoadmapProgress
 /// Opaque here: a reader matches them against the repositories it knows, which is
 /// how an item spanning several repositories is drawn as one part per repository.
 /// Empty for a knowledge chapter and for work filed nowhere.</param>
-/// <param name="StartedOn">The day work on it first moved to in progress, or
-/// <see langword="null"/> when it never has — and always for a knowledge
+/// <param name="StartedOn">The day work on it first moved to in progress — or,
+/// when the entry never recorded that, the day the first AI session linked to it
+/// began. <see langword="null"/> when neither says, and always for a knowledge
 /// chapter, which has no status to move.</param>
-/// <param name="CompletedOn">The day it was ticked off, or <see langword="null"/>
-/// while it is still open. Null for a knowledge chapter.</param>
+/// <param name="CompletedOn">The day it was ticked off — or, for finished work
+/// nobody ticked, the day the last AI session linked to it ended.
+/// <see langword="null"/> while it is still open. Null for a knowledge
+/// chapter.</param>
 /// <param name="CreatedOn">The local date the entry was created — a fallback start
 /// for work stamped before <c>started:</c> existed. Null for a knowledge
 /// chapter.</param>
@@ -203,9 +206,9 @@ public sealed record RoadmapItemRollupDto(
         .Min();
 
     /// <summary>
-    /// When the work actually ended: the latest day a gathered entry was ticked off.
-    /// Null when none was — a done entry nobody ticked says the work is over but not
-    /// when.
+    /// When the work actually ended: the latest day a gathered entry was ticked off,
+    /// or its last linked session ended. Null when neither says — a done entry nobody
+    /// ticked and no session worked says the work is over but not when.
     /// </summary>
     public DateOnly? LastCompletedOn => BacklogEntries
         .Select(link => link.CompletedOn)

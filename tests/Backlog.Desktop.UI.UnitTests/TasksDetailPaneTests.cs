@@ -536,7 +536,7 @@ public sealed class TasksDetailPaneTests
     }
 
     /// <summary>
-    /// Sorting by status re-ranks what the filters show — in progress, then
+    /// Sorting by status re-ranks what the filters show — done, in progress,
     /// ready, then draft — among the slots those rows already held, so a row the
     /// filters hide keeps its place in the whole list.
     /// </summary>
@@ -568,6 +568,26 @@ public sealed class TasksDetailPaneTests
     }
 
     /// <summary>
+    /// Done ranks first, above in progress: the finished work leads the list
+    /// and archived work still trails it.
+    /// </summary>
+    [Fact]
+    public async Task Sorting_by_status_puts_done_above_in_progress()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        await host.WriteEntryAsync("# Started\n`task` `!in_progress`\n");
+        await host.WriteEntryAsync("# Shelved\n`task` `!archived`\n");
+        await host.WriteEntryAsync("# Finished\n`task` `!done`\n");
+        await host.WriteEntryAsync("# Ready one\n`task` `!ready`\n");
+
+        await host.State.SortVisibleByStatusAsync();
+
+        Assert.Equal(
+            ["Finished", "Started", "Ready one", "Shelved"],
+            host.State.Rows.Select(row => row.PreviewTitle));
+    }
+
+    /// <summary>
     /// Sorting by status never puts a row above one it is waiting for: the
     /// predecessor is lifted to the rank of its most urgent dependent instead, so
     /// the chain stays together. A done predecessor is no longer waited for and
@@ -589,7 +609,7 @@ public sealed class TasksDetailPaneTests
         await host.State.SortVisibleByStatusAsync();
 
         Assert.Equal(
-            ["Draft first step", "Started second step", "Other ready", "Waits on finished", "Ready third step", "Finished step"],
+            ["Finished step", "Draft first step", "Started second step", "Other ready", "Waits on finished", "Ready third step"],
             host.State.Rows.Select(row => row.PreviewTitle));
         Assert.False(host.State.CanSortVisibleByStatus);
     }

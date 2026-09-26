@@ -31,7 +31,7 @@ and do not report the absent server as a blocked precondition.
 
 The MCP servers that remain in use are runtime and tooling servers, not guidance servers:
 Aspire (resource state, logs, traces), Playwright (browser automation for QA), the
-orchestration dashboard, and `backlog` — the running desktop app's own server, bound as the
+delivery surfaces, and `backlog` — the running desktop app's own server, bound as the
 delivery tracker in `.devbook/config.json`. `.mcp.json` also declares `microsoft-learn`, the
 delivery engine's default for .NET and Azure API reference. Its Playwright entry runs
 `--isolated` so it never shares a browser profile with the `qa` plugin's own instance.
@@ -40,7 +40,7 @@ delivery engine's default for .NET and Azure API reference. Its Playwright entry
 
 Checked-in knowledge folders are **task-scoped local context**, not default context. Load
 `.devbook/arc42/`, `.devbook/domain/`, `.devbook/tech/`, or `.devbook/design/` only when the selected
-orchestration or specialist agent needs that knowledge, and then prefer the relevant
+flow or specialist agent needs that knowledge, and then prefer the relevant
 chapter(s) over whole-folder reads.
 
 `.devbook/arc42/adr/guidelines/` is the exception that proves the rule: consult the single decision

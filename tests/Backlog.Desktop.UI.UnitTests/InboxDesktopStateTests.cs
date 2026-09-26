@@ -101,6 +101,27 @@ public sealed class InboxDesktopStateTests : IDisposable
         Assert.Equal(2, state.Items.Count);
     }
 
+    /// <summary>The Deferred row is a slice like any other: opening it drops a
+    /// selection made in the queue, and a capture made from it goes back to the
+    /// Inbox and drops one made there.</summary>
+    [Fact]
+    public async Task Opening_the_deferred_slice_forgets_the_selection()
+    {
+        var inbox = new FakeInboxItems();
+        var picked = inbox.Seed("Picked in the queue");
+        inbox.Seed("Put aside", status: Backlog.Modules.Inbox.Abstractions.InboxStatus.Deferred);
+        var state = new InboxDesktopState(inbox, new GitHubSettingsStore(Path.Combine(_root, "github.json")));
+        await state.ReloadAsync();
+
+        state.TogglePicked(picked.Id, picked: true, range: false);
+        Assert.Equal(1, state.SelectionCount);
+
+        state.SelectSlice(InboxDesktopState.DeferredSliceId);
+
+        Assert.Equal(0, state.SelectionCount);
+        Assert.Equal(["Put aside"], state.VisibleItems.Select(item => item.Title));
+    }
+
     // --- Tag options ----------------------------------------------------------
 
     /// <summary>The picker offers the words the backlog already uses beside the

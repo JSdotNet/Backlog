@@ -24,23 +24,31 @@ namespace Backlog.Infrastructure.FileSystem.Roadmap;
 /// </summary>
 public static class RoadmapItemRollupBuilder
 {
+    /// <param name="item">The roadmap item to gather for.</param>
+    /// <param name="backlog">Every backlog entry.</param>
+    /// <param name="knowledge">Every knowledge node.</param>
+    /// <param name="sessions">The AI sessions an entry may be linked to, by session
+    /// id — read only to date an entry that carries no date of its own. Null, or a
+    /// linked session missing from it, leaves the entry's dates as Tasks recorded
+    /// them.</param>
     public static RoadmapItemRollupDto Build(
         RoadmapItemDto item,
         IReadOnlyList<TaskItemDto> backlog,
-        IReadOnlyList<KnowledgeGraphNode> knowledge)
+        IReadOnlyList<KnowledgeGraphNode> knowledge,
+        IReadOnlyDictionary<string, RoadmapSessionActivity>? sessions = null)
     {
         ArgumentNullException.ThrowIfNull(item);
         ArgumentNullException.ThrowIfNull(backlog);
         ArgumentNullException.ThrowIfNull(knowledge);
 
-        return Build(item, backlog, knowledge, DependencyCandidates(backlog));
+        return Build(item, backlog, knowledge, DependencyCandidates(backlog), sessions ?? NoSessions);
     }
 
     /// <summary>
     /// One rollup per item of a plan, off one read of each source.
     /// <para>
     /// Not a loop over <see cref="Build(RoadmapItemDto, IReadOnlyList{TaskItemDto},
-    /// IReadOnlyList{KnowledgeGraphNode})"/> for one reason worth stating: the
+    /// IReadOnlyList{KnowledgeGraphNode}, IReadOnlyDictionary{string, RoadmapSessionActivity})"/> for one reason worth stating: the
     /// dependency candidates are derived from the whole backlog, not from one item's
     /// share of it, so deriving them once here is both cheaper and the only way the
     /// answer stays the same for every item.
@@ -55,7 +63,8 @@ public static class RoadmapItemRollupBuilder
     public static IReadOnlyDictionary<Guid, RoadmapItemRollupDto> BuildPlan(
         RoadmapPlanDto plan,
         IReadOnlyList<TaskItemDto> backlog,
-        IReadOnlyList<KnowledgeGraphNode> knowledge)
+        IReadOnlyList<KnowledgeGraphNode> knowledge,
+        IReadOnlyDictionary<string, RoadmapSessionActivity>? sessions = null)
     {
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentNullException.ThrowIfNull(backlog);
@@ -69,7 +78,7 @@ public static class RoadmapItemRollupBuilder
             // Last write wins on a repeated id rather than throwing. A plan holding
             // one id twice is already broken, and refusing to draw any of it is a
             // worse answer than drawing it once.
-            rollups[item.Id] = Build(item, backlog, knowledge, candidates);
+            rollups[item.Id] = Build(item, backlog, knowledge, candidates, sessions ?? NoSessions);
         }
 
         return rollups;
@@ -79,10 +88,49 @@ public static class RoadmapItemRollupBuilder
         RoadmapItemDto item,
         IReadOnlyList<TaskItemDto> backlog,
         IReadOnlyList<KnowledgeGraphNode> knowledge,
-        IReadOnlyCollection<DependencyResolution.Candidate> candidates) =>
+        IReadOnlyCollection<DependencyResolution.Candidate> candidates,
+        IReadOnlyDictionary<string, RoadmapSessionActivity> sessions) =>
         new(
-            RoadmapRollup.Merge(BacklogCandidates(item, backlog, candidates)),
+            RoadmapRollup.Merge(BacklogCandidates(item, backlog, candidates, sessions)),
             RoadmapRollup.Merge(KnowledgeCandidates(item, knowledge)));
+
+    private static readonly IReadOnlyDictionary<string, RoadmapSessionActivity> NoSessions =
+        new Dictionary<string, RoadmapSessionActivity>();
+
+    /// <summary>Whether <paramref name="item"/> gathers <paramref name="entry"/> at all —
+    /// by its direct link or by carrying its tag. The adapter asks it to learn which
+    /// entries' sessions are worth reading before any rollup is built.</summary>
+    public static bool Gathers(RoadmapItemDto item, TaskItemDto entry)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+        ArgumentNullException.ThrowIfNull(entry);
+
+        return IsDirect(item, entry) || IsTagged(item, entry);
+    }
+
+    /// <summary>
+    /// Whether a session could date <paramref name="entry"/>: it names at least one
+    /// session, and it lacks a date a session can stand in for — a start, or, once
+    /// its work is over, a completion.
+    /// </summary>
+    public static bool NeedsSessionDates(TaskItemDto entry)
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+
+        return (entry.StartedOn is null || (IsOver(entry.Status) && entry.CompletedOn is null))
+            && SessionIds(entry).Any();
+    }
+
+    /// <summary>The ids of the AI sessions linked to <paramref name="entry"/>.</summary>
+    public static IEnumerable<string> SessionIds(TaskItemDto entry)
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+
+        return entry.Projections
+            .Where(projection => string.Equals(projection.TargetType, EntryProjectionDto.SessionTargetType, StringComparison.OrdinalIgnoreCase))
+            .Select(projection => projection.ExternalId)
+            .Where(id => !string.IsNullOrWhiteSpace(id));
+    }
 
     /// <summary>Every live entry an <c>after:</c> value may name, for the resolver
     /// below. Built from the whole backlog because a plan-local id is resolved
@@ -94,16 +142,14 @@ public static class RoadmapItemRollupBuilder
     private static IEnumerable<RoadmapGatheredLink> BacklogCandidates(
         RoadmapItemDto item,
         IReadOnlyList<TaskItemDto> backlog,
-        IReadOnlyCollection<DependencyResolution.Candidate> candidates)
+        IReadOnlyCollection<DependencyResolution.Candidate> candidates,
+        IReadOnlyDictionary<string, RoadmapSessionActivity> sessions)
     {
-        var tag = item.Tag;
-        var hasTag = !string.IsNullOrWhiteSpace(tag);
-
         var gathered = new List<(TaskItemDto Entry, bool Direct, bool Tagged)>();
         foreach (var entry in backlog)
         {
-            var direct = item.TaskId is { } linked && entry.Id == linked;
-            var tagged = hasTag && entry.Tags.Any(candidate => CarriesPlanTag(candidate, tag!));
+            var direct = IsDirect(item, entry);
+            var tagged = IsTagged(item, entry);
 
             if (direct || tagged) gathered.Add((entry, direct, tagged));
         }
@@ -115,6 +161,8 @@ public static class RoadmapItemRollupBuilder
 
         foreach (var (entry, direct, tagged) in gathered)
         {
+            var (startedOn, completedOn) = Dates(entry, sessions);
+
             yield return new RoadmapGatheredLink(
                 entry.Id.ToString(),
                 entry.Title,
@@ -123,11 +171,57 @@ public static class RoadmapItemRollupBuilder
                 Progress(entry.Status),
                 GatheredDependencies(entry, keys, candidates),
                 entry.RepoIds ?? [],
-                entry.StartedOn,
-                entry.CompletedOn,
+                startedOn,
+                completedOn,
                 entry.CreatedAt is { } createdAt ? DateOnly.FromDateTime(createdAt.LocalDateTime) : null);
         }
     }
+
+    /// <summary>
+    /// When an entry's work ran: the dates Tasks recorded, and where one is missing,
+    /// the sessions linked to the entry.
+    /// <para>
+    /// A session-derived start is the earliest instant any linked session is known to
+    /// have been working. It comes ahead of the created-on fallback a reader applies
+    /// later, because a session is the work itself and the day an entry was filed is
+    /// not. A session-derived completion is the last activity of the latest linked
+    /// session, and only for work that is over: a session ending says nothing about
+    /// open work being finished.
+    /// </para>
+    /// <para>
+    /// The entry's own dates always win, and nothing is written back — this is read
+    /// off the gathering each time, like the rest of the rollup.
+    /// </para>
+    /// </summary>
+    private static (DateOnly? StartedOn, DateOnly? CompletedOn) Dates(
+        TaskItemDto entry,
+        IReadOnlyDictionary<string, RoadmapSessionActivity> sessions)
+    {
+        var startedOn = entry.StartedOn;
+        var completedOn = entry.CompletedOn;
+        if (sessions.Count == 0 || !NeedsSessionDates(entry)) return (startedOn, completedOn);
+
+        var worked = SessionIds(entry)
+            .Select(id => sessions.TryGetValue(id, out var session) ? session : null)
+            .OfType<RoadmapSessionActivity>()
+            .ToList();
+        if (worked.Count == 0) return (startedOn, completedOn);
+
+        startedOn ??= LocalDay(worked.Min(session => session.EarliestAt));
+        if (IsOver(entry.Status)) completedOn ??= LocalDay(worked.Max(session => session.LastActivityAt));
+
+        return (startedOn, completedOn);
+    }
+
+    private static DateOnly LocalDay(DateTimeOffset instant) => DateOnly.FromDateTime(instant.LocalDateTime);
+
+    private static bool IsDirect(RoadmapItemDto item, TaskItemDto entry) =>
+        item.TaskId is { } linked && entry.Id == linked;
+
+    private static bool IsTagged(RoadmapItemDto item, TaskItemDto entry) =>
+        !string.IsNullOrWhiteSpace(item.Tag) && entry.Tags.Any(candidate => CarriesPlanTag(candidate, item.Tag!));
+
+    private static bool IsOver(EntryStatus status) => Progress(status) == RoadmapProgress.Done;
 
     /// <summary>
     /// The gathered keys one entry waits on.

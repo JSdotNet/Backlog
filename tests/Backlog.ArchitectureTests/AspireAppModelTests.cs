@@ -41,11 +41,9 @@ public class AspireAppModelTests
     /// registration that names a head names it by path.</summary>
     private static readonly string[] MauiHeads = ["Backlog.Mobile", "Backlog.Desktop"];
 
-    /// <summary>The two copies of the orchestration runtime context. CLAUDE.md
-    /// requires them to carry the same facts, and nothing but a rule makes that
-    /// true — the Claude copy is the one that gets edited.</summary>
-    private static readonly string[][] OrchestrationContexts =
-        [[".claude", "orch-context.md"], [".github", "copilot-orch-context.md"]];
+    /// <summary>The runtime context a flow run reads: how the app starts and what
+    /// QA depth applies.</summary>
+    private static readonly string[] RuntimeContext = [".claude", "orch-context.md"];
 
     [Fact]
     public void The_apphost_opts_in_to_the_aspire_cli_bundle()
@@ -425,26 +423,21 @@ public class AspireAppModelTests
         }
     }
 
-    /// <summary>The two orchestration context files are the runtime brief every
-    /// orchestration reads. A fact added to one and not the other is worse than a
-    /// fact in neither, because the toolchain reading the stale copy cannot
-    /// tell.</summary>
+    /// <summary>The runtime context file is the brief every flow run reads before it
+    /// starts the app. A runtime fact missing from it is one a run discovers the hard
+    /// way.</summary>
     [Theory]
     [InlineData("foundry-local")]
     [InlineData("telemetry filtering")]
     [InlineData("remembered surface")]
-    public void Both_orchestration_contexts_carry_the_same_runtime_facts(string fact)
+    public void The_runtime_context_carries_the_runtime_facts(string fact)
     {
-        foreach (var context in OrchestrationContexts)
-        {
-            var text = File.ReadAllText(RepositoryRoot.File(context));
+        var text = File.ReadAllText(RepositoryRoot.File(RuntimeContext));
 
-            Assert.True(
-                text.Contains(fact, StringComparison.OrdinalIgnoreCase),
-                $"{Path.Combine(context)} does not mention '{fact}'. Both copies carry the same runtime "
-                + "facts (CLAUDE.md); updating one and not the other leaves whichever toolchain reads the "
-                + "other working from a stale brief.");
-        }
+        Assert.True(
+            text.Contains(fact, StringComparison.OrdinalIgnoreCase),
+            $"{Path.Combine(RuntimeContext)} does not mention '{fact}'. Every flow run reads it before "
+            + "starting the app, so a fact missing from it leaves the run working from a stale brief.");
     }
 
     /// <summary>The README resource table is the first thing anyone reads before

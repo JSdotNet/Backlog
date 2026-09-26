@@ -18,7 +18,8 @@ stateDiagram-v2
     Unprocessed --> Routed : Route to Tasks / Create plan
     Unprocessed --> Deferred : Defer for later review
     Unprocessed --> Archived : Dismiss / not actionable
-    Deferred --> Unprocessed : Review date reached
+    Deferred --> Deferred : Change the review date
+    Deferred --> Unprocessed : Review date reached / Return to inbox
     Deferred --> Routed : Route to Tasks / Create plan
     Deferred --> Archived : Dismissed after deferral
     Routed --> [*]
@@ -36,8 +37,16 @@ stateDiagram-v2
   routing target.
 - Filing in a list (`list_id`) is not a transition: it is allowed in every
   state, `Archived` included.
-- `Deferred → Unprocessed` on the review date is modelled and exists on the
-  aggregate; nothing schedules it yet.
+- `Deferred → Unprocessed` happens two ways. A person returns the item by hand,
+  whatever its date. Or the **resurface sweep** finds its `deferred_until` on or
+  before today — the local calendar day — and brings it back. The sweep runs
+  when the desktop Inbox pane opens, the first time and every time after it is
+  closed and shown again. There is no background scheduler: for a single reader
+  on one desktop, opening the pane is the only moment the difference shows, so a
+  timer would wake a queue nobody is reading. An item with no review date is
+  never swept. A scheduler can replace the sweep if a second surface ever reads
+  the queue unattended.
+- Deferring a deferred item is allowed and changes its review date.
 
 ## Capture intake and acknowledgement
 

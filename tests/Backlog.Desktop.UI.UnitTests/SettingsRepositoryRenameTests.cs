@@ -254,6 +254,10 @@ public sealed class SettingsRepositoryRenameTests
         public Task<Result> AssignRepositoriesAsync(Guid id, IReadOnlyList<string> repoIds, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Result> MoveToListAsync(Guid id, Guid? listId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Result> ArchiveAsync(Guid id, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<Result> DeferAsync(Guid id, DateOnly? until, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<Result> ResurfaceAsync(Guid id, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<Result<int>> ResurfaceDueAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
         public Task<InboxBatchResultDto> SetTagsAsync(IReadOnlyDictionary<Guid, IReadOnlyList<string>> tagsByItem, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<InboxBatchResultDto> AssignRepositoriesAsync(IReadOnlyList<Guid> ids, IReadOnlyList<string> repoIds, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<InboxBatchResultDto> MoveToListAsync(IReadOnlyList<Guid> ids, Guid? listId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
