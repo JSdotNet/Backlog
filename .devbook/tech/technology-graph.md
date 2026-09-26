@@ -149,17 +149,17 @@ flowchart LR
     end
 
     subgraph AiDev["AI-assisted development"]
-        CopilotCli["GitHub Copilot CLI"]:::adopted
         Plugins["Claude Code Plugins"]:::adopted
         Skills["Agent Skills"]:::adopted
         Subagents["Subagents"]:::adopted
         MCP["Model Context Protocol Servers"]:::adopted
-        Dashboard["Orchestration Dashboard"]:::adopted
+        DeliveryEngine["Delivery Engine"]:::adopted
+        DeliverySchedule["Delivery Schedule"]:::trial
+        Surfaces["Delivery Surfaces"]:::adopted
+        BacklogTools["Backlog Tools Plugin"]:::adopted
         InstructionFiles["Repository Instruction Files"]:::adopted
         Hooks["Claude Code Hooks"]:::adopted
         DevbookPlugin["Devbook Plugin"]:::adopted
-        Canvas["Devbook Canvas Extension"]:::adopted
-        Worktrees["Git Worktree Sessions"]:::adopted
     end
 
     subgraph Tooling["Build and governance tooling"]
@@ -255,25 +255,24 @@ flowchart LR
     Playwright --> BlazorServer
     Playwright --> WebView2
 
-    CopilotCli --> GitHubPlatform
     Plugins --> ClaudeCode
-    Plugins --> CopilotCli
     Skills --> Plugins
     Skills --> Markdown
     Skills --> YAML
     Subagents --> Plugins
     MCP --> ClaudeCode
-    MCP --> CopilotCli
-    Dashboard --> MCP
+    DeliveryEngine --> Plugins
+    DeliverySchedule --> DeliveryEngine
+    DeliverySchedule --> ClaudeCode
+    Surfaces --> MCP
+    Surfaces --> DeliveryEngine
+    BacklogTools --> Plugins
+    BacklogTools --> Skills
+    BacklogTools --> Hooks
     InstructionFiles --> Markdown
     Hooks --> ClaudeCode
-    Hooks --> PowerShell
     DevbookPlugin --> Plugins
     DevbookPlugin --> NodeJS
-    Canvas --> Plugins
-    Canvas --> NodeJS
-    Canvas --> Mermaid
-    Worktrees --> Git
 
     DotNetSdk --> DotNet
     MSBuild --> DotNetSdk
@@ -298,6 +297,7 @@ flowchart LR
 
     classDef adopted fill:#1f6f4a,stroke:#9be7c3,color:#fff,stroke-width:2px
     classDef candidate fill:#2b3245,stroke:#8aa4ff,color:#fff,stroke-width:1.5px
+    classDef trial fill:#2b4a45,stroke:#8ae0d4,color:#fff,stroke-width:1.5px
     classDef hold fill:#4a2b2b,stroke:#ffa8a8,color:#fff,stroke-width:1.5px
     classDef foundation fill:#3a2f14,stroke:#ffd166,color:#fff,stroke-width:1.5px
 ```
@@ -329,7 +329,8 @@ concepts of agent-driven development. This project is built that way, so its
 terms describe real, checked-in things here rather than background theory. This
 table is the index: it says what each term denotes **in this repository**, and
 which chapter of [`ai-development.md`](ai-development.md) carries the technology
-behind it.
+behind it. How each is used, stage by stage, is the AI adoption record in
+[`.devbook/ai/`](../ai/adoption-map.md).
 
 Terms below are the dictionary's; the right-hand column is this repository.
 
@@ -339,7 +340,7 @@ Terms below are the dictionary's; the right-hand column is this repository.
 |---|---|
 | Model provider | Two, in two different roles: the harness's own provider (Anthropic, via [Claude Code](ai-development.md#claude-code)), and the product's, [Azure AI Foundry](cloud.md#azure-ai-foundry) — `gpt-5-4`, `gpt-5-5`, `gpt-5-6-luna`, with a balanced model, a speech model and an embedding model behind Bicep parameters |
 | Model, inference, next-token prediction, parameters, training | Vendor-side concepts. Nothing here configures them. |
-| Harness | [Claude Code](ai-development.md#claude-code) and the [GitHub Copilot CLI](ai-development.md#github-copilot-cli). The repository is governed for both. |
+| Harness | [Claude Code](ai-development.md#claude-code) |
 | Effort | Not configured. `.claude/orch-context.md` records that this repository sets no model or effort override; runs take each plugin's default. |
 | Token, input/output tokens, cache tokens, prefix cache | Measured, not configured: `Backlog.Infrastructure.Claude` imports token counts and cost from the Admin API, and `Backlog.Infrastructure.GitHub` does the same for Copilot, for the Productivity domain. |
 | Non-determinism | Why the [testing layer](testing.md) exists in the shape it does — deterministic checks (`dotnet test`, `knowledge-meta`, CodeQL) gate what a non-deterministic agent produces. |
@@ -348,17 +349,17 @@ Terms below are the dictionary's; the right-hand column is this repository.
 
 | Term | In this repository |
 |---|---|
-| Agent | Every `orch-*` run, plus the specialist [subagents](ai-development.md#subagents) a stage is handed to |
-| Session | One worktree's run. [Git worktree sessions](ai-development.md#git-worktree-sessions) are the isolation unit; `.claude/` holds per-session state. |
+| Agent | Every `flow-*` run of the [delivery engine](ai-development.md#delivery-engine), plus the specialist [subagents](ai-development.md#subagents) a stage is handed to |
+| Session | One worktree's run: a [worktree session per change](../ai/02-code.md#worktree-session-per-change) is the isolation unit, on [Git](tooling.md#git); `.claude/` holds per-session state. |
 | System prompt | Composed from the harness plus [repository instruction files](ai-development.md#repository-instruction-files) |
-| Context window | The budget the [orchestration dashboard](ai-development.md#orchestration-dashboard)'s handoff marker exists to survive |
+| Context window | The budget a run's record on the [delivery surfaces](ai-development.md#delivery-surfaces) exists to survive: a resumed session reattaches to it |
 | Turn, stateful, stateless | Harness-level. The repository's own statefulness is the dashboard run record and the checked-in knowledge folders. |
 
 ### Tools and environment
 
 | Term | In this repository |
 |---|---|
-| MCP | [Model Context Protocol servers](ai-development.md#model-context-protocol-servers): the Aspire and [Playwright](testing.md#playwright) servers, and the orchestration dashboard. Guidance is not one of them — it is checked in under `.devbook/arc42/adr/guidelines/` and `.devbook/design/`. |
+| MCP | [Model Context Protocol servers](ai-development.md#model-context-protocol-servers): Backlog's own server, the Aspire and [Playwright](testing.md#playwright) servers, Microsoft Learn, and the [delivery surfaces](ai-development.md#delivery-surfaces). Guidance is not one of them — it is checked in under `.devbook/arc42/adr/guidelines/` and `.devbook/design/`. |
 | Tool, tool call, tool result | The MCP surfaces above, plus the harness's own file and shell tools |
 | Environment | The Aspire app model: [.NET Aspire](shared.md#net-aspire) is what gives an agent a running system to observe, with logs and traces |
 | Filesystem | The worktree. `.agents/rules/context-loading.md` limits which knowledge folders a given workflow may read. |
@@ -379,7 +380,7 @@ Terms below are the dictionary's; the right-hand column is this repository.
 
 | Term | In this repository |
 |---|---|
-| Handoff, handoff artifact | The dashboard's handoff marker and note, so a resumed run reattaches instead of opening a duplicate |
+| Handoff, handoff artifact | The run record on the [delivery surfaces](ai-development.md#delivery-surfaces), so a resumed session reattaches instead of opening a duplicate |
 | Compaction, autocompact, clearing | Harness-level. The repository's contribution is making a fresh session cheap to start: the standing brief plus the knowledge folders. |
 | Primary source | The code, `Directory.Packages.props`, the workflows, `.devbook/arc42` — what a `.devbook/tech` chapter is written *from* |
 | Secondary source | This folder. `.devbook/tech` records outcomes; `.devbook/arc42` keeps the reasoning, and where the two disagree `.devbook/arc42` wins. |
@@ -389,26 +390,26 @@ Terms below are the dictionary's; the right-hand column is this repository.
 
 | Term | In this repository |
 |---|---|
-| AGENTS.md | Spelled `CLAUDE.md` and `.github/copilot-instructions.md` here — see [repository instruction files](ai-development.md#repository-instruction-files) |
+| AGENTS.md | `AGENTS.md`, imported by `CLAUDE.md` — see [repository instruction files](ai-development.md#repository-instruction-files) |
 | Context pointer | Every `related` and `depends-on` reference, and the standing brief's links into `.agents/rules/` |
 | Progressive disclosure | The design of the whole knowledge convention: a short brief points at scoped instruction files, which point at chapters, which point at each other |
-| Skill | [Agent Skills](ai-development.md#agent-skills): the plugin `orch-*` orchestrations, `.github/skills/pr-jsdotnet`, and the five `.agents/skills/` Aspire skills |
+| Skill | [Agent Skills](ai-development.md#agent-skills): the plugin `flow-*` and `schedule-*` skills, and the `.agents/skills/` procedures and Aspire skills |
 | Subagent | [Subagents](ai-development.md#subagents) — `architecture:architect`, `csharp-coding:coding`, `qa:qa`, and the rest |
-| Memory system | Not adopted. Cross-session state is deliberately the checked-in knowledge folders and the dashboard run record, both of which a human can read and diff. |
+| Memory system | Not adopted in the repository. Cross-session state is deliberately the checked-in devbook folders and the run record on the delivery surfaces, both of which a human can read. |
 
 ### Patterns of work
 
 | Term | In this repository |
 |---|---|
 | Automated check | `dotnet test`, `dotnet build`, CodeQL, the `knowledge-meta` staleness diff, `apksigner verify`, Archify's 9/9 validation |
-| Automated review | The `review` plugin's skills, and the QA Validation phase every code-modifying orchestration runs |
-| Human review | Personal Validation — the gate no orchestration may skip and no agent may self-approve |
-| Human-in-the-loop | The default mode of every `orch-*` run |
-| AFK | The scheduled `automation-*` skills (bug fix, package update, review, week starter) and `workflow-issue-sweep`, which fans work out to worker sessions overnight |
+| Automated review | The [scheduled merge review](../ai/05-unattended-runs.md#scheduled-merge-review), and the Validation phase every code-modifying flow runs |
+| Human review | [Personal Validation](../ai/03-test.md#personal-validation-gate) — the gate no flow may skip and no agent may self-approve |
+| Human-in-the-loop | The default mode of every `flow-*` run |
+| AFK | The [unattended runs](../ai/05-unattended-runs.md) selected from the `delivery-schedule` catalog |
 | AX | What `src/Harness/` is for: MAUI heads cannot be driven by an agent, so the same UI is given a URL that can be |
 | DX | The Aspire one-command start, and MSBuild defaults a new project cannot forget |
 | Design concept, grilling, prototyping | `.devbook/design/` and the `ux-design` plugin's wireframe and review skills |
-| Vibe coding | Explicitly not the model here — the orchestration gate exists to prevent it |
+| Vibe coding | Explicitly not the model here — the [code gate](../ai/02-code.md#code-gate-through-flow-code) exists to prevent it |
 
 ## How to read and extend this graph
 
