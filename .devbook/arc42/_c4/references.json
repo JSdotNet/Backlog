@@ -14,7 +14,7 @@
     "were tried first:",
     "",
     "  - A chapter's own `related:` list is the natural home and the generator refuses it.",
-    "    .github/tools/knowledge-meta/graph.mjs resolves a reference against nodes built",
+    "    .devbook/_tools/devbook-meta/graph.mjs resolves a reference against nodes built",
     "    from .md files only, and folderKindForPath treats anything under .devbook/arc42/ as",
     "    inside-knowledge — so a .dsl target is an error, not a warning. That generator is",
     "    an installed copy of the devbook plugin's tooling and must not be edited",

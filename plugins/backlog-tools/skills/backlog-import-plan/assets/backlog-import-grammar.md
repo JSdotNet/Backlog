@@ -75,11 +75,13 @@ does the work:
 - **`task`** — only the user does it: a decision, a sign-off, an action in an account or on a
   machine an AI session cannot reach. A plain entry addressed to the user — title, metadata
   line, body saying what to do and what done looks like, `- [ ]` lines for the user's own
-  steps. No marker, no session-name line, no `Setup:` or knowledge sub-item, and `repo:`
-  only when the step is done in or to that repository.
+  steps. No marker, no session-name line, no `Setup:` or knowledge sub-item. It still states
+  `repo:` — once per repository the work is done in, on or for, or every repository the
+  plan targets when it concerns none in particular — so it sits with its repository in
+  Backlog like every other step.
 - **`test`** — the user checks by hand that work already landed behaves as agreed: an
   acceptance or exploratory pass in the running app. Shaped exactly like a `task` — no
-  marker, no session-name line, no `Setup:` or knowledge sub-item — with a body naming what
+  marker, no session-name line, no `Setup:` or knowledge sub-item, `repo:` stated — with a body naming what
   to exercise and what a pass looks like, `- [ ]` lines for the checks, and `after:` on
   every prompt whose work it checks. Automated tests are never a `test` entry: they belong
   inside the prompt that writes the code.
@@ -160,7 +162,7 @@ before you start.`` instead; `backlog-run-plan-item` still recognizes that line.
 
 # 1 - Confirm the export format with design
 
-`task` `!ready` `@repos` `+vscode-desktop-rollout` `id:confirm-format` `effort:1`
+`task` `!ready` `@repos` `+vscode-desktop-rollout` `id:confirm-format` `repo:backlog-desktop` `effort:1`
 
 Agree with design whether the export is plain Markdown or Markdown with front matter, and
 note the answer on this entry. Done when the format is written down here.
@@ -206,7 +208,7 @@ outstanding as a new entry.
 
 # 5 - Sign off the VS Code desktop rollout plan
 
-`task` `!ready` `@repos` `+vscode-desktop-rollout` `id:sign-off-plan` `after:review-plan` `effort:1`
+`task` `!ready` `@repos` `+vscode-desktop-rollout` `id:sign-off-plan` `after:review-plan` `repo:backlog-desktop` `effort:1`
 
 Read the review's outcome. Confirm the plan is complete, or pick up the follow-up entries
 it wrote.

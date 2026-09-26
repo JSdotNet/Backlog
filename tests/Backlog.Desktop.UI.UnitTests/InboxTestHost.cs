@@ -308,6 +308,45 @@ internal sealed class FakeInboxItems : IInboxItems
         return Task.FromResult(Result.Success(moved));
     }
 
+    /// <summary>Items the next batch refuses, and with what — the way a test
+    /// makes one item of a selection fail its command.</summary>
+    public Dictionary<Guid, Error> Refuse { get; } = [];
+
+    /// <summary>Every batch asked of the port, by act and the ids it named.</summary>
+    public List<(string Act, IReadOnlyList<Guid> Ids)> Batches { get; } = [];
+
+    public Task<InboxBatchResultDto> SetTagsAsync(IReadOnlyDictionary<Guid, IReadOnlyList<string>> tagsByItem, CancellationToken cancellationToken = default) =>
+        Batch("tags", [.. tagsByItem.Keys], id => SetTagsAsync(id, tagsByItem[id], cancellationToken));
+
+    public Task<InboxBatchResultDto> AssignRepositoriesAsync(IReadOnlyList<Guid> ids, IReadOnlyList<string> repoIds, CancellationToken cancellationToken = default) =>
+        Batch("repositories", ids, id => AssignRepositoriesAsync(id, repoIds, cancellationToken));
+
+    public Task<InboxBatchResultDto> MoveToListAsync(IReadOnlyList<Guid> ids, Guid? listId, CancellationToken cancellationToken = default) =>
+        Batch("move", ids, id => MoveToListAsync(id, listId, cancellationToken));
+
+    public Task<InboxBatchResultDto> ArchiveAsync(IReadOnlyList<Guid> ids, CancellationToken cancellationToken = default) =>
+        Batch("archive", ids, id => ArchiveAsync(id, cancellationToken));
+
+    /// <summary>The module's batch, restated: the single-item act per id, in
+    /// order, each answer sorted into changed or refused.</summary>
+    private async Task<InboxBatchResultDto> Batch(string act, IReadOnlyList<Guid> ids, Func<Guid, Task<Result>> one)
+    {
+        Batches.Add((act, ids));
+
+        var changed = new List<Guid>();
+        var failed = new List<InboxBatchFailureDto>();
+
+        foreach (var id in ids)
+        {
+            var result = Refuse.TryGetValue(id, out var error) ? Result.Failure(error) : await one(id);
+
+            if (result.IsSuccess) changed.Add(id);
+            else failed.Add(new InboxBatchFailureDto(id, result.Error));
+        }
+
+        return new InboxBatchResultDto(changed, failed);
+    }
+
     public async Task<Result<InboxRoutedDto>> RouteToBacklogAsync(Guid id, CancellationToken cancellationToken = default)
     {
         if (Find(id) is not { } item) return Result.Failure<InboxRoutedDto>(InboxErrors.ItemNotFound);

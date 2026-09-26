@@ -69,6 +69,34 @@ public interface IInboxItems
     /// runs it when it opens; nothing schedules it.</summary>
     Task<Result<int>> ResurfaceDueAsync(CancellationToken cancellationToken = default);
 
+    // --- The same four acts across a selection ------------------------------
+    //
+    // Overloads, not new commands: each runs the single-item command above once
+    // per item, so there is one rule per act and one place it is enforced. An
+    // item the command refuses is named in the result and does not stop the
+    // rest.
+
+    /// <summary>Gives each item its own tag set — per item, because adding a tag
+    /// to a selection keeps every item's other tags, so no two items need the
+    /// same list.</summary>
+    Task<InboxBatchResultDto> SetTagsAsync(
+        IReadOnlyDictionary<Guid, IReadOnlyList<string>> tagsByItem,
+        CancellationToken cancellationToken = default);
+
+    Task<InboxBatchResultDto> AssignRepositoriesAsync(
+        IReadOnlyList<Guid> ids,
+        IReadOnlyList<string> repoIds,
+        CancellationToken cancellationToken = default);
+
+    Task<InboxBatchResultDto> MoveToListAsync(
+        IReadOnlyList<Guid> ids,
+        Guid? listId,
+        CancellationToken cancellationToken = default);
+
+    Task<InboxBatchResultDto> ArchiveAsync(
+        IReadOnlyList<Guid> ids,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Turns the item into backlog entries — one per assigned
     /// repository, or one untargeted entry — and records where they went. An
     /// item routes exactly once.</summary>

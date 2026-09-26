@@ -19,6 +19,11 @@
     selection, and the row's own classes carry the border-and-strip look that
     .devbook/design/interaction-guidelines.md#focus-and-selection asks for — distinct
     from hover and from focus.
+
+    Picking several is a second, separate selection: Select puts a box beside
+    every row, Shift extends from the last box pressed, and InboxBulkBar acts on
+    what is picked. The chosen row (the detail) and the picked rows (the bar)
+    are independent, as they are in the Tasks list.
 *@
 
 <div class="inbox-pane__column inbox-pane__column--list" data-testid="inbox-pane-column-list">
@@ -33,29 +38,46 @@
 
         @if (kinds.Count > 0)
         {
-            <div class="inbox-pane__filters" role="group" aria-label="Filter by kind" data-testid="inbox-pane-filters">
-                @foreach (var kind in kinds)
-                {
-                    <ToggleButton Pressed="@State.KindFilter.Contains(kind.Slug)"
-                                  PressedChanged="_ => State.ToggleKind(kind.Slug)"
-                                  BaseClass="btn btn--toggle"
-                                  CssClass="btn--small inbox-pane__chip"
-                                  Title="@($"Show only {kind.Label.ToLowerInvariant()} items")"
-                                  TestId="@($"inbox-kind-{kind.Slug}")">
-                        <CaptureKindMarker Value="@kind.Slug" CssClass="inbox-pane__chip-mark" />
-                        <span class="inbox-pane__chip-label">@kind.Label</span>
-                        <Badge BaseClass="inbox-pane__chip-count" Kind="" TestId="@($"inbox-kind-{kind.Slug}-count")">@kind.Count</Badge>
-                    </ToggleButton>
-                }
-                @if (State.KindFilter.Count > 0)
-                {
-                    <AppButton Variant="ButtonVariant.Ghost"
-                               Size="ButtonSize.Small"
-                               CssClass="inbox-pane__chip-clear"
-                               OnClick="() => State.ClearKindFilter()"
-                               TestId="inbox-kind-clear">Clear filters</AppButton>
-                }
+            @* The Select toggle sits with the chips because both are about which
+               rows the column is showing; it turns the boxes on, the way the
+               Tasks pane's Select chip does, so a column read rather than acted
+               on stays free of them. *@
+            <div class="inbox-pane__toolbar">
+                <div class="inbox-pane__filters" role="group" aria-label="Filter by kind" data-testid="inbox-pane-filters">
+                    @foreach (var kind in kinds)
+                    {
+                        <ToggleButton Pressed="@State.KindFilter.Contains(kind.Slug)"
+                                      PressedChanged="_ => State.ToggleKind(kind.Slug)"
+                                      BaseClass="btn btn--toggle"
+                                      CssClass="btn--small inbox-pane__chip"
+                                      Title="@($"Show only {kind.Label.ToLowerInvariant()} items")"
+                                      TestId="@($"inbox-kind-{kind.Slug}")">
+                            <CaptureKindMarker Value="@kind.Slug" CssClass="inbox-pane__chip-mark" />
+                            <span class="inbox-pane__chip-label">@kind.Label</span>
+                            <Badge BaseClass="inbox-pane__chip-count" Kind="" TestId="@($"inbox-kind-{kind.Slug}-count")">@kind.Count</Badge>
+                        </ToggleButton>
+                    }
+                    @if (State.KindFilter.Count > 0)
+                    {
+                        <AppButton Variant="ButtonVariant.Ghost"
+                                   Size="ButtonSize.Small"
+                                   CssClass="inbox-pane__chip-clear"
+                                   OnClick="() => State.ClearKindFilter()"
+                                   TestId="inbox-kind-clear">Clear filters</AppButton>
+                    }
+                </div>
+                <ToggleButton Pressed="@State.SelectionMode"
+                              PressedChanged="on => State.SetSelectionMode(on)"
+                              BaseClass="btn btn--toggle"
+                              CssClass="btn--small inbox-pane__select-toggle"
+                              Title="@(State.SelectionMode ? "Stop picking items" : "Pick items to act on together")"
+                              TestId="inbox-select-toggle">Select</ToggleButton>
             </div>
+        }
+
+        @if (State.SelectionMode)
+        {
+            <InboxBulkBar State="@State" />
         }
 
         var rows = State.VisibleItems;
@@ -97,8 +119,27 @@
                 @foreach (var item in rows)
                 {
                     var selected = item.Id == State.SelectedItemId;
+                    var picked = State.IsPicked(item.Id);
 
-                    <li class="inbox-pane__item" @key="item.Id" data-inbox-kind="@item.KindSlug" data-testid="inbox-pane-item">
+                    <li class="@(picked ? "inbox-pane__item inbox-pane__item--picked" : "inbox-pane__item")"
+                        @key="item.Id"
+                        data-inbox-kind="@item.KindSlug"
+                        data-testid="inbox-pane-item">
+                        @if (State.SelectionMode)
+                        {
+                            @* Beside the row rather than in it: the row is a button,
+                               and a box inside a button is a control nobody can reach.
+                               Heard on click rather than on change, as the task row's
+                               gutter is, because Shift is what turns a press into a
+                               range and only a mouse event carries it. *@
+                            <span class="inbox-pane__gutter">
+                                <Checkbox Checked="@picked"
+                                          CssClass="inbox-pane__pick"
+                                          TestId="@($"inbox-pick-{item.Id:D}")"
+                                          aria-label="@($"Select {Title(item)}")"
+                                          @onclick="e => State.TogglePicked(item.Id, !picked, e.ShiftKey)" />
+                            </span>
+                        }
                         <AppButton Variant="ButtonVariant.None"
                                    BaseClass="inbox-pane__row"
                                    CssClass="@(selected ? "inbox-pane__row--selected" : null)"

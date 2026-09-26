@@ -97,6 +97,36 @@ Route to Tasks, store as knowledge, defer, archive, or delete — while tagging,
 assigning repositories, and annotating, and preserving the original source link
 and capture timestamp.
 
+### Act on several at once
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/tasks/features.md#bulk-editing, .devbook/domain/inbox/requirements.md#act-on-several-at-once, .devbook/domain/inbox/features.md#filter-by-content-kind]
+feature-flag: .devbook/domain/inbox/context.md#inbox-pane
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.BatchTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests]
+```
+
+Pick several items in the open slice and decide them together, so a batch of
+captures that belong in the same place is filed, tagged, targeted or dismissed
+once instead of item by item. It mirrors bulk editing in the Tasks pane, so the
+two panes pick things the same way: **Select** puts a box beside every row,
+Shift extends a run from the last box pressed, and a bar over the list keeps a
+running count of what is picked, a box that takes every row shown, and a way
+back out.
+
+Four acts are offered across the selection: **Archive**, **Move to list**,
+**Tags** — add tags, or take one tag off — and **Repositories**. Each is the
+same decision the item's own detail makes, applied to each picked item in turn,
+so an item the single-item act would refuse is refused here too. Tags are added
+to what each item already carries rather than replacing it; repositories
+replace what each item targeted before. An item already at the value is left
+alone. The tags and repositories of an item already routed or archived are what
+that decision was made with, so they are not changed.
+
+Picking a set is separate from choosing the item the detail shows: one is what
+the reader is looking at, the other what the next act will reach.
+
 ### Quick-triage shortcuts
 
 ```meta

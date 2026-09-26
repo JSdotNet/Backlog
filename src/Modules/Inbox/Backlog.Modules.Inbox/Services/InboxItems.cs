@@ -90,6 +90,32 @@ internal sealed class InboxItems(
     public Task<Result<int>> ResurfaceDueAsync(CancellationToken cancellationToken = default) =>
         resurfaceDue.Handle(new ResurfaceDueItemsCommand(), cancellationToken);
 
+    public Task<InboxBatchResultDto> SetTagsAsync(
+        IReadOnlyDictionary<Guid, IReadOnlyList<string>> tagsByItem,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(tagsByItem);
+
+        return EachAsync(
+            [.. tagsByItem.Keys],
+            id => setTags.Handle(new SetTagsCommand(id, tagsByItem[id]), cancellationToken));
+    }
+
+    public Task<InboxBatchResultDto> AssignRepositoriesAsync(
+        IReadOnlyList<Guid> ids,
+        IReadOnlyList<string> repoIds,
+        CancellationToken cancellationToken = default) =>
+        EachAsync(ids, id => assignRepositories.Handle(new AssignRepositoriesCommand(id, repoIds), cancellationToken));
+
+    public Task<InboxBatchResultDto> MoveToListAsync(
+        IReadOnlyList<Guid> ids,
+        Guid? listId,
+        CancellationToken cancellationToken = default) =>
+        EachAsync(ids, id => moveToList.Handle(new MoveToListCommand(id, listId), cancellationToken));
+
+    public Task<InboxBatchResultDto> ArchiveAsync(IReadOnlyList<Guid> ids, CancellationToken cancellationToken = default) =>
+        EachAsync(ids, id => archive.Handle(new ArchiveItemCommand(id), cancellationToken));
+
     public Task<Result<InboxRoutedDto>> RouteToBacklogAsync(Guid id, CancellationToken cancellationToken = default) =>
         routeToBacklog.Handle(new RouteToBacklogCommand(id), cancellationToken);
 
@@ -124,4 +150,28 @@ internal sealed class InboxItems(
 
     public Task EnsureDefaultOrganizerAsync(CancellationToken cancellationToken = default) =>
         ensureDefaultOrganizer.Handle(new EnsureDefaultOrganizerCommand(), cancellationToken);
+
+    /// <summary>One command per item, in order, and one after another rather
+    /// than at once — the handlers share a store — with each answer sorted into
+    /// changed or refused. Mapping still, not a rule: the command decides every
+    /// item, and this only keeps count.</summary>
+    private static async Task<InboxBatchResultDto> EachAsync(IReadOnlyList<Guid> ids, Func<Guid, Task<Result>> handle)
+    {
+        ArgumentNullException.ThrowIfNull(ids);
+
+        if (ids.Count == 0) return InboxBatchResultDto.Nothing;
+
+        var changed = new List<Guid>();
+        var failed = new List<InboxBatchFailureDto>();
+
+        foreach (var id in ids.Distinct())
+        {
+            var result = await handle(id).ConfigureAwait(false);
+
+            if (result.IsSuccess) changed.Add(id);
+            else failed.Add(new InboxBatchFailureDto(id, result.Error));
+        }
+
+        return new InboxBatchResultDto(changed, failed);
+    }
 }
