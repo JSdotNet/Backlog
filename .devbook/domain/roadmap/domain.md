@@ -393,7 +393,7 @@ path.
 ```meta
 type: domain-service
 status: draft
-related: [.devbook/domain/roadmap/domain.md#roadmap-plan, .devbook/domain/tasks/domain.md#task, .devbook/domain/devbook/domain.md#knowledge-note]
+related: [.devbook/domain/roadmap/domain.md#roadmap-plan, .devbook/domain/tasks/domain.md#task, .devbook/domain/devbook/domain.md#knowledge-note, .devbook/domain/sessions/domain.md#agent-session]
 ```
 
 Assembles, for one Roadmap Item, everything it reaches across Tasks
@@ -443,8 +443,11 @@ was created. From those the item reads two more things, and only when every back
 entry it gathered is done — a knowledge chapter is not asked, because it has no work
 to finish: that the item is **finished**, and the stretch its work actually ran, from
 the earliest start to the latest tick. An entry with no start, because it predates
-the stamp, counts from the day it was created; when no entry was ticked, there is no
-actual end and the planned one stands. Nothing is stored: like progress, the actual
+the stamp, counts from the day the first AI session linked to it began, and failing
+that from the day it was created. A finished entry nobody ticked ends the day the last
+session linked to it ended — a session never ends open work. The entry's own dates
+always win over its sessions'. When no entry was ticked and no session dates the end,
+there is no actual end and the planned one stands. Nothing is stored: like progress, the actual
 stretch is read off the gathering each time, and the Planned Window is left as it
 was.
 

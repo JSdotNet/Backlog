@@ -1,5 +1,7 @@
 using Backlog.Infrastructure.Devbook;
 using Backlog.Modules.Devbook.Abstractions;
+using Backlog.Modules.Sessions.Abstractions;
+using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
@@ -17,22 +19,39 @@ namespace Backlog.Infrastructure.FileSystem.Roadmap;
 /// module; this reads the backlog and the graph and hands back the rolled-up result
 /// through <see cref="RoadmapItemRollupBuilder"/>, which owns the arithmetic.
 /// </para>
+/// <para>
+/// A third context is read only when it can add something: the AI sessions linked to a
+/// gathered entry, through <see cref="IAgentSessionSource"/>, to date an entry that
+/// carries no <c>started:</c> or <c>completed:</c> date of its own. When no gathered
+/// entry needs that, the sessions are not read at all.
+/// </para>
 /// </summary>
 public sealed class RoadmapItemRollupService : IRoadmapItemRollup
 {
     private readonly ITaskItems _entries;
     private readonly Func<string> _rootDirectory;
+    private readonly IAgentSessionSource? _sessions;
+    private readonly TimeProvider _time;
 
     /// <param name="entries">The backlog port, read for entries linked or tagged.</param>
     /// <param name="rootDirectory">Where the storage root is right now — read per
     /// call rather than pinned, so pointing the app at another folder takes effect
     /// without a restart, the same as the plan repository.</param>
-    public RoadmapItemRollupService(ITaskItems entries, Func<string> rootDirectory)
+    /// <param name="sessions">Where the sessions linked to an entry are read from, or
+    /// null in a host that has none — entries are then dated by Tasks alone.</param>
+    /// <param name="time">The clock the session horizon is measured from.</param>
+    public RoadmapItemRollupService(
+        ITaskItems entries,
+        Func<string> rootDirectory,
+        IAgentSessionSource? sessions = null,
+        TimeProvider? time = null)
     {
         ArgumentNullException.ThrowIfNull(entries);
         ArgumentNullException.ThrowIfNull(rootDirectory);
         _entries = entries;
         _rootDirectory = rootDirectory;
+        _sessions = sessions;
+        _time = time ?? TimeProvider.System;
     }
 
     public async Task<RoadmapItemRollupDto> GatherAsync(RoadmapItemDto item, CancellationToken cancellationToken = default)
@@ -41,8 +60,11 @@ public sealed class RoadmapItemRollupService : IRoadmapItemRollup
 
         var backlog = await _entries.ListAsync(cancellationToken);
         var knowledge = ReadGraphNodes();
+        var sessions = await ReadSessionsAsync(
+            backlog.Where(entry => RoadmapItemRollupBuilder.Gathers(item, entry)),
+            cancellationToken);
 
-        return RoadmapItemRollupBuilder.Build(item, backlog, knowledge);
+        return RoadmapItemRollupBuilder.Build(item, backlog, knowledge, sessions);
     }
 
     /// <summary>
@@ -60,9 +82,62 @@ public sealed class RoadmapItemRollupService : IRoadmapItemRollup
 
         var backlog = await _entries.ListAsync(cancellationToken);
         var knowledge = ReadGraphNodes();
+        var sessions = await ReadSessionsAsync(
+            backlog.Where(entry => plan.Items.Any(item => RoadmapItemRollupBuilder.Gathers(item, entry))),
+            cancellationToken);
 
-        return RoadmapItemRollupBuilder.BuildPlan(plan, backlog, knowledge);
+        return RoadmapItemRollupBuilder.BuildPlan(plan, backlog, knowledge, sessions);
     }
+
+    /// <summary>
+    /// The sessions linked to the <paramref name="gathered"/> entries that need one to
+    /// be dated, by id — or <see langword="null"/> when none does, so a plan whose work
+    /// is dated by Tasks never pays for a session read.
+    /// <para>
+    /// A horizon reading rather than the inventory's newest-per-agent list: a capped
+    /// list would silently lose an older entry's sessions. The horizon reaches back as
+    /// far as the Sessions context promises to keep records, and further when an
+    /// entry needing a date was filed before that — a session linked to an entry does
+    /// not end before the entry exists.
+    /// </para>
+    /// </summary>
+    private async Task<IReadOnlyDictionary<string, RoadmapSessionActivity>?> ReadSessionsAsync(
+        IEnumerable<TaskItemDto> gathered,
+        CancellationToken cancellationToken)
+    {
+        if (_sessions is null) return null;
+
+        var needy = gathered.Where(RoadmapItemRollupBuilder.NeedsSessionDates).ToList();
+        if (needy.Count == 0) return null;
+
+        var wanted = new HashSet<string>(needy.SelectMany(RoadmapItemRollupBuilder.SessionIds), StringComparer.OrdinalIgnoreCase);
+
+        var horizon = _time.GetUtcNow() - AgentSessionLimits.History;
+        foreach (var entry in needy)
+        {
+            if (entry.CreatedAt is { } created && created < horizon) horizon = created;
+        }
+
+        var catalog = await _sessions.GetSessionsAsync(AgentSessionQuery.Since(horizon), cancellationToken);
+
+        var found = new Dictionary<string, RoadmapSessionActivity>(StringComparer.OrdinalIgnoreCase);
+        foreach (var session in catalog.Sessions)
+        {
+            if (!wanted.Contains(session.Id)) continue;
+
+            // One session can arrive twice — recorded here and replicated from another
+            // machine. Merged to the widest stretch either copy saw.
+            var activity = new RoadmapSessionActivity(session.StartedAt, session.LastActivityAt);
+            found[session.Id] = found.TryGetValue(session.Id, out var seen) ? Widest(seen, activity) : activity;
+        }
+
+        return found;
+    }
+
+    private static RoadmapSessionActivity Widest(RoadmapSessionActivity one, RoadmapSessionActivity other) =>
+        new(
+            one.EarliestAt < other.EarliestAt ? one.EarliestAt : other.EarliestAt,
+            one.LastActivityAt > other.LastActivityAt ? one.LastActivityAt : other.LastActivityAt);
 
     private IReadOnlyList<KnowledgeGraphNode> ReadGraphNodes() => ReadDatabaseNodes() ?? ReadGraphJsonNodes();
 
