@@ -30,15 +30,21 @@ public class RelengthenItemTests
             .Handle(new ProposeRelengthQuery(itemId, gatheredEffort), TestContext.Current.CancellationToken);
 
     /// <summary>An item as an import leaves it: placed by <paramref name="placement"/>,
-    /// over <paramref name="days"/> days from <see cref="Start"/>.</summary>
-    private Guid Imported(string tag, int days = 5, ImportPlacement placement = ImportPlacement.Effort)
+    /// over <paramref name="days"/> days from <see cref="Start"/>, filed under
+    /// <paramref name="repositories"/>.</summary>
+    private Guid Imported(
+        string tag,
+        int days = 5,
+        ImportPlacement placement = ImportPlacement.Effort,
+        params string[] repositories)
     {
         var plan = _plans.Current;
         var added = plan.AddImportedItem(
             tag,
             PlanningTag.Of(tag),
             PlannedWindow.Of(Start, Start.AddDays(days - 1)),
-            placement);
+            placement,
+            scope: RepositoryScope.Of(repositories));
         Assert.True(added.IsSuccess);
         _plans.Current = plan;
         return added.Value.Id;
@@ -95,6 +101,19 @@ public class RelengthenItemTests
         await RelengthenAsync(id, 9); // 9 points at 14 a week = 4.5 days, rounded up
 
         Assert.Equal(PlannedWindow.Of(Start, Start.AddDays(4)), Stored(id).Window);
+    }
+
+    [Fact]
+    public async Task ThePaceOfTheItemsRepositorySetsTheLength_AndTheProposalAgrees()
+    {
+        var id = Imported("plan-a", repositories: "site");
+        _velocity.ByRepository["site"] = 2;
+
+        var proposal = await ProposeAsync(id, 4);
+        await RelengthenAsync(id, 4); // 4 points at 2 a week = 14 days
+
+        Assert.Equal(Start.AddDays(13), proposal?.ProposedEnd);
+        Assert.Equal(PlannedWindow.Of(Start, Start.AddDays(13)), Stored(id).Window);
     }
 
     [Fact]
@@ -245,13 +264,5 @@ public class RelengthenItemTests
                 milestone.Id, milestone.Title, milestone.On, milestone.Kind, milestone.Scope, milestone.Lane,
                 Dependencies.Of(milestone.Dependencies.All), milestone.IsPlanWide)),
             plan.BandColours);
-    }
-
-    private sealed class FixedVelocity(decimal storyPointsPerWeek) : IPlanningVelocity
-    {
-        public decimal StoryPointsPerWeek { get; set; } = storyPointsPerWeek;
-
-        public Task<decimal> GetStoryPointsPerWeekAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(StoryPointsPerWeek);
     }
 }

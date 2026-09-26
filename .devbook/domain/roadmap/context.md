@@ -27,12 +27,24 @@ type: setting
 key: planning-velocity.json
 scope: user
 default: 7
-related: [.devbook/domain/roadmap/features.md#placing-a-plan-in-time]
+related: [.devbook/domain/roadmap/features.md#placing-a-plan-in-time, .devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md#4-the-importer-places-the-window-velocity-is-the-readers]
 ```
 
 How many story points the reader gets through in a week. A positive decimal,
 held to four places. A week is seven calendar days to the placement: a plan's
 length is its effort × 7 ÷ this, rounded up.
+
+**Kept per repository band**, because productivity differs from one project to
+the next, with one **global** pace beside them (ADR 0013, ruling 4 as amended on
+2026-09-26). A plan filed under one configured repository is placed at that
+repository's pace; one filed under several, at the **lowest** pace in use among
+them, which gives the longest bar; one filed under none, or under a repository
+nobody configured, at the global pace. A repository keeps no pace of its own
+until the reader sets one: until then it reads the global typed pace and choice,
+so nobody sees a bar move on upgrading. The first change made for a repository
+gives it its own entry, copying the half not being changed — the typed pace, or
+the choice — from what it read at that moment. Repositories are named by the
+alias Settings gives them, compared without regard to case.
 
 There are four paces and the reader picks one: the pace they **type**, and three
 **measured** from the estimated work they finished over the last two, four and
@@ -42,7 +54,9 @@ included, because a window is drawn in calendar days; a week of five working
 days would draw every bar shorter than the stretch it was measured over took. A stretch that finished nothing estimated measured no pace and cannot be
 picked; if the one picked has since gone empty, the typed pace places the plan
 and the roadmap says so. Only the typed pace and the choice are stored — the
-measured ones are counted afresh on every read.
+measured ones are counted afresh on every read. A repository's measured paces
+count only the entries filed under it, and an entry filed under two counts in
+full toward both; the global ones count every finished entry once.
 
 It is the divisor behind one thing only: an imported plan that states no due
 date gets a **length from its effort** — the story points its gathered tasks and
@@ -52,10 +66,10 @@ does state a due date is placed on it, and this figure is not consulted.
 It is a **reading preference, not an estimate** (ADR 0013, ruling 4). The effort
 stays the tasks' own, added and never invented; the only thing the placement
 adds is how fast the reader says they work through it. A person **changing the
-pace in use** — typing a new one while it is chosen, or choosing another —
-re-lengthens every plan whose window is still sized by its effort: the start is
-kept and the end recomputed from what its tasks gather now (ruling 5 as
-amended). A window placed by its due date, or moved by hand, stays where it is.
+pace in use** — typing a new one while it is chosen, or choosing another, for
+any repository or globally — re-lengthens every plan whose window is still sized
+by its effort, each at its own repository's pace: the start is kept and the end
+recomputed from what its tasks gather now (ruling 5 as amended). A window placed by its due date, or moved by hand, stays where it is.
 Finished work moving a measured pace is nobody's decision and moves no bar; the
 new figure is used at the next change, a re-import, or when one item is asked to
 [update from its tasks](features.md#placing-a-plan-in-time).
@@ -79,8 +93,19 @@ Per value:
   every imported plan would be a tenth of its proper length with nothing on
   screen looking wrong.
 
-Changed on the roadmap, in its heading beside the chart it sizes, and read per placement rather than pinned at
-startup, so the next plan laid out uses the pace now in force. Stored per device
+Changed on the roadmap, beside the chart it sizes — each pace under its band's
+name in the chart's sidebar and above the band's named lanes, as a points field
+("pt/wk") over the choices, each measured one showing its figure, the band growing
+to fit them: a repository's own pace in its band, and the global pace, the
+**default**, in the unfiled band, measured over all finished work. With no
+unfiled plan there is no unfiled band, so the default is not offered for editing
+until there is one; every repository band with no pace of its own still shows it
+until edited. A stretch that counted nothing is not offered at all, and with none
+measured only the field is shown; a chosen stretch that has since emptied says in
+a line under the choices that the typed pace is used — and read per placement
+rather than pinned at startup, so the next plan laid out uses the pace now in force. Stored per device
 beside the working week — the typed pace and the chosen `source`, a file
-without one reading as the typed pace — with the same `scope: user` caveat: the choice is one
+without one reading as the typed pace, and an optional `repositories` object
+holding each repository's own pair, a file without it reading as it always did —
+with the same `scope: user` caveat: the choice is one
 person's, nothing syncs it, and a second machine starts again at seven.

@@ -387,7 +387,7 @@ chapter says what the feature does, not why the rulings fell the way they did.
 type: sub-feature
 status: active
 setting: [.devbook/domain/roadmap/context.md#story-points-a-week]
-related: [.devbook/domain/roadmap/domain.md#planned-window, .devbook/domain/roadmap/domain.md#plan-sequencing, .devbook/domain/roadmap/features.md#surfacing-contradictions-instead-of-fixing-them]
+related: [.devbook/domain/roadmap/domain.md#planned-window, .devbook/domain/roadmap/domain.md#plan-sequencing, .devbook/domain/roadmap/features.md#surfacing-contradictions-instead-of-fixing-them, .devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md#4-the-importer-places-the-window-velocity-is-the-readers]
 ```
 
 Give an imported plan a window nobody had to guess. The **end** is the day the
@@ -401,15 +401,32 @@ before the plan could start is kept, and the plan is placed on that one day so
 the [contradiction shows](#surfacing-contradictions-instead-of-fixing-them)
 rather than being smoothed over.
 
-The points-a-week figure is **the person's own reading pace**, set in the
-roadmap's heading, and not an estimate the plan registers: the effort is still
+The points-a-week figure is **the person's own reading pace**, set on the
+roadmap beside the chart it sizes, and not an estimate the plan registers: the effort is still
 the tasks' own, added and never invented, and the only thing the placement adds
 is how fast the person works through it — the pace they typed, or the one they
 actually kept over the last two, four or eight weeks, whichever they pick.
-Changing it re-draws every plan whose window is still sized by its effort, from
-what its tasks gather now; a plan moved by hand or ending on its due date keeps
-its dates. Re-importing re-places too, and so does asking one item to update
-from its tasks.
+
+Productivity differs from one project to the next, so the pace is kept **per
+repository band**. Each repository's band carries its own under its name, in the
+chart's sidebar, with the band's named lanes starting below it: the points a
+week, and the paces to choose from beneath it with the figure each measured,
+always in view, the band growing to fit them. A stretch that finished nothing
+estimated is not offered, and when none did there is nothing to choose between
+and only the points are shown. When the stretch a band chose has since emptied,
+a line under the choices says the typed pace is used instead. A repository's measured paces
+count only the work finished in it. The unfiled band carries the **default**
+points a week, measured over all finished work. A plan filed under one repository is placed at
+that repository's pace; one filed under several, at the slowest of theirs, so
+its bar is the longest they would make; one filed under none, or under a
+repository that is not configured, at the default pace. A repository nobody has
+set a pace for uses the default typed pace and choice, over its own work, until
+somebody does.
+
+Changing a pace re-draws every plan whose window is still sized by its effort,
+each at its own repository's pace, from what its tasks gather now; a plan moved
+by hand or ending on its due date keeps its dates. Re-importing re-places too,
+and so does asking one item to update from its tasks.
 
 An item the import placed remembers that it did. The first time a person moves
 it by hand, that memory is cleared and the importer never touches its dates
@@ -426,7 +443,7 @@ what the last import made it. So an item whose window is **still sized by its
 effort** offers to **update from its tasks**: the item shows what its tasks add
 up to now and the end that makes, beside the end it has, and the person decides.
 Taking the offer keeps the start, sets the end from what the tasks register now
-at the person's pace, and leaves the window the importer's — it is the same rule
+at the person's pace for the item's repositories, and leaves the window the importer's — it is the same rule
 a re-import of the tasks applies, asked for rather than waited for. It is never
 offered for an item a person has moved or one that ends on its due date, and not
 when the tasks already make the window it has. Nothing moves but that item: work

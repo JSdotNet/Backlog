@@ -24,11 +24,19 @@ namespace Backlog.UI.Components.Roadmap;
 /// explorer's legend colours do. No colour means a neutral band, which reads as
 /// "nobody said", not as a seventh category.
 /// </para></param>
+/// <param name="ContentRows">How many rows the band needs for its name and the
+/// timeline's <c>GroupContent</c> under it, or 0 — the default — for a band that
+/// shows no content. The band's first named row starts no higher than this, with
+/// empty rows put in before it as needed; its unnamed lane rows may sit beside the
+/// content. Rows rather than a
+/// height, because the chart is laid out in rows and the sidebar and the track must
+/// stay the same height row for row.</param>
 public sealed record RoadmapGroup(
     string Id,
     string Title,
     IReadOnlyList<RoadmapRow> Rows,
-    string? Color = null)
+    string? Color = null,
+    int ContentRows = 0)
 {
     public IReadOnlyList<RoadmapRow> RowList => Rows ?? [];
 }

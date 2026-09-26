@@ -8,8 +8,8 @@ using Backlog.SharedKernel.Results;
 namespace Backlog.Modules.Roadmap.Features.RelengthenPlan;
 
 /// <summary>
-/// Re-lengthens every item whose window is still sized by its effort, at the reader's
-/// pace as it stands now — what a person changing that pace asks for (ADR 0013,
+/// Re-lengthens every item whose window is still sized by its effort, each at the
+/// reader's pace for the repositories it is filed under as that stands now — what a person changing that pace asks for (ADR 0013,
 /// ruling 5 as amended).
 /// <para>
 /// The rule "Update from tasks" applies to one item, applied to all of them: the
@@ -38,7 +38,9 @@ public sealed class RelengthenPlanCommandHandler(IRoadmapPlanRepository plans, I
         ArgumentNullException.ThrowIfNull(command.GatheredEffort);
 
         var plan = await plans.LoadAsync(cancellationToken);
-        var storyPointsPerWeek = await velocity.GetStoryPointsPerWeekAsync(cancellationToken);
+        // Read once for the whole plan: every item has its own pace, and asking per item
+        // would read the backlog once per item.
+        var paces = await velocity.ReadPacesInUseAsync(cancellationToken);
         var relengthened = new List<RoadmapItemDto>();
 
         foreach (var item in plan.Items.Where(item => item.PlacedByImport is ImportPlacement.Effort).ToList())
@@ -50,7 +52,7 @@ public sealed class RelengthenPlanCommandHandler(IRoadmapPlanRepository plans, I
                 previous.Start,
                 due: null,
                 Math.Max(0, gathered),
-                storyPointsPerWeek);
+                paces.For(item.Scope.Aliases));
 
             if (window == previous) continue;
 

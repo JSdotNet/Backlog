@@ -66,7 +66,9 @@ For the `confirm-rulings` entry, in one screen. The reasoning is in
    nothing is gathered or nothing is estimated. Velocity is a reading preference
    the person owns, not an estimate the plan registers. *Amended 2026-09-25: the
    setting is story points **a week**, default 7, and the length is effort × 7 ÷
-   it in calendar days — see [Deviations](#deviations).*
+   it in calendar days — see [Deviations](#deviations). Amended 2026-09-26: it is
+   kept per repository band, with the global pace as the fallback; an item under
+   several repositories is placed at the lowest of their paces.*
 5. **[Provenance and re-import](#5-placed_by_import-and-what-a-re-import-may-touch).**
    An import-created item carries `placed_by_import`, cleared the moment a person
    reschedules it by hand. A roadmap-level re-import, matched by tag, replaces
@@ -353,7 +355,10 @@ produces is stored like any other window and is not recomputed when the setting
 changes; it is re-placed only by a re-import
 ([ruling 5](#5-placed_by_import-and-what-a-re-import-may-touch)). *Amended
 2026-09-25: the setting is points a week, and a person changing it re-lengthens
-every window still sized by effort — ruling 5 and [Deviations](#deviations).* So
+every window still sized by effort — ruling 5 and [Deviations](#deviations).
+Amended 2026-09-26: the setting is kept per repository band, measured over each
+repository's own finished work, with the global pace for an item filed under
+none — [Deviations](#deviations).* So
 `.devbook/domain/roadmap/domain.md`'s invariant stands with one word added to it: the
 total is plain arithmetic over registered points, and the *length* is plain
 arithmetic over that total and a factor the person set.
@@ -527,6 +532,36 @@ Changed on the owner's request, on 2026-09-25:
   `IRoadmapPlanning.RelengthenPlanFromEffortAsync`; the band gathers each item's
   effort through `IRoadmapItemRollup` and hands it over when the pace control
   reports a change to the pace in use.
+
+Changed on the owner's request, on 2026-09-26:
+
+- **[Ruling 4](#4-the-importer-places-the-window-velocity-is-the-readers)'s
+  pace is kept per repository band**, because productivity differs from one
+  project to the next. It stays a per-device reading preference, in the same
+  `planning-velocity.json`: the global `storyPointsPerWeek` and `source` are
+  kept, and an optional `repositories` object holds a pair per repository alias,
+  compared without regard to case. A file without that object reads unchanged,
+  and a repository with no entry reads the global typed pace and choice, so no
+  bar moves until somebody sets a pace for one repository; the first change made
+  for it writes its entry and copies the half not being changed from what it
+  read. An item filed under one configured repository is placed at that
+  repository's pace in use; under several, at the **lowest** among them, which is
+  the longest bar; under none, or under an alias no configured repository
+  answers to, at the global pace. **Measured paces are per repository**: a
+  repository's count only the finished tasks whose repositories, mapped from
+  their ids to aliases the way the shelf maps them, include it — a task under two
+  counts in full toward both — and the global ones count every finished task
+  once. Built as `IPlanningVelocity.ReadPacesInUseAsync`, which reads the
+  finished work once for every scope so an import or a re-lengthening of many
+  items does not read it per item. Each repository's pace control sits under its
+  band's name in the timeline's one-column sidebar, through the library's
+  `RoadmapTimeline.GroupContent` slot, the band's named lanes starting below it and
+  the band growing to fit it; only the stretches that measured something are
+  offered, and with none only the typed pace is shown; the unfiled
+  band carries the global pace, labelled as the default and measured over all
+  finished work, and the roadmap's heading carries none. A change to any
+  pace in use re-lengthens as ruling 5 says, each `effort`-placed item at its own
+  repository's pace.
 
 Changed on the owner's request, when the roadmap became a full-screen surface:
 

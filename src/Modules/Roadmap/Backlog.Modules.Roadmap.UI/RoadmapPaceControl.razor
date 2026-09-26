@@ -1,21 +1,32 @@
 @*
-    The reader's pace, in the roadmap's heading: how many story points a week an
-    imported plan with no due date is drawn at (ADR 0013, ruling 4).
+    The reader's pace: how many story points a week an imported plan with no due
+    date is drawn at (ADR 0013, ruling 4).
 
     Four paces, one of them chosen. The one the reader types, and three measured
-    from the estimated work they finished over the last two, four and eight weeks.
-    A stretch that finished nothing estimated measured no pace, so its option says
-    so and cannot be chosen; a choice that has since gone empty places by the typed
-    pace, and the control says that too rather than quietly drawing by another
-    figure than the one pressed.
+    from the estimated work they finished over the last two, four and eight weeks,
+    each shown with its figure so the reader can see what they are choosing. A
+    stretch that finished nothing estimated measured no pace and is not offered at
+    all, since there is nothing to place by; with none measured there is no choice
+    to offer and only the field is drawn. A line under the choices says so when a
+    choice that has since gone empty is placing by the typed pace instead, because
+    its button is gone.
 
-    It lives here rather than on the settings screen because it is read here: the
-    figure only decides how long a bar is drawn, and the reader deciding between
+    Kept per repository band, because productivity differs from one project to the
+    next (ADR 0013, ruling 4 as amended on 2026-09-26), and each pace sits under its
+    band's name in the chart's sidebar, above the band's named lanes, where the plans
+    it places are drawn. A repository's band carries that repository's pace (Repository set), measured over
+    its own finished work. The unfiled band carries the default pace (Repository
+    unset), measured over all of it: the one a plan filed in no repository is
+    placed at, and the one every repository nobody has set a pace for reads.
+
+    It lives on the roadmap rather than the settings screen because it is read here:
+    the figure only decides how long a bar is drawn, and the reader deciding between
     their own guess and what they actually did wants to see both beside the chart.
-    A change here that alters the pace in use is reported through OnPaceChanged,
-    and the band re-lengthens every bar still sized by its effort (ADR 0013,
-    ruling 5 as amended). Finished work moving a measured figure is not a change
-    anybody made, so it redraws the figures and moves no bar.
+    A change here that alters the pace this control shows is reported through
+    OnPaceChanged, and the band re-lengthens every bar still sized by its effort,
+    each at its own repository's pace (ADR 0013, ruling 5 as amended). Finished work
+    moving a measured figure is not a change anybody made, so it redraws the figures
+    and moves no bar.
 *@
 @* For @onchange: without it the directive is a plain attribute and never fires. *@
 @using Microsoft.AspNetCore.Components.Web
@@ -23,52 +34,63 @@
 @inject IPlanningPace Pace
 @inject IRoadmapWorkChanges WorkChanges
 
-<div class="roadmap-pace" data-testid="roadmap-pace">
-    <span class="roadmap-pace__label" id="roadmap-pace-label">Points a week</span>
-
+<div class="roadmap-pace" data-testid="@TestIdOf(null)">
     @* Committed on change rather than bound, so a half-typed pace never reaches the
-       store: "2." on the way to "2.5" is not a number. min and step are
-       affordances only — the store is the one gate, and refuses the 0 this min
-       still allows. *@
-    <TextField Compact="true"
-               Type="number"
-               AriaLabel="Your own pace, in story points a week"
-               CssClass="roadmap-pace__manual"
-               TestId="roadmap-pace-manual"
-               min="0"
-               step="1"
-               autocomplete="off"
-               ErrorMessage="@_error"
-               Value="@_draft"
-               @onchange="ApplyManual" />
+       store: "2." on the way to "2.5" is not a number. min and step are affordances
+       only — the store is the one gate, and refuses the 0 this min still allows. *@
+    <div class="roadmap-pace__line">
+        <TextField Compact="true"
+                   Type="number"
+                   AriaLabel="@ManualLabel"
+                   CssClass="roadmap-pace__manual"
+                   TestId="@TestIdOf("manual")"
+                   min="0"
+                   step="1"
+                   autocomplete="off"
+                   Value="@_draft"
+                   @onchange="ApplyManual" />
+        <span class="roadmap-pace__unit" aria-hidden="true">pt/wk</span>
+    </div>
 
-    <ButtonGroup CssClass="roadmap-pace__options"
-                 AriaLabel="Which pace places an imported plan"
-                 aria-describedby="roadmap-pace-label"
-                 TestId="roadmap-pace-options">
-        @foreach (var option in Options)
-        {
-            var value = _paces.Of(option.Source);
-            @* Small, to sit on the same line height as "Plan work" beside it. *@
-            <ToggleButton BaseClass="btn btn--toggle btn--small"
-                          Pressed="@(_paces.Source == option.Source)"
-                          Disabled="@(value is null)"
-                          Title="@option.Title(value)"
-                          OnClick="() => Choose(option.Source)"
-                          TestId="@($"roadmap-pace-{option.Key}")">
-                <span class="roadmap-pace__option-name">@option.Name</span>
-                @if (option.Source != PaceSource.Manual)
-                {
-                    <span class="roadmap-pace__option-value">@(value is { } measured ? Rounded(measured) : "—")</span>
-                }
-            </ToggleButton>
-        }
-    </ButtonGroup>
-
-    @if (_paces.FellBack)
+    @* Only the stretches that measured something, each with its figure: one that
+       finished nothing has no pace to place by, so it is not offered at all. With
+       none of them, "Mine" would be a choice between one thing, so there is no
+       group — the field is the pace. *@
+    @if (HasMeasured)
     {
-        <span class="roadmap-pace__note" role="status" data-testid="roadmap-pace-fell-back">
-            Nothing estimated was finished in that stretch, so your own pace is used.
+        <ButtonGroup CssClass="roadmap-pace__options"
+                     AriaLabel="@OptionsLabel"
+                     TestId="@TestIdOf("options")">
+            @foreach (var option in Options)
+            {
+                var value = _paces.Of(option.Source);
+                if (value is null) continue;
+
+                <ToggleButton BaseClass="btn btn--toggle btn--small"
+                              Pressed="@(_paces.Source == option.Source)"
+                              Title="@option.Title(value, Repository)"
+                              OnClick="() => Choose(option.Source)"
+                              TestId="@TestIdOf(option.Key)">
+                    <span class="roadmap-pace__option-name">@option.Name</span>
+                    @if (option.Source != PaceSource.Manual)
+                    {
+                        <span class="roadmap-pace__option-value">@Rounded(value.Value)</span>
+                    }
+                </ToggleButton>
+            }
+        </ButtonGroup>
+    }
+
+    @* One short line, always the same height, so the band never has to grow for
+       it. The whole sentence is its title and what a screen reader hears. *@
+    @if (Note is { } note)
+    {
+        <span class="roadmap-pace__note"
+              role="status"
+              title="@note.Sentence"
+              data-testid="@TestIdOf(note.Kind)">
+            <span aria-hidden="true">@note.Short</span>
+            <span class="sr-only">@note.Sentence</span>
         </span>
     }
 </div>
@@ -76,12 +98,20 @@
 @code {
     private sealed record Option(PaceSource Source, string Key, string Name, string Stretch)
     {
-        public string Title(decimal? value) => Source == PaceSource.Manual
-            ? "Place plans by the pace you typed"
-            : value is { } measured
-                ? $"Place plans by what you finished over the {Stretch}: {Rounded(measured)} points a week"
-                : $"Nothing with an estimate was finished over the {Stretch}";
+        public string Title(decimal? value, string? repository)
+        {
+            var plans = repository is null ? "plans in no repository" : $"{repository}'s plans";
+            var finished = repository is null ? "what you finished" : $"what you finished in {repository}";
+
+            return Source == PaceSource.Manual || value is not { } measured
+                ? $"Place {plans} by the pace you typed"
+                : $"Place {plans} by {finished} over the {Stretch}: {Rounded(measured)} points a week";
+        }
     }
+
+    /// <summary>What the line under the choices says: a short form to show and the
+    /// sentence it stands for.</summary>
+    private sealed record PaceNote(string Kind, string Short, string Sentence);
 
     private static readonly Option[] Options =
     [
@@ -91,21 +121,77 @@
         new(PaceSource.LastEightWeeks, "eight-weeks", "8 wk", "last eight weeks")
     ];
 
-    /// <summary>Raised after the reader changed the pace placement uses — typed a
-    /// new one while it is in use, or chose another — so the band can re-lengthen
-    /// the bars sized by it. Not raised for a refusal, or for a change that leaves
-    /// the pace in use where it was.</summary>
+    /// <summary>The repository whose pace this is, by alias; unset for the default
+    /// pace — the one a plan filed in no repository is placed at, and the one a
+    /// repository nobody set a pace for reads.</summary>
+    [Parameter]
+    public string? Repository { get; set; }
+
+    /// <summary>Raised after the reader changed the pace placement uses for this
+    /// control's scope — typed a new one while it is in use, or chose another — so
+    /// the band can re-lengthen the bars sized by it. Not raised for a refusal, or
+    /// for a change that leaves the pace in use where it was.</summary>
     [Parameter]
     public EventCallback OnPaceChanged { get; set; }
 
     private PlanningPacesDto _paces = new(7m, null, null, null, PaceSource.Manual);
     private string _draft = string.Empty;
     private string? _error;
+    private string? _read;
+    private bool _initialized;
+
+    private string ManualLabel => Repository is null
+        ? "Default points a week, for plans in no repository and repositories without a pace of their own"
+        : $"Points a week for {Repository}";
+
+    private string OptionsLabel => Repository is null
+        ? "Which default pace places a plan"
+        : $"Which pace places a plan in {Repository}";
+
+    private string Where => Repository is null ? string.Empty : $" in {Repository}";
+
+    /// <summary>Whether any stretch measured something — and so whether there is a
+    /// choice to offer at all.</summary>
+    private bool HasMeasured =>
+        _paces.LastTwoWeeks is not null || _paces.LastFourWeeks is not null || _paces.LastEightWeeks is not null;
+
+    /// <summary>What the line under the choices says, most pressing first: a refused
+    /// figure, since it is what the reader just did; then a chosen stretch that has
+    /// since measured nothing — its button is gone, so this is the only place left
+    /// that says the typed pace is placing instead. A stretch that measured nothing
+    /// needs no line: its missing button says it.</summary>
+    private PaceNote? Note
+    {
+        get
+        {
+            if (_error is not null) return new PaceNote("refused", "Not saved — see why", _error);
+
+            if (_paces.FellBack)
+            {
+                return new PaceNote(
+                    "fell-back",
+                    "Empty stretch: using Mine",
+                    $"Nothing estimated was finished{Where} in that stretch, so the pace you typed is used.");
+            }
+
+            return null;
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
         Pace.Changed += OnChanged;
         WorkChanges.Changed += OnChanged;
+        await Read();
+        _initialized = true;
+    }
+
+    /// <summary>A control handed another repository reads that one's pace.</summary>
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!_initialized || string.Equals(_read, Repository, StringComparison.OrdinalIgnoreCase)) return;
+
+        _error = null;
         await Read();
     }
 
@@ -117,7 +203,8 @@
 
     private async Task Read()
     {
-        _paces = await Pace.ReadAsync();
+        _read = Repository;
+        _paces = await Pace.ReadAsync(Repository);
 
         // A refused value stays on screen beside its reason, so the reader can see
         // what they typed; otherwise the field shows what is stored.
@@ -129,7 +216,7 @@
         var typed = e.Value?.ToString() ?? string.Empty;
         _draft = typed;
         var before = _paces.InUse;
-        _error = Pace.SetManual(typed);
+        _error = Pace.SetManual(typed, Repository);
         await Read();
         await Announce(before);
     }
@@ -137,7 +224,7 @@
     private async Task Choose(PaceSource source)
     {
         var before = _paces.InUse;
-        _error = Pace.Choose(source);
+        _error = Pace.Choose(source, Repository);
         await Read();
         await Announce(before);
     }
@@ -157,6 +244,17 @@
         await Read();
         StateHasChanged();
     });
+
+    /// <summary>Every test id carries the scope at the end — the repository, or
+    /// "default" — so each band's control can be told apart.</summary>
+    private string TestIdOf(string? part)
+    {
+        var id = part is null ? "roadmap-pace" : $"roadmap-pace-{part}";
+        return $"{id}-{(Repository is null ? "default" : Slug(Repository))}";
+    }
+
+    private static string Slug(string value) =>
+        new([.. value.Select(character => char.IsLetterOrDigit(character) ? char.ToLowerInvariant(character) : '-')]);
 
     /// <summary>Four decimals, no trailing zeroes, invariant — how the store writes
     /// a pace, so a committed value reads back spelled the way it was kept.</summary>

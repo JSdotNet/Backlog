@@ -102,6 +102,45 @@
                and the labels are then two lists of the same height in the same
                order, which is a far cheaper promise to keep than a sticky cell
                inside a scrolling, transformed grid. *@
+            @if (Slotted)
+            {
+                @* With a host's content in a band, the sidebar is still one column, and
+                   each band reads top to bottom: its name, then the content, then its
+                   named lanes on their rows. The content is drawn over the band's first
+                   rows, and the chart makes sure nothing with a name is on those rows
+                   (see Pad), so it never covers one. The content is the caller's and may
+                   be interactive, so this sidebar is not hidden as a whole: only the
+                   names are, which the track's rows already say aloud. Each band's
+                   content is a group named by its band, so a control in it is announced
+                   with the band it belongs to. *@
+                <div class="roadmap-timeline__sidebar roadmap-timeline__sidebar--slotted"
+                     data-testid="@Suffix("sidebar")">
+                    <div class="roadmap-timeline__sidebar-axis" aria-hidden="true"></div>
+
+                    @foreach (var group in PopulatedGroups)
+                    {
+                        var content = HasContent(group);
+                        <div class="@(content ? "roadmap-timeline__group roadmap-timeline__group--slotted" : "roadmap-timeline__group")"
+                             style="@GroupStyle(group)"
+                             data-testid="@Suffix($"group-{Slug(group.Id)}")">
+                            @NamesColumn(group, hidden: true)
+
+                            @if (content)
+                            {
+                                <div class="roadmap-timeline__group-content"
+                                     style="@ContentBox(group)"
+                                     role="group"
+                                     aria-label="@group.Title"
+                                     data-testid="@Suffix($"group-{Slug(group.Id)}-content")">
+                                    @GroupContent!(group)
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
             <div class="roadmap-timeline__sidebar" aria-hidden="true">
                 <div class="roadmap-timeline__sidebar-axis"></div>
 
@@ -110,41 +149,11 @@
                     <div class="roadmap-timeline__group"
                          style="@GroupStyle(group)"
                          data-testid="@Suffix($"group-{Slug(group.Id)}")">
-                        <div class="roadmap-timeline__group-rows">
-                            @* Every placed row of the group, step rows included, so the
-                               two columns stay the same height in the same order. The
-                               group is named once, across its first row; a row below
-                               it is named only where its name changes, so a lane
-                               stacked over three rows reads as one lane. *@
-                            @{ string? previous = null; var first = true; }
-                            @foreach (var placed in Rows.Where(row => ReferenceEquals(row.Group, group)))
-                            {
-                                var lane = placed.Step is null && placed.Row.Title != previous ? placed.Row.Title : null;
-                                <p class="@(placed.Step is null ? "roadmap-timeline__row-name" : "roadmap-timeline__row-name roadmap-timeline__row-name--step")"
-                                   style="height: @Rem(Geometry.RowHeightRem)"
-                                   title="@Context(placed)">
-                                    @if (first)
-                                    {
-                                        @* The sidebar is narrow, so a long name is cut short with an
-                                           ellipsis; the title carries it whole. *@
-                                        <span class="roadmap-timeline__group-name" title="@group.Title">@group.Title</span>
-                                    }
-                                    @if (placed.Step is not null)
-                                    {
-                                        @placed.Row.Title
-                                    }
-                                    else if (!string.IsNullOrWhiteSpace(lane))
-                                    {
-                                        <span class="roadmap-timeline__lane-name">@lane</span>
-                                    }
-                                </p>
-                                if (placed.Step is null) previous = placed.Row.Title;
-                                first = false;
-                            }
-                        </div>
+                        @NamesColumn(group, hidden: false)
                     </div>
                 }
             </div>
+            }
 
             <div class="roadmap-timeline__scroll"
                  role="region"
@@ -266,6 +275,19 @@
 
                         @foreach (var placed in Rows)
                         {
+                            @if (placed.Padding)
+                            {
+                                @* Room for a band's sidebar content, nothing more: no role,
+                                   no name, nothing to press. A bar dragged into it lands on
+                                   the band's last lane — see Landing. *@
+                                <div @key="placed.Row.Id"
+                                     class="roadmap-timeline__row roadmap-timeline__row--padding"
+                                     style="top: @Rem(Geometry.RowTop(placed.Index)); height: @Rem(Geometry.RowHeightRem); @GroupStyle(placed.Group)"
+                                     aria-hidden="true"
+                                     data-testid="@Suffix($"padding-{Slug(placed.Row.Id)}")"></div>
+                                continue;
+                            }
+
                             @if (placed is { Step: { } step, Owner: { } owner, Span: { } span })
                             {
                                 @* A step row: one segment, placed as a proportion of its
@@ -508,6 +530,30 @@
     [Parameter]
     public bool ShowSteps { get; set; } = true;
 
+    /// <summary>
+    /// Something of the host's under a band's name in the sidebar — a control that
+    /// belongs to the band rather than to any one row of it. Drawn for a group whose
+    /// <see cref="RoadmapGroup.ContentRows"/> is above zero, and for no other.
+    /// <para>
+    /// The sidebar stays one column, at its own width. A band with content reads top to
+    /// bottom: its name, the content over its first
+    /// <see cref="RoadmapGroup.ContentRows"/> rows, then its named lanes. Nothing with a
+    /// name is ever under the content: empty rows are put in before the band's first
+    /// named row until it starts at <see cref="RoadmapGroup.ContentRows"/> — after the
+    /// band's unnamed lane rows, which have nothing to cover, or at the top when it has
+    /// none — in the sidebar and in the track alike, so the two stay the same height in
+    /// the same order. An empty row takes no drop of its own and the keyboard steps over
+    /// it.
+    /// </para>
+    /// <para>
+    /// The content is announced — it is the host's, and a host puts controls there —
+    /// inside a group named for its band. What stays hidden from a screen reader is
+    /// the names beside it, which every row in the track already says aloud.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public RenderFragment<RoadmapGroup>? GroupContent { get; set; }
+
     [Parameter]
     public string? SelectedId { get; set; }
 
@@ -627,39 +673,168 @@
 
         foreach (var group in PopulatedGroups)
         {
-            foreach (var row in group.RowList)
-            {
-                placed.Add(new PlacedRow(group, row, placed.Count));
+            var rows = new List<PlacedRow>();
+            PlaceGroup(group, rows);
 
-                if (row.Kind != RoadmapRowKind.Bars) continue;
+            if (HasContent(group)) Pad(group, rows);
 
-                foreach (var bar in VisibleBars.Where(bar => Is(bar.RowId, row.Id) && IsExpanded(bar)))
-                {
-                    var spans = RoadmapStepLayout.Lay(bar.StepList, Geometry.WidthFor(bar.Start, bar.End));
-
-                    for (var index = 0; index < bar.StepList.Count; index++)
-                    {
-                        var step = bar.StepList[index];
-
-                        placed.Add(new PlacedRow(
-                            group,
-                            new RoadmapRow($"{bar.Id}::step::{step.Id}", step.Title),
-                            placed.Count,
-                            bar,
-                            step,
-                            index,
-                            spans[index]));
-                    }
-                }
-            }
+            foreach (var row in rows) placed.Add(row with { Index = placed.Count });
         }
 
         return placed;
     }
 
+    /// <summary>
+    /// Makes room for a band's content, which is drawn over the band's first rows
+    /// under its name. Nothing with a name may sit under it, so every row before the
+    /// first one that shows a name — a named lane, a step, a milestones row — is
+    /// counted, and empty rows are put in before that one until it starts at
+    /// <see cref="RoadmapGroup.ContentRows"/> or lower. The band's unnamed lane rows
+    /// can sit beside the content, since there is nothing on them to cover; a band
+    /// with none gets all of its room at the top, and one with no named row at all
+    /// gets it at the end.
+    /// </summary>
+    private static void Pad(RoadmapGroup group, List<PlacedRow> rows)
+    {
+        var named = rows.FindIndex(ShowsAName);
+        if (named < 0) named = rows.Count;
+
+        var room = Math.Max(0, group.ContentRows - named);
+
+        rows.InsertRange(named, Enumerable.Range(0, room).Select(index => new PlacedRow(
+            group,
+            new RoadmapRow($"{group.Id}::padding::{index}", string.Empty),
+            0,
+            Padding: true)));
+    }
+
+    /// <summary>Whether a row puts a name in the sidebar.</summary>
+    private static bool ShowsAName(PlacedRow row) =>
+        row.Step is not null
+        || row.Row.Kind != RoadmapRowKind.Bars
+        || !string.IsNullOrWhiteSpace(row.Row.Title);
+
+    /// <summary>One group's rows, each followed by the steps of any bar on it that
+    /// is open.</summary>
+    private void PlaceGroup(RoadmapGroup group, List<PlacedRow> placed)
+    {
+        foreach (var row in group.RowList)
+        {
+            placed.Add(new PlacedRow(group, row, placed.Count));
+
+            if (row.Kind != RoadmapRowKind.Bars) continue;
+
+            foreach (var bar in VisibleBars.Where(bar => Is(bar.RowId, row.Id) && IsExpanded(bar)))
+            {
+                var spans = RoadmapStepLayout.Lay(bar.StepList, Geometry.WidthFor(bar.Start, bar.End));
+
+                for (var index = 0; index < bar.StepList.Count; index++)
+                {
+                    var step = bar.StepList[index];
+
+                    placed.Add(new PlacedRow(
+                        group,
+                        new RoadmapRow($"{bar.Id}::step::{step.Id}", step.Title),
+                        placed.Count,
+                        bar,
+                        step,
+                        index,
+                        spans[index]));
+                }
+            }
+        }
+    }
+
     /// <summary>The rows a bar can be dropped on, in order — the step rows are
-    /// drawings of a bar's insides, not places to put one.</summary>
-    private IReadOnlyList<PlacedRow> LandingRows => [.. Rows.Where(row => row.Step is null)];
+    /// drawings of a bar's insides, and a padding row is room for a band's sidebar
+    /// content, so neither is a place to put one.</summary>
+    private IReadOnlyList<PlacedRow> LandingRows => [.. Rows.Where(row => row.Step is null && !row.Padding)];
+
+    /// <summary>Whether <paramref name="group"/> has sidebar content drawn for it.</summary>
+    private bool HasContent(RoadmapGroup group) => GroupContent is not null && group.ContentRows > 0;
+
+    /// <summary>The two-column sidebar, drawn only when some band has content — so a
+    /// chart with none renders exactly as it did before the slot existed.</summary>
+    private bool Slotted => GroupContent is not null && PopulatedGroups.Any(HasContent);
+
+    /// <summary>
+    /// A band's names: every placed row of the group, step rows and padding rows
+    /// included, so the sidebar and the track stay the same height in the same order.
+    /// The group is named once, across its first row; a row below it is named only
+    /// where its name changes, so a lane stacked over three rows reads as one lane.
+    /// <para>
+    /// One fragment for both sidebars, so the names column of a sidebar with band
+    /// content is the plain sidebar's column and not a second copy of it. Hidden on
+    /// its own element only in the sidebar with content, where the whole sidebar is
+    /// not hidden; the plain sidebar is hidden as a whole, as it always was.
+    /// </para>
+    /// </summary>
+    private RenderFragment NamesColumn(RoadmapGroup group, bool hidden) => __builder =>
+    {
+        string? previous = null;
+        var first = true;
+
+        <div class="roadmap-timeline__group-rows" aria-hidden="@(hidden ? "true" : null)">
+            @foreach (var placed in Rows.Where(row => ReferenceEquals(row.Group, group)))
+            {
+                var lane = placed.Step is null && !placed.Padding && placed.Row.Title != previous ? placed.Row.Title : null;
+                <p class="@RowNameClass(placed)"
+                   style="height: @Rem(Geometry.RowHeightRem)"
+                   title="@(placed.Padding ? null : Context(placed))">
+                    @if (first)
+                    {
+                        @* The sidebar is narrow, so a long name is cut short with an
+                           ellipsis; the title carries it whole. *@
+                        <span class="roadmap-timeline__group-name" title="@group.Title">@group.Title</span>
+                    }
+                    @if (placed.Step is not null)
+                    {
+                        @placed.Row.Title
+                    }
+                    else if (!string.IsNullOrWhiteSpace(lane))
+                    {
+                        <span class="roadmap-timeline__lane-name">@lane</span>
+                    }
+                </p>
+                if (placed.Step is null && !placed.Padding) previous = placed.Row.Title;
+                first = false;
+            }
+        </div>
+    };
+
+    /// <summary>How far down a band's content starts — past the band's name, which is
+    /// centred on the band's first row — in rem.</summary>
+    private double ContentTop => Geometry.RowHeightRem / 2 + ContentGapUnderName;
+
+    /// <summary>Room under the band's name before the content starts: half the name's
+    /// line, so the content starts clear of it.</summary>
+    private const double ContentGapUnderName = 0.75;
+
+    /// <summary>Where a band's content is drawn: from under its name to the end of the
+    /// rows the band asked for, and no further, so it never reaches a named row.</summary>
+    private string ContentBox(RoadmapGroup group) =>
+        $"top: {Rem(ContentTop)}; height: {Rem(Math.Max(0, group.ContentRows * Geometry.RowHeightRem - ContentTop))}";
+
+    private static string RowNameClass(PlacedRow placed) =>
+        placed.Step is not null ? "roadmap-timeline__row-name roadmap-timeline__row-name--step"
+        : placed.Padding ? "roadmap-timeline__row-name roadmap-timeline__row-name--padding"
+        : "roadmap-timeline__row-name";
+
+    /// <summary>The lane a bar dragged into a band's padding lands on: the nearest
+    /// row of the same band that takes bars, looking up first — the lane drawn above
+    /// the padding — and then down. Null for a band with no such row, where the bar
+    /// stays where it was.</summary>
+    private RoadmapRow? PaddingLane(PlacedRow padding)
+    {
+        bool Lands(PlacedRow row) =>
+            ReferenceEquals(row.Group, padding.Group)
+            && row.Step is null
+            && !row.Padding
+            && row.Row.Kind == RoadmapRowKind.Bars;
+
+        return Rows.Take(padding.Index).LastOrDefault(Lands)?.Row
+            ?? Rows.Skip(padding.Index + 1).FirstOrDefault(Lands)?.Row;
+    }
 
     private bool IsExpanded(RoadmapBar bar) => ShowSteps && bar.HasSteps && _expanded.Contains(bar.Id);
 
@@ -1051,6 +1226,11 @@
 
         if (landing.Owner is { } owner) return owner.RowId;
 
+        // Only a pointer reaches a padding row — the keyboard counts landing rows
+        // alone — and a drop there means the band, so it lands on the band's nearest
+        // lane.
+        if (landing.Padding) return PaddingLane(landing)?.Id ?? bar.RowId;
+
         return landing.Row.Kind == RoadmapRowKind.Bars ? landing.Row.Id : null;
     }
 
@@ -1424,7 +1604,8 @@
     /// <summary>A row and where it sits, once the two-level structure has been
     /// flattened into the single list the chart actually draws.</summary>
     /// <remarks>A step row also carries the bar it opened from, the step, where
-    /// that step sits in the bar's order, and where it is drawn.</remarks>
+    /// that step sits in the bar's order, and where it is drawn. A padding row is
+    /// room a band's sidebar content asked for, and holds nothing.</remarks>
     private sealed record PlacedRow(
         RoadmapGroup Group,
         RoadmapRow Row,
@@ -1432,7 +1613,8 @@
         RoadmapBar? Owner = null,
         RoadmapStep? Step = null,
         int StepIndex = 0,
-        RoadmapStepSpan? Span = null);
+        RoadmapStepSpan? Span = null,
+        bool Padding = false);
 
     public async ValueTask DisposeAsync()
     {

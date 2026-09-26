@@ -11945,6 +11945,35 @@ select.field__input {
 }
 
 /*
+  A band with content of the host's — see GroupContent. The sidebar stays one
+  column at its own width, and the content is laid over the band's first rows,
+  under its name: the component puts it there inline, from under the name to the
+  end of the rows the band asked for (RoadmapGroup.ContentRows), and makes sure no
+  row with a name is among them, so the content never covers one.
+
+  The content is clipped to that box. Clipping only ever bites content taller
+  than the host asked for — and a sidebar a pixel taller than its track is what
+  this whole frame exists not to be.
+*/
+.roadmap-timeline__group--slotted {
+    position: relative;
+}
+
+.roadmap-timeline__group-content {
+    position: absolute;
+    left: 0;
+    right: 0;
+    min-width: 0;
+    padding: 0 var(--spacing-sm);
+    overflow: hidden;
+}
+
+/* Room a band's content asked for: nothing on it, and nothing to read. */
+.roadmap-timeline__row--padding {
+    pointer-events: none;
+}
+
+/*
   The one thing on the page allowed to be wider than the page. Everything else
   is inside it, which is what keeps a year-long plan from pushing the document
   sideways on a phone.
