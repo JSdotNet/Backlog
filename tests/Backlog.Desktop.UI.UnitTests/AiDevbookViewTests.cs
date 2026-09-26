@@ -127,6 +127,62 @@ public sealed class AiDevbookViewTests : IDisposable
         Assert.Contains("draft", contextEngineering.TextContent, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task The_overview_draws_the_loop_in_place_of_the_map_s_diagram()
+    {
+        await using var harness = CreateHarness();
+
+        var component = harness.Render(selectedPath: null);
+
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='ai-loop']")));
+
+        // The picture replaced the hand-drawn form rather than sitting beside it.
+        Assert.DoesNotContain("flowchart LR", component.Markup, StringComparison.Ordinal);
+        Assert.Equal(8, component.FindAll("[data-testid^='ai-loop-stage-']").Count);
+
+        // The skill lists `plan`, so it is drawn there, shaded by its rating, and
+        // an unused stage is drawn empty rather than dropped.
+        var plan = component.Find("[data-testid='ai-loop-stage-plan']");
+        Assert.Contains("ai-loop__stage--trial", plan.ClassList);
+        Assert.Contains("Devbook skills", plan.TextContent, StringComparison.Ordinal);
+        Assert.Contains("claude code", plan.TextContent, StringComparison.Ordinal);
+        Assert.Contains("No AI usage", component.Find("[data-testid='ai-loop-stage-deploy']").TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_usage_on_the_loop_opens_its_chapter()
+    {
+        await using var harness = CreateHarness();
+        DevbookChapterLink? opened = null;
+
+        var component = harness.Context.Render<AiDevbookView>(parameters => parameters
+            .Add(view => view.RepositoryAlias, "backlog")
+            .Add(view => view.OnNavigateToChapter, link => opened = link));
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='ai-loop-usage']")));
+        component.Find("[data-testid='ai-loop-stage-plan'] [data-testid='ai-loop-usage']").Click();
+
+        Assert.NotNull(opened);
+        Assert.Equal("ai", opened.AreaKey);
+        Assert.EndsWith("01-specify.md", opened.Path, StringComparison.Ordinal);
+        Assert.Equal("devbook-skills", opened.Anchor);
+    }
+
+    [Fact]
+    public async Task The_open_adoption_map_is_headed_by_the_loop()
+    {
+        await using var harness = CreateHarness();
+
+        var component = harness.Render("adoption-map.md");
+
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='ai-chapter-file']")));
+        Assert.Single(component.FindAll("[data-testid='ai-loop']"));
+
+        // Capped to fill the pane under the picture, the file would be a sliver;
+        // the section scrolls the two together instead.
+        Assert.Empty(component.FindAll(".folder-devbook--chapter"));
+    }
+
     public void Dispose()
     {
         foreach (var root in _roots.Where(Directory.Exists))
@@ -179,6 +235,13 @@ public sealed class AiDevbookViewTests : IDisposable
         | Stage | File |
         | --- | --- |
         | Specify | 01-specify.md |
+
+        ## The loop
+
+        ```mermaid
+        flowchart LR
+            plan --> code
+        ```
         """;
 
     /// <summary>A stage file: one chapter per thing used at the stage, each
@@ -196,6 +259,7 @@ public sealed class AiDevbookViewTests : IDisposable
         ```meta
         status: trial
         type: skill
+        stage: [plan]
         depends-on: [".tech/tooling.md#claude-code"]
         ```
 

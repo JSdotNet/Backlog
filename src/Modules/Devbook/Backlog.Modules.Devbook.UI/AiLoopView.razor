@@ -1,0 +1,186 @@
+@*
+    The AI adoption record drawn as the DevOps loop: the infinity figure with its
+    eight stages, and at each stage the AI usages that sit there. What is drawn is
+    AiLoop's, which reads it off the chapters' own fields — this file only lays it
+    out, so nothing here decides where a usage goes.
+
+    The layout mirrors the figure. Each lobe has four stages, one per quarter, and
+    a stage's card sits above or below the quarter of the band it names: code,
+    plan, release and deploy along the top, build, test, monitor and operate along
+    the bottom. A container too narrow for that drops the figure and lists the
+    stages in loop order instead, which says the same thing without the geometry.
+
+    The ladder is shaded on the chart ramp — one hue, lighter for less adopted —
+    because the palette is single-hue by rule; a stage's band takes the highest
+    rung among its usages, and an empty stage wears the track, which is the
+    picture reporting an absence rather than hiding one.
+*@
+<section class="ai-loop" aria-label="AI usage around the DevOps loop" data-testid="ai-loop">
+    <div class="ai-loop__grid">
+        @foreach (var stage in Loop.Stages)
+        {
+            <section class="@StageClass(stage)"
+                     style="grid-area: @stage.Key"
+                     aria-label="@($"{stage.Key} stage")"
+                     data-testid="@($"ai-loop-stage-{stage.Key}")">
+                <header class="ai-loop__stage-header">
+                    <h4 class="ai-loop__stage-name">@stage.Key</h4>
+                    <span class="ai-loop__half">@(stage.IsDev ? "Dev" : "Ops")</span>
+                </header>
+                @if (stage.IsEmpty)
+                {
+                    <p class="ai-loop__empty">No AI usage</p>
+                }
+                else
+                {
+                    <ul class="ai-loop__usages">
+                        @foreach (var usage in stage.Usages)
+                        {
+                            <li>@Usage(usage)</li>
+                        }
+                    </ul>
+                }
+            </section>
+        }
+
+        @* Decorative: every fact in it is in the cards around it, which are what a
+           screen reader walks. *@
+        <svg class="ai-loop__figure" viewBox="0 0 600 240" role="presentation" aria-hidden="true" focusable="false">
+            <defs>
+                <marker id="ai-loop-arrow" viewBox="0 0 10 10" refX="7" refY="5"
+                        markerWidth="12" markerHeight="12" markerUnits="userSpaceOnUse" orient="auto">
+                    <path class="ai-loop__arrow" d="M1,1 L8,5 L1,9" />
+                </marker>
+            </defs>
+            @foreach (var (stage, index) in Loop.Stages.Select((stage, index) => (stage, index)))
+            {
+                <path class="@SegmentClass(stage)" d="@Segments[index]" marker-end="url(#ai-loop-arrow)" />
+            }
+            @foreach (var (stage, index) in Loop.Stages.Select((stage, index) => (stage, index)))
+            {
+                @* A group round each label because Razor reads a bare <text> in a
+                   code block as its own text tag. *@
+                <g><text class="@LabelClass(stage)" x="@Invariant(Labels[index].X)" y="@Invariant(Labels[index].Y)" transform="@LabelTransform(index)">@stage.Key</text></g>
+            }
+            <g>
+                <text class="ai-loop__lobe" x="150" y="126">Dev</text>
+                <text class="ai-loop__lobe" x="450" y="126">Ops</text>
+            </g>
+        </svg>
+    </div>
+
+    @if (Loop.Concepts.Count > 0)
+    {
+        <section class="ai-loop__concepts" aria-label="Throughout the loop" data-testid="ai-loop-concepts">
+            <h4 class="ai-loop__stage-name">Throughout the loop</h4>
+            <ul class="ai-loop__usages ai-loop__usages--inline">
+                @foreach (var concept in Loop.Concepts)
+                {
+                    <li>@Usage(concept)</li>
+                }
+            </ul>
+        </section>
+    }
+
+    <p class="ai-loop__legend" aria-label="Adoption ladder">
+        @foreach (var rung in Rungs)
+        {
+            <span class="@($"ai-loop__key ai-loop__key--{rung}")">@rung</span>
+        }
+    </p>
+</section>
+
+@code {
+    /// <summary>The picture to draw, read from the folder by <see cref="AiLoop.From"/>.</summary>
+    [Parameter, EditorRequired]
+    public AiLoop Loop { get; set; } = default!;
+
+    /// <summary>Raised when a reader opens a usage's chapter. The host owns the
+    /// selection, so this is a request rather than a move — the same shape as the
+    /// folder view's own reference links.</summary>
+    [Parameter]
+    public EventCallback<DevbookChapterLink> OnNavigateToChapter { get; set; }
+
+    private static readonly string[] Rungs = ["adopted", "trial", "candidate", "hold", "retired"];
+
+    /// <summary>One quarter of a lobe per stage, in loop order. The dev lobe runs
+    /// out of the crossing up and to the left, so plan, code, build and test turn
+    /// anticlockwise round it; release crosses over and the ops lobe turns
+    /// clockwise, monitor coming back into the crossing to feed plan.</summary>
+    private static readonly string[] Segments =
+    [
+        "M300,120 C260,50 200,30 150,30",
+        "M150,30 C90,30 40,70 40,120",
+        "M40,120 C40,170 90,210 150,210",
+        "M150,210 C200,210 260,190 300,120",
+        "M300,120 C340,50 400,30 450,30",
+        "M450,30 C510,30 560,70 560,120",
+        "M560,120 C560,170 510,210 450,210",
+        "M450,210 C400,210 340,190 300,120"
+    ];
+
+    /// <summary>Each segment's midpoint — the curve at t = 0.5 — and the band's
+    /// direction there, turned to read left to right, so a stage's name lies
+    /// along its quarter of the band rather than hanging off a curve. The ops
+    /// lobe mirrors the dev lobe.</summary>
+    private static readonly (double X, double Y, double Angle)[] Labels =
+    [
+        (228.75, 48.75, 27.6), (72.5, 56.25, -39.1), (72.5, 183.75, 39.1), (228.75, 191.25, -27.6),
+        (371.25, 48.75, -27.6), (527.5, 56.25, 39.1), (527.5, 183.75, -39.1), (371.25, 191.25, 27.6)
+    ];
+
+    private static string Invariant(double value) => value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    private static string LabelTransform(int index) =>
+        FormattableString.Invariant($"rotate({Labels[index].Angle} {Labels[index].X} {Labels[index].Y})");
+
+    private RenderFragment Usage(AiLoopUsage usage) =>
+        @<AppButton Variant="ButtonVariant.None"
+                    BaseClass="ai-loop__usage"
+                    CssClass="@($"ai-loop__usage--{RungClass(usage.Status)}")"
+                    TestId="ai-loop-usage"
+                    OnClick="() => OnNavigateToChapter.InvokeAsync(usage.Link)"
+                    AdditionalAttributes="@UsageAttributes(usage)">
+            <span class="ai-loop__usage-name">@usage.Heading</span>
+            @* The rating leads the second line rather than sharing the first: a
+               status badge is a fixed-width column, and beside the name it left a
+               quarter of the card for the words a reader came for. *@
+            <span class="ai-loop__usage-meta">
+                <DevbookStatusPill Status="@usage.Status" Folder="DevbookFolder.Ai" />
+                @if (usage.Type is not null)
+                {
+                    <span class="ai-loop__usage-type">@usage.Type</span>
+                }
+                @foreach (var technology in usage.Technologies)
+                {
+                    <span class="ai-loop__usage-tech">@technology</span>
+                }
+            </span>
+        </AppButton>;
+
+    private static IReadOnlyDictionary<string, object> UsageAttributes(AiLoopUsage usage) =>
+        new Dictionary<string, object>
+        {
+            ["title"] = usage.Date is null ? $"Open {usage.Heading}" : $"Open {usage.Heading} — rated {usage.Date}"
+        };
+
+    /// <summary>A card's class, with <c>--below</c> for the stages whose quarter
+    /// is the lower half of a lobe — their card sits under the figure and its
+    /// accent faces up towards the band.</summary>
+    private static string StageClass(AiLoopStage stage) =>
+        $"ai-loop__stage ai-loop__stage--{RungClass(stage.Status)}{(stage.Key is "build" or "test" or "operate" or "monitor" ? " ai-loop__stage--below" : string.Empty)}";
+
+    private static string SegmentClass(AiLoopStage stage) =>
+        $"ai-loop__segment ai-loop__segment--{RungClass(stage.Status)}";
+
+    private static string LabelClass(AiLoopStage stage) =>
+        $"ai-loop__label ai-loop__label--{RungClass(stage.Status)}";
+
+    /// <summary>The rung as a class, or <c>empty</c> — for a stage nothing sits
+    /// at, and for a usage whose status is off the ladder, which the pill beside
+    /// it already flags.</summary>
+    private static string RungClass(string? status) =>
+        status is not null && Rungs.Contains(status.Trim().ToLowerInvariant())
+            ? status.Trim().ToLowerInvariant()
+            : "empty";
+}

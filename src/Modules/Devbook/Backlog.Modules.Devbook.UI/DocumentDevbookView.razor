@@ -222,10 +222,14 @@
                            pushed the pane past the section already scrolling it,
                            which is how one file ended up with a scrollbar outside
                            it instead of in it. *@
+                        @if (IsRoot(file) && RootPicture is not null)
+                        {
+                            @RootPicture(_model.Files)
+                        }
                         <FileView Name="@file.Title"
                                   Path="@file.FileName"
                                   Body="@_chapter.Text"
-                                  Fill="true"
+                                  Fill="@(!HeadedByPicture(file))"
                                   TestId="@($"{Folder.AreaKey}-chapter-file")"
                                   AllowCopy="true"
                                   AllowChapterCopy="true"
@@ -277,10 +281,19 @@
                                                        Heading="@SectionHeading(section)"
                                                        OnStatusChanged="status => ChangeSectionStatusAsync(file, section, status)" />
                                 }
+                                @* The root's own diagram is the hand-drawn form of
+                                   the picture the host can draw from the folder, so
+                                   where the host hands one in it takes the
+                                   diagram's place rather than sitting beside a
+                                   second copy of the same facts. *@
+                                @if (IsRoot(file) && RootPicture is not null && section.Blocks.OfType<DocumentDevbookDiagram>().Any())
+                                {
+                                    @RootPicture(_model.Files)
+                                }
                                 @* The overview draws every file at once, so which
                                    document a reference resolves against is per file
                                    rather than per pane. *@
-                                <DevbookBlocks Blocks="section.Blocks"
+                                <DevbookBlocks Blocks="@BlocksFor(file, section)"
                                                  DiagramTitle="@section.Heading"
                                                  InlineTarget="@InlineTargetFor(file)" />
                             </section>
@@ -337,7 +350,34 @@
     [Parameter]
     public EventCallback<DevbookChapterLink> OnNavigateToChapter { get; set; }
 
+    /// <summary>
+    /// A picture of the whole folder, drawn from its parsed files, that the root
+    /// document's own diagram is the hand-drawn form of — the AI area's DevOps
+    /// loop. In the overview it takes the place of the root's diagram; with the
+    /// root document open it heads the file view. Handed in by the per-folder
+    /// wrapper because only it knows what the folder's picture is; a folder
+    /// without one draws its root as written.
+    /// </summary>
+    [Parameter]
+    public RenderFragment<IReadOnlyList<DocumentDevbookFile>>? RootPicture { get; set; }
+
     private DocumentDevbookFolder Folder => Provider.Folder;
+
+    private bool IsRoot(DocumentDevbookFile file) =>
+        string.Equals(file.FileName, Folder.RootDocument, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Whether the open file is the root with <see cref="RootPicture"/>
+    /// above it. That file does not fill the pane: capped to what the picture
+    /// leaves, the file would be a sliver under it, so the section scrolls the
+    /// picture and the file together the way it scrolls the overview.</summary>
+    private bool HeadedByPicture(DocumentDevbookFile file) => IsRoot(file) && RootPicture is not null;
+
+    /// <summary>A section's blocks as the overview draws them: the root's diagram
+    /// left out where <see cref="RootPicture"/> is drawn in its place.</summary>
+    private IReadOnlyList<DocumentDevbookBlock> BlocksFor(DocumentDevbookFile file, DocumentDevbookSection section) =>
+        IsRoot(file) && RootPicture is not null
+            ? [.. section.Blocks.Where(block => block is not DocumentDevbookDiagram)]
+            : section.Blocks;
 
     protected override void OnInitialized()
     {
@@ -549,7 +589,7 @@
     /// whose chapter could not be read falls back to the sections and leaves
     /// nothing to hand the scroll to.</summary>
     private string RootClass =>
-        _model is { IsAvailable: true } && VisibleFiles().Any(file => EditableChapter(file) is not null)
+        _model is { IsAvailable: true } && VisibleFiles().Any(file => EditableChapter(file) is not null && !HeadedByPicture(file))
             ? "folder-devbook folder-devbook--chapter"
             : "folder-devbook";
 
