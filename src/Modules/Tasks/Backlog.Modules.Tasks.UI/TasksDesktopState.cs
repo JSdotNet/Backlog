@@ -1370,8 +1370,8 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     {
         get
         {
-            var ranks = SortableVisibleRows().Select(row => StatusSortRank(row.PreviewStatus)).ToList();
-            return ranks.Zip(ranks.Skip(1)).Any(pair => pair.First > pair.Second);
+            var visible = SortableVisibleRows().ToList();
+            return !visible.SequenceEqual(StatusSortOrder(visible));
         }
     }
 
@@ -1384,6 +1384,10 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// never reshuffles work the reader cannot see. An unsaved draft stays put too;
     /// it has no rank to write yet.
     /// </para>
+    /// <para>
+    /// A row never lands above one it is waiting for — see
+    /// <see cref="StatusSortOrder"/>.
+    /// </para>
     /// </summary>
     public async Task SortVisibleByStatusAsync()
     {
@@ -1391,7 +1395,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         if (visible.Count < 2 || !CanSortVisibleByStatus) return;
 
         var slots = visible.Select(row => Rows.IndexOf(row)).Order().ToList();
-        var sorted = visible.OrderBy(row => StatusSortRank(row.PreviewStatus)).ToList();
+        var sorted = StatusSortOrder(visible);
         for (var i = 0; i < slots.Count; i++)
         {
             Rows[slots[i]] = sorted[i];
@@ -1404,6 +1408,93 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
     private IEnumerable<EntryRow> SortableVisibleRows() =>
         FilteredRows.Where(row => row.IsPersisted && !row.IsReadOnly);
+
+    /// <summary>
+    /// The status order of <paramref name="visible"/> (given in list order), held
+    /// to one constraint: a row comes after every row it is waiting for.
+    /// <para>
+    /// "Waiting for" is the resolved <c>after:</c> chain, followed through rows
+    /// the filters hide so a hidden middle step still orders its two ends, and
+    /// stopping at a done or archived predecessor — that one is no longer waited
+    /// for, and sorts by its own status. A predecessor takes the best rank of
+    /// anything waiting on it, so a draft first step of in-progress work rises
+    /// with it instead of sinking the work below the drafts. Ties keep the
+    /// hand-made order; a cycle, which only a hand edit can write, is broken at
+    /// its best-ranked row rather than refusing to sort.
+    /// </para>
+    /// </summary>
+    private List<EntryRow> StatusSortOrder(List<EntryRow> visible)
+    {
+        var candidates = DependencyCandidates();
+        var byId = new Dictionary<string, EntryRow>(StringComparer.OrdinalIgnoreCase);
+        foreach (var row in Rows.Where(row => row.Id is not null))
+        {
+            byId.TryAdd(row.Id!.Value.ToString(), row);
+        }
+
+        var visibleSet = visible.ToHashSet();
+        var waitsFor = visible.ToDictionary(
+            row => row,
+            row => OpenVisiblePredecessors(row, byId, visibleSet, candidates));
+
+        var rank = visible.ToDictionary(row => row, row => StatusSortRank(row.PreviewStatus));
+        foreach (var (row, predecessors) in waitsFor)
+        {
+            foreach (var predecessor in predecessors)
+            {
+                rank[predecessor] = Math.Min(rank[predecessor], StatusSortRank(row.PreviewStatus));
+            }
+        }
+
+        var remaining = visible.ToList();
+        var placed = new HashSet<EntryRow>();
+        var sorted = new List<EntryRow>(visible.Count);
+        while (remaining.Count > 0)
+        {
+            var unblocked = remaining.Where(row => waitsFor[row].All(placed.Contains)).ToList();
+            var next = (unblocked.Count > 0 ? unblocked : remaining).MinBy(row => rank[row])!;
+
+            remaining.Remove(next);
+            placed.Add(next);
+            sorted.Add(next);
+        }
+
+        return sorted;
+    }
+
+    /// <summary>The visible rows <paramref name="row"/> waits for, directly or
+    /// through any chain of open predecessors, hidden ones included.</summary>
+    private static HashSet<EntryRow> OpenVisiblePredecessors(
+        EntryRow row,
+        Dictionary<string, EntryRow> byId,
+        HashSet<EntryRow> visibleSet,
+        List<DependencyResolution.Candidate> candidates)
+    {
+        var found = new HashSet<EntryRow>();
+        var seen = new HashSet<EntryRow> { row };
+        var pending = new Stack<EntryRow>([row]);
+        while (pending.TryPop(out var current))
+        {
+            var dependsOn = current.PreviewDependsOn.Count == 0
+                ? current.PreviewDependsOn
+                : DependencyResolution.ResolveAll(current.PreviewDependsOn, candidates, current.ImportPlanId, current.PreviewTags);
+
+            foreach (var id in dependsOn)
+            {
+                if (!byId.TryGetValue(id, out var predecessor)
+                    || predecessor.PreviewStatus is EntryStatus.Done or EntryStatus.Archived
+                    || !seen.Add(predecessor))
+                {
+                    continue;
+                }
+
+                if (visibleSet.Contains(predecessor)) found.Add(predecessor);
+                pending.Push(predecessor);
+            }
+        }
+
+        return found;
+    }
 
     private static int StatusSortRank(EntryStatus status) => status switch
     {
