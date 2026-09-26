@@ -582,6 +582,7 @@
                           RepositoryAlias="@RepositoryAliasFor"
                           RepositoryColour="@RepositoryColourFor"
                           OnOpenTask="OpenPlanEntryAsync"
+                          SessionTask="SessionTaskFor"
                           FocusSessionId="@_focusSessionId" />
         </main>
     }
@@ -1095,8 +1096,11 @@
     /// place the two can meet.
     /// </para>
     /// <para>
-    /// Matched on the pair the import writes down — the plan and the item's id within
-    /// it — because that is what identifies an entry across plan versions; the plan is
+    /// Matched first on the entry's stored id where the reference carries one — the
+    /// line the app puts on every entry it copies names it, and so does an entry that
+    /// linked the session — because nothing identifies an entry more surely. Then on
+    /// the pair the import writes down — the plan and the item's id within it —
+    /// because that is what identifies an entry across plan versions; the plan is
     /// stored with its sigil and the marker states the slug, so the comparison drops
     /// it. An entry this workspace does not hold is said out loud rather than
     /// silently doing nothing: the run was real and the entry is somewhere, just not
@@ -1105,14 +1109,26 @@
     /// </summary>
     private async Task OpenPlanEntryAsync(DeliveryRunReference reference)
     {
-        var row = State.Rows.FirstOrDefault(candidate =>
-            string.Equals(candidate.PreviewImportItemId, reference.Label, StringComparison.OrdinalIgnoreCase)
-            && InPlan(candidate, reference.Plan));
+        // Named by id alone, the label is the entry's title rather than an item id,
+        // so there is no plan item to fall back on.
+        var byIdOnly = reference.EntryId is not null && reference.Plan is null;
+
+        var row = reference.EntryId is { } entryId
+            ? State.Rows.FirstOrDefault(candidate => candidate.Id == entryId)
+            : null;
+
+        row ??= byIdOnly
+            ? null
+            : State.Rows.FirstOrDefault(candidate =>
+                string.Equals(candidate.PreviewImportItemId, reference.Label, StringComparison.OrdinalIgnoreCase)
+                && InPlan(candidate, reference.Plan));
 
         if (row is null)
         {
             Toasts.Publish(ToastMessage.Warning(
-                $"No entry of plan {reference.Plan} with the id {reference.Label} is in this workspace.",
+                byIdOnly
+                    ? $"The entry {reference.Label} is not in this workspace."
+                    : $"No entry of plan {reference.Plan} with the id {reference.Label} is in this workspace.",
                 PlanEntryMissingTestId));
 
             return;
@@ -1147,6 +1163,30 @@
     }
 
     private const string PlanEntryMissingTestId = "sessions-plan-entry-missing";
+
+    /// <summary>
+    /// The entry that linked a session, as the sessions list asks for it: the entry's
+    /// own record of the session it was worked in, written by the Backlog server's
+    /// <c>link_session</c>. Answered here for the reason <see cref="OpenPlanEntryAsync"/>
+    /// is — the link is stored on the entry and the session is in the other pane — and
+    /// by stored id, so opening it is the surest match that method makes.
+    /// </summary>
+    private DeliveryRunReference? SessionTaskFor(string sessionId)
+    {
+        var row = State.Rows.FirstOrDefault(candidate =>
+            candidate.Id is not null
+            && candidate.SessionLinks.Any(link => string.Equals(link.SessionId, sessionId, StringComparison.OrdinalIgnoreCase)));
+
+        return row is { Id: { } id }
+            ? new DeliveryRunReference(
+                DeliveryRunReferenceKind.Task,
+                string.IsNullOrWhiteSpace(row.PreviewTitle) ? id.ToString()[..8] : row.PreviewTitle,
+                Title: null,
+                Url: null,
+                Repository: null,
+                EntryId: id)
+            : null;
+    }
 
     private void OnSurfaceKeyDown(KeyboardEventArgs e)
     {

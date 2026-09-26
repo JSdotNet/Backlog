@@ -432,16 +432,23 @@ aliases: [DeliveryRunReference, linked work, tracker item]
 One piece of work a `Delivery Run` is linked to: the Backlog entry it was started
 from, a tracker issue it was working, or a pull request it opened. Carries which of
 those it is, what to call it, the item's own title where the file recorded one, its
-address where it has one, and the repository it belongs to. Equality by all of them.
+address where it has one, the repository it belongs to, and — for a Backlog entry — the
+plan and the entry's stored id where something named them. Equality by all of them.
 
 A list on the run rather than a single tracker item, because a run has more than one
 link and they are not the same link — it starts from an item and ends in a pull
 request — and a reader wants to reach either. The address is optional and its absence
 is a fact rather than a gap: a Backlog entry is in this product, not on a page, and
-nothing here invents a URL for one. Such a reference carries the plan it belongs to
-beside its id, because the pair is what identifies an entry across plan versions, and
-reaching one is the surrounding application's to do — this context names the entry and
-never opens it. A surface shows it as the run's own outcome rather than as a chip of
+nothing here invents a URL for one. Such a reference carries the plan and item where
+the prompt's plan item marker named it, because that pair is what identifies an entry
+across plan versions, and the entry's stored id where the line the app puts on a copied
+entry named it — either or both, since an imported entry copied out of the app carries
+both markers. The stored id is the surer of the two, so a surface that opens the entry
+tries it first, and reaching one is the surrounding application's to do — this context
+names the entry and never opens it. A reference can also reach a run from outside its
+file: the entry that linked the run's session, which the surrounding application
+supplies by session id when the run names none, so this context never reads Tasks for
+it. A surface shows it as the run's own outcome rather than as a chip of
 its own: the entry is the work the run was answering about, and two controls to one
 place is one too many.
 

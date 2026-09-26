@@ -156,6 +156,46 @@ public sealed class DeliveryRunReaderTests : IDisposable
         Assert.Equal("Plan backlog-mcp-server", reference.Title);
         Assert.Null(reference.Url);
         Assert.Null(reference.Repository);
+        Assert.Null(reference.EntryId);
+    }
+
+    /// <summary>
+    /// The line the app puts on every entry it copies names the entry by its stored id,
+    /// and a run started from that paste is a run started from that entry. The title
+    /// under the line is what the reference is called, because a Guid is not something
+    /// a reader recognises their task by.
+    /// </summary>
+    [Fact]
+    public async Task The_entry_marker_in_the_prompt_becomes_a_task_reference_by_id()
+    {
+        GivenRun("orch-dashboard", "done-link-9a5a08-9e68802b", "run.json", EntryMarkerRun);
+
+        var run = Assert.Single((await ReadAsync()).Runs);
+        var reference = Assert.Single(run.References);
+
+        Assert.Equal(DeliveryRunReferenceKind.Task, reference.Kind);
+        Assert.Equal(Guid.Parse("5f0c2a9e-3b1d-4c7a-9e2f-0a1b2c3d4e5f"), reference.EntryId);
+        Assert.Equal("Link the done badge to its task", reference.Label);
+        Assert.Null(reference.Plan);
+        Assert.Null(reference.Url);
+    }
+
+    /// <summary>
+    /// An imported entry copied out of the app carries both markers — the app's line
+    /// on top and the import's in the body — and they name one entry, so the run has
+    /// one task reference carrying both ways of finding it.
+    /// </summary>
+    [Fact]
+    public async Task Both_markers_in_the_prompt_are_one_task_reference()
+    {
+        GivenRun("orch-dashboard", "done-link-9a5a08-9e68802b", "run.json", BothMarkersRun);
+
+        var run = Assert.Single((await ReadAsync()).Runs);
+        var reference = Assert.Single(run.References);
+
+        Assert.Equal(Guid.Parse("5f0c2a9e-3b1d-4c7a-9e2f-0a1b2c3d4e5f"), reference.EntryId);
+        Assert.Equal("delivery-run-reader", reference.Label);
+        Assert.Equal("backlog-mcp-server", reference.Plan);
     }
 
     [Fact]
@@ -675,6 +715,42 @@ public sealed class DeliveryRunReaderTests : IDisposable
             { "name": "Summary", "agents": [], "status": "done", "output": "", "doneCount": 1, "durationMs": 1000 }
           ],
           "summary": "Delivered as https://github.com/JSdotNet/Backlog/pull/330 (12 files, +430/-88).",
+          "insights": []
+        }
+        """;
+
+    /// <summary>A run started from an entry copied out of the app: its marker line,
+    /// then the title and the body.</summary>
+    private const string EntryMarkerRun = """
+        {
+          "id": "run-entry",
+          "skillId": "flow-code",
+          "title": "Link the done badge",
+          "status": "done",
+          "originalPrompt": "/backlog-tools:backlog-run-plan-item entry `5f0c2a9e-3b1d-4c7a-9e2f-0a1b2c3d4e5f`:\n# Link the done badge to its task\n\nThe status badge should open the entry.",
+          "startedAt": "2026-09-26T09:00:00.000Z",
+          "updatedAt": "2026-09-26T10:00:00.000Z",
+          "stages": [
+            { "name": "Implementation", "agents": [], "status": "done", "output": "", "doneCount": 1, "durationMs": 1000 }
+          ],
+          "insights": []
+        }
+        """;
+
+    /// <summary>An imported entry copied out of the app: the app's line on top and the
+    /// import's plan item marker in the body.</summary>
+    private const string BothMarkersRun = """
+        {
+          "id": "run-both",
+          "skillId": "flow-code",
+          "title": "Read delivery run files",
+          "status": "done",
+          "originalPrompt": "/backlog-tools:backlog-run-plan-item entry `5f0c2a9e-3b1d-4c7a-9e2f-0a1b2c3d4e5f`:\nRead delivery run files\n\nBacklog plan item `delivery-run-reader` of plan `backlog-mcp-server` for `Backlog`.",
+          "startedAt": "2026-09-26T09:00:00.000Z",
+          "updatedAt": "2026-09-26T10:00:00.000Z",
+          "stages": [
+            { "name": "Implementation", "agents": [], "status": "done", "output": "", "doneCount": 1, "durationMs": 1000 }
+          ],
           "insights": []
         }
         """;
