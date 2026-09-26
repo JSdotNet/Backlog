@@ -7,7 +7,8 @@ and one for the remarks a person leaves while reading.
 - **`backlog-import-plan`** — turns an agreed specification into a Backlog import plan
   (ADR 0007: `.devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md`). Every entry is
   a `prompt` an AI session runs, or a `task` or `test` only the user does — never both in one
-  entry. It always ships a review view next to the raw plan — one HTML page built from
+  entry. Before a step stays a `task` or `test`, it asks you whether an AI session could do
+  it instead, and every step, whatever its kind, names its repository with `repo:`. It always ships a review view next to the raw plan — one HTML page built from
   `skills/backlog-import-plan/assets/plan-review.html` that parses the embedded plan
   itself and shows its checks, dependency order and entries, published as an artifact where
   the host has one and written beside the plan otherwise. User-invoked only
