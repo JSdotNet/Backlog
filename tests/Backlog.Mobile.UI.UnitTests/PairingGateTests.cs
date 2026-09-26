@@ -35,7 +35,7 @@ public sealed class PairingGateTests
         // them would come back to this box.
         Assert.Empty(app.FindAll("[data-testid='capture-field']"));
         Assert.Empty(app.FindAll("[data-testid='note-placeholder']"));
-        Assert.Empty(app.FindAll("[data-testid='tasks-placeholder']"));
+        Assert.Empty(app.FindAll("[data-testid='tasks-empty']"));
         Assert.Empty(app.FindAll("[data-testid='tab-bar']"));
 
         // And nothing was asked of the service, because there is nothing to ask
@@ -54,10 +54,14 @@ public sealed class PairingGateTests
         app.Find("[data-testid='pairing-code-field'] input").Input("K7MN-9PQR");
         app.Find("[data-testid='pairing-submit']").Click();
 
-        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='tasks-placeholder']")));
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='tasks-empty']")));
         Assert.Empty(app.FindAll("[data-testid='pairing-code-field']"));
         Assert.NotNull(app.Find("[data-testid='tab-bar']"));
-        Assert.Equal("Not synced yet", app.Find("[data-testid='sync-status'] .sync-status__text").TextContent);
+
+        // My Day pulls the task feed the moment it opens, so the newly paired
+        // phone has already heard from the service.
+        app.WaitForAssertion(() =>
+            Assert.Equal("Synced just now", app.Find("[data-testid='sync-status'] .sync-status__text").TextContent));
     }
 
     [Fact]

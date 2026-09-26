@@ -31,7 +31,7 @@ public sealed class ShellNavigationTests
 
     [Theory]
     [InlineData("note", "Note", "note-placeholder")]
-    [InlineData("tasks", "Tasks", "tasks-placeholder")]
+    [InlineData("tasks", "My Day", "tasks-empty")]
     public void Each_tab_resolves_to_its_own_page(string route, string heading, string placeholder)
     {
         using var host = ShellHost.Paired();
@@ -62,7 +62,7 @@ public sealed class ShellNavigationTests
         app.Find("[data-testid='capture-field'] input").Input("Call the plumber about the boiler");
 
         host.Navigation.NavigateTo("tasks");
-        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='tasks-placeholder']")));
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='tasks-empty']")));
         Assert.Empty(app.FindAll("[data-testid='capture-field']"));
 
         host.Navigation.NavigateTo("");

@@ -176,6 +176,50 @@ html, body { background-color: var(--color-background); color: var(--color-text-
 .inbox-sheet__facts dt { color: var(--color-text-secondary); }
 .inbox-sheet__facts dd { margin: 0; overflow-wrap: anywhere; }
 .inbox-sheet__tags { display: flex; flex-wrap: wrap; gap: .25rem; }
+
+/*
+  My Day on the Tasks tab: the Inbox's shape — a row is the button that opens its
+  sheet, the outbox's waiting marker at the trailing edge — with the row's facts
+  (priority, due date, sub-item progress) on one line under the title.
+*/
+.my-day-heading { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.my-day-heading h1 { margin: 0; }
+
+.my-day__list { list-style: none; padding: 0; margin: 0; }
+.my-day__row { display: flex; align-items: center; gap: .5rem; border-bottom: 1px solid var(--color-border); }
+.my-day__row[data-waiting="true"] .my-day__title { color: var(--color-text-secondary); }
+
+.my-day__open {
+    flex: 1;
+    min-width: 0;
+    min-height: 44px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: .25rem;
+    padding: .5rem 0;
+    background: none;
+    border: 0;
+    color: inherit;
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+}
+.my-day__open:focus-visible { outline: 2px solid var(--color-border-focus); outline-offset: 2px; }
+
+.my-day__title { overflow-wrap: anywhere; }
+.my-day__meta { display: inline-flex; flex-wrap: wrap; align-items: center; gap: .5rem; color: var(--color-text-secondary); font-size: .75rem; }
+.my-day__action { flex: 0 0 auto; }
+
+.task-sheet__body { margin-bottom: 1rem; }
+.task-sheet__facts { display: grid; grid-template-columns: auto 1fr; gap: .35rem .75rem; margin: 0; }
+.task-sheet__facts dt { color: var(--color-text-secondary); }
+.task-sheet__facts dd { margin: 0; overflow-wrap: anywhere; }
+.task-sheet__chips { display: flex; flex-wrap: wrap; gap: .25rem; }
+.task-sheet__heading { margin: 1rem 0 .5rem; font-size: 1rem; }
+.task-sheet__sub-items { margin: 0; padding-inline-start: 1.25rem; }
+.task-sheet__sub-items li { overflow-wrap: anywhere; }
+.task-sheet__sub-items li[data-done="true"] { color: var(--color-text-secondary); text-decoration: line-through; }
 .error { color: #ff8080; }
 
 /*

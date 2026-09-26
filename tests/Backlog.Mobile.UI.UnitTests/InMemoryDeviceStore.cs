@@ -1,4 +1,5 @@
 using Backlog.Mobile.UI.Outbox;
+using Backlog.Mobile.UI.Tasks;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -55,11 +56,14 @@ internal static class TestOutbox
     /// <summary>What <c>AddDeviceOutbox</c> registers, over a store in memory. The
     /// capture kind sends through whichever <see cref="Services.CloudSyncClient"/>
     /// the test registered.</summary>
-    public static IServiceCollection AddTestDeviceOutbox(this IServiceCollection services, IDeviceStore? store = null)
+    public static IServiceCollection AddTestDeviceOutbox(this IServiceCollection services, IDeviceStore? store = null, ITaskViewStore? taskView = null)
     {
         services.AddSingleton(store ?? new InMemoryDeviceStore());
         services.AddSingleton<IOutboxKind, CaptureOutboxKind>();
+        services.AddSingleton<IOutboxKind, TaskOutboxKind>();
         services.AddSingleton<DeviceOutbox>();
+        services.AddSingleton(taskView ?? new InMemoryTaskViewStore());
+        services.AddSingleton<TaskViewProjection>();
         return services;
     }
 }

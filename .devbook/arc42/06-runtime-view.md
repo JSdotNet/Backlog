@@ -139,6 +139,72 @@ sequenceDiagram
     Note over App,Outbox: Five failures park the head entry and hold the queue behind it; resume, network back or a tap tries again
 ```
 
+## Mobile My Day and Task Push
+
+```meta
+related: [".devbook/arc42/05-building-block-view.md#mobile-app", ".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/domain/tasks/features.md#my-day"]
+```
+
+The phone's Tasks tab is My Day and nothing else. It reads the owner's existing
+task feed rather than a My Day endpoint, and it writes exactly one thing: a task
+added for today. It keeps no task store of its own — a projection of the feed,
+and a push through the outbox.
+
+- **Fold the feed.** `GET /api/sync/tasks?since=` is pulled from a cursor kept
+  on the phone, page after page until `hasMore` is false, and each page is kept
+  with the cursor after it in one transaction. Records fold into one row per
+  task in a local `task_view` table: the later `UpdatedAt` wins, an equal stamp
+  goes to the higher server stamp and then to the tombstone, a `DeletedAt` hides
+  the row, and a `capture`-type document is skipped (it is the Inbox's,
+  ADR 0009). A deleted task keeps its row, hidden, so the order pages arrive in
+  never changes the result.
+- **My Day is arithmetic.** The list is the rows whose `in_my_day_on` is the
+  phone's current local date and whose status is neither `done` nor `archived`.
+  Yesterday's pick is not in today's list without anything clearing it.
+- **A rejected cursor starts over.** `sync.cursor_malformed` or
+  `sync.cursor_expired` drops the cursor and pulls once from the beginning; the
+  rows already kept fold to the same result. Any other failure keeps the list on
+  screen with one line saying why.
+- **Adding is a push.** The task is built on the phone as a `TaskChange` with a
+  `Guid.CreateVersion7()` id, the typed title, type `task`, status `draft`,
+  priority `medium`, `CreatedAt` now and `InMyDayOn` today — added here means
+  picked for today. It is queued as outbox kind `task` and posted to
+  `POST /api/sync/tasks` with the same order, backoff and waiting marker as a
+  capture. A retry sends the same id, and the replica's whole-document upsert
+  makes that idempotent (ADR 0005).
+- **At once, then replaced.** The row is written into `task_view` when the task
+  is queued, with server stamp 0, so it is in today's list immediately and marked
+  waiting until the outbox delivers it. The pull that delivery triggers brings
+  back the replica's copy of the same write, which replaces it.
+
+```mermaid
+sequenceDiagram
+    actor ME
+    participant Tasks as Phone Tasks tab
+    participant View as task_view (SQLite)
+    participant Outbox as SQLite Outbox
+    participant Sync as Sync Service
+
+    ME->>Tasks: Add "Buy a charger"
+    Tasks->>Outbox: INSERT outbox (id v7, kind=task, TaskChange with InMyDayOn=today)
+    Tasks->>View: UPSERT row (server stamp 0)
+    Tasks-->>ME: In My Day at once, marked waiting
+
+    Outbox->>+Sync: POST /api/sync/tasks (same id every attempt)
+    Sync-->>-Outbox: 200 Accepted
+    Outbox->>Outbox: DELETE entry
+
+    loop Until hasMore is false
+        Tasks->>+Sync: GET /api/sync/tasks?since=cursor
+        alt Page
+            Sync-->>-Tasks: TaskChangeRecords, next cursor
+            Tasks->>View: Fold page (LWW, tombstones kept, captures skipped) + cursor
+        else 400 sync.cursor_malformed / sync.cursor_expired
+            Tasks->>View: Forget the cursor; pull again from the beginning
+        end
+    end
+```
+
 ## Sync Item Lifecycle
 
 ```meta

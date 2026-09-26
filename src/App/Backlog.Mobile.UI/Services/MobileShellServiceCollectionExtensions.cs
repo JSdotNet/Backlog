@@ -1,4 +1,5 @@
 using Backlog.Mobile.UI.Outbox;
+using Backlog.Mobile.UI.Tasks;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -45,9 +46,15 @@ public static class MobileShellServiceCollectionExtensions
         services.AddSingleton<IDeviceStore>(_ => new SqliteDeviceStore(databasePath));
         services.AddSingleton<DeviceOutbox>();
 
-        // One registration per kind. The capture holds a typed sync client for the
-        // life of the app, which on a phone is the life of the process anyway.
+        // One registration per kind. Each holds a typed sync client for the life
+        // of the app, which on a phone is the life of the process anyway.
         services.AddSingleton<IOutboxKind, CaptureOutboxKind>();
+        services.AddSingleton<IOutboxKind, TaskOutboxKind>();
+
+        // The Tasks tab's fold of the task feed, in the same file: a projection
+        // plus the outbox's task kind, never a second task store.
+        services.AddSingleton<ITaskViewStore>(_ => new SqliteTaskViewStore(databasePath));
+        services.AddSingleton<TaskViewProjection>();
 
         return services;
     }

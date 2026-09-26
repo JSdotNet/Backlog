@@ -10,7 +10,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 public sealed class SessionsSurfaceActivatorTests
 {
     [Fact]
-    public async Task With_no_window_attached_there_is_nothing_to_bring_forward()
+    public async Task With_no_window_attached_nothing_is_available()
     {
         var activator = new SessionsSurfaceActivator();
 
@@ -27,40 +27,39 @@ public sealed class SessionsSurfaceActivatorTests
         {
             asked++;
 
-            return Task.FromResult(DeliverySurfaceActivation.Shown);
+            return Task.FromResult(DeliverySurfaceActivation.Available);
         }))
         {
-            Assert.Equal(DeliverySurfaceActivation.Shown, await activator.ActivateAsync(TestContext.Current.CancellationToken));
+            Assert.Equal(DeliverySurfaceActivation.Available, await activator.ActivateAsync(TestContext.Current.CancellationToken));
         }
 
         Assert.Equal(1, asked);
     }
 
     [Fact]
-    public async Task Asking_twice_shows_twice_rather_than_toggling_back()
+    public async Task Asking_twice_answers_the_same()
     {
         var activator = new SessionsSurfaceActivator();
 
-        using var _ = activator.Attach(_ => Task.FromResult(DeliverySurfaceActivation.Shown));
+        using var _ = activator.Attach(_ => Task.FromResult(DeliverySurfaceActivation.Available));
 
-        Assert.Equal(DeliverySurfaceActivation.Shown, await activator.ActivateAsync(TestContext.Current.CancellationToken));
+        Assert.Equal(DeliverySurfaceActivation.Available, await activator.ActivateAsync(TestContext.Current.CancellationToken));
 
-        // A caller asking to be shown the pane twice means it twice. The shell's own
-        // click is a toggle and would have put the reader back on the workspace here.
-        Assert.Equal(DeliverySurfaceActivation.Shown, await activator.ActivateAsync(TestContext.Current.CancellationToken));
+        // Asking changes nothing, so a second ask has nothing different to find.
+        Assert.Equal(DeliverySurfaceActivation.Available, await activator.ActivateAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]
-    public async Task One_window_showing_the_pane_is_the_pane_being_shown()
+    public async Task One_window_offering_the_pane_makes_it_available()
     {
         var activator = new SessionsSurfaceActivator();
 
         using var gated = activator.Attach(_ => Task.FromResult(DeliverySurfaceActivation.Disabled));
-        using var showing = activator.Attach(_ => Task.FromResult(DeliverySurfaceActivation.Shown));
+        using var offering = activator.Attach(_ => Task.FromResult(DeliverySurfaceActivation.Available));
 
         // The harness runs a circuit per browser tab, so a person may have two open
         // with the area switched off in neither, one, or both. The best answer wins.
-        Assert.Equal(DeliverySurfaceActivation.Shown, await activator.ActivateAsync(TestContext.Current.CancellationToken));
+        Assert.Equal(DeliverySurfaceActivation.Available, await activator.ActivateAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -73,7 +72,7 @@ public sealed class SessionsSurfaceActivatorTests
         {
             asked++;
 
-            return Task.FromResult(DeliverySurfaceActivation.Shown);
+            return Task.FromResult(DeliverySurfaceActivation.Available);
         });
 
         await activator.ActivateAsync(TestContext.Current.CancellationToken);
@@ -97,11 +96,11 @@ public sealed class SessionsSurfaceActivatorTests
         var activator = new SessionsSurfaceActivator();
 
         using var dead = activator.Attach(_ => throw new ObjectDisposedException("circuit"));
-        using var alive = activator.Attach(_ => Task.FromResult(DeliverySurfaceActivation.Shown));
+        using var alive = activator.Attach(_ => Task.FromResult(DeliverySurfaceActivation.Available));
 
         // Disposal races this by construction: a window can go away between the
         // snapshot and the call, and that is one fewer window that could have
         // answered rather than a failure of the caller's request.
-        Assert.Equal(DeliverySurfaceActivation.Shown, await activator.ActivateAsync(TestContext.Current.CancellationToken));
+        Assert.Equal(DeliverySurfaceActivation.Available, await activator.ActivateAsync(TestContext.Current.CancellationToken));
     }
 }

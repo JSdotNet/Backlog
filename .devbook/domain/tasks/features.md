@@ -213,9 +213,10 @@ The line is also the way into a report of that same open work: the headline
 numbers and what was ticked off in the last seven days; each plan's open tasks,
 points and progress, with the work filed under no plan as its own line; how the
 open work splits by status, priority, type and repository; and what needs
-attention — overdue, due within the week, and waiting. A waiting task names
-[what it waits on](#task-dependencies) rather than being counted, and any task
-named there opens from the report.
+attention — overdue and due within the week, each task named and opening from
+the report, and how many tasks are waiting and what they weigh. Waiting work is
+totalled rather than listed: each row in the pane already names
+[what it waits on](#task-dependencies).
 
 ## Scheduling and recurrence
 
@@ -297,7 +298,7 @@ from crowding the default views.
 type: feature
 status: proposed
 depends-on: [.devbook/domain/tasks/features.md#refinement-and-prioritization]
-related: [.devbook/domain/tasks/features.md#scheduling-and-recurrence]
+related: [.devbook/domain/tasks/features.md#scheduling-and-recurrence, .devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push]
 ```
 
 Pick the tasks to work on today, separately from when they are due. My Day is
@@ -310,6 +311,14 @@ carries the date it was picked for, and it is in My Day exactly while that date
 is the reader's current local date — so yesterday's list clears itself with no
 timer, no timezone rule and no overnight sweep, and a device that was switched
 off for a week comes back to an empty My Day rather than a stale one.
+
+On the phone, My Day is the whole of the Tasks tab. It shows what was picked for
+the phone's own date — never a due-date grouping — and reads everything about a
+task without editing it. The one thing it changes is the list itself: a task
+added there is picked for today as it is created, because adding it on that
+screen is the decision My Day records. Editing, scheduling and the rest of a
+task's life stay on the desktop; see
+`.devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push`.
 
 ## Task dependencies
 

@@ -5,19 +5,17 @@ namespace Backlog.Desktop.UI.Shell;
 /// <summary>
 /// The shell's answer to <c>open_dashboard</c>: whatever windows are showing the
 /// application attach themselves here, and a caller from outside the user interface
-/// can ask them to bring the Sessions pane forward.
+/// can ask them whether they offer the Sessions pane.
 /// <para>
-/// This exists because there was no way to do that. The surfaces are an
-/// implementation detail of <c>Home</c> — <see cref="WorkspaceSurface"/> is internal,
-/// and the live value is a private field of one component — so the only thing that could change what a window is showing was
-/// the window itself, in response to a click. <c>ShellNavigationStore</c> looks like
-/// the missing piece and is not: it remembers where the reader was so the next launch
-/// can start there, and remembering is not showing.
+/// Asking, not showing. The surfaces are the reader's: only a click in the window
+/// changes what it shows. An earlier version brought the pane forward here, and since
+/// every agent run calls <c>open_dashboard</c> when it starts, the window jumped to
+/// Sessions whenever an agent did — the thing this class must never do again.
 /// </para>
 /// <para>
 /// A registry of attached shells rather than a single one, because the harness runs a
 /// circuit per browser tab and a person may have two open. Each is asked, and the best
-/// answer wins — one window showing the pane is the pane being shown, whatever a
+/// answer wins — one window offering the pane is the pane being available, whatever a
 /// second window was doing.
 /// </para>
 /// </summary>
@@ -31,7 +29,7 @@ public sealed class SessionsSurfaceActivator : ISessionsSurfaceActivator
     /// dispose its handle is a window this class goes on calling into after it is
     /// gone.
     /// </summary>
-    /// <param name="shell">What to run to bring the pane forward. It is invoked off
+    /// <param name="shell">What to run to answer. It is invoked off
     /// the renderer's synchronisation context, so an implementation that touches
     /// component state marshals onto it first.</param>
     public IDisposable Attach(Func<CancellationToken, Task<DeliverySurfaceActivation>> shell)
@@ -56,9 +54,9 @@ public sealed class SessionsSurfaceActivator : ISessionsSurfaceActivator
             shells = [.. _shells];
         }
 
-        // Snapshotted, then awaited outside the lock. A shell's handler renders, which
-        // can take as long as a render takes, and holding the lock across that would
-        // block every other window's attach and detach behind one slow paint.
+        // Snapshotted, then awaited outside the lock. A shell's handler marshals onto
+        // its renderer, which can wait behind a render, and holding the lock across
+        // that would block every other window's attach and detach behind one slow paint.
         var best = DeliverySurfaceActivation.Unattached;
 
         foreach (var shell in shells)

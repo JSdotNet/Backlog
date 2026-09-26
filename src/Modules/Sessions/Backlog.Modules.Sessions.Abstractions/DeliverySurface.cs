@@ -179,12 +179,12 @@ public sealed record DeliveryRunStarted(string RunId, bool Resumed, string? Sess
 public sealed record DeliveryStageUpdated(string RunId, int StageIndex, string Status, int DoneCount, string? SessionTitle);
 
 /// <summary>
-/// What bringing the surface forward did.
+/// Whether the surface is there for the person to open.
 /// <para>
 /// <strong>The order of these members is meaningful</strong> and a reordering is a
 /// behaviour change: a host with more than one window open asks each of them and keeps
-/// the best answer by comparing members, because one window showing the pane is the
-/// pane being shown whatever a second window was doing.
+/// the best answer by comparing members, because one window offering the pane is the
+/// pane being available whatever a second window was doing.
 /// </para>
 /// </summary>
 public enum DeliverySurfaceActivation
@@ -195,30 +195,36 @@ public enum DeliverySurfaceActivation
     Unattached,
 
     /// <summary>A shell answered, but the Sessions area is switched off in this
-    /// person's settings, so there was no pane to bring forward.</summary>
+    /// person's settings, so there is no pane to open.</summary>
     Disabled,
 
-    /// <summary>The Sessions pane is what the window is showing now.</summary>
-    Shown
+    /// <summary>A window is open and offers the Sessions pane. Whether it is on
+    /// screen is the person's choice: nothing but their own click navigates.</summary>
+    Available
 }
 
-/// <summary>What <c>open_dashboard</c> answers with: what the running application did,
-/// and no URL. Backlog is not a page somebody opens — it is the application the caller
-/// is already talking to, so the honest answer to "open the dashboard" is whether the
-/// window is now showing it.</summary>
-/// <param name="Activation">What happened.</param>
+/// <summary>What <c>open_dashboard</c> answers with: whether the running application
+/// offers the surface, and no URL. Backlog is not a page somebody opens — it is the
+/// application the caller is already talking to — and it never changes what a window
+/// shows on a caller's behalf, so the honest answer is whether the pane is there.</summary>
+/// <param name="Activation">What the application offers.</param>
 /// <param name="Answer">The same thing in a sentence, for a caller that reports it to a
 /// person rather than branching on it.</param>
 public sealed record DeliverySurfaceOpened(DeliverySurfaceActivation Activation, string Answer);
 
 /// <summary>
 /// The shell's side of <c>open_dashboard</c>: whatever is showing the application can
-/// be asked to bring the Sessions pane forward.
+/// be asked whether it offers the Sessions pane.
 /// <para>
-/// A port in this context rather than a general "navigate to surface" service, because
-/// this context is the one asking and the set of answers is this context's: attached or
-/// not, gated off or not, showing or not. The surfaces themselves stay the Shell's own
-/// business and stay internal to it.
+/// Asking never navigates. A run calls <c>open_dashboard</c> when it starts, which is
+/// whenever an agent decides to, and a window that jumped to the Sessions pane on that
+/// cue would pull the person off whatever they were doing. What a window shows changes
+/// only on the person's own action.
+/// </para>
+/// <para>
+/// A port in this context rather than a general "surface" service, because this context
+/// is the one asking and the set of answers is this context's: attached or not, gated off
+/// or not. The surfaces themselves stay the Shell's own business and stay internal to it.
 /// </para>
 /// <para>
 /// Asynchronous because of where the call comes from. A tool call arrives on a request
@@ -230,7 +236,7 @@ public sealed record DeliverySurfaceOpened(DeliverySurfaceActivation Activation,
 /// </summary>
 public interface ISessionsSurfaceActivator
 {
-    /// <summary>Bring the Sessions pane forward, and say what happened.</summary>
+    /// <summary>Say whether the Sessions pane is available, without showing it.</summary>
     Task<DeliverySurfaceActivation> ActivateAsync(CancellationToken cancellationToken = default);
 }
 
