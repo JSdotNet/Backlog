@@ -138,9 +138,9 @@ product reads `.devbook/<name>` first and a root-level `.<name>` as the legacy f
 `DevbookBuilderParityTests` builds `.devbook/` both ways and compares the tables (Node
 22.5+). A devbook release that changes the parse fails it; port the change into
 `Backlog.Infrastructure.Devbook/Building/` in the same pull request.
+`tools/devbook/check-metadata.mjs` is the repo-native metadata half of the gate, run by
+`.github/workflows/devbook-metadata.yml` beside the installed `devbook-meta.yml`.
 `.claude/commands/update-devbook-index.md` runs the build check.
-`.github/tools/knowledge-meta/` and `build/Update-KnowledgeIndex.ps1` are the
-predecessor plugin's install, pending retirement: never edit them.
 
 ## UI components
 

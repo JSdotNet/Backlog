@@ -221,7 +221,7 @@ Deterministic commands the harness runs around a tool call.
 status: adopted
 type: tool
 depends-on: [".devbook/tech/ai-development.md#claude-code-plugins", ".devbook/tech/shared.md#nodejs"]
-related: [".devbook/tech/ai-development.md#devbook-canvas-extension", ".devbook/tech/tooling.md#knowledge-meta-generator"]
+related: [".devbook/tech/ai-development.md#devbook-canvas-extension", ".devbook/tech/tooling.md#devbook-meta-generator"]
 ```
 
 The plugin that owns the knowledge-folder convention this repository follows —

@@ -5,6 +5,8 @@ description: Answer the private reading notes a person left on this repository's
 
 # Answer the notes on a repository's Devbook chapters
 
+Open the reply with `backlog-tools@<version>`, `version` read from `../../.claude-plugin/plugin.json`, not recalled.
+
 A person reading a Devbook chapter in Backlog leaves remarks against its blocks. This skill
 empties that inbox: read the open ones, work out each answer, write the answer into the
 chapter where a reviewer will find it, and mark the remark answered.

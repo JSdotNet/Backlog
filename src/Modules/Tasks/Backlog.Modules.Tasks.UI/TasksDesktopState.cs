@@ -80,6 +80,10 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
     private const string PlanRefusedTestId = "plan-entry-refused";
 
+    /// <summary>The toast a save raises when its edit and a write from elsewhere
+    /// changed the same lines. See <see cref="RebaseOnStoreAsync"/>.</summary>
+    private const string ChangedElsewhereTestId = "entry-changed-elsewhere";
+
     private const string CopilotFailureTestId = "copilot-cli-error";
 
     private readonly ITaskStore _store;
@@ -134,6 +138,14 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// was live or a save was still on its way, and is owed the moment neither
     /// is true. See <see cref="ReloadFromStoreAsync"/>.</summary>
     private bool _reloadDeferred;
+
+    /// <summary>Whether something other than this list may have written the
+    /// store since the rows were last read from it. Set on the writer's thread
+    /// the moment an outside write is heard, and by every reload somebody else
+    /// asks for; cleared when the rows are read again. While it is set a save
+    /// first carries the stored text onto the row — see
+    /// <see cref="RebaseOnStoreAsync"/>.</summary>
+    private volatile bool _storeMayBeAhead;
 
     /// <summary>How many sub-items <see cref="EditingRow"/> had when its editor
     /// opened, or -1 when no entry is being written in. See
@@ -1370,8 +1382,8 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     {
         get
         {
-            var ranks = SortableVisibleRows().Select(row => StatusSortRank(row.PreviewStatus)).ToList();
-            return ranks.Zip(ranks.Skip(1)).Any(pair => pair.First > pair.Second);
+            var visible = SortableVisibleRows().ToList();
+            return !visible.SequenceEqual(StatusSortOrder(visible));
         }
     }
 
@@ -1384,6 +1396,10 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// never reshuffles work the reader cannot see. An unsaved draft stays put too;
     /// it has no rank to write yet.
     /// </para>
+    /// <para>
+    /// A row never lands above one it is waiting for — see
+    /// <see cref="StatusSortOrder"/>.
+    /// </para>
     /// </summary>
     public async Task SortVisibleByStatusAsync()
     {
@@ -1391,7 +1407,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         if (visible.Count < 2 || !CanSortVisibleByStatus) return;
 
         var slots = visible.Select(row => Rows.IndexOf(row)).Order().ToList();
-        var sorted = visible.OrderBy(row => StatusSortRank(row.PreviewStatus)).ToList();
+        var sorted = StatusSortOrder(visible);
         for (var i = 0; i < slots.Count; i++)
         {
             Rows[slots[i]] = sorted[i];
@@ -1404,6 +1420,93 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
     private IEnumerable<EntryRow> SortableVisibleRows() =>
         FilteredRows.Where(row => row.IsPersisted && !row.IsReadOnly);
+
+    /// <summary>
+    /// The status order of <paramref name="visible"/> (given in list order), held
+    /// to one constraint: a row comes after every row it is waiting for.
+    /// <para>
+    /// "Waiting for" is the resolved <c>after:</c> chain, followed through rows
+    /// the filters hide so a hidden middle step still orders its two ends, and
+    /// stopping at a done or archived predecessor — that one is no longer waited
+    /// for, and sorts by its own status. A predecessor takes the best rank of
+    /// anything waiting on it, so a draft first step of in-progress work rises
+    /// with it instead of sinking the work below the drafts. Ties keep the
+    /// hand-made order; a cycle, which only a hand edit can write, is broken at
+    /// its best-ranked row rather than refusing to sort.
+    /// </para>
+    /// </summary>
+    private List<EntryRow> StatusSortOrder(List<EntryRow> visible)
+    {
+        var candidates = DependencyCandidates();
+        var byId = new Dictionary<string, EntryRow>(StringComparer.OrdinalIgnoreCase);
+        foreach (var row in Rows.Where(row => row.Id is not null))
+        {
+            byId.TryAdd(row.Id!.Value.ToString(), row);
+        }
+
+        var visibleSet = visible.ToHashSet();
+        var waitsFor = visible.ToDictionary(
+            row => row,
+            row => OpenVisiblePredecessors(row, byId, visibleSet, candidates));
+
+        var rank = visible.ToDictionary(row => row, row => StatusSortRank(row.PreviewStatus));
+        foreach (var (row, predecessors) in waitsFor)
+        {
+            foreach (var predecessor in predecessors)
+            {
+                rank[predecessor] = Math.Min(rank[predecessor], StatusSortRank(row.PreviewStatus));
+            }
+        }
+
+        var remaining = visible.ToList();
+        var placed = new HashSet<EntryRow>();
+        var sorted = new List<EntryRow>(visible.Count);
+        while (remaining.Count > 0)
+        {
+            var unblocked = remaining.Where(row => waitsFor[row].All(placed.Contains)).ToList();
+            var next = (unblocked.Count > 0 ? unblocked : remaining).MinBy(row => rank[row])!;
+
+            remaining.Remove(next);
+            placed.Add(next);
+            sorted.Add(next);
+        }
+
+        return sorted;
+    }
+
+    /// <summary>The visible rows <paramref name="row"/> waits for, directly or
+    /// through any chain of open predecessors, hidden ones included.</summary>
+    private static HashSet<EntryRow> OpenVisiblePredecessors(
+        EntryRow row,
+        Dictionary<string, EntryRow> byId,
+        HashSet<EntryRow> visibleSet,
+        List<DependencyResolution.Candidate> candidates)
+    {
+        var found = new HashSet<EntryRow>();
+        var seen = new HashSet<EntryRow> { row };
+        var pending = new Stack<EntryRow>([row]);
+        while (pending.TryPop(out var current))
+        {
+            var dependsOn = current.PreviewDependsOn.Count == 0
+                ? current.PreviewDependsOn
+                : DependencyResolution.ResolveAll(current.PreviewDependsOn, candidates, current.ImportPlanId, current.PreviewTags);
+
+            foreach (var id in dependsOn)
+            {
+                if (!byId.TryGetValue(id, out var predecessor)
+                    || predecessor.PreviewStatus is EntryStatus.Done or EntryStatus.Archived
+                    || !seen.Add(predecessor))
+                {
+                    continue;
+                }
+
+                if (visibleSet.Contains(predecessor)) found.Add(predecessor);
+                pending.Push(predecessor);
+            }
+        }
+
+        return found;
+    }
 
     private static int StatusSortRank(EntryStatus status) => status switch
     {
@@ -2171,6 +2274,10 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     {
         if (_untilDisposed.IsCancellationRequested) return;
 
+        // A sync pull's writes are not heard through OnTaskWritten; this is the
+        // first the list knows of them.
+        _storeMayBeAhead = true;
+
         if (EditingRow is not null || SaveIsPending)
         {
             _reloadDeferred = true;
@@ -2204,6 +2311,10 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     private void OnTaskWritten()
     {
         if (_writingHere.Value || _untilDisposed.IsCancellationRequested) return;
+
+        // Here rather than when the shell's reload arrives: a keystroke's save
+        // can fire between the two, and it has to know.
+        _storeMayBeAhead = true;
 
         WrittenElsewhere?.Invoke();
     }
@@ -2616,6 +2727,8 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// caller asked for — reporting it here would blame the wrong row.</remarks>
     private async Task<Result> SaveRowAsync(EntryRow row, bool isFlush)
     {
+        if (_storeMayBeAhead) await RebaseOnStoreAsync(row);
+
         var segments = EntryTextParser.SplitSegments(row.RawText);
         List<string> overflow = segments.Count > 1 ? [.. segments.Skip(1)] : [];
 
@@ -2645,6 +2758,60 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         await ShowSpawnedOccurrenceAsync();
 
         return saved;
+    }
+
+    /// <summary>
+    /// Carries a write somebody else made to this row's entry onto the text about
+    /// to be saved over it.
+    /// <para>
+    /// A save sends the whole entry, and the row's text was built on the entry as
+    /// this list last read or wrote it — <see cref="_entries"/>. The reload an
+    /// outside write asks for is put off while a keystroke's save is pending or the
+    /// raw hatch is open, so the save that then runs would put that older text back
+    /// and erase the other write: an agent's comment gone, with nothing on screen
+    /// to say it had ever landed. Instead, when the store no longer holds what the
+    /// row was built on, the reader's edit is merged onto what it does hold (see
+    /// <see cref="EntryTextMerge"/>), and the stored entry becomes the row's base.
+    /// </para>
+    /// <para>
+    /// Only asked while an outside write may have happened, since it reads the
+    /// store. The row's text is read after that read, so a keystroke typed while
+    /// it was in flight is merged rather than overwritten.
+    /// </para>
+    /// </summary>
+    private async Task RebaseOnStoreAsync(EntryRow row)
+    {
+        if (row.Id is not { } id || !_entries.TryGetValue(id, out var loaded)) return;
+
+        TaskItemDto? stored;
+        try
+        {
+            stored = (await _entryUseCases.ListAsync()).FirstOrDefault(entry => entry.Id == id);
+        }
+        catch (Exception)
+        {
+            // A store that cannot be read now will refuse the save as well, and
+            // the save is where that is reported.
+            return;
+        }
+
+        // Deleted from under the row: the save has nowhere to go either way.
+        if (stored is null) return;
+
+        var baseText = EntryTextParser.ToRawText(loaded);
+        var storedText = EntryTextParser.ToRawText(stored);
+        if (string.Equals(baseText, storedText, StringComparison.Ordinal)) return;
+
+        var merged = EntryTextMerge.Merge(baseText, row.RawText, storedText);
+        row.RawText = merged.Text;
+        _entries[id] = stored;
+
+        if (merged.Overlapped)
+        {
+            _toasts?.Publish(ToastMessage.Warning(
+                $"{row.PreviewTitle}: changed elsewhere while you were editing it. Where you both changed the same lines, both versions were kept — check the text.",
+                ChangedElsewhereTestId));
+        }
     }
 
     /// <summary>Hands one entry's text to the module and takes back whatever it
@@ -2912,6 +3079,10 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         // Whatever a save was waiting to show is about to be on screen, whoever
         // asked for the reload and for whatever reason.
         _spawnedOccurrencePending = false;
+
+        // Cleared before the read rather than after it, so a write landing while
+        // the list is being read sets it again instead of being forgotten.
+        _storeMayBeAhead = false;
 
         // The plan's tags travel with the reload, so the picker offers planned work
         // the moment the list it sits in refreshes rather than a beat behind it.

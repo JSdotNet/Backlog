@@ -64,7 +64,7 @@ The devbook folders sit under `.devbook/`, adopted through the `devbook` plugin 
 
 The derived layer is one SQLite database per repository path, built by the app in the background into its own storage and never into a repository (local ADRs 0004 and 0015). The Devbook panels read it and degrade to the Markdown, then to scanning the folder, so browsing always works; search alone needs the database. `Backlog.Infrastructure.Devbook` holds the reader, the builder and its refresher; `tools/devbook/build-database.mjs` is the reference `DevbookBuilderParityTests` holds that builder to (Node 22.5+). The product reads `.devbook/<name>` first and a root-level `.<name>` as the legacy fallback.
 
-`.github/tools/knowledge-meta/` and `build/Update-KnowledgeIndex.ps1` are the predecessor plugin's install, pending retirement: never edit them.
+`tools/devbook/check-metadata.mjs` is the repo-native metadata half of the gate, run by `.github/workflows/devbook-metadata.yml` beside the installed `devbook-meta.yml`.
 
 ## UI components
 
