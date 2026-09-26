@@ -8,6 +8,7 @@ using Backlog.Modules.Inbox.Features.CaptureItem;
 using Backlog.Modules.Inbox.Features.CreateGroup;
 using Backlog.Modules.Inbox.Features.CreateList;
 using Backlog.Modules.Inbox.Features.CreatePlan;
+using Backlog.Modules.Inbox.Features.DeferItem;
 using Backlog.Modules.Inbox.Features.DeleteList;
 using Backlog.Modules.Inbox.Features.EnsureDefaultOrganizer;
 using Backlog.Modules.Inbox.Features.GetInbox;
@@ -15,6 +16,8 @@ using Backlog.Modules.Inbox.Features.MoveListToGroup;
 using Backlog.Modules.Inbox.Features.MoveToList;
 using Backlog.Modules.Inbox.Features.RenameGroup;
 using Backlog.Modules.Inbox.Features.RenameList;
+using Backlog.Modules.Inbox.Features.ResurfaceDueItems;
+using Backlog.Modules.Inbox.Features.ResurfaceItem;
 using Backlog.Modules.Inbox.Features.RouteToBacklog;
 using Backlog.Modules.Inbox.Features.SetTags;
 using Backlog.Modules.Inbox.Features.UngroupLists;
@@ -38,6 +41,9 @@ internal sealed class InboxItems(
     ICommandHandler<RenameRepositoryCommand, Result<int>> renameRepository,
     ICommandHandler<MoveToListCommand, Result> moveToList,
     ICommandHandler<ArchiveItemCommand, Result> archive,
+    ICommandHandler<DeferItemCommand, Result> defer,
+    ICommandHandler<ResurfaceItemCommand, Result> resurface,
+    ICommandHandler<ResurfaceDueItemsCommand, Result<int>> resurfaceDue,
     ICommandHandler<RouteToBacklogCommand, Result<InboxRoutedDto>> routeToBacklog,
     ICommandHandler<CreatePlanCommand, Result<InboxRoutedDto>> createPlan,
     ICommandHandler<CreateListCommand, Result<InboxListDto>> createList,
@@ -74,6 +80,15 @@ internal sealed class InboxItems(
 
     public Task<Result> ArchiveAsync(Guid id, CancellationToken cancellationToken = default) =>
         archive.Handle(new ArchiveItemCommand(id), cancellationToken);
+
+    public Task<Result> DeferAsync(Guid id, DateOnly? until, CancellationToken cancellationToken = default) =>
+        defer.Handle(new DeferItemCommand(id, until), cancellationToken);
+
+    public Task<Result> ResurfaceAsync(Guid id, CancellationToken cancellationToken = default) =>
+        resurface.Handle(new ResurfaceItemCommand(id), cancellationToken);
+
+    public Task<Result<int>> ResurfaceDueAsync(CancellationToken cancellationToken = default) =>
+        resurfaceDue.Handle(new ResurfaceDueItemsCommand(), cancellationToken);
 
     public Task<Result<InboxRoutedDto>> RouteToBacklogAsync(Guid id, CancellationToken cancellationToken = default) =>
         routeToBacklog.Handle(new RouteToBacklogCommand(id), cancellationToken);

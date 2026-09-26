@@ -4,6 +4,7 @@ using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Capture.Abstractions.Services;
 using Backlog.Modules.Capture.Extensions;
+using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Infrastructure.Sync;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
@@ -141,6 +142,32 @@ public sealed class HomeInboxWiringTests
 
         Assert.Equal(1, harness.Inbox.EnsureDefaultOrganizerCalls);
         Assert.NotEmpty(component.FindAll("[data-testid='inbox-nav-ungrouped']"));
+    }
+
+    /// <summary>The resurface sweep runs on every opening of the pane, not just
+    /// the first: a deferred item that came due while the pane was closed is
+    /// back in the queue when it opens again.</summary>
+    [Fact]
+    public async Task Every_opening_of_the_inbox_pane_runs_the_resurface_sweep()
+    {
+        using var harness = CreateHarness(inboxOpenOnStart: false);
+
+        var component = Render(harness);
+        await OpenInboxAsync(component);
+        Assert.Equal(1, harness.Inbox.ResurfaceDueCalls);
+
+        harness.Inbox.Seed("Came due while closed", status: InboxStatus.Deferred, deferredUntil: DateOnly.FromDateTime(harness.Inbox.Now.DateTime));
+
+        // A plain press on another pane is a switch: the Inbox closes.
+        await component.Find("[data-testid='backlog-pane-option']").ClickAsync(new());
+        component.WaitForAssertion(() => Assert.Equal("false", component.Find("[data-testid='inbox-pane-option']").GetAttribute("aria-pressed")));
+        Assert.Equal(1, harness.Inbox.ResurfaceDueCalls);
+
+        await component.Find("[data-testid='inbox-pane-option']").ClickAsync(new());
+
+        component.WaitForAssertion(() => Assert.Equal(2, harness.Inbox.ResurfaceDueCalls));
+        component.WaitForAssertion(() => Assert.Contains(
+            component.FindAll("[data-testid='inbox-pane-item']"), row => row.TextContent.Contains("Came due while closed", StringComparison.Ordinal)));
     }
 
     [Fact]

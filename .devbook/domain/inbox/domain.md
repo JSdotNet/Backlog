@@ -29,6 +29,10 @@ always preserved, that status only advances through the defined lifecycle
 (`unprocessed` → `triaged` → routed/deferred/archived), and that a routing
 decision records exactly one `Routing Target`. Deferred items carry an optional
 `deferred_until` review date and resurface as `unprocessed` when it is reached.
+Nothing runs in the background to notice that: the desktop pane sweeps the
+store each time it opens, which for one reader on one desktop is every moment
+the difference could be seen. A deferral with no date comes back only when a
+person returns it.
 
 Before triage decides where an item goes, a reader has to be able to see what
 it is and where it came from. So an item states its `Content Kind` — what the
@@ -61,7 +65,8 @@ and `Source` are value objects owned by the root.
 | A routing decision records exactly one `Routing Target`; a second routing is refused. | `RouteToBacklog()` | `unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests.Routing_happens_exactly_once` |
 | A routed item is never archived: routing is the terminal outcome of triage. | `Archive()` | `unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests.A_routed_item_cannot_be_archived` |
 | An archived item is never routed. | `RouteToBacklog()` | `unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests.An_archived_item_cannot_be_routed` |
-| A deferred item resurfaces as `unprocessed` when its `deferred_until` date is reached. | `Resurface()` | untested — the transition exists; nothing schedules it yet |
+| A deferred item resurfaces as `unprocessed` when its `deferred_until` date is reached; an undated deferral is never due, and a date still ahead leaves it deferred. | `ResurfaceIfDue()`, applied by the `ResurfaceDueItems` sweep the pane runs each time it opens | `unit:dotnet:Backlog.Modules.Inbox.UnitTests.DeferAndResurfaceTests.The_sweep_returns_every_deferred_item_whose_date_is_reached_and_touches_nothing_else` |
+| Deferring an item that is already deferred changes its review date; a routed or archived item cannot be deferred. | `Defer()` | `unit:dotnet:Backlog.Modules.Inbox.UnitTests.DeferAndResurfaceTests.A_deferred_item_can_be_deferred_again_to_a_new_date` |
 | Every item has a `Content Kind`; `text` is the kind of an item nobody has looked at, and a kind this build does not know keeps its own word. | constructor, `SetKind()` | `unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests.An_unknown_kind_slug_survives_as_its_own_word` |
 | A `Source` person, when present, is a stored `@name` tag — the sigil is the whole of the difference from a general tag. | constructor; `ReceiveCapture` adds the `@` however the capture sent it | `unit:dotnet:Backlog.Modules.Inbox.UnitTests.ReceiveCaptureTests.A_capture_with_tags_and_a_person_files_both` |
 | A person is never a tag: a `@name` among the tags is refused. | `SetTags()` | `unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests.A_person_is_refused_as_a_tag` |

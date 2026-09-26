@@ -758,7 +758,17 @@
         if (InboxPaneVisible && !_inboxInitialized)
         {
             _inboxInitialized = true;
+            _inboxWasVisible = true;
             await InboxState.InitializeAsync();
+        }
+        else if (InboxPaneVisible != _inboxWasVisible)
+        {
+            // Every later open runs the resurface sweep again, so a deferred
+            // item due since the pane was last closed is back before anyone
+            // reads the queue. The flag moves first: the sweep re-renders, and
+            // the render after it must not see a second opening.
+            _inboxWasVisible = InboxPaneVisible;
+            if (InboxPaneVisible) await InboxState.OpenedAsync();
         }
 
         // The two branches below run on every render, not only the first: a
@@ -1348,6 +1358,10 @@
     /// the cheap and correct answer for a store another device may have
     /// written to meanwhile.</summary>
     private bool _inboxInitialized;
+
+    /// <summary>Whether the Inbox pane was on screen at the last render, so a
+    /// closed-then-opened pane is noticed as an opening.</summary>
+    private bool _inboxWasVisible;
 
     /// <summary>The replication loop, or null in a host that composes none. The
     /// Inbox listens to it here rather than itself because the Inbox's UI may
