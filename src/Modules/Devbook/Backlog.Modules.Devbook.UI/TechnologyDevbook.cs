@@ -838,11 +838,19 @@ internal static class TechnologyMarkdownParser
             ReadList(values, "alternatives"));
     }
 
+    /// <summary>A scalar with its YAML quotes taken off. <c>version: "10.0.11"</c>
+    /// is quoted so YAML keeps it a string; the quotes are syntax, and drawing
+    /// them put <c>"10.0.11"</c> on every node card.</summary>
     private static string? ReadString(IReadOnlyDictionary<string, string> values, string key)
     {
-        return values.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value)
-            ? value
-            : null;
+        if (!values.TryGetValue(key, out var value)) return null;
+
+        if (value.Length >= 2 && value[0] == value[^1] && value[0] is '"' or '\'')
+        {
+            value = value[1..^1].Trim();
+        }
+
+        return string.IsNullOrWhiteSpace(value) ? null : value;
     }
 
     private static IReadOnlyList<string> ReadList(IReadOnlyDictionary<string, string> values, string key)
