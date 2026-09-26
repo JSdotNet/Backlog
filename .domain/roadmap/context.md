@@ -57,7 +57,8 @@ re-lengthens every plan whose window is still sized by its effort: the start is
 kept and the end recomputed from what its tasks gather now (ruling 5 as
 amended). A window placed by its due date, or moved by hand, stays where it is.
 Finished work moving a measured pace is nobody's decision and moves no bar; the
-new figure is used at the next change, import, or update from tasks.
+new figure is used at the next change, a re-import, or when one item is asked to
+[update from its tasks](features.md#placing-a-plan-in-time).
 
 Per value:
 
