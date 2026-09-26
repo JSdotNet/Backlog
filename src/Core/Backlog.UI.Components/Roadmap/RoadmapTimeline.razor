@@ -221,7 +221,7 @@
                            one attached to a bar part-way through being dragged. *@
                         @if (Arrows.Count > 0)
                         {
-                            <svg class="roadmap-timeline__links"
+                            <svg class="@LinksClass"
                                  aria-hidden="true"
                                  focusable="false"
                                  viewBox="@ViewBox"
@@ -231,6 +231,12 @@
                                     <marker id="@_arrowheadId" markerWidth="4" markerHeight="4" refX="3.4" refY="2"
                                             markerUnits="strokeWidth" orient="auto">
                                         <path class="roadmap-timeline__arrowhead" d="M 0 0.4 L 3.4 2 L 0 3.6 z" />
+                                    </marker>
+                                    @* A marker is painted in its own colour, not the line's,
+                                       so a traced arrow needs an arrowhead of its own. *@
+                                    <marker id="@_tracedArrowheadId" markerWidth="4" markerHeight="4" refX="3.4" refY="2"
+                                            markerUnits="strokeWidth" orient="auto">
+                                        <path class="roadmap-timeline__arrowhead roadmap-timeline__arrowhead--traced" d="M 0 0.4 L 3.4 2 L 0 3.6 z" />
                                     </marker>
                                 </defs>
 
@@ -242,9 +248,18 @@
                                    same string, and a duplicate key throws on the
                                    second render rather than the first, so the crash
                                    arrives on the reader's first drag. *@
-                                @foreach (var arrow in Arrows)
+                                @* Traced arrows last: SVG paints in document order, so
+                                   that is what lifts them over the ones they cross. *@
+                                @foreach (var arrow in Arrows.OrderBy(Traced))
                                 {
-                                    <path class="roadmap-timeline__link" d="@arrow.Path" marker-end="@ArrowheadRef" />
+                                    @if (Traced(arrow))
+                                    {
+                                        <path class="roadmap-timeline__link roadmap-timeline__link--traced" d="@arrow.Path" marker-end="@TracedArrowheadRef" />
+                                    }
+                                    else
+                                    {
+                                        <path class="roadmap-timeline__link" d="@arrow.Path" marker-end="@ArrowheadRef" />
+                                    }
                                 }
                             </svg>
                         }
@@ -297,6 +312,9 @@
                                                         Preview="@PreviewFor(bar.Id)"
                                                         DependencyCount="@DependencyCount(bar.Id)"
                                                         Selected="@Is(SelectedId, bar.Id)"
+                                                        Related="@Related(bar.Id)"
+                                                        OnTrace="Trace"
+                                                        OnUntrace="Untrace"
                                                         Grabbed="@Is(_grabbedId, bar.Id)"
                                                         Dragging="@Is(_dragId, bar.Id)"
                                                         Invalid="@(Refused && Is(ActiveId, bar.Id))"
@@ -319,9 +337,13 @@
                                 @foreach (var milestone in MilestonesOn(placed.Row.Id))
                                 {
                                     <span @key="milestone.Id"
-                                          class="@MilestoneClass(milestone)"
+                                          class="@(Related(milestone.Id) ? MilestoneClass(milestone) + " roadmap-milestone--related" : MilestoneClass(milestone))"
                                           style="left: @Rem(Geometry.XFor(milestone.On))"
-                                          data-roadmap-node="@milestone.Id">
+                                          data-roadmap-node="@milestone.Id"
+                                          @onpointerenter="() => Trace(milestone.Id)"
+                                          @onpointerleave="() => Untrace(milestone.Id)"
+                                          @onfocusin="() => Trace(milestone.Id)"
+                                          @onfocusout="() => Untrace(milestone.Id)">
                                         <button type="button"
                                                 class="roadmap-milestone__marker"
                                                 aria-current="@(Is(SelectedId, milestone.Id) ? "true" : null)"
@@ -676,6 +698,10 @@
         $"0 0 {RoadmapGeometry.N(Geometry.TrackWidthRem)} {RoadmapGeometry.N(TrackHeight)}";
 
     private string ArrowheadRef => $"url(#{_arrowheadId})";
+
+    private string _tracedArrowheadId => "roadmap-timeline-arrowhead-traced-" + _instance;
+
+    private string TracedArrowheadRef => $"url(#{_tracedArrowheadId})";
 
     private string ScrollLabel => $"{AriaLabel}, {Span.Start.Year} to {Span.End.Year}";
 
@@ -1255,6 +1281,39 @@
     /// counted from the links that survived resolution so the number and the
     /// arrows on screen always agree.</summary>
     private int DependencyCount(string id) => Arrows.Count(arrow => Is(arrow.ToId, id));
+
+    /// <summary>What the pointer is over, or focus is on, whose arrows are
+    /// drawn out from the rest. A dashed line crossing six others is only
+    /// traceable by eye when the ones it is not are out of the way.</summary>
+    private string? _traceId;
+
+    private void Trace(string id)
+    {
+        // A drag passes over every bar between where it started and where it
+        // lands; tracing each of those in turn would be noise, not information.
+        if (_dragId is null) _traceId = id;
+    }
+
+    private void Untrace(string id)
+    {
+        if (Is(_traceId, id)) _traceId = null;
+    }
+
+    private bool Traced(RoadmapArrow arrow) =>
+        _traceId is { } id && (Is(arrow.FromId, id) || Is(arrow.ToId, id));
+
+    /// <summary>Whether <paramref name="id"/> is at the far end of a traced
+    /// arrow. The traced thing itself is not: it already has the pointer.</summary>
+    private bool Related(string id) =>
+        _traceId is { } traced && !Is(traced, id)
+        && Arrows.Any(arrow => (Is(arrow.FromId, traced) && Is(arrow.ToId, id))
+                            || (Is(arrow.ToId, traced) && Is(arrow.FromId, id)));
+
+    /// <summary>Only dims the other arrows when there is something to trace, so
+    /// crossing a bar with no dependencies leaves the chart as it was.</summary>
+    private string LinksClass => Arrows.Any(Traced)
+        ? "roadmap-timeline__links roadmap-timeline__links--tracing"
+        : "roadmap-timeline__links";
 
     /// <summary>Where an arrow leaves something: its right edge, at the
     /// vertical centre of whichever row it is currently drawn on.</summary>

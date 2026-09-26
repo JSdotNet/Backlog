@@ -12024,6 +12024,32 @@ select.field__input {
     stroke: none;
 }
 
+/* Tracing. Pointing at, or focusing, something with dependencies lifts its own
+   arrows out in the primary colour, solid and heavier, and lets the rest
+   recede — so a line can be followed from one end to the other without
+   counting crossings. The things at the far ends are outlined rather than
+   shadowed, so a selected bar can be traced and related at once. */
+.roadmap-timeline__links--tracing .roadmap-timeline__link {
+    opacity: 0.25;
+}
+
+.roadmap-timeline__links--tracing .roadmap-timeline__link--traced {
+    opacity: 1;
+    stroke: var(--color-primary);
+    stroke-width: 0.11;
+    stroke-dasharray: none;
+}
+
+.roadmap-timeline__arrowhead--traced {
+    fill: var(--color-primary);
+}
+
+.roadmap-bar--related .roadmap-bar__body,
+.roadmap-milestone--related .roadmap-milestone__marker {
+    outline: var(--border-width-2) solid var(--color-primary);
+    outline-offset: 1px;
+}
+
 /* --- Rows ---------------------------------------------------------------- */
 
 .roadmap-timeline__row {

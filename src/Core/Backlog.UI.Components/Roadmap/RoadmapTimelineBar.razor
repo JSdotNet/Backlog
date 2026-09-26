@@ -20,7 +20,11 @@
      style="left: @Rem(Left); width: @Rem(Width)"
      data-roadmap-bar="@Bar.Id"
      data-roadmap-locked="@(Bar.Locked ? "true" : "false")"
-     data-testid="@TestId">
+     data-testid="@TestId"
+     @onpointerenter="() => OnTrace.InvokeAsync(Bar.Id)"
+     @onpointerleave="() => OnUntrace.InvokeAsync(Bar.Id)"
+     @onfocusin="() => OnTrace.InvokeAsync(Bar.Id)"
+     @onfocusout="() => OnUntrace.InvokeAsync(Bar.Id)">
 
     @* The disclosure, a button of its own beside the body rather than a key on it,
        and ahead of it in the markup so the tab order runs the way the bar reads.
@@ -124,6 +128,21 @@
     /// because a bar cannot see the arrows drawn to it.</summary>
     [Parameter]
     public int DependencyCount { get; set; }
+
+    /// <summary>Whether this bar is at the other end of an arrow from whatever
+    /// the reader is pointing at or has focused, so the two ends of a dependency
+    /// can be found without following the line.</summary>
+    [Parameter]
+    public bool Related { get; set; }
+
+    /// <summary>The pointer or focus arrived on the bar; the timeline traces its
+    /// arrows, because a bar cannot see them.</summary>
+    [Parameter]
+    public EventCallback<string> OnTrace { get; set; }
+
+    /// <summary>The pointer or focus left the bar.</summary>
+    [Parameter]
+    public EventCallback<string> OnUntrace { get; set; }
 
     [Parameter]
     public bool Selected { get; set; }
@@ -250,6 +269,7 @@
         Expanded ? "roadmap-bar--expanded" : null,
         $"roadmap-bar--shade-{Placement.ShadeStep}",
         Selected ? "roadmap-bar--selected" : null,
+        Related ? "roadmap-bar--related" : null,
         Grabbed ? "roadmap-bar--grabbed" : null,
         Dragging ? "roadmap-bar--dragging" : null,
         Invalid ? "roadmap-bar--invalid" : null,
