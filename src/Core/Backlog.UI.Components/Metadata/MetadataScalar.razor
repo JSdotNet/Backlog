@@ -30,6 +30,12 @@
 }
 
 @code {
+    /// <summary>The prefix a version wears: <c>v</c> in front of a number, so
+    /// <c>10.0</c> reads <c>v10.0</c>, and nothing in front of a word or a range —
+    /// <c>vlatest</c> and <c>v^7.0.0</c> are not versions anyone writes.</summary>
+    public static string? VersionPrefix(string? version) =>
+        version is { Length: > 0 } && char.IsAsciiDigit(version[0]) ? "v" : null;
+
     /// <summary>The value, exactly as authored. Never trimmed or reformatted: a
     /// stray capital in a <c>kind</c> is the author's, and normalising it here
     /// would hide the typo rather than its cause.</summary>

@@ -6233,6 +6233,12 @@ h1, h2, h3 {
     gap: var(--spacing-xs);
 }
 
+/* The status select sets the row's height; the version beside it is a line of
+   text and sits on its centre rather than stretching to match. */
+.tech-node__meta {
+    align-items: center;
+}
+
 .tech-node__relations {
     display: grid;
     gap: var(--spacing-xs);
@@ -7393,6 +7399,7 @@ h1, h2, h3 {
 .tech-atlas-facts {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     gap: var(--spacing-2xs) var(--spacing-xs);
 }
 
