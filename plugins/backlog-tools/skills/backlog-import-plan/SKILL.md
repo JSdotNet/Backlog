@@ -86,13 +86,26 @@ mechanics; do not invent syntax beyond it.
    never `idea`; always `!ready`, on every entry whatever its place in the chain — order
    is carried by `after:`, never by holding a later entry at `!draft`; always an
    `effort:<points>` estimate off the 1/2/3/5/8/13/21 scale, sized per
-   [Sizing the steps](#sizing-the-steps); `repo:<name>` once per target repository (a task
-   carries it only when the step is done in or to that repository); `id:<slug>` on every entry — a
+   [Sizing the steps](#sizing-the-steps); `repo:<name>` on every step, whatever its kind — a
+   prompt once per repository it changes, a task or test once per repository its work is
+   done in, on or for, and every repository the plan targets when it concerns none of them
+   in particular, so no step is left unassigned in Backlog; `id:<slug>` on every entry — a
    stable slug from its title, reused verbatim when the plan is regenerated, since it is
    how Backlog recognizes an entry already under way or already finished; `after:<id>`
    once per prerequisite, including across repositories and across kinds; the shared
    `+tag`; and only the `*priority`, `@area` or `due:` the source material actually
    implies.
+
+   **Ask before a step stays manual.** Once the steps are drafted, and before sizing them,
+   ask the user about every step drafted as a `task` or `test` — in one round, a question
+   per step — whether an AI session could do it instead, and what it would take: access it
+   could be given (a signed-in CLI, an MCP server, a test account, the running harness), or
+   a decision the user can make right now. A step the user hands to an AI becomes a
+   `prompt`, shaped as above, with a `Setup:` sub-item for the access it needs; a decision
+   answered on the spot is written into the prompts that needed it and its task dropped,
+   with their `after:` on it removed. A step stays a `task` or `test` only when the user
+   says it does. The closing sign-off is never asked about; with no task or test drafted,
+   there is nothing to ask.
 4. Close every step-level plan with two entries, in this order and last in the document.
    Never omit either, however small the plan.
    - The **review prompt**, titled `Review the <plan subject> plan for anything missed`. It
@@ -105,7 +118,8 @@ mechanics; do not invent syntax beyond it.
      every other prompt, but carries no knowledge/devbook reminder — it changes no
      repository of its own.
    - The **sign-off task**, titled `Sign off the <plan subject> plan`. It carries
-     `id:sign-off-plan`, `after:review-plan`, `effort:1` and no `repo:`. Its body asks the
+     `id:sign-off-plan`, `after:review-plan`, `effort:1` and, like the review, `repo:` once
+     per repository the plan targeted. Its body asks the
      user to read the review's outcome and confirm the plan is complete, or pick up the
      follow-up entries it wrote.
 5. Number the steps: prefix every step title — review and sign-off included, never the
@@ -129,7 +143,8 @@ mechanics; do not invent syntax beyond it.
    glance what the plan gets wrong; when the user reports a failed check, fix the plan and
    regenerate the view rather than patching the view.
 8. Report the output location (if written), the review view's link or path, the entry
-   count, the repositories targeted, the dependency chain, and which sizing answered — the
+   count, the repositories targeted, the dependency chain, which drafted tasks or tests the
+   user's answers turned into prompts, and which sizing answered — the
    `estimate` skill, or this skill's fallback and the step it anchored on. Stop — do
    not open the Backlog app, run a prompt, or create a pull request.
 
@@ -165,11 +180,13 @@ under the same tag. Steps 5–8 apply unchanged.
 - It opens with its one `plan` entry (roadmap level: holds only `plan` entries), carrying
   exactly one `+tag` and no `effort:`.
 - Every step is `prompt`, `task` or `test`, is titled `<n> - <Title>` with steps numbered
-  1, 2, 3… in document order, and states `!ready`, an `effort:`, an `id:`, and the plan's
-  shared `+tag`; every prompt also states `repo:` and opens with the marker line, then the
+  1, 2, 3… in document order, and states `!ready`, an `effort:`, an `id:`, at least one
+  `repo:`, and the plan's shared `+tag`; every prompt also opens with the marker line, then the
   session-name line naming `<tag>:<its title>`.
 - No prompt contains a manual step in any form — no `Manual:` sub-item, no "ask the user
   to…" instruction — and no task or test contains instructions for an AI.
+- Every task or test other than the sign-off is one the user was asked about and kept
+  manual; the rest became prompts.
 - `after:` correctly expresses the plan's dependency order, including cross-repository
   dependencies and prompts that wait on a task, and never names the other level.
 - The last two entries are the plan review, waiting on every leaf of that order, and the
