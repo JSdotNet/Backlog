@@ -1057,20 +1057,29 @@
     /// one place that holds both. A list switched off is said out loud rather than
     /// forced open over a setting the reader chose.
     /// </para>
+    /// <para>
+    /// It navigates, which <see cref="DescribeSessionsAsync"/> must never do: this is
+    /// the reader's own click, where that is an agent asking from outside.
+    /// </para>
     /// </summary>
-    private async Task OpenSessionAsync(string sessionId)
+    private Task OpenSessionAsync(string sessionId)
     {
-        _focusSessionId = sessionId;
-
-        var shown = await ShowSessionsAsync(CancellationToken.None);
-
-        if (shown is not DeliverySurfaceActivation.Shown)
+        if (!SessionsOffered)
         {
-            _focusSessionId = null;
             Toasts.Publish(ToastMessage.Warning(
                 "The sessions list is switched off, so this session cannot be opened here.",
                 SessionsOffTestId));
+
+            return Task.CompletedTask;
         }
+
+        // Opened rather than toggled: asked from the list itself, a toggle would close it.
+        if (_surface != WorkspaceSurface.Sessions) ToggleSessions();
+
+        // After the switch, which clears the focus on every other way onto the list.
+        _focusSessionId = sessionId;
+
+        return Task.CompletedTask;
     }
 
     private const string SessionsOffTestId = "tasks-session-sessions-off";

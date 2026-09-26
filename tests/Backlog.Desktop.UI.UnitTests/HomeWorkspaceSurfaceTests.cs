@@ -12,6 +12,7 @@ using Backlog.Modules.Dashboard.UI;
 using Backlog.Modules.DevPc.UI;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sessions.UI;
+using Backlog.Desktop.UI.Tasks;
 using Backlog.SharedKernel.Ai;
 using Bunit;
 using Microsoft.AspNetCore.Components.Web;
@@ -155,6 +156,53 @@ public sealed class HomeWorkspaceSurfaceTests
         Assert.Equal(DeliverySurfaceActivation.Available, answer);
         component.WaitForAssertion(() =>
         {
+            Assert.NotEmpty(component.FindAll("[data-testid='workspace']"));
+            Assert.Empty(component.FindAll("[data-testid='sessions-surface']"));
+        });
+    }
+
+    /// <summary>
+    /// A session opened from a task is the reader's own click, so unlike
+    /// <c>open_dashboard</c> it does navigate: the Sessions surface comes up on that
+    /// session.
+    /// </summary>
+    [Fact]
+    public async Task Opening_a_session_from_a_task_shows_the_sessions_surface_on_that_session()
+    {
+        using var harness = CreateHarness();
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindComponents<TasksPane>()));
+        var tasks = component.FindComponent<TasksPane>();
+
+        await component.InvokeAsync(() => tasks.Instance.OnOpenSession.InvokeAsync("session-1"));
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='sessions-surface']"));
+            Assert.Empty(component.FindAll("[data-testid='workspace']"));
+            Assert.Equal("session-1", component.FindComponent<SessionsPane>().Instance.FocusSessionId);
+        });
+    }
+
+    /// <summary>With the session list switched off there is nowhere to open it: the
+    /// reader is told so and stays on the task.</summary>
+    [Fact]
+    public async Task Opening_a_session_from_a_task_with_sessions_switched_off_says_so_and_stays()
+    {
+        using var harness = CreateHarness(features => features.SetEnabled(SessionFeatures.Sessions, false));
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindComponents<TasksPane>()));
+        var tasks = component.FindComponent<TasksPane>();
+
+        await component.InvokeAsync(() => tasks.Instance.OnOpenSession.InvokeAsync("session-1"));
+
+        var toasts = harness.Context.Services.GetRequiredService<ToastChannel>();
+        component.WaitForAssertion(() =>
+        {
+            var toast = Assert.Single(toasts.Visible);
+            Assert.Equal("tasks-session-sessions-off", toast.TestId);
             Assert.NotEmpty(component.FindAll("[data-testid='workspace']"));
             Assert.Empty(component.FindAll("[data-testid='sessions-surface']"));
         });
