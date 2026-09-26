@@ -3,6 +3,8 @@
 ```meta
 index: root
 type: context
+deployment: module
+related: [.devbook/arc42/05-building-block-view.md#desktop-app]
 ```
 
 The Sessions context owns the record of what the AI coding agents have been doing:
@@ -14,7 +16,7 @@ only holds the identifier it was given.
 It is a **read model over evidence somebody else wrote.** The agents leave records
 on the environments they run on; this context reads them and says what they mean. It
 never starts, stops or names a session, which is why nothing here is a command and
-why the aggregate below has no invariant about state transitions — a session's state
+why the [Session Log](domain.md#session-log) aggregate has no invariant about state transitions — a session's state
 is derived on every reading, not advanced.
 
 An optional Collections MCP can add a second kind of evidence: sanitized activity

@@ -9,9 +9,9 @@ many sources, organizes project knowledge, maintains a personal backlog, and mon
 progress across multiple repositories and projects. It runs fully standalone on a
 single desktop and optionally connects to a thin cloud layer for multi-device sync.
 
-The overriding architectural driver is **local-first**: the desktop application is
-fully functional offline, owns the canonical data, and runs all capture workers
-locally. The cloud is additive coordination — never a dependency for core workflows.
+The overriding architectural driver is **local-first**, as
+`.devbook/arc42/12-glossary.md` defines it; the desktop application also runs all
+capture workers locally.
 
 ## Requirements Overview
 

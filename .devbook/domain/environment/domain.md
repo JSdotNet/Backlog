@@ -118,7 +118,7 @@ Published when the person activates an Environment Shortcut.
 
 ### Consumers
 
-- Productivity, which may count environment access as work-flow activity.
+- Productivity, which counts environment access as work-flow activity.
 
 ### Published language rules
 

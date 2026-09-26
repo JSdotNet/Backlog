@@ -3,9 +3,8 @@
 ```meta
 ```
 
-How Prompt Backlog's containers map onto infrastructure. There are two deployment
-domains: the **user's local machines** (canonical) and the **optional Azure-hosted
-cloud service** (additive).
+There are two deployment domains: the **user's local machines** (canonical) and the
+**optional Azure-hosted cloud service** (additive).
 
 ## Local Deployment (Desktop)
 
@@ -102,7 +101,7 @@ related: [".devbook/arc42/05-building-block-view.md#mobile-app", ".devbook/arc42
 The mobile app is installed on Android devices as a capture-first,
 sync-dependent channel — it is not canonical, so this section covers only how
 the APK reaches a device, not a data layout equivalent to the desktop's local
-Markdown tree. Its on-device JSON queue is documented in
+store. Its on-device SQLite outbox is documented in
 `.devbook/tech/mobile.md#local-offline-store`.
 
 ### Installation and Updates (Mobile)
@@ -210,8 +209,8 @@ flowchart TB
 
 Deployment considerations:
 
-- **Single region** is sufficient for a personal tool; a single App Service /
-  Container App instance meets demand.
+- **Single region** is sufficient for a personal tool; a single Container App
+  instance meets demand.
 - **TTL-based cleanup** — Cosmos expires what ages out, so no reaper runs and no
   scheduled job can fail silently. Local ADR 0005 fixes the two retentions: task
   tombstones at 180 days and session records at 12 months. Webhook events (24h)

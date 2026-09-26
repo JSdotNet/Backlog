@@ -193,8 +193,7 @@ change here is a change to the product's design language.
 Files and chapters in `.devbook/design` use `status: draft | active | deprecated`
 (`draft` = proposed/unverified, `active` = current binding guidance,
 `deprecated` = superseded). Metadata blocks follow
-`knowledge-chapter-metadata.instructions.md` and
-`knowledge-design.instructions.md` from the `devbook` plugin:
+`.agents/rules/devbook-chapter-metadata.md` and `.agents/rules/devbook-design.md`:
 `related` and `issue` are optional and omitted when empty.
 
 `status` itself is written only while a guideline is **in transition** —
@@ -207,8 +206,7 @@ place even when nothing else is left inside it — the fence is what marks a
 heading as an addressable chapter for the index generator.
 
 The same reading applies in `.devbook/arc42` and `.devbook/domain`, and deliberately does not in
-`.devbook/tech`, `.ai` or `.backlog`: there the field is a position on an adoption
-ladder or a work state, every value is a claim the reader needs, and an absent
-one could not be told apart from `candidate` or from untracked. Those three keep
-it required. `.ai` rates a way of working on the same five-word ladder `.devbook/tech`
+`.devbook/tech` or `.devbook/ai`: there the field is a position on an adoption
+ladder, every value is a claim the reader needs, and an absent one could not be
+told apart from `candidate`. Those two keep it required. `.devbook/ai` rates a way of working on the same five-word ladder `.devbook/tech`
 rates a technology on, so one adoption vocabulary reads in both folders.

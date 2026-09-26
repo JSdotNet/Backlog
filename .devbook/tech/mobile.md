@@ -39,14 +39,14 @@ related: [".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbo
 alternatives: ["SQLite"]
 ```
 
-JSON-backed on-device storage for captures made while offline.
+One SQLite file on the device, `SqliteDeviceStore` in `Backlog.Mobile.UI`, for
+work made while offline.
 
-- **Used for** — queuing captures and cached reads until the next sync flush.
+- **Used for** — the outbox of captures and tasks waiting for the next sync
+  flush, and the cached reads the phone draws before it asks the service.
 - **Why** — mobile is not canonical, so it only needs a durable queue plus a
-  cache, not the whole task database. `SQLite` stays the recorded alternative,
-  and it is now the desktop's canonical store
-  (`.devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md`), so adopting it
-  here would mean sharing an adapter rather than introducing a new dependency.
+  cache, not the whole task database; it keeps a schema of its own rather than
+  sharing the desktop's adapter.
 
 ## Android SDK Build Tools
 

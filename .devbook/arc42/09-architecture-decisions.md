@@ -82,8 +82,8 @@ captured as solution strategy in `.devbook/arc42/04-solution-strategy.md`:
 - **Conflict policy**: new items always create; edits are last-write-wins.
 - **Capture/Inbox kept as one pipeline** for now, with a possible future split.
 
-If any of these harden into formally governed decisions, promote them to ADRs via
-the `orch-adr` skill and link them here rather than duplicating the content.
+If any of these harden into formally governed decisions, promote them to ADRs through
+the delivery engine's `flow-spec` and link them here rather than duplicating the content.
 
 ## Local ADRs
 
@@ -177,7 +177,7 @@ related: [".devbook/arc42/04-solution-strategy.md"]
   replica container, `annotations`, on the task container's last-write-wins and
   tombstone terms.
 - **[ADR 0012 — Backlog is an MCP server hosted inside the running desktop application](adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md)**
-  *(accepted, not yet built)*: an AI session's tool surface over Backlog is a
+  *(accepted, partly built)*: an AI session's tool surface over Backlog is a
   Streamable HTTP endpoint the desktop app itself listens on — loopback, a
   configurable port, an `Origin` check and a bearer token — registered as
   `backlog` everywhere, mapped by the web harness too, and never a standalone
@@ -197,7 +197,7 @@ related: [".devbook/arc42/04-solution-strategy.md"]
   person moved; an item expands on the timeline into the tasks it gathers, sized
   by effort, with progress read from Tasks and never stored.
 - **[ADR 0014 — Attachments travel through a blob store beside the replica; the sync service is the only door](adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md)**
-  *(proposed)*: a phone capture's files — pictures, PDFs, documents — go into one
+  *(accepted, service side built)*: a phone capture's files — pictures, PDFs, documents — go into one
   Azure Storage container beside the Cosmos replica, keyed by owner and
   attachment id, and every byte passes through the sync service's owner-scoped,
   size-capped, type-checked `PUT`/`GET` rather than a SAS URL on the device. The

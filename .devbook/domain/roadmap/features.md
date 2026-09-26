@@ -138,14 +138,10 @@ reached both ways — linked and tagged — is shown once, but the plan remember
 was held by both threads, because a person about to remove a link needs to see
 whether the tag would still hold the work afterwards.
 
-Over all of it, the item reports its **total registered effort**: the story points
-that were actually registered, added up, with nothing invented for the work that
-was never estimated. Because dropping the unestimated work would make the total
-read smaller than the work really is, the item also says **how many gathered
-things carry no estimate**, so a small total that hides a pile of unsized work
-cannot be mistaken for a small pile of work. The plan owns none of these numbers —
-they are registered on the tasks and the chapters, in Tasks and
-Devbook — and it only reads and adds them.
+Over all of it, the item reports its
+[total registered effort](domain.md#effort) and **how many gathered things carry
+no estimate**, so a small total that hides a pile of unsized work cannot be
+mistaken for a small pile of work.
 
 ## Priority planning
 
@@ -195,9 +191,8 @@ status: draft
 related: [.devbook/domain/roadmap/domain.md#plan-sequencing]
 ```
 
-Show where the plan disagrees with itself — work starting before the thing it
-waits on has finished, or finishing after a milestone it was meant to precede.
-These are reported, not silently corrected: discovering that a date does not fit
+Show every [Contradiction](domain.md#contradiction) in the plan. They are
+reported, not silently corrected: discovering that a date does not fit
 is the point of drawing the plan, and quietly moving the dependent work would
 hide it.
 
@@ -577,8 +572,8 @@ It would be built on what this context already has, not beside it. The chain is
 the existing [Dependency](domain.md#dependency) — acyclicity, and
 [Plan Sequencing](domain.md#plan-sequencing)'s reachability answers, are exactly
 what an ordered chain needs. The work a track holds is reached the way an item
-already reaches it: by named link and by tag, across Tasks and Second
-Brain. And **the repository line stays as it is** — a track sits inside a
+already reaches it: by named link and by tag, across Tasks and
+Devbook. And **the repository line stays as it is** — a track sits inside a
 repository band exactly as lanes and items do today, so a portfolio still reads
 one project at a time.
 

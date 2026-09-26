@@ -30,12 +30,7 @@ restore). `updated_at` moves forward on every change.
 
 A knowledge chapter — this aggregate, and equally any chapter Devbook renders
 from a repository's knowledge folders — may also carry two pieces of metadata in
-its `meta` block that describe how it relates to planned work. The first is an
-optional `effort`: a size in **story points**, a non-negative integer with exactly
-the meaning it has on a
-[Task](../tasks/domain.md#task) — absent means "not
-estimated", `0` is a real zero-point estimate, a negative is rejected, and it
-sizes the knowledge work rather than timing it. The second is a `roadmap` list:
+its `meta` block that describe how it relates to planned work. The first is an optional [Effort](#effort). The second is a `roadmap` list:
 the [Roadmap Item](../roadmap/domain.md#roadmap-item) tags this chapter declares it
 contributes to, held as a `Roadmap Contribution`. Both are read by Roadmap
 Planning when a Roadmap Item gathers and totals the work behind it; Devbook
@@ -80,9 +75,8 @@ Equality is by canonical `name`.
 It is **this context's own** vocabulary: a person invents a `#keyword` to find
 notes across projects later, and it means whatever they use it to mean. It is not
 a `Roadmap Contribution`, and the two must not be collapsed even though both are
-loosely "tags". A `Tag` is a discovery keyword owned here; a `Roadmap Contribution`
-names a slug owned by [Roadmap Planning](../roadmap/domain.md#roadmap-tag). One is
-for finding knowledge, the other for declaring which planned work a chapter feeds.
+loosely "tags". A `Roadmap Contribution` names a slug owned by
+[Roadmap Planning](../roadmap/domain.md#roadmap-tag).
 
 ### Roadmap Contribution
 
@@ -163,8 +157,7 @@ are read through the knowledge-folder settings
 owns: several tools' instruction sets are examined as one subject, and no aggregate
 here may hold their content without becoming a second, staler copy of it.
 
-A finding names a location, the kind of problem, and the change proposed for it.
-The kinds are: context load carried by an always-loaded document; one meaning
+Each [Instruction Finding](#instruction-finding) is of one of these kinds: context load carried by an always-loaded document; one meaning
 stated in more than one place; a disagreement or an omission between the sets two
 tools read; wording that will not reliably make an agent reach the document it
 names; wording that steers by prohibition where stating the wanted behaviour would
@@ -172,18 +165,13 @@ steer better; guidance the agent already follows unprompted; guidance that has g
 stale; and guidance that copies what the repository's own configuration already
 states.
 
-Every finding is a **proposal**. Accepting one edits the repository's own file and
-the repository stays its owner: the previous wording remains recoverable exactly,
+Accepting a finding edits the repository's own file, and the repository stays its owner: the previous wording remains recoverable exactly,
 and code blocks, commands, paths, and error strings are carried through a rewrite
 unchanged. A change that shrinks an instruction set at the cost of how well the
 agents work is a failed change rather than a saving, which is why an applied
-proposal is measured afterwards and can be withdrawn. A claimed reduction carries
-the basis it was obtained on — observed from local agent activity, or measured in a
-controlled comparison — and is expressed in what agents load rather than in money.
+proposal is measured afterwards and can be withdrawn. A claimed reduction carries its [Saving Evidence](#saving-evidence).
 
-Findings live for the review that produced them. Nothing here stores instruction
-content, a second copy of a repository's rules, or a verdict that outlives the
-documents it was drawn from.
+Findings live for the review that produced them.
 
 Invocation semantics: command-invoked read-only analysis over a repository's
 instruction documents; it writes only through a proposal a person has accepted, one

@@ -16,8 +16,8 @@ status: draft
 related: [.devbook/domain/productivity/domain.md#productivity-ledger, .devbook/domain/tasks/domain.md#aiworklogged]
 ```
 
-Track when AI contributes to personal work and show what changed because of that
-assistance: tasks moved, artifacts created, prompts reused, reviews shortened, or
+[AI Productivity Tracking](domain.md#ai-productivity-tracking) shows what changed
+because of AI assistance: tasks moved, artifacts created, prompts reused, reviews shortened, or
 research summarized.
 
 ### AI activity capture
@@ -56,7 +56,7 @@ estimate visibly separate from measured activity.
 ```meta
 type: sub-feature
 status: draft
-feature-flag: .devbook/domain/productivity/context.md#usage-metrics
+feature-flag: .devbook/domain/productivity/context.md#ai-usage-metrics
 related: [.devbook/domain/productivity/dependencies.md#outbound-dependencies]
 ```
 

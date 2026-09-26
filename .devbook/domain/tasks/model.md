@@ -141,23 +141,16 @@ classDiagram
   no relationships to other types.
 - `due_on`, `remind_at` and `in_my_day_on` are plain scalars on the root for the
   same reason, and they are three different kinds of fact rather than three
-  spellings of one. `due_on` is a calendar date (a commitment to a day, with no
-  time and no zone); `remind_at` is a local date and time held as wall-clock
-  intent, so it means the same clock reading wherever the device is; and
-  `in_my_day_on` is the date the task was picked for the day, from which My Day
-  membership is derived by comparing it against the reader's current local date.
+  spellings of one: a [Due Date](domain.md#due-date), a
+  [Reminder](domain.md#reminder), and the date behind [My Day](domain.md#my-day).
   None of them is a `Timestamp`: `created_at` records when something happened and
   is an instant, while these three record what a person intended and are read
   against a local calendar.
-- `completed_on` is a fourth scalar of the same kind — the day the person ticked
-  the task off, or unset — and deliberately not a `Task Status` value: the
-  status says whether the work is over, the tick says whether the person is
-  finished with the task, and holding them apart is what lets a `done` task
-  stay on the open list until it is ticked.
-- `started_on` is a fifth — the day the task first moved to `in_progress`, or
-  unset — stamped by the root on that transition and never moved after it. A
-  date and not a `Timestamp` for the same reason as the tick: it is read against
-  a local calendar, as the day the work began.
+- `completed_on` is a fourth scalar of the same kind, recording
+  [Completed](domain.md#completed), and deliberately not a `Task Status` value.
+- `started_on` is a fifth, recording [Started](domain.md#started), stamped by
+  the root. A date and not a `Timestamp` for the same reason as the tick: it is
+  read against a local calendar.
 - `Recurrence` is an owned value object rather than a scalar because a repeat has
   internal structure (`interval`, `unit`, and an optional `Weekday` set) and no
   identity of its own. It describes the shape of the repeat only; the date of the
@@ -180,10 +173,6 @@ classDiagram
   ownership. A spawned occurrence is a separate aggregate with its own lifecycle,
   which is why there is no containment relationship between a series and its
   members.
-- `effort` is a plain scalar on the root, not a value object: a non-negative
-  integer of story points, three-valued at the edges (`null`/absent means "not
-  estimated", `0` is a real zero-point estimate, a negative is rejected). It sizes
-  the work rather than measuring time spent, so it is neither a `Timestamp` nor a
-  duration, and it carries no relationship to another type. Roadmap Planning reads
-  and totals it across the items it gathers but never registers it, which is why
-  the field lives here and nowhere else.
+- `effort` is a plain scalar on the root, not a value object: the task's
+  [Effort](domain.md#effort). It is neither a `Timestamp` nor a duration, and it
+  carries no relationship to another type.

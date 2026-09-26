@@ -4,8 +4,7 @@
 related: [".devbook/arc42/04-solution-strategy.md#local-first-architecture", ".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/design/interaction-guidelines.md", ".devbook/design/accessibility.md"]
 ```
 
-> Product-level UX principles for the Backlog product. These are the high-level
-> rules every screen and channel must honor; the other `.devbook/design` files turn them
+> These are the high-level rules every screen and channel must honor; the other `.devbook/design` files turn them
 > into concrete tokens and interaction specs. Adapted from the JSdotNet design
 > style guide (`04-motion-and-interaction`, `09-interaction-patterns`) and the
 > local-first architecture in
@@ -41,8 +40,7 @@ the MAUI (mobile-native), Razor/webview (desktop, IDE), and webview channels.
 related: [".devbook/arc42/04-solution-strategy.md#local-first-architecture", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync"]
 ```
 
-The desktop owns the canonical data and all core workflows run without
-connectivity; the cloud is additive only.
+The product is **local-first**, as `.devbook/arc42/12-glossary.md` defines it.
 
 | Rule | Requirement |
 |---|---|

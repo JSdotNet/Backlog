@@ -3,9 +3,6 @@
 ```meta
 ```
 
-Static decomposition of Prompt Backlog, from the system-level container view down to
-the internal structure of each access channel.
-
 ## Container View
 
 ```meta
@@ -56,6 +53,9 @@ C4Container
 ```
 
 ### System-level flow
+
+```meta
+```
 
 ```mermaid
 flowchart TB
@@ -160,8 +160,8 @@ flowchart TB
 related: [".devbook/arc42/06-runtime-view.md#task-to-github-issue", ".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md"]
 ```
 
-Local-first Windows client. Serves Capture, Inbox, Tasks, Roadmap Planning, Devbook, Monitoring, Technology Stack, Dev PC Management, Sessions, and Repository Management. It runs in two seamless modes: **Standalone** (no cloud) and
-**Connected** (adds cloud sync, phone access, and webhook forwarding).
+Local-first Windows client. Serves Capture, Inbox, Tasks, Roadmap Planning, Devbook, Monitoring, Technology Stack, Dev PC Management, Sessions, and Repository Management. It runs in two seamless modes,
+**Standalone** and **Connected**, as `.devbook/arc42/12-glossary.md` defines them.
 
 ```mermaid
 graph TB
@@ -399,7 +399,7 @@ compliance/monitoring; capture uses session context to create backlog/knowledge 
 related: [".devbook/arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md"]
 ```
 
-A thin sync and coordination layer — deliberately not the backbone. It coordinates
+The **thin cloud** `.devbook/arc42/12-glossary.md` defines — deliberately not the backbone. It coordinates
 device sync, receives and forwards GitHub webhooks, sends push notifications, and hosts a Remote PC registry / Wake-on-LAN relay. It stores minimal, mostly TTL-based state — never domain data or external credentials.
 
 "Cloud Service" names where this container runs; the code is named after what it

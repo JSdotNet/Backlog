@@ -40,10 +40,6 @@ any are being left out, and the empty state the narrowing can produce says which
 states it kept and how many sessions are on the other side. A reader looking for a
 session has one place to look and one control to move.
 
-What two lists would have cost is exactly what none of that costs. A finished session
-is never *somewhere else* — only not currently shown, by a choice the reader can see
-they made.
-
 ### Open on the live sessions
 
 ```meta
@@ -192,8 +188,7 @@ A surface that refreshed itself would be claiming to be live, and the evidence d
 not support the claim: one of the two agents leaves no liveness marker at all, so a
 self-moving list would move without meaning.
 
-Records arriving from another machine do not change that, and the distinction is
-worth keeping straight. Those arrive on a schedule of their own — a machine cannot
+Records arriving from another machine do not change that. Those arrive on a schedule of their own — a machine cannot
 be asked for its sessions at the moment somebody looks at them — but they arrive
 into what this environment has a record of, which is the thing the list reads. The
 reading is still the reader's: nothing appears on screen until they open the list
@@ -295,11 +290,8 @@ related: [.devbook/domain/sessions/domain.md#session-limit]
 
 An environment can hold hundreds of session records — enough that reading all of
 them costs real time and showing all of them buries the handful that are running. A
-reading for a list therefore describes the most recent sessions per agent, and when
-it does, it states how many exist.
-
-Per agent rather than overall, so the agent that happens to keep more history cannot
-crowd the other one out of a list whose whole point is showing both.
+reading for a list therefore describes the most recent sessions per agent, up to the
+[Session Limit](domain.md#session-limit), and when it does, it states how many exist.
 
 A reading for a count takes the other shape: everything since a horizon, with no
 limit. A count over the most recent hundred per agent is the limit wearing a
@@ -358,8 +350,7 @@ Under the row rather than in a column, because a run is not a property of a sess
 across every column rather than inside the name cell, because a quarter of the width
 turned each of its parts into three lines while the rest of the row sat empty.
 
-On the session's row rather than in a column, because the session is the process and
-the run is the work it was tracking; and behind a fold, because a run holds ten stages
+Behind a fold, because a run holds ten stages
 and tens of thousands of tool calls, and a row that showed them would be a report with
 a table around it.
 
