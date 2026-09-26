@@ -72,6 +72,33 @@ public sealed class DevbookStackLayoutTests
         Assert.Contains("scrollbar-gutter: stable;", rule, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// The chapter sits inside the Chapters tab, so the pane's height has to pass
+    /// through the tab strip's three wrappers to reach the document that scrolls.
+    /// Left as blocks, they grow to the chapter's length, the pane clips them, and
+    /// a long chapter has no scrollbar and no way to its end.
+    /// </summary>
+    [Fact]
+    public void Architecture_tabs_hand_the_pane_height_down_to_the_document()
+    {
+        var css = NormalizeLineEndings(File.ReadAllText(FindAppCss()));
+
+        var tabs = RuleBody(css, ".devbook-stack__section > .devbook-pane--arc42 > .tabs {");
+        Assert.Contains("display: flex;", tabs, StringComparison.Ordinal);
+        Assert.Contains("flex-direction: column;", tabs, StringComparison.Ordinal);
+        Assert.Contains("min-height: 0;", tabs, StringComparison.Ordinal);
+
+        var panels = RuleBody(css, ".devbook-stack__section > .devbook-pane--arc42 .tabs__panels {");
+        Assert.Contains("display: flex;", panels, StringComparison.Ordinal);
+        Assert.Contains("min-height: 0;", panels, StringComparison.Ordinal);
+
+        // Scoped past `hidden`: a display rule on every panel would draw the
+        // inactive tab's panel under the active one.
+        var panel = RuleBody(css, ".devbook-stack__section > .devbook-pane--arc42 .tabs__panel:not([hidden]) {");
+        Assert.Contains("display: flex;", panel, StringComparison.Ordinal);
+        Assert.Contains("min-height: 0;", panel, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void A_chapter_shown_through_the_file_view_is_framed_once()
     {
