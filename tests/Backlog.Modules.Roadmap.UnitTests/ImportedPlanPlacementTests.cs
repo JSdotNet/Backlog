@@ -34,12 +34,15 @@ public class ImportedPlanPlacementTests
     }
 
     [Theory]
-    [InlineData(0, 1, ImportedPlanPlacement.DefaultSpanDays)] // nothing estimated gathered
-    [InlineData(10, 1, 10)]
-    [InlineData(3, 2, 2)]                                     // 1.5 rounds up
-    [InlineData(1, 4, ImportedPlanPlacement.MinimumSpanDays)] // a quarter day is still a day
-    [InlineData(5, 0.5, 10)]
-    public void LengthIsEffortOverVelocity_RoundedUp_NeverUnderADay(int effort, double velocity, int days)
+    [InlineData(0, 7, ImportedPlanPlacement.DefaultSpanDays)] // nothing estimated gathered
+    [InlineData(10, 7, 10)]
+    [InlineData(3, 14, 2)]                                     // 1.5 rounds up
+    [InlineData(1, 28, ImportedPlanPlacement.MinimumSpanDays)] // a quarter day is still a day
+    [InlineData(5, 3.5, 10)]
+    [InlineData(4, 4, 7)]                                      // a week's pace is a week, not a hair over
+    [InlineData(20, 10, 14)]
+    [InlineData(1, 3, 3)]                                      // 2.33 days rounds up
+    public void LengthIsEffortOverAWeeksVelocity_InCalendarDays_RoundedUp_NeverUnderADay(int effort, double velocity, int days)
     {
         Assert.Equal(days, ImportedPlanPlacement.Days(effort, (decimal)velocity));
     }
@@ -47,7 +50,7 @@ public class ImportedPlanPlacementTests
     [Fact]
     public void WithoutADueDate_TheWindowSpansTheLength_BothEndsInclusive()
     {
-        var (window, placement) = ImportedPlanPlacement.Place(Today, due: null, gatheredEffort: 6, velocity: 2);
+        var (window, placement) = ImportedPlanPlacement.Place(Today, due: null, gatheredEffort: 6, velocity: 14);
 
         Assert.Equal(Today, window.Start);
         Assert.Equal(new DateOnly(2026, 3, 4), window.End);
@@ -58,7 +61,7 @@ public class ImportedPlanPlacementTests
     [Fact]
     public void NothingGathered_PlacesTheDefaultSpan()
     {
-        var (window, placement) = ImportedPlanPlacement.Place(Today, due: null, gatheredEffort: 0, velocity: 1);
+        var (window, placement) = ImportedPlanPlacement.Place(Today, due: null, gatheredEffort: 0, velocity: 7);
 
         Assert.Equal(ImportedPlanPlacement.DefaultSpanDays, window.Days);
         Assert.Equal(ImportPlacement.Effort, placement);
@@ -69,7 +72,7 @@ public class ImportedPlanPlacementTests
     {
         var due = new DateOnly(2026, 3, 31);
 
-        var (window, placement) = ImportedPlanPlacement.Place(Today, due, gatheredEffort: 2, velocity: 1);
+        var (window, placement) = ImportedPlanPlacement.Place(Today, due, gatheredEffort: 2, velocity: 7);
 
         Assert.Equal(Today, window.Start);
         Assert.Equal(due, window.End);
@@ -81,7 +84,7 @@ public class ImportedPlanPlacementTests
     {
         var due = new DateOnly(2026, 2, 20);
 
-        var (window, placement) = ImportedPlanPlacement.Place(Today, due, gatheredEffort: 0, velocity: 1);
+        var (window, placement) = ImportedPlanPlacement.Place(Today, due, gatheredEffort: 0, velocity: 7);
 
         // The person's date wins; the contradiction with the predecessor is the
         // plan's to report, not the importer's to correct.

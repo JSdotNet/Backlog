@@ -10,8 +10,8 @@ namespace Backlog.Modules.Roadmap.Services;
 /// <para>
 /// The start is never read from the document: it is the day after the latest end
 /// among the item's predecessors, or today. The end is the entry's <c>due:</c> when
-/// it wrote one; otherwise the length is the gathered effort over the velocity,
-/// rounded up and never under <see cref="MinimumSpanDays"/>, and
+/// it wrote one; otherwise the length is the gathered effort over the velocity — a
+/// week being seven days — rounded up and never under <see cref="MinimumSpanDays"/>, and
 /// <see cref="DefaultSpanDays"/> when nothing estimated was gathered. Days are
 /// calendar days, because the roadmap models no working week.
 /// </para>
@@ -45,7 +45,7 @@ public static class ImportedPlanPlacement
     /// </summary>
     /// <param name="gatheredEffort">The story points the plan's tasks registered;
     /// zero when nothing estimated was gathered.</param>
-    /// <param name="velocity">Story points per day; always positive.</param>
+    /// <param name="velocity">Story points per week; always positive.</param>
     public static (PlannedWindow Window, ImportPlacement Placement) Place(
         DateOnly start,
         DateOnly? due,
@@ -64,13 +64,20 @@ public static class ImportedPlanPlacement
         return (PlannedWindow.Of(start, DateOnly.FromDayNumber((int)lastDay)), ImportPlacement.Effort);
     }
 
-    /// <summary>How many calendar days a gathered total spans at a velocity.</summary>
+    /// <summary>How many calendar days a gathered total spans at a velocity in story
+    /// points a week.
+    /// <para>
+    /// Multiplied by seven before dividing, never divided by a per-day figure: 4 a
+    /// week is 0.571428… a day, which no decimal holds exactly, and 4 points over it
+    /// would come to a hair over 7 days and round up to 8.
+    /// </para>
+    /// </summary>
     public static int Days(int gatheredEffort, decimal velocity)
     {
         if (gatheredEffort <= 0) return DefaultSpanDays;
         if (velocity <= 0) throw new ArgumentOutOfRangeException(nameof(velocity), velocity, "Velocity is always positive.");
 
-        var days = Math.Ceiling(gatheredEffort / velocity);
+        var days = Math.Ceiling(gatheredEffort * 7m / velocity);
         return days >= int.MaxValue ? int.MaxValue : Math.Max(MinimumSpanDays, (int)days);
     }
 }

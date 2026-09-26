@@ -3,12 +3,13 @@ using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 namespace Backlog.Modules.Roadmap.Abstractions.Services;
 
 /// <summary>
-/// How many story points the reader gets through in a day — the one figure placing
+/// How many story points the reader gets through in a week — the one figure placing
 /// an imported plan divides by.
 /// <para>
 /// It is a <em>reading preference the person owns, not an estimate the plan
 /// registers</em> (ADR 0013, ruling 4). Placing an imported plan that states no due
-/// date divides the effort its tasks registered by this and rounds up. Which pace
+/// date divides the effort its tasks registered by this, in calendar days — seven to
+/// the week — and rounds up. Which pace
 /// that is — typed, or measured over the last two, four or eight weeks — is the
 /// reader's choice on the roadmap (<see cref="IPlanningPace"/>).
 /// </para>
@@ -16,8 +17,8 @@ namespace Backlog.Modules.Roadmap.Abstractions.Services;
 public interface IPlanningVelocity
 {
     /// <summary>Always positive, so a caller may divide by it without guarding.
-    /// The reader having chosen nothing reads as 1.</summary>
-    Task<decimal> GetStoryPointsPerDayAsync(CancellationToken cancellationToken = default);
+    /// The reader having chosen nothing reads as 7 — one a day.</summary>
+    Task<decimal> GetStoryPointsPerWeekAsync(CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -52,7 +53,8 @@ public interface IPlanningVelocitySettings
 {
     event Action? Changed;
 
-    /// <summary>Always positive; 1 when the reader never typed one.</summary>
+    /// <summary>Story points a week. Always positive; 7 when the reader never typed
+    /// one.</summary>
     decimal Manual { get; }
 
     PaceSource Source { get; }

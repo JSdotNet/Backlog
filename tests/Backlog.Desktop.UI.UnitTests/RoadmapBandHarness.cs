@@ -32,8 +32,11 @@ public abstract class RoadmapBandHarness : IDisposable
         _root = Path.Combine(Path.GetTempPath(), "roadmap-band-tests-" + Guid.NewGuid().ToString("N"));
         Settings = new WorkspaceSettingsStore(_root, Path.Combine(_root, "settings.json"));
         RepositorySettings = new GitHubSettingsStore(Path.Combine(_root, "github.json"));
-        Planning = TasksTestHost.PlanningFor(Settings);
         PaceFile = new PlanningVelocitySettingsStore(Path.Combine(_root, "velocity", "planning-velocity.json"));
+
+        // Over the same pace file, finished work and clock as the heading's control, so
+        // a pace chosen there is the one the plan re-lengthens by.
+        Planning = TasksTestHost.PlanningFor(Settings, new PlanningVelocitySource(PaceFile), new ListedWork(Finished), PaceClock);
     }
 
     protected WorkspaceSettingsStore Settings { get; }
@@ -50,6 +53,9 @@ public abstract class RoadmapBandHarness : IDisposable
 
     /// <summary>"Today" for the measured paces.</summary>
     protected static readonly DateOnly PaceToday = new(2026, 9, 25);
+
+    private static FakeTimeProvider PaceClock =>
+        new(new DateTimeOffset(PaceToday.ToDateTime(new TimeOnly(12, 0)), TimeSpan.Zero));
 
     protected RoadmapWorkChanges WorkChanges { get; } = TasksTestHost.WorkChanges();
 
@@ -85,7 +91,7 @@ public abstract class RoadmapBandHarness : IDisposable
         context.Services.AddSingleton(TasksTestHost.PaceFor(
             PaceFile,
             new ListedWork(Finished),
-            new FakeTimeProvider(new DateTimeOffset(PaceToday.ToDateTime(new TimeOnly(12, 0)), TimeSpan.Zero))));
+            PaceClock));
         return context;
     }
 

@@ -77,15 +77,27 @@ internal static class TasksTestHost
     /// </para>
     /// </summary>
     public static IRoadmapPlanning PlanningFor(WorkspaceSettingsStore store) =>
+        PlanningFor(store, new SevenPointsAWeek());
+
+    /// <summary>The same planning port, placing by the pace
+    /// <paramref name="pace"/> keeps, measured from <paramref name="finished"/> as of
+    /// <paramref name="clock"/> — for a host whose pace control and plan must read one
+    /// pace.</summary>
+    public static IRoadmapPlanning PlanningFor(
+        WorkspaceSettingsStore store,
+        IPlanningVelocitySettings pace,
+        IRoadmapCompletedWork? finished = null,
+        TimeProvider? clock = null) =>
         new ServiceCollection()
             .AddSingleton<IRoadmapPlanRepository>(
                 new RootedSqliteRoadmapPlanRepository(() => store.RootDirectory))
             // Import places a window by the reader's pace, read from settings and
-            // finished work a host answers through the cross-context adapters; a
-            // point a day, typed, with nothing finished is the pace of nobody having
+            // finished work a host answers through the cross-context adapters; seven
+            // points a week, typed, with nothing finished is the pace of nobody having
             // chosen one.
-            .AddSingleton<IPlanningVelocitySettings>(new OnePointADay())
-            .AddSingleton<IRoadmapCompletedWork>(new NothingFinished())
+            .AddSingleton(pace)
+            .AddSingleton(finished ?? new NothingFinished())
+            .AddSingleton(clock ?? TimeProvider.System)
             .AddRoadmapModule()
             .BuildServiceProvider()
             .GetRequiredService<IRoadmapPlanning>();
@@ -106,12 +118,12 @@ internal static class TasksTestHost
             .BuildServiceProvider()
             .GetRequiredService<IPlanningPace>();
 
-    /// <summary>The pace of nobody having chosen one — a point a day, typed, with
+    /// <summary>The pace of nobody having chosen one — seven points a week, typed, with
     /// nothing finished — for a host that renders the roadmap but is not about its
     /// pace.</summary>
     public static IPlanningPace UntouchedPace() =>
         new ServiceCollection()
-            .AddSingleton<IPlanningVelocitySettings>(new OnePointADay())
+            .AddSingleton<IPlanningVelocitySettings>(new SevenPointsAWeek())
             .AddSingleton<IRoadmapCompletedWork>(new NothingFinished())
             .AddRoadmapModule()
             .BuildServiceProvider()
@@ -172,11 +184,11 @@ internal static class TasksTestHost
     /// state every test here wants: none of them is about repository resolution,
     /// and a name that resolves to nothing is stored exactly as it was typed.
     /// </summary>
-    private sealed class OnePointADay : IPlanningVelocitySettings
+    private sealed class SevenPointsAWeek : IPlanningVelocitySettings
     {
         public event Action? Changed { add { } remove { } }
 
-        public decimal Manual => 1;
+        public decimal Manual => 7;
 
         public PaceSource Source => PaceSource.Manual;
 

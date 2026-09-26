@@ -162,6 +162,6 @@ public sealed class RoadmapCrossContextAdapterScopeTests : IDisposable
 
         var paces = await resolved.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
 
-        Assert.Equal(1m, paces.InUse);
+        Assert.Equal(7m, paces.InUse);
     }
 }

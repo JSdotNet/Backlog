@@ -29,9 +29,9 @@ public class PlanningPaceTests
 
         var paces = PlanningPace.Paces(2m, PaceSource.Manual, finished, Today);
 
-        Assert.Equal(1m, paces.LastTwoWeeks);     // 14 / 14
-        Assert.Equal(1.5m, paces.LastFourWeeks);  // 42 / 28
-        Assert.Equal(1m, paces.LastEightWeeks);   // 56 / 56
+        Assert.Equal(7m, paces.LastTwoWeeks);      // 14 over 2 weeks
+        Assert.Equal(10.5m, paces.LastFourWeeks);  // 42 over 4 weeks
+        Assert.Equal(7m, paces.LastEightWeeks);    // 56 over 8 weeks
         Assert.Equal(2m, paces.Manual);
     }
 
@@ -49,23 +49,23 @@ public class PlanningPaceTests
         var paces = PlanningPace.Paces(1m, PaceSource.Manual, [new(Today.AddDays(-20), 28)], Today);
 
         Assert.Null(paces.LastTwoWeeks);
-        Assert.Equal(1m, paces.LastFourWeeks);
-        Assert.Equal(0.5m, paces.LastEightWeeks);
+        Assert.Equal(7m, paces.LastFourWeeks);
+        Assert.Equal(3.5m, paces.LastEightWeeks);
     }
 
     [Fact]
     public void AMeasuredPaceIsKeptToFourDecimals()
     {
-        var pace = PlanningPace.Measured([new(Today, 13)], Today, 2);
+        var pace = PlanningPace.Measured([new(Today, 13)], Today, 3);
 
-        Assert.Equal(0.9286m, pace);
+        Assert.Equal(4.3333m, pace);
     }
 
     [Theory]
     [InlineData(PaceSource.Manual, 3)]
-    [InlineData(PaceSource.LastTwoWeeks, 1)]
-    [InlineData(PaceSource.LastFourWeeks, 0.5)]
-    [InlineData(PaceSource.LastEightWeeks, 0.25)]
+    [InlineData(PaceSource.LastTwoWeeks, 7)]
+    [InlineData(PaceSource.LastFourWeeks, 3.5)]
+    [InlineData(PaceSource.LastEightWeeks, 1.75)]
     public void ThePaceInUseIsTheOneChosen(PaceSource source, double expected)
     {
         var paces = PlanningPace.Paces(3m, source, [new(Today, 14)], Today);
@@ -90,7 +90,7 @@ public class PlanningPaceTests
         var finished = new Finished([new(Today, 14), new(Today.AddDays(-60), 100)]);
         var pace = new PlanningPace(settings, finished, new FixedClock(Today));
 
-        Assert.Equal(1m, await pace.GetStoryPointsPerDayAsync());
+        Assert.Equal(7m, await pace.GetStoryPointsPerWeekAsync()); // 14 over 2 weeks
 
         // One read covers the longest stretch, so nothing older is asked for.
         Assert.Equal(Today.AddDays(-55), finished.AskedSince);

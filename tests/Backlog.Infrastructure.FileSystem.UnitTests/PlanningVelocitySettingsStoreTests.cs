@@ -42,11 +42,11 @@ public class PlanningVelocitySettingsStoreTests : IDisposable
     private PlanningVelocitySettingsStore Store() => new(SettingsFile);
 
     [Fact]
-    public void An_untouched_store_reads_one_point_a_day_and_writes_no_file()
+    public void An_untouched_store_reads_seven_points_a_week_and_writes_no_file()
     {
         var store = Store();
 
-        Assert.Equal(1m, store.StoryPointsPerDay);
+        Assert.Equal(7m, store.StoryPointsPerWeek);
         Assert.False(File.Exists(SettingsFile));
     }
 
@@ -57,7 +57,7 @@ public class PlanningVelocitySettingsStoreTests : IDisposable
 
         var reopened = Store();
 
-        Assert.Equal(2.5m, reopened.StoryPointsPerDay);
+        Assert.Equal(2.5m, reopened.StoryPointsPerWeek);
     }
 
     [Fact]
@@ -93,7 +93,7 @@ public class PlanningVelocitySettingsStoreTests : IDisposable
 
         Assert.NotNull(message);
         Assert.Contains("above zero", message, StringComparison.Ordinal);
-        Assert.Equal(4m, store.StoryPointsPerDay);
+        Assert.Equal(4m, store.StoryPointsPerWeek);
         Assert.Equal(0, raised);
     }
 
@@ -115,7 +115,7 @@ public class PlanningVelocitySettingsStoreTests : IDisposable
 
         Assert.NotNull(message);
         Assert.Contains("as a number", message, StringComparison.Ordinal);
-        Assert.Equal(4m, store.StoryPointsPerDay);
+        Assert.Equal(4m, store.StoryPointsPerWeek);
     }
 
     /// <summary>The <c>number</c> input reports its value with a dot whatever the
@@ -127,7 +127,7 @@ public class PlanningVelocitySettingsStoreTests : IDisposable
         Assert.Null(Store().Set("2.5"));
 
         Assert.Contains("2.5", File.ReadAllText(SettingsFile), StringComparison.Ordinal);
-        Assert.Equal(2.5m, Store().StoryPointsPerDay);
+        Assert.Equal(2.5m, Store().StoryPointsPerWeek);
     }
 
     [Fact]
@@ -137,7 +137,7 @@ public class PlanningVelocitySettingsStoreTests : IDisposable
 
         Assert.Null(store.Set("2.50"));
 
-        Assert.Equal("2.5", PlanningVelocitySettingsStore.Format(store.StoryPointsPerDay));
+        Assert.Equal("2.5", PlanningVelocitySettingsStore.Format(store.StoryPointsPerWeek));
     }
 
     /// <summary>
@@ -162,8 +162,8 @@ public class PlanningVelocitySettingsStoreTests : IDisposable
 
         Assert.NotNull(message);
         Assert.Contains("at least", message, StringComparison.Ordinal);
-        Assert.Equal(4m, store.StoryPointsPerDay);
-        Assert.Equal(4m, Store().StoryPointsPerDay);
+        Assert.Equal(4m, store.StoryPointsPerWeek);
+        Assert.Equal(4m, Store().StoryPointsPerWeek);
     }
 
     /// <summary>The finest pace that is storable is accepted, and survives — the
@@ -173,7 +173,7 @@ public class PlanningVelocitySettingsStoreTests : IDisposable
     {
         Assert.Null(Store().Set(PlanningVelocitySettingsStore.Smallest));
 
-        Assert.Equal(PlanningVelocitySettingsStore.Smallest, Store().StoryPointsPerDay);
+        Assert.Equal(PlanningVelocitySettingsStore.Smallest, Store().StoryPointsPerWeek);
     }
 
     /// <summary>A value the store accepted is always one the file can hold: whatever
@@ -189,39 +189,74 @@ public class PlanningVelocitySettingsStoreTests : IDisposable
 
         Assert.Null(store.Set(typed));
 
-        var stored = store.StoryPointsPerDay;
+        var stored = store.StoryPointsPerWeek;
 
         Assert.Equal(typed, PlanningVelocitySettingsStore.Format(stored));
-        Assert.Equal(stored, Store().StoryPointsPerDay);
+        Assert.Equal(stored, Store().StoryPointsPerWeek);
     }
 
     [Theory]
-    [InlineData("""{ "storyPointsPerDay": "quickly" }""")]
-    [InlineData("""{ "storyPointsPerDay": "0" }""")]
-    [InlineData("""{ "storyPointsPerDay": "-3" }""")]
-    [InlineData("""{ "storyPointsPerDay": "" }""")]
+    [InlineData("""{ "storyPointsPerWeek": "quickly" }""")]
+    [InlineData("""{ "storyPointsPerWeek": "0" }""")]
+    [InlineData("""{ "storyPointsPerWeek": "-3" }""")]
+    [InlineData("""{ "storyPointsPerWeek": "" }""")]
     // Hand-edited with a comma: read as the default rather than as 25, so a file
     // somebody typed their own way cannot quietly change every plan's length.
-    [InlineData("""{ "storyPointsPerDay": "2,5" }""")]
+    [InlineData("""{ "storyPointsPerWeek": "2,5" }""")]
     [InlineData("not json at all")]
     public void A_hand_edited_file_the_roadmap_could_not_divide_by_reads_as_the_default(string contents)
     {
         File.WriteAllText(SettingsFile, contents);
 
-        Assert.Equal(1m, Store().StoryPointsPerDay);
+        Assert.Equal(PlanningVelocitySettingsStore.Default, Store().StoryPointsPerWeek);
+    }
+
+    // --- A file from when the pace was a day -------------------------------------
+
+    /// <summary>A pace kept before it was a week is not lost: seven times the day's
+    /// figure draws every bar exactly as long as it was.</summary>
+    [Theory]
+    [InlineData("""{ "storyPointsPerDay": 2 }""", 14)]
+    [InlineData("""{ "storyPointsPerDay": "0.5", "source": "Manual" }""", 3.5)]
+    public void A_pace_kept_by_the_day_reads_as_seven_times_that_a_week(string contents, double perWeek)
+    {
+        File.WriteAllText(SettingsFile, contents);
+
+        Assert.Equal((decimal)perWeek, Store().StoryPointsPerWeek);
+    }
+
+    [Fact]
+    public void The_weeks_spelling_wins_over_the_days()
+    {
+        File.WriteAllText(SettingsFile, """{ "storyPointsPerWeek": 10, "storyPointsPerDay": 2 }""");
+
+        Assert.Equal(10m, Store().StoryPointsPerWeek);
+    }
+
+    [Fact]
+    public void A_file_kept_by_the_day_is_rewritten_by_the_week_at_the_next_change()
+    {
+        File.WriteAllText(SettingsFile, """{ "storyPointsPerDay": 2 }""");
+
+        Assert.Null(Store().Set(20m));
+
+        var written = File.ReadAllText(SettingsFile);
+        Assert.Contains("storyPointsPerWeek", written, StringComparison.Ordinal);
+        Assert.DoesNotContain("storyPointsPerDay", written, StringComparison.Ordinal);
+        Assert.Equal(20m, Store().StoryPointsPerWeek);
     }
 
     /// <summary>The file is meant to be hand-edited, so a pace written the way JSON
     /// writes a number is read as readily as a quoted one. Both spellings are
     /// culture-free; only the two of them are accepted.</summary>
     [Theory]
-    [InlineData("""{ "storyPointsPerDay": 2.5 }""")]
-    [InlineData("""{ "storyPointsPerDay": "2.5" }""")]
+    [InlineData("""{ "storyPointsPerWeek": 2.5 }""")]
+    [InlineData("""{ "storyPointsPerWeek": "2.5" }""")]
     public void A_hand_edited_pace_is_read_quoted_or_bare(string contents)
     {
         File.WriteAllText(SettingsFile, contents);
 
-        Assert.Equal(2.5m, Store().StoryPointsPerDay);
+        Assert.Equal(2.5m, Store().StoryPointsPerWeek);
     }
 
     // --- Which pace places a plan ------------------------------------------------
@@ -242,7 +277,7 @@ public class PlanningVelocitySettingsStoreTests : IDisposable
 
         var reopened = Store();
         Assert.Equal(PaceSource.LastFourWeeks, reopened.Source);
-        Assert.Equal(2.5m, reopened.StoryPointsPerDay);
+        Assert.Equal(2.5m, reopened.StoryPointsPerWeek);
     }
 
     [Fact]
@@ -282,10 +317,10 @@ public class PlanningVelocitySettingsStoreTests : IDisposable
     /// and a number where a name belongs all place by the typed pace — and none of
     /// them costs the reader the pace they typed.</summary>
     [Theory]
-    [InlineData("""{ "storyPointsPerDay": 2.5 }""")]
-    [InlineData("""{ "storyPointsPerDay": 2.5, "source": "LastSixMonths" }""")]
-    [InlineData("""{ "storyPointsPerDay": 2.5, "source": "2" }""")]
-    [InlineData("""{ "storyPointsPerDay": 2.5, "source": null }""")]
+    [InlineData("""{ "storyPointsPerWeek": 2.5 }""")]
+    [InlineData("""{ "storyPointsPerWeek": 2.5, "source": "LastSixMonths" }""")]
+    [InlineData("""{ "storyPointsPerWeek": 2.5, "source": "2" }""")]
+    [InlineData("""{ "storyPointsPerWeek": 2.5, "source": null }""")]
     public void A_source_the_store_does_not_know_reads_as_the_typed_pace(string contents)
     {
         File.WriteAllText(SettingsFile, contents);
@@ -293,13 +328,13 @@ public class PlanningVelocitySettingsStoreTests : IDisposable
         var store = Store();
 
         Assert.Equal(PaceSource.Manual, store.Source);
-        Assert.Equal(2.5m, store.StoryPointsPerDay);
+        Assert.Equal(2.5m, store.StoryPointsPerWeek);
     }
 
     [Fact]
     public void A_source_is_read_whatever_its_case()
     {
-        File.WriteAllText(SettingsFile, """{ "storyPointsPerDay": 2, "source": "lasttwoweeks" }""");
+        File.WriteAllText(SettingsFile, """{ "storyPointsPerWeek": 2, "source": "lasttwoweeks" }""");
 
         Assert.Equal(PaceSource.LastTwoWeeks, Store().Source);
     }
@@ -310,11 +345,11 @@ public class PlanningVelocitySettingsStoreTests : IDisposable
     /// contract are asserted through the port rather than through the store, because
     /// the port is the only thing Roadmap is allowed to hold.</summary>
     [Fact]
-    public void The_port_answers_one_point_a_day_typed_when_the_reader_has_chosen_nothing()
+    public void The_port_answers_seven_points_a_week_typed_when_the_reader_has_chosen_nothing()
     {
         IPlanningVelocitySettings port = new PlanningVelocitySource(Store());
 
-        Assert.Equal(1m, port.Manual);
+        Assert.Equal(7m, port.Manual);
         Assert.Equal(PaceSource.Manual, port.Source);
     }
 
@@ -345,7 +380,7 @@ public class PlanningVelocitySettingsStoreTests : IDisposable
         Assert.Null(port.Choose(PaceSource.LastTwoWeeks));
         Assert.NotNull(port.SetManual("0"));
 
-        Assert.Equal(3.5m, store.StoryPointsPerDay);
+        Assert.Equal(3.5m, store.StoryPointsPerWeek);
         Assert.Equal(PaceSource.LastTwoWeeks, store.Source);
         Assert.Equal(2, raised);
     }

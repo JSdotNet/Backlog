@@ -168,7 +168,7 @@ public sealed class RoadmapBandShelfTests : RoadmapBandHarness
         Assert.Equal("Shelf", item.Title);
         Assert.Equal(new[] { "backlog" }, item.RepositoryAliases);
 
-        // Eight points at the test host's point a day: the window an import draws.
+        // Eight points at the test host's seven a week, a point a day: the window an import draws.
         Assert.Equal(ImportPlacement.Effort, item.PlacedByImport);
         Assert.Equal(8, item.Days);
     }

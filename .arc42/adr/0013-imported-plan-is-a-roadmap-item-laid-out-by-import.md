@@ -64,7 +64,9 @@ For the `confirm-rulings` entry, in one screen. The reasoning is in
    Without `due:`, length is gathered effort ÷ a workspace "story points per day"
    setting (velocity, default 1), rounded up, never under 1 day, and 5 days when
    nothing is gathered or nothing is estimated. Velocity is a reading preference
-   the person owns, not an estimate the plan registers.
+   the person owns, not an estimate the plan registers. *Amended 2026-09-25: the
+   setting is story points **a week**, default 7, and the length is effort × 7 ÷
+   it in calendar days — see [Deviations](#deviations).*
 5. **[Provenance and re-import](#5-placed_by_import-and-what-a-re-import-may-touch).**
    An import-created item carries `placed_by_import`, cleared the moment a person
    reschedules it by hand. A roadmap-level re-import, matched by tag, replaces
@@ -349,7 +351,9 @@ effort is the tasks' own, registered in Tasks, and the only thing added is the
 person's own statement of how fast *they* work through points. A window it
 produces is stored like any other window and is not recomputed when the setting
 changes; it is re-placed only by a re-import
-([ruling 5](#5-placed_by_import-and-what-a-re-import-may-touch)). So
+([ruling 5](#5-placed_by_import-and-what-a-re-import-may-touch)). *Amended
+2026-09-25: the setting is points a week, and a person changing it re-lengthens
+every window still sized by effort — ruling 5 and [Deviations](#deviations).* So
 `.domain/roadmap/domain.md`'s invariant stands with one word added to it: the
 total is plain arithmetic over registered points, and the *length* is plain
 arithmetic over that total and a factor the person set.
@@ -409,6 +413,15 @@ never carried — **except, while still `placed_by_import` = `effort`, its
 length**: the end is recomputed from the newly gathered effort, the start stays.
 A `due-date`-placed item keeps its end, because that end is a date the person
 wrote; a hand-placed item is untouched.
+
+**A person changing the pace re-lengthens by the same rule** — *amended
+2026-09-25, on the owner's request; as accepted, a window was stored and not
+recomputed when the setting changed.* Typing a new pace while it is the one in
+use, or choosing another, recomputes the end of every item still `effort`-placed
+from what it gathers now, keeping the start; `due-date` and hand-placed items are
+untouched, and nothing that waits on a re-lengthened item moves. It is still a
+person's gesture that moves a window: finished work shifting a measured pace
+moves no bar until the next change, import, or update from tasks.
 
 ### 6. Drawing the plan's steps inside its item
 
@@ -498,6 +511,22 @@ Found by the validation run, and changed with it:
   burst an import makes into one reload after another. A write the sync pull
   applies is suppressed at the task signal, so another machine's edit is still
   read on the next load rather than live.
+
+Changed on the owner's request, on 2026-09-25:
+
+- **[Ruling 4](#4-the-importer-places-the-window-velocity-is-the-readers)'s
+  velocity is story points a week, not a day.** The setting is kept as
+  `storyPointsPerWeek`, default 7 — one a day, so nobody's bars change length —
+  and a file holding only the old `storyPointsPerDay` reads as seven times it.
+  A measured pace is effort finished over 2, 4 or 8 weeks. Placement multiplies
+  by seven before dividing, so 4 points at 4 a week is exactly 7 days rather than
+  a hair over, rounded up to 8.
+- **[Ruling 5](#5-placed_by_import-and-what-a-re-import-may-touch): a pace change
+  re-lengthens every `effort`-placed item**, as amended there. Built as
+  `Features/RelengthenPlan`, reached through
+  `IRoadmapPlanning.RelengthenPlanFromEffortAsync`; the band gathers each item's
+  effort through `IRoadmapItemRollup` and hands it over when the pace control
+  reports a change to the pace in use.
 
 Changed on the owner's request, when the roadmap became a full-screen surface:
 

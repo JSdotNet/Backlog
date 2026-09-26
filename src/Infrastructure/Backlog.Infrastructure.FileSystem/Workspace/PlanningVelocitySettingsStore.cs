@@ -6,7 +6,7 @@ using Backlog.Modules.Roadmap.Abstractions;
 namespace Backlog.Infrastructure.FileSystem;
 
 /// <summary>
-/// How many story points the reader gets through in a day, as a small JSON file
+/// How many story points the reader gets through in a week, as a small JSON file
 /// beside the working week — <see cref="WorkingHoursSettingsStore"/>'s shape, for
 /// the same reason: it is the person's own pace, not the workspace's, and the
 /// roadmap has to be able to read it before anything has asked for it.
@@ -21,8 +21,15 @@ namespace Backlog.Infrastructure.FileSystem;
 /// <para>
 /// This is a <em>reading preference</em> (ADR 0013, ruling 4). It decides how long
 /// an imported plan's bar is drawn when the plan states no due date — gathered
-/// effort ÷ this, rounded up — and it registers no estimate against anything. A
-/// change here does not move a window already placed; only a re-import does that.
+/// effort ÷ this, in calendar days, rounded up — and it registers no estimate
+/// against anything. A change is re-drawn by the roadmap, which re-lengthens every
+/// window the importer still owns (ADR 0013, ruling 5 as amended).
+/// </para>
+/// <para>
+/// A file from before the pace was a week holds <c>storyPointsPerDay</c> and no
+/// <c>storyPointsPerWeek</c>. It reads as seven times that, which draws every bar
+/// exactly as long as it was, and is written in the week's spelling at the next
+/// change.
 /// </para>
 /// <para>
 /// It also keeps which pace the roadmap places by (<see cref="Source"/>): the typed
@@ -33,11 +40,12 @@ namespace Backlog.Infrastructure.FileSystem;
 /// </summary>
 public sealed class PlanningVelocitySettingsStore
 {
-    /// <summary>One story point a day — the figure the roadmap divides by when the
-    /// reader has never said otherwise. It is deliberately not zero: a velocity of
+    /// <summary>Seven story points a week — one a calendar day, what the roadmap
+    /// divided by when the pace was a day, so a reader who never set one sees no bar
+    /// change length. It is deliberately not zero: a velocity of
     /// zero has no length to give, and a default nobody chose should place a plan
     /// rather than refuse to.</summary>
-    public const decimal Default = 1m;
+    public const decimal Default = 7m;
 
     /// <summary>The finest pace the file and the field can hold, and therefore the
     /// smallest one the store will accept. <see cref="Format"/> keeps four decimals,
@@ -122,7 +130,7 @@ public sealed class PlanningVelocitySettingsStore
     /// <summary>Always a positive number, and always one <see cref="Format"/> can
     /// write without losing it: anything else was refused on the way in, and a file
     /// holding anything else reads as <see cref="Default"/>.</summary>
-    public decimal StoryPointsPerDay => _pace.StoryPointsPerDay;
+    public decimal StoryPointsPerWeek => _pace.StoryPointsPerWeek;
 
     /// <summary>Which pace the roadmap places by. Only ever a defined member: an
     /// unknown name in the file reads as <see cref="PaceSource.Manual"/>.</summary>
@@ -136,18 +144,18 @@ public sealed class PlanningVelocitySettingsStore
     /// setting can hold, in which case nothing changes, or a warning when it took
     /// but could not be written for next time.
     /// </summary>
-    public string? Set(decimal storyPointsPerDay)
+    public string? Set(decimal storyPointsPerWeek)
     {
-        if (storyPointsPerDay <= 0)
+        if (storyPointsPerWeek <= 0)
         {
-            return "Give a pace above zero — a day that gets through no points has no length to draw.";
+            return "Give a pace above zero — a week that gets through no points has no length to draw.";
         }
 
         // Rounded to what is actually storable before the value is published, so the
         // figure the roadmap divides by is the same one the file will hold. Rounding
         // at the write instead would let the store keep a pace its own file cannot
         // express, and lose it at the next start.
-        var storable = Normalize(storyPointsPerDay);
+        var storable = Normalize(storyPointsPerWeek);
 
         if (storable < Smallest)
         {
@@ -155,9 +163,9 @@ public sealed class PlanningVelocitySettingsStore
                 $"Give a pace of at least {Smallest} - anything finer than that rounds away to nothing.");
         }
 
-        if (StoryPointsPerDay == storable) return null;
+        if (StoryPointsPerWeek == storable) return null;
 
-        return Save(_pace with { StoryPointsPerDay = storable });
+        return Save(_pace with { StoryPointsPerWeek = storable });
     }
 
     /// <summary>Chooses the pace the roadmap places by. Returns <c>null</c> when it
@@ -182,12 +190,12 @@ public sealed class PlanningVelocitySettingsStore
                 typed,
                 PaceStyles,
                 CultureInfo.InvariantCulture,
-                out var storyPointsPerDay))
+                out var storyPointsPerWeek))
         {
-            return "Give a pace as a number, like 1 or 2.5.";
+            return "Give a pace as a number, like 5 or 7.5.";
         }
 
-        return Set(storyPointsPerDay);
+        return Set(storyPointsPerWeek);
     }
 
     private string? Save(Pace pace)
@@ -200,7 +208,7 @@ public sealed class PlanningVelocitySettingsStore
         {
             File.WriteAllText(_path, JsonSerializer.Serialize(new PlanningVelocityDto
             {
-                StoryPointsPerDay = pace.StoryPointsPerDay,
+                StoryPointsPerWeek = pace.StoryPointsPerWeek,
                 Source = pace.Source.ToString()
             }, JsonOptions));
         }
@@ -216,14 +224,14 @@ public sealed class PlanningVelocitySettingsStore
 
     /// <summary>What the field shows — four decimals, no trailing zeroes, invariant,
     /// so a value committed and re-read is spelled the way it was stored.</summary>
-    public static string Format(decimal storyPointsPerDay) =>
-        storyPointsPerDay.ToString("0.####", CultureInfo.InvariantCulture);
+    public static string Format(decimal storyPointsPerWeek) =>
+        storyPointsPerWeek.ToString("0.####", CultureInfo.InvariantCulture);
 
     /// <summary>Puts a pace through <see cref="Format"/> and back, which both caps it
     /// at four decimals and drops the trailing zeroes a decimal carries in its scale,
     /// so <c>2.50</c> and <c>2.5</c> become one value rather than two.</summary>
-    private static decimal Normalize(decimal storyPointsPerDay) =>
-        decimal.Parse(Format(storyPointsPerDay), PaceStyles, CultureInfo.InvariantCulture);
+    private static decimal Normalize(decimal storyPointsPerWeek) =>
+        decimal.Parse(Format(storyPointsPerWeek), PaceStyles, CultureInfo.InvariantCulture);
 
     /// <summary>
     /// A missing file, an unreadable one, a value that is not a number, and a number
@@ -240,7 +248,10 @@ public sealed class PlanningVelocitySettingsStore
 
             var dto = JsonSerializer.Deserialize<PlanningVelocityDto>(File.ReadAllText(_path), JsonOptions);
 
-            var storyPointsPerDay = dto?.StoryPointsPerDay is { } typed && typed >= Smallest
+            // The week's spelling wins; a file only ever written in the day's is that
+            // figure over seven days.
+            var perWeek = dto?.StoryPointsPerWeek ?? dto?.StoryPointsPerDay * 7;
+            var storyPointsPerWeek = perWeek is { } typed && typed >= Smallest
                 ? Normalize(typed)
                 : Default;
 
@@ -252,7 +263,7 @@ public sealed class PlanningVelocitySettingsStore
                 ? chosen
                 : PaceSource.Manual;
 
-            return new Pace(storyPointsPerDay, source);
+            return new Pace(storyPointsPerWeek, source);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
@@ -262,7 +273,7 @@ public sealed class PlanningVelocitySettingsStore
 
     /// <summary>The published figure, as one object so that swapping it is atomic.
     /// See <see cref="_pace"/>.</summary>
-    private sealed record Pace(decimal StoryPointsPerDay, PaceSource Source);
+    private sealed record Pace(decimal StoryPointsPerWeek, PaceSource Source);
 
     /// <summary>
     /// Written as a JSON number, which is culture-free by the format's own rules —
@@ -275,6 +286,12 @@ public sealed class PlanningVelocitySettingsStore
     private sealed class PlanningVelocityDto
     {
         [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+        public decimal? StoryPointsPerWeek { get; init; }
+
+        /// <summary>The pace as it was kept before it was a week. Read, never
+        /// written: nothing sets it, and a null is left out of the file.</summary>
+        [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public decimal? StoryPointsPerDay { get; init; }
 
         /// <summary>A <see cref="PaceSource"/> name. A string rather than the enum,

@@ -14,8 +14,8 @@ namespace Backlog.Infrastructure.FileSystem.Roadmap;
 /// </para>
 /// <para>
 /// Read per call rather than pinned at construction, so a pace changed on the
-/// roadmap is what the next placement divides by. Nothing already drawn moves — a
-/// window is stored, not recomputed (ADR 0013, ruling 5).
+/// roadmap is what the next placement divides by — including the re-lengthening the
+/// roadmap runs straight after the change (ADR 0013, ruling 5 as amended).
 /// </para>
 /// </summary>
 public sealed class PlanningVelocitySource : IPlanningVelocitySettings
@@ -34,7 +34,7 @@ public sealed class PlanningVelocitySource : IPlanningVelocitySettings
         remove => _settings.Changed -= value;
     }
 
-    public decimal Manual => _settings.StoryPointsPerDay;
+    public decimal Manual => _settings.StoryPointsPerWeek;
 
     public PaceSource Source => _settings.Source;
 

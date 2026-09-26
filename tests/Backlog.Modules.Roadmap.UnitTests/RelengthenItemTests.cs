@@ -19,7 +19,7 @@ public class RelengthenItemTests
     private static readonly DateOnly Start = new(2026, 3, 2);
 
     private readonly SnapshotPlanRepository _plans = new();
-    private readonly FixedVelocity _velocity = new(1);
+    private readonly FixedVelocity _velocity = new(7);
 
     private Task<Result<RoadmapRelengthResultDto>> RelengthenAsync(Guid itemId, int gatheredEffort) =>
         new RelengthenItemCommandHandler(_plans, _velocity)
@@ -90,9 +90,9 @@ public class RelengthenItemTests
     public async Task TheReadersPaceSetsTheLength()
     {
         var id = Imported("plan-a");
-        _velocity.StoryPointsPerDay = 2;
+        _velocity.StoryPointsPerWeek = 14;
 
-        await RelengthenAsync(id, 9); // 4.5 days, rounded up
+        await RelengthenAsync(id, 9); // 9 points at 14 a week = 4.5 days, rounded up
 
         Assert.Equal(PlannedWindow.Of(Start, Start.AddDays(4)), Stored(id).Window);
     }
@@ -247,11 +247,11 @@ public class RelengthenItemTests
             plan.BandColours);
     }
 
-    private sealed class FixedVelocity(decimal storyPointsPerDay) : IPlanningVelocity
+    private sealed class FixedVelocity(decimal storyPointsPerWeek) : IPlanningVelocity
     {
-        public decimal StoryPointsPerDay { get; set; } = storyPointsPerDay;
+        public decimal StoryPointsPerWeek { get; set; } = storyPointsPerWeek;
 
-        public Task<decimal> GetStoryPointsPerDayAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(StoryPointsPerDay);
+        public Task<decimal> GetStoryPointsPerWeekAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(StoryPointsPerWeek);
     }
 }

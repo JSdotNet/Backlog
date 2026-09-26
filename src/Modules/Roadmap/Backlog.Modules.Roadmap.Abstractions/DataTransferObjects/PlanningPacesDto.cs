@@ -9,10 +9,11 @@ namespace Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 /// instead, and <see cref="FellBack"/> says so.
 /// </para>
 /// </summary>
-/// <param name="Manual">The pace the reader typed. Always positive.</param>
-/// <param name="LastTwoWeeks">Effort finished in the last 14 days, over 14.</param>
-/// <param name="LastFourWeeks">Effort finished in the last 28 days, over 28.</param>
-/// <param name="LastEightWeeks">Effort finished in the last 56 days, over 56.</param>
+/// <param name="Manual">The pace the reader typed, in story points a week. Always
+/// positive.</param>
+/// <param name="LastTwoWeeks">Effort finished in the last 14 days, over 2 weeks.</param>
+/// <param name="LastFourWeeks">Effort finished in the last 28 days, over 4 weeks.</param>
+/// <param name="LastEightWeeks">Effort finished in the last 56 days, over 8 weeks.</param>
 /// <param name="Source">The pace the reader chose.</param>
 public sealed record PlanningPacesDto(
     decimal Manual,

@@ -173,4 +173,16 @@ public interface IRoadmapPlanning
         Guid itemId,
         int gatheredEffort,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Re-lengthens every item whose window is sized by its effort, at the reader's
+    /// pace as it stands now — asked for when a person changes that pace (ADR 0013,
+    /// ruling 5 as amended). Each start is kept and each end recomputed; due-date and
+    /// hand-placed windows are left alone. Answers with the items that moved.
+    /// </summary>
+    /// <param name="gatheredEffort">Per item id, the rollup total the item gathers
+    /// now. An item absent from it is not touched.</param>
+    Task<Result<IReadOnlyList<RoadmapItemDto>>> RelengthenPlanFromEffortAsync(
+        IReadOnlyDictionary<Guid, int> gatheredEffort,
+        CancellationToken cancellationToken = default);
 }

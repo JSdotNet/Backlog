@@ -386,7 +386,7 @@ chapter says what the feature does, not why the rulings fell the way they did.
 ```meta
 type: sub-feature
 status: active
-setting: [.domain/roadmap/context.md#story-points-a-day]
+setting: [.domain/roadmap/context.md#story-points-a-week]
 related: [.domain/roadmap/domain.md#planned-window, .domain/roadmap/domain.md#plan-sequencing, .domain/roadmap/features.md#surfacing-contradictions-instead-of-fixing-them]
 ```
 
@@ -394,20 +394,22 @@ Give an imported plan a window nobody had to guess. The **end** is the day the
 plan says it is due, when it says one. The **start** is never in the document:
 it is the day after the last thing the plan waits on finishes, or today when it
 waits on nothing. A plan with no due date gets a **length from its effort** —
-the story points its tasks registered, divided by how many points a day the
-person says they get through — never shorter than a day, and a plain working
+the story points its tasks registered, divided by how many points a week the
+person says they get through, as calendar days — never shorter than a day, and a plain working
 week when there is nothing gathered yet or nothing sized. A due date that falls
 before the plan could start is kept, and the plan is placed on that one day so
 the [contradiction shows](#surfacing-contradictions-instead-of-fixing-them)
 rather than being smoothed over.
 
-The points-per-day figure is **the person's own reading pace**, set in the
+The points-a-week figure is **the person's own reading pace**, set in the
 roadmap's heading, and not an estimate the plan registers: the effort is still
 the tasks' own, added and never invented, and the only thing the placement adds
 is how fast the person works through it — the pace they typed, or the one they
 actually kept over the last two, four or eight weeks, whichever they pick.
-Changing it moves nothing already placed — re-importing does, and so does asking
-one item to update from its tasks.
+Changing it re-draws every plan whose window is still sized by its effort, from
+what its tasks gather now; a plan moved by hand or ending on its due date keeps
+its dates. Re-importing re-places too, and so does asking one item to update
+from its tasks.
 
 An item the import placed remembers that it did. The first time a person moves
 it by hand, that memory is cleared and the importer never touches its dates
