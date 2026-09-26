@@ -1,0 +1,229 @@
+@*
+    The bar over the list while the reader is picking items: the shared
+    SelectionBar — the count, the select-all with its partial state, the way
+    out — with the four acts the Inbox can take across a selection. The same
+    bar the Tasks pane puts over its list, so the two panes pick things the
+    same way (.devbook/domain/tasks/features.md#bulk-editing).
+
+    Archive runs on the press, as it does on the detail. The other three open a
+    dialog, because each needs a choice first — which list, which tags, which
+    repositories — and a dialog is where the detail already asks "Move to
+    list". Every act waits while one is in flight; the answer is a toast from
+    the state, which names any item it could not change.
+
+    Escape anywhere on the bar puts the selection down, as it does on Tasks'.
+*@
+
+<SelectionBar Count="@State.SelectionCount"
+              Total="@State.VisibleItems.Count"
+              ItemNoun="item"
+              AriaLabel="Selected items"
+              ActionsLabel="Apply to the selected items"
+              SelectAllText="@($"Select all {State.VisibleItems.Count}")"
+              SelectAllLabel="@($"Select all {State.VisibleItems.Count} items shown")"
+              SelectAllChanged="picked => State.SetSelectAllVisible(picked)"
+              OnClear="State.ClearSelection"
+              Actions="@(State.SelectionCount > 0 ? Acts : null)"
+              CssClass="inbox-pane__bulk-bar"
+              TestId="inbox-bulk-bar"
+              @onkeydown="OnKeyDown" />
+
+<Modal Open="@(_open == Dialog.Move)"
+       OpenChanged="open => Close(open)"
+       Title="@($"Move {Noun} to list")"
+       CssClass="inbox-pane__dialog"
+       TestId="inbox-bulk-move-dialog">
+    <ChildContent>
+        <MenuList Items="@MoveTargets()"
+                  AriaLabel="Lists"
+                  TestId="inbox-bulk-move-list"
+                  OnItemSelected="OnMoveTargetAsync" />
+    </ChildContent>
+</Modal>
+
+<Modal Open="@(_open == Dialog.Tags)"
+       OpenChanged="open => Close(open)"
+       Title="@($"Tag {Noun}")"
+       CssClass="inbox-pane__dialog"
+       TestId="inbox-bulk-tags-dialog">
+    <ChildContent>
+        @* Adds to each item's own tags rather than replacing them — see
+           InboxDesktopState.BulkAddTagsAsync — so the picker starts empty. *@
+        <TagMultiSelect Label="Add tags"
+                        Options="@State.TagOptions"
+                        SelectedValues="@_tags"
+                        SelectedValuesChanged="tags => _tags = tags"
+                        AllowCreate="true"
+                        Placeholder="Add a tag"
+                        CssClass="inbox-pane__picker"
+                        TestId="inbox-bulk-tags" />
+        @if (State.SelectedTags.Count > 0)
+        {
+            <div class="inbox-pane__bulk-remove" role="group" aria-label="Remove a tag from every selected item" data-testid="inbox-bulk-remove-tags">
+                @foreach (var tag in State.SelectedTags)
+                {
+                    <AppButton Variant="ButtonVariant.Ghost"
+                               Size="ButtonSize.Small"
+                               Disabled="@State.BulkRunning"
+                               Title="@($"Take {TagText.Display(tag)} off every selected item")"
+                               OnClick="() => OnRemoveTagAsync(tag)"
+                               TestId="@($"inbox-bulk-remove-tag-{tag}")">Remove @TagText.Display(tag)</AppButton>
+                }
+            </div>
+        }
+    </ChildContent>
+    <Footer>
+        <AppButton Variant="ButtonVariant.Primary"
+                   Size="ButtonSize.Small"
+                   Disabled="@(_tags.Count == 0 || State.BulkRunning)"
+                   OnClick="OnAddTagsAsync"
+                   TestId="inbox-bulk-tags-apply">Add to @Noun</AppButton>
+    </Footer>
+</Modal>
+
+<Modal Open="@(_open == Dialog.Repositories)"
+       OpenChanged="open => Close(open)"
+       Title="@($"Assign repositories to {Noun}")"
+       CssClass="inbox-pane__dialog"
+       TestId="inbox-bulk-repos-dialog">
+    <ChildContent>
+        <TagMultiSelect Label="Repositories"
+                        Options="@State.RepositoryOptions"
+                        SelectedValues="@_repos"
+                        SelectedValuesChanged="repos => _repos = repos"
+                        Placeholder="Add a repository"
+                        CssClass="inbox-pane__picker"
+                        TestId="inbox-bulk-repos" />
+        <Alert BaseClass="inbox-pane__note"
+               Role="status"
+               Message="@(State.RepositoryOptions.Count == 0
+                   ? "No repositories are configured in Settings."
+                   : "Replaces the repositories each selected item targets.")"
+               TestId="inbox-bulk-repos-note" />
+    </ChildContent>
+    <Footer>
+        <AppButton Variant="ButtonVariant.Primary"
+                   Size="ButtonSize.Small"
+                   Disabled="@(_repos.Count == 0 || State.BulkRunning)"
+                   OnClick="OnAssignRepositoriesAsync"
+                   TestId="inbox-bulk-repos-apply">Assign to @Noun</AppButton>
+    </Footer>
+</Modal>
+
+@code {
+    private const string InboxTarget = "inbox";
+
+    private enum Dialog { None, Move, Tags, Repositories }
+
+    [Parameter, EditorRequired]
+    public InboxDesktopState State { get; set; } = default!;
+
+    private Dialog _open;
+
+    private IReadOnlyList<string> _tags = [];
+
+    private IReadOnlyList<string> _repos = [];
+
+    /// <summary>"1 item", "4 items" — what every dialog title and apply button
+    /// is about.</summary>
+    private string Noun => InboxDesktopState.Counted(State.SelectionCount, "item", "items");
+
+    private RenderFragment Acts => @<text>
+        <AppButton Size="ButtonSize.Small"
+                   Disabled="@State.BulkRunning"
+                   OnClick="() => State.BulkArchiveAsync()"
+                   TestId="inbox-bulk-archive">Archive</AppButton>
+        <AppButton Size="ButtonSize.Small"
+                   Disabled="@State.BulkRunning"
+                   OnClick="() => Open(Dialog.Move)"
+                   TestId="inbox-bulk-move">Move to list…</AppButton>
+        <AppButton Size="ButtonSize.Small"
+                   Disabled="@State.BulkRunning"
+                   OnClick="() => Open(Dialog.Tags)"
+                   TestId="inbox-bulk-tag">Tags…</AppButton>
+        <AppButton Size="ButtonSize.Small"
+                   Disabled="@State.BulkRunning"
+                   OnClick="() => Open(Dialog.Repositories)"
+                   TestId="inbox-bulk-repos-open">Repositories…</AppButton>
+    </text>;
+
+    private void Open(Dialog dialog)
+    {
+        _tags = [];
+        _repos = [];
+        _open = dialog;
+    }
+
+    private void Close(bool open)
+    {
+        if (!open) _open = Dialog.None;
+    }
+
+    private void OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key is "Escape" && _open == Dialog.None) State.ClearSelection();
+    }
+
+    /// <summary>Every list but the open one — the picked items are all in it —
+    /// with its group's name in front, and the inbox itself when a list is open.
+    /// The same targets the detail's Move to list offers.</summary>
+    private IReadOnlyList<MenuItem> MoveTargets()
+    {
+        var items = new List<MenuItem>();
+
+        if (State.SelectedListId is not null)
+        {
+            items.Add(new MenuItem(InboxTarget, "Inbox", "✉"));
+        }
+
+        var lists = State.Lists
+            .Where(list => list.Id != State.SelectedListId)
+            .OrderBy(list => list.GroupId is { } groupId ? State.FindGroup(groupId)?.Order ?? int.MaxValue : -1)
+            .ThenBy(list => list.Order);
+
+        foreach (var list in lists)
+        {
+            var group = list.GroupId is { } groupId ? State.FindGroup(groupId)?.Name : null;
+            items.Add(new MenuItem(InboxDesktopState.ListNavId(list.Id), group is null ? list.Name : $"{group} / {list.Name}"));
+        }
+
+        return items;
+    }
+
+    private async Task OnMoveTargetAsync(MenuItem target)
+    {
+        _open = Dialog.None;
+
+        if (target.Id == InboxTarget)
+        {
+            await State.BulkMoveToListAsync(null);
+        }
+        else if (InboxDesktopState.TryParseListId(target.Id, out var listId))
+        {
+            await State.BulkMoveToListAsync(listId);
+        }
+    }
+
+    private async Task OnAddTagsAsync()
+    {
+        var picked = _tags;
+        _open = Dialog.None;
+
+        await State.BulkAddTagsAsync(picked);
+    }
+
+    private async Task OnRemoveTagAsync(string tag)
+    {
+        _open = Dialog.None;
+
+        await State.BulkRemoveTagAsync(tag);
+    }
+
+    private async Task OnAssignRepositoriesAsync()
+    {
+        var picked = _repos;
+        _open = Dialog.None;
+
+        await State.BulkAssignRepositoriesAsync(picked);
+    }
+}
