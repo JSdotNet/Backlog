@@ -107,6 +107,43 @@ public sealed class MyDayScopeTests
         Assert.Empty(pane.FindAll("[data-testid='area-filter-option']"));
     }
 
+    /// <summary>
+    /// Each scope wears a glyph in place of its word, and the word is still its
+    /// name: the glyph is hidden from assistive technology and the word sits in an
+    /// sr-only span, so what is on screen is the glyph and the count alone while a
+    /// screen reader still hears "My Day 1".
+    /// </summary>
+    [Fact]
+    public async Task Each_scope_shows_a_glyph_and_keeps_its_word_as_the_name()
+    {
+        var (host, _, _, _) = await ThreeAsync();
+        using var _host = host;
+
+        var pane = host.Render();
+
+        var scopes = pane.FindAll(".filter-group--scope .chip");
+        string[] glyphs = ["sun-icon", "folder-off-icon", "play-icon"];
+        string[] names = ["My Day", "No repo", "Not waiting"];
+
+        Assert.Equal(3, scopes.Count);
+
+        for (var i = 0; i < scopes.Count; i++)
+        {
+            var glyph = scopes[i].QuerySelector($"svg.{glyphs[i]}.chip__icon");
+            Assert.NotNull(glyph);
+            Assert.Equal("true", glyph.GetAttribute("aria-hidden"));
+
+            Assert.Equal(names[i], scopes[i].QuerySelector(".sr-only")?.TextContent);
+
+            // Nothing visible beside the glyph but the count.
+            var visible = scopes[i].ChildNodes
+                .Where(node => node is not AngleSharp.Dom.IElement element
+                    || !element.ClassList.Contains("sr-only") && !element.ClassList.Contains("chip__count"))
+                .Select(node => node.TextContent.Trim());
+            Assert.All(visible, text => Assert.Empty(text));
+        }
+    }
+
     [Fact]
     public async Task The_scope_shows_only_the_entries_picked_for_today()
     {
