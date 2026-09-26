@@ -104,7 +104,7 @@ public static class AppFeatures
         new(
             DevbookFeatures.C4Diagrams,
             "C4 diagrams",
-            "Show the C4 model kept beside the architecture chapters in .arc42/_c4/, authored as Structurizr DSL in c4hero. Its views are listed with the chapters, and a chapter that references a view links to it and back.",
+            "Show the C4 model kept beside the architecture chapters in .devbook/arc42/_c4/, authored as Structurizr DSL in c4hero. Its views are listed with the chapters, and a chapter that references a view links to it and back.",
             EnabledByDefault: false),
         new(
             DevbookFeatures.Search,

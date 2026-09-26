@@ -7,14 +7,13 @@ paths:
 
 # File and folder naming
 
-Naming **inside** the knowledge folders (`.devbook/arc42/`, `.devbook/domain/`,
-`.devbook/tech/`, `.devbook/design/`, `.devbook/ai/`, and any `_meta/`) is governed by the `devbook`
-plugin's `knowledge-naming.instructions.md`. This file covers only the rest of
-the repository.
+Naming **inside** `.devbook/` — including the underscore prefix that marks tooling
+assets such as `_meta/` and `_tools/` — is `devbook-naming.md`'s. This file covers
+only the rest of the repository.
 
 ## Casing
 
-Use kebab-case for files and folders (`.devbook/_tools/devbook-meta/`,
+Use kebab-case for files and folders (`plugins/backlog-tools/`,
 `orch-context.md`). Keep any casing an external tool requires, such as
 `SKILL.md`, `README.md`, `CODEOWNERS`, and workflow filenames the platform
 expects.
@@ -28,13 +27,3 @@ A name should not repeat what its location already says.
   `.github/instructions/` carry the same name.
 - Skill folders are named after the task they orchestrate, and the folder name
   must match the `name` field in that skill's `SKILL.md` frontmatter.
-
-## Underscore prefix marks tooling assets
-
-The leading underscore marks assets that exist **for tooling rather than for
-reading** — templates, schemas, and generated artifacts (`_template.md`,
-`_schema.json`, `_meta/`). Files inside an already-prefixed folder are not
-prefixed again: `_meta/graph.json`, never `_meta/_graph.json`.
-
-Do not use the prefix for documents meant to be read as content, even when
-tooling also parses them.

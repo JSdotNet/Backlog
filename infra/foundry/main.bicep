@@ -108,7 +108,7 @@ var optionalModelDeployments = includeBalancedModel ? [
 // dimensions against 3072 halves both the cost of the brute-force cosine scan the reader does and
 // the size of the database it scans, for a quality difference that barely shows on a documentation
 // corpus that FTS5 is answering alongside it. See
-// `.arc42/adr/0004-knowledge-index-is-a-generated-local-database.md`, which keeps vector search
+// `.devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md`, which keeps vector search
 // behind a port precisely so this choice can be revisited without moving its callers.
 var knowledgeEmbeddingDeployment = 'text-embedding-3-small'
 

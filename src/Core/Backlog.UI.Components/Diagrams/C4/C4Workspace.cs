@@ -134,7 +134,7 @@ public sealed record C4DynamicStep(
 /// to see in it.
 /// </summary>
 /// <param name="Key">The view's own identifier. This is what a chapter reference
-/// addresses — <c>.arc42/_c4/backlog.dsl#container-backlog</c> names the view with
+/// addresses — <c>.devbook/arc42/_c4/backlog.dsl#container-backlog</c> names the view with
 /// key <c>container-backlog</c> — so a view the DSL left unkeyed is given a
 /// synthesised one rather than being left unaddressable.</param>
 /// <param name="ScopeId">The element the view is of: the software system of a

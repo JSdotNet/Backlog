@@ -81,7 +81,7 @@ Both entries resolve here, because that is what a reading surface with a route t
 
 An entry that will not parse as an address does not vanish either — it lands under Extra, on the relation it was written on."
            Code="@ReferenceCode">
-        @Field("related", "related: [\".tech/shared.md#markdown\", \".arc42/02-constraints.md\"]",
+        @Field("related", "related: [\".devbook/tech/shared.md#markdown\", \".devbook/arc42/02-constraints.md\"]",
             "Every folder.", "MetadataReferenceList",
             @<MetadataReferenceList References="@RelatedReferences" HrefFor="@ResolveAll" />)
         <div class="sb-stack" data-testid="devbook-fields-related-unresolved">
@@ -104,7 +104,7 @@ An entry that will not parse as an address does not vanish either — it lands u
 
 Nothing in the library orders anything by it. It is drawn as the addresses it holds, and what to do with the ordering is the reading surface's question."
            Code="@ReferenceCode">
-        @Field("depends-on", "depends-on: [\".tech/shared.md#net-runtime\", \".tech/shared.md#c-language\"]",
+        @Field("depends-on", "depends-on: [\".devbook/tech/shared.md#net-runtime\", \".devbook/tech/shared.md#c-language\"]",
             ".domain features, .backlog items, .tech entries.", "MetadataReferenceList",
             @<MetadataReferenceList References="@DependsOnReferences" HrefFor="@ResolveAll" />)
     </Story>
@@ -114,7 +114,7 @@ Nothing in the library orders anything by it. It is drawn as the addresses it ho
 
 Same value shape as the other two relations, drawn by the same component. Where the addresses may point is the convention's rule, not the component's — nothing here refuses an `implements` entry that names something else."
            Code="@ReferenceCode">
-        @Field("implements", "implements: [.domain/tasks/features.md#feature-roadmap-planning]",
+        @Field("implements", "implements: [.devbook/domain/tasks/features.md#feature-roadmap-planning]",
             ".backlog items.", "MetadataReferenceList",
             @<MetadataReferenceList References="@ImplementsReferences" HrefFor="@ResolveAll" />)
     </Story>
@@ -316,18 +316,18 @@ A key the reader recognises and deliberately drops never arrives here. `order` i
 
     private static readonly IReadOnlyList<DevbookReference> RelatedReferences =
     [
-        DevbookReference.Parse(".tech/shared.md#markdown")!,
-        DevbookReference.Parse(".arc42/02-constraints.md")!
+        DevbookReference.Parse(".devbook/tech/shared.md#markdown")!,
+        DevbookReference.Parse(".devbook/arc42/02-constraints.md")!
     ];
 
     private static readonly IReadOnlyList<DevbookReference> DependsOnReferences =
     [
-        DevbookReference.Parse(".tech/shared.md#net-runtime")!,
-        DevbookReference.Parse(".tech/shared.md#c-language")!
+        DevbookReference.Parse(".devbook/tech/shared.md#net-runtime")!,
+        DevbookReference.Parse(".devbook/tech/shared.md#c-language")!
     ];
 
     private static readonly IReadOnlyList<DevbookReference> ImplementsReferences =
-        [DevbookReference.Parse(".domain/tasks/features.md#feature-roadmap-planning")!];
+        [DevbookReference.Parse(".devbook/domain/tasks/features.md#feature-roadmap-planning")!];
 
     /// <summary>Answers for every reference it is asked about, which is what a
     /// reading surface with a route table does. The earlier version of this resolved

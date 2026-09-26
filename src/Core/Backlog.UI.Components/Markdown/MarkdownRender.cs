@@ -48,7 +48,7 @@ public static class MarkdownRender
     /// always rendered.
     /// <para>
     /// A hook rather than a rule baked in here, because the same code span means
-    /// different things in different places: <c>.domain/sessions/domain.md</c> in
+    /// different things in different places: <c>.devbook/domain/sessions/domain.md</c> in
     /// a knowledge chapter is a chapter somebody can open, and the identical span
     /// in an entry's body is a path being quoted. Only the caller knows which
     /// document it is rendering.

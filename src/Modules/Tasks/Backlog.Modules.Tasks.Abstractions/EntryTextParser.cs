@@ -1623,11 +1623,11 @@ public static class EntryTextParser
 
     /// <summary>Rewrites the whole set of <c>repo:</c> tokens. A set rather than a
     /// value because an entry may target several repositories at once
-    /// (<c>.domain/backlog/features.md#multi-repo-targeting</c>), and an empty list
+    /// (<c>.devbook/domain/tasks/features.md#multi-repo-targeting</c>), and an empty list
     /// clears them: an entry that targets nothing carries no token rather than an
     /// empty one, the rule every other named field here follows. Deliberately
     /// unrelated to <c>@area</c> — the area is the person's own pile and says
-    /// nothing about repositories (<c>.domain/backlog/naming.md#area</c>).</summary>
+    /// nothing about repositories (<c>.devbook/domain/tasks/domain.md#area</c>).</summary>
     public static string WithRepoIds(string raw, IEnumerable<string>? repoIds) =>
         RewriteMetaLine(raw, repoIds: NormalizeRepoIds(repoIds), updateRepoIds: true);
 

@@ -51,7 +51,7 @@ The path is on that line and not opposite it because that is the only way round 
             <p class="sb-label">Name, path, status</p>
             <div class="sb-frame">
                 <FileHeader Name="shared.md"
-                            Path=".tech/shared.md"
+                            Path=".devbook/tech/shared.md"
                             Kind="Technology stack"
                             Metadata="@FileRecord"
                             Vocabulary="@TechVocabulary"
@@ -99,7 +99,7 @@ The chapters keep theirs. A `##` fence describes the chapter under it, that head
            SourceLabel="The fence the record was parsed from">
         <div class="sb-frame" data-testid="file-header-record-frame">
             <FileHeader Name="shared.md"
-                        Path=".tech/shared.md"
+                        Path=".devbook/tech/shared.md"
                         Source="Repository"
                         Kind="Technology stack"
                         SizeInBytes="5837"
@@ -137,7 +137,7 @@ The fields tier keeps the record's own treatment either way — the extra-small 
             <p class="sb-label">On — the fields under the status</p>
             <div class="sb-frame">
                 <FileHeader Name="shared.md"
-                            Path=".tech/shared.md"
+                            Path=".devbook/tech/shared.md"
                             Kind="Technology stack"
                             Metadata="@FileRecord"
                             Vocabulary="@TechVocabulary"
@@ -147,7 +147,7 @@ The fields tier keeps the record's own treatment either way — the extra-small 
             <p class="sb-label">Off — the status alone</p>
             <div class="sb-frame">
                 <FileHeader Name="shared.md"
-                            Path=".tech/shared.md"
+                            Path=".devbook/tech/shared.md"
                             Kind="Technology stack"
                             Metadata="@FileRecord"
                             Vocabulary="@TechVocabulary"
@@ -183,7 +183,7 @@ Pick a status below — the second header is the same file scoped to no vocabula
             <p class="sb-label">A vocabulary the folder names — a select</p>
             <div class="sb-frame">
                 <FileHeader Name="shared.md"
-                            Path=".tech/shared.md"
+                            Path=".devbook/tech/shared.md"
                             Kind="Technology stack"
                             Metadata="@FileRecord"
                             Vocabulary="@TechVocabulary"
@@ -195,7 +195,7 @@ Pick a status below — the second header is the same file scoped to no vocabula
             <p class="sb-label">No vocabulary — the same word, shown and not judged</p>
             <div class="sb-frame">
                 <FileHeader Name="shared.md"
-                            Path=".tech/shared.md"
+                            Path=".devbook/tech/shared.md"
                             Kind="Technology stack"
                             Metadata="@FileRecord"
                             ShowMetadataFields="false"
@@ -269,7 +269,7 @@ Press it — the toggle reports the state it is asking for, and the pane is what
            Code="@CompareCode">
         <div class="sb-frame" data-testid="file-header-compare-frame">
             <FileHeader Name="domain.md"
-                        Path=".domain/tasks/domain.md"
+                        Path=".devbook/domain/tasks/domain.md"
                         AllowCopy="true"
                         Body="@FileFixtures.SharedTechnologies"
                         OffersEdit="true"
@@ -290,7 +290,7 @@ Press it — the toggle reports the state it is asking for, and the pane is what
             <p class="sb-label">Two versions — the picker, under the actions</p>
             <div class="sb-frame">
                 <FileHeader Name="domain.md"
-                            Path=".domain/tasks/domain.md"
+                            Path=".devbook/domain/tasks/domain.md"
                             OffersCompare="true"
                             Comparing="true"
                             CompareBaselines="@Baselines"
@@ -302,7 +302,7 @@ Press it — the toggle reports the state it is asking for, and the pane is what
             <p class="sb-label">One version — comparing, and nothing to choose</p>
             <div class="sb-frame">
                 <FileHeader Name="domain.md"
-                            Path=".domain/tasks/domain.md"
+                            Path=".devbook/domain/tasks/domain.md"
                             OffersCompare="true"
                             Comparing="true"
                             CompareBaselines="@Baselines[..1]"
@@ -352,8 +352,8 @@ Press it — the toggle reports the state it is asking for, and the pane is what
         kind: framework
         version: "10.0"
         effort: 5
-        related: [".arc42/04-solution-strategy.md#thin-cloud-rich-desktop"]
-        depends-on: [".tech/shared.md#c-language"]
+        related: [".devbook/arc42/04-solution-strategy.md#thin-cloud-rich-desktop"]
+        depends-on: [".devbook/tech/shared.md#c-language"]
         """;
 
     private static readonly MetadataRecord FileRecord = MetadataReader.Parse(FileBlock);

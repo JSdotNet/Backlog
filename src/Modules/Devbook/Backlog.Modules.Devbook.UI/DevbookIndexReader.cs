@@ -360,7 +360,7 @@ public sealed class DevbookIndexEntry
     /// <summary>The file or directory name, e.g. <c>domain.md</c> or <c>inbox</c>.</summary>
     public string Name { get; set; } = string.Empty;
 
-    /// <summary>Repository-relative, <c>/</c>-separated, e.g. <c>.domain/inbox/domain.md</c>.</summary>
+    /// <summary>Repository-relative, <c>/</c>-separated, e.g. <c>.devbook/domain/inbox/domain.md</c>.</summary>
     public string Path { get; set; } = string.Empty;
 
     /// <summary>The document's H1, or the directory's root document's H1.</summary>

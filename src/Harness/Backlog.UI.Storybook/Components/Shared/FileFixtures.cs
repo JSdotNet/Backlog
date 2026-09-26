@@ -53,7 +53,7 @@ internal static class FileFixtures
 
         ```meta
         status: candidate
-        related: [".tech/technology-graph.md", ".arc42/02-constraints.md#technical-constraints"]
+        related: [".devbook/tech/technology-graph.md", ".devbook/arc42/02-constraints.md#technical-constraints"]
         ```
 
         Technologies used by more than one channel. Every layer file points at these
@@ -64,7 +64,7 @@ internal static class FileFixtures
         ```meta
         status: adopted
         kind: format
-        related: [".arc42/08-crosscutting-concepts.md#storage-and-sync"]
+        related: [".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync"]
         ```
 
         The canonical storage format for all user content: inbox items, backlog
@@ -178,9 +178,9 @@ internal static class FileFixtures
         > Treat the knowledge folders as task-scoped context, not baseline
         > context.
 
-        1. Architecture workflows may load `.arc42/`, one chapter at a time.
-        2. Domain workflows may load `.domain/`, one bounded context at a time.
-        3. UI workflows should consult `.design/` when the change touches visual
+        1. Architecture workflows may load `.devbook/arc42/`, one chapter at a time.
+        2. Domain workflows may load `.devbook/domain/`, one bounded context at a time.
+        3. UI workflows should consult `.devbook/design/` when the change touches visual
            design, interaction, content editing or accessibility.
 
         ```csharp
@@ -229,7 +229,7 @@ internal static class FileFixtures
 
         ```meta
         status: proposed
-        related: [.domain/inbox/domain.md#aggregate-inbox-item]
+        related: [.devbook/domain/inbox/domain.md#inbox-item]
         ```
 
         A refined, actionable item in the personal backlog and the consistency
@@ -263,9 +263,9 @@ internal static class FileFixtures
         ```
 
         Tasks converts triaged Inbox Items into actionable, prioritised
-        Backlog Entries. What an Inbox Item is belongs to `.domain/inbox/domain.md`,
+        Backlog Entries. What an Inbox Item is belongs to `.devbook/domain/inbox/domain.md`,
         and the system this sits inside is described in
-        [the context and scope chapter](.arc42/03-context-and-scope.md).
+        [the context and scope chapter](.devbook/arc42/03-context-and-scope.md).
 
         The word `order` in the block above is a field name, and `dotnet build` is a
         command. Neither is a place, so neither becomes a link.
@@ -274,7 +274,7 @@ internal static class FileFixtures
 
         ```meta
         status: proposed
-        related: [.domain/inbox/domain.md#aggregate-inbox-item]
+        related: [.devbook/domain/inbox/domain.md#inbox-item]
         ```
 
         The consistency boundary for an entry's sub-items, projections and usage
@@ -307,7 +307,7 @@ internal static class FileFixtures
 
         ```meta
         status: proposed
-        related: [.domain/inbox/domain.md#aggregate-inbox-item]
+        related: [.devbook/domain/inbox/domain.md#inbox-item]
         ```
 
         A refined, actionable item in the personal backlog and the consistency
