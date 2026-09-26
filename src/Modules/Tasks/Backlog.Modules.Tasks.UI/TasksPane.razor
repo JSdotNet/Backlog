@@ -127,7 +127,14 @@
 
                        They are not exclusive with each other either. "In today's My
                        Day and filed nowhere" is a real question, and it is the one
-                       both chips pressed asks. *@
+                       both chips pressed asks.
+
+                       Each wears a glyph in place of its word, so the group costs
+                       a third of the bar it used to. The word is still the chip's
+                       name — in an sr-only span, so a screen reader hears "My Day
+                       3" and the glyph stays aria-hidden — and the Title says what
+                       pressing it does for a reader who does not know the glyph
+                       yet. *@
                     <div class="filter-group filter-group--scope" role="group" aria-label="Scope">
                         <ToggleButton BaseClass="chip chip--filter chip--scope"
                                       PressedCssClass="chip--active"
@@ -135,7 +142,7 @@
                                       TestId="myday-filter-option"
                                       Title="@(MyDayOnly ? "Show everything again" : "Show only what is in today's My Day")"
                                       PressedChanged="OnMyDayFilterChanged">
-                            My Day<span class="chip__count">@MyDayCount</span>
+                            <SunIcon CssClass="chip__icon" /><span class="sr-only">My Day</span><span class="chip__count">@MyDayCount</span>
                         </ToggleButton>
 
                         @* The one scope the header's repository chips cannot express:
@@ -153,7 +160,7 @@
                                       TestId="norepo-filter-option"
                                       Title="@(State.NoRepositoryOnly ? "Show everything again" : "Show only what is filed against no repository")"
                                       PressedChanged="State.SetNoRepositoryFilter">
-                            No repo<span class="chip__count">@NoRepositoryCount</span>
+                            <FolderOffIcon CssClass="chip__icon" /><span class="sr-only">No repo</span><span class="chip__count">@NoRepositoryCount</span>
                         </ToggleButton>
 
                         @* The domain's readiness as a scope: what is open and
@@ -169,7 +176,7 @@
                                       TestId="notwaiting-filter-option"
                                       Title="@(State.NotWaitingOnly ? "Show everything again" : "Show only what is open and waiting on nothing")"
                                       PressedChanged="State.SetNotWaitingFilter">
-                            Not waiting<span class="chip__count">@NotWaitingCount</span>
+                            <PlayIcon CssClass="chip__icon" /><span class="sr-only">Not waiting</span><span class="chip__count">@NotWaitingCount</span>
                         </ToggleButton>
                     </div>
 

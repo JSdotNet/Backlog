@@ -671,6 +671,15 @@ h1, h2, h3 {
     padding-left: calc(var(--spacing-sm) + var(--border-width-4) + var(--border-width));
 }
 
+/* A glyph standing in for a chip's word (the Tasks scopes). Shifted below the
+   baseline by the amount that puts its centre on the chip's, measured in the
+   harness: text-bottom and middle both leave it 1.5–2px low. Inline rather than
+   an inline-flex chip, so a chip with a glyph keeps the line box — and the
+   height — of a chip with a word. */
+.chip__icon {
+    vertical-align: -0.175em;
+}
+
 /* The count turns the area filter into a sense of where the work actually is. */
 .chip__count {
     margin-left: var(--spacing-xs);
