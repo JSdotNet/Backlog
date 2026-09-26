@@ -1,4 +1,5 @@
 using Backlog.Infrastructure.Sync;
+using Backlog.Mobile.UI.Outbox;
 using Backlog.UI.Components.Shell;
 
 using Microsoft.Extensions.Time.Testing;
@@ -83,11 +84,13 @@ public sealed class ShellNavigationTests
     }
 
     [Fact]
-    public void The_tracker_reads_not_paired_then_synced_then_offline_with_what_is_waiting()
+    public async Task The_tracker_reads_not_paired_then_synced_then_offline_with_what_is_waiting()
     {
         var clock = new FakeTimeProvider(new DateTimeOffset(2026, 9, 25, 9, 30, 0, TimeSpan.Zero));
         var credentials = TestDevices.Unpaired();
-        using var tracker = new SyncStatusTracker(credentials, clock);
+        var store = new InMemoryDeviceStore();
+        using var outbox = new DeviceOutbox(store, [new AlwaysOfflineKind()], clock);
+        using var tracker = new SyncStatusTracker(credentials, outbox, store, clock);
         var raised = 0;
         tracker.Changed += () => raised++;
 
@@ -99,12 +102,31 @@ public sealed class ShellNavigationTests
         tracker.RecordSynced();
         Assert.Equal(SyncStatusReading.Synced(clock.GetUtcNow()), tracker.Current);
 
-        tracker.RecordOffline(3);
+        // A failed pull is offline, with nothing waiting yet.
+        tracker.RecordUnreachable();
+        Assert.Equal(SyncStatusReading.Offline(0, clock.GetUtcNow()), tracker.Current);
+
+        // Three captures the network would not take: the number is the outbox's.
+        tracker.RecordSynced();
+        for (var i = 0; i < 3; i++)
+        {
+            await outbox.EnqueueAsync("offline", Guid.CreateVersion7(), "{}", TestContext.Current.CancellationToken);
+            await outbox.WhenIdleAsync();
+        }
+
         Assert.Equal(SyncStatusReading.Offline(3, clock.GetUtcNow()), tracker.Current);
 
         credentials.Clear();
         Assert.Equal(SyncStatusReading.NotPaired, tracker.Current);
 
-        Assert.Equal(4, raised);
+        Assert.True(raised >= 5);
+    }
+
+    private sealed class AlwaysOfflineKind : IOutboxKind
+    {
+        public string Kind => "offline";
+
+        public Task<OutboxDelivery> SendAsync(OutboxEntry entry, CancellationToken cancellationToken) =>
+            Task.FromResult(OutboxDelivery.Transient("No network."));
     }
 }

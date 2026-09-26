@@ -1,15 +1,32 @@
 @page "/"
 @using Backlog.Mobile.UI.Services
 @inject CloudSyncClient Sync
+@inject DeviceOutbox Outbox
+@inject IDeviceStore Store
 @inject CaptureDraft Draft
 @inject SyncStatusTracker Status
+@inject AppLifecycle Lifecycle
+@inject TimeProvider Clock
 @inject ISpeechTranscriber Speech
 @inject ISharedContentReceiver SharedContentReceiver
-@implements IDisposable
+@inject IJSRuntime Js
+@implements IAsyncDisposable
 
 <PageTitle>Inbox</PageTitle>
 
-<h1>Inbox</h1>
+<div class="inbox-heading">
+    <h1>Inbox</h1>
+    @* The pull gesture's twin, for a pointer, a keyboard and a screen reader —
+       none of which can pull. *@
+    <IconButton AriaLabel="Refresh the inbox" Title="Refresh the inbox" Disabled="_refreshing"
+                OnClick="RefreshAsync" CssClass="inbox-heading__refresh" TestId="inbox-refresh">
+        <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor"
+             stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+            <path d="M13.25 8a5.25 5.25 0 1 1-1.54-3.71" />
+            <path d="M13.25 2.75v2.5h-2.5" />
+        </svg>
+    </IconButton>
+</div>
 
 <div class="capture">
     <TextField @bind-Value="Draft.Text" AriaLabel="Quick capture" Placeholder="Quick capture…"
@@ -62,37 +79,135 @@
     <Alert Message="@_speechError" BaseClass="error" TestId="speech-error" />
 }
 
-@if (_error is not null)
+@if (_pullNotice is not null)
 {
-    <Alert Message="@($"Cloud sync unavailable: {_error}")" BaseClass="error" />
+    @* A calm line, not an error: the list below is still the last one the phone
+       saw, and a capture made now is kept and sent later. *@
+    <Alert Message="@_pullNotice" Role="status" BaseClass="capture__notice" TestId="inbox-pull-notice" />
 }
-else if (_items is null)
+
+@if (_actionError is not null)
 {
-    <Spinner Label="Loading the inbox" />
+    <Alert Message="@_actionError" BaseClass="error" TestId="inbox-action-error" />
 }
-else if (_items.Count == 0)
-{
-    <EmptyState Title="Inbox is empty." />
-}
-else
-{
-    <ul class="inbox">
-        @foreach (var item in _items)
+
+<section class="inbox" @ref="_listElement" aria-label="Captures">
+    @if (_items is null && Rows.Count == 0)
+    {
+        <Spinner Label="Loading the inbox" />
+    }
+    else if (Rows.Count == 0)
+    {
+        <EmptyState Title="Inbox is empty." />
+    }
+    else
+    {
+        <ul class="inbox__list" data-testid="inbox-list">
+            @foreach (var row in Rows)
+            {
+                var item = row.Item;
+                var preview = PreviewLine(item.BodyMd);
+
+                <li class="inbox__row" data-testid="inbox-row" data-waiting="@(row.Pending is null ? "false" : "true")" @key="item.Id">
+                    <AppButton BaseClass="inbox__open" id="@RowId(item.Id)" aria-label="@($"Open {item.Title}")"
+                               OnClick="() => Open(row)" TestId="inbox-open">
+                        <span class="inbox__meta">
+                            <CaptureKindMarker Value="@CaptureKindGuess.Of(item.Title, item.BodyMd)" />
+                            <span class="inbox__time" data-testid="inbox-time">@Ago(item.CapturedAt)</span>
+                        </span>
+                        <span class="inbox__title">@item.Title</span>
+                        @if (preview is not null)
+                        {
+                            <span class="inbox__preview" data-testid="inbox-preview">@preview</span>
+                        }
+                    </AppButton>
+
+                    @if (row.Pending is { IsParked: true } parked)
+                    {
+                        <AppButton Size="ButtonSize.Small" aria-label="@($"Waiting — tap to retry {item.Title}")"
+                                   title="@parked.LastError" OnClick="() => RetryAsync(parked.Id)"
+                                   CssClass="inbox__action" TestId="inbox-retry">Waiting — tap to retry</AppButton>
+                    }
+                    else if (row.Pending is not null)
+                    {
+                        <Badge Kind="sync" Slug="waiting" Title="Kept on this phone until cloud sync takes it"
+                               CssClass="inbox__action" TestId="inbox-waiting">Waiting</Badge>
+                    }
+                    else
+                    {
+                        <AppButton Size="ButtonSize.Small" aria-label="@($"Dismiss {item.Title}")"
+                                   OnClick="() => DismissAsync(item.Id)" CssClass="inbox__action"
+                                   TestId="inbox-dismiss">Dismiss</AppButton>
+                    }
+                </li>
+            }
+        </ul>
+    }
+</section>
+
+<DetailSheet Open="_selected is not null" OpenChanged="OnSheetOpenChanged"
+             Kicker="@(_selected is null ? null : $"Captured {Ago(_selected.Item.CapturedAt)}")"
+             Title="@_selected?.Item.Title" AriaLabel="Capture" CloseLabel="Close capture"
+             RestoreFocusToId="@(_selected is null ? null : RowId(_selected.Item.Id))"
+             CssClass="inbox-sheet" TestId="inbox-sheet">
+    @if (_selected is { Item: var shown })
+    {
+        @if (!string.IsNullOrWhiteSpace(shown.BodyMd))
         {
-            <li>
-                <span class="title">@item.Title</span>
-                <span class="source">@item.Source</span>
-                <AppButton aria-label="@($"Triage {item.Title}")" OnClick="() => AcknowledgeAsync(item.Id)">Triage</AppButton>
-            </li>
+            <div class="inbox-sheet__body" data-testid="inbox-sheet-body">
+                <MarkdownView Blocks="@MarkdownPreview.ParseDocument(shown.BodyMd)" Source="@shown.BodyMd" />
+            </div>
         }
-    </ul>
-}
+
+        <dl class="inbox-sheet__facts">
+            <dt>Source</dt>
+            <dd data-testid="inbox-sheet-source">@(string.IsNullOrWhiteSpace(shown.Source) ? "—" : shown.Source)</dd>
+
+            @if (!string.IsNullOrWhiteSpace(shown.Person))
+            {
+                <dt>Person</dt>
+                <dd data-testid="inbox-sheet-person">@("@" + shown.Person)</dd>
+            }
+
+            @if (shown.Tags is { Count: > 0 } tags)
+            {
+                <dt>Tags</dt>
+                <dd class="inbox-sheet__tags" data-testid="inbox-sheet-tags">
+                    @foreach (var tag in tags)
+                    {
+                        <TagChip Text="@tag.TrimStart('#')" />
+                    }
+                </dd>
+            }
+
+            @if (_selected.Pending is { } pending)
+            {
+                <dt>Sync</dt>
+                <dd data-testid="inbox-sheet-sync">
+                    @(pending.IsParked ? $"Waiting — {pending.LastError}" : "Waiting to be sent")
+                </dd>
+            }
+        </dl>
+    }
+</DetailSheet>
 
 @code {
     private const string Listening = "Listening…";
 
+    /// <summary>One line of the list: what the service has, or a capture still in
+    /// the outbox — in which case <see cref="Pending"/> is its entry.</summary>
+    private sealed record Row(InboxItem Item, OutboxEntry? Pending);
+
+    /// <summary>The last list the service answered with — this device's cached
+    /// copy until the first pull of this visit lands. Null only when the phone
+    /// has never pulled and the first pull has not answered yet.</summary>
     private IReadOnlyList<InboxItem>? _items;
-    private string? _error;
+
+    private DateTimeOffset? _pulledAt;
+    private string? _pullNotice;
+    private string? _actionError;
+    private bool _refreshing;
+    private Row? _selected;
 
     /// <summary>Null until the recogniser has been asked. Neither "yes" nor "no"
     /// is true during the first render, and claiming either would flash a
@@ -106,12 +221,53 @@ else
     private string? _shareStatus;
     private IDisposable? _shareSubscription;
 
+    private ElementReference _listElement;
+    private IJSObjectReference? _pullModule;
+    private IJSObjectReference? _pullGesture;
+    private DotNetObjectReference<Inbox>? _self;
+
+    /// <summary>
+    /// What the outbox still holds, above what the service has sent back — one
+    /// list, newest first, so a capture made a moment ago is at the top whether or
+    /// not it has left the phone. A capture the service has but the outbox has
+    /// not yet heard back about is shown once, as the outbox's.
+    /// </summary>
+    private IReadOnlyList<Row> Rows
+    {
+        get
+        {
+            var pending = Outbox.Entries
+                .Where(entry => entry.Kind == CaptureOutboxKind.Token)
+                .Select(entry =>
+                {
+                    var capture = CaptureOutboxKind.Read(entry);
+                    return new Row(
+                        new InboxItem(entry.Id, capture.Title, capture.Source, entry.CreatedAt, capture.BodyMd, capture.Tags, capture.Person),
+                        entry);
+                })
+                .ToList();
+
+            var queued = pending.Select(row => row.Item.Id).ToHashSet();
+
+            return
+            [
+                .. pending
+                    .Concat((_items ?? []).Where(item => !queued.Contains(item.Id)).Select(item => new Row(item, null)))
+                    .OrderByDescending(row => row.Item.CapturedAt)
+            ];
+        }
+    }
+
     /// <summary>
     /// The share source is subscribed to before the first await, because on
     /// Android the share is what launched the app: the intent was read while this
     /// component was still being built, and the payload is sitting in the
-    /// receiver's buffer waiting for the first subscriber. Waiting until after the
-    /// inbox has loaded would only delay a draft the person is already looking for.
+    /// receiver's buffer waiting for the first subscriber.
+    /// <para>
+    /// The cached list is drawn before the service is asked anything. A replica
+    /// still warming up, or no signal at all, then costs a status line rather than
+    /// a blank screen.
+    /// </para>
     /// <para>
     /// The device is paired by the time this runs: the layout draws the pairing
     /// gate instead of any page until it is.
@@ -121,10 +277,42 @@ else
     {
         _shareSubscription = SharedContentReceiver.Subscribe(OnContentShared);
 
+        Outbox.Changed += OnOutboxChanged;
+        Outbox.Delivered += OnDelivered;
+        Lifecycle.Resumed += OnResumed;
+
+        if (Store.ReadInbox() is { } cached)
+        {
+            _items = cached.Items;
+            _pulledAt = cached.PulledAt;
+        }
+
         return RefreshAsync();
     }
 
-    public void Dispose() => _shareSubscription?.Dispose();
+    public async ValueTask DisposeAsync()
+    {
+        _shareSubscription?.Dispose();
+        Outbox.Changed -= OnOutboxChanged;
+        Outbox.Delivered -= OnDelivered;
+        Lifecycle.Resumed -= OnResumed;
+
+        try
+        {
+            if (_pullGesture is not null)
+            {
+                await _pullGesture.InvokeVoidAsync("dispose");
+                await _pullGesture.DisposeAsync();
+            }
+
+            if (_pullModule is not null) await _pullModule.DisposeAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+
+        _self?.Dispose();
+    }
 
     /// <summary>
     /// A share is a draft, never a capture. It lands in the field where it can
@@ -150,14 +338,44 @@ else
     /// The support question is asked after the first render, not before it: in
     /// the browser harness the component prerenders on the server, where there
     /// is no browser to ask and the honest answer would be a misleading "no".
+    /// The pull gesture is attached then too, for the same reason.
     /// </summary>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
 
+        await AttachPullGestureAsync();
+
         _speechSupported = await Speech.IsSupportedAsync();
         StateHasChanged();
     }
+
+    private async Task AttachPullGestureAsync()
+    {
+        try
+        {
+            _pullModule = await Js.InvokeAsync<IJSObjectReference>("import", "./_content/Backlog.Mobile.UI/pull-refresh.js");
+            if (_pullModule is null) return;
+
+            _self = DotNetObjectReference.Create(this);
+            _pullGesture = await _pullModule.InvokeAsync<IJSObjectReference>("attach", _listElement, _self);
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or InvalidOperationException)
+        {
+            // No gesture where there is no browser; the refresh button still works.
+        }
+    }
+
+    [JSInvokable]
+    public Task OnPulled() => InvokeAsync(RefreshAsync);
+
+    private void OnResumed() => _ = InvokeAsync(RefreshAsync);
+
+    private void OnOutboxChanged() => _ = InvokeAsync(StateHasChanged);
+
+    /// <summary>The service has the capture now, so the list it answers with is
+    /// the one to show — and the row stops saying it is waiting.</summary>
+    private void OnDelivered(OutboxEntry entry) => _ = InvokeAsync(RefreshAsync);
 
     private async Task OnSpeechToggledAsync(bool pressed)
     {
@@ -225,54 +443,114 @@ else
         return existing.Length == 0 ? addition : $"{existing} {addition}";
     }
 
+    /// <summary>
+    /// Pulls the inbox and keeps it as this device's cached copy. A failure keeps
+    /// whatever is on screen and says why in one line: a replica still warming up
+    /// (503 <c>sync.replica_unavailable</c>) is a wait, anything else is a network
+    /// the phone cannot reach — and neither is a reason to blank the list.
+    /// </summary>
     private async Task RefreshAsync()
     {
+        if (_refreshing) return;
+        _refreshing = true;
+
         try
         {
-            _error = null;
-            _items = await Sync.GetInboxAsync();
+            var items = await Sync.GetInboxAsync();
+            var now = Clock.GetUtcNow();
+
+            _items = items;
+            _pulledAt = now;
+            _pullNotice = null;
+
+            await Store.SaveInboxAsync(new CachedInbox(items, now));
             Status.RecordSynced();
         }
         catch (Exception ex)
         {
-            _error = ex.Message;
+            _items ??= [];
+            _pullNotice = PullNotice(ex);
+            Status.RecordUnreachable();
         }
+        finally
+        {
+            _refreshing = false;
+        }
+
+        StateHasChanged();
     }
 
+    private string PullNotice(Exception failure)
+    {
+        var reason = failure is SyncUnavailableException { Code: "sync.replica_unavailable" }
+            ? "Cloud sync is still starting up."
+            : "Cloud sync can't be reached.";
+
+        var showing = _pulledAt is { } at
+            ? $"Showing the inbox as it was {Ago(at)}."
+            : "Nothing has been pulled to this phone yet.";
+
+        return $"{reason} {showing} New captures are kept here and sent when it answers.";
+    }
+
+    /// <summary>
+    /// Keeps the capture before anything else happens. The outbox writes it to
+    /// the device, starts sending it, and returns — so the field clears and the
+    /// row appears at once, marked waiting, whether or not there is a network.
+    /// </summary>
     private async Task CaptureAsync()
     {
         var title = Draft.Text.Trim();
         if (title.Length == 0) return;
 
+        var capture = CaptureOutboxKind.Create(title);
+        await Outbox.EnqueueAsync(CaptureOutboxKind.Token, capture.Id!.Value, CaptureOutboxKind.Write(capture));
+
         Draft.Text = string.Empty;
         _speechStatus = null;
         _shareStatus = null;
-
-        try
-        {
-            await Sync.CaptureAsync(title);
-        }
-        catch (Exception ex)
-        {
-            _error = ex.Message;
-            return;
-        }
-
-        await RefreshAsync();
     }
 
-    private async Task AcknowledgeAsync(Guid id)
+    private Task RetryAsync(Guid id)
     {
+        _actionError = null;
+        return Outbox.RetryAsync(id);
+    }
+
+    /// <summary>The phone acknowledges; it does not triage. Dismissing takes the
+    /// capture out of the inbox here and leaves deciding what it becomes to the
+    /// desktop, which has already pulled it.</summary>
+    private async Task DismissAsync(Guid id)
+    {
+        _actionError = null;
+
         try
         {
             await Sync.AcknowledgeAsync(id);
         }
         catch (Exception ex)
         {
-            _error = ex.Message;
+            _actionError = $"Couldn't dismiss it: {ex.Message}";
             return;
         }
 
+        if (_selected?.Item.Id == id) _selected = null;
         await RefreshAsync();
     }
+
+    private void Open(Row row) => _selected = row;
+
+    private void OnSheetOpenChanged(bool open)
+    {
+        if (!open) _selected = null;
+    }
+
+    private string Ago(DateTimeOffset at) => SyncStatusLine.Relative(Clock.GetUtcNow() - at);
+
+    private static string RowId(Guid id) => $"inbox-row-{id:N}";
+
+    /// <summary>The body's first line with anything on it, or null. The row shows
+    /// one line; the sheet shows the rest.</summary>
+    private static string? PreviewLine(string? bodyMd) =>
+        bodyMd?.Split('\n').Select(line => line.Trim()).FirstOrDefault(line => line.Length > 0);
 }

@@ -156,6 +156,7 @@ public sealed class InboxShareTargetTests
                 new HttpClient(Sync) { BaseAddress = new Uri("https://sync.test") },
                 new InMemoryDeviceCredentialStore()));
             _context.Services.AddMobileShell();
+            _context.Services.AddTestDeviceOutbox();
         }
 
         public TestSharedContentReceiver Share { get; }

@@ -73,6 +73,16 @@ public static class MauiProgram
 		builder.Services.AddSingleton<ISharedContentReceiver>(
 			services => services.GetRequiredService<AndroidShareTargetReceiver>());
 
+		// The outbox and the cached inbox, in the app's own data directory: private
+		// to the app, kept across updates, and gone with an uninstall — which is
+		// the lifetime a queue of unsent captures should have.
+		builder.Services.AddDeviceOutbox(Path.Combine(FileSystem.AppDataDirectory, "backlog-mobile.db"));
+
+		// A singleton here, not the shell's scoped default: the window's Resumed
+		// and Connectivity's change arrive in App, outside any scope, and have to
+		// reach the same instance the Inbox listens to.
+		builder.Services.AddSingleton<AppLifecycle>();
+
 		// The shell's own state: the capture draft that outlives a tab switch, and
 		// the sync status the app bar reads. The browser harness calls the same method.
 		builder.Services.AddMobileShell();

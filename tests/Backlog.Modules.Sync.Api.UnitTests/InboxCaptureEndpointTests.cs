@@ -80,6 +80,33 @@ public sealed class InboxCaptureEndpointTests : IDisposable
         Assert.Equal(["planning", "#team", "@alex"], document.Task.Tags);
     }
 
+    /// <summary>The list hands the phone what it needs to show a capture whole:
+    /// the body, the tags, and the person split back out of its <c>@name</c> tag
+    /// — so no reader has to know that is how the person travels.</summary>
+    [Fact]
+    public async Task The_inbox_lists_a_capture_with_its_body_tags_and_person()
+    {
+        var device = await Device();
+
+        await device.PostAsJsonAsync(
+            Inbox,
+            new CaptureRequest("Ask about the offsite", "phone", Guid.CreateVersion7(), "Dates, budget.", ["planning"], "@alex"),
+            Cancellation);
+        await device.PostAsJsonAsync(Inbox, new CaptureRequest("Call the dentist", "phone"), Cancellation);
+
+        var items = (await device.GetFromJsonAsync<List<InboxItem>>(Inbox, Cancellation))!;
+
+        var full = Assert.Single(items, item => item.Title == "Ask about the offsite");
+        Assert.Equal("Dates, budget.", full.BodyMd);
+        Assert.Equal(["planning"], full.Tags!);
+        Assert.Equal("alex", full.Person);
+
+        var bare = Assert.Single(items, item => item.Title == "Call the dentist");
+        Assert.Null(bare.BodyMd);
+        Assert.Empty(bare.Tags!);
+        Assert.Null(bare.Person);
+    }
+
     /// <summary>The retry a timed-out 201 forces. The second post carries the
     /// same client id; it answers 200 with the capture already stored, and the
     /// replica holds one document, not two — even when the retry's text
@@ -97,7 +124,9 @@ public sealed class InboxCaptureEndpointTests : IDisposable
 
         Assert.Equal(HttpStatusCode.Created, first.StatusCode);
         Assert.Equal(HttpStatusCode.OK, retry.StatusCode);
-        Assert.Equal(stored, await retry.Content.ReadFromJsonAsync<InboxItem>(Cancellation));
+        // Equivalent rather than Equal: the record carries its tags as a list,
+        // and two lists read off two responses are never the same instance.
+        Assert.Equivalent(stored, await retry.Content.ReadFromJsonAsync<InboxItem>(Cancellation), strict: true);
 
         var document = Assert.Single((await device.PullTasks()).Tasks).Change;
         Assert.Equal("Call the dentist", document.Task.Title);

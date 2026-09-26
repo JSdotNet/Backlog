@@ -1,63 +1,77 @@
 using Backlog.Infrastructure.Sync;
+using Backlog.Mobile.UI.Outbox;
 using Backlog.UI.Components.Shell;
 
 namespace Backlog.Mobile.UI.Services;
 
 /// <summary>
-/// The status the shell can know today: whether the device is paired, from the
-/// credential store, and when the Inbox last heard back from the service.
+/// The status line's numbers: whether the device is paired, from the credential
+/// store; what is waiting, from the outbox; and when the Inbox last pulled, from
+/// the pull itself — kept in the device store, so a phone opened on a train
+/// still says when it last heard from the service.
 /// <para>
-/// What it cannot know yet is what is waiting to be sent — there is no outbox,
-/// so nothing is ever queued and nothing here claims otherwise. <see cref="RecordOffline"/>
-/// is the seam the outbox reports through when it lands.
+/// Offline means the last contact failed, a pull or a send. It is not "something
+/// is queued": a capture on its way out for the half-second the post takes is
+/// not a phone that is offline.
 /// </para>
 /// </summary>
 public sealed class SyncStatusTracker : ISyncStatusSource, IDisposable
 {
     private readonly IDeviceCredentialStore _credentials;
+    private readonly DeviceOutbox _outbox;
     private readonly TimeProvider _clock;
 
     private DateTimeOffset? _lastSyncedAt;
-    private int? _waitingWhileOffline;
+    private bool _pullFailed;
 
-    public SyncStatusTracker(IDeviceCredentialStore credentials, TimeProvider clock)
+    public SyncStatusTracker(IDeviceCredentialStore credentials, DeviceOutbox outbox, IDeviceStore store, TimeProvider clock)
     {
         _credentials = credentials;
+        _outbox = outbox;
         _clock = clock;
 
+        _lastSyncedAt = store.ReadInbox()?.PulledAt;
+
         _credentials.Changed += OnCredentialsChanged;
+        _outbox.Changed += OnOutboxChanged;
     }
 
     public event Action? Changed;
 
     public SyncStatusReading Current =>
         _credentials.Current is null ? SyncStatusReading.NotPaired
-        : _waitingWhileOffline is { } waiting ? SyncStatusReading.Offline(waiting, _lastSyncedAt)
+        : _pullFailed || _outbox.Unreachable ? SyncStatusReading.Offline(_outbox.Entries.Count, _lastSyncedAt)
         : SyncStatusReading.Synced(_lastSyncedAt);
 
-    /// <summary>The service answered. Whatever was offline is not any more.</summary>
+    /// <summary>The Inbox pulled. Whatever was offline about the pull is not any more.</summary>
     public void RecordSynced()
     {
         _lastSyncedAt = _clock.GetUtcNow();
-        _waitingWhileOffline = null;
+        _pullFailed = false;
         Changed?.Invoke();
     }
 
-    /// <summary>The service could not be reached, with this much queued for it.</summary>
-    public void RecordOffline(int waiting)
+    /// <summary>The Inbox could not pull.</summary>
+    public void RecordUnreachable()
     {
-        _waitingWhileOffline = Math.Max(0, waiting);
+        _pullFailed = true;
         Changed?.Invoke();
     }
 
-    public void Dispose() => _credentials.Changed -= OnCredentialsChanged;
+    public void Dispose()
+    {
+        _credentials.Changed -= OnCredentialsChanged;
+        _outbox.Changed -= OnOutboxChanged;
+    }
+
+    private void OnOutboxChanged() => Changed?.Invoke();
 
     /// <summary>A new pairing starts from nothing: the last sync time belonged to
     /// the credential that was replaced or forgotten.</summary>
     private void OnCredentialsChanged()
     {
         _lastSyncedAt = null;
-        _waitingWhileOffline = null;
+        _pullFailed = false;
         Changed?.Invoke();
     }
 }

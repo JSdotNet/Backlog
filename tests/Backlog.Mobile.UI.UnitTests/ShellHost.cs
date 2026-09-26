@@ -3,6 +3,7 @@ using System.Text;
 
 using Backlog.Infrastructure.Sync;
 using Backlog.Mobile.UI.Components;
+using Backlog.Mobile.UI.Outbox;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -11,19 +12,26 @@ namespace Backlog.Mobile.UI.UnitTests;
 /// <summary>
 /// The whole app as the hosts render it — the Router, the layout and whichever
 /// page the address names — over a sync service that answers pairing from a
-/// script and the inbox with nothing.
+/// script and the inbox from a <see cref="ScriptedInboxService"/>.
 /// </summary>
 internal sealed class ShellHost : IDisposable
 {
     private readonly BunitContext _context = new();
     private readonly ScriptedSyncHandler _handler;
 
-    private ShellHost(IDeviceCredentialStore credentials, Func<HttpRequestMessage, int, HttpResponseMessage>? pair)
+    private ShellHost(
+        IDeviceCredentialStore credentials,
+        Func<HttpRequestMessage, int, HttpResponseMessage>? pair,
+        ScriptedInboxService? inbox,
+        IDeviceStore? store,
+        TimeProvider? clock)
     {
-        _handler = new ScriptedSyncHandler(pair);
+        Inbox = inbox ?? new ScriptedInboxService();
+        _handler = new ScriptedSyncHandler(pair, Inbox);
         Credentials = credentials;
 
         _context.JSInterop.Mode = JSRuntimeMode.Loose;
+        if (clock is not null) _context.Services.AddSingleton(clock);
         _context.Services.AddSingleton<ISharedContentReceiver>(new TestSharedContentReceiver());
         _context.Services.AddSingleton<ISpeechTranscriber>(new SilentSpeechTranscriber());
         _context.Services.AddSingleton(credentials);
@@ -33,18 +41,26 @@ internal sealed class ShellHost : IDisposable
             new HttpClient(_handler) { BaseAddress = new Uri("https://sync.test") },
             credentials));
         _context.Services.AddMobileShell();
+        _context.Services.AddTestDeviceOutbox(store);
     }
 
     public IDeviceCredentialStore Credentials { get; }
 
-    public int InboxRequests => _handler.InboxRequests;
+    /// <summary>The service's side of the inbox: what it holds, whether it
+    /// answers, and every capture that reached it.</summary>
+    public ScriptedInboxService Inbox { get; }
+
+    public int InboxRequests => Inbox.Requests;
 
     public NavigationManager Navigation => _context.Services.GetRequiredService<NavigationManager>();
 
-    public static ShellHost Unpaired(Func<HttpRequestMessage, int, HttpResponseMessage>? pair = null) =>
-        new(TestDevices.Unpaired(), pair);
+    public DeviceOutbox Outbox => _context.Services.GetRequiredService<DeviceOutbox>();
 
-    public static ShellHost Paired() => new(TestDevices.Paired(), pair: null);
+    public static ShellHost Unpaired(Func<HttpRequestMessage, int, HttpResponseMessage>? pair = null) =>
+        new(TestDevices.Unpaired(), pair, inbox: null, store: null, clock: null);
+
+    public static ShellHost Paired(ScriptedInboxService? inbox = null, IDeviceStore? store = null, TimeProvider? clock = null) =>
+        new(TestDevices.Paired(), pair: null, inbox, store, clock);
 
     /// <summary>Renders the app opened on <paramref name="route"/>, relative to
     /// the base address — "" is the Inbox.</summary>
@@ -56,13 +72,13 @@ internal sealed class ShellHost : IDisposable
 
     public void Dispose() => _context.Dispose();
 
-    private sealed class ScriptedSyncHandler(Func<HttpRequestMessage, int, HttpResponseMessage>? pair) : HttpMessageHandler
+    private sealed class ScriptedSyncHandler(
+        Func<HttpRequestMessage, int, HttpResponseMessage>? pair,
+        ScriptedInboxService inbox) : HttpMessageHandler
     {
         private int _pairAttempts;
 
-        public int InboxRequests { get; private set; }
-
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             var path = request.RequestUri?.AbsolutePath ?? string.Empty;
 
@@ -70,7 +86,7 @@ internal sealed class ShellHost : IDisposable
             {
                 var index = _pairAttempts++;
 
-                return Task.FromResult(pair is not null
+                return pair is not null
                     ? pair(request, index)
                     : new HttpResponseMessage(HttpStatusCode.Created)
                     {
@@ -78,15 +94,10 @@ internal sealed class ShellHost : IDisposable
                             $$"""{"ownerId":"{{Guid.NewGuid()}}","deviceId":"{{Guid.NewGuid()}}","credential":"a-registration-credential"}""",
                             Encoding.UTF8,
                             "application/json")
-                    });
+                    };
             }
 
-            InboxRequests++;
-
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent("[]", Encoding.UTF8, "application/json")
-            });
+            return await inbox.AnswerAsync(request, cancellationToken);
         }
     }
 
