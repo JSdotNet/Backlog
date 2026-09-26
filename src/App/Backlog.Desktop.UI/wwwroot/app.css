@@ -2044,10 +2044,30 @@ h1, h2, h3 {
    420px window — which stretched the tiles past the dialog's edge and scrolled the
    whole dialog sideways. The table scrolls in its own region instead. */
 /* The library drops every metric grid to one column below a 40rem viewport. Here
-   the four tiles are short numbers, so they keep two to a row in a narrow window;
+   the five tiles are short numbers, so they keep two to a row in a narrow window;
    the min() lets a column never ask for more than the dialog has. */
 .open-work-report .metric-grid {
     grid-template-columns: repeat(auto-fit, minmax(min(var(--metric-grid-min, 8rem), 100%), 1fr));
+}
+
+/* The labels wrap to one line or two, so on its own each tile would set its
+   number at a different height. Each tile instead spans three of the grid's rows —
+   label, number, footnote — as a subgrid, so every label in a row takes the
+   tallest one's height and the numbers share one baseline, the emphasised one
+   included. The tile's own gap still spaces its parts. */
+.open-work-report .metric-tile {
+    grid-row: span 3;
+    grid-template-rows: subgrid;
+}
+
+/* A one-line label keeps to the top of the shared row rather than centring in
+   the height a two-line neighbour gave it. */
+.open-work-report .metric-tile__label {
+    align-self: start;
+}
+
+.open-work-report .metric-tile__value {
+    align-self: baseline;
 }
 
 .open-work-report__body {

@@ -112,9 +112,17 @@ public sealed record OpenWorkTotals(int Open, int Points, int Unestimated)
 /// what is the pane's, where each row says so on its "Waiting for" line.
 /// </para>
 /// </summary>
+/// <param name="DoneLastSevenDays">Tasks ticked off in the window — a count, not
+/// points.</param>
+/// <param name="DonePointsLastSevenDays">The estimates on those same tasks, zero
+/// being one.</param>
+/// <param name="DoneUnestimatedLastSevenDays">Those of them with no estimate, said
+/// beside the points rather than folded into them.</param>
 public sealed record OpenWorkReport(
     OpenWorkTotals Totals,
     int DoneLastSevenDays,
+    int DonePointsLastSevenDays,
+    int DoneUnestimatedLastSevenDays,
     IReadOnlyList<OpenWorkPlan> Plans,
     IReadOnlyList<OpenWorkCount> ByStatus,
     IReadOnlyList<OpenWorkCount> ByPriority,
@@ -155,12 +163,15 @@ public sealed record OpenWorkReport(
         var recentFrom = today.AddDays(-(WindowDays - 1));
         var soonUntil = today.AddDays(WindowDays - 1);
 
-        var doneRecently = rows.Count(row =>
-            row.PreviewCompletedOn is { } completed && completed >= recentFrom && completed <= today);
+        var doneRecently = rows
+            .Where(row => row.PreviewCompletedOn is { } completed && completed >= recentFrom && completed <= today)
+            .ToList();
 
         return new OpenWorkReport(
             OpenWorkTotals.Of(rows),
-            doneRecently,
+            doneRecently.Count,
+            doneRecently.Sum(row => row.PreviewEffort ?? 0),
+            doneRecently.Count(row => row.PreviewEffort is null),
             PlansOf(rows, open),
             CountBy(open, row => row.PreviewStatus, StatusLabel),
             CountBy(open, row => row.PreviewPriority, PriorityLabel, descending: true),

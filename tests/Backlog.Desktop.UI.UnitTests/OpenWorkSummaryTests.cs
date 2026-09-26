@@ -106,6 +106,11 @@ public sealed class OpenWorkSummaryTests
         Assert.Contains("Open work", pane.Find($"{Report} .modal__title").TextContent, StringComparison.Ordinal);
         Assert.Equal("3", pane.Find("[data-testid='open-work-tile-open'] .metric-tile__value").TextContent.Trim());
 
+        // The recent-work tiles name their unit, so the task count beside
+        // "Points (estimated)" is not read as points.
+        Assert.Contains("Tasks done in the last 7 days", pane.Find("[data-testid='open-work-tile-done']").TextContent, StringComparison.Ordinal);
+        Assert.Contains("Points done in the last 7 days", pane.Find("[data-testid='open-work-tile-done-points']").TextContent, StringComparison.Ordinal);
+
         await dialog.KeyDownAsync(new KeyboardEventArgs { Key = "Escape" });
 
         Assert.Empty(pane.FindAll(Report));

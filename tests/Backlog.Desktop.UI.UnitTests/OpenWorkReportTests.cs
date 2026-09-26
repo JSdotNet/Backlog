@@ -84,6 +84,27 @@ public sealed class OpenWorkReportTests
     }
 
     [Fact]
+    public void Points_done_in_the_last_seven_days_sum_the_same_rows_and_count_the_unestimated_beside()
+    {
+        var report = Build(
+        [
+            Row("`task` `effort:3` `completed:2026-09-24`"),
+            Row("`task` `effort:0` `completed:2026-09-22`"),
+            Row("`task` `completed:2026-09-18`"),
+            Row("`task` `effort:8` `completed:2026-09-17`"),
+            Row("`task` `effort:5` `completed:2026-09-25`"),
+            Row("`task` `effort:13`")
+        ]);
+
+        // Same window as the task count: the 17th is too old, tomorrow does not
+        // count, and the open 13 is not done at all. Zero is an estimate; the row
+        // with none is said beside the sum rather than folded into it.
+        Assert.Equal(3, report.DoneLastSevenDays);
+        Assert.Equal(3, report.DonePointsLastSevenDays);
+        Assert.Equal(1, report.DoneUnestimatedLastSevenDays);
+    }
+
+    [Fact]
     public void Each_plan_gets_a_row_and_a_row_under_two_plans_counts_under_both()
     {
         var report = Build(
