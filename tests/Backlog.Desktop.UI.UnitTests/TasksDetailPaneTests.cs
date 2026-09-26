@@ -567,6 +567,33 @@ public sealed class TasksDetailPaneTests
             host.State.Rows.Select(row => row.PreviewTitle));
     }
 
+    /// <summary>
+    /// Sorting by status never puts a row above one it is waiting for: the
+    /// predecessor is lifted to the rank of its most urgent dependent instead, so
+    /// the chain stays together. A done predecessor is no longer waited for and
+    /// sorts by its own status.
+    /// </summary>
+    [Fact]
+    public async Task Sorting_by_status_keeps_a_row_below_what_it_waits_for()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        await host.WriteEntryAsync("# Other ready\n`task` `!ready`\n");
+        var draft = await host.WriteEntryAsync("# Draft first step\n`task` `!draft`\n");
+        var finished = await host.WriteEntryAsync("# Finished step\n`task` `!done` `completed:2026-09-22`\n");
+        await host.WriteEntryAsync($"# Waits on finished\n`task` `!ready` `after:{finished.Id!.Value}`\n");
+        var started = await host.WriteEntryAsync($"# Started second step\n`task` `!in_progress` `after:{draft.Id!.Value}`\n");
+        await host.WriteEntryAsync($"# Ready third step\n`task` `!ready` `after:{started.Id!.Value}`\n");
+
+        Assert.True(host.State.CanSortVisibleByStatus);
+
+        await host.State.SortVisibleByStatusAsync();
+
+        Assert.Equal(
+            ["Draft first step", "Started second step", "Other ready", "Waits on finished", "Ready third step", "Finished step"],
+            host.State.Rows.Select(row => row.PreviewTitle));
+        Assert.False(host.State.CanSortVisibleByStatus);
+    }
+
     [Fact]
     public async Task The_sort_button_reorders_the_list_and_disables_once_sorted()
     {
