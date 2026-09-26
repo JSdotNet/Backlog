@@ -22,7 +22,7 @@ public class ImportPlanItemsTests
     private static readonly DateOnly Today = new(2026, 3, 2);
 
     private readonly SnapshotPlanRepository _plans = new();
-    private readonly FixedVelocity _velocity = new(1);
+    private readonly FixedVelocity _velocity = new(7);
     private readonly FakeTimeProvider _clock = new();
 
     public ImportPlanItemsTests()
@@ -86,11 +86,11 @@ public class ImportPlanItemsTests
     [Fact]
     public async Task GatheredEffortOverVelocity_SetsTheLength()
     {
-        _velocity.StoryPointsPerDay = 2;
+        _velocity.StoryPointsPerWeek = 14;
 
         await ImportedAsync([Entry("plan-a")], new PlanTagEffortDto("plan-a", 7, 1));
 
-        Assert.Equal(4, Stored("plan-a").Window.Days); // 7 / 2 = 3.5, rounded up
+        Assert.Equal(4, Stored("plan-a").Window.Days); // 7 points at 14 a week = 3.5 days, rounded up
     }
 
     [Fact]
@@ -482,11 +482,11 @@ public class ImportPlanItemsTests
             plan.BandColours);
     }
 
-    private sealed class FixedVelocity(decimal storyPointsPerDay) : IPlanningVelocity
+    private sealed class FixedVelocity(decimal storyPointsPerWeek) : IPlanningVelocity
     {
-        public decimal StoryPointsPerDay { get; set; } = storyPointsPerDay;
+        public decimal StoryPointsPerWeek { get; set; } = storyPointsPerWeek;
 
-        public Task<decimal> GetStoryPointsPerDayAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(StoryPointsPerDay);
+        public Task<decimal> GetStoryPointsPerWeekAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(StoryPointsPerWeek);
     }
 }

@@ -213,9 +213,9 @@
             Add a date
         </AppButton>
 
-        @* After the controls that add to the plan: it decides how long the next
-           imported plan is drawn, not what is on the chart now. *@
-        <RoadmapPaceControl />
+        @* After the controls that add to the plan: it decides how long a plan sized
+           by its effort is drawn, and changing it re-draws those bars. *@
+        <RoadmapPaceControl OnPaceChanged="RelengthenAtNewPace" />
     </text>;
 
     /// <summary>Where the "now" line is drawn. A parameter so a test can put
@@ -642,6 +642,23 @@
         {
             _editedDate = _plan.Milestones.FirstOrDefault(date => date.Id == _editedDate.Id) ?? _editedDate;
         }
+    }
+
+    /// <summary>
+    /// The reader changed their pace: every bar still sized by its effort is
+    /// re-lengthened at it, from what each item gathers now (ADR 0013, ruling 5 as
+    /// amended). Gathered here because the effort is Tasks' and this is where both
+    /// sides can be asked; the plan decides which windows are its to move.
+    /// </summary>
+    private async Task RelengthenAtNewPace()
+    {
+        var rollups = await Rollups.GatherPlanAsync(_plan);
+        var result = await Planning.RelengthenPlanFromEffortAsync(
+            rollups.ToDictionary(pair => pair.Key, pair => pair.Value.TotalEffort));
+
+        _error = result.IsFailure ? result.Error.Message : null;
+
+        await Load();
     }
 
     /// <summary>

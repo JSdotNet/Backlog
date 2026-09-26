@@ -8,16 +8,18 @@ namespace Backlog.Modules.Roadmap.Services;
 /// The reader's paces: the one they typed, kept by the host, and three measured from
 /// the estimated work they finished over the last two, four and eight weeks.
 /// <para>
-/// A measured pace is finished effort over <em>calendar</em> days, weekends
-/// included, because that is what the roadmap draws in: a window is placed in
-/// calendar days and ignores the working week (ADR 0013). Dividing by working days
-/// instead would draw every bar about a third shorter than the stretch it was
-/// measured over actually took.
+/// Every pace is story points a week. A measured one is finished effort over the
+/// whole weeks of its stretch, and placement turns a week into seven
+/// <em>calendar</em> days, weekends included, because that is what the roadmap draws
+/// in: a window is placed in calendar days and ignores the working week (ADR 0013).
+/// Taking the week as five working days instead would draw every bar about a third
+/// shorter than the stretch it was measured over actually took.
 /// </para>
 /// <para>
 /// Read on every call and kept nowhere, so a task ticked off is in the next reading.
-/// Nothing already placed moves when a pace changes — a window is stored, not
-/// recomputed (ADR 0013, ruling 5).
+/// A person changing the pace or the choice re-lengthens the windows the importer
+/// still owns; finished work moving a measured pace does not (ADR 0013, ruling 5 as
+/// amended).
 /// </para>
 /// </summary>
 internal sealed class PlanningPace(
@@ -42,7 +44,7 @@ internal sealed class PlanningPace(
         return Paces(settings.Manual, settings.Source, finished, today);
     }
 
-    public async Task<decimal> GetStoryPointsPerDayAsync(CancellationToken cancellationToken = default) =>
+    public async Task<decimal> GetStoryPointsPerWeekAsync(CancellationToken cancellationToken = default) =>
         (await ReadAsync(cancellationToken)).InUse;
 
     public string? SetManual(string? typed) => settings.SetManual(typed);
@@ -63,7 +65,7 @@ internal sealed class PlanningPace(
 
     /// <summary>
     /// Effort finished in the <paramref name="weeks"/> weeks ending today, today
-    /// included, per calendar day — four decimals, the finest pace the typed one can
+    /// included, per week — four decimals, the finest pace the typed one can
     /// hold. <c>null</c> when nothing estimated was finished: that stretch measured
     /// no pace, which is not the same as a pace of zero.
     /// </summary>
@@ -76,7 +78,7 @@ internal sealed class PlanningPace(
 
         if (effort <= 0) return null;
 
-        return Math.Round(effort / (weeks * 7), 4, MidpointRounding.AwayFromZero);
+        return Math.Round(effort / weeks, 4, MidpointRounding.AwayFromZero);
     }
 
     private static DateOnly StartOf(DateOnly today, int weeks) => today.AddDays(-(weeks * 7 - 1));

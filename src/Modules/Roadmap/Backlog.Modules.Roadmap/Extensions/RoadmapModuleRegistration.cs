@@ -9,6 +9,7 @@ using Backlog.Modules.Roadmap.Features.GetPlan;
 using Backlog.Modules.Roadmap.Features.ImportPlanItems;
 using Backlog.Modules.Roadmap.Features.PrioritiseItem;
 using Backlog.Modules.Roadmap.Features.RelengthenItem;
+using Backlog.Modules.Roadmap.Features.RelengthenPlan;
 using Backlog.Modules.Roadmap.Features.RemoveDependency;
 using Backlog.Modules.Roadmap.Features.RemoveItem;
 using Backlog.Modules.Roadmap.Features.RescheduleItem;
@@ -55,6 +56,7 @@ public static class RoadmapModuleRegistration
         // need IPlanningVelocity as Import does.
         services.AddScoped<IQueryHandler<ProposeRelengthQuery, RoadmapRelengthProposalDto?>, ProposeRelengthQueryHandler>();
         services.AddScoped<ICommandHandler<RelengthenItemCommand, Result<RoadmapRelengthResultDto>>, RelengthenItemCommandHandler>();
+        services.AddScoped<ICommandHandler<RelengthenPlanCommand, Result<IReadOnlyList<RoadmapItemDto>>>, RelengthenPlanCommandHandler>();
 
         // Placement reads "today"; a host that already registered a clock keeps its own.
         services.TryAddSingleton(TimeProvider.System);

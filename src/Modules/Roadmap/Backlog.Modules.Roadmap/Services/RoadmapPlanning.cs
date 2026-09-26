@@ -10,6 +10,7 @@ using Backlog.Modules.Roadmap.Features.GetPlan;
 using Backlog.Modules.Roadmap.Features.ImportPlanItems;
 using Backlog.Modules.Roadmap.Features.PrioritiseItem;
 using Backlog.Modules.Roadmap.Features.RelengthenItem;
+using Backlog.Modules.Roadmap.Features.RelengthenPlan;
 using Backlog.Modules.Roadmap.Features.RemoveDependency;
 using Backlog.Modules.Roadmap.Features.RemoveItem;
 using Backlog.Modules.Roadmap.Features.RescheduleItem;
@@ -39,6 +40,7 @@ internal sealed class RoadmapPlanning(
     ICommandHandler<ImportPlanItemsCommand, Result<PlanImportResultDto>> importPlanItems,
     IQueryHandler<ProposeRelengthQuery, RoadmapRelengthProposalDto?> proposeRelength,
     ICommandHandler<RelengthenItemCommand, Result<RoadmapRelengthResultDto>> relengthenItem,
+    ICommandHandler<RelengthenPlanCommand, Result<IReadOnlyList<RoadmapItemDto>>> relengthenPlan,
     RoadmapPlanChanges changes) : IRoadmapPlanning
 {
     // Forwarded rather than held, so a subscriber in one scope hears a write made
@@ -165,6 +167,17 @@ internal sealed class RoadmapPlanning(
         // Announced only when the window moved. A window the tasks already made stored
         // nothing, and a listener told otherwise would reload for a change nobody made.
         if (result.IsSuccess && result.Value.PreviousEnd != result.Value.Item.End) changes.Raise();
+        return result;
+    }
+
+    public async Task<Result<IReadOnlyList<RoadmapItemDto>>> RelengthenPlanFromEffortAsync(
+        IReadOnlyDictionary<Guid, int> gatheredEffort,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await relengthenPlan.Handle(new RelengthenPlanCommand(gatheredEffort), cancellationToken);
+
+        // Announced only when a window moved, for the reason above.
+        if (result.IsSuccess && result.Value.Count > 0) changes.Raise();
         return result;
     }
 

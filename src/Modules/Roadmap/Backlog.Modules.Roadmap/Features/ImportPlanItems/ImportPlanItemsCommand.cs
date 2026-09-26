@@ -62,7 +62,7 @@ public sealed class ImportPlanItemsCommandHandler(
 
         var plan = await plans.LoadAsync(cancellationToken);
         var today = DateOnly.FromDateTime(clock.GetLocalNow().DateTime);
-        var storyPointsPerDay = await velocity.GetStoryPointsPerDayAsync(cancellationToken);
+        var storyPointsPerWeek = await velocity.GetStoryPointsPerWeekAsync(cancellationToken);
 
         var skipped = new List<string>();
         var ambiguous = new List<AmbiguousPlanTagDto>();
@@ -139,7 +139,7 @@ public sealed class ImportPlanItemsCommandHandler(
                 start,
                 current.Entry.Due,
                 effort.GetValueOrDefault(item.Tag.Value),
-                storyPointsPerDay);
+                storyPointsPerWeek);
 
             var placed = plan.PlaceByImport(item.Id, window, placement);
             if (placed.IsFailure) return Result.Failure<PlanImportResultDto>(placed.Error);
@@ -150,7 +150,7 @@ public sealed class ImportPlanItemsCommandHandler(
             }
         }
 
-        var relengthened = Relengthen(plan, touched, effort, storyPointsPerDay, scheduled);
+        var relengthened = Relengthen(plan, touched, effort, storyPointsPerWeek, scheduled);
 
         // A task-level import whose tags carry no item, or only hand-placed ones,
         // changed nothing — and a save that changes nothing is still a write the
@@ -198,7 +198,7 @@ public sealed class ImportPlanItemsCommandHandler(
         RoadmapPlan plan,
         List<Touched> touched,
         Dictionary<string, int> effort,
-        decimal storyPointsPerDay,
+        decimal storyPointsPerWeek,
         List<RoadmapItemScheduledDto> scheduled)
     {
         var relengthened = new List<RoadmapItemDto>();
@@ -213,7 +213,7 @@ public sealed class ImportPlanItemsCommandHandler(
             if (!done.Add(item.Id) || item.PlacedByImport is not ImportPlacement.Effort) continue;
 
             var previous = item.Window;
-            var (window, placement) = ImportedPlanPlacement.Place(previous.Start, due: null, total, storyPointsPerDay);
+            var (window, placement) = ImportedPlanPlacement.Place(previous.Start, due: null, total, storyPointsPerWeek);
             if (window == previous) continue;
 
             var placed = plan.PlaceByImport(item.Id, window, placement);

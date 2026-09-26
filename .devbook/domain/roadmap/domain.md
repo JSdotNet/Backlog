@@ -121,7 +121,9 @@ window that still carries it. While it is still `effort`, a person may also ask
 for that same re-length between imports: the start stays, the end is recomputed
 from the total registered effort at the reader's velocity, and the value stays
 `effort`, because the window is still the importer's rule applied, not a hand
-move. An item carrying `due-date`, or none, is refused. A drop onto another lane
+move. A person changing the reading pace in use applies the same re-length to
+every item still `effort` at once. An item carrying `due-date`, or none, is
+refused. A drop onto another lane
 that leaves the dates alone keeps it, because no date the importer chose was
 overruled.
 
