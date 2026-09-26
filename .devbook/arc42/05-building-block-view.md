@@ -292,12 +292,18 @@ press of Capture free, with no seen-store of its own. See
 
 ```meta
 status: active
-related: [".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/arc42/06-runtime-view.md#sync-item-lifecycle"]
+related: [".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync", ".devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push", ".devbook/arc42/06-runtime-view.md#sync-item-lifecycle"]
 ```
 
 Android-first, offline-first capture app. Serves Capture, Inbox,
 and lightweight Tasks. It owns mobile UI, push plumbing, and sync
 transport, but not domain lifecycle rules.
+
+Its local SQLite file holds three things and no canonical task data: the
+outbox, the last inbox it pulled, and `task_view`, a fold of the owner's task
+feed the Tasks tab reads My Day from. The Tasks tab is read-only except for
+adding a task picked for today, which leaves through the outbox as its `task`
+kind; see `.devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push`.
 
 ```mermaid
 graph TB

@@ -297,7 +297,7 @@ from crowding the default views.
 type: feature
 status: proposed
 depends-on: [.devbook/domain/tasks/features.md#refinement-and-prioritization]
-related: [.devbook/domain/tasks/features.md#scheduling-and-recurrence]
+related: [.devbook/domain/tasks/features.md#scheduling-and-recurrence, .devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push]
 ```
 
 Pick the tasks to work on today, separately from when they are due. My Day is
@@ -310,6 +310,14 @@ carries the date it was picked for, and it is in My Day exactly while that date
 is the reader's current local date — so yesterday's list clears itself with no
 timer, no timezone rule and no overnight sweep, and a device that was switched
 off for a week comes back to an empty My Day rather than a stale one.
+
+On the phone, My Day is the whole of the Tasks tab. It shows what was picked for
+the phone's own date — never a due-date grouping — and reads everything about a
+task without editing it. The one thing it changes is the list itself: a task
+added there is picked for today as it is created, because adding it on that
+screen is the decision My Day records. Editing, scheduling and the rest of a
+task's life stay on the desktop; see
+`.devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push`.
 
 ## Task dependencies
 

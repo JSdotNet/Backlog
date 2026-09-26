@@ -4,6 +4,7 @@ using System.Text;
 using Backlog.Infrastructure.Sync;
 using Backlog.Mobile.UI.Components;
 using Backlog.Mobile.UI.Outbox;
+using Backlog.Mobile.UI.Tasks;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -24,10 +25,13 @@ internal sealed class ShellHost : IDisposable
         Func<HttpRequestMessage, int, HttpResponseMessage>? pair,
         ScriptedInboxService? inbox,
         IDeviceStore? store,
-        TimeProvider? clock)
+        TimeProvider? clock,
+        ScriptedTaskService? tasks = null,
+        ITaskViewStore? taskView = null)
     {
         Inbox = inbox ?? new ScriptedInboxService();
-        _handler = new ScriptedSyncHandler(pair, Inbox);
+        Tasks = tasks ?? new ScriptedTaskService();
+        _handler = new ScriptedSyncHandler(pair, Inbox, Tasks);
         Credentials = credentials;
 
         _context.JSInterop.Mode = JSRuntimeMode.Loose;
@@ -41,7 +45,7 @@ internal sealed class ShellHost : IDisposable
             new HttpClient(_handler) { BaseAddress = new Uri("https://sync.test") },
             credentials));
         _context.Services.AddMobileShell();
-        _context.Services.AddTestDeviceOutbox(store);
+        _context.Services.AddTestDeviceOutbox(store, taskView);
     }
 
     public IDeviceCredentialStore Credentials { get; }
@@ -52,6 +56,9 @@ internal sealed class ShellHost : IDisposable
 
     public int InboxRequests => Inbox.Requests;
 
+    /// <summary>The service's side of the task feed.</summary>
+    public ScriptedTaskService Tasks { get; }
+
     public NavigationManager Navigation => _context.Services.GetRequiredService<NavigationManager>();
 
     public DeviceOutbox Outbox => _context.Services.GetRequiredService<DeviceOutbox>();
@@ -59,8 +66,13 @@ internal sealed class ShellHost : IDisposable
     public static ShellHost Unpaired(Func<HttpRequestMessage, int, HttpResponseMessage>? pair = null) =>
         new(TestDevices.Unpaired(), pair, inbox: null, store: null, clock: null);
 
-    public static ShellHost Paired(ScriptedInboxService? inbox = null, IDeviceStore? store = null, TimeProvider? clock = null) =>
-        new(TestDevices.Paired(), pair: null, inbox, store, clock);
+    public static ShellHost Paired(
+        ScriptedInboxService? inbox = null,
+        IDeviceStore? store = null,
+        TimeProvider? clock = null,
+        ScriptedTaskService? tasks = null,
+        ITaskViewStore? taskView = null) =>
+        new(TestDevices.Paired(), pair: null, inbox, store, clock, tasks, taskView);
 
     /// <summary>Renders the app opened on <paramref name="route"/>, relative to
     /// the base address — "" is the Inbox.</summary>
@@ -74,7 +86,8 @@ internal sealed class ShellHost : IDisposable
 
     private sealed class ScriptedSyncHandler(
         Func<HttpRequestMessage, int, HttpResponseMessage>? pair,
-        ScriptedInboxService inbox) : HttpMessageHandler
+        ScriptedInboxService inbox,
+        ScriptedTaskService tasks) : HttpMessageHandler
     {
         private int _pairAttempts;
 
@@ -95,6 +108,11 @@ internal sealed class ShellHost : IDisposable
                             Encoding.UTF8,
                             "application/json")
                     };
+            }
+
+            if (path.EndsWith("/api/sync/tasks", StringComparison.Ordinal))
+            {
+                return await tasks.AnswerAsync(request, cancellationToken);
             }
 
             return await inbox.AnswerAsync(request, cancellationToken);

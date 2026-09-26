@@ -17,6 +17,11 @@ namespace Backlog.Mobile.UI.Services;
 public sealed class CloudSyncClient(HttpClient http)
 {
     private const string InboxRoute = "/api/sync/inbox";
+    private const string TasksRoute = "/api/sync/tasks";
+
+    /// <summary>The endpoint's own default page, said here so the loop over it
+    /// can be read.</summary>
+    private const int PullPageSize = 100;
 
     /// <summary>The inbox, or <see cref="SyncUnavailableException"/> naming why
     /// not — the status and, when the service sent one, the problem's code, so
@@ -49,6 +54,42 @@ public sealed class CloudSyncClient(HttpClient http)
 
     public async Task AcknowledgeAsync(Guid id, CancellationToken ct = default)
         => (await http.PostAsync($"{InboxRoute}/{id}/ack", null, ct)).EnsureSuccessStatusCode();
+
+    /// <summary>One page of the owner's task feed from <paramref name="since"/>,
+    /// or from the beginning when it is null — or <see cref="SyncUnavailableException"/>
+    /// carrying the problem's code, which is how a caller tells a cursor the
+    /// service will no longer take from a network that is not there.</summary>
+    public async Task<PullTasksResponse> PullTasksAsync(string? since, CancellationToken ct = default)
+    {
+        // Escaped, not concatenated: the cursor is base64 of a signed payload, and
+        // a raw '+' would arrive as a space and fail its own signature.
+        var route = string.IsNullOrWhiteSpace(since)
+            ? $"{TasksRoute}?maxItems={PullPageSize}"
+            : $"{TasksRoute}?maxItems={PullPageSize}&since={Uri.EscapeDataString(since)}";
+
+        using var response = await http.GetAsync(route, ct);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var problem = await SyncProblem.ReadAsync(response, ct);
+            throw new SyncUnavailableException(response.StatusCode, problem.Code, problem.Detail);
+        }
+
+        return await response.Content.ReadFromJsonAsync<PullTasksResponse>(ct)
+            ?? new PullTasksResponse([], since ?? string.Empty, HasMore: false);
+    }
+
+    /// <summary>One attempt at one task: the status, and the problem's detail
+    /// when it failed. Throws only when there was no answer at all.</summary>
+    public async Task<(HttpStatusCode Status, string? Detail)> PushTaskAsync(TaskChange change, CancellationToken ct = default)
+    {
+        using var response = await http.PostAsJsonAsync(TasksRoute, new PushTasksRequest([change]), ct);
+
+        if (response.IsSuccessStatusCode) return (response.StatusCode, null);
+
+        var problem = await SyncProblem.ReadAsync(response, ct);
+        return (response.StatusCode, problem.Detail);
+    }
 }
 
 /// <summary>The service answered, and not with the inbox.</summary>

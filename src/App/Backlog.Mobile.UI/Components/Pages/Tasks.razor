@@ -1,12 +1,296 @@
 @page "/tasks"
+@using System.Globalization
+@using Backlog.Mobile.UI.Tasks
+@using Backlog.Modules.Tasks.Abstractions
+@inject TaskViewProjection View
+@inject DeviceOutbox Outbox
+@inject SyncStatusTracker Status
+@inject AppLifecycle Lifecycle
+@inject TimeProvider Clock
+@implements IDisposable
 
 @*
-    A placeholder, so the Tasks tab has a route to land on. The task list itself
-    is a later entry of the mobile-inbox-slice plan.
+    My Day, and nothing else: what is picked for today, and one field to add to
+    it. Adding is the one thing this screen writes; everything else about a task is
+    the desktop's, and the screen says so once.
 *@
 
-<PageTitle>Tasks</PageTitle>
+<PageTitle>My Day</PageTitle>
 
-<h1>Tasks</h1>
+<div class="my-day-heading">
+    <h1>My Day</h1>
+    <IconButton AriaLabel="Refresh My Day" Title="Refresh My Day" Disabled="_refreshing"
+                OnClick="RefreshAsync" CssClass="my-day-heading__refresh" TestId="tasks-refresh">
+        <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor"
+             stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+            <path d="M13.25 8a5.25 5.25 0 1 1-1.54-3.71" />
+            <path d="M13.25 2.75v2.5h-2.5" />
+        </svg>
+    </IconButton>
+</div>
 
-<EmptyState Title="Tasks are on their way." Description="Your task list arrives on the phone in a later update." TestId="tasks-placeholder" />
+@* The Inbox's quick capture, in shape only: this makes a task, picked for
+   today, not a capture waiting to be triaged. *@
+<div class="capture">
+    <TextField @bind-Value="_draft" AriaLabel="Add a task for today" Placeholder="Add a task for today…"
+               CssClass="capture__field" TestId="task-add-field" />
+    <AppButton Variant="ButtonVariant.Primary" Disabled="@string.IsNullOrWhiteSpace(_draft)"
+               OnClick="AddAsync" TestId="task-add-submit">Add</AppButton>
+</div>
+
+<Alert Message="Only adding happens here — edit on the desktop." Role="status"
+       BaseClass="capture__notice" TestId="tasks-read-only" />
+
+@if (_pullNotice is not null)
+{
+    <Alert Message="@_pullNotice" Role="status" BaseClass="capture__notice" TestId="tasks-pull-notice" />
+}
+
+<section class="my-day" aria-label="My Day">
+    @if (Lines.Count == 0)
+    {
+        <EmptyState Title="Nothing picked for today."
+                    Description="Add one below, or pick tasks on the desktop." TestId="tasks-empty" />
+    }
+    else
+    {
+        <ul class="my-day__list" data-testid="tasks-list">
+            @foreach (var line in Lines)
+            {
+                var task = line.Task.Task;
+
+                <li class="my-day__row" data-testid="task-row" data-waiting="@(line.Pending is null ? "false" : "true")" @key="line.Task.Id">
+                    <AppButton BaseClass="my-day__open" id="@RowId(line.Task.Id)" aria-label="@($"Open {task.Title}")"
+                               OnClick="() => Open(line.Task.Id)" TestId="task-open">
+                        <span class="my-day__title" data-testid="task-title">@task.Title</span>
+                        <span class="my-day__meta">
+                            <PriorityBadge Priority="@task.Priority" TestId="task-priority" />
+                            @if (task.DueOn is { } due)
+                            {
+                                <span data-testid="task-due">Due @DueLabel(due)</span>
+                            }
+                            @if (task.SubItems is { Count: > 0 } subItems)
+                            {
+                                <span data-testid="task-progress" aria-label="@($"{DoneCount(subItems)} of {subItems.Count} sub-items done")">
+                                    @DoneCount(subItems)/@subItems.Count
+                                </span>
+                            }
+                        </span>
+                    </AppButton>
+
+                    @if (line.Pending is { IsParked: true } parked)
+                    {
+                        <AppButton Size="ButtonSize.Small" aria-label="@($"Waiting — tap to retry {task.Title}")"
+                                   title="@parked.LastError" OnClick="() => RetryAsync(parked.Id)"
+                                   CssClass="my-day__action" TestId="task-retry">Waiting — tap to retry</AppButton>
+                    }
+                    else if (line.Pending is not null)
+                    {
+                        <Badge Kind="sync" Slug="waiting" Title="Kept on this phone until cloud sync takes it"
+                               CssClass="my-day__action" TestId="task-waiting">Waiting</Badge>
+                    }
+                </li>
+            }
+        </ul>
+    }
+</section>
+
+<DetailSheet Open="Selected is not null" OpenChanged="OnSheetOpenChanged"
+             Kicker="@(Selected is { } kicker ? PickedLabel(kicker) : null)"
+             Title="@Selected?.Task.Title" AriaLabel="Task" CloseLabel="Close task"
+             RestoreFocusToId="@(Selected is null ? null : RowId(Selected.Id))"
+             CssClass="task-sheet" TestId="task-sheet">
+    @if (Selected is { Task: var shown })
+    {
+        var note = Note(shown.ContentMd);
+
+        @if (note.Length > 0)
+        {
+            <div class="task-sheet__body" data-testid="task-sheet-body">
+                <MarkdownView Blocks="@MarkdownPreview.ParseDocument(note)" Source="@note" />
+            </div>
+        }
+
+        <dl class="task-sheet__facts">
+            <dt>Status</dt>
+            <dd><StatusBadge Status="@shown.Status" TestId="task-sheet-status" /></dd>
+
+            <dt>Priority</dt>
+            <dd><PriorityBadge Priority="@shown.Priority" TestId="task-sheet-priority" /></dd>
+
+            @if (shown.DueOn is { } due)
+            {
+                <dt>Due</dt>
+                <dd data-testid="task-sheet-due">@DueLabel(due)</dd>
+            }
+
+            @if (shown.Tags is { Count: > 0 } tags)
+            {
+                <dt>Tags</dt>
+                <dd class="task-sheet__chips" data-testid="task-sheet-tags">
+                    @foreach (var tag in tags)
+                    {
+                        <TagChip Text="@tag.TrimStart('#')" />
+                    }
+                </dd>
+            }
+
+            @if (shown.RepoIds is { Count: > 0 } repositories)
+            {
+                <dt>Repositories</dt>
+                <dd data-testid="task-sheet-repositories">@string.Join(", ", repositories)</dd>
+            }
+
+            @if (Pending(Selected.Id) is { } pending)
+            {
+                <dt>Sync</dt>
+                <dd data-testid="task-sheet-sync">
+                    @(pending.IsParked ? $"Waiting — {pending.LastError}" : "Waiting to be sent")
+                </dd>
+            }
+        </dl>
+
+        @if (shown.SubItems is { Count: > 0 } subItems)
+        {
+            <h3 class="task-sheet__heading">Sub-items @DoneCount(subItems)/@subItems.Count</h3>
+            <ul class="task-sheet__sub-items" data-testid="task-sheet-sub-items">
+                @foreach (var subItem in subItems.OrderBy(item => item.Order))
+                {
+                    var done = IsDone(subItem.Status);
+                    @* Said in words as well as struck through: a strike is not
+                       something a screen reader reads. *@
+                    <li data-done="@(done ? "true" : "false")">@(done ? $"{subItem.Title} (done)" : subItem.Title)</li>
+                }
+            </ul>
+        }
+    }
+</DetailSheet>
+
+@code {
+    /// <summary>One line of the list: the row, and the outbox entry still sending
+    /// it when the task was added on this phone and has not gone yet.</summary>
+    private sealed record Line(TaskViewRow Task, OutboxEntry? Pending);
+
+    private string _draft = string.Empty;
+    private string? _pullNotice;
+    private bool _refreshing;
+    private Guid? _selectedId;
+
+    /// <summary>Read afresh each render, so a pick that lapsed at midnight is gone
+    /// the next time the screen draws, without anything having to notice.</summary>
+    private IReadOnlyList<Line> Lines =>
+        [.. View.MyDay(View.Today).Select(row => new Line(row, Pending(row.Id)))];
+
+    /// <summary>The row as the view holds it now, so an edit pulled while the sheet
+    /// is open shows in it, and a deletion closes it.</summary>
+    private TaskViewRow? Selected =>
+        _selectedId is { } id && View.Find(id) is { DeletedAt: null } row ? row : null;
+
+    protected override Task OnInitializedAsync()
+    {
+        View.Changed += OnChanged;
+        Outbox.Changed += OnChanged;
+        Outbox.Delivered += OnDelivered;
+        Lifecycle.Resumed += OnResumed;
+
+        return RefreshAsync();
+    }
+
+    public void Dispose()
+    {
+        View.Changed -= OnChanged;
+        Outbox.Changed -= OnChanged;
+        Outbox.Delivered -= OnDelivered;
+        Lifecycle.Resumed -= OnResumed;
+    }
+
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private void OnResumed() => _ = InvokeAsync(RefreshAsync);
+
+    /// <summary>The replica has the task now; the pull brings back its own copy,
+    /// which replaces the one this phone wrote.</summary>
+    private void OnDelivered(OutboxEntry entry)
+    {
+        if (entry.Kind == TaskOutboxKind.Token) _ = InvokeAsync(RefreshAsync);
+    }
+
+    /// <summary>
+    /// Pulls what changed since the last pull. A failure keeps the list on screen
+    /// and says why in one line — the fold is still what the phone last heard, and
+    /// a task added now is kept and sent when the service answers.
+    /// </summary>
+    private async Task RefreshAsync()
+    {
+        if (_refreshing) return;
+        _refreshing = true;
+
+        try
+        {
+            await View.PullAsync();
+            _pullNotice = null;
+            Status.RecordSynced();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            var reason = ex is SyncUnavailableException { Code: "sync.replica_unavailable" }
+                ? "Cloud sync is still starting up."
+                : "Cloud sync can't be reached.";
+
+            _pullNotice = $"{reason} Showing My Day as this phone last saw it. New tasks are kept here and sent when it answers.";
+            Status.RecordUnreachable();
+        }
+        finally
+        {
+            _refreshing = false;
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task AddAsync()
+    {
+        var title = _draft.Trim();
+        if (title.Length == 0) return;
+
+        await View.AddAsync(title);
+        _draft = string.Empty;
+    }
+
+    private Task RetryAsync(Guid id) => Outbox.RetryAsync(id);
+
+    private OutboxEntry? Pending(Guid id) =>
+        Outbox.Entries.FirstOrDefault(entry => entry.Id == id && entry.Kind == TaskOutboxKind.Token);
+
+    private void Open(Guid id) => _selectedId = id;
+
+    private void OnSheetOpenChanged(bool open)
+    {
+        if (!open) _selectedId = null;
+    }
+
+    private string PickedLabel(TaskViewRow row) =>
+        row.Task.InMyDayOn == View.Today ? "In My Day" : "Not in My Day";
+
+    private string DueLabel(DateOnly due)
+    {
+        var today = View.Today;
+
+        return due == today ? "today"
+            : due == today.AddDays(1) ? "tomorrow"
+            : due.ToString("ddd d MMM", CultureInfo.CurrentCulture);
+    }
+
+    /// <summary>The prose above the first sub-item. A task's body carries its
+    /// sub-items as <c>##</c> chapters too, and the sheet already lists them once
+    /// under Sub-items — the Tasks module's own parser draws the line, so the phone
+    /// and the desktop agree on where a step begins.</summary>
+    private static string Note(string? contentMd) =>
+        EntryTextParser.GetParentText(contentMd ?? string.Empty).Trim();
+
+    private static bool IsDone(string? status) => string.Equals(status, "done", StringComparison.OrdinalIgnoreCase);
+
+    private static int DoneCount(IReadOnlyList<SubItemPayload> subItems) => subItems.Count(item => IsDone(item.Status));
+
+    private static string RowId(Guid id) => $"task-row-{id:N}";
+}
