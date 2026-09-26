@@ -470,6 +470,58 @@ public sealed class TasksDetailPaneTests
         Assert.Equal(["One", "Two", "Three"], host.State.Rows.Select(row => row.PreviewTitle));
     }
 
+    /// <summary>
+    /// Sorting by status re-ranks what the filters show — in progress, then
+    /// ready, then draft — among the slots those rows already held, so a row the
+    /// filters hide keeps its place in the whole list.
+    /// </summary>
+    [Fact]
+    public async Task Sorting_by_status_moves_only_the_visible_rows()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        await host.WriteEntryAsync("# Draft one\n`task` `!draft` `#x`\n");
+        await host.WriteEntryAsync("# Hidden\n`task` `!in_progress`\n");
+        await host.WriteEntryAsync("# Ready one\n`task` `!ready` `#x`\n");
+        await host.WriteEntryAsync("# Draft two\n`task` `!draft` `#x`\n");
+        await host.WriteEntryAsync("# Started\n`task` `!in_progress` `#x`\n");
+
+        host.State.ToggleTagFilter("x");
+        Assert.True(host.State.CanSortVisibleByStatus);
+
+        await host.State.SortVisibleByStatusAsync();
+
+        Assert.Equal(
+            ["Started", "Hidden", "Ready one", "Draft one", "Draft two"],
+            host.State.Rows.Select(row => row.PreviewTitle));
+        Assert.False(host.State.CanSortVisibleByStatus);
+
+        // Persisted: a reload reads the same order back from the store.
+        await host.State.ReloadFromStoreAsync();
+        Assert.Equal(
+            ["Started", "Hidden", "Ready one", "Draft one", "Draft two"],
+            host.State.Rows.Select(row => row.PreviewTitle));
+    }
+
+    [Fact]
+    public async Task The_sort_button_reorders_the_list_and_disables_once_sorted()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        await host.WriteEntryAsync("# Later\n`task` `!draft`\n");
+        await host.WriteEntryAsync("# Now\n`task` `!in_progress`\n");
+
+        var pane = host.Render();
+        var button = pane.Find("[data-testid='sort-by-status']");
+        Assert.False(button.HasAttribute("disabled"));
+
+        await button.ClickAsync(new());
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(["Now", "Later"], host.State.Rows.Select(row => row.PreviewTitle));
+            Assert.True(pane.Find("[data-testid='sort-by-status']").HasAttribute("disabled"));
+        });
+    }
+
     // --- Steps -------------------------------------------------------------
 
     [Fact]
