@@ -547,13 +547,13 @@ public sealed class TaskChainLinkTests
     }
 
     [Fact]
-    public void The_handle_reads_first_of_the_rows_controls_ahead_of_the_pencil()
+    public void The_handle_reads_first_of_the_rows_controls_after_the_title()
     {
         // A handle you drag belongs beside what you are dragging rather than filed
         // among the buttons that act on it — it is the other half of the grip at
         // the row's other end, and everything after it is a click. So: after the
-        // title, ahead of the pencil, and therefore ahead of the copy button and
-        // the bin as well. Not inside the host's action slot, which declines a
+        // title and the pencil that sits beside it, ahead of the copy button and
+        // the bin. Not inside the host's action slot, which declines a
         // press outright.
         using var context = new BunitContext();
         context.JSInterop.Mode = JSRuntimeMode.Loose;
@@ -574,11 +574,12 @@ public sealed class TaskChainLinkTests
 
         // Every control the row can carry is on this row, so these are three real
         // comparisons rather than three IndexOf(-1)s agreeing with each other.
-        Assert.Contains("task-item__edit", order);
+        Assert.Contains("task-item__head", order);
         Assert.Contains("task-item__copy", order);
         Assert.Contains("task-item__delete", order);
 
-        Assert.True(order.IndexOf("task-item__link") < order.IndexOf("task-item__edit"));
+        Assert.True(order.IndexOf("task-item__head") < order.IndexOf("task-item__link"));
+        Assert.NotNull(row.QuerySelector(".task-item__head > .task-item__edit"));
         Assert.True(order.IndexOf("task-item__link") < order.IndexOf("task-item__copy"));
         Assert.True(order.IndexOf("task-item__link") < order.IndexOf("task-item__delete"));
 

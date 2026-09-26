@@ -317,19 +317,6 @@
               data-testid="@Suffix("link")">🔗</span>
     }
 
-    @if (CanRename && !RenameOpen)
-    {
-        <button type="button"
-                class="task-item__edit"
-                id="@_editId"
-                aria-label="@($"Rename {Task.Title}")"
-                data-testid="@Suffix("edit")"
-                @onclick="StartRenameAsync"
-                @onclick:stopPropagation="true">
-            <span aria-hidden="true">✎</span>
-        </button>
-    }
-
     @if (Actions is not null)
     {
         @* What the host can do to this task that this library has no opinion
@@ -525,6 +512,37 @@
     /// which is what every test and every host already uses.
     /// </para></summary>
     private RenderFragment RenderOpen() =>
+        @<div class="task-item__head">
+            @RenderOpenButton()
+            @RenderEdit()
+        </div>;
+
+    /// <summary>The pencil, drawn straight after the title's last word rather than
+    /// among the controls at the row's end, where a list of them stood in a column
+    /// no reader connected to the titles they renamed.
+    /// <para>
+    /// A sibling of the open button and not inside it, because a button cannot hold
+    /// a button. It is laid over the empty track the button's subgrid leaves beside
+    /// the title (see <c>.task-item__head</c>), so the space either side of it still
+    /// opens the row.
+    /// </para></summary>
+    private RenderFragment RenderEdit() =>
+        @<text>
+        @if (CanRename && !RenameOpen)
+        {
+            <button type="button"
+                    class="task-item__edit"
+                    id="@_editId"
+                    aria-label="@($"Rename {Task.Title}")"
+                    data-testid="@Suffix("edit")"
+                    @onclick="StartRenameAsync"
+                    @onclick:stopPropagation="true">
+                <span aria-hidden="true">✎</span>
+            </button>
+        }
+        </text>;
+
+    private RenderFragment RenderOpenButton() =>
         @<button type="button"
                  class="task-item__body"
                  id="@RowElementId"

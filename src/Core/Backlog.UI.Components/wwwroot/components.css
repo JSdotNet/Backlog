@@ -3643,32 +3643,32 @@ button.task-panel__check:focus-visible {
    a row from reading a sub-item's badge in the fold under it. The ancestor sits in
    :where so each rule weighs no more than the circle's own: the hover and focus
    edge above still repaints it, and a completed circle's edge still wins. */
-:where(.task-item:has(> :is(.task-item__body, .task-item__actions) .badge--status-draft)) > .task-item__check,
+:where(.task-item:has(> :is(.task-item__head, .task-item__line, .task-item__actions) .badge--status-draft)) > .task-item__check,
 :where(.task-panel__header:has(> .task-panel__status.badge--status-draft, > .task-panel__status .badge--status-draft)) .task-panel__check {
     border-color: var(--color-background-raised);
 }
 
-:where(.task-item:has(> :is(.task-item__body, .task-item__actions) .badge--status-ready)) > .task-item__check,
+:where(.task-item:has(> :is(.task-item__head, .task-item__line, .task-item__actions) .badge--status-ready)) > .task-item__check,
 :where(.task-panel__header:has(> .task-panel__status.badge--status-ready, > .task-panel__status .badge--status-ready)) .task-panel__check {
     border-color: var(--color-info);
 }
 
-:where(.task-item:has(> :is(.task-item__body, .task-item__actions) :is(.badge--status-active, .badge--status-inprogress))) > .task-item__check,
+:where(.task-item:has(> :is(.task-item__head, .task-item__line, .task-item__actions) :is(.badge--status-active, .badge--status-inprogress))) > .task-item__check,
 :where(.task-panel__header:has(> .task-panel__status:is(.badge--status-active, .badge--status-inprogress), > .task-panel__status :is(.badge--status-active, .badge--status-inprogress))) .task-panel__check {
     border-color: var(--color-primary);
 }
 
-:where(.task-item:has(> :is(.task-item__body, .task-item__actions) .badge--status-blocked)) > .task-item__check,
+:where(.task-item:has(> :is(.task-item__head, .task-item__line, .task-item__actions) .badge--status-blocked)) > .task-item__check,
 :where(.task-panel__header:has(> .task-panel__status.badge--status-blocked, > .task-panel__status .badge--status-blocked)) .task-panel__check {
     border-color: var(--color-error);
 }
 
-:where(.task-item:has(> :is(.task-item__body, .task-item__actions) .badge--status-done)) > .task-item__check,
+:where(.task-item:has(> :is(.task-item__head, .task-item__line, .task-item__actions) .badge--status-done)) > .task-item__check,
 :where(.task-panel__header:has(> .task-panel__status.badge--status-done, > .task-panel__status .badge--status-done)) .task-panel__check {
     border-color: var(--color-success);
 }
 
-:where(.task-item:has(> :is(.task-item__body, .task-item__actions) .badge--status-archived)) > .task-item__check,
+:where(.task-item:has(> :is(.task-item__head, .task-item__line, .task-item__actions) .badge--status-archived)) > .task-item__check,
 :where(.task-panel__header:has(> .task-panel__status.badge--status-archived, > .task-panel__status .badge--status-archived)) .task-panel__check {
     border-color: var(--color-border);
 }
@@ -3676,14 +3676,45 @@ button.task-panel__check:focus-visible {
 /* The row's own hit area. A button rather than a click handler on the li, so it
    is reachable, announced and activated the way every other row in this library
    is. */
-/* Two tracks: the line, and the status beside it. The second track collapses to
-   nothing on a row with no status, so a checklist of sub-items lays out exactly
-   as it did before statuses existed. The metadata line spans both, because it is
-   the line under all of it rather than a third column. */
-.task-item__body {
+/* The open button and the pencil, as one item on the row.
+
+   Four tracks: the title, sized to its own text; the pencil; the space left over;
+   the status. The button spans all four as a subgrid, so its title and status land
+   in the first and last, and the pencil — a sibling, since a button cannot hold a
+   button — is laid over the second, straight after the title's last word. Both are
+   on row 1, so the pencil sits on the title's line and not on the metadata line
+   under it. Everything around the pencil is still the button, so a press anywhere
+   else on the line opens the row as it always did.
+
+   The status track collapses to nothing on a row with no status, so a checklist of
+   sub-items lays out exactly as it did before statuses existed. */
+.task-item__head {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 2px;
+    grid-template-columns: minmax(0, max-content) auto minmax(0, 1fr) auto;
+    column-gap: 2px;
+    align-items: start;
+    /* The only child that gives up room. min-width:0 is what lets it, since a
+       flex item will not shrink below its content without it — and the title's
+       ellipsis depends on being allowed to. */
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.task-item__head > .task-item__edit {
+    grid-column: 2;
+    grid-row: 1;
+    position: relative;
+    z-index: 1;
+}
+
+/* The metadata line spans every track, because it is the line under all of it
+   rather than a column of its own. */
+.task-item__body {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    display: grid;
+    grid-template-columns: subgrid;
+    row-gap: 2px;
     /* position: relative because this carries an sr-only descendant — the word
        "Open", which is how the button says what it does without an aria-label
        taking the status and the metadata line out of its name. .sr-only is
@@ -3693,10 +3724,6 @@ button.task-panel__check:focus-visible {
        .metric-heatmap__cell carry it. Nothing moves visually: the hidden span is
        out of flow, so it takes no grid cell, and it has no offsets to resolve. */
     position: relative;
-    /* The only child that gives up room. min-width:0 is what lets it, since a
-       flex item will not shrink below its content without it — and the title's
-       ellipsis depends on being allowed to. */
-    flex: 1 1 auto;
     min-width: 0;
     padding: 0;
     border: none;
@@ -3750,7 +3777,7 @@ button.task-panel__check:focus-visible {
    row lays out the circle, the line and the controls at the end; the status is
    part of the line. */
 .task-item__status {
-    grid-column: 2;
+    grid-column: -2;
     grid-row: 1;
     align-self: center;
     flex: 0 0 auto;
@@ -3875,9 +3902,9 @@ button.task-panel__check:focus-visible {
     min-width: 0;
 }
 
-/* The button is no longer the item that flexes — the box around it is — and a
+/* The head is no longer the item that flexes — the box around it is — and a
    grow left on it here would be a request to stretch downwards instead. */
-.task-item__line > .task-item__body {
+.task-item__line > .task-item__head {
     flex: 0 0 auto;
 }
 
@@ -4401,13 +4428,17 @@ button.task-panel__check:focus-visible {
     padding-inline-start: calc(var(--spacing-md) + 1.25rem + var(--spacing-sm));
 }
 
+/* Small, because it sits in the title's line rather than among the row's
+   controls: one line tall in the title's own font, so it centres on the title's
+   words, with a glyph a step under them so it reads as a mark on the title rather
+   than a word of it. */
 .task-item__edit {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     flex: 0 0 auto;
-    min-width: 2rem;
-    min-height: 2rem;
+    width: 1.25rem;
+    height: 1lh;
     padding: 0;
     border: none;
     border-radius: var(--border-radius-sm);
@@ -4415,6 +4446,10 @@ button.task-panel__check:focus-visible {
     color: var(--color-text-disabled);
     font: inherit;
     cursor: pointer;
+}
+
+.task-item__edit > span {
+    font-size: var(--font-size-xs);
 }
 
 .task-item:hover .task-item__edit,
