@@ -32,6 +32,7 @@ classDiagram
         +LocalDateTime remind_at
         +Recurrence recurrence
         +Date in_my_day_on
+        +Date started_on
         +Date completed_on
         +List~Id~ depends_on
         +Id recurrence_source_id
@@ -153,6 +154,10 @@ classDiagram
   status says whether the work is over, the tick says whether the person is
   finished with the task, and holding them apart is what lets a `done` task
   stay on the open list until it is ticked.
+- `started_on` is a fifth — the day the task first moved to `in_progress`, or
+  unset — stamped by the root on that transition and never moved after it. A
+  date and not a `Timestamp` for the same reason as the tick: it is read against
+  a local calendar, as the day the work began.
 - `Recurrence` is an owned value object rather than a scalar because a repeat has
   internal structure (`interval`, `unit`, and an optional `Weekday` set) and no
   identity of its own. It describes the shape of the repeat only; the date of the

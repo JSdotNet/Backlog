@@ -26,6 +26,9 @@ stateDiagram-v2
 
 - The `Ready → InProgress` transition emits `TaskProjected` (one artifact per
   `repo_id`); `Done` emits `TaskCompleted` to close all projections.
+- The first entry into `InProgress`, by any route, stamps `started_on` with the
+  local date. Later entries — after `Paused`, or `Reopened` from `Done` — leave
+  it where it is: it records when the work began, not when it last resumed.
 - `Done` and `Archived` say the work is over. They do not say the person is
   finished with the task: that is the tick — `completed_on`, the checkbox in
   the list — which is a separate fact and not a state in this diagram. A task
@@ -72,8 +75,8 @@ flowchart TD
 - The next due date is calculated from the completed occurrence's `due_on`, not
   from the date it was actually finished, so lateness does not drift a schedule.
 - What resets on the new occurrence: sub-items return to `pending`, and
-  projections, usage history, `remind_at`, `in_my_day_on` and `completed_on` do
-  not carry over.
+  projections, usage history, `remind_at`, `in_my_day_on`, `started_on` and
+  `completed_on` do not carry over.
   What carries: title, body, type, priority, area, tags, `repo_ids`, and the
   `Recurrence` itself.
 

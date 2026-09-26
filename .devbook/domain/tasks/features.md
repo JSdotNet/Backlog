@@ -680,6 +680,11 @@ Ticking a task off is a separate act from either status. The checkbox sets
 unticking clears the tick without reopening anything. The Completed section,
 the tag counts and every "nothing left to wait for" read the tick.
 
+Starting the work is recorded too: the first time a task moves to in progress
+it is stamped with the day, shown as `started:` on its metadata line beside
+`completed:`, and kept through pausing and reopening. The roadmap reads the two
+together to draw a finished plan where its work actually ran.
+
 ## Refresh from shared storage
 
 ```meta
