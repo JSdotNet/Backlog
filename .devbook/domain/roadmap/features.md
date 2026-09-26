@@ -431,6 +431,15 @@ when the tasks already make the window it has. Nothing moves but that item: work
 that waits on it and now starts before it finishes is
 [named, not moved](#surfacing-contradictions-instead-of-fixing-them).
 
+The update happens where it was offered. The item's editor stays open and shows
+the new dates in its fields, so a Save afterwards keeps them rather than putting
+the old window back as a hand move. Work the update has just made overlap is
+named in the editor too — "Now overlaps: …. They keep their dates." — and work
+that already overlapped before is not named again. An offer can go stale while
+it is on screen, when the item was moved by hand in the meantime; taking it then
+is refused with the reason in the same dialog, nothing changes, and the offer
+is withdrawn.
+
 An import says what it could not do rather than guessing. A plan entry with no
 tag is skipped and named, because the tag is how the next import finds it. A tag
 several planned items already carry updates the first of them and names the
