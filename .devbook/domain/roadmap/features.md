@@ -263,6 +263,39 @@ Move and resize planned work from the keyboard, with every step announced. A pla
 that could only be dragged would be a plan some people can read and nobody can
 edit.
 
+### Reading the near term closely
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/roadmap/features.md#looking-back-at-finished-plans]
+```
+
+The timeline fills the width it is given and is ruled finer the nearer it is to
+today: this week a column a day, the next three weeks a column each, then months for
+about a quarter, then quarters. The work in flight sits this week, and a single week
+column stacked every bar that started in it on the same few pixels. Every column
+widens by the same factor until the chart from this week on fills the screen, so a
+short plan never leaves the right of it empty, and the chart opens on this week.
+
+### Looking back at finished plans
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/roadmap/domain.md#planned-window, .devbook/domain/tasks/domain.md#started, .devbook/domain/tasks/domain.md#completed]
+```
+
+Scroll back from this week to see what was finished and how long it really took. A
+plan whose tasks are all done is drawn where its work actually ran — from the day
+its first task was started to the day its last was ticked off — rather than where it
+was planned, because a finished plan is a record and its planned window was only a
+hope. The four weeks before this one are ruled in weeks, where recent work sits, and
+anything earlier in months, as far back as the earliest thing drawn.
+
+A finished plan cannot be dragged: its dates are read off the work, so a move would
+change nothing the next reading keeps. Opening it still edits the stored item.
+
 ### Telling one project from another at a glance
 
 ```meta
