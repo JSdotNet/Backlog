@@ -80,6 +80,10 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
     private const string PlanRefusedTestId = "plan-entry-refused";
 
+    /// <summary>The toast a save raises when its edit and a write from elsewhere
+    /// changed the same lines. See <see cref="RebaseOnStoreAsync"/>.</summary>
+    private const string ChangedElsewhereTestId = "entry-changed-elsewhere";
+
     private const string CopilotFailureTestId = "copilot-cli-error";
 
     private readonly ITaskStore _store;
@@ -134,6 +138,14 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// was live or a save was still on its way, and is owed the moment neither
     /// is true. See <see cref="ReloadFromStoreAsync"/>.</summary>
     private bool _reloadDeferred;
+
+    /// <summary>Whether something other than this list may have written the
+    /// store since the rows were last read from it. Set on the writer's thread
+    /// the moment an outside write is heard, and by every reload somebody else
+    /// asks for; cleared when the rows are read again. While it is set a save
+    /// first carries the stored text onto the row — see
+    /// <see cref="RebaseOnStoreAsync"/>.</summary>
+    private volatile bool _storeMayBeAhead;
 
     /// <summary>How many sub-items <see cref="EditingRow"/> had when its editor
     /// opened, or -1 when no entry is being written in. See
@@ -2171,6 +2183,10 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     {
         if (_untilDisposed.IsCancellationRequested) return;
 
+        // A sync pull's writes are not heard through OnTaskWritten; this is the
+        // first the list knows of them.
+        _storeMayBeAhead = true;
+
         if (EditingRow is not null || SaveIsPending)
         {
             _reloadDeferred = true;
@@ -2204,6 +2220,10 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     private void OnTaskWritten()
     {
         if (_writingHere.Value || _untilDisposed.IsCancellationRequested) return;
+
+        // Here rather than when the shell's reload arrives: a keystroke's save
+        // can fire between the two, and it has to know.
+        _storeMayBeAhead = true;
 
         WrittenElsewhere?.Invoke();
     }
@@ -2616,6 +2636,8 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// caller asked for — reporting it here would blame the wrong row.</remarks>
     private async Task<Result> SaveRowAsync(EntryRow row, bool isFlush)
     {
+        if (_storeMayBeAhead) await RebaseOnStoreAsync(row);
+
         var segments = EntryTextParser.SplitSegments(row.RawText);
         List<string> overflow = segments.Count > 1 ? [.. segments.Skip(1)] : [];
 
@@ -2645,6 +2667,60 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         await ShowSpawnedOccurrenceAsync();
 
         return saved;
+    }
+
+    /// <summary>
+    /// Carries a write somebody else made to this row's entry onto the text about
+    /// to be saved over it.
+    /// <para>
+    /// A save sends the whole entry, and the row's text was built on the entry as
+    /// this list last read or wrote it — <see cref="_entries"/>. The reload an
+    /// outside write asks for is put off while a keystroke's save is pending or the
+    /// raw hatch is open, so the save that then runs would put that older text back
+    /// and erase the other write: an agent's comment gone, with nothing on screen
+    /// to say it had ever landed. Instead, when the store no longer holds what the
+    /// row was built on, the reader's edit is merged onto what it does hold (see
+    /// <see cref="EntryTextMerge"/>), and the stored entry becomes the row's base.
+    /// </para>
+    /// <para>
+    /// Only asked while an outside write may have happened, since it reads the
+    /// store. The row's text is read after that read, so a keystroke typed while
+    /// it was in flight is merged rather than overwritten.
+    /// </para>
+    /// </summary>
+    private async Task RebaseOnStoreAsync(EntryRow row)
+    {
+        if (row.Id is not { } id || !_entries.TryGetValue(id, out var loaded)) return;
+
+        TaskItemDto? stored;
+        try
+        {
+            stored = (await _entryUseCases.ListAsync()).FirstOrDefault(entry => entry.Id == id);
+        }
+        catch (Exception)
+        {
+            // A store that cannot be read now will refuse the save as well, and
+            // the save is where that is reported.
+            return;
+        }
+
+        // Deleted from under the row: the save has nowhere to go either way.
+        if (stored is null) return;
+
+        var baseText = EntryTextParser.ToRawText(loaded);
+        var storedText = EntryTextParser.ToRawText(stored);
+        if (string.Equals(baseText, storedText, StringComparison.Ordinal)) return;
+
+        var merged = EntryTextMerge.Merge(baseText, row.RawText, storedText);
+        row.RawText = merged.Text;
+        _entries[id] = stored;
+
+        if (merged.Overlapped)
+        {
+            _toasts?.Publish(ToastMessage.Warning(
+                $"{row.PreviewTitle}: changed elsewhere while you were editing it. Where you both changed the same lines, both versions were kept — check the text.",
+                ChangedElsewhereTestId));
+        }
     }
 
     /// <summary>Hands one entry's text to the module and takes back whatever it
@@ -2912,6 +2988,10 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         // Whatever a save was waiting to show is about to be on screen, whoever
         // asked for the reload and for whatever reason.
         _spawnedOccurrencePending = false;
+
+        // Cleared before the read rather than after it, so a write landing while
+        // the list is being read sets it again instead of being forgotten.
+        _storeMayBeAhead = false;
 
         // The plan's tags travel with the reload, so the picker offers planned work
         // the moment the list it sits in refreshes rather than a beat behind it.
