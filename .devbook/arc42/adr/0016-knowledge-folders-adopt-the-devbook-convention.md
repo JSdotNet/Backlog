@@ -2,7 +2,7 @@
 
 ```meta
 date: 2026-09-26
-related: [".devbook/arc42/08-crosscutting-concepts.md#devbook-database", ".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md", ".devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/domain/devbook/features.md#repository-devbook-areas", ".devbook/domain/roadmap/domain.md#roadmap-plan", ".devbook/tech/tooling.md#knowledge-meta-generator"]
+related: [".devbook/arc42/08-crosscutting-concepts.md#devbook-database", ".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md", ".devbook/arc42/adr/0008-knowledge-reads-from-a-branch-snapshot-when-there-is-no-clone.md", ".devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md", ".devbook/domain/devbook/features.md#repository-devbook-areas", ".devbook/domain/roadmap/domain.md#roadmap-plan", ".devbook/tech/tooling.md#devbook-meta-generator"]
 ```
 
 ## Status
