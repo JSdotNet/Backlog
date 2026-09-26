@@ -738,10 +738,9 @@ public sealed class AzureFoundryLocalTestServiceTests
 /// pin.</b> The tier is wired and dormant: the table exists, the port exists, the
 /// cosine reader exists, the deployment sits in bicep behind a parameter that is
 /// off, and the feature flag is <c>Dev</c> and off. What is deliberately missing
-/// is the step that would compute vectors for the corpus, because the Node
-/// generator is the only thing that writes <c>_meta/devbook.db</c> — this client
-/// existing must not turn the app into a second writer, and nothing here opens
-/// that file at all.</para>
+/// is the step that would compute vectors for the corpus: the database's one
+/// writer is <c>DevbookDatabaseBuilder</c> (local ADR 0015), which computes none
+/// yet, and nothing here opens that file at all.</para>
 ///
 /// <para>So what is tested is the shape and the guards: the request goes to the
 /// <em>embedding</em> deployment rather than the chat one, and every refusal

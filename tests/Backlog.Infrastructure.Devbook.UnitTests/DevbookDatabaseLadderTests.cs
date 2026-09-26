@@ -27,7 +27,7 @@ public class DevbookDatabaseLadderTests
     public void Rung_one_a_current_row_is_served_from_the_database()
     {
         using var temporary = new TemporaryDatabase();
-        DevbookCorpus.Seed(temporary.DatabaseFile);
+        DevbookCorpus.Seed(temporary);
 
         using var database = DevbookDatabase.TryOpen(temporary.DatabaseFile);
         Assert.NotNull(database);
@@ -43,7 +43,7 @@ public class DevbookDatabaseLadderTests
     public void Rung_two_a_file_written_since_the_build_has_drifted()
     {
         using var temporary = new TemporaryDatabase();
-        DevbookCorpus.Seed(temporary.DatabaseFile);
+        DevbookCorpus.Seed(temporary);
 
         using var database = DevbookDatabase.TryOpen(temporary.DatabaseFile);
         Assert.NotNull(database);
@@ -65,7 +65,7 @@ public class DevbookDatabaseLadderTests
     public void Rung_two_a_touched_file_with_unchanged_content_has_not_drifted()
     {
         using var temporary = new TemporaryDatabase();
-        DevbookCorpus.Seed(temporary.DatabaseFile);
+        DevbookCorpus.Seed(temporary);
 
         using var database = DevbookDatabase.TryOpen(temporary.DatabaseFile);
         Assert.NotNull(database);
@@ -83,7 +83,7 @@ public class DevbookDatabaseLadderTests
     public void Rung_two_a_deleted_file_is_gone_rather_than_drifted()
     {
         using var temporary = new TemporaryDatabase();
-        DevbookCorpus.Seed(temporary.DatabaseFile);
+        DevbookCorpus.Seed(temporary);
 
         using var database = DevbookDatabase.TryOpen(temporary.DatabaseFile);
         Assert.NotNull(database);
@@ -180,7 +180,7 @@ public class DevbookDatabaseLadderTests
     public void Rung_five_a_database_with_embeddings_answers_both_tiers()
     {
         using var temporary = new TemporaryDatabase();
-        var seeded = DevbookCorpus.Seed(temporary.DatabaseFile);
+        var seeded = DevbookCorpus.Seed(temporary);
 
         using var database = DevbookDatabase.TryOpen(temporary.DatabaseFile);
         Assert.NotNull(database);
@@ -193,8 +193,8 @@ public class DevbookDatabaseLadderTests
     /// <summary>
     /// The one rung a user sees. Browsing degrades to Markdown because it touches
     /// the files on screen; search cannot, because scanning the corpus per query is
-    /// a hang rather than a fallback. So the answer is words, and the words name
-    /// the command that fixes it.
+    /// a hang rather than a fallback. So the answer is words, and the words say
+    /// the index is on its way — the app builds it (local ADR 0015).
     /// </summary>
     [Fact]
     public void Rung_six_no_database_means_search_is_unavailable_and_says_so()
@@ -204,51 +204,7 @@ public class DevbookDatabaseLadderTests
         var message = DevbookRetrieval.UnavailableMessage("Devbook search");
 
         Assert.Contains("Devbook search", message, StringComparison.Ordinal);
-        Assert.Contains(DevbookRetrieval.BuildCommand, message, StringComparison.Ordinal);
-    }
-
-    // --- The file name from before the rename ---------------------------------
-
-    /// <summary>
-    /// The database was <c>_meta/knowledge.db</c> while the context was called
-    /// Knowledge. An index built before the rename is still a current index, so a
-    /// root holding only the old file resolves to it and reads from it until the
-    /// generator writes the new name.
-    /// </summary>
-    [Fact]
-    public void A_root_with_only_the_old_database_name_resolves_and_reads_it()
-    {
-        using var temporary = new TemporaryDatabase(DevbookDatabaseLocation.LegacyFileName);
-        DevbookCorpus.Seed(temporary.DatabaseFile);
-
-        Assert.Equal(temporary.DatabaseFile, DevbookDatabaseLocation.ForRepositoryRoot(temporary.RootDirectory));
-
-        using var database = DevbookDatabase.TryOpenForFolder(temporary.Folder(".domain"));
-        Assert.NotNull(database);
-        Assert.Equal(DevbookCorpus.ChapterText, Assert.Single(database.Chapters(DevbookCorpus.ChapterPath)).Text);
-    }
-
-    [Fact]
-    public void A_root_with_both_database_names_resolves_the_current_one()
-    {
-        using var temporary = new TemporaryDatabase();
-        File.WriteAllText(temporary.DatabaseFile, string.Empty);
-        File.WriteAllText(Path.Combine(temporary.RootDirectory, "_meta", DevbookDatabaseLocation.LegacyFileName), string.Empty);
-
-        Assert.Equal(temporary.DatabaseFile, DevbookDatabaseLocation.ForRepositoryRoot(temporary.RootDirectory));
-    }
-
-    /// <summary>"Absent" resolves to the current name, so a caller's existence check
-    /// and the generator's target agree on where the file is going to be.</summary>
-    [Fact]
-    public void A_root_with_neither_database_name_resolves_to_the_current_one()
-    {
-        using var temporary = new TemporaryDatabase();
-
-        var resolved = DevbookDatabaseLocation.ForRepositoryRoot(temporary.RootDirectory);
-
-        Assert.Equal(temporary.DatabaseFile, resolved);
-        Assert.EndsWith(DevbookDatabaseLocation.FileName, resolved, StringComparison.Ordinal);
+        Assert.Contains("has not been built yet", message, StringComparison.Ordinal);
     }
 
     private static string FileFor(TemporaryDatabase temporary) => temporary.Resolve(DevbookCorpus.ChapterPath);

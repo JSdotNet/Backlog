@@ -9,7 +9,7 @@ namespace Backlog.Desktop.UI.Devbook;
 /// is authored, in the folder's committed <c>_reading-order.json</c>, and it is
 /// the same list the domain, design and technology panes beside the rail order
 /// themselves by. The titles are derived, in the generated
-/// <c>_meta/devbook.db</c> that ADR 0004 introduced, which is where
+/// the devbook database that ADR 0004 introduced, which is where
 /// <c>dev-pc-management</c> is known to be "Dev PC Management" rather than the
 /// "Dev Pc Management" a filename can be title-cased into.</para>
 ///

@@ -200,6 +200,13 @@ anything must not arrive telling their app to read a folder they do not have.
 
 ## What this narrows in ADR 0004
 
+> **Amended 2026-09-25 by local ADR 0015.** The placement rule this section
+> narrows is gone: the derived database no longer sits in the repository either,
+> but beside the snapshots, under `_databases/` in the same devbook cache folder,
+> keyed by repository path. A snapshot's `tree/` is a path like any other, so a
+> repository read from a branch gets a database — and search — as a clone does.
+> The paragraph below is kept for the snapshot's own reasoning, which still holds.
+
 ADR 0004's placement rule is kept for what it was about — the *derived* layer,
 `_meta/` (`.devbook/_meta/` in the devbook layout), the generated index — and does not extend to a snapshot, for a reason
 that dissolves its own argument. That rule guards against a second place that can

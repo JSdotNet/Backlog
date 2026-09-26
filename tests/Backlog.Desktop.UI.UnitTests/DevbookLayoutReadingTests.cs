@@ -12,7 +12,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
 /// A repository on the devbook layout reads the way one on the root layout does:
-/// its generated database is found at <c>.devbook/_meta/devbook.db</c>, the rows
+/// its generated database is the app's own for that repository path, the rows
 /// the devbook generator writes in <c>.devbook/…</c> spelling are matched against
 /// the folders asking for them, and a reference written as
 /// <c>.devbook/domain/…</c> goes where <c>.domain/…</c> goes.
@@ -75,48 +75,25 @@ public sealed class DevbookLayoutReadingTests : IDisposable
         Assert.True(DevbookLayout.UsesDevbookLayout(_root));
     }
 
+    /// <summary>Local ADR 0015: in either layout the database is the app's, keyed
+    /// by the repository path, and a file left inside the repository by the old
+    /// writer is not it.</summary>
     [Fact]
-    public void The_database_of_a_devbook_layout_repository_is_under_devbook_meta()
+    public void The_database_of_either_layout_is_in_app_storage_and_not_in_the_repository()
     {
         var domain = Path.Combine(_root, ".devbook", "domain");
         Directory.CreateDirectory(domain);
-        var database = CreateEmptyFile(".devbook", "_meta", DevbookDatabaseLocation.FileName);
+        var legacy = CreateEmptyFile(".devbook", "_meta", DevbookDatabaseLocation.FileName);
+        var rootLegacy = CreateEmptyFile("_meta", DevbookDatabaseLocation.FileName);
 
-        Assert.Equal(database, DevbookDatabaseLocation.ForRepositoryRoot(_root));
+        var database = DevbookDatabaseLocation.ForRepositoryRoot(_root);
+
+        Assert.NotNull(database);
+        Assert.NotEqual(legacy, database);
+        Assert.NotEqual(rootLegacy, database);
+        Assert.False(database.StartsWith(_root, StringComparison.OrdinalIgnoreCase), "the database is outside the repository");
         Assert.Equal(database, DevbookDatabaseLocation.ForDevbookFolder(domain));
-    }
-
-    [Fact]
-    public void The_layouts_own_database_wins_over_the_other_layouts()
-    {
-        Directory.CreateDirectory(Path.Combine(_root, ".devbook", "domain"));
-        var rootDatabase = CreateEmptyFile("_meta", DevbookDatabaseLocation.FileName);
-        var devbookDatabase = CreateEmptyFile(".devbook", "_meta", DevbookDatabaseLocation.FileName);
-
-        Assert.Equal(devbookDatabase, DevbookDatabaseLocation.ForRepositoryRoot(_root));
-        Assert.NotEqual(rootDatabase, DevbookDatabaseLocation.ForRepositoryRoot(_root));
-    }
-
-    [Fact]
-    public void A_root_layout_repository_keeps_its_database_at_the_root()
-    {
-        Directory.CreateDirectory(Path.Combine(_root, ".domain"));
-        Directory.CreateDirectory(Path.Combine(_root, ".devbook"));
-        var rootDatabase = CreateEmptyFile("_meta", DevbookDatabaseLocation.FileName);
-        CreateEmptyFile(".devbook", "_meta", DevbookDatabaseLocation.FileName);
-
-        Assert.Equal(rootDatabase, DevbookDatabaseLocation.ForRepositoryRoot(_root));
-        Assert.Equal(rootDatabase, DevbookDatabaseLocation.ForDevbookFolder(Path.Combine(_root, ".domain")));
-    }
-
-    [Fact]
-    public void An_absent_database_names_the_layouts_own_location()
-    {
-        Directory.CreateDirectory(Path.Combine(_root, ".devbook", "arc42"));
-
-        Assert.Equal(
-            Path.Combine(_root, ".devbook", "_meta", DevbookDatabaseLocation.FileName),
-            DevbookDatabaseLocation.ForRepositoryRoot(_root));
+        Assert.Equal(database, DevbookDatabaseLocation.ForDevbookFolder(Path.Combine(_root, ".domain")));
     }
 
     [Fact]
@@ -255,7 +232,7 @@ public sealed class DevbookLayoutReadingTests : IDisposable
 
         if (!withDatabase) return folder;
 
-        var databasePath = Path.Combine(_root, ".devbook", "_meta", DevbookDatabaseLocation.FileName);
+        var databasePath = DevbookDatabaseLocation.ForRepositoryRoot(_root)!;
         Directory.CreateDirectory(Path.GetDirectoryName(databasePath)!);
 
         using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
@@ -320,16 +297,9 @@ public sealed class DevbookLayoutReadingTests : IDisposable
         command.ExecuteNonQuery();
     }
 
-    /// <summary>The writer's DDL, read out of <c>tools/devbook/devbook-schema.mjs</c>
+    /// <summary>The writer's DDL, read out of <c>tools/devbook/devbook-schema.sql</c>
     /// rather than restated here.</summary>
-    private static string WriterSchema()
-    {
-        var source = File.ReadAllText(RepositoryRoot.File("tools", "devbook", "devbook-schema.mjs"));
-        var match = Regex.Match(source, @"export const DEVBOOK_SCHEMA = `(?<value>[^`]*)`", RegexOptions.Singleline);
-
-        Assert.True(match.Success, "tools/devbook/devbook-schema.mjs no longer exports DEVBOOK_SCHEMA.");
-        return match.Groups["value"].Value;
-    }
+    private static string WriterSchema() => DevbookDatabaseSchema.Ddl;
 
     public void Dispose()
     {

@@ -18,7 +18,6 @@ import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { buildDatabase } from './build-database.mjs';
-import { DATABASE_PATH, DEVBOOK_DATABASE_PATH } from './devbook-schema.mjs';
 import { loadGenerator, usesDevbookLayout } from './generator.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -85,20 +84,18 @@ test('a .devbook/ holding only configuration is still the root layout', async ()
 
         const generator = await loadGenerator(root);
         assert.equal(generator.layout, 'root');
-        assert.equal(generator.databasePath, DATABASE_PATH);
     } finally {
         await rm(root, { recursive: true, force: true });
     }
 });
 
-test('a devbook-layout repository uses its own generator and .devbook/_meta', async () => {
+test('a devbook-layout repository uses its own generator', async () => {
     const root = await writeTree(FIXTURE);
     try {
         const generator = await loadGenerator(root);
 
         assert.equal(generator.layout, 'devbook');
         assert.equal(generator.source, '.devbook/_tools/devbook-meta');
-        assert.equal(generator.databasePath, DEVBOOK_DATABASE_PATH);
         assert.equal(generator.repoReadingOrderPath, '.devbook/_reading-order.json');
     } finally {
         await rm(root, { recursive: true, force: true });
@@ -116,12 +113,16 @@ test('a devbook-layout repository without a generator says how to get one', asyn
 
 test('the devbook-layout database carries the repository\'s real paths', async () => {
     const root = await writeTree(FIXTURE);
-    const target = join(root, ...DEVBOOK_DATABASE_PATH.split('/'));
+    // Local ADR 0015: the database lives outside the repository, wherever the
+    // caller says, and the build writes nothing into the tree it read.
+    const outside = await mkdtemp(join(tmpdir(), 'devbook-out-'));
+    const target = join(outside, 'devbook.db');
     try {
         await buildDatabase(root, target);
 
         assert.equal(await exists(target), true);
-        assert.equal(await exists(join(root, ...DATABASE_PATH.split('/'))), false, 'nothing is written at the root');
+        assert.equal(await exists(join(root, '_meta')), false, 'nothing is written at the root');
+        assert.equal(await exists(join(root, '.devbook', '_meta')), false, 'nothing is written under .devbook/');
 
         const db = new DatabaseSync(target, { readOnly: true });
         try {
@@ -143,5 +144,6 @@ test('the devbook-layout database carries the repository\'s real paths', async (
         }
     } finally {
         await rm(root, { recursive: true, force: true });
+        await rm(outside, { recursive: true, force: true });
     }
 });

@@ -1,5 +1,4 @@
-// generator.mjs — which devbook generator indexes a repository, and where the
-// database it feeds goes.
+// generator.mjs — which devbook generator indexes a repository.
 //
 // A repository keeps its knowledge folders in one of two layouts. The root
 // layout puts each at the root as a dot-folder (`.arc42`, `.domain`, …) and its
@@ -14,7 +13,9 @@
 // `reading-order.mjs` import — `buildGraph`, `discoverScopes`, `REPO_SCOPE`,
 // `parseDocument`, `folderKindForPath` — and each spells paths the way its own
 // layout does. So the database is built by whichever one the repository's
-// layout calls for, and its rows carry that repository's real paths.
+// layout calls for, and its rows carry that repository's real paths. Where the
+// database goes is not this file's question any more: local ADR 0015 moved it
+// out of every repository, and `build-database.mjs` writes where `--out` says.
 
 import { stat } from 'node:fs/promises';
 import path from 'node:path';
@@ -22,7 +23,6 @@ import { pathToFileURL } from 'node:url';
 
 import * as rootGraph from '../../.github/tools/knowledge-meta/graph.mjs';
 import * as rootMetadata from '../../.github/tools/knowledge-meta/metadata.mjs';
-import { DATABASE_PATH, DEVBOOK_DATABASE_PATH } from './devbook-schema.mjs';
 
 /** The parent every folder sits under in the devbook layout. */
 export const DEVBOOK_ROOT = '.devbook';
@@ -64,11 +64,6 @@ export async function usesDevbookLayout(repoRoot) {
     return false;
 }
 
-/** The repo-relative database path for a layout. */
-export function databasePathFor(layout) {
-    return layout === 'devbook' ? DEVBOOK_DATABASE_PATH : DATABASE_PATH;
-}
-
 /** The repo-relative path of the repository scope's committed reading order —
  *  the file that orders the areas themselves — beside the areas in either
  *  layout. */
@@ -89,8 +84,8 @@ async function findGeneratorDirectory(repoRoot, override) {
 
 /**
  * The generator for `repoRoot`, as one object: the layout it serves, the
- * database path and repository reading-order path that go with it, and the
- * five functions and constants the database build uses.
+ * repository reading-order path that goes with it, and the five functions and
+ * constants the database build uses.
  *
  * `generatorDir` overrides where a devbook-layout generator is looked for; it
  * has no effect on a root-layout repository, which always uses the installed
@@ -101,7 +96,6 @@ export async function loadGenerator(repoRoot, { generatorDir = null } = {}) {
         return {
             layout: 'root',
             source: '.github/tools/knowledge-meta',
-            databasePath: databasePathFor('root'),
             repoReadingOrderPath: repoReadingOrderPathFor('root'),
             folders: rootGraph.KNOWLEDGE_FOLDERS,
             REPO_SCOPE: rootGraph.REPO_SCOPE,
@@ -127,7 +121,6 @@ export async function loadGenerator(repoRoot, { generatorDir = null } = {}) {
     return {
         layout: 'devbook',
         source: path.relative(repoRoot, directory).split(path.sep).join('/') || directory,
-        databasePath: databasePathFor('devbook'),
         repoReadingOrderPath: repoReadingOrderPathFor('devbook'),
         folders: DEVBOOK_FOLDER_NAMES.map((name) => `${DEVBOOK_ROOT}/${name}`),
         REPO_SCOPE: graph.REPO_SCOPE,

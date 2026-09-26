@@ -37,11 +37,11 @@ public sealed record AzureFoundryEmbeddingResponse(string Model, IReadOnlyList<f
 /// is wired and dormant: the table exists, the port exists, the brute-force
 /// cosine reader exists, the deployment is in bicep behind a parameter that is
 /// off by default, and the feature flag is <c>Dev</c> and off. What is missing on
-/// purpose is the thing that would join them up — and it is missing on purpose
-/// because <b>the Node generator is the only writer</b>. If embeddings are ever
-/// computed for the corpus, the generator computes them and writes them; this
-/// client existing does not make the app a second writer of
-/// <c>_meta/devbook.db</c>, and nothing here opens that file at all.</para>
+/// purpose is the thing that would join them up: the database's writer is
+/// <c>DevbookDatabaseBuilder</c> (local ADR 0015), and it computes no embeddings
+/// until ADR 0004's open question — which model — is answered. If it ever does,
+/// that is where it happens; this client existing does not make it happen, and
+/// nothing here opens the database at all.</para>
 ///
 /// <para>The shape follows <see cref="AzureFoundryChatClient"/> deliberately —
 /// same settings store, same <c>api-key</c> header, same api-version, same

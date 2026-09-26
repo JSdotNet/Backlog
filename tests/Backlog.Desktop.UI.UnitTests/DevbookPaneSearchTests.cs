@@ -58,8 +58,7 @@ public sealed class DevbookPaneSearchTests : IDisposable
 
         var message = component.Find("[data-testid='devbook-search-unavailable']").TextContent;
 
-        Assert.Contains("has not been written yet", message, StringComparison.Ordinal);
-        Assert.Contains(DevbookRetrieval.BuildCommand, message, StringComparison.Ordinal);
+        Assert.Contains("has not been built yet", message, StringComparison.Ordinal);
 
         // The specific wrong answer: a list with nothing in it.
         Assert.Empty(component.FindAll("[data-testid='devbook-search-results']"));
@@ -253,7 +252,7 @@ public sealed class DevbookPaneSearchTests : IDisposable
     /// </summary>
     private static void SeedDatabase(string root)
     {
-        var databasePath = Path.Combine(root, "_meta", "devbook.db");
+        var databasePath = DevbookDatabaseLocation.ForRepositoryRoot(root)!;
         Directory.CreateDirectory(Path.GetDirectoryName(databasePath)!);
 
         using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
@@ -287,14 +286,7 @@ public sealed class DevbookPaneSearchTests : IDisposable
         command.ExecuteNonQuery();
     }
 
-    private static string WriterSchema()
-    {
-        var source = File.ReadAllText(RepositoryRoot.File("tools", "devbook", "devbook-schema.mjs"));
-        var match = Regex.Match(source, @"export const DEVBOOK_SCHEMA = `(?<value>[^`]*)`", RegexOptions.Singleline);
-
-        Assert.True(match.Success, "tools/devbook/devbook-schema.mjs no longer exports DEVBOOK_SCHEMA.");
-        return match.Groups["value"].Value;
-    }
+    private static string WriterSchema() => DevbookDatabaseSchema.Ddl;
 
     public void Dispose()
     {

@@ -232,6 +232,12 @@ ready to show something. A chapter edited moments ago is shown from the folder
 itself rather than held back until the prepared view catches up, so what is on
 screen is never older than what is on disk.
 
+The prepared view is the app's own and is kept with the app, never in the
+repository: nothing is added to a repository's folders, and nothing there needs
+to be told to ignore it. It is prepared per copy of the repository, so two
+clones or two worktrees of one repository are each prepared from their own
+files, and a repository read from a branch without a clone is prepared too.
+
 ### The devbook on the repository's latest version
 
 ```meta

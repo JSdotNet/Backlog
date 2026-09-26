@@ -106,6 +106,14 @@ public static class MauiProgram
             sp.GetRequiredService<IGitHubTreeClient>(),
             sp.GetRequiredService<IGitHubBranchCatalog>()));
 
+        // The devbook database: built by the app into the same cache folder as
+        // the snapshots, one per repository path, in the background when a
+        // repository is first read (local ADR 0015). Resolving it is what points
+        // every database reader at that folder - see below.
+        builder.Services.AddSingleton(sp => DevbookDatabaseRefresher.StartForApp(
+            () => sp.GetRequiredService<WorkspaceSettingsStore>().DevbookCacheDirectory,
+            sp.GetService<ILogger<DevbookDatabaseRefresher>>()));
+
         builder.Services.AddSingleton<IDevbookFolderSource>(sp => new DevbookFolderSource(
             sp.GetRequiredService<GitHubSettingsStore>(),
             sp.GetRequiredService<WorkspaceSettingsStore>(),
@@ -346,8 +354,8 @@ public static class MauiProgram
         // The embedding deployment beside the chat one. Registered and never
         // called in this change: local ADR 0004's semantic tier is wired and
         // dormant, and the thing that would join it up - writing vectors into
-        // _meta/devbook.db - belongs to the Node generator, which is the only
-        // writer that file has.
+        // the devbook database - is a step DevbookDatabaseBuilder does not take
+        // yet (the embedding model is still ADR 0004's open question).
         builder.Services.AddHttpClient<IAzureFoundryEmbeddingsClient, AzureFoundryEmbeddingsClient>();
         builder.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
         builder.Services.AddSingleton<IGitFileHistoryService, GitFileHistoryService>();
@@ -613,6 +621,12 @@ public static class MauiProgram
         // EnabledByDefault: false, so on an untouched machine this line
         // constructs an object that reads one flag and stops.
         _ = app.Services.GetRequiredService<McpServerWorker>();
+
+        // And the devbook database refresher, which is nothing until something
+        // reads a devbook: resolving it configures where every reader looks for a
+        // repository's database, so it has to exist before the first pane opens.
+        // It schedules nothing at startup (local ADR 0015).
+        _ = app.Services.GetRequiredService<DevbookDatabaseRefresher>();
 
         return app;
     }

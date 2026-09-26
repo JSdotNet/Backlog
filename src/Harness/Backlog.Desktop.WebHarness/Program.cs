@@ -83,6 +83,13 @@ builder.Services.AddSingleton<IDevbookSnapshotCache>(sp => new DevbookSnapshotCa
     sp.GetRequiredService<IGitHubTreeClient>(),
     sp.GetRequiredService<IGitHubBranchCatalog>()));
 
+// The devbook database: built by the app into the same cache folder as the
+// snapshots, one per repository path, in the background when a repository is
+// first read (local ADR 0015). Registered and resolved as in MauiProgram.
+builder.Services.AddSingleton(sp => DevbookDatabaseRefresher.StartForApp(
+    () => sp.GetRequiredService<WorkspaceSettingsStore>().DevbookCacheDirectory,
+    sp.GetService<ILogger<DevbookDatabaseRefresher>>()));
+
 builder.Services.AddSingleton<IDevbookFolderSource>(sp => new DevbookFolderSource(
     sp.GetRequiredService<GitHubSettingsStore>(),
     sp.GetRequiredService<WorkspaceSettingsStore>(),
@@ -315,8 +322,9 @@ AddAzureFoundryCostClient(builder.Services, azureFoundrySettings);
 builder.Services.AddScoped<IInboxPlanDrafter, AzureFoundryInboxPlanDrafter>();
 // The embedding deployment beside the chat one. Registered and never called in
 // this change: local ADR 0004's semantic tier is wired and dormant, and the
-// thing that would join it up - writing vectors into _meta/devbook.db -
-// belongs to the Node generator, which is the only writer that file has.
+// thing that would join it up - writing vectors into the devbook database - is a
+// step DevbookDatabaseBuilder does not take yet (the embedding model is still
+// ADR 0004's open question).
 builder.Services.AddHttpClient<IAzureFoundryEmbeddingsClient, AzureFoundryEmbeddingsClient>();
 builder.Services.AddSingleton<ILocalGitRepositoryService, LocalGitRepositoryService>();
 builder.Services.AddSingleton<IGitFileHistoryService, GitFileHistoryService>();
@@ -570,6 +578,10 @@ _ = app.Services.GetRequiredService<AnnotationSyncWorker>();
 // And the backup loop, on the same terms: a timer that only existed while the
 // Storage tab was open would miss every slot it was set for.
 _ = app.Services.GetRequiredService<BackupWorker>();
+
+// And the devbook database refresher: resolving it points every database reader
+// at the app's storage, so it has to exist before the first pane opens.
+_ = app.Services.GetRequiredService<DevbookDatabaseRefresher>();
 
 if (!app.Environment.IsDevelopment())
 {

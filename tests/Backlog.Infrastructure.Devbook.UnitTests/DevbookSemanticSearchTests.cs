@@ -175,7 +175,7 @@ public sealed class DevbookSemanticSearchTests
         var answer = Nearest(temporary).Nearest(Question);
 
         Assert.True(answer.IsUnavailable);
-        Assert.Contains(DevbookRetrieval.BuildCommand, answer.UnavailableMessage!, StringComparison.Ordinal);
+        Assert.Contains("has not been built yet", answer.UnavailableMessage!, StringComparison.Ordinal);
         Assert.Equal(DevbookRetrieval.UnavailableMessage("Search by meaning"), answer.UnavailableMessage);
     }
 
