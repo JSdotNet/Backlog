@@ -5530,43 +5530,6 @@ h1, h2, h3 {
     overflow-wrap: anywhere;
 }
 
-.sessions-run__list {
-    display: grid;
-    gap: 2px;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-}
-
-/* A name and its figures, and each keeps a floor against the other. In a column a
-   quarter of the pane wide, unwrapping figures used to squeeze the name to nothing —
-   "43 calls · 31.8K out · …" with no stage to say whose — and a long server name
-   squeezes the figures just as hard the other way. So both shrink from their natural
-   width: the name down to a few characters and an ellipsis (the whole name is in its
-   title), the figures down to about ten characters, where they wrap at their dots. */
-.sessions-run__list li {
-    display: flex;
-    justify-content: space-between;
-    gap: var(--spacing-sm);
-    min-width: 0;
-}
-
-.sessions-run__stage-name {
-    flex: 1 1 auto;
-    min-width: 4rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.sessions-run__stage-facts {
-    flex: 0 1 auto;
-    min-width: min(10rem, 60%);
-    color: var(--color-text-secondary);
-    text-align: right;
-    white-space: normal;
-}
-
 /* A grid item in `.workspace` now, not a flex child of `.shell`. `flex` is
    ignored on a grid item and stays only because the rule is shared history;
    stretching to the row is what actually sizes it. */
