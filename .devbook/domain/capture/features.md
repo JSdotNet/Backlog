@@ -274,21 +274,38 @@ Microsoft To Do is the first tool. A skill outside the product,
 and writes the manifest. It leaves out completed items, and it maps the tool's
 lists to Inbox Lists and the labels the person chooses to tags. The manifest is Markdown with front matter. A `---` block
 names the `schema` and the `tool`. Then comes one `#`-titled item per capture.
-Each item has a `meta` fence carrying `external_id`, `captured_at`, and
+Each item has a `meta` fence carrying `external_id` and `captured_at`, and
 optionally `url`, `kind`, `tags`, `person`, and `list`, followed by its notes as
 the body.
 
-Every item arrives as an `unprocessed` Inbox Item with source `import`. An item
-is filed in the Inbox List its `list` names when that list exists. It lands
-unfiled when the item names no list, or names one that does not exist.
+The Inbox's Sources panel has an **Import file…** row below the monitors. A
+manifest picked or dropped there is imported at once, through the same run the
+Capture button uses. The row shows the import's line, its last run, and a Log
+of earlier imports, the way each monitor's row does.
+
+Every item arrives as an `unprocessed` Inbox Item with source `import`. Its
+`url` and `captured_at` are kept as written. A stated `kind` is kept; without
+one, the kind is read off the item the way any capture's is. An item is filed
+in the Inbox List its `list` names when that list exists. It lands unfiled when
+the item names no list, or names one that does not exist. An import never
+creates a list.
+
 Importing the same manifest again, or a later overlapping one, adds only the
 items not already there. An item is known by its id, which comes from the tool
-and the item's own id, and nothing records past imports.
+and the item's own `external_id`, and nothing records past imports. An item
+written without an `external_id` is known by a fallback id instead: the hash of
+its title and `captured_at`, the same one the generating skill writes. So a
+hand-written item also imports once, until its title changes.
 
 The run answers with one line, in the form the feed monitors use:
-`Import (microsoft-todo): 12 new items · 30 already known.` When there are
-exceptions, the line adds them, such as
-`2 left unfiled: no list "Errands"` or `1 skipped: no external_id`.
+`Import (microsoft-todo): 12 new items · 30 already known.` A manifest is
+often edited by hand, so an item that cannot be read is skipped, and the rest
+still come in. The line names each skipped item and says what to change, as in
+`Item 4 "Buy oat milk" has no captured_at — add one like captured_at:
+2026-09-20T08:14:00Z`. A missing list is named too:
+`no list is called "Errands", so what was meant for it landed unfiled`. Only
+front matter that cannot be read refuses the whole file, because without its
+`tool` no item has an identity.
 
 ## Normalized delivery
 

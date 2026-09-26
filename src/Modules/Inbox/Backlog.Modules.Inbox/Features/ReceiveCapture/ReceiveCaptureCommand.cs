@@ -46,6 +46,11 @@ public sealed record ReceiveCaptureCommand(InboxCaptureDto Capture);
 /// capture still lands, and the person arrives through its own field or not at
 /// all.
 /// </para>
+/// <para>
+/// A capture that states its content kind keeps it rather than being read by
+/// <see cref="ContentKindDetector"/>, and one that names a list is filed there.
+/// Both are an import manifest's facts (local ADR 0017).
+/// </para>
 /// </summary>
 public sealed class ReceiveCaptureCommandHandler(IInboxItemRepository items, TimeProvider clock)
     : ICommandHandler<ReceiveCaptureCommand, Result<InboxIntakeOutcome>>
@@ -86,6 +91,17 @@ public sealed class ReceiveCaptureCommandHandler(IInboxItemRepository items, Tim
                 clock.GetUtcNow(),
                 bodyMd,
                 capture.ReplicaBacked);
+
+            // A channel that says what it captured is believed; the slug is kept
+            // as written so a kind this build does not know survives, the way a
+            // stored row's does.
+            if (!string.IsNullOrWhiteSpace(capture.Kind))
+            {
+                item.SetKind(InboxEnumMap.ParseKind(capture.Kind), capture.Kind);
+            }
+
+            // Filing is not triage: the item stays unprocessed in the list.
+            if (capture.ListId is { } listId) item.MoveToList(listId);
 
             if (capture.Tags is { Count: > 0 } tags)
             {

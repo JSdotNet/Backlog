@@ -112,7 +112,7 @@ public static class InboxEnumMap
         return trimmed.ToLowerInvariant() switch
         {
             "vscode" => "ide",
-            var known and ("mobile" or "youtube" or "website" or "email" or "web_clipper" or "ide" or ManualChannel) => known,
+            var known and ("mobile" or "youtube" or "website" or "email" or "web_clipper" or "ide" or "import" or ManualChannel) => known,
             _ => trimmed
         };
     }

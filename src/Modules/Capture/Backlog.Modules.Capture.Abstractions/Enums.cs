@@ -4,7 +4,7 @@ namespace Backlog.Modules.Capture.Abstractions;
 /// Where a capture came from — the <c>Capture Source</c> enum of
 /// <c>.devbook/domain/capture/domain.md#capture-source</c>, in full.
 /// <para>
-/// All seven are here even though only three can be monitored, because the
+/// All eight are here even though only three can be monitored, because the
 /// vocabulary is the domain's and a subset would be a second vocabulary. Which
 /// ones a person can point at something and wait on is
 /// <see cref="CaptureSourceKinds.Monitorable"/>'s answer, not this type's.
@@ -31,7 +31,12 @@ public enum CaptureSourceKind
     Ide,
 
     /// <summary>Typed straight into the Inbox.</summary>
-    Manual
+    Manual,
+
+    /// <summary>Brought in from another tool through an import manifest
+    /// (local ADR 0017). Run on demand with a file, never polled, so it is not
+    /// <see cref="CaptureSourceKinds.Monitorable"/>.</summary>
+    Import
 }
 
 /// <summary>
@@ -64,6 +69,7 @@ public static class CaptureSourceKinds
         CaptureSourceKind.WebClipper => "web_clipper",
         CaptureSourceKind.Ide => "ide",
         CaptureSourceKind.Manual => "manual",
+        CaptureSourceKind.Import => "import",
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Not a capture source.")
     };
 
@@ -78,6 +84,7 @@ public static class CaptureSourceKinds
         CaptureSourceKind.WebClipper => "Web clipper",
         CaptureSourceKind.Ide => "IDE",
         CaptureSourceKind.Manual => "Manual",
+        CaptureSourceKind.Import => "Import",
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Not a capture source.")
     };
 

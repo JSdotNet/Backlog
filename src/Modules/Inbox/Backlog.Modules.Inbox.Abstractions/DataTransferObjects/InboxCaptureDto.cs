@@ -39,6 +39,14 @@ namespace Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 /// among the tags. Defaulted like the two before them, so a channel that knows
 /// neither says nothing.
 /// </para>
+/// <para>
+/// <paramref name="Kind"/> and <paramref name="ListId"/> are for a channel that
+/// knows more than the text — an import manifest (local ADR 0017). A stated
+/// kind is the content kind's slug and is taken as said, an unknown slug kept
+/// as written; null leaves the intake to read the kind off the capture. A list
+/// id files the new item in that list, and the caller is the one that checked
+/// it exists; null lands it unfiled. Neither touches an item already here.
+/// </para>
 /// </summary>
 public sealed record InboxCaptureDto(
     Guid Id,
@@ -51,4 +59,6 @@ public sealed record InboxCaptureDto(
     string? BodyMd = null,
     bool ReplicaBacked = true,
     IReadOnlyList<string>? Tags = null,
-    string? Person = null);
+    string? Person = null,
+    string? Kind = null,
+    Guid? ListId = null);

@@ -22,6 +22,7 @@ public static class InboxLabels
         "email" => "Email",
         "web_clipper" => "Web clipper",
         "ide" => "IDE",
+        "import" => "Import",
         InboxEnumMap.ManualChannel => "Manual",
         "claude" => "Claude",
         _ => channel

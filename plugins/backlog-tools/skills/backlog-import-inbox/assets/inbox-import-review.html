@@ -321,7 +321,7 @@
     const readable = doc.items.filter(it => it.metaClosed && !it.badLines.length && !it.dupeKeys.length);
 
     // Identity
-    over('Every item has an external_id', it => !it.meta.external_id && { text: 'none, so the import skips the item' }, readable);
+    over('Every item has an external_id', it => !it.meta.external_id && { level: 'warn', text: 'none, so the import uses the title-sha256 fallback of its title and captured_at, which changes if the title does' }, readable);
     const withId = readable.filter(it => it.meta.external_id);
     over('Every external_id is the tool\'s own id', it => {
       const id = it.meta.external_id;

@@ -21,6 +21,7 @@ public sealed class CaptureSourceKindsTests
     [InlineData(CaptureSourceKind.WebClipper, "web_clipper")]
     [InlineData(CaptureSourceKind.Ide, "ide")]
     [InlineData(CaptureSourceKind.Manual, "manual")]
+    [InlineData(CaptureSourceKind.Import, "import")]
     public void Slugs_match_the_domain_spelling(CaptureSourceKind kind, string slug)
     {
         Assert.Equal(slug, CaptureSourceKinds.Slug(kind));
