@@ -625,7 +625,7 @@
 
                 @if (TasksPaneVisible)
                 {
-                    <TasksPane />
+                    <TasksPane OnOpenSession="OpenSessionAsync" />
                 }
 
                 @if (RightSidePaneVisible)
@@ -1065,6 +1065,7 @@
     /// takeovers exclusive: opening one is the same act as closing the other.</summary>
     private void ToggleSurface(WorkspaceSurface surface)
     {
+        _focusSessionId = null;
         _surface = _surface == surface ? WorkspaceSurface.Workspace : surface;
         _focusSurfacePending = _surface != WorkspaceSurface.Workspace;
         RememberSurface();
@@ -1091,6 +1092,7 @@
     /// is nothing to restore — it is simply visible again.</summary>
     private void CloseSurface()
     {
+        _focusSessionId = null;
         _surface = WorkspaceSurface.Workspace;
         RememberSurface();
         KeepRepositoryScopeSingleWhereOnlyOneFits();
@@ -1104,6 +1106,7 @@
         if (!Enum.TryParse<DashboardTab>(id, ignoreCase: true, out var tab) || !Enum.IsDefined(tab)) return;
 
         _dashboardTab = tab;
+        _focusSessionId = null;
         RememberSurface();
         RememberAiScope(tab == DashboardTab.Sessions ? "sessions" : "dashboard");
     }
@@ -1129,7 +1132,40 @@
                        RepositoryScope="@State.SelectedRepositoryAliases"
                        RepositoryAlias="@RepositoryAliasFor"
                        RepositoryColour="@RepositoryColourFor"
-                       OnOpenTask="OpenPlanEntryAsync" />;
+                       OnOpenTask="OpenPlanEntryAsync"
+                       FocusSessionId="@_focusSessionId" />;
+
+    /// <summary>The session a task asked the sessions list to open on, until the
+    /// reader leaves the list. Cleared on every other way off it, so opening the
+    /// list from the header later is an ordinary opening rather than a replay.</summary>
+    private string? _focusSessionId;
+
+    /// <summary>
+    /// An AI session a Backlog entry names, opened from the entry: the sessions list
+    /// on screen with that session's row marked and focused.
+    /// <para>
+    /// The mirror of <see cref="OpenPlanEntryAsync"/>, and here for the same reason:
+    /// the entry belongs to Tasks and the session to Sessions, and the shell is the
+    /// one place that holds both. A list switched off is said out loud rather than
+    /// forced open over a setting the reader chose.
+    /// </para>
+    /// </summary>
+    private async Task OpenSessionAsync(string sessionId)
+    {
+        _focusSessionId = sessionId;
+
+        var shown = await ShowSessionsAsync(CancellationToken.None);
+
+        if (shown is not DeliverySurfaceActivation.Shown)
+        {
+            _focusSessionId = null;
+            Toasts.Publish(ToastMessage.Warning(
+                "The sessions list is switched off, so this session cannot be opened here.",
+                SessionsOffTestId));
+        }
+    }
+
+    private const string SessionsOffTestId = "tasks-session-sessions-off";
 
     /// <summary>
     /// The Backlog entry a delivery run was started from, opened from the sessions

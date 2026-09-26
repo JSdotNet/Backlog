@@ -615,6 +615,103 @@ public class TrackerToolsTests
         Assert.Contains("entry.not_found", failure.Message, StringComparison.Ordinal);
     }
 
+    // --- link_session -------------------------------------------------------
+
+    /// <summary>A session, recorded as one, under the resolved repository — the
+    /// vocabulary the task pane reads its session links back out of.</summary>
+    [Fact]
+    public async Task Link_session_records_the_session_under_its_own_target_type()
+    {
+        var id = Guid.NewGuid();
+        var entries = new FakeTaskItems(Entries.Entry("Fix the parser", id: id));
+        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]));
+
+        var answer = await tools.LinkSessionAsync(id, "jsdotnet/backlog", " e711d47d-3e09 ", TestContext.Current.CancellationToken);
+
+        var link = Assert.Single(entries.Links);
+
+        Assert.Equal(EntryProjectionDto.SessionTargetType, link.TargetType);
+        Assert.Equal("JSdotNet/Backlog", link.RepoId);
+        Assert.Equal("e711d47d-3e09", link.ExternalId);
+        Assert.False(answer.AlreadyLinked);
+        Assert.Equal("e711d47d-3e09", answer.SessionId);
+    }
+
+    /// <summary>A session records itself at the start of its work and may do so
+    /// again on a resume or a re-paste; the second call is answered, not written.</summary>
+    [Fact]
+    public async Task Linking_the_same_session_twice_writes_it_once()
+    {
+        var id = Guid.NewGuid();
+        var entries = new FakeTaskItems(Entries.Entry("Fix the parser", id: id));
+        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]));
+
+        await tools.LinkSessionAsync(id, "JSdotNet/Backlog", "abc", TestContext.Current.CancellationToken);
+        var second = await tools.LinkSessionAsync(id, "JSdotNet/Backlog", "ABC", TestContext.Current.CancellationToken);
+
+        Assert.Single(entries.Links);
+        Assert.True(second.AlreadyLinked);
+    }
+
+    /// <summary>An entry worked across two sessions names both.</summary>
+    [Fact]
+    public async Task A_second_session_is_a_second_link()
+    {
+        var id = Guid.NewGuid();
+        var entries = new FakeTaskItems(Entries.Entry("Fix the parser", id: id));
+        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]));
+
+        await tools.LinkSessionAsync(id, "JSdotNet/Backlog", "first", TestContext.Current.CancellationToken);
+        await tools.LinkSessionAsync(id, "JSdotNet/Backlog", "second", TestContext.Current.CancellationToken);
+
+        Assert.Equal(["first", "second"], entries.Links.Select(link => link.ExternalId));
+    }
+
+    /// <summary>A pull request with the same id as the session is a different
+    /// fact, so it does not make the session read as already linked.</summary>
+    [Fact]
+    public async Task Only_a_session_projection_counts_as_already_linked()
+    {
+        var id = Guid.NewGuid();
+        var entries = new FakeTaskItems(Entries.Entry(
+            "Fix the parser",
+            id: id,
+            projections: [new EntryProjectionDto("JSdotNet/Backlog", "582", EntryProjectionDto.PullRequestTargetType)]));
+        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]));
+
+        var answer = await tools.LinkSessionAsync(id, "JSdotNet/Backlog", "582", TestContext.Current.CancellationToken);
+
+        Assert.False(answer.AlreadyLinked);
+        Assert.Single(entries.Links);
+    }
+
+    [Fact]
+    public async Task An_empty_session_id_is_refused_before_anything_is_written()
+    {
+        var id = Guid.NewGuid();
+        var entries = new FakeTaskItems(Entries.Entry("Fix the parser", id: id));
+        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]));
+
+        var failure = await Assert.ThrowsAsync<McpException>(() =>
+            tools.LinkSessionAsync(id, "JSdotNet/Backlog", "  ", TestContext.Current.CancellationToken));
+
+        Assert.Contains("session.required", failure.Message, StringComparison.Ordinal);
+        Assert.Empty(entries.Links);
+    }
+
+    [Fact]
+    public async Task Linking_a_session_to_an_entry_that_is_gone_is_refused()
+    {
+        var entries = new FakeTaskItems(Entries.Entry("Fix the parser"));
+        var tools = new TrackerTools(entries, new FakeRepositoryDirectory([Backlog]));
+
+        var failure = await Assert.ThrowsAsync<McpException>(() =>
+            tools.LinkSessionAsync(Guid.NewGuid(), "JSdotNet/Backlog", "abc", TestContext.Current.CancellationToken));
+
+        Assert.Contains("item.not_found", failure.Message, StringComparison.Ordinal);
+        Assert.Empty(entries.Links);
+    }
+
     // --- create_item --------------------------------------------------------
 
     /// <summary>A null id is what creates an entry, and the order is the count —

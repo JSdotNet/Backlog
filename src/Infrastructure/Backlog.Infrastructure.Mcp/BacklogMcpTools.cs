@@ -104,6 +104,7 @@ public static class BacklogMcpTools
             TrackerTools.Transition,
             TrackerTools.Comment,
             TrackerTools.LinkChange,
+            TrackerTools.LinkSession,
             TrackerTools.CreateItem
         ]);
 

@@ -127,6 +127,7 @@ public class McpToolCreationTests
                 TrackerTools.CreateItem,
                 SurfaceTools.FinishRun,
                 TrackerTools.LinkChange,
+                TrackerTools.LinkSession,
                 SurfaceTools.OpenDashboard,
                 SurfaceTools.RecordPrompt,
                 DevbookTools.ResolveAnnotation,
@@ -164,6 +165,7 @@ public class McpToolCreationTests
         Assert.Equal(["id", "status"], schemas["transition"]);
         Assert.Equal(["id", "text"], schemas["comment"]);
         Assert.Equal(["id", "repository", "externalId"], schemas["link_change"]);
+        Assert.Equal(["id", "repository", "sessionId"], schemas["link_session"]);
         Assert.Equal(["rawText", "repository"], schemas["create_item"]);
 
         // find_item requires none of its arguments at the schema level, on

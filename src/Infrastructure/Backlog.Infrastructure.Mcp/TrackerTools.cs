@@ -84,6 +84,7 @@ public sealed class TrackerTools(ITaskItems entries, IRepositoryDirectory reposi
     internal const string Transition = "transition";
     internal const string Comment = "comment";
     internal const string LinkChange = "link_change";
+    internal const string LinkSession = "link_session";
     internal const string CreateItem = "create_item";
 
     /// <summary>
@@ -431,6 +432,59 @@ public sealed class TrackerTools(ITaskItems entries, IRepositoryDirectory reposi
         var entry = linked.ValueOrThrow();
 
         return new LinkPayload(entry.Id, scope.Id, number, EntryProjectionDto.PullRequestTargetType);
+    }
+
+    /// <summary>
+    /// Records the AI session that is working on an entry, so the entry can open it.
+    /// <para>
+    /// <b>Idempotent, unlike <see cref="LinkChangeAsync"/>.</b> A session records
+    /// itself at the start of its work and may well be resumed, handed off or
+    /// re-pasted the same entry, and every one of those would otherwise stack a
+    /// second identical session on the entry. So the entry is read first and a
+    /// session it already names is answered with <c>AlreadyLinked</c> rather than
+    /// written again. Two different sessions on one entry are two links: an entry
+    /// worked across sessions was worked in each of them.
+    /// </para>
+    /// </summary>
+    [McpServerTool(Name = LinkSession, Title = "Link an AI session to a backlog entry", ReadOnly = false, Idempotent = true, Destructive = false, OpenWorld = false)]
+    [Description(
+        "Records the AI session working on one backlog entry, so the entry can open that session. Call it once "
+        + "the work starts. Idempotent: a session the entry already names is not recorded twice.")]
+    public async Task<SessionLinkPayload> LinkSessionAsync(
+        [Description("The entry's id, as a GUID.")]
+        Guid id,
+        [Description("The repository in owner/name form, e.g. JSdotNet/Backlog.")]
+        string repository,
+        [Description("The host's id for this session - for Claude Code, the session id its transcript is named after.")]
+        string sessionId,
+        CancellationToken cancellationToken = default)
+    {
+        var scope = RepositoryScope.Resolve(repositories, repository).ValueOrThrow();
+        var session = (sessionId ?? string.Empty).Trim();
+
+        if (session.Length == 0)
+        {
+            throw RepositoryScope.Failure(Error.Validation(
+                "session.required",
+                "A session id is required."));
+        }
+
+        var existing = await RequireAsync(id, cancellationToken).ConfigureAwait(false);
+
+        if (existing.Projections.Any(p =>
+                string.Equals(p.TargetType, EntryProjectionDto.SessionTargetType, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(p.ExternalId, session, StringComparison.OrdinalIgnoreCase)))
+        {
+            return new SessionLinkPayload(existing.Id, scope.Id, session, AlreadyLinked: true);
+        }
+
+        var linked = await entries
+            .LinkToIssueAsync(id, scope.Id, session, EntryProjectionDto.SessionTargetType, cancellationToken)
+            .ConfigureAwait(false);
+
+        var entry = linked.ValueOrThrow();
+
+        return new SessionLinkPayload(entry.Id, scope.Id, session, AlreadyLinked: false);
     }
 
     /// <summary>
