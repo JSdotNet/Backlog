@@ -102,12 +102,14 @@ public sealed class OpenWorkReportTests
         Assert.Equal(5, alpha.DonePoints);
         Assert.Equal(10, alpha.TotalPoints);
         Assert.Equal("5 of 10 points done", alpha.Progress);
+        Assert.Equal(50, alpha.DonePercent);
 
         var beta = Assert.Single(report.Plans, plan => plan.Tag == "+beta");
         Assert.Equal(2, beta.OpenCount);
         Assert.Equal(2, beta.OpenPoints);
         Assert.Equal(1, beta.UnestimatedCount);
         Assert.Equal("0 of 2 points done", beta.Progress);
+        Assert.Equal(0, beta.DonePercent);
 
         // A general tag is not a plan: the row carrying only `#release` is No plan.
         var none = Assert.Single(report.Plans, plan => plan.IsNoPlan);
@@ -115,6 +117,7 @@ public sealed class OpenWorkReportTests
         Assert.Equal(1, none.OpenCount);
         Assert.Equal(1, none.OpenPoints);
         Assert.Null(none.Progress);
+        Assert.Null(none.DonePercent);
     }
 
     [Fact]
@@ -132,6 +135,21 @@ public sealed class OpenWorkReportTests
         var done = report.Plans[^1];
         Assert.Equal(0, done.OpenCount);
         Assert.Equal("3 of 3 points done", done.Progress);
+        Assert.Equal(100, done.DonePercent);
+    }
+
+    [Fact]
+    public void A_plan_with_no_points_has_no_fill_and_a_part_point_rounds_down()
+    {
+        var report = Build(
+        [
+            Row("`task` `+empty`"),
+            Row("`task` `+third` `effort:1` `completed:2026-09-01`"),
+            Row("`task` `+third` `effort:2`")
+        ]);
+
+        Assert.Null(Assert.Single(report.Plans, plan => plan.Tag == "+empty").DonePercent);
+        Assert.Equal(33, Assert.Single(report.Plans, plan => plan.Tag == "+third").DonePercent);
     }
 
     [Fact]

@@ -326,6 +326,13 @@ public sealed record OpenWorkPlan(
     public string? Progress => IsNoPlan
         ? null
         : $"{DonePoints} of {OpenWorkReport.PointsText(TotalPoints)} done";
+
+    /// <summary>Done points as a whole percentage of the total, rounded down so a
+    /// plan reads 100 only when it is finished; null for No plan and for a plan
+    /// with no points to divide by. The row's background fills to it.</summary>
+    public int? DonePercent => IsNoPlan || TotalPoints <= 0
+        ? null
+        : Math.Clamp(DonePoints * 100 / TotalPoints, 0, 100);
 }
 
 /// <summary>How many open rows fall under one label of a breakdown.</summary>
