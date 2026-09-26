@@ -396,18 +396,27 @@ it lives.
 The Backlog entry it was started from is not a reference beside them — **the run's own
 status is how a reader reaches it**, because the entry is where this product tracks
 the work and the status is the run's answer about that work. Pressing it hands the
-entry back to whatever holds the task list, which shows and selects it; a run that
-names no entry leaves the status a plain word.
+entry back to whatever holds the task list, which shows and selects it; a run whose
+prompt names no entry and whose session no entry linked leaves the status a plain word.
 
 The run's own title is not shown on the line at all. A dashboard names a run after the
 work it was doing, so beside a reference to that work the title is the same sentence
 twice; it stays in the fold for a reader who wants the run's own words.
 
 Three sources, because a run file records them in three places — its own tracker
-field, the links its stages kept, the plan item in the prompt it was started with —
-and one item named twice is one reference. No state travels with them: this
-environment has not asked the tracker how the item is doing, and saying otherwise
-would be inventing a reading.
+field, the links its stages kept, the entry in the prompt it was started with — and
+one item named twice is one reference. The prompt names its entry either by plan item,
+through the marker the import plan writes, or by the entry's stored id, through the
+line the app puts on every entry it copies; the second is called by the title written
+under that line, because an id is not what a reader knows their task by, and an
+imported entry copied out of the app carries both markers for one entry, so they stay
+one reference. **A run naming no entry of its own shows the entry its session was
+linked to** — the link a task records through the Backlog MCP server — and it is the
+application holding the task list that answers which entry that is, since the link
+lives on the task, not in the run. The run's own entry always takes precedence: the
+prompt is what the run was actually started from, so the link is a fallback, never a
+second opinion. No state travels with any of them: this environment has not asked the
+tracker how the item is doing, and saying otherwise would be inventing a reading.
 
 ### A row of its own in the same list
 

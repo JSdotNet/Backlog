@@ -74,6 +74,8 @@ classDiagram
         +string title
         +string url
         +string repository
+        +string plan
+        +Guid entry_id
     }
     class DeliveryRunStage {
         +string name
