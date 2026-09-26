@@ -2,7 +2,6 @@
 
 ```meta
 type: features
-status: active
 ```
 
 > Features and sub-features this bounded context supports, described in
@@ -12,7 +11,6 @@ status: active
 
 ```meta
 type: feature
-status: active
 related: [.devbook/domain/sessions/domain.md#session-log]
 ```
 
@@ -27,7 +25,6 @@ inventories.
 
 ```meta
 type: sub-feature
-status: active
 related: [.devbook/domain/sessions/features.md#open-on-the-live-sessions]
 ```
 
@@ -51,7 +48,6 @@ they made.
 
 ```meta
 type: sub-feature
-status: active
 related: [.devbook/domain/sessions/domain.md#session-view, .devbook/domain/sessions/features.md#sessions-from-another-machine, .devbook/domain/sessions/domain.md#session-view]
 ```
 
@@ -89,7 +85,6 @@ so it too falls out of this view once it has been quiet long enough. See
 
 ```meta
 type: sub-feature
-status: active
 related: [.devbook/domain/sessions/domain.md#working-location]
 ```
 
@@ -119,7 +114,6 @@ outside every registered clone rather than as one that never ran.
 
 ```meta
 type: sub-feature
-status: active
 related: [.devbook/domain/sessions/features.md#the-work-a-run-is-linked-to, .devbook/domain/productivity/features.md#what-the-sessions-cost-and-shipped]
 ```
 
@@ -139,7 +133,6 @@ claim that the session linked nothing or spent nothing.
 
 ```meta
 type: sub-feature
-status: active
 related: [.devbook/domain/sessions/domain.md#session-log, .devbook/domain/sessions/features.md#group-by-environment, .devbook/arc42/08-crosscutting-concepts.md#session-record-sync, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md]
 ```
 
@@ -190,7 +183,6 @@ from a session that ended a month ago.
 
 ```meta
 type: sub-feature
-status: active
 ```
 
 The list is read when it is opened and again when the reader asks for it. Nothing
@@ -212,7 +204,6 @@ at.
 
 ```meta
 type: feature
-status: active
 related: [.devbook/domain/sessions/domain.md#session-grouping]
 ```
 
@@ -223,7 +214,6 @@ practice, without removing any of them.
 
 ```meta
 type: sub-feature
-status: active
 related: [.devbook/domain/sessions/domain.md#environment, .devbook/domain/sessions/features.md#sessions-from-another-machine, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md]
 ```
 
@@ -251,7 +241,6 @@ row.
 
 ```meta
 type: sub-feature
-status: active
 ```
 
 A section per agent, so Claude's sessions and Copilot's can be read separately
@@ -261,7 +250,6 @@ without the two being separate lists.
 
 ```meta
 type: sub-feature
-status: active
 related: [.devbook/domain/sessions/features.md#open-on-the-live-sessions]
 ```
 
@@ -280,7 +268,6 @@ control that removes rows borrow the innocence of the ones that do not.
 
 ```meta
 type: feature
-status: active
 related: [.devbook/domain/sessions/domain.md#session-catalog]
 ```
 
@@ -291,7 +278,6 @@ arrived as the whole picture.
 
 ```meta
 type: sub-feature
-status: active
 ```
 
 When one agent's records cannot be read — never installed, or not readable by this
@@ -304,7 +290,6 @@ one of them is worth investigating.
 
 ```meta
 type: sub-feature
-status: active
 related: [.devbook/domain/sessions/domain.md#session-limit]
 ```
 
@@ -328,7 +313,6 @@ horizon it was asked still says so.
 
 ```meta
 type: feature
-status: active
 depends-on: [.devbook/domain/sessions/features.md#session-inventory]
 related: [.devbook/domain/sessions/domain.md#delivery-run, .devbook/domain/sessions/domain.md#run-attachment]
 ```
@@ -359,7 +343,6 @@ directly, and then the run is recorded here as it happens rather than found afte
 
 ```meta
 type: sub-feature
-status: active
 related: [.devbook/domain/sessions/domain.md#run-attachment]
 ```
 
@@ -384,7 +367,6 @@ a table around it.
 
 ```meta
 type: sub-feature
-status: active
 related: [.devbook/domain/sessions/domain.md#delivery-run-reference]
 ```
 
@@ -413,7 +395,6 @@ would be inventing a reading.
 
 ```meta
 type: sub-feature
-status: active
 related: [.devbook/domain/sessions/features.md#say-how-much-was-left-out]
 ```
 
@@ -431,7 +412,6 @@ the run would be on its row.
 
 ```meta
 type: sub-feature
-status: active
 related: [.devbook/domain/sessions/features.md#open-on-the-live-sessions]
 ```
 
@@ -444,7 +424,6 @@ composes with the view and the machine filter, and it is off again on every open
 
 ```meta
 type: sub-feature
-status: active
 related: [.devbook/domain/sessions/features.md#name-the-source-that-could-not-be-read]
 ```
 
@@ -459,7 +438,6 @@ in the same sentence.
 
 ```meta
 type: feature
-status: active
 depends-on: [.devbook/domain/sessions/features.md#delivery-runs-beside-their-sessions]
 related: [.devbook/domain/sessions/domain.md#delivery-run-recording, .devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md]
 ```
@@ -487,7 +465,6 @@ second window onto the thing it is holding.
 
 ```meta
 type: sub-feature
-status: active
 related: [.devbook/domain/sessions/domain.md#delivery-run-recording]
 ```
 
@@ -501,7 +478,6 @@ to tell that from two genuine runs.
 
 ```meta
 type: sub-feature
-status: active
 related: [.devbook/domain/sessions/domain.md#delivery-run-telemetry, .devbook/domain/sessions/features.md#only-what-the-dashboard-recorded]
 ```
 
@@ -585,7 +561,6 @@ from the session's own `Session State`.
 
 ```meta
 type: feature
-status: active
 ```
 
 The whole area can be switched off, and when it is there is no way in and nothing to

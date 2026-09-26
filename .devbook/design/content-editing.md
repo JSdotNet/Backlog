@@ -1,7 +1,6 @@
 # Content Editing
 
 ```meta
-status: active
 related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/design/interaction-guidelines.md#auto-save-no-save-buttons", ".devbook/design/typography-and-layout.md#type-scale", ".devbook/design/accessibility.md"]
 ```
 
@@ -16,7 +15,6 @@ related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/de
 ## Editing Model
 
 ```meta
-status: active
 related: [".devbook/arc42/02-constraints.md#technical-constraints"]
 ```
 
@@ -31,7 +29,6 @@ related: [".devbook/arc42/02-constraints.md#technical-constraints"]
 ## Round-Trip Fidelity
 
 ```meta
-status: active
 ```
 
 Round-trip fidelity is the single most important correctness rule for the editor.
@@ -47,7 +44,6 @@ Round-trip fidelity is the single most important correctness rule for the editor
 ## Raw-Markdown Escape Hatch
 
 ```meta
-status: active
 related: [".devbook/design/typography-and-layout.md#font-families"]
 ```
 
@@ -64,7 +60,6 @@ Power users and edge cases need direct access to the source.
 ## Supported Constructs
 
 ```meta
-status: active
 ```
 
 The editor MUST render and edit these as first-class WYSIWYG constructs, and MUST
@@ -100,7 +95,6 @@ Anything not in these tables falls under `#unsupported-syntax-preservation`.
 ## Task Structure
 
 ```meta
-status: active
 related: [".devbook/domain/tasks/domain.md#task", ".devbook/domain/tasks/domain.md#sub-item", ".devbook/design/interaction-guidelines.md#nesting--indent-rules-chapters"]
 ```
 
@@ -124,7 +118,6 @@ related: [".devbook/domain/tasks/domain.md#task", ".devbook/domain/tasks/domain.
 ## Structured Metadata Sigils
 
 ```meta
-status: active
 related: [".devbook/domain/tasks/domain.md#task-status", ".devbook/domain/tasks/domain.md#area", ".devbook/domain/tasks/domain.md#roadmap-tag", ".devbook/design/typography-and-layout.md#font-families", ".devbook/design/content-editing.md#scheduling-and-dependency-tokens", ".devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md"]
 ```
 
@@ -155,7 +148,6 @@ related: [".devbook/domain/tasks/domain.md#task-status", ".devbook/domain/tasks/
 ## Scheduling and Dependency Tokens
 
 ```meta
-status: active
 related: [".devbook/design/content-editing.md#structured-metadata-sigils", ".devbook/domain/tasks/domain.md#due-date", ".devbook/domain/tasks/domain.md#reminder", ".devbook/domain/tasks/domain.md#recurrence", ".devbook/domain/tasks/domain.md#my-day", ".devbook/domain/tasks/domain.md#dependency", ".devbook/domain/tasks/features.md#import", ".devbook/domain/tasks/features.md#effort-registration", ".devbook/domain/repository-management/domain.md#repository-registry", ".devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md"]
 ```
 
@@ -223,7 +215,6 @@ Two entries pasted together — neither saved yet, so neither has a real
 ## Live Parse Confirmation
 
 ```meta
-status: active
 related: [".devbook/design/content-editing.md#editing-feedback-and-state"]
 ```
 
@@ -241,7 +232,6 @@ related: [".devbook/design/content-editing.md#editing-feedback-and-state"]
 ## Paste Behavior
 
 ```meta
-status: active
 ```
 
 | Source | Behavior |
@@ -263,7 +253,6 @@ Rules:
 ## Slash and Inline Commands
 
 ```meta
-status: active
 related: [".devbook/design/interaction-guidelines.md#feedback-and-toasts", ".devbook/design/design-principles.md#keyboard-first"]
 ```
 
@@ -279,7 +268,6 @@ related: [".devbook/design/interaction-guidelines.md#feedback-and-toasts", ".dev
 ## Unsupported Syntax Preservation
 
 ```meta
-status: active
 related: [".devbook/design/interaction-guidelines.md#reorder--auto-save"]
 ```
 
@@ -296,7 +284,6 @@ The editor MUST **preserve, never destroy**, Markdown it cannot render richly.
 ## Editing Feedback and State
 
 ```meta
-status: active
 related: [".devbook/design/interaction-guidelines.md#save-state-indicator-vocabulary", ".devbook/design/content-editing.md#live-parse-confirmation"]
 ```
 
@@ -311,7 +298,6 @@ related: [".devbook/design/interaction-guidelines.md#save-state-indicator-vocabu
 ## AI Proposals in a Document
 
 ```meta
-status: active
 related: [".devbook/design/design-principles.md#ai-first-surfaces", ".devbook/design/content-editing.md#editing-model", ".devbook/design/accessibility.md#screen-reader--announcements"]
 ```
 
@@ -336,11 +322,10 @@ Review surface: storybook → *Integrations* → **AI in the document**.
 ## Knowledge Metadata Blocks
 
 ```meta
-status: active
 related: [".devbook/design/README.md#status-vocabulary", ".devbook/design/typography-and-layout.md#metadata-lines", ".devbook/design/design-principles.md#low-chrome-content-first", ".devbook/design/content-editing.md#materialization"]
 ```
 
-> The repository's own documentation — `.devbook/arc42`, `.devbook/domain`, `.backlog`, `.devbook/tech`,
+> The repository's own documentation — `.devbook/arc42`, `.devbook/domain`, `.devbook/tech`,
 > `.devbook/design` — writes a fenced `meta` block under every addressable heading. Two
 > levels carry one, and they are not the same fact: the block under a file's `#`
 > title describes **the file**, the block under a `##` heading describes **that
@@ -363,7 +348,6 @@ and → *Metadata* → **A chapter is a heading, a record, and prose**.
 ## Materialization
 
 ```meta
-status: active
 related: [".devbook/design/README.md#living-reference-the-ui-storybook", ".devbook/design/typography-and-layout.md#heading-defaults", ".devbook/design/content-editing.md#scheduling-and-dependency-tokens"]
 ```
 

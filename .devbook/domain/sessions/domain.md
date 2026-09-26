@@ -2,7 +2,6 @@
 
 ```meta
 type: domain
-status: active
 ```
 
 > One chapter per Aggregate, Domain Service, Domain Event, or Shared Value
@@ -16,7 +15,6 @@ status: active
 
 ```meta
 type: aggregate
-status: active
 related: [.devbook/domain/dev-pc-management/domain.md#machine-registry, .devbook/domain/sessions/dependencies.md, .devbook/arc42/08-crosscutting-concepts.md#session-record-sync, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md]
 ```
 
@@ -161,7 +159,6 @@ measure of the session's time and not the stream of what it did.
 
 ```meta
 type: entity
-status: active
 aliases: [AgentSession, session, session_id]
 ```
 
@@ -187,7 +184,6 @@ record, and it stops changing when the agent stops writing.
 
 ```meta
 type: value-object
-status: active
 aliases: [SessionIdentity]
 ```
 
@@ -199,7 +195,6 @@ environment reading both would silently merge two unrelated sessions.
 
 ```meta
 type: value-object
-status: active
 aliases: [WorkingLocation, cwd, working_folder]
 ```
 
@@ -241,7 +236,6 @@ only that.
 
 ```meta
 type: value-object
-status: active
 ```
 
 When the session was alive: optional `started_at` and a required `last_activity_at`.
@@ -253,7 +247,6 @@ is what `Liveness Assessment` reads.
 
 ```meta
 type: value-object
-status: active
 aliases: [SessionActivityStream, activity stream, session updates]
 ```
 
@@ -269,7 +262,6 @@ still a perfectly good session record.
 
 ```meta
 type: value-object
-status: active
 aliases: [SessionActivityEntry, event_id, sequence, activity summary]
 ```
 
@@ -285,7 +277,6 @@ late arrivals must still land in the right place.
 
 ```meta
 type: value-object
-status: active
 aliases: [SessionEnrichmentSummary, latest activity, enrichment]
 ```
 
@@ -301,7 +292,6 @@ editing a stored record.
 
 ```meta
 type: entity
-status: active
 related: [.devbook/domain/sessions/features.md#delivery-runs-beside-their-sessions]
 aliases: [DeliveryRun, run, orchestration run, flow run]
 ```
@@ -361,7 +351,6 @@ from here would make the drift permanent rather than historical.
 
 ```meta
 type: domain-service
-status: active
 related: [.devbook/domain/sessions/domain.md#delivery-run, .devbook/domain/sessions/features.md#record-a-run-as-it-happens]
 ```
 
@@ -405,7 +394,6 @@ rather than as zero.
 
 ```meta
 type: domain-service
-status: active
 related: [.devbook/domain/sessions/domain.md#delivery-run-recording, .devbook/domain/sessions/features.md#what-a-run-cost-reported-by-the-session-itself]
 aliases: [DeliveryRunTelemetry, hook telemetry, telemetry forwarder]
 ```
@@ -437,7 +425,6 @@ is a hook that must never fail the tool call it reports on.
 
 ```meta
 type: value-object
-status: active
 related: [.devbook/domain/sessions/features.md#the-work-a-run-is-linked-to]
 aliases: [DeliveryRunReference, linked work, tracker item]
 ```
@@ -467,7 +454,6 @@ already holds for a session's own fields.
 
 ```meta
 type: value-object
-status: active
 related: [.devbook/domain/sessions/domain.md#run-attachment, .devbook/domain/sessions/features.md#delivery-runs-beside-their-sessions]
 aliases: [SessionRow, row]
 ```
@@ -488,7 +474,6 @@ source, not the guess from a path the Session Log forbids.
 
 ```meta
 type: value-object
-status: active
 ```
 
 What a reading of one environment's dashboards answers with: every `Delivery Run`
@@ -501,7 +486,6 @@ to rows the list already has. Equality by both parts.
 
 ```meta
 type: value-object
-status: active
 aliases: [AgentSessionCatalog]
 ```
 
@@ -517,7 +501,6 @@ fault that is not there. Equality is by all three.
 
 ```meta
 type: enum
-status: active
 aliases: [AgentSessionKind, agent, agent_kind]
 ```
 
@@ -531,7 +514,6 @@ there are.
 
 ```meta
 type: enum
-status: active
 aliases: [AgentSessionState, state]
 ```
 
@@ -550,7 +532,6 @@ this context does not claim them.
 
 ```meta
 type: enum
-status: active
 aliases: [reporting status, capability, enabled, degraded]
 ```
 
@@ -569,7 +550,6 @@ path that already delivered its last update.
 
 ```meta
 type: domain-service
-status: active
 related: [.devbook/domain/sessions/domain.md#delivery-run, .devbook/domain/sessions/domain.md#session-identity, .devbook/domain/sessions/features.md#under-the-session-that-drove-it]
 aliases: [SessionRows, attached run, run-only row, stray run]
 ```
@@ -599,7 +579,6 @@ is `Session Grouping`'s job.
 
 ```meta
 type: domain-service
-status: active
 related: [.devbook/domain/sessions/domain.md#session-state, .devbook/domain/sessions/flow.md]
 ```
 
@@ -620,7 +599,6 @@ the silence lasts, and reads as running again the moment the agent writes.
 
 ```meta
 type: domain-service
-status: active
 related: [.devbook/domain/sessions/domain.md#session-log, .devbook/domain/sessions/domain.md#session-state, .devbook/domain/sessions/features.md#open-on-the-live-sessions, .devbook/domain/sessions/domain.md#session-view]
 aliases: [AgentSessionView, view, live, all]
 ```
@@ -663,7 +641,6 @@ time it is opened.
 
 ```meta
 type: domain-service
-status: active
 related: [.devbook/domain/sessions/domain.md#session-log, .devbook/domain/sessions/features.md#session-grouping]
 aliases: [AgentSessionGrouping]
 ```
@@ -730,7 +707,6 @@ activity evidence exists, and skipped entirely when it does not.
 
 ```meta
 type: shared-value-objects
-status: active
 ```
 
 > Value Objects used by more than one aggregate in this bounded context.
@@ -743,7 +719,6 @@ would be the likely first one.
 
 ```meta
 type: shared-enums
-status: active
 ```
 
 > Enums used by more than one aggregate in this bounded context.
@@ -761,7 +736,6 @@ type: ubiquitous-language
 
 ```meta
 type: term
-status: active
 aliases: [environment, machine_name, environment_id]
 related: [.devbook/domain/sessions/domain.md#session-log, .devbook/domain/environment/domain.md#environment, .devbook/domain/tasks/domain.md#device]
 ```
@@ -791,7 +765,6 @@ a hosted runner later. Where the two name the same box, that is a lookup — see
 
 ```meta
 type: term
-status: active
 aliases: [StaleAfter]
 related: [.devbook/domain/sessions/domain.md#liveness-assessment]
 ```
@@ -823,7 +796,6 @@ session model stays in this context even when the activity passes through that s
 
 ```meta
 type: term
-status: active
 aliases: [AgentSessionLimits, PerAgent]
 related: [.devbook/domain/sessions/features.md#say-how-much-was-left-out]
 ```
@@ -843,7 +815,6 @@ so. It applies to the list's reading only; a reading since a horizon
 
 ```meta
 type: term
-status: active
 aliases: [AgentSessionLimits.History, ReplicatedSessionLimits.History, AgentSessionQuery.Since]
 related: [.devbook/domain/sessions/features.md#say-how-much-was-left-out, #session-limit]
 ```

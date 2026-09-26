@@ -3,7 +3,6 @@
 ```meta
 status: proposed
 related: [".devbook/arc42/08-crosscutting-concepts.md#authentication-and-authorization", ".devbook/arc42/09-architecture-decisions.md"]
-issue: null
 ```
 
 Inherited from the organization's ADR 0013 (decided 2026-06-04,

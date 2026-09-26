@@ -29,7 +29,8 @@ mobile clients that are designed but not yet implemented.
 | AI development | [`ai-development.md`](ai-development.md) | The agent harnesses, protocols, and file conventions this repository is built *with* |
 | Tooling | [`tooling.md`](tooling.md) | Build, packaging, CI/CD, deployment, and governance tooling |
 
-The table is in reading order, which `_meta/index.json` pins.
+The table is in reading order: `shared.md` first and `tooling.md` last, as the
+devbook convention pins them, with the layers between them by name.
 
 ## Graph
 
@@ -382,7 +383,7 @@ Terms below are the dictionary's; the right-hand column is this repository.
 | Compaction, autocompact, clearing | Harness-level. The repository's contribution is making a fresh session cheap to start: the standing brief plus the knowledge folders. |
 | Primary source | The code, `Directory.Packages.props`, the workflows, `.devbook/arc42` — what a `.devbook/tech` chapter is written *from* |
 | Secondary source | This folder. `.devbook/tech` records outcomes; `.devbook/arc42` keeps the reasoning, and where the two disagree `.devbook/arc42` wins. |
-| Spec, ticket | `.backlog/` work items and the GitHub issues they sync with; `.claude/hooks/spawn-task-to-issue.ps1` turns an out-of-scope finding into one |
+| Spec, ticket | Backlog entries (local ADR 0007) and the GitHub issues they sync with; `.claude/hooks/spawn-task-to-issue.ps1` turns an out-of-scope finding into one |
 
 ### Memory and steering
 

@@ -97,7 +97,8 @@ answer; deleting the cache folder is always safe. Pruning is not built.
 `Backlog.Infrastructure.Devbook` gains a builder beside its reader. It walks the
 adopted devbook folders, parses each chapter's headings and `meta` block the way
 the devbook generator does, resolves the committed `_reading-order.json` files
-into the outline, slices chapter text into `text` and `search_text`, hashes it,
+into the outline (since local ADR 0016, derives the outline the way the
+generator's `outline.mjs` does instead), slices chapter text into `text` and `search_text`, hashes it,
 fills the FTS5 index, and copies each `_archify/index.json` into rows — every
 table ADR 0004 names, with the same columns and the same values.
 

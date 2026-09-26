@@ -1,7 +1,6 @@
 # Sessions
 
 ```meta
-status: active
 index: root
 type: context
 ```

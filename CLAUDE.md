@@ -1,3 +1,8 @@
+@AGENTS.md
+
+`AGENTS.md` holds this repository's standing rules; the import above expands it at launch, so
+everything it says applies here. Claude-specific notes follow.
+
 # Backlog — Claude Code instructions
 
 Backlog is a local-first, AI-first work management product: desktop, mobile, and IDE
@@ -43,8 +48,7 @@ treat this file as the source of the gate and pick the skill by category from
 This repository ships no repo-native `orch-*` skills. Every entrypoint is plugin-provided:
 the knowledge-folder flows (`flow-arc42-content`, `flow-domain`, `flow-tech`,
 `flow-design`) come from `devbook-flows`, which sits on the `devbook` plugin (formerly
-`knowledge-base`; `.backlog` has no successor flow until it is dropped with the devbook
-contract v6, a follow-up), and the rest — `orch-fallback` included — from
+`knowledge-base`), and the rest — `orch-fallback` included — from
 `claude-desktop`. The only skill under `.github/skills/` is `pr-jsdotnet`, which is a
 pull-request workflow rather than an orchestration.
 
@@ -58,7 +62,7 @@ item's instructions *through* the gate — the matching `orch-*` skill — rathe
 an execution path beside it.
 
 Changes confined to the devbook folders under `.devbook/` (`arc42/`, `domain/`, `tech/`,
-`design/`, `ai/`), `.backlog/`, `.github/`, or `README.md` are documentation work and do not pass through the code gate. See
+`design/`, `ai/`), `.github/`, or `README.md` are documentation work and do not pass through the code gate. See
 `## QA Depth` in `.github/copilot-orch-context.md` for how they are verified instead.
 
 ## Dashboard
@@ -123,10 +127,13 @@ database is; local ADR 0015
 is where it lives and who writes it. A `.devbook/_meta/devbook.db` or `_meta/devbook.db`
 left by the old writer is ignored by the app and safe to delete.
 
-The authored half stays committed text: each knowledge folder carries a
-`_reading-order.json` naming its root document and the order of everything beside it.
-Edit that by hand when you move a chapter; it is the one part of the layer nobody
-generates.
+Nothing about the layer is authored. The reading order is derived the way the devbook
+generator derives it — `index: root` on a directory's root document, otherwise the
+folder's convention root (`context-map.md`, `context.md`, `technology-graph.md`,
+`README.md`, `adoption-map.md`), then the numbers in filenames and the folder's
+convention slots. There is no `_reading-order.json`: local ADR 0016 retired it, and the
+product ignores one in any repository. Moving a chapter means renaming or numbering it,
+or marking a new root with `index: root`.
 
 The desktop Devbook panels **load from the database at runtime** and degrade in
 defined steps rather than on or off: a current row is served from the database, a file
@@ -169,10 +176,11 @@ report the file customized and stop maintaining it. Never hand-edit anything und
 `_meta/`.
 
 `tools/devbook/build-database.mjs` is repo-native. Everything under
-`.github/tools/knowledge-meta/`, both `knowledge-meta*` workflows, and
-`build/Update-KnowledgeIndex.ps1` are the unchanged install from `knowledge-base`, the
-`devbook` plugin's predecessor, which knows only the root layout: never edit them here.
-Retiring them is a follow-up. Where this repository departs from the derived-artifacts
+`.github/tools/knowledge-meta/` and `build/Update-KnowledgeIndex.ps1` are the unchanged
+install from `knowledge-base`, the `devbook` plugin's predecessor, which knows only the
+root layout: never edit them here. Its two `knowledge-meta*` workflows are retired, because
+this repository has no root-layout folder left for them to check; retiring the rest is a
+follow-up. Where this repository departs from the derived-artifacts
 convention — on format, and on committing — ADR 0004 says so and says why.
 `update-devbook-index` is this repository's own command and ships as
 `.claude/commands/update-devbook-index.md`.

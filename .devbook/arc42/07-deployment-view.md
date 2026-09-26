@@ -1,7 +1,6 @@
 # 07. Deployment View
 
 ```meta
-status: active
 ```
 
 How Prompt Backlog's containers map onto infrastructure. There are two deployment
@@ -11,7 +10,6 @@ cloud service** (additive).
 ## Local Deployment (Desktop)
 
 ```meta
-status: active
 related: [".devbook/arc42/05-building-block-view.md#desktop-app", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync"]
 ```
 
@@ -46,7 +44,6 @@ The desktop app is installed on Windows machines and is the canonical deployment
 ### Installation and Updates
 
 ```meta
-status: active
 related: [".devbook/tech/desktop.md#msix-packaging", ".devbook/tech/desktop.md#app-installer-appinstaller"]
 ```
 
@@ -99,7 +96,6 @@ flowchart LR
 ## Local Deployment (Mobile)
 
 ```meta
-status: active
 related: [".devbook/arc42/05-building-block-view.md#mobile-app", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync"]
 ```
 
@@ -112,7 +108,6 @@ Markdown tree. Its on-device JSON queue is documented in
 ### Installation and Updates (Mobile)
 
 ```meta
-status: active
 related: [".devbook/tech/mobile.md#apk-packaging", ".devbook/arc42/07-deployment-view.md#installation-and-updates"]
 ```
 
@@ -165,7 +160,6 @@ flowchart LR
 ## Cloud Deployment (Azure)
 
 ```meta
-status: active
 related: [".devbook/arc42/05-building-block-view.md#cloud-service", ".devbook/arc42/09-architecture-decisions.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md"]
 ```
 
@@ -266,7 +260,6 @@ Deployment considerations:
 ### Provisioning and Delivery
 
 ```meta
-status: active
 related: [".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/guidelines/0003-aspire-for-web-services.md", ".devbook/arc42/adr/guidelines/0013-authorization-zero-trust.md"]
 ```
 

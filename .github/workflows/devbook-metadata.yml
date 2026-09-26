@@ -2,10 +2,10 @@ name: Devbook metadata blocks
 
 # The metadata half of the devbook gate, and repo-native on purpose.
 #
-# `knowledge-meta.yml` beside this file is an installed copy of the
-# devbook plugin's workflow — CLAUDE.md says to re-sync those and never
-# edit them here — and its "Check references and metadata blocks" step runs
-# `build.mjs --check`, which resolves references and nothing else. The
+# `knowledge-meta.yml`, the predecessor's installed workflow that used to sit
+# beside this file, ran `build.mjs --check`, which resolves references and
+# nothing else; it was retired with the root layout (local ADR 0016), and
+# `devbook-meta.yml` now runs the installed devbook checker. The
 # `validateDocument` export that knows each folder's `status` ladder, its `type`
 # vocabulary and its allowed fields had no caller at all, so a chapter carrying
 # `status: idea` passed every run (issue #241).
@@ -17,9 +17,8 @@ name: Devbook metadata blocks
 # than from `--check`, so this is a third consumer of an exported seam, not a
 # fork of the tool.
 #
-# The split in knowledge-meta.yml is deliberate and is left alone: a broken
-# reference fails, index drift only warns. This job is the other hard failure,
-# and it touches no generated file.
+# A broken reference fails in `devbook-meta.yml`. This job is the other hard
+# failure, and it touches no generated file.
 
 on:
   push:
@@ -31,11 +30,9 @@ on:
       - '.devbook/tech/**'
       - '.devbook/design/**'
       - '.devbook/ai/**'
-      - '.backlog/**'
       - '.github/tools/knowledge-meta/**'
       - '.devbook/_tools/devbook-meta/**'
       - 'tools/devbook/**'
-      - '.devbook/_reading-order.json'
       - '.github/workflows/devbook-metadata.yml'
   pull_request:
     branches:
@@ -46,11 +43,9 @@ on:
       - '.devbook/tech/**'
       - '.devbook/design/**'
       - '.devbook/ai/**'
-      - '.backlog/**'
       - '.github/tools/knowledge-meta/**'
       - '.devbook/_tools/devbook-meta/**'
       - 'tools/devbook/**'
-      - '.devbook/_reading-order.json'
       - '.github/workflows/devbook-metadata.yml'
   workflow_dispatch:
 
@@ -93,7 +88,7 @@ jobs:
 
       # This step blocks, and that is the point rather than an oversight.
       #
-      # The drift step in `knowledge-meta.yml` had to be softened to a warning
+      # The drift step in the retired `knowledge-meta.yml` had to be softened to a warning
       # because its output is committed: making every pull request carry a
       # regenerated index is what turned `_meta/*.json` into merge conflicts.
       # The database is a build output that nothing commits, so there is no

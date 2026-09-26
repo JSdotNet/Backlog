@@ -1,7 +1,6 @@
 # Interaction Guidelines
 
 ```meta
-status: active
 related: [".devbook/design/design-principles.md#no-save-buttons--auto-save-everywhere", ".devbook/design/accessibility.md", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync"]
 ```
 
@@ -17,7 +16,6 @@ related: [".devbook/design/design-principles.md#no-save-buttons--auto-save-every
 ## Auto-Save (No Save Buttons)
 
 ```meta
-status: active
 related: [".devbook/design/design-principles.md#no-save-buttons--auto-save-everywhere", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync"]
 ```
 
@@ -98,7 +96,6 @@ last-write-wins** (`.devbook/arc42/08-crosscutting-concepts.md#storage-and-sync`
 ## Drag-and-Drop Reordering
 
 ```meta
-status: active
 related: [".devbook/design/accessibility.md#keyboard-navigation", ".devbook/design/design-principles.md#keyboard-first"]
 ```
 
@@ -191,7 +188,6 @@ both items and chapters.
 ## Feedback and Toasts
 
 ```meta
-status: active
 ```
 
 | Rule | Requirement |
@@ -206,7 +202,6 @@ status: active
 ## Motion and Reduced Motion
 
 ```meta
-status: active
 related: [".devbook/design/typography-and-layout.md#shadows-and-elevation", ".devbook/design/accessibility.md#reduced-motion"]
 ```
 
@@ -252,7 +247,6 @@ Rules:
 ## Focus and Selection
 
 ```meta
-status: active
 related: [".devbook/design/accessibility.md#focus-visibility"]
 ```
 
@@ -269,7 +263,6 @@ related: [".devbook/design/accessibility.md#focus-visibility"]
 ## Empty, Loading, and Error States
 
 ```meta
-status: active
 ```
 
 ### Empty States
@@ -309,7 +302,6 @@ status: active
 ## Task Rows
 
 ```meta
-status: active
 related: [".devbook/design/typography-and-layout.md#metadata-lines", ".devbook/design/content-editing.md#task-structure", ".devbook/design/interaction-guidelines.md#auto-save-no-save-buttons"]
 ```
 
@@ -341,7 +333,6 @@ Review surface: storybook → *Task list*, and *Task list* → **Prompt tasks**.
 ## Workspace Panes
 
 ```meta
-status: active
 related: [".devbook/design/accessibility.md#target-sizes-and-text", ".devbook/design/design-principles.md#low-chrome-content-first"]
 ```
 
@@ -372,7 +363,6 @@ desktop shell, not a shared-library component, so it carries no storybook page.
 ## Group Shape Says Cardinality
 
 ```meta
-status: active
 related: [".devbook/design/interaction-guidelines.md#workspace-panes", ".devbook/design/interaction-guidelines.md#focus-and-selection"]
 ```
 
@@ -391,7 +381,6 @@ thing about a group a reader can see before pressing anything.
 ## Action Density and Overflow
 
 ```meta
-status: active
 related: [".devbook/design/typography-and-layout.md#density", ".devbook/design/accessibility.md#target-sizes-and-text", ".devbook/design/design-principles.md#low-chrome-content-first"]
 ```
 
@@ -443,7 +432,6 @@ Review surface: storybook → *Integrations* → **Density and overflow**.
 ## Timelines and Roadmaps
 
 ```meta
-status: active
 related: [".devbook/design/color-scheme.md#chart-roles", ".devbook/design/interaction-guidelines.md#keyboard-accessible-reordering", ".devbook/design/accessibility.md#keyboard-navigation"]
 ```
 
@@ -473,7 +461,6 @@ Review surface: storybook → *Roadmap*.
 ## Materialization
 
 ```meta
-status: active
 related: [".devbook/design/README.md#living-reference-the-ui-storybook", ".devbook/design/accessibility.md"]
 ```
 

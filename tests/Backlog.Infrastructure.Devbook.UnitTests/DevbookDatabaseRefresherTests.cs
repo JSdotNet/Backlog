@@ -55,7 +55,6 @@ public class DevbookDatabaseRefresherTests : IDisposable
     [InlineData("edit")]
     [InlineData("add")]
     [InlineData("delete")]
-    [InlineData("reading-order")]
     public async Task A_changed_input_is_a_rebuild(string change)
     {
         await _refresher.RefreshAsync(_root, TestContext.Current.CancellationToken);
@@ -71,14 +70,26 @@ public class DevbookDatabaseRefresherTests : IDisposable
             case "delete":
                 File.Delete(Absolute(".devbook/arc42/01-introduction.md"));
                 break;
-            case "reading-order":
-                Write(".devbook/domain/_reading-order.json", "{ \"version\": 1, \"directories\": {} }");
-                break;
         }
 
         Assert.False(DevbookDatabaseBuilder.IsCurrent(_root, Target));
         Assert.True(await _refresher.RefreshAsync(_root, TestContext.Current.CancellationToken));
         Assert.True(DevbookDatabaseBuilder.IsCurrent(_root, Target));
+    }
+
+    /// <summary>The reading order is derived, not authored (local ADR 0016), so a
+    /// <c>_reading-order.json</c> is no input: writing one leaves the database
+    /// current and rebuilds nothing.</summary>
+    [Fact]
+    public async Task A_stray_reading_order_file_is_not_an_input()
+    {
+        await _refresher.RefreshAsync(_root, TestContext.Current.CancellationToken);
+
+        Write(".devbook/_reading-order.json", "{ \"version\": 1, \"directories\": {} }");
+        Write(".devbook/arc42/_reading-order.json", "{ \"version\": 1, \"directories\": {} }");
+
+        Assert.True(DevbookDatabaseBuilder.IsCurrent(_root, Target));
+        Assert.False(await _refresher.RefreshAsync(_root, TestContext.Current.CancellationToken));
     }
 
     /// <summary>Rung three of the ladder, from the writing side: a database in a

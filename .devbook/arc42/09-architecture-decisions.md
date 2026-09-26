@@ -1,7 +1,6 @@
 # 09. Architecture Decisions
 
 ```meta
-status: active
 ```
 
 This chapter links to the decision records rather than restating them. There are
@@ -26,7 +25,6 @@ the .NET decision set.
 ## Sync-service alignments
 
 ```meta
-status: active
 related: [".devbook/arc42/adr/guidelines/README.md", ".devbook/arc42/05-building-block-view.md#cloud-service", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure"]
 ```
 
@@ -56,7 +54,6 @@ binds the first work that reaches its ground.
 ## Beyond the sync service
 
 ```meta
-status: active
 related: [".devbook/arc42/adr/guidelines/README.md", ".devbook/arc42/05-building-block-view.md#container-view"]
 ```
 
@@ -72,7 +69,6 @@ Inherited decisions that govern shipped code outside the sync service.
 ## Local system decisions
 
 ```meta
-status: active
 related: [".devbook/arc42/04-solution-strategy.md"]
 ```
 
@@ -92,7 +88,6 @@ the `orch-adr` skill and link them here rather than duplicating the content.
 ## Local ADRs
 
 ```meta
-status: active
 related: [".devbook/arc42/04-solution-strategy.md"]
 ```
 

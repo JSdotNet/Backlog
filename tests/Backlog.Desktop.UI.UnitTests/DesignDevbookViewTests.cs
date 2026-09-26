@@ -39,7 +39,7 @@ public sealed class DesignDevbookViewTests : IDisposable
     {
         await using var harness = CreateHarness();
 
-        var component = harness.Render("colors.md");
+        var component = harness.Render("color-scheme.md");
 
         // The way in is the file view's own header control, and until it is
         // pressed the body is the file rendered — which is what makes each
@@ -56,7 +56,7 @@ public sealed class DesignDevbookViewTests : IDisposable
     {
         await using var harness = CreateHarness();
 
-        var component = harness.Render("colors.md");
+        var component = harness.Render("color-scheme.md");
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='design-chapter-file-edit']")));
 
         component.Find("[data-testid='design-chapter-file-edit']").Click();
@@ -79,7 +79,7 @@ public sealed class DesignDevbookViewTests : IDisposable
     {
         await using var harness = CreateHarness();
 
-        var component = harness.Render("colors.md");
+        var component = harness.Render("color-scheme.md");
 
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='design-chapter-file-body']")));
 
@@ -105,7 +105,7 @@ public sealed class DesignDevbookViewTests : IDisposable
     {
         await using var harness = CreateHarness();
 
-        var component = harness.Render("colors.md");
+        var component = harness.Render("color-scheme.md");
 
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='design-chapter-file']")));
 
@@ -122,7 +122,7 @@ public sealed class DesignDevbookViewTests : IDisposable
     {
         await using var harness = CreateHarness();
 
-        var component = harness.Render("colors.md");
+        var component = harness.Render("color-scheme.md");
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='design-chapter-file-edit']")));
 
         component.Find("[data-testid='design-chapter-file-edit']").Click();
@@ -222,7 +222,7 @@ public sealed class DesignDevbookViewTests : IDisposable
     public async Task A_typed_design_chapter_reaches_the_file()
     {
         await using var harness = CreateHarness();
-        var component = harness.Render("colors.md");
+        var component = harness.Render("color-scheme.md");
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='design-chapter-file-edit']")));
 
         component.Find("[data-testid='design-chapter-file-edit']").Click();
@@ -241,7 +241,7 @@ public sealed class DesignDevbookViewTests : IDisposable
         component.WaitForAssertion(
             () => Assert.Contains(
                 "Typed into the design chapter.",
-                File.ReadAllText(Path.Combine(harness.DesignFolder, "colors.md")),
+                File.ReadAllText(Path.Combine(harness.DesignFolder, "color-scheme.md")),
                 StringComparison.Ordinal),
             TimeSpan.FromSeconds(5));
     }
@@ -250,14 +250,14 @@ public sealed class DesignDevbookViewTests : IDisposable
     public async Task A_chapter_that_left_the_folder_offers_no_way_in()
     {
         await using var harness = CreateHarness();
-        var component = harness.Render("colors.md");
+        var component = harness.Render("color-scheme.md");
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='design-chapter-file']")));
 
         // Listed and no longer readable. The panel keeps rendering what it
         // parsed before the file went away, and offers no edit that would fail
         // on the first keystroke.
-        File.Delete(Path.Combine(harness.DesignFolder, "colors.md"));
-        harness.Rerender(component, "colors.md");
+        File.Delete(Path.Combine(harness.DesignFolder, "color-scheme.md"));
+        harness.Rerender(component, "color-scheme.md");
 
         // Waited away rather than asserted away: the view re-reads the file before
         // it can conclude there is nothing to edit, so the file view leaves on a
@@ -359,7 +359,7 @@ public sealed class DesignDevbookViewTests : IDisposable
     {
         await using var harness = CreateHarness();
 
-        var component = harness.Render("colors.md");
+        var component = harness.Render("color-scheme.md");
 
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='design-chapter-file-file-metadata']")));
 
@@ -385,7 +385,7 @@ public sealed class DesignDevbookViewTests : IDisposable
         component.WaitForAssertion(
             () => Assert.Contains(
                 "status: deprecated",
-                File.ReadAllText(Path.Combine(harness.DesignFolder, "colors.md")),
+                File.ReadAllText(Path.Combine(harness.DesignFolder, "color-scheme.md")),
                 StringComparison.Ordinal),
             TimeSpan.FromSeconds(5));
 
@@ -444,7 +444,10 @@ public sealed class DesignDevbookViewTests : IDisposable
         Directory.CreateDirectory(design);
         _roots.Add(root);
 
-        File.WriteAllText(Path.Combine(design, "colors.md"), Colors);
+        // Named as the convention names them, so the folder reads the colour
+        // scheme first and the interaction guidelines after it — the order every
+        // "first document" below relies on.
+        File.WriteAllText(Path.Combine(design, "color-scheme.md"), Colors);
         File.WriteAllText(Path.Combine(design, "interaction-guidelines.md"), InteractionGuidelines);
 
         var gitHubSettings = new GitHubSettingsStore(Path.Combine(root, "github.json"));

@@ -1,7 +1,6 @@
 # 06. Runtime View
 
 ```meta
-status: active
 related: [".devbook/arc42/05-building-block-view.md"]
 ```
 
@@ -11,7 +10,6 @@ the local-first and thin-cloud strategies play out dynamically.
 ## Task to GitHub Issue
 
 ```meta
-status: active
 related: [".devbook/arc42/05-building-block-view.md#desktop-app"]
 ```
 
@@ -46,7 +44,6 @@ sequenceDiagram
 ## State Sync and Webhook Forwarding
 
 ```meta
-status: active
 related: [".devbook/arc42/05-building-block-view.md#cloud-service"]
 ```
 
@@ -82,7 +79,6 @@ sequenceDiagram
 ## Mobile Capture and Sync
 
 ```meta
-status: active
 related: [".devbook/arc42/05-building-block-view.md#mobile-app"]
 ```
 
@@ -275,7 +271,6 @@ sequenceDiagram
 ## Sync Item Lifecycle
 
 ```meta
-status: active
 related: [".devbook/arc42/05-building-block-view.md#mobile-app"]
 ```
 
@@ -304,7 +299,6 @@ stateDiagram-v2
 ## IDE Context-aware Capture
 
 ```meta
-status: active
 related: [".devbook/arc42/05-building-block-view.md#ide-extensions"]
 ```
 
@@ -336,7 +330,6 @@ sequenceDiagram
 ## Copilot App Session Capture
 
 ```meta
-status: active
 related: [".devbook/arc42/05-building-block-view.md#ide-extensions", ".devbook/domain/capture/domain.md#source-adapter", ".devbook/domain/capture/features.md#copilot-app-session-capture"]
 ```
 
@@ -369,7 +362,6 @@ sequenceDiagram
 ## Repository Baseline Scan and Health Signal
 
 ```meta
-status: active
 related: [".devbook/arc42/05-building-block-view.md#desktop-app", ".devbook/arc42/08-crosscutting-concepts.md#shared-data-types"]
 ```
 
@@ -403,7 +395,6 @@ sequenceDiagram
 ## Remote PC Wake and Status Update
 
 ```meta
-status: active
 related: [".devbook/arc42/05-building-block-view.md#desktop-app", ".devbook/arc42/05-building-block-view.md#cloud-service"]
 ```
 

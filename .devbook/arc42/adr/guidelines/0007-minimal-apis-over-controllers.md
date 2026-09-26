@@ -1,9 +1,7 @@
 # ADR 0007: Minimal APIs over controllers
 
 ```meta
-status: active
 related: [".devbook/arc42/05-building-block-view.md#cloud-service", ".devbook/arc42/09-architecture-decisions.md"]
-issue: null
 ```
 
 Inherited from the organization's ADR 0007 (decided 2025-11-10,

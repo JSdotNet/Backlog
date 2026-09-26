@@ -72,9 +72,9 @@ public sealed class DevbookMenu(IDevbookFolderSource source)
                 return new DevbookMenuNode(areaKey, folder.DisplayName, folder.Key, DevbookMenuNodeKind.Folder, areaKey, roots, true);
             }
 
-            // Once per area, not once per directory: the folder's authored order and
-            // the generated titles are both read here and handed down the walk.
-            var outline = DevbookMenuOutline.Read(fullPath);
+            // Once per area, not once per directory: the folder's convention and
+            // the generated titles are both settled here and handed down the walk.
+            var outline = DevbookMenuOutline.Read(fullPath, areaKey);
             var children = EnumerateChildren(tree, fullPath, fullPath, areaKey, outline, cancellationToken);
             return new DevbookMenuNode(areaKey, folder.DisplayName, folder.Key, DevbookMenuNodeKind.Folder, areaKey, children, true);
         }, cancellationToken).ConfigureAwait(false);
@@ -220,9 +220,16 @@ public sealed class DevbookMenu(IDevbookFolderSource source)
             // name on disk is carried alongside it.
             var relativeDirectory = RelativeDirectory(root, directory);
             var entries = directories.Concat(files).ToList();
+            var names = entries.Select(entry => Path.GetFileName(entry.DiskPath)).ToList();
 
             return Label(
-                Order(entries, outline.Order(relativeDirectory), areaKey, root, directory),
+                Order(
+                    entries,
+                    outline.Order(relativeDirectory, names),
+                    outline.RootDocument(relativeDirectory, names),
+                    areaKey,
+                    root,
+                    directory),
                 outline,
                 relativeDirectory);
         }
@@ -255,19 +262,27 @@ public sealed class DevbookMenu(IDevbookFolderSource source)
     };
 
     /// <summary>
-    /// One level of the rail in reading order: the entries the folder's
-    /// <c>_reading-order.json</c> names, in the order it names them, then
-    /// everything it does not, in the order the rail has always sorted them.
+    /// One level of the rail in reading order: the entries in the order the
+    /// folder convention reads them (<see cref="DevbookReadingConvention"/>, from
+    /// their names alone), then anything it did not place, in the order the rail
+    /// has always sorted them.
     ///
-    /// <para>A directory that declares nothing keeps that sort alone — which is
-    /// <c>.arc42</c>, whose numbered chapters sequence themselves and whose two
-    /// record folders belong at 09.5 and 11.5, and every folder in a checkout
-    /// that carries no such file at all. That is rung five of ADR 0004's ladder:
-    /// no declaration has to read exactly as it did before there was one.</para>
+    /// <para>A directory the convention has no entry for keeps that sort alone —
+    /// which is <c>arc42</c>, whose numbered chapters sequence themselves and whose
+    /// two record folders belong at 09.5 and 11.5, and anything below a bounded
+    /// context. That is rung five of ADR 0004's ladder: no convention has to read
+    /// exactly as it did before there was one. A <c>_reading-order.json</c> is
+    /// never read (local ADR 0016).</para>
+    ///
+    /// <para>Except for its root document: <paramref name="rootDocument"/> —
+    /// <c>arc42/adr/README.md</c> — still opens such a directory, as the
+    /// database outline has it, and everything after it keeps the rail's
+    /// sort.</para>
     /// </summary>
     private static List<(string DiskPath, DevbookMenuNode Node)> Order(
         List<(string DiskPath, DevbookMenuNode Node)> entries,
         IReadOnlyList<string> declared,
+        string? rootDocument,
         string areaKey,
         string root,
         string directory)
@@ -277,7 +292,16 @@ public sealed class DevbookMenu(IDevbookFolderSource source)
             .ThenBy(entry => entry.Node.Label, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        if (declared.Count == 0) return alphabetical;
+        if (declared.Count == 0)
+        {
+            if (rootDocument is null) return alphabetical;
+
+            bool IsRoot((string DiskPath, DevbookMenuNode Node) entry) =>
+                entry.Node.Kind == DevbookMenuNodeKind.File
+                && string.Equals(Path.GetFileName(entry.DiskPath), rootDocument, StringComparison.OrdinalIgnoreCase);
+
+            return [.. alphabetical.Where(IsRoot), .. alphabetical.Where(entry => !IsRoot(entry))];
+        }
 
         var ordinals = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         for (var index = 0; index < declared.Count; index++) ordinals.TryAdd(declared[index], index);
@@ -334,7 +358,7 @@ public sealed class DevbookMenu(IDevbookFolderSource source)
     }
 
     /// <summary>Where a directory sits inside the knowledge folder, as the
-    /// authored reading order and the generated outline both key it: empty at the
+    /// reading convention and the generated outline both key it: empty at the
     /// folder's own root, <c>/</c>-separated below it.</summary>
     private static string RelativeDirectory(string root, string directory)
     {

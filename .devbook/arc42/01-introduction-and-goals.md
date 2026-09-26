@@ -1,7 +1,7 @@
 # 01. Introduction and Goals
 
 ```meta
-status: active
+index: root
 ```
 
 Prompt Backlog is a personal, AI-first productivity system that captures input from
@@ -16,7 +16,6 @@ locally. The cloud is additive coordination — never a dependency for core work
 ## Requirements Overview
 
 ```meta
-status: active
 ```
 
 The system is decomposed into independent functional domains, each designable,
@@ -43,7 +42,6 @@ know or care how items were captured. See
 ## Quality Goals
 
 ```meta
-status: active
 ```
 
 The top quality goals shaping the architecture, in priority order:
@@ -62,7 +60,6 @@ Detailed, measurable scenarios are elaborated in
 ## Person
 
 ```meta
-status: active
 ```
 
 | Name | Concern |

@@ -55,7 +55,6 @@ public sealed class TechnologyDevbookReaderTests
         using var workspace = TestWorkspace.Create();
         var techPath = Path.Combine(workspace.RepositoryPath, ".tech");
         Directory.CreateDirectory(Path.Combine(techPath, "_meta"));
-        WriteTechReadingOrder(techPath, "shared.md", "desktop.md");
         File.WriteAllText(Path.Combine(techPath, "technology-graph.md"), """
             # Technology graph
             ```meta
@@ -146,7 +145,6 @@ public sealed class TechnologyDevbookReaderTests
         using var workspace = TestWorkspace.Create();
         var techPath = Path.Combine(workspace.RepositoryPath, ".tech");
         Directory.CreateDirectory(techPath);
-        WriteTechReadingOrder(techPath, "shared.md");
         File.WriteAllText(Path.Combine(techPath, "technology-graph.md"), """
             # Technology graph
             ```meta
@@ -208,7 +206,6 @@ public sealed class TechnologyDevbookReaderTests
         using var workspace = TestWorkspace.Create();
         var techPath = Path.Combine(workspace.RepositoryPath, ".tech");
         Directory.CreateDirectory(techPath);
-        WriteTechReadingOrder(techPath, "shared.md");
         File.WriteAllText(Path.Combine(techPath, "technology-graph.md"), """
             # Technology graph
             ```meta
@@ -290,7 +287,7 @@ public sealed class TechnologyDevbookReaderTests
         Assert.False(blazor.IsFoundation);
         Assert.Equal(1, winui.OutDegree);
 
-        // Reading order is the committed one — shared before desktop — not
+        // Reading order is the convention's — shared pinned first — not
         // alphabetical, which would put desktop first.
         Assert.Equal(0, dotnet.LayerIndex);
         Assert.Equal("shared.md", dotnet.LayerFileName);
@@ -428,7 +425,6 @@ public sealed class TechnologyDevbookReaderTests
         using var workspace = TestWorkspace.Create();
         var techPath = Path.Combine(workspace.RepositoryPath, ".tech");
         Directory.CreateDirectory(techPath);
-        WriteTechReadingOrder(techPath, "cloud.md");
 
         File.WriteAllText(Path.Combine(techPath, "technology-graph.md"), "# Technology graph\n");
         File.WriteAllText(Path.Combine(techPath, "cloud.md"),
@@ -461,7 +457,6 @@ public sealed class TechnologyDevbookReaderTests
     {
         var techPath = Path.Combine(repositoryPath, ".tech");
         Directory.CreateDirectory(techPath);
-        WriteTechReadingOrder(techPath, "shared.md", "desktop.md");
 
         File.WriteAllText(Path.Combine(techPath, "technology-graph.md"), "# Technology graph\n");
 
@@ -477,7 +472,7 @@ public sealed class TechnologyDevbookReaderTests
 
         if (writeGraphIndex)
         {
-            // The reading order no longer lives under `_meta`, so the folder the
+            // Nothing else of this fixture lives under `_meta`, so the folder the
             // graph rollup goes in is this fixture's to create.
             Directory.CreateDirectory(Path.Combine(techPath, "_meta"));
 
@@ -498,24 +493,36 @@ public sealed class TechnologyDevbookReaderTests
     }
 
     /// <summary>
-    /// The committed reading order for a <c>.tech</c> fixture.
+    /// The layers read in the convention's order from their file names —
+    /// <c>shared.md</c> first, <c>tooling.md</c> last, the rest by name — and
+    /// none is dropped.
     ///
-    /// <para>The layer sequence has moved twice. It began as an <c>order</c> field
-    /// in the root document's <c>meta</c> fence, became an entry order in the
-    /// generated <c>_meta/index.json</c>, and now sits in the authored
-    /// <c>_reading-order.json</c> at the folder root — because the generated half
-    /// is becoming a database that is a build output, and an authored fact cannot
-    /// live in one. A fixture that cares about order writes the file the reader
-    /// actually consults.</para>
+    /// <para>The regression this holds: the retired <c>_reading-order.json</c> was
+    /// consulted as the whole list, so a layer it did not declare silently fell
+    /// out of the graph. The file is written here, declaring one layer, to show it
+    /// is now ignored outright (local ADR 0016).</para>
     /// </summary>
-    private static void WriteTechReadingOrder(string techPath, params string[] layers)
+    [Fact]
+    public void Every_layer_reads_in_the_convention_s_order_whatever_a_stray_reading_order_file_says()
     {
-        var order = string.Join(", ", layers.Select(layer => $"\"{layer}\""));
-
+        using var workspace = TestWorkspace.Create();
+        var techPath = Path.Combine(workspace.RepositoryPath, ".tech");
+        Directory.CreateDirectory(techPath);
         File.WriteAllText(
             Path.Combine(techPath, "_reading-order.json"),
             "{ \"version\": 1, \"scope\": \".tech\", \"directories\": { \".tech\": "
-            + "{ \"root\": \"technology-graph.md\", \"order\": [" + order + "] } } }");
+            + "{ \"root\": \"technology-graph.md\", \"order\": [\"desktop.md\"] } } }");
+
+        File.WriteAllText(Path.Combine(techPath, "technology-graph.md"), "# Technology graph\n");
+        foreach (var (file, title) in new[] { ("tooling.md", "Tooling"), ("desktop.md", "Desktop"), ("shared.md", "Shared"), ("cloud.md", "Cloud") })
+        {
+            File.WriteAllText(Path.Combine(techPath, file),
+                $"# {title}\n\n## {title} thing\n```meta\nstatus: adopted\nkind: tool\n```\n\nWhat it is.\n");
+        }
+
+        var view = TechnologyDevbookReader.Read(new DevbookFolderLocation(".tech", true, null, null, null, techPath));
+
+        Assert.Equal(["shared.md", "cloud.md", "desktop.md", "tooling.md"], view.Layers.Select(layer => layer.FileName));
     }
 }
 

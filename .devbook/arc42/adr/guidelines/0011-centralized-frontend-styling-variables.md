@@ -1,9 +1,7 @@
 # ADR 0011: Centralized frontend styling variables
 
 ```meta
-status: active
 related: [".devbook/design/color-scheme.md", ".devbook/design/typography-and-layout.md", ".devbook/arc42/09-architecture-decisions.md"]
-issue: null
 ```
 
 Inherited from the organization's ADR 0011 (decided 2026-06-05,

@@ -112,15 +112,15 @@ public sealed class DomainDevbookStore : IDisposable
             // worth reading up front. Everything else waits until a context is
             // selected — see ReadContextsFromIndex.
             var contextMap = ReadDocument(contextMapPath, root, DomainDevbookDocumentKind.ContextMap);
-            // Two readers of the same index, deliberately: DevbookReadingOrder
-            // answers "in what order?" for a scan that still opens every file, and
-            // is what .tech and .design also ask. This asks the fuller question —
-            // what is in the folder, and what does the index already know about it —
-            // so the files behind the answer never have to be opened at all. The
-            // scan is the fallback for a folder with no readable index.
+            // The index answers the fuller question — what is in the folder, in
+            // the order the writer derived, and what does it already know about
+            // each context — so the files behind the answer never have to be
+            // opened at all. The scan is the fallback for a folder with no
+            // readable index, and it orders the contexts by the same convention
+            // from their names alone, as .tech and .design do.
             var index = DevbookIndexDocument.TryRead(root);
             var contexts = index is null
-                ? ReadContexts(root, DevbookReadingOrder.ForFolder(root))
+                ? ReadContexts(root)
                 : ReadContextsFromIndex(index, root);
             contexts = [.. contexts.Select(context => context with { MapChapter = MapChapterFor(contextMap, context.Slug) })];
             return new DomainDevbookView(location.ScopeLabel ?? "storage", location.RootPath ?? root, root, null, contextMap, contexts, location.CanEdit);
@@ -217,13 +217,21 @@ public sealed class DomainDevbookStore : IDisposable
     private static string FirstNonEmpty(params string?[] candidates) =>
         candidates.FirstOrDefault(candidate => !string.IsNullOrWhiteSpace(candidate)) ?? string.Empty;
 
-    private IReadOnlyList<DomainDevbookContext> ReadContexts(string root, IReadOnlyList<string> orderedSlugs)
+    /// <summary>
+    /// Every bounded context by scanning the folder, in the order the folder
+    /// convention reads them (<see cref="DevbookReadingConvention"/>): the
+    /// context map is the root and is not a context, so the contexts follow by
+    /// name — or by number, should a repository number its context folders.
+    /// Names only; no <c>_reading-order.json</c> is read (local ADR 0016).
+    /// </summary>
+    private IReadOnlyList<DomainDevbookContext> ReadContexts(string root)
     {
         var dirs = Directory.EnumerateDirectories(root)
-            .Where(p => !Path.GetFileName(p).StartsWith('_')).Select(p => new { Slug = Path.GetFileName(p), Path = p })
+            .Where(p => !Path.GetFileName(p).StartsWith('_') && !Path.GetFileName(p).StartsWith('.'))
+            .Select(p => new { Slug = Path.GetFileName(p), Path = p })
             .Where(item => !string.IsNullOrWhiteSpace(item.Slug))
             .ToDictionary(item => item.Slug!, item => item.Path, StringComparer.OrdinalIgnoreCase);
-        return [.. orderedSlugs.Concat(dirs.Keys.Order(StringComparer.OrdinalIgnoreCase)).Distinct(StringComparer.OrdinalIgnoreCase).Where(dirs.ContainsKey).Select(slug => ReadContext(slug, dirs[slug], root))];
+        return [.. DevbookReadingConvention.Order("domain", 0, dirs.Keys).Select(slug => ReadContext(slug, dirs[slug], root))];
     }
 
     private DomainDevbookContext ReadContext(string slug, string path, string root)

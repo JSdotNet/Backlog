@@ -1,3 +1,5 @@
+using Backlog.Modules.Devbook.Abstractions;
+
 namespace Backlog.Desktop.UI.Devbook;
 
 /// <summary>
@@ -5,37 +7,41 @@ namespace Backlog.Desktop.UI.Devbook;
 /// the order its directories are meant to be read in, and the real title of the
 /// chapter behind each one.
 ///
-/// <para>Both answers already exist and neither used to reach the rail. The order
-/// is authored, in the folder's committed <c>_reading-order.json</c>, and it is
-/// the same list the domain, design and technology panes beside the rail order
-/// themselves by. The titles are derived, in the generated
-/// the devbook database that ADR 0004 introduced, which is where
-/// <c>dev-pc-management</c> is known to be "Dev PC Management" rather than the
-/// "Dev Pc Management" a filename can be title-cased into.</para>
+/// <para>The order is the folder convention's (<see cref="DevbookReadingConvention"/>)
+/// — the same one the domain, design and technology panes beside the rail order
+/// themselves by, and the one the database's outline is derived from. Nothing is
+/// authored per repository: local ADR 0016 retired <c>_reading-order.json</c>, and
+/// one left in a folder is ignored. The titles are derived, in the devbook
+/// database that ADR 0004 introduced, which is where <c>dev-pc-management</c> is
+/// known to be "Dev PC Management" rather than the "Dev Pc Management" a filename
+/// can be title-cased into.</para>
 ///
-/// <para>The two are read once per area, not once per directory, because a tab
-/// click should cost one folder walk. Neither read opens a Markdown file, which
-/// is the whole reason the rail can consult them at all: the alternative — parse
+/// <para>The titles are read once per area, not once per directory, because a
+/// tab click should cost one folder walk. Neither answer opens a Markdown file,
+/// which is the whole reason the rail can consult them at all: the convention
+/// asks names only, so a document's own <c>index: root</c> or <c>number</c> field
+/// is the database's to honour and not the rail's, and the alternative — parse
 /// every chapter for its H1 — is the corpus parse the index exists to avoid.</para>
 ///
-/// <para>Both degrade to nothing, and they degrade together. A folder with no
-/// readable declaration orders no directory — and titles no row either, because a
-/// directory that keeps the old sort keeps the old labels with it. A checkout with
-/// no database titles no row whatever the declaration says. Either way the rail is
-/// exactly what it was before these artifacts existed.</para>
+/// <para>Both degrade to nothing, and they degrade together. A directory the
+/// convention has no entry for — all of <c>arc42</c>, anything below a bounded
+/// context — orders nothing and titles no row either, because a directory that
+/// keeps the rail's own sort keeps its labels with it. A checkout with no database
+/// titles no row at all. Either way the rail is exactly what it was before these
+/// artifacts existed.</para>
 /// </summary>
 internal sealed class DevbookMenuOutline
 {
-    private readonly DevbookFolderReadingOrder _order;
+    private readonly string? _folderKind;
     private readonly DevbookIndexDocument? _index;
     private readonly IReadOnlyDictionary<string, OutlineTitle> _titles;
 
     private DevbookMenuOutline(
-        DevbookFolderReadingOrder order,
+        string? folderKind,
         DevbookIndexDocument? index,
         IReadOnlyDictionary<string, OutlineTitle> titles)
     {
-        _order = order;
+        _folderKind = folderKind;
         _index = index;
         _titles = titles;
     }
@@ -45,21 +51,79 @@ internal sealed class DevbookMenuOutline
     /// it is assembled out of agent folders rather than being a knowledge folder
     /// with an order of its own.</summary>
     public static DevbookMenuOutline None { get; } = new(
-        DevbookFolderReadingOrder.Empty,
+        null,
         null,
         new Dictionary<string, OutlineTitle>(StringComparer.OrdinalIgnoreCase));
 
-    public static DevbookMenuOutline Read(string folderPath)
+    /// <param name="folderPath">The folder on disk, where its database is looked up.</param>
+    /// <param name="folderKind">The folder's kind, <c>domain</c> or <c>tech</c> —
+    /// the area key — which picks its convention.</param>
+    public static DevbookMenuOutline Read(string folderPath, string folderKind)
     {
-        var order = DevbookReadingOrder.Read(folderPath);
         var index = DevbookIndexDocument.TryRead(folderPath);
 
-        return new DevbookMenuOutline(order, index, index is null ? None._titles : Titles(index));
+        return new DevbookMenuOutline(folderKind, index, index is null ? None._titles : Titles(index));
     }
 
-    /// <summary>The declared entry names of one directory of the folder, root
-    /// document first, or empty when it declares none.</summary>
-    public IReadOnlyList<string> Order(string relativeDirectory) => _order.ForDirectory(relativeDirectory);
+    /// <summary>
+    /// <paramref name="names"/> — one directory's entries — in the convention's
+    /// reading order, or empty when the convention says nothing about that
+    /// directory and the rail's own sort stands.
+    /// </summary>
+    public IReadOnlyList<string> Order(string relativeDirectory, IEnumerable<string> names) =>
+        Convention(relativeDirectory) is null
+            ? []
+            : DevbookReadingConvention.Order(_folderKind, Depth(relativeDirectory), names);
+
+    /// <summary>
+    /// The root document of a directory the convention says nothing about —
+    /// <c>arc42/adr</c>, <c>arc42/tdr</c> — which the rail pins first while the
+    /// rest keeps its own sort. <see langword="null"/> where the convention
+    /// orders the directory (its <see cref="Order"/> already leads with the
+    /// root), for the instruction area, and where there is none.
+    ///
+    /// <para>The database outline answers first: the child it marked
+    /// <c>is_root</c>, which is where a document's own <c>index: root</c> lands,
+    /// read without opening a Markdown file. A directory the outline does not
+    /// know — no database, or one built before the directory existed — falls
+    /// back to a <c>README.md</c> by name. A directory the outline knows and
+    /// gives no root has none here either, so the rail and the outline agree.</para>
+    ///
+    /// <para>Deliberately separate from <see cref="Order"/>: an empty order is
+    /// the rung <see cref="TryTitle"/> stands on, and pinning a root does not
+    /// change that the directory keeps its own sort and its own labels.</para>
+    /// </summary>
+    public string? RootDocument(string relativeDirectory, IEnumerable<string> names)
+    {
+        ArgumentNullException.ThrowIfNull(names);
+        if (_folderKind is null || Convention(relativeDirectory) is not null) return null;
+
+        if (OutlineChildren(relativeDirectory) is { } children)
+        {
+            return children.FirstOrDefault(child => child.IsFile && child.Root)?.Name;
+        }
+
+        return names.FirstOrDefault(name => string.Equals(name, "README.md", StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>The outline's entries directly inside a directory, or
+    /// <see langword="null"/> when there is no outline or it does not know the
+    /// directory.</summary>
+    private IEnumerable<DevbookIndexEntry>? OutlineChildren(string relativeDirectory)
+    {
+        if (_index is null) return null;
+        if (string.IsNullOrEmpty(relativeDirectory)) return _index.Entries;
+
+        return _titles.TryGetValue(relativeDirectory, out var directory) && directory.Entry.IsDirectory
+            ? directory.Entry.Children ?? []
+            : null;
+    }
+
+    private DevbookDirectoryConvention? Convention(string relativeDirectory) =>
+        DevbookReadingConvention.For(_folderKind, Depth(relativeDirectory));
+
+    private static int Depth(string relativeDirectory) =>
+        string.IsNullOrEmpty(relativeDirectory) ? 0 : relativeDirectory.Split('/').Length;
 
     /// <summary>
     /// The generated title of one entry, when adopting it would say more than the
@@ -67,8 +131,8 @@ internal sealed class DevbookMenuOutline
     ///
     /// <para>Five cases where it would not, all of them ordinary rather than
     /// defensive. A file is labelled by its filename, because an H1 is written to
-    /// open a chapter and not to sit in a rail. A directory nobody declared an
-    /// order for is a directory the
+    /// open a chapter and not to sit in a rail. A directory the convention says
+    /// nothing about is a directory the
     /// rail draws exactly as it drew it before any of this existed, labels
     /// included — see <see cref="Order"/>'s rung. A directory's root document is
     /// titled after the directory, so <c>.design/README.md</c> is "Design
@@ -85,20 +149,19 @@ internal sealed class DevbookMenuOutline
         if (_index is null) return false;
 
         // Titles ride on the same rung as the order, because ADR 0004's ladder is
-        // about the folder and not about one artifact of it: a directory whose
-        // declaration this reader cannot use reads as it did before there was a
-        // declaration or a database, byte for byte. `.arc42` is why it matters.
-        // It declares `root: null` and an empty order deliberately, so its rail
-        // stays on the alphabetical fallback that puts the record folders at 09.5
-        // and 11.5 — and those two rows are labelled ADR and TDR, which the
-        // outline would replace with "Architecture Decision Records" and
-        // "Technical Debt Records". Truer titles, and not this rail's rows.
-        if (_order.ForDirectory(relativeDirectory).Count == 0) return false;
+        // about the folder and not about one artifact of it: a directory the
+        // convention has no entry for reads as it did before there was a
+        // convention or a database, byte for byte. `arc42` is why it matters.
+        // Its chapters are numbered and it names no root, so its rail stays on
+        // the alphabetical fallback that puts the record folders at 09.5 and
+        // 11.5 — and those two rows are labelled ADR and TDR, which the outline
+        // would replace with "Architecture Decision Records" and "Technical Debt
+        // Records". Truer titles, and not this rail's rows.
+        if (Convention(relativeDirectory) is not { } convention) return false;
 
-        // Asked of the authored file rather than only of the generated `is_root`
-        // flag, because the folder that declares its root document is the one
-        // place that fact is written by hand.
-        if (string.Equals(name, _order.RootDocumentIn(relativeDirectory), StringComparison.OrdinalIgnoreCase)) return false;
+        // Asked of the convention as well as of the generated `is_root` flag
+        // below, so a database built before the root was there cannot title it.
+        if (string.Equals(name, convention.Root, StringComparison.OrdinalIgnoreCase)) return false;
 
         var key = relativeDirectory.Length == 0 ? name : relativeDirectory + "/" + name;
         if (!_titles.TryGetValue(key, out var candidate)) return false;
@@ -109,8 +172,8 @@ internal sealed class DevbookMenuOutline
         // directory. That is where the labels the issue is about live — a
         // bounded context is "Dev PC Management" and "Monitoring & Dashboard"
         // and a filename cannot say either — and a chapter's H1 is a sentence
-        // rather than a label: `.arc42/adr` declares an order, so adopting its
-        // files' titles would draw "ADR 0008: Devbook reads from a cached
+        // rather than a label: were a directory of records ever ordered, adopting
+        // its files' titles would draw "ADR 0008: Devbook reads from a cached
         // branch snapshot when there is no clone; only a clone is editable"
         // into a rail 240px wide, where "0008 Devbook Reads From A Branch
         // Snapshot When There Is No Clone" at least starts with its number.

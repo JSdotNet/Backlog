@@ -7,7 +7,9 @@ public sealed record EntryPullRequestLink(string Repository, int Number)
 {
     public string Url => $"https://github.com/{Repository}/pull/{Number}";
 
-    public string Label => $"PR #{Number}";
+    /// <summary>The number alone: the GitHub mark beside it says where it lives, and
+    /// the tooltip says it is a pull request.</summary>
+    public string Label => $"#{Number}";
 }
 
 /// <summary>An AI session that worked on an entry, recorded by <c>link_session</c>.</summary>

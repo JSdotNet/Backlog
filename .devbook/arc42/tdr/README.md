@@ -1,7 +1,6 @@
 # Technical Debt Records
 
 ```meta
-status: active
 index: root
 related: [".devbook/arc42/11-risks-and-technical-debt.md#technical-debt", ".devbook/arc42/adr/README.md"]
 ```

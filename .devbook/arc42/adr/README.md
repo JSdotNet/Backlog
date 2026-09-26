@@ -1,9 +1,8 @@
 # Architecture Decision Records
 
 ```meta
-status: active
+index: root
 related: [".devbook/arc42/09-architecture-decisions.md", ".devbook/arc42/adr/guidelines/README.md"]
-issue: null
 ```
 
 The decisions this architecture is built on. `.devbook/arc42/09-architecture-decisions.md`
