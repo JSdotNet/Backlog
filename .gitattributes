@@ -19,3 +19,7 @@
 # instead of fixing a generator's phantom diff. The same goes for each knowledge
 # folder's authored `_reading-order.json`, which no generator writes.
 **/_archify/index.json text eol=lf
+
+# Test fixtures are byte-exact inputs: a PDF's xref offsets and a JPEG's EXIF
+# would break under line-ending conversion.
+tests/**/Fixtures/** binary
