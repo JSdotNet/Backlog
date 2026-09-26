@@ -135,6 +135,73 @@ sequenceDiagram
     Note over App,Outbox: Five failures park the head entry and hold the queue behind it; resume, network back or a tap tries again
 ```
 
+## Capture Attachments
+
+```meta
+related: [".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/05-building-block-view.md#cloud-service", ".devbook/domain/capture/domain.md#capture"]
+```
+
+A capture's files travel beside it rather than inside it (local ADR 0014). The
+phone uploads each file first, under an id it mints itself, and posts the
+capture that names them after; the capture document carries only their
+metadata. The service side is built; the phone's upload and the desktop's
+intake are later slices.
+
+- **Upload, then capture.** `PUT /api/sync/attachments/{id}` carries the bytes,
+  their declared `Content-Type` and their SHA-256 in `X-Attachment-Sha256`. The
+  service refuses a type off the allowlist (415) or a body over the cap (413)
+  before storing anything, stages the bytes while hashing them, and commits them
+  only when they match the declared digest. The same bytes again under the same
+  id are a 200 that writes nothing; different bytes are a 409.
+- **A capture names only what is there.** `POST /api/sync/inbox` with
+  `attachments` is refused (400 `inbox.capture_attachment_missing`, naming the
+  ids) unless every file is stored under this owner with the size and digest
+  the capture claims.
+- **The desktop fetches** each file with `GET /api/sync/attachments/{id}`,
+  served as a download with `nosniff`. Another owner's id is a 404.
+- **Acknowledgement releases.** When the capture's tombstone is stored — the
+  phone's `POST /inbox/{id}/ack` or the desktop's pushed tombstone — the
+  service deletes the files the held capture named. A failed delete is logged
+  and left to the container's 30-day lifecycle rule; the acknowledgement never
+  fails on it.
+
+```mermaid
+sequenceDiagram
+    participant Phone as Phone App
+    participant Sync as Sync Service
+    participant Blob as Attachment Store
+    participant Cosmos as Task Replica
+    participant Desktop as Desktop App
+
+    Phone->>+Sync: PUT /api/sync/attachments/{id} (Content-Type, X-Attachment-Sha256)
+    Sync->>Sync: Allowlist, cap, digest shape
+    Sync->>Blob: Stage blocks {ownerId}/{id} while hashing
+    alt Digest matches
+        Sync->>Blob: Commit block list (content type, sha256)
+        Sync-->>Phone: 201 StoredAttachment
+    else Mismatch, over the cap
+        Sync-->>-Phone: 400 / 413 — nothing committed
+    end
+
+    Phone->>+Sync: POST /api/sync/inbox (attachments: metadata)
+    Sync->>Blob: Find each {ownerId}/{id}: size + sha256
+    alt All stored as claimed
+        Sync->>Cosmos: Upsert capture document (metadata only)
+        Sync-->>Phone: 201 InboxItem
+    else Any missing or mismatched
+        Sync-->>-Phone: 400 inbox.capture_attachment_missing (ids)
+    end
+
+    Desktop->>+Sync: GET /api/sync/attachments/{id}
+    Sync->>Blob: Download {ownerId}/{id}
+    Sync-->>-Desktop: Bytes (attachment, nosniff)
+
+    Desktop->>+Sync: POST /api/sync/tasks (capture tombstone)
+    Sync->>Cosmos: Find held capture, then upsert tombstone
+    Sync->>Blob: Delete the held capture's files (best effort)
+    Sync-->>-Desktop: 200
+```
+
 ## Mobile My Day and Task Push
 
 ```meta

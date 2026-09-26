@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Blob Storage adapter: the attachment store the sync service streams capture
+    files through (.devbook/arc42/adr/0014). It implements IAttachmentStore, a port
+    declared by Backlog.Modules.Sync; the module never sees this project, which
+    is the direction Backlog.Infrastructure.Cosmos runs in beside it.
+
+    The two storage packages are referenced here and nowhere else in the
+    solution, for the reason the Cosmos pair are: the Aspire package reads the
+    connection the AppHost supplies and registers the container client, the SDK
+    package is what the adapter is written against, and the host depends on a
+    port implementation rather than on a storage driver.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Backlog.Infrastructure.BlobStorage</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Modules\Sync\Backlog.Modules.Sync\Backlog.Modules.Sync.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Azure.Storage.Blobs" />
+    <PackageReference Include="Azure.Storage.Blobs" />
+  </ItemGroup>
+
+</Project>

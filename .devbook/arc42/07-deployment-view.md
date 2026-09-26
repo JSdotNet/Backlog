@@ -160,7 +160,7 @@ flowchart LR
 ## Cloud Deployment (Azure)
 
 ```meta
-related: [".devbook/arc42/05-building-block-view.md#cloud-service", ".devbook/arc42/09-architecture-decisions.md"]
+related: [".devbook/arc42/05-building-block-view.md#cloud-service", ".devbook/arc42/09-architecture-decisions.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md"]
 ```
 
 The optional cloud service is deployed to Azure as a single-region, low-cost
@@ -175,6 +175,7 @@ flowchart TB
         subgraph "Data"
             CosmosDB["Azure Cosmos DB (serverless)\ntasks + sessions containers,\nchange feed per container,\nwebhook events, machine registry"]
             KeyVault["Azure Key Vault\n(webhook secrets, OAuth tokens)"]
+            Storage["Azure Storage (Standard LRS)\nprivate container attachments,\n30-day lifecycle rule"]
         end
     end
 
@@ -196,6 +197,7 @@ flowchart TB
 
     AppService -->|"Managed identity — data-plane role"| CosmosDB
     AppService --> KeyVault
+    AppService -->|"Managed identity — Blob Data Contributor"| Storage
 
     GitHub -->|"Webhook events"| AppService
 
@@ -228,15 +230,22 @@ Deployment considerations:
   app pays no vault round-trip on cold start. See
   `docs/deployment/sync.md#the-device-token-signing-key`, which also covers what a
   rotation invalidates.
-- **Attachment blob store** *(proposed, local ADR 0014; not provisioned)* — one
-  Storage account beside the Cosmos replica, private container `attachments`,
-  blobs keyed `{ownerId}/{attachmentId}`, Azurite in the AppHost locally. It
+- **Attachment blob store** *(local ADR 0014)* — one Standard LRS storage
+  account beside the Cosmos replica, provisioned by `infra/sync/main.bicep`
+  with `allowSharedKeyAccess: false`, TLS 1.2 and no public blob access; a
+  private container `attachments` with blobs keyed `{ownerId}/{attachmentId}`;
+  and a **Storage Blob Data Contributor** assignment for the sync identity,
+  scoped to the container. The service is told where it is by
+  `ConnectionStrings__attachments` — an endpoint and a container name, no key.
+  Locally it is the AppHost's `storage` resource, Azurite in a persistent
+  container, with the same container declared. It
   carries the files on a phone capture: devices upload and download only through
   the sync service (`PUT`/`GET /api/sync/attachments/{id}`, owner-scoped from the
   token, with a size cap and a content-type allowlist), and never hold a storage
   credential. The capture document holds metadata only. The desktop's
   acknowledgement tombstone releases a capture's blobs, and a 30-day lifecycle
-  rule removes anything left behind. A task's own attachment is unchanged: a path
+  rule removes anything left behind — deployed only, because Azurite runs no
+  management policies. A task's own attachment is unchanged: a path
   on the desktop's local file system.
 - **Scale-to-zero** — Container Apps on the consumption plan costs nothing while
   nobody is syncing, which is most of the time for a personal tool.
@@ -266,7 +275,7 @@ prerequisites, and `docs/deployment/sync.md` is where they are written down.
 | **Provision and deploy** | `azd` (Azure Developer CLI), against `azure.yaml` at the repository root. |
 | **Environments** | One (`backlog-sync`). A personal tool does not earn a staging ring. |
 | **CI/CD** | GitHub Actions, **started by hand** (`Deploy Sync` or `Deploy All`) for now — the path-filtered push-to-`main` trigger ADR 0005 describes is parked until a first deploy has been watched succeed — authenticating with **OIDC federated credentials**. No publish profile, no service principal secret in the repository; the one secret carried is the service's own token signing key. |
-| **Local development** | The Cosmos DB preview emulator as an Aspire resource, declaring the same database and the same four containers, so the sync path builds and tests with no cloud account. |
+| **Local development** | The Cosmos DB preview emulator as an Aspire resource, declaring the same database and the same four containers, and Azurite as the `storage` resource with the `attachments` container (local ADR 0014), so the sync path — attachments included — builds and tests with no cloud account. |
 | **Observability** | Log Analytics and Application Insights. OpenTelemetry already flows through `AddServiceDefaults()`, so this is wiring rather than design. Application observability only: no domain data is written to either, because a telemetry pipeline samples and drops under load and nothing a dashboard answers from may inherit that. The workspace carries a 1 GB/day ingestion cap (`logDailyQuotaGb`) as an emergency stop against runaway logging — once reached, Azure drops the rest of the day, exceptions included, which is intended: on such a day the volume is the incident. See `docs/deployment/sync.md`. |
 
 The Bicep declares one resource ADR 0005 did not name: a container registry.

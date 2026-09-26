@@ -178,9 +178,14 @@ public class SyncEndpointAuthenticationTests : IDisposable
             Environment = "Production",
             ConfiguredSigningKey = null,
 
-            // And a Cosmos endpoint, because a deployed host with none refuses
-            // to start for that reason first and this case is about the key.
+            // And a Cosmos endpoint and an attachment container, because a
+            // deployed host with either missing refuses to start for that reason
+            // first and this case is about the key.
             Configuration = ("Sync:Cosmos:AccountEndpoint", "https://localhost:8081/"),
+            MoreConfiguration =
+            [
+                ("ConnectionStrings:attachments", "Endpoint=https://localhost:10000/devstoreaccount1;ContainerName=attachments"),
+            ],
         };
 
         // Inherited ADR 0018: bind, validate, fail fast. A service that started

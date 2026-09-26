@@ -59,6 +59,20 @@ public static class SyncRoutes
     /// <see cref="AcknowledgeInboxItemFor"/> to build a concrete URL.</summary>
     public const string AcknowledgeInboxItem = "/inbox/{id:guid}/ack";
 
+    /// <summary>Route template for one attachment: PUT uploads its bytes, GET
+    /// streams them back. Bearer, and owner-scoped by the token — the route
+    /// carries only the client-minted id (local ADR 0014). Use
+    /// <see cref="AttachmentFor"/> to build a concrete URL.</summary>
+    public const string Attachment = "/attachments/{id:guid}";
+
+    /// <summary>The header an upload declares its bytes' SHA-256 in, as hex, and
+    /// a download reports the stored digest in. The service hashes while it
+    /// streams and refuses an upload whose bytes do not match it.</summary>
+    public const string AttachmentSha256Header = "X-Attachment-Sha256";
+
+    /// <summary>The full path for one attachment.</summary>
+    public static string AttachmentFor(Guid id) => $"{Base}/attachments/{id:D}";
+
     /// <summary>The full path a client posts to.</summary>
     public static string Absolute(string route) => Base + route;
 

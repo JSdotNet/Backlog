@@ -106,6 +106,18 @@ internal static class SyncResults
 
         // And over the annotation container, under the same rule.
         SyncErrorCodes.AnnotationBatchTooLarge => StatusCodes.Status400BadRequest,
+
+        // An upload over the per-file cap (local ADR 0014). The same 413 as a
+        // task too large for the store: sending it again will not help.
+        SyncErrorCodes.AttachmentTooLarge => StatusCodes.Status413PayloadTooLarge,
+
+        // A declared type the allowlist refuses. 415 is the status that names
+        // exactly that, and a client can branch on it without reading the code.
+        SyncErrorCodes.AttachmentTypeNotAllowed => StatusCodes.Status415UnsupportedMediaType,
+
+        // The attachment store not there yet — locally, Azurite still starting.
+        // The same 503 as the replica, under its own code.
+        SyncErrorCodes.AttachmentStoreUnavailable => StatusCodes.Status503ServiceUnavailable,
         _ => error.Type switch
         {
             ErrorType.Validation => StatusCodes.Status400BadRequest,
@@ -123,6 +135,7 @@ internal static class SyncResults
         StatusCodes.Status404NotFound => "There is no such thing here.",
         StatusCodes.Status409Conflict => "The request conflicts with the current state.",
         StatusCodes.Status413PayloadTooLarge => "That is more than the sync service will store.",
+        StatusCodes.Status415UnsupportedMediaType => "The sync service does not store that type of file.",
         StatusCodes.Status429TooManyRequests => "The sync service is busy.",
         StatusCodes.Status503ServiceUnavailable => "The sync service is not ready yet.",
         _ => "The sync service could not complete the request.",

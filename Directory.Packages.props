@@ -29,6 +29,7 @@
   <ItemGroup>
     <PackageVersion Include="Aspire.Hosting.AppHost" Version="13.5.3" />
     <PackageVersion Include="Aspire.Hosting.Azure.CosmosDB" Version="13.5.3" />
+    <PackageVersion Include="Aspire.Hosting.Azure.Storage" Version="13.5.3" />
     <PackageVersion Include="Aspire.Hosting.DevTunnels" Version="13.5.3" />
     <!--
       The Azure sign-in the Foundry cost reader borrows: Azure CLI, Azure
@@ -53,6 +54,23 @@
       above for the same reason they move with each other.
     -->
     <PackageVersion Include="Aspire.Microsoft.Azure.Cosmos" Version="13.5.3" />
+
+    <!--
+      The client-side half of the attachment store (local ADR 0014): it reads the
+      `attachments` connection the AppHost hands the sync service and registers
+      the BlobContainerClient that Backlog.Infrastructure.BlobStorage resolves.
+      Moves with the hosting packages above, like the Cosmos one.
+    -->
+    <PackageVersion Include="Aspire.Azure.Storage.Blobs" Version="13.5.3" />
+
+    <!--
+      Pinned to the version Aspire.Azure.Storage.Blobs 13.5.3 resolves
+      transitively, for the reason Microsoft.Azure.Cosmos below is: the blob
+      adapter stages and commits blocks through the SDK's own types, and naming a
+      different version would put the adapter and the Aspire wiring on two builds
+      of one assembly. Bump the two together or not at all.
+    -->
+    <PackageVersion Include="Azure.Storage.Blobs" Version="12.28.0" />
     <PackageVersion Include="bunit" Version="2.9.0" />
     <PackageVersion Include="coverlet.collector" Version="10.0.1" />
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.11" />
