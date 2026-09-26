@@ -8,11 +8,10 @@
 # It was missing from this list once, and fourteen index files reported as
 # modified after every re-render while git diff showed nothing.
 #
-# `**/_meta/*.json` used to be pinned beside it, for the staleness check in
-# .github/workflows/knowledge-meta.yml. Local ADR 0004 took the derived knowledge
-# layer out of version control entirely -- it is `_meta/devbook.db` now, a build
-# output listed in .gitignore -- so no tracked file is left for that rule to apply
-# to, and a phantom diff needs something committed to be a diff against.
+# `**/_meta/*.json` used to be pinned beside it, for the predecessor generator's
+# staleness check. Local ADR 0004 took the derived knowledge layer out of version
+# control entirely, and local ADR 0015 moved the database into the app's storage,
+# so no tracked file is left for that rule to apply to.
 #
 # Only the generated index is pinned. The Archify specifications beside it are
 # authored by hand, and pinning those would change what a Windows editor writes

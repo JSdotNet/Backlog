@@ -103,14 +103,3 @@ build/.local/
 # environment, per developer machine. Deployment targets that matter are written
 # down in docs/deployment/sync.md instead.
 .azure/
-
-# The JSON the derived devbook layer used to be (local ADR 0004). The devbook
-# database itself needs no entry: local ADR 0015 keeps it in the app's storage,
-# outside every repository. The installed generator
-# still writes `_meta/graph.json` and `_meta/index.json` on every run and is an
-# installed copy nothing here may edit, so they are ignored rather than stopped:
-# a build output that is written is fine, one that is committed is what put
-# sixty-seven merge commits and about 82,000 lines into this history. The reader
-# still understands them, as the rung beneath the database, for a repository that
-# has them and no database yet.
-**/_meta/*.json

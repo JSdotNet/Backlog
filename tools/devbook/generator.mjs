@@ -11,8 +11,8 @@
 // that generator spells, which are the repository's real ones.
 //
 // The older root layout — each folder a dot-folder at the root (`.arc42`,
-// `.domain`, …) — is not built here any more. Its generator is the predecessor
-// copy under `.github/tools/knowledge-meta/`, which derives neither the
+// `.domain`, …) — is not built here any more. Its generator was the
+// `knowledge-base` predecessor, retired with the layout, which derived neither the
 // convention reading order (it carried the order forward from a committed
 // `_meta/index.json`) nor the annotation index, so it cannot produce the
 // database this schema describes. The app still serves such a repository with

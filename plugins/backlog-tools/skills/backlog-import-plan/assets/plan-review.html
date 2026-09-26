@@ -440,7 +440,7 @@
     const prompts = steps.filter(e => e.type === 'prompt');
     const manual = steps.filter(e => e.type === 'task' || e.type === 'test');
     const onPrompts = (label, fn) => over(prompts, label, fn);
-    onPrompts('Every prompt names a repo:', e => !e.repo.length && { text: 'no repo:' });
+    over(steps, 'Every step names a repo:', e => !e.repo.length && { text: `no repo:, so the ${e.type || 'step'} sits in no repository in Backlog` });
     onPrompts('Every prompt opens with the plan item marker', e => !e.marker && { text: e.hasMarkerAnywhere ? 'the marker is not the first body line' : 'no marker line, so a copy pasted out of Backlog loses its id, tag, repo and after' });
     onPrompts('The marker restates the metadata line', e => {
       if (!e.marker) return null;
@@ -504,7 +504,9 @@
         if (signoff.type !== 'task') p.push('it is not a task');
         if (!signoff.after.includes('review-plan')) p.push('it does not wait on review-plan');
         if (String(signoff.effort) !== '1') p.push(`effort is ${signoff.effort ?? 'missing'}, not 1`);
-        if (signoff.repo.length) p.push('it carries a repo:');
+        const planRepos = [...new Set(steps.filter(e => e !== signoff).flatMap(e => e.repo))];
+        const unnamed = planRepos.filter(r => !signoff.repo.includes(r));
+        if (unnamed.length) p.push(`it does not name repo:${unnamed.join(', repo:')}`);
         if (p.length) add('fail', `The sign-off task closes the plan — ${p.join('; ')}`, signoff); else add('pass', 'The sign-off task closes the plan');
       }
     }
