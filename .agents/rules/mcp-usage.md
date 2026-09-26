@@ -36,13 +36,8 @@ delivery tracker in `.devbook/config.json`. `.mcp.json` also declares `microsoft
 delivery engine's default for .NET and Azure API reference. Its Playwright entry runs
 `--isolated` so it never shares a browser profile with the `qa` plugin's own instance.
 
-## Knowledge folders are task-scoped
+## Guidelines are read one at a time
 
-Checked-in knowledge folders are **task-scoped local context**, not default context. Load
-`.devbook/arc42/`, `.devbook/domain/`, `.devbook/tech/`, or `.devbook/design/` only when the selected
-orchestration or specialist agent needs that knowledge, and then prefer the relevant
-chapter(s) over whole-folder reads.
-
-`.devbook/arc42/adr/guidelines/` is the exception that proves the rule: consult the single decision
-document that governs the change in front of you — the folder's `README.md` indexes them —
-rather than reading the set.
+`AGENTS.md` makes the devbook folders task-scoped context. For
+`.devbook/arc42/adr/guidelines/` that means the single decision document that governs the
+change in front of you — the folder's `README.md` indexes them — never the set.

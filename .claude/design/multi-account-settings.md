@@ -90,7 +90,7 @@ these additions and one correction.
    capturing a transient typed `HttpClient` (`MauiProgram.cs:128-131`,
    `Program.cs:110-113`) — a captive dependency in both hosts.
 
-**Correction to the brief:** the brief asks that migration "satisfy `.arc42/adr/0006`".
+**Correction to the brief:** the brief asks that migration "satisfy `.devbook/arc42/adr/0006`".
 ADR 0006 governs **the local SQLite store** — its three permitted shapes are all DDL
 against a table, so a document that is read and written whole is outside it by
 construction. `repos.json`, `github.json` and `claude.json` are exactly that: JSON
@@ -178,7 +178,7 @@ remove (`GitHubSettings.cs:203-208`).
 The registry is the synced/committed half. If a workspace were ever shared between two
 *people*, person B's registry would tell person B's install to work a repository as
 person A's login — an unsatisfied binding, reported, not a wrong-identity call. The
-product is single-user by constraint (`.arc42/02-constraints.md`, inherited ADRs
+product is single-user by constraint (`.devbook/arc42/02-constraints.md`, inherited ADRs
 0012/0013), and "install #2" in the existing tests already means the same person's second
 machine. Recorded in the style of the `WithCarryOver` hazard note
 (`GitHubSettings.cs:770-777`) rather than designed around.
@@ -839,9 +839,9 @@ the `Settings/` folder must gain no `_Imports.razor`.
 ADRs 0004 (mutators keep returning `string?`, unchanged), 0012/0013 (no new identity
 provider; credentials stay on the machine), 0014 (no destructive migration), 0018 (no
 new configuration section; these are user settings, not bound options).
-`.arc42/08-crosscutting-concepts.md#authentication-and-authorization` should gain one
+`.devbook/arc42/08-crosscutting-concepts.md#authentication-and-authorization` should gain one
 sentence in a follow-up: GitHub integration now selects a credential per repository
-rather than per process. `.domain/` has **no** Account concept today and this change adds
+rather than per process. `.devbook/domain/` has **no** Account concept today and this change adds
 none — a credential is an infrastructure concern, not domain vocabulary.
 
 ---

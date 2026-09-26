@@ -7,7 +7,7 @@ namespace Backlog.ArchitectureTests;
 /// says nothing about the values inside a <c>meta</c> block, even though the
 /// module beside it exports a <c>validateDocument</c> that does — and that export
 /// had no caller anywhere in this repository, which is how
-/// <c>.domain/productivity/features.md</c> carried <c>status: idea</c>, a word in
+/// <c>.devbook/domain/productivity/features.md</c> carried <c>status: idea</c>, a word in
 /// no folder's vocabulary, past a workflow step named "Check references and
 /// metadata blocks" (issue #241).</para>
 ///

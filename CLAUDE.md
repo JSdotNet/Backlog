@@ -110,80 +110,37 @@ dotnet test Backlog.sln
 `desktop`, `mobile-android`, `ide-vscode-build`, and `ide-vscode-host` use
 `WithExplicitStart()`. Them sitting `NotStarted` is expected, not a failed startup.
 
-## Devbook database
+## Devbook
 
-The derived knowledge layer is **one generated SQLite database per repository path**,
-holding the reference graph, the resolved reading outline, every chapter's text and
-hashes, the FTS5 index and the Archify artifact rows. It lives in the **app's storage,
-never in a repository**: `_databases/<name>-<hash>/devbook.db` under the devbook cache
-folder (`devbook-cache` under the storage folder by default —
-`%LOCALAPPDATA%\Backlog.Debug\devbook-cache` for a debug build and the harness), keyed by
-the repository root's absolute path, so every worktree has its own. **The app builds it**,
-in the background, the first time a repository's devbook is read and again whenever an
-input changed; nothing needs running and nothing needs ignoring. Local ADR 0004
-(`.devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md`) is what the
-database is; local ADR 0015
-(`.devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md`)
-is where it lives and who writes it. A `.devbook/_meta/devbook.db` or `_meta/devbook.db`
-left by the old writer is ignored by the app and safe to delete.
-
-Nothing about the layer is authored. The reading order is derived the way the devbook
-generator derives it — `index: root` on a directory's root document, otherwise the
-folder's convention root (`context-map.md`, `context.md`, `technology-graph.md`,
-`README.md`, `adoption-map.md`), then the numbers in filenames and the folder's
-convention slots. There is no `_reading-order.json`: local ADR 0016 retired it, and the
-product ignores one in any repository. Moving a chapter means renaming or numbering it,
-or marking a new root with `index: root`.
-
-The desktop Devbook panels **load from the database at runtime** and degrade in
-defined steps rather than on or off: a current row is served from the database, a file
-that has changed since it was indexed is read from its Markdown, an unrecognised schema
-version is ignored entirely, and an absent or unreadable database falls back to scanning
-the folder — which is what the panels did before any index existed. So browsing always
-works. Search is the one exception: without a database it is unavailable and says so,
-because scanning the corpus per query is a hang rather than a fallback — until the first
-background build lands. `Backlog.Infrastructure.Devbook` holds the reader, the builder
-(`DevbookDatabaseBuilder`, a port of the Node writer's parse) and the refresher that
-schedules it.
-
-The product reads both layouts: `.devbook/<name>` first and the root-level `.<name>` as
-the legacy fallback. This repository is on the `.devbook/` layout, adopted through the
-`devbook` plugin (`components.devbook` in `.devbook/config.json` records the release,
-contract, adopted folders, and what it materialized).
-
-`tools/devbook/build-database.mjs` stays as the reference the C# builder is held to: it
-imports the devbook generator materialized at `.devbook/_tools/devbook-meta/`, and
-`DevbookBuilderParityTests` builds this repository's `.devbook/` both ways and compares
-the tables, which needs Node 22.5+ on the path. A devbook plugin release that changes the
-parse fails that test; port the change into `Backlog.Infrastructure.Devbook/Building/`
-in the same pull request. The schema both writers load is `tools/devbook/devbook-schema.sql`.
-
-```powershell
-node tools/devbook/build-database.mjs --check
-```
-
-The devbook folders follow the plugin's rules, installed as `.agents/rules/devbook-*.md`
-with a wrapper per host, and its section of `AGENTS.md`. Check them before committing; the
-check writes nothing, and `.github/workflows/devbook-meta.yml` runs it in CI:
+The devbook folders sit under `.devbook/`, adopted through the `devbook` plugin
+(`components.devbook` in `.devbook/config.json`). `AGENTS.md` and
+`.agents/rules/devbook-*.md` are their rules. Check them before committing — the check
+writes nothing, and `.github/workflows/devbook-meta.yml` runs it in CI:
 
 ```powershell
 node .devbook/_tools/devbook-meta/build.mjs --check
 ```
 
-Never edit anything under `.devbook/_tools/`, the `AGENTS.md` markers, or the
-`devbook-*` rule trios by hand: `devbook:update` refreshes them, and a hand edit makes it
-report the file customized and stop maintaining it. Never hand-edit anything under
-`_meta/`.
+Never hand-edit `.devbook/_tools/`, the `AGENTS.md` markers, the `devbook-*` rule trios
+(`devbook:update` owns them), or anything under `_meta/`. The reading order is derived —
+`index: root`, the folder's convention root, then filename numbers; there is no
+`_reading-order.json` (local ADR 0016).
 
-`tools/devbook/build-database.mjs` is repo-native. Everything under
-`.github/tools/knowledge-meta/` and `build/Update-KnowledgeIndex.ps1` are the unchanged
-install from `knowledge-base`, the `devbook` plugin's predecessor, which knows only the
-root layout: never edit them here. Its two `knowledge-meta*` workflows are retired, because
-this repository has no root-layout folder left for them to check; retiring the rest is a
-follow-up. Where this repository departs from the derived-artifacts
-convention — on format, and on committing — ADR 0004 says so and says why.
-`update-devbook-index` is this repository's own command and ships as
-`.claude/commands/update-devbook-index.md`.
+The derived layer is one SQLite database per repository path, built by the app in the
+background into its own storage and never into a repository (local ADRs 0004 and 0015) —
+`%LOCALAPPDATA%\Backlog.Debug\devbook-cache\_databases\` for a debug build and the
+harness. The Devbook panels read it and degrade to the Markdown, then to scanning the
+folder, so browsing always works; search alone needs the database.
+`Backlog.Infrastructure.Devbook` holds the reader, the builder and its refresher. The
+product reads `.devbook/<name>` first and a root-level `.<name>` as the legacy fallback.
+
+`tools/devbook/build-database.mjs` is the reference the C# builder is held to:
+`DevbookBuilderParityTests` builds `.devbook/` both ways and compares the tables (Node
+22.5+). A devbook release that changes the parse fails it; port the change into
+`Backlog.Infrastructure.Devbook/Building/` in the same pull request.
+`.claude/commands/update-devbook-index.md` runs the build check.
+`.github/tools/knowledge-meta/` and `build/Update-KnowledgeIndex.ps1` are the
+predecessor plugin's install, pending retirement: never edit them.
 
 ## UI components
 
@@ -200,24 +157,13 @@ rule, including what the test cannot see.
 
 ## Authoritative guidance
 
-Repository guidance is **checked in, not fetched**. The `jsdotnet-project-guidelines` and
-`jsdotnet-project-design` MCP servers were retired on 2026-08-27 and their relevant content
-lives in the repository:
-
-- `.devbook/arc42/adr/guidelines/` — the inherited organization architecture decisions that govern this
-  repository's .NET code (framework, package management, Aspire, Result objects, module and
-  feature-slice structure, CQRS, Minimal APIs, observability, styling tokens, identity,
-  authorization, persistence, resilience, error contract, configuration). Read the single
-  document that governs the change you are making; `README.md` indexes them, and each one
-  ends with a **Deviations and gaps** section recording where Backlog actually stands.
-- `.devbook/arc42/adr/` — the decisions Backlog took for itself. Both sequences start at 0001, so
-  name the folder when citing one.
-- `.devbook/design/` — design and UX guidance, tokens, and the color scheme.
-
-An `orch-*` skill that instructs you to consult `jsdotnet-guidelines-mcpserver` is served
-from `.devbook/arc42/adr/guidelines/` instead; the absent server is not a blocked precondition. The MCP
-servers still in use are runtime and tooling servers — Aspire, Playwright, and the
-orchestration dashboard.
+Repository guidance is **checked in, not fetched**: `.devbook/arc42/adr/guidelines/` holds
+the inherited organization decisions that govern the .NET code (read the one that governs
+your change; its `README.md` indexes them), `.devbook/arc42/adr/` Backlog's own — both
+start at 0001, so name the folder when citing one — and `.devbook/design/` the design and
+UX guidance. A skill that says to consult a guidelines MCP server reads
+`.devbook/arc42/adr/guidelines/` instead; the absent server is not a blocked precondition.
+`.agents/rules/mcp-usage.md` has the full authority order and the MCP servers still in use.
 
 ## Further guidance
 

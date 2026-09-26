@@ -8,7 +8,7 @@
 // fields a `meta` block may carry. Nothing in this repository called it. The
 // generator beside it imports `parseDocument` and `folderKindForPath` only, so
 // `build.mjs --check` resolves references and says nothing about values — and
-// `.domain/productivity/features.md` carried `status: idea`, a word in no
+// `.devbook/domain/productivity/features.md` carried `status: idea`, a word in no
 // folder's vocabulary, through every run of a workflow step named "Check
 // references and metadata blocks" (issue #241).
 //

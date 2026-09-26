@@ -37,7 +37,7 @@ public static class DevbookFeatures
     /// because the two switch unrelated things. Archify changes how a chapter's own
     /// mermaid fence is drawn; this adds views that are not in any chapter and are
     /// authored somewhere else entirely — in c4hero, as Structurizr DSL under
-    /// <c>.arc42/_c4/</c>. Someone who wants richer pictures of the fences they
+    /// <c>.devbook/arc42/_c4/</c>. Someone who wants richer pictures of the fences they
     /// have should not have to take a whole second model with them.
     /// </para></summary>
     public const string C4Diagrams = "c4-diagrams";

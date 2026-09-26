@@ -1644,7 +1644,7 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// <see cref="RepositoryFor"/> for why those are different facts.
     /// <para>
     /// Only the target the picker is showing changes. An entry may name several
-    /// (<c>.domain/backlog/features.md#multi-repo-targeting</c>) while the control
+    /// (<c>.devbook/domain/tasks/features.md#multi-repo-targeting</c>) while the control
     /// speaks about one, so the rest are left exactly as the text wrote them: a
     /// single-choice control is not a reason to silently drop the second
     /// repository somebody typed.
@@ -2231,9 +2231,9 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// <para>
     /// The entry's <c>`@area`</c> is deliberately not consulted. An area is "a
     /// self-chosen grouping the person files an entry under — the taxonomy belongs
-    /// to the person, not the product" (<c>.domain/backlog/naming.md#area</c>), and
+    /// to the person, not the product" (<c>.devbook/domain/tasks/domain.md#area</c>), and
     /// <c>repo_ids</c> is the field that targets repositories
-    /// (<c>.domain/backlog/features.md#multi-repo-targeting</c>). Reading the area
+    /// (<c>.devbook/domain/tasks/features.md#multi-repo-targeting</c>). Reading the area
     /// instead is what made every imported entry read "No repo": a plan files its
     /// entries under a pile such as <c>@repos</c> and names the repository in
     /// <c>repo:</c>, exactly as the grammar says to.

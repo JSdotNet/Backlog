@@ -52,9 +52,9 @@ public class TasksRepositoryScopeTests
 
         host.State.SetRepositoryFilter("backlog");
 
-        // An area is the person's own pile (.domain/backlog/naming.md#area) and one
-        // of them happening to be spelled like a configured repository does not make
-        // it that repository's work.
+        // An area is the person's own pile (.devbook/domain/tasks/domain.md#area) and
+        // one of them happening to be spelled like a configured repository does not
+        // make it that repository's work.
         Assert.DoesNotContain(piled, host.State.FilteredRows);
     }
 
@@ -72,9 +72,9 @@ public class TasksRepositoryScopeTests
 
         host.State.SetNoRepositoryFilter(true);
 
-        // An area is the person's own pile (.domain/backlog/naming.md#area), so one
-        // spelled like a configured repository still leaves the entry claimed by no
-        // repository — the same conflation An_area_spelled_like_the_repository_does_not_put_a_row_in_its_scope
+        // An area is the person's own pile (.devbook/domain/tasks/domain.md#area), so
+        // one spelled like a configured repository still leaves the entry claimed by
+        // no repository — the same conflation An_area_spelled_like_the_repository_does_not_put_a_row_in_its_scope
         // pins from the other side.
         Assert.Contains(piled, host.State.FilteredRows);
         Assert.DoesNotContain(targeted, host.State.FilteredRows);

@@ -81,7 +81,7 @@ public sealed class DevbookTools(
     public async Task<ChapterPayload> ReadKnowledgeChapterAsync(
         [Description("The repository in owner/name form, e.g. JSdotNet/Backlog.")]
         string repository,
-        [Description("The chapter, repository-relative and with its area folder on the front, e.g. .arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md.")]
+        [Description("The chapter, repository-relative and with its area folder on the front, e.g. .devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md.")]
         string chapterPath,
         [Description("Read it as a reviewer: keep the meta and annotation fences, and interleave the reader's private notes. Defaults to false.")]
         bool review = false,
@@ -95,7 +95,7 @@ public sealed class DevbookTools(
         {
             throw RepositoryScope.Failure(Error.Validation(
                 "chapter.required",
-                "A chapter path is required, repository-relative — e.g. .arc42/05-building-block-view.md."));
+                "A chapter path is required, repository-relative — e.g. .devbook/arc42/05-building-block-view.md."));
         }
 
         // Every configured folder and not only the enabled ones, so a path under
@@ -205,7 +205,7 @@ public sealed class DevbookTools(
         {
             throw RepositoryScope.Failure(Error.Validation(
                 "chapter.required",
-                "A chapter path is required, repository-relative — e.g. .arc42/05-building-block-view.md."));
+                "A chapter path is required, repository-relative — e.g. .devbook/arc42/05-building-block-view.md."));
         }
 
         // The area-relative spelling too, where a configured folder claims the

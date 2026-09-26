@@ -274,7 +274,7 @@ Parse once per block and keep the result; `MarkdownView` holds a small dictionar
 
         ```meta
         status: candidate
-        related: [".tech/technology-graph.md", ".arc42/02-constraints.md#technical-constraints"]
+        related: [".devbook/tech/technology-graph.md", ".devbook/arc42/02-constraints.md#technical-constraints"]
         ```
 
         > Technologies used by more than one channel. Every layer file points at these
@@ -285,7 +285,7 @@ Parse once per block and keep the result; `MarkdownView` holds a small dictionar
         ```meta
         status: adopted
         kind: format
-        related: [".arc42/02-constraints.md#technical-constraints", ".arc42/08-crosscutting-concepts.md#storage-and-sync"]
+        related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync"]
         ```
 
         The canonical storage format for all user content: inbox items, backlog items,
@@ -320,9 +320,9 @@ Parse once per block and keep the result; `MarkdownView` holds a small dictionar
         version: "10.0"
         effort: 5
         issue: JSdotNet/Backlog#118
-        depends-on: [".tech/shared.md#net-runtime", ".tech/shared.md#c-language"]
-        related: [".arc42/04-solution-strategy.md#thin-cloud-rich-desktop"]
-        implements: [.domain/tasks/features.md#feature-roadmap-planning]
+        depends-on: [".devbook/tech/shared.md#net-runtime", ".devbook/tech/shared.md#c-language"]
+        related: [".devbook/arc42/04-solution-strategy.md#thin-cloud-rich-desktop"]
+        implements: [.devbook/domain/tasks/features.md#feature-roadmap-planning]
         feature-flag: [inbox-pane, inbox-filters]
         aliases: [TaskItem, backlog_entry_id, backlog_item_id]
         alternatives: ["Azure Functions", "Controller-based ASP.NET Core"]
@@ -345,8 +345,8 @@ Parse once per block and keep the result; `MarkdownView` holds a small dictionar
     private const string TechBlock = """
         status: candidate
         kind: framework
-        depends-on: [".tech/shared.md#net-runtime", ".tech/shared.md#c-language"]
-        related: [".arc42/04-solution-strategy.md#thin-cloud-rich-desktop"]
+        depends-on: [".devbook/tech/shared.md#net-runtime", ".devbook/tech/shared.md#c-language"]
+        related: [".devbook/arc42/04-solution-strategy.md#thin-cloud-rich-desktop"]
         alternatives: ["Azure Functions", "Controller-based ASP.NET Core"]
         """;
 
@@ -357,8 +357,8 @@ Parse once per block and keep the result; `MarkdownView` holds a small dictionar
     /// relations.</summary>
     private const string RoadmapBlock = """
         status: ready
-        implements: [.domain/tasks/features.md#feature-roadmap-planning]
-        related: [.domain/environment/features.md#feature-environment-aware-work-context]
+        implements: [.devbook/domain/tasks/features.md#feature-roadmap-planning]
+        related: [.devbook/domain/environment/features.md#feature-environment-aware-work-context]
         """;
 
     private static readonly MetadataRecord RoadmapMetadata = MetadataReader.Parse(RoadmapBlock);
@@ -416,17 +416,17 @@ Parse once per block and keep the result; `MarkdownView` holds a small dictionar
             + "depends on the folder, which is the State subpage."),
 
         new("related", "references", "every folder",
-            "related: [\".arc42/02-constraints.md#technical-constraints\"]",
+            "related: [\".devbook/arc42/02-constraints.md#technical-constraints\"]",
             "What this chapter points at for context, with no claim about order. The general-purpose "
             + "relation, and the one to reach for when the others do not fit."),
 
         new("depends-on", "references", ".domain features, .backlog, .tech",
-            "depends-on: [\".tech/shared.md#net-runtime\"]",
+            "depends-on: [\".devbook/tech/shared.md#net-runtime\"]",
             "What has to land first. Says something stronger than related does, which is why a "
             + "technology chapter uses it to point at the shared runtime it sits on."),
 
         new("implements", "references", ".backlog",
-            "implements: [.domain/tasks/features.md#feature-roadmap-planning]",
+            "implements: [.devbook/domain/tasks/features.md#feature-roadmap-planning]",
             "What a backlog item delivers, addressed into .domain. This is the field that ties a work "
             + "item to the feature it exists for."),
 
@@ -477,7 +477,7 @@ Parse once per block and keep the result; `MarkdownView` holds a small dictionar
         ```meta
         status: adopted
         kind: format
-        related: [".arc42/02-constraints.md#technical-constraints"]
+        related: [".devbook/arc42/02-constraints.md#technical-constraints"]
         ```
         """;
 
@@ -628,7 +628,7 @@ Parse once per block and keep the result; `MarkdownView` holds a small dictionar
     /// reference is drawn with the component that draws references rather than
     /// with a stand-in.</summary>
     private static readonly DevbookReference FieldReference =
-        DevbookReference.Parse(".tech/technology-graph.md#nodes")!;
+        DevbookReference.Parse(".devbook/tech/technology-graph.md#nodes")!;
 
     private static readonly string FieldsSummary =
         $"HasAny says {MetadataFields.HasAny(EveryFieldMetadata).ToString().ToLowerInvariant()} for this record, and "

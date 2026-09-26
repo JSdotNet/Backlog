@@ -7,7 +7,7 @@ namespace Backlog.Infrastructure.Mcp;
 /// it.
 /// <para>
 /// A session spells a chapter the way the rest of the product does — repository
-/// relative, with the area folder on the front (<c>.arc42/adr/0012-….md</c>) —
+/// relative, with the area folder on the front (<c>.devbook/arc42/adr/0012-….md</c>) —
 /// because that is the spelling a <c>related:</c> field carries and the one a
 /// person copies out of a panel. This takes it apart: the leading segment names
 /// the folder, the remainder is the path inside it.

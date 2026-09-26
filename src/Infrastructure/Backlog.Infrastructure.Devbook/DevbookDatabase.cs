@@ -330,7 +330,7 @@ public sealed partial class DevbookDatabase : IDisposable
                 reader.IsDBNull(8) ? null : reader.GetInt32(8),
                 reader.IsDBNull(9) ? null : reader.GetInt32(9)));
 
-        // A LIKE prefix matches every descendant, and `.arc42/adr/` has an
+        // A LIKE prefix matches every descendant, and `.devbook/arc42/adr/` has an
         // `_archify` folder of its own. The index sits beside the chapters, so only
         // chapters in this directory itself belong to it.
         return rows
