@@ -3409,6 +3409,7 @@
         their text still moves a bar one week per week's width on their screen.
     */
     const backlogRoadmapTimelines = new Map();
+    const backlogRoadmapScrollers = new Map();
 
     window.backlogRoadmapTimeline = {
         attach(element, id, reference, options) {
@@ -3633,7 +3634,32 @@
             element.addEventListener('keyup', onSpace);
             document.addEventListener('keydown', onKeyDown);
 
+            /*
+                How wide the scroller is, told to .NET in rem whenever it changes, so
+                the chart can stretch to fill it. The scroller's width does not depend
+                on the track inside it, so widening the track cannot feed back into
+                another measurement.
+            */
+            const scroller = options?.scroller instanceof Element ? options.scroller : element.parentElement;
+            let measured = 0;
+            const measure = () => {
+                const width = scroller?.clientWidth ?? 0;
+                if (!width || Math.abs(width - measured) < 1) return;
+                measured = width;
+                reference.invokeMethodAsync('Measured', width / backlogRootFontSize());
+            };
+            // The window's resize as well as the observer: an observer only reports
+            // on a rendered frame, and a page that is not painting still resizes.
+            const resizes = typeof ResizeObserver === 'function' ? new ResizeObserver(measure) : null;
+            if (scroller) resizes?.observe(scroller);
+            window.addEventListener('resize', measure);
+            measure();
+            backlogRoadmapScrollers.set(id, scroller);
+
             backlogRoadmapTimelines.set(id, () => {
+                resizes?.disconnect();
+                window.removeEventListener('resize', measure);
+                backlogRoadmapScrollers.delete(id);
                 reset();
                 endLink();
                 element.removeEventListener('pointerdown', onPointerDown);
@@ -3644,6 +3670,14 @@
                 element.removeEventListener('keyup', onSpace);
                 document.removeEventListener('keydown', onKeyDown);
             });
+        },
+
+        // Scrolls a timeline so a point on its track, stated in rem, is at the left
+        // edge — how the chart opens on this week with history a scroll away.
+        scrollTo(id, leftRem) {
+            const scroller = backlogRoadmapScrollers.get(id);
+            if (!scroller) return;
+            scroller.scrollLeft = Math.max(0, Number(leftRem) * backlogRootFontSize());
         },
 
         dispose(id) {

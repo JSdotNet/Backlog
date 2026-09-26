@@ -36,7 +36,7 @@ public sealed class SqliteTaskRepository : ITaskRepository
         "id, title, content_md, type, status, priority, sort_order, area, created_at, " +
         "source_inbox_id, recurrence_source_id, due_on, remind_at, recurrence, in_my_day_on, " +
         "view, tags, repo_ids, depends_on, sub_items, usage_events, projections, effort, " +
-        "import_plan_id, import_item_id, updated_at, deleted_at, attachment_path, completed_on";
+        "import_plan_id, import_item_id, updated_at, deleted_at, attachment_path, completed_on, started_on";
 
     private readonly string _databasePath;
 
@@ -75,7 +75,7 @@ public sealed class SqliteTaskRepository : ITaskRepository
                 $source_inbox_id, $recurrence_source_id, $due_on, $remind_at, $recurrence, $in_my_day_on,
                 $view, $tags, $repo_ids, $depends_on, $sub_items, $usage_events, $projections, $effort,
                 $import_plan_id, $import_item_id, $updated_at, $deleted_at, $attachment_path,
-                $completed_on)
+                $completed_on, $started_on)
             ON CONFLICT(id) DO UPDATE SET
                 title = excluded.title,
                 content_md = excluded.content_md,
@@ -104,7 +104,8 @@ public sealed class SqliteTaskRepository : ITaskRepository
                 updated_at = excluded.updated_at,
                 deleted_at = excluded.deleted_at,
                 attachment_path = excluded.attachment_path,
-                completed_on = excluded.completed_on;
+                completed_on = excluded.completed_on,
+                started_on = excluded.started_on;
             """;
 
         command.Parameters.AddWithValue("$id", task.Id.ToString());
@@ -125,6 +126,7 @@ public sealed class SqliteTaskRepository : ITaskRepository
             Nullable(task.Recurrence is { } recurrence ? EntryTextParser.RepeatToken(recurrence) : null));
         command.Parameters.AddWithValue("$in_my_day_on", Nullable(WriteDate(task.InMyDayOn)));
         command.Parameters.AddWithValue("$completed_on", Nullable(WriteDate(task.CompletedOn)));
+        command.Parameters.AddWithValue("$started_on", Nullable(WriteDate(task.StartedOn)));
         command.Parameters.AddWithValue(
             "$view",
             Nullable(task.View is { } view ? EntryTextParser.ViewToken(view) : null));
@@ -314,7 +316,8 @@ public sealed class SqliteTaskRepository : ITaskRepository
                     updated_at           TEXT NULL,
                     deleted_at           TEXT NULL,
                     attachment_path      TEXT NULL,
-                    completed_on         TEXT NULL
+                    completed_on         TEXT NULL,
+                    started_on           TEXT NULL
                 );
 
                 CREATE INDEX IF NOT EXISTS ix_tasks_rank ON tasks (sort_order, created_at DESC);
@@ -337,6 +340,10 @@ public sealed class SqliteTaskRepository : ITaskRepository
             await EnsureColumnAsync(connection, "deleted_at", "TEXT NULL", cancellationToken).ConfigureAwait(false);
             await EnsureColumnAsync(connection, "attachment_path", "TEXT NULL", cancellationToken).ConfigureAwait(false);
             await EnsureColumnAsync(connection, "completed_on", "TEXT NULL", cancellationToken).ConfigureAwait(false);
+
+            // No backfill: nobody recorded when older work started, and the
+            // roadmap falls back to the creation date for a row without one.
+            await EnsureColumnAsync(connection, "started_on", "TEXT NULL", cancellationToken).ConfigureAwait(false);
 
             // And one value the vocabulary retired. `follow_up` was a task type until
             // a follow-up became a relationship between two entries instead of a
@@ -508,7 +515,7 @@ public sealed class SqliteTaskRepository : ITaskRepository
         public const int SubItems = 19, UsageEvents = 20, Projections = 21, Effort = 22;
         public const int ImportPlanId = 23, ImportItemId = 24;
         public const int UpdatedAt = 25, DeletedAt = 26;
-        public const int AttachmentPath = 27, CompletedOn = 28;
+        public const int AttachmentPath = 27, CompletedOn = 28, StartedOn = 29;
     }
 
     private static TaskItem Read(IDataRecord row)
@@ -533,6 +540,7 @@ public sealed class SqliteTaskRepository : ITaskRepository
         task.SetRecurrence(EntryTextParser.ParseRepeat(Text(row, Col.Recurrence)));
         task.SetInMyDayOn(ParseDate(Text(row, Col.InMyDayOn)));
         task.SetCompletedOn(ParseDate(Text(row, Col.CompletedOn)));
+        task.SetStartedOn(ParseDate(Text(row, Col.StartedOn)));
         task.SetView(EntryTextParser.ParseView(Text(row, Col.View)));
         task.SetDependsOn(TaskPayloads.Read<string>(Text(row, Col.DependsOn)));
         task.SetEffort(Int(row, Col.Effort));

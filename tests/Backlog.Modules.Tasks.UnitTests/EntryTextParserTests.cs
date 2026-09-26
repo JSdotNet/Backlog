@@ -926,6 +926,41 @@ public class EntryTextParserTests
         Assert.Equal(new DateOnly(2026, 9, 22), EntryTextParser.Parse(rewritten).CompletedOn);
     }
 
+    // --- The start ---------------------------------------------------------
+
+    [Fact]
+    public void The_started_token_is_read_as_a_date()
+    {
+        var parsed = EntryTextParser.Parse("# Title\n`task` `!in-progress` `started:2026-09-02`\n");
+
+        Assert.Equal(new DateOnly(2026, 9, 2), parsed.StartedOn);
+        Assert.Empty(parsed.Unreadable!);
+    }
+
+    [Fact]
+    public void An_unreadable_started_token_is_refused_and_named()
+    {
+        var parsed = EntryTextParser.Parse("# Title\n`task` `started:someday`\n");
+
+        Assert.Null(parsed.StartedOn);
+        Assert.Contains(parsed.Unreadable!, token => token.Name == "started" && token.Value == "someday");
+    }
+
+    [Fact]
+    public void The_started_token_survives_the_canonical_rewrite_just_before_completed()
+    {
+        var entry = new TaskItem("Title", string.Empty, EntryType.Task, Priority.Medium);
+        entry.SetStartedOn(new DateOnly(2026, 9, 2));
+        entry.SetCompletedOn(new DateOnly(2026, 9, 22));
+
+        var rewritten = EntryTextParser.ToRawText(entry.ToDto());
+
+        Assert.Contains("`started:2026-09-02` `completed:2026-09-22`", rewritten, StringComparison.Ordinal);
+        var reparsed = EntryTextParser.Parse(rewritten);
+        Assert.Equal(new DateOnly(2026, 9, 2), reparsed.StartedOn);
+        Assert.Equal(new DateOnly(2026, 9, 22), reparsed.CompletedOn);
+    }
+
     [Fact]
     public void Each_scheduling_field_can_be_written_on_its_own()
     {

@@ -437,6 +437,17 @@ the total and the unestimated count are — finished work that registered no est
 invisible to the first, and a reading drawn from effort alone would overstate how far
 along the plan is the moment the finished work turned out to be unsized.
 
+A gathered backlog entry also carries **when** its work happened, as Tasks recorded
+it: the day it first moved to in progress, the day it was ticked off, and the day it
+was created. From those the item reads two more things, and only when every backlog
+entry it gathered is done — a knowledge chapter is not asked, because it has no work
+to finish: that the item is **finished**, and the stretch its work actually ran, from
+the earliest start to the latest tick. An entry with no start, because it predates
+the stamp, counts from the day it was created; when no entry was ticked, there is no
+actual end and the planned one stands. Nothing is stored: like progress, the actual
+stretch is read off the gathering each time, and the Planned Window is left as it
+was.
+
 Ordering the steps is arithmetic too, and tolerant by design: nothing is placed before
 what it waits on, things equally free to go next keep the order they were gathered in,
 and a cycle — which the supplying context permits someone to write — is broken by

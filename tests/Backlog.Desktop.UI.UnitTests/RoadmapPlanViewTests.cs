@@ -635,6 +635,66 @@ public class RoadmapPlanViewTests
             Configured,
             new Dictionary<Guid, RoadmapItemRollupDto> { [item.Id] = rollup }).Bars);
 
+    private static RoadmapGatheredLink Worked(
+        string key,
+        RoadmapProgress progress,
+        DateOnly? started = null,
+        DateOnly? completed = null,
+        DateOnly? created = null) =>
+        new(key, key.ToUpperInvariant(), 1, RollupOrigin.Tag, progress, StartedOn: started, CompletedOn: completed, CreatedOn: created);
+
+    [Fact]
+    public void AFinishedItem_IsDrawnFromItsFirstStartToItsLastCompletion_AndLocked()
+    {
+        // Planned 5–9 January; the work actually ran 12 December to 20 January.
+        var bar = Drawn(Item("Plan"), new RoadmapItemRollupDto(
+        [
+            Worked("a", RoadmapProgress.Done, started: new DateOnly(2025, 12, 12), completed: new DateOnly(2026, 1, 2)),
+            Worked("b", RoadmapProgress.Done, started: new DateOnly(2026, 1, 3), completed: new DateOnly(2026, 1, 20))
+        ], []));
+
+        Assert.Equal(new DateOnly(2025, 12, 12), bar.Start);
+        Assert.Equal(new DateOnly(2026, 1, 20), bar.End);
+        Assert.True(bar.Locked);
+    }
+
+    [Fact]
+    public void AFinishedItem_WhoseTasksPredateTheStartedStamp_StartsWhenTheFirstWasCreated()
+    {
+        var bar = Drawn(Item("Plan"), new RoadmapItemRollupDto(
+        [
+            Worked("a", RoadmapProgress.Done, completed: new DateOnly(2026, 1, 7), created: new DateOnly(2026, 1, 1)),
+            Worked("b", RoadmapProgress.Done, started: new DateOnly(2026, 1, 3), completed: new DateOnly(2026, 1, 8))
+        ], []));
+
+        Assert.Equal(new DateOnly(2026, 1, 1), bar.Start);
+        Assert.Equal(new DateOnly(2026, 1, 8), bar.End);
+    }
+
+    [Fact]
+    public void AFinishedItem_NobodyTicked_KeepsThePlannedEnd()
+    {
+        var bar = Drawn(Item("Plan", startDay: 5, endDay: 9), new RoadmapItemRollupDto(
+            [Worked("a", RoadmapProgress.Done, started: new DateOnly(2026, 1, 2))], []));
+
+        Assert.Equal(new DateOnly(2026, 1, 2), bar.Start);
+        Assert.Equal(new DateOnly(2026, 1, 9), bar.End);
+    }
+
+    [Fact]
+    public void AnItemWithWorkStillOpen_IsDrawnWhereItWasPlanned_AndCanBeMoved()
+    {
+        var bar = Drawn(Item("Plan", startDay: 5, endDay: 9), new RoadmapItemRollupDto(
+        [
+            Worked("a", RoadmapProgress.Done, started: new DateOnly(2025, 12, 1), completed: new DateOnly(2025, 12, 20)),
+            Worked("b", RoadmapProgress.InProgress, started: new DateOnly(2026, 1, 2))
+        ], []));
+
+        Assert.Equal(new DateOnly(2026, 1, 5), bar.Start);
+        Assert.Equal(new DateOnly(2026, 1, 9), bar.End);
+        Assert.False(bar.Locked);
+    }
+
     [Fact]
     public void AnItemsStepsAreItsGatheredTasksInDependencyOrder()
     {

@@ -195,6 +195,14 @@ public sealed class TaskItem
     /// ticked, and unticking changes nothing else.</summary>
     public DateOnly? CompletedOn { get; private set; }
 
+    /// <summary>The local day work on this entry first moved to
+    /// <see cref="EntryStatus.InProgress"/>, or null when it never has. Stamped by
+    /// <see cref="ChangeStatus"/> and <see cref="SetStatus"/> the first time the
+    /// entry goes in progress and never moved afterwards: an entry that goes back to
+    /// Ready and in again started on the first day, not the second. A date on the
+    /// same terms as <see cref="CompletedOn"/>, so the pair spans the work.</summary>
+    public DateOnly? StartedOn { get; private set; }
+
     /// <summary>Which reading of the body the person last asked for, or null when
     /// they have never said. Held on the aggregate and not in a view-model because
     /// the entry's markdown is canonical: the preference is written on the metadata
@@ -421,6 +429,15 @@ public sealed class TaskItem
     /// and the Completed section read this, never <see cref="Status"/>.</summary>
     public bool IsCompleted => CompletedOn is not null;
 
+    /// <summary>Records the day work started, or clears it. Written by the
+    /// text-save path and storage replaying a <c>started:</c> token; the automatic
+    /// stamp comes from the status changes — see <see cref="StartedOn"/>.</summary>
+    public void SetStartedOn(DateOnly? startedOn)
+    {
+        StartedOn = startedOn;
+        Touch();
+    }
+
     /// <summary>
     /// Attaches a place, or detaches whatever was attached.
     /// <para>
@@ -516,6 +533,7 @@ public sealed class TaskItem
     public void SetStatus(EntryStatus target)
     {
         Status = target;
+        StampStartedOnFirstInProgress();
         Touch();
     }
 
@@ -527,7 +545,16 @@ public sealed class TaskItem
         if (!CanChangeStatusTo(target))
             throw new InvalidStatusTransitionException(Status, target);
         Status = target;
+        StampStartedOnFirstInProgress();
         Touch();
+    }
+
+    /// <summary>Stamps <see cref="StartedOn"/> with today's local date the first
+    /// time the entry is in progress; a date already carried is kept.</summary>
+    private void StampStartedOnFirstInProgress()
+    {
+        if (Status == EntryStatus.InProgress && StartedOn is null)
+            StartedOn = DateOnly.FromDateTime(DateTime.Now);
     }
 
     /// <summary>Marks this task deleted, leaving it behind as a tombstone rather

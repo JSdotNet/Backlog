@@ -104,23 +104,35 @@ public sealed record RoadmapWindow
         return new RoadmapWindow(StartOfQuarter(first), EndOfQuarter(last));
     }
 
+    /// <summary>How many weeks a graduated window rules finer than a month on either
+    /// side of today, counting this week — which is itself ruled in days.</summary>
+    public const int GraduatedWeeks = 4;
+
     /// <summary>
-    /// A window ruled coarser the further it reaches from today: a column per week
-    /// for this week and the <see cref="GraduatedWeeks"/> minus one after it, a
-    /// column per month for roughly three months after that, and a column per
-    /// quarter beyond.
+    /// A window ruled coarser the further it reaches from today: a column per day
+    /// for this week, a column per week for the <see cref="GraduatedWeeks"/> minus
+    /// one after it, a column per month for roughly three months after that, and a
+    /// column per quarter beyond.
     /// <para>
     /// The near term is what gets planned in detail and rescheduled by the week, so
-    /// that is where the ruler is fine enough to read a week off. Next quarter is a
-    /// month-level commitment, and anything further out is an intention, which a
-    /// weekly ruler would only make look more certain than it is.
+    /// that is where the ruler is fine enough to read a week off — and this week
+    /// finer still, because it is where the work in flight sits, and a single week
+    /// column stacked every bar that started this week on the same few pixels.
+    /// Next quarter is a month-level commitment, and anything further out is an
+    /// intention, which a weekly ruler would only make look more certain than it is.
     /// </para>
     /// <para>
     /// The weeks are whole, so they rarely end on a month start: the month they end
     /// in is drawn as a column covering only its remaining days, and every month
     /// after it is whole. The months run up to a quarter start, so every quarter is
-    /// whole too. Work before this week is ruled in months, the last clipped to meet
-    /// the first week.
+    /// whole too.
+    /// </para>
+    /// <para>
+    /// Before this week is history, reached by scrolling back — finished plans are
+    /// drawn where their work actually happened. It is ruled in weeks for the
+    /// <see cref="GraduatedWeeks"/> before this one, where recently finished work
+    /// sits, and in months before that, the last clipped to meet the first week;
+    /// and only as far back as the earliest date given.
     /// </para>
     /// <para>
     /// It always reaches at least to the end of the monthly tier, so the horizon's
@@ -128,18 +140,17 @@ public sealed record RoadmapWindow
     /// the plan does.
     /// </para>
     /// </summary>
-    /// <summary>How many week columns a graduated window rules, counting this week.</summary>
-    public const int GraduatedWeeks = 4;
-
     public static RoadmapWindow Graduated(IEnumerable<DateOnly> dates, DateOnly today, DayOfWeek weekStart)
     {
         var days = dates as ICollection<DateOnly> ?? [.. dates];
 
-        var weeksFrom = StartOfWeek(today, weekStart);
-        var monthsFrom = weeksFrom.AddDays(7 * GraduatedWeeks);
+        var thisWeek = StartOfWeek(today, weekStart);
+        var weeksFrom = thisWeek.AddDays(7);
+        var monthsFrom = thisWeek.AddDays(7 * GraduatedWeeks);
         var quartersFrom = FirstOfQuarterOnOrAfter(monthsFrom.AddMonths(3));
+        var pastWeeksFrom = thisWeek.AddDays(-7 * GraduatedWeeks);
 
-        var first = days.Count == 0 ? weeksFrom : days.Min();
+        var first = days.Count == 0 ? thisWeek : days.Min();
         var last = days.Count == 0 ? quartersFrom.AddDays(-1) : days.Max();
         var end = last < quartersFrom ? quartersFrom.AddDays(-1) : EndOfQuarter(last);
 
@@ -147,26 +158,41 @@ public sealed record RoadmapWindow
         var previousYear = 0;
         var previousMonth = 0;
 
-        // Before this week: months, the last one clipped to meet the first week.
-        for (var cursor = first < weeksFrom ? new DateOnly(first.Year, first.Month, 1) : weeksFrom; cursor < weeksFrom; cursor = cursor.AddMonths(1))
+        // Long before this week: months, the last one clipped to meet the first week.
+        for (var cursor = first < pastWeeksFrom ? new DateOnly(first.Year, first.Month, 1) : pastWeeksFrom; cursor < pastWeeksFrom; cursor = cursor.AddMonths(1))
         {
-            columns.Add(Month(cursor, Min(cursor.AddMonths(1).AddDays(-1), weeksFrom.AddDays(-1)), previousYear != cursor.Year));
+            columns.Add(Month(cursor, Min(cursor.AddMonths(1).AddDays(-1), pastWeeksFrom.AddDays(-1)), previousYear != cursor.Year));
+            previousYear = cursor.Year;
+            previousMonth = cursor.Month;
+        }
+
+        // Just before it: weeks, from the one the earliest date falls in.
+        for (var cursor = first < pastWeeksFrom ? pastWeeksFrom : StartOfWeek(Min(first, thisWeek), weekStart); cursor < thisWeek; cursor = cursor.AddDays(7))
+        {
+            columns.Add(Week(cursor, cursor.Month != previousMonth));
+            previousMonth = cursor.Month;
             previousYear = cursor.Year;
         }
 
+        // This week, a column a day. The first carries the week's number, so the
+        // reader still knows which week this is without a column of its own.
+        for (var cursor = thisWeek; cursor < weeksFrom; cursor = cursor.AddDays(1))
+        {
+            columns.Add(new RoadmapColumn(
+                RoadmapColumnScale.Day,
+                cursor,
+                cursor,
+                cursor.ToString("ddd d", CultureInfo.CurrentCulture),
+                cursor == thisWeek ? $"W{WeekNumber(thisWeek, weekStart)}" : null,
+                cursor.ToString("dddd d MMMM yyyy", CultureInfo.CurrentCulture)));
+        }
+
+        previousMonth = thisWeek.Month;
+        previousYear = thisWeek.Year;
+
         for (var cursor = weeksFrom; cursor < monthsFrom && cursor <= end; cursor = cursor.AddDays(7))
         {
-            var close = cursor.AddDays(6);
-            var newMonth = cursor.Month != previousMonth;
-
-            columns.Add(new RoadmapColumn(
-                RoadmapColumnScale.Week,
-                cursor,
-                close,
-                $"W{WeekNumber(cursor, weekStart)}",
-                newMonth ? cursor.ToString("MMM", CultureInfo.CurrentCulture) : null,
-                $"Week {WeekNumber(cursor, weekStart)}, from {cursor.ToString("d MMM yyyy", CultureInfo.CurrentCulture)}"));
-
+            columns.Add(Week(cursor, cursor.Month != previousMonth));
             previousMonth = cursor.Month;
             previousYear = cursor.Year;
         }
@@ -189,6 +215,14 @@ public sealed record RoadmapWindow
         }
 
         return new RoadmapWindow(columns);
+
+        RoadmapColumn Week(DateOnly start, bool showMonth) => new(
+            RoadmapColumnScale.Week,
+            start,
+            start.AddDays(6),
+            $"W{WeekNumber(start, weekStart)}",
+            showMonth ? start.ToString("MMM", CultureInfo.CurrentCulture) : null,
+            $"Week {WeekNumber(start, weekStart)}, from {start.ToString("d MMM yyyy", CultureInfo.CurrentCulture)}");
 
         static RoadmapColumn Month(DateOnly start, DateOnly end, bool showYear) => new(
             RoadmapColumnScale.Month,
@@ -297,6 +331,7 @@ public sealed record RoadmapQuarter(int Year, int Number, DateOnly Start, DateOn
 /// <summary>How much time one column of the axis stands for.</summary>
 public enum RoadmapColumnScale
 {
+    Day,
     Week,
     Month,
     Quarter
@@ -324,6 +359,7 @@ public sealed record RoadmapColumn(
     /// to has, clipped or not — what a column's width is shared over.</summary>
     public int NominalDays => Scale switch
     {
+        RoadmapColumnScale.Day => 1,
         RoadmapColumnScale.Week => 7,
         RoadmapColumnScale.Month => DateTime.DaysInMonth(Start.Year, Start.Month),
         _ => RoadmapWindow.EndOfQuarter(Start).DayNumber - RoadmapWindow.StartOfQuarter(Start).DayNumber + 1

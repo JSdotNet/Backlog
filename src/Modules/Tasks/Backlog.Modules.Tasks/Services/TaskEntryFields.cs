@@ -44,6 +44,8 @@ internal static class TaskEntryFields
         // New entries are born at Draft. A status typed into the meta line is
         // applied as the direct value rather than stepped through the lifecycle,
         // so writing `!done` on a fresh entry means what it says.
+        // The started stamp goes on first so the status below can fill it in.
+        ApplyStarted(entry, parsed);
         if (parsed.Status is { } initialStatus) entry.SetStatus(initialStatus);
 
         entry.SetOrder(Math.Max(order, 0));
@@ -74,9 +76,23 @@ internal static class TaskEntryFields
         entry.SetArea(parsed.Area);
         ApplyScheduling(entry, parsed);
         ApplyPresentation(entry, parsed);
+        ApplyStarted(entry, parsed);
 
         TaskTextSync.SyncSubItems(entry, parsed.SubItems);
     }
+
+    /// <summary>
+    /// Writes the <c>started:</c> token on unconditionally, like the tick.
+    /// <para>
+    /// Kept out of <see cref="ApplyScheduling"/> because its position matters:
+    /// every caller applies status <em>after</em> this, so a save that moves an
+    /// entry into <see cref="EntryStatus.InProgress"/> with no token still gets the
+    /// aggregate's automatic stamp, while a text that carries a token keeps its
+    /// date — the aggregate never moves a stamp it already holds.
+    /// </para>
+    /// </summary>
+    private static void ApplyStarted(TaskItem entry, EntryTextParser.ParsedEntry parsed) =>
+        entry.SetStartedOn(parsed.StartedOn);
 
     /// <summary>
     /// Writes the scheduling and dependency fields on unconditionally, so a token
