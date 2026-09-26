@@ -56,6 +56,25 @@ public sealed record OpenWorkTotals(int Open, int Points, int Unestimated)
         }
     }
 
+    /// <summary>The Waiting line in Needs attention: "3 tasks · 5 points · 1
+    /// unestimated", the summary's shape with a noun that does not repeat the
+    /// heading above it.</summary>
+    public string WaitingSummary
+    {
+        get
+        {
+            var parts = new List<string>
+            {
+                Open == 1 ? "1 task" : $"{Open} tasks",
+                OpenWorkReport.PointsText(Points)
+            };
+
+            if (Unestimated > 0) parts.Add($"{Unestimated} unestimated");
+
+            return string.Join(" · ", parts);
+        }
+    }
+
     /// <summary>The same three facts as a sentence, for the tooltip and the
     /// accessible name: "pts" and a bare number beside "open" are shorthand a
     /// screen reader would read out without the meaning.</summary>
@@ -86,6 +105,11 @@ public sealed record OpenWorkTotals(int Open, int Points, int Unestimated)
 /// "overdue" and "the last seven days" are arithmetic against one date, read in one
 /// place.
 /// </para>
+/// <para>
+/// Waiting work is totalled rather than listed: how much of the open work is
+/// held up, and what it weighs, is the report's question; which task waits on
+/// what is the pane's, where each row says so on its "Waiting for" line.
+/// </para>
 /// </summary>
 public sealed record OpenWorkReport(
     OpenWorkTotals Totals,
@@ -97,7 +121,7 @@ public sealed record OpenWorkReport(
     IReadOnlyList<OpenWorkCount> ByRepository,
     IReadOnlyList<OpenWorkTask> Overdue,
     IReadOnlyList<OpenWorkTask> DueSoon,
-    IReadOnlyList<OpenWorkTask> Waiting)
+    OpenWorkTotals Waiting)
 {
     /// <summary>The label a row with no resolvable repository is counted under —
     /// the same words the No repo scope chip uses.</summary>
@@ -116,19 +140,15 @@ public sealed record OpenWorkReport(
     /// <param name="isReady">Whether an open row is waiting on nothing.</param>
     /// <param name="repositoryLabels">The repositories a row resolves to, by the
     /// name a reader knows them by; empty for none.</param>
-    /// <param name="dependencyLabels">What a waiting row still waits on, named.
-    /// Asked of waiting rows only.</param>
     public static OpenWorkReport Build(
         IReadOnlyList<EntryRow> rows,
         DateOnly today,
         Func<EntryRow, bool> isReady,
-        Func<EntryRow, IReadOnlyList<string>> repositoryLabels,
-        Func<EntryRow, IReadOnlyList<string>> dependencyLabels)
+        Func<EntryRow, IReadOnlyList<string>> repositoryLabels)
     {
         ArgumentNullException.ThrowIfNull(rows);
         ArgumentNullException.ThrowIfNull(isReady);
         ArgumentNullException.ThrowIfNull(repositoryLabels);
-        ArgumentNullException.ThrowIfNull(dependencyLabels);
 
         var open = rows.Where(row => !row.IsPreviewCompleted).ToList();
         var recentFrom = today.AddDays(-(WindowDays - 1));
@@ -153,20 +173,17 @@ public sealed record OpenWorkReport(
                 .Where(row => row.PreviewDueOn is { } due && due >= today && due <= soonUntil)
                 .OrderBy(row => row.PreviewDueOn)
                 .Select(row => Named(row))],
-            [.. open
-                .Where(row => !isReady(row))
-                .Select(row => Named(row, dependencyLabels(row)))]);
+            OpenWorkTotals.Of([.. open.Where(row => !isReady(row))]));
     }
 
     /// <summary>"1 point", "N points" — the shelf's wording.</summary>
     public static string PointsText(int points) => points == 1 ? "1 point" : $"{points} points";
 
-    private static OpenWorkTask Named(EntryRow row, IReadOnlyList<string>? waitingOn = null) =>
+    private static OpenWorkTask Named(EntryRow row) =>
         new(
             row.TaskId,
             string.IsNullOrWhiteSpace(row.PreviewTitle) ? "Untitled" : row.PreviewTitle,
-            row.PreviewDueOn,
-            waitingOn ?? []);
+            row.PreviewDueOn);
 
     /// <summary>One row per plan any scoped row wears, open or finished, plus No
     /// plan for the open rows wearing none. A row with two plan tags is in both:
@@ -313,7 +330,6 @@ public sealed record OpenWorkPlan(
 /// <summary>How many open rows fall under one label of a breakdown.</summary>
 public sealed record OpenWorkCount(string Label, int Count);
 
-/// <summary>A task named in "Needs attention". <paramref name="WaitingOn"/> is
-/// empty except in the Waiting list, where it names every step still
-/// outstanding.</summary>
-public sealed record OpenWorkTask(string TaskId, string Title, DateOnly? DueOn, IReadOnlyList<string> WaitingOn);
+/// <summary>A task named in "Needs attention": one that is overdue or due
+/// soon.</summary>
+public sealed record OpenWorkTask(string TaskId, string Title, DateOnly? DueOn);

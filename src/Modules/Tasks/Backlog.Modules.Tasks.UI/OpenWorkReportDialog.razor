@@ -8,9 +8,11 @@
     somebody pressed in Needs attention, by id; opening that task is the pane's
     job, because the pane is what knows how to reveal a row a filter is hiding.
 
-    Waiting names what each task waits on rather than counting it: "3 waiting"
-    is a number to go and look up, and the names are the answer
-    (`.devbook/design/typography-and-layout.md`, names not counts).
+    Waiting is totalled, not listed: how many open tasks are held up and what
+    they weigh. A list of them, each naming its dependency, repeated what every
+    row's "Waiting for" line already says in the pane, and pushed the dated
+    lists — the ones that name something only the report shows — down the
+    dialog.
 *@
 
 @using Backlog.UI.Components.Metrics
@@ -87,7 +89,7 @@
 
                 <section class="open-work-report__section" aria-labelledby="open-work-attention-heading">
                     <h3 id="open-work-attention-heading" class="open-work-report__heading">Needs attention</h3>
-                    @if (report.Overdue.Count == 0 && report.DueSoon.Count == 0 && report.Waiting.Count == 0)
+                    @if (report.Overdue.Count == 0 && report.DueSoon.Count == 0 && report.Waiting.Open == 0)
                     {
                         <EmptyState Title="Nothing needs attention"
                                     Description="Nothing open is overdue, due in the next 7 days or waiting."
@@ -97,7 +99,13 @@
                     {
                         @AttentionList("Overdue", "open-work-overdue", report.Overdue)
                         @AttentionList("Due in the next 7 days", "open-work-due-soon", report.DueSoon)
-                        @AttentionList("Waiting", "open-work-waiting", report.Waiting)
+                        @if (report.Waiting.Open > 0)
+                        {
+                            <div class="open-work-report__attention" data-testid="open-work-waiting">
+                                <h4 class="open-work-report__subheading">Waiting</h4>
+                                <p class="open-work-report__waiting">@report.Waiting.WaitingSummary</p>
+                            </div>
+                        }
                     }
                 </section>
             </div>
@@ -160,7 +168,7 @@
                 {
                     <li class="open-work-report__task">
                         @* The look of a row's "Waiting for" names: a title to follow,
-                           not a small command. The detail sits beneath it, quieter,
+                           not a small command. The due date sits beneath it, quieter,
                            so a title that wraps cannot knock it off its line. *@
                         <AppButton BaseClass="open-work-report__task-title"
                                    Variant="ButtonVariant.None"
@@ -169,11 +177,7 @@
                                    OnClick="() => OnTaskSelected.InvokeAsync(task.TaskId)">
                             @task.Title
                         </AppButton>
-                        @if (task.WaitingOn.Count > 0)
-                        {
-                            <span class="open-work-report__detail">Waiting for @string.Join(", ", task.WaitingOn)</span>
-                        }
-                        else if (DueText(task) is { } due)
+                        @if (DueText(task) is { } due)
                         {
                             <span class="open-work-report__detail">Due @due</span>
                         }

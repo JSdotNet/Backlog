@@ -128,8 +128,8 @@ public sealed class OpenWorkSummaryTests
     {
         using var host = await TasksPaneHost.CreateAsync();
 
-        var open = await host.WriteEntryAsync("# Write the runbook\n`task` `!draft`\n");
-        var blocked = await host.WriteEntryAsync($"# Publish it\n`task` `!ready` `after:{open.TaskId}`\n");
+        await host.WriteEntryAsync("# Write the runbook\n`task` `!draft`\n");
+        var late = await host.WriteEntryAsync("# Renew the certificate\n`task` `!ready` `due:2020-01-01`\n");
         await host.State.SelectAsync(null);
 
         // A filter hiding the task is widened on the way in, as a followed
@@ -139,13 +139,32 @@ public sealed class OpenWorkSummaryTests
         var pane = host.Render();
         await pane.Find(Summary).ClickAsync(new());
 
-        var waiting = pane.Find("[data-testid='open-work-waiting']");
-        Assert.Contains("Waiting for Write the runbook", waiting.TextContent, StringComparison.Ordinal);
-
-        await waiting.QuerySelector("[data-testid='open-work-task']")!.ClickAsync(new());
+        await pane.Find("[data-testid='open-work-overdue'] [data-testid='open-work-task']").ClickAsync(new());
 
         Assert.Empty(pane.FindAll(Report));
-        Assert.Same(blocked, host.State.SelectedRow);
+        Assert.Same(late, host.State.SelectedRow);
+    }
+
+    /// <summary>Waiting work is a total — how many tasks and what they weigh —
+    /// with no task named: each row's own "Waiting for" line names what it waits
+    /// on.</summary>
+    [Fact]
+    public async Task Waiting_work_is_a_count_and_its_effort()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+
+        var open = await host.WriteEntryAsync("# Write the runbook\n`task` `!draft`\n");
+        await host.WriteEntryAsync($"# Publish it\n`task` `!ready` `effort:3` `after:{open.TaskId}`\n");
+        await host.WriteEntryAsync($"# Announce it\n`task` `!ready` `after:{open.TaskId}`\n");
+        await host.State.SelectAsync(null);
+
+        var pane = host.Render();
+        await pane.Find(Summary).ClickAsync(new());
+
+        var waiting = pane.Find("[data-testid='open-work-waiting']");
+        Assert.Equal("2 tasks · 3 points · 1 unestimated", waiting.QuerySelector(".open-work-report__waiting")!.TextContent.Trim());
+        Assert.Empty(waiting.QuerySelectorAll("[data-testid='open-work-task']"));
+        Assert.DoesNotContain("Publish it", waiting.TextContent, StringComparison.Ordinal);
     }
 
     /// <summary>The plans table scrolls inside its own region, so a narrow window
@@ -168,28 +187,27 @@ public sealed class OpenWorkSummaryTests
     }
 
     /// <summary>A task in Needs attention is a name to follow, drawn the way a
-    /// row's "Waiting for" names are — not a small ghost button — with what it is
-    /// waiting for or when it is due as a quieter line beneath it.</summary>
+    /// row's "Waiting for" names are — not a small ghost button — with when it is
+    /// due as a quieter line beneath it.</summary>
     [Fact]
     public async Task A_task_in_needs_attention_is_a_link_like_title_over_its_detail()
     {
         using var host = await TasksPaneHost.CreateAsync();
 
-        var open = await host.WriteEntryAsync("# Write the runbook\n`task` `!draft`\n");
-        await host.WriteEntryAsync($"# Publish it\n`task` `!ready` `after:{open.TaskId}`\n");
+        await host.WriteEntryAsync("# Renew the certificate\n`task` `!ready` `due:2020-01-01`\n");
         await host.State.SelectAsync(null);
 
         var pane = host.Render();
         await pane.Find(Summary).ClickAsync(new());
 
-        var title = pane.Find("[data-testid='open-work-waiting'] [data-testid='open-work-task']");
+        var title = pane.Find("[data-testid='open-work-overdue'] [data-testid='open-work-task']");
 
         Assert.Equal("open-work-report__task-title", title.ClassName);
-        Assert.Equal("Publish it", title.TextContent.Trim());
+        Assert.Equal("Renew the certificate", title.TextContent.Trim());
 
         var detail = title.NextElementSibling!;
         Assert.Equal("open-work-report__detail", detail.ClassName);
-        Assert.Equal("Waiting for Write the runbook", detail.TextContent.Trim());
+        Assert.StartsWith("Due ", detail.TextContent.Trim(), StringComparison.Ordinal);
     }
 
     [Fact]

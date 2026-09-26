@@ -10434,8 +10434,14 @@ select.field__input {
 
 /* --- Metrics: part-to-whole ---------------------------------------------- */
 
+/* align-content: start, because a breakdown is usually one cell of a grid of
+   them, stretched to the height of its tallest neighbour. Without it that extra
+   height is shared out between the label, the track and the legend, so a
+   breakdown with fewer legend lines pushes its bar down, and two side by side
+   no longer line up across the row. */
 .metric-breakdown-bar {
     display: grid;
+    align-content: start;
     gap: var(--spacing-sm);
     min-width: 0;
 }
