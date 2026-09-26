@@ -299,22 +299,19 @@ indexes.
   the database below, built from the same exported seam.
 - **Why** — it is what turns the metadata convention into something queryable,
   and it is where a broken `depends-on` or `related` reference is caught.
-- **How** — `.github/workflows/knowledge-meta.yml` fails on an unresolvable
-  reference, then regenerates and diffs the committed indexes and reports drift as
-  a *warning* only: making every pull request carry a regenerated index is what
-  turned these files into merge conflicts. Refresh is deliberate instead —
-  `build/Update-KnowledgeIndex.ps1` on demand,
-  `.github/workflows/knowledge-meta-nightly.yml` on a schedule. The drift step runs
-  the generator rather than trusting `--check`, because `--check` misses
-  line-number drift. `--check` says nothing about the *values* in a `meta` block,
-  though, so a second hard failure covers those:
+- **How** — its two workflows, `knowledge-meta.yml` and
+  `knowledge-meta-nightly.yml`, are retired: they checked only the root layout,
+  and this repository has no root-layout folder left (local ADR 0016). A broken
+  reference now fails in `.github/workflows/devbook-meta.yml`, which runs the
+  installed devbook checker. `--check` says nothing about the *values* in a `meta`
+  block, though, so a second hard failure covers those:
   `.github/workflows/devbook-metadata.yml` runs
   `tools/devbook/check-metadata.mjs`, this repository's own caller of the
   generator's exported `validateDocument`, and a status outside a folder's ladder,
   an unknown `.devbook/domain` `type` or a field no schema defines fails the pull request.
-  It is a separate script and a separate workflow because the generator, both
-  `knowledge-meta*` workflows and `Update-KnowledgeIndex.ps1` are installed copies
-  of the plugin's tooling, re-synced rather than edited here.
+  It is a separate script and a separate workflow because the generator and
+  `Update-KnowledgeIndex.ps1` are installed copies of the plugin's tooling,
+  re-synced rather than edited here.
 - **Caveat** — the installed generator is four plugin releases behind, and the
   check is pinned to it. Two consequences, both listed as *pending re-sync* in its
   report rather than hidden: `.devbook/tech` `type` values go unvalidated, because the

@@ -16,8 +16,9 @@
 // than an edit to the generator: everything under
 // `.github/tools/knowledge-meta/` is an installed copy of the devbook
 // plugin's tooling, which CLAUDE.md says to re-sync and never edit here. The
-// same rule covers `build/Update-KnowledgeIndex.ps1` and both `knowledge-meta*`
-// workflows, so the CI wiring is repo-native too:
+// same rule covered `build/Update-KnowledgeIndex.ps1` and the `knowledge-meta*`
+// workflows (retired with the root layout, local ADR 0016), so the CI wiring is
+// repo-native too:
 // `.github/workflows/devbook-metadata.yml`.
 //
 // Upstream runs this validation from the knowledge-graph canvas (now `devbook-canvas`) and the
