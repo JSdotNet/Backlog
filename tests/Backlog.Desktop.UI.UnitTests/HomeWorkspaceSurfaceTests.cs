@@ -10,6 +10,7 @@ using Backlog.Modules.Dashboard.Abstractions.Insights;
 using Backlog.Modules.Dashboard.Abstractions.Services;
 using Backlog.Modules.Dashboard.UI;
 using Backlog.Modules.DevPc.UI;
+using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sessions.UI;
 using Backlog.SharedKernel.Ai;
 using Bunit;
@@ -112,6 +113,53 @@ public sealed class HomeWorkspaceSurfaceTests
             var tab = component.Find("[data-testid='dashboard-sessions-tab']");
             Assert.Equal("true", tab.GetAttribute("aria-selected"));
             Assert.Equal("false", component.Find("[data-testid='dashboard-overview-tab']").GetAttribute("aria-selected"));
+        });
+    }
+
+    /// <summary>
+    /// <c>open_dashboard</c> arrives from an agent run, not from the reader, so it
+    /// answers whether the Sessions pane is there to open and leaves the window where
+    /// the reader put it. Navigating is always the reader's act: a run that starts
+    /// mid-edit must not pull them off the entry they are typing in.
+    /// </summary>
+    [Fact]
+    public async Task An_agent_asking_for_the_sessions_pane_does_not_navigate()
+    {
+        var activator = new SessionsSurfaceActivator();
+        using var harness = CreateHarness(configureServices: services => services.AddSingleton(activator));
+        var component = Render(harness);
+
+        OpenTheRoadmap(component);
+
+        var answer = await activator.ActivateAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(DeliverySurfaceActivation.Available, answer);
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='roadmap-band']"));
+            Assert.Empty(component.FindAll("[data-testid='dashboard-surface']"));
+            Assert.Empty(component.FindAll("[data-testid='sessions-panel']"));
+        });
+    }
+
+    /// <summary>The same from the workspace, where the reader spends most of their
+    /// time: the task list stays on screen.</summary>
+    [Fact]
+    public async Task An_agent_asking_for_the_sessions_pane_leaves_the_workspace_on_screen()
+    {
+        var activator = new SessionsSurfaceActivator();
+        using var harness = CreateHarness(configureServices: services => services.AddSingleton(activator));
+        var component = Render(harness);
+
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='workspace']")));
+
+        var answer = await activator.ActivateAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(DeliverySurfaceActivation.Available, answer);
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='workspace']"));
+            Assert.Empty(component.FindAll("[data-testid='dashboard-surface']"));
         });
     }
 

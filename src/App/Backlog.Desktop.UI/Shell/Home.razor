@@ -757,9 +757,9 @@
         if (_taskSync is not null) _taskSync.Changed += HandleTaskSyncChanged;
 
         // Optional on the same terms, and for a second reason: this is the window
-        // offering to be driven from outside, so a host that composed no activator
-        // simply cannot be, which is the correct behaviour rather than a gap.
-        _surfaceAttachment = Services.GetService<SessionsSurfaceActivator>()?.Attach(ShowSessionsAsync);
+        // answering questions from outside, so a host that composed no activator
+        // simply is not asked, which is the correct behaviour rather than a gap.
+        _surfaceAttachment = Services.GetService<SessionsSurfaceActivator>()?.Attach(DescribeSessionsAsync);
 
         await State.InitializeAsync();
         SynchronizePaneAvailability();
@@ -1006,22 +1006,22 @@
     }
 
     /// <summary>
-    /// Bring the Sessions pane forward on somebody else's behalf — the shell's half
-    /// of <c>open_dashboard</c>, registered with
-    /// <see cref="SessionsSurfaceActivator"/> while this window is alive.
+    /// Say whether this window offers the Sessions pane — the shell's half of
+    /// <c>open_dashboard</c>, registered with <see cref="SessionsSurfaceActivator"/>
+    /// while this window is alive.
     /// <para>
-    /// Not <see cref="ToggleSurface"/>, which is the click: a toggle asked twice puts
-    /// the reader back on the workspace, and a caller asking to be shown the Sessions
-    /// pane twice means it twice. This sets, and setting is idempotent.
+    /// It answers and never navigates. Every agent run calls <c>open_dashboard</c> when
+    /// it starts, so a window that moved to the Sessions pane here would move whenever
+    /// an agent did something, pulling the reader off whatever they were in the middle
+    /// of. Navigating is the reader's act alone: the surface switcher and the tab strip.
     /// </para>
     /// <para>
-    /// Everything happens inside <c>InvokeAsync</c> because the request arrives on a
-    /// request thread with no relationship to this renderer. The feature is read on
-    /// that same thread rather than before it, so the answer describes the window as
-    /// it is at the moment it is asked.
+    /// Inside <c>InvokeAsync</c> because the request arrives on a request thread with no
+    /// relationship to this renderer, and the feature is read there so the answer
+    /// describes the window as it is at the moment it is asked.
     /// </para>
     /// </summary>
-    private async Task<DeliverySurfaceActivation> ShowSessionsAsync(CancellationToken cancellationToken)
+    private async Task<DeliverySurfaceActivation> DescribeSessionsAsync(CancellationToken cancellationToken)
     {
         var answer = DeliverySurfaceActivation.Unattached;
 
@@ -1029,26 +1029,11 @@
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            // Switched off is a real answer, not a failure. The area's key gates the
-            // tab, so forcing the surface here would show a Dashboard with nothing on
-            // it and quietly overrule a setting the person chose.
-            if (!SessionsTabOffered)
-            {
-                answer = DeliverySurfaceActivation.Disabled;
-
-                return;
-            }
-
-            _surface = WorkspaceSurface.Dashboard;
-            _dashboardTab = DashboardTab.Sessions;
-            _focusSurfacePending = true;
-            RememberSurface();
-            RememberAiScope("sessions");
-            KeepRepositoryScopeSingleWhereOnlyOneFits();
-
-            answer = DeliverySurfaceActivation.Shown;
-
-            StateHasChanged();
+            // Switched off is a real answer, not a failure: the area's key gates the
+            // tab, so there is no pane for the reader to open.
+            answer = SessionsTabOffered
+                ? DeliverySurfaceActivation.Available
+                : DeliverySurfaceActivation.Disabled;
         });
 
         return answer;

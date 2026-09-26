@@ -415,15 +415,15 @@ public sealed class DeliverySurfaceLifecycleTests : IDisposable
         Assert.Equal(DeliverySurfaceActivation.Unattached, headless.Activation);
         Assert.DoesNotContain("http", headless.Answer, StringComparison.OrdinalIgnoreCase);
 
-        var shown = await Surface(new StubActivator(DeliverySurfaceActivation.Shown)).OpenDashboardAsync(TestContext.Current.CancellationToken);
+        var available = await Surface(new StubActivator(DeliverySurfaceActivation.Available)).OpenDashboardAsync(TestContext.Current.CancellationToken);
 
-        Assert.Equal(DeliverySurfaceActivation.Shown, shown.Activation);
-        Assert.Contains("Sessions", shown.Answer, StringComparison.Ordinal);
+        Assert.Equal(DeliverySurfaceActivation.Available, available.Activation);
+        Assert.Contains("Sessions", available.Answer, StringComparison.Ordinal);
 
         // No URL in any branch. Backlog is not a page somebody opens — it is the
         // application the caller is already talking to, so an address here would
         // open a second window onto the thing it is holding.
-        Assert.DoesNotContain("http", shown.Answer, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("http", available.Answer, StringComparison.OrdinalIgnoreCase);
 
         var disabled = await Surface(new StubActivator(DeliverySurfaceActivation.Disabled)).OpenDashboardAsync(TestContext.Current.CancellationToken);
 
