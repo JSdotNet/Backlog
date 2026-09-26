@@ -4,7 +4,7 @@ namespace Backlog.Modules.Inbox.DomainModels;
 
 /// <summary>
 /// Thrown by <see cref="InboxItem"/> when a lifecycle step is not one
-/// <c>.domain/inbox/flow.md</c> allows — archiving a routed item, routing one
+/// <c>.devbook/domain/inbox/flow.md</c> allows — archiving a routed item, routing one
 /// twice. Handlers translate it to <c>inbox.item.invalid_transition</c>
 /// (guideline ADR 0004 rule 3); nothing outside the module sees it.
 /// </summary>

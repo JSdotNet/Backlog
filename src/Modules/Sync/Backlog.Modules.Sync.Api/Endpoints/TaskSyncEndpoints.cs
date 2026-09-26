@@ -14,7 +14,7 @@ namespace Backlog.Modules.Sync.Api.Endpoints;
 /// <para>
 /// One route for both, because they are two halves of one exchange over one
 /// collection. Neither takes an owner — the scope comes from the token and from
-/// nowhere else (.arc42/adr/0005 §Identity) — and neither interprets a task:
+/// nowhere else (.devbook/arc42/adr/0005 §Identity) — and neither interprets a task:
 /// what goes in comes back out unread.
 /// </para>
 /// </summary>

@@ -2,7 +2,7 @@
 
   <!--
     Cross-cutting Cosmos DB adapter: the two replicas the sync service reads and
-    writes (.arc42/adr/0005) - tasks and session records, one container each. It
+    writes (.devbook/arc42/adr/0005) - tasks and session records, one container each. It
     implements ITaskReplica and ISessionReplica, ports declared by
     Backlog.Modules.Sync; the module never sees this project, which is the same
     direction Backlog.Infrastructure.Sqlite runs in.

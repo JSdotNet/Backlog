@@ -136,7 +136,7 @@ public sealed class SaveTaskFromTextCommandHandler(ITaskRepository entries, IRep
         // entry" is a statement about the step from unticked to ticked. The tick,
         // not the status: Done says the work is over, and the person may leave a
         // Done occurrence on the list until they have ticked it — the next one is
-        // owed when they do (.domain/tasks/flow.md#recurring-task-occurrences).
+        // owed when they do (.devbook/domain/tasks/flow.md#recurring-task-occurrences).
         // An entry that was already ticked stays ticked and spawns nothing:
         // without this the next keystroke on a finished repeating entry would
         // spawn a second successor, and the one after that a third.

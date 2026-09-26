@@ -1,0 +1,309 @@
+# ADR 0007: Import reuses the entry text grammar; a plan is multi-task entry text
+
+```meta
+status: active
+related: [".devbook/domain/tasks/features.md#import", ".devbook/domain/tasks/domain.md#task", ".devbook/design/content-editing.md#scheduling-and-dependency-tokens", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md", ".devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md"]
+issue: null
+```
+
+## Status
+
+Accepted and built. Written before Import (`.devbook/domain/tasks/features.md#import`)
+existed, to fix the format and the persistence path before the feature slice was
+written, so the implementation had one decision to follow rather than one to
+make up as it went. Validated end to end in the desktop harness on 2026-09-24,
+together with ADR 0013, through the `roadmap-imported-plans` plan's
+`validate-combined-import` entry; the one ruling that run changed is under
+[Deviations](#deviations).
+
+**Addendum, 2026-09-22.** Two things have moved since this was written, and
+neither reopens it. The shared tag this record calls `#tag` is now written with
+a plan sigil, `+tag`, and stored with it — `import_plan_id` is that sigilled
+value verbatim, and a plan written under a bare `#tag` still imports, as this
+record allows, but is a different plan from one written under `+tag`. And a
+document may now carry entries of the type word `plan`, which Import hands to
+Roadmap Planning instead of creating a task from — one Roadmap Item per plan,
+placed by the importer, tagged with the plan's bare slug. Both are settled in
+`.devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md`, which
+leaves everything decided here — one grammar, two-pass `after:`, clear-then-write
+on re-import, no new table — exactly as it stands.
+
+## Context
+
+Import brings in a plan — a sequence of AI prompts to run across one or more
+repositories, in dependency order — and turns it into tasks in one
+step. The obvious way to build that is a dedicated plan format: a YAML or JSON
+document with its own schema for prompts, ordering and repository targets, read
+by an importer that translates it into entries.
+
+That would be a second grammar for the same fact `EntryTextParser.cs` already
+owns. An entry already has a title, a body, sigil and named metadata tokens, and
+`##` sub-items. A plan's "prompt" is a `prompt`-type entry; a plan's "ordering
+between prompts" is `after:`, the dependency token `.devbook/design/content-editing.md`
+already defines; a plan's "setup step" or "reminder to update the knowledge
+docs" is a sub-item. Nothing about a plan needs a fact an entry cannot already
+hold — the earlier work on `.devbook/domain/tasks/domain.md#task` and
+`.devbook/design/content-editing.md#scheduling-and-dependency-tokens` this session
+already reached that conclusion at the domain and design layers: `import_plan_id`
+and `import_item_id` are entry provenance fields, not a second aggregate, and
+`id:`/`repo:` are entry metadata tokens, not plan-file syntax.
+
+The one gap between an entry and a plan is that a plan names several prompts in
+one document, and an entry is one document. `EntryTextParser.SplitSegments`
+already closes it: a second top-level `#` heading starts a new entry, which is
+exactly "paste several entries at once" — a capability the format has carried
+since ADR 0002, for pasting more than one hand-typed entry in one go, not built
+for Import but sufficient for it.
+
+Two token names the grammar does not parse yet, `id:` and `repo:`, appear in
+`.devbook/design/content-editing.md#scheduling-and-dependency-tokens`'s token table
+(added this session) but not in `EntryTextParser.ParseMetadataLine`'s
+`switch` — currently they would round-trip as unrecognized `name:value` tokens
+under the "unknown tokens survive an edit" rule, read into no field. Adding
+their parsing is ordinary work under that same design doc's existing rule ("a
+new token MUST be added to the domain model, the entry DTO, and the canonical
+rewrite in the same change") and is implementation follow-up, not a further
+decision — it does not change what this ADR settles.
+
+Persistence has to answer to `.devbook/arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md`:
+persistence belongs to the module that owns the data, through an
+aggregate-focused repository port, in the one local schema ADR 0003 already
+established. An importer that grew its own table for "imported plans" would be
+a second persistence surface competing with `ITaskRepository`, in a module that
+guideline 0014 says gets exactly one.
+
+## Decision
+
+**A plan is not a file format of its own. It is entry text — the exact
+hand-typed grammar `EntryTextParser` already implements — with more than one
+`#`-titled entry in the document. Import takes a block of that text, splits it
+into segments with `SplitSegments`, parses each with `Parse`, and
+creates/updates Tasks from the result. One grammar, not two.**
+
+### Intake: upload or paste, one path
+
+A person brings in a plan by uploading a `.md` file or by pasting text
+directly — whichever is faster in the moment. Both feed the identical parse
+path: a file read is nothing but a way of getting the same string that paste
+already produces, and giving it a second code path would only be a second place
+for the two to drift.
+
+### Multiple entries per document: no new splitting rule
+
+Import adds nothing to `SplitSegments`. It already treats a second top-level `#`
+heading as an entry boundary, which is precisely a plan's "more than one prompt
+in this document." Import calls it once, over the whole uploaded or pasted
+block, and gets back one segment per entry the plan describes.
+
+### `after:` resolution scope for a fresh batch: two passes, in Import, not in the parser
+
+Within one imported document, `after:<value>` first tries to match another
+entry's `id:` token in the *same document*; failing that, the `id:` a stored
+entry was imported under — the same plan's first, then a plan the entry is
+tagged with, then any stored entry when exactly one carries the id, so a plan
+brought in over two sittings still chains and an ambiguous id is left alone
+rather than guessed; only if nothing matches is it treated as a real,
+already-existing `task_id`, exactly as it always is outside Import. This is the general local-id rule
+`.devbook/design/content-editing.md#scheduling-and-dependency-tokens` already states
+for any pasted batch — Import is not a special case of it, it is the case the
+rule was written for.
+
+That resolution takes two passes because none of the new entries has a real id
+yet when the document is parsed:
+
+1. Parse every segment first, collecting each one's `id:` token alongside its
+   parsed fields.
+2. Create the entries (or find their upsert targets — see re-import below) and
+   obtain real ids, then resolve every entry's `depends_on` list from local
+   `id:` values to those real ids before the entries are persisted.
+
+`EntryTextParser.Parse` itself needs no change to do this: it already reads
+`after:` as an opaque list of strings (`ParsedEntry.DependsOn`) and validates
+nothing about what the values mean — that is what lets a value be a real id one
+moment and a same-document local id the next. The two-pass resolution is
+Import's own orchestration logic sitting on top of an unmodified parser, not a
+parser feature.
+
+### `repo:` resolution + auto-registration: Import-only leniency, not a token change
+
+`repo:<name>` resolves against the Repository Registry by name, the same
+resolution `.devbook/design/content-editing.md#scheduling-and-dependency-tokens`
+already specifies for the token in general. Ordinary single-entry editing
+leaves an unrecognized name unresolved — the token's own general rule, stated
+already: "this token never registers a repository on its own."
+
+Import is the one caller that relaxes that. An unrecognized name triggers
+registration through Repository Management's existing registration capability
+(`.devbook/domain/repository-management/features.md#repository-registration`) before
+the entry naming it is created, so a plan can introduce a repository to the
+product just by mentioning it. This leniency belongs to Import specifically —
+`.devbook/domain/tasks/features.md#repository-resolution-on-import` already scopes it
+that way — and is not a change to what `repo:` does everywhere else. Import
+triggers registration; it does not perform it, and gains no say over what a
+registered repository holds beyond asking for one to exist.
+
+Implementation detail, not a grammar change: `ImportPlanDialog` also offers a
+"Target repository" field for the whole batch. `ImportPlanCommand` carries it
+as `DefaultRepo`, and the handler applies it to a parsed entry only when that
+entry's own text carries no `repo:` — the token itself is unchanged and still
+wins whenever it is present, so a plan mixing repositories still works exactly
+as this ADR describes.
+
+### Plan identity and tagging: the shared `#tag` is the plan id, nothing else
+
+There is no separate "plan id" field or wrapper document. A plan's identity is
+whichever `#tag` every entry in the pasted document happens to share — an
+ordinary tag sigil, filed the same way an entry is
+[filed against a roadmap tag](../../domain/tasks/features.md#filing-a-task-against-a-roadmap-tag).
+`import_plan_id` is populated from that shared tag; `import_item_id` is
+populated from each entry's own `id:` token. Both are read off tokens the
+grammar already carries — nothing new is parsed to produce them.
+
+Entries in a pasted document that share no common tag still import fine,
+individually — Import builds nothing entry creation does not already offer, and
+a missing shared tag is not a parse failure. What such an entry loses is
+something to be *found by* later: with no `import_plan_id`, a later re-import of
+"the same plan" has nothing to recognize it against. This is stated here as an
+accepted limitation. Import does not enforce a shared tag at parse time,
+because doing so would turn an omission in how a plan was written into a reason
+to refuse the entries it describes.
+
+### Re-import / versioning: clear the plan's not-yet-started entries, then write
+
+Bringing in a later version of an already-imported plan replaces that plan
+rather than adding to it, per
+`.devbook/domain/tasks/features.md#re-importing-an-updated-plan`. Before anything is
+written, Import clears the previous version: every stored entry whose
+`import_plan_id` is this plan's shared tag and whose status is `draft` or
+`ready` is deleted — tombstoned, which is what deletion is here (ADR 0003), so
+the replacement travels to the other devices (ADR 0005) instead of being
+resurrected by the next pull. Only Import ever writes `import_plan_id`, so a
+hand-typed entry that happens to carry the plan's tag is not in scope.
+
+The version being brought in is then written against what is left standing, each
+parsed segment matched on `import_plan_id` (the shared tag) and `import_item_id`
+(`id:`):
+
+- **Matched, `in-progress`** — update in place: content, dependencies (resolved
+  per the two-pass rule above), target repository, and
+  setup/knowledge/manual sub-items are replaced from the new version. Work
+  somebody has picked up is not deleted out from under them.
+- **Matched, `done` or `archived`** — leave untouched. A later plan version does
+  not reopen finished work, the same principle `Occurrence Spawning`
+  (`.devbook/domain/tasks/domain.md#occurrence-spawning`) already applies to a
+  completed recurring entry: a completed thing stays the record of what was
+  done.
+- **Unmatched** — create new: either a prompt this version introduces, or one
+  written again in place of the copy just cleared.
+
+This supersedes the plain upsert this ADR originally specified, which could not
+hold. An entry is only recognizable across versions by its `id:`, a plan is free
+to write none, and an entry with no `id:` matches nothing — so it arrived a
+second time on every import, which is the duplication the rule was there to
+prevent. Clearing first makes a duplicate impossible whatever the plan wrote,
+and states plainly what a re-import means: this is the plan now, and the work
+nobody has started is whatever its latest version says it is. An `id:` on every
+entry is still worth writing, and `plugins/backlog-tools`' plan generator emits
+one — it is what lets an entry already under way or already finished be
+recognized rather than stood beside.
+
+### Storage: through `ITaskRepository`, no new table, no kept raw text
+
+Per ADR 0003 and guideline 0014, imported entries persist through the exact
+same repository port and SQLite store every other entry does. Import is a use
+case that calls the existing port with the entries it built; it is not a
+reason to add a schema. No new table, and no separate "imported plan" record
+kept anywhere — the plan's identity already lives on the entries themselves, as
+`import_plan_id`/`import_item_id` and the shared tag.
+
+The raw uploaded or pasted text is **not** kept after the import completes.
+This is decided explicitly, not by omission, and for the same reasoning ADR
+0003 already gave for not migrating old markdown: "an importer is code that
+would have to be correct forever to be worth the one time it runs." The
+question a kept copy would answer — "what did this import produce" — is
+already answered by the parsed entries themselves, carrying `import_plan_id`
+and `import_item_id`, which is what re-import actually reads. A stored copy of
+the source text would be a second copy of the same fact with no consumer:
+nothing in the re-import flow, or anywhere else in the product, reads the
+original text back. Keeping it would be paying a permanent storage and
+provenance cost for an audit trail nobody has asked for and nothing queries.
+
+## Deviations
+
+Where what is built departs from what is written above:
+
+- **An entry's own plan tag is its plan when the document shares none.**
+  [Plan identity](#plan-identity-and-tagging-the-shared-tag-is-the-plan-id-nothing-else)
+  takes `import_plan_id` from the one tag every entry shares, and calls a
+  document with none an accepted limitation. A roadmap document (ADR 0013)
+  holds several plans' task entries in one paste, so it always shares none: its
+  steps had no plan id, and every re-import of the same document wrote all of
+  them again beside the first copy. When no tag is shared, an entry carrying
+  exactly one `+` plan tag now takes that tag as its `import_plan_id`, and
+  clear-then-write runs once per plan the document names. The sigil is what
+  makes this safe — a `+tag` names a plan, so one entry wearing one belongs to
+  it unambiguously — and a general `#tag` is still a plan id only when every
+  entry shares it, exactly as ruled above. Found by the validation run named in
+  [Status](#status); pinned by
+  `ImportPlanRoadmapIntakeTests.Reimporting_a_document_of_several_plans_replaces_each_plans_steps`.
+
+## Consequences
+
+Positive:
+
+- No second file format to design, document, version, or keep in step with the
+  entry grammar as it grows. Every future token added to
+  `.devbook/design/content-editing.md#scheduling-and-dependency-tokens` — `due:`,
+  `remind:`, `effort:`, anything to come — is automatically available inside an
+  imported plan with no Import-specific work.
+- `SplitSegments` and `Parse` need no change to support Import's own two-pass
+  dependency resolution; the parser's job stays "read one segment" and Import's
+  job is entirely its own orchestration on top.
+- A hand-typed entry and an imported one are indistinguishable once created —
+  same table, same fields, same sub-item shape — which is exactly what
+  `.devbook/domain/tasks/features.md#import` states as the point ("Import builds
+  nothing that entry creation does not already offer").
+- Re-import is keyed on two already-modelled fields, with no new index shape
+  beyond what querying entries by tag/id already needs, and its correctness does
+  not depend on the plan having written an `id:` on every entry.
+
+Negative:
+
+- `id:` and `repo:` still need parsing added to
+  `EntryTextParser.ParseMetadataLine` before Import can be built — the grammar
+  documents them, the code does not read them yet. This ADR does not close that
+  gap; it is ordinary follow-up work under the token-addition rule
+  `.devbook/design/content-editing.md#scheduling-and-dependency-tokens` already states.
+- An entry pasted without a shared `#tag` is importable but not
+  re-importable-against: there is no way, after the fact, to tell Import "these
+  entries were one plan" once they were saved without the tag. The person has to
+  get the tag right on the version they paste, or accept that a later version
+  will stand new entries beside the old ones rather than replacing them.
+- A replaced entry is a new entry: the one it stood in for is tombstoned and the
+  new one carries a new real id. An `after:` written elsewhere in the backlog
+  against the old id therefore dangles — a weak reference the model already
+  tolerates (`.devbook/domain/tasks/domain.md#readiness`) — and any hand editing done to
+  a not-yet-started imported entry is lost to the newer version. Both are
+  accepted: an entry nobody has started holds nothing worth keeping over what
+  the plan now says. Re-importing a large plan also writes one tombstone per
+  replaced entry into the sync change feed.
+- Discarding the raw text means an import cannot be undone by re-reading what
+  was submitted, nor can a later reader see the exact wording of the plan as
+  authored — only what it produced. If that turns out to matter (a legal or
+  audit need, say), it is a deliberately reversible decision: nothing here
+  precludes adding a kept-text column later, it is simply not owed today.
+
+Neutral:
+
+- Import is described here as reusing `after:` for prompt ordering rather than
+  inventing an import-specific relationship — a plan's dependency and an
+  ordinary entry dependency are the same fact, read the same way by
+  `.devbook/domain/tasks/domain.md#readiness`. Nothing about "what's next in this
+  plan" is a plan-specific query; it is the existing readiness/repository
+  grouping `.devbook/domain/tasks/features.md#import` already points at.
+- `repo:` auto-registration is scoped to Import by the feature, not by the
+  token — the same `repo:` token used in ordinary editing stays strict
+  everywhere else. A future feature wanting the same leniency would need its
+  own stated exception, the same way Import's is stated in
+  `.devbook/domain/tasks/features.md#repository-resolution-on-import`, rather than
+  inheriting Import's behavior implicitly.

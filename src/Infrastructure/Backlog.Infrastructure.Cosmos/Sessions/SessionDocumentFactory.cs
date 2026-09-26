@@ -21,7 +21,7 @@ internal static class SessionDocumentFactory
     /// <strong>The machine id comes from the scope and never from the record</strong>,
     /// which is not a defensive choice so much as the only one available: a
     /// <see cref="SessionRecord"/> has no machine id on it. That is
-    /// .arc42/adr/0005 §Session records' "a caller may only write records stamped
+    /// .devbook/arc42/adr/0005 §Session records' "a caller may only write records stamped
     /// with its own machine id" held by construction, and the id then leads the
     /// document key, so a machine can only ever address documents beginning with
     /// its own device id.

@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 namespace Backlog.ArchitectureTests;
 
 /// <summary>
-/// The type scale as <c>.design/typography-and-layout.md</c> states it, read back
+/// The type scale as <c>.devbook/design/typography-and-layout.md</c> states it, read back
 /// so tests can hold the stylesheets to it — the counterpart to
 /// <see cref="DesignPalette"/> for the values that are not colours.
 /// </summary>
@@ -21,7 +21,7 @@ internal static class DesignTypography
     public static HashSet<string> SpecifiedWeights()
     {
         var markdown = System.IO.File.ReadAllText(
-            RepositoryRoot.File(".design", "typography-and-layout.md"));
+            RepositoryRoot.File(".devbook", "design", "typography-and-layout.md"));
 
         return
         [

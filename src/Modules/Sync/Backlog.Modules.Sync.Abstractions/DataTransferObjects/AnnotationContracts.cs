@@ -8,7 +8,7 @@ namespace Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 /// The chapter is named by repository alias and repository-relative path, never
 /// by a folder on disk: a path describes one machine's clone and would name a
 /// different file, or none, on the machine that reads it back. The alias is the
-/// same one session records travel under (.arc42/adr/0005 §Session records),
+/// same one session records travel under (.devbook/arc42/adr/0005 §Session records),
 /// so the two devices agree on which repository a remark belongs to for the
 /// same reason they agree about a session's.
 /// </para>
@@ -30,7 +30,7 @@ namespace Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 /// <param name="RepositoryAlias">Which repository the chapter is in, as its
 /// registry alias.</param>
 /// <param name="ChapterPath">The chapter, repository-relative and forward-slashed
-/// — <c>.domain/devbook/features.md</c>.</param>
+/// — <c>.devbook/domain/devbook/features.md</c>.</param>
 /// <param name="BlockIndex">Which rendered block the remark hangs off.</param>
 /// <param name="Body">What was said. Markdown, and possibly empty while a fresh
 /// remark is still being typed — the desktop does not push an empty one.</param>

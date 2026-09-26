@@ -155,7 +155,7 @@ public enum AgentSessionOrigin
 /// things that happen to agree. What is looked up from Dev PC Management is the
 /// display name and whatever else a registered machine knows — a
 /// <c>Customer/Supplier</c> relationship over the name, not over the identity; see
-/// <c>.domain/sessions/dependencies.md</c>.
+/// <c>.devbook/domain/sessions/dependencies.md</c>.
 /// <para>
 /// Every session discovered locally carries the current machine name, because
 /// neither agent records a hostname in what it writes; a session from another
@@ -189,7 +189,7 @@ public enum AgentSessionOrigin
 /// <para>
 /// Nullable, and never <c>0</c> standing in for absent. The Session Log's invariant
 /// is that the log never fills a gap the agent left
-/// (<c>.domain/sessions/domain.md#session-log</c>), and 0 is a count: it says a
+/// (<c>.devbook/domain/sessions/domain.md#session-log</c>), and 0 is a count: it says a
 /// person opened a session and never spoke in it, which is a claim about what
 /// happened. Null says the agent left nothing to count from — a Copilot session, a
 /// transcript that could not be read — which is the only thing a reader in that
@@ -235,7 +235,7 @@ public sealed record AgentSession(
     /// the session happened to be under — and it is exactly as good as that
     /// registration. Folding it into the recorded field would have every surface
     /// treat the two with one confidence, which is the outcome
-    /// <c>.domain/sessions/domain.md#working-location</c> forbids when it says a
+    /// <c>.devbook/domain/sessions/domain.md#working-location</c> forbids when it says a
     /// guessed repository is indistinguishable from a recorded one.
     /// </para>
     /// <para>
@@ -494,7 +494,7 @@ public static class AgentSessionViews
     /// <para>
     /// Public deliberately, and the only place this product spells the Session Log's
     /// invariant out in code: Running and Stalled both require liveness evidence,
-    /// and with none a session is Finished — see <c>.domain/sessions/domain.md</c>.
+    /// and with none a session is Finished — see <c>.devbook/domain/sessions/domain.md</c>.
     /// A second surface asking "is this one still going" asks here rather than
     /// writing the same two-state test again and drifting from it.
     /// </para>

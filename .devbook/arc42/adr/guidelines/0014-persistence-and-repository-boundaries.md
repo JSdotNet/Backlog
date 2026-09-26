@@ -1,0 +1,79 @@
+# ADR 0014: Persistence and repository boundaries
+
+```meta
+status: active
+related: [".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/09-architecture-decisions.md"]
+issue: null
+```
+
+Inherited from the organization's ADR 0014 (decided 2026-06-04,
+`guide/adrs/0014-persistence-strategy-and-repository-boundaries.md`), imported
+2026-08-27.
+
+## Decision
+
+**Persistence belongs to the module that owns the data.** A module owns its
+schema, its migrations, its repository implementations, and its query access. No
+module reads or writes another module's tables — collaboration goes through
+abstractions.
+
+**ORM code stays in adapter projects.** Domain projects carry no ORM attributes
+or base types; mapping is configured externally in the adapter. Abstractions and
+API projects hold no data access at all.
+
+**Repositories are aggregate-focused write ports.** One per aggregate root where
+practical, the interface next to the code that uses it and the implementation in
+the adapter. They load aggregates for command handling and persist state changes;
+they do not become general-purpose query services.
+
+**Reads may bypass the aggregate.** A query path that enforces no invariant may
+project directly — inside the owning module, for reads only. A query model is
+optimized for retrieval and is not a domain entity.
+
+**Migrations are owned per module**, created in the same change as the model
+change that needs them, named for business intent. Destructive automatic
+migration at startup is prohibited.
+
+## How Backlog applies it
+
+- Local storage is **one SQLite database, canonical** — see local ADR 0003,
+  `.devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md`. A task's content
+  is markdown text inside it.
+- `src/Infrastructure/Backlog.Infrastructure.Sqlite` holds the repository
+  implementations (`SqliteTaskRepository`, `RootedSqliteTaskRepository`; under
+  `Roadmap/` since 2026-09-05 `SqliteRoadmapPlanRepository` and
+  `RootedSqliteRoadmapPlanRepository`; under `Inbox/` since 2026-09-15
+  `SqliteInboxRepository` and `RootedSqliteInboxRepository`) and the
+  persistence-only mapping types (`TaskPayloads`, `EnumMap`,
+  `RoadmapPlanDocument`, `InboxPayloads`).
+- **Three modules persist in that one database, and each owns its own tables.**
+  Tasks owns `tasks`; Roadmap Planning owns `roadmap_plan`; the Inbox owns
+  `inbox_items`, `inbox_lists` and `inbox_groups`. No adapter reads, writes or
+  creates another module's table, and each runs only its own bootstrap DDL —
+  which is what keeps "persistence belongs to the module that owns the data" true
+  of a shared file. It is also the deviation below made literal: the shared
+  adapter project serves the modules that persist locally, rather than each
+  growing a `Data.*` of its own.
+- Repository **ports** stay in the module (`ITaskRepository` at the root of
+  `Backlog.Modules.Tasks`, `IRoadmapPlanRepository` at the root of
+  `Backlog.Modules.Roadmap`, `IInboxItemRepository` and
+  `IInboxOrganizerRepository` at the root of `Backlog.Modules.Inbox`), exactly
+  as the decision requires.
+- Domain models are persistence-agnostic: no ORM attributes anywhere in a module
+  project.
+
+## Deviations and gaps
+
+- **No EF Core.** Persistence is `Microsoft.Data.Sqlite` and hand-written SQL.
+  The decision permits EF Core in an adapter; it does not require it, and a
+  local-first single-file store does not need a full ORM.
+- **Adapters are shared infrastructure projects, not per-module `Data.*`
+  projects.** `Backlog.Infrastructure.Sqlite` serves the modules that persist
+  locally. See the deviation note in
+  [0005](0005-modular-monolith-structure.md).
+- **No schema-per-module and no migration mechanism.** One local database, one
+  schema, created by the adapter. A migration story is owed before the first
+  schema change that has to preserve existing user data — tracked in
+  `.devbook/arc42/11-risks-and-technical-debt.md`.
+- The cloud tier persists only sync-oriented state, never canonical domain data
+  (`.devbook/arc42/08-crosscutting-concepts.md#shared-data-types`).

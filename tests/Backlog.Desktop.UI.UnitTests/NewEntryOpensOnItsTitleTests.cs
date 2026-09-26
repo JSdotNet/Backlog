@@ -7,7 +7,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// What "+ New entry" opens on.
 /// <para>
 /// The title, with the caret in it — and <em>not</em> the raw-markdown escape
-/// hatch. <c>.design/content-editing.md#raw-markdown-escape-hatch</c> puts the
+/// hatch. <c>.devbook/design/content-editing.md#raw-markdown-escape-hatch</c> puts the
 /// canonical markdown behind Ctrl+Shift+M precisely so that it is not "the primary
 /// surface <c>#editing-model</c> rules out", and opening a new entry straight into
 /// it put two writing surfaces on one entry: a mono textarea with the placeholder

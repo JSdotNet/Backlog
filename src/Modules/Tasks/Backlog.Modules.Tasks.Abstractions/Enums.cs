@@ -26,8 +26,8 @@ public enum EntryType
 /// <para>
 /// Import is the one way a <c>plan</c> segment may be acted on; every other
 /// path that turns entry text into a task refuses it. See
-/// <c>.arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md</c>
-/// and <c>.design/content-editing.md#structured-metadata-sigils</c>.
+/// <c>.devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md</c>
+/// and <c>.devbook/design/content-editing.md#structured-metadata-sigils</c>.
 /// </para>
 /// </summary>
 public enum EntryKind
@@ -64,7 +64,7 @@ public enum Priority
 /// — the markdown is canonical, so a preference kept in a sidecar would not
 /// survive the file being shared and the reader who opened the entry from a clone
 /// would get somebody else's default. See
-/// <c>.design/content-editing.md#scheduling-and-dependency-tokens</c>.
+/// <c>.devbook/design/content-editing.md#scheduling-and-dependency-tokens</c>.
 /// </para>
 /// <para>
 /// Two members and no third. "Both at once" was the layout this replaced, and a

@@ -14,7 +14,7 @@ namespace Backlog.Modules.Sync.DomainModels;
 /// machine had pushed came back as the live copy the other machine was still
 /// holding, and an edit made on one machine was reverted to the copy the other
 /// had pulled an hour earlier. The desktop then took the older copy over its own
-/// pushed one, because .arc42/adr/0005 makes the replica authoritative for
+/// pushed one, because .devbook/arc42/adr/0005 makes the replica authoritative for
 /// anything a device has already sent.
 /// </para>
 /// <para>

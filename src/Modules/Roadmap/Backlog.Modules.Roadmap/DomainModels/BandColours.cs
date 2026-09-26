@@ -7,7 +7,7 @@ namespace Backlog.Modules.Roadmap.DomainModels;
 /// <strong>Legacy, read-only.</strong> A repository's identity hue is now a fact about
 /// the repository rather than about one plan, and it is chosen once in Settings so the
 /// roadmap, the filter and the entry list cannot disagree about it — see
-/// <c>.design/color-scheme.md#band-identity-tokens</c>. This type survives so a plan
+/// <c>.devbook/design/color-scheme.md#band-identity-tokens</c>. This type survives so a plan
 /// file written before that still parses and so the choices in it can be carried over;
 /// nothing writes it any more.
 /// </para>

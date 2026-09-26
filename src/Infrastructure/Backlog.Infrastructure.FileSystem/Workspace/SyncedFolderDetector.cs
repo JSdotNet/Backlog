@@ -10,7 +10,7 @@ public sealed record SyncedFolderMatch(string ProviderName, string SyncedFolder)
 /// replicates.
 ///
 /// <para>This is the residual half of R9 in
-/// <c>.arc42/11-risks-and-technical-debt.md</c>. The Storage screen's advice to
+/// <c>.devbook/arc42/11-risks-and-technical-debt.md</c>. The Storage screen's advice to
 /// put the backlog in a synced folder is gone and its copy now says the opposite,
 /// but a root that followed the old advice stays on OneDrive until somebody moves
 /// it, and nothing in the app used to look. Local ADR 0005's

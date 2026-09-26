@@ -5,7 +5,7 @@ namespace Backlog.Modules.Devbook.Abstractions;
 /// it: a repository-relative path and the heading slug beneath it.
 ///
 /// <para>This is the whole point of the retrieval surface rather than a label on
-/// it. <c>.domain/devbook/features.md#devbook-retrieval</c> is explicit —
+/// it. <c>.devbook/domain/devbook/features.md#devbook-retrieval</c> is explicit —
 /// results name the chapter they came from rather than returning loose text,
 /// "because a chapter address is what every other part of this context already
 /// links by". A <c>related</c> field, a <c>depends-on</c> edge, a reference in

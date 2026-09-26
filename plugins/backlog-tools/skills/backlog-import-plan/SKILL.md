@@ -1,6 +1,6 @@
 ---
 name: backlog-import-plan
-description: Turn an agreed specification (a .domain feature, a .backlog item, an ADR, or other planning material) into a Backlog import plan — an ordered, dependency-linked sequence of entries in Backlog's entry-text grammar, ready to paste or upload — together with a review view of it, always.
+description: Turn an agreed specification (a .devbook/domain feature, a .backlog item, an ADR, or other planning material) into a Backlog import plan — an ordered, dependency-linked sequence of entries in Backlog's entry-text grammar, ready to paste or upload — together with a review view of it, always.
 disable-model-invocation: true
 ---
 
@@ -17,7 +17,7 @@ mechanics; do not invent syntax beyond it.
 
 ## Inputs
 
-- **Source material.** Path(s) to the agreed `.domain` feature chapter, `.backlog`
+- **Source material.** Path(s) to the agreed `.devbook/domain` feature chapter, `.backlog`
   Epic/Story, ADR, or — if nothing is written down yet — the planning notes given inline.
 - **Plan subject.** What the batch delivers; derives the shared `+tag`.
 - **Target repositories.** One or more repository names the prompts target. Do not check

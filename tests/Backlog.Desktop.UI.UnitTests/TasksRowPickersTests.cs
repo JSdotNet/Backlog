@@ -192,7 +192,7 @@ public class TasksRowPickersTests
     /// <para>
     /// A plan files its entries under a pile — <c>@repos</c> in the generator's own
     /// grammar sample — and names the repository in <c>repo:</c>, which is what
-    /// <c>.design/content-editing.md#scheduling-and-dependency-tokens</c> says that
+    /// <c>.devbook/design/content-editing.md#scheduling-and-dependency-tokens</c> says that
     /// token is for. The picker resolved the <em>area</em> instead, found no
     /// configured repository called "repos", and reported the entry as targeting
     /// nothing while its stored <c>repo_ids</c> said otherwise.

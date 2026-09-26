@@ -154,7 +154,7 @@ public sealed class TasksBulkEditTests
         Assert.Equal("1 task selected", pane.Find("[data-testid='bulk-bar-count']").TextContent.Trim());
 
         // Partial, so the select-all box is mixed rather than either state —
-        // .design/interaction-guidelines.md#focus-and-selection asks for it by
+        // .devbook/design/interaction-guidelines.md#focus-and-selection asks for it by
         // name.
         Assert.Equal("mixed", pane.Find("[data-testid='bulk-bar-select-all'] input").GetAttribute("aria-checked"));
 
@@ -547,7 +547,7 @@ public sealed class TasksBulkEditTests
     /// <summary>
     /// Five labelled groups rather than one line of fourteen controls.
     /// <para>
-    /// <c>.design/interaction-guidelines.md#action-density-and-overflow</c> sets a
+    /// <c>.devbook/design/interaction-guidelines.md#action-density-and-overflow</c> sets a
     /// visible budget of four on a toolbar and says the budgets are deliberately
     /// smaller than the act set: "a busy surface's resting state is a short row
     /// and a menu". Fourteen unlabelled controls abreast was the rule being
@@ -1173,7 +1173,7 @@ public sealed class TasksBulkEditTests
     }
 
     /// <summary>A failure is a value, never a throw
-    /// (<c>.arc42/adr/guidelines/0004-result-objects-for-expected-failures.md</c>).
+    /// (<c>.devbook/arc42/adr/guidelines/0004-result-objects-for-expected-failures.md</c>).
     /// A row whose text no longer parses to a title is the failure the module
     /// actually reports, and the outcome carries it back per row instead of the
     /// pane learning about it from an exception halfway through a batch.</summary>

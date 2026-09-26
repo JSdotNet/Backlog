@@ -73,7 +73,7 @@ public class AspireAppModelTests
     [Fact]
     public void The_technology_chapter_no_longer_claims_the_apphost_is_opted_out()
     {
-        var chapter = File.ReadAllText(RepositoryRoot.File(".tech", "shared.md"));
+        var chapter = File.ReadAllText(RepositoryRoot.File(".devbook", "tech", "shared.md"));
 
         Assert.DoesNotContain("AspireUseCliBundle=false", chapter, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("AspireUseCliBundle=true", chapter, StringComparison.OrdinalIgnoreCase);

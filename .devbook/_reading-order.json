@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "scope": ".",
+  "directories": {
+    ".": {
+      "root": null,
+      "order": [
+        ".devbook/arc42",
+        ".devbook/domain",
+        ".devbook/tech",
+        ".devbook/design",
+        ".devbook/ai"
+      ]
+    }
+  }
+}

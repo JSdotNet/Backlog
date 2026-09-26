@@ -26,7 +26,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// <para>
 /// The rest is where each block is drawn. A file's record belongs in the header
 /// of the surface reading the file and a chapter's folded into its own heading,
-/// once each — see <c>.design/content-editing.md</c>, "Devbook Metadata
+/// once each — see <c>.devbook/design/content-editing.md</c>, "Devbook Metadata
 /// Blocks". This pane had drawn both twice and neither as the record it is.
 /// </para>
 /// </summary>
@@ -148,7 +148,7 @@ public sealed class DesignDevbookViewTests : IDisposable
         var body = component.WaitForElement("[data-testid='design-chapter-file-body']");
 
         // Two chapters state a status and each gets its own record, folded into
-        // its own heading (.design/content-editing.md, "Chapter level"). Before
+        // its own heading (.devbook/design/content-editing.md, "Chapter level"). Before
         // this the body was an editor and no chapter had one at all.
         component.WaitForAssertion(() => Assert.Equal(2, body.QuerySelectorAll(".devbook-record").Length));
         Assert.Equal(

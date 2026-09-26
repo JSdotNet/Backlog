@@ -1066,7 +1066,7 @@ public static class EntryTextParser
         // is written `## Heading` then its notes on the next line — that is what
         // MoveSubItem rebuilds and what every entry in the store already holds — and
         // inserting a blank line here would be exactly the "gratuitous whitespace
-        // churn" .design/content-editing.md#round-trip-fidelity rules out, on every
+        // churn" .devbook/design/content-editing.md#round-trip-fidelity rules out, on every
         // step of every entry somebody edited the notes of.
         var replacement = body.Length == 0
             ? string.Join('\n', head)
@@ -1597,7 +1597,7 @@ public static class EntryTextParser
     /// <summary>Ticks the entry off on a day, or unticks it by clearing the
     /// token. Writes nothing else: in particular it leaves the status token
     /// alone, because the tick and the lifecycle are two facts
-    /// (<c>.domain/tasks/flow.md#task-lifecycle</c>).</summary>
+    /// (<c>.devbook/domain/tasks/flow.md#task-lifecycle</c>).</summary>
     public static string WithCompletedOn(string raw, DateOnly? completedOn) =>
         RewriteMetaLine(raw, completedOn: completedOn, updateCompletedOn: true);
 
@@ -2011,7 +2011,7 @@ public static class EntryTextParser
             // and a plan entry has none: left to the `?? EntryType.Task`
             // fallback below, rebuilding the line would quietly retype a roadmap
             // item as a task. That is the data loss the canonical-rewrite rule in
-            // .design/content-editing.md exists to prevent, which is why the
+            // .devbook/design/content-editing.md exists to prevent, which is why the
             // token, the DTO and this line all changed together.
             parsed.Kind == EntryKind.Plan ? PlanTypeToken : TypeToken(parsed.Type ?? EntryType.Task),
             "*" + PriorityToken(parsed.Priority ?? Priority.Medium),

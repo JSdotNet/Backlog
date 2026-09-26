@@ -46,7 +46,7 @@ public static class SyncTelemetry
     /// <summary>
     /// Cursors refused, by reason. Without it a cross-owner replay answers 403
     /// into the dark: the response goes to whoever sent it and nothing is left
-    /// behind on this side. .arc42/adr/0005 asks for that attempt to be visible,
+    /// behind on this side. .devbook/arc42/adr/0005 asks for that attempt to be visible,
     /// and one counter with a low-cardinality reason tag is the whole of what
     /// that costs.
     /// </summary>

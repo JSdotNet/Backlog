@@ -117,7 +117,7 @@ public class BrandAssetTests
                 Assert.True(
                     unsanctioned.Count == 0,
                     $"{head}/{asset} paints {string.Join(", ", unsanctioned)}, which "
-                    + ".design/color-scheme.md does not declare. The icon is the product's most-seen "
+                    + ".devbook/design/color-scheme.md does not declare. The icon is the product's most-seen "
                     + "surface and cannot be the one place a colour enters the brand without being "
                     + "written down.");
             }

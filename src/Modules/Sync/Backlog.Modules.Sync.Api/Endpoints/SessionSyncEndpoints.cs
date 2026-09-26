@@ -14,7 +14,7 @@ namespace Backlog.Modules.Sync.Api.Endpoints;
 /// <para>
 /// One route for both, because they are two halves of one exchange over one
 /// collection. Neither takes an owner and neither takes a machine — both come
-/// from the token and from nowhere else (.arc42/adr/0005 §Identity) — and neither
+/// from the token and from nowhere else (.devbook/arc42/adr/0005 §Identity) — and neither
 /// interprets a record: what goes in comes back out unread.
 /// </para>
 /// <para>
@@ -128,7 +128,7 @@ internal static class SessionSyncEndpoints
     /// </para>
     /// <para>
     /// Three kinds of check, and they fail differently. An empty session id or
-    /// agent kind is a record with no identity — .domain/sessions/naming.md#session-identity
+    /// agent kind is a record with no identity — .devbook/domain/sessions/domain.md#session-identity
     /// needs both halves, so a record missing either could not be addressed and
     /// would collide with every other record missing the same one. A field longer
     /// than its bound is the second kind: nothing a device of ours sends, and the

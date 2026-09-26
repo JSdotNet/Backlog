@@ -166,7 +166,7 @@ public sealed class AiDevbookViewTests : IDisposable
     }
 
     /// <summary>The root: a file-level block and no per-chapter ones, as
-    /// <c>devbook-ai.md</c> has it — the same rule as <c>.domain/context-map.md</c>.</summary>
+    /// <c>devbook-ai.md</c> has it — the same rule as <c>.devbook/domain/context-map.md</c>.</summary>
     private const string AdoptionMap = """
         # AI adoption map
         ```meta

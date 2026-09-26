@@ -8,7 +8,7 @@ namespace Backlog.Modules.Sync.DomainModels;
 /// The service is what keeps a device inside its owner's data. Storage is not:
 /// the service reaches its store under one identity that can see everything, so
 /// the boundary is this value being threaded through every read and write, and
-/// nothing underneath re-checks it (.arc42/adr/0005 §Identity).
+/// nothing underneath re-checks it (.devbook/arc42/adr/0005 §Identity).
 /// </para>
 /// </summary>
 public readonly record struct OwnerScope(OwnerId OwnerId, DeviceId DeviceId);

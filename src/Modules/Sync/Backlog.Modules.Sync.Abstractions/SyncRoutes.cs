@@ -46,7 +46,7 @@ public static class SyncRoutes
     /// records, GET pulls the owner's session feed from a cursor. Bearer, and
     /// one route for both halves because they are the two directions of one
     /// exchange over one collection — the same shape as <see cref="Tasks"/>,
-    /// over the second container .arc42/adr/0005 §Storage declares.</summary>
+    /// over the second container .devbook/arc42/adr/0005 §Storage declares.</summary>
     public const string Sessions = "/sessions";
 
     /// <summary>The annotation replica: POST pushes a batch of this device's

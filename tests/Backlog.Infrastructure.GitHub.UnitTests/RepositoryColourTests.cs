@@ -7,7 +7,7 @@ namespace Backlog.Infrastructure.GitHub.UnitTests;
 /// <para>
 /// Asserted here rather than on any one screen because the whole point of moving the
 /// choice out of the roadmap plan is that there is one answer — see
-/// <c>.design/color-scheme.md#band-identity-tokens</c>. A test per surface would be
+/// <c>.devbook/design/color-scheme.md#band-identity-tokens</c>. A test per surface would be
 /// four tests of four answers.
 /// </para>
 /// </summary>
@@ -324,7 +324,7 @@ public class RepositoryColourTests : IDisposable
     /// unchosen hue from list position, so the answer already depends on the
     /// shared ordered list. A per-install hue would mean the same repository
     /// wearing two colours, which is the several-answers-to-one-question that
-    /// <c>.design/color-scheme.md#band-identity-tokens</c> exists to forbid.
+    /// <c>.devbook/design/color-scheme.md#band-identity-tokens</c> exists to forbid.
     /// </para>
     /// </summary>
     [Fact]

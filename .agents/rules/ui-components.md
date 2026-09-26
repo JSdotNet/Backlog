@@ -11,7 +11,7 @@ paths:
 
 `src/Core/Backlog.UI.Components` is the product's own component library. It is a
 deliberate choice over a third-party suite
-(`.design/component-libraries.md#materialization`), and the price of that choice
+(`.devbook/design/component-libraries.md#materialization`), and the price of that choice
 is that accessibility semantics, keyboard support, and focus handling are the
 product's own work rather than something inherited. That price is paid once, in
 the library. A hand-rolled copy in a screen does not pay it at all.
@@ -119,7 +119,7 @@ this class name collide with the library", nor "will the test catch me", but
 The storybook (`src/Harness/Backlog.UI.Storybook`, or the `ui-storybook` Aspire
 resource) renders every component with no application behind it. It is where a
 component's behaviour is checked and where a new hook is demonstrated. See
-`.design/README.md#living-reference-the-ui-storybook`.
+`.devbook/design/README.md#living-reference-the-ui-storybook`.
 
 `UiLibraryBoundaryTests` keeps that possible by proving the library references no
 module, adapter, or application — a component that reads state instead of taking

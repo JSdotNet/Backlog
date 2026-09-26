@@ -42,7 +42,7 @@ public sealed class ReplicatedAgentSessionSourceTests
 
     /// <summary>
     /// The environment is keyed on the id the service stamped and labelled with the
-    /// name the record carried. <c>.domain/sessions/naming.md#environment</c> keys an
+    /// name the record carried. <c>.devbook/domain/sessions/domain.md#environment</c> keys an
     /// environment on its id and not on the name it displays, because a name can be
     /// shared by two machines and changed on one.
     /// </summary>
@@ -80,7 +80,7 @@ public sealed class ReplicatedAgentSessionSourceTests
     /// A state on the wire would freeze the sending machine's reading of its own
     /// clock and go on asserting "Running" for a session that ended before the last
     /// sync — which is exactly the assertion
-    /// <c>.domain/sessions/domain.md</c> forbids.
+    /// <c>.devbook/domain/sessions/domain.md</c> forbids.
     /// </summary>
     [Fact]
     public async Task State_is_derived_from_the_timestamp_and_goes_stale_on_its_own()

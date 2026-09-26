@@ -8,7 +8,7 @@ namespace Backlog.Modules.Sync.DomainModels;
 /// The owner is part of the value for the reason <see cref="TaskReplicaCursor"/>
 /// documents: a store continuation embeds the feed range it was minted for, so
 /// an unverified one handed to the replica would read whichever partition it
-/// came from and the store would not object (.arc42/adr/0005 §Identity). Its
+/// came from and the store would not object (.devbook/arc42/adr/0005 §Identity). Its
 /// own type rather than a reuse of the task cursor so a continuation for one
 /// feed cannot be handed to the other's replica by a caller who reached for the
 /// wrong local variable — see <see cref="SyncCursor"/>.

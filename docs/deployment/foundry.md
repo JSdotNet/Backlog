@@ -92,7 +92,7 @@ Microsoft's MAI models are **not** an option for speech. The deployable Microsof
 Speech in Foundry is OpenAI-format today: `gpt-4o-transcribe`, `gpt-4o-transcribe-diarize`,
 `gpt-4o-mini-transcribe`, `whisper`, `tts`, `tts-hd`, and the `gpt-audio`/`gpt-realtime` families.
 
-Note that `.domain/capture/features.md` specifies speech-to-text capture as *on-device*
+Note that `.devbook/domain/capture/features.md` specifies speech-to-text capture as *on-device*
 transcription. `gpt-4o-transcribe` is a cloud fallback, not a replacement for that design.
 
 Token budgets are captured as deployment tags and documentation. They are not sent as unsupported Azure deployment runtime parameters.

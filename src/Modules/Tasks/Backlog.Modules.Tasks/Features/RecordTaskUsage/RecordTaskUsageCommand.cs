@@ -5,7 +5,7 @@ namespace Backlog.Modules.Tasks.Features.RecordTaskUsage;
 /// <summary>
 /// Notes that an entry was actually used for something — copied into a prompt,
 /// handed to an agent. This is what makes the Productivity context's
-/// <c>AIWorkLogged</c> signal possible (see <c>.domain/context-map.md</c>), so it
+/// <c>AIWorkLogged</c> signal possible (see <c>.devbook/domain/context-map.md</c>), so it
 /// is recorded on the entry rather than left in a log nobody reads.
 /// </summary>
 public sealed record RecordTaskUsageCommand(Guid Id, string Action);

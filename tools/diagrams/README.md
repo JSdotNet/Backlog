@@ -9,7 +9,7 @@ This folder adds a second way to look at one of them. [Archify][archify]
 re-authors a diagram as a specification and renders a self-contained HTML
 document from it, and the desktop app shows that document in place of the drawn
 mermaid where one exists and matches. It is a visualization layer over the same
-canonical fence, not a replacement for it — `.design/component-libraries.md` is
+canonical fence, not a replacement for it — `.devbook/design/component-libraries.md` is
 unchanged, and mermaid is still what renders a knowledge diagram.
 
 The feature is behind the `archify-diagrams` flag on the settings screen, off by
@@ -18,7 +18,7 @@ default.
 [archify]: https://github.com/tt-a1i/archify
 
 > **Not the only diagram arrangement here.** `C4.md` beside this file describes a
-> C4 model kept under `.arc42/_c4/` as Structurizr DSL, authored in c4hero and
+> C4 model kept under `.devbook/arc42/_c4/` as Structurizr DSL, authored in c4hero and
 > drawn from the DSL at read time. The two are easy to confuse and are different
 > kinds of thing: an Archify artifact re-authors one fence and must be matched back
 > to it by hash, while a C4 workspace is attached to no fence, has no committed
@@ -27,8 +27,8 @@ default.
 ## Where things live
 
 ```
-.domain/tasks/flow.md              the chapter, with its mermaid fences
-.domain/tasks/_archify/
+.devbook/domain/tasks/flow.md              the chapter, with its mermaid fences
+.devbook/domain/tasks/_archify/
     index.json                       sha256(fence) -> which artifact is whose
     flow.1.workflow.json             the specification, authored by hand
     flow.1.workflow.html             the artifact, rendered from it
@@ -97,10 +97,10 @@ different offer under the diagram — or none:
 
 ```powershell
 # What to write for one diagram, and where. Prints the fence; writes no stub.
-node tools/diagrams/archify-artifacts.mjs scaffold .domain/tasks/flow.md 1
+node tools/diagrams/archify-artifacts.mjs scaffold .devbook/domain/tasks/flow.md 1
 
 # Render one specification, or everything unrendered and stale.
-node tools/diagrams/archify-artifacts.mjs render .domain/tasks/_archify/flow.1.workflow.json
+node tools/diagrams/archify-artifacts.mjs render .devbook/domain/tasks/_archify/flow.1.workflow.json
 node tools/diagrams/archify-artifacts.mjs render --all
 
 # Exits non-zero if anything is stale or unrendered.
@@ -151,7 +151,7 @@ not — which is exactly what sent the first investigation down the wrong path.
 Match the diagram's own tag instead:
 
 ```bash
-grep -o '<svg viewBox[^>]*>' .arc42/_archify/06-runtime-view.1.sequence.html
+grep -o '<svg viewBox[^>]*>' .devbook/arc42/_archify/06-runtime-view.1.sequence.html
 ```
 
 Motion stays reader-controlled, and the trace loops. Archify's own default is a
@@ -200,9 +200,9 @@ Three diagrams here render at `standard`, and not for want of trying:
 
 | diagram | why |
 | --- | --- |
-| `.domain/context-map.md` #1 | the relationship graph is non-planar — a K3,3 subdivision drawn straight from the fence |
-| `.arc42/05-building-block-view.md` #3 | contains a complete K3,3: `{UI Layer, Local Storage, JSON Indexes}` × `{Inbox Service, Backlog Service, Devbook Service}` |
-| `.arc42/05-building-block-view.md` #2 | no proof of impossibility — three residual crossings nobody has managed to remove. See the note below; this one is different from the other two. |
+| `.devbook/domain/context-map.md` #1 | the relationship graph is non-planar — a K3,3 subdivision drawn straight from the fence |
+| `.devbook/arc42/05-building-block-view.md` #3 | contains a complete K3,3: `{UI Layer, Local Storage, JSON Indexes}` × `{Inbox Service, Backlog Service, Devbook Service}` |
+| `.devbook/arc42/05-building-block-view.md` #2 | no proof of impossibility — three residual crossings nobody has managed to remove. See the note below; this one is different from the other two. |
 
 `showcase` raises `composition/proper-crossing` as an error for any crossing
 between two relationships that share no endpoint. In a non-planar graph at least
@@ -215,8 +215,8 @@ So they render at `standard`, and say so. A specification opts out by naming the
 profile in its filename:
 
 ```
-.domain/_archify/context-map.1.architecture.standard.json
-.domain/_archify/context-map.1.architecture.standard.html
+.devbook/domain/_archify/context-map.1.architecture.standard.json
+.devbook/domain/_archify/context-map.1.architecture.standard.html
 ```
 
 `showcase` is the default and is never written into a name, so there is exactly
@@ -229,10 +229,10 @@ way to name a type.
 kind. Two of them rest on a proof and one does not, and that difference is worth
 keeping visible rather than blurring the three together:
 
-- `.domain/context-map.md` #1 and `.arc42/05-building-block-view.md` #3 are
+- `.devbook/domain/context-map.md` #1 and `.devbook/arc42/05-building-block-view.md` #3 are
   **provably non-planar**. A crossing is forced in every possible drawing. No
   amount of further effort changes that.
-- `.arc42/05-building-block-view.md` #2 is **not known to be impossible** — it
+- `.devbook/arc42/05-building-block-view.md` #2 is **not known to be impossible** — it
   has no K3,3, and the agent that got closest judged the remaining three
   crossings "unfound, not impossible". It renders at `standard` because two
   attempts across very large budgets could not close it, and because a complete

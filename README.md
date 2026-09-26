@@ -69,8 +69,8 @@ Access channels:
 - IDE extensions (VS Code, Visual Studio)
 - Phone app
 
-See [`.domain/context-map.md`](.domain/context-map.md) for functional boundaries and
-[`.arc42/`](.arc42/) for technical design.
+See [`.devbook/domain/context-map.md`](.devbook/domain/context-map.md) for functional boundaries and
+[`.devbook/arc42/`](.devbook/arc42/) for technical design.
 
 ## Solution structure
 
@@ -89,7 +89,7 @@ projects — `src/Modules/Inbox/Backlog.Modules.Inbox.UI` and its siblings — s
 context's screens ship with the context instead of inside the shell.
 
 `Sync` is the one module that is not a bounded context from
-[`.domain/context-map.md`](.domain/context-map.md). It owns no domain — it
+[`.devbook/domain/context-map.md`](.devbook/domain/context-map.md). It owns no domain — it
 coordinates transient state between devices for the Capture and Inbox flow, and
 holds it only until the desktop picks it up. If it ever grows rules of its own, it
 needs an entry in the context map before it grows projects.
@@ -121,8 +121,8 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `src/Modules/Dashboard/Backlog.Modules.Dashboard` | Dashboard module — the derivations behind the dashboard: productivity scoring, weekly bucketing, churn rates, month-to-date spend, and the session cache in front of the providers |
 | `src/Modules/Dashboard/Backlog.Modules.Dashboard.Abstractions` | The Dashboard module's published surface — the scope, the insight DTOs, `IProductivityInsights` and `ICostInsights`, and the four ports its adapters answer |
 | `src/Modules/Dashboard/Backlog.Modules.Dashboard.UI` | The Dashboard's face — the full-screen surface, its seven independent parts, and the adapters over GitHub and Anthropic |
-| `src/Infrastructure/Backlog.Infrastructure.Sqlite` | Cross-cutting adapter — the canonical local store, one SQLite database holding the tasks behind `ITaskRepository` and the roadmap plan behind `IRoadmapPlanRepository` as a single document row. Two tables with an owner each: they share the file, not the schema. See [ADR 0003](.arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md) |
-| `src/Infrastructure/Backlog.Infrastructure.Devbook` | Cross-cutting adapter — the generated devbook database, `_meta/devbook.db` (`.devbook/_meta/devbook.db` in a repository on the devbook layout): the reference graph, reading outline, chapter text, full-text index and Archify rows. Read-only, because the Node writer is the only writer, and every read degrades to the Markdown rather than failing. See [ADR 0004](.arc42/adr/0004-knowledge-index-is-a-generated-local-database.md) |
+| `src/Infrastructure/Backlog.Infrastructure.Sqlite` | Cross-cutting adapter — the canonical local store, one SQLite database holding the tasks behind `ITaskRepository` and the roadmap plan behind `IRoadmapPlanRepository` as a single document row. Two tables with an owner each: they share the file, not the schema. See [ADR 0003](.devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md) |
+| `src/Infrastructure/Backlog.Infrastructure.Devbook` | Cross-cutting adapter — the generated devbook database, `_meta/devbook.db` (`.devbook/_meta/devbook.db` in a repository on the devbook layout): the reference graph, reading outline, chapter text, full-text index and Archify rows. Read-only, because the Node writer is the only writer, and every read degrades to the Markdown rather than failing. See [ADR 0004](.devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md) |
 | `src/Infrastructure/Backlog.Infrastructure.FileSystem` | Cross-cutting adapter — the JSON on local disk: the workspace settings and feature flags behind `ITaskStore`, `IDevbookFolderSource` and `IAppFeatureSettings`, all per-device and deliberately unsynced. Also the roadmap plan's two cross-context joins, which are lookups rather than storage |
 | `src/Infrastructure/Backlog.Infrastructure.Claude` | Cross-cutting adapter — Claude usage and spend from the Anthropic organization APIs |
 | `src/Infrastructure/Backlog.Infrastructure.Copilot` | Cross-cutting adapter — starting the GitHub Copilot CLI from a Backlog workflow |
@@ -137,7 +137,7 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `src/Modules/Sync/Backlog.Modules.Sync.Api` | Sync module's API — thin ASP.NET Core sync service, deployed to Azure |
 | `src/Harness/Backlog.Desktop.WebHarness` | **Test harness, not shipped** — Blazor Server host of `Backlog.Desktop.UI` for Aspire/Playwright |
 | `src/Harness/Backlog.Mobile.WebHarness` | **Test harness, not shipped** — Blazor Server host of `Backlog.Mobile.UI` at phone width |
-| `src/Harness/Backlog.UI.Storybook` | **Test harness, not shipped** — the shared control library rendered on its own, with each page's governing `.design` rule beside it |
+| `src/Harness/Backlog.UI.Storybook` | **Test harness, not shipped** — the shared control library rendered on its own, with each page's governing `.devbook/design` rule beside it |
 | `src/Harness/Backlog.AzureFoundry.TestService` | **Test harness, not shipped** — a stand-in for Azure Foundry so the assistant can be driven without a cloud account |
 | `tests/Backlog.Modules.Tasks.UnitTests` | Unit tests for the Tasks module domain |
 | `tests/Backlog.Modules.Dashboard.UnitTests` | Unit tests for the Dashboard module's derivations — scoring, bucketing, churn rates, spend aggregation, and the cache |
@@ -156,7 +156,7 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 
 The desktop client is several bounded contexts, and each one is its own project
 rather than a folder inside the shell. The split follows
-[`.domain/context-map.md`](.domain/context-map.md) rather than layers:
+[`.devbook/domain/context-map.md`](.devbook/domain/context-map.md) rather than layers:
 
 | Project | Bounded context / role |
 |---|---|
@@ -184,7 +184,7 @@ holding where the backlog lives, which repositories are configured and which
 features are on. Being readable by everyone made it the place two contexts could
 meet without either publishing anything: Devbook read the backlog root and
 Tasks read the knowledge-folder resolver, which is not the
-Partnership `.domain/context-map.md` describes. Those four types are now module
+Partnership `.devbook/domain/context-map.md` describes. Those four types are now module
 ports — `ITaskStore` in Tasks's Abstractions,
 `IDevbookFolderSource` in Devbook's, `IAppFeatureSettings` in the shared
 kernel — with the adapters that answer them in
@@ -198,7 +198,7 @@ is what keeps it that way.
 The client is a client: it dispatches use cases and holds DTOs. Deciding what a
 task is belongs to `Backlog.Modules.Tasks`, which the UI reaches only
 through its Abstractions project — see
-[ADR 0002](.arc42/adr/0002-backlog-module-owns-the-entry-text-language.md).
+[ADR 0002](.devbook/arc42/adr/0002-backlog-module-owns-the-entry-text-language.md).
 Anything the contexts genuinely share — the status, priority and repository
 selectors, the GitHub connection — lives in the shared component library, in the
 shared kernel, or in a cross-cutting adapter, never in whichever context happened
@@ -393,4 +393,4 @@ automatically, so they do not need to be on `PATH`.
 ## Language and conventions
 
 Term definitions and naming conventions are in each context's `naming.md` under
-[`.domain/`](.domain/), indexed by [`.domain/context-map.md`](.domain/context-map.md).
+[`.devbook/domain/`](.devbook/domain/), indexed by [`.devbook/domain/context-map.md`](.devbook/domain/context-map.md).

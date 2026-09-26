@@ -117,10 +117,10 @@ public sealed class DevbookReadingOrderTests : IDisposable
     [Fact]
     public void The_committed_domain_file_orders_a_bounded_context()
     {
-        var order = DevbookReadingOrder.Read(Backlog.Tests.RepositoryRoot.Directory(".domain"));
+        var order = DevbookReadingOrder.Read(Backlog.Tests.RepositoryRoot.Directory(".devbook", "domain"));
 
         Assert.Equal(
-            ["domain.md", "features.md", "model.md", "flow.md", "dependencies.md", "naming.md"],
+            ["domain.md", "context.md", "features.md", "model.md", "flow.md", "dependencies.md"],
             order.ForDirectory("inbox"));
     }
 
@@ -139,7 +139,7 @@ public sealed class DevbookReadingOrderTests : IDisposable
     [Fact]
     public void The_committed_domain_file_orders_every_bounded_context()
     {
-        var domain = Backlog.Tests.RepositoryRoot.Directory(".domain");
+        var domain = Backlog.Tests.RepositoryRoot.Directory(".devbook", "domain");
         var order = DevbookReadingOrder.Read(domain);
 
         string[] canonical = ["domain.md", "context.md", "features.md", "model.md", "flow.md", "dependencies.md", "naming.md"];
@@ -277,35 +277,20 @@ public sealed class DevbookReadingOrderTests : IDisposable
         // The one case pointed at the real corpus rather than a fixture: the
         // panes read the files that are actually committed, and a migration that
         // produced a file this reader cannot read would pass every case above.
-        var repoRoot = RepositoryRoot();
-        if (repoRoot is null) return; // packaged test run, no repository beside it
-
+        // Resolved through the shared locator, which throws rather than returning
+        // nothing: this case used to skip itself when its own walk found no
+        // root-level folders, so the move to `.devbook/` would have turned it into
+        // a silent pass — or, inside a worktree, into a read of the parent checkout.
         Assert.Equal(
             "technology-graph.md",
-            DevbookReadingOrder.ForFolder(Path.Combine(repoRoot, ".tech")).FirstOrDefault());
+            DevbookReadingOrder.ForFolder(Backlog.Tests.RepositoryRoot.Directory(".devbook", "tech")).FirstOrDefault());
         Assert.Equal(
             "README.md",
-            DevbookReadingOrder.ForFolder(Path.Combine(repoRoot, ".design")).FirstOrDefault());
+            DevbookReadingOrder.ForFolder(Backlog.Tests.RepositoryRoot.Directory(".devbook", "design")).FirstOrDefault());
 
-        var domain = DevbookReadingOrder.ForFolder(Path.Combine(repoRoot, ".domain"));
+        var domain = DevbookReadingOrder.ForFolder(Backlog.Tests.RepositoryRoot.Directory(".devbook", "domain"));
         Assert.Equal("context-map.md", domain.FirstOrDefault());
         Assert.Contains("inbox", domain);
-    }
-
-    /// <summary>The repository root, found by walking up from the test binary
-    /// until a folder holding both <c>.domain</c> and <c>.tech</c> appears.</summary>
-    private static string? RepositoryRoot()
-    {
-        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
-        {
-            if (Directory.Exists(Path.Combine(dir.FullName, ".domain"))
-                && Directory.Exists(Path.Combine(dir.FullName, ".tech")))
-            {
-                return dir.FullName;
-            }
-        }
-
-        return null;
     }
 
     /// <summary>A knowledge folder in a throwaway directory, holding

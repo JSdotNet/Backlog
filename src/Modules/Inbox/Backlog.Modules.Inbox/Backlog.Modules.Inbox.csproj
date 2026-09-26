@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    Inbox module — the Inbox bounded context (.domain/inbox).
+    Inbox module — the Inbox bounded context (.devbook/domain/inbox).
     Clean architecture, inside out, the same shape as Backlog.Modules.Tasks:
       DomainModels/  the item aggregate, the two organiser roots, value objects
       Features/      one vertical slice per use case (command/query + handler)

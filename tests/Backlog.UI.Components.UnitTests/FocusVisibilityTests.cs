@@ -5,7 +5,7 @@ namespace Backlog.UI.Components.UnitTests;
 /// <summary>
 /// Where the keyboard is, on the controls that had stopped saying.
 ///
-/// <para><c>.design/accessibility.md#focus-visibility</c> is unconditional:
+/// <para><c>.devbook/design/accessibility.md#focus-visibility</c> is unconditional:
 /// keyboard focus MUST always be visible, and <c>outline: none</c> is permitted
 /// only where something compliant replaces it — an outline in
 /// <c>--color-border-focus</c> at <c>--border-width-2</c> offset 2 px, drawn with
@@ -65,7 +65,7 @@ public sealed class FocusVisibilityTests
         Assert.True(
             offenders.Length == 0,
             "outline: none on the rename pencil needs a compliant replacement, and a colour change is not "
-            + "one — .design/accessibility.md#focus-visibility. Rules found:\n"
+            + "one — .devbook/design/accessibility.md#focus-visibility. Rules found:\n"
             + string.Join("\n\n", offenders));
     }
 
@@ -140,7 +140,7 @@ public sealed class FocusVisibilityTests
             unexplained.Length == 0,
             "outline: none needs a compliant replacement, and a rule that keeps one has to say above itself "
             + $"which — a comment starting \"{Exemption}\". See "
-            + ".design/accessibility.md#focus-visibility. Unexplained:\n"
+            + ".devbook/design/accessibility.md#focus-visibility. Unexplained:\n"
             + string.Join("\n", unexplained));
     }
 

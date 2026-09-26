@@ -5,7 +5,7 @@ namespace Backlog.Modules.Roadmap.Abstractions;
 /// <para>
 /// This used to sit in the UI project, with a comment saying it would move here
 /// when a domain module arrived and something below the shell wanted to gate on
-/// it. The module has arrived (<c>.domain/roadmap</c>), so the key moved with it:
+/// it. The module has arrived (<c>.devbook/domain/roadmap</c>), so the key moved with it:
 /// it names a capability of this bounded context rather than a control in one
 /// shell, and both the band and anything else that later asks "is the roadmap
 /// switched on" can read it without referencing a Razor project.

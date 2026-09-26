@@ -6,7 +6,7 @@ namespace Backlog.Infrastructure.GitHub;
 /// One algorithm, in one place, because four surfaces read the answer — the header
 /// filter, the roadmap band, an entry row and an agent session row — and the same
 /// project has to be the same colour on all of them.
-/// <c>.design/color-scheme.md#band-identity-tokens</c> says so in as many words: a
+/// <c>.devbook/design/color-scheme.md#band-identity-tokens</c> says so in as many words: a
 /// surface that worked its own hue out would be a second identity for the same thing.
 /// </para>
 /// <para>

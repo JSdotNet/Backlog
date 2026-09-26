@@ -163,13 +163,13 @@ public class DevbookMetadataGateTests
     [Fact]
     public void The_generator_chapter_names_both_hard_failures()
     {
-        var chapter = File.ReadAllText(RepositoryRoot.File(".tech", "tooling.md"));
+        var chapter = File.ReadAllText(RepositoryRoot.File(".devbook", "tech", "tooling.md"));
 
         foreach (var mention in new[] { "tools/devbook/check-metadata.mjs", "devbook-metadata.yml" })
         {
             Assert.True(
                 chapter.Contains(mention, StringComparison.Ordinal),
-                $".tech/tooling.md does not mention {mention}. The knowledge-meta Generator chapter is "
+                $".devbook/tech/tooling.md does not mention {mention}. The knowledge-meta Generator chapter is "
                 + "where the repository says what CI enforces, and a reader who trusts it would still "
                 + "believe metadata values go unchecked.");
         }

@@ -32,7 +32,7 @@
     than for a namespace-mangled resource id.
   -->
   <ItemGroup>
-    <EmbeddedResource Include="..\..\..\.design\*.md" LogicalName="design/%(Filename)%(Extension)" />
+    <EmbeddedResource Include="..\..\..\.devbook\design\*.md" LogicalName="design/%(Filename)%(Extension)" />
   </ItemGroup>
 
   <!--

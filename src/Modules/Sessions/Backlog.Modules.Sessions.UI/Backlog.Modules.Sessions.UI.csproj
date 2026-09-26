@@ -3,7 +3,7 @@
   <!--
     The Sessions context's UI: the full-screen list of the Claude and Copilot
     sessions an environment has a record of, and the readers that answer this
-    module's port (see .domain/context-map.md and .domain/agent-sessions/).
+    module's port (see .devbook/domain/context-map.md and .domain/agent-sessions/).
 
     It references the shared control library rather than growing its own controls,
     which is the rule every module UI project follows, and its own module's

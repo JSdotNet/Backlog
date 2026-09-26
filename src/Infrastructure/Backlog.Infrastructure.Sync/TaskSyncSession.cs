@@ -313,7 +313,7 @@ public sealed class TaskSyncSession
     /// carried no cursor is saying something starting over cannot fix.
     /// <see cref="SyncErrorCodes.SyncCursorNotYours"/> is deliberately not on the
     /// list — a correctly-signed cursor for another owner's feed is the one event
-    /// .arc42/adr/0005 section Consequences asks to be loud about, and quietly
+    /// .devbook/arc42/adr/0005 section Consequences asks to be loud about, and quietly
     /// starting over is exactly the quiet.
     /// </para>
     /// </summary>

@@ -17,7 +17,7 @@
     The detail pane is where every control over one entry now lives: its title
     row, its body, the five scheduling and dependency rows, the selectors, and —
     behind Ctrl+Shift+M — the canonical markdown itself. That last one
-    is the escape hatch `.design/content-editing.md#raw-markdown-escape-hatch`
+    is the escape hatch `.devbook/design/content-editing.md#raw-markdown-escape-hatch`
     asks for, and it is deliberately no longer the primary mode: `#editing-model`
     says edit-in-place, "not a split write-raw/preview as the primary mode", and
     this pane had that inverted.
@@ -286,7 +286,7 @@
 
                    SelectionBar and not a bar of this pane's own. The count, the
                    live region, the way out and the indeterminate select-all are
-                   the four things `.design/interaction-guidelines.md#focus-and-selection`
+                   the four things `.devbook/design/interaction-guidelines.md#focus-and-selection`
                    asks for by name, and they are the same four for every list in
                    the product. *@
                 @if (State.SelectionMode || State.SelectionCount > 0)
@@ -972,7 +972,7 @@
     /// <para>
     /// It began as fourteen unlabelled controls abreast on one line inside the
     /// bar, against the visible budget of four in
-    /// `.design/interaction-guidelines.md#action-density-and-overflow` — which
+    /// `.devbook/design/interaction-guidelines.md#action-density-and-overflow` — which
     /// also says the budgets are deliberately smaller than the act set, because "a
     /// busy surface's resting state is a short row and a menu". Nothing said what
     /// any control was for until you opened it.
@@ -1732,12 +1732,12 @@
     /// in My Day is offered the way out, a finished row the way back. "Remove due
     /// date" is offered disabled rather than hidden when there is nothing to
     /// remove, on the terms
-    /// <c>.design/interaction-guidelines.md#action-density-and-overflow</c> sets: an
+    /// <c>.devbook/design/interaction-guidelines.md#action-density-and-overflow</c> sets: an
     /// item that vanishes reads as a thing the product cannot do.
     /// </para>
     /// <para>
     /// Move up and Move down are the explicit commands
-    /// <c>.design/interaction-guidelines.md#keyboard-accessible-reordering</c> asks
+    /// <c>.devbook/design/interaction-guidelines.md#keyboard-accessible-reordering</c> asks
     /// a context menu to carry. They move along the order on screen — the same
     /// neighbour Alt+Arrow would swap with — so a finished row, folded into
     /// Completed, has nowhere to go and both are disabled.
@@ -2240,7 +2240,7 @@
     /// </para>
     /// <para>
     /// The choice is remembered on the entry, as a <c>view:</c> token on the metadata
-    /// line (<c>.design/content-editing.md#scheduling-and-dependency-tokens</c>). Not
+    /// line (<c>.devbook/design/content-editing.md#scheduling-and-dependency-tokens</c>). Not
     /// because it is a fact about the work — it is a preference about looking at it —
     /// but because the markdown is canonical: a preference kept beside the file would
     /// not survive the file being shared.
@@ -2449,7 +2449,7 @@
 
     // A step used to carry two hand-off buttons of its own here — push this chapter
     // to GitHub as its own issue, and start Copilot CLI. Both are gone, and the
-    // reason is in the model rather than in taste: `.domain/tasks/domain.md` gives
+    // reason is in the model rather than in taste: `.devbook/domain/tasks/domain.md` gives
     // ProjectionRef to the entry and says a Sub-Item "may project to GitHub issue
     // task-list checkboxes", which are checkboxes inside the entry's issue. A step
     // that was its own issue had nowhere to record the link it got back, so it could
@@ -2652,7 +2652,7 @@
     /// <summary>
     /// When the entry is due, when to be reminded of it, whether it comes back,
     /// whether it is in today's My Day, and what it waits on — the five facts
-    /// <c>.domain/tasks/features.md#feature-scheduling-and-recurrence</c>,
+    /// <c>.devbook/domain/tasks/features.md#feature-scheduling-and-recurrence</c>,
     /// <c>#feature-my-day</c> and <c>#feature-entry-dependencies</c> add.
     ///
     /// <para>All five are still written by rewriting the metadata line, so typing

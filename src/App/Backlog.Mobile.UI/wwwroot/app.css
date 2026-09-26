@@ -122,7 +122,7 @@ h1:focus {
     }
 }
 
-/* Dark mode only, per .design/color-scheme.md. */
+/* Dark mode only, per .devbook/design/color-scheme.md. */
 html, body { background-color: var(--color-background); color: var(--color-text-primary); }
 .capture { display: flex; gap: .5rem; margin-bottom: 1rem; }
 .capture input { flex: 1; background: var(--color-background-alt); color: var(--color-text-primary); border: 1px solid var(--color-border); border-radius: .25rem; padding: .5rem; }

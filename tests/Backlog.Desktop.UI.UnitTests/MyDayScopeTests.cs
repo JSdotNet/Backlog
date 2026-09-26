@@ -7,7 +7,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// <summary>
 /// The My Day scope in the filter bar.
 /// <para>
-/// <c>.domain/tasks/features.md#feature-my-day</c> governs, and everything here
+/// <c>.devbook/domain/tasks/features.md#feature-my-day</c> governs, and everything here
 /// follows from its one rule: an entry is in My Day exactly while its stamp is the
 /// reader's current local date. Nothing is stored as a flag and nothing expires it,
 /// so an entry stamped yesterday is not "in yesterday's My Day" — it is simply not

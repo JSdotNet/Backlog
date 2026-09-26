@@ -12,7 +12,7 @@ namespace Backlog.Modules.Sync.Services;
 /// <c>FeedRange</c> except the continuation one, where the range is already
 /// embedded in the token; <c>FeedRange.FromPartitionKey</c> therefore cannot
 /// constrain a resumed feed, and a raw continuation minted for owner A and
-/// replayed by owner B reads A's partition. .arc42/adr/0005 §Identity says
+/// replayed by owner B reads A's partition. .devbook/arc42/adr/0005 §Identity says
 /// storage will not stop that — the service reaches Cosmos under one managed
 /// identity that can see every partition — so the service has to, and this is
 /// where it does.

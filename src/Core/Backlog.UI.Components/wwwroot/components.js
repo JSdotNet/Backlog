@@ -2222,7 +2222,7 @@
     const BACKLOG_ATLAS_GOLDEN = Math.PI * (3 - Math.sqrt(5));
 
     // Every colour is read off the root at render time rather than written here.
-    // The fallbacks are the token values as `.design/color-scheme.md` states them,
+    // The fallbacks are the token values as `.devbook/design/color-scheme.md` states them,
     // and exist only for a context with no stylesheet attached yet.
     const BACKLOG_ATLAS_TOKENS = {
         ready: ['--chart-ramp-1', '#6B5A2B'],
@@ -3022,7 +3022,7 @@
             before first paint from the query string, then from localStorage, then
             from `prefers-color-scheme` - and with the first two unavailable here, a
             reader whose system prefers light would get a light diagram inside an app
-            `.design/design-principles.md` makes dark-only. So the theme is pinned
+            `.devbook/design/design-principles.md` makes dark-only. So the theme is pinned
             from out here, through the same `data-theme` attribute the artifact
             publishes, and re-pinned if anything inside changes it. Nothing in the
             generated file is touched, so a regeneration cannot undo this.
@@ -3230,7 +3230,7 @@
                     behind it. This host pins `data-theme` to dark from outside and
                     re-pins it through a MutationObserver, so pressing it would snap
                     straight back - a switch that visibly refuses is worse than one
-                    that is not offered. `.design/design-principles.md` makes the
+                    that is not offered. `.devbook/design/design-principles.md` makes the
                     product dark-only; a reader who wants the light artifact opens
                     the file.
                 */

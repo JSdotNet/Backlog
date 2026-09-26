@@ -8,14 +8,14 @@ status: draft
 
 ```meta
 status: done
-implements: [.domain/tasks/features.md#roadmap-planning]
-related: [.domain/roadmap/domain.md#roadmap-plan, .domain/roadmap/features.md, .domain/environment/features.md#environment-aware-work-context]
+implements: [.devbook/domain/tasks/features.md#roadmap-planning]
+related: [.devbook/domain/roadmap/domain.md#roadmap-plan, .devbook/domain/roadmap/features.md, .devbook/domain/environment/features.md#environment-aware-work-context]
 ```
 
 **Delivered, but not as written.** This item asked for roadmap planning to be
 documented *inside* Tasks, as a view over selected entries. It is
 documented — as its own bounded context,
-[Roadmap Planning](../.domain/roadmap/domain.md#roadmap-plan) — and the
+[Roadmap Planning](../.devbook/domain/roadmap/domain.md#roadmap-plan) — and the
 feature chapter this item implements is now marked superseded and points there.
 
 As originally stated: a person managing work across projects and repositories
@@ -35,7 +35,7 @@ Management. What is separate is the intent, which never had a home before.
 
 ```meta
 status: done
-implements: [.domain/tasks/features.md#roadmap-planning]
+implements: [.devbook/domain/tasks/features.md#roadmap-planning]
 ```
 
 Recorded as met, with criterion 1 and 2 restated where the model moved:
@@ -43,7 +43,7 @@ Recorded as met, with criterion 1 and 2 restated where the model moved:
 1. ~~Roadmap-ready tasks can be grouped by Now/Next/Later, milestone, or
    custom planning lane.~~ Superseded: planned work is grouped by **repository
    band and planning lane** and read against dates, per
-   [reading the plan by repository](../.domain/roadmap/features.md#reading-the-plan-by-repository).
+   [reading the plan by repository](../.devbook/domain/roadmap/features.md#reading-the-plan-by-repository).
    Now/Next/Later was a horizon, and a horizon is a grouping rather than a plan.
 2. ~~Roadmap progress is derived from the underlying Tasks instead of
    stored independently.~~ Half superseded, and the surviving half matters:
@@ -52,7 +52,7 @@ Recorded as met, with criterion 1 and 2 restated where the model moved:
    stored independently is the plan itself — dates, planning priority,
    dependencies — because none of those exist on an entry.
 3. Met. Environment shortcuts stay
-   [Environment's own feature](../.domain/environment/features.md#environment-aware-work-context);
+   [Environment's own feature](../.devbook/domain/environment/features.md#environment-aware-work-context);
    Roadmap Planning records no dependency on Environment.
 4. Met as stated — this item produced documentation only. The product feature that
    follows it is tracked by its own pull request, not by this chapter.
@@ -63,10 +63,10 @@ Recorded as met, with criterion 1 and 2 restated where the model moved:
 status: done
 ```
 
-Read `.domain/context-map.md` and confirm Roadmap Planning appears as a Core
+Read `.devbook/domain/context-map.md` and confirm Roadmap Planning appears as a Core
 bounded context, that its relationship to Tasks is a `Partnership`
 carrying one optional foreign id, and that the strategic rules state plainly which
 context owns which kind of priority. Then confirm
-`.domain/tasks/features.md#roadmap-planning` and
-`.domain/tasks/naming.md#roadmap` are marked superseded and point at the new
+`.devbook/domain/tasks/features.md#roadmap-planning` and
+`.devbook/domain/tasks/domain.md#roadmap` are marked superseded and point at the new
 context rather than describing a model that no longer holds.

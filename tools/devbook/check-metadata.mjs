@@ -28,16 +28,40 @@ import { readdir, readFile, stat } from 'node:fs/promises';
 import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { validateDocument } from '../../.github/tools/knowledge-meta/metadata.mjs';
+import { validateDocument as validateLegacyDocument } from '../../.github/tools/knowledge-meta/metadata.mjs';
+import { validateDocument as validateDevbookDocument } from '../../.devbook/_tools/devbook-meta/metadata.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
 /** The repository root, two levels up from `tools/devbook/`. */
 export const DEFAULT_ROOT = resolve(HERE, '..', '..');
 
-/** The folders `folderKindForPath` recognises. Only the ones present are scanned,
- *  so adopting a sixth folder is a matter of listing it here and nothing else. */
-export const KNOWLEDGE_FOLDERS = ['.domain', '.arc42', '.backlog', '.tech', '.design'];
+/** The root-level folders the installed generator's `folderKindForPath`
+ *  recognises: the legacy layout. `.backlog` has no `.devbook/` successor, so it
+ *  is only ever found here. */
+export const LEGACY_FOLDERS = ['.domain', '.arc42', '.backlog', '.tech', '.design'];
+
+/** The folders under `.devbook/`: the current layout. These are validated by the
+ *  devbook checker materialized at `.devbook/_tools/devbook-meta/`, whose schema
+ *  is the one the corpus is written against, so none of the pending-re-sync
+ *  suppressions below apply to them. */
+export const DEVBOOK_FOLDERS = ['.devbook/arc42', '.devbook/domain', '.devbook/tech', '.devbook/design', '.devbook/ai'];
+
+/** Every folder the gate knows. Only the ones present are scanned, so adopting
+ *  another folder is a matter of listing it here and nothing else. */
+export const KNOWLEDGE_FOLDERS = [...DEVBOOK_FOLDERS, ...LEGACY_FOLDERS];
+
+/** Whether a repository-relative path sits in the `.devbook/` layout. */
+function isDevbookPath(relPath) {
+    return relPath.startsWith('.devbook/');
+}
+
+/** The validator that owns `relPath`'s layout. */
+function validateDocument(relPath, markdown) {
+    return isDevbookPath(relPath)
+        ? validateDevbookDocument(relPath, markdown)
+        : validateLegacyDocument(relPath, markdown);
+}
 
 /** Generated output and vendored trees hold no authored `meta` blocks. `_meta`
  *  is JSON rather than Markdown and `_archify` holds specifications and rendered
@@ -112,6 +136,15 @@ const TYPES_ADDED_SINCE_INSTALL =
 /** Whether a finding blocks the build, is worth printing, or is an artifact of
  *  the pending generator re-sync. */
 export function classify(relPath, issue) {
+    // The suppressions all describe the installed generator being older than
+    // the schema. The `.devbook/` checker is current, so a finding it reports
+    // is judged on its severity alone.
+    if (isDevbookPath(relPath)) {
+        if (issue.severity === 'error') return 'blocking';
+        if (issue.severity === 'warning' && UNRECOGNIZED_FIELD.test(issue.message)) return 'blocking';
+        return 'advisory';
+    }
+
     if (relPath.startsWith('.tech/') && STALE_TECH_KIND.test(issue.message)) return 'suppressed';
     if (relPath.startsWith('.domain/') && TYPES_ADDED_SINCE_INSTALL.test(issue.message)) return 'suppressed';
 
@@ -212,7 +245,7 @@ export function formatReport(result) {
     const lines = [`Devbook metadata check — ${result.root}`, ''];
 
     const row = (label, files, blocking, advisory, suppressed) =>
-        `  ${label.padEnd(10)}${String(files).padStart(4)} files  `
+        `  ${label.padEnd(17)}${String(files).padStart(4)} files  `
         + `${String(blocking).padStart(4)} blocking  `
         + `${String(advisory).padStart(4)} advisory  `
         + `${String(suppressed).padStart(4)} pending re-sync`;

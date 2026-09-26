@@ -25,7 +25,7 @@ public sealed record PullTasksQuery(OwnerScope Scope, string? Since, int MaxItem
 /// store continuation carries its own feed range, so handing an unverified one
 /// to the replica would read whichever partition it was minted for — the store
 /// will not object, because the service reaches it under one identity that can
-/// see every partition (.arc42/adr/0005 §Identity).
+/// see every partition (.devbook/arc42/adr/0005 §Identity).
 /// </para>
 /// <para>
 /// A fresh cursor comes back even when the page is empty. The feed's position

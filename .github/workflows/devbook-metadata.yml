@@ -26,27 +26,31 @@ on:
     branches:
       - main
     paths:
-      - '.arc42/**'
-      - '.domain/**'
+      - '.devbook/arc42/**'
+      - '.devbook/domain/**'
+      - '.devbook/tech/**'
+      - '.devbook/design/**'
+      - '.devbook/ai/**'
       - '.backlog/**'
-      - '.tech/**'
-      - '.design/**'
       - '.github/tools/knowledge-meta/**'
+      - '.devbook/_tools/devbook-meta/**'
       - 'tools/devbook/**'
-      - '_reading-order.json'
+      - '.devbook/_reading-order.json'
       - '.github/workflows/devbook-metadata.yml'
   pull_request:
     branches:
       - main
     paths:
-      - '.arc42/**'
-      - '.domain/**'
+      - '.devbook/arc42/**'
+      - '.devbook/domain/**'
+      - '.devbook/tech/**'
+      - '.devbook/design/**'
+      - '.devbook/ai/**'
       - '.backlog/**'
-      - '.tech/**'
-      - '.design/**'
       - '.github/tools/knowledge-meta/**'
+      - '.devbook/_tools/devbook-meta/**'
       - 'tools/devbook/**'
-      - '_reading-order.json'
+      - '.devbook/_reading-order.json'
       - '.github/workflows/devbook-metadata.yml'
   workflow_dispatch:
 

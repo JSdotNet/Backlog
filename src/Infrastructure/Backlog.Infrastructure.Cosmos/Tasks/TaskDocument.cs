@@ -20,7 +20,7 @@ namespace Backlog.Infrastructure.Cosmos.Tasks;
 /// The payload is stored whole and never indexed into. The service reads
 /// <see cref="Id"/>, <see cref="UpdatedAt"/>, <see cref="DeletedAt"/>, and — for
 /// the inbox alone — the payload's title, source and creation time. Nothing else
-/// here is interpreted, which is what keeps .arc42/adr/0005's "no domain logic
+/// here is interpreted, which is what keeps .devbook/arc42/adr/0005's "no domain logic
 /// runs against the replica" true.
 /// </para>
 /// </summary>

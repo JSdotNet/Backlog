@@ -38,7 +38,7 @@ public sealed class IntegrationFreshnessTests
     [Fact]
     public void A_failed_read_stays_a_status_and_never_becomes_an_alert()
     {
-        // .design/design-principles.md#local-first requires offline to be "a
+        // .devbook/design/design-principles.md#local-first requires offline to be "a
         // calm, persistent status — not an error modal", and a read that could
         // not reach GitHub is the same class of thing.
         using var context = new BunitContext();

@@ -8,14 +8,14 @@
     'use strict';
 
     // The surface each token is used against and the bar it has to clear there,
-    // taken from .design/color-scheme.md#contrast-rules rather than from plain
+    // taken from .devbook/design/color-scheme.md#contrast-rules rather than from plain
     // WCAG: that file sets AAA (7:1) for primary body text, 4.5:1 for supporting
     // text, 3:1 for focus rings and control boundaries, and explicitly exempts
     // --color-text-disabled, which signals unavailability on purpose.
     //
     // These are the twenty-two colour tokens that file defines, which is also
     // exactly what components.css declares — the code theme in
-    // .design/color-scheme.md#syntax-highlighting-tokens is the only other colour
+    // .devbook/design/color-scheme.md#syntax-highlighting-tokens is the only other colour
     // in the stylesheet, and it is scored where it is used, on a code block.
     // "Exactly" is now a test rather than a claim: StorybookCoverageTests reads
     // this array back and fails if it and components.css disagree either way,

@@ -32,7 +32,7 @@ namespace Backlog.Modules.Sessions.UI.Adapters;
 /// (<see cref="AgentSessionCatalog.Capped"/>) and a folder that could not be read
 /// is still named. Taking the maximum of the discovered counts, or reporting only
 /// the sources that answered, would each turn a partial list into what reads as a
-/// complete one — and <c>.domain/sessions/features.md</c> makes saying how much was
+/// complete one — and <c>.devbook/domain/sessions/features.md</c> makes saying how much was
 /// left out the pane's job, which it cannot do from a number that has already been
 /// rounded down.
 /// </para>
@@ -43,7 +43,7 @@ namespace Backlog.Modules.Sessions.UI.Adapters;
 /// while the transcript is there, all three can answer for it, and the local reading
 /// is the fuller one — a live state, the file as it is now. The others are dropped
 /// from the list and from the discovered count, keyed on the agent and the id together
-/// (<c>.domain/sessions/naming.md#session-identity</c>).
+/// (<c>.devbook/domain/sessions/domain.md#session-identity</c>).
 /// </para>
 /// </summary>
 internal sealed class CompositeAgentSessionSource : IAgentSessionSource

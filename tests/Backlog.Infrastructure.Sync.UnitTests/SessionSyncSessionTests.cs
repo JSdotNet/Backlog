@@ -39,7 +39,7 @@ public sealed class SessionSyncSessionTests
 
     /// <summary>
     /// <strong>The one test this whole slice exists to keep passing.</strong>
-    /// .arc42/adr/0005 §Session records permits sixteen fields to leave a machine and
+    /// .devbook/arc42/adr/0005 §Session records permits sixteen fields to leave a machine and
     /// says a whitelist and a filter fail in opposite directions. This asserts over
     /// the bytes that went out, not over the DTO: a test on the record would go on
     /// passing if somebody widened the wire contract, which is exactly the change
@@ -147,7 +147,7 @@ public sealed class SessionSyncSessionTests
 
     /// <summary>
     /// A record from another environment is not this machine's to publish.
-    /// .arc42/adr/0005 §Session records makes session records single-writer, and
+    /// .devbook/arc42/adr/0005 §Session records makes session records single-writer, and
     /// re-publishing another machine's record under this device's token would
     /// attach its work to this box — and, because the watermark would then advance
     /// on a replicated stamp, do it again every cycle for ever.
@@ -170,7 +170,7 @@ public sealed class SessionSyncSessionTests
     // --- The repository alias --------------------------------------------------
 
     /// <summary>Where the machine has an alias for the repository the agent
-    /// recorded, the alias travels — that is the word .arc42/adr/0005 asks
+    /// recorded, the alias travels — that is the word .devbook/arc42/adr/0005 asks
     /// for.</summary>
     [Fact]
     public async Task A_configured_repository_travels_as_its_alias()
@@ -202,7 +202,7 @@ public sealed class SessionSyncSessionTests
 
     /// <summary>
     /// A session the agent recorded no repository for sends null, and nothing is
-    /// derived from the folder it was running in. <c>.domain/sessions/domain.md</c>
+    /// derived from the folder it was running in. <c>.devbook/domain/sessions/domain.md</c>
     /// is explicit that a repository guessed from a path is indistinguishable from
     /// a recorded one and wrong — and the machine receiving it has no way to tell
     /// the two apart, so a guess made here would be believed there.
@@ -280,7 +280,7 @@ public sealed class SessionSyncSessionTests
     /// <summary>
     /// A turn count the agent never recorded must not arrive on the far side as
     /// zero. Zero is a count — it says a person opened a session and never spoke in
-    /// it — and <c>.domain/sessions/domain.md#session-log</c> forbids filling a gap
+    /// it — and <c>.devbook/domain/sessions/domain.md#session-log</c> forbids filling a gap
     /// the agent left.
     /// </summary>
     [Fact]
@@ -493,7 +493,7 @@ public sealed class SessionSyncSessionTests
 
     /// <summary>
     /// Activity is matched on the agent and the id together, never the id alone.
-    /// <c>.domain/sessions/naming.md#session-identity</c> puts a session's identity
+    /// <c>.devbook/domain/sessions/domain.md#session-identity</c> puts a session's identity
     /// at both, because two agents may issue the same string — and a Copilot
     /// session's runs attached to a Claude session of the same id would be one
     /// machine's measure of the wrong session.
@@ -884,7 +884,7 @@ public sealed class SessionSyncSessionTests
 
     /// <summary>
     /// A correctly-signed cursor for another owner's feed is the one event
-    /// .arc42/adr/0005 §Consequences asks to be loud about, so it is not on the
+    /// .devbook/arc42/adr/0005 §Consequences asks to be loud about, so it is not on the
     /// list of things this device quietly starts over from.
     /// </summary>
     [Fact]
