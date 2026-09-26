@@ -54,10 +54,10 @@ public sealed class OpenWorkReportTests
     }
 
     [Theory]
-    [InlineData(new[] { "`task` `effort:3`", "`task` `effort:5`", "`task`" }, "3 open · 8 points · 1 unestimated")]
-    [InlineData(new[] { "`task` `effort:1`" }, "1 open · 1 point")]
-    [InlineData(new[] { "`task` `effort:2`", "`task`", "`task`" }, "3 open · 2 points · 2 unestimated")]
-    [InlineData(new string[0], "0 open · 0 points")]
+    [InlineData(new[] { "`task` `effort:3`", "`task` `effort:5`", "`task`" }, "3 open · 8 pts · 1 unest.")]
+    [InlineData(new[] { "`task` `effort:1`" }, "1 open · 1 pt")]
+    [InlineData(new[] { "`task` `effort:2`", "`task`", "`task`" }, "3 open · 2 pts · 2 unest.")]
+    [InlineData(new string[0], "0 open · 0 pts")]
     public void The_summary_says_the_unestimated_count_only_when_there_is_one(string[] metas, string expected)
     {
         var totals = OpenWorkTotals.Of([.. metas.Select(meta => Row(meta))]);

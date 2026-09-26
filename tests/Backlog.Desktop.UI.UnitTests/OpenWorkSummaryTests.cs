@@ -41,14 +41,14 @@ public sealed class OpenWorkSummaryTests
         var button = pane.Find(Summary);
 
         Assert.Equal("BUTTON", button.TagName);
-        Assert.Equal("3 open · 5 points · 1 unestimated", button.TextContent.Trim());
+        Assert.Equal("3 open · 5 pts · 1 unest.", button.TextContent.Trim());
         Assert.NotNull(button.Closest(".filter-bar .filter-group--summary"));
 
         // Three parts, so a narrow column can drop the tail and then the noun and
         // still show the number.
         Assert.Equal("3", button.QuerySelector(".open-work-summary__number")!.TextContent);
         Assert.Equal(" open", button.QuerySelector(".open-work-summary__noun")!.TextContent);
-        Assert.Equal(" · 5 points · 1 unestimated", button.QuerySelector(".open-work-summary__detail")!.TextContent);
+        Assert.Equal(" · 5 pts · 1 unest.", button.QuerySelector(".open-work-summary__detail")!.TextContent);
 
         // The shorthand spelled out for whoever cannot see the layout.
         Assert.Equal("3 open tasks in scope, 5 points estimated, 1 not estimated. Open the report.", button.GetAttribute("aria-label"));
@@ -64,7 +64,7 @@ public sealed class OpenWorkSummaryTests
         host.State.SetRepositoryFilter("docs");
         pane.Render();
 
-        Assert.Equal("1 open · 2 points", pane.Find(Summary).TextContent.Trim());
+        Assert.Equal("1 open · 2 pts", pane.Find(Summary).TextContent.Trim());
     }
 
     [Fact]
@@ -73,7 +73,7 @@ public sealed class OpenWorkSummaryTests
         using var host = await SeededAsync();
 
         var pane = host.Render();
-        const string expected = "3 open · 5 points · 1 unestimated";
+        const string expected = "3 open · 5 pts · 1 unest.";
 
         host.State.SetStatusFilter("draft");
         pane.Render();
@@ -219,7 +219,7 @@ public sealed class OpenWorkSummaryTests
         await host.State.SelectAsync(null);
 
         var pane = host.Render();
-        Assert.Equal("0 open · 0 points", pane.Find(Summary).TextContent.Trim());
+        Assert.Equal("0 open · 0 pts", pane.Find(Summary).TextContent.Trim());
 
         await pane.Find(Summary).ClickAsync(new());
 
