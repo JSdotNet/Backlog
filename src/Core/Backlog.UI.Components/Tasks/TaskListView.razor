@@ -475,6 +475,7 @@
                    DirectRename="@DirectRename"
                    OnBodyChanged="OnBodyChanged"
                    Actions="@RowActions"
+                   Badges="@RowBadges"
                    QuickEdit="@QuickEdit"
                    Editing="@(QuickEdit && string.Equals(_editingId, task.Id, StringComparison.Ordinal))"
                    EditingChanged="editing => SetEditing(task.Id, editing)"
@@ -668,6 +669,12 @@
     /// decided it per row would be deciding which tasks are actionable.</summary>
     [Parameter]
     public RenderFragment<TaskRow>? RowActions { get; set; }
+
+    /// <summary>What the host knows about each row that the row has no field for,
+    /// ahead of the link handle. Straight through to every row, like
+    /// <see cref="RowActions"/>.</summary>
+    [Parameter]
+    public RenderFragment<TaskRow>? RowBadges { get; set; }
 
     /// <summary>
     /// Raised when a tag on a row is pressed, carrying the bare tag. Handed

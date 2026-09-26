@@ -4595,11 +4595,18 @@ button.task-panel__check:focus-visible {
 /* The host's own controls, at the end of the row. A fixed track like the copy
    button beside it: whatever the host puts here must not be what gives up room
    when the title is long. */
-.task-item__actions {
+.task-item__actions,
+.task-item__badges {
     display: inline-flex;
     align-items: center;
     gap: var(--spacing-xs);
     flex: 0 0 auto;
+}
+
+/* A host hands every row the same badge slot, and most rows have nothing to put
+   in it. An empty slot would still take a gap on each side. */
+.task-item__badges:empty {
+    display: none;
 }
 
 /* --- Task actions -------------------------------------------------------- */

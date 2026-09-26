@@ -219,6 +219,8 @@ While a row is in flight the list shows the order the drop would produce. The ke
     <Story Name="The host's own controls on a row"
            Description="`RowActions` is a slot at the end of the row, after the copy button, and it is handed the task it is about. Clicks stop at the slot, the same way they stop at the pencil.
 
+`RowBadges` is its companion ahead of the link handle, for what the host knows about a task rather than what a reader sets on it — the desktop pane puts the latest pull request and session there. Every row is handed it; a row with nothing in it draws nothing.
+
 Unset, a row renders exactly the markup it rendered before the slot existed."
            Code="@RowActionCode">
         <div class="sb-menu-wide" data-testid="task-list-row-actions">
@@ -227,7 +229,8 @@ Unset, a row renders exactly the markup it rendered before the slot existed."
                           AllowCopy="false"
                           AriaLabel="Tasks with host actions"
                           TestId="row-actions"
-                          RowActions="@(task => HostActions(task))" />
+                          RowActions="@(task => HostActions(task))"
+                          RowBadges="@(task => HostBadges(task))" />
         </div>
         <p class="sb-state" data-testid="task-list-row-action-state">@(_lastAction ?? "Nothing pressed yet.")</p>
     </Story>
@@ -743,6 +746,16 @@ It exists for the row that was projected from a document the task itself does no
                         TestId="@($"row-actions-{task.Id}-tool")"
                         OnClick='() => Record("Handed over", task)'>gh</IconButton>
         </text>;
+    /// <summary>What a host puts in the row's badge slot: a fact about the task, on
+    /// the first row only, so the story shows both a row with one and a row without.</summary>
+    private RenderFragment HostBadges(TaskRow task) =>
+        @<text>
+            @if (task.Id == Sample[0].Id)
+            {
+                <Badge Kind="metadata" Title="Pull request 655">#655</Badge>
+            }
+        </text>;
+
     private void Record(string what, TaskRow task) => _lastAction = $"{what}: {task.Title}.";
 
     private bool _rowMenuOpen;
@@ -795,7 +808,7 @@ It exists for the row that was projected from a document the task itself does no
         """;
 
     private const string RowActionCode = """
-        <TaskListView Tasks="@tasks" RowActions="@(task => Actions(task))" />
+        <TaskListView Tasks="@tasks" RowActions="@(task => Actions(task))" RowBadges="@(task => Badges(task))" />
 
         @code {
             private RenderFragment Actions(TaskRow task) =>

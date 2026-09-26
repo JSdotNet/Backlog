@@ -278,6 +278,23 @@
         @RenderOpen()
     }
 
+    @if (Badges is not null)
+    {
+        @* What the host knows about this task that the row has no field for — the
+           pull request work on it opened, the session that did it. Facts rather
+           than controls, so they read with the title ahead of the link handle, and
+           the host's Actions — things a reader sets — stay among the controls after
+           it.
+
+           Clicks and presses stop here for the reason they stop at Actions: a badge
+           is usually a link, and following it is not opening the row. *@
+        <span class="task-item__badges"
+              @onmousedown:stopPropagation="true"
+              @onclick:stopPropagation="true">
+            @Badges(Task)
+        </span>
+    }
+
     @if (LinkHandle)
     {
         @* The second handle: press this and move, and the row is being made to
@@ -819,6 +836,15 @@
     /// </summary>
     [Parameter]
     public RenderFragment<TaskRow>? Actions { get; set; }
+
+    /// <summary>
+    /// What the host knows about this task that the row has no field for, handed
+    /// the task it is about — rendered after the title and ahead of the link handle,
+    /// where <see cref="Actions"/> renders after it. Unset, nothing is rendered; set
+    /// but empty for a task, the slot collapses in the stylesheet.
+    /// </summary>
+    [Parameter]
+    public RenderFragment<TaskRow>? Badges { get; set; }
 
     /// <summary>What the disclosure calls the body. "Body" by default, because
     /// this library does not know what a host writes there — a prompt, a brief,
