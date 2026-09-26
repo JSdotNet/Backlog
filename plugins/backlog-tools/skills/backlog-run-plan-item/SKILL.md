@@ -1,6 +1,6 @@
 ---
 name: backlog-run-plan-item
-description: Run one item of a Backlog import plan that the user pasted into the chat. Invoked directly by the line the Backlog app puts on every entry it copies — "/backlog-tools:backlog-run-plan-item entry `<id>`:" with the entry under it — and otherwise whenever a message contains a line beginning "Backlog plan item `", the marker backlog-import-plan writes into every prompt entry, or a plan entry that opens with "Add the plan name `…` to this session's title", even when the paste comes with no request attached. Establishes first whether the item is still outstanding, so pasting the same item twice never redoes finished work.
+description: Run one item of a Backlog import plan that the user pasted into the chat. Invoked directly by the line the Backlog app puts on every entry it copies — "/backlog-tools:backlog-run-plan-item entry `<id>`:" with the entry under it — and otherwise whenever a message contains a line beginning "Backlog plan item `", the marker backlog-import-plan writes into every prompt entry, or a plan entry that opens with "Title this session `…`" (or the older "Add the plan name `…` to this session's title"), even when the paste comes with no request attached. Establishes first whether the item is still outstanding, so pasting the same item twice never redoes finished work.
 ---
 
 # Run a Backlog plan item
@@ -11,8 +11,8 @@ MCP server is in the live tool list, the entry's status is read from it and repo
 to it; when it is not, the pasted text is the whole input and nothing is reported.
 
 Read `../backlog-import-plan/assets/backlog-import-grammar.md`: `## Plan item marker` and
-`## Entry marker` are the two markers' exact shapes, `## Sub-item conventions` what the
-item's `##` headings mean.
+`## Entry marker` are the two markers' exact shapes, `## Step numbers` the numbered title
+and the session-name line, `## Sub-item conventions` what the item's `##` headings mean.
 
 ## Workflow
 
@@ -32,7 +32,10 @@ item's `##` headings mean.
    and never run — its steps are what to paste — and stop. A `task` or `test` type — or a
    body with neither marker nor session-name line — is the user's own work, not a prompt:
    say so and stop.
-2. **Session and place.** Add the plan tag to the session title where the host allows it.
+2. **Session and place.** Title the session `<tag>:<n> - <Title>` where the host allows
+   it — the session-name line's value when it has one, else the tag, a colon and the
+   entry's title as pasted (`<n> - ` included). An older entry with no number in its title
+   gets `<tag> - <Title>`.
    Read `repository` off the git remote (`owner/name`); every connector call carries it.
    Where the item names a repository, confirm it is this one; if not, stop and say which.
 3. **Still outstanding?** Never assume it is. Gather evidence in this order and stop at the

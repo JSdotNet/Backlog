@@ -59,10 +59,11 @@ mechanics; do not invent syntax beyond it.
      back out of the app is still recognized and run by `backlog-run-plan-item`. Every prompt
      carries it; write the metadata line first and derive the marker from it, so the two
      never disagree.
-   - **Session name second.** One body line telling whoever runs the prompt to add the plan
-     name to their session's title, so every session spawned from this plan is recognizable
-     as belonging to it: ``Add the plan name `<tag>` to this session's title before you
-     start.`` Every prompt carries it, worded the same way.
+   - **Session name second.** One body line telling whoever runs the prompt what to title
+     their session, so every session spawned from this plan says which plan and which step
+     it is: ``Title this session `<tag>:<n> - <Title>` before you start.`` — the bare tag,
+     a colon, then the entry's numbered title exactly as written (grammar's
+     `## Step numbers`). Every prompt carries it, worded the same way.
    - **Instructions next.** The rest of the body — concise, no padding — is the entry's
      primary content.
    - **Setup sub-items.** A `##` sub-item per repository prerequisite the instructions
@@ -107,7 +108,11 @@ mechanics; do not invent syntax beyond it.
      `id:sign-off-plan`, `after:review-plan`, `effort:1` and no `repo:`. Its body asks the
      user to read the review's outcome and confirm the plan is complete, or pick up the
      follow-up entries it wrote.
-5. Assemble the entries into one Markdown document per `assets/backlog-import-grammar.md`.
+5. Number the steps: prefix every step title — review and sign-off included, never the
+   `plan` entry — with `<n> - `, counting from 1 in document order, and write each prompt's
+   session-name line from the numbered title. Numbers are display, not identity: a
+   regenerated plan renumbers freely while `id:` stays put. Then assemble the entries into
+   one Markdown document per `assets/backlog-import-grammar.md`.
 6. Produce the output: write it to the given path (default `<plan-slug>-import-plan.md` in
    the current working directory) when a file was asked for or implied, and show the full
    text inline either way so it is ready to paste directly.
@@ -140,9 +145,10 @@ under the same tag. Steps 5–8 apply unchanged.
 - One Markdown document; every entry's body precedes its `##`/`- [ ]` sub-items.
 - It opens with its one `plan` entry (roadmap level: holds only `plan` entries), carrying
   exactly one `+tag` and no `effort:`.
-- Every step is `prompt`, `task` or `test` and states `!ready`, an `effort:`, an `id:`, and the
-  plan's shared `+tag`; every prompt also states `repo:` and opens with the marker line,
-  then the session-name line.
+- Every step is `prompt`, `task` or `test`, is titled `<n> - <Title>` with steps numbered
+  1, 2, 3… in document order, and states `!ready`, an `effort:`, an `id:`, and the plan's
+  shared `+tag`; every prompt also states `repo:` and opens with the marker line, then the
+  session-name line naming `<tag>:<its title>`.
 - No prompt contains a manual step in any form — no `Manual:` sub-item, no "ask the user
   to…" instruction — and no task or test contains instructions for an AI.
 - `after:` correctly expresses the plan's dependency order, including cross-repository

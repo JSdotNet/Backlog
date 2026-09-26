@@ -234,7 +234,10 @@
   'use strict';
   const EFFORT_SCALE = [1, 2, 3, 5, 8, 13, 21];
   const MARKER_RE = /^Backlog plan item `([^`]+)` of plan `([^`]+)` for ((?:`[^`]+`)(?:, `[^`]+`)*)(?:, after ((?:`[^`]+`)(?:, `[^`]+`)*))?\s[—-]+\srun it with the `backlog-run-plan-item` skill\.?\s*$/;
-  const SESSION_RE = /^Add the plan name `([^`]+)` to this session['’]s title before you start\.?\s*$/;
+  const SESSION_RE = /^Title this session `([^`]+)` before you start\.?\s*$/;
+  // The line plans carried before steps were numbered: it names the tag alone.
+  const LEGACY_SESSION_RE = /^Add the plan name `([^`]+)` to this session['’]s title before you start\.?\s*$/;
+  const NUMBERED_RE = /^(\d+) - \S/;
   const META_RE = /^\s*(?:`[^`]+`\s*)+$/;
 
   // ---------- parsing ----------
@@ -277,7 +280,11 @@
     e.session = nonBlank[e.marker ? 1 : 0] && SESSION_RE.exec(nonBlank[e.marker ? 1 : 0].trim());
     e.sessionText = e.session ? nonBlank[e.marker ? 1 : 0].trim() : null;
     e.hasMarkerAnywhere = nonBlank.some(l => MARKER_RE.test(l.trim()));
-    e.hasSessionAnywhere = nonBlank.some(l => SESSION_RE.test(l.trim()));
+    e.legacySession = !e.session && nonBlank[e.marker ? 1 : 0] && LEGACY_SESSION_RE.exec(nonBlank[e.marker ? 1 : 0].trim());
+    if (e.legacySession) e.sessionText = nonBlank[e.marker ? 1 : 0].trim();
+    e.hasSessionAnywhere = nonBlank.some(l => SESSION_RE.test(l.trim()) || LEGACY_SESSION_RE.test(l.trim()));
+    const num = NUMBERED_RE.exec(e.title);
+    e.number = num ? Number(num[1]) : null;
     e.instructions = e.bodyLines.filter(l => l.trim() !== e.markerText && l.trim() !== e.sessionText);
     e.subs.forEach(s => {
       s.kind = /^setup:/i.test(s.title) ? 'setup' : /knowledge|devbook/i.test(s.title) ? 'knowledge' : /^manual:/i.test(s.title) ? 'manual' : 'other';
@@ -372,8 +379,18 @@
       }
     }
 
+    // Numbering: every step's title opens with its number, 1-based in document order
+    if (steps.length) {
+      const unnumbered = steps.filter(e => e.number == null);
+      const misnumbered = steps.filter((e, i) => e.number != null && e.number !== i + 1);
+      unnumbered.forEach(e => add('fail', 'Every step title opens with its number — "<n> - <Title>"', e));
+      misnumbered.forEach(e => add('fail', `Steps are numbered 1, 2, 3… in document order — this is step ${steps.indexOf(e) + 1}, numbered ${e.number}`, e));
+      if (!unnumbered.length && !misnumbered.length) add('pass', `Steps are numbered 1–${steps.length} in document order`);
+    }
+    if (plans.length) over(plans, 'No plan entry is numbered', e => e.number != null && { text: 'numbers belong to steps; a plan entry is the roadmap item' });
+
     // Ids
-    over(steps, 'Every step has an id', e => !e.id && { text: 'no id:, so a regenerated plan cannot match it' });
+    over(steps,'Every step has an id', e => !e.id && { text: 'no id:, so a regenerated plan cannot match it' });
     const dupes = [];
     ['plan', 'step'].forEach(level => {
       const seen = new Map();
@@ -435,7 +452,12 @@
       if (!sameSet(afters, e.after)) diff.push(`after ${afters.join(',') || '—'} ≠ ${e.after.join(',') || '—'}`);
       return diff.length && { text: diff.join('; ') };
     });
-    onPrompts('The session-name line follows the marker', e => !e.session ? { text: e.hasSessionAnywhere ? 'the session-name line is not the second body line' : 'no session-name line' } : e.session[1] !== e.tag && { text: `it names ${e.session[1]}, not the plan tag` });
+    onPrompts('The session-name line follows the marker and titles the session <tag>:<title>', e => {
+      if (e.legacySession) return { text: `it is the older "Add the plan name" line; write "Title this session \`${e.tag}:${e.title}\` before you start."` };
+      if (!e.session) return { text: e.hasSessionAnywhere ? 'the session-name line is not the second body line' : 'no session-name line' };
+      const want = `${e.tag}:${e.title}`;
+      return e.session[1] !== want && { text: `it names ${e.session[1]}, not ${want}` };
+    });
     onPrompts('Every prompt has instructions beyond the marker and session line', e => !e.instructions.some(l => l.trim()) && { text: 'the body is only boilerplate' });
     onPrompts('Setup: sub-items come before every other sub-item', e => {
       const firstOther = e.subs.findIndex(s => s.kind !== 'setup');
