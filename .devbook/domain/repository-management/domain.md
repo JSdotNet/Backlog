@@ -92,9 +92,12 @@ A snapshot of GitHub stats: `stars`, `forks`, `watchers`, `open_issues`,
 ```meta
 type: value-object
 status: draft
+aliases: [HealthDetails, health score, health_score]
 ```
 
-Health-score breakdown: `package_score`, `github_score`, `coverage_score`,
+The breakdown of a repository's 0-100 health score, tracked over time as
+`Health Score Snapshot`; `flow.md` says how it is computed. It holds
+`package_score`, `github_score`, `coverage_score`,
 `security_score`, and actionable `recommendations`. Computed:
 `overall_score = weighted_average(...)`.
 
@@ -227,21 +230,3 @@ status: draft
 Repository Management has a single aggregate; `Repository Type` and `Severity`
 are documented under it. This chapter is reserved for future cross-aggregate
 enums.
-
-## Ubiquitous Language
-
-```meta
-type: ubiquitous-language
-```
-
-### Health Score
-
-```meta
-type: term
-status: draft
-aliases: [health_score, HealthDetails, HealthScoreSnapshot]
-related: [.devbook/domain/repository-management/domain.md#health-details]
-```
-
-The 0-100 composite score for a repository, broken down in `HealthDetails` and
-tracked over time as `HealthScoreSnapshot`; see `flow.md` for how it is computed.

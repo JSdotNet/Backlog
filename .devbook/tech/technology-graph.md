@@ -420,23 +420,18 @@ Terms below are the dictionary's; the right-hand column is this repository.
 - Rationale lives in `.devbook/arc42` (solution strategy, ADRs). Chapters here link to
   it with `related` instead of restating it.
 - When a node or edge changes, update the Mermaid source graph in the same
-  change and run `node .devbook/_tools/devbook-meta/build.mjs --check`; the atlas
-  is generated from `.devbook/tech` metadata and needs no editing of
-  its own.
+  change and run `node .devbook/_tools/devbook-meta/build.mjs --check`; the atlas is
+  generated from `.devbook/tech` metadata and needs no editing of its own. It is drawn
+  from the devbook database the app rebuilds when a chapter changes (local ADR 0015)
+  rather than from the Markdown.
 
-Full authoring rules: `knowledge-tech.instructions.md` from the
-`devbook` plugin.
+Full authoring rules: `.agents/rules/devbook-tech.md`.
 
 ## Open questions
 
 - Mobile shape is unsettled: MAUI native vs. Blazor Hybrid vs. PWA. Desktop's
   shape is decided (`.devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md`:
   MAUI Blazor Hybrid, WinUI 3 head).
-- Cloud data store choice (Cosmos DB vs. PostgreSQL) is still open in
-  `.devbook/arc42/04-solution-strategy.md#technology-choices`. The sync service holds
-  state in memory today, so nothing has forced the decision yet.
-- Mobile's offline store is still JSON while the desktop has moved to SQLite
-  (ADR 0003). Sharing the adapter is the obvious move, but it has not been taken.
 - Transitive package pinning is deliberately off
   (`.devbook/tech/tooling.md#central-package-management`). Turning it on is a reviewed
   change nobody has scheduled, and `YamlDotNet` is the visible symptom: pinned

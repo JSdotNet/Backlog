@@ -4,16 +4,13 @@
 related: [".devbook/arc42/05-building-block-view.md"]
 ```
 
-Key runtime scenarios that exercise the building blocks from chapter 05 and show how
-the local-first and thin-cloud strategies play out dynamically.
-
 ## Task to GitHub Issue
 
 ```meta
 related: [".devbook/arc42/05-building-block-view.md#desktop-app"]
 ```
 
-Creating a task writes markdown locally first, then asynchronously creates
+Creating a task writes its SQLite row locally first (local ADR 0003), then asynchronously creates
 one GitHub issue per targeted repo.
 
 ```mermaid
@@ -102,7 +99,7 @@ when the service answers.
 - **Flush triggers.** Queuing an entry, the backoff timer, the app returning to
   the foreground, the network coming back, and a tap on a parked entry. The
   last three skip the pending wait and give a parked entry its attempts back,
-  since the reason for the wait has most likely gone.
+  since each is a sign that the reason for the wait has gone.
 - **The list outlives the service.** Every successful pull is kept in the same
   file with its time. A failed pull, including 503 `sync.replica_unavailable`
   while the Cosmos emulator warms up, shows that cached list with one status line
@@ -221,9 +218,9 @@ and a push through the outbox.
   the row, and a `capture`-type document is skipped (it is the Inbox's,
   ADR 0009). A deleted task keeps its row, hidden, so the order pages arrive in
   never changes the result.
-- **My Day is arithmetic.** The list is the rows whose `in_my_day_on` is the
-  phone's current local date and whose status is neither `done` nor `archived`.
-  Yesterday's pick is not in today's list without anything clearing it.
+- **My Day is arithmetic**, as `.devbook/domain/tasks/domain.md#my-day` defines
+  it. The list is the rows whose `in_my_day_on` is the phone's current local date
+  and whose status is neither `done` nor `archived`.
 - **A rejected cursor starts over.** `sync.cursor_malformed` or
   `sync.cursor_expired` drops the cursor and pulls once from the beginning; the
   rows already kept fold to the same result. Any other failure keeps the list on

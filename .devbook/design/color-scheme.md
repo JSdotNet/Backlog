@@ -42,6 +42,9 @@ the product uses.
 
 ### Brand
 
+```meta
+```
+
 | Token | Value (dark) | Usage |
 |---|---|---|
 | `color-primary` | `#F2C14E` | Primary actions, active links, key highlights |
@@ -50,6 +53,9 @@ the product uses.
 | `color-secondary` | `#ADB5BD` | Secondary buttons, less prominent labels |
 
 ### Semantic (soft surface tokens)
+
+```meta
+```
 
 Semantic colors are **surface/background tokens first** — render readable
 foreground text and icons on top of them; do not treat them as strong
@@ -147,6 +153,9 @@ adjustment does not quietly push it back under.
 
 ### Neutral / Text
 
+```meta
+```
+
 | Token | Value (dark) | Usage |
 |---|---|---|
 | `color-text-primary` | `#F8F9FA` | Body text, headings, primary labels (content) |
@@ -157,6 +166,9 @@ adjustment does not quietly push it back under.
 
 ### Background / Surface
 
+```meta
+```
+
 | Token | Value (dark) | Usage |
 |---|---|---|
 | `color-background` | `#121214` | Primary page / panel background (base surface) |
@@ -165,6 +177,9 @@ adjustment does not quietly push it back under.
 | `color-background-overlay` | `rgba(0,0,0,0.60)` | Modal backdrop / scrim |
 
 ### Border
+
+```meta
+```
 
 | Token | Value (dark) | Usage |
 |---|---|---|
@@ -362,6 +377,9 @@ mistaken for one.
 
 ### Band painting
 
+```meta
+```
+
 A band colour is painted three ways: a 4px left border on the band's own label, the
 label's surface as `color-mix(in srgb, <token> 24%, color-background)`, and
 `color-text-primary` on that surface. A border is a non-text mark and owes 3:1; ink
@@ -382,6 +400,9 @@ half times the 3:1 it owes, because the set was chosen from values already measu
 against these surfaces rather than picked for looks.
 
 ### The identity edge
+
+```meta
+```
 
 Off the roadmap the hue is **additive only**: a 4px rule along one edge of a
 control that was already there, painted as an inset shadow rather than a border so
@@ -491,6 +512,9 @@ still twenty-two colours, and there is no new value for this file to disagree wi
 
 ### Badge and chip tones
 
+```meta
+```
+
 A badge is a value with a class on it, and the class is what says which family
 the value belongs to. Each family maps its own vocabulary onto **one shared tone
 scale**, so a reader learns the scale once and reads it in every family. The
@@ -557,6 +581,9 @@ word onto the tones above. Review surface: storybook → *Badges*, and
 
 ### Chart roles
 
+```meta
+```
+
 Measured on `color-background-alt`, which is the card a chart sits on.
 
 | Token | Derivation | Measured |
@@ -598,6 +625,9 @@ Rules:
   carries meaning and a gridline does not.
 
 ### Integration roles
+
+```meta
+```
 
 Measured on `color-background-alt`, which is what a state chip sits on.
 

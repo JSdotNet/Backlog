@@ -4,6 +4,8 @@
 status: draft
 index: root
 type: context
+deployment: module
+related: [.devbook/arc42/05-building-block-view.md#desktop-app]
 ```
 
 Capture owns **how items enter the system**. It acquires raw content from any
@@ -13,24 +15,16 @@ Copilot App), and manual import — normalizes it, and delivers it to the
 [Inbox](../inbox/domain.md#inbox-item) as an Inbox Item. Once an item
 is delivered, Capture's responsibility ends.
 
-## inbox-pane
+Outside it: triage, routing, and everything that happens to an item after it arrives, which the [Inbox](../inbox/domain.md#inbox-item) answers. In-app feedback is the one capture that does not reach the Inbox: it is filed as an issue on the product's own repository.
 
-```meta
-status: draft
-type: feature-flag
-key: inbox-pane
-related: [".devbook/domain/capture/features.md#run-capture-now"]
-```
-
-Decided at release, from configuration. Name the switch in business language, and say who owns the rollout, what turning it on changes, and when the flag is retired.
-
-## feedback-reporting
+## Feedback reporting
 
 ```meta
 status: draft
 type: feature-flag
 key: feedback-reporting
+default: on
 related: [".devbook/domain/capture/features.md#in-app-feedback-capture"]
 ```
 
-Decided at release, from configuration. Name the switch in business language, and say who owns the rollout, what turning it on changes, and when the flag is retired.
+Turning it on puts a report action in the app chrome that files a Desktop app issue on GitHub with a title, details, and an attached screenshot — the in-app route into Capture. It is released: on by default, with no `DEV` or `BETA` mark. The settings screen lists it from the feature catalog in `AppFeatures.cs`, and a person's choice is kept in `features.json` beside the app's other per-device choices. It is retired once nobody needs to switch the report action off.

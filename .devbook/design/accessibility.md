@@ -4,9 +4,9 @@
 related: [".devbook/design/color-scheme.md#contrast-rules-wcag-aa-minimum", ".devbook/design/interaction-guidelines.md", ".devbook/design/design-principles.md#keyboard-first"]
 ```
 
-> Accessibility rules for the Backlog product. Target: **WCAG 2.1 Level AA** as a
+> Target: **WCAG 2.1 Level AA** as a
 > minimum across every channel (desktop — .NET MAUI Blazor Hybrid/WebView2,
-> mobile — .NET MAUI native, VS Code / Visual Studio webviews). Because the
+> mobile — .NET MAUI Blazor Hybrid, VS Code / Visual Studio webviews). Because the
 > product is dark-mode-only, keyboard-first, and has no save buttons,
 > accessibility here focuses heavily on keyboard operation, save-
 > state and reorder announcements, focus visibility, and reduced motion. Adapted
@@ -75,6 +75,9 @@ related: [".devbook/design/interaction-guidelines.md#save-state-indicator-vocabu
 
 ### Save-State Announcements
 
+```meta
+```
+
 The save-state indicator is not a button, so it MUST be announced:
 
 | State | Announcement | Politeness |
@@ -90,6 +93,9 @@ are not flooded during continuous typing.
 
 ### Reorder Announcements
 
+```meta
+```
+
 | Event | Announcement |
 |---|---|
 | Pick up | "Grabbed [item name]. Use arrow keys to move, Space to drop, Escape to cancel." |
@@ -102,6 +108,9 @@ Reorder announcements use an `aria-live` region (assertive during an active
 grab).
 
 ### Editor Announcements
+
+```meta
+```
 
 | Rule | Requirement |
 |---|---|
@@ -222,6 +231,8 @@ Gaps, tracked rather than assumed:
   `typography-and-layout.md#materialization`.
 - **Target sizes are unverified.** The ≥ 44 × 44 px minimum is not asserted by
   any test, and dense rows are exactly where it tends to fail.
-- **Only one channel exists.** Every rule above is checked in the web-rendered
-  surface. Mobile MAUI's `SemanticProperties` and the IDE webviews have no
+- **Both app channels are web-rendered.** The desktop and the Android head each
+  host Razor components in a WebView, the phone's from `Backlog.Mobile.UI` over
+  the shared library, so every rule above applies to both as written and MAUI's
+  `SemanticProperties` has nothing to govern. The IDE webviews have no
   implementation to check.

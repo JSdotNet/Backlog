@@ -59,7 +59,7 @@ Kind of change a signal represents:
 - `queue_depth` — inbox/processing queue depth and rate.
 - `inbox_age` — oldest unprocessed inbox item age.
 - `automation_run` — an inbox automation executed (success/failure, items created).
-- `copilot_session` — an active Copilot session update.
+- `copilot_session` — a session update read from Sessions, for any agent; the token keeps its first name.
 - `machine_status` — a dev PC heartbeat/state change.
 - `team_aggregate` — a team-level rollup signal.
 
@@ -85,7 +85,7 @@ related: [.devbook/arc42/08-crosscutting-concepts.md#observability]
 ```
 
 Composes multi-layer dashboards — project (Application Insights), backlog/GitHub
-progress, inbox/queue health, Copilot sessions, and infrastructure (PC status,
+progress, inbox/queue health, agent sessions (from Sessions), and infrastructure (PC status,
 repo health) — with role-based visibility for personal vs. team views. It emits
 `FollowUpCaptured` back to the Inbox when a dashboard follow-up should become a
 new item. It is a service because it reads across aggregates and contexts to

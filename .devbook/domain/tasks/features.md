@@ -13,7 +13,7 @@ status: draft
 ```meta
 type: feature
 status: draft
-feature-flag: .devbook/domain/tasks/context.md#backlog
+feature-flag: .devbook/domain/tasks/context.md#task-backlog
 related: [.devbook/domain/inbox/features.md#routing]
 ```
 
@@ -99,7 +99,7 @@ task says which place and what it is called, and whether that place is a folder
 or an archive.
 
 One place per task, not a list. What a person means by "the files for this" is
-usually a folder they already keep them in, and a task that listed members
+a folder they already keep them in, and a task that listed members
 would grow its own presentation by however many files somebody dropped on it. A
 second place is not a second attachment; it is either the same folder further up
 or a different task.
@@ -167,24 +167,16 @@ depends-on: [.devbook/domain/tasks/features.md#refinement-and-prioritization]
 related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/roadmap/features.md#gathering-work-under-an-item-and-totalling-its-effort]
 ```
 
-Record how big a task is in **story points**, so the size of the work is a fact
+Record a task's [Effort](domain.md#effort), so the size of the work is a fact
 about the task rather than a guess made every time someone reads the plan it sits
-under. The estimate is optional: a task with none is simply not estimated, and
-that is a normal state rather than a gap to be nagged about. Zero is a real
-estimate — a genuinely trivial task — and is not the same as leaving it blank.
+under. A task with none is simply not estimated, and that is a normal state rather
+than a gap to be nagged about. A re-estimate happens when the *understanding of
+the size* changes, not when time passes.
 
-Story points size the work, they do not clock it. Two tasks that both took a day
-can carry very different estimates if one was a far larger problem, and the number
-does not move because the work turned out to take longer than expected; a
-re-estimate happens when the *understanding of the size* changes, not when time
-passes.
-
-The estimate is often the AI's to make. Deriving a point value from the task's
-own content is exactly the kind of judgement an assistant can offer, and it is
-expected to do so — but a derived estimate is still an estimate, revised as the
-work is understood better, and a person can always set or correct it by hand. The
-deriving is not built yet; this feature makes the value **registrable and
-visible**, which is what has to exist before anything can total it. When a roadmap
+An AI assistant may derive the estimate from the task's own content, and a person
+can always set or correct it by hand. The deriving is not built yet; this feature
+makes the value **registrable and visible**, which is what has to exist before
+anything can total it. When a roadmap
 item gathers this task, the points registered here are what it
 [adds up](../roadmap/features.md#gathering-work-under-an-item-and-totalling-its-effort) —
 and a task left unestimated is counted as unestimated there, never silently as
@@ -250,10 +242,9 @@ type: sub-feature
 status: proposed
 ```
 
-Commit a task to a calendar day. A due date is a date and not an instant: it
-carries no time and no timezone, so "due Friday" stays Friday when the device
-moves. How that date is said on screen — "Today", "Friday, 21 August", or a
-localized format — belongs to the channel showing it, not to the task.
+Commit a task to a calendar day, its [Due Date](domain.md#due-date). How that
+date is said on screen — "Today", "Friday, 21 August", or a localized format —
+belongs to the channel showing it, not to the task.
 
 ### Reminders
 
@@ -262,13 +253,9 @@ type: sub-feature
 status: proposed
 ```
 
-Ask to be reminded of a task at a chosen local date and time. A reminder is
-wall-clock intent: 09:00 means 09:00 wherever the person is when it arrives,
-rather than the instant 09:00 once meant somewhere else.
-
-A reminder is a request recorded on the task, not a promise about delivery. One
-whose time has passed reads as overdue and keeps reading that way until it is
-cleared or the task is completed, so a reminder that came due while the app was
+Ask to be reminded of a task at a chosen local date and time, its
+[Reminder](domain.md#reminder). One whose time has passed reads as overdue and
+keeps reading that way until it is cleared or the task is completed, so a reminder that came due while the app was
 closed surfaces rather than being silently missed.
 
 ### Recurring tasks
@@ -301,15 +288,12 @@ depends-on: [.devbook/domain/tasks/features.md#refinement-and-prioritization]
 related: [.devbook/domain/tasks/features.md#scheduling-and-recurrence, .devbook/arc42/06-runtime-view.md#mobile-my-day-and-task-push]
 ```
 
-Pick the tasks to work on today, separately from when they are due. My Day is
-this morning's decision about what to look at, and it is deliberately not a
-deadline: a task due next Friday can be in today's My Day, and a task due
+Pick the tasks to work on today, separately from when they are due: a task
+due next Friday can be in today's [My Day](domain.md#my-day), and a task due
 today need not be.
 
-Because it is a decision about a particular day, it expires on its own. A task
-carries the date it was picked for, and it is in My Day exactly while that date
-is the reader's current local date — so yesterday's list clears itself with no
-timer, no timezone rule and no overnight sweep, and a device that was switched
+My Day expires on its own, so yesterday's list clears itself with no timer, no
+timezone rule and no overnight sweep, and a device that was switched
 off for a week comes back to an empty My Day rather than a stale one.
 
 On the phone, My Day is the whole of the Tasks tab. It shows what was picked for
@@ -417,8 +401,8 @@ related: [.devbook/domain/devbook/features.md#bi-directional-linking]
 
 Search across title, body, tags, and linked knowledge notes; filter by area
 (a self-chosen grouping such as "repos", "projects", or "inbox"), repo, type,
-status, priority, and recency; grouped views; and inline embedding of Second
-Brain content. The repository scope can hold several repositories at once while
+status, priority, and recency; grouped views; and inline embedding of
+Devbook content. The repository scope can hold several repositories at once while
 the list is on screen — the list shows work filed against any of them — and
 narrows back to one when the list is not, since the list is the only surface
 that can show more than one.
@@ -674,15 +658,16 @@ recorded fact rather than a step that rewinds, so reopening starts the work
 again rather than restoring where it stood before. `flow.md` holds the
 lifecycle this follows.
 
-Ticking a task off is a separate act from either status. The checkbox sets
-`completed_on` and nothing else: a task can be ticked from any status, a
-`done` or `archived` task stays on the open list until it is ticked, and
-unticking clears the tick without reopening anything. The Completed section,
-the tag counts and every "nothing left to wait for" read the tick.
+Ticking a task off records that it is [Completed](domain.md#completed), a
+separate fact from either status. A task can be ticked from any status, and a
+`done` or `archived` task stays on the open list until it is ticked. The
+checkbox also moves a task not yet in an end state to `done` in the same save;
+a `done` or `archived` task keeps its status, reaching `done` through the
+status picker does not tick, and unticking clears the tick without reopening
+anything.
 
-Starting the work is recorded too: the first time a task moves to in progress
-it is stamped with the day, shown as `started:` on its metadata line beside
-`completed:`, and kept through pausing and reopening. The roadmap reads the two
+A task that moves to in progress is [Started](domain.md#started), shown as
+`started:` on its metadata line beside `completed:`. The roadmap reads the two
 together to draw a finished plan where its work actually ran.
 
 ## Refresh from shared storage
@@ -734,7 +719,7 @@ When the same task was edited in two places, the later edit wins whole. This is
 deliberate and it does lose the other edit — the alternative, merging field by
 field, would require the domain to have a rule for reconciling two different
 priorities or two different statuses, and it has none. What the person sees is
-one task with one status, which is the property worth keeping.
+one task with one status.
 
 **What is built so far is the identity half, not the reconciliation half.**
 [Pairing a device](#pairing-a-device) — registering the first device, pairing a
@@ -825,7 +810,7 @@ narrow: a plan has to be able to hold work that has not been refined into a task
 yet, which is most of what planning is, so the plan is stored in its own right and
 a planned item may *optionally* name the task that executes it.
 
-The second half survives, and is the part worth carrying forward: **Task
+The second half survives: **Task
 remains the source of truth for a work item's status and execution priority.**
 Roadmap Planning owns planning priority and sequence; it never writes a task's
 status or priority, and the progress it shows for a linked item is read from the

@@ -39,16 +39,15 @@ related: [.devbook/domain/context-map.md]
 - Gathering and totalling read **foreign registered effort and own none of it.**
   [Roadmap Item Gathering](domain.md#roadmap-item-gathering) reads
   Tasks and knowledge chapters on the read path — by named reference and
-  by tag — and adds the story points they registered. Tasks and Second
-  Brain register the effort; Roadmap only totals it, and an unreachable supplier
+  by tag — and adds the story points they registered. Tasks and Devbook
+  register the effort; Roadmap only totals it, and an unreachable supplier
   degrades a total rather than corrupting a plan.
 - The tag vocabulary flows **out** of this context. A Roadmap Item's tag is the
   slug Tasks offers in its picker and a knowledge chapter names in its
   `roadmap` list; its stability across a rename is the contract those borrowings
   rest on. This context supplies the vocabulary and reads back what was filed under
   it — it does not learn the tag from either consumer.
-- The direction of authority is worth stating twice, because the two contexts both
-  use the word *priority*: **Tasks owns task status and task
+- Both contexts use the word *priority*: **Tasks owns task status and task
   priority; Roadmap Planning owns planning priority and sequence.** Neither writes
   the other's value.
 - Roadmap Planning publishes to Monitoring and subscribes to nothing. Nothing

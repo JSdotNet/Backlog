@@ -31,7 +31,7 @@ status: draft
 
 - Monitoring is an observer/read context: it consumes signals from many contexts
   and only writes back to the Inbox via `FollowUpCaptured`.
-- External integrations (GitHub, Application Insights, Copilot) sit behind
+- External integrations (GitHub, Application Insights) sit behind
   anti-corruption adapters so their schemas never leak into the signal model.
 - GitHub issue <-> backlog mismatch detection is shared with Tasks; see
   `.devbook/domain/tasks/dependencies.md`.

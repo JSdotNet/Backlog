@@ -3,9 +3,6 @@
 ```meta
 ```
 
-Prompt Backlog's boundary, the external systems it depends on, and the internal
-domain boundaries that shape its scope.
-
 ## Business Context
 
 ```meta

@@ -57,8 +57,7 @@ Every capture is kept on the phone before it is sent, so no signal never costs a
 capture. It appears in the Inbox list at once, marked waiting, and leaves in the
 order it was made. A failed send is retried on its own a few times with growing
 waits. After that it shows "waiting — tap to retry", and is tried again on a
-tap, when the app is reopened, or when the network comes back. Nothing captured
-later is sent ahead of it.
+tap, when the app is reopened, or when the network comes back.
 The status line says how many captures are waiting.
 
 Each capture carries an id the phone mints before its first send, so resending
@@ -98,7 +97,7 @@ configurable schedule, with retry/backoff and failure logging.
 type: sub-feature
 status: draft
 related: [.devbook/domain/capture/domain.md#source-adapter, .devbook/domain/inbox/features.md#incoming-queue]
-feature-flag: .devbook/domain/capture/context.md#inbox-pane
+feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 ```
 
 The reader runs the monitors on demand from the Inbox, without waiting for a
