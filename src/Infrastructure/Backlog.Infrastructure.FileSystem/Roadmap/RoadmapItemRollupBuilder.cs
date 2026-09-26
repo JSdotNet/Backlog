@@ -122,7 +122,10 @@ public static class RoadmapItemRollupBuilder
                 Origin(direct, tagged),
                 Progress(entry.Status),
                 GatheredDependencies(entry, keys, candidates),
-                entry.RepoIds ?? []);
+                entry.RepoIds ?? [],
+                entry.StartedOn,
+                entry.CompletedOn,
+                entry.CreatedAt is { } createdAt ? DateOnly.FromDateTime(createdAt.LocalDateTime) : null);
         }
     }
 

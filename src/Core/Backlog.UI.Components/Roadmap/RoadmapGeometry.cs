@@ -100,14 +100,16 @@ public sealed record RoadmapGeometry(
     /// Every whole week is the same width, every whole month and every whole quarter
     /// too, whatever its number of days — a ruler whose February is narrower than
     /// its March reads as uneven, not as precise. Each tier is compressed against the
-    /// one nearer today: a week is three sixteenths of <see cref="QuarterWidthRem"/>,
-    /// a month five sixteenths and a quarter half, so there is room to read a week
-    /// where weeks matter and a year out still fits. All three follow
-    /// <see cref="QuarterWidthRem"/>, which stays the one zoom control.
+    /// one nearer today: a day of this week is an eighth of <see cref="QuarterWidthRem"/>,
+    /// a week three sixteenths, a month five sixteenths and a quarter half, so there
+    /// is room to read a day where the work in flight is, a week where weeks matter,
+    /// and a year out still fits. All four follow <see cref="QuarterWidthRem"/>, which
+    /// stays the one zoom control.
     /// </para>
     /// </summary>
     public double ColumnWidthRem(RoadmapColumnScale scale) => scale switch
     {
+        RoadmapColumnScale.Day => QuarterWidthRem / 8,
         RoadmapColumnScale.Week => QuarterWidthRem * 3 / 16,
         RoadmapColumnScale.Month => QuarterWidthRem * 5 / 16,
         _ => QuarterWidthRem / 2

@@ -90,11 +90,13 @@ public static class RoadmapPlanView
 
         var configured = Configured(repositories);
         var contradicting = plan.Contradictions.Select(contradiction => contradiction.NodeId).ToHashSet();
+        var finished = new HashSet<Guid>();
 
         // Ordered before anything is grouped, so lanes appear in the order the work
         // actually starts rather than in whatever order the file happened to list
         // it. Two runs over the same plan must draw the same picture.
         var items = plan.Items
+            .Select(item => AsDrawn(item, rollups, finished))
             .OrderBy(item => item.Start)
             .ThenBy(item => item.Title, StringComparer.CurrentCulture)
             .SelectMany(item => PartsOf(item, configured, rollups))
@@ -115,7 +117,7 @@ public static class RoadmapPlanView
         var drawn = groups.SelectMany(group => group.RowList).Select(row => row.Id).ToHashSet();
 
         var bars = items
-            .Select(part => Bar(part, stacked.RowOf[part.BarId], contradicting, configured))
+            .Select(part => Bar(part, stacked.RowOf[part.BarId], contradicting, configured, finished.Contains(part.Item.Id)))
             .Where(bar => drawn.Contains(bar.RowId))
             .ToList();
 
@@ -634,7 +636,8 @@ public static class RoadmapPlanView
         ItemPart part,
         string rowId,
         HashSet<Guid> contradicting,
-        List<PlannedRepository> configured) =>
+        List<PlannedRepository> configured,
+        bool finished) =>
         new(
             part.BarId,
             rowId,
@@ -644,7 +647,36 @@ public static class RoadmapPlanView
             Shade(part.Item.Priority),
             Facets(part.Item, part.Aliases, configured),
             Detail(part.Item, contradicting, part.PartCount, part.IsSegment),
+            Locked: finished,
             Steps: part.Steps);
+
+    /// <summary>
+    /// An item as it is drawn: where it was planned, or — once every task it gathered
+    /// is done — where the work actually happened, from the day its first task was
+    /// started to the day its last was ticked off.
+    /// <para>
+    /// A finished plan is history, and a planned window is only what somebody hoped.
+    /// Drawing it where it really ran is what lets a reader scroll back and see how
+    /// long the work took; drawing the hope would keep last quarter's optimism on the
+    /// chart as though it were a record. Either end the tasks do not say falls back to
+    /// the planned one, and the bar is locked: the dates are read off the work, so
+    /// dragging them would change nothing the next draw keeps.
+    /// </para>
+    /// </summary>
+    private static RoadmapItemDto AsDrawn(
+        RoadmapItemDto item,
+        IReadOnlyDictionary<Guid, RoadmapItemRollupDto>? rollups,
+        HashSet<Guid> finished)
+    {
+        if (rollups is null || !rollups.TryGetValue(item.Id, out var rollup) || !rollup.IsFinished) return item;
+
+        finished.Add(item.Id);
+
+        var start = rollup.FirstStartedOn ?? item.Start;
+        var end = rollup.LastCompletedOn ?? item.End;
+
+        return item with { Start = start, End = end < start ? start : end };
+    }
 
     /// <summary>
     /// The item's gathered tasks as the steps drawn inside its bar (ADR 0013,

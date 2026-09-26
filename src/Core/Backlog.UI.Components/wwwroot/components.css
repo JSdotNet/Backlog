@@ -12008,8 +12008,16 @@ select.field__input {
 
 /* A week's head is its number, quieter than a month's or a quarter's; the month
    it enters rides underneath only where the month changes. */
-.roadmap-timeline__quarter--week .roadmap-timeline__quarter-label {
+.roadmap-timeline__quarter--week .roadmap-timeline__quarter-label,
+.roadmap-timeline__quarter--day .roadmap-timeline__quarter-label {
     font-weight: 400;
+    white-space: nowrap;
+}
+
+/* This week's days: the week's number rides under its first day, and the days
+   are divided more quietly than the weeks either side of them. */
+.roadmap-timeline__quarter--day + .roadmap-timeline__quarter--day {
+    border-left-color: color-mix(in srgb, var(--color-border) 50%, transparent);
 }
 
 /* This week: its head in the primary hue, its column shaded down the chart. The

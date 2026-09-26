@@ -56,7 +56,10 @@ public sealed record TaskPayload(
     // Last, and defaulted, because it arrived after the contract did: a document
     // written by an older build carries no such property and reads as unticked,
     // which is what it was.
-    DateOnly? CompletedOn = null)
+    DateOnly? CompletedOn = null,
+    // The day work first moved to in progress. Last and defaulted for the same
+    // reason: an older document carries none and reads as never stamped.
+    DateOnly? StartedOn = null)
 {
     /// <summary>
     /// Every property the document carried that this build has no member for,

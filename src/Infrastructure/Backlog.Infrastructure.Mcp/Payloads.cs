@@ -21,6 +21,8 @@ namespace Backlog.Infrastructure.Mcp;
 /// against — <c>repo_ids</c>, not aliases.</param>
 /// <param name="PlanId">The import plan tag the entry was born under, sigil and
 /// all (<c>+backlog-mcp-server</c>), or null for an entry typed by hand.</param>
+/// <param name="StartedOn">The day work first moved to in progress, or null
+/// when it never has.</param>
 public sealed record EntryPayload(
     Guid Id,
     string Title,
@@ -34,6 +36,7 @@ public sealed record EntryPayload(
     int TotalSubItems,
     int CompletedSubItems,
     DateOnly? DueOn,
+    DateOnly? StartedOn,
     DateOnly? CompletedOn,
     int? Effort,
     IReadOnlyList<string> Repositories,

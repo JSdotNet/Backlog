@@ -48,6 +48,12 @@ namespace Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 /// by hand — a test, a projection — is not made to invent a birth time; the
 /// mapper always sets it, and a screen treats null as "not saved yet".
 /// </para>
+/// <para>
+/// <paramref name="StartedOn"/> is the day work first moved to in progress. Last
+/// rather than beside <paramref name="CompletedOn"/> only so every positional
+/// caller keeps compiling; it round-trips through the text as a
+/// <c>started:</c> token like the fields above it.
+/// </para>
 /// </summary>
 public sealed record TaskItemDto(
     Guid Id,
@@ -74,7 +80,8 @@ public sealed record TaskItemDto(
     IReadOnlyList<string>? RepoIds = null,
     string? ImportPlanId = null,
     string? ImportItemId = null,
-    DateTimeOffset? CreatedAt = null);
+    DateTimeOffset? CreatedAt = null,
+    DateOnly? StartedOn = null);
 
 /// <summary>Where an entry has been projected to outside this system — today a
 /// GitHub issue. Kept as data rather than a typed link so the module does not

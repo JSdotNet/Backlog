@@ -54,6 +54,7 @@ public sealed class TaskItemStampTests
         [nameof(TaskItem.SetRecurrence)] = task => task.SetRecurrence(null),
         [nameof(TaskItem.SetInMyDayOn)] = task => task.SetInMyDayOn(new DateOnly(2026, 2, 1)),
         [nameof(TaskItem.SetCompletedOn)] = task => task.SetCompletedOn(new DateOnly(2026, 2, 1)),
+        [nameof(TaskItem.SetStartedOn)] = task => task.SetStartedOn(new DateOnly(2026, 2, 1)),
         [nameof(TaskItem.SetView)] = task => task.SetView(EntryView.Notes),
         [nameof(TaskItem.SetAttachment)] = task => task.SetAttachment(null),
         [nameof(TaskItem.SetDependsOn)] = task => task.SetDependsOn(["other"]),
