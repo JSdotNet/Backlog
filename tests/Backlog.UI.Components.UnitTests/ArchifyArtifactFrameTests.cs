@@ -130,6 +130,21 @@ public sealed class ArchifyArtifactFrameTests
     }
 
     /// <summary>
+    /// The card a focused node opens — Archify's "Semantic passport" — goes only for a
+    /// host that asks, and then in fullscreen too: for a delivery run's stages it
+    /// restates the arrows either side, which is as true full screen as in the page.
+    /// A chapter's diagram keeps it.
+    /// </summary>
+    [Fact]
+    public void Node_details_are_hidden_only_on_request_and_in_fullscreen_as_well()
+    {
+        var render = RenderArtifact();
+
+        Assert.Contains("(hideNodeDetails ? '#focus-chip{display:none!important}' : '')", render, StringComparison.Ordinal);
+        Assert.Single(Regex.Matches(render, "#focus-chip"));
+    }
+
+    /// <summary>
     /// The one rule that would break the sizing outright. The frame's viewport
     /// height is the height this host just gave it from the content, so a body
     /// insisting on filling the viewport can never report less than the frame
@@ -442,7 +457,7 @@ public sealed class ArchifyArtifactFrameTests
     /// about it cannot be satisfied by an unrelated line elsewhere in a four
     /// thousand line script.</summary>
     private static string RenderArtifact() =>
-        Region("        renderArtifact(element, id, html, compact) {", "        renderGraph(element, id, data) {");
+        Region("        renderArtifact(element, id, html, compact, hideNodeDetails) {","        renderGraph(element, id, data) {");
 
     /// <summary>The receiving half, which lives outside <c>backlogDiagrams</c>
     /// because it is the parent's side of the exchange.</summary>
