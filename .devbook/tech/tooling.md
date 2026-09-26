@@ -15,7 +15,6 @@ related: [".devbook/tech/technology-graph.md", ".devbook/tech/ai-development.md"
 ```meta
 status: adopted
 type: tool
-related: [".devbook/tech/ai-development.md#git-worktree-sessions"]
 ```
 
 Source control for the repository and its worktree-based session model.

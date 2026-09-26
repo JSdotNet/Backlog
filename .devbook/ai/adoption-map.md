@@ -1,7 +1,7 @@
 # AI Adoption Map
 
 ```meta
-status: trial
+status: adopted
 type: adoption-map
 related: [".devbook/tech/ai-development.md"]
 ```
@@ -14,10 +14,11 @@ related: [".devbook/tech/ai-development.md"]
 
 | File | Covers |
 | --- | --- |
-| `01-plan.md` | Turning an idea into agreed, written-down work: devbook chapters and import plans. |
-| `02-code.md` | Making a change: the code gate, worktree sessions, and the rules agents follow. |
-| `03-test.md` | Proving a change: agent-driven QA against the running application, and the human gate. |
-| `04-release-operate.md` | Getting a change merged and keeping the repository healthy: pull requests, scheduled routines, alerts. |
+| `01-plan.md` | Agreeing and sizing work: devbook chapters through `flow-spec`, import plans, estimates, answered reading notes. |
+| `02-code.md` | Making a change: the code gate, plan items pasted into a session, the roles and their agents, worktree sessions, per-host rules, the Backlog tracker, run surfaces, the two hooks, and the guidance servers retired. |
+| `03-test.md` | Proving a change: the QA agent, the repository procedures, the devbook checks around a flow, and Personal Validation. |
+| `04-release-operate.md` | Getting a change to `main` and a production failure back into the loop. |
+| `05-unattended-runs.md` | The schedules selected from the catalog, and what an unattended run may and may not do. |
 | `concepts.md` | The ideas the practices above rest on. |
 
 ## The loop
@@ -25,22 +26,37 @@ related: [".devbook/tech/ai-development.md"]
 ```mermaid
 flowchart LR
     subgraph dev [Dev]
-        plan[plan<br/>devbook chapters through flow-spec · trial<br/>import plans · adopted]
-        code[code<br/>code gate through flow-code · adopted<br/>worktree session per change · adopted<br/>rules wrapped per host · adopted]
-        build[build<br/>—]
-        test[test<br/>QA agent on the running app · adopted<br/>Personal Validation gate · adopted]
+        plan["plan<br/>devbook chapters through flow-spec · adopted<br/>import plans · adopted<br/>roles bound to agents · adopted<br/>Backlog as tracker · adopted<br/>estimate against landed work · trial<br/>answer reading notes · trial<br/>scheduled issue sweep · trial<br/>unattended-run limits · trial"]
+        code["code<br/>code gate through flow-code · adopted<br/>gate before the first write · adopted<br/>plan items pasted into a session · adopted<br/>roles bound to agents · adopted<br/>worktree session per change · adopted<br/>rules wrapped per host · adopted<br/>Backlog as tracker · adopted<br/>run tracking on surfaces · adopted<br/>session telemetry hook · adopted<br/>findings-to-issues hook · adopted<br/>repository procedures · trial<br/>scheduled issue sweep · trial<br/>unattended-run limits · trial<br/>guidance from MCP servers · retired"]
+        build["build<br/>—"]
+        test["test<br/>QA agent on the running app · adopted<br/>evidence over assertion · adopted<br/>roles bound to agents · adopted<br/>run tracking on surfaces · adopted<br/>Personal Validation gate · adopted<br/>repository procedures · trial<br/>devbook checks around a flow · trial"]
     end
     subgraph ops [Ops]
-        release[release<br/>merge-ready and CI repair · trial<br/>Personal Validation gate · adopted]
-        deploy[deploy<br/>—]
-        operate[operate<br/>scheduled routines · candidate]
-        monitor[monitor<br/>alerts to work items · candidate<br/>scheduled routines · candidate]
+        release["release<br/>Personal Validation gate · adopted<br/>Backlog as tracker · adopted<br/>run tracking on surfaces · adopted<br/>merge-ready and CI repair · trial<br/>scheduled merge review · trial<br/>unattended-run limits · trial"]
+        deploy["deploy<br/>—"]
+        operate["operate<br/>scheduled devbook upkeep · trial<br/>scheduled instruction review · trial<br/>scheduled package update · trial<br/>unattended-run limits · trial<br/>unattended runs park · trial"]
+        monitor["monitor<br/>scheduled reports · trial<br/>unattended-run limits · trial<br/>unattended runs park · trial<br/>scheduled security review · candidate<br/>alerts to work items · candidate"]
     end
+    concepts(("concepts<br/>task-scoped context · human in the loop<br/>isolation per session · one rule, one place<br/>deterministic where it must happen<br/>external text is data"))
     plan --> code --> build --> test --> release --> deploy --> operate --> monitor --> plan
 ```
 
-`build` and `deploy` are empty: both run as ordinary CI and `azd` pipelines with no AI
-usage of their own, and the emptiness is the finding rather than a gap to fill.
+## What the loop shows
+
+- **The dev half is where adoption is real.** Every change is gated into a flow, written in
+  its own worktree by the agent its role binds, proven by the QA agent, and approved by a
+  person. Those are `adopted`; the procedure skills and devbook checks bolted onto the flows
+  on 2026-09-25 are still `trial`.
+- **The ops half is almost all `trial`, and all of it unattended.** Everything at `operate`
+  and `monitor` is a schedule registered on 2026-09-25 or 2026-09-26 that has not yet
+  published anything. Those ratings move when the first report issues and pull requests
+  land — or come down if they do not.
+- **`build` and `deploy` are empty.** Build runs as ordinary CI in
+  `.github/workflows/pull-request.yml`, and deployment as `azd` and the release workflows;
+  neither has an AI usage of its own. Dependency updates sit at `operate`, as upkeep, not at
+  `build`. The emptiness is the finding, not a gap to fill.
+- **Production does not reach `plan` yet.** The one usage that would close the loop from
+  `monitor` — alerts to work items — is a `candidate` whose workflow fails its preflight.
 
 ## Reading and extending the folder
 
