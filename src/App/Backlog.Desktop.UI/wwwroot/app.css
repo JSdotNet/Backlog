@@ -19,6 +19,12 @@
     --workspace-min-width: 22rem;
     --pane-min-width: var(--workspace-min-width);
 
+    /* How much of the Inbox pane the open sources fold may take, and how much
+       of the queue it must leave standing. The fold scrolls inside the first;
+       the second is what stops it squeezing the rows away. */
+    --inbox-sources-max-height: 24rem;
+    --inbox-queue-min-height: 16rem;
+
     /* Saved-confirmation flash uses a smooth ease-out rather than the org
        style guide's ease-bounce token, per explicit product decision. */
     --ease-saved-flash: cubic-bezier(0, 0, 0.2, 1);
@@ -3406,8 +3412,15 @@ h1, h2, h3 {
    same flag-row switch the feature flags use, the library's textarea under it,
    and the last run's line with the log beneath. Every colour is a token.
 */
+/* Open, the fold is taller than the pane can spare: it scrolls inside a
+   bounded region and may shrink below that, so the queue beneath keeps its
+   own minimum rather than being the one child the column squeezes to 0px. */
 .inbox-pane__sources {
+    flex: 0 1 auto;
     min-width: 0;
+    min-height: 0;
+    max-height: var(--inbox-sources-max-height);
+    overflow-y: auto;
 }
 
 .capture-sources .fold__trigger {
@@ -3547,14 +3560,17 @@ h1, h2, h3 {
 
 /* The side menu is a fixed column; the split beside it takes the rest and
    divides itself. The body grows into what the header leaves, and min-height: 0
-   on it and on both children is what lets each column scroll on its own
-   instead of the pane growing to fit the longest. */
+   on both children is what lets each column scroll on its own instead of the
+   pane growing to fit the longest. The body itself keeps a floor, because the
+   sources fold above it would otherwise take every pixel it gives up, and its
+   basis is 0 rather than its content: with the rows' full height as a basis it
+   out-bids the folded sources line in the shrink and squeezes that to a pixel. */
 .inbox-pane__body {
     display: grid;
-    flex: 1 1 auto;
+    flex: 1 1 0;
     grid-template-columns: 16rem minmax(0, 1fr);
     gap: var(--spacing-md);
-    min-height: 0;
+    min-height: var(--inbox-queue-min-height);
 }
 
 .inbox-pane__nav {
