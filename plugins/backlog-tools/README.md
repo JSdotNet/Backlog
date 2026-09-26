@@ -75,18 +75,7 @@ read for, so a session is not paying a process spawn on every `Read` and `Grep`.
 needs Node, drops the tool's output before posting, gives up after two seconds and exits 0 on
 any error, so a closed app costs a session nothing but a refused connection.
 
-Copilot CLI gets a root `hooks.json` with the plan-item nudge as a `userPromptSubmit` prompt
-hook. Its presence is also what keeps Copilot from falling back to `hooks/hooks.json`: the
-forwarder reads a Claude Code payload and the app reads a Claude Code transcript, so the
-telemetry is Claude Code only.
-
-This plugin ships two manifests so it installs the same way in either host:
-
-- `.claude-plugin/plugin.json` — Claude Code
-- `.github/plugin/plugin.json` — GitHub Copilot CLI
-
-Both point at the same `skills/` folder. Keep their `name`/`description`/`version` fields
-in sync by hand when either changes — there is no generator here.
+The plugin ships one manifest, `.claude-plugin/plugin.json`, for Claude Code.
 
 ## Install
 
@@ -95,10 +84,4 @@ in sync by hand when either changes — there is no generator here.
 ```
 /plugin marketplace add .
 /plugin install backlog-tools@jsdotnet-backlog
-```
-
-**Copilot CLI**, from the repository root:
-
-```bash
-copilot plugin install ./plugins/backlog-tools
 ```
