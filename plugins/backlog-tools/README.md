@@ -1,8 +1,9 @@
 # backlog-tools
 
 Backlog-native tooling — skills specific to the Backlog product itself, as opposed to
-general-purpose or knowledge-folder tooling. Three skills: one for each direction of a plan,
-and one for the remarks a person leaves while reading.
+general-purpose or knowledge-folder tooling. Four skills: one for each direction of a plan,
+one for bringing another tool's items into the Inbox, and one for the remarks a person leaves
+while reading.
 
 - **`backlog-import-plan`** — turns an agreed specification into a Backlog import plan
   (ADR 0007: `.devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md`). Every entry is
@@ -44,6 +45,21 @@ and one for the remarks a person leaves while reading.
   progress → Done back (`transition`), every call carrying the `repository` read off the
   git remote; without one it falls back to searching git and says the status has to be set
   by hand.
+- **`backlog-import-inbox`** — turns an export from another to-do tool into an inbox import
+  manifest (ADR 0017:
+  `.devbook/arc42/adr/0017-inbox-import-is-a-capture-source-with-a-markdown-manifest.md`).
+  The manifest is Markdown with front matter, one `#` item per open task, each with a `meta`
+  fence of capture facts. The Inbox's Sources panel imports it through **Import file…**.
+  Completed tasks are dropped. The person chooses which labels become tags and which lists
+  file into which Inbox Lists. Microsoft To Do is the first tool it knows. Another tool is
+  added as a row of the skill's Formats table, never as a second manifest shape, so the
+  product needs no converter per tool. Like the plan skill, it always ships a review view,
+  built from `skills/backlog-import-inbox/assets/inbox-import-review.html`. The view parses
+  the embedded manifest itself and runs the checks of the grammar in
+  `skills/backlog-import-inbox/assets/inbox-import-manifest.md`. That matters more here: a
+  hand-edited manifest can break in ways a generated one never does. User-invoked only
+  (`disable-model-invocation: true`); it never talks to the Backlog app, the source tool, or
+  GitHub.
 - **`backlog-answer-notes`** — empties the other inbox: the private reading notes a person
   left on a repository's Devbook chapters in the app. It reads them over MCP
   (`list_annotations`), writes each answer into the chapter as a devbook `annotation` fence
@@ -88,6 +104,28 @@ This plugin ships two manifests so it installs the same way in either host:
 
 Both point at the same `skills/` folder. Keep their `name`/`description`/`version` fields
 in sync by hand when either changes — there is no generator here.
+
+## Microsoft To Do export
+
+Microsoft To Do has no export of its own. What a route has to deliver is a **stable id per
+task**, because the import knows an item by `{tool}:{external_id}`. Without an id, every
+re-import duplicates. The routes compared on 2026-09-26:
+
+| Route | Stable id per task | Completed flag | List name | Who sees the data |
+|---|---|---|---|---|
+| **Microsoft Graph, read with Microsoft's `Microsoft.Graph.Authentication` PowerShell module** (chosen) | yes: the `todoTask` `id` | yes: `status` | yes: the enclosing list | only Microsoft and the person's machine; the scope is read-only `Tasks.Read` |
+| Graph Explorer, copying responses by hand | yes | yes | yes, one list per query | only Microsoft. But each list and every `@odata.nextLink` page is a separate copy, which does not scale past a handful of tasks |
+| `Microsoft-To-Do-Export` (open source CLI, daylamtayari) | its raw JSON is Graph's shape; its CSV and Todoist formats are not | yes, with `--completed` | yes | the person's machine, but it asks for a Graph Explorer token with `Tasks.ReadWrite` pasted into it |
+| Microsoft To Do Exporter (hosted web app) | not documented | not documented | yes | a third-party site that reads every task with `Tasks.Read` |
+| To Do Vo Do (browser app) | yes: its CSV carries `id` | yes | not documented for its CSV | a third-party app; by its own account the data goes between Microsoft and the browser only |
+| Classic Outlook's CSV export (work accounts, which sync To Do into Outlook Tasks) | no | yes | the Outlook folder | only the person's machine; unavailable for personal accounts |
+
+The Graph route wins. It is first-party, read-only, works for work, school, and personal
+accounts, pages through every list, and keeps Graph's `id`. The steps and the script are in
+the skill's own Inputs section, and they are what the plan's round-trip test runs. One
+limitation applies to every route, because it comes from Graph itself: a task's `id`
+changes when the task is moved to another list. Graph's immutable ids cover Outlook items
+but not `todoTask`. So a task moved between two exports is imported a second time.
 
 ## Install
 
