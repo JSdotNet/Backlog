@@ -3914,6 +3914,89 @@ h1, h2, h3 {
     height: auto;
 }
 
+/* A capture's own files. Pictures sit above the body as a strip of tiles, each
+   one a button that opens the file; every other file is a row below it with its
+   size and the one act that applies — Open, or Retry with the reason. */
+.inbox-pane__thumbnails,
+.inbox-pane__files {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.inbox-pane__files {
+    flex-direction: column;
+    flex-wrap: nowrap;
+}
+
+.inbox-pane__thumbnail-button {
+    display: grid;
+    place-items: center;
+    width: 8rem;
+    height: 8rem;
+    padding: 0;
+    overflow: hidden;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+    cursor: pointer;
+}
+
+.inbox-pane__thumbnail-button:focus-visible {
+    outline: var(--border-width-2) solid var(--color-border-focus);
+    outline-offset: var(--border-width-2);
+}
+
+/* Contained, not cropped: the tile is a preview of the whole picture, and a
+   whiteboard photo cut to a square loses the edge somebody wrote on. */
+.inbox-pane__attachment-image {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.inbox-pane__thumbnail-pending {
+    padding: var(--spacing-xs);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    overflow-wrap: anywhere;
+}
+
+.inbox-pane__file {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    font-size: var(--font-size-sm);
+}
+
+.inbox-pane__file-name {
+    flex: 1 1 12rem;
+    min-width: 0;
+    color: var(--color-text-primary);
+    overflow-wrap: anywhere;
+}
+
+.inbox-pane__file-size,
+.inbox-pane__file-state {
+    margin: 0;
+    color: var(--color-text-secondary);
+}
+
+.inbox-pane__file-error {
+    flex-basis: 100%;
+    margin: 0;
+    color: var(--color-error-text);
+    font-size: var(--font-size-xs);
+}
+
 .inbox-pane__link {
     color: var(--color-text-link);
     font-size: var(--font-size-sm);

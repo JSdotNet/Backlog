@@ -33,8 +33,16 @@ internal static class SyncHttp
     /// resumes from — the one shape a screen cannot handle without a catch.
     /// </para>
     /// </summary>
+    public static Task<Result<T>> SendAsync<T>(
+        Func<Task<HttpResponseMessage>> send,
+        CancellationToken cancellationToken) =>
+        SendAsync(send, (content, token) => content.ReadFromJsonAsync<T>(token), cancellationToken);
+
+    /// <summary>The same convention for a body that is not JSON — an
+    /// attachment's bytes — read by <paramref name="read"/> on success.</summary>
     public static async Task<Result<T>> SendAsync<T>(
         Func<Task<HttpResponseMessage>> send,
+        Func<HttpContent, CancellationToken, Task<T?>> read,
         CancellationToken cancellationToken)
     {
         try
@@ -46,9 +54,7 @@ internal static class SyncHttp
                 return Result.Failure<T>(await ReadProblemAsync(response, cancellationToken).ConfigureAwait(false));
             }
 
-            var value = await response.Content
-                .ReadFromJsonAsync<T>(cancellationToken)
-                .ConfigureAwait(false);
+            var value = await read(response.Content, cancellationToken).ConfigureAwait(false);
 
             return value is null
                 ? Result.Failure<T>(Error.Unexpected(DevicePairingClient.UnreachableCode, "The sync service answered with nothing."))

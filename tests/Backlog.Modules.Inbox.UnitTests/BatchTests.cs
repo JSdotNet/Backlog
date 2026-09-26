@@ -153,5 +153,8 @@ public sealed class BatchTests
             createGroup: null!,
             renameGroup: null!,
             ungroup: null!,
-            ensureDefaultOrganizer: null!);
+            ensureDefaultOrganizer: null!,
+            retryAttachment: null!,
+            readAttachment: null!,
+            openAttachment: null!);
 }

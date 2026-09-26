@@ -47,6 +47,12 @@ namespace Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 /// id files the new item in that list, and the caller is the one that checked
 /// it exists; null lands it unfiled. Neither touches an item already here.
 /// </para>
+/// <para>
+/// <paramref name="Attachments"/> are the files the capture names (local ADR
+/// 0014) — metadata only; the intake records them on the item at once and
+/// fetches the bytes afterwards. Null or empty for a capture with none, which is
+/// every channel but the phone today.
+/// </para>
 /// </summary>
 public sealed record InboxCaptureDto(
     Guid Id,
@@ -61,4 +67,5 @@ public sealed record InboxCaptureDto(
     IReadOnlyList<string>? Tags = null,
     string? Person = null,
     string? Kind = null,
-    Guid? ListId = null);
+    Guid? ListId = null,
+    IReadOnlyList<InboxCaptureAttachmentDto>? Attachments = null);

@@ -93,6 +93,8 @@
             }
 
             <div class="inbox-pane__content" data-testid="@($"inbox-detail-kind-{item.KindSlug}")">
+                @Thumbnails(item)
+
                 @switch (item.Kind)
                 {
                     case ContentKind.YouTube:
@@ -182,6 +184,8 @@
                         @Link(item.SourceUrl)
                         break;
                 }
+
+                @FileRows(item)
             </div>
 
             <div class="inbox-pane__pickers">
@@ -369,6 +373,105 @@
             </div>
         }
     </text>;
+
+    // --- Attachments -------------------------------------------------------
+
+    // Instance templates rather than static ones, because both read the state:
+    // which thumbnails have been read, and which row a Retry is running for.
+
+    /// <summary>The pictures the capture arrived with, above the body. Each one
+    /// is a button that opens the file, so the picture is the way to the full
+    /// size rather than a dead image. A picture not read yet leaves its tile out
+    /// rather than drawing a broken one; the next render brings it.</summary>
+    private RenderFragment Thumbnails(InboxItemDto item) => @<text>
+        @{ var pictures = item.Attachments.Where(InboxDesktopState.ShowsAsThumbnail).ToList(); }
+        @if (pictures.Count > 0)
+        {
+            <ul class="inbox-pane__thumbnails" aria-label="Pictures" data-testid="inbox-detail-thumbnails">
+                @foreach (var picture in pictures)
+                {
+                    <li class="inbox-pane__thumbnail-item" data-testid="inbox-detail-thumbnail-item">
+                        <AppButton Variant="ButtonVariant.None"
+                                   BaseClass="inbox-pane__thumbnail-button"
+                                   Title="@($"Open {picture.Name}")"
+                                   OnClick="() => State.OpenAttachmentAsync(picture.Id)"
+                                   TestId="@($"inbox-attachment-thumbnail-{picture.Id:N}")">
+                            @if (State.Thumbnail(picture.Id) is { } source)
+                            {
+                                <img class="inbox-pane__attachment-image" src="@source" alt="@picture.Name" data-testid="inbox-detail-attachment-image" />
+                            }
+                            else
+                            {
+                                <span class="inbox-pane__thumbnail-pending">@picture.Name</span>
+                            }
+                        </AppButton>
+                    </li>
+                }
+            </ul>
+        }
+    </text>;
+
+    /// <summary>One row per file that is not drawn as a thumbnail: its name and
+    /// size, Open when it is on this machine, and Retry with the reason when its
+    /// download failed. A file still waiting for its first fetch says so.</summary>
+    private RenderFragment FileRows(InboxItemDto item) => @<text>
+        @{ var files = item.Attachments.Where(attachment => !InboxDesktopState.ShowsAsThumbnail(attachment)).ToList(); }
+        @if (files.Count > 0)
+        {
+            <ul class="inbox-pane__files" aria-label="Files" data-testid="inbox-detail-files">
+                @foreach (var file in files)
+                {
+                    <li class="inbox-pane__file" data-testid="@($"inbox-attachment-row-{file.Id:N}")">
+                        <span class="inbox-pane__file-name">@file.Name</span>
+                        <span class="inbox-pane__file-size">@Size(file.SizeBytes)</span>
+                        @if (file.Downloaded)
+                        {
+                            <AppButton Size="ButtonSize.Small"
+                                       OnClick="() => State.OpenAttachmentAsync(file.Id)"
+                                       TestId="@($"inbox-attachment-open-{file.Id:N}")">Open</AppButton>
+                        }
+                        else if (file.LastError is { } error)
+                        {
+                            <AppButton Size="ButtonSize.Small"
+                                       Busy="@(State.RetryingAttachmentId == file.Id)"
+                                       BusyLabel="Downloading"
+                                       Disabled="@(State.RetryingAttachmentId is not null)"
+                                       OnClick="() => State.RetryAttachmentAsync(file.Id)"
+                                       TestId="@($"inbox-attachment-retry-{file.Id:N}")">Retry</AppButton>
+                            <Alert BaseClass="inbox-pane__file-error"
+                                   Role="status"
+                                   Message="@error"
+                                   TestId="@($"inbox-attachment-error-{file.Id:N}")" />
+                        }
+                        else
+                        {
+                            <Alert BaseClass="inbox-pane__file-state"
+                                   Role="status"
+                                   Message="Waiting to download"
+                                   TestId="@($"inbox-attachment-waiting-{file.Id:N}")" />
+                        }
+                    </li>
+                }
+            </ul>
+        }
+    </text>;
+
+    /// <summary>A size the way a file manager writes one.</summary>
+    internal static string Size(long bytes) => bytes switch
+    {
+        < 1024 => $"{bytes} B",
+        < 1024 * 1024 => (bytes / 1024d).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + " KB",
+        _ => (bytes / (1024d * 1024)).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + " MB",
+    };
+
+    /// <summary>Reads the thumbnails of the item on screen. A parameter set is
+    /// every render the pane asks for — the state is the one parameter, and it
+    /// is an object, so Blazor always hands it on — and the read is a no-op once
+    /// each picture is cached.</summary>
+    protected override async Task OnParametersSetAsync()
+    {
+        if (State.SelectedItem is { Attachments.Count: > 0 } item) await State.LoadThumbnailsAsync(item);
+    }
 
     private static RenderFragment Note(string line) =>
         @<Alert BaseClass="inbox-pane__note" Role="status" Message="@line" TestId="inbox-detail-no-body" />;

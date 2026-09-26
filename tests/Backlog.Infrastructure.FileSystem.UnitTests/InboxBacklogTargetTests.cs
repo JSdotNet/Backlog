@@ -65,6 +65,24 @@ public sealed class InboxBacklogTargetTests
         Assert.Empty(parsed.Unreadable ?? []);
     }
 
+    /// <summary>An item that arrived with files hands its folder on as the
+    /// entry's attachment, and the text parses back to that path whole — a
+    /// workspace under a folder with spaces in its name included.</summary>
+    [Fact]
+    public void The_items_attachment_folder_becomes_the_entrys_attachment()
+    {
+        var folder = @"C:\Users\Sam Smith\Backlog\_inbox\attachments\" + Item.ToString("D");
+        var request = new InboxRouteRequestDto(Item, "Sign the contract", "Due Friday.", null, ["legal"], [], folder);
+
+        var parsed = EntryTextParser.Parse(InboxBacklogTarget.Compose(request, null));
+
+        Assert.Equal(folder, parsed.Attachment?.Path);
+        Assert.Equal("Sign the contract", parsed.Title);
+        Assert.Equal(["legal"], parsed.Tags);
+        Assert.Equal("Due Friday.", parsed.Body.Trim());
+        Assert.Empty(parsed.Unreadable ?? []);
+    }
+
     [Fact]
     public void Without_a_repository_no_repo_token_is_written()
     {

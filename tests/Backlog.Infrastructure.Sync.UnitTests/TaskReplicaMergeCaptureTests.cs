@@ -1,4 +1,5 @@
 using Backlog.Modules.Inbox.Abstractions.Services;
+using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.Abstractions;
 
 namespace Backlog.Infrastructure.Sync.UnitTests;
@@ -54,6 +55,30 @@ public sealed class TaskReplicaMergeCaptureTests
         Assert.Equal("@alex", received.Person);
         Assert.Equal(["planning", "team"], received.Tags);
         Assert.Equal("Dates, budget.", received.BodyMd);
+    }
+
+    /// <summary>The files a capture names travel to the intake as metadata —
+    /// id, name, type, size, digest — and a capture that names none hands over
+    /// none, so every capture from before ADR 0014 reads as it did.</summary>
+    [Fact]
+    public async Task A_captures_files_arrive_as_its_attachments()
+    {
+        var inbox = new RecordingInboxIntake();
+        var capture = Captures.Change("Whiteboard", Noon);
+        var file = new AttachmentMetadata(Guid.NewGuid(), "board.jpg", "image/jpeg", 2048, new string('b', 64));
+        capture = capture with { Task = capture.Task with { Attachments = [file] } };
+        var plain = Captures.Change("No files", Noon);
+
+        await new TaskReplicaMerge(new InMemoryTaskStore(), inbox)
+            .ApplyAsync([Captures.Record(capture, Phone, 100), Captures.Record(plain, Phone, 101)], TestContext.Current.CancellationToken);
+
+        var attachment = Assert.Single(inbox.Received[0].Attachments!);
+        Assert.Equal(file.Id, attachment.Id);
+        Assert.Equal("board.jpg", attachment.Name);
+        Assert.Equal("image/jpeg", attachment.ContentType);
+        Assert.Equal(2048, attachment.SizeBytes);
+        Assert.Equal(file.Sha256, attachment.Sha256);
+        Assert.Null(inbox.Received[1].Attachments);
     }
 
     /// <summary>A capture from a client that sent neither — every capture before

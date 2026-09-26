@@ -162,6 +162,54 @@ public sealed class SqliteInboxRepositoryTests : IDisposable
         Assert.Equal(InboxStatus.Archived, only.Status);
     }
 
+    /// <summary>The files an item arrived with come back in the order they were
+    /// recorded, with both halves — what the capture said and this machine's
+    /// copy — and a second save replaces the rows rather than adding to them.</summary>
+    [Fact]
+    public async Task An_items_attachments_round_trip_in_order_through_get_and_list()
+    {
+        var digest = new string('c', 64);
+        var item = Manual("Planning session");
+        var photo = InboxAttachment.Named(Guid.CreateVersion7(), "board.jpg", "image/jpeg", 2048, digest);
+        var contract = InboxAttachment.Named(Guid.CreateVersion7(), "contract.pdf", "application/pdf", 9000, digest);
+        item.RecordAttachments([photo, contract]);
+        item.MarkAttachmentDownloaded(photo.Id, @"C:\ws\_inbox\attachments\x\board.jpg", Noon.AddMinutes(1));
+        item.MarkAttachmentFailed(contract.Id, "The file is no longer on the sync service.", Noon.AddMinutes(1));
+
+        await _repository.SaveAsync(item, TestContext.Current.CancellationToken);
+        await _repository.SaveAsync(item, TestContext.Current.CancellationToken);
+
+        var fromGet = await _repository.GetAsync(item.Id, TestContext.Current.CancellationToken);
+        var fromList = Assert.Single(await _repository.ListAsync(TestContext.Current.CancellationToken));
+
+        foreach (var loaded in new[] { fromGet!, fromList })
+        {
+            Assert.Collection(
+                loaded.Attachments,
+                first =>
+                {
+                    Assert.Equal(photo.Id, first.Id);
+                    Assert.Equal("board.jpg", first.Name);
+                    Assert.Equal("image/jpeg", first.ContentType);
+                    Assert.Equal(2048, first.SizeBytes);
+                    Assert.Equal(digest, first.Sha256);
+                    Assert.Equal(@"C:\ws\_inbox\attachments\x\board.jpg", first.LocalPath);
+                    Assert.Equal(Noon.AddMinutes(1), first.DownloadedAt);
+                    Assert.Null(first.LastError);
+                },
+                second =>
+                {
+                    Assert.Equal(contract.Id, second.Id);
+                    Assert.Null(second.LocalPath);
+                    Assert.Null(second.DownloadedAt);
+                    Assert.Equal("The file is no longer on the sync service.", second.LastError);
+                });
+        }
+
+        // Loaded without restamping: the stamp is the one the last save wrote.
+        Assert.Equal(item.UpdatedAt, fromGet!.UpdatedAt);
+    }
+
     [Fact]
     public async Task The_list_is_every_status_newest_capture_first()
     {

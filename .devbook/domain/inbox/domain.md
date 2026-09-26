@@ -18,8 +18,8 @@ tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests]
 ```meta
 type: aggregate
 status: draft
-related: [.devbook/domain/capture/domain.md#capture, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types, .devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md, .devbook/domain/inbox/domain.invariants.md#inbox-item]
-tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests]
+related: [.devbook/domain/inbox/domain.invariants.md#inbox-item, .devbook/domain/capture/domain.md#capture, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types, .devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md, .devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md]
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxAttachmentTests]
 aliases: [InboxItem, InboxItemDto, inbox_items]
 ```
 
@@ -53,8 +53,16 @@ replayed page or the desktop's own acknowledgement echo finds the row it already
 has. A thought typed into the desktop's Add dialog becomes an item with a
 fresh id, channel `manual`, the notes as its body, and no replica behind it.
 
-The Inbox Item aggregate has no owned child entities; `Tag`, `Routing Target`
-and `Source` are value objects owned by the root.
+A capture can also bring files — a photo, a screenshot, a PDF the phone
+shared. The item owns them as [Attachments](#attachment): the file belongs to the
+thought, so it lives inside the item's boundary and not beside it, and it stays
+with the item whatever triage later decides.
+
+The Inbox Item aggregate has no owned child entities; `Tag`, `Routing Target`,
+`Source` and `Attachment` are value objects owned by the root.
+
+The rules the item and its attachments are held to are `### Invariant:`
+chapters in [`domain.invariants.md`](domain.invariants.md#inbox-item).
 
 ### Routing Target
 
@@ -99,6 +107,48 @@ and the same link clipped alone arrive through different channels and mean
 different things to the reader triaging them. The channel is provenance mirrored
 from Capture; the person is provenance the channel cannot carry. Immutable once
 set; equality is by value.
+
+### Attachment
+
+```meta
+type: value-object
+status: draft
+related: [.devbook/domain/inbox/domain.invariants.md#inbox-item, .devbook/domain/inbox/features.md#capture-attachments, .devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md]
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxAttachmentTests]
+aliases: [InboxAttachment, InboxAttachmentDto, inbox_item_attachments, file]
+```
+
+One file an item arrived with, and whether this machine has it. It has two
+halves, because they come from two places and change at different rates.
+
+- **What the capture said**: the id the phone minted for the file, its name,
+  its content type, its size, and the sha256 of its bytes. This is a record of
+  what was sent, like the capture instant, so it does not change after it is
+  recorded.
+- **This machine's copy**: where the file is kept (`local_path`), when it was
+  written (`downloaded_at`), and why the last attempt failed (`last_error`).
+  This half changes each time the desktop tries to fetch the file. Another
+  device keeps its own copy.
+
+The bytes do not travel on the replica. The capture names the file, and the
+desktop fetches it from the sync service's attachment store afterwards (local
+ADR 0014). So an attachment moves through a short lifecycle of its own:
+
+- **Recorded**: the capture named it and the item saved it before any byte was
+  fetched. The pane shows it as *Waiting to download*.
+- **Downloaded**: the bytes arrived, matched the recorded sha256, and were
+  written into the item's [attachment folder](#attachment-folder).
+- **Failed**: the fetch or the write did not succeed, and the reason is kept.
+  A failed file waits for the person to press Retry. A replayed sync page does
+  not try it again.
+- **Retried**: Retry fetches the file again. It ends Downloaded, which clears
+  the reason, or Failed again with the new reason.
+
+A file that did not arrive does not make the thought any less captured, so the
+item is Received whatever happens to its files. A picture is a file whose
+content type is `image/*`. This is the one thing the pane and
+[Classification](#classification) ask of a file. Equality is by value. A
+change is a new attachment that the item swaps in, and only the item does so.
 
 ### Content Kind
 
@@ -209,7 +259,7 @@ and then removes the group, so no list is ever deleted by deleting its group.
 type: domain-service
 status: draft
 related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/devbook/domain.md#knowledge-note, .devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md]
-tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBacklogTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.CreatePlanTests]
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBacklogTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.CreatePlanTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests.Routing_hands_the_items_folder_to_the_task_as_its_attachment]
 aliases: [RouteToBacklogCommand, CreatePlanCommand, ArchiveItemCommand]
 ```
 
@@ -233,6 +283,10 @@ Two doors lead to Tasks and both end in the same `Routing Target`:
   plan says, because nobody has read them yet; and a plan naming a repository the
   item was not assigned is refused whole before Tasks sees it.
 
+An item with attachments hands its [attachment folder](#attachment-folder) to
+every task Route to backlog creates, as that task's attachment. The file goes
+where the work goes. Create plan does not hand the folder on yet.
+
 Routing to Devbook is modelled and not built.
 
 ## Classification
@@ -240,13 +294,16 @@ Routing to Devbook is modelled and not built.
 ```meta
 type: domain-service
 status: draft
-tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.ContentKindDetectorTests]
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.ContentKindDetectorTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests.A_picture_and_nothing_else_arrives_as_an_image_and_a_file_as_a_document]
 ```
 
 Enriches an unprocessed Inbox Item before or during triage. Built today: on
 intake it reads the captured text for its `Content Kind` (a YouTube host, a
 Claude host, an image or document extension, a bare URL against a titled one, a
-fenced snippet) and its first URL as the source link. Modelled and not built:
+fenced snippet) and its first URL as the source link. An item with
+[attachments](#attachment) is read by its files first: it is an `image` when
+its only content is pictures (no body and no link), and a `document` when any
+file is not a picture. Modelled and not built:
 auto-suggested tags from content analysis, an auto-suggested routing destination
 from keywords/patterns, and configured routing rules (source/tag patterns → repo
 mapping). It is a service because suggestions draw on rules and analysis
@@ -348,3 +405,18 @@ The `#tag` every entry of a plan drafted from an item shares, which Tasks reads
 as the plan's identity (`import_plan_id`). Shaped `{title-slug}-{last eight hex
 digits of the item id}`, at most forty characters, so it is unique per item and
 a legal tag on the metadata line.
+
+### Attachment folder
+
+```meta
+type: term
+status: draft
+aliases: [AttachmentPath, _inbox/attachments]
+related: [.devbook/domain/inbox/domain.md#attachment, .devbook/domain/inbox/domain.md#triage]
+```
+
+The folder on this machine that holds one item's downloaded files:
+`<workspace>/_inbox/attachments/<item id>/`. Each file has one name there, so
+a retry writes to the same place the first attempt did. Routing hands the
+folder to every task the item becomes, as the task's single attachment
+(`AttachmentPath`). The task then points at the files and does not copy them.

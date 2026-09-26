@@ -2,6 +2,7 @@ using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Tasks.Abstractions.Services;
 
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Backlog.Infrastructure.FileSystem.Inbox;
 
@@ -37,6 +38,14 @@ public static class InboxCrossContextAdapterRegistration
 
         services.AddScoped<IInboxBacklogTarget, InboxBacklogTarget>();
         services.AddScoped<IBacklogTagSource, InboxBacklogTagSource>();
+
+        // Where an item's files are kept: under the workspace's inbox folder,
+        // read per call so a moved workspace takes them along. A singleton,
+        // because the sync loop's intake resolves it from the root provider; the
+        // settings store it reads is one too. Not a join between contexts, but
+        // registered with them because both hosts that call this own a workspace.
+        services.TryAddSingleton<IInboxAttachmentFiles>(sp =>
+            new WorkspaceInboxAttachmentFiles(() => sp.GetRequiredService<WorkspaceSettingsStore>().InboxDirectory));
 
         return services;
     }

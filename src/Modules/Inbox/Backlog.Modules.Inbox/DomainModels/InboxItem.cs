@@ -25,6 +25,7 @@ public sealed class InboxItem
 {
     private readonly List<InboxTag> _tags = [];
     private readonly List<string> _repoIds = [];
+    private readonly List<InboxAttachment> _attachments = [];
 
     /// <summary>A thought captured on this machine, or through a channel with no
     /// replica behind it. Born <see cref="InboxStatus.Unprocessed"/> with a fresh
@@ -139,6 +140,10 @@ public sealed class InboxItem
 
     public IReadOnlyList<string> RepoIds => _repoIds;
 
+    /// <summary>The files the capture arrived with, in the order they were
+    /// recorded. Distinct by id; see <see cref="RecordAttachments"/>.</summary>
+    public IReadOnlyList<InboxAttachment> Attachments => _attachments;
+
     public Guid? ListId { get; private set; }
 
     public RoutingTarget? Routing { get; private set; }
@@ -249,6 +254,120 @@ public sealed class InboxItem
     {
         ListId = listId;
         Touch();
+    }
+
+    // --- Attachments --------------------------------------------------------
+
+    /// <summary>
+    /// Records the files a capture names, and answers how many were new.
+    /// <para>
+    /// By id, and only ever added. A file already on the item is left exactly as
+    /// it is — what the capture said about it, and whether this machine has it —
+    /// so a replayed page, or the same capture offered twice, records nothing
+    /// twice and cannot reset a file that was downloaded back to waiting. The
+    /// capture's metadata is what it <em>was</em>, like <see cref="CapturedAt"/>,
+    /// and nothing edits it afterwards. Allowed in every state: a file belongs to
+    /// the thought however it has since been decided.
+    /// </para>
+    /// </summary>
+    public int RecordAttachments(IEnumerable<InboxAttachment> named)
+    {
+        ArgumentNullException.ThrowIfNull(named);
+
+        var added = 0;
+
+        foreach (var attachment in named)
+        {
+            ArgumentNullException.ThrowIfNull(attachment);
+            if (_attachments.Any(existing => existing.Id == attachment.Id)) continue;
+
+            _attachments.Add(attachment);
+            added++;
+        }
+
+        if (added > 0) Touch();
+
+        return added;
+    }
+
+    /// <summary>Records that the file is on this machine at
+    /// <paramref name="localPath"/>, clearing any earlier failure.</summary>
+    public void MarkAttachmentDownloaded(Guid attachmentId, string localPath, DateTimeOffset at)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(localPath);
+
+        Replace(attachmentId, attachment => attachment.Downloaded(localPath.Trim(), at));
+        Touch(at);
+    }
+
+    /// <summary>Records why the file could not be fetched. The file is then not
+    /// on this machine — a failure and a local copy never stand together — and
+    /// the item is otherwise untouched: a file that did not arrive does not make
+    /// the thought any less captured.</summary>
+    public void MarkAttachmentFailed(Guid attachmentId, string error, DateTimeOffset at)
+    {
+        var reason = string.IsNullOrWhiteSpace(error) ? "The file could not be downloaded." : error.Trim();
+
+        Replace(attachmentId, attachment => attachment.Failed(reason));
+        Touch(at);
+    }
+
+    /// <summary>
+    /// The bare file name <paramref name="attachmentId"/> is kept under in the
+    /// item's folder: the capture's name with what no file system accepts taken
+    /// out, and — when another file on the item would take the same name — the
+    /// first eight characters of its id before the extension. The first file
+    /// recorded under a name keeps it, so the answer is the same on every call
+    /// and a retry writes where the first attempt did.
+    /// </summary>
+    public string AttachmentFileName(Guid attachmentId)
+    {
+        var index = _attachments.FindIndex(attachment => attachment.Id == attachmentId);
+        if (index < 0) throw new ArgumentException("The attachment is not on this item.", nameof(attachmentId));
+
+        var name = SafeFileName(_attachments[index].Name, attachmentId);
+        var takenEarlier = _attachments
+            .Take(index)
+            .Any(earlier => string.Equals(SafeFileName(earlier.Name, earlier.Id), name, StringComparison.OrdinalIgnoreCase));
+
+        if (!takenEarlier) return name;
+
+        var dot = name.LastIndexOf('.');
+        var suffix = "-" + attachmentId.ToString("N")[..8];
+        return dot > 0 ? name[..dot] + suffix + name[dot..] : name + suffix;
+    }
+
+    /// <summary>Restores the files a persisted item was written with, as they
+    /// are. No rule and no stamp, for the reason <see cref="LoadTags"/> gives.</summary>
+    public void LoadAttachments(IEnumerable<InboxAttachment> attachments)
+    {
+        ArgumentNullException.ThrowIfNull(attachments);
+
+        _attachments.Clear();
+        _attachments.AddRange(attachments);
+    }
+
+    private void Replace(Guid attachmentId, Func<InboxAttachment, InboxAttachment> change)
+    {
+        var index = _attachments.FindIndex(attachment => attachment.Id == attachmentId);
+        if (index < 0) throw new ArgumentException("The attachment is not on this item.", nameof(attachmentId));
+
+        _attachments[index] = change(_attachments[index]);
+    }
+
+    /// <summary>The characters Windows refuses in a file name, which is the
+    /// strictest of the file systems a workspace lands on; the same list on every
+    /// platform, so one item's folder reads the same wherever it is synced.</summary>
+    private static readonly char[] UnsafeFileNameChars = ['<', '>', ':', '"', '/', '\\', '|', '?', '*'];
+
+    private static string SafeFileName(string name, Guid id)
+    {
+        var cleaned = new string([.. name.Select(c => char.IsControl(c) || UnsafeFileNameChars.Contains(c) ? '_' : c)])
+            .Trim()
+            .TrimEnd('.');
+
+        // A name that is nothing but dots or spaces is no name at all.
+        return cleaned.Trim('.', ' ', '_').Length == 0 ? id.ToString("N") : cleaned;
     }
 
     // --- Lifecycle ----------------------------------------------------------

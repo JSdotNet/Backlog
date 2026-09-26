@@ -29,7 +29,17 @@ internal static class InboxMapper
         item.Routing is { } routing
             ? new InboxRoutingDto(routing.Domain, routing.RepoIds, routing.TaskIds, routing.RoutedAt)
             : null,
-        item.DeferredUntil);
+        item.DeferredUntil)
+    {
+        Attachments = [.. item.Attachments.Select(attachment => new InboxAttachmentDto(
+            attachment.Id,
+            attachment.Name,
+            attachment.ContentType,
+            attachment.SizeBytes,
+            attachment.IsImage,
+            attachment.IsDownloaded,
+            attachment.LastError))],
+    };
 
     public static InboxListDto ToDto(this InboxList list) => new(list.Id, list.Name, list.GroupId, list.Order);
 
