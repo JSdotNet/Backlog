@@ -347,7 +347,7 @@ internal static class StorybookIndex
 
         new("Dashboard",
         [
-            new("usage-metrics", "Usage metrics", "MetricTile, MetricGrid, MetricSparkline, MetricBars, MetricBreakdownBar, MetricMeter, MetricBreakdown, MetricStatus."),
+            new("usage-metrics", "Usage metrics", "MetricTile, MetricGrid, MetricSparkline, MetricBars, MetricBreakdownBar, MetricRanking, MetricMeter, MetricBreakdown, MetricStatus."),
             new("ai-usage", "AI usage and cost", "The same components composed into the view they were built for: what AI cost this fortnight, on what, and for whom."),
             new("productivity", "Productivity over time", "MetricScore, MetricTrellis, MetricHeatmap, MetricSpotlight, MetricStackedArea, MetricStackedBars: a score, where the time went, and how one hue compares them across repositories and weeks.")
         ]),

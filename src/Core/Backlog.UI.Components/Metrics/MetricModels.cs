@@ -16,6 +16,11 @@ public sealed record MoneyAmount(decimal Amount, string Currency);
 /// the ordinal scale — for AI tokens, unit price, cheapest first.</summary>
 public sealed record MetricPart(string Label, decimal Value);
 
+/// <summary>One row of a ranking. <c>Value</c> is what the rows are ordered and
+/// scaled by; <c>Detail</c> is the rest of what a reader wants beside it — "74
+/// calls · 2 failed" next to the time they took — printed, never drawn.</summary>
+public sealed record MetricRankItem(string Label, decimal Value, string? Detail = null);
+
 /// <summary>Change against a named earlier period.
 /// <para><c>Value</c> is a fraction when <c>Unit</c> is
 /// <see cref="MetricDeltaUnit.Percent"/> — 0.124 is "up 12.4%" — and a raw count

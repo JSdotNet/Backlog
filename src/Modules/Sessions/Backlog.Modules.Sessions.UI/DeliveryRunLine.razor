@@ -227,20 +227,17 @@
                 </div>
             }
 
+            @* Ranked by the time they took, each with its own bar: where the run's
+               time went is read off lengths, and the calls and failures behind it
+               are printed beside the figure. *@
             @if (Run.InsightsByCategory.Count > 0)
             {
                 <div class="sessions-run__group">
                     <dt>Tool calls</dt>
                     <dd>
-                        <ul class="sessions-run__list" data-testid="sessions-run-insights">
-                            @foreach (var group in Run.InsightsByCategory)
-                            {
-                                <li>
-                                    <span class="sessions-run__stage-name" title="@group.Name">@group.Name</span>
-                                    <span class="sessions-run__stage-facts">@Insight(group)</span>
-                                </li>
-                            }
-                        </ul>
+                        <MetricRanking Items="@Ranking(Run.InsightsByCategory)"
+                                       FormatValue="@(ms => Duration((long)ms))"
+                                       TestId="sessions-run-insights" />
                     </dd>
                 </div>
             }
@@ -250,15 +247,10 @@
                 <div class="sessions-run__group">
                     <dt>MCP servers</dt>
                     <dd>
-                        <ul class="sessions-run__list" data-testid="sessions-run-servers">
-                            @foreach (var group in Run.InsightsByServer)
-                            {
-                                <li>
-                                    <span class="sessions-run__stage-name data-table__mono" title="@group.Name">@group.Name</span>
-                                    <span class="sessions-run__stage-facts">@Insight(group)</span>
-                                </li>
-                            }
-                        </ul>
+                        <MetricRanking Items="@Ranking(Run.InsightsByServer)"
+                                       FormatValue="@(ms => Duration((long)ms))"
+                                       NameCssClass="data-table__mono"
+                                       TestId="sessions-run-servers" />
                     </dd>
                 </div>
             }
@@ -521,12 +513,18 @@
             ? $"Peak {MetricFormat.Compact(context.PeakTokens)} of {MetricFormat.Compact(context.TokenLimit)} ({MetricFormat.Percent(share, 0)}); last sample {MetricFormat.Compact(context.CurrentTokens)}"
             : $"Peak {MetricFormat.Compact(context.PeakTokens)}; last sample {MetricFormat.Compact(context.CurrentTokens)}";
 
-    private static string Insight(DeliveryRunInsightGroup group)
+    /// <summary>A group of tool activity as a ranking row: the time it took is what
+    /// ranks it, and the calls and failures ride beside that figure.</summary>
+    private static IReadOnlyList<MetricRankItem> Ranking(IEnumerable<DeliveryRunInsightGroup> groups) =>
+    [
+        .. groups.Select(group => new MetricRankItem(group.Name, group.DurationMs, Calls(group)))
+    ];
+
+    private static string Calls(DeliveryRunInsightGroup group)
     {
         var calls = group.Count == 1 ? "1 call" : $"{MetricFormat.Compact(group.Count)} calls";
-        var failed = group.Failed == 0 ? string.Empty : $" · {group.Failed} failed";
 
-        return $"{calls} · {Duration(group.DurationMs)}{failed}";
+        return group.Failed == 0 ? calls : $"{calls} · {group.Failed} failed";
     }
 
     /// <summary>Milliseconds as the two largest units that matter: hours and minutes

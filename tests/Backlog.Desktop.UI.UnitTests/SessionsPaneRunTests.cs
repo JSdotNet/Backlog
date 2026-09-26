@@ -180,10 +180,18 @@ public sealed class SessionsPaneRunTests
 
             Assert.Contains("Peak 180.0K of 200.0K (90%)", line.QuerySelector("[data-testid='sessions-run-context']")!.TextContent);
 
+            // Ranked by time spent, each group's calls and failures printed beside
+            // the time it took.
             var insights = line.QuerySelector("[data-testid='sessions-run-insights']")!;
-            Assert.Contains("Shell", insights.TextContent);
-            Assert.Contains("3 calls · 3s · 1 failed", insights.TextContent);
-            Assert.Contains("Agents", insights.TextContent);
+            var shell = insights.QuerySelectorAll(".metric-ranking__item")
+                .Single(item => item.QuerySelector(".metric-ranking__name")!.TextContent == "Shell");
+            Assert.Equal("3 calls · 1 failed", shell.QuerySelector(".metric-ranking__detail")!.TextContent);
+            Assert.Equal("3s", shell.QuerySelector(".metric-ranking__value")!.TextContent);
+            // Agents took 22s against Shell's 3s, so it leads although the run
+            // file listed Shell first.
+            Assert.Equal(
+                ["Agents", "Shell"],
+                insights.QuerySelectorAll(".metric-ranking__name").Select(name => name.TextContent));
 
             Assert.Contains("plugin_qa_aspire", line.QuerySelector("[data-testid='sessions-run-servers']")!.TextContent);
 

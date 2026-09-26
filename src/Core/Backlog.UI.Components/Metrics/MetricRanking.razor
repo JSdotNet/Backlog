@@ -1,0 +1,134 @@
+@*
+    Which one took the most, as a list of bars. Built for a run's tool activity —
+    Shell at two hours, Edit at two seconds — where the question is "where did the
+    time go", and that is read off relative lengths faster than off a column of
+    durations.
+
+    Not MetricBreakdownBar: that is part-to-whole in one bar, and its thin parts
+    vanish into the thick one. Here every row gets its own track, so the smallest
+    row is still a row a reader can find, and nothing claims the rows add up to a
+    whole — a run's MCP servers overlap its tool categories, and a share of a total
+    that double-counts would be a number nobody measured.
+
+    Ranked by the component, unlike MetricBreakdown: ordering is what a ranking is,
+    so it is not left to the caller to get right. Largest first, and rows with the
+    same value keep the order they were given in.
+
+    Each bar is scaled to the largest row rather than to the total, so the leader
+    fills its track and the rest read against it. The bars are aria-hidden and the
+    list is the content: every row prints its label, its value and its detail, so
+    a width never carries a number on its own. One ramp step for every bar — the
+    rows are told apart by their labels, and position already says which is first.
+*@
+
+<div class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
+    @if (!string.IsNullOrWhiteSpace(Label))
+    {
+        <p class="@(Part("label"))" id="@_labelId">@Label</p>
+    }
+
+    @if (Rows.Count == 0)
+    {
+        <MetricStatus Kind="MetricStatusKind.Empty" Message="@EmptyMessage" CssClass="@(Part("status"))" />
+    }
+    else
+    {
+        <ol class="@(Part("list"))"
+            aria-labelledby="@(string.IsNullOrWhiteSpace(Label) ? null : _labelId)">
+            @foreach (var row in Rows)
+            {
+                <li class="@(Part("item"))">
+                    <span class="@(JoinClasses(Part("name"), NameCssClass))" title="@row.Label">@row.Label</span>
+                    <span class="@(Part("figures"))">
+                        @if (!string.IsNullOrWhiteSpace(row.Detail))
+                        {
+                            <span class="@(Part("detail"))">@row.Detail</span>
+                        }
+                        <span class="@(Part("value"))">@Format(row.Value)</span>
+                    </span>
+                    <span class="@(Part("track"))" aria-hidden="true">
+                        @* No fill at zero: the fill's minimum width is for a row that
+                           is small, and a row that is nothing gets no mark at all. *@
+                        @if (row.Share > 0m)
+                        {
+                            <span class="@(Part("fill"))" style="@($"width: {Width(row.Share)}%")"></span>
+                        }
+                    </span>
+                </li>
+            }
+        </ol>
+    }
+</div>
+
+@code {
+    /// <summary>The rows, in any order: the component ranks them.</summary>
+    [Parameter]
+    public IReadOnlyList<MetricRankItem> Items { get; set; } = [];
+
+    [Parameter]
+    public string? Label { get; set; }
+
+    /// <summary>How each value reads. Defaults to the compact notation; a ranking
+    /// of durations passes a formatter that prints hours and minutes.</summary>
+    [Parameter]
+    public Func<decimal, string>? FormatValue { get; set; }
+
+    /// <summary>Added to every row's name — for a list of identifiers that should
+    /// read in the monospace face, say.</summary>
+    [Parameter]
+    public string? NameCssClass { get; set; }
+
+    /// <summary>Shown when there are no rows at all.</summary>
+    [Parameter]
+    public string? EmptyMessage { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    /// <summary>Replaces <c>metric-ranking</c> as the class this block carries, and
+    /// every child class with it.</summary>
+    [Parameter]
+    public string BaseClass { get; set; } = "metric-ranking";
+
+    [Parameter]
+    public string? TestId { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private readonly string _labelId = "metric-ranking-" + Guid.NewGuid().ToString("N");
+
+    private sealed record Row(string Label, decimal Value, string? Detail, decimal Share);
+
+    private List<Row> Rows { get; set; } = [];
+
+    protected override void OnParametersSet()
+    {
+        // A negative figure has no length to draw; it ranks and prints as nothing.
+        var items = (Items ?? []).Select(item => item with { Value = Math.Max(0m, item.Value) }).ToList();
+        var max = items.Count == 0 ? 0m : items.Max(item => item.Value);
+
+        // OrderByDescending is stable, so equal values keep the caller's order.
+        Rows =
+        [
+            .. items
+                .OrderByDescending(item => item.Value)
+                .Select(item => new Row(item.Label, item.Value, item.Detail, max > 0m ? item.Value / max : 0m))
+        ];
+    }
+
+    private string Format(decimal value) => (FormatValue ?? MetricFormat.Compact)(value);
+
+    /// <summary>Written invariant, as every width in this family is: a comma decimal
+    /// separator makes the declaration invalid and the fill collapses.</summary>
+    private static string Width(decimal share) =>
+        (share * 100m).ToString("0.####", System.Globalization.CultureInfo.InvariantCulture);
+
+    private string Part(string name) => $"{BaseClass}__{name}";
+
+    private static string JoinClasses(string part, string? extra) =>
+        string.IsNullOrWhiteSpace(extra) ? part : $"{part} {extra}";
+
+    private string ClassValue =>
+        string.IsNullOrWhiteSpace(CssClass) ? BaseClass : $"{BaseClass} {CssClass}";
+}
