@@ -1011,10 +1011,13 @@ export function behaviourIssues(type, meta, scenarios = 0) {
     if (!expected) return [];
     const issues = [];
 
-    if (scenarios === 0) {
+    // Only a requirement is held to its scenarios. An invariant's claim is
+    // already the case and its `unit` test names it, so one with none is
+    // complete — and one an older chapter still carries is left alone.
+    if (type === "requirement" && scenarios === 0) {
         issues.push({
             severity: "warning",
-            message: `is a \`${type}\` chapter with no \`#### Scenario:\` under it — a rule with no case that exercises it is one nobody can tell has been broken, and a brief can derive no acceptance check from it.`,
+            message: `is a \`${type}\` chapter with no \`#### Scenario:\` under it — a promise with no case that exercises it is one nobody can tell has been broken, and a brief can derive no acceptance check from it.`,
         });
     }
 
@@ -1564,6 +1567,36 @@ export function domainFileName(relPath) {
     return { base: segments[0], page: null, legacy: segments[0] === "invariants" };
 }
 
+// The structural documents: files whose `##` sections are sections, not
+// chapters, and carry no block of their own — the file-level block is the only
+// metadata they need. Mirrors the folder instruction files that say so; change
+// one and change the other in the same edit. `context-map.md` is on the list
+// although a `bounded-context` section there takes a block: that section is
+// optional, so a section without one is structural, and one with one is still
+// validated like any chapter.
+const STRUCTURAL_ROOT_FILES = {
+    domain: "context-map.md",
+    tech: "technology-graph.md",
+    ai: "adoption-map.md",
+};
+const STRUCTURAL_DOMAIN_BASES = ["model", "flow", "dependencies"];
+
+/**
+ * Whether this document's headings are sections rather than chapters, so a
+ * heading without a `meta` block is expected, not a missing block.
+ */
+export function isStructuralDocument(relPath) {
+    const kind = folderKindForPath(relPath);
+    if (!kind) return false;
+    const subject = String(relPath).replace(/\\/g, "/").slice(DEVBOOK_PREFIX.length + kind.length + 1);
+    if (subject === STRUCTURAL_ROOT_FILES[kind]) return true;
+    if (kind !== "domain" || subject.split("/").length !== 2) return false;
+    const { base, legacy } = domainFileName(relPath);
+    // An additional page is structural too: the rule names it beside model.md,
+    // and it is whatever file the convention does not prescribe.
+    return STRUCTURAL_DOMAIN_BASES.includes(base) || (!legacy && !TYPE_BY_FOLDER.domain.file.includes(base));
+}
+
 /**
  * Heuristic lint of a document's metadata blocks against
  * chapter-metadata.instructions.md. Not a full structural validator (it does
@@ -1655,11 +1688,13 @@ export function validateDocument(relPath, markdown) {
         openQuestions.set(note.chapter.line, note.line);
     }
 
+    const structural = isStructuralDocument(relPath);
     for (const [index, chapter] of chapters.entries()) {
         const label = `${"#".repeat(chapter.level)} ${chapter.text} (line ${chapter.line})`;
         if (!chapter.meta) {
-            // Level-1 heading already reported above as the file-level block.
-            if (chapter.level > 1) {
+            // Level-1 heading already reported above as the file-level block;
+            // a structural document's headings are sections by rule.
+            if (chapter.level > 1 && !structural) {
                 issues.push({
                     severity: "warning",
                     message: `${label} has no \`meta\` block. Add one if this heading is an addressable chapter for this folder.`,

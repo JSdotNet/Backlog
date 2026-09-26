@@ -11,15 +11,32 @@
       "deliver": [
         "backlog"
       ]
+    },
+    "delivery.roles": {
+      "architecture": "architecture",
+      "domain": "domain-design",
+      "qa": "qa",
+      "ux": "ux-design",
+      "docs": "documentation"
+    }
+  },
+  "extensions": {
+    "implement": "csharp-coding:coding",
+    "app.start": {
+      "provider": "repo:start",
+      "host": "aspire"
+    },
+    "qa.run": {
+      "provider": "qa:qa"
     }
   },
   "components": {
     "delivery": {
-      "pluginVersion": "1.7.0"
+      "pluginVersion": "1.9.0"
     },
     "devbook": {
-      "pluginVersion": "1.7.0",
-      "contractVersion": 17,
+      "pluginVersion": "1.9.0",
+      "contractVersion": 18,
       "adopted": [
         "arc42",
         "domain",
@@ -29,8 +46,8 @@
       ],
       "materialized": {
         ".devbook/_tools/devbook-meta": {
-          "from": "1.7.0",
-          "hash": "sha256:253d77912dbb9c6ebae2693c3a1b8be48dc9198b721d2e2d88a33e99e1ec161a",
+          "from": "1.9.0",
+          "hash": "sha256:a911bdfb10d30fe3c30a18bc71961ebf40e94ebb49598e7ae66184c9789f3b88",
           "managed": true
         },
         ".devbook/_tools/devbook-tech": {
@@ -44,8 +61,8 @@
           "managed": true
         },
         "AGENTS.md#devbook": {
-          "from": "1.7.0",
-          "hash": "sha256:601e6d85335687ec8d3c0af4cb6844f0437467a2867c44fc952ffca70458b5ab",
+          "from": "1.9.0",
+          "hash": "sha256:d9ff4ab8a7a8d5a6a750750f311ce02956129acf3f5b57258d3092642dd6808a",
           "managed": true
         },
         ".agents/rules/devbook-ai.md": {
@@ -94,8 +111,8 @@
           "managed": true
         },
         ".agents/rules/devbook-chapter-metadata.md": {
-          "from": "1.7.0",
-          "hash": "sha256:01adc5f859c3810393f1427dfbcae06e8dc9516922ddb540fac22d2a68e5b2a3",
+          "from": "1.9.0",
+          "hash": "sha256:40b2f26ef9dbb98b929934996090653cd639321b6fed3dbc25a0cffd165bce7c",
           "managed": true
         },
         ".claude/rules/devbook-chapter-metadata.md": {
@@ -124,8 +141,8 @@
           "managed": true
         },
         ".agents/rules/devbook-domain.md": {
-          "from": "1.7.0",
-          "hash": "sha256:db99ae9b3c0fe2a652b0758e727006fe9ccdb1fe123e89bbb38022a3ef605c34",
+          "from": "1.9.0",
+          "hash": "sha256:c8d879bbacdefac7f8d215de4f31681b6be9660b6a227473a5a41a1a5d53bfda",
           "managed": true
         },
         ".claude/rules/devbook-domain.md": {
@@ -193,6 +210,10 @@
         {
           "id": "017-invariants-under-domain",
           "applied": "2026-09-25"
+        },
+        {
+          "id": "018-behaviour-titles",
+          "applied": "2026-09-26"
         }
       ]
     },
@@ -284,7 +305,7 @@
       }
     },
     "schedule": {
-      "pluginVersion": "1.7.0",
+      "pluginVersion": "1.9.0",
       "enabled": [
         "issue-sweep",
         "merge-review",
