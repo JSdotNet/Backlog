@@ -61,7 +61,10 @@ public sealed record TaskPayload(
     // (local ADR 0014), metadata only. Defaulted for the reason CompletedOn is,
     // and null rather than empty on every document that has none, so a task
     // document serialises exactly as it did before.
-    IReadOnlyList<AttachmentMetadata>? Attachments = null)
+    IReadOnlyList<AttachmentMetadata>? Attachments = null,
+    // The day work first moved to in progress. Last and defaulted for the same
+    // reason: an older document carries none and reads as never stamped.
+    DateOnly? StartedOn = null)
 {
     /// <summary>
     /// Every property the document carried that this build has no member for,

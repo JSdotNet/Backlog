@@ -29,6 +29,7 @@ internal static class Projections
         entry.TotalSubItems,
         entry.CompletedSubItems,
         entry.DueOn,
+        entry.StartedOn,
         entry.CompletedOn,
         entry.Effort,
         entry.RepoIds ?? [],

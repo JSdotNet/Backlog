@@ -143,6 +143,7 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
         task.SetRecurrence(new Recurrence(2, RecurrenceUnit.Week));
         task.SetInMyDayOn(new DateOnly(2026, 8, 19));
         task.SetCompletedOn(new DateOnly(2026, 9, 22));
+        task.SetStartedOn(new DateOnly(2026, 9, 2));
         task.SetView(EntryView.Notes);
         task.SetDependsOn(["a1b2c3", "d4e5f6"]);
 
@@ -155,8 +156,35 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
         Assert.Equal(new Recurrence(2, RecurrenceUnit.Week), loaded.Recurrence);
         Assert.Equal(new DateOnly(2026, 8, 19), loaded.InMyDayOn);
         Assert.Equal(new DateOnly(2026, 9, 22), loaded.CompletedOn);
+        Assert.Equal(new DateOnly(2026, 9, 2), loaded.StartedOn);
         Assert.Equal(EntryView.Notes, loaded.View);
         Assert.Equal(["a1b2c3", "d4e5f6"], loaded.DependsOn);
+    }
+
+    /// <summary>Status is rehydrated through the constructor, so loading an
+    /// in-progress row written before <c>started_on</c> existed does not invent a
+    /// start date of today — there is no backfill.</summary>
+    [Fact]
+    public async Task An_in_progress_row_without_a_start_loads_without_one()
+    {
+        var task = new TaskItem(
+            Guid.NewGuid(),
+            "Already underway",
+            string.Empty,
+            EntryType.Task,
+            EntryStatus.InProgress,
+            Priority.Medium,
+            repoIds: null,
+            tags: null,
+            sourceInboxId: null,
+            createdAt: DateTimeOffset.UtcNow);
+
+        await _repository.SaveAsync(task, TestContext.Current.CancellationToken);
+        var loaded = await _repository.GetAsync(task.Id, TestContext.Current.CancellationToken);
+
+        Assert.NotNull(loaded);
+        Assert.Equal(EntryStatus.InProgress, loaded.Status);
+        Assert.Null(loaded.StartedOn);
     }
 
     /// <summary>

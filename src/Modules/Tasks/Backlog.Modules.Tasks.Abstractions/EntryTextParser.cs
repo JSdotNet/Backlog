@@ -213,7 +213,8 @@ public static class EntryTextParser
         string? ImportItemId = null,
         IReadOnlyList<string>? RepoIds = null,
         DateOnly? CompletedOn = null,
-        EntryKind Kind = EntryKind.Task);
+        EntryKind Kind = EntryKind.Task,
+        DateOnly? StartedOn = null);
 
     private sealed record Metadata(
         EntryType? Type,
@@ -233,7 +234,8 @@ public static class EntryTextParser
         string? ImportItemId = null,
         IReadOnlyList<string>? RepoIds = null,
         DateOnly? CompletedOn = null,
-        EntryKind Kind = EntryKind.Task)
+        EntryKind Kind = EntryKind.Task,
+        DateOnly? StartedOn = null)
     {
         public static Metadata Empty { get; } = new(null, null, null, null, []);
     }
@@ -387,7 +389,8 @@ public static class EntryTextParser
             metadata.ImportItemId,
             metadata.RepoIds ?? [],
             metadata.CompletedOn,
-            metadata.Kind);
+            metadata.Kind,
+            metadata.StartedOn);
     }
 
     private static Metadata ParseMetadataLine(string line)
@@ -403,6 +406,7 @@ public static class EntryTextParser
         Recurrence? recurrence = null;
         DateOnly? inMyDayOn = null;
         DateOnly? completedOn = null;
+        DateOnly? startedOn = null;
         EntryView? view = null;
         Attachment? attachment = null;
         int? effort = null;
@@ -447,6 +451,14 @@ public static class EntryTextParser
                     case "myday":
                         if (TryParseDateToken(value, out var myDay)) inMyDayOn = myDay;
                         else unreadable.Add(new UnreadableToken("myday", value));
+                        break;
+
+                    case "started":
+                        // The day work first moved to in progress. Stamped by the
+                        // aggregate rather than typed, but read like every other
+                        // date here so it survives the round trip through the text.
+                        if (TryParseDateToken(value, out var started)) startedOn = started;
+                        else unreadable.Add(new UnreadableToken("started", value));
                         break;
 
                     case "completed":
@@ -618,7 +630,8 @@ public static class EntryTextParser
             importItemId,
             repoIds,
             completedOn,
-            kind);
+            kind,
+            startedOn);
     }
 
     /// <summary>Blanks out fenced code so it cannot contribute tags. Structure
@@ -1357,6 +1370,7 @@ public static class EntryTextParser
         if (entry.RemindAt is { } remindAt) meta += $" `remind:{ReminderToken(remindAt)}`";
         if (entry.Recurrence is { } recurrence) meta += $" `repeat:{RepeatToken(recurrence)}`";
         if (entry.InMyDayOn is { } inMyDayOn) meta += $" `myday:{DateToken(inMyDayOn)}`";
+        if (entry.StartedOn is { } startedOn) meta += $" `started:{DateToken(startedOn)}`";
         if (entry.CompletedOn is { } completedOn) meta += $" `completed:{DateToken(completedOn)}`";
         foreach (var id in (entry.DependsOn ?? []).Where(id => !string.IsNullOrWhiteSpace(id)))
         {
@@ -2025,6 +2039,7 @@ public static class EntryTextParser
         if (parsed.RemindAt is { } remindAt) tokens.Add($"remind:{ReminderToken(remindAt)}");
         if (parsed.Recurrence is { } recurrence) tokens.Add($"repeat:{RepeatToken(recurrence)}");
         if (parsed.InMyDayOn is { } inMyDayOn) tokens.Add($"myday:{DateToken(inMyDayOn)}");
+        if (parsed.StartedOn is { } startedOn) tokens.Add($"started:{DateToken(startedOn)}");
         if (parsed.CompletedOn is { } completedOn) tokens.Add($"completed:{DateToken(completedOn)}");
         tokens.AddRange((parsed.DependsOn ?? []).Select(id => $"after:{id}"));
         if (!string.IsNullOrWhiteSpace(parsed.ImportItemId)) tokens.Add($"id:{parsed.ImportItemId}");

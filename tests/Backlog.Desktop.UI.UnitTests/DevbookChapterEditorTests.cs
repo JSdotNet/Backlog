@@ -227,7 +227,7 @@ public sealed class DevbookChapterEditorTests : IDisposable
             .Add(editor => editor.Chapter, chapter)
             .Add(editor => editor.InitialText, "# Notes\n\n```meta\nstatus: active\n```\n\nProse.\n"));
 
-        Assert.Equal("# Notes\n\nHalf a sentence", component.Find("textarea").TextContent);
+        Assert.Equal("# Notes\n\nHalf a sentence", component.Find("textarea").GetAttribute("value"));
     }
 
     [Fact]
@@ -261,7 +261,7 @@ public sealed class DevbookChapterEditorTests : IDisposable
         // The write that just landed was about the first pass, and the buffer has
         // moved on: adopting its text here would take the newer sentence off the
         // screen, and the save that follows would then persist the reverted body.
-        Assert.Equal(Second, component.Find("textarea").TextContent);
+        Assert.Equal(Second, component.Find("textarea").GetAttribute("value"));
         await component.WaitForAssertionAsync(
             () => Assert.Equal(Second, File.ReadAllText(Path.Combine(root, "notes.md"))),
             TimeSpan.FromSeconds(5));

@@ -158,6 +158,6 @@ public sealed class MarkdownHighlighterTests
         Assert.NotEmpty(view.FindAll(".markdown-editor__highlight .md-syntax--strong"));
 
         // And the textarea still holds the text, unchanged.
-        Assert.Equal("# Heading\n\n**bold**", view.Find("textarea").TextContent);
+        Assert.Equal("# Heading\n\n**bold**", view.Find("textarea").GetAttribute("value"));
     }
 }

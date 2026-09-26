@@ -119,7 +119,7 @@ public sealed class CaptureSourcesPanelTests
             before: store => store.SetTargets(CaptureSourceKind.Email, ["news@example.com", "digest@example.org"]));
 
         var field = panel.Component.Find("[data-testid='capture-source-email-targets'] textarea");
-        Assert.Equal("news@example.com\ndigest@example.org", field.TextContent);
+        Assert.Equal("news@example.com\ndigest@example.org", field.GetAttribute("value"));
     }
 
     /// <summary>The store's refusal is the field's own error line, the shape

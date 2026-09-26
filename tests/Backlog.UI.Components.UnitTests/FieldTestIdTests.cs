@@ -94,6 +94,6 @@ public sealed class FieldTestIdTests
         // cannot find it cannot type into the editor at all.
         var surface = view.Find("[data-testid=\"doc-editor-surface\"]");
         Assert.Equal("TEXTAREA", surface.TagName);
-        Assert.Equal("# Heading", surface.TextContent);
+        Assert.Equal("# Heading", surface.GetAttribute("value"));
     }
 }

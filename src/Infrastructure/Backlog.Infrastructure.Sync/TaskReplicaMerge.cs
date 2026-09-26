@@ -259,7 +259,8 @@ public sealed class TaskReplicaMerge(
             [.. task.SubItems.Select(s => new SubItemPayload(s.Id, s.Title, EnumMap.ToWire(s.Status), s.Notes, s.Order))],
             [.. task.UsageEvents.Select(u => new UsageEventPayload(u.Timestamp, u.Action))],
             [.. task.ProjectionRefs.Select(p => new ProjectionPayload(p.RepoId, p.ExternalId, p.TargetType))],
-            task.CompletedOn);
+            task.CompletedOn,
+            StartedOn: task.StartedOn);
     }
 
     /// <summary>
@@ -301,6 +302,7 @@ public sealed class TaskReplicaMerge(
         task.SetRecurrence(EntryTextParser.ParseRepeat(payload.Recurrence));
         task.SetInMyDayOn(payload.InMyDayOn);
         task.SetCompletedOn(payload.CompletedOn);
+        task.SetStartedOn(payload.StartedOn);
         task.SetView(EntryTextParser.ParseView(payload.View));
         task.SetDependsOn(payload.DependsOn);
         task.SetEffort(payload.Effort);

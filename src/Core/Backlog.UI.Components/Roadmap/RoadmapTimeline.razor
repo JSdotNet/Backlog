@@ -146,7 +146,8 @@
                 }
             </div>
 
-            <div class="roadmap-timeline__scroll"
+            <div @ref="_scroller"
+                 class="roadmap-timeline__scroll"
                  role="region"
                  tabindex="0"
                  aria-label="@ScrollLabel">
@@ -157,13 +158,13 @@
                         {
                             <div class="@ColumnClass(column)"
                                  style="left: @Rem(Geometry.XFor(column.Start)); width: @Rem(Geometry.WidthFor(column.Start, column.End))"
-                                 title="@(IsCurrentWeek(column) ? column.LongLabel + " (this week)" : column.LongLabel)"
-                                 aria-current="@(IsCurrentWeek(column) ? "date" : null)">
+                                 title="@(IsCurrentWeek(column) ? column.LongLabel + " (this week)" : IsCurrent(column) ? column.LongLabel + " (today)" : column.LongLabel)"
+                                 aria-current="@(IsCurrent(column) ? "date" : null)">
                                 @* A week clipped to a few days at a month start has no
                                    room for its number; the tooltip still names it. *@
-                                @if (Geometry.WidthFor(column.Start, column.End) >= MinLabelledColumnRem)
+                                @if (Geometry.WidthFor(column.Start, column.End) >= MinLabelled(column))
                                 {
-                                    <span class="roadmap-timeline__quarter-label">@column.Label</span>
+                                    <span class="roadmap-timeline__quarter-label">@HeadLabel(column)</span>
                                     <span class="roadmap-timeline__quarter-year">@column.Caption</span>
                                 }
                             </div>
@@ -175,7 +176,7 @@
                         <div class="roadmap-timeline__grid" aria-hidden="true">
                             @* This week, shaded down the whole chart behind the bars, so
                                the near-term rows read against it without looking up. *@
-                            @if (Span.Columns.FirstOrDefault(IsCurrentWeek) is { } thisWeek)
+                            @if (ThisWeek is { } thisWeek)
                             {
                                 <span class="roadmap-timeline__current-week"
                                       style="left: @Rem(Geometry.XFor(thisWeek.Start)); width: @Rem(Geometry.WidthFor(thisWeek.Start, thisWeek.End))"></span>
@@ -372,8 +373,18 @@
     private readonly string _instance = Guid.NewGuid().ToString("N");
 
     private ElementReference _track;
+    private ElementReference _scroller;
     private DotNetObjectReference<RoadmapTimeline>? _self;
     private bool _attached;
+
+    // How wide the scroller is on screen, in rem, once the page has measured it —
+    // null until then, and for good where there is no script to measure it, which
+    // leaves the chart at its natural width rather than guessing a screen.
+    private double? _viewportRem;
+
+    // Whether the scroller has been brought to this week yet. Once only: after that
+    // where the reader has scrolled to is theirs.
+    private bool _scrolledToNow;
 
     /// <summary>Which bar a pointer has hold of, and which one a keyboard has
     /// picked up. Two fields rather than one because they are drawn
@@ -418,6 +429,7 @@
     private IReadOnlyList<RoadmapBar>? _visible;
     private IReadOnlyList<RoadmapArrow>? _arrows;
     private RoadmapWindow? _span;
+    private double? _stretch;
 
     [Parameter, EditorRequired]
     public IReadOnlyList<RoadmapGroup> Groups { get; set; } = [];
@@ -459,6 +471,17 @@
     /// horizontal measurement on the chart is derived from it.</summary>
     [Parameter]
     public double QuarterWidth { get; set; } = 16;
+
+    /// <summary>
+    /// Whether the chart stretches to fill the width it is given. On, every column
+    /// is widened by the same factor until the stretch from this week to the end —
+    /// or the whole window, with no today on it — is at least as wide as the
+    /// scroller, so a short plan never leaves the right of the chart empty.
+    /// <see cref="QuarterWidth"/> stays the least a quarter is drawn; the stretch
+    /// only ever widens.
+    /// </summary>
+    [Parameter]
+    public bool FillWidth { get; set; } = true;
 
     /// <summary>
     /// How tall one row is drawn, in rem. The vertical counterpart to
@@ -677,7 +700,40 @@
         BarList.SelectMany(bar => new[] { bar.Start, bar.End })
             .Concat(MilestoneList.Select(milestone => milestone.On));
 
-    private RoadmapGeometry Geometry => new(Span, QuarterWidth, RowHeight, BarHeight);
+    private RoadmapGeometry Geometry => new(Span, QuarterWidth * Stretch, RowHeight, BarHeight);
+
+    /// <summary>Where the part of the chart that has to fill the screen begins: this
+    /// week when it is on the chart, so history to the left is scrolled to rather
+    /// than squeezed in, and the window's start otherwise.</summary>
+    private DateOnly FillFrom
+    {
+        get
+        {
+            if (Today is not { } today || !Span.Contains(today)) return Span.Start;
+
+            var week = RoadmapWindow.StartOfWeek(today, WeekStart);
+
+            return week < Span.Start ? Span.Start : week;
+        }
+    }
+
+    /// <summary>
+    /// How much wider than its natural width the chart is drawn: enough that the
+    /// stretch from <see cref="FillFrom"/> to the end fills the scroller, and never
+    /// less than one. Every column widens by the same factor, so the stretch from
+    /// there to the end widens by it too — one division, not a search.
+    /// </summary>
+    private double Stretch => _stretch ??= MeasureStretch();
+
+    private double MeasureStretch()
+    {
+        if (!FillWidth || _viewportRem is not { } viewport) return 1;
+
+        var natural = new RoadmapGeometry(Span, QuarterWidth, RowHeight, BarHeight);
+        var shown = natural.TrackWidthRem - natural.XFor(FillFrom);
+
+        return shown <= 0 ? 1 : Math.Max(1, viewport / shown);
+    }
 
     private double TrackHeight => Geometry.TrackHeightRem(Rows.Count);
 
@@ -728,6 +784,7 @@
         _visible = null;
         _arrows = null;
         _span = null;
+        _stretch = null;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -739,6 +796,21 @@
             try
             {
                 await Js.InvokeVoidAsync("backlogFocus", BarButtonId(refocus));
+            }
+            catch (JSException)
+            {
+            }
+        }
+
+        // Brought to this week once the fill is known, so the chart opens on now with
+        // what is finished to the left, a scroll away, rather than at its first month.
+        if (_attached && !_scrolledToNow && _viewportRem is not null && Rows.Count > 0)
+        {
+            _scrolledToNow = true;
+
+            try
+            {
+                await Js.InvokeVoidAsync("backlogRoadmapTimeline.scrollTo", _instance, Geometry.XFor(FillFrom));
             }
             catch (JSException)
             {
@@ -758,7 +830,7 @@
                 _track,
                 _instance,
                 _self,
-                new { weekRem = Geometry.WeekWidthRem, rowRem = Geometry.RowHeightRem });
+                new { weekRem = Geometry.WeekWidthRem, rowRem = Geometry.RowHeightRem, scroller = _scroller });
 
             _attached = true;
         }
@@ -768,6 +840,18 @@
             // dragging still works, keyboard editing included, so the chart is
             // degraded rather than broken and there is nothing to report.
         }
+    }
+
+    /// <summary>The scroller's width on screen, in rem, whenever it changes — what
+    /// <see cref="FillWidth"/> stretches the chart to.</summary>
+    [JSInvokable]
+    public void Measured(double widthRem)
+    {
+        if (widthRem <= 0 || (_viewportRem is { } known && Math.Abs(known - widthRem) < 0.25)) return;
+
+        _viewportRem = widthRem;
+        Invalidate();
+        StateHasChanged();
     }
 
     // --- The gesture, from either direction --------------------------------
@@ -1374,14 +1458,54 @@
     /// "W53" or "Oct" at the axis's type size, plus its padding.</summary>
     private const double MinLabelledColumnRem = 2;
 
+    /// <summary>How wide a day column has to be to carry its weekday as well as its
+    /// number — "Wed 23" rather than "23".</summary>
+    private const double MinNamedDayRem = 3.25;
+
     /// <summary>Whether a column is the week today falls in. Weeks only: a month or
     /// a quarter shaded as "now" would claim far more of the chart than today is.</summary>
     private bool IsCurrentWeek(RoadmapColumn column) =>
         column.Scale == RoadmapColumnScale.Week && Today is { } today && today >= column.Start && today <= column.End;
 
+    /// <summary>Whether a column is today's own: a day column on today, or the week
+    /// column today is in where the week is not ruled in days.</summary>
+    private bool IsCurrent(RoadmapColumn column) =>
+        IsCurrentWeek(column) || (column.Scale == RoadmapColumnScale.Day && Today == column.Start);
+
+    /// <summary>
+    /// The stretch of the axis shaded as "this week": the week column today falls
+    /// in, or — where this week is ruled a column a day — the run of day columns.
+    /// </summary>
+    private (DateOnly Start, DateOnly End)? ThisWeek
+    {
+        get
+        {
+            if (Today is not { } today) return null;
+            if (Span.Columns.FirstOrDefault(IsCurrentWeek) is { } week) return (week.Start, week.End);
+
+            var start = RoadmapWindow.StartOfWeek(today, WeekStart);
+            var days = Span.Columns.Where(column => column.Scale == RoadmapColumnScale.Day && column.Start >= start && column.Start < start.AddDays(7)).ToList();
+
+            return days.Count == 0 ? null : (days[0].Start, days[^1].End);
+        }
+    }
+
+    /// <summary>What a column head reads. A day column too narrow for its weekday
+    /// gives up the name and keeps the number.</summary>
+    private string HeadLabel(RoadmapColumn column) =>
+        column.Scale == RoadmapColumnScale.Day && Geometry.WidthFor(column.Start, column.End) < MinNamedDayRem
+            ? column.Start.Day.ToString(CultureInfo.CurrentCulture)
+            : column.Label;
+
+    private double MinLabelled(RoadmapColumn column) =>
+        column.Scale == RoadmapColumnScale.Day ? MinLabelledDayRem : MinLabelledColumnRem;
+
+    /// <summary>A day's number needs less room than "W53".</summary>
+    private const double MinLabelledDayRem = 1.25;
+
     private string ColumnClass(RoadmapColumn column) =>
         $"roadmap-timeline__quarter roadmap-timeline__quarter--{column.Scale.ToString().ToLowerInvariant()}"
-        + (IsCurrentWeek(column) ? " roadmap-timeline__quarter--current" : null);
+        + (IsCurrent(column) ? " roadmap-timeline__quarter--current" : null);
 
     private static string MilestoneClass(RoadmapMilestone milestone) =>
         "roadmap-milestone roadmap-milestone--" + milestone.Marker.ToString().ToLowerInvariant();

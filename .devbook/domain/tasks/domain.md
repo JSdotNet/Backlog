@@ -68,6 +68,21 @@ task - a `completed:` token typed into the text moves no status. What "finished"
 Completed section, tag counts, dependency readiness, the next occurrence of a
 repeat - is the tick, never the status.
 
+`started_on` is its counterpart at the other end of the work: the day the task
+first moved to `in_progress`, or unset while it never has. The task stamps it
+itself, from the local date, on the first transition into `in_progress` -
+whether a lifecycle step or a status set from the text - and never moves it
+afterwards: pausing back to `ready` and starting again, or reopening a `done`
+task, keeps the first day, because the question it answers is when the work
+began. Like the tick it is a date and not a status value, and it carries no
+invariant beyond that stamp. It is written on the metadata line as a
+`started:` token just before `completed:`; a token typed there sets the date,
+and deleting it clears the date - a task still `in_progress` is stamped with
+today again on that save. Work that was already under way before the stamp
+existed has none until its next transition into `in_progress`. Nothing in this
+context reads it; it is recorded for the roadmap, which draws a finished plan
+from its first task's start to its last task's tick.
+
 `depends_on` lists the tasks this one waits on. A list rather than a single
 predecessor, because a step that needs two things finished before it can start
 is the ordinary case and asking which of the two is the real predecessor is a
@@ -414,7 +429,7 @@ be traced the way `source_inbox_id` traces a task back to its inbox item. What
 does not carry over is everything that was about the occurrence rather than the
 repeat: the new task starts at `ready` with its sub-items reset to `pending`,
 and with no projections, no usage history, no reminder that has already fired,
-no `in_my_day_on` and no `completed_on`.
+no `in_my_day_on`, no `started_on` and no `completed_on`.
 
 A repeating task therefore accumulates one completed task per occurrence.
 That is the cost of keeping the record rather than rolling a single task
@@ -620,6 +635,20 @@ day it happened. Independent of `Task Status`: any status can be ticked, a
 without changing the status. "Finished" anywhere in this context — the
 Completed section, tag counts, dependency readiness, a repeat's next occurrence
 — means this.
+
+### Started
+
+```meta
+type: term
+status: draft
+aliases: [started_on, started]
+related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/domain.md#task-status, .devbook/domain/tasks/domain.md#completed]
+```
+
+The day work on a task began, recorded as `started_on`: stamped by the task
+itself the first time it moves to `in_progress`, and never moved afterwards.
+Not a status — a task that is paused or reopened keeps the day it was first
+started. With `Completed` it bounds how long the work took.
 
 ### Area
 

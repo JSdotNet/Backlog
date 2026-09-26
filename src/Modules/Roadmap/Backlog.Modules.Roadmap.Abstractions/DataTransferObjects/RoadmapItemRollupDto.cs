@@ -88,6 +88,14 @@ public enum RoadmapProgress
 /// Opaque here: a reader matches them against the repositories it knows, which is
 /// how an item spanning several repositories is drawn as one part per repository.
 /// Empty for a knowledge chapter and for work filed nowhere.</param>
+/// <param name="StartedOn">The day work on it first moved to in progress, or
+/// <see langword="null"/> when it never has — and always for a knowledge
+/// chapter, which has no status to move.</param>
+/// <param name="CompletedOn">The day it was ticked off, or <see langword="null"/>
+/// while it is still open. Null for a knowledge chapter.</param>
+/// <param name="CreatedOn">The local date the entry was created — a fallback start
+/// for work stamped before <c>started:</c> existed. Null for a knowledge
+/// chapter.</param>
 public sealed record RoadmapGatheredLink(
     string Key,
     string Title,
@@ -95,7 +103,10 @@ public sealed record RoadmapGatheredLink(
     RollupOrigin Origin,
     RoadmapProgress? Progress = null,
     IReadOnlyList<string>? DependsOn = null,
-    IReadOnlyList<string>? RepositoryIds = null)
+    IReadOnlyList<string>? RepositoryIds = null,
+    DateOnly? StartedOn = null,
+    DateOnly? CompletedOn = null,
+    DateOnly? CreatedOn = null)
 {
     /// <summary>The gathered keys this waits on, never null.</summary>
     public IReadOnlyList<string> Waits => DependsOn ?? [];
@@ -173,6 +184,33 @@ public sealed record RoadmapItemRollupDto(
 
     /// <summary>Whether nothing at all was gathered.</summary>
     public bool IsEmpty => GatheredCount == 0;
+
+    /// <summary>
+    /// Whether the item's work is over: it gathered at least one backlog entry and
+    /// every one of them is done. Knowledge chapters are not asked — a chapter has no
+    /// status, and an item made only of references has no work to finish.
+    /// </summary>
+    public bool IsFinished => BacklogEntries.Count > 0 && BacklogEntries.All(link => link.IsDone);
+
+    /// <summary>
+    /// When the work actually began: the earliest day any gathered entry moved to in
+    /// progress, and for an entry stamped before <c>started:</c> existed, the day it
+    /// was created. Null when no entry says either.
+    /// </summary>
+    public DateOnly? FirstStartedOn => BacklogEntries
+        .Select(link => link.StartedOn ?? link.CreatedOn)
+        .Where(day => day is not null)
+        .Min();
+
+    /// <summary>
+    /// When the work actually ended: the latest day a gathered entry was ticked off.
+    /// Null when none was — a done entry nobody ticked says the work is over but not
+    /// when.
+    /// </summary>
+    public DateOnly? LastCompletedOn => BacklogEntries
+        .Select(link => link.CompletedOn)
+        .Where(day => day is not null)
+        .Max();
 }
 
 /// <summary>

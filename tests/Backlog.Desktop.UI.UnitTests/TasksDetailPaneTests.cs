@@ -233,6 +233,71 @@ public sealed class TasksDetailPaneTests
     }
 
     /// <summary>
+    /// A write from elsewhere to the entry being typed in reaches the box itself,
+    /// not only the row behind it.
+    /// <para>
+    /// The reported loss: an MCP <c>comment</c> landed while the reader was typing
+    /// in this block, the reload that followed rebuilt the row with the comment in
+    /// it, and the textarea went on showing the text from before — the new body had
+    /// arrived as the textarea's content, which is only its default and which a box
+    /// somebody has typed in never shows. The next keystroke reported the old text
+    /// back and saved it over the comment. What is asserted is the <c>value</c> the
+    /// box is given, because that is the one a browser puts on screen.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_comment_written_elsewhere_while_typing_in_the_markdown_block_reaches_the_box()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync("# Commented on\n`task` `!ready`\n\nBase line.\n");
+        await host.OpenAsync(row);
+
+        var pane = host.Render();
+
+        await pane.Find("[data-testid='entry-body-editor'] textarea")
+            .InputAsync(new() { Value = "Base line. Typed words." });
+
+        // The keystroke's own save has to land first: the comment is written on top
+        // of it, the way the MCP server read the entry back before appending.
+        await WaitUntilStoredAsync(host, row, text => text.Contains("Typed words.", StringComparison.Ordinal));
+
+        await host.FromElsewhereAsync(async elsewhere =>
+        {
+            var same = elsewhere.Rows.Single(r => r.Id == row.Id);
+            elsewhere.ChangeBody(same, EntryTextParser.Parse(same.RawText).Body + "\n\n2026-09-26: A comment.");
+            await elsewhere.EndEditAsync(same);
+        });
+
+        await host.State.ReloadFromStoreAsync();
+
+        pane.WaitForAssertion(() =>
+        {
+            var box = pane.Find("[data-testid='entry-body-editor'] textarea");
+            Assert.Equal("Base line. Typed words.\n\n2026-09-26: A comment.", box.GetAttribute("value"));
+        }, TimeSpan.FromSeconds(5));
+    }
+
+    private static async Task WaitUntilStoredAsync(TasksPaneHost host, EntryRow row, Func<string, bool> condition)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+
+        while (true)
+        {
+            var stored = string.Empty;
+            await host.FromElsewhereAsync(elsewhere =>
+            {
+                stored = elsewhere.Rows.Single(r => r.Id == row.Id).RawText;
+                return Task.CompletedTask;
+            });
+
+            if (condition(stored)) return;
+
+            Assert.True(DateTime.UtcNow < deadline, $"The debounced save never landed; the store holds: {stored}");
+            await Task.Delay(50);
+        }
+    }
+
+    /// <summary>
     /// A reload builds a new <c>EntryRow</c> for every entry, so a selection held by
     /// object is emptied by every one of them. It is re-found by the id the list
     /// names the row with — the same id the picked set beside it has always used —
@@ -848,8 +913,8 @@ public sealed class TasksDetailPaneTests
         await pane.Find("[data-testid='entry-view-notes']").ClickAsync(new());
 
         var editor = pane.Find("[data-testid='entry-body-editor'] textarea");
-        Assert.Contains("Notes on the parent.", editor.TextContent, StringComparison.Ordinal);
-        Assert.Contains("## [ ] Wire up the store", editor.TextContent, StringComparison.Ordinal);
+        Assert.Contains("Notes on the parent.", editor.GetAttribute("value"), StringComparison.Ordinal);
+        Assert.Contains("## [ ] Wire up the store", editor.GetAttribute("value"), StringComparison.Ordinal);
 
         await editor.InputAsync(new() { Value = "Rewritten prose.\n\n## Only step now\n" });
 

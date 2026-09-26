@@ -91,6 +91,53 @@ public class RoadmapItemRollupBuilderTests
     }
 
     [Fact]
+    public void ABacklogLink_CarriesTheEntrysStartedCompletedAndCreatedDates()
+    {
+        var id = Guid.NewGuid();
+        var createdAt = new DateTimeOffset(2026, 8, 20, 12, 0, 0, TimeSpan.Zero);
+        var item = Item("sync", taskId: id);
+
+        var rollup = RoadmapItemRollupBuilder.Build(
+            item,
+            [
+                Entry(id, "Dated", tags: [], effort: 3) with
+                {
+                    StartedOn = new DateOnly(2026, 9, 2),
+                    CompletedOn = new DateOnly(2026, 9, 22),
+                    CreatedAt = createdAt
+                }
+            ],
+            [Chapter("domain/tasks.md#flow", "A chapter", 2, "sync")]);
+
+        var link = Assert.Single(rollup.BacklogEntries);
+        Assert.Equal(new DateOnly(2026, 9, 2), link.StartedOn);
+        Assert.Equal(new DateOnly(2026, 9, 22), link.CompletedOn);
+        Assert.Equal(DateOnly.FromDateTime(createdAt.LocalDateTime), link.CreatedOn);
+
+        // A chapter has no status to move and no birth the backlog knows of.
+        var chapter = Assert.Single(rollup.KnowledgeChapters);
+        Assert.Null(chapter.StartedOn);
+        Assert.Null(chapter.CompletedOn);
+        Assert.Null(chapter.CreatedOn);
+    }
+
+    [Fact]
+    public void AnUndatedEntry_LeavesTheDatesNull()
+    {
+        var id = Guid.NewGuid();
+
+        var rollup = RoadmapItemRollupBuilder.Build(
+            Item("sync", taskId: id),
+            [Entry(id, "Undated", tags: [], effort: 1)],
+            []);
+
+        var link = Assert.Single(rollup.BacklogEntries);
+        Assert.Null(link.StartedOn);
+        Assert.Null(link.CompletedOn);
+        Assert.Null(link.CreatedOn);
+    }
+
+    [Fact]
     public void AnEntryBothLinkedAndTagged_IsCountedOnce_WearingBoth()
     {
         var id = Guid.NewGuid();

@@ -230,7 +230,7 @@ public sealed class DevbookFolderChangeRefreshTests
         workspace.RewriteContextMap(workspace.RepositoryPath, "Pulled");
         workspace.Folders.NotifyContentChanged();
 
-        component.WaitForAssertion(() => Assert.Contains("Instructions: Typed", component.Find("textarea").TextContent, StringComparison.Ordinal));
+        component.WaitForAssertion(() => Assert.Contains("Instructions: Typed", component.Find("textarea").GetAttribute("value"), StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -261,8 +261,8 @@ public sealed class DevbookFolderChangeRefreshTests
 
         component.WaitForAssertion(() =>
         {
-            Assert.Contains("Instructions: Typed", component.Find("textarea").TextContent, StringComparison.Ordinal);
-            Assert.DoesNotContain("Instructions: Beta", component.Find("textarea").TextContent, StringComparison.Ordinal);
+            Assert.Contains("Instructions: Typed", component.Find("textarea").GetAttribute("value"), StringComparison.Ordinal);
+            Assert.DoesNotContain("Instructions: Beta", component.Find("textarea").GetAttribute("value"), StringComparison.Ordinal);
         });
 
     }

@@ -78,7 +78,7 @@ public sealed class TaskBodyEditTests
 
         var editor = view.Find("[data-testid='row-body-editor'] textarea");
 
-        Assert.Equal(Body, editor.TextContent);
+        Assert.Equal(Body, editor.GetAttribute("value"));
         Assert.Equal("Prompt for Draft the release note", editor.GetAttribute("aria-label"));
     }
 
@@ -111,7 +111,7 @@ public sealed class TaskBodyEditTests
             .Add(t => t.OnBodyChanged, reported.Add)
             .Add(t => t.TestId, "row"));
 
-        Assert.Equal("From the host.", view.Find("[data-testid='row-body-editor'] textarea").TextContent);
+        Assert.Equal("From the host.", view.Find("[data-testid='row-body-editor'] textarea").GetAttribute("value"));
     }
 
     [Fact]

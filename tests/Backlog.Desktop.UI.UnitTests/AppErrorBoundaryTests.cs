@@ -84,9 +84,9 @@ public sealed class AppErrorBoundaryTests
             "Unhandled error: InvalidOperationException: The page threw.",
             host.Layout.Find("[data-testid='feedback-title-input']").GetAttribute("value"));
 
-        // The library's TextArea writes its value as the element's content, the
-        // way a textarea carries one; there is no value attribute to read.
-        var details = host.Layout.Find("[data-testid='feedback-details-input']").TextContent;
+        // The library's TextArea writes its value as the element's value, not its
+        // content — see TextAreaValueTests.
+        var details = host.Layout.Find("[data-testid='feedback-details-input']").GetAttribute("value") ?? string.Empty;
         Assert.Contains("System.InvalidOperationException: The page threw.", details);
         Assert.Contains("- Version: `1.2.3`", details);
 
