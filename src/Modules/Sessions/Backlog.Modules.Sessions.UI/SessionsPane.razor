@@ -457,7 +457,7 @@
                         <div class="sessions-runs">
                             @foreach (var run in row.Runs)
                             {
-                                <DeliveryRunLine @key="@($"{run.Dashboard}/{run.Worktree}/{run.Id}")" Run="run" References="@row.ReferencesFor(run)" OnOpenTask="OnOpenTask" />
+                                <DeliveryRunLine @key="@($"{run.Dashboard}/{run.Worktree}/{run.Id}")" Run="run" References="@ReferencesOf(row, run)" OnOpenTask="OnOpenTask" />
                             }
                         </div>
                     }
@@ -586,6 +586,34 @@
     /// </summary>
     [Parameter]
     public EventCallback<DeliveryRunReference> OnOpenTask { get; set; }
+
+    /// <summary>
+    /// The Backlog entry that linked a session, by the session's id, where one did —
+    /// the entry's own record of the session it was worked in, written through the
+    /// Backlog server's <c>link_session</c>. Asked of the host for the same reason as
+    /// <see cref="OnOpenTask"/>: the link is stored on the entry, and entries belong
+    /// to Tasks.
+    /// <para>
+    /// A fallback and never a second opinion: a run whose prompt named its entry keeps
+    /// that one, because the prompt is what the run was actually started from. A run
+    /// that named none borrows its session's, so its status still leads to the work.
+    /// </para>
+    /// </summary>
+    [Parameter]
+    public Func<string, DeliveryRunReference?>? SessionTask { get; set; }
+
+    /// <summary>What a run's line draws: the row's references for the run, plus the
+    /// entry its session was linked to where the run names no entry of its own.</summary>
+    private IReadOnlyList<DeliveryRunReference> ReferencesOf(SessionRow row, DeliveryRun run)
+    {
+        var references = row.ReferencesFor(run);
+
+        if (SessionTask is null || row.Session is not { } session) return references;
+
+        if (references.Any(reference => reference.Kind is DeliveryRunReferenceKind.Task)) return references;
+
+        return SessionTask(session.Id) is { } task ? [.. references, task] : references;
+    }
 
     /// <summary>
     /// The repository cell, plus its identity mark when the host placed it.

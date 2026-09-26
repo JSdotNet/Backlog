@@ -353,11 +353,19 @@ internal sealed partial class DeliveryRunReader
         EqualityComparer<(DeliveryRunReferenceKind, string?, string)>.Default;
 
     /// <summary>
-    /// The Backlog entry the run was started from, where its prompt names one. The
-    /// marker is the product's own convention for a pasted plan item
-    /// (<c>.devbook/design/content-editing.md</c> and the import plan's grammar), and it is
-    /// the only thing in a run file that names a Backlog entry — so it is read rather
-    /// than guessed, and a run started any other way simply has none.
+    /// The Backlog entry the run was started from, where its prompt names one. Two
+    /// markers can, both the product's own: the line the app puts on every entry it
+    /// copies, which names the entry by its stored id (<c>EntryRunMarker</c>), and the
+    /// import plan's plan item marker (<c>.devbook/design/content-editing.md</c> and the
+    /// import plan's grammar), which names it by plan and item. They are the only things
+    /// in a run file that name a Backlog entry — so they are read rather than guessed,
+    /// and a run started any other way simply has none.
+    /// <para>
+    /// An imported entry copied out of the app carries both, and they name the same
+    /// entry, so both land on one reference. The plan item keeps the label it always
+    /// had; an entry named by id alone is called by the title under the line, since a
+    /// Guid is not what a reader knows their task by.
+    /// </para>
     /// </summary>
     private static DeliveryRunReference? PlanItem(JsonElement root)
     {
@@ -365,19 +373,50 @@ internal sealed partial class DeliveryRunReader
 
         if (string.IsNullOrWhiteSpace(prompt)) return null;
 
-        if (PlanMarker().Match(prompt) is not { Success: true } match) return null;
+        var entry = EntryMarker().Match(prompt);
+        Guid? entryId = entry.Success ? Guid.Parse(entry.Groups[1].Value) : null;
+
+        // No address in either case: a Backlog entry is in this product, not on a
+        // page. A surface that can open one wires that itself, from the id or from
+        // the plan and the item.
+        if (PlanMarker().Match(prompt) is { Success: true } match)
+        {
+            return new DeliveryRunReference(
+                DeliveryRunReferenceKind.Task,
+                match.Groups[1].Value,
+                $"Plan {match.Groups[2].Value}",
+                Url: null,
+                Repository: null,
+                Plan: match.Groups[2].Value,
+                EntryId: entryId);
+        }
+
+        if (entryId is not { } id) return null;
 
         return new DeliveryRunReference(
             DeliveryRunReferenceKind.Task,
-            match.Groups[1].Value,
-            $"Plan {match.Groups[2].Value}",
-
-            // No address: a Backlog entry is in this product, not on a page. A
-            // surface that can open one wires that itself, and needs the plan as
-            // well as the id to find it.
+            TitleUnder(prompt, entry) ?? id.ToString()[..8],
+            Title: null,
             Url: null,
             Repository: null,
-            Plan: match.Groups[2].Value);
+            EntryId: id);
+    }
+
+    /// <summary>The first line written under the entry marker, heading marks dropped:
+    /// the copied entry's title, which is how the app writes one. The rest of the
+    /// marker's own line — its closing colon — is not a title.</summary>
+    private static string? TitleUnder(string prompt, Match marker)
+    {
+        var lineEnd = prompt.IndexOf('\n', marker.Index + marker.Length);
+
+        if (lineEnd < 0) return null;
+
+        var line = prompt[(lineEnd + 1)..]
+            .Split('\n')
+            .Select(candidate => candidate.Trim().TrimStart('#').Trim())
+            .FirstOrDefault(candidate => candidate.Length > 0);
+
+        return string.IsNullOrEmpty(line) ? null : line;
     }
 
     /// <summary>A pull request when the address says so, an issue otherwise: a
@@ -403,6 +442,9 @@ internal sealed partial class DeliveryRunReader
 
     [GeneratedRegex("""Backlog plan item [`'"]([\w.-]+)[`'"] of plan [`'"]([\w.-]+)[`'"]""")]
     private static partial Regex PlanMarker();
+
+    [GeneratedRegex("""backlog-run-plan-item entry `([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})`""")]
+    private static partial Regex EntryMarker();
 
     /// <summary>
     /// The stages, named. An older generation of the dashboard stored them nameless —

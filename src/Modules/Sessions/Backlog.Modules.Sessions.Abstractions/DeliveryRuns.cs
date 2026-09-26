@@ -99,8 +99,9 @@ public sealed record DeliveryRun(
 /// <summary>What a run is linked to.</summary>
 public enum DeliveryRunReferenceKind
 {
-    /// <summary>A Backlog entry — this product's own work item, named by the plan
-    /// item marker the run was started from.</summary>
+    /// <summary>A Backlog entry — this product's own work item, named by a marker in
+    /// the prompt the run was started from, or by the entry that linked its
+    /// session.</summary>
     Task,
 
     /// <summary>A tracker issue the run was working.</summary>
@@ -142,13 +143,21 @@ public enum DeliveryRunReferenceKind
 /// two together are what identifies a Backlog entry across plan versions — the app
 /// matches on the pair — and a surface that can open one needs both.
 /// </param>
+/// <param name="EntryId">
+/// The stored id of the Backlog entry a <see cref="DeliveryRunReferenceKind.Task"/>
+/// names, where something named it by id: the line the app puts on every entry it
+/// copies, or the entry that linked the session. The surer of the two ways to find an
+/// entry, so a surface that can open one tries it before <see cref="Plan"/> and the
+/// label.
+/// </param>
 public sealed record DeliveryRunReference(
     DeliveryRunReferenceKind Kind,
     string Label,
     string? Title,
     string? Url,
     string? Repository,
-    string? Plan = null);
+    string? Plan = null,
+    Guid? EntryId = null);
 
 /// <summary>
 /// One stage of a run.

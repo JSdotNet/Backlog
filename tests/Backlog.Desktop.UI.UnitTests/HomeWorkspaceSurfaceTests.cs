@@ -1591,6 +1591,67 @@ public sealed class HomeWorkspaceSurfaceTests
         });
     }
 
+    /// <summary>
+    /// A run started from an entry copied out of the app names it by its stored id and
+    /// nothing else, and that id is what the shell opens it by.
+    /// </summary>
+    [Fact]
+    public void A_run_s_entry_named_by_id_opens_in_the_task_list()
+    {
+        using var harness = CreateHarness(seed: PlanEntryText);
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+        component.WaitForState(() => state.Rows.FirstOrDefault()?.Id is not null);
+
+        var id = state.Rows[0].Id!.Value;
+
+        OpenSessions(component);
+
+        var pane = component.FindComponent<SessionsPane>().Instance;
+
+        component.InvokeAsync(() => pane.OnOpenTask.InvokeAsync(
+            new DeliveryRunReference(DeliveryRunReferenceKind.Task, "Read delivery run files", null, null, null, EntryId: id)));
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.Empty(component.FindAll("[data-testid='sessions-panel']"));
+            Assert.Contains("Read delivery run files", Assert.Single(component.FindAll(".task-item--selected")).TextContent);
+        });
+    }
+
+    /// <summary>
+    /// The sessions list asks the shell which entry linked a session, and the shell
+    /// answers from the entry's own session links — by stored id, so opening it is the
+    /// surest match there is. A session no entry linked has none.
+    /// </summary>
+    [Fact]
+    public void The_entry_that_linked_a_session_is_the_session_s_task()
+    {
+        using var harness = CreateHarness(seed: PlanEntryText);
+        var component = Render(harness);
+        var state = harness.Context.Services.GetRequiredService<TasksDesktopState>();
+
+        component.WaitForState(() => state.Rows.FirstOrDefault()?.Id is not null);
+
+        var row = state.Rows[0];
+        row.SessionLinks = [new EntrySessionLink("JSdotNet/Backlog", "1d32704d-c565-4c8a-bb64-b96b01a6f701")];
+
+        OpenSessions(component);
+
+        var pane = component.FindComponent<SessionsPane>().Instance;
+
+        Assert.NotNull(pane.SessionTask);
+
+        var task = pane.SessionTask!("1D32704D-c565-4c8a-bb64-b96b01a6f701");
+
+        Assert.NotNull(task);
+        Assert.Equal(DeliveryRunReferenceKind.Task, task!.Kind);
+        Assert.Equal(row.Id, task.EntryId);
+        Assert.Equal("Read delivery run files", task.Label);
+
+        Assert.Null(pane.SessionTask("another-session"));
+    }
+
     /// <summary>An entry as an import leaves it: the plan tag with its sigil, and
     /// the item's id within that plan.</summary>
     private const string PlanEntryText =

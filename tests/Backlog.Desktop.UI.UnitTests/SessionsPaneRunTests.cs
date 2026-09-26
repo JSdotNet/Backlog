@@ -541,6 +541,63 @@ public sealed class SessionsPaneRunTests
         });
     }
 
+    /// <summary>
+    /// A run whose prompt named no entry borrows the entry its session was linked to,
+    /// so its status still leads to the work; the host answers which one, by session id.
+    /// </summary>
+    [Fact]
+    public void A_run_naming_no_entry_opens_the_entry_that_linked_its_session()
+    {
+        var run = SessionRowsTests.Run("run-1", Worktree, Noon.AddMinutes(-90), Noon.AddMinutes(-10));
+        var linked = new DeliveryRunReference(DeliveryRunReferenceKind.Task, "Link the done badge", null, null, null, EntryId: Guid.NewGuid());
+        string? askedFor = null;
+        DeliveryRunReference? opened = null;
+
+        using var context = Context([Live], [run]);
+
+        var pane = context.Render<SessionsPane>(parameters => parameters
+            .Add(component => component.SessionTask, sessionId => { askedFor = sessionId; return linked; })
+            .Add(component => component.OnOpenTask, EventCallback.Factory.Create<DeliveryRunReference>(this, reference => opened = reference)));
+
+        pane.WaitForAssertion(() =>
+        {
+            var status = pane.Find("[data-testid='sessions-run-status']");
+
+            Assert.Equal("BUTTON", status.TagName);
+            Assert.Equal("Open Link the done badge in the task list", status.GetAttribute("title"));
+        });
+
+        Assert.Equal(Live.Id, askedFor);
+
+        pane.Find("[data-testid='sessions-run-status']").Click();
+
+        pane.WaitForAssertion(() => Assert.Same(linked, opened));
+    }
+
+    /// <summary>
+    /// The session's entry is a fallback, never a second opinion: a run that named its
+    /// own entry opens that one, because the prompt is what the run was started from.
+    /// </summary>
+    [Fact]
+    public void A_run_that_names_its_own_entry_keeps_it_over_its_sessions_link()
+    {
+        var own = new DeliveryRunReference(DeliveryRunReferenceKind.Task, "delivery-run-reader", "Plan backlog-mcp-server", null, null, "backlog-mcp-server");
+        var run = SessionRowsTests.Run("run-1", Worktree, Noon.AddMinutes(-90), Noon.AddMinutes(-10)) with { References = [own] };
+        DeliveryRunReference? opened = null;
+
+        using var context = Context([Live], [run]);
+
+        var pane = context.Render<SessionsPane>(parameters => parameters
+            .Add(component => component.SessionTask, _ => new DeliveryRunReference(DeliveryRunReferenceKind.Task, "Something else", null, null, null, EntryId: Guid.NewGuid()))
+            .Add(component => component.OnOpenTask, EventCallback.Factory.Create<DeliveryRunReference>(this, reference => opened = reference)));
+
+        pane.WaitForAssertion(() => Assert.Equal("BUTTON", pane.Find("[data-testid='sessions-run-status']").TagName));
+
+        pane.Find("[data-testid='sessions-run-status']").Click();
+
+        pane.WaitForAssertion(() => Assert.Same(own, opened));
+    }
+
     [Fact]
     public void A_dashboard_that_could_not_be_read_is_named_in_the_same_notice()
     {
