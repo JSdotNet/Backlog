@@ -237,12 +237,16 @@
         get
         {
             var pending = Outbox.Entries
-                .Where(entry => entry.Kind == CaptureOutboxKind.Token)
+                .Where(entry => entry.Kind is CaptureOutboxKind.Token or TalkNoteOutboxKind.Token)
                 .Select(entry =>
                 {
-                    var capture = CaptureOutboxKind.Read(entry);
+                    // A talk note is a capture with its uploads in front of it;
+                    // on the list it is the capture it will become.
+                    var capture = entry.Kind == TalkNoteOutboxKind.Token
+                        ? TalkNoteOutboxKind.Read(entry).Capture
+                        : CaptureOutboxKind.Read(entry);
                     return new Row(
-                        new InboxItem(entry.Id, capture.Title, capture.Source, entry.CreatedAt, capture.BodyMd, capture.Tags, capture.Person),
+                        new InboxItem(entry.Id, capture.Title, capture.Source, entry.CreatedAt, capture.BodyMd, capture.Tags, capture.Person, capture.Attachments),
                         entry);
                 })
                 .ToList();

@@ -30,7 +30,7 @@ public sealed class ShellNavigationTests
     }
 
     [Theory]
-    [InlineData("note", "Note", "note-placeholder")]
+    [InlineData("note", "Talk note", "note-send")]
     [InlineData("tasks", "My Day", "tasks-empty")]
     public void Each_tab_resolves_to_its_own_page(string route, string heading, string placeholder)
     {

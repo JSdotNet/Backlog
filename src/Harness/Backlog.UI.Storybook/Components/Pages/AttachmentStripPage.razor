@@ -1,0 +1,102 @@
+@page "/attachment-strip"
+
+<PageTitle>Attachment strip — Backlog UI Storybook</PageTitle>
+
+<StoryPage Title="Attachment strip"
+           Summary="AttachmentStrip: the files attached to something being written, one tile each with its name, type and size — and, on a tile the host refused, the reason. The phone's talk note is its first host."
+           Guidelines="@Rules">
+
+    <Story Name="Picked files"
+           Description="A slide photo and a handout, as the host described them. The strip draws what it is handed: the type and size labels are the host's words, and it knows nothing of caps, allowlists or where the bytes are. With OnRemove set, every tile carries a remove control."
+           Code="@PickedCode">
+        <div class="sb-phone">
+            <AttachmentStrip Tiles="_picked" OnRemove="Remove" AriaLabel="Attached to this note" TestId="attachment-strip-picked" />
+            @if (_picked.Count == 0)
+            {
+                <p class="sb-state" data-testid="attachment-strip-emptied">Every tile was removed; the strip draws nothing.</p>
+            }
+        </div>
+    </Story>
+
+    <Story Name="Refused on its tile"
+           Description="A file the host will not send stays on the strip and says why in words, under its name — the red edge repeats the sentence and never replaces it. Taking it off is the person's call, so the remove control stays."
+           Code="@RefusedCode">
+        <div class="sb-phone">
+            <AttachmentStrip Tiles="Refused" OnRemove="_ => Task.CompletedTask" TestId="attachment-strip-refused" />
+        </div>
+    </Story>
+
+    <Story Name="Read only"
+           Description="Without OnRemove the strip only shows — a note that has left the phone, say, whose files are no longer the person's to take back. A long name ends in an ellipsis and keeps its full text as the tooltip."
+           Code="@ReadOnlyCode">
+        <div class="sb-phone">
+            <AttachmentStrip Tiles="ReadOnly" TestId="attachment-strip-read-only" />
+        </div>
+    </Story>
+
+</StoryPage>
+
+@code {
+    private static readonly DesignGuideline[] Rules =
+    [
+        new("accessibility.md#target-sizes-and-text", "Why each tile and its remove control keep the 44 px touch minimum."),
+        new("accessibility.md#iconography-accessibility", "Why the picture and page glyphs are hidden from a screen reader and the remove control is named for its file."),
+        new("interaction-guidelines.md#error-states", "Why a refusal sits on the tile it is about, in words.")
+    ];
+
+    private List<AttachmentTile> _picked =
+    [
+        new("slide", "IMG_0042.jpg", "JPEG image", "412 KB", IsPicture: true),
+        new("handout", "offline-first-handout.pdf", "PDF", "1.8 MB")
+    ];
+
+    private static readonly IReadOnlyList<AttachmentTile> Refused =
+    [
+        new("slide", "IMG_0042.jpg", "JPEG image", "412 KB", IsPicture: true),
+        new("installer", "demo-setup.exe", "application/x-msdownload", "48.2 MB",
+            Refusal: "Not a type cloud sync takes (.exe). Pictures, PDF, text and Office files only."),
+        new("recording", "keynote-recording.pdf", "PDF", "31.4 MB",
+            Refusal: "Too large: 31.4 MB, and the limit is 25 MB.")
+    ];
+
+    private static readonly IReadOnlyList<AttachmentTile> ReadOnly =
+    [
+        new("deck", "building-offline-first-apps-that-survive-a-conference-hall-wifi.pptx", "PowerPoint deck", "6.3 MB"),
+        new("slide", "IMG_0042.jpg", "JPEG image", "412 KB", IsPicture: true)
+    ];
+
+    private void Remove(AttachmentTile tile) => _picked = [.. _picked.Where(candidate => candidate.Key != tile.Key)];
+
+    private const string PickedCode = """
+        <AttachmentStrip Tiles="_picked" OnRemove="Remove" AriaLabel="Attached to this note" />
+
+        @code {
+            private List<AttachmentTile> _picked =
+            [
+                new("slide", "IMG_0042.jpg", "JPEG image", "412 KB", IsPicture: true),
+                new("handout", "offline-first-handout.pdf", "PDF", "1.8 MB")
+            ];
+
+            private void Remove(AttachmentTile tile) =>
+                _picked = [.. _picked.Where(candidate => candidate.Key != tile.Key)];
+        }
+        """;
+
+    private const string RefusedCode = """
+        <AttachmentStrip Tiles="Refused" OnRemove="Remove" />
+
+        @code {
+            private static readonly IReadOnlyList<AttachmentTile> Refused =
+            [
+                new("installer", "demo-setup.exe", "application/x-msdownload", "48.2 MB",
+                    Refusal: "Not a type cloud sync takes (.exe). Pictures, PDF, text and Office files only."),
+                new("recording", "keynote-recording.pdf", "PDF", "31.4 MB",
+                    Refusal: "Too large: 31.4 MB, and the limit is 25 MB.")
+            ];
+        }
+        """;
+
+    private const string ReadOnlyCode = """
+        <AttachmentStrip Tiles="Tiles" />
+        """;
+}

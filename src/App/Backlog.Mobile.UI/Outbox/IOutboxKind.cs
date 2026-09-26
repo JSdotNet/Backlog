@@ -23,6 +23,25 @@ public interface IOutboxKind
     Task<OutboxDelivery> SendAsync(OutboxEntry entry, CancellationToken cancellationToken);
 }
 
+/// <summary>
+/// A kind whose one entry is several requests — a talk note's uploads and then
+/// the capture that names them. Between requests it hands the outbox a new
+/// payload recording what has already gone, and the outbox keeps it, so the
+/// next attempt starts after the last request that landed rather than from the
+/// first. What has been sent is never sent again.
+/// </summary>
+public interface IStagedOutboxKind : IOutboxKind
+{
+    /// <summary>One attempt, calling <paramref name="checkpoint"/> with the
+    /// entry's new payload each time a request lands. The outbox stores it before
+    /// the call returns and gives the entry its attempts back: progress was made,
+    /// so the next request starts with the whole budget.</summary>
+    Task<OutboxDelivery> SendAsync(
+        OutboxEntry entry,
+        Func<string, CancellationToken, Task> checkpoint,
+        CancellationToken cancellationToken);
+}
+
 /// <summary>How one attempt went.</summary>
 public sealed record OutboxDelivery(OutboxDeliveryKind Kind, string? Error = null)
 {

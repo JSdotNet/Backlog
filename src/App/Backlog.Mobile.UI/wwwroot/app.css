@@ -243,3 +243,27 @@ html, body { background-color: var(--color-background); color: var(--color-text-
 /* The status line carries the recognised words, which can run long. Wrapping is
    the point: truncating would hide the very thing the person asked to see. */
 .capture__status { overflow-wrap: anywhere; }
+
+/*
+  The talk note. One column at phone width: the fields stack, the mic sits beside
+  the body it fills, and the attach buttons wrap rather than shrink below a
+  thumb. Colours are the library's tokens, as above.
+*/
+.talk-note { display: grid; gap: .75rem; }
+
+.talk-note__body { display: flex; align-items: flex-start; gap: .5rem; }
+
+.talk-note__body .talk-note__field { flex: 1; min-width: 0; }
+
+.talk-note__mic { flex: 0 0 auto; margin-top: 1.5rem; }
+
+.talk-note__attach { display: flex; flex-wrap: wrap; gap: .5rem; }
+
+.talk-note__status {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: .85rem;
+}

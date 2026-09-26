@@ -1,4 +1,5 @@
 using Backlog.Mobile.UI.Outbox;
+using Backlog.Mobile.UI.TalkNotes;
 using Backlog.Mobile.UI.Tasks;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -20,6 +21,7 @@ public static class MobileShellServiceCollectionExtensions
     {
         services.TryAddSingleton(TimeProvider.System);
         services.AddScoped<CaptureDraft>();
+        services.AddScoped<TalkNoteDraft>();
         services.AddScoped<SyncStatusTracker>();
 
         // One instance behind both names: the Inbox records against the tracker,
@@ -50,6 +52,12 @@ public static class MobileShellServiceCollectionExtensions
         // of the app, which on a phone is the life of the process anyway.
         services.AddSingleton<IOutboxKind, CaptureOutboxKind>();
         services.AddSingleton<IOutboxKind, TaskOutboxKind>();
+
+        // A talk note's files wait beside the database until the capture naming
+        // them has arrived; the outbox row holds only where they are.
+        services.AddSingleton(_ => new TalkNoteFiles(Path.Combine(Path.GetDirectoryName(Path.GetFullPath(databasePath))!, "talk-notes")));
+        services.AddSingleton<IOutboxKind, TalkNoteOutboxKind>();
+        services.AddSingleton<TalkNoteComposer>();
 
         // The Tasks tab's fold of the task feed, in the same file: a projection
         // plus the outbox's task kind, never a second task store.
