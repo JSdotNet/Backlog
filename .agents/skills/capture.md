@@ -6,60 +6,81 @@ goal: "Return evidence a reviewer can open instead of taking your word for it: o
 
 # Capture Evidence
 
-**Edit this file** — the layout and the tooling below are yours. What comes back is fixed by
-the wrapper's goal: one entry per checkpoint and per failure, paths under the worktree root,
-the form named honestly.
+Evidence for Backlog is taken against the harnesses `start` reports, saved under this
+worktree's `.qa-workspace/evidence/`, and cited by path. It never lands in the committed
+fixtures beside it.
 
-## First: what can this server actually record?
+## Choose the form from the live tool list
 
-**Read the live tool list before choosing a form.** Do not assume video is available.
-`@playwright/mcp` 0.0.79 exposes no tracing or video tools — `browser_start_tracing` and
-`browser_stop_tracing` do not exist, and there is no `--save-trace` or `--save-video` option.
-Only `--save-session` and screenshots.
+Before choosing a form, read the live tool list; do not assume video is available.
 
 | The tool list shows | Capture as |
 | --- | --- |
-| No tracing tools — the common case | A numbered screenshot sequence |
-| `browser_start_tracing` / `browser_stop_tracing` | A video or trace file |
+| Playwright `browser_take_screenshot`, and no tracing tools. This is the usual case: `@playwright/mcp` 0.0.79 has no tracing, no video, and no `--save-trace` or `--save-video`. | A numbered screenshot sequence |
+| `browser_start_tracing` / `browser_stop_tracing` | A trace or video file |
+| No Playwright server, or its Chrome profile is locked by a parallel session | The host's in-app browser screenshot. If even that is unavailable, say so and capture nothing rather than describing a frame you did not take. |
 
-**Never call a screenshot sequence a video or a trace.** Name the form you actually produced,
-in the report and in the filename.
+Name the form you actually produced, in the report and in the filename. A screenshot
+sequence is never a video or a trace.
 
-Tool names here are bare. Resolve the prefix from your own tool list — a plugin-provided
-server is namespaced with its plugin, a repository-registered one is not.
+Tool names here are bare. Resolve the prefix from your own tool list: a plugin-provided
+server is namespaced with its plugin (`mcp__plugin_qa_playwright__…`), and a
+repository-registered one is not (`mcp__playwright__…`).
 
 ## Capture
 
-1. **Stabilize first.** Wait for a specific expected element or text, never a fixed sleep. A
-   frame taken mid-transition is misleading evidence, not evidence.
-2. **Take the shot.** Full page by default; scope to one element when only that component's
-   state matters — a field error, a toast, a modal.
-3. **Capture the failure before recovering.** The moment a check fails is the one frame that
-   cannot be retaken.
+1. **Stabilize first.** Wait for a specific element or text, never for a fixed time. Blazor
+   Server renders after the first paint, so a frame taken mid-render is misleading.
+2. **Take the shot.** Take the viewport by default. Scope the shot to one element when only
+   that component's state matters: a field error, a toast, a modal.
+   - Avoid full-page shots of `desktop-web-harness` panes. Removing the scrollbar widens the
+     container past its breakpoint and changes the layout you are trying to show.
+3. **Capture a failure before you recover from it.** The moment a check fails is the one
+   frame that cannot be retaken.
+4. **For phone width,** resize `desktop-web-harness` to 390×844 and say so in the filename
+   (`-390w`). `mobile-web-harness` shows only Inbox quick-capture.
 
 ## Where it lands
 
 ```
-.qa-workspace/evidence/<feature>/screenshots/<NN>-<what-it-shows>.png   single checkpoints
-.qa-workspace/evidence/<feature>/sequence/<scenario>/<NN>-<step>.png    a multi-step flow
-.qa-workspace/evidence/<feature>/video/<scenario>.webm                  only if tracing exists
+.qa-workspace/evidence/<branch-slug>/screenshots/<NN>-<what-it-shows>.png   single checkpoints
+.qa-workspace/evidence/<branch-slug>/sequence/<scenario>/<NN>-<step>.png    a multi-step flow
+.qa-workspace/evidence/<branch-slug>/video/<scenario>.webm                  only if tracing exists
+.qa-workspace/evidence/<branch-slug>/logs/<NN>-<resource>.txt               an excerpt a finding cites
 ```
 
-`.qa-workspace/` is partly tracked: `backlog.db` and `config/` are committed fixtures,
-everything else is ignored by `.gitignore` (`.qa-workspace/*`). Evidence stays local — never
-write into `backlog.db` or `config/`, and never stage with `git add -A`; stage by explicit
-path.
+- `<branch-slug>` is the current branch name without its `claude/` prefix, so evidence from
+  parallel worktrees never mixes.
+- `<NN>` is zero-padded, so files sort in execution order.
+- Name a failure so the failure is obvious: `05-submit-500-error.png`.
+- Never reuse a filename. An overwritten frame is a lost one.
 
-`<NN>` is zero-padded so evidence sorts in execution order. Name a failure so the failure is
-obvious: `05-submit-500-error.png`. Never reuse a filename — an overwritten frame is a lost
-one.
+### What is tracked and what is not
 
-Change this layout to suit the repository. Keep every path under the worktree root: a path
-outside it is rejected, and a sub-agent in its own checkout must copy evidence back before
-reporting it.
+`.qa-workspace/` is partly tracked. `.gitignore` ignores `.qa-workspace/*` and then
+un-ignores two paths:
+
+| Path | What it is |
+| --- | --- |
+| `.qa-workspace/backlog.db` | Committed fixture: the task database QA scenarios run against |
+| `.qa-workspace/config/` (`repos.json`) | Committed fixture: the repository registry QA scenarios use |
+| `.qa-workspace/evidence/` and everything else | Run evidence: ignored and kept local |
+
+- Never write evidence into `backlog.db` or `config/`. A QA run that changed either one has
+  modified a fixture; restore it with `git checkout -- <path>` and say so.
+- Stage by explicit path only. Never use `git add -A`, `git add .` or `git add .qa-workspace`:
+  any of them sweeps a changed fixture into the commit.
+- Evidence is committed only when the task asks for it. Then run `git add -f <path>` for
+  each file, by name.
+
+Keep every path under the worktree root. The dashboard rejects paths outside it, so a
+sub-agent working in its own checkout must copy its evidence back before reporting it.
 
 ## In the report
 
 Every visual claim cites the path that proves it. "The form validated correctly" with no path
-attached is not a finding. For a sequence, cite the folder and say which step each frame is;
-for a failure inside a recording, give the timestamp too.
+attached is not a finding.
+
+- For a sequence, cite the folder and say which step each frame shows.
+- For a failure inside a recording, give the timestamp too.
+- A log excerpt names its resource and its time window.

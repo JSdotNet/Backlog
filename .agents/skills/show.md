@@ -6,55 +6,77 @@ goal: "Put the feature on the current branch in front of a reviewer: the applica
 
 # Show the Feature
 
-Compose `start` and `capture` into a walk a reviewer can follow. **Edit this file** — the
-branch-to-area map, the walk, and the report are yours; the goal in the wrapper is not.
+Combine `start` and `capture` into a walk a reviewer can follow. Start the app, open the
+harness that serves the area the branch changes, walk the change, and capture every step.
 
 ## Run it
 
-1. **Start it** by invoking the `start` skill. Reuse the instance it reports; never start a
-   second one from here.
-2. **Sign in** the way `start` says. A credential is never typed by you.
+1. **Start the app** by invoking the `start` skill. Reuse the instance it reports; never
+   start a second one from here.
+2. **Pair a device only if the walk needs sync**, the way `start` describes. Never type a
+   credential yourself.
 
 ## Go to
 
-<!-- Area — route — the source path it owns. Used to land on what the current branch changes.
-     Replace these rows; delete the table if the app has one entry point. -->
+Each harness serves one kind of surface, and none of them stands in for another:
 
-| Area | Route | Owns |
+- `desktop-web-harness` serves every desktop pane.
+- `mobile-web-harness` serves Inbox quick-capture and nothing else. It has no Tasks, Devbook
+  or any other pane. To show phone-width behaviour, resize `desktop-web-harness` to 390×844.
+- `ui-storybook` hosts the shared component library alone, with no app behind it. A
+  component change is shown there first, then in the pane that uses it.
+
+| Area | Where | Owns |
 | --- | --- | --- |
-| Shared component | `ui-storybook`, the component's page | `src/Core/Backlog.UI.Components/` |
-| Devbook pane | `desktop-web-harness`, Devbook | `src/Modules/Devbook/`, `src/Infrastructure/Backlog.Infrastructure.Devbook/`, `.devbook/` |
-| Inbox quick-capture | `mobile-web-harness` root | `src/App/Backlog.Mobile.UI/`, `src/Modules/Inbox/`, `src/Modules/Capture/` |
-| Sync API | `sync`, `openapi/v1.json` | `src/Modules/Sync/`, `src/Infrastructure/Backlog.Infrastructure.Sync/` |
-| Desktop pane (Tasks, Dashboard, Roadmap, Sessions, DevPc) | `desktop-web-harness`, that pane | `src/Modules/<Pane>/`, `src/App/Backlog.Desktop.UI/` |
+| Shared component | `ui-storybook`, that component's page | `src/Core/Backlog.UI.Components/`, `src/Harness/Backlog.UI.Storybook/` |
+| Design tokens and styling | `ui-storybook`, then one pane that uses the token | `src/Core/Backlog.UI.Components/wwwroot/` |
+| Devbook pane | `desktop-web-harness`, Devbook | `src/Modules/Devbook/`, `src/Infrastructure/Backlog.Infrastructure.Devbook/` |
+| Tasks, Dashboard, Roadmap, Sessions, DevPc | `desktop-web-harness`, that pane | `src/Modules/<Pane>/` |
+| Desktop shell, Settings | `desktop-web-harness` root, or Settings | `src/App/Backlog.Desktop.UI/`, `src/Harness/Backlog.Desktop.WebHarness/` |
+| Inbox quick-capture | `mobile-web-harness` root | `src/App/Backlog.Mobile.UI/`, `src/Modules/Inbox/`, `src/Modules/Capture/`, `src/Harness/Backlog.Mobile.WebHarness/` |
+| Sync API | `sync`, `openapi/v1.json`, and then the harness that calls it | `src/Modules/Sync/`, `src/Infrastructure/Backlog.Infrastructure.Sync/` |
+| MAUI heads, VS Code extension | Not walkable here: say so and show the shared screen in its harness | `src/App/Backlog.Desktop/`, `src/App/Backlog.Mobile/`, `src/App/Backlog.Ide.VsCode/` |
 
-Match `git diff --name-only main...HEAD` against the `Owns` column and open the first area
-that hits, on the URL `start` reported. Use the host's inline browser when it has one;
-otherwise give the plain URL and say so. No hit: open `desktop-web-harness`'s root and say
-the branch changed nothing the table names. A fresh load of `desktop-web-harness` reopens the
-previous run's surface — assert where you landed before the first step. Phone-width
-behaviour of a pane other than Inbox is shown by resizing `desktop-web-harness`.
+To choose the area:
+
+1. Run `git diff --name-only main...HEAD` and match the result against the `Owns` column.
+2. Open the first area that matches, on the URL `start` reported. Use the host's inline
+   browser when it has one; otherwise give the plain URL and say so.
+3. If nothing matches, open `desktop-web-harness`'s root and say that the branch changes
+   nothing the table names. A branch that touches only `.devbook/`, `.agents/` or
+   `.github/` has nothing to walk; say that instead of walking anyway.
+
+Before the first step, check that the page is this worktree's build:
+
+- A fresh load of `desktop-web-harness` reopens whichever surface the previous run left
+  open, so check where you landed.
+- Several worktrees can serve identical pages at once, so look for something only this
+  branch has.
 
 ## Walk it
 
-<!-- The scenario a reviewer expects to see. Replace the example. -->
-
 1. Land on the area, wait for its heading, and take the first frame.
-2. Do what the branch enables — add a task, capture an Inbox item, open a Devbook chapter,
-   open the new panel — one step per frame.
-3. Land on the state that proves it worked, and take the last frame.
+2. Do what the branch enables, one step per frame: add a task, capture an Inbox item, open
+   a Devbook chapter, open the new panel.
+3. End on the state that proves it worked, and take the last frame.
 
-Invoke the `capture` skill for every frame; it decides the layout and the form. Capture the
-moment a step fails before doing anything about it, then stop the walk and report.
+Invoke the `capture` skill for every frame; it decides where the file goes and what form it
+takes. When a step fails, capture that moment before doing anything else, then stop the walk
+and report.
 
 ## Report
 
-Two or three lines plus the evidence: the area shown and why it was chosen, the steps walked,
-and one path per frame — a sequence cites its folder and names each step. Leave the app
-running.
+Two or three lines, plus the evidence:
+
+- the area shown and why it was chosen;
+- the steps walked;
+- one path per frame. For a sequence, cite its folder and name each step.
+
+Leave the app running.
 
 ## Never
 
-- Change code, data, or configuration to make the walk succeed. A walk that needs a change
+- Change code, data or configuration to make the walk succeed. A walk that needs a change
   is a finding, not a demo.
-- Call a screenshot sequence a video. `capture` names the form; repeat what it said.
+- Call a screenshot sequence a video. `capture` names the form it produced; repeat what it
+  said.
