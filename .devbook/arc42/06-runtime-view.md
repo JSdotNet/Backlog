@@ -86,8 +86,9 @@ when the service answers.
 
 - **One outbox, many kinds.** Each row is `id, kind, payload, attempts,
   last_error, created_at`. The `kind` picks the sender; `capture` is the first,
-  and later kinds (an attachment upload that must go ahead of its capture, a task
-  pushed to its own endpoint) join the same queue and the same order.
+  and later kinds join the same queue and the same order: `task`, pushed to its
+  own endpoint, and `talk-note`, one entry that is several requests — see
+  **Talk Note Upload**.
 - **Oldest first, head of line.** A transient failure (no network, a timeout, a
   5xx, or a 401 from a service that restarted with a new signing key) stops the
   flush, so nothing overtakes it. It is retried after 2s, 4s, 8s, 16s. The fifth
@@ -141,8 +142,8 @@ related: [".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-besid
 A capture's files travel beside it rather than inside it (local ADR 0014). The
 phone uploads each file first, under an id it mints itself, and posts the
 capture that names them after; the capture document carries only their
-metadata. The service side is built; the phone's upload and the desktop's
-intake are later slices.
+metadata. The service side and the phone's upload are built — the phone's half
+is the talk note, below; the desktop's intake is a later slice.
 
 - **Upload, then capture.** `PUT /api/sync/attachments/{id}` carries the bytes,
   their declared `Content-Type` and their SHA-256 in `X-Attachment-Sha256`. The
@@ -198,6 +199,64 @@ sequenceDiagram
     Sync->>Blob: Delete the held capture's files (best effort)
     Sync-->>-Desktop: 200
 ```
+
+## Talk Note Upload
+
+```meta
+related: [".devbook/domain/capture/features.md#talk-note", ".devbook/arc42/06-runtime-view.md#capture-attachments", ".devbook/arc42/06-runtime-view.md#mobile-capture-and-sync"]
+```
+
+A talk note is the phone's half of **Capture Attachments**: one outbox entry of
+kind `talk-note` whose payload is the capture — attachment metadata included —
+and the ids of the files already uploaded. The bytes wait beside the database
+in `talk-notes/outbox/`, since an outbox row holds JSON.
+
+- **Prepared once, at Send.** Each picture is downscaled (1600 px longest edge,
+  JPEG, EXIF reduced to the orientation) unless the note keeps originals; the
+  size and SHA-256 are taken from the bytes that will actually go.
+- **Uploads, checkpointed.** An attempt uploads each file not yet listed as
+  uploaded, then posts the capture. Every upload that lands is written back
+  into the entry before the next starts (`IStagedOutboxKind`), and hands the
+  entry its attempts back — so a retry resumes at the first file still to go,
+  and each file has the whole backoff budget of its own.
+- **One refusal refuses the note.** A 409, 413 or 415 on a file sets the entry
+  aside naming the file; the capture is never posted without it.
+- **Released on delivery.** The files are deleted from the phone once the
+  capture is taken (201, or 200 for an id the service already holds).
+- **Status from the outbox.** *synced* once the entry is gone, *uploading i of
+  n* while an attempt is sending its files, *waiting* otherwise, and *waiting —
+  tap to retry* once parked.
+
+```mermaid
+sequenceDiagram
+    actor ME
+    participant App as Phone App
+    participant Outbox as SQLite Outbox
+    participant Files as talk-notes/outbox
+    participant Sync as Sync Service
+
+    ME->>App: Send to Inbox (body, speaker, tags, files)
+    App->>Files: Downscale pictures, move files; size + sha256
+    App->>Outbox: INSERT (id v7, kind=talk-note, capture + uploaded=[])
+    App-->>ME: Inbox row marked waiting; note says "waiting"
+
+    loop Each file not yet uploaded
+        Outbox->>+Sync: PUT /api/sync/attachments/{id} (X-Attachment-Sha256)
+        alt 201, or 200 for the same bytes
+            Sync-->>Outbox: StoredAttachment
+            Outbox->>Outbox: Checkpoint: uploaded += id, attempts = 0
+        else No network, timeout, 5xx or 401
+            Sync-->>Outbox: Transient — attempts+1, back off, stop the flush
+        else 409, 413 or 415
+            Sync-->>-Outbox: Refused — set aside, naming the file
+        end
+    end
+
+    Outbox->>+Sync: POST /api/sync/inbox (same id, attachments: metadata)
+    Sync-->>-Outbox: 201 InboxItem
+    Outbox->>Outbox: DELETE entry
+    Outbox->>Files: Delete the note's files
+    App-->>ME: "synced"
 
 ## Mobile My Day and Task Push
 

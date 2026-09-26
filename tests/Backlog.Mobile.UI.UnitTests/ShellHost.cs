@@ -38,6 +38,7 @@ internal sealed class ShellHost : IDisposable
         if (clock is not null) _context.Services.AddSingleton(clock);
         _context.Services.AddSingleton<ISharedContentReceiver>(new TestSharedContentReceiver());
         _context.Services.AddSingleton<ISpeechTranscriber>(new SilentSpeechTranscriber());
+        _context.Services.AddSingleton<IAttachmentPicker>(Picker);
         _context.Services.AddSingleton(credentials);
         _context.Services.AddSingleton(new CloudSyncClient(
             new HttpClient(_handler) { BaseAddress = new Uri("https://sync.test") }));
@@ -47,6 +48,9 @@ internal sealed class ShellHost : IDisposable
         _context.Services.AddMobileShell();
         _context.Services.AddTestDeviceOutbox(store, taskView);
     }
+
+    /// <summary>What the Note page's attach buttons hand back.</summary>
+    public TestAttachmentPicker Picker { get; } = new();
 
     public IDeviceCredentialStore Credentials { get; }
 
@@ -62,6 +66,8 @@ internal sealed class ShellHost : IDisposable
     public NavigationManager Navigation => _context.Services.GetRequiredService<NavigationManager>();
 
     public DeviceOutbox Outbox => _context.Services.GetRequiredService<DeviceOutbox>();
+
+    public T Service<T>() where T : notnull => _context.Services.GetRequiredService<T>();
 
     public static ShellHost Unpaired(Func<HttpRequestMessage, int, HttpResponseMessage>? pair = null) =>
         new(TestDevices.Unpaired(), pair, inbox: null, store: null, clock: null);

@@ -14508,3 +14508,72 @@ select.field__input {
     background: var(--color-text-secondary);
     box-shadow: 0 0 0 2px var(--color-info);
 }
+
+/* --- Attachment strip ---------------------------------------------------- */
+/*
+  The files on something being written, one tile per file. A tile is a full row
+  at phone width, so a long file name has the room to be read, and it keeps the
+  44px touch minimum of accessibility.md#target-sizes-and-text for its remove
+  control. A refused tile carries its reason in words; the red edge only repeats
+  what the sentence says (color-scheme.md: a colour is never the sole carrier).
+*/
+
+.attachment-strip {
+    display: grid;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.attachment-tile {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    min-width: 0;
+    min-height: 2.75rem;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-raised);
+}
+
+.attachment-tile--refused {
+    border-color: color-mix(in srgb, var(--color-error-text) 55%, transparent);
+}
+
+.attachment-tile__glyph {
+    display: inline-flex;
+    flex: none;
+    color: var(--color-text-secondary);
+}
+
+.attachment-tile__text {
+    display: grid;
+    flex: 1;
+    min-width: 0;
+}
+
+.attachment-tile__name {
+    overflow: hidden;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.attachment-tile__facts {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.attachment-tile__refusal {
+    color: var(--color-error-text);
+    font-size: var(--font-size-xs);
+}
+
+.attachment-tile__remove {
+    flex: none;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+}

@@ -17,6 +17,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- A slide photo with a phone's EXIF (orientation 6, camera, GPS) and a
+         one-page handout: the downscaler's input, and the files QA uploads. -->
+    <None Include="Fixtures\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Only the mobile UI: these tests drive the screen, and the MAUI head and
          the browser harness are the two hosts it has to run in unchanged. -->
     <ProjectReference Include="..\..\src\App\Backlog.Mobile.UI\Backlog.Mobile.UI.csproj" />
