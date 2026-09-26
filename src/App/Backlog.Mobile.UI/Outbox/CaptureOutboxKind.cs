@@ -1,4 +1,3 @@
-using System.Net;
 using System.Text.Json;
 
 using Backlog.Mobile.UI.Services;
@@ -43,35 +42,12 @@ public sealed class CaptureOutboxKind(CloudSyncClient sync) : IOutboxKind
             ?? throw new InvalidOperationException($"Outbox entry {entry.Id} holds no capture.");
     }
 
-    public async Task<OutboxDelivery> SendAsync(OutboxEntry entry, CancellationToken cancellationToken)
+    public Task<OutboxDelivery> SendAsync(OutboxEntry entry, CancellationToken cancellationToken)
     {
         // The entry's id wins over whatever the payload says: it is the one the
         // outbox keys on, and the one every retry has to repeat.
         var request = Read(entry) with { Id = entry.Id };
 
-        try
-        {
-            var (status, detail) = await sync.PostCaptureAsync(request, cancellationToken);
-
-            return status switch
-            {
-                _ when (int)status is >= 200 and < 300 => OutboxDelivery.Delivered,
-                // 401 is the token, not the capture: a restarted service rejects
-                // tokens it signed before, and the next attempt carries a fresh one.
-                HttpStatusCode.Unauthorized or HttpStatusCode.RequestTimeout or HttpStatusCode.TooManyRequests =>
-                    OutboxDelivery.Transient(detail ?? $"Cloud sync answered {(int)status}."),
-                _ when (int)status is >= 400 and < 500 =>
-                    OutboxDelivery.Refused(detail ?? $"Cloud sync refused it ({(int)status})."),
-                _ => OutboxDelivery.Transient(detail ?? $"Cloud sync answered {(int)status}.")
-            };
-        }
-        catch (HttpRequestException ex)
-        {
-            return OutboxDelivery.Transient(ex.Message);
-        }
-        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
-        {
-            return OutboxDelivery.Transient("Cloud sync did not answer in time.");
-        }
+        return OutboxDelivery.AttemptAsync(() => sync.PostCaptureAsync(request, cancellationToken), cancellationToken);
     }
 }
