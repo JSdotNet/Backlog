@@ -64,9 +64,13 @@ public static class RoadmapCrossContextAdapterRegistration
         // The finished work a measured pace is counted from, read from the backlog —
         // scoped because ITaskItems is, and resolving it per call because the backlog's
         // plan import reaches the roadmap importer, which reaches the pace, which
-        // reaches this: taken in the constructor, that loop deadlocks the scope.
+        // reaches this: taken in the constructor, that loop deadlocks the scope. The
+        // repository directory, which turns a task's repository ids into the aliases a
+        // pace is kept under, is resolved per call for the same reason.
         services.AddScoped<IRoadmapCompletedWork>(sp =>
-            new RoadmapCompletedWork(() => sp.GetRequiredService<ITaskItems>()));
+            new RoadmapCompletedWork(
+                () => sp.GetRequiredService<ITaskItems>(),
+                () => sp.GetRequiredService<IRepositoryDirectory>()));
 
         // Singleton, unlike the adapters above, and deliberately: this one captures no
         // scoped service — only the settings store, which is a singleton in both

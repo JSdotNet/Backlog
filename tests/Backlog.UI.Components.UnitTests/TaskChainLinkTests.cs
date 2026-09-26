@@ -587,6 +587,48 @@ public sealed class TaskChainLinkTests
     }
 
     [Fact]
+    public void The_hosts_badges_read_before_the_handle_and_its_actions_after()
+    {
+        // What work on the task produced — a pull request, a session — is a fact
+        // about the row, so it reads with the row ahead of the handle. What the host
+        // lets a reader set stays among the controls after it.
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskItem>(p => p
+            .Add(i => i.Task, new TaskRow("a", "First"))
+            .Add(i => i.LinkHandle, true)
+            .Add(i => i.AllowCopy, true)
+            .Add(i => i.Badges, (TaskRow _) => builder => builder.AddContent(0, "#655"))
+            .Add(i => i.Actions, (TaskRow _) => builder => builder.AddContent(0, "status"))
+            .Add(i => i.TestId, "row"));
+
+        var row = view.Find("li.task-item");
+
+        var order = row.Children
+            .Select(child => child.ClassList.FirstOrDefault(name => name.StartsWith("task-item__", StringComparison.Ordinal)))
+            .ToList();
+
+        Assert.True(order.IndexOf("task-item__badges") >= 0);
+        Assert.True(order.IndexOf("task-item__badges") < order.IndexOf("task-item__link"));
+        Assert.True(order.IndexOf("task-item__link") < order.IndexOf("task-item__actions"));
+        Assert.True(order.IndexOf("task-item__actions") < order.IndexOf("task-item__copy"));
+    }
+
+    [Fact]
+    public void A_row_with_no_badges_renders_no_badge_slot()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskItem>(p => p
+            .Add(i => i.Task, new TaskRow("a", "First"))
+            .Add(i => i.LinkHandle, true));
+
+        Assert.Empty(view.FindAll(".task-item__badges"));
+    }
+
+    [Fact]
     public async Task A_finished_row_refuses_the_drop_and_says_so()
     {
         // Refusing rather than reinterpreting. Falling back to a reorder would be

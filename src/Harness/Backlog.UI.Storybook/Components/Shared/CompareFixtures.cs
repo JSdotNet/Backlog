@@ -58,9 +58,9 @@ internal static class CompareFixtures
     /// <summary>The files behind the "Committed" range: three edited chapters.</summary>
     public static IReadOnlyList<Fixture> Committed { get; } =
     [
-        Modified(".tech/deploy-foundry.md", DeployBefore, DeployAfter),
-        Modified(".tech/session-configuration.md", SessionBefore, SessionAfter),
-        Modified(".tech/release-checklist.md", ChecklistBefore, ChecklistAfter)
+        Modified(".devbook/tech/deploy-foundry.md", DeployBefore, DeployAfter),
+        Modified(".devbook/tech/session-configuration.md", SessionBefore, SessionAfter),
+        Modified(".devbook/tech/release-checklist.md", ChecklistBefore, ChecklistAfter)
     ];
 
     /// <summary>
@@ -69,8 +69,8 @@ internal static class CompareFixtures
     /// </summary>
     public static IReadOnlyList<Fixture> LastCommit { get; } =
     [
-        Modified(".tech/deploy-foundry.md", DeployBefore, DeployAfter),
-        Added(".tech/ci-runners.md", RunnersAdded),
+        Modified(".devbook/tech/deploy-foundry.md", DeployBefore, DeployAfter),
+        Added(".devbook/tech/ci-runners.md", RunnersAdded),
         Removed("docs/old-runbook.md", RunbookRemoved)
     ];
 
@@ -159,7 +159,7 @@ internal static class CompareFixtures
     }
 
     // ---------------------------------------------------------------------
-    // .tech/deploy-foundry.md — all four states in one document.
+    // .devbook/tech/deploy-foundry.md — all four states in one document.
     // ---------------------------------------------------------------------
 
     private const string DeployBefore = """
@@ -167,7 +167,7 @@ internal static class CompareFixtures
 
         ```meta
         status: active
-        related: [".tech/ci-runners.md"]
+        related: [".devbook/tech/ci-runners.md"]
         ```
 
         The workflow that publishes the model catalogue to Azure AI Foundry.
@@ -199,7 +199,7 @@ internal static class CompareFixtures
 
         ```meta
         status: active
-        related: [".tech/ci-runners.md"]
+        related: [".devbook/tech/ci-runners.md"]
         ```
 
         The workflow that publishes the model catalogue to Azure AI Foundry.
@@ -229,7 +229,7 @@ internal static class CompareFixtures
         """;
 
     // ---------------------------------------------------------------------
-    // .tech/session-configuration.md — one heading renamed, body untouched.
+    // .devbook/tech/session-configuration.md — one heading renamed, body untouched.
     // ---------------------------------------------------------------------
 
     private const string SessionBefore = """
@@ -263,7 +263,7 @@ internal static class CompareFixtures
         """;
 
     // ---------------------------------------------------------------------
-    // .tech/release-checklist.md — a long section with two edits far apart.
+    // .devbook/tech/release-checklist.md — a long section with two edits far apart.
     // ---------------------------------------------------------------------
 
     private const string ChecklistBefore = """
@@ -271,7 +271,7 @@ internal static class CompareFixtures
 
         ```meta
         status: active
-        related: [".tech/deploy-foundry.md"]
+        related: [".devbook/tech/deploy-foundry.md"]
         ```
 
         ## Before you tag
@@ -313,7 +313,7 @@ internal static class CompareFixtures
 
         ```meta
         status: active
-        related: [".tech/deploy-foundry.md"]
+        related: [".devbook/tech/deploy-foundry.md"]
         ```
 
         ## Before you tag
@@ -361,7 +361,7 @@ internal static class CompareFixtures
 
         ```meta
         status: draft
-        related: [".tech/deploy-foundry.md"]
+        related: [".devbook/tech/deploy-foundry.md"]
         ```
 
         Which jobs run where, and why the deployment ones cannot run on the hosted
@@ -383,6 +383,6 @@ internal static class CompareFixtures
         ## Publishing by hand
 
         Sign in with the deployment account, upload the catalogue, and refresh the
-        endpoint. Superseded by `.tech/deploy-foundry.md`.
+        endpoint. Superseded by `.devbook/tech/deploy-foundry.md`.
         """;
 }

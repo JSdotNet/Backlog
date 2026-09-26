@@ -421,6 +421,17 @@
                                 @RenderRowPickers(entry, task.Title)
                             }
                         </RowActions>
+                        <RowBadges Context="task">
+                            @* What work on the entry produced — its latest pull
+                               request and session. A fact to follow rather than a
+                               field to set, so it reads ahead of the link handle
+                               while the pickers stay among the controls after it. *@
+                            @if (EntryFor(task.Id) is { } entry
+                                 && (entry.SessionLinks.Count > 0 || PullRequestsBesideSnapshot(entry).Any()))
+                            {
+                                @RenderRowWork(entry)
+                            }
+                        </RowBadges>
                         <AfterOpenRows>
                             @RenderAddEntry()
                         </AfterOpenRows>
@@ -949,7 +960,7 @@
     /// repository picker two controls to the right was showing the same word. That
     /// suppression went with the conflation behind it: the picker reads the entry's
     /// <c>`repo:`</c> targets and the area is the person's own pile
-    /// (<c>.domain/backlog/naming.md#area</c>), so they are two facts and an entry
+    /// (<c>.devbook/domain/tasks/domain.md#area</c>), so they are two facts and an entry
     /// filed under a pile that happens to be spelled like a repository is saying
     /// something the picker is not.
     /// </para>
@@ -1051,18 +1062,13 @@
     /// a column of these is otherwise one control announced twenty times.
     /// </para>
     /// </summary>
+    private RenderFragment RenderRowWork(EntryRow row) =>
+        @<span class="entry-row__work" data-testid="row-work-links">
+            @RenderWorkLinks(row, "row-", latestOnly: true)
+        </span>;
+
     private RenderFragment RenderRowPickers(EntryRow row, string title) =>
         @<span class="entry-row__pickers">
-            @* What work on the entry produced, before the pickers: a fact to follow
-               rather than a field to set. In the slot, so its click stops here and
-               neither opens the row nor starts a rename. *@
-            @if (row.SessionLinks.Count > 0 || PullRequestsBesideSnapshot(row).Any())
-            {
-                <span class="entry-row__work" data-testid="row-work-links">
-                    @RenderWorkLinks(row, "row-", latestOnly: true)
-                </span>
-            }
-
             @if (DevbookRepositories.Count > 0)
             {
                 @* The same list, the same resolve and the same write the panel's

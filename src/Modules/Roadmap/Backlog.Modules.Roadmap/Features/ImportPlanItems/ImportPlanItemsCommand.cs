@@ -62,7 +62,9 @@ public sealed class ImportPlanItemsCommandHandler(
 
         var plan = await plans.LoadAsync(cancellationToken);
         var today = DateOnly.FromDateTime(clock.GetLocalNow().DateTime);
-        var storyPointsPerWeek = await velocity.GetStoryPointsPerWeekAsync(cancellationToken);
+        // Every pace read once: each item is placed at the pace of the repositories it
+        // is filed under, and asking per item would read the backlog once per item.
+        var paces = await velocity.ReadPacesInUseAsync(cancellationToken);
 
         var skipped = new List<string>();
         var ambiguous = new List<AmbiguousPlanTagDto>();
@@ -125,7 +127,8 @@ public sealed class ImportPlanItemsCommandHandler(
         }
 
         // Placement, predecessors first, so an item starts after what it waits on as
-        // that now stands.
+        // that now stands — each at the pace of the repositories it is filed under,
+        // which Match has just set from the entry.
         var effort = EffortByTag(command.GatheredEffort);
 
         foreach (var current in InDependencyOrder(touched))
@@ -139,7 +142,7 @@ public sealed class ImportPlanItemsCommandHandler(
                 start,
                 current.Entry.Due,
                 effort.GetValueOrDefault(item.Tag.Value),
-                storyPointsPerWeek);
+                paces.For(item.Scope.Aliases));
 
             var placed = plan.PlaceByImport(item.Id, window, placement);
             if (placed.IsFailure) return Result.Failure<PlanImportResultDto>(placed.Error);
@@ -150,7 +153,7 @@ public sealed class ImportPlanItemsCommandHandler(
             }
         }
 
-        var relengthened = Relengthen(plan, touched, effort, storyPointsPerWeek, scheduled);
+        var relengthened = Relengthen(plan, touched, effort, paces, scheduled);
 
         // A task-level import whose tags carry no item, or only hand-placed ones,
         // changed nothing — and a save that changes nothing is still a write the
@@ -192,13 +195,14 @@ public sealed class ImportPlanItemsCommandHandler(
     /// touched, while its window is still effort-placed (ADR 0013, ruling 5): the end is
     /// recomputed from the newly gathered effort and the start stays. A due-date-placed
     /// item keeps the end the person wrote; a hand-placed one is untouched. When several
-    /// items carry the tag, the first by creation order, as for an entry.
+    /// items carry the tag, the first by creation order, as for an entry. Each at the
+    /// pace of the repositories that item is filed under.
     /// </summary>
     private List<RoadmapItemDto> Relengthen(
         RoadmapPlan plan,
         List<Touched> touched,
         Dictionary<string, int> effort,
-        decimal storyPointsPerWeek,
+        PacesInUseDto paces,
         List<RoadmapItemScheduledDto> scheduled)
     {
         var relengthened = new List<RoadmapItemDto>();
@@ -213,7 +217,11 @@ public sealed class ImportPlanItemsCommandHandler(
             if (!done.Add(item.Id) || item.PlacedByImport is not ImportPlacement.Effort) continue;
 
             var previous = item.Window;
-            var (window, placement) = ImportedPlanPlacement.Place(previous.Start, due: null, total, storyPointsPerWeek);
+            var (window, placement) = ImportedPlanPlacement.Place(
+                previous.Start,
+                due: null,
+                total,
+                paces.For(item.Scope.Aliases));
             if (window == previous) continue;
 
             var placed = plan.PlaceByImport(item.Id, window, placement);

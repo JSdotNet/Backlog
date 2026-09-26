@@ -44,7 +44,7 @@ internal static class ChapterReading
     /// The chapter spellings a note may have been filed under.
     /// <para>
     /// Two, because the panels disagree: the domain panel keys its notes by a
-    /// repository-relative path (<c>.domain/sessions/domain.md</c>) and the arc42
+    /// repository-relative path (<c>.devbook/domain/sessions/domain.md</c>) and the arc42
     /// panel by an area-relative one (<c>adr/0012-….md</c>), each passing its own
     /// store's document path straight to
     /// <see cref="IDevbookAnnotationStore.List"/>. A tool that picked one spelling

@@ -324,7 +324,7 @@ Derive the folder rather than asking for it: `DevbookFolders.FromPath` answers f
 
     private const string TypoBlock = """
         status: activ
-        related: [".design/design-principles.md"]
+        related: [".devbook/design/design-principles.md"]
         """;
 
     private static readonly MetadataRecord TypoMetadata = MetadataReader.Parse(TypoBlock);
@@ -333,7 +333,7 @@ Derive the folder rather than asking for it: `DevbookFolders.FromPath` answers f
 
     private const string BacklogBlock = """
         status: in-progress
-        implements: [.domain/tasks/features.md#feature-roadmap-planning]
+        implements: [.devbook/domain/tasks/features.md#feature-roadmap-planning]
         """;
 
     private static readonly MetadataRecord BacklogMetadata = MetadataReader.Parse(BacklogBlock);

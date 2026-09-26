@@ -37,6 +37,18 @@ namespace Backlog.Infrastructure.FileSystem;
 /// choice existed has no <c>source</c> and reads as <see cref="PaceSource.Manual"/>,
 /// which is what it meant.
 /// </para>
+/// <para>
+/// Both are kept per repository too, under <c>repositories</c>, keyed by the alias
+/// Settings gives the repository, because productivity differs from one project to
+/// the next (ADR 0013, ruling 4 as amended on 2026-09-26). A repository with no entry
+/// reads the global pace and choice, so a file written before there were entries —
+/// which has no <c>repositories</c> at all — reads exactly as it did, and nobody
+/// sees a bar move until they set a pace for one repository. The first change made
+/// for a repository writes its entry, and copies the half not being changed from
+/// what the repository read at that moment: choosing a source for it keeps the
+/// typed pace the reader was looking at. Aliases are compared without regard to
+/// case and written lower-cased, the way Settings keeps them.
+/// </para>
 /// </summary>
 public sealed class PlanningVelocitySettingsStore
 {
@@ -127,24 +139,38 @@ public sealed class PlanningVelocitySettingsStore
 
     public event Action? Changed;
 
-    /// <summary>Always a positive number, and always one <see cref="Format"/> can
-    /// write without losing it: anything else was refused on the way in, and a file
-    /// holding anything else reads as <see cref="Default"/>.</summary>
+    /// <summary>The global pace. Always a positive number, and always one
+    /// <see cref="Format"/> can write without losing it: anything else was refused on
+    /// the way in, and a file holding anything else reads as <see cref="Default"/>.</summary>
     public decimal StoryPointsPerWeek => _pace.StoryPointsPerWeek;
 
-    /// <summary>Which pace the roadmap places by. Only ever a defined member: an
-    /// unknown name in the file reads as <see cref="PaceSource.Manual"/>.</summary>
+    /// <summary>Which pace the roadmap places by, globally. Only ever a defined
+    /// member: an unknown name in the file reads as <see cref="PaceSource.Manual"/>.</summary>
     public PaceSource Source => _pace.Source;
+
+    /// <summary>The typed pace for <paramref name="repository"/>, or the global one
+    /// for <c>null</c> and for a repository that has none of its own.</summary>
+    public decimal StoryPointsPerWeekFor(string? repository) => Effective(_pace, repository).StoryPointsPerWeek;
+
+    /// <summary>The chosen pace for <paramref name="repository"/>, or the global one
+    /// for <c>null</c> and for a repository that has none of its own.</summary>
+    public PaceSource SourceFor(string? repository) => Effective(_pace, repository).Source;
+
+    /// <summary>Whether <paramref name="repository"/> keeps a pace of its own, rather
+    /// than reading the global one.</summary>
+    public bool KeepsOwnPace(string? repository) =>
+        Key(repository) is { } key && _pace.Repositories.ContainsKey(key);
 
     public string SettingsPath => _path;
 
     /// <summary>
-    /// Sets the pace. Returns <c>null</c> when it took and was saved, and a message
-    /// to put beside the field otherwise — a refusal when the number is not one the
-    /// setting can hold, in which case nothing changes, or a warning when it took
-    /// but could not be written for next time.
+    /// Sets the pace — for <paramref name="repository"/>, or globally for <c>null</c>.
+    /// Returns <c>null</c> when it took and was saved, and a message to put beside the
+    /// field otherwise — a refusal when the number is not one the setting can hold, in
+    /// which case nothing changes, or a warning when it took but could not be written
+    /// for next time.
     /// </summary>
-    public string? Set(decimal storyPointsPerWeek)
+    public string? Set(decimal storyPointsPerWeek, string? repository = null)
     {
         if (storyPointsPerWeek <= 0)
         {
@@ -163,28 +189,34 @@ public sealed class PlanningVelocitySettingsStore
                 $"Give a pace of at least {Smallest} - anything finer than that rounds away to nothing.");
         }
 
-        if (StoryPointsPerWeek == storable) return null;
+        // Unchanged is nothing to write — and, for a repository still reading the
+        // global pace, no reason to give it one of its own.
+        var current = Effective(_pace, repository);
+        if (current.StoryPointsPerWeek == storable) return null;
 
-        return Save(_pace with { StoryPointsPerWeek = storable });
+        return Save(With(_pace, repository, current with { StoryPointsPerWeek = storable }));
     }
 
-    /// <summary>Chooses the pace the roadmap places by. Returns <c>null</c> when it
-    /// took and was saved, a refusal for a value that is not a pace source, and a
-    /// warning when it took but could not be written for next time.</summary>
-    public string? Choose(PaceSource source)
+    /// <summary>Chooses the pace the roadmap places by — for
+    /// <paramref name="repository"/>, or globally for <c>null</c>. Returns
+    /// <c>null</c> when it took and was saved, a refusal for a value that is not a
+    /// pace source, and a warning when it took but could not be written for next
+    /// time.</summary>
+    public string? Choose(PaceSource source, string? repository = null)
     {
         if (!Enum.IsDefined(source)) return "That is not a pace the roadmap offers.";
 
-        if (Source == source) return null;
+        var current = Effective(_pace, repository);
+        if (current.Source == source) return null;
 
-        return Save(_pace with { Source = source });
+        return Save(With(_pace, repository, current with { Source = source }));
     }
 
     /// <summary>The same setter over what a text field hands back, so the screen
     /// does not carry a second copy of the parsing rule. Invariant on purpose: the
     /// <c>number</c> input reports its value with a dot whatever the machine's
     /// locale is.</summary>
-    public string? Set(string? typed)
+    public string? Set(string? typed, string? repository = null)
     {
         if (!decimal.TryParse(
                 typed,
@@ -195,7 +227,7 @@ public sealed class PlanningVelocitySettingsStore
             return "Give a pace as a number, like 5 or 7.5.";
         }
 
-        return Set(storyPointsPerWeek);
+        return Set(storyPointsPerWeek, repository);
     }
 
     private string? Save(Pace pace)
@@ -209,7 +241,19 @@ public sealed class PlanningVelocitySettingsStore
             File.WriteAllText(_path, JsonSerializer.Serialize(new PlanningVelocityDto
             {
                 StoryPointsPerWeek = pace.StoryPointsPerWeek,
-                Source = pace.Source.ToString()
+                Source = pace.Source.ToString(),
+                // Left out while no repository has a pace of its own, so a reader who
+                // never set one keeps the file's old shape.
+                Repositories = pace.Repositories.Count == 0
+                    ? null
+                    : pace.Repositories.ToDictionary(
+                        entry => entry.Key,
+                        entry => (RepositoryPaceDto?)new RepositoryPaceDto
+                        {
+                            StoryPointsPerWeek = entry.Value.StoryPointsPerWeek,
+                            Source = entry.Value.Source?.ToString()
+                        },
+                        StringComparer.Ordinal)
             }, JsonOptions));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -233,6 +277,55 @@ public sealed class PlanningVelocitySettingsStore
     private static decimal Normalize(decimal storyPointsPerWeek) =>
         decimal.Parse(Format(storyPointsPerWeek), PaceStyles, CultureInfo.InvariantCulture);
 
+    /// <summary>The key a repository is kept under — trimmed and lower-cased, the way
+    /// Settings keeps an alias — or <c>null</c> for the global pace.</summary>
+    private static string? Key(string? repository) =>
+        string.IsNullOrWhiteSpace(repository) ? null : repository.Trim().ToLowerInvariant();
+
+    /// <summary>What <paramref name="repository"/> reads: its own entry, each half of
+    /// it falling back to the global one where it holds none.</summary>
+    private static Setting Effective(Pace pace, string? repository)
+    {
+        var global = new Setting(pace.StoryPointsPerWeek, pace.Source);
+
+        return Key(repository) is { } key && pace.Repositories.TryGetValue(key, out var own)
+            ? new Setting(own.StoryPointsPerWeek ?? global.StoryPointsPerWeek, own.Source ?? global.Source)
+            : global;
+    }
+
+    /// <summary>The published figure with <paramref name="setting"/> as the global pace
+    /// or as <paramref name="repository"/>'s — a new object, never an edit, so a reader
+    /// holding the old one still sees the whole of it.</summary>
+    private static Pace With(Pace pace, string? repository, Setting setting)
+    {
+        if (Key(repository) is not { } key)
+        {
+            return pace with { StoryPointsPerWeek = setting.StoryPointsPerWeek, Source = setting.Source };
+        }
+
+        var repositories = new Dictionary<string, RepositoryPace>(pace.Repositories, StringComparer.OrdinalIgnoreCase)
+        {
+            [key] = new RepositoryPace(setting.StoryPointsPerWeek, setting.Source)
+        };
+
+        return pace with { Repositories = repositories };
+    }
+
+    /// <summary>A pace as the file spells it, or <c>null</c> for one the setting
+    /// cannot hold.</summary>
+    private static decimal? PaceOf(decimal? perWeek) =>
+        perWeek is { } typed && typed >= Smallest ? Normalize(typed) : null;
+
+    /// <summary>A source as the file spells it, or <c>null</c> for one it does not
+    /// name. Parsed by name and checked against the members, so a number spelled in
+    /// the file or a name from a later version is not taken for a choice.</summary>
+    private static PaceSource? SourceOf(string? spelled) =>
+        Enum.TryParse<PaceSource>(spelled, ignoreCase: true, out var chosen)
+        && Enum.IsDefined(chosen)
+        && !int.TryParse(spelled, out _)
+            ? chosen
+            : null;
+
     /// <summary>
     /// A missing file, an unreadable one, a value that is not a number, and a number
     /// that is not positive all read as <see cref="Default"/>. A corrupt or
@@ -244,36 +337,68 @@ public sealed class PlanningVelocitySettingsStore
     {
         try
         {
-            if (!File.Exists(_path)) return new Pace(Default, PaceSource.Manual);
+            if (!File.Exists(_path)) return Untouched();
 
             var dto = JsonSerializer.Deserialize<PlanningVelocityDto>(File.ReadAllText(_path), JsonOptions);
 
             // The week's spelling wins; a file only ever written in the day's is that
             // figure over seven days.
-            var perWeek = dto?.StoryPointsPerWeek ?? dto?.StoryPointsPerDay * 7;
-            var storyPointsPerWeek = perWeek is { } typed && typed >= Smallest
-                ? Normalize(typed)
-                : Default;
+            var storyPointsPerWeek = PaceOf(dto?.StoryPointsPerWeek ?? dto?.StoryPointsPerDay * 7) ?? Default;
 
-            // Parsed by name and checked against the members, so a number spelled in
-            // the file or a name from a later version reads as the typed pace.
-            var source = Enum.TryParse<PaceSource>(dto?.Source, ignoreCase: true, out var chosen)
-                         && Enum.IsDefined(chosen)
-                         && !int.TryParse(dto?.Source, out _)
-                ? chosen
-                : PaceSource.Manual;
+            // A number spelled in the file or a name from a later version reads as the
+            // typed pace.
+            var source = SourceOf(dto?.Source) ?? PaceSource.Manual;
 
-            return new Pace(storyPointsPerWeek, source);
+            return new Pace(storyPointsPerWeek, source, RepositoriesOf(dto?.Repositories));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
-            return new Pace(Default, PaceSource.Manual);
+            return Untouched();
         }
     }
 
+    /// <summary>
+    /// The repositories' own paces, as the file holds them. A half that is missing or
+    /// cannot be read is left empty, so it reads the global one; an entry left with
+    /// nothing of its own, or under a blank alias, is dropped, since it would read
+    /// exactly as no entry does. Two keys differing only in case are one repository,
+    /// and the first wins.
+    /// </summary>
+    private static Dictionary<string, RepositoryPace> RepositoriesOf(Dictionary<string, RepositoryPaceDto?>? written)
+    {
+        var repositories = new Dictionary<string, RepositoryPace>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var (alias, entry) in written ?? [])
+        {
+            if (Key(alias) is not { } key || entry is null) continue;
+
+            var own = new RepositoryPace(PaceOf(entry.StoryPointsPerWeek), SourceOf(entry.Source));
+            if (own.StoryPointsPerWeek is null && own.Source is null) continue;
+
+            repositories.TryAdd(key, own);
+        }
+
+        return repositories;
+    }
+
+    private static Pace Untouched() =>
+        new(Default, PaceSource.Manual, new Dictionary<string, RepositoryPace>(StringComparer.OrdinalIgnoreCase));
+
     /// <summary>The published figure, as one object so that swapping it is atomic.
-    /// See <see cref="_pace"/>.</summary>
-    private sealed record Pace(decimal StoryPointsPerWeek, PaceSource Source);
+    /// See <see cref="_pace"/>. <see cref="Pace.Repositories"/> is never edited once
+    /// published: a change builds a new dictionary.</summary>
+    private sealed record Pace(
+        decimal StoryPointsPerWeek,
+        PaceSource Source,
+        IReadOnlyDictionary<string, RepositoryPace> Repositories);
+
+    /// <summary>A repository's own pace. A half that is <c>null</c> reads the global
+    /// one — only ever the case for a hand-edited file, since a change writes both.</summary>
+    private sealed record RepositoryPace(decimal? StoryPointsPerWeek, PaceSource? Source);
+
+    /// <summary>A pace and a choice with nothing left to inherit: what a scope
+    /// reads.</summary>
+    private sealed record Setting(decimal StoryPointsPerWeek, PaceSource Source);
 
     /// <summary>
     /// Written as a JSON number, which is culture-free by the format's own rules —
@@ -297,6 +422,23 @@ public sealed class PlanningVelocitySettingsStore
         /// <summary>A <see cref="PaceSource"/> name. A string rather than the enum,
         /// so a name this build does not know reads as the typed pace instead of
         /// failing the whole file and losing the pace with it.</summary>
+        public string? Source { get; init; }
+
+        /// <summary>Per repository alias, its own pace. Absent from a file written
+        /// before repositories had one, and from any file where none has.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public Dictionary<string, RepositoryPaceDto?>? Repositories { get; init; }
+    }
+
+    /// <summary>One repository's entry, spelled as the global pace is and read as
+    /// forgivingly.</summary>
+    private sealed class RepositoryPaceDto
+    {
+        [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public decimal? StoryPointsPerWeek { get; init; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? Source { get; init; }
     }
 }

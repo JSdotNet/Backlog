@@ -40,6 +40,14 @@ namespace Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 /// neither says nothing.
 /// </para>
 /// <para>
+/// <paramref name="Kind"/> and <paramref name="ListId"/> are for a channel that
+/// knows more than the text — an import manifest (local ADR 0017). A stated
+/// kind is the content kind's slug and is taken as said, an unknown slug kept
+/// as written; null leaves the intake to read the kind off the capture. A list
+/// id files the new item in that list, and the caller is the one that checked
+/// it exists; null lands it unfiled. Neither touches an item already here.
+/// </para>
+/// <para>
 /// <paramref name="Attachments"/> are the files the capture names (local ADR
 /// 0014) — metadata only; the intake records them on the item at once and
 /// fetches the bytes afterwards. Null or empty for a capture with none, which is
@@ -58,4 +66,6 @@ public sealed record InboxCaptureDto(
     bool ReplicaBacked = true,
     IReadOnlyList<string>? Tags = null,
     string? Person = null,
+    string? Kind = null,
+    Guid? ListId = null,
     IReadOnlyList<InboxCaptureAttachmentDto>? Attachments = null);

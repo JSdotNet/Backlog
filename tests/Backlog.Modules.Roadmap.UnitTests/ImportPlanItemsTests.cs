@@ -94,6 +94,44 @@ public class ImportPlanItemsTests
     }
 
     [Fact]
+    public async Task EachEntryIsPlacedAtThePaceOfItsOwnRepository_FromOneRead()
+    {
+        _velocity.ByRepository["backlog"] = 14;
+        _velocity.ByRepository["site"] = 7;
+
+        await ImportedAsync(
+            [
+                Entry("plan-a"), // filed under backlog
+                new PlanImportEntryDto("Plan B", "plan-b", null, ["site"], PlanningPriority.High, null, [], null)
+            ],
+            new PlanTagEffortDto("plan-a", 14, 0),
+            new PlanTagEffortDto("plan-b", 14, 0));
+
+        Assert.Equal(7, Stored("plan-a").Window.Days);  // 14 points at 14 a week
+        Assert.Equal(14, Stored("plan-b").Window.Days); // 14 points at 7 a week
+        Assert.Equal(1, _velocity.Reads);
+    }
+
+    [Fact]
+    public async Task AnEntryUnderSeveralRepositories_IsPlacedAtTheSlowest_AndAnUnfiledOneAtTheGlobalPace()
+    {
+        _velocity.StoryPointsPerWeek = 28;
+        _velocity.ByRepository["backlog"] = 14;
+        _velocity.ByRepository["site"] = 7;
+
+        await ImportedAsync(
+            [
+                new PlanImportEntryDto("Both", "plan-both", null, ["backlog", "site"], PlanningPriority.High, null, [], null),
+                new PlanImportEntryDto("Unfiled", "plan-unfiled", null, [], PlanningPriority.High, null, [], null)
+            ],
+            new PlanTagEffortDto("plan-both", 14, 0),
+            new PlanTagEffortDto("plan-unfiled", 14, 0));
+
+        Assert.Equal(14, Stored("plan-both").Window.Days);   // at site's 7 a week
+        Assert.Equal(4, Stored("plan-unfiled").Window.Days); // at the global 28 a week, 3.5 rounded up
+    }
+
+    [Fact]
     public async Task ADueDateEndsTheWindow()
     {
         var due = new DateOnly(2026, 3, 20);
@@ -375,6 +413,17 @@ public class ImportPlanItemsTests
     }
 
     [Fact]
+    public async Task GatheredEffortAlone_RelengthensAtThePaceOfTheItemsRepository()
+    {
+        await ImportedAsync([Entry("plan-a")]); // filed under backlog
+        _velocity.ByRepository["backlog"] = 2;
+
+        await ImportedAsync([], new PlanTagEffortDto("plan-a", 4, 0));
+
+        Assert.Equal(14, Stored("plan-a").Window.Days); // 4 points at 2 a week
+    }
+
+    [Fact]
     public async Task GatheredEffortAlone_LeavesADueDateEndAndAHandPlacedWindow()
     {
         await ImportedAsync([Entry("plan-a", due: new DateOnly(2026, 3, 20))]);
@@ -480,13 +529,5 @@ public class ImportPlanItemsTests
                 milestone.Id, milestone.Title, milestone.On, milestone.Kind, milestone.Scope, milestone.Lane,
                 Dependencies.Of(milestone.Dependencies.All), milestone.IsPlanWide)),
             plan.BandColours);
-    }
-
-    private sealed class FixedVelocity(decimal storyPointsPerWeek) : IPlanningVelocity
-    {
-        public decimal StoryPointsPerWeek { get; set; } = storyPointsPerWeek;
-
-        public Task<decimal> GetStoryPointsPerWeekAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(StoryPointsPerWeek);
     }
 }

@@ -69,6 +69,11 @@ public sealed record ReceiveCaptureCommand(InboxCaptureDto Capture);
 /// the files by name and fetches nothing, which is the honest answer on a
 /// machine with nowhere to fetch from.
 /// </para>
+/// <para>
+/// A capture that states its content kind keeps it rather than being read by
+/// <see cref="ContentKindDetector"/>, and one that names a list is filed there.
+/// Both are an import manifest's facts (local ADR 0017).
+/// </para>
 /// </summary>
 public sealed class ReceiveCaptureCommandHandler(
     IInboxItemRepository items,
@@ -120,6 +125,17 @@ public sealed class ReceiveCaptureCommandHandler(
                 capture.ReplicaBacked);
 
             item.RecordAttachments(attachments);
+
+            // A channel that says what it captured is believed; the slug is kept
+            // as written so a kind this build does not know survives, the way a
+            // stored row's does.
+            if (!string.IsNullOrWhiteSpace(capture.Kind))
+            {
+                item.SetKind(InboxEnumMap.ParseKind(capture.Kind), capture.Kind);
+            }
+
+            // Filing is not triage: the item stays unprocessed in the list.
+            if (capture.ListId is { } listId) item.MoveToList(listId);
 
             if (capture.Tags is { Count: > 0 } tags)
             {

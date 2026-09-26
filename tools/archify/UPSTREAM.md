@@ -14,7 +14,7 @@ Archify, not a repackaging of it.
 It is committed rather than fetched because Archify needs no install — its only
 dependencies are `devDependencies`, and its validators and brand marks are committed
 pre-generated — so a checked-in copy makes `node tools/archify/bin/archify.mjs` work
-offline on a fresh clone. `.design/component-libraries.md` asks for local assets over
+offline on a fresh clone. `.devbook/design/component-libraries.md` asks for local assets over
 remote ones, and a diagram generator that needs the network to run would not meet it.
 
 Node 18+. Verified on Node 24.18.0.

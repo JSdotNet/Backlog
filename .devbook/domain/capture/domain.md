@@ -101,7 +101,8 @@ Origin type of a capture. Values and meaning:
 - `import` — an item read from an import manifest. A skill outside the product
   generates the manifest from another tool, Microsoft To Do first. Each item is
   delivered under `CaptureIds.For(import, "{tool}:{external_id}")`, so importing
-  it again adds nothing (local ADR 0017).
+  it again adds nothing (local ADR 0017). An item written without an
+  `external_id` uses a fallback id, the hash of its title and `captured_at`.
 
 ## Source Adapter
 

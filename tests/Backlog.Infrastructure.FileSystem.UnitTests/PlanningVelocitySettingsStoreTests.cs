@@ -349,8 +349,8 @@ public class PlanningVelocitySettingsStoreTests : IDisposable
     {
         IPlanningVelocitySettings port = new PlanningVelocitySource(Store());
 
-        Assert.Equal(7m, port.Manual);
-        Assert.Equal(PaceSource.Manual, port.Source);
+        Assert.Equal(7m, port.Manual());
+        Assert.Equal(PaceSource.Manual, port.Source());
     }
 
     [Fact]
@@ -364,8 +364,8 @@ public class PlanningVelocitySettingsStoreTests : IDisposable
 
         // Read through rather than pinned at construction: the roadmap writes the
         // store, and the next placement has to divide by what it now says.
-        Assert.Equal(2m, port.Manual);
-        Assert.Equal(PaceSource.LastFourWeeks, port.Source);
+        Assert.Equal(2m, port.Manual());
+        Assert.Equal(PaceSource.LastFourWeeks, port.Source());
     }
 
     [Fact]
@@ -383,5 +383,177 @@ public class PlanningVelocitySettingsStoreTests : IDisposable
         Assert.Equal(3.5m, store.StoryPointsPerWeek);
         Assert.Equal(PaceSource.LastTwoWeeks, store.Source);
         Assert.Equal(2, raised);
+    }
+
+    // --- A pace per repository -----------------------------------------------------
+
+    [Fact]
+    public void A_repository_with_no_pace_of_its_own_reads_the_global_one_and_writes_nothing()
+    {
+        var store = Store();
+        _ = store.Set(3m);
+        _ = store.Choose(PaceSource.LastFourWeeks);
+
+        Assert.Equal(3m, store.StoryPointsPerWeekFor("backlog"));
+        Assert.Equal(PaceSource.LastFourWeeks, store.SourceFor("backlog"));
+        Assert.False(store.KeepsOwnPace("backlog"));
+        Assert.DoesNotContain("repositories", File.ReadAllText(SettingsFile), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_file_without_repositories_reads_unchanged()
+    {
+        File.WriteAllText(SettingsFile, """{ "storyPointsPerWeek": 2.5, "source": "LastTwoWeeks" }""");
+
+        var store = Store();
+
+        Assert.Equal(2.5m, store.StoryPointsPerWeek);
+        Assert.Equal(PaceSource.LastTwoWeeks, store.Source);
+        Assert.Equal(2.5m, store.StoryPointsPerWeekFor("backlog"));
+        Assert.Equal(PaceSource.LastTwoWeeks, store.SourceFor("backlog"));
+    }
+
+    [Fact]
+    public void A_legacy_day_pace_is_still_read_as_seven_times_that_beside_repositories()
+    {
+        File.WriteAllText(
+            SettingsFile,
+            """{ "storyPointsPerDay": 2, "repositories": { "site": { "storyPointsPerWeek": 3 } } }""");
+
+        var store = Store();
+
+        Assert.Equal(14m, store.StoryPointsPerWeek);
+        Assert.Equal(3m, store.StoryPointsPerWeekFor("site"));
+    }
+
+    [Fact]
+    public void Repository_paces_survive_a_restart_beside_the_global_one()
+    {
+        var store = Store();
+        _ = store.Set(5m);
+        Assert.Null(store.Set(12m, "backlog"));
+        Assert.Null(store.Choose(PaceSource.LastEightWeeks, "site"));
+
+        var reopened = Store();
+
+        Assert.Equal(5m, reopened.StoryPointsPerWeek);
+        Assert.Equal(PaceSource.Manual, reopened.Source);
+        Assert.Equal(12m, reopened.StoryPointsPerWeekFor("backlog"));
+        Assert.Equal(PaceSource.Manual, reopened.SourceFor("backlog"));
+        Assert.Equal(5m, reopened.StoryPointsPerWeekFor("site"));
+        Assert.Equal(PaceSource.LastEightWeeks, reopened.SourceFor("site"));
+    }
+
+    [Fact]
+    public void Setting_a_repositorys_pace_copies_the_choice_it_read_and_leaves_the_global_one()
+    {
+        var store = Store();
+        _ = store.Choose(PaceSource.LastTwoWeeks);
+
+        Assert.Null(store.Set(9m, "backlog"));
+
+        // The choice was the global one at that moment, so it is kept for backlog even
+        // when the global choice moves on.
+        _ = store.Choose(PaceSource.Manual);
+        Assert.Equal(PaceSource.LastTwoWeeks, store.SourceFor("backlog"));
+        Assert.Equal(9m, store.StoryPointsPerWeekFor("backlog"));
+        Assert.Equal(7m, store.StoryPointsPerWeek);
+    }
+
+    [Fact]
+    public void Choosing_for_a_repository_copies_the_typed_pace_it_read()
+    {
+        var store = Store();
+        _ = store.Set(4m);
+
+        Assert.Null(store.Choose(PaceSource.LastFourWeeks, "backlog"));
+        _ = store.Set(10m);
+
+        Assert.Equal(4m, store.StoryPointsPerWeekFor("backlog"));
+        Assert.Equal(PaceSource.LastFourWeeks, store.SourceFor("backlog"));
+        Assert.Equal(PaceSource.Manual, store.Source);
+    }
+
+    [Fact]
+    public void Setting_what_a_repository_already_reads_gives_it_no_pace_of_its_own()
+    {
+        var store = Store();
+        var raised = 0;
+        store.Changed += () => raised++;
+
+        Assert.Null(store.Set(7m, "backlog"));
+        Assert.Null(store.Choose(PaceSource.Manual, "backlog"));
+
+        Assert.False(store.KeepsOwnPace("backlog"));
+        Assert.Equal(0, raised);
+    }
+
+    [Fact]
+    public void Aliases_compare_without_regard_to_case_and_are_written_lower_cased()
+    {
+        var store = Store();
+
+        _ = store.Set(12m, "Backlog");
+        _ = store.Choose(PaceSource.LastTwoWeeks, "BACKLOG");
+
+        var reopened = Store();
+        Assert.Equal(12m, reopened.StoryPointsPerWeekFor("backlog"));
+        Assert.Equal(PaceSource.LastTwoWeeks, reopened.SourceFor("bAcKlOg"));
+        Assert.Contains("\"backlog\"", File.ReadAllText(SettingsFile), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_refused_repository_pace_changes_nothing()
+    {
+        var store = Store();
+
+        Assert.NotNull(store.Set("0", "backlog"));
+        Assert.NotNull(store.Set("2,5", "backlog"));
+
+        Assert.False(store.KeepsOwnPace("backlog"));
+        Assert.False(File.Exists(SettingsFile));
+    }
+
+    /// <summary>A hand-edited entry missing a half, or holding one the store cannot
+    /// read, reads the global half in its place — and an entry with nothing readable
+    /// at all is no entry.</summary>
+    [Fact]
+    public void A_hand_edited_repository_entry_reads_what_it_can_and_inherits_the_rest()
+    {
+        File.WriteAllText(SettingsFile, """
+            {
+              "storyPointsPerWeek": 6,
+              "source": "LastFourWeeks",
+              "repositories": {
+                "backlog": { "storyPointsPerWeek": "3" },
+                "site": { "storyPointsPerWeek": -1, "source": "LastTwoWeeks" },
+                "docs": { "storyPointsPerWeek": 0, "source": "Weekly" },
+                "": { "storyPointsPerWeek": 4 }
+              }
+            }
+            """);
+
+        var store = Store();
+
+        Assert.Equal(3m, store.StoryPointsPerWeekFor("backlog"));
+        Assert.Equal(PaceSource.LastFourWeeks, store.SourceFor("backlog"));
+        Assert.Equal(6m, store.StoryPointsPerWeekFor("site"));
+        Assert.Equal(PaceSource.LastTwoWeeks, store.SourceFor("site"));
+        Assert.False(store.KeepsOwnPace("docs"));
+    }
+
+    [Fact]
+    public void The_port_reads_and_writes_a_repositorys_pace()
+    {
+        var store = Store();
+        IPlanningVelocitySettings port = new PlanningVelocitySource(store);
+
+        Assert.Null(port.SetManual("11", "backlog"));
+        Assert.Null(port.Choose(PaceSource.LastTwoWeeks, "backlog"));
+
+        Assert.Equal(11m, port.Manual("backlog"));
+        Assert.Equal(PaceSource.LastTwoWeeks, port.Source("backlog"));
+        Assert.Equal(7m, port.Manual());
+        Assert.Equal(PaceSource.Manual, port.Source());
     }
 }

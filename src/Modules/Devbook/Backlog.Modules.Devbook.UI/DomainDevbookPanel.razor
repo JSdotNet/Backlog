@@ -274,7 +274,7 @@
     private C4Catalog _c4 = C4Catalog.Off;
 
     /// <summary>The arc42 C4 views that say they document this domain chapter. The
-    /// authored statement lives with the model, in <c>.arc42/_c4/references.json</c>,
+    /// authored statement lives with the model, in <c>.devbook/arc42/_c4/references.json</c>,
     /// and this is it inverted — the same inversion the architecture panel draws on the
     /// chapter side.</summary>
     private List<C4ViewEntry> C4ViewsDocumenting(DomainDevbookDocument? document) =>
@@ -1086,7 +1086,7 @@
                `.domain` carries no C4 model of its own — Structurizr cannot say
                aggregate root, value object or `0..*`, so there is nothing here for it
                to describe. What it can have is the way across: a view under
-               `.arc42/_c4/` that says it documents this chapter is offered here, and
+               `.devbook/arc42/_c4/` that says it documents this chapter is offered here, and
                following it hands the pane an arc42 target with that view named, the
                same as any other cross-section reference. *@
             @if (C4ViewsDocumenting(document) is { Count: > 0 } c4Views)

@@ -68,7 +68,7 @@ Each plural is the singular with the list of them beside it, the same compositio
         <div class="sb-columns" data-testid="type-markers-rules-levels">
             <div class="sb-stack">
                 <p class="sb-label">As a file — the `#` title of `requirements.md`</p>
-                <h3 class="sb-heading-sample"><DevbookTypeMarker Value="requirements" FileName=".domain/billing/requirements.md" CssClass="devbook-type-marker--leads" Labelled="true" ShowTooltip="false" />Billing</h3>
+                <h3 class="sb-heading-sample"><DevbookTypeMarker Value="requirements" FileName=".devbook/domain/billing/requirements.md" CssClass="devbook-type-marker--leads" Labelled="true" ShowTooltip="false" />Billing</h3>
             </div>
             <div class="sb-stack">
                 <p class="sb-label">As a chapter — one feature's requirements inside it</p>
@@ -121,12 +121,12 @@ The same value on another file's name is not recognised, and draws nothing — t
         <div class="sb-columns" data-testid="type-markers-page">
             <div class="sb-stack">
                 <p class="sb-label">`go-live-takeover.md` stating `type: go-live-takeover`</p>
-                <h3 class="sb-heading-sample"><DevbookTypeMarker Value="go-live-takeover" FileName=".domain/billing/go-live-takeover.md" CssClass="devbook-type-marker--leads" Labelled="true" ShowTooltip="false" TestId="type-markers-page-own" />Billing</h3>
+                <h3 class="sb-heading-sample"><DevbookTypeMarker Value="go-live-takeover" FileName=".devbook/domain/billing/go-live-takeover.md" CssClass="devbook-type-marker--leads" Labelled="true" ShowTooltip="false" TestId="type-markers-page-own" />Billing</h3>
                 <p>The plain sheet, with a folded corner and two lines of prose: a page the context chose to add.</p>
             </div>
             <div class="sb-stack">
                 <p class="sb-label">The same value on `domain.md` — not that file's name, so no mark</p>
-                <h3 class="sb-heading-sample"><DevbookTypeMarker Value="go-live-takeover" FileName=".domain/billing/domain.md" CssClass="devbook-type-marker--leads" Labelled="true" ShowTooltip="false" TestId="type-markers-page-foreign" />Billing</h3>
+                <h3 class="sb-heading-sample"><DevbookTypeMarker Value="go-live-takeover" FileName=".devbook/domain/billing/domain.md" CssClass="devbook-type-marker--leads" Labelled="true" ShowTooltip="false" TestId="type-markers-page-foreign" />Billing</h3>
             </div>
         </div>
     </Story>
@@ -145,7 +145,7 @@ The stories above this one are specimens: a heading assembled by hand so the mar
         <MarkdownStory Source="@DocumentSample"
                        RenderDevbookMetadata="true"
                        DevbookFolder="DevbookFolder.Domain"
-                       DevbookDocumentPath=".domain/inbox/domain.md"
+                       DevbookDocumentPath=".devbook/domain/inbox/domain.md"
                        TestId="type-markers-document" />
     </Story>
 
@@ -187,14 +187,14 @@ Drawn as a mark in the heading, the strip is left holding only its pointers — 
                 <h4 class="sb-heading-sample">Inbox Item</h4>
                 <div class="sb-row sb-strip">
                     <span><strong>type</strong> aggregate</span>
-                    <span><strong>related</strong> <code>.domain/capture/model.md#capture</code></span>
+                    <span><strong>related</strong> <code>.devbook/domain/capture/model.md#capture</code></span>
                 </div>
             </div>
             <div class="sb-stack">
                 <p class="sb-label">Proposed</p>
                 <h4 class="sb-heading-sample"><DevbookTypeMarker Value="aggregate" CssClass="devbook-type-marker--leads" Labelled="true" ShowTooltip="false" />Inbox Item</h4>
                 <div class="sb-row sb-strip">
-                    <span><strong>related</strong> <code>.domain/capture/model.md#capture</code></span>
+                    <span><strong>related</strong> <code>.devbook/domain/capture/model.md#capture</code></span>
                 </div>
             </div>
         </div>
@@ -210,7 +210,7 @@ That is why `DevbookTypeMarkers.IsRecognised` is published beside the component:
                 <p class="sb-label">A value the set knows — the mark, and the row gone</p>
                 <h4 class="sb-heading-sample"><DevbookTypeMarker Value="entity" CssClass="devbook-type-marker--leads" Labelled="true" ShowTooltip="false" />Inbox Item</h4>
                 <div class="sb-row sb-strip">
-                    <span><strong>related</strong> <code>.domain/inbox/domain.md#inbox-item</code></span>
+                    <span><strong>related</strong> <code>.devbook/domain/inbox/domain.md#inbox-item</code></span>
                 </div>
             </div>
             <div class="sb-stack">
@@ -218,7 +218,7 @@ That is why `DevbookTypeMarkers.IsRecognised` is published beside the component:
                 <h4 class="sb-heading-sample"><DevbookTypeMarker Value="policy-fragment" CssClass="devbook-type-marker--leads" Labelled="true" ShowTooltip="false" TestId="type-markers-unknown" />Retention Policy</h4>
                 <div class="sb-row sb-strip">
                     <span><strong>type</strong> policy-fragment</span>
-                    <span><strong>related</strong> <code>.domain/inbox/domain.md#inbox-item</code></span>
+                    <span><strong>related</strong> <code>.devbook/domain/inbox/domain.md#inbox-item</code></span>
                 </div>
             </div>
         </div>
@@ -321,7 +321,7 @@ That is why `DevbookTypeMarkers.IsRecognised` is published beside the component:
         @* One value, one mark, at either level. The file's title and a chapter
            heading pass the same `requirements`; only the file passes its name,
            and for a closed-set value that changes nothing. *@
-        <DevbookTypeMarker Value="requirements" FileName=".domain/billing/requirements.md" Labelled="true" ShowTooltip="false" />
+        <DevbookTypeMarker Value="requirements" FileName=".devbook/domain/billing/requirements.md" Labelled="true" ShowTooltip="false" />
         <DevbookTypeMarker Value="requirements" Labelled="true" ShowTooltip="false" />
         """;
 
@@ -329,7 +329,7 @@ That is why `DevbookTypeMarkers.IsRecognised` is published beside the component:
         @* An additional page's type is its own filename, so the mark needs the
            name to know it. DevbookTypeMarkers.MarkedFileIn asks the same question
            for a surface deciding whether to keep the plain `type` row. *@
-        <DevbookTypeMarker Value="go-live-takeover" FileName=".domain/billing/go-live-takeover.md" Labelled="true" />
+        <DevbookTypeMarker Value="go-live-takeover" FileName=".devbook/domain/billing/go-live-takeover.md" Labelled="true" />
         """;
 
     /// <summary>A `.domain` file as the convention writes one, cut down to four
@@ -350,7 +350,7 @@ That is why `DevbookTypeMarkers.IsRecognised` is published beside the component:
         ```meta
         type: aggregate
         status: draft
-        related: [".domain/capture/domain.md#capture"]
+        related: [".devbook/domain/capture/domain.md#capture"]
         ```
 
         What arrives, and what happens to it after it does.
@@ -382,7 +382,7 @@ That is why `DevbookTypeMarkers.IsRecognised` is published beside the component:
         <MarkdownView Blocks="@Blocks"
                       RenderDevbookMetadata="true"
                       DevbookFolder="DevbookFolder.Domain"
-                      DevbookDocumentPath=".domain/inbox/domain.md" />
+                      DevbookDocumentPath=".devbook/domain/inbox/domain.md" />
         """;
 
     private const string HeadingCode = """

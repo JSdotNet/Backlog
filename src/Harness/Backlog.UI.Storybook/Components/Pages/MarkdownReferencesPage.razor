@@ -181,17 +181,17 @@ The resolver answers only for `.domain`, so the mixed case is visible throughout
     /// resolved against the document holding it, so this is not decoration: without
     /// it every relative spelling in the sample below stays the words the author
     /// wrote.</summary>
-    private const string ProsePath = ".domain/context-map.md";
+    private const string ProsePath = ".devbook/domain/context-map.md";
 
     /// <summary>One paragraph of each kind the hook has an answer for: a rooted
     /// code span, a relative link, a link that already opens with a folder, a span
     /// that is plainly not a path, a scheme, and a relative target that reaches no
     /// chapter.</summary>
     private const string ProseSample = """
-        The `.domain/tasks/domain.md` chapter owns the entry aggregate, and
+        The `.devbook/domain/tasks/domain.md` chapter owns the entry aggregate, and
         [the roadmap feature](backlog/features.md#feature-roadmap-planning) is
         planned against it. The convention itself is written down in
-        [the crosscutting concepts](.arc42/08-crosscutting-concepts.md#storage-and-sync).
+        [the crosscutting concepts](.devbook/arc42/08-crosscutting-concepts.md#storage-and-sync).
 
         A `Guid` is not a path and neither is `MarkdownPreview.ParseInlines`, so both
         stay code spans. An [ordinary web link](https://learn.microsoft.com/aspnet/core/blazor)
@@ -200,7 +200,7 @@ The resolver answers only for `.domain`, so the mixed case is visible throughout
         """;
 
     /// <summary>The one entry the shapes story renders four ways.</summary>
-    private const string ChapterBlock = "related: [\".arc42/08-crosscutting-concepts.md#storage-and-sync\"]";
+    private const string ChapterBlock = "related: [\".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync\"]";
 
     /// <summary>Read out of the block above rather than parsed from a second copy
     /// of the same string, so the source shown beside the four shapes is the source
@@ -212,8 +212,8 @@ The resolver answers only for `.domain`, so the mixed case is visible throughout
 
     private const string RoadmapBlock = """
         status: in-progress
-        implements: [.domain/tasks/features.md#feature-roadmap-planning]
-        related: [.domain/environment/features.md#feature-environment-aware-work-context]
+        implements: [.devbook/domain/tasks/features.md#feature-roadmap-planning]
+        related: [.devbook/domain/environment/features.md#feature-environment-aware-work-context]
         """;
 
     private static readonly MetadataRecord RoadmapMetadata = MetadataReader.Parse(RoadmapBlock);
@@ -223,8 +223,8 @@ The resolver answers only for `.domain`, so the mixed case is visible throughout
     /// against each other.</summary>
     private const string DuplicateBlock = """
         status: draft
-        related: [.domain/tasks/domain.md#aggregate-backlog-entry]
-        depends-on: [.domain/tasks/domain.md#aggregate-backlog-entry, .tech/shared.md#markdown]
+        related: [.devbook/domain/tasks/domain.md#task]
+        depends-on: [.devbook/domain/tasks/domain.md#task, .devbook/tech/shared.md#markdown]
         """;
 
     private static readonly MetadataRecord DuplicateMetadata = MetadataReader.Parse(DuplicateBlock);
@@ -235,37 +235,37 @@ The resolver answers only for `.domain`, so the mixed case is visible throughout
 
         ```meta
         status: draft
-        related: [".arc42/09-architecture-decisions.md"]
+        related: [".devbook/arc42/09-architecture-decisions.md"]
         ```
 
         ## Add roadmap planning to the backlog
 
         ```meta
         status: draft
-        implements: [.domain/tasks/features.md#feature-roadmap-planning]
-        related: [.domain/environment/features.md#feature-environment-aware-work-context]
+        implements: [.devbook/domain/tasks/features.md#feature-roadmap-planning]
+        related: [.devbook/domain/environment/features.md#feature-environment-aware-work-context]
         ```
 
         A roadmap view over selected backlog entries, organised by planning horizon
         while the entries stay the source of truth for status and priority. The
-        feature is specified in `.domain/tasks/features.md`, and the decision it
-        rests on is `.arc42/09-architecture-decisions.md` — the same two addresses
+        feature is specified in `.devbook/domain/tasks/features.md`, and the decision it
+        rests on is `.devbook/arc42/09-architecture-decisions.md` — the same two addresses
         the records above carry, written the way an author writes them in a
         sentence.
         """;
 
     private static readonly IReadOnlyList<ReferenceSample> Samples =
     [
-        new("A chapter of a file", ".arc42/08-crosscutting-concepts.md#storage-and-sync", "chapter",
+        new("A chapter of a file", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", "chapter",
             "The common form: a file, and one addressable heading inside it."),
 
-        new("A whole file", ".tech/technology-graph.md", "file",
+        new("A whole file", ".devbook/tech/technology-graph.md", "file",
             "No hash, so the whole file is the target and Label falls back to its name."),
 
-        new("Several segments deep", ".domain/tasks/domain.md#aggregate-backlog-entry", "nested",
+        new("Several segments deep", ".devbook/domain/tasks/domain.md#task", "nested",
             "The folder is still the first segment of the path, never the last, however deep it goes."),
 
-        new("A trailing hash", ".design/color-scheme.md#", "trailing",
+        new("A trailing hash", ".devbook/design/color-scheme.md#", "trailing",
             "Nothing after the hash, so it reads as the file it plainly points at rather than as a chapter that is missing."),
 
         new("Outside the folders", "docs/handbook.md", "outside",
@@ -315,9 +315,9 @@ The resolver answers only for `.domain`, so the mixed case is visible throughout
     private const string ParseCode = """
         @* Null for anything that addresses nothing; TryParse is the same call
            for a caller that keeps the entries it could not read. *@
-        var reference = DevbookReference.Parse(".tech/shared.md#markdown");
+        var reference = DevbookReference.Parse(".devbook/tech/shared.md#markdown");
 
-        reference.Path;      // .tech/shared.md
+        reference.Path;      // .devbook/tech/shared.md
         reference.Slug;      // markdown
         reference.Folder;    // DevbookFolder.Tech
         reference.FileName;  // shared.md

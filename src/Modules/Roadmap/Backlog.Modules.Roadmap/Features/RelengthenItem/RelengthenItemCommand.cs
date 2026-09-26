@@ -13,7 +13,8 @@ namespace Backlog.Modules.Roadmap.Features.RelengthenItem;
 /// <para>
 /// The same rule a task-level re-import applies to an effort-placed item (ADR 0013,
 /// ruling 5), asked for by a person rather than by an import: the start is kept, the
-/// end is recomputed from the gathered effort at the reader's pace, and the window
+/// end is recomputed from the gathered effort at the reader's pace for the
+/// repositories the item is filed under, and the window
 /// stays the importer's. It is never run on its own; the stored window is what the
 /// plan draws until somebody asks.
 /// </para>
@@ -59,7 +60,7 @@ public sealed class RelengthenItemCommandHandler(IRoadmapPlanRepository plans, I
             previous.Start,
             due: null,
             Math.Max(0, command.GatheredEffort),
-            await velocity.GetStoryPointsPerWeekAsync(cancellationToken));
+            await velocity.GetStoryPointsPerWeekAsync(item.Scope.Aliases, cancellationToken));
 
         // Nothing to write, and a save that changes nothing is still a write the other
         // devices would sync.

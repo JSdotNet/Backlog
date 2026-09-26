@@ -36,7 +36,7 @@ public abstract class RoadmapBandHarness : IDisposable
 
         // Over the same pace file, finished work and clock as the heading's control, so
         // a pace chosen there is the one the plan re-lengthens by.
-        Planning = TasksTestHost.PlanningFor(Settings, new PlanningVelocitySource(PaceFile), new ListedWork(Finished), PaceClock);
+        Planning = TasksTestHost.PlanningFor(Settings, new PlanningVelocitySource(PaceFile), new ListedWork(Finished, RepositorySettings), PaceClock);
     }
 
     protected WorkspaceSettingsStore Settings { get; }
@@ -90,7 +90,7 @@ public abstract class RoadmapBandHarness : IDisposable
         // file, counting whatever the test put in Finished, as of PaceToday.
         context.Services.AddSingleton(TasksTestHost.PaceFor(
             PaceFile,
-            new ListedWork(Finished),
+            new ListedWork(Finished, RepositorySettings),
             PaceClock));
         return context;
     }
@@ -212,8 +212,14 @@ public abstract class RoadmapBandHarness : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    private sealed class ListedWork(List<CompletedEffortDto> finished) : IRoadmapCompletedWork
+    /// <summary>What the test put in Finished, and — as the real adapter answers — the
+    /// repositories the test configured, by alias.</summary>
+    private sealed class ListedWork(List<CompletedEffortDto> finished, GitHubSettingsStore configured)
+        : IRoadmapCompletedWork
     {
+        public IReadOnlyList<string> Repositories =>
+            [.. configured.Current.Repositories.Select(repository => repository.Alias)];
+
         public Task<IReadOnlyList<CompletedEffortDto>> CompletedSinceAsync(
             DateOnly since,
             CancellationToken cancellationToken = default) =>

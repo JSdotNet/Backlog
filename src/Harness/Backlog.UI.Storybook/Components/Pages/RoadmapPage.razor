@@ -161,6 +161,24 @@ A step is a proportion, not a date: a step drawn across March is not scheduled f
                          TestId="parts" />
     </Story>
 
+    <Story Name="A band with a control of its own"
+           Description="`GroupContent` puts something of the host's under a band's name, in the sidebar's one column — in the app, each repository's pace. A band asks for room by giving `ContentRows`, the rows its name and content need, and nothing with a name is ever under the content: empty rows are put in before the band's first named lane until it starts that far down. The band's unnamed lane can sit beside the content, having nothing to cover, so budget below keeps its lane on the first row and gets its room after it, and specs keeps its unnamed lane beside the control and starts Review below it.
+
+The content is announced, inside a group named for its band, and a Tab reaches it; the names beside it stay hidden, because every row already says them. A bar dragged into the added room lands on the band's nearest lane, and the keyboard steps over it. A band with no `ContentRows` — Dates here — shows its name and nothing else."
+           Code="@GroupContentCode">
+        <RoadmapTimeline Groups="@SlottedPlan"
+                         Bars="@PartsBars"
+                         Links="@PartsLinks"
+                         Title="A control per band"
+                         HeadingLevel="3"
+                         Window="@EditWindow"
+                         ShowFilters="false"
+                         ShowSteps="false"
+                         GroupContent="@BandControl"
+                         TestId="group-content" />
+        <p class="sb-state" data-testid="group-content-last">Last pressed: @(_lastBand ?? "(none)")</p>
+    </Story>
+
     <Story Name="A plan handed over between repositories, and drawing what waits"
            Description="How the app draws a plan whose tasks hand over from one repository to another: backlog's part first, then web's part that waits on it, then backlog again. Each segment is one repository's share of one phase, the window shared out by effort, and the arrows between them are the task dependencies that cross a repository — a wait inside one repository stays that segment's own business.
 
@@ -588,6 +606,31 @@ Every action is a real button named for its plan, and the shelf is a region name
         // One stored plan, one bar per repository, each with that repository's tasks as steps
         new RoadmapBar("conventions@budgetbeheer", "budgetbeheer::planned", "Devbook conventions", start, end, Steps: budgetbeheerTasks),
         new RoadmapBar("conventions@spec-manager", "spec-manager::planned", "Devbook conventions", start, end, Steps: specManagerTasks),
+        """;
+
+    /// <summary>The parts plan again, each repository asking for room for its control,
+    /// and a dates band asking for none.</summary>
+    private static IReadOnlyList<RoadmapGroup> SlottedPlan =>
+    [
+        new("budgetbeheer", "budget", [new("budgetbeheer::planned", string.Empty)], "var(--color-band-1)", ContentRows: 2),
+        new("spec-manager", "specs", [new("spec-manager::planned", string.Empty), new("spec-manager::review", "Review")], "var(--color-band-2)", ContentRows: 2),
+        new("dates", "Dates", [new("dates::moments", "Moments", RoadmapRowKind.Milestones)])
+    ];
+
+    private string? _lastBand;
+
+    private RenderFragment<RoadmapGroup> BandControl => group =>
+        @<AppButton Variant="ButtonVariant.Ghost" OnClick="() => _lastBand = group.Title">Pace for @group.Title</AppButton>;
+
+    private const string GroupContentCode = """
+        <RoadmapTimeline Groups="@groups" Bars="@bars" GroupContent="@BandControl" />
+
+        // A band asks for room by the rows its name and content need.
+        new RoadmapGroup("budgetbeheer", "budget", rows, colour, ContentRows: 2),
+        new RoadmapGroup("dates", "Dates", milestoneRows),   // no content, no room
+
+        private RenderFragment<RoadmapGroup> BandControl => group =>
+            @<AppButton Variant="ButtonVariant.Ghost" OnClick="...">Pace for @group.Title</AppButton>;
         """;
 
     private const string ShelfCode = """

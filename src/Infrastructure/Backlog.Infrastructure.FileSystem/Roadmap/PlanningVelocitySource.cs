@@ -34,11 +34,11 @@ public sealed class PlanningVelocitySource : IPlanningVelocitySettings
         remove => _settings.Changed -= value;
     }
 
-    public decimal Manual => _settings.StoryPointsPerWeek;
+    public decimal Manual(string? repository = null) => _settings.StoryPointsPerWeekFor(repository);
 
-    public PaceSource Source => _settings.Source;
+    public PaceSource Source(string? repository = null) => _settings.SourceFor(repository);
 
-    public string? SetManual(string? typed) => _settings.Set(typed);
+    public string? SetManual(string? typed, string? repository = null) => _settings.Set(typed, repository);
 
-    public string? Choose(PaceSource source) => _settings.Choose(source);
+    public string? Choose(PaceSource source, string? repository = null) => _settings.Choose(source, repository);
 }

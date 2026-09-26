@@ -135,10 +135,10 @@ internal sealed class DevbookMenuOutline
     /// nothing about is a directory the
     /// rail draws exactly as it drew it before any of this existed, labels
     /// included — see <see cref="Order"/>'s rung. A directory's root document is
-    /// titled after the directory, so <c>.design/README.md</c> is "Design
+    /// titled after the directory, so <c>.devbook/design/README.md</c> is "Design
     /// Devbook" and belongs to the row above it rather than to itself. Every
     /// document inside a bounded context carries the context's H1, so
-    /// <c>.domain/inbox/features.md</c> is titled "Inbox" like its five siblings.
+    /// <c>.devbook/domain/inbox/features.md</c> is titled "Inbox" like its five siblings.
     /// And a chapter edited since the last build has a title from the build before
     /// it — the rung ADR 0004 answers by reading the Markdown, which the rail will
     /// not do, so it keeps the filename.</para>

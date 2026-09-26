@@ -4595,11 +4595,18 @@ button.task-panel__check:focus-visible {
 /* The host's own controls, at the end of the row. A fixed track like the copy
    button beside it: whatever the host puts here must not be what gives up room
    when the title is long. */
-.task-item__actions {
+.task-item__actions,
+.task-item__badges {
     display: inline-flex;
     align-items: center;
     gap: var(--spacing-xs);
     flex: 0 0 auto;
+}
+
+/* A host hands every row the same badge slot, and most rows have nothing to put
+   in it. An empty slot would still take a gap on each side. */
+.task-item__badges:empty {
+    display: none;
 }
 
 /* --- Task actions -------------------------------------------------------- */
@@ -11977,6 +11984,35 @@ select.field__input {
 
 .roadmap-timeline__group-name + .roadmap-timeline__lane-name::before {
     content: "· ";
+}
+
+/*
+  A band with content of the host's — see GroupContent. The sidebar stays one
+  column at its own width, and the content is laid over the band's first rows,
+  under its name: the component puts it there inline, from under the name to the
+  end of the rows the band asked for (RoadmapGroup.ContentRows), and makes sure no
+  row with a name is among them, so the content never covers one.
+
+  The content is clipped to that box. Clipping only ever bites content taller
+  than the host asked for — and a sidebar a pixel taller than its track is what
+  this whole frame exists not to be.
+*/
+.roadmap-timeline__group--slotted {
+    position: relative;
+}
+
+.roadmap-timeline__group-content {
+    position: absolute;
+    left: 0;
+    right: 0;
+    min-width: 0;
+    padding: 0 var(--spacing-sm);
+    overflow: hidden;
+}
+
+/* Room a band's content asked for: nothing on it, and nothing to read. */
+.roadmap-timeline__row--padding {
+    pointer-events: none;
 }
 
 /*

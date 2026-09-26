@@ -1,4 +1,7 @@
+using System.Reflection;
+
 using Backlog.Infrastructure.Capture.Extensions;
+using Backlog.Infrastructure.Capture.Import;
 using Backlog.Infrastructure.Capture.Inbox;
 using Backlog.Infrastructure.Capture.Website;
 using Backlog.Infrastructure.Capture.YouTube;
@@ -25,12 +28,13 @@ namespace Backlog.Infrastructure.Capture.UnitTests;
 public sealed class CaptureAdapterRegistrationTests
 {
     [Fact]
-    public void The_run_composes_with_both_adapters_and_the_inbox_delivery()
+    public void The_run_composes_with_every_adapter_and_the_inbox_delivery()
     {
         var services = new ServiceCollection();
         services.AddSingleton<ICaptureSourceSettings>(new NoSettings());
         services.AddSingleton<ICaptureRunLog>(new NoLog());
         services.AddSingleton<IInboxIntake>(new NoIntake());
+        services.AddSingleton(DispatchProxy.Create<IInboxItems, NeverCalled>());
         services.AddCaptureModule();
         services.AddCaptureAdapters();
 
@@ -47,6 +51,7 @@ public sealed class CaptureAdapterRegistrationTests
         var adapters = scope.ServiceProvider.GetServices<ICaptureSourceAdapter>().ToList();
         Assert.Contains(adapters, adapter => adapter is YouTubeChannelAdapter);
         Assert.Contains(adapters, adapter => adapter is WebsiteFeedAdapter);
+        Assert.Contains(adapters, adapter => adapter is ImportFileAdapter);
     }
 
     /// <summary>A run happens on the reader's machine when they press the
@@ -165,5 +170,13 @@ public sealed class CaptureAdapterRegistrationTests
     {
         public Task<InboxIntakeOutcome> ReceiveAsync(InboxCaptureDto capture, CancellationToken cancellationToken = default) =>
             Task.FromResult(InboxIntakeOutcome.Ignored);
+    }
+
+    /// <summary>Stands in for the Inbox's pane port, which composing the run
+    /// needs present but never calls.</summary>
+    public class NeverCalled : DispatchProxy
+    {
+        protected override object? Invoke(MethodInfo? targetMethod, object?[]? args) =>
+            throw new NotSupportedException($"{targetMethod?.Name} is not called while composing.");
     }
 }

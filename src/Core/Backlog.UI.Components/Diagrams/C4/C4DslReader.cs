@@ -792,7 +792,7 @@ public sealed record C4ElementStyle(string Tag, string? Background, string? Colo
 /// <summary>
 /// Slugs, for the one place a C4 name has to survive being written into a
 /// reference: a view key. A chapter addresses a view as
-/// <c>.arc42/_c4/backlog.dsl#container-backlog</c>, and a Structurizr key is
+/// <c>.devbook/arc42/_c4/backlog.dsl#container-backlog</c>, and a Structurizr key is
 /// allowed to be a quoted string with spaces in it.
 /// </summary>
 public static class C4Slug

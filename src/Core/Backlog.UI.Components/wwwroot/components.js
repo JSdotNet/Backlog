@@ -610,7 +610,7 @@
     // the drag's; the pointerdown listener exempts them before it consults this.
     const TASK_DRAG_EXCLUDED =
         '.task-item__check, .task-item__edit, .task-item__delete, .task-item__copy,' +
-        '.task-item__actions, .task-item__fold, .task-item__rename,' +
+        '.task-item__badges, .task-item__actions, .task-item__fold, .task-item__rename,' +
         // The whole gutter and not just the input inside it. The box is padded
         // out to a comfortable target, and a press landing on that padding would
         // start dragging the row a reader was trying to tick.

@@ -89,7 +89,7 @@ No new parameter buys this. `RenderDevbookMetadata` is the same opt-in the chapt
                     <p class="sb-label">The record whole — the file's fields under its name</p>
                     <FileView Name="shared.md"
                               Kind="Technology stack"
-                              Path=".tech/shared.md"
+                              Path=".devbook/tech/shared.md"
                               Body="@FileFixtures.TwoLevelFile"
                               MaxHeight="22rem"
                               TestId="file-view-two-level"
@@ -102,7 +102,7 @@ No new parameter buys this. `RenderDevbookMetadata` is the same opt-in the chapt
                     <p class="sb-label">Reading it — the status alone, at both levels</p>
                     <FileView Name="shared.md"
                               Kind="Technology stack"
-                              Path=".tech/shared.md"
+                              Path=".devbook/tech/shared.md"
                               Body="@FileFixtures.TwoLevelFile"
                               MaxHeight="22rem"
                               TestId="file-view-two-level-reading"
@@ -156,7 +156,7 @@ The remarks themselves take four callbacks: `OnAddComment` for the affordance on
         <div class="sb-tall" data-testid="file-view-devbook">
             <FileView Name="Domain: Tasks"
                       Kind="Domain model narrative"
-                      Path=".domain/tasks/domain.md"
+                      Path=".devbook/domain/tasks/domain.md"
                       Body="@_domain"
                       Fill="true"
                       TestId="file-view-domain"
@@ -196,12 +196,12 @@ The remarks themselves take four callbacks: `OnAddComment` for the affordance on
     <Story Name="A control nobody would gain anything by pressing"
            Description="The same arbitration, from the other side. Compare is absent here, and that is the story: the only baseline says exactly what the file says, so pressing it would show the reader the file they are already looking at. The pane knows because the pane holds the baselines and does the aligning; the header is simply told there is nothing to offer.
 
-The rest of this pane is what the Devbook panes ask for. `RenderDevbookMetadataFields` off keeps the status — the one part of a `meta` block with a reading behind it — and drops the rows under it, which are the fence again with the fence taken off. A `.domain/…md` written in the prose becomes the same reference the record draws, through the same `OnDevbookNavigate` — press one and this story reports it."
+The rest of this pane is what the Devbook panes ask for. `RenderDevbookMetadataFields` off keeps the status — the one part of a `meta` block with a reading behind it — and drops the rows under it, which are the fence again with the fence taken off. A `.devbook/domain/…md` written in the prose becomes the same reference the record draws, through the same `OnDevbookNavigate` — press one and this story reports it."
            Code="@ReadingCode">
         <div class="sb-tall" data-testid="file-view-reading">
             <FileView Name="Domain: Tasks"
                       Kind="Domain model narrative"
-                      Path=".domain/tasks/domain.md"
+                      Path=".devbook/domain/tasks/domain.md"
                       Body="@FileFixtures.ReadingChapter"
                       Fill="true"
                       TestId="file-view-reading-example"
@@ -227,7 +227,7 @@ The drawing is `MarkdownCompareView`'s, handed the result `Bare` so it gives up 
         <div class="sb-tall" data-testid="file-view-compare">
             <FileView Name="context-map.md"
                       Kind="Domain context map"
-                      Path=".domain/context-map.md"
+                      Path=".devbook/domain/context-map.md"
                       Body="@FileFixtures.ContextMapAfter"
                       Fill="true"
                       TestId="file-view-compare-example"
@@ -289,7 +289,7 @@ Tab through this one and then the arbitration story above. A supplied body gives
            the first; the body keeps the rest, where the chapters are. *@
         <FileView Name="shared.md"
                   Kind="Technology stack"
-                  Path=".tech/shared.md"
+                  Path=".devbook/tech/shared.md"
                   Body="@markdown"
                   MaxHeight="22rem"
                   AllowCopy="true"
@@ -430,7 +430,7 @@ Tab through this one and then the arbitration story above. A supplied body gives
            `meta` fence is, a diagram where a diagram fence is — and the header
            decides which of the three modes it is in. *@
         <FileView Name="Domain: Tasks"
-                  Path=".domain/tasks/domain.md"
+                  Path=".devbook/domain/tasks/domain.md"
                   Body="@markdown"
                   Fill="true"
                   AllowCopy="true"
@@ -460,7 +460,7 @@ Tab through this one and then the arbitration story above. A supplied body gives
            not, the diagram carries no fold, and a chapter named in the prose goes
            through the same navigation the metadata references already use. *@
         <FileView Name="Domain: Tasks"
-                  Path=".domain/tasks/domain.md"
+                  Path=".devbook/domain/tasks/domain.md"
                   Body="@markdown"
                   Fill="true"
                   AllowCopy="true"

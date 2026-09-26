@@ -44,7 +44,7 @@ public sealed class LinkTaskToIssueCommandHandler(ITaskRepository entries)
     /// The entry's existing targets, plus the one just pushed to.
     /// <para>
     /// A merge rather than a replacement. An entry may name several repositories
-    /// (<c>.domain/backlog/features.md#multi-repo-targeting</c>), and this used to
+    /// (<c>.devbook/domain/tasks/features.md#multi-repo-targeting</c>), and this used to
     /// set the whole list to the one repository the push went to — so pushing a
     /// two-target entry silently dropped the other target, and the person's next
     /// look at the row showed one repository where they had typed two. It is the
