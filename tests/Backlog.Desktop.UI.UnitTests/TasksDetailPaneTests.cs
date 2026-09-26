@@ -536,7 +536,7 @@ public sealed class TasksDetailPaneTests
     }
 
     /// <summary>
-    /// Sorting by status re-ranks what the filters show — in progress, then
+    /// Sorting by status re-ranks what the filters show — done, in progress,
     /// ready, then draft — among the slots those rows already held, so a row the
     /// filters hide keeps its place in the whole list.
     /// </summary>
@@ -564,6 +564,26 @@ public sealed class TasksDetailPaneTests
         await host.State.ReloadFromStoreAsync();
         Assert.Equal(
             ["Started", "Hidden", "Ready one", "Draft one", "Draft two"],
+            host.State.Rows.Select(row => row.PreviewTitle));
+    }
+
+    /// <summary>
+    /// Done ranks first, above in progress: the finished work leads the list
+    /// and archived work still trails it.
+    /// </summary>
+    [Fact]
+    public async Task Sorting_by_status_puts_done_above_in_progress()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        await host.WriteEntryAsync("# Started\n`task` `!in_progress`\n");
+        await host.WriteEntryAsync("# Shelved\n`task` `!archived`\n");
+        await host.WriteEntryAsync("# Finished\n`task` `!done`\n");
+        await host.WriteEntryAsync("# Ready one\n`task` `!ready`\n");
+
+        await host.State.SortVisibleByStatusAsync();
+
+        Assert.Equal(
+            ["Finished", "Started", "Ready one", "Shelved"],
             host.State.Rows.Select(row => row.PreviewTitle));
     }
 

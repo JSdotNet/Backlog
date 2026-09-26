@@ -1388,8 +1388,8 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     }
 
     /// <summary>
-    /// Re-ranks the rows the filters show by status — in progress, ready, draft,
-    /// done, archived — and keeps the hand-made order inside each status.
+    /// Re-ranks the rows the filters show by status — done, in progress, ready,
+    /// draft, archived — and keeps the hand-made order inside each status.
     /// <para>
     /// Only among the slots those rows already hold in the whole list: a row the
     /// filters hide keeps its exact position, so narrowing the list and sorting it
@@ -1419,10 +1419,10 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
     private static int StatusSortRank(EntryStatus status) => status switch
     {
-        EntryStatus.InProgress => 0,
-        EntryStatus.Ready => 1,
-        EntryStatus.Draft => 2,
-        EntryStatus.Done => 3,
+        EntryStatus.Done => 0,
+        EntryStatus.InProgress => 1,
+        EntryStatus.Ready => 2,
+        EntryStatus.Draft => 3,
         _ => 4,
     };
 
