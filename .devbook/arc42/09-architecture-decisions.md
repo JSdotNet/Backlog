@@ -208,3 +208,12 @@ related: [".devbook/arc42/04-solution-strategy.md"]
   capture document carries metadata only and is posted after its files; the
   acknowledgement tombstone releases them and a 30-day lifecycle rule is the
   backstop. Task attachments stay machine-local.
+- **[ADR 0016 — The knowledge folders adopt the devbook convention under `.devbook/`; the derived layer stays a local build output](adr/0016-knowledge-folders-adopt-the-devbook-convention.md)**
+  *(accepted, partly built)*: all five folders, including a new `ai/`, sit under
+  `.devbook/` at the installed contract. `.backlog/` and every
+  `_reading-order.json` are retired. The generated database stays uncommitted,
+  so `devbook-derived` is not adopted, and the repo-native writer imports the
+  installed generator at `.devbook/_tools/devbook-meta/`. The four procedures
+  and the schedule catalog are adopted as shipped. The delivery engine replaces
+  the orch-* gate, with its roles bound to the `jsdotnet-ai-plugins` agents.
+  Local ADR 0011 stands unchanged.

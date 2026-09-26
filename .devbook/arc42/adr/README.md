@@ -40,6 +40,7 @@ between inherited ADRs 0005 and 0009.
 - **[0012 — Backlog is an MCP server hosted inside the running desktop application](0012-backlog-is-an-mcp-server-inside-the-desktop-app.md)** *(accepted, not yet built)*
 - **[0013 — An imported plan is one Roadmap Item; a `plan` entry is the same grammar, and the importer places it](0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md)** *(accepted)*
 - **[0014 — Attachments travel through a blob store beside the replica; the sync service is the only door](0014-attachments-travel-through-a-blob-store-beside-the-replica.md)** *(proposed)*
+- **[0016 — The knowledge folders adopt the devbook convention under `.devbook/`; the derived layer stays a local build output](0016-knowledge-folders-adopt-the-devbook-convention.md)** *(accepted, partly built)*
 
 ## Inherited decisions
 

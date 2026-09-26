@@ -2,7 +2,7 @@
 
 ```meta
 status: active
-related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/08-crosscutting-concepts.md#devbook-database", ".devbook/arc42/07-deployment-view.md#local-deployment-desktop", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/domain/devbook/features.md#repository-devbook-areas", ".devbook/tech/tooling.md#knowledge-meta-generator", ".devbook/tech/shared.md#sqlite"]
+related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/08-crosscutting-concepts.md#devbook-database", ".devbook/arc42/07-deployment-view.md#local-deployment-desktop", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0016-knowledge-folders-adopt-the-devbook-convention.md", ".devbook/domain/devbook/features.md#repository-devbook-areas", ".devbook/tech/tooling.md#knowledge-meta-generator", ".devbook/tech/shared.md#sqlite"]
 issue: null
 ```
 
@@ -21,6 +21,17 @@ never required for correctness, and the semantic tier's one live call.
 > stays true. The names below are the current ones; the installed generator under
 > `.github/tools/knowledge-meta/` keeps its name because the plugin still ships it so.
 
+> **Amended 2026-09-26: the contract v6 follow-up is settled by [local ADR
+> 0016](0016-knowledge-folders-adopt-the-devbook-convention.md).** The folders did
+> not stay on the root layout while the generator was re-synced. Instead they
+> adopted the devbook convention under `.devbook/`. The installed generator is
+> now `.devbook/_tools/devbook-meta/`, and `build-database.mjs` imports its seam.
+> This record's call stands: the derived layer is a local build output,
+> `devbook-derived` is not adopted, and nothing under `_meta/` is committed. The
+> `_reading-order.json` files described below are retired, because the generator
+> derives order itself. Where the notes below say "follow-up", ADR 0016 is the
+> answer.
+
 > **Implemented, 2026-09-08.** The derived knowledge layer is
 > `_meta/devbook.db`, generated and git-ignored, and the twelve `_meta/*.json`
 > artifacts are out of version control. The authored half moved first, as this
@@ -35,7 +46,7 @@ never required for correctness, and the semantic tier's one live call.
 > `.devbook/tech/tooling.md#knowledge-meta-generator` both say never to edit here — and
 > that install was already four `knowledge-base` releases behind (measured against
 > `knowledge-base` 0.16.0) before the plugin was renamed; re-syncing it from
-> `devbook` is the contract v6 follow-up. So `tools/devbook/build-database.mjs`
+> `devbook` is the contract v6 follow-up (settled by local ADR 0016). So `tools/devbook/build-database.mjs`
 > *imports* that generator's exported seam (`buildGraph`, `parseDocument`,
 > `folderKindForPath`, `discoverScopes`) rather than editing it, exactly as
 > `tools/devbook/check-metadata.mjs` already does for `validateDocument`. The
