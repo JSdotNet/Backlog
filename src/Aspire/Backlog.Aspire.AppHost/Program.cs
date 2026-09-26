@@ -39,15 +39,31 @@ cosmosDatabase.AddContainer("annotations", "/ownerId");
 cosmosDatabase.AddContainer("devices", "/id");
 cosmosDatabase.AddContainer("pairingCodes", "/id");
 
+// Azure Storage — the attachment store beside the replica (local ADR 0014). Deployed
+// it is a storage account provisioned by infra/sync/main.bicep; here it is Azurite,
+// so an upload and a download run end to end with no Azure account. One private
+// blob container, `attachments`, created on startup, which is the connection the
+// sync service reads. The 30-day lifecycle rule is NOT expressed here — Azurite runs
+// no management policies — and lives only in the bicep, as the Cosmos TTLs do.
+var attachments = builder.AddAzureStorage("storage")
+    .RunAsEmulator(azurite => azurite
+        // Persistent for the reason the Cosmos emulator is: it survives between
+        // AppHost runs, and so does whatever a desktop has not fetched yet.
+        .WithLifetime(ContainerLifetime.Persistent))
+    .AddBlobContainer("attachments");
+
 // Sync service — the thin cloud-side sync layer (Azure Container Apps in production).
 //
 // Referenced, not waited on, and that is deliberate on both sides. The sync service
 // answers 503 sync.replica_unavailable on its task endpoints until Cosmos is up, so it
 // has something honest to say while the emulator starts; and mobile-web-harness waits
 // on `sync`, so a WaitFor here would put a couple of minutes of container startup in
-// front of an unrelated harness on every run.
+// front of an unrelated harness on every run. The attachment store is referenced
+// the same way: until Azurite answers, the attachment routes say 503
+// sync.attachment_store_unavailable rather than holding the service back.
 var sync = builder.AddProject("sync", "..\\..\\Modules\\Sync\\Backlog.Modules.Sync.Api\\Backlog.Modules.Sync.Api.csproj")
-    .WithReference(cosmosDatabase);
+    .WithReference(cosmosDatabase)
+    .WithReference(attachments);
 
 // --- Test harnesses (src/Harness/) ---------------------------------------
 // The projects below are NOT shipped channels. They are development-only hosts

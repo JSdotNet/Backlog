@@ -32,7 +32,9 @@ and do not report the absent server as a blocked precondition.
 The MCP servers that remain in use are runtime and tooling servers, not guidance servers:
 Aspire (resource state, logs, traces), Playwright (browser automation for QA), the
 orchestration dashboard, and `backlog` — the running desktop app's own server, bound as the
-delivery tracker in `.devbook/config.json`.
+delivery tracker in `.devbook/config.json`. `.mcp.json` also declares `microsoft-learn`, the
+delivery engine's default for .NET and Azure API reference. Its Playwright entry runs
+`--isolated` so it never shares a browser profile with the `qa` plugin's own instance.
 
 ## Knowledge folders are task-scoped
 

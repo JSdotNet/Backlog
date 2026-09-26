@@ -1,8 +1,10 @@
 using System.Diagnostics;
+using Backlog.Infrastructure.BlobStorage.Extensions;
 using Backlog.Infrastructure.Cosmos.Extensions;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Api;
 using Backlog.Modules.Sync.Api.Endpoints;
+using Backlog.Modules.Sync.Api.Options;
 using Backlog.Modules.Sync.Api.Security;
 using Backlog.Modules.Sync.Extensions;
 using Backlog.Modules.Sync.Observability;
@@ -37,6 +39,18 @@ builder.Services.AddOpenApi();
 // is no Cosmos connection string, which is what lets the endpoint tests and a
 // bare `dotnet run` work with no emulator anywhere.
 builder.AddCosmosReplicas();
+
+// The attachment store (local ADR 0014), on the same terms: before AddSyncModule
+// so the blob-backed store wins, and a no-op in Development with no `attachments`
+// connection, which leaves the module's in-memory store standing.
+builder.AddAttachmentBlobStore();
+
+// The upload cap and the type allowlist. Settings, so widening "any file" is a
+// configuration change; validated at startup like every other section.
+builder.Services.AddOptions<SyncAttachmentOptions>()
+    .BindConfiguration(SyncAttachmentOptions.SectionName)
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
 
 builder.Services.AddSyncModule();
 
@@ -84,6 +98,7 @@ sync.MapInboxEndpoints();
 sync.MapTaskSyncEndpoints();
 sync.MapSessionSyncEndpoints();
 sync.MapAnnotationSyncEndpoints();
+sync.MapAttachmentSyncEndpoints();
 
 // The service saying what it is, and which build it is. No owner, no data,
 // nothing to protect — the commit is public history, and it is what lets a

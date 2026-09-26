@@ -9,7 +9,7 @@
 // otherwise a structural heading shadowing a chapter is never reported at all.
 //
 // Two *structural* headings sharing an anchor is not an error: it is the
-// ordinary shape of a chapter file, where two rules in one `domain.invariants.md`
+// ordinary shape of a chapter file, where two rules in one `requirements.md`
 // carry a `#### Scenario:` of the same name and every event carries its own
 // `### Payload`. Those are only ever materialized on demand, and the first
 // is the one GitHub leaves unsuffixed, so resolving to it is correct.

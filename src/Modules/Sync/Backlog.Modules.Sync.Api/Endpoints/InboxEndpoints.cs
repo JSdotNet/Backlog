@@ -78,7 +78,8 @@ internal static class InboxEndpoints
                 request.Id,
                 request.BodyMd,
                 request.Tags,
-                request.Person),
+                request.Person,
+                request.Attachments),
             cancellationToken);
 
         return SyncResults.From(
@@ -100,7 +101,12 @@ internal static class InboxEndpoints
     /// was.
     /// </para>
     /// </summary>
-    private static Error? OutOfBounds(CaptureRequest request) => request switch
+    private static Error? OutOfBounds(CaptureRequest request) =>
+        FieldsOutOfBounds(request)
+        ?? (request.Tags is { } tags ? TagsOutOfBounds(tags) : null)
+        ?? (request.Attachments is { } attachments ? AttachmentsOutOfBounds(attachments) : null);
+
+    private static Error? FieldsOutOfBounds(CaptureRequest request) => request switch
     {
         { Title: var title } when string.IsNullOrWhiteSpace(title) =>
             Invalid("A capture needs a title."),
@@ -127,10 +133,44 @@ internal static class InboxEndpoints
         { Person: { } person } when person.Trim().TrimStart('@').Any(char.IsWhiteSpace) =>
             Invalid("A capture's person is one name, with no spaces."),
 
-        { Tags: { } tags } => TagsOutOfBounds(tags),
-
         _ => null,
     };
+
+    /// <summary>The metadata of the files a capture names, bounded like every
+    /// other field. Whether each one was actually uploaded is the handler's to
+    /// check against the store; this is only what a well-formed list looks
+    /// like.</summary>
+    private static Error? AttachmentsOutOfBounds(IReadOnlyList<AttachmentMetadata> attachments)
+    {
+        if (attachments.Count > SyncRequestLimits.MaximumCaptureAttachments)
+            return Invalid($"A capture may name at most {SyncRequestLimits.MaximumCaptureAttachments} attachments.");
+
+        if (attachments.Select(attachment => attachment?.Id).Distinct().Count() != attachments.Count)
+            return Invalid("A capture may name each attachment once.");
+
+        foreach (var attachment in attachments)
+        {
+            if (attachment is null)
+                return Invalid("A capture's attachments may not be empty.");
+
+            if (attachment.Id == Guid.Empty)
+                return Invalid("An attachment's id may not be empty.");
+
+            if (string.IsNullOrWhiteSpace(attachment.Name) || attachment.Name.Length > SyncRequestLimits.MaximumAttachmentName)
+                return Invalid($"An attachment's name is required and may be at most {SyncRequestLimits.MaximumAttachmentName} characters.");
+
+            if (string.IsNullOrWhiteSpace(attachment.ContentType) || attachment.ContentType.Length > SyncRequestLimits.MaximumAttachmentContentType)
+                return Invalid($"An attachment's content type is required and may be at most {SyncRequestLimits.MaximumAttachmentContentType} characters.");
+
+            if (attachment.SizeBytes < 0)
+                return Invalid("An attachment's size may not be negative.");
+
+            if (attachment.Sha256 is not { Length: 64 } digest || !digest.All(char.IsAsciiHexDigit))
+                return Invalid("An attachment's sha256 is 64 hex digits.");
+        }
+
+        return null;
+    }
 
     private static Error? TagsOutOfBounds(IReadOnlyList<string> tags)
     {

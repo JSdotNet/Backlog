@@ -1,4 +1,17 @@
 {
+  "extraKnownMarketplaces": {
+    "jsdotnet-devbook": {
+      "source": {
+        "source": "github",
+        "repo": "JSdotNet/devbook"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "delivery@jsdotnet-devbook": true,
+    "delivery-schedule@jsdotnet-devbook": true,
+    "devbook@jsdotnet-devbook": true
+  },
   "hooks": {
     "PostToolUse": [
       {

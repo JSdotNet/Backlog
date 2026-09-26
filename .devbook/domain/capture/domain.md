@@ -29,7 +29,17 @@ unique entry — duplicates from multiple devices are acceptable and create
 separate captures. Edits follow last-write-wins by most recent timestamp.
 
 The Capture aggregate has no owned entities beyond its root; its variability is
-carried by the `Source Metadata` value object and the `Capture Source` enum.
+carried by the `Source Metadata` value object and the `Capture Source` enum, and
+the files it brings with it by the `Capture Attachment` value object.
+
+### Invariants
+
+| Rule | Enforced at | Evidence |
+|---|---|---|
+| A capture names only attachments already stored for its owner, each with the size and SHA-256 the capture claims; otherwise the whole capture is refused, naming the ids. | `CaptureInboxItemCommandHandler` | `unit:dotnet:Backlog.Modules.Sync.UnitTests.AttachmentStoreHandlerTests.A_capture_naming_an_attachment_not_uploaded_is_refused_with_its_id` |
+| A capture carries its attachments' metadata and never their bytes. | `CaptureInboxItemCommandHandler` (writes `TaskPayload.Attachments`) | `unit:dotnet:Backlog.Modules.Sync.Api.UnitTests.AttachmentSyncEndpointTests.A_capture_naming_an_uploaded_attachment_carries_its_metadata_to_the_pull_and_the_list` |
+| An attachment's bytes are stored only when they hash to the digest the upload declared and fit the per-file cap; a refused upload leaves nothing stored. | `StoreAttachmentCommandHandler` | `unit:dotnet:Backlog.Modules.Sync.UnitTests.AttachmentStoreHandlerTests.Bytes_that_miss_their_declared_digest_are_refused_and_not_committed` |
+| Acknowledging a capture releases the attachments the held capture named — never ones the tombstone names — and a failed release never fails the acknowledgement. | `CaptureAttachmentRelease`, from `AcknowledgeInboxItemCommandHandler` and `PushTasksCommandHandler` | `unit:dotnet:Backlog.Modules.Sync.UnitTests.AttachmentStoreHandlerTests.An_acknowledgement_succeeds_and_logs_when_the_release_fails` |
 
 ### Source Metadata
 
@@ -45,6 +55,27 @@ captures from an agentic session tool (e.g. the GitHub Copilot App), the same
 `ide` shape also carries a `session_id` and the local worktree path in place of
 an open-editor selection. Equality is by value. Its concrete keys depend on the
 `Capture Source`; it is opaque to downstream domains except as provenance.
+
+### Capture Attachment
+
+```meta
+type: value-object
+status: draft
+related: [.devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md, .devbook/arc42/06-runtime-view.md#capture-attachments]
+aliases: [AttachmentMetadata, attachment]
+```
+
+A file a capture brings with it — a slide photographed at a talk, a handout
+PDF — described by its `id`, file `name`, `contentType`, `sizeBytes` and
+`sha256`. The capture holds this description only; the bytes live in the
+attachment store under the same id, uploaded before the capture that names
+them (local ADR 0014). The id is minted by the client, so a phone with no
+network can name a file before it has sent it. Equality is by value.
+
+The store is a courier, not a home: acknowledging the capture releases the
+files, and a capture left waiting longer than 30 days keeps its description but
+loses its bytes. Once a desktop has taken the capture in, its Inbox Item owns
+its own copy of each file.
 
 ### Tag
 
@@ -130,6 +161,8 @@ This is Capture's published language for intake into the shared queue.
 - `tags` - normalized tags.
 - `source_url` - original link when present.
 - `captured_at` - time the source was captured.
+- `attachments` - `Capture Attachment` descriptions, when the capture brought
+  files; each file is fetched from the attachment store by its id. Additive.
 
 ### Consumers
 

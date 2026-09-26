@@ -39,8 +39,8 @@ across `domain/`, ADRs, and code module names where practical.
                      # it — its actors and its dependencies
     domain.md
     domain.invariants.md  # what the aggregates on domain.md enforce: one rule
-                          # per chapter, where it is enforced, and the scenarios
-                          # that prove it
+                          # per chapter, where it is enforced, and the unit
+                          # test that proves it
     actors.md        # optional: the actors, once context.md is too small
                      # for them
     features.md      # what the context lets a user do, in business language
@@ -124,9 +124,10 @@ one of them throughout.
 prose.** The prose chapters keep what only prose can carry — why the thing
 exists, who works with it, where the boundary runs, how it moves through its
 lifecycle, what the domain calls it — and every rule that is either kept or
-broken moves to a behaviour file, one rule per chapter, each with the scenarios
-that prove it. A requirement goes in `requirements.md`; an invariant goes in the
-invariants subpage of the domain page its aggregate is on. Each behaviour
+broken moves to a behaviour file, one rule per chapter: a requirement with the
+scenarios that prove it, an invariant with the unit test that does. A
+requirement goes in `requirements.md`; an invariant goes in the invariants
+subpage of the domain page its aggregate is on. Each behaviour
 chapter points back at the chapter it belongs to through `related`, and that
 chapter points at it, so either half is reachable from the other.
 
@@ -368,13 +369,16 @@ Adding a context or a file needs no declaration anywhere; just regenerate
   as a warning. A domain service that enforces rules of its own gets a chapter
   here too, pointing at its `domain-service` chapter.
   - **`type: invariant`** — one `### Invariant: <name>` chapter per rule: one
-    sentence stating a claim that is either true or false, then an
+    sentence stating a claim that is either true or false, in the domain's own
+    words, with the rejection code in parentheses where the type has one
+    ``(`order-already-confirmed`)``; optionally one sentence of why; then an
     `Enforced at:` line naming where the guarantee is made — `constructor`, a
     named transition (`Confirm()`, `AddLine()`), `all mutations` where it
     genuinely holds across every one, or `open` for a rule nobody has settled.
-  - Scenarios under an invariant read in the aggregate's own terms: the events
-    already applied, the command issued, and the events raised or the rejection
-    that follows.
+  - An invariant has no `#### Scenario:`. The claim already is the case, and
+    its proof is the `unit` test in `tests`, which names it; Given/When/Then
+    belongs to requirements. A scenario an older chapter still carries is left
+    alone and never required.
   - `tests` on an invariant chapter are `unit`.
   - The rules an owned Entity or Value Object enforces are chapters here too,
     under the aggregate that owns it; `Enforced at:` names the type.
@@ -520,6 +524,15 @@ instructions.
   no exception: its title stays the context name and the chapter's own name
   goes in its `##` heading, exactly as it did inside the file it came from.
 
+  The behaviour files are the exception: `requirements.md` and
+  `requirements.<name>.md` are titled `# Requirements`, and
+  `domain.invariants.md` and `domain.<name>.invariants.md` `# Invariants`. They
+  sit beside the pages they belong to, and a menu that lists pages by title
+  would otherwise show the context name three times over with nothing to tell
+  them apart. The folder names the context; the title names the kind. A
+  behaviour file still titled by its context validates;
+  `018-behaviour-titles` retitles it.
+
   `context-map.md` is the one `domain/` file that is not about a single bounded
   context, so it has no context name to carry. Prefer titling it after the
   system or product the map covers — `# Order Platform` — with
@@ -644,12 +657,12 @@ instructions.
   instead of briefing an implementation of a rule nobody has agreed. The
   existing gate already refuses `approved` or `accepted` over an open question,
   so a rung on a chapter carrying one is reported without a second rule here.
-- A chapter with no scenarios is reported as a coverage warning. A rule with no
-  case that exercises it is a sentence nobody can tell has been broken, and a
-  requirement whose scenarios are missing is one a brief cannot derive an
-  acceptance check from. It is a warning and not an error because the rule is
-  still worth recording before its cases are written — but a chapter left that
-  way is not finished.
+- A requirement with no scenarios is reported as a coverage warning. A promise
+  with no case that exercises it is a sentence nobody can tell has been broken,
+  and one a brief cannot derive an acceptance check from. It is a warning and
+  not an error because the rule is still worth recording before its cases are
+  written — but a chapter left that way is not finished. An invariant with no
+  scenarios is complete: its claim and its rejection code are the check.
 - `tests` entries are checked against the file they sit in: `unit` for an
   invariant, `e2e` — or `integration` for a policy no user triggers — for a
   requirement. A requirement backed only by unit tests, or an invariant backed
@@ -978,7 +991,7 @@ grouping headings only pushed every real chapter a level deeper and added
 anchors nobody references.
 
 `### Payload`, `### Consumers`, and `### Published language rules` under a
-Domain Event, and `#### Scenario:` under a Requirement or an Invariant, are
+Domain Event, and `#### Scenario:` under a Requirement, are
 structural
 sub-sections of that one chapter rather than addressable chapters, so they carry
 no metadata block. `build.mjs --check` warns on each of them, as it does on
@@ -988,7 +1001,7 @@ to be addressable, so the warning is expected here and never driven to zero.
 case one level up — structural sections of the file rather than addressable
 chapters — and warn the same way.
 
-A scenario is structural on purpose. It is a case *of* its rule and has no life
+A scenario is structural on purpose. It is a case *of* its requirement and has no life
 apart from it: nothing addresses one, a brief quotes the requirement and carries
 its scenarios along, and giving each a block would put two `meta` fences on
 every rule for no reader's benefit. The rule is the addressable unit; its
@@ -1155,7 +1168,7 @@ One stage of the skill, or one mode it can run in.
 ### requirements.md
 
 ```markdown
-# <Bounded Context Name>
+# Requirements
 
 \`\`\`meta
 status: draft
@@ -1211,7 +1224,7 @@ The same template serves `domain.<name>.invariants.md`, with `related` pointing
 at `domain.<name>.md`.
 
 ```markdown
-# <Bounded Context Name>
+# Invariants
 
 \`\`\`meta
 status: draft
@@ -1219,7 +1232,7 @@ type: invariants
 \`\`\`
 
 > What each aggregate on `domain.md` enforces, one chapter per aggregate. Each
-> invariant is one rule, where it is enforced, and the scenarios that prove it.
+> invariant is one claim, where it is enforced, and the unit test that proves it.
 
 ## <AggregateName>
 
@@ -1241,19 +1254,10 @@ type: invariant
 tests: unit:dotnet:<Ordering.Domain.Tests.OrderTests.TheRule>
 \`\`\`
 
-<One rule, as a claim that is either true or false.>
+<One rule, as a claim that is either true or false> (`<rejection-code>`).
+<Optionally, one sentence of why.>
 
 Enforced at: <constructor | <Transition>() | all mutations | open>
-
-#### Scenario: <the case this covers>
-
-- **Given** <the events already applied>
-- **When** <the command issued>
-- **Then** <the events raised, or the rejection>
-
-#### Scenario: <the next case>
-
-...
 
 ### Invariant: <the next rule>
 
@@ -1264,12 +1268,12 @@ Enforced at: <constructor | <Transition>() | all mutations | open>
 ...
 ```
 
-An invariant's scenarios read as events applied, a command, and events raised or
-a rejection, because that is the vocabulary the aggregate is written in and the
-shape an Event Storming session already produced. A requirement's read in the
-product's terms — a state, an action, an outcome — because it is a promise to
-someone outside the model. Same three clauses, two vocabularies, and the file
-says which one applies.
+An invariant carries no scenario. Given/When/Then in the aggregate's event terms
+restates a claim like "the start date is not after the end date" three times
+over, and the unit test in `tests` already names the case. A requirement keeps
+its scenarios, read in the product's terms — a state, an action, an outcome —
+because it is a promise to someone outside the model and the scenario is how
+the promise is checked.
 
 ### model.md
 

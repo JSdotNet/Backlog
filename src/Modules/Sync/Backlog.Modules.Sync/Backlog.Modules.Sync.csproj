@@ -27,6 +27,9 @@
     <!-- Only for AddSyncModule(); the domain and the handlers know nothing
          about the container. -->
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <!-- For the attachment release, which logs and carries on when the store
+         cannot be reached rather than failing the acknowledgement. -->
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
   </ItemGroup>
 
   <ItemGroup>

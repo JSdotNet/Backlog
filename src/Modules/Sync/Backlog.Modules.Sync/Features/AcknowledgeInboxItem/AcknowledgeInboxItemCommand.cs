@@ -2,6 +2,7 @@ using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.DomainModels;
 using Backlog.Modules.Sync.Features.CaptureInboxItem;
 using Backlog.Modules.Sync.Ports;
+using Backlog.Modules.Sync.Services;
 using Backlog.SharedKernel.Handlers;
 using Backlog.SharedKernel.Results;
 
@@ -33,8 +34,16 @@ public sealed record AcknowledgeInboxItemCommand(OwnerScope Scope, Guid Id);
 /// that is not a capture is not found for the same reason: the route is about
 /// captures, and an ordinary task's id is not the caller's to tombstone here.
 /// </para>
+/// <para>
+/// Once the tombstone is stored, the capture's files are released from the
+/// attachment store (local ADR 0014), from the capture as it was held — best
+/// effort, so a store that is down never fails the acknowledgement.
+/// </para>
 /// </summary>
-public sealed class AcknowledgeInboxItemCommandHandler(ITaskReplica replica, TimeProvider clock)
+public sealed class AcknowledgeInboxItemCommandHandler(
+    ITaskReplica replica,
+    CaptureAttachmentRelease release,
+    TimeProvider clock)
     : ICommandHandler<AcknowledgeInboxItemCommand, Result>
 {
     public async Task<Result> Handle(
@@ -64,7 +73,13 @@ public sealed class AcknowledgeInboxItemCommandHandler(ITaskReplica replica, Tim
 
         var acknowledged = found.Change with { UpdatedAt = now, DeletedAt = now };
 
-        await replica.Upsert(command.Scope, [acknowledged], cancellationToken);
+        // Released only when the tombstone was taken. The replica refuses a
+        // write it has already moved past, and releasing then would delete the
+        // files of a capture that is still waiting.
+        if (await replica.Upsert(command.Scope, [acknowledged], cancellationToken) > 0)
+        {
+            await release.Release(command.Scope.OwnerId, found.Change, cancellationToken);
+        }
 
         return Result.Success();
     }

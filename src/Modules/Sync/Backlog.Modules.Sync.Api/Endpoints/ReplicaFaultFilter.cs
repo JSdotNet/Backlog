@@ -19,6 +19,11 @@ namespace Backlog.Modules.Sync.Api.Endpoints;
 /// expected conditions with codes a client branches on, not the unhandled 500
 /// that middleware is for.
 /// </para>
+/// <para>
+/// The attachment store raises its one expected failure — unreachable — the
+/// same way, so the attachment endpoints sit behind this filter too and
+/// Azurite still starting reads exactly like a Cosmos emulator still starting.
+/// </para>
 /// </summary>
 internal sealed class ReplicaFaultFilter : IEndpointFilter
 {

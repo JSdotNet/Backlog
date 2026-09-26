@@ -49,6 +49,44 @@ public static class SyncErrorCodes
     /// capture would replace that task on every device.</summary>
     public const string CaptureIdTaken = "inbox.capture_id_taken";
 
+    /// <summary>A capture names an attachment this owner has not uploaded, or
+    /// one whose size or digest differs from what was stored. Refused whole,
+    /// naming the ids, so a capture on the replica never names a blob that is not
+    /// there (local ADR 0014). The fix is to upload them and post again.</summary>
+    public const string CaptureAttachmentMissing = "inbox.capture_attachment_missing";
+
+    /// <summary>An upload that is not one: an empty id, no digest header or one
+    /// that is not a SHA-256 in hex, or bytes that do not hash to the digest it
+    /// declared. The message names the header or the field.</summary>
+    public const string AttachmentInvalid = "sync.attachment_invalid";
+
+    /// <summary>An upload larger than the per-file cap (local ADR 0014), whether
+    /// its <c>Content-Length</c> said so up front or the stream went past the cap
+    /// on the way in. Mapped to 413: sending it again will not help.</summary>
+    public const string AttachmentTooLarge = "sync.attachment_too_large";
+
+    /// <summary>An upload whose declared <c>Content-Type</c> is not on the
+    /// allowlist. Mapped to 415, naming what was sent. The list exists to refuse
+    /// executables, scripts and HTML, and widening it is a setting.</summary>
+    public const string AttachmentTypeNotAllowed = "sync.attachment_type_not_allowed";
+
+    /// <summary>The id already holds this owner's attachment with different
+    /// bytes. A repeat upload of the same bytes is a success that writes nothing;
+    /// a different file under a used id is refused rather than written over,
+    /// because a capture may already name the first.</summary>
+    public const string AttachmentConflict = "sync.attachment_conflict";
+
+    /// <summary>No attachment with that id is stored for the calling owner. An
+    /// id belonging to somebody else reads the same way: the blob is looked up
+    /// under the caller's own owner prefix and never seen.</summary>
+    public const string AttachmentNotFound = "sync.attachment_not_found";
+
+    /// <summary>The attachment store is not reachable. Mapped to 503 for the
+    /// reason <see cref="ReplicaUnavailable"/> is — locally it is Azurite still
+    /// starting — and its own code because it is a different store: a client
+    /// told the replica is down would wait on the wrong thing.</summary>
+    public const string AttachmentStoreUnavailable = "sync.attachment_store_unavailable";
+
     /// <summary>More task changes in one push than the service will take. The
     /// client batches well below the cap, so reaching it is either a client that
     /// stopped batching or a caller that is not one of ours.</summary>

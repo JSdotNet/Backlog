@@ -74,6 +74,7 @@ public sealed class ListInboxQueryHandler(ITaskReplica replica)
             task.CreatedAt,
             string.IsNullOrEmpty(task.ContentMd) ? null : task.ContentMd,
             tags,
-            person);
+            person,
+            task.Attachments);
     }
 }
