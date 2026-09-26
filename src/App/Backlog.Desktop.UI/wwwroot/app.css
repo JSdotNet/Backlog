@@ -6996,7 +6996,7 @@ h1, h2, h3 {
     font-size: var(--font-size-xs);
 }
 
-.ai-loop__empty {
+.ai-loop__empty-text {
     margin: 0;
     color: var(--color-text-disabled);
     font-size: var(--font-size-xs);

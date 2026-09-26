@@ -162,7 +162,9 @@ public sealed class AiDevbookViewTests : IDisposable
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='ai-loop-usage']")));
         component.Find("[data-testid='ai-loop-stage-plan'] [data-testid='ai-loop-usage']").Click();
 
-        Assert.NotNull(opened);
+        // The callback is raised through the renderer and can land after Click
+        // returns, so the link is waited for rather than read straight away.
+        component.WaitForAssertion(() => Assert.NotNull(opened));
         Assert.Equal("ai", opened.AreaKey);
         Assert.EndsWith("01-specify.md", opened.Path, StringComparison.Ordinal);
         Assert.Equal("devbook-skills", opened.Anchor);
