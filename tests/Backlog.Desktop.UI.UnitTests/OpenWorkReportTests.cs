@@ -5,7 +5,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// <summary>
 /// The arithmetic behind the Tasks pane's open-work summary and the report it opens.
 /// <para>
-/// Pure on purpose: the rows, today, readiness and the two label resolvers are all
+/// Pure on purpose: the rows, today, readiness and the repository resolver are all
 /// handed in, so nothing here needs a clock, a store or a pane. The pane tests in
 /// <c>OpenWorkSummaryTests</c> prove it is fed the right rows; these prove what it
 /// makes of them.
@@ -21,14 +21,12 @@ public sealed class OpenWorkReportTests
     private static OpenWorkReport Build(
         IEnumerable<EntryRow> rows,
         Func<EntryRow, bool>? isReady = null,
-        Func<EntryRow, IReadOnlyList<string>>? repositories = null,
-        Func<EntryRow, IReadOnlyList<string>>? dependencies = null) =>
+        Func<EntryRow, IReadOnlyList<string>>? repositories = null) =>
         OpenWorkReport.Build(
             [.. rows],
             Today,
             isReady ?? (_ => true),
-            repositories ?? (_ => []),
-            dependencies ?? (_ => []));
+            repositories ?? (_ => []));
 
     [Fact]
     public void Totals_count_open_rows_and_leave_ticked_off_ones_out()
@@ -199,21 +197,29 @@ public sealed class OpenWorkReportTests
     }
 
     [Fact]
-    public void A_waiting_task_names_what_it_waits_on()
+    public void Waiting_work_is_counted_and_weighed_not_listed()
     {
-        var blocked = Row("`task`", "Publish it");
-        var free = Row("`task`", "Renew the certificate");
-        var finished = Row("`task` `completed:2026-09-20`", "Old wait");
+        var publish = Row("`task` `effort:3`", "Publish it");
+        var announce = Row("`task` `effort:2`", "Announce it");
+        var unsized = Row("`task`", "Tidy up after");
+        var free = Row("`task` `effort:8`", "Renew the certificate");
+        var finished = Row("`task` `effort:5` `completed:2026-09-20`", "Old wait");
+        var waiting = new[] { publish, announce, unsized, finished };
 
         var report = Build(
-            [blocked, free, finished],
-            isReady: row => !ReferenceEquals(row, blocked) && !ReferenceEquals(row, finished),
-            dependencies: row => ReferenceEquals(row, blocked) ? ["Write the runbook", "sync-tasks (not found)"] : []);
+            [publish, announce, unsized, free, finished],
+            isReady: row => !waiting.Contains(row));
 
-        var waiting = Assert.Single(report.Waiting);
-        Assert.Equal("Publish it", waiting.Title);
-        Assert.Equal(blocked.TaskId, waiting.TaskId);
-        Assert.Equal(["Write the runbook", "sync-tasks (not found)"], waiting.WaitingOn);
+        Assert.Equal(new OpenWorkTotals(3, 5, 1), report.Waiting);
+        Assert.Equal("3 tasks · 5 points · 1 unestimated", report.Waiting.WaitingSummary);
+    }
+
+    [Fact]
+    public void One_waiting_task_reads_in_the_singular()
+    {
+        var report = Build([Row("`task` `effort:1`")], isReady: _ => false);
+
+        Assert.Equal("1 task · 1 point", report.Waiting.WaitingSummary);
     }
 
     [Fact]
@@ -233,6 +239,6 @@ public sealed class OpenWorkReportTests
         Assert.Equal(1, report.DoneLastSevenDays);
         Assert.Empty(report.ByStatus);
         Assert.Empty(report.Overdue);
-        Assert.Empty(report.Waiting);
+        Assert.Equal(0, report.Waiting.Open);
     }
 }

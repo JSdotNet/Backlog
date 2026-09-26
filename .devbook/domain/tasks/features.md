@@ -213,9 +213,10 @@ The line is also the way into a report of that same open work: the headline
 numbers and what was ticked off in the last seven days; each plan's open tasks,
 points and progress, with the work filed under no plan as its own line; how the
 open work splits by status, priority, type and repository; and what needs
-attention — overdue, due within the week, and waiting. A waiting task names
-[what it waits on](#task-dependencies) rather than being counted, and any task
-named there opens from the report.
+attention — overdue and due within the week, each task named and opening from
+the report, and how many tasks are waiting and what they weigh. Waiting work is
+totalled rather than listed: each row in the pane already names
+[what it waits on](#task-dependencies).
 
 ## Scheduling and recurrence
 

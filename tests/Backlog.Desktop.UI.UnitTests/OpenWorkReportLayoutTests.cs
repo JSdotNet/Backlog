@@ -42,6 +42,19 @@ public sealed class OpenWorkReportLayoutTests
         Assert.Contains("minmax(min(18rem, 100%), 1fr)", breakdowns, StringComparison.Ordinal);
     }
 
+    /// <summary>Two breakdowns side by side keep their bars on one line. Each is
+    /// stretched to its row's height; packed to the top, the extra height falls
+    /// below the legend rather than between the label, the bar and the legend,
+    /// which pushed the shorter breakdown's bar down.</summary>
+    [Fact]
+    public void Breakdowns_side_by_side_line_up_across_the_row()
+    {
+        var library = File.ReadAllText(RepositoryRoot.File(
+            "src", "Core", "Backlog.UI.Components", "wwwroot", "components.css")).Replace("\r\n", "\n");
+
+        Assert.Contains("align-content: start;", Block(library, ".metric-breakdown-bar {"), StringComparison.Ordinal);
+    }
+
     [Fact]
     public void The_tiles_wrap_at_a_narrow_width()
     {

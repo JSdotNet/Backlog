@@ -2089,6 +2089,15 @@ h1, h2, h3 {
     color: var(--color-text-secondary);
 }
 
+/* The waiting total: a line of the report's own text, not a link — nothing in
+   it opens anything. */
+.open-work-report__waiting {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    font-variant-numeric: tabular-nums;
+    color: var(--color-text-primary);
+}
+
 /* --- Settings -------------------------------------------------------------- */
 
 /* The settings screen's own container. It was 720px wide and named `--narrow`

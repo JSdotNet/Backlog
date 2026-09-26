@@ -2039,8 +2039,7 @@
             State.ScopedRows,
             Today,
             State.IsNotWaiting,
-            OpenWorkRepositories,
-            OutstandingDependencyLabels);
+            OpenWorkRepositories);
 
     /// <summary>Every repository a row targets that resolves to a configured one,
     /// by alias — the same lookup <c>RepositoryFor</c> makes, but all of them
@@ -2051,17 +2050,8 @@
             .OfType<string>()
             .Distinct(StringComparer.OrdinalIgnoreCase)];
 
-    /// <summary>What a waiting row still waits on, named the way the "Waiting
-    /// for" line names it. Only the steps not yet ticked off: a finished one is a
-    /// wait that is over, and naming it would send the reader to something they
-    /// cannot act on. An id naming nothing stays, because it still blocks.</summary>
-    private IReadOnlyList<string> OutstandingDependencyLabels(EntryRow row) =>
-        [.. State.ResolvedDependsOn(row)
-            .Where(id => RowById(id) is not { IsPreviewCompleted: true })
-            .Select(DependencyLabel)];
-
     /// <summary>A task pressed in the report: the report goes, and the task opens
-    /// the way one named on a "Waiting for" line does — widening whatever scope was
+    /// the way one named on a row's "Waiting for" line does — widening whatever scope was
     /// hiding it first.</summary>
     private async Task OnOpenWorkTaskSelectedAsync(string taskId)
     {
