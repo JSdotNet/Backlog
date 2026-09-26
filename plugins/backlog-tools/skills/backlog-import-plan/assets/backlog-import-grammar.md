@@ -28,7 +28,7 @@ A generated plan is one of two shapes:
 
 Each entry, in this order:
 
-1. `# <Title>` — the entry title.
+1. `# <Title>` — the entry title; a step's opens with its [number](#step-numbers).
 2. One backtick-quoted metadata line.
 3. Body prose — the entry's instructions, and the primary content.
 4. `##` sub-item headings and/or `- [ ]` checklist lines.
@@ -70,7 +70,7 @@ roadmap level ([Two levels](#two-levels)); the other three are steps, and the ty
 does the work:
 
 - **`prompt`** — an AI session runs it. Opens with the [plan item marker](#plan-item-marker)
-  and the session-name line, states `repo:`, and may carry `## Setup:` sub-items and the
+  and the [session-name line](#step-numbers), states `repo:`, and may carry `## Setup:` sub-items and the
   knowledge/devbook reminder.
 - **`task`** — only the user does it: a decision, a sign-off, an action in an account or on a
   machine an AI session cannot reach. A plain entry addressed to the user — title, metadata
@@ -133,6 +133,24 @@ The combination rules:
   item is never deleted by a re-import. A step-level re-import changes nothing on the item
   but, while its window is still sized by effort, its length.
 
+## Step numbers
+
+Every step entry's title opens with its number: `# <n> - <Title>`, `n` counting 1, 2, 3…
+over the steps in document order, the closing review and sign-off included. A `plan` entry
+is never numbered. The number is part of the title Backlog stores, so it survives the copy
+button, and it is what a person says out loud ("step 3") — it is not an identity: `(tag, id:)`
+matches an entry across plan versions, and a regenerated plan renumbers freely.
+
+The session-name line of a prompt is built from it:
+
+```
+Title this session `<tag>:<n> - <Title>` before you start.
+```
+
+— the bare plan tag, a colon, then the entry's title exactly as written, number included.
+Plans written before numbering carry ``Add the plan name `<tag>` to this session's title
+before you start.`` instead; `backlog-run-plan-item` still recognizes that line.
+
 ## Worked example
 
 ```markdown
@@ -140,20 +158,20 @@ The combination rules:
 
 `plan` `*high` `+vscode-desktop-rollout` `repo:backlog-desktop`
 
-# Confirm the export format with design
+# 1 - Confirm the export format with design
 
 `task` `!ready` `@repos` `+vscode-desktop-rollout` `id:confirm-format` `effort:1`
 
 Agree with design whether the export is plain Markdown or Markdown with front matter, and
 note the answer on this entry. Done when the format is written down here.
 
-# Add the export command
+# 2 - Add the export command
 
 `prompt` `*high` `!ready` `@repos` `+vscode-desktop-rollout` `id:add-command` `after:confirm-format` `repo:backlog-desktop` `effort:5`
 
 Backlog plan item `add-command` of plan `vscode-desktop-rollout` for `backlog-desktop`, after `confirm-format` — run it with the `backlog-run-plan-item` skill.
 
-Add the plan name `vscode-desktop-rollout` to this session's title before you start.
+Title this session `vscode-desktop-rollout:2 - Add the export command` before you start.
 
 Add an export command to the command palette that serializes the current view to Markdown,
 in the format agreed on the `confirm-format` entry.
@@ -162,31 +180,31 @@ in the format agreed on the `confirm-format` entry.
 
 ## Update backlog-desktop's own knowledge docs / devbook once this prompt lands
 
-# Wire the export command into the toolbar
+# 3 - Wire the export command into the toolbar
 
 `prompt` `!ready` `@repos` `+vscode-desktop-rollout` `id:wire-toolbar` `after:add-command` `repo:backlog-desktop` `effort:2`
 
 Backlog plan item `wire-toolbar` of plan `vscode-desktop-rollout` for `backlog-desktop`, after `add-command` — run it with the `backlog-run-plan-item` skill.
 
-Add the plan name `vscode-desktop-rollout` to this session's title before you start.
+Title this session `vscode-desktop-rollout:3 - Wire the export command into the toolbar` before you start.
 
 Wire the command from the previous prompt into the toolbar as a button.
 
 ## Update backlog-desktop's own knowledge docs / devbook once this prompt lands
 
-# Review the VS Code desktop rollout plan for anything missed
+# 4 - Review the VS Code desktop rollout plan for anything missed
 
 `prompt` `!ready` `@repos` `+vscode-desktop-rollout` `id:review-plan` `after:wire-toolbar` `repo:backlog-desktop` `effort:2`
 
 Backlog plan item `review-plan` of plan `vscode-desktop-rollout` for `backlog-desktop`, after `wire-toolbar` — run it with the `backlog-run-plan-item` skill.
 
-Add the plan name `vscode-desktop-rollout` to this session's title before you start.
+Title this session `vscode-desktop-rollout:4 - Review the VS Code desktop rollout plan for anything missed` before you start.
 
 Read the material this plan came from against what actually landed: every entry done, and
 nothing dropped, deferred or left half-finished on the way. Write up anything still
 outstanding as a new entry.
 
-# Sign off the VS Code desktop rollout plan
+# 5 - Sign off the VS Code desktop rollout plan
 
 `task` `!ready` `@repos` `+vscode-desktop-rollout` `id:sign-off-plan` `after:review-plan` `effort:1`
 
