@@ -7,18 +7,18 @@ namespace Backlog.ArchitectureTests;
 /// says nothing about the values inside a <c>meta</c> block, even though the
 /// module beside it exports a <c>validateDocument</c> that does — and that export
 /// had no caller anywhere in this repository, which is how
-/// <c>.domain/productivity/features.md</c> carried <c>status: idea</c>, a word in
+/// <c>features.md</c> in the productivity context carried <c>status: idea</c>, a word in
 /// no folder's vocabulary, past a workflow step named "Check references and
 /// metadata blocks" (issue #241).</para>
 ///
 /// <para><c>tools/devbook/check-metadata.mjs</c> is the missing caller and
 /// <c>.github/workflows/devbook-metadata.yml</c> is where it blocks a pull
 /// request. Both are repo-native on purpose: everything under
-/// <c>.github/tools/knowledge-meta/</c> and
-/// <c>build/Update-KnowledgeIndex.ps1</c> are installed copies of the
-/// devbook plugin's tooling, which CLAUDE.md says to re-sync and never edit
+/// <c>.devbook/_tools/devbook-meta/</c> and the workflow
+/// <c>.github/workflows/devbook-meta.yml</c> are materialized by the devbook
+/// plugin, which CLAUDE.md says <c>devbook:update</c> refreshes and nobody edits
 /// here. The rules below are what stops the next change putting the gate back
-/// inside the installed copy, where the next re-sync would silently drop it.</para>
+/// inside the installed copy, where the next refresh would silently drop it.</para>
 /// </summary>
 public class DevbookMetadataGateTests
 {
@@ -29,15 +29,23 @@ public class DevbookMetadataGateTests
     private static readonly string[] GateWorkflow =
         [".github", "workflows", "devbook-metadata.yml"];
 
+    /// <summary>The generator the devbook plugin materializes.</summary>
+    private static readonly string[] InstalledGenerator = [".devbook", "_tools", "devbook-meta"];
+
+    /// <summary>The workflow the devbook plugin installs beside it, and what it runs.</summary>
+    private static readonly string[] InstalledWorkflow = [".github", "workflows", "devbook-meta.yml"];
+
+    private const string InstalledCheckCommand = "node .devbook/_tools/devbook-meta/build.mjs --check";
+
 
     /// <summary>The repository's own metadata check, by name stem.</summary>
     /// <remarks>
     /// Deliberately not an inventory of what the plugin currently installs. The
     /// rule is "no repository-owned file lives in the installed copy", and a
-    /// re-sync is expected to add and remove plugin files freely — 0.16.0 ships
-    /// five <c>*.test.mjs</c> alongside the generator that the version installed
-    /// here does not. Pinning the file list would turn the re-sync CLAUDE.md
-    /// mandates into a red suite, and blame the wrong thing while doing it.
+    /// refresh is expected to add and remove plugin files freely — each devbook
+    /// release adds and drops <c>*.test.mjs</c> beside the generator. Pinning the
+    /// file list would turn the <c>devbook:update</c> CLAUDE.md mandates into a red
+    /// suite, and blame the wrong thing while doing it.
     /// </remarks>
     private const string RepositoryCheckStem = "check-metadata";
 
@@ -57,19 +65,35 @@ public class DevbookMetadataGateTests
             + "was about.");
     }
 
+    /// <summary>
+    /// The reference half of the gate is the installed workflow, and the metadata
+    /// half stands beside it rather than replacing it.
+    /// </summary>
+    [Fact]
+    public void The_installed_reference_check_is_wired_into_ci()
+    {
+        var workflow = File.ReadAllText(RepositoryRoot.File(InstalledWorkflow));
+
+        Assert.True(
+            workflow.Contains(InstalledCheckCommand, StringComparison.Ordinal),
+            $"{Path.Combine(InstalledWorkflow)} does not run '{InstalledCheckCommand}'. That workflow is "
+            + "the devbook plugin's reference check; devbook-metadata.yml checks values and relies on it "
+            + "for references.");
+    }
+
 
     /// <summary>
     /// The installed generator folder holds installed files only.
     ///
     /// <para>The tempting fix for issue #241 was a few lines in <c>build.mjs</c>,
-    /// or a new file next to it. Either one is lost the next time the plugin's
-    /// tooling is re-synced, and lost quietly: the gate would stop running and
-    /// nothing would go red.</para>
+    /// or a new file next to it. Either one is lost the next time
+    /// <c>devbook:update</c> refreshes the plugin's tooling, and lost quietly: the
+    /// gate would stop running and nothing would go red.</para>
     /// </summary>
     [Fact]
     public void The_installed_generator_folder_holds_no_repository_files()
     {
-        var folder = new DirectoryInfo(RepositoryRoot.Directory(".github", "tools", "knowledge-meta"));
+        var folder = new DirectoryInfo(RepositoryRoot.Directory(InstalledGenerator));
 
         var unexpected = folder.EnumerateFiles("*", SearchOption.AllDirectories)
             .Select(file => Path.GetRelativePath(folder.FullName, file.FullName))
@@ -79,35 +103,35 @@ public class DevbookMetadataGateTests
 
         Assert.True(
             unexpected.Length == 0,
-            $"{string.Join(", ", unexpected)} sits inside the installed copy of the knowledge-meta "
-            + "generator. Everything in that folder is replaced wholesale on the next re-sync, so "
+            $"{string.Join(", ", unexpected)} sits inside the installed copy of the devbook-meta "
+            + "generator. Everything in that folder is replaced wholesale by the next devbook:update, so "
             + "repository-owned tooling belongs beside it — tools/devbook/ — not in it.");
     }
 
     /// <summary>
-    /// The rule above survives the re-sync CLAUDE.md mandates.
+    /// The rule above survives the refresh CLAUDE.md mandates.
     ///
-    /// <para>The version installed here ships five files; plugin 0.16.0 ships ten,
-    /// having added the generator's own <c>*.test.mjs</c>. An allowlist of the
-    /// current five would turn a correct re-sync red and blame it on
-    /// "repository-owned tooling", sending the developer to delete upstream's own
-    /// tests. This pins the rule to the shape of a plugin file instead.</para>
+    /// <para>Every devbook release adds and drops the generator's own
+    /// <c>*.test.mjs</c> and helper modules. An allowlist of today's files would turn
+    /// a correct <c>devbook:update</c> red and blame it on "repository-owned
+    /// tooling", sending the developer to delete upstream's own tests. This pins the
+    /// rule to the shape of a plugin file instead.</para>
     /// </summary>
     [Fact]
-    public void A_generator_resync_does_not_trip_the_folder_rule()
+    public void A_generator_refresh_does_not_trip_the_folder_rule()
     {
-        string[] afterResync =
+        string[] afterRefresh =
         [
-            "README.md", "annotation-fence.test.mjs", "build.mjs", "escape-lint.test.mjs",
-            "graph.mjs", "metadata.mjs", "outline.mjs", "status-config.test.mjs",
-            "status-optional.test.mjs", "tests-field.test.mjs"
+            "README.md", "annotations.mjs", "annotations-index.mjs", "build.mjs", "chapter-hash.mjs",
+            "graph.mjs", "metadata.mjs", "outline.mjs", "schema-gate.test.mjs",
+            "status-optional.test.mjs", "some-future-helper.mjs", "some-future-case.test.mjs"
         ];
 
-        var misread = afterResync.Where(IsRepositoryOwned).ToArray();
+        var misread = afterRefresh.Where(IsRepositoryOwned).ToArray();
 
         Assert.True(
             misread.Length == 0,
-            $"A re-sync to the current plugin tooling would report [{string.Join(", ", misread)}] as "
+            $"A devbook:update of the plugin tooling would report [{string.Join(", ", misread)}] as "
             + "repository-owned. Those are upstream's files; the rule has been narrowed back to an "
             + "inventory and now blocks the only sanctioned way to update the generator.");
 
@@ -120,7 +144,7 @@ public class DevbookMetadataGateTests
     /// <summary>
     /// Whether a file in the installed folder is this repository's rather than the
     /// plugin's: it carries the check's own name, or it is not the kind of file the
-    /// plugin ships. An upstream file added by a re-sync satisfies neither.
+    /// plugin ships. An upstream file added by a refresh satisfies neither.
     /// </summary>
     private static bool IsRepositoryOwned(string relativeName)
     {
@@ -146,7 +170,7 @@ public class DevbookMetadataGateTests
         {
             Assert.True(
                 chapter.Contains(mention, StringComparison.Ordinal),
-                $".devbook/tech/tooling.md does not mention {mention}. The knowledge-meta Generator chapter is "
+                $".devbook/tech/tooling.md does not mention {mention}. The devbook-meta Generator chapter is "
                 + "where the repository says what CI enforces, and a reader who trusts it would still "
                 + "believe metadata values go unchecked.");
         }

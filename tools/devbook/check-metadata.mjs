@@ -3,34 +3,27 @@
 //
 //   node tools/devbook/check-metadata.mjs [--root <path>]
 //
-// `.github/tools/knowledge-meta/metadata.mjs` exports `validateDocument`, which
+// `.devbook/_tools/devbook-meta/metadata.mjs` exports `validateDocument`, which
 // is what knows a folder's `status` ladder, its `type` vocabulary, and which
-// fields a `meta` block may carry. Nothing in this repository called it. The
-// generator beside it imports `parseDocument` and `folderKindForPath` only, so
-// `build.mjs --check` resolves references and says nothing about values — and
-// `.domain/productivity/features.md` carried `status: idea`, a word in no
-// folder's vocabulary, through every run of a workflow step named "Check
-// references and metadata blocks" (issue #241).
+// fields a `meta` block may carry. `build.mjs --check` beside it resolves
+// references and says nothing about values — which is how a chapter once
+// carried `status: idea`, a word in no folder's vocabulary, through every run of
+// a workflow step named "Check references and metadata blocks" (issue #241).
 //
-// This is the missing caller, and it is deliberately a separate file rather
-// than an edit to the generator: everything under
-// `.github/tools/knowledge-meta/` is an installed copy of the devbook
-// plugin's tooling, which CLAUDE.md says to re-sync and never edit here. The
-// same rule covered `build/Update-KnowledgeIndex.ps1` and the `knowledge-meta*`
-// workflows (retired with the root layout, local ADR 0016), so the CI wiring is
-// repo-native too:
-// `.github/workflows/devbook-metadata.yml`.
+// This is the caller, and it is deliberately a separate file rather than an
+// edit to the generator: everything under `.devbook/_tools/` is materialized by
+// the devbook plugin and refreshed by `devbook:update`, never edited here. So
+// the CI wiring is repo-native too: `.github/workflows/devbook-metadata.yml`.
 //
-// Upstream runs this validation from the knowledge-graph canvas (now `devbook-canvas`) and the
-// `devbook-check` skill rather than from `--check`. CI is a third
-// consumer of the same exported seam, not a fork of it.
+// The root-level layout (`.domain/`, `.arc42/`, ...) and the predecessor
+// generator that validated it are retired (local ADR 0016); only the folders
+// under `.devbook/` are gated.
 
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { validateDocument as validateLegacyDocument } from '../../.github/tools/knowledge-meta/metadata.mjs';
-import { validateDocument as validateDevbookDocument } from '../../.devbook/_tools/devbook-meta/metadata.mjs';
+import { validateDocument } from '../../.devbook/_tools/devbook-meta/metadata.mjs';
 import { DEVBOOK_FOLDERS } from '../../.devbook/_tools/devbook-meta/graph.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -38,33 +31,10 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 /** The repository root, two levels up from `tools/devbook/`. */
 export const DEFAULT_ROOT = resolve(HERE, '..', '..');
 
-/** The root-level folders the predecessor generator's `folderKindForPath`
- *  recognises: the legacy layout. `.backlog` is not among them any more — local
- *  ADR 0016 dropped it with no `.devbook/` successor, so a stray one is not
- *  devbook content and is not gated. */
-export const LEGACY_FOLDERS = ['.domain', '.arc42', '.tech', '.design'];
-
-/** The folders under `.devbook/`: the current layout, as the installed devbook
- *  generator at `.devbook/_tools/devbook-meta/` names them. These are validated
- *  by that generator's checker, whose schema is the one the corpus is written
- *  against, so none of the pending-re-sync suppressions below apply to them. */
+/** The folders under `.devbook/`, as the installed devbook generator at
+ *  `.devbook/_tools/devbook-meta/` names them. Only the ones present are
+ *  scanned. */
 export { DEVBOOK_FOLDERS };
-
-/** Every folder the gate knows. Only the ones present are scanned, so adopting
- *  another folder is a matter of listing it here and nothing else. */
-export const KNOWLEDGE_FOLDERS = [...DEVBOOK_FOLDERS, ...LEGACY_FOLDERS];
-
-/** Whether a repository-relative path sits in the `.devbook/` layout. */
-function isDevbookPath(relPath) {
-    return relPath.startsWith('.devbook/');
-}
-
-/** The validator that owns `relPath`'s layout. */
-function validateDocument(relPath, markdown) {
-    return isDevbookPath(relPath)
-        ? validateDevbookDocument(relPath, markdown)
-        : validateLegacyDocument(relPath, markdown);
-}
 
 /** Generated output and vendored trees hold no authored `meta` blocks. `_meta`
  *  is JSON rather than Markdown and `_archify` holds specifications and rendered
@@ -77,85 +47,13 @@ const SKIPPED_DIRECTORIES = new Set(['_meta', '_archify', 'node_modules', '.git'
  *  `validateDocument` reports it at warning severity, and this gate treats it as
  *  blocking anyway: a field the schema does not know is the same class of defect
  *  as a value the schema does not know, and issue #241 is about that whole class
- *  passing silently, not about `status` alone. The capture group is what lets the
- *  pending-re-sync list below name individual fields. */
+ *  passing silently, not about `status` alone. */
 const UNRECOGNIZED_FIELD = /has unrecognized field `([^`]+)`/;
 
-/** The one *error* the installed generator reports about every `.tech` chapter
- *  purely because it predates a rename.
- *
- *  The plugin's 0.16.0 tooling renamed `.tech`'s `kind` field to `type`; the copy
- *  installed here is older and still requires `kind`. All nine `.tech` files
- *  author `type:` and none authors `kind:`, so the stale copy reports 89
- *  missing-`kind` errors against a corpus that is correct. */
-const STALE_TECH_KIND = /is missing required `kind` for the tech folder[.]$/;
-
-/** Fields the installed generator does not know but the current schema defines.
- *
- *  This gate is pinned to the copy of the generator installed under
- *  `.github/tools/knowledge-meta/`, which is four releases behind the plugin.
- *  Plugin 0.16.0 allows `type`, `date` and `tests` on every folder's blocks and
- *  `index`/`number` on file-level blocks; the installed copy allows only
- *  `related, issue, effort, roadmap` plus a few folder extras. The chapter
- *  authors of this repository are told to write the *current* schema — the
- *  devbook skills and `knowledge-chapter-metadata.instructions.md` come
- *  from the plugin, not from here — so blocking on these would fail a pull
- *  request for metadata that is correct.
- *
- *  Upstream reports unrecognized fields at *warning* severity for exactly this
- *  reason. Promoting the class to blocking (above) is what issue #241 asks for;
- *  exempting the fields the installed copy is merely too old to have heard of is
- *  what keeps that promotion honest. Delete this list when the generator is
- *  re-synced — at that point the schema and the validator agree again, and the
- *  tests below say what to expect when it goes. */
-const FIELDS_ADDED_SINCE_INSTALL = new Set([
-    'type', 'date', 'tests', 'index', 'number',
-    // The switch chapters' own fields. A `feature-flag` or `setting` chapter in a
-    // context's `context.md` carries `key` — the identifier as the code spells it —
-    // plus `default`, and `scope` on a setting; a feature chapter points at one
-    // through `setting`. The installed copy knows `feature-flag` as a bare-key list
-    // and nothing else of the shape.
-    'key', 'scope', 'default', 'setting',
-]);
-
-/** The two `type` values the installed generator's domain vocabulary predates.
- *
- *  Same case as `FIELDS_ADDED_SINCE_INSTALL` above, one level down: not a field
- *  the block may carry, but a value `type` may take. The current schema gives a
- *  bounded context a `context.md` — its boundary, and the flags and settings its
- *  capabilities hang on — typed `context` at file level, holding `setting` and
- *  `feature-flag` chapters. The installed copy's domain vocabulary has neither
- *  name, so it reports both at *error* severity, which no field-name exemption
- *  can reach.
- *
- *  Paired deliberately rather than matched loosely: `context` is legal only on a
- *  file-level block and `setting` only on a chapter-level one, so a `type:
- *  context` chapter or a `type: setting` file still blocks, as does every other
- *  unknown value. Delete this with the list above when the generator is
- *  re-synced. */
-const TYPES_ADDED_SINCE_INSTALL =
-    /has type "context", expected one of the file-level types:|has type "setting", expected one of the chapter-level types:/;
-
-/** Whether a finding blocks the build, is worth printing, or is an artifact of
- *  the pending generator re-sync. */
-export function classify(relPath, issue) {
-    // The suppressions all describe the installed generator being older than
-    // the schema. The `.devbook/` checker is current, so a finding it reports
-    // is judged on its severity alone.
-    if (isDevbookPath(relPath)) {
-        if (issue.severity === 'error') return 'blocking';
-        if (issue.severity === 'warning' && UNRECOGNIZED_FIELD.test(issue.message)) return 'blocking';
-        return 'advisory';
-    }
-
-    if (relPath.startsWith('.tech/') && STALE_TECH_KIND.test(issue.message)) return 'suppressed';
-    if (relPath.startsWith('.domain/') && TYPES_ADDED_SINCE_INSTALL.test(issue.message)) return 'suppressed';
-
-    const unrecognized = UNRECOGNIZED_FIELD.exec(issue.message);
-    if (unrecognized && FIELDS_ADDED_SINCE_INSTALL.has(unrecognized[1])) return 'suppressed';
-
+/** Whether a finding blocks the build or is only worth printing. */
+export function classify(issue) {
     if (issue.severity === 'error') return 'blocking';
-    if (issue.severity === 'warning' && unrecognized) return 'blocking';
+    if (issue.severity === 'warning' && UNRECOGNIZED_FIELD.test(issue.message)) return 'blocking';
     return 'advisory';
 }
 
@@ -206,9 +104,9 @@ async function markdownUnder(directory, found = []) {
  */
 export async function checkRepository(root = DEFAULT_ROOT) {
     const repoRoot = resolve(root);
-    const result = { root: repoRoot, files: 0, blocking: [], advisory: 0, suppressed: 0, folders: [] };
+    const result = { root: repoRoot, files: 0, blocking: [], advisory: 0, folders: [] };
 
-    for (const folder of KNOWLEDGE_FOLDERS) {
+    for (const folder of DEVBOOK_FOLDERS) {
         const directory = join(repoRoot, folder);
         if (!(await isDirectory(directory))) continue;
 
@@ -217,7 +115,7 @@ export async function checkRepository(root = DEFAULT_ROOT) {
         // is what would let a renamed or unreadable folder go quietly ungated.
         const files = await markdownUnder(directory);
 
-        const tally = { folder, files: files.length, blocking: 0, advisory: 0, suppressed: 0 };
+        const tally = { folder, files: files.length, blocking: 0, advisory: 0 };
 
         for (const file of files) {
             // `folderKindForPath` normalises separators itself, so this is for
@@ -226,7 +124,7 @@ export async function checkRepository(root = DEFAULT_ROOT) {
             const relPath = file.slice(repoRoot.length + 1).split(sep).join('/');
 
             for (const issue of validateDocument(relPath, await readFile(file, 'utf8'))) {
-                const verdict = classify(relPath, issue);
+                const verdict = classify(issue);
                 if (verdict === 'blocking') {
                     result.blocking.push({ folder, path: relPath, message: issue.message });
                 }
@@ -236,7 +134,6 @@ export async function checkRepository(root = DEFAULT_ROOT) {
 
         result.files += tally.files;
         result.advisory += tally.advisory;
-        result.suppressed += tally.suppressed;
         result.folders.push(tally);
     }
 
@@ -247,16 +144,15 @@ export async function checkRepository(root = DEFAULT_ROOT) {
 export function formatReport(result) {
     const lines = [`Devbook metadata check — ${result.root}`, ''];
 
-    const row = (label, files, blocking, advisory, suppressed) =>
+    const row = (label, files, blocking, advisory) =>
         `  ${label.padEnd(17)}${String(files).padStart(4)} files  `
         + `${String(blocking).padStart(4)} blocking  `
-        + `${String(advisory).padStart(4)} advisory  `
-        + `${String(suppressed).padStart(4)} pending re-sync`;
+        + `${String(advisory).padStart(4)} advisory`;
 
     for (const folder of result.folders) {
-        lines.push(row(folder.folder, folder.files, folder.blocking, folder.advisory, folder.suppressed));
+        lines.push(row(folder.folder, folder.files, folder.blocking, folder.advisory));
     }
-    lines.push(row('total', result.files, result.blocking.length, result.advisory, result.suppressed));
+    lines.push(row('total', result.files, result.blocking.length, result.advisory));
 
     if (result.blocking.length) {
         lines.push('');
@@ -286,8 +182,8 @@ if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.m
     if (!result.folders.length) {
         console.error(
             `
-No knowledge folders found under ${result.root}. `
-            + `Expected at least one of: ${KNOWLEDGE_FOLDERS.join(', ')}.`
+No devbook folders found under ${result.root}. `
+            + `Expected at least one of: ${DEVBOOK_FOLDERS.join(', ')}.`
         );
         process.exitCode = 2;
     } else if (empty.length) {

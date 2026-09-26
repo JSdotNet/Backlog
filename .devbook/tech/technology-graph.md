@@ -175,7 +175,7 @@ flowchart LR
         Actions["GitHub Actions"]:::adopted
         CodeQL["CodeQL"]:::adopted
         Dependabot["Dependabot"]:::adopted
-        KnowledgeMeta["knowledge-meta Generator"]:::adopted
+        KnowledgeMeta["devbook-meta Generator"]:::adopted
         Archify["Archify"]:::adopted
         Ajv["Ajv"]:::adopted
         SimpleIcons["simple-icons"]:::adopted
@@ -420,10 +420,9 @@ Terms below are the dictionary's; the right-hand column is this repository.
 - Rationale lives in `.devbook/arc42` (solution strategy, ADRs). Chapters here link to
   it with `related` instead of restating it.
 - When a node or edge changes, update the Mermaid source graph in the same
-  change and regenerate the derived index
-  (`node .github/tools/knowledge-meta/build.mjs`); the atlas is generated from
-  `.devbook/tech` metadata and needs no editing of its own, but it is drawn from that
-  index rather than from the Markdown, so a stale index draws a stale map.
+  change and run `node .devbook/_tools/devbook-meta/build.mjs --check`; the atlas
+  is generated from `.devbook/tech` metadata and needs no editing of
+  its own.
 
 Full authoring rules: `knowledge-tech.instructions.md` from the
 `devbook` plugin.
