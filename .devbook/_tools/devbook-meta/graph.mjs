@@ -112,7 +112,16 @@ export { DEVBOOK_FOLDER_NAMES, DEVBOOK_ROOT };
 // warning, and `migrations/017-invariants-under-domain/` moves the files and
 // rewrites every reference into them — a moved path is broken in every
 // repository until a script moves it.
-export const CONTRACT_VERSION = 17;
+// Version 18 takes the scenarios off invariants and retitles the behaviour
+// files by kind. An `### Invariant:` is a claim, its rejection code, and its
+// `Enforced at:` line, proved by the `unit` test in `tests`; only a
+// requirement is warned for having no `#### Scenario:`, and a scenario an older
+// invariant still carries is tolerated. `requirements.md` is titled
+// `# Requirements` and an invariants subpage `# Invariants`, so a menu listing
+// pages by title can tell them from the context's other pages. A file still
+// titled by its context validates; `migrations/018-behaviour-titles/`
+// retitles it, because reconcile never touches an authored file.
+export const CONTRACT_VERSION = 18;
 
 // The oldest contract a reconcile still carries forward. A migration lives
 // for the major version it ships in: a major release raises this to the
@@ -422,7 +431,7 @@ export async function buildGraph(repoRoot, folders = null) {
             // chapter that cannot be addressed is the error; two structural
             // headings sharing an anchor is the ordinary shape of a chapter
             // file (`#### Scenario: The order is already confirmed` under two
-            // rules in one `domain.invariants.md`, `### Payload` under every event),
+            // rules in one `requirements.md`, `### Payload` under every event),
             // and those are materialized on demand, never referenced by
             // accident.
             if (headingIndex.has(id)) {

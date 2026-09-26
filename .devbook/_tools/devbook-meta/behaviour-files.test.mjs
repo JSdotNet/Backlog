@@ -145,7 +145,14 @@ const coverage = [
         warnings: 1,
     },
     {
-        name: "an invariant proved unit, with a scenario, is clean",
+        name: "an invariant proved unit, with no scenario, is clean — its claim is the case",
+        type: "invariant",
+        meta: { tests: "unit:dotnet:A.B" },
+        scenarios: 0,
+        warnings: 0,
+    },
+    {
+        name: "an older invariant still carrying a scenario is tolerated",
         type: "invariant",
         meta: { tests: "unit:dotnet:A.B" },
         scenarios: 1,
@@ -173,7 +180,7 @@ const coverage = [
         warnings: 0,
     },
     {
-        name: "a rule with no scenario warns",
+        name: "a requirement with no scenario warns",
         type: "requirement",
         meta: { tests: "e2e:playwright:a.spec.ts" },
         scenarios: 0,
@@ -181,10 +188,17 @@ const coverage = [
     },
     {
         name: "both gaps at once are two warnings",
+        type: "requirement",
+        meta: { tests: "unit:dotnet:A.B" },
+        scenarios: 0,
+        warnings: 2,
+    },
+    {
+        name: "an invariant with no scenario reports only its level",
         type: "invariant",
         meta: { tests: "e2e:playwright:a.spec.ts" },
         scenarios: 0,
-        warnings: 2,
+        warnings: 1,
     },
     {
         name: "a grouping chapter is not a rule and is not held to either",
@@ -221,7 +235,45 @@ check(
 
 // ── The warnings reach a real document without becoming errors ─────────────
 
-const document = `# Ordering
+const document = `# Requirements
+
+\`\`\`meta
+type: requirements
+\`\`\`
+
+## Checkout
+
+\`\`\`meta
+type: requirements
+related: [.devbook/domain/ordering/features.md#checkout]
+\`\`\`
+
+### Requirement: A confirmed order is acknowledged
+
+\`\`\`meta
+type: requirement
+tests: unit:dotnet:A.B
+\`\`\`
+
+The system SHALL acknowledge every confirmed order.
+`;
+
+const documentIssues = validateDocument(".devbook/domain/ordering/requirements.md", document);
+const behaviour = documentIssues.filter((i) => /`requirement` chapter/.test(i.message));
+check(
+    behaviour.length === 2 && behaviour.every((i) => i.severity === "warning"),
+    "both coverage gaps surface through validateDocument, as warnings",
+    JSON.stringify(documentIssues.map((i) => `${i.severity}: ${i.message}`))
+);
+check(
+    counts(documentIssues).errors === 0,
+    "and an incomplete rule chapter never fails the document",
+    JSON.stringify(documentIssues.filter((i) => i.severity === "error").map((i) => i.message))
+);
+
+// An invariant is a claim, its rejection code, and where it is enforced — no
+// scenario — and a document holding one reports nothing about coverage.
+const invariantDocument = `# Invariants
 
 \`\`\`meta
 type: invariants
@@ -238,25 +290,19 @@ related: [.devbook/domain/ordering/domain.md#order]
 
 \`\`\`meta
 type: invariant
-tests: e2e:playwright:a.spec.ts
+tests: unit:dotnet:Ordering.Domain.Tests.OrderTests.ConfirmTwice
 \`\`\`
 
-An order that has been confirmed cannot be confirmed again.
+An order that has been confirmed is not confirmed again (\`order-already-confirmed\`).
 
 Enforced at: Confirm()
 `;
 
-const documentIssues = validateDocument(".devbook/domain/ordering/domain.invariants.md", document);
-const behaviour = documentIssues.filter((i) => /`invariant` chapter/.test(i.message));
+const invariantIssues = validateDocument(".devbook/domain/ordering/domain.invariants.md", invariantDocument);
 check(
-    behaviour.length === 2 && behaviour.every((i) => i.severity === "warning"),
-    "both coverage gaps surface through validateDocument, as warnings",
-    JSON.stringify(documentIssues.map((i) => `${i.severity}: ${i.message}`))
-);
-check(
-    counts(documentIssues).errors === 0,
-    "and an incomplete rule chapter never fails the document",
-    JSON.stringify(documentIssues.filter((i) => i.severity === "error").map((i) => i.message))
+    invariantIssues.filter((i) => /`invariant` chapter/.test(i.message)).length === 0,
+    "an invariant with no scenario raises no coverage warning",
+    JSON.stringify(invariantIssues.map((i) => `${i.severity}: ${i.message}`))
 );
 
 // ── The typed `related` pairing ────────────────────────────────────────────

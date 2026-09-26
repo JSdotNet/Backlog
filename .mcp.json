@@ -4,6 +4,20 @@
       "type": "http",
       "url": "http://127.0.0.1:${BACKLOG_MCP_PORT:-5757}/mcp",
       "headersHelper": "node tools/mcp/backlog-mcp-headers.mjs"
+    },
+    "microsoft-learn": {
+      "type": "http",
+      "url": "https://learn.microsoft.com/api/mcp"
+    },
+    "aspire": {
+      "type": "stdio",
+      "command": "aspire",
+      "args": ["mcp", "start"]
+    },
+    "playwright": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest", "--isolated"]
     }
   }
 }
