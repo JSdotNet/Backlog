@@ -175,7 +175,7 @@ flowchart LR
         Actions["GitHub Actions"]:::adopted
         CodeQL["CodeQL"]:::adopted
         Dependabot["Dependabot"]:::adopted
-        KnowledgeMeta["knowledge-meta Generator"]:::adopted
+        KnowledgeMeta["devbook-meta Generator"]:::adopted
         Archify["Archify"]:::adopted
         Ajv["Ajv"]:::adopted
         SimpleIcons["simple-icons"]:::adopted

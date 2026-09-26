@@ -621,8 +621,8 @@ internal static class TechnologyDevbookReader
     /// <para>This is GitHub's anchor algorithm, and it has to be exactly that:
     /// lowercase, drop punctuation, then turn each remaining whitespace character
     /// into a hyphen — without collapsing runs. Every reference in <c>.tech</c> and
-    /// every id in <c>_meta</c> is written by the generator in
-    /// <c>.github/tools/knowledge-meta</c>, which uses this rule, so a reader that
+    /// every id in the devbook database is derived by the generator in
+    /// <c>.devbook/_tools/devbook-meta</c>, which uses this rule, so a reader that
     /// used any other rule would compute ids the repository does not use.</para>
     ///
     /// <para>It did. Mapping every non-alphanumeric to a hyphen and collapsing runs

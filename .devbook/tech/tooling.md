@@ -277,7 +277,7 @@ Automated dependency and security updates.
   (`.github/dependabot.yml`).
 - **Why** — low-effort supply-chain hygiene for a single-maintainer project.
 
-## knowledge-meta Generator
+## devbook-meta Generator
 
 ```meta
 status: adopted
@@ -286,39 +286,30 @@ depends-on: [".devbook/tech/shared.md#nodejs", ".devbook/tech/shared.md#json"]
 related: [".devbook/tech/ai-development.md#devbook-plugin", ".devbook/tech/tooling.md#github-actions"]
 ```
 
-The generator that compiles the knowledge folders' `meta` blocks into derived
-indexes.
+The devbook plugin's checker for the devbook folders' `meta` blocks and the
+references between chapters.
 
-- **Used for** — `node .github/tools/knowledge-meta/build.mjs`, producing
-  `_meta/graph.json` (the reference graph) and `_meta/index.json` (the reading
-  outline) per folder plus a repository-wide rollup. Not hand-written here: it
-  is the unchanged install from `knowledge-base`, the `devbook` plugin's
-  predecessor, and re-syncing it from `devbook` is the contract v6 follow-up.
-  Since local ADR 0004
-  neither file is committed: both are ignored, and what this repository reads is
-  the database below, built from the same exported seam.
-- **Why** — it is what turns the metadata convention into something queryable,
-  and it is where a broken `depends-on` or `related` reference is caught.
-- **How** — its two workflows, `knowledge-meta.yml` and
-  `knowledge-meta-nightly.yml`, are retired: they checked only the root layout,
-  and this repository has no root-layout folder left (local ADR 0016). A broken
-  reference now fails in `.github/workflows/devbook-meta.yml`, which runs the
-  installed devbook checker. `--check` says nothing about the *values* in a `meta`
-  block, though, so a second hard failure covers those:
+- **Used for** — `node .devbook/_tools/devbook-meta/build.mjs --check`, which
+  resolves every `depends-on`, `related` and `implements` reference and reports a
+  broken one. It writes nothing: the installed check keeps no `_meta/` output, and
+  what this repository reads is the database below, built from the same exported
+  modules. Not hand-written here: `devbook:init` materialized it under
+  `.devbook/_tools/devbook-meta/` and `devbook:update` refreshes it.
+- **Why** — it is what turns the metadata convention into something checkable,
+  and it is where a broken reference is caught.
+- **How** — `.github/workflows/devbook-meta.yml`, installed beside it, runs the
+  check in CI. `--check` says nothing about the *values* in a `meta` block,
+  though, so a second hard failure covers those:
   `.github/workflows/devbook-metadata.yml` runs
   `tools/devbook/check-metadata.mjs`, this repository's own caller of the
   generator's exported `validateDocument`, and a status outside a folder's ladder,
-  an unknown `.devbook/domain` `type` or a field no schema defines fails the pull request.
-  It is a separate script and a separate workflow because the generator and
-  `Update-KnowledgeIndex.ps1` are installed copies of the plugin's tooling,
-  re-synced rather than edited here.
-- **Caveat** — the installed generator is four plugin releases behind, and the
-  check is pinned to it. Two consequences, both listed as *pending re-sync* in its
-  report rather than hidden: `.devbook/tech` `type` values go unvalidated, because the
-  installed copy still expects the pre-rename `kind` and cannot judge the new
-  field; and `type`, `date`, `tests`, `index` and `number` are exempt everywhere,
-  because chapter authors write the current schema while the validator knows the
-  old one. Re-syncing the generator is what retires both.
+  an unknown `type` or a field no schema defines fails the pull request. It is a
+  separate script and a separate workflow because everything under
+  `.devbook/_tools/` is refreshed rather than edited here.
+- **Caveat** — the `knowledge-base` install it replaced, under
+  `.github/tools/knowledge-meta/`, knew only the root-level layout and is retired
+  with it (local ADR 0016). A root-level `.domain/` or `.arc42/` is no longer
+  checked by anything.
 
 ## Devbook Database Writer
 

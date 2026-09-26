@@ -137,8 +137,8 @@ public static class DevbookStatus
     /// decision rungs, and nothing anywhere else.
     ///
     /// <para>Kept out of <see cref="Values"/> because that list is what a select
-    /// offers and what the installed generator's <c>STATUS_BY_FOLDER</c> is pinned
-    /// against. A rung is not a step a reader takes: the approval gate writes it
+    /// offers; the installed generator's <c>STATUS_BY_FOLDER</c> lists both, and
+    /// is pinned against the two together. A rung is not a step a reader takes: the approval gate writes it
     /// together with the record that signs and dates it. Outside <c>domain/</c> the
     /// rule says a rung is not in the folder's vocabulary at all, so there it is
     /// unrecognised and flagged like any other word the folder never
