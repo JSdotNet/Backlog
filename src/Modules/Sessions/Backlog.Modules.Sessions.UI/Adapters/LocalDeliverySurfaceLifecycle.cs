@@ -71,8 +71,8 @@ internal sealed class LocalDeliverySurfaceLifecycle : IDeliverySurfaceLifecycle
         // to.
         return new DeliverySurfaceOpened(activation, activation switch
         {
-            DeliverySurfaceActivation.Shown =>
-                "Backlog is showing the Sessions pane; this run appears there as it is recorded.",
+            DeliverySurfaceActivation.Available =>
+                "Backlog is open; this run appears in its Sessions pane as it is recorded. The window is left where the person has it.",
             DeliverySurfaceActivation.Disabled =>
                 "Backlog is open but the Sessions area is switched off in Settings, so the run is recorded without a pane to watch it in.",
             _ =>

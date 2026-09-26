@@ -339,8 +339,8 @@ public sealed record SessionsPayload(
     last month's schema is exactly the caller that cannot be told it moved.
 */
 
-/// <summary>What <c>open_dashboard</c> did.</summary>
-/// <param name="Activation">The member name of the activation — <c>Shown</c>,
+/// <summary>What <c>open_dashboard</c> answered.</summary>
+/// <param name="Activation">The member name of the activation — <c>Available</c>,
 /// <c>Unattached</c> or <c>Disabled</c> — never its ordinal.</param>
 /// <param name="Answer">The sentence to report, already written for a person.
 /// It carries the reason an unattached or switched-off surface gives, which is

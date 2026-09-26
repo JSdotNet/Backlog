@@ -61,13 +61,14 @@ public sealed class SurfaceTools(IDeliverySurfaceLifecycle surface)
     internal const string GetRun = DeliverySurfaceOperations.GetRun;
 
     /// <summary>
-    /// Bring the run surface forward.
+    /// Say whether the run surface is there to watch.
     /// <para>
     /// The one operation of the eight that answers about the application rather
     /// than about a run, and the only one taking no arguments: there is one
-    /// application and it is either showing the pane or it is not. It answers
-    /// with what happened rather than with a URL, because Backlog is not a page a
-    /// caller opens — it is the surface, already open or not running at all.
+    /// application and it either offers the pane or it does not. It answers
+    /// rather than handing out a URL, because Backlog is not a page a caller
+    /// opens — it is the surface, already open or not running at all. And it
+    /// never navigates: what a window shows changes only on the person's click.
     /// </para>
     /// </summary>
     [McpServerTool(
@@ -78,8 +79,9 @@ public sealed class SurfaceTools(IDeliverySurfaceLifecycle surface)
         Destructive = false,
         OpenWorld = false)]
     [Description(
-        "Brings Backlog's Sessions pane forward so the person can watch the run, and answers with what the "
-        + "application did — shown, or not attached to a running window, or switched off. It never answers with a "
+        "Reports whether Backlog's Sessions pane is available for the person to watch the run in — available, or "
+        + "not attached to a running window, or switched off. It never changes what the window shows: the person "
+        + "opens the pane themselves. It never answers with a "
         + "URL: this application is the surface rather than a page to open, so a caller that wanted a link has "
         + "already got its answer. Call it once per session.")]
     public async Task<SurfaceOpenedPayload> OpenDashboardAsync(CancellationToken cancellationToken = default)

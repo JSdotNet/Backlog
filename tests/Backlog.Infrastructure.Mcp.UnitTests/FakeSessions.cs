@@ -42,7 +42,7 @@ internal sealed class FakeAgentSessionSource(AgentSessionCatalog catalog) : IAge
 /// </para>
 /// </summary>
 internal sealed class FakeDeliverySurfaceLifecycle(
-    DeliverySurfaceActivation activation = DeliverySurfaceActivation.Shown,
+    DeliverySurfaceActivation activation = DeliverySurfaceActivation.Available,
     IReadOnlyList<DeliveryRun>? runs = null,
     DeliveryRun? run = null) : IDeliverySurfaceLifecycle
 {
