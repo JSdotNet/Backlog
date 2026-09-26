@@ -46,6 +46,7 @@ mobile's native .NET MAUI. MUST NOT introduce sizes outside this scale.
 
 | Token | rem | px | Usage |
 |---|---|---|---|
+| `font-size-2xs` | `0.625rem` | 10 | Feature-status flags (DEV, BETA) only — see the rule below |
 | `font-size-xs` | `0.75rem` | 12 | Helper text, badges, fine print |
 | `font-size-sm` | `0.875rem` | 14 | Secondary body, table cells, form hints (minimum readable size) |
 | `font-size-base` | `1rem` | 16 | Default body / editor text |
@@ -69,6 +70,12 @@ mobile's native .NET MAUI. MUST NOT introduce sizes outside this scale.
 Rules:
 
 - Body text MUST NOT go below `font-size-sm` (14 px).
+- `font-size-2xs` (10 px) is reserved for the DEV and BETA feature-status flags:
+  a bold, uppercase label of three or four letters that qualifies the control
+  it belongs to and must sit a step below that control's label. On a header
+  control the flag is pinned to the control's top-right corner rather than set
+  inline, so it adds no width to the navigation row. Any other text, including
+  a longer badge such as a feature-flag key, stays at `font-size-xs` or above.
 - `font-weight-light` (300) is permitted only at `font-size-3xl` and above.
 - Do not use `font-weight-bold` (700) for body emphasis — use
   `font-weight-semibold` (600).
