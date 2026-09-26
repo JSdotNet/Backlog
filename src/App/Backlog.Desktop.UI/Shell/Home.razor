@@ -34,10 +34,10 @@
     choose between. The `.shell` class on the wrapper is the older name and stays,
     because it is what every layout rule in app.css is written against.
 
-    There are four, and exactly one of them renders: the workspace, which is the
-    global panes; the roadmap; the tools surface; and the dashboard, which holds
-    the session list as its second tab. The last three are takeovers — Roadmap,
-    Dev PC Management and the Dashboard are whole domains, and opening one means
+    There are five, and exactly one of them renders: the workspace, which is the
+    global panes; the roadmap; the tools surface; the dashboard; and the session
+    list. The last four are takeovers — Roadmap, Dev PC Management, the Dashboard
+    and Sessions are whole domains, and opening one means
     the reader has stopped looking at the backlog, so it takes the screen and hides
     every other domain concern rather than docking beside them. Whichever branch
     renders owns the page's single <main> landmark.
@@ -77,7 +77,7 @@
             @if (State.Repositories.Count > 0)
             {
                 @* One repository on a plain press, one more with Ctrl held — while the
-                   task list or the dashboard is on screen; see ScopeRepository below.
+                   task list, the dashboard or the session list is on screen; see ScopeRepository below.
                    The anchor — the first one taken, the one Devbook reads — is marked only
                    once a second chip is pressed: with one chip there is nothing for it
                    to be distinct from, and the markup stays exactly what the single
@@ -164,7 +164,7 @@
            cannot see how many answers a control takes until they press it, and the
            shape is the one thing they can see first. *@
         <nav class="app-header__nav" aria-label="Workspace views">
-            @* One field with three states, in markup that finally says so.
+            @* One field, in markup that finally says so.
                WorkspaceSurface has always been a single enum precisely because a
                takeover cannot coexist with the workspace or with another
                takeover — but the header rendered independent buttons carrying
@@ -216,15 +216,7 @@
                         </ToggleButton>
                     }
 
-                    @* One segment for two features. The Dashboard surface holds the
-                       Sessions module's list as its second tab, so the segment is
-                       offered while either has something to show; which tabs the
-                       surface then offers is decided on the surface, below. The
-                       segment points at the surface landmark rather than at either
-                       pane, because which pane is in front is the tab strip's answer
-                       and not this control's. Sessions used to have a segment of its
-                       own here, and its feature flag now gates its tab instead. *@
-                    @if (DashboardSurfaceOffered)
+                    @if (DashboardOffered)
                     {
                         <ToggleButton BaseClass="header-group__option header-group__option--loose"
                                       PressedCssClass="header-group__option--selected"
@@ -237,6 +229,26 @@
                             <FeatureStatusBadge Status="@FeatureStatusSlug(DashboardFeatures.Dashboard)"
                                                 Title="@FeatureStatusTitle(DashboardFeatures.Dashboard)"
                                                 TestId="dashboard-feature-status" />
+                        </ToggleButton>
+                    }
+
+                    @* Sessions, as a segment of its own. It was the Dashboard's second
+                       tab for a while, which put the list a person opens to see what
+                       the assistants are running one click behind a summary of it.
+                       The Dashboard keeps that summary; the list is here. *@
+                    @if (SessionsOffered)
+                    {
+                        <ToggleButton BaseClass="header-group__option header-group__option--loose"
+                                      PressedCssClass="header-group__option--selected"
+                                      Pressed="SessionsVisible"
+                                      id="sessions-toggle-button"
+                                      TestId="sessions-toggle-button"
+                                      aria-controls="sessions-surface"
+                                      PressedChanged="ToggleSessions">
+                            Sessions
+                            <FeatureStatusBadge Status="@FeatureStatusSlug(SessionFeatures.Sessions)"
+                                                Title="@FeatureStatusTitle(SessionFeatures.Sessions)"
+                                                TestId="sessions-feature-status" />
                         </ToggleButton>
                     }
 
@@ -544,18 +556,6 @@
     }
     else if (DashboardVisible)
     {
-        @* Two views of one surface: the Dashboard module's overview and the
-           Sessions module's list. Composed here rather than inside either pane,
-           because the panes belong to two bounded contexts and neither should
-           reference the other's project to draw a strip above itself — which
-           surfaces exist and how they are arranged is exactly the shell's job.
-           Each pane keeps its own header and its own ✕, so a tab is not a second
-           place to close the surface from.
-
-           The strip renders only when there are two tabs to choose between. Each
-           tab is gated on its own feature, and with one feature off the surface
-           is that feature's pane on its own — a tab strip with one tab is the
-           same dead control the surface switcher refuses to be. *@
         <main class="workspace-surface"
               id="dashboard-surface"
               data-testid="dashboard-surface"
@@ -563,52 +563,25 @@
               @ref="_surfaceElement"
               @onkeydown="OnSurfaceKeyDown"
               aria-label="Dashboard">
-            @if (DashboardTabsVisible)
-            {
-                @* Bare, so the strip and the panels sit directly in the landmark and
-                   the panel — not a wrapper — is the flex child the surface's scroll
-                   rule reaches. The list keeps the library's own class beside this
-                   surface's, so it takes the shared tab styling and only its place
-                   in the column from app.css. *@
-                <Tabs Bare="true"
-                      ListElement="nav"
-                      ListCssClass="tabs__list workspace-surface__tabs"
-                      ListTestId="dashboard-tabs"
-                      AriaLabel="Dashboard views"
-                      ActiveId="@DashboardTabId(ActiveDashboardTab)"
-                      ActiveIdChanged="ChooseDashboardTab">
-                    <TabPanel Id="@DashboardTabId(DashboardTab.Overview)"
-                              Title="Overview"
-                              BaseClass="workspace-surface__tabpanel"
-                              TabTestId="dashboard-overview-tab"
-                              TestId="dashboard-overview-tabpanel">
-                        @DashboardOverview
-                    </TabPanel>
-                    <TabPanel Id="@DashboardTabId(DashboardTab.Sessions)"
-                              Title="Sessions"
-                              BaseClass="workspace-surface__tabpanel"
-                              TabTestId="dashboard-sessions-tab"
-                              TestId="dashboard-sessions-tabpanel">
-                        <TitleContent>
-                            Sessions
-                            <FeatureStatusBadge Status="@FeatureStatusSlug(SessionFeatures.Sessions)"
-                                                Title="@FeatureStatusTitle(SessionFeatures.Sessions)"
-                                                TestId="sessions-feature-status" />
-                        </TitleContent>
-                        <ChildContent>
-                            @SessionsList
-                        </ChildContent>
-                    </TabPanel>
-                </Tabs>
-            }
-            else if (SessionsTabOffered)
-            {
-                @SessionsList
-            }
-            else
-            {
-                @DashboardOverview
-            }
+            <DashboardPane OnClose="CloseSurface"
+                           RepositoryAliases="@State.SelectedRepositoryAliases"
+                           RepositoryColour="@RepositoryColourFor" />
+        </main>
+    }
+    else if (SessionsVisible)
+    {
+        <main class="workspace-surface"
+              id="sessions-surface"
+              data-testid="sessions-surface"
+              tabindex="-1"
+              @ref="_surfaceElement"
+              @onkeydown="OnSurfaceKeyDown"
+              aria-label="Sessions">
+            <SessionsPane OnClose="CloseSurface"
+                          RepositoryScope="@State.SelectedRepositoryAliases"
+                          RepositoryAlias="@RepositoryAliasFor"
+                          RepositoryColour="@RepositoryColourFor"
+                          OnOpenTask="OpenPlanEntryAsync" />
         </main>
     }
     else
@@ -673,13 +646,6 @@
 
 @code {
     private WorkspaceSurface _surface = WorkspaceSurface.Workspace;
-
-    // Which of the Dashboard's views is in front. Kept when the surface closes,
-    // for the same reason the pane selection is: coming back to the dashboard is
-    // coming back to where the reader was, not to the first tab. It is written to
-    // the navigation file with the surface — see WorkspaceSurfaceNames — so a
-    // relaunch lands on it too.
-    private DashboardTab _dashboardTab = DashboardTab.Overview;
     private bool _aiExpanded;
     private GlobalPaneSelection _globalPanes = new();
     private double _devbookPanelWidthRem = SidePaneWidth.DefaultRem;
@@ -717,10 +683,10 @@
         // Reopen on the surface the reader was last looking at rather than
         // always defaulting to the workspace panes. An unrecognised or absent
         // value — first launch included — leaves the field defaults in place.
-        if (WorkspaceSurfaceNames.TryParse(ShellNavigation.LastSurface, out var restoredSurface, out var restoredTab))
+        if (Enum.TryParse<WorkspaceSurface>(ShellNavigation.LastSurface, out var restoredSurface)
+            && Enum.IsDefined(restoredSurface))
         {
             _surface = restoredSurface;
-            _dashboardTab = restoredTab;
         }
 
         // Same restore for which panes were open. This is what makes it survive
@@ -853,31 +819,20 @@
     /// <summary>Whether the dashboard is on screen. The same shape as
     /// <see cref="ToolsVisible"/>, and mutually exclusive with it by construction
     /// rather than by a rule written here: both read the one surface field.</summary>
-    private bool DashboardVisible => _surface == WorkspaceSurface.Dashboard && DashboardSurfaceOffered;
+    private bool DashboardVisible => _surface == WorkspaceSurface.Dashboard && DashboardOffered;
 
-    /// <summary>Whether the Dashboard surface has anything to show. Two features
-    /// share the surface — the overview is the Dashboard's and the session list is
-    /// Sessions' — so the surface exists while either does, and each tab answers
-    /// for itself below. The flag Sessions reads is its own, not the shell's,
-    /// because the pane is that context's too.</summary>
-    private bool DashboardSurfaceOffered => OverviewTabOffered || SessionsTabOffered;
+    private bool DashboardOffered => IsFeatureEnabled(DashboardFeatures.Dashboard);
 
-    private bool OverviewTabOffered => IsFeatureEnabled(DashboardFeatures.Dashboard);
+    /// <summary>Whether the session list is on screen. The same shape again, for
+    /// another context: the flag it reads is Sessions', not the shell's, because
+    /// the pane is that context's too.</summary>
+    private bool SessionsVisible => _surface == WorkspaceSurface.Sessions && SessionsOffered;
 
-    private bool SessionsTabOffered => IsFeatureEnabled(SessionFeatures.Sessions);
-
-    /// <summary>Whether there is a strip to draw: two tabs, or no strip.</summary>
-    private bool DashboardTabsVisible => OverviewTabOffered && SessionsTabOffered;
-
-    /// <summary>The tab in front, with the feature read first: a remembered
-    /// Sessions tab whose feature has since gone off shows the overview, and keeps
-    /// the field as it was for when the feature comes back.</summary>
-    private DashboardTab ActiveDashboardTab =>
-        _dashboardTab == DashboardTab.Sessions && !SessionsTabOffered ? DashboardTab.Overview : _dashboardTab;
+    private bool SessionsOffered => IsFeatureEnabled(SessionFeatures.Sessions);
 
     /// <summary>Whether the panes are on screen. Anything that is not a takeover
     /// is the workspace, including a surface whose feature has been switched off.</summary>
-    private bool WorkspaceVisible => !ToolsVisible && !DashboardVisible && !RoadmapVisible;
+    private bool WorkspaceVisible => !ToolsVisible && !DashboardVisible && !SessionsVisible && !RoadmapVisible;
 
     /// <summary>Whether the task list is in front of the reader — on screen in the
     /// workspace, not merely selected underneath a takeover. The GitHub check acts
@@ -885,10 +840,10 @@
     private bool TasksListOnScreen => WorkspaceVisible && TasksPaneVisible;
 
     /// <summary>Whether what is on screen can show several repositories at once:
-    /// the task list, or the Dashboard — both of its tabs take the whole scope.
-    /// Devbook reads one, and Tools reads none, so on those a chip is a single
-    /// select and the scope is kept to its anchor.</summary>
-    private bool RepositoryScopeTakesSeveral => TasksListOnScreen || DashboardVisible;
+    /// the task list, the Dashboard, or the session list. Devbook reads one, and
+    /// Tools reads none, so on those a chip is a single select and the scope is
+    /// kept to its anchor.</summary>
+    private bool RepositoryScopeTakesSeveral => TasksListOnScreen || DashboardVisible || SessionsVisible;
 
     /// <summary>Offered while the feature is on and there is an area to ask about.
     /// It used to be the task list alone; every area answers now, so the button
@@ -904,11 +859,6 @@
     /// workspace does — the panes left to right, then the takeovers — and only the keys a host actually composed a source for
     /// count, so a host without a Devbook source never offers a Devbook chip.
     /// </para>
-    /// <para>
-    /// The Dashboard surface is two areas because it is two contexts: the
-    /// overview is the Dashboard's content and the session list is Sessions'.
-    /// Which tab is in front decides which one is open, and never both.
-    /// </para>
     /// </summary>
     private IReadOnlyList<IAiContentSource> OpenAiAreas
     {
@@ -919,8 +869,8 @@
             if (TasksListOnScreen) keys.Add("tasks");
             if (WorkspaceVisible && DevbookPaneVisible) keys.Add("devbook");
             if (RoadmapVisible) keys.Add("roadmap");
-            if (DashboardVisible && ActiveDashboardTab == DashboardTab.Overview) keys.Add("dashboard");
-            if (DashboardVisible && ActiveDashboardTab == DashboardTab.Sessions) keys.Add("sessions");
+            if (DashboardVisible) keys.Add("dashboard");
+            if (SessionsVisible) keys.Add("sessions");
             if (ToolsVisible) keys.Add("tools");
 
             return [.. keys.Where(_aiSources.ContainsKey).Select(key => _aiSources[key])];
@@ -961,8 +911,8 @@
     private void ChooseAiScope(string areaKey) => _aiScope = areaKey;
 
     /// <summary>The reader opened an area, so it becomes the default scope. Called
-    /// from every gesture that opens one: the pane presses, the surface switch,
-    /// and the dashboard tab. Only opens count — closing a pane
+    /// from every gesture that opens one: the pane presses and the surface switch.
+    /// Only opens count — closing a pane
     /// says nothing about what the reader wants to ask about, and the fallback in
     /// <see cref="EffectiveAiScope"/> handles a scope that has since gone.</summary>
     private void RememberAiScope(string areaKey) => _aiScope = areaKey;
@@ -984,7 +934,7 @@
     /// in it. Each takeover keeps its own segment gated on its own feature, so this
     /// is the "is there a segment beyond Workspace" question and nothing more.</summary>
     private bool SurfaceSwitcherVisible =>
-        IsFeatureEnabled(DevPcFeatures.SystemTools) || DashboardSurfaceOffered || RoadmapPaneOptionVisible;
+        IsFeatureEnabled(DevPcFeatures.SystemTools) || DashboardOffered || SessionsOffered || RoadmapPaneOptionVisible;
 
     /// <summary>Whether the Roadmap option is offered at all. The same two-level
     /// split as <see cref="InboxPaneOptionVisible"/>: the feature decides whether
@@ -1031,7 +981,7 @@
 
             // Switched off is a real answer, not a failure: the area's key gates the
             // tab, so there is no pane for the reader to open.
-            answer = SessionsTabOffered
+            answer = SessionsOffered
                 ? DeliverySurfaceActivation.Available
                 : DeliverySurfaceActivation.Disabled;
         });
@@ -1042,6 +992,8 @@
     private void ToggleTools() => ToggleSurface(WorkspaceSurface.Tools);
 
     private void ToggleDashboard() => ToggleSurface(WorkspaceSurface.Dashboard);
+
+    private void ToggleSessions() => ToggleSurface(WorkspaceSurface.Sessions);
 
     private void ToggleRoadmap() => ToggleSurface(WorkspaceSurface.Roadmap);
 
@@ -1055,16 +1007,19 @@
         RememberSurface();
         KeepRepositoryScopeSingleWhereOnlyOneFits();
 
-        // Opening a takeover opens its area; the Dashboard's is whichever tab is
-        // in front. Returning to the workspace is not an open, and the scope the
-        // reader had there before is what the fallback returns to.
+        // Opening a takeover opens its area. Returning to the workspace is not an
+        // open, and the scope the reader had there before is what the fallback
+        // returns to.
         switch (_surface)
         {
             case WorkspaceSurface.Tools:
                 RememberAiScope("tools");
                 break;
             case WorkspaceSurface.Dashboard:
-                RememberAiScope(ActiveDashboardTab == DashboardTab.Sessions ? "sessions" : "dashboard");
+                RememberAiScope("dashboard");
+                break;
+            case WorkspaceSurface.Sessions:
+                RememberAiScope("sessions");
                 break;
             case WorkspaceSurface.Roadmap:
                 RememberAiScope("roadmap");
@@ -1081,40 +1036,9 @@
         KeepRepositoryScopeSingleWhereOnlyOneFits();
     }
 
-    /// <summary>The strip's press. The id is the enum name in lower case, which is
-    /// what <see cref="DashboardTabId"/> hands the strip; an id this build does not
-    /// know is ignored rather than guessed at.</summary>
-    private void ChooseDashboardTab(string id)
-    {
-        if (!Enum.TryParse<DashboardTab>(id, ignoreCase: true, out var tab) || !Enum.IsDefined(tab)) return;
-
-        _dashboardTab = tab;
-        RememberSurface();
-        RememberAiScope(tab == DashboardTab.Sessions ? "sessions" : "dashboard");
-    }
-
-    private static string DashboardTabId(DashboardTab tab) => tab.ToString().ToLowerInvariant();
-
     /// <summary>What the reader is looking at, written for the next fresh shell
-    /// instance. The tab travels with the surface, so a reader on the sessions
-    /// list reopens on the sessions list.</summary>
-    private void RememberSurface() =>
-        ShellNavigation.SetLastSurface(WorkspaceSurfaceNames.Name(_surface, ActiveDashboardTab));
-
-    /// <summary>The two Dashboard views, each written once. The surface renders one
-    /// of them inside a tab or on its own depending on how many are offered, and a
-    /// pane written twice in the markup would be two places to keep in step.</summary>
-    private RenderFragment DashboardOverview =>
-        @<DashboardPane OnClose="CloseSurface"
-                        RepositoryAliases="@State.SelectedRepositoryAliases"
-                        RepositoryColour="@RepositoryColourFor" />;
-
-    private RenderFragment SessionsList =>
-        @<SessionsPane OnClose="CloseSurface"
-                       RepositoryScope="@State.SelectedRepositoryAliases"
-                       RepositoryAlias="@RepositoryAliasFor"
-                       RepositoryColour="@RepositoryColourFor"
-                       OnOpenTask="OpenPlanEntryAsync" />;
+    /// instance by its enum name.</summary>
+    private void RememberSurface() => ShellNavigation.SetLastSurface(_surface.ToString());
 
     /// <summary>
     /// The Backlog entry a delivery run was started from, opened from the sessions
@@ -1709,7 +1633,7 @@
     /// </para>
     /// <para>
     /// The modifier counts only while what is on screen can show several — the task
-    /// list, or the Dashboard; see <see cref="RepositoryScopeTakesSeveral"/>. Without
+    /// list, the Dashboard, or the session list; see <see cref="RepositoryScopeTakesSeveral"/>. Without
     /// one of those there is nothing a second repository could be shown in, so the
     /// press is an ordinary one.
     /// </para>

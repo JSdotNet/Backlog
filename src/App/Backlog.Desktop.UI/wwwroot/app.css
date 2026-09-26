@@ -590,6 +590,17 @@ h1, h2, h3 {
     flex: 0 0 auto;
 }
 
+/* Sort by status: an act on the rows in view, not a filter. Sized to its label,
+   and dimmed when the view is already in order. */
+.filter-group--arrange {
+    flex: 0 0 auto;
+}
+
+.filter-group--arrange .chip:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
 .chip--summary {
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
@@ -4375,7 +4386,7 @@ h1, h2, h3 {
     overflow: hidden;
 }
 
-/* A takeover: the Roadmap, Tools or the Dashboard, filling everything below the header. The
+/* A takeover: the Roadmap, Tools, the Dashboard or Sessions, filling everything below the header. The
    panel inside owns the scrollbar rather than this landmark, so the header — and
    the control that closes the surface — can never be scrolled out of reach. */
 .workspace-surface {
@@ -4386,40 +4397,13 @@ h1, h2, h3 {
     overflow: hidden;
 }
 
-/* The panel is the scroll container whether it sits in the surface directly or
-   inside one of the Dashboard's tab panels: the tab panel below is the same kind
-   of column as the surface, so the rule reaches the same element either way. */
+/* The panel inside a takeover is the scroll container. */
 .workspace-surface > .tools-panel,
 .workspace-surface > .dashboard-panel,
-.workspace-surface > .sessions-panel,
-.workspace-surface__tabpanel > .dashboard-panel,
-.workspace-surface__tabpanel > .sessions-panel {
+.workspace-surface > .sessions-panel {
     flex: 1 1 auto;
     min-height: 0;
     overflow: auto;
-}
-
-/* The Dashboard's tab strip: Overview beside Sessions. The library's tabs__list
-   draws it; this only fixes it at the top of the column so the panel below takes
-   the rest, and lifts the bottom rule off the panel's own frame. */
-.workspace-surface__tabs {
-    flex: none;
-    margin-bottom: var(--spacing-sm);
-}
-
-/* One tab panel is on screen and the other carries `hidden`. Only the visible one
-   is made a flex column — display on both would override the attribute and put an
-   empty panel in the column beside the live one. */
-.workspace-surface__tabpanel:not([hidden]) {
-    display: flex;
-    flex-direction: column;
-    flex: 1 1 auto;
-    min-height: 0;
-}
-
-.workspace-surface__tabpanel:focus-visible {
-    outline: var(--border-width-2) solid var(--color-border-focus);
-    outline-offset: -2px;
 }
 
 /* The roadmap takeover. The view fills the surface, and the chart inside it owns the

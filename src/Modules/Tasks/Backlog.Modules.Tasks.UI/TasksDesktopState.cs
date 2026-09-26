@@ -1344,6 +1344,57 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
         Changed?.Invoke();
     }
 
+    /// <summary>True when sorting by status would move something the filters
+    /// show — the button is offered disabled rather than as a press that does
+    /// nothing.</summary>
+    public bool CanSortVisibleByStatus
+    {
+        get
+        {
+            var ranks = SortableVisibleRows().Select(row => StatusSortRank(row.PreviewStatus)).ToList();
+            return ranks.Zip(ranks.Skip(1)).Any(pair => pair.First > pair.Second);
+        }
+    }
+
+    /// <summary>
+    /// Re-ranks the rows the filters show by status — in progress, ready, draft,
+    /// done, archived — and keeps the hand-made order inside each status.
+    /// <para>
+    /// Only among the slots those rows already hold in the whole list: a row the
+    /// filters hide keeps its exact position, so narrowing the list and sorting it
+    /// never reshuffles work the reader cannot see. An unsaved draft stays put too;
+    /// it has no rank to write yet.
+    /// </para>
+    /// </summary>
+    public async Task SortVisibleByStatusAsync()
+    {
+        var visible = SortableVisibleRows().ToList();
+        if (visible.Count < 2 || !CanSortVisibleByStatus) return;
+
+        var slots = visible.Select(row => Rows.IndexOf(row)).Order().ToList();
+        var sorted = visible.OrderBy(row => StatusSortRank(row.PreviewStatus)).ToList();
+        for (var i = 0; i < slots.Count; i++)
+        {
+            Rows[slots[i]] = sorted[i];
+        }
+
+        await NormalizeOrderAsync();
+        ApplyFilter();
+        Changed?.Invoke();
+    }
+
+    private IEnumerable<EntryRow> SortableVisibleRows() =>
+        FilteredRows.Where(row => row.IsPersisted && !row.IsReadOnly);
+
+    private static int StatusSortRank(EntryStatus status) => status switch
+    {
+        EntryStatus.InProgress => 0,
+        EntryStatus.Ready => 1,
+        EntryStatus.Draft => 2,
+        EntryStatus.Done => 3,
+        _ => 4,
+    };
+
     // --- Sub-items -------------------------------------------------------
 
     /// <summary>Toggles a rendered checklist item directly from read mode. This

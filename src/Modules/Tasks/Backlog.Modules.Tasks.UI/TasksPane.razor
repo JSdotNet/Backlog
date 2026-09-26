@@ -248,6 +248,25 @@
                         }
                     </div>
 
+                    @* Not a filter either, so its own group beside the statuses it
+                       sorts by. It re-ranks only what the bar above leaves in view,
+                       among the slots those rows already hold — see
+                       TasksDesktopState.SortVisibleByStatusAsync. Disabled rather
+                       than hidden once the view is in order, so it never reads as a
+                       thing the list cannot do. *@
+                    <div class="filter-group filter-group--arrange">
+                        <AppButton BaseClass="chip chip--filter"
+                                   Variant="ButtonVariant.None"
+                                   TestId="sort-by-status"
+                                   Disabled="@(!State.CanSortVisibleByStatus)"
+                                   title="@(State.CanSortVisibleByStatus
+                                            ? "Move the tasks in view into status order: in progress, ready, draft, done, archived. Tasks the filters hide keep their place."
+                                            : "The tasks in view are already in status order.")"
+                                   OnClick="State.SortVisibleByStatusAsync">
+                            Sort by status
+                        </AppButton>
+                    </div>
+
                     @* The total the chips never gave: how much is open in the
                        repository scope, before any status, tag or scope narrows
                        it — the pool the chip counts are taken over, so pressing a
