@@ -40,10 +40,7 @@
                         {
                             <Badge Kind="">@node.Kind</Badge>
                         }
-                        @if (Chapter?.Metadata.Version is { Length: > 0 } version)
-                        {
-                            <Badge Kind="">@version</Badge>
-                        }
+                        <MetadataScalar Value="@Chapter?.Metadata.Version" Prefix="@MetadataScalar.VersionPrefix(Chapter?.Metadata.Version)"Title="@($"version: {Chapter?.Metadata.Version}")" />
                         <Badge Kind="">@DegreeSummary(node)</Badge>
                     </div>
 

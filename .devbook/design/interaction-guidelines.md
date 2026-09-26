@@ -24,6 +24,9 @@ automatically to the local canonical store first (local-first), then syncs.
 
 ### Save Timing and Debounce
 
+```meta
+```
+
 | Rule | Requirement |
 |---|---|
 | No save affordance | There MUST NOT be a Save button, menu item, or save-only keyboard gesture as the means of persistence. |
@@ -35,6 +38,9 @@ automatically to the local canonical store first (local-first), then syncs.
 
 ### Optimistic UI
 
+```meta
+```
+
 | Rule | Requirement |
 |---|---|
 | Immediate reflection | The UI MUST reflect the change instantly, before persistence completes. |
@@ -42,6 +48,9 @@ automatically to the local canonical store first (local-first), then syncs.
 | Rollback on failure | If a local write genuinely fails, the change MUST be visibly rolled back or flagged (never silently dropped) and surfaced via an error toast. |
 
 ### Save-State Indicator Vocabulary
+
+```meta
+```
 
 A single, always-visible save-state indicator communicates persistence. The
 vocabulary is **fixed and identical across all channels**.
@@ -72,6 +81,9 @@ built; see `#materialization`.
 
 ### Undo and History
 
+```meta
+```
+
 | Rule | Requirement |
 |---|---|
 | Undo always available | Because there is no save gate, **undo/redo** (Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z) MUST be available for content edits and for reorder actions. |
@@ -81,6 +93,9 @@ built; see `#materialization`.
 | Version history (optional) | Longer-term version/history browsing is a product feature `[TODO: clarify]`; at minimum session-level undo MUST exist. |
 
 ### Conflict Handling
+
+```meta
+```
 
 Aligns with the architectural rule: **new items always create; edits are
 last-write-wins** (`.devbook/arc42/08-crosscutting-concepts.md#storage-and-sync`).
@@ -109,6 +124,9 @@ affordance language and both with mandatory keyboard equivalents:
 
 ### Drag Affordances
 
+```meta
+```
+
 | Rule | Requirement |
 |---|---|
 | Visible handle | Each reorderable row/section MUST expose a drag handle using the `grip-vertical` icon at `icon-md`. On dense rows the handle MAY appear on hover/focus but MUST be reachable by keyboard. |
@@ -118,6 +136,9 @@ affordance language and both with mandatory keyboard equivalents:
 
 ### Drop Indicators
 
+```meta
+```
+
 | Rule | Requirement |
 |---|---|
 | Placeholder | During drag, a placeholder/insertion line MUST show the exact drop position, drawn in `color-primary` at `border-width-2`. |
@@ -125,6 +146,9 @@ affordance language and both with mandatory keyboard equivalents:
 | Nesting cue | For chapters, horizontal indentation of the insertion line MUST indicate the resulting heading depth (see nesting rules). |
 
 ### Reliable Drop Targets (Items)
+
+```meta
+```
 
 > The drag handle and the drop target are not the same hit area. A handle
 > sized for a dense row (`#drag-affordances`) is reliably graspable but too
@@ -140,6 +164,9 @@ affordance language and both with mandatory keyboard equivalents:
 
 ### Keyboard-Accessible Reordering
 
+```meta
+```
+
 Drag-and-drop alone is **not accessible**. A keyboard path is **mandatory** for
 both items and chapters.
 
@@ -153,6 +180,9 @@ both items and chapters.
 
 ### Autoscroll
 
+```meta
+```
+
 | Rule | Requirement |
 |---|---|
 | Edge autoscroll | Dragging near the top/bottom edge of a scrollable container MUST autoscroll toward that edge at a bounded speed. |
@@ -160,6 +190,9 @@ both items and chapters.
 | Keyboard scroll | Keyboard moves MUST keep the moving item scrolled into view. |
 
 ### Cross-Container Moves
+
+```meta
+```
 
 | Rule | Requirement |
 |---|---|
@@ -169,6 +202,9 @@ both items and chapters.
 
 ### Nesting / Indent Rules (Chapters)
 
+```meta
+```
+
 | Rule | Requirement |
 |---|---|
 | Depth reflects headings | A chapter's nesting depth maps to Markdown heading level (`#`=1 … `######`=6). Reordering/indenting MUST update the heading level of the moved section and MUST keep child sections' relative depth. |
@@ -177,6 +213,9 @@ both items and chapters.
 | Round-trip safe | The resulting document MUST round-trip losslessly to canonical Markdown. |
 
 ### Reorder × Auto-Save
+
+```meta
+```
 
 | Rule | Requirement |
 |---|---|
@@ -267,6 +306,9 @@ related: [".devbook/design/accessibility.md#focus-visibility"]
 
 ### Empty States
 
+```meta
+```
+
 | Rule | Requirement |
 |---|---|
 | Structure | Provide an `icon-xl`/`icon-2xl` illustration, a one-line explanation, and a primary CTA when the user can act. |
@@ -274,6 +316,9 @@ related: [".devbook/design/accessibility.md#focus-visibility"]
 | Copy | Calm, human copy; no dead ends. |
 
 ### Loading States
+
+```meta
+```
 
 | Rule | Requirement |
 |---|---|
@@ -284,6 +329,9 @@ related: [".devbook/design/accessibility.md#focus-visibility"]
 
 ### Error States
 
+```meta
+```
+
 | Level | Scope | Pattern |
 |---|---|---|
 | Page-level | Whole view unusable | Full-page error state with **Retry** + navigation escape (back/home). |
@@ -292,6 +340,9 @@ related: [".devbook/design/accessibility.md#focus-visibility"]
 | Field | Validation | Inline error below the field, linked via `aria-describedby`, color + text + icon. |
 
 ### Offline
+
+```meta
+```
 
 | Rule | Requirement |
 |---|---|

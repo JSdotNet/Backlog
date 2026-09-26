@@ -5,8 +5,8 @@ status: draft
 related: [".devbook/arc42/01-introduction-and-goals.md#quality-goals"]
 ```
 
-Refines the quality goals from chapter 01 into concrete, testable scenarios. Marked
-`draft` because target values are indicative and need validation against real usage.
+The chapter is marked `draft` because target values are indicative and need
+validation against real usage.
 
 ## Quality Scenarios
 

@@ -40,43 +40,31 @@ public sealed class DevbookPaneContextOverviewTests : IDisposable
         var component = harness.Render();
         component.WaitForAssertion(() => Assert.Equal(".domain/context-map.md", component.Find("[data-testid='domain-chapter-file'] .file-view__path").TextContent));
 
-        // No tabs while a chapter is open, which is the panel's own rule and stays
-        // one: the overview is what the pane shows *instead* of a chapter.
-        Assert.Empty(component.FindAll("nav[aria-label='Bounded contexts']"));
-
         MenuItem(component, "Tasks").Click();
 
-        component.WaitForAssertion(() => Assert.Single(component.FindAll("nav[aria-label='Bounded contexts']")));
-
-        // The folder the reader pressed is the context the overview opens on, and
-        // the tab row says so — not the first context the panel happened to load.
-        Assert.Equal("Tasks", component.Find("button.domain-context-tab[aria-pressed='true']").TextContent.Trim());
-        Assert.Single(component.FindAll("[data-testid='domain-context']"));
+        // The folder the reader pressed is the context the overview opens on —
+        // not the first context the panel happened to load.
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-context']")));
+        Assert.Equal("Tasks", ContextTitle(component));
         Assert.Empty(component.FindAll("[data-testid='domain-chapter-file']"));
     }
 
     [Fact]
-    public async Task Every_bounded_context_is_a_tab_and_the_context_map_is_the_first_of_them()
+    public async Task The_pane_draws_no_context_tabs_because_its_menu_already_lists_them()
     {
         await using var harness = CreateHarness();
 
         var component = harness.Render();
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file']")));
+        Assert.Empty(component.FindAll("nav[aria-label='Bounded contexts']"));
 
         MenuItem(component, "Tasks").Click();
-        component.WaitForAssertion(() => Assert.Single(component.FindAll("nav[aria-label='Bounded contexts']")));
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-context']")));
 
-        // The whole list, in the order the store built it, with the map ahead of
-        // the contexts. This row is the only screen in the product that shows the
-        // context list the devbook database answers with.
-        Assert.Equal(
-            ["Context map", "Sessions", "Tasks"],
-            component.FindAll("button.domain-context-tab").Select(tab => tab.TextContent.Trim()));
-
-        // And back to the map from the row itself, without going through the menu.
-        component.Find("button.domain-context-tab").Click();
-        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-document']")));
-        Assert.Single(component.FindAll("nav[aria-label='Bounded contexts']"));
+        // The row above the page repeated the menu beside it, name for name, and
+        // was removed for it. The standalone page keeps its row: it has no menu.
+        Assert.Empty(component.FindAll("nav[aria-label='Bounded contexts']"));
+        Assert.Empty(component.FindAll("button.domain-context-tab"));
     }
 
     [Fact]
@@ -88,7 +76,7 @@ public sealed class DevbookPaneContextOverviewTests : IDisposable
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file']")));
 
         MenuItem(component, "Tasks").Click();
-        component.WaitForAssertion(() => Assert.Single(component.FindAll("nav[aria-label='Bounded contexts']")));
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-context']")));
 
         component.Find("#tab-arc42").Click();
         component.WaitForAssertion(() => Assert.Equal("true", component.Find("#tab-arc42").GetAttribute("aria-selected")));
@@ -98,8 +86,8 @@ public sealed class DevbookPaneContextOverviewTests : IDisposable
         // Switching section runs the pane's "make sure something is selected" pass,
         // and a folder is something: without that, coming back would silently
         // replace the reader's overview with the context map chapter.
-        component.WaitForAssertion(() => Assert.Single(component.FindAll("nav[aria-label='Bounded contexts']")));
-        Assert.Equal("Tasks", component.Find("button.domain-context-tab[aria-pressed='true']").TextContent.Trim());
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-context']")));
+        Assert.Equal("Tasks", ContextTitle(component));
     }
 
     [Fact]
@@ -111,15 +99,20 @@ public sealed class DevbookPaneContextOverviewTests : IDisposable
         component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file']")));
 
         MenuItem(component, "Tasks").Click();
-        component.WaitForAssertion(() => Assert.Single(component.FindAll("nav[aria-label='Bounded contexts']")));
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-context']")));
 
         MenuItem(component, "Domain").Click();
 
         // The way out is the way in reversed. A chapter row selects a chapter, so
         // the overview is not a mode the reader can get stuck in.
         component.WaitForAssertion(() => Assert.Equal(".domain/tasks/domain.md", component.Find("[data-testid='domain-chapter-file'] .file-view__path").TextContent));
-        Assert.Empty(component.FindAll("nav[aria-label='Bounded contexts']"));
+        Assert.Empty(component.FindAll("[data-testid='domain-context']"));
     }
+
+    /// <summary>The overview's heading, which names the context it is showing now
+    /// that no tab is pressed to say so.</summary>
+    private static string ContextTitle(IRenderedComponent<DevbookPane> component) =>
+        component.Find("[data-testid='domain-context'] h3").TextContent.Trim();
 
     /// <summary>One menu row, by the label a reader reads. Matched on the row's own
     /// label span rather than on its text, because a folder row also carries a

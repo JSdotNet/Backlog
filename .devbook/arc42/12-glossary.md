@@ -4,10 +4,10 @@
 related: [".devbook/arc42/08-crosscutting-concepts.md#shared-data-types", ".devbook/domain/context-map.md"]
 ```
 
-Ubiquitous terms used across Prompt Backlog. Domain-specific vocabulary (bounded
-context names, aggregates, domain events) is owned by `.devbook/domain` — see
-`.devbook/domain/context-map.md` for the subdomain landscape and each
-`.devbook/domain/<context>/naming.md` for that context's canonical terms. This glossary
+Domain-specific vocabulary (bounded context names, aggregates, domain events) is
+owned by `.devbook/domain` — see `.devbook/domain/context-map.md` for the subdomain
+landscape and the `## Ubiquitous Language` section of a context's
+`.devbook/domain/<context>/domain.md` for that context's canonical terms. This glossary
 lists only system-wide architecture terms that don't belong to a single domain.
 
 ## Terms

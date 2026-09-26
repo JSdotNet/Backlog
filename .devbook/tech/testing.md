@@ -5,7 +5,7 @@ status: adopted
 related: [".devbook/tech/technology-graph.md", ".devbook/arc42/10-quality-requirements.md"]
 ```
 
-> How the solution is tested and validated. This layer is fully `adopted`: every
+> This layer is fully `adopted`: every
 > technology here runs on every pull request, either in `dotnet test` or in the
 > QA validation phase of an orchestration run.
 
@@ -19,7 +19,8 @@ depends-on: [".devbook/tech/shared.md#net-runtime", ".devbook/tech/shared.md#c-l
 related: [".devbook/tech/testing.md#microsofttestingplatform"]
 ```
 
-The unit-test framework for all eleven test projects.
+The unit-test framework for every test project, referenced once in
+`tests/Directory.Build.props`.
 
 - **Used for** — module, infrastructure, UI-component, and architecture tests.
   `Backlog.ArchitectureTests` uses it to enforce repository rules that no

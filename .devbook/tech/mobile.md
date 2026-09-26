@@ -39,14 +39,36 @@ related: [".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbo
 alternatives: ["SQLite"]
 ```
 
-JSON-backed on-device storage for captures made while offline.
+One SQLite file on the device, `SqliteDeviceStore` in `Backlog.Mobile.UI`, for
+work made while offline.
 
-- **Used for** — queuing captures and cached reads until the next sync flush.
+- **Used for** — the outbox of captures and tasks waiting for the next sync
+  flush, and the cached reads the phone draws before it asks the service.
 - **Why** — mobile is not canonical, so it only needs a durable queue plus a
-  cache, not the whole task database. `SQLite` stays the recorded alternative,
-  and it is now the desktop's canonical store
-  (`.devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md`), so adopting it
-  here would mean sharing an adapter rather than introducing a new dependency.
+  cache, not the whole task database; it keeps a schema of its own rather than
+  sharing the desktop's adapter.
+
+## SkiaSharp
+
+```meta
+status: adopted
+type: library
+version: "4.152.1"
+related: [".devbook/domain/capture/features.md#talk-note", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md"]
+alternatives: ["ImageSharp", "Android Bitmap plus a browser canvas"]
+```
+
+The image codec the phone downscales a talk note's pictures with, before they
+enter the outbox.
+
+- **Used for** — decoding a slide photo, resizing it to a 1600 px longest edge
+  and re-encoding it as JPEG; the EXIF orientation is carried over by hand and
+  everything else in EXIF is dropped.
+- **Why** — MIT-licensed, with the Android and Windows natives in the package,
+  so the MAUI head, the browser harness and the unit tests run the one codec
+  and the downscaler has one implementation a test can hold. ImageSharp's split
+  licence and a per-platform pair (Android `Bitmap` beside a browser canvas)
+  were the alternatives.
 
 ## Android SDK Build Tools
 

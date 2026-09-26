@@ -57,31 +57,8 @@ with the item whatever triage later decides.
 The Inbox Item aggregate has no owned child entities; `Tag`, `Routing Target`,
 `Source` and `Attachment` are value objects owned by the root.
 
-The rules the attachments are held to are `### Invariant:` chapters in
-[`domain.invariants.md`](domain.invariants.md#inbox-item). The item's older
-rules are still in the table below and have not moved there yet.
-
-### Invariants
-
-| Rule | Enforced at | Evidence |
-|---|---|---|
-| The original source link and `captured_at` are preserved unchanged for the life of the item. | constructor (neither has a setter) | `unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests.The_capture_instant_and_the_source_url_have_no_setter` |
-| Status only advances through the defined lifecycle (`unprocessed` → `triaged` → routed / deferred / archived). | `Defer()`, `Resurface()`, `Archive()`, `RouteToBacklog()` | `unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests.An_item_that_is_still_open_can_be_archived` |
-| A routing decision records exactly one `Routing Target`; a second routing is refused. | `RouteToBacklog()` | `unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests.Routing_happens_exactly_once` |
-| A routed item is never archived: routing is the terminal outcome of triage. | `Archive()` | `unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests.A_routed_item_cannot_be_archived` |
-| An archived item is never routed. | `RouteToBacklog()` | `unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests.An_archived_item_cannot_be_routed` |
-| A deferred item resurfaces as `unprocessed` when its `deferred_until` date is reached. | `Resurface()` | untested — the transition exists; nothing schedules it yet |
-| Every item has a `Content Kind`; `text` is the kind of an item nobody has looked at, and a kind this build does not know keeps its own word. | constructor, `SetKind()` | `unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests.An_unknown_kind_slug_survives_as_its_own_word` |
-| A `Source` person, when present, is a stored `@name` tag — the sigil is the whole of the difference from a general tag. | constructor; `ReceiveCapture` adds the `@` however the capture sent it | `unit:dotnet:Backlog.Modules.Inbox.UnitTests.ReceiveCaptureTests.A_capture_with_tags_and_a_person_files_both` |
-| A person is never a tag: a `@name` among the tags is refused. | `SetTags()` | `unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests.A_person_is_refused_as_a_tag` |
-| Tags are stored bare (no `#`) and de-duplicated by canonical name. | `SetTags()` | `unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests.Tags_are_stored_bare_and_deduplicated_by_name` |
-| Assigned repositories are distinct without regard to case. | `SetRepoIds()` | `unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests.Repositories_are_distinct_without_regard_to_case` |
-| Filing is not triage: `list_id` may change in any state, archived included. | `MoveToList()` | `unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests.Filing_is_allowed_in_every_state_including_archived` |
-| An item that arrived through sync carries the capture's own id. | constructor (`FromCapture`) | `unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests.A_replica_capture_keeps_the_captures_id` |
-| A capture's tags reach the item only through `SetTags()`, so they are stored bare and de-duplicated like any other. | `ReceiveCapture` | `unit:dotnet:Backlog.Modules.Inbox.UnitTests.ReceiveCaptureTests.A_capture_with_tags_and_a_person_files_both` |
-| A `@name` among a capture's tags is refused as a tag and does not become the person; intake still takes the rest of the capture rather than failing. | `ReceiveCapture` | `unit:dotnet:Backlog.Modules.Inbox.UnitTests.ReceiveCaptureTests.A_person_among_the_tags_is_refused_as_a_tag_and_the_capture_still_lands` |
-| On the replica, the capture's person travels as the one `@name` tag on its document; the sync service refuses any other tag that reads as a person. | `InboxEndpoints.OutOfBounds`, `TaskReplicaMerge.ToCapture` | `unit:dotnet:Backlog.Infrastructure.Sync.UnitTests.TaskReplicaMergeCaptureTests.A_captures_person_tag_arrives_as_its_person_and_its_body_as_its_body` |
-| A capture sent again with the same client id is the same capture: the service answers the stored one and writes no second document, and never brings an acknowledged one back. | `CaptureInboxItemCommandHandler` | `unit:dotnet:Backlog.Modules.Sync.Api.UnitTests.InboxCaptureEndpointTests.A_retry_with_the_same_id_answers_the_stored_capture_and_writes_nothing` |
+The rules the item and its attachments are held to are `### Invariant:`
+chapters in [`domain.invariants.md`](domain.invariants.md#inbox-item).
 
 ### Routing Target
 
@@ -224,9 +201,7 @@ aliases: [CaptureSource, source, channel]
 ```
 
 Origin of the item, mirrored from Capture as provenance: `mobile`, `youtube`,
-`website`, `email`, `web_clipper`, `ide`, `manual`, `import`. `manual` is the
-channel of an item typed straight into the desktop's Add dialog, and it is the
-one channel with no replica behind it. `import` is the channel of an item read
+`website`, `email`, `web_clipper`, `ide`, `manual`, `import`. `manual` is the channel of a [Capture (manual)](#capture-manual). `import` is the channel of an item read
 from an import manifest. It can arrive filed in the Inbox List the manifest
 names, but it is `unprocessed` like any other capture, because filing is not
 triage. A channel token nobody recognises is kept as written rather than folded
@@ -237,8 +212,9 @@ into a default.
 ```meta
 type: aggregate
 status: draft
-related: [.devbook/domain/inbox/domain.md#inbox-item, .devbook/domain/inbox/domain.md#inbox-group]
+related: [.devbook/domain/inbox/domain.md#inbox-item, .devbook/domain/inbox/domain.md#inbox-group, .devbook/domain/inbox/domain.invariants.md#inbox-list]
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.OrganizerTests]
+aliases: [InboxList, InboxListDto, list_id, inbox_lists]
 ```
 
 A named place a reader files waiting items — the leaf of the pane's side menu.
@@ -246,7 +222,8 @@ It has a `name`, an `order` among its siblings, and optionally the
 [Inbox Group](#inbox-group) it sits in. Its own small root rather than a child
 of the item: a list exists before anything is in it and after everything has
 left, and deleting one is a write across every item it held (each returns to
-the unfiled inbox) rather than a cascade.
+the unfiled inbox) rather than a cascade. The fixed **Inbox** entry above the
+lists in the side menu is not a list: it is the items whose `list_id` is empty.
 
 Lists are local-only organisation and are hard-deleted — tombstoning exists for
 documents that travel (`.devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md`)
@@ -256,21 +233,14 @@ the aggregate, which cannot see its siblings. A workspace with neither lists
 nor groups is seeded once with a default organiser (groups `Areas`, `Projects`,
 `Archive`; lists `Resources`, `Someday/Maybe`, `Updates`, `Wishlist`).
 
-### Invariants
-
-| Rule | Enforced at | Evidence |
-|---|---|---|
-| A list has a non-empty name, stored trimmed. | constructor, `Rename()` | `unit:dotnet:Backlog.Modules.Inbox.UnitTests.OrganizerTests.Renaming_trims_and_refuses_a_blank` |
-| Deleting a list returns every item it held to the unfiled inbox. | `DeleteList` command | `unit:dotnet:Backlog.Modules.Inbox.UnitTests.OrganizerTests.Deleting_a_list_returns_its_items_to_the_inbox` |
-| An item is only filed in a list that exists. | `MoveToList` command | `unit:dotnet:Backlog.Modules.Inbox.UnitTests.OrganizerTests.Filing_an_item_in_a_list_that_does_not_exist_is_refused` |
-
 ## Inbox Group
 
 ```meta
 type: aggregate
 status: draft
-related: [.devbook/domain/inbox/domain.md#inbox-list]
+related: [.devbook/domain/inbox/domain.md#inbox-list, .devbook/domain/inbox/domain.invariants.md#inbox-group]
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.OrganizerTests]
+aliases: [InboxGroup, InboxGroupDto, group_id, inbox_groups]
 ```
 
 A fold in the side menu that holds lists. It has a `name` and an `order`; the
@@ -278,13 +248,6 @@ membership is recorded on the list (`group_id`), not on the group, so a group
 is never the owner of what its lists hold. Local-only and hard-deleted, for the
 reasons `Inbox List` gives. Ungrouping moves the group's lists to the top level
 and then removes the group, so no list is ever deleted by deleting its group.
-
-### Invariants
-
-| Rule | Enforced at | Evidence |
-|---|---|---|
-| A group has a non-empty name, stored trimmed. | constructor, `Rename()` | `unit:dotnet:Backlog.Modules.Inbox.UnitTests.OrganizerTests.A_group_is_named_uniquely_and_renamed_under_the_same_rule` |
-| Removing a group never removes a list: its lists are moved to the top level first. | `UngroupLists` command | `unit:dotnet:Backlog.Modules.Inbox.UnitTests.OrganizerTests.Ungrouping_moves_the_lists_to_the_top_level_and_removes_the_group` |
 
 ## Triage
 
@@ -312,9 +275,7 @@ Two doors lead to Tasks and both end in the same `Routing Target`:
   its `source_inbox_id`. A failure from Tasks leaves the item unrouted.
 - **Create plan** asks an AI drafter for an import plan about the item
   (`.devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md`) and hands it to
-  Tasks' import. Every entry carries a plan tag unique to the item —
-  `{title-slug}-{last eight hex digits of the item id}` — so two items with one
-  title cannot clear each other's plan; the entries are born Draft whatever the
+  Tasks' import. Every entry carries the item's [Plan tag](#plan-tag), so two items with one title cannot clear each other's plan; the entries are born Draft whatever the
   plan says, because nobody has read them yet; and a plan naming a repository the
   item was not assigned is refused whole before Tasks sees it.
 
@@ -426,32 +387,6 @@ title and, optionally, notes that become the item's body. It becomes an
 `CaptureItemCommand` is the slice, `InboxEnumMap.ManualChannel` the token.
 Distinct from a `Capture` in the Capture context, which arrives from a device
 through sync.
-
-### List
-
-```meta
-type: term
-status: draft
-aliases: [InboxList, InboxListDto, list_id, inbox_lists]
-related: [.devbook/domain/inbox/domain.md#inbox-list]
-```
-
-A named place a reader files waiting items, shown as a leaf in the pane's side
-menu with a count of the open items it holds. The fixed **Inbox** entry above
-the lists is not a list: it is the items whose `list_id` is empty.
-
-### Group
-
-```meta
-type: term
-status: draft
-aliases: [InboxGroup, InboxGroupDto, group_id, inbox_groups]
-related: [.devbook/domain/inbox/domain.md#inbox-group]
-```
-
-A fold in the side menu that holds lists. Membership lives on the list
-(`group_id`); ungrouping moves the lists to the top level and removes the
-group.
 
 ### Plan tag
 
