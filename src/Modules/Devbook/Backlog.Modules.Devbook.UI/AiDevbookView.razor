@@ -5,14 +5,16 @@
     project develops with AI, one file per stage of its flow, each chapter rated
     on the `.tech` ladder. It is a flat folder of documents with `##` chapters,
     which is exactly the shape DocumentDevbookView draws, so this wrapper adds
-    nothing but the folder: the injection names the AI provider by type, and the
-    provider carries the folder. The same shape as DesignDevbookView, for the
-    same reason.
+    only the folder and its picture: the injection names the AI provider by type,
+    the provider carries the folder, and the DevOps loop (AiLoopView) is handed
+    in as the root's picture. Otherwise the same shape as DesignDevbookView, for
+    the same reason.
 *@
 <DocumentDevbookView Provider="@AiDevbook"
                      RepositoryAlias="@RepositoryAlias"
                      SelectedPath="@SelectedPath"
-                     OnNavigateToChapter="@OnNavigateToChapter" />
+                     OnNavigateToChapter="@OnNavigateToChapter"
+                     RootPicture="@LoopPicture" />
 
 @code {
     [Parameter]
@@ -26,4 +28,22 @@
     /// `depends-on` points; see <see cref="DocumentDevbookView.OnNavigateToChapter"/>.</summary>
     [Parameter]
     public EventCallback<DevbookChapterLink> OnNavigateToChapter { get; set; }
+
+    private IReadOnlyList<DocumentDevbookFile>? _loopFiles;
+    private AiLoop? _loop;
+
+    /// <summary>The folder drawn as the DevOps loop, in place of the adoption
+    /// map's hand-drawn diagram — the picture `devbook-ai.md` says the folder is
+    /// authored for. Read again only when the folder was re-parsed, which hands
+    /// over a new list.</summary>
+    private RenderFragment LoopPicture(IReadOnlyList<DocumentDevbookFile> files)
+    {
+        if (!ReferenceEquals(files, _loopFiles))
+        {
+            _loopFiles = files;
+            _loop = AiLoop.From(files);
+        }
+
+        return @<AiLoopView Loop="@(_loop!)" OnNavigateToChapter="@OnNavigateToChapter" />;
+    }
 }

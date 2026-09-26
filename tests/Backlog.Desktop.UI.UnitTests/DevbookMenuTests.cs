@@ -56,6 +56,31 @@ public sealed class DevbookMenuTests : IDisposable
     }
 
     [Fact]
+    public async Task Opens_a_bounded_context_on_its_context_md_without_a_context_child()
+    {
+        // context.md is the context's root document, so the context's own row is
+        // the way into it — the same role an index.md plays — and the rest of the
+        // context's files are its subpages.
+        var repo = TempDir();
+        Directory.CreateDirectory(Path.Combine(repo, ".domain", "capture"));
+        File.WriteAllText(Path.Combine(repo, ".domain", "context-map.md"), "# Context map");
+        File.WriteAllText(Path.Combine(repo, ".domain", "capture", "context.md"), "# Capture");
+        File.WriteAllText(Path.Combine(repo, ".domain", "capture", "domain.md"), "# Capture");
+        File.WriteAllText(Path.Combine(repo, ".domain", "capture", "requirements.md"), "# Requirements");
+
+        var settings = NewSettingsStore();
+        ConfigureRepository(settings, repo);
+
+        var tree = await new DevbookMenu(new DevbookFolderSource(settings)).LoadAsync(["domain"], cancellationToken: TestContext.Current.CancellationToken);
+
+        var domain = Assert.Single(tree.Roots);
+        var capture = Assert.Single(domain.Children, node => node.Kind == DevbookMenuNodeKind.Folder);
+        Assert.Equal("capture/context.md", capture.Path);
+        Assert.DoesNotContain(capture.Children, node => node.Path == "capture/context.md");
+        Assert.Equal(["capture/domain.md", "capture/requirements.md"], capture.Children.Select(node => node.Path));
+    }
+
+    [Fact]
     public async Task Marks_missing_configured_folders_unavailable_without_throwing()
     {
         var repo = TempDir();

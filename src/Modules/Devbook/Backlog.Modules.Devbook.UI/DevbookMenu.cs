@@ -197,15 +197,18 @@ public sealed class DevbookMenu(IDevbookFolderSource source)
                 .Select(path => (DiskPath: path, Node: new DevbookMenuNode(
                     Key(root, path),
                     Humanize(Path.GetFileName(path)),
-                    DirectoryNodePath(tree, root, path),
+                    DirectoryNodePath(tree, areaKey, root, path),
                     DevbookMenuNodeKind.Folder,
                     areaKey,
                     EnumerateChildren(tree, root, path, areaKey, outline, cancellationToken, includeAllFiles),
                     true)));
 
+            // The file the directory's own row opens is not listed again beneath it.
+            var isRoot = string.Equals(root, directory, StringComparison.OrdinalIgnoreCase);
+            var indexPath = isRoot ? null : IndexMarkdownPath(tree, areaKey, root, directory);
             var files = tree.EnumerateFiles(directory, includeAllFiles ? "*" : "*.md")
                 .Where(path => !Path.GetFileName(path).StartsWith('_'))
-                .Where(path => !IsIndexMarkdown(path) || string.Equals(root, directory, StringComparison.OrdinalIgnoreCase))
+                .Where(path => isRoot || (!IsIndexMarkdown(path) && !string.Equals(path, indexPath, StringComparison.OrdinalIgnoreCase)))
                 .Select(path => (DiskPath: path, Node: new DevbookMenuNode(
                     Key(root, path),
                     FileLabel(path),
@@ -404,18 +407,29 @@ public sealed class DevbookMenu(IDevbookFolderSource source)
         return node.Path;
     }
 
-    private static string DirectoryNodePath(IDevbookFileTree tree, string root, string directory)
+    private static string DirectoryNodePath(IDevbookFileTree tree, string areaKey, string root, string directory)
     {
-        var indexPath = IndexMarkdownPath(tree, directory);
+        var indexPath = IndexMarkdownPath(tree, areaKey, root, directory);
         return indexPath is null ? RelativePath(root, directory) : RelativePath(root, indexPath);
     }
 
-    private static string? IndexMarkdownPath(IDevbookFileTree tree, string directory)
+    /// <summary>
+    /// The file a directory's own row opens: its <c>index.md</c>, and for a
+    /// bounded context — a directory directly under <c>.domain</c> — its
+    /// <c>context.md</c> ahead of that. <c>context.md</c> is the context's root
+    /// document, so the context row is the way into it and every other file in
+    /// the context reads as one of its subpages.
+    /// </summary>
+    private static string? IndexMarkdownPath(IDevbookFileTree tree, string areaKey, string root, string directory)
     {
         try
         {
-            return tree.EnumerateFiles(directory, "*.md")
-                .FirstOrDefault(IsIndexMarkdown);
+            var files = tree.EnumerateFiles(directory, "*.md").ToList();
+            var isBoundedContext = string.Equals(areaKey, "domain", StringComparison.OrdinalIgnoreCase)
+                && string.Equals(Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(directory)), Path.TrimEndingDirectorySeparator(root), StringComparison.OrdinalIgnoreCase);
+
+            return (isBoundedContext ? files.FirstOrDefault(IsContextMarkdown) : null)
+                ?? files.FirstOrDefault(IsIndexMarkdown);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DirectoryNotFoundException)
         {
@@ -424,6 +438,8 @@ public sealed class DevbookMenu(IDevbookFolderSource source)
     }
 
     private static bool IsIndexMarkdown(string path) => string.Equals(Path.GetFileName(path), "index.md", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsContextMarkdown(string path) => string.Equals(Path.GetFileName(path), "context.md", StringComparison.OrdinalIgnoreCase);
 
     private static string Key(string root, string path) => RelativePath(root, path).Replace('\\', '/').ToLowerInvariant();
 

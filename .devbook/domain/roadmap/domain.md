@@ -12,29 +12,14 @@ status: draft
 > `value-object`, and `enum`. Value Objects/Enums shared across multiple
 > aggregates get their own chapter at the end instead of being duplicated.
 
-Roadmap Planning owns the forward plan: what is intended to happen, when, in
-which order, and what is waiting on what. It is the context where priorities are
-decided across projects rather than inside one of them, and it is the only
-context that holds a dependency between two pieces of planned work.
-
-It is deliberately **not** a view over
-[Tasks](../tasks/domain.md#task). A plan has to be
-able to contain work that has not been refined into a task yet — that is most
-of what planning is — so the plan is stored in its own right, and a Roadmap Item
-may optionally name the task that executes it. What Roadmap does not own is
-execution: a Roadmap Item has no status of its own, and progress is read from the
-linked Task when there is one. Tasks remains the authority
-for task status and task priority; Roadmap Planning is the authority for
-planning priority and sequence. The same division holds for size: the effort an
-item reports is **totalled** here but **registered** elsewhere — the story points
-live on the Tasks and knowledge chapters the item gathers, and Roadmap
-reads and adds them without owning a single one.
-
-Plans are scoped to repositories. Every Roadmap Item names zero or more
-repositories from the
-[Repository Registry](../repository-management/domain.md#repository-registry)
-by alias, which is what makes a portfolio-wide plan readable as a set of
-per-repository bands rather than one undifferentiated list.
+What Roadmap Planning owns and what it leaves to Tasks and Devbook is in
+[context.md](context.md). The plan is stored in its own right rather than as a
+view over [Tasks](../tasks/domain.md#task), because it has to hold work that has
+not been refined into a task yet; a Roadmap Item may name the task that executes
+it. Every item names its repositories from the
+[Repository Registry](../repository-management/domain.md#repository-registry) by
+alias, which is what makes a portfolio-wide plan readable as per-repository bands
+rather than one undifferentiated list.
 
 ## Roadmap Plan
 
@@ -135,7 +120,7 @@ endpoint — and, now, as the tag other contexts file work under — which is wh
 id is stable across every reschedule.
 
 An item gathers the work it stands for in **two different ways**, and the
-difference is worth stating because it decides what can safely be unpicked later.
+difference decides what can safely be unpicked later.
 It gathers by **name**: the one `Task Link` it may hold, and the
 `Knowledge Ref`s it lists, are references it wrote down outright. And it gathers
 by **tag**: every Task filed under its `Roadmap Tag`, and every knowledge
@@ -149,14 +134,10 @@ look like a one-thread hold and invite deleting the reference that was actually
 load-bearing.
 
 Over everything it gathers — named or tagged, each counted once — the item reports
-its **total registered effort**: plain arithmetic over the story points that were
-actually registered, with no inference and no estimate invented for anything that
-registered none. It reports, alongside the total, **how many gathered things
-registered no estimate**, because a total that silently dropped unestimated work
-would read as smaller than the work in front of the person actually is. The item
-owns none of these values — the effort lives on the Tasks and the
-knowledge chapters, registered by Tasks and Devbook — and the
-item only reads and adds. The gathering and the totalling are done by
+its [total registered effort](#effort), with the count of gathered things that
+registered no estimate beside it, because a total that silently dropped
+unestimated work would read as smaller than the work in front of the person
+actually is. The item owns none of these values; it only reads and adds. The gathering and the totalling are done by
 [Roadmap Item Gathering](#roadmap-item-gathering), because neither
 answer is in the item's own state.
 
@@ -311,9 +292,7 @@ same way on purpose. The reference may **dangle** — the chapter can be moved,
 renamed, or deleted while the plan still points at where it was — and a dangling
 ref reads as unresolved rather than as an error. The plan never reads through it
 to decide anything about itself; it holds the ref and resolves it only when a
-reader asks. Validation and repair are deliberately not done, exactly as the
-`Task Link` is already left to dangle, because a plan that refused to
-hold a reference to something temporarily missing would lose the intent the
+reader asks. A plan that refused to hold a reference to something temporarily missing would lose the intent the
 reference recorded.
 
 ### Planning Priority
@@ -355,15 +334,12 @@ related: [.devbook/domain/roadmap/domain.md#roadmap-plan]
 
 Answers the questions that are about the graph rather than about any one node:
 the order the dependencies imply, which nodes are reachable from which, and where
-the plan **contradicts itself** — a successor whose window opens before its
-predecessor's closes, or an item scheduled to finish after a milestone it is
-supposed to land before.
+the plan holds a [Contradiction](#contradiction).
 
-A contradiction is reported, never corrected. A plan is allowed to be temporarily
-wrong: that is how a person discovers a date does not fit, and silently shifting
-the dependent work would hide exactly the fact worth seeing. Cycle rejection is
-different, and stays an invariant on the root — a cycle is not a plan that is
-wrong about dates, it is not a plan at all.
+It reports a contradiction and never corrects it. A plan is allowed to be
+temporarily wrong: that is how a person discovers a date does not fit, and
+silently shifting the dependent work would hide exactly the fact worth seeing.
+Cycle rejection is not this service's: it stays an invariant on the root.
 
 It is a service because every one of these answers needs the whole graph rather
 than one node's own state. Invocation semantics: query/composition-oriented, and
@@ -393,7 +369,7 @@ path.
 ```meta
 type: domain-service
 status: draft
-related: [.devbook/domain/roadmap/domain.md#roadmap-plan, .devbook/domain/tasks/domain.md#task, .devbook/domain/devbook/domain.md#knowledge-note]
+related: [.devbook/domain/roadmap/domain.md#roadmap-plan, .devbook/domain/tasks/domain.md#task, .devbook/domain/devbook/domain.md#knowledge-note, .devbook/domain/sessions/domain.md#agent-session]
 ```
 
 Assembles, for one Roadmap Item, everything it reaches across Tasks
@@ -412,11 +388,9 @@ supplier degrades a total, it does not corrupt a plan.
 Two things about the arithmetic are deliberate. A thing reached **both** by a
 named reference and by the tag is counted **once**, and carried in the result as
 having been reached both ways, so a reader can tell a two-thread hold from a
-one-thread one before removing a link. And the total is **only** over story points
-that were actually registered: nothing is inferred for an unestimated thing, and
-the count of gathered things that registered no estimate is reported next to the
-total rather than folded into it, because a number that quietly dropped the
-unestimated work would understate it.
+one-thread one before removing a link. And the total is the
+[total registered effort](#effort), with the unestimated count reported next to
+it rather than folded into it.
 
 Each gathered thing is carried with **how far along it is** and **what else in the
 same gathering it waits on**, so the item can be read as a sequence of steps and not
@@ -443,8 +417,11 @@ was created. From those the item reads two more things, and only when every back
 entry it gathered is done — a knowledge chapter is not asked, because it has no work
 to finish: that the item is **finished**, and the stretch its work actually ran, from
 the earliest start to the latest tick. An entry with no start, because it predates
-the stamp, counts from the day it was created; when no entry was ticked, there is no
-actual end and the planned one stands. Nothing is stored: like progress, the actual
+the stamp, counts from the day the first AI session linked to it began, and failing
+that from the day it was created. A finished entry nobody ticked ends the day the last
+session linked to it ended — a session never ends open work. The entry's own dates
+always win over its sessions'. When no entry was ticked and no session dates the end,
+there is no actual end and the planned one stands. Nothing is stored: like progress, the actual
 stretch is read off the gathering each time, and the Planned Window is left as it
 was.
 

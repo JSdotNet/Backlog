@@ -34,8 +34,7 @@ status: draft
   service — Roadmap reads it when gathering by tag, and a slug matching no current
   item is harmless. It is a different concept from a `Tag`, which is this context's
   own discovery `#keyword`.
-- `.brain/` folders exist at workspace, project, and repo scope; cross-scope
-  aggregation is by discovering all `.brain/` folders, not by a shared store.
+
 - A repository's knowledge folders are read **in place and never owned**: they
   belong to the repository, are edited outside this context, and any prepared view
   over them is derived, kept outside the repository, and must give way to the

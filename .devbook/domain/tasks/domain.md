@@ -28,10 +28,8 @@ multiple repositories. Invariants: status only moves through the defined
 lifecycle; all mutations to sub-items, projection references, AI work log events, and usage events go through the root; parent progress reflects sub-item completion; projections are created on `Ready → In Progress` (`TaskProjected`, one per `repo_id`) and closed on completion (`TaskCompleted`). A manually created task starts at `draft` with no `source_inbox_id`.
 
 The task also carries two attributes that place it in the person's own working
-set rather than in any external system: `area`, a free-form string ("repos",
-"projects", "inbox", or whatever vocabulary the person actually uses) that files
-the task into a self-chosen grouping — blank is normalized to unfiled, and the
-taxonomy is deliberately theirs, not a fixed enum; and `order`, a manual rank used
+set rather than in any external system: `area`, its [Area](#area), with blank
+normalized to unfiled; and `order`, a manual rank used
 to hand-sequence tasks within the backlog (tasks that have never been ranked
 share the default and fall back to recency). Both are freely re-settable and
 carry no lifecycle invariant of their own. Both are also aggregate state rather
@@ -41,41 +39,24 @@ would quietly revert on the other device.
 
 Beyond that working-set placement the task carries four scheduling attributes,
 all optional and none of them load-bearing for the lifecycle. `due_on` is the
-calendar date the task is committed to - a date rather than an instant, because
-"due Friday" is a commitment to a day and an instant would move the deadline
-whenever the device changed timezone. `remind_at` is a local date and time the
-person asked to be reminded at, held as wall-clock intent with no zone: a
-reminder set for 09:00 is a reminder for 09:00 wherever they are when it
-arrives. A reminder whose time has passed is overdue, which is derived by
-comparison rather than stored, and delivery sits deliberately outside the
+task's [Due Date](#due-date). `remind_at` is its [Reminder](#reminder); overdue
+is derived by comparison rather than stored, and delivery sits outside the
 aggregate - the task records that a reminder was wanted, not that one was sent.
 `recurrence` says the task repeats and is described by the `Recurrence` value
-object. `in_my_day_on` is the date the person picked this task for their day:
-the task is in My Day exactly when that date is the reader's current local
-date, so the decision expires by arithmetic rather than by a timer and needs no
-clock, timezone or background sweep to retire it. My Day is not a due date - one
-is a commitment, the other is this morning's choice about what to look at.
-`completed_on` is the day the person ticked the task off, or unset while it is
-still on their list. It is deliberately not the same fact as `status`: `done`
-and `archived` say the work is over, the tick says the person has dealt with
-the task, and the two are recorded separately so that finished work can sit on
-the open list until they have looked at it. The tick carries no invariant -
-any status can be ticked, and unticking clears the date and changes nothing
-else. The list's checkbox writes two facts at once: ticking a task not yet in
-an end state through it also sets `done`, because a person who ticks something
+object. `in_my_day_on` is the date behind [My Day](#my-day).
+`completed_on` records that the task is [Completed](#completed). It is kept
+apart from `status` - `done` and `archived` say the work is over, the tick says
+the person has dealt with the task - so that finished work can sit on the open
+list until they have looked at it, and it carries no invariant. The list's
+checkbox writes two facts at once: ticking a task not yet in an end state through it also sets `done`, because a person who ticks something
 off has finished the work. That is the checkbox's choice, not a rule on the
-task - a `completed:` token typed into the text moves no status. What "finished" means anywhere else in this context - the list's
-Completed section, tag counts, dependency readiness, the next occurrence of a
-repeat - is the tick, never the status.
+task - a `completed:` token typed into the text moves no status.
 
-`started_on` is its counterpart at the other end of the work: the day the task
-first moved to `in_progress`, or unset while it never has. The task stamps it
-itself, from the local date, on the first transition into `in_progress` -
-whether a lifecycle step or a status set from the text - and never moves it
-afterwards: pausing back to `ready` and starting again, or reopening a `done`
-task, keeps the first day, because the question it answers is when the work
-began. Like the tick it is a date and not a status value, and it carries no
-invariant beyond that stamp. It is written on the metadata line as a
+`started_on` records that the task is [Started](#started). The task stamps it
+from the local date on the first transition into `in_progress` - whether a
+lifecycle step or a status set from the text - and pausing back to `ready` or
+reopening a `done` task keeps the first day. It carries no invariant beyond that
+stamp. It is written on the metadata line as a
 `started:` token just before `completed:`; a token typed there sets the date,
 and deleting it clears the date - a task still `in_progress` is stamped with
 today again on that save. Work that was already under way before the stamp
@@ -83,15 +64,11 @@ existed has none until its next transition into `in_progress`. Nothing in this
 context reads it; it is recorded for the roadmap, which draws a finished plan
 from its first task's start to its last task's tick.
 
-`depends_on` lists the tasks this one waits on. A list rather than a single
-predecessor, because a step that needs two things finished before it can start
-is the ordinary case and asking which of the two is the real predecessor is a
-question with no answer. The tasks are named by id and held as plain
-identifiers, the same rule `repo_ids` follows: every `Task` is its own
-aggregate root, so a dependency is a weak reference across a boundary rather
-than an object graph. An id naming no task the reader can see still blocks -
-dropping it would let a chain claim to be ready when the step it waits on is
-merely missing from view, which is the one failure that looks exactly like
+`depends_on` lists the task's [Dependencies](#dependency), held as plain
+identifiers, the same rule `repo_ids` follows: every `Task` is its own aggregate
+root, so there is no object graph between them. An id naming no task the reader
+can see blocks because dropping it would let a chain claim to be ready when the
+step it waits on is merely missing from view, which is the one failure that looks exactly like
 success. `Readiness` is derived from this list on every read and never stored.
 
 Dependency cycles are surfaced rather than prevented, and there is deliberately
@@ -158,41 +135,26 @@ The bare slug, which is how the
 the roadmap's spelling; the sigil is lifted at that boundary and nowhere here
 (`.devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md`).
 
-The task also carries an optional `effort`: a size estimate in **story points**,
-held as a non-negative integer. It is deliberately three-valued at the edges.
-Absent or `null` means "not estimated"; `0` is a real estimate that happens to
-contribute nothing; and a negative number is not an estimate at all and is
-rejected by the model. Story points size the work, they do not measure the time
-spent on it — a task that took an afternoon and one that took a week can carry
-the same estimate if they were the same size of problem, and the number does not
-change because the clock did.
-
-It is explicitly expected that an AI agent will often derive the estimate from the
-task's own content rather than a person typing one in, but that changes nothing
-about what it is: derived or hand-set, it stays an estimate and is revised as the
-understanding of the work changes. The deriving itself is not built here — this is
-the point at which the value becomes registrable and visible; calculating it comes
-later, and the model is deliberately indifferent to which of the two put the number
-there. The estimate is Tasks's to hold: Roadmap Planning reads and
-totals it (see [Roadmap Item Gathering](../roadmap/domain.md#roadmap-item-gathering))
-but never registers or owns it.
+The task also carries an optional `effort`, its [Effort](#effort); the model
+rejects a negative number. Deriving the estimate is not built here - this is the
+point at which the value becomes registrable and visible - and the model is
+indifferent to whether a person or an AI agent put the number there. Roadmap
+Planning totals it through
+[Roadmap Item Gathering](../roadmap/domain.md#roadmap-item-gathering).
 
 Two attributes exist so the same task can live on more than one of the person's
 machines. `updated_at` is the moment the task last changed, in UTC, restamped by
 the device on every mutation — including a change to `order` or `area`, which is
-what makes those travel; `deleted_at` marks a task as deleted without removing
-it. Neither carries a lifecycle invariant of its own, and neither is ever set by
+what makes those travel; `deleted_at` makes the task a [Tombstone](#tombstone).
+Neither carries a lifecycle invariant of its own, and neither is ever set by
 hand.
 
 They are here rather than in the storage adapter because reconciliation is a
 domain rule, not a persistence detail. When the same task is edited on two
 machines the later edit wins whole — see
 [Multi-device sync](features.md#multi-device-sync) — and "later" is a question
-only the task itself can answer. A deletion has the same problem in sharper form:
-a task that is simply gone from one machine is indistinguishable from one that
-machine has never seen, so deletion has to leave something behind to travel.
-`deleted_at` is that something, and a task carrying it is gone as far as every
-read is concerned.
+only the task itself can answer. A deletion has the same problem in sharper
+form, which is why it leaves a [Tombstone](#tombstone).
 
 The task is the single source of truth **on the device that holds it**. Where a
 second device holds its own copy, the two reconcile with each other; the cloud
@@ -414,9 +376,10 @@ task with its own lifecycle.
 
 Invocation semantics: called synchronously by the use case that completes the
 task. Deliberately not an event-triggered policy, unlike `Projection` — this
-context publishes no domain events yet, and ADR 0006 rejected putting a mediator
-behind its handlers on the grounds that a caller which already knows the use case
-it means gains nothing from the indirection. `OccurrenceSpawned` below is
+context publishes no domain events yet, and guideline ADR 0006
+([Lightweight CQRS, no mediator](../../arc42/adr/guidelines/0006-cqrs-for-api-projects.md))
+rejected putting a mediator behind its handlers on the grounds that a caller
+which already knows the use case it means gains nothing from the indirection. `OccurrenceSpawned` below is
 therefore documented rather than emitted, alongside the other events of this
 context, until there is machinery to carry it. Nothing about the spawn waits on
 that machinery: the successor is created either way, and what an event would add
@@ -747,8 +710,9 @@ related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/roadmap/domain.m
 The size of a Task in **story points**: a non-negative integer, optional,
 and three-valued at the edges — absent means "not estimated", `0` is a real
 zero-point estimate, and a negative is rejected. It sizes the work, not the time
-spent on it, and is an estimate however it was arrived at: often derived by an AI
-agent from the task's content, always revisable, and never a measurement.
+spent on it, and is an estimate however it was arrived at, whether set by hand
+or derived by an AI agent from the task's content: always revisable, and never a
+measurement.
 Registered here and owned here; Roadmap Planning reads and totals it but never
 sets it.
 
@@ -784,7 +748,7 @@ related: [.devbook/domain/roadmap/domain.md#roadmap-plan, .devbook/domain/tasks/
 [Roadmap Plan](../roadmap/domain.md#roadmap-plan) in Roadmap Planning, which
 owns a stored plan rather than presenting a view over tasks.
 
-What holds inside this context is narrower, and is the half worth keeping: a
+What holds inside this context is narrower: a
 Task's status and execution priority are **not** owned by the roadmap.
 A plan may name a task by id and read its progress; it never writes to it.
 ### Device

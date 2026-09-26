@@ -6,12 +6,19 @@ goal: "Return a story-point estimate off the 1/2/3/5/8/13/21 scale for each unit
 
 # Estimate Work
 
-Size each unit against finished work, never on its own. The reference table below is
-Backlog's own landed work; the scale and what comes back are fixed by the wrapper's goal.
+Size each unit against finished work, never on its own. Every row in the reference table
+below is a Backlog pull request that has landed.
 
-Points size work — the amount, the uncertainty, the number of places touched — never time. A
-caller divides them by a pace it measures, which only works while a 3 means the same thing in
-every plan.
+Points measure work: how much there is, how uncertain it is, and how many places it touches.
+They never measure time.
+
+The main caller is `backlog-import-plan`. It sends every drafted step of a plan in one call
+and writes the points back unchanged as each entry's `effort:`. The Roadmap then divides
+open `effort:` by a pace it measures (see `.devbook/domain/roadmap/context.md`). That only
+works while a 3 means the same thing in every plan.
+
+- A `task` or `test` step is sized by the person's work, on the same table.
+- A plan's sign-off task is always `effort:1`, and is not sent here.
 
 A **place** here is one of: a module layer (`Abstractions`, domain, `Infrastructure.*`, `UI`),
 an app head (desktop, mobile, VS Code extension, sync service), a devbook chapter or ADR, a
@@ -33,7 +40,7 @@ head, carries more than its diff suggests.
 Known drift, from estimates made before this table existed: these were sized too small, and
 are not references. [#603](https://github.com/JSdotNet/Backlog/pull/603) (Register Backlog's own
 MCP server from the Tools pane) and [#600](https://github.com/JSdotNet/Backlog/pull/600)
-(Forward hook telemetry to the delivery run) were estimated 3 and landed at the size of the 8
+(Forward a session's hook telemetry to the delivery run it is driving) were estimated 3 and landed at the size of the 8
 row; [#578](https://github.com/JSdotNet/Backlog/pull/578) was estimated 8. The common cause: a
 new dependency or a new host counted as one place.
 

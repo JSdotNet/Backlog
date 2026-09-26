@@ -3,6 +3,8 @@
 ```meta
 status: draft
 type: context
+deployment: module
+related: [.devbook/arc42/05-building-block-view.md#desktop-app]
 ```
 
 Roadmap Planning owns the forward plan — what is intended to happen, when, in
@@ -16,8 +18,7 @@ a plan's length is drawn from when the plan states no due date.
 Outside it: execution and task status, which [Tasks](../tasks/domain.md#task)
 answers, and the registered effort a plan totals but never owns, which lives on
 the Tasks and [Devbook](../devbook/domain.md#knowledge-note) chapters an item
-gathers. The model itself is in [domain.md](domain.md), which stays this
-context's root document until the devbook contract v6 layout lands.
+gathers. The model itself is in [domain.md](domain.md).
 
 ## Story points a week
 

@@ -5,8 +5,9 @@ status: trial
 type: stage
 ```
 
-> How an approved change reaches `main`, and how the repository is looked after between
-> changes.
+> How an approved change reaches `main`, and how a production failure finds its way back
+> into the loop. The runs that look after the repository on a cadence are in
+> `05-unattended-runs.md`.
 
 ## Merge-ready and CI repair
 
@@ -14,37 +15,19 @@ type: stage
 status: trial
 type: skill
 stage: [release]
-depends-on: [".devbook/tech/ai-development.md#agent-skills"]
+depends-on: [".devbook/tech/ai-development.md#delivery-engine"]
+related: [".devbook/ai/03-test.md#personal-validation-gate"]
 date: 2026-09-25
 ```
 
-An agent brings an open pull request to merge-ready: it updates the branch, repairs failing
-checks, and answers review findings, through the delivery engine's `pr-merge-ready` and
-`fix-pr-checks` skills.
+An agent brings an open pull request to merge-ready: it brings the branch level with `main`,
+repairs failing checks, and answers review findings, through the delivery engine's
+`pr-merge-ready`, `update-pr-branch`, and `fix-pr-checks` skills.
 
 - **Used for** — pull requests left red by a flaky runner or a moved base.
 - **Adopted by** — the repository owner, on demand.
 - **Evidence** — none recorded yet.
-- **Limits** — it never merges; auto-merge stays the owner's decision.
-
-## Scheduled routines
-
-```meta
-status: candidate
-type: workflow
-stage: [operate, monitor]
-depends-on: [".devbook/tech/ai-development.md#claude-code-plugins"]
-date: 2026-09-25
-```
-
-Recurring unattended runs from `delivery-schedule` — an issue sweep, reviews, a devbook
-validation — each running one `schedule-*` entry point in a cloud session on a cadence.
-
-- **Used for** — to be decided when the routines are set up.
-- **Adopted by** — nobody yet.
-- **Evidence** — none yet.
-- **Limits** — a routine never runs a `flow-*` skill: a flow ends at a gate no unattended
-  run can pass.
+- **Limits** — it never merges; merging and auto-merge stay the owner's decision.
 
 ## Alerts to work items
 
@@ -52,7 +35,7 @@ validation — each running one `schedule-*` entry point in a cloud session on a
 status: candidate
 type: skill
 stage: [monitor]
-depends-on: [".devbook/tech/ai-development.md#agent-skills"]
+depends-on: [".devbook/tech/ai-development.md#delivery-engine"]
 date: 2026-09-25
 ```
 
@@ -60,7 +43,7 @@ Application Insights exceptions become tracker work items through the delivery e
 `sre-alerts-to-work-items`, so a production failure enters the loop at `plan`.
 
 - **Used for** — to be decided.
-- **Adopted by** — nobody yet; the nightly exception workflow fails preflight on missing
-  environment variables.
+- **Adopted by** — nobody yet; the nightly exception workflow fails its preflight because
+  the `backlog-sync` GitHub environment has no variables.
 - **Evidence** — none yet.
 - **Limits** — it files items; it never fixes them.

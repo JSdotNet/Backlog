@@ -16,9 +16,7 @@ Outside it: task work, repository state, and completion decisions, which
 [Tasks](../tasks/domain.md#task) and
 [Repository Management](../repository-management/domain.md#repository-registry)
 answer; agent session facts, which
-[Sessions](../sessions/domain.md#session-log) answers. The model itself is in
-[domain.md](domain.md), which stays this context's root document until the
-devbook contract v6 layout lands.
+[Sessions](../sessions/domain.md#session-log) answers. The model itself is in [domain.md](domain.md).
 
 ## Working week
 
@@ -117,24 +115,26 @@ Set and cleared on the settings screen; clearing removes the file and hands the
 week back to detection. Stored per device beside the working week, with the same
 `scope: user` caveat.
 
-## usage-metrics
+## AI usage metrics
 
 ```meta
 status: draft
 type: feature-flag
 key: usage-metrics
+default: off
 related: [".devbook/domain/productivity/features.md#ai-vendor-usage-import"]
 ```
 
-Decided at release, from configuration. Name the switch in business language, and say who owns the rollout, what turning it on changes, and when the flag is retired.
+Turning it on reads Claude and GitHub Copilot usage from their organization APIs as evidence for the productivity figures. Both sources are organization-scoped — Claude needs an API key an organization admin can use, GitHub needs organization-owner access — which is why it ships off. Marked `DEV`. The settings screen lists it from the feature catalog in `AppFeatures.cs`, and a person's choice is kept in `features.json` beside the app's other per-device choices. It is retired when the import is released and the credentials, not the switch, decide whether it runs.
 
-## dashboard
+## Dashboard
 
 ```meta
 status: draft
 type: feature-flag
 key: dashboard
+default: on
 related: [".devbook/domain/productivity/features.md#personal-productivity-dashboard"]
 ```
 
-Decided at release, from configuration. Name the switch in business language, and say who owns the rollout, what turning it on changes, and when the flag is retired.
+Turning it on opens the full-screen dashboard of the reader's productivity and what their assistants cost from the app chrome. On by default and marked `DEV`. The key is `DashboardFeatures.Dashboard` in the Dashboard module; the string is unchanged from when it lived on `MonitoringFeatures`, so nobody's switched-off dashboard came back. The settings screen lists it from the feature catalog in `AppFeatures.cs`, and a person's choice is kept in `features.json` beside the app's other per-device choices. It is retired when the dashboard leaves `DEV`.

@@ -146,10 +146,7 @@
 
                                     <div class="tech-node__meta">
                                         @RenderStatusSelect(node.Id, node.Label, node.Status)
-                                        @if (!string.IsNullOrWhiteSpace(node.Metadata.Version))
-                                        {
-                                            <Badge Kind="">@node.Metadata.Version</Badge>
-                                        }
+                                        <MetadataScalar Value="@node.Metadata.Version" Prefix="@MetadataScalar.VersionPrefix(node.Metadata.Version)"Title="@($"version: {node.Metadata.Version}")" />
                                     </div>
 
                                     @* Both relation lists draw the shared reference

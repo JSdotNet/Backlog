@@ -1,6 +1,7 @@
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks;
 using Backlog.Modules.Roadmap.Abstractions.Services;
+using Backlog.Modules.Sessions.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Infrastructure.FileSystem.Roadmap;
@@ -46,11 +47,15 @@ public static class RoadmapCrossContextAdapterRegistration
 
         // The rollup also captures the storage root, read per call rather than
         // pinned, so it stays a factory — but a scoped one, resolving its scoped
-        // ITaskItems from the same scope the request runs in.
+        // ITaskItems from the same scope the request runs in. The session source is
+        // optional: it dates work its entry left undated, and a host without one draws
+        // the entries' own dates, as before.
         services.AddScoped<IRoadmapItemRollup>(sp =>
             new RoadmapItemRollupService(
                 sp.GetRequiredService<ITaskItems>(),
-                () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
+                () => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory,
+                sp.GetService<IAgentSessionSource>(),
+                sp.GetService<TimeProvider>()));
 
         // The shelf of plans not yet on the roadmap reads the backlog the same way,
         // so it is scoped for the same reason: ITaskItems is.

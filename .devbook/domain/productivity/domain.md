@@ -14,8 +14,8 @@ status: draft
 
 Productivity tracks how the person uses AI-assisted work tools and turns those
 activity signals into personal productivity insight. It measures contribution,
-time saved, flow, and outcomes; it does not own task work, Copilot sessions,
-repository state, or completion decisions.
+time saved, flow, and outcomes; it does not own task work, agent sessions
+(Sessions), repository state, or completion decisions.
 
 ## Productivity Ledger
 

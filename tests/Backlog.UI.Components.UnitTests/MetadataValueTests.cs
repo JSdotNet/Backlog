@@ -28,6 +28,18 @@ public sealed class MetadataValueTests
         Assert.Empty(scalar.FindAll("a"));
     }
 
+    [Theory]
+    [InlineData("10.0.11", "v")]
+    [InlineData("latest", null)]
+    [InlineData("^7.0.0", null)]
+    [InlineData(">=18", null)]
+    [InlineData("", null)]
+    [InlineData(null, null)]
+    public void A_version_is_prefixed_only_when_it_is_a_number(string? version, string? expected)
+    {
+        Assert.Equal(expected, MetadataScalar.VersionPrefix(version));
+    }
+
     [Fact]
     public void A_scalar_prints_what_was_authored_rather_than_a_tidied_version_of_it()
     {

@@ -96,6 +96,12 @@ internal static class StorybookIndex
             // bargain with the host and the only reason the component exists.
             new("file-field", "File field", "FileField: a picked file, read here and handed to the host as text."),
 
+            // After File field, and its own page for the same reason: it is what
+            // a host shows once files are picked, and a refusal it draws on a
+            // tile is a convention of its own. It draws only an IconButton, which
+            // Buttons introduced above.
+            new("attachment-strip", "Attachment strip", "AttachmentStrip: the files on something being written, with their name, type and size — and why, on a tile the host refused."),
+
             // Badges before Selects, and by the rule: BadgeSelect draws its
             // options as a Badge, and the ready-made selectors show the
             // StatusBadge a picked value renders as. A badge is a value with a
