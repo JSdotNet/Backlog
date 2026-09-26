@@ -80,13 +80,24 @@ Enforced at: `RouteToBacklog()`
 ```meta
 status: draft
 type: invariant
+tests: unit:dotnet:Backlog.Modules.Inbox.UnitTests.DeferAndResurfaceTests.The_sweep_returns_every_deferred_item_whose_date_is_reached_and_touches_nothing_else
 ```
 
-A deferred item resurfaces as `unprocessed` when its `deferred_until` date is reached.
+A deferred item resurfaces as `unprocessed` when its `deferred_until` date is reached; an undated deferral is never due, and a date still ahead leaves it deferred.
 
-No unit test proves it yet: the transition exists; nothing schedules it yet.
+Enforced at: `ResurfaceIfDue()`, applied by the `ResurfaceDueItems` sweep the pane runs each time it opens
 
-Enforced at: `Resurface()`
+### Invariant: Deferring again changes the review date
+
+```meta
+status: draft
+type: invariant
+tests: unit:dotnet:Backlog.Modules.Inbox.UnitTests.DeferAndResurfaceTests.A_deferred_item_can_be_deferred_again_to_a_new_date
+```
+
+Deferring an item that is already deferred changes its review date; a routed or archived item cannot be deferred.
+
+Enforced at: `Defer()`
 
 ### Invariant: Every item has a content kind
 

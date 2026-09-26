@@ -55,6 +55,20 @@ public interface IInboxItems
     /// item reaches without leaving anything behind in another context.</summary>
     Task<Result> ArchiveAsync(Guid id, CancellationToken cancellationToken = default);
 
+    /// <summary>Puts the item aside until <paramref name="until"/>, or with no
+    /// date until a person returns it. On an item already deferred it changes
+    /// the review date.</summary>
+    Task<Result> DeferAsync(Guid id, DateOnly? until, CancellationToken cancellationToken = default);
+
+    /// <summary>Returns a deferred item to the queue now, whatever its review
+    /// date.</summary>
+    Task<Result> ResurfaceAsync(Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>The resurface sweep: every deferred item whose review date is
+    /// today or earlier becomes unprocessed. Answers how many moved. The pane
+    /// runs it when it opens; nothing schedules it.</summary>
+    Task<Result<int>> ResurfaceDueAsync(CancellationToken cancellationToken = default);
+
     // --- The same four acts across a selection ------------------------------
     //
     // Overloads, not new commands: each runs the single-item command above once

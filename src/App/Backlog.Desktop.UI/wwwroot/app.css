@@ -3903,6 +3903,20 @@ h1, h2, h3 {
     gap: var(--spacing-sm);
 }
 
+/* The review date and the acts that use it, on one row that wraps: the field
+   keeps its natural width and the buttons sit at its baseline. */
+.inbox-pane__defer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: var(--spacing-sm);
+}
+
+.inbox-pane__defer-date {
+    flex: 0 1 auto;
+    min-width: 0;
+}
+
 .inbox-pane__chips {
     display: flex;
     flex-wrap: wrap;

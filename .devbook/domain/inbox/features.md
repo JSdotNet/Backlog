@@ -54,8 +54,9 @@ tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.OrganizerTests]
 ```
 
 A To Do-style side menu beside the queue: a fixed **Inbox** entry for what is
-unfiled, then the reader's own groups and lists, each with a count of the open
-items it holds. Lists and groups are created, renamed, moved between groups,
+unfiled and a fixed **Deferred** entry for what was put aside (see
+[Defer](#defer)), then the reader's own groups and lists, each with a count of
+the items still waiting in it. Lists and groups are created, renamed, moved between groups,
 ungrouped and deleted in place, from the menu itself; deleting a list returns
 its items to the inbox rather than losing them. The organiser is the reader's
 own — local to the machine, never synced — and a fresh workspace is seeded once
@@ -207,10 +208,22 @@ Create a Knowledge Note from the item. Modelled, not built.
 ```meta
 type: sub-feature
 status: draft
+related: [.devbook/domain/inbox/flow.md#inbox-item-lifecycle]
+feature-flag: .devbook/domain/inbox/context.md#inbox-pane
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.DeferAndResurfaceTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Deferring_with_a_date_moves_the_row_to_the_deferred_slice_and_counts_it_there, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeInboxWiringTests.Every_opening_of_the_inbox_pane_runs_the_resurface_sweep]
 ```
 
-Postpone the item with an optional remind-at date; it resurfaces as unprocessed
-when the review date is reached.
+Put an item aside with an optional **Review on** date from its detail. The item
+leaves the Inbox and its list and appears under the side menu's fixed
+**Deferred** row, which counts every deferred item wherever it is filed and
+lists them soonest review date first, undated last. A deferred item keeps its
+list, and it can still be archived or routed. Deferring it again changes the
+date, and **Return to inbox** brings it back at once.
+
+It comes back as unprocessed on its own when the review date is reached. The
+desktop pane sweeps for due items each time it opens, not on a background
+schedule, and a toast says how many came back. An item deferred with no date
+waits until a person returns it.
 
 ### Archive
 

@@ -39,6 +39,11 @@ public sealed class InboxDesktopState
     /// is a prefixed guid, so this word can never collide with one.</summary>
     public const string InboxSliceId = "inbox";
 
+    /// <summary>The side menu's second fixed row: every deferred item, whatever
+    /// list it is filed in. Not a list — deferral is a lifecycle state, and a
+    /// deferred item keeps its list for when it comes back.</summary>
+    public const string DeferredSliceId = "deferred";
+
     private const string ListPrefix = "list:";
     private const string GroupPrefix = "group:";
 
@@ -111,16 +116,24 @@ public sealed class InboxDesktopState
     // --- View state ---------------------------------------------------------
 
     /// <summary>The list whose rows are on screen, or null for the unfiled
-    /// inbox.</summary>
+    /// inbox. Null too while <see cref="DeferredSelected"/>, which spans lists.</summary>
     public Guid? SelectedListId { get; private set; }
 
+    /// <summary>Whether the Deferred slice is open.</summary>
+    public bool DeferredSelected { get; private set; }
+
     /// <summary>The selected slice as the side menu names it.</summary>
-    public string SelectedSliceId => SelectedListId is { } id ? ListNavId(id) : InboxSliceId;
+    public string SelectedSliceId =>
+        DeferredSelected ? DeferredSliceId
+        : SelectedListId is { } id ? ListNavId(id)
+        : InboxSliceId;
 
     /// <summary>What the open slice is called, for the list's accessible name
     /// and its empty state.</summary>
     public string SliceName =>
-        SelectedListId is { } id && FindList(id) is { } list ? list.Name : "Inbox";
+        DeferredSelected ? "Deferred"
+        : SelectedListId is { } id && FindList(id) is { } list ? list.Name
+        : "Inbox";
 
     public Guid? SelectedItemId { get; private set; }
 
@@ -148,16 +161,30 @@ public sealed class InboxDesktopState
 
     // --- Derived ------------------------------------------------------------
 
-    /// <summary>The rows of the open slice before the kind filter: everything
-    /// filed there that is not archived, newest capture first. Routed items stay
-    /// — the reader sees where a thing went from the row it was on — and
-    /// archived ones go, because archived is the terminal state and a slice full
-    /// of what was dismissed would not be a queue.</summary>
+    /// <summary>The rows of the open slice before the kind filter.
+    /// <para>
+    /// A list or the inbox: everything filed there that is neither archived nor
+    /// deferred, newest capture first. Routed items stay — the reader sees where
+    /// a thing went from the row it was on — and archived ones go, because
+    /// archived is the terminal state and a slice full of what was dismissed
+    /// would not be a queue. Deferred ones go to their own slice for the same
+    /// reason: put aside is the opposite of waiting.
+    /// </para>
+    /// <para>
+    /// The Deferred slice: every deferred item in every list, the soonest review
+    /// date first and the undated ones last — the order they will come back in.
+    /// </para></summary>
     public IReadOnlyList<InboxItemDto> SliceItems =>
-        [.. Items
-            .Where(item => item.Status != InboxStatus.Archived)
-            .Where(item => item.ListId == SelectedListId)
-            .OrderByDescending(item => item.CapturedAt)];
+        DeferredSelected
+            ? [.. Items
+                .Where(item => item.Status == InboxStatus.Deferred)
+                .OrderBy(item => item.DeferredUntil is null)
+                .ThenBy(item => item.DeferredUntil)
+                .ThenByDescending(item => item.CapturedAt)]
+            : [.. Items
+                .Where(item => item.Status is not (InboxStatus.Archived or InboxStatus.Deferred))
+                .Where(item => item.ListId == SelectedListId)
+                .OrderByDescending(item => item.CapturedAt)];
 
     /// <summary>The rows on screen: the slice, then the kind filter.</summary>
     public IReadOnlyList<InboxItemDto> VisibleItems =>
@@ -191,12 +218,16 @@ public sealed class InboxDesktopState
     public bool FilteredOut => _kindFilter.Count > 0 && VisibleItems.Count == 0 && SliceItems.Count > 0;
 
     /// <summary>How many unfiled items are still waiting on a decision.</summary>
-    public int InboxCount => Items.Count(item => IsOpen(item) && item.ListId is null);
+    public int InboxCount => Items.Count(item => IsWaiting(item) && item.ListId is null);
 
-    /// <summary>How many items in a list are still waiting on a decision. Open
-    /// rather than non-archived: the number on a To Do list is what is left to
-    /// do, and a routed item is done as far as the inbox is concerned.</summary>
-    public int ListCount(Guid listId) => Items.Count(item => IsOpen(item) && item.ListId == listId);
+    /// <summary>How many items in a list are still waiting on a decision.
+    /// Waiting rather than non-archived: the number on a To Do list is what is
+    /// left to do, and a routed item is done as far as the inbox is concerned.
+    /// A deferred one is counted on the Deferred row instead, never twice.</summary>
+    public int ListCount(Guid listId) => Items.Count(item => IsWaiting(item) && item.ListId == listId);
+
+    /// <summary>How many items are deferred, dated or not.</summary>
+    public int DeferredCount => Items.Count(item => item.Status == InboxStatus.Deferred);
 
     public int GroupCount(Guid groupId) =>
         Lists.Where(list => list.GroupId == groupId).Sum(list => ListCount(list.Id));
@@ -245,12 +276,37 @@ public sealed class InboxDesktopState
     // --- Loading ------------------------------------------------------------
 
     /// <summary>Seeds the starter lists and groups if the organiser is empty,
-    /// then loads. Called by the shell when the pane first shows; idempotent.</summary>
+    /// brings back whatever deferred item is due, then loads. Called by the shell
+    /// when the pane first shows; idempotent.</summary>
     public async Task InitializeAsync()
     {
         await FollowRepositoryRenamesAsync();
         await _inbox.EnsureDefaultOrganizerAsync();
+        await ResurfaceDueItemsAsync();
         await ReloadAsync();
+    }
+
+    /// <summary>Called by the shell each time the pane is shown again after
+    /// being closed: the resurface sweep, then a reload. The sweep runs on open
+    /// rather than on a timer because opening the pane is the moment a single
+    /// reader could notice the difference.</summary>
+    public async Task OpenedAsync()
+    {
+        await ResurfaceDueItemsAsync();
+        await ReloadAsync();
+    }
+
+    /// <summary>Returns every deferred item whose review date has been reached
+    /// to the queue, and says so on a toast when any did — an item appearing in
+    /// the inbox with an old capture date would otherwise read as a glitch.</summary>
+    private async Task ResurfaceDueItemsAsync()
+    {
+        var resurfaced = await _inbox.ResurfaceDueAsync();
+        if (Report(resurfaced) || resurfaced.Value == 0) return;
+
+        _toasts?.Publish(ToastMessage.Info(
+            $"{Counted(resurfaced.Value, "deferred item is", "deferred items are")} back in the inbox.",
+            ResurfacedTestId));
     }
 
     /// <summary>
@@ -342,6 +398,19 @@ public sealed class InboxDesktopState
     {
         Guid? listId = null;
 
+        if (string.Equals(navId, DeferredSliceId, StringComparison.Ordinal))
+        {
+            if (DeferredSelected) return;
+
+            SelectedListId = null;
+            DeferredSelected = true;
+            SelectedItemId = null;
+            _kindFilter.Clear();
+            ForgetSelection();
+            Changed?.Invoke();
+            return;
+        }
+
         if (TryParseListId(navId, out var parsed))
         {
             listId = parsed;
@@ -351,9 +420,10 @@ public sealed class InboxDesktopState
             return;
         }
 
-        if (listId == SelectedListId) return;
+        if (listId == SelectedListId && !DeferredSelected) return;
 
         SelectedListId = listId;
+        DeferredSelected = false;
         SelectedItemId = null;
         _kindFilter.Clear();
         ForgetSelection();
@@ -412,8 +482,9 @@ public sealed class InboxDesktopState
         // A capture lands in the unfiled inbox. Opening it there rather than in
         // whatever list was showing, so the row the reader just made is on
         // screen — a capture that vanished into another slice would read as lost.
-        if (SelectedListId is not null) ForgetSelection();
+        if (SelectedListId is not null || DeferredSelected) ForgetSelection();
         SelectedListId = null;
+        DeferredSelected = false;
         _kindFilter.Clear();
         SelectedItemId = captured.Value.Id;
         await ReloadAsync();
@@ -454,6 +525,29 @@ public sealed class InboxDesktopState
         if (SelectedItem is not { } item) return;
 
         if (Report(await _inbox.ArchiveAsync(item.Id))) return;
+
+        await ReloadAsync();
+    }
+
+    /// <summary>Puts the selected item aside until <paramref name="until"/>, or
+    /// with no date until the reader returns it; on a deferred item it changes
+    /// the date. The item stays selected: it leaves the queue's rows, and the
+    /// detail still owes the reader the line that says until when.</summary>
+    public async Task DeferAsync(DateOnly? until)
+    {
+        if (SelectedItem is not { } item) return;
+
+        if (Report(await _inbox.DeferAsync(item.Id, until))) return;
+
+        await ReloadAsync();
+    }
+
+    /// <summary>Returns the selected deferred item to the queue now.</summary>
+    public async Task ResurfaceAsync()
+    {
+        if (SelectedItem is not { } item) return;
+
+        if (Report(await _inbox.ResurfaceAsync(item.Id))) return;
 
         await ReloadAsync();
     }
@@ -865,6 +959,7 @@ public sealed class InboxDesktopState
 
         ForgetSelection();
         SelectedListId = created.Value.Id;
+        DeferredSelected = false;
         SelectedItemId = null;
         _kindFilter.Clear();
         EditingId = ListNavId(created.Value.Id);
@@ -985,7 +1080,13 @@ public sealed class InboxDesktopState
 
     // --- Internals -------------------------------------------------------------
 
+    /// <summary>Still open to a decision: unprocessed or deferred. A deferred
+    /// item can still be tagged, filed, archived or routed.</summary>
     private static bool IsOpen(InboxItemDto item) => item.Status is InboxStatus.Unprocessed or InboxStatus.Deferred;
+
+    /// <summary>Still in the queue: not routed, not archived, not put aside.</summary>
+    private static bool IsWaiting(InboxItemDto item) =>
+        item.Routing is null && item.Status is InboxStatus.Unprocessed or InboxStatus.Triaged;
 
     private static int KindOrder(string slug)
     {
@@ -1030,6 +1131,9 @@ public sealed class InboxDesktopState
     /// sentence.</summary>
     private const string ErrorTestId = "inbox-error";
     private const string AddErrorTestId = "inbox-add-error";
+
+    /// <summary>The toast the resurface sweep leaves when it brought items back.</summary>
+    internal const string ResurfacedTestId = "inbox-resurfaced";
 
     /// <summary>The toast a bulk act's sentence lands on, success or not.</summary>
     public const string BulkResultTestId = "inbox-bulk-result";

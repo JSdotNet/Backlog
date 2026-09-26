@@ -253,11 +253,13 @@ public sealed class InboxItem
 
     // --- Lifecycle ----------------------------------------------------------
 
-    /// <summary>Puts the item aside. From unprocessed or triaged-but-not-routed;
-    /// a routed item has left, and an archived one is closed.</summary>
+    /// <summary>Puts the item aside until <paramref name="until"/>, or until a
+    /// person brings it back when there is no date. From unprocessed,
+    /// triaged-but-not-routed, or deferred — deferring a deferred item is how its
+    /// review date changes. A routed item has left, and an archived one is closed.</summary>
     public void Defer(DateOnly? until, DateTimeOffset now)
     {
-        if (IsRouted || Status is not (InboxStatus.Unprocessed or InboxStatus.Triaged))
+        if (IsRouted || Status is not (InboxStatus.Unprocessed or InboxStatus.Triaged or InboxStatus.Deferred))
             throw new InvalidInboxTransitionException(Status, "deferred");
 
         Status = InboxStatus.Deferred;
@@ -265,9 +267,25 @@ public sealed class InboxItem
         Touch(now);
     }
 
-    /// <summary>Brings a deferred item back into the queue. Not wired to a
-    /// scheduler in this scope; the transition exists because the lifecycle
-    /// names it.</summary>
+    /// <summary>Whether the item is deferred with a review date that
+    /// <paramref name="today"/> has reached. An undated deferral is never due.</summary>
+    public bool IsDue(DateOnly today) =>
+        Status is InboxStatus.Deferred && DeferredUntil is { } until && until <= today;
+
+    /// <summary>Brings the item back into the queue when its review date has been
+    /// reached, and answers whether it did. The rule the resurface sweep applies
+    /// to every item; anything not due is left exactly as it was.</summary>
+    public bool ResurfaceIfDue(DateOnly today, DateTimeOffset now)
+    {
+        if (!IsDue(today)) return false;
+
+        Resurface(now);
+        return true;
+    }
+
+    /// <summary>Brings a deferred item back into the queue, whatever its date:
+    /// the sweep through <see cref="ResurfaceIfDue"/>, a person through
+    /// "Return to inbox".</summary>
     public void Resurface(DateTimeOffset now)
     {
         if (Status is not InboxStatus.Deferred)

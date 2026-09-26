@@ -150,7 +150,8 @@ internal sealed class FakeInboxItems : IInboxItems
         IReadOnlyList<string>? repoIds = null,
         Guid? listId = null,
         InboxStatus status = InboxStatus.Unprocessed,
-        DateTimeOffset? capturedAt = null)
+        DateTimeOffset? capturedAt = null,
+        DateOnly? deferredUntil = null)
     {
         var at = capturedAt ?? Now;
         var item = new InboxItemDto(
@@ -169,7 +170,7 @@ internal sealed class FakeInboxItems : IInboxItems
             repoIds ?? [],
             listId,
             null,
-            null);
+            deferredUntil);
 
         _items.Add(item);
         return item;
@@ -262,7 +263,50 @@ internal sealed class FakeInboxItems : IInboxItems
     public Task<Result> ArchiveAsync(Guid id, CancellationToken cancellationToken = default) =>
         Update(id, item => item.Status == InboxStatus.Archived
             ? throw new InvalidOperationException("Already archived.")
-            : item with { Status = InboxStatus.Archived });
+            : item with { Status = InboxStatus.Archived, DeferredUntil = null });
+
+    public Task<Result> DeferAsync(Guid id, DateOnly? until, CancellationToken cancellationToken = default)
+    {
+        if (Find(id) is { } item && (item.Routing is not null || item.Status == InboxStatus.Archived))
+        {
+            return Task.FromResult(Result.Failure(InboxErrors.InvalidTransition("Cannot defer a closed item.")));
+        }
+
+        return Update(id, current => current with { Status = InboxStatus.Deferred, DeferredUntil = until });
+    }
+
+    public Task<Result> ResurfaceAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        if (Find(id) is { Status: not InboxStatus.Deferred })
+        {
+            return Task.FromResult(Result.Failure(InboxErrors.InvalidTransition("Only a deferred item can return.")));
+        }
+
+        return Update(id, current => current with { Status = InboxStatus.Unprocessed, DeferredUntil = null });
+    }
+
+    /// <summary>How many times the sweep ran, so a test can assert the pane ran
+    /// it on open.</summary>
+    public int ResurfaceDueCalls { get; private set; }
+
+    /// <summary>The module's sweep, restated against <see cref="Now"/>'s date.</summary>
+    public Task<Result<int>> ResurfaceDueAsync(CancellationToken cancellationToken = default)
+    {
+        ResurfaceDueCalls++;
+
+        var today = DateOnly.FromDateTime(Now.DateTime);
+        var moved = 0;
+        for (var i = 0; i < _items.Count; i++)
+        {
+            if (_items[i] is { Status: InboxStatus.Deferred, DeferredUntil: { } until } && until <= today)
+            {
+                _items[i] = _items[i] with { Status = InboxStatus.Unprocessed, DeferredUntil = null };
+                moved++;
+            }
+        }
+
+        return Task.FromResult(Result.Success(moved));
+    }
 
     /// <summary>Items the next batch refuses, and with what — the way a test
     /// makes one item of a selection fail its command.</summary>

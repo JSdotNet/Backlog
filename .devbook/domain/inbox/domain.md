@@ -29,6 +29,10 @@ always preserved, that status only advances through the defined lifecycle
 (`unprocessed` → `triaged` → routed/deferred/archived), and that a routing
 decision records exactly one `Routing Target`. Deferred items carry an optional
 `deferred_until` review date and resurface as `unprocessed` when it is reached.
+Nothing runs in the background to notice that: the desktop pane sweeps the
+store each time it opens, which for one reader on one desktop is every moment
+the difference could be seen. A deferral with no date comes back only when a
+person returns it.
 
 Before triage decides where an item goes, a reader has to be able to see what
 it is and where it came from. So an item states its `Content Kind` — what the
