@@ -43,6 +43,7 @@ classDiagram
         web_clipper
         ide
         manual
+        import
     }
 
     Capture --> CaptureSource : originated from

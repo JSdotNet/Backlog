@@ -75,6 +75,7 @@ classDiagram
         web_clipper
         ide
         manual
+        import
     }
     class RoutingTarget {
         <<value object>>

@@ -231,6 +231,34 @@ status: draft
 Drag-and-drop files or paste content directly, convert to markdown (MarkItDown
 or equivalent), and extract tags, links, and source metadata automatically.
 
+### Import manifest
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/arc42/adr/0017-inbox-import-is-a-capture-source-with-a-markdown-manifest.md, .devbook/domain/capture/domain.md#capture-source, .devbook/domain/inbox/domain.md#inbox-list]
+```
+
+Bring the items from another tool into the Inbox by importing a manifest.
+Microsoft To Do is the first tool. A skill outside the product reads the tool
+and writes the manifest. It leaves out completed items, and it maps the tool's
+lists to Inbox Lists. The manifest is Markdown with front matter. A `---` block
+names the `schema` and the `tool`. Then comes one `#`-titled item per capture.
+Each item has a `meta` fence carrying `external_id`, `captured_at`, and
+optionally `kind`, `person`, and `list`, followed by its notes as the body.
+
+Every item arrives as an `unprocessed` Inbox Item with source `import`. An item
+is filed in the Inbox List its `list` names when that list exists. It lands
+unfiled when the item names no list, or names one that does not exist.
+Importing the same manifest again, or a later overlapping one, adds only the
+items not already there. An item is known by its id, which comes from the tool
+and the item's own id, and nothing records past imports.
+
+The run answers with one line, in the form the feed monitors use:
+`Import (microsoft-todo): 12 new items · 30 already known.` When there are
+exceptions, the line adds them, such as
+`2 left unfiled: no list "Errands"` or `1 skipped: no external_id`.
+
 ## Normalized delivery
 
 ```meta
