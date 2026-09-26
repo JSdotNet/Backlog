@@ -52,7 +52,7 @@ public sealed class TasksIssues(GitHubIntegration gitHub)
     }
 
     // A sub-item used to have a push of its own here, filing the chapter as a
-    // separate issue. It has gone, and not as tidying: `.domain/tasks/domain.md`
+    // separate issue. It has gone, and not as tidying: `.devbook/domain/tasks/domain.md`
     // says a Sub-Item "may project to GitHub issue task-list checkboxes" — inside
     // the entry's issue — and ProjectionRef is owned by TaskItem, never by
     // SubItem. There was never a model for a step that is its own issue, so the

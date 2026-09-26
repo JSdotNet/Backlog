@@ -84,7 +84,7 @@ public class GeneratedIndexLineEndingTests
     ///
     /// <para><c>**/_archify/*.json</c> would have been the shorter pattern and it
     /// is the wrong one: the Archify specifications beside the index are written
-    /// by hand — <c>.arc42/08-crosscutting-concepts.md</c> says so — and pinning
+    /// by hand — <c>.devbook/arc42/08-crosscutting-concepts.md</c> says so — and pinning
     /// an authored file's line endings changes what a Windows editor writes
     /// rather than fixing a generator's phantom diff. This rule is what stops the
     /// pattern being widened by accident on the way past.</para>

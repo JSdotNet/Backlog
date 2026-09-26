@@ -1,6 +1,6 @@
 # Backlog — VS Code extension
 
-Repo-aware IDE channel described in `.arc42/05-building-block-view.md#ide-extensions`.
+Repo-aware IDE channel described in `.devbook/arc42/05-building-block-view.md#ide-extensions`.
 It contributes a `Backlog Inbox` tree view and a `Backlog: Capture Selection` command
 that talk to the sync service (`Backlog.Modules.Sync.Api`).
 

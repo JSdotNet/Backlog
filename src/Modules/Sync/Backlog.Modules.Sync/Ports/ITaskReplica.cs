@@ -10,7 +10,7 @@ namespace Backlog.Modules.Sync.Ports;
 /// <para>
 /// The surface is deliberately this small. It never filters, never searches,
 /// never sorts by a key the caller supplied, and never projects a subset of a
-/// document. .arc42/adr/0005 asks that no query serve a UI out of the replica:
+/// document. .devbook/arc42/adr/0005 asks that no query serve a UI out of the replica:
 /// the replica is a relay, the desktop's SQLite database is the system of
 /// record, and the moment a screen could be answered from here the two would
 /// start to disagree about which one is true. The one read that looks like a
@@ -21,7 +21,7 @@ namespace Backlog.Modules.Sync.Ports;
 /// Every method takes the owner, and the owner comes from the caller's
 /// validated token. Nothing underneath re-checks it: the service reaches its
 /// store under one identity that can see every partition, so these parameters
-/// are the boundary (.arc42/adr/0005 §Identity).
+/// are the boundary (.devbook/arc42/adr/0005 §Identity).
 /// </para>
 /// </summary>
 public interface ITaskReplica

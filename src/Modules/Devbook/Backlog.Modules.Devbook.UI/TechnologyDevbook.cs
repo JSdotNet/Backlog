@@ -151,7 +151,7 @@ public sealed record TechnologyGraphData(IReadOnlyList<TechnologyGraphNode> Node
 /// <param name="InDegree">How many technologies depend on this one. Sizes the node.</param>
 /// <param name="OutDegree">How many technologies this one depends on.</param>
 /// <param name="ToneSlug">The status badge modifier this node's status wears, through its folder's own vocabulary.</param>
-/// <param name="IsFoundation">Nothing in this project sits below it — no outgoing edge, per <c>.tech/technology-graph.md</c>.</param>
+/// <param name="IsFoundation">Nothing in this project sits below it — no outgoing edge, per <c>.devbook/tech/technology-graph.md</c>.</param>
 /// <param name="IsBoundary">Documented in another knowledge folder; this atlas shows it because something here depends on it.</param>
 public sealed record TechnologyGraphNode(
     string Id,
@@ -381,7 +381,7 @@ internal static class TechnologyDevbookReader
                     inDegree.GetValueOrDefault(node.Id),
                     outgoing,
                     techStatuses.SlugFor(node.Status),
-                    // `.tech/technology-graph.md` calls a node with no outgoing edge a
+                    // `.devbook/tech/technology-graph.md` calls a node with no outgoing edge a
                     // foundation: nothing in this project sits below it.
                     outgoing == 0,
                     false);

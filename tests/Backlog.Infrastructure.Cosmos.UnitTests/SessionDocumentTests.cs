@@ -163,7 +163,7 @@ public class SessionDocumentTests
     /// <summary>
     /// The whole whitelist, and nothing beside it. Written as a set comparison
     /// rather than as nineteen assertions because the failure worth catching is the
-    /// twentieth property somebody adds — .arc42/adr/0005 §Session records says a
+    /// twentieth property somebody adds — .devbook/arc42/adr/0005 §Session records says a
     /// field not in its table does not sync, and a test that only checked the
     /// nineteen were present would pass with a transcript path beside them.
     /// </summary>
@@ -214,7 +214,7 @@ public class SessionDocumentTests
     }
 
     /// <summary>
-    /// .domain/sessions/naming.md#session-identity puts a session's identity at
+    /// .devbook/domain/sessions/domain.md#session-identity puts a session's identity at
     /// the agent plus the id that agent issued. Two agents may issue the same
     /// string, and a key without the agent would collapse them into one record —
     /// one row where there were two.
@@ -232,7 +232,7 @@ public class SessionDocumentTests
     /// The machine id leads the key, so a machine can only ever address documents
     /// beginning with its own device id. Two machines that somehow reported the
     /// same session get two documents rather than one overwriting the other,
-    /// which is .arc42/adr/0005's single-writer rule held structurally rather than
+    /// which is .devbook/arc42/adr/0005's single-writer rule held structurally rather than
     /// by the stamping check alone.
     /// </summary>
     [Fact]

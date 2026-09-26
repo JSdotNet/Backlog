@@ -11,14 +11,14 @@ namespace Backlog.Modules.Sync.Ports;
 /// Two operations, the same two <see cref="ITaskReplica"/> relays with and
 /// nothing beside them: no <c>Find</c>, no listing, no query a screen could be
 /// answered from. The desktop's own annotation store is the system of record
-/// and this is a relay between one person's devices (.arc42/adr/0005 §Storage).
+/// and this is a relay between one person's devices (.devbook/arc42/adr/0005 §Storage).
 /// Unlike session records, an annotation is edited and deleted, so the model is
 /// the task one's — whole-document last-write-wins with tombstones — rather than
 /// the append-only session one.
 /// </para>
 /// <para>
 /// Every method takes the owner, and the owner comes from the caller's
-/// validated token. Nothing underneath re-checks it (.arc42/adr/0005 §Identity).
+/// validated token. Nothing underneath re-checks it (.devbook/arc42/adr/0005 §Identity).
 /// </para>
 /// </summary>
 public interface IAnnotationReplica

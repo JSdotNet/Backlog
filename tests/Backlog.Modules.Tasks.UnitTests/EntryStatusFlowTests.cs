@@ -54,7 +54,7 @@ public class EntryStatusFlowTests
     }
 
     /// <summary>
-    /// The edges <c>.domain/tasks/flow.md#task-lifecycle</c> draws, stated here
+    /// The edges <c>.devbook/domain/tasks/flow.md#task-lifecycle</c> draws, stated here
     /// against the published graph rather than against the aggregate.
     /// <para>
     /// Pinned rather than derived from the other two tests: those say the two

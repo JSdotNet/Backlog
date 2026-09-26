@@ -32,7 +32,7 @@ namespace Backlog.Modules.Sync.DomainModels;
 /// </para>
 /// <para>
 /// A copy of the task rule rather than a shared generic one, on the terms
-/// .arc42/adr/0011 sets for the whole annotation pipeline: the two change
+/// .devbook/arc42/adr/0011 sets for the whole annotation pipeline: the two change
 /// records share a shape and not a type, and the rule is four lines. Shared by
 /// both annotation adapters so the in-memory store every endpoint test runs
 /// against and the Cosmos store the service deploys with cannot disagree about

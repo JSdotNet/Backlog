@@ -38,7 +38,7 @@ public interface ITaskRepository
     /// through it would read a local deletion as an absence, take the stale live
     /// document the other device still had, and resurrect a task the person
     /// deleted — the exact failure
-    /// <c>.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md</c>
+    /// <c>.devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md</c>
     /// exists to remove.
     /// </para>
     /// <para>

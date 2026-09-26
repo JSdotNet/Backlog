@@ -743,7 +743,7 @@ public sealed class GlobalPaneMarkupTests
 
         // The band is as short as its contents allow: 2.25rem of control, and block
         // padding at exactly the reach of a focus ring. Shorter would clip the ring
-        // against .app-shell's overflow — .design/accessibility.md#focus-visibility
+        // against .app-shell's overflow — .devbook/design/accessibility.md#focus-visibility
         // draws focus as an outline offset 2px, so 4px of ink sits outside the
         // control — and taller is the 8px this change bought back on every route.
         Assert.Contains("padding: var(--spacing-xs) var(--spacing-lg);", block, StringComparison.Ordinal);
@@ -852,7 +852,7 @@ public sealed class GlobalPaneMarkupTests
             StringComparison.Ordinal);
 
         // The source is reached deliberately instead — the shortcut
-        // .design/content-editing.md#raw-markdown-escape-hatch asks for. There is no
+        // .devbook/design/content-editing.md#raw-markdown-escape-hatch asks for. There is no
         // control for it: the row that used to open it said "Markdown" under a body
         // switch that already said "Markdown".
         Assert.DoesNotContain("entry-raw-toggle", pane, StringComparison.Ordinal);

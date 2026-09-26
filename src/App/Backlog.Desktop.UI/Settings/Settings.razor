@@ -692,7 +692,7 @@
                        and to suggest pointing the folder at a synced one. Both halves
                        stopped being true when the store became one database, and the
                        suggestion cost somebody their edits - see R9 in
-                       .arc42/11-risks-and-technical-debt.md. The warning is the copy
+                       .devbook/arc42/11-risks-and-technical-debt.md. The warning is the copy
                        now, and SettingsStorageCopyTests pins it. *@
                     <p class="setting__body" data-testid="storage-path-description">
                         The whole backlog is one SQLite database in this folder. Your text stays
@@ -841,7 +841,7 @@
                 @* One-way, and the copy says so twice: a backup is a copy that
                    leaves, and nothing here ever reads the repository back into
                    the folder. A backup that came home on its own would be file
-                   sync by another name, and R9 in .arc42/11-risks-and-technical-debt.md
+                   sync by another name, and R9 in .devbook/arc42/11-risks-and-technical-debt.md
                    is what that did to this database. Local ADR 0010 is the
                    decision; BackupWorker is the mechanism. *@
                 <div class="repo-card__section" data-testid="storage-backup-settings">

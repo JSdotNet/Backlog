@@ -66,7 +66,7 @@ public class StatusReadingTests
 
     // The scheduling and dependency tokens read back too. They save either way;
     // what these are about is the entry being *restated* to the reader, per
-    // .design/content-editing.md#live-parse-confirmation — a field that saved
+    // .devbook/design/content-editing.md#live-parse-confirmation — a field that saved
     // silently was a field nobody could check before trusting it.
 
     private static EntryRow RowWith(string metadata) => new()

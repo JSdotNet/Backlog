@@ -25,7 +25,7 @@ public sealed record ListInboxQuery(OwnerScope Scope);
 /// <para>
 /// The two fields this reads out of the payload, <c>Title</c> and
 /// <c>CreatedAt</c>, are the whole of what the service understands about a task.
-/// Nothing else is interpreted here, which is what keeps .arc42/adr/0005's "no
+/// Nothing else is interpreted here, which is what keeps .devbook/arc42/adr/0005's "no
 /// domain logic runs against the replica" true of the one view it serves.
 /// </para>
 /// </summary>

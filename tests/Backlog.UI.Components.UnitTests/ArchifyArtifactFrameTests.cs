@@ -10,7 +10,7 @@ namespace Backlog.UI.Components.UnitTests;
 /// over its own viewBox, so its height follows the frame's <em>width</em> — and
 /// under <c>data-embed</c> its body is <c>overflow: hidden</c>. The two together
 /// meant everything past 28rem was cut off with no scrollbar to admit it. For a
-/// portrait diagram — <c>.arc42/_archify/05-building-block-view.2</c> is
+/// portrait diagram — <c>.devbook/arc42/_archify/05-building-block-view.2</c> is
 /// 1200x2458 — that was most of the picture.</para>
 ///
 /// <para>Asserted on the script and the stylesheet rather than on a render, for

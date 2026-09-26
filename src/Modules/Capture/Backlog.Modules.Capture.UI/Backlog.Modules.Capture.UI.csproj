@@ -3,7 +3,7 @@
   <!--
     The Capture module's UI: the sources panel the shell folds into the Inbox
     pane — which sources are watched, what each is pointed at, when each was
-    last looked at and what that run said (.domain/capture/features.md#run-capture-now).
+    last looked at and what that run said (.devbook/domain/capture/features.md#run-capture-now).
 
     It sits beside the Inbox on screen but not in code: the Inbox pane offers a
     render slot and the shell fills it with this, so neither context references

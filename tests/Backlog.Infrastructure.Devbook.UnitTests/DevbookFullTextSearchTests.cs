@@ -8,7 +8,7 @@ namespace Backlog.Infrastructure.Devbook.UnitTests;
 /// <para>Two properties are load-bearing here and the rest is detail.</para>
 ///
 /// <para><b>A result is an address.</b>
-/// <c>.domain/devbook/features.md#devbook-retrieval</c> says results name
+/// <c>.devbook/domain/devbook/features.md#devbook-retrieval</c> says results name
 /// the chapter they came from rather than returning loose text, and gives the
 /// reason: a chapter address is what every other part of this context already
 /// links by. A hit that carried only matched text would be the one thing in

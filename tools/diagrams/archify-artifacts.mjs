@@ -89,8 +89,8 @@ const ALL_TYPES = ['architecture', 'workflow', 'sequence', 'dataflow', 'lifecycl
 /** The Archify quality profile a specification is rendered at.
  *
  *  `showcase` for everything, with one recorded exception. Two diagrams in this
- *  repository are provably non-planar — `.domain/context-map.md` #1 and
- *  `.arc42/05-building-block-view.md` #3 each contain a K3,3 — so at least one
+ *  repository are provably non-planar — `.devbook/domain/context-map.md` #1 and
+ *  `.devbook/arc42/05-building-block-view.md` #3 each contain a K3,3 — so at least one
  *  edge crossing is forced in every possible drawing of them, and showcase raises
  *  `composition/proper-crossing` as an error. No faithful specification of either
  *  can ever pass showcase, so they are rendered at `standard` instead, which
@@ -279,7 +279,7 @@ function discoverSpecs(artifactDir, chapterFile, ordinal) {
 /** Whether an index entry is for this chapter's diagram N.
  *
  *  Both halves matter, and the chapter half was learned the hard way: `_archify/`
- *  sits beside the chapter, and in `.arc42/` every chapter is in the same folder, so
+ *  sits beside the chapter, and in `.devbook/arc42/` every chapter is in the same folder, so
  *  one index holds four chapters' entries. Matching on the ordinal alone made
  *  rendering `07-deployment-view.md` #1 evict `06-runtime-view.md` #1 and then report
  *  it stale — with the other chapter's type. The entries are hash-keyed and coexist

@@ -60,8 +60,8 @@
     /// wants two clicks away instead of one.</summary>
     private string GuidelinesLabel =>
         Guidelines.Count == 1
-            ? "Design rules — 1 chapter from .design"
-            : $"Design rules — {Guidelines.Count} chapters from .design";
+            ? "Design rules — 1 chapter from .devbook/design"
+            : $"Design rules — {Guidelines.Count} chapters from .devbook/design";
 
     private static string Slug(string path) => Story.Slug(path);
 }

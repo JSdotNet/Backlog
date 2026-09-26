@@ -7,7 +7,7 @@
            Guidelines="@Rules">
 
     <Story Name="A chapter is a heading, a record, and prose"
-           Description="The convention, on a sample that is not invented: it is the top of this repository's own `.tech/shared.md`, pasted. A `#` heading opens the file and carries the file-level block; every `##` under it is an addressable chapter and carries its own. The fence language is `meta`, the block sits directly under its heading before any prose, and only `status` is required — every other field is written when it has a value, so an absent field reads as “not stated” and never as “stated as empty”.
+           Description="The convention, on a sample that is not invented: it is the top of this repository's own `.devbook/tech/shared.md`, pasted. A `#` heading opens the file and carries the file-level block; every `##` under it is an addressable chapter and carries its own. The fence language is `meta`, the block sits directly under its heading before any prose, and only `status` is required — every other field is written when it has a value, so an absent field reads as “not stated” and never as “stated as empty”.
 
 Because a block sits under its heading, that is where it is drawn: the pair folds into one record and the status takes the right edge of the heading's line. That is the whole story for a `##` chapter, and every chapter that carries a block shows one.
 
@@ -268,7 +268,7 @@ Parse once per block and keep the result; `MarkdownView` holds a small dictionar
     /// OnStatusChanged buys a host over letting the control keep its own.</summary>
     private string? _heardStatus;
 
-    /// <summary>The top of this repository's own .tech/shared.md, verbatim.</summary>
+    /// <summary>The top of this repository's own .devbook/tech/shared.md, verbatim.</summary>
     private const string SharedTechSample = """
         # Shared Technologies
 
@@ -292,7 +292,7 @@ Parse once per block and keep the result; `MarkdownView` holds a small dictionar
         knowledge notes, and prompts.
         """;
 
-    /// <summary>One chapter of .tech/shared.md, used for the on and off pair.</summary>
+    /// <summary>One chapter of .devbook/tech/shared.md, used for the on and off pair.</summary>
     private const string ChapterSample = """
         ## .NET Runtime
 
@@ -311,8 +311,8 @@ Parse once per block and keep the result; `MarkdownView` holds a small dictionar
     /// <summary>Every field at once, which is the one block on these pages that no
     /// folder would actually write: the schema is folder-specific and half of
     /// these fields are meaningless together. Values are taken from the real
-    /// blocks they belong to — the .tech/cloud.md chapter, the Backlog Entry term
-    /// in .domain/tasks/naming.md — rather than invented, so every line here is
+    /// blocks they belong to — the .devbook/tech/cloud.md chapter, the Backlog Entry term
+    /// in .devbook/domain/tasks/domain.md — rather than invented, so every line here is
     /// a line this repository contains somewhere.</summary>
     private const string EveryFieldBlock = """
         status: adopted
@@ -341,7 +341,7 @@ Parse once per block and keep the result; `MarkdownView` holds a small dictionar
     private const string LongChapterHeading =
         "ASP.NET Core Minimal APIs, and the routing conventions the sync service is expected to follow";
 
-    /// <summary>The ASP.NET Core Minimal APIs chapter of this repository's .tech/cloud.md.</summary>
+    /// <summary>The ASP.NET Core Minimal APIs chapter of this repository's .devbook/tech/cloud.md.</summary>
     private const string TechBlock = """
         status: candidate
         kind: framework

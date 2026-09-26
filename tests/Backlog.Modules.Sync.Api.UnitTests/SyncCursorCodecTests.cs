@@ -101,7 +101,7 @@ public class SyncCursorCodecTests
     }
 
     /// <summary>
-    /// The case .arc42/adr/0005 §Consequences names: a cursor this service
+    /// The case .devbook/arc42/adr/0005 §Consequences names: a cursor this service
     /// really did mint, replayed verbatim by a different owner. It verifies, and
     /// it is still refused — with its own code, because "somebody presented a
     /// valid cursor for another person's feed" is a different event from

@@ -45,7 +45,7 @@ public sealed record RoadmapStep(
 /// <para>
 /// Named after the badge classes rather than after any one vocabulary, because the
 /// vocabulary is the caller's and the colour is the stylesheet's
-/// (<c>.design/color-scheme.md#badge-and-chip-tones</c>). A caller maps its own
+/// (<c>.devbook/design/color-scheme.md#badge-and-chip-tones</c>). A caller maps its own
 /// words onto these; a sixth colour would be a second palette.
 /// </para>
 /// </summary>

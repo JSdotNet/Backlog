@@ -108,7 +108,7 @@ public sealed class TaskItem
     /// rule: the same task can live on more than one of the person's machines, and
     /// when both edit it the later edit wins whole, which is a question only the
     /// task itself can answer. See
-    /// <c>.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md</c>.
+    /// <c>.devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md</c>.
     /// </para>
     /// <para>
     /// Not nullable, and equal to <see cref="CreatedAt"/> on a task that has never

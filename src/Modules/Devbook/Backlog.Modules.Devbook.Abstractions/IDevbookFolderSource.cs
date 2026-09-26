@@ -7,7 +7,7 @@ namespace Backlog.Modules.Devbook.Abstractions;
 /// The answer comes from the repository settings and from wherever a branch
 /// snapshot is cached, and knowing either is exactly what Devbook must not have
 /// to. Reaching for the backlog's root store to find out would make this
-/// context depend on Tasks, which <c>.domain/context-map.md</c>
+/// context depend on Tasks, which <c>.devbook/domain/context-map.md</c>
 /// calls a Partnership that coordinates by id rather than by reaching across.
 /// The adapter that implements this port sees both; the panels see only this.
 /// An unscoped question — no repository alias — is answered with no folders and

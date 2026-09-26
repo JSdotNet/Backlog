@@ -24,7 +24,7 @@ namespace Backlog.Infrastructure.FileSystem;
 /// <para>
 /// One-way, and deliberately so. Nothing here ever reads the repository back
 /// into the folder: a backup that came home on its own would be file sync by
-/// another name, and R9 in <c>.arc42/11-risks-and-technical-debt.md</c> is what
+/// another name, and R9 in <c>.devbook/arc42/11-risks-and-technical-debt.md</c> is what
 /// that did to this database. Getting a backup back is a person's decision,
 /// made by hand.
 /// </para>

@@ -12,7 +12,7 @@ using Microsoft.Extensions.Options;
 namespace Backlog.Infrastructure.Cosmos.Tasks;
 
 /// <summary>
-/// The task replica, in Cosmos DB (.arc42/adr/0005).
+/// The task replica, in Cosmos DB (.devbook/arc42/adr/0005).
 /// <para>
 /// One container, partitioned on <c>/ownerId</c>, whole documents in and whole
 /// documents out. Nothing here reads a task's fields except the inbox

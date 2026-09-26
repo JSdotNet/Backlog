@@ -371,7 +371,7 @@ public sealed class SqliteTaskRepository : ITaskRepository
             // before, and after it runs no row matches it again. Additive and
             // non-destructive, which is the only kind of change this schema has
             // needed and the boundary at which this approach stops being enough —
-            // see .arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md.
+            // see .devbook/arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md.
             await BackfillUpdatedAtAsync(connection, cancellationToken).ConfigureAwait(false);
 
             // And one value the tick needs seeding with. Until the checkbox became

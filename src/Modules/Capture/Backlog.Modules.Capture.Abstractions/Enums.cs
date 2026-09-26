@@ -2,7 +2,7 @@ namespace Backlog.Modules.Capture.Abstractions;
 
 /// <summary>
 /// Where a capture came from — the <c>Capture Source</c> enum of
-/// <c>.domain/capture/domain.md#capture-source</c>, in full.
+/// <c>.devbook/domain/capture/domain.md#capture-source</c>, in full.
 /// <para>
 /// All seven are here even though only three can be monitored, because the
 /// vocabulary is the domain's and a subset would be a second vocabulary. Which

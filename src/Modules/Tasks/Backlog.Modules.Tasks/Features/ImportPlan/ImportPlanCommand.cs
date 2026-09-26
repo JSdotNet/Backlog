@@ -17,7 +17,7 @@ namespace Backlog.Modules.Tasks.Features.ImportPlan;
 /// <see cref="EntryTextParser.Parse"/>) and adds only what a single paste cannot
 /// already offer: resolving <c>after:</c> against a same-document <c>id:</c>
 /// before any entry the document describes has a real id
-/// (`.design/content-editing.md#scheduling-and-dependency-tokens`), and
+/// (`.devbook/design/content-editing.md#scheduling-and-dependency-tokens`), and
 /// replacing the previous version of the plan rather than adding to it: every
 /// entry of this <c>import_plan_id</c> that nobody has started yet is cleared
 /// before the new ones are written, so a plan brought in twice cannot leave two

@@ -21,7 +21,7 @@ public sealed class MetadataReaderTests
     [Fact]
     public void A_quoted_inline_list_is_read_as_references()
     {
-        // Verbatim from .tech/shared.md.
+        // Verbatim from .devbook/tech/shared.md.
         var meta = MetadataReader.Parse("""
             status: candidate
             related: [".tech/technology-graph.md", ".arc42/02-constraints.md#technical-constraints"]
@@ -259,7 +259,7 @@ public sealed class MetadataReaderTests
     [Fact]
     public void Order_is_read_recognised_and_dropped_rather_than_kept_as_unknown()
     {
-        // The line is verbatim from .tech/technology-graph.md, which still writes
+        // The line is verbatim from .devbook/tech/technology-graph.md, which still writes
         // it: order is not metadata about a chapter, so the schema does not model
         // it, and a folder that wants a reading order reads it for itself.
         //

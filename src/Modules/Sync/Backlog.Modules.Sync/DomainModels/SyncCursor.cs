@@ -7,7 +7,7 @@ namespace Backlog.Modules.Sync.DomainModels;
 /// <para>
 /// It exists because there are now two feeds and one check. Tasks and session
 /// records live in separate containers with separate change feeds
-/// (.arc42/adr/0005 §Storage), but the reason a cursor has to be signed is
+/// (.devbook/arc42/adr/0005 §Storage), but the reason a cursor has to be signed is
 /// identical for both: a Cosmos continuation embeds the feed range it was minted
 /// for, so replaying one belonging to somebody else reads their partition and
 /// the store will not object. Minting that check twice — once per feed — would

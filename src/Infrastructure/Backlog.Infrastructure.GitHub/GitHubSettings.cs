@@ -174,7 +174,7 @@ public sealed class GitHubSettings
     /// The gate is here, beside the answer, for the reason the answer is here: a surface
     /// that decided for itself whether to draw its hue would be deciding for itself what
     /// the identity of a repository looks like, and five surfaces deciding separately is
-    /// exactly what <c>.design/color-scheme.md#band-identity-tokens</c> forbids. One
+    /// exactly what <c>.devbook/design/color-scheme.md#band-identity-tokens</c> forbids. One
     /// place answers "which hue", so one place answers "and is it shown".
     /// </para>
     /// <para>
@@ -811,7 +811,7 @@ public sealed class GitHubSettingsStore
     /// <c>RepositoryColours.Resolve</c> takes an unchosen hue from list position,
     /// so the answer already depends on the shared ordered list, and a hue that
     /// differed per install would be exactly the several-answers-to-one-question
-    /// that <c>.design/color-scheme.md#band-identity-tokens</c> forbids.
+    /// that <c>.devbook/design/color-scheme.md#band-identity-tokens</c> forbids.
     /// </para>
     /// </summary>
     public string? SetRepositoryColour(string alias, int? colour)
@@ -1802,7 +1802,7 @@ public sealed class GitHubSettingsStore
     private static string? CleanToken(string? token) => string.IsNullOrWhiteSpace(token) ? null : token.Trim();
 
     /// <summary>A colour outside the sanctioned range is dropped rather than clamped,
-    /// for the reason <c>.design/color-scheme.md</c> gives: clamping would hand somebody
+    /// for the reason <c>.devbook/design/color-scheme.md</c> gives: clamping would hand somebody
     /// a hue they did not ask for and make it look like a choice they had made.</summary>
     private static int? CleanColour(int? colour) => RepositoryColours.IsSanctioned(colour) ? colour : null;
 

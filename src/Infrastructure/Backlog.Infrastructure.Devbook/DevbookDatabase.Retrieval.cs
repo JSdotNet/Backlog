@@ -9,7 +9,7 @@ namespace Backlog.Infrastructure.Devbook;
 /// <c>chapter_embedding</c>.
 ///
 /// <para>Both queries end at a chapter address, and that is not incidental.
-/// <c>.domain/devbook/features.md#devbook-retrieval</c> asks for results
+/// <c>.devbook/domain/devbook/features.md#devbook-retrieval</c> asks for results
 /// that "name the chapter they came from rather than returning loose text",
 /// so every row below joins back to <c>chapter</c> for the path and slug before
 /// it is allowed out of this class. The FTS table stores no address of its own —

@@ -163,7 +163,7 @@ public sealed class WorkspaceSettingsStore
     /// <para>
     /// Read by the Storage settings screen, which is the only place that can act
     /// on it: the app warns and the root stays the user's choice. R9 in
-    /// <c>.arc42/11-risks-and-technical-debt.md</c> is the loss this exists for
+    /// <c>.devbook/arc42/11-risks-and-technical-debt.md</c> is the loss this exists for
     /// and local ADR 0005's <c>### The database filename</c> is where the check
     /// was preferred to a per-device database name. Detection is heuristic, so
     /// null means "nothing recognised" rather than "not synced" — see

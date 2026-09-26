@@ -300,7 +300,7 @@ public class DesignTokenTests
     // file and fails loudly when the premise stops being readable.
 
     /// <summary>The stylesheet and the document that specifies it. Every colour in
-    /// the library is named in <c>.design/color-scheme.md</c>, and the two had
+    /// the library is named in <c>.devbook/design/color-scheme.md</c>, and the two had
     /// drifted: the file carried a surface ramp a step darker than the one in the
     /// org style guide the stylesheet follows, so a reader of the design folder and
     /// a reader of the CSS were looking at different products.</summary>
@@ -327,12 +327,12 @@ public class DesignTokenTests
 
         Assert.True(
             mismatched.Count == 0,
-            "The stylesheet and .design/color-scheme.md disagree about a colour: "
+            "The stylesheet and .devbook/design/color-scheme.md disagree about a colour: "
             + string.Join("; ", mismatched));
 
         Assert.True(
             undocumented.Count == 0,
-            "components.css declares colours .design/color-scheme.md does not name, so nothing says what "
+            "components.css declares colours .devbook/design/color-scheme.md does not name, so nothing says what "
             + $"they mean or what they have to contrast against: {string.Join(", ", undocumented)}");
     }
 
@@ -408,12 +408,12 @@ public class DesignTokenTests
                 $"{path} paints colours as raw literals: {string.Join(", ", offenders)}. A colour has to "
                 + "be a token, or nothing records what it means and nothing checks what it contrasts "
                 + "against: declare it on :root in components.css, give it a row and a measured contrast "
-                + "pair in .design/color-scheme.md, then reference it by name here.");
+                + "pair in .devbook/design/color-scheme.md, then reference it by name here.");
         }
     }
 
     /// <summary>The semantic meanings whose token is a surface and only a surface.
-    /// <c>.design/color-scheme.md#semantic-soft-surface-tokens</c> is explicit that
+    /// <c>.devbook/design/color-scheme.md#semantic-soft-surface-tokens</c> is explicit that
     /// these are background tokens: something readable is rendered <em>on</em> one,
     /// and painting one as ink puts a near-black value on a near-black page.</summary>
     private static readonly string[] SemanticSurfaces = ["success", "warning", "error", "info"];
@@ -477,7 +477,7 @@ public class DesignTokenTests
         RegexOptions.Compiled);
 
     /// <summary>The rule the type scale already states, applied to the weight scale
-    /// beside it. <c>.design/typography-and-layout.md</c> declares exactly five
+    /// beside it. <c>.devbook/design/typography-and-layout.md</c> declares exactly five
     /// weights, and says of the sizes beside them that a stylesheet "MUST NOT
     /// introduce sizes outside this scale". A weight outside its own table is that
     /// same drift, and nothing was looking for it.
@@ -527,7 +527,7 @@ public class DesignTokenTests
             Assert.True(
                 offenders.Count == 0,
                 $"{Relative(stylesheet)} sets font-weight to {string.Join(", ", offenders)}, and "
-                + ".design/typography-and-layout.md declares only "
+                + ".devbook/design/typography-and-layout.md declares only "
                 + $"{string.Join(", ", declared.OrderBy(weight => weight, StringComparer.Ordinal))}. "
                 + "Move it to the nearest declared weight, or give the new one a row in that table "
                 + "first: an undeclared weight is drawn by whichever face the stack happens to carry, "

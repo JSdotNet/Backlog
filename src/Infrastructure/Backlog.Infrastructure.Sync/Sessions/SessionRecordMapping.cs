@@ -8,7 +8,7 @@ namespace Backlog.Infrastructure.Sync.Sessions;
 /// <para>
 /// <strong>This is the whole reason a session record may leave the machine, and
 /// it is deliberately the only place a record is built.</strong>
-/// .arc42/adr/0005 §Session records states a whitelist of nineteen fields and says in
+/// .devbook/arc42/adr/0005 §Session records states a whitelist of nineteen fields and says in
 /// as many words that a whitelist and a filter fail in opposite directions: a
 /// filter that misses a field leaks it, a whitelist that misses one merely omits
 /// it. <see cref="SessionRecord"/> makes that structural — a field not in the
@@ -19,7 +19,7 @@ namespace Backlog.Infrastructure.Sync.Sessions;
 /// <para>
 /// <strong><see cref="AgentSession.WorkingFolder"/> never leaves.</strong> It is
 /// a raw absolute path — it describes one machine's disk, means nothing on the
-/// machine that read it, and .arc42/adr/0005 §Scope lists paths among the four
+/// machine that read it, and .devbook/arc42/adr/0005 §Scope lists paths among the four
 /// things that stay out precisely because the receiving machine would then act on
 /// one. What travels in its place is the dashboards' one-way key for it, which is
 /// what matching a delivery run needs and all it needs.
@@ -28,7 +28,7 @@ namespace Backlog.Infrastructure.Sync.Sessions;
 /// <strong><see cref="AgentSession.Title"/> leaves, by decision.</strong> An agent
 /// derives it from what the person typed, so it is a fragment of a prompt, and it
 /// was kept home on that ground until 2026-09-23. The owner reversed that in
-/// .arc42/adr/0005 §Session records: the record is how a session stays
+/// .devbook/arc42/adr/0005 §Session records: the record is how a session stays
 /// recognisable on another machine and after its transcript is gone, and an id is
 /// not recognisable. It is cut to <see cref="SessionRecordLimits.TitleLength"/>.
 /// </para>
@@ -36,7 +36,7 @@ namespace Backlog.Infrastructure.Sync.Sessions;
 public static class SessionRecordMapping
 {
     /// <summary>The token an agent kind travels as. Lower case, and opaque to the
-    /// service by design (.arc42/adr/0005 §Storage: no domain logic runs against
+    /// service by design (.devbook/arc42/adr/0005 §Storage: no domain logic runs against
     /// the replica).</summary>
     private const string ClaudeToken = "claude";
 
@@ -285,7 +285,7 @@ public static class SessionRecordMapping
             record.Branch,
             record.StartedAt,
             record.LastActivityAt,
-            // Derived on read, never carried. .domain/sessions/domain.md puts a
+            // Derived on read, never carried. .devbook/domain/sessions/domain.md puts a
             // session's state at "derived from the evidence available, never
             // asserted"; a state field on the wire would freeze the sender's
             // reading of its own clock and go on asserting "Running" for a session
@@ -360,7 +360,7 @@ public static class SessionRecordMapping
     /// one, and the recorded <c>owner/name</c> where it does not.
     /// <para>
     /// <strong>Never null where a repository was recorded, and never derived from
-    /// a working folder.</strong> .domain/sessions/domain.md is explicit that a
+    /// a working folder.</strong> .devbook/domain/sessions/domain.md is explicit that a
     /// repository guessed from a folder path is indistinguishable from a recorded
     /// one and wrong, and the receiving machine has no way to tell the two apart
     /// — so a guess made here would be believed there. Null on the wire means the
@@ -388,7 +388,7 @@ public static class SessionRecordMapping
     /// Derived here and nowhere else on this side, because the model deliberately
     /// does not carry it: <c>AgentSession</c>'s own doc comment argues that a
     /// stored duration can disagree with the two timestamps it was computed from.
-    /// The wire carries it only because .arc42/adr/0005's whitelist names it and
+    /// The wire carries it only because .devbook/arc42/adr/0005's whitelist names it and
     /// the relaying service is deliberately dumb about the fields it forwards —
     /// it cannot subtract two of them. Nothing reads it back: <see cref="ToSession"/>
     /// leaves it on the floor and the app derives duration from the timestamps, so

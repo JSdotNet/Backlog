@@ -24,7 +24,7 @@ namespace Backlog.ArchitectureTests;
 /// <c>CheckboxTests</c> does — and that is precisely what passed while the state
 /// was invisible.</para>
 ///
-/// <para><c>.design/interaction-guidelines.md#focus-and-selection</c> asks for the
+/// <para><c>.devbook/design/interaction-guidelines.md#focus-and-selection</c> asks for the
 /// indeterminate state by name, so it is a rule and not a preference.</para>
 /// </summary>
 public class IndeterminateCheckboxTests

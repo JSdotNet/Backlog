@@ -6,7 +6,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// <summary>
 /// The "Not waiting" scope in the filter bar.
 /// <para>
-/// <c>.domain/tasks/naming.md#readiness</c> governs: a task is done, ready when
+/// <c>.devbook/domain/tasks/domain.md#readiness</c> governs: a task is done, ready when
 /// everything it waits on is finished, or blocked when something is not. This
 /// scope keeps the ready ones — the rows a reader could pick up now — and it
 /// reads that off the same derivation the list draws its "Waiting for" lines

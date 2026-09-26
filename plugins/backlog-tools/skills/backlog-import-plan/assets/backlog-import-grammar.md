@@ -3,12 +3,12 @@
 Reference for `skills/backlog-import-plan`, which writes plans, and
 `skills/backlog-run-plan-item`, which runs one entry of a plan pasted back out of Backlog.
 Restates the grammar a generated plan must match — nothing here is invented; it mirrors
-Backlog's own decision (`.arc42/adr/0007-import-reuses-the-entry-text-grammar.md`) and its
-entry-text rules (`.design/content-editing.md#scheduling-and-dependency-tokens`) in the
+Backlog's own decision (`.devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md`) and its
+entry-text rules (`.devbook/design/content-editing.md#scheduling-and-dependency-tokens`) in the
 Backlog product repository. A plan is not a file format of its own — it is the same
 Backlog Entry text grammar, with more than one entry in the document, at up to two levels:
 `plan` entries that become Roadmap Items and the step entries that become tasks
-(`.arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md`). The one thing this
+(`.devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md`). The one thing this
 file adds on top of that grammar is the [plan item marker](#plan-item-marker): a body-prose
 convention of these two skills, not a token Backlog parses. The [entry marker](#entry-marker)
 beside it is the app's own, documented here because the run skill reads both.

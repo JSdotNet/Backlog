@@ -44,7 +44,7 @@ internal static class FileFixtures
         One file per chapter, and the index derived from them.
         """;
 
-    /// <summary>The top of this repository's own <c>.tech/shared.md</c>, cut after
+    /// <summary>The top of this repository's own <c>.devbook/tech/shared.md</c>, cut after
     /// the second chapter. Not invented: the point of the story is which of two
     /// real blocks lands where, and a made-up file would only prove that a made-up
     /// file does it.</summary>

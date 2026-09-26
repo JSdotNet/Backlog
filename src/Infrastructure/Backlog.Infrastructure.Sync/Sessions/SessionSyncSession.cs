@@ -30,7 +30,7 @@ public sealed record SessionSyncSummary(int Pushed, int Pulled, int Applied, Dat
 /// </para>
 /// <para>
 /// <strong>Only local records are pushed, and that is a rule about who may write
-/// rather than a tidiness.</strong> .arc42/adr/0005 §Session records makes session
+/// rather than a tidiness.</strong> .devbook/arc42/adr/0005 §Session records makes session
 /// records single-writer: a session ran on one machine, only that machine holds
 /// the evidence, and the service accepts a record only from the machine it names.
 /// This device reads its sessions through the same merged port every screen does,
@@ -253,7 +253,7 @@ public sealed class SessionSyncSession
     /// <summary>
     /// This machine's own activity for the sessions about to go, keyed the way a
     /// session is identified — the agent and the id together, never the id alone
-    /// (<c>.domain/sessions/naming.md#session-identity</c>). Empty on a head with
+    /// (<c>.devbook/domain/sessions/domain.md#session-identity</c>). Empty on a head with
     /// no activity source.
     /// <para>
     /// <strong>Only local records, and this is where that is enforced for the
@@ -389,7 +389,7 @@ public sealed class SessionSyncSession
     /// service answering "expired" to a pull that carried no cursor is saying
     /// something starting over cannot fix. <see cref="SyncErrorCodes.SyncCursorNotYours"/>
     /// is deliberately not on the list — a correctly-signed cursor for another
-    /// owner's feed is the one event .arc42/adr/0005 §Consequences asks to be loud
+    /// owner's feed is the one event .devbook/arc42/adr/0005 §Consequences asks to be loud
     /// about.
     /// </para>
     /// </summary>

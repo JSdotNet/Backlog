@@ -338,7 +338,7 @@ public sealed class TasksDetailPaneTests
 
     /// <summary>The circle ticks the entry off and, from a status that is not
     /// yet an end state, moves it to Done in the same save
-    /// (<c>.domain/tasks/flow.md#task-lifecycle</c>). Unticking clears the tick
+    /// (<c>.devbook/domain/tasks/flow.md#task-lifecycle</c>). Unticking clears the tick
     /// and nothing else: the entry goes back on the list still Done, because the
     /// work being over and the person being finished with it stay two facts in
     /// that direction.</summary>

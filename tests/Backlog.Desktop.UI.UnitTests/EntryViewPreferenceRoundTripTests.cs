@@ -17,8 +17,8 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </para>
 /// <para>
 /// What is being persisted here is a display preference rather than a fact about
-/// the work — see <c>.design/content-editing.md#scheduling-and-dependency-tokens</c>
-/// and <c>.domain/tasks/domain.md</c>. It rides on the metadata line anyway
+/// the work — see <c>.devbook/design/content-editing.md#scheduling-and-dependency-tokens</c>
+/// and <c>.devbook/domain/tasks/domain.md</c>. It rides on the metadata line anyway
 /// because the markdown is canonical: a preference kept in a sidecar would not
 /// survive the file being shared, and the reader who opened the entry somewhere
 /// else would get somebody else's default.

@@ -56,7 +56,7 @@ public interface IReplicatedSessionStore
     /// <para>
     /// Replacing rather than appending, because the feed is a log of readings and
     /// not of events: a session that took another turn is pushed again with a
-    /// later stamp, and .arc42/adr/0005 §Session records says a session that moves
+    /// later stamp, and .devbook/arc42/adr/0005 §Session records says a session that moves
     /// gets a later record rather than an edit. Two readings of one session are
     /// two rows of the same thing, and a store that kept both would show the
     /// session twice with the older row claiming an activity time that has been
@@ -64,7 +64,7 @@ public interface IReplicatedSessionStore
     /// </para>
     /// <para>
     /// Identity is the machine id, the agent and the session id together — never
-    /// the session id alone. <c>.domain/sessions/naming.md#session-identity</c>
+    /// the session id alone. <c>.devbook/domain/sessions/domain.md#session-identity</c>
     /// puts a session's identity at the agent plus the id that agent issued
     /// because two agents may issue the same string, and the machine leads it
     /// because two environments may too.

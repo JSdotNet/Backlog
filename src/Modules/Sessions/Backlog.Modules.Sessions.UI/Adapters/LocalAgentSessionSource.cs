@@ -24,7 +24,7 @@ namespace Backlog.Modules.Sessions.UI.Adapters;
 /// implementation of that port can answer for a fleet without this one changing. The
 /// stamp is the kernel's device identity, so a session and a registered Machine are the
 /// same environment by identity rather than by their names agreeing; see
-/// <c>.domain/sessions/dependencies.md</c>.
+/// <c>.devbook/domain/sessions/dependencies.md</c>.
 /// </para>
 /// <para>
 /// Every session is also stamped <see cref="AgentSessionOrigin.Local"/>, which is

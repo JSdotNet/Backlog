@@ -26,8 +26,8 @@ Target them for UI validation. `ui-storybook` is the exception in kind: it hosts
 component library on its own, with no app or cloud reference, so a single component can be
 validated without the application around it.
 
-This repository also carries the checked-in knowledge folders (`.arc42/`, `.domain/`,
-`.backlog/`, `.tech/`, `.design/`) and generator tooling under
+This repository also carries the checked-in knowledge folders (`.devbook/arc42/`, `.devbook/domain/`,
+`.backlog/`, `.devbook/tech/`, `.devbook/design/`, `.devbook/ai/`) and generator tooling under
 `.github/tools/knowledge-meta/`. Changes confined to those folders are documentation work —
 see `## QA Depth`.
 
@@ -161,10 +161,10 @@ Authority order and fallbacks are defined in
 `.agents/rules/mcp-usage.md`, which remains the source of truth.
 
 **Guidance no longer comes from an MCP server.** The `jsdotnet-project-guidelines` and
-`jsdotnet-project-design` servers were retired on 2026-08-27; read `.arc42/adr/guidelines/` for
-inherited architecture decisions, `.arc42/adr/` for local ones, and `.design/` for design and
+`jsdotnet-project-design` servers were retired on 2026-08-27; read `.devbook/arc42/adr/guidelines/` for
+inherited architecture decisions, `.devbook/arc42/adr/` for local ones, and `.devbook/design/` for design and
 UX guidance. A plugin skill that tells you to query `jsdotnet-guidelines-mcpserver` should be
-served from `.arc42/adr/guidelines/` instead — its absence is not a blocked precondition.
+served from `.devbook/arc42/adr/guidelines/` instead — its absence is not a blocked precondition.
 
 Available to orchestration runs in Claude Code:
 
@@ -212,8 +212,8 @@ when a single shared component can be validated without the application around i
 
 Two standing exceptions:
 
-- **Documentation-only changes** — edits confined to `.arc42/`, `.domain/`, `.backlog/`,
-  `.tech/`, `.design/`, `.github/`, `.claude/`, or `README.md` have no runtime surface.
+- **Documentation-only changes** — edits confined to `.devbook/arc42/`, `.devbook/domain/`, `.backlog/`,
+  `.devbook/tech/`, `.devbook/design/`, `.devbook/ai/`, `.github/`, `.claude/`, or `README.md` have no runtime surface.
   Verification is documentation review plus `build.mjs --check`; skip startup and Playwright.
 - **Non-UI code changes** — work confined to `tests/`, `src/Shared/`, or
   `src/Infrastructure/` with no user-visible behavior change is adequately covered by

@@ -20,7 +20,7 @@
     gone.
 
     So the page is caught here instead, per the page-level row of
-    .design/interaction-guidelines.md#error-states: the whole view is unusable, so
+    .devbook/design/interaction-guidelines.md#error-states: the whole view is unusable, so
     it is replaced by a full-page error state with a retry and a way home — and,
     because this is the one moment a reader most wants to say something is wrong,
     with the Report issue dialog opened on the exception's own text. The footer is
@@ -41,7 +41,7 @@ else
 {
     <div class="app-error" data-testid="app-error">
         @* role="alert" on the state itself: a page-level error is the assertive
-           case in the live-region table of .design/accessibility.md, and the
+           case in the live-region table of .devbook/design/accessibility.md, and the
            whole panel is the one message, not only its title. *@
         <EmptyState CssClass="app-error__state"
                     TestId="app-error-state"

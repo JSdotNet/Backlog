@@ -6,7 +6,7 @@
 
 @*
     The sessions pane: the Claude and Copilot sessions this environment has a record
-    of. The Sessions context's only surface (see .domain/sessions/).
+    of. The Sessions context's only surface (see .devbook/domain/sessions/).
 
     It was first built as a second pane on Dev PC Management, which read plausibly
     and was wrong about the boundary. Both are about the machine, but they answer
@@ -63,7 +63,7 @@
     does not own a control for, because the control is in the header. A session is
     in scope by either of two repositories: the one its agent recorded, or the one
     this product resolved from its working folder lying inside a registered clone
-    (see .domain/sessions — the two are kept apart because a resolved repository is
+    (see .devbook/domain/sessions — the two are kept apart because a resolved repository is
     only as good as the clone somebody registered, and the log never writes into a
     gap the agent left). Claude records none, so its sessions are in scope only by
     the second, and a Claude session outside every registered clone — or one that
@@ -542,7 +542,7 @@
     /// exist is a workspace question and answering it here would tie sessions to
     /// repository management. It is also the answer three other surfaces read, and a
     /// pane that worked its own out would be a second answer to which project is
-    /// which. See <c>.design/color-scheme.md#band-identity-tokens</c>.
+    /// which. See <c>.devbook/design/color-scheme.md#band-identity-tokens</c>.
     /// </para>
     /// </summary>
     [Parameter]

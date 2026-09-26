@@ -75,7 +75,7 @@ public sealed class DevbookMenuReadingOrderTests : IDisposable
         File.WriteAllText(Path.Combine(design, "README.md"), "# Design Devbook (`.design`)");
         foreach (var file in declared) File.WriteAllText(Path.Combine(design, file), "# Chapter");
 
-        CopyCommittedReadingOrder(".design", design);
+        CopyCommittedReadingOrder("design", design);
 
         var tree = await LoadAsync(repo, "design");
 
@@ -530,15 +530,15 @@ public sealed class DevbookMenuReadingOrderTests : IDisposable
         return root;
     }
 
-    /// <summary>The repository's own <c>.domain</c> declaration, contexts and
+    /// <summary>The repository's own <c>.devbook/domain</c> declaration, contexts and
     /// nested chapter order alike, so what these assert is the file that ships
     /// rather than a convenient version of it.</summary>
     private static void WriteDomainReadingOrder(string domainFolder) =>
-        CopyCommittedReadingOrder(".domain", domainFolder);
+        CopyCommittedReadingOrder("domain", domainFolder);
 
     private static void CopyCommittedReadingOrder(string area, string folder) =>
         File.Copy(
-            RepositoryRootFile(area, "_reading-order.json"),
+            RepositoryRootFile(".devbook", area, "_reading-order.json"),
             Path.Combine(folder, "_reading-order.json"),
             overwrite: true);
 

@@ -21,7 +21,7 @@ namespace Backlog.Infrastructure.Sync;
 /// <para>
 /// Neither call names an owner or a device. Both come from the token this
 /// client's handler attaches, so there is no field a caller could set to write
-/// into somebody else's data (.arc42/adr/0005 §Identity).
+/// into somebody else's data (.devbook/arc42/adr/0005 §Identity).
 /// </para>
 /// <para>
 /// The failure convention is <see cref="DevicePairingClient"/>'s, and shared with

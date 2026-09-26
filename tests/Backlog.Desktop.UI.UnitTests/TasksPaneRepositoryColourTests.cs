@@ -108,7 +108,7 @@ public class TasksPaneRepositoryColourTests
 
         var pane = host.Render();
 
-        // .design/color-scheme.md#band-identity-tokens requires it: the alias stays
+        // .devbook/design/color-scheme.md#band-identity-tokens requires it: the alias stays
         // written on the row, so a reader who never sees a hue loses nothing.
         Assert.Contains("backlog", pane.Find($"[data-testid='{RowTestId(row)}']").TextContent);
     }

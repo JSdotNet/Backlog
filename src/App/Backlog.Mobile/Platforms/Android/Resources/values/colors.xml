@@ -8,7 +8,7 @@
       and no purple in its palette.
 
       colorPrimary and colorPrimaryDark are surfaces, so they take
-      color-background (#121214) from .design/color-scheme.md - the same value
+      color-background (#121214) from .devbook/design/color-scheme.md - the same value
       as the icon's background layer, so the launch reads as one continuous
       dark surface. colorAccent is the one accent Android draws with (ripples,
       selection handles), so it takes color-primary (#F2C14E).

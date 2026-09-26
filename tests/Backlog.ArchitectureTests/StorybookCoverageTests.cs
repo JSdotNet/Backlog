@@ -89,7 +89,7 @@ public class StorybookCoverageTests
     [Fact]
     public void Every_design_rule_a_story_names_resolves_to_a_heading()
     {
-        var design = new DirectoryInfo(Path.Combine(Repository.Root.FullName, ".design"));
+        var design = new DirectoryInfo(Path.Combine(Repository.Root.FullName, ".devbook", "design"));
 
         var headings = design.EnumerateFiles("*.md")
             .ToDictionary(
@@ -121,7 +121,7 @@ public class StorybookCoverageTests
                 return !headings.TryGetValue(parts[0], out var anchors)
                     || (parts.Length == 2 && !anchors.Contains(parts[1]));
             })
-            .Select(named => $"{named.Page} names .design/{named.Reference}")
+            .Select(named => $"{named.Page} names .devbook/design/{named.Reference}")
             .Distinct()
             .Order()
             .ToList();

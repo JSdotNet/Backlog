@@ -80,7 +80,7 @@ public sealed record UnresolvedPlanDependencyDto(string Tag, string After);
 /// <summary>
 /// A Roadmap Item's Planned Window was set or changed — the payload of the
 /// <c>RoadmapItemScheduled</c> published language
-/// (<c>.domain/roadmap/domain.md#roadmapitemscheduled</c>).
+/// (<c>.devbook/domain/roadmap/domain.md#roadmapitemscheduled</c>).
 /// </summary>
 /// <param name="Start">The new window's first day, inclusive.</param>
 /// <param name="End">The new window's last day, <em>inclusive</em>.</param>

@@ -45,7 +45,7 @@
 //     scope's file declares only `"."`, the order of the knowledge *areas*. The
 //     committed `_meta/index.json` pair stated every nested directory twice —
 //     once in the repo-wide index and once in the area's own — and the two had
-//     already drifted apart: the repo index listed `.domain/tasks` last while
+//     already drifted apart: the repo index listed `.devbook/domain/tasks` last while
 //     `.domain`'s own index listed it third, and the desktop reads the area's.
 //     One declaration per directory is what makes that class of drift
 //     impossible, so resolving the repository scope loads each area's own file.

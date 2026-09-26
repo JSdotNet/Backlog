@@ -32,7 +32,7 @@ namespace Backlog.UI.Components.Devbook;
 /// recognises it — <see cref="DevbookSchema.IsKnownType"/> with the file's name —
 /// and drawn as one generic <see cref="AdditionalPage"/> mark. The <c>naming</c>
 /// this list used to carry was exactly that case hard-coded: this repository's
-/// own <c>.domain/devbook/naming.md</c> is an additional page, and under contract
+/// own <c>.devbook/domain/devbook/domain.md</c> is an additional page, and under contract
 /// 16 so is any other.</para>
 ///
 /// <para>Recognition is what the caller's fallback hangs off. A value set that

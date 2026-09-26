@@ -9,7 +9,7 @@ namespace Backlog.Modules.Roadmap.Services;
 /// <para>
 /// A domain service because neither answer belongs to a single node's own state —
 /// both need every node in view. See
-/// <c>.domain/roadmap/domain.md#domain-service-plan-sequencing</c>.
+/// <c>.devbook/domain/roadmap/domain.md#domain-service-plan-sequencing</c>.
 /// </para>
 /// <para>
 /// Deliberately static and pure: it is handed the nodes and returns an answer,

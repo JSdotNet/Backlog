@@ -4,7 +4,7 @@ namespace Backlog.Infrastructure.Sync.Sessions;
 
 /// <summary>
 /// PORT — what a repository this machine recorded is called, in the word
-/// .arc42/adr/0005 §Session records puts on the wire.
+/// .devbook/arc42/adr/0005 §Session records puts on the wire.
 /// <para>
 /// A port of one method rather than an injected
 /// <see cref="IRepositoryDirectory"/>, even though this project already

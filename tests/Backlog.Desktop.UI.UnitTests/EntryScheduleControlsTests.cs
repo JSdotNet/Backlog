@@ -519,7 +519,7 @@ public sealed class EntryScheduleControlsTests
     /// <summary>
     /// Raw markdown survived the move, as an escape hatch rather than as the way in.
     /// <para>
-    /// <c>.design/content-editing.md#editing-model</c> asks for edit-in-place and
+    /// <c>.devbook/design/content-editing.md#editing-model</c> asks for edit-in-place and
     /// says explicitly that the primary mode must not be "a split write-raw /
     /// preview"; <c>#raw-markdown-escape-hatch</c> asks that a raw view be *always
     /// available* and toggleable. This pane used to have those the wrong way round.

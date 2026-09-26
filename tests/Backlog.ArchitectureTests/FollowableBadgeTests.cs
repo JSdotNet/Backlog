@@ -31,7 +31,7 @@ public class FollowableBadgeTests
     /// them.</para>
     ///
     /// <para>The fill is checked for its <em>absence</em>.
-    /// <c>.design/color-scheme.md#badge-and-chip-tones</c> reserves a filled
+    /// <c>.devbook/design/color-scheme.md#badge-and-chip-tones</c> reserves a filled
     /// surface for something the product acts on, and following a link is the
     /// reader acting — so a background here would be this rule spending the one
     /// tone the palette had set aside.</para>
