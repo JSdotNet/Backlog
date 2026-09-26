@@ -238,6 +238,14 @@
     [Parameter]
     public bool Compact { get; set; }
 
+    /// <summary>Asks the artifact to leave out the card a node opens when it is
+    /// focused — Archify's "Semantic passport" — in the page and in full screen
+    /// alike. For a drawing whose connections say nothing the boxes do not, such as
+    /// a delivery run's stages, where every card would read "previous stage in, next
+    /// stage out". Focusing a node still highlights it.</summary>
+    [Parameter]
+    public bool HideNodeDetails { get; set; }
+
     private string FigureClass => string.IsNullOrWhiteSpace(CssClass) ? "diagram-view" : $"diagram-view {CssClass}";
 
     /// <summary>
@@ -296,7 +304,7 @@
 
             try
             {
-                await Js.InvokeVoidAsync("backlogDiagrams.renderArtifact", _frame, _diagramId, _artifact.Html, Compact);
+                await Js.InvokeVoidAsync("backlogDiagrams.renderArtifact", _frame, _diagramId, _artifact.Html, Compact, HideNodeDetails);
             }
             catch (JSException)
             {

@@ -89,6 +89,9 @@ public sealed class DiagramArtifactViewTests
         var invocation = Assert.Single(context.JSInterop.Invocations["backlogDiagrams.renderArtifact"]);
 
         Assert.Equal(document, invocation.Arguments[2]);
+
+        // A chapter diagram keeps the card a node opens.
+        Assert.Equal(false, invocation.Arguments[4]);
     }
 
     [Fact]
@@ -346,6 +349,7 @@ public sealed class DiagramArtifactViewTests
             .Add(view => view.Language, "mermaid")
             .Add(view => view.CssClass, "sessions-run__artifact")
             .Add(view => view.Compact, true)
+            .Add(view => view.HideNodeDetails, true)
             .Add(view => view.Artifact, new DiagramArtifact(
                 "<!doctype html><html><body>Run</body></html>",
                 @"C:\Temp\run-0123456789abcdef.html",
@@ -361,6 +365,9 @@ public sealed class DiagramArtifactViewTests
         // Compact asks the frame to leave its own header and toolbar out while it
         // is in the page; a chapter diagram never asks.
         Assert.Equal(true, invocation.Arguments[3]);
+
+        // And to leave out the card a node opens, in the page and in full screen.
+        Assert.Equal(true, invocation.Arguments[4]);
         Assert.NotNull(diagram.Find("[data-testid='diagram-view-renderer-mermaid']"));
     }
 
