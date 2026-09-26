@@ -142,7 +142,7 @@ public sealed record DevbookSnapshotResult(
 /// <summary>
 /// The little language <see cref="IDevbookSnapshotCache.EnsureAsync"/> takes,
 /// kept to four forms because four is what the readers need: an area store
-/// wants a folder, the menu wants every reading-order file wherever it sits, the
+/// wants a folder, the menu wants every generated index wherever it sits, the
 /// instructions area wants three folders and a few root files, and nobody wants
 /// the rendered diagram artifacts beside a chapter until they ask for one.
 /// </summary>
@@ -174,7 +174,7 @@ public static class DevbookSnapshotSelection
     }
 
     /// <summary>Every file whose path ends in the given suffix, at any depth:
-    /// <c>**/_reading-order.json</c>, <c>**/_meta/index.json</c>.</summary>
+    /// <c>**/_meta/index.json</c>.</summary>
     public static string AnyDepth(string suffix) => AnyDepthPrefix + Normalize(suffix);
 
     /// <summary>No file whose path passes through a directory of this name.</summary>

@@ -2,7 +2,6 @@
 
 ```meta
 type: dependencies
-status: active
 related: [.devbook/domain/context-map.md, .devbook/domain/dev-pc-management/domain.md#machine-registry, .devbook/arc42/08-crosscutting-concepts.md#session-record-sync, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md]
 ```
 

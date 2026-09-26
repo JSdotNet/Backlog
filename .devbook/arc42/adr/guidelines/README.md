@@ -1,9 +1,8 @@
 # Adopted Organization Guidelines
 
 ```meta
-status: active
+index: root
 related: [".devbook/arc42/09-architecture-decisions.md", ".devbook/arc42/02-constraints.md#technical-constraints"]
-issue: null
 ```
 
 The organization-level architecture decisions that govern Backlog's .NET code,

@@ -1,9 +1,7 @@
 # ADR 0003: .NET Aspire for orchestration
 
 ```meta
-status: active
 related: [".devbook/arc42/07-deployment-view.md", ".devbook/tech/tooling.md", ".devbook/arc42/09-architecture-decisions.md"]
-issue: null
 ```
 
 Inherited from the organization's ADR 0003 (decided 2025-11-10,

@@ -1,9 +1,7 @@
 # ADR 0007: Import reuses the entry text grammar; a plan is multi-task entry text
 
 ```meta
-status: active
 related: [".devbook/domain/tasks/features.md#import", ".devbook/domain/tasks/domain.md#task", ".devbook/design/content-editing.md#scheduling-and-dependency-tokens", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md", ".devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md"]
-issue: null
 ```
 
 ## Status

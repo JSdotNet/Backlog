@@ -1,9 +1,7 @@
 # ADR 0006: Lightweight CQRS, no mediator
 
 ```meta
-status: active
 related: [".devbook/arc42/05-building-block-view.md", ".devbook/arc42/09-architecture-decisions.md"]
-issue: null
 ```
 
 Inherited from the organization's ADR 0006 (decided 2025-11-10,

@@ -3,9 +3,10 @@ using Backlog.Modules.Devbook.Abstractions;
 namespace Backlog.Infrastructure.Devbook.Building;
 
 /// <summary>
-/// Which folders of a repository the builder indexes, how a path names its
-/// folder, and where the repository-wide reading order is kept — the three
-/// things that differ between the two layouts.
+/// Which folders of a repository the builder indexes and how a path names its
+/// folder — the two things that differ between the two layouts. Neither layout
+/// keeps an authored reading order any more (local ADR 0016); the outline is
+/// derived by <see cref="DevbookOutlineBuilder"/>.
 ///
 /// <para>The devbook layout is what the devbook plugin's own generator serves,
 /// and the one <c>DevbookBuilderParityTests</c> compares against. The root layout
@@ -16,8 +17,7 @@ namespace Backlog.Infrastructure.Devbook.Building;
 /// </summary>
 internal sealed record DevbookBuildLayout(
     bool IsDevbookLayout,
-    IReadOnlyList<string> Folders,
-    string RepositoryReadingOrderPath)
+    IReadOnlyList<string> Folders)
 {
     /// <summary>The repository-wide scope.</summary>
     public const string RepositoryScope = ".";
@@ -40,14 +40,14 @@ internal sealed record DevbookBuildLayout(
                 .Where(folder => Directory.Exists(Path.Combine(repositoryRoot, folder)))
                 .ToArray();
 
-            return new DevbookBuildLayout(true, folders, $"{DevbookFolderSetting.DevbookRoot}/_reading-order.json");
+            return new DevbookBuildLayout(true, folders);
         }
 
         var rootFolders = RootFolderNames
             .Where(folder => Directory.Exists(Path.Combine(repositoryRoot, folder)))
             .ToArray();
 
-        return new DevbookBuildLayout(false, rootFolders, "_reading-order.json");
+        return new DevbookBuildLayout(false, rootFolders);
     }
 
     /// <summary>The scopes: the repository, then each folder.</summary>

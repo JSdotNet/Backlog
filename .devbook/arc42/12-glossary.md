@@ -1,7 +1,6 @@
 # 12. Glossary
 
 ```meta
-status: active
 related: [".devbook/arc42/08-crosscutting-concepts.md#shared-data-types", ".devbook/domain/context-map.md"]
 ```
 
@@ -14,7 +13,6 @@ lists only system-wide architecture terms that don't belong to a single domain.
 ## Terms
 
 ```meta
-status: active
 ```
 
 | Term | Definition |
@@ -34,7 +32,6 @@ business meaning, see `.devbook/domain/context-map.md#subdomain-landscape`.
 ## Shared Data Types
 
 ```meta
-status: active
 related: [".devbook/arc42/08-crosscutting-concepts.md#shared-data-types"]
 ```
 

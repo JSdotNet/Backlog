@@ -148,7 +148,6 @@ public sealed class TechnologyDevbookPanelTests : IDisposable
 
         if (withTechFolder)
         {
-            WriteTechReadingOrder(tech, "shared.md", "desktop.md");
             File.WriteAllText(Path.Combine(tech, "technology-graph.md"), TechnologyGraph);
             File.WriteAllText(Path.Combine(tech, "shared.md"), SharedLayer);
             File.WriteAllText(Path.Combine(tech, "desktop.md"), DesktopLayer);
@@ -192,7 +191,7 @@ public sealed class TechnologyDevbookPanelTests : IDisposable
 
         var labels = component.FindAll(".graph-atlas-index__label").Select(row => row.TextContent.Trim()).ToArray();
 
-        // Reading order: shared before desktop, as the index commits it.
+        // Reading order: shared before desktop, as the convention pins it.
         Assert.Equal([".NET", "Blazor"], labels);
     }
 
@@ -373,22 +372,5 @@ public sealed class TechnologyDevbookPanelTests : IDisposable
         /// machine and a green suite on a fast one.
         /// </summary>
         public async ValueTask DisposeAsync() => await Context.DisposeAsync();
-    }
-
-    /// <summary>
-    /// The committed reading order for a <c>.tech</c> fixture. The layer sequence
-    /// lives in the authored <c>_reading-order.json</c> at the folder root — not
-    /// in the root document's fence, and no longer in the generated
-    /// <c>_meta/index.json</c> that fence was compiled into — so a fixture that
-    /// cares about order writes the file the reader actually consults.
-    /// </summary>
-    private static void WriteTechReadingOrder(string techPath, params string[] layers)
-    {
-        var order = string.Join(", ", layers.Select(layer => $"\"{layer}\""));
-
-        File.WriteAllText(
-            Path.Combine(techPath, "_reading-order.json"),
-            "{ \"version\": 1, \"scope\": \".tech\", \"directories\": { \".tech\": "
-            + "{ \"root\": \"technology-graph.md\", \"order\": [" + order + "] } } }");
     }
 }

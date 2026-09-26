@@ -300,10 +300,10 @@ public sealed class DevbookFolderSource : IDevbookFolderSource
             if (!location.Available || _snapshots.TryRead(repository, repository.DevbookBranch) is null) return location;
         }
 
-        // The reading-order files are part of the listing rather than of any
-        // one area: the menu is ordered by them, and a menu drawn without them
-        // would silently fall back to alphabetical. A failure here is exactly
-        // that fallback, so it is not reported as the folder being unavailable.
+        // The generated titles are part of the listing rather than of any one
+        // area: the menu labels its rows from them, and a menu drawn without
+        // them keeps its filename labels. A failure here is exactly that
+        // fallback, so it is not reported as the folder being unavailable.
         await _snapshots.EnsureAsync(repository, repository.DevbookBranch, ListingFiles, cancellationToken).ConfigureAwait(false);
 
         return Resolve(key, repositoryAlias);
@@ -359,11 +359,12 @@ public sealed class DevbookFolderSource : IDevbookFolderSource
             : DevbookDiskFileTree.Instance;
     }
 
-    /// <summary>The files every listing needs, wherever they sit: the authored
-    /// reading order, and the generated titles where a repository commits them.</summary>
+    /// <summary>The files every listing needs, wherever they sit: the generated
+    /// titles where a repository commits them. The reading order needs nothing
+    /// fetched — it is derived from the names the index already lists (local ADR
+    /// 0016), and a <c>_reading-order.json</c> on a branch is ignored.</summary>
     private static readonly string[] ListingFiles =
     [
-        DevbookSnapshotSelection.AnyDepth("_reading-order.json"),
         DevbookSnapshotSelection.AnyDepth("_meta/index.json")
     ];
 

@@ -2,7 +2,6 @@
 
 ```meta
 type: model
-status: active
 related: [.devbook/domain/sessions/domain.md]
 ```
 

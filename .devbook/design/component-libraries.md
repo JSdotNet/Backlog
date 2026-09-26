@@ -1,7 +1,6 @@
 # Component Libraries
 
 ```meta
-status: active
 related: [".devbook/arc42/04-solution-strategy.md#technology-choices", ".devbook/design/color-scheme.md#per-stack-token-mapping", ".devbook/design/content-editing.md", ".devbook/design/interaction-guidelines.md#drag-and-drop-reordering", ".devbook/design/accessibility.md#keyboard-navigation"]
 ```
 
@@ -20,7 +19,6 @@ related: [".devbook/arc42/04-solution-strategy.md#technology-choices", ".devbook
 ## Evaluation Criteria
 
 ```meta
-status: active
 ```
 
 | # | Criterion | Why it matters |
@@ -36,7 +34,6 @@ status: active
 ## Key Finding: Tokens Are the Shared Layer
 
 ```meta
-status: active
 related: [".devbook/design/color-scheme.md#per-stack-token-mapping"]
 ```
 
@@ -59,14 +56,12 @@ implementation across channels. This is the primary reuse opportunity.
 ## Per-Channel Recommendations
 
 ```meta
-status: active
 related: [".devbook/arc42/04-solution-strategy.md#technology-choices", ".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md"]
 ```
 
 ### Desktop — .NET MAUI Blazor Hybrid (Razor in WebView2)
 
 ```meta
-status: active
 related: [".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md"]
 ```
 
@@ -129,7 +124,6 @@ rendering technology as the IDE webviews.
 ## Candidate Comparison
 
 ```meta
-status: active
 ```
 
 Rating: ✔ strong · ◑ partial/with work · ✘ weak/absent · — n/a.
@@ -158,7 +152,6 @@ Rating: ✔ strong · ◑ partial/with work · ✘ weak/absent · — n/a.
 ## Recommendation Summary
 
 ```meta
-status: active
 ```
 
 | Layer | Recommendation | Rationale |
@@ -179,7 +172,6 @@ status: active
 ## Diagram and Graph Strategy
 
 ```meta
-status: active
 related: [".devbook/tech/technology-graph.md", ".devbook/tech/tooling.md#archify", ".devbook/tech/tooling.md#c4hero", ".devbook/design/content-editing.md", ".devbook/design/accessibility.md"]
 ```
 
@@ -215,7 +207,6 @@ picture.
 ### C4 workspaces
 
 ```meta
-status: active
 related: [".devbook/tech/tooling.md#c4hero", ".devbook/design/content-editing.md", ".devbook/design/accessibility.md"]
 ```
 
@@ -241,7 +232,6 @@ arrangement, the DSL subset, and what the drawing cannot say.
 ### Archify artifacts
 
 ```meta
-status: active
 related: [".devbook/tech/tooling.md#archify", ".devbook/design/design-principles.md", ".devbook/design/accessibility.md"]
 ```
 
@@ -273,7 +263,6 @@ ships.
 ## Risks and Gaps
 
 ```meta
-status: active
 ```
 
 | Risk / gap | Impact | Mitigation |
@@ -297,7 +286,6 @@ shared editor, and whether the token pipeline is delivered in the first release.
 ## Materialization
 
 ```meta
-status: active
 related: [".devbook/design/README.md#living-reference-the-ui-storybook"]
 ```
 

@@ -27,9 +27,9 @@ landed at **contract 17**, and this record states what landed.
 | Derived layer stays a local build output | Built (ADR 0004; in app storage since ADR 0015) |
 | Writer imports the installed generator | Built for the `.devbook/` layout (`tools/devbook/generator.mjs`) |
 | Four procedures, schedule catalog | Built (#645: four procedures in `.agents/skills/`, `components.schedule` stamped) |
-| `.backlog/` retired | Pending: the folder is still at the root |
-| `_reading-order.json` retired, all six | Pending: all six are still committed, and `tools/devbook/reading-order.mjs` still reads them |
-| Delivery engine replaces the orch-* gate | Pending: sessions already route through the `delivery` flows; `CLAUDE.md` and `bindings.delivery.roles` do not say so yet |
+| `.backlog/` retired | Built (`move-and-install`): the folder is gone; `DevbookFolder.Backlog` stays |
+| `_reading-order.json` retired, all six | Built (`move-and-install`): all six are gone and ignored in any repository; both writers take the order from the generator's convention, `reading-order.mjs` is gone, and `01-introduction-and-goals.md` and the `adr/` READMEs carry `index: root` |
+| Delivery engine replaces the orch-* gate | Partly built: `bindings["delivery.roles"]` and `extensions` are written (`move-and-install`); `CLAUDE.md` still describes the orch-* gate (`reroute-orchestration-gate`) |
 
 ## Context
 

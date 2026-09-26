@@ -3,7 +3,6 @@
 ```meta
 status: proposed
 related: [".devbook/arc42/07-deployment-view.md", ".devbook/arc42/09-architecture-decisions.md"]
-issue: null
 ```
 
 Inherited from the organization's ADR 0018 (decided 2026-06-04,

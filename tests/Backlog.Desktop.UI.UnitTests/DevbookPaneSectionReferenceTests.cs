@@ -142,22 +142,23 @@ public sealed class DevbookPaneSectionReferenceTests : IDisposable
         Directory.CreateDirectory(Path.Combine(root, ".github", "instructions"));
         _roots.Add(root);
 
-        // The links go in `accessibility.md`, because that is the chapter the pane
-        // opens the section on: the menu tree is alphabetical and the first
-        // selectable node is what gets selected. Both forms the design folder
-        // writes — a sibling with an anchor, and a bare sibling.
-        File.WriteAllText(Path.Combine(root, ".design", "accessibility.md"), """
-            # Accessibility
+        // The links go in `color-scheme.md`, because that is the chapter the pane
+        // opens the section on: the menu reads the design folder in the
+        // convention's order, where the colour scheme comes first of these three,
+        // and the first selectable node is what gets selected. Both forms the
+        // design folder writes — a sibling with an anchor, and a bare sibling.
+        File.WriteAllText(Path.Combine(root, ".design", "color-scheme.md"), """
+            # Color scheme
 
             ```meta
             status: accepted
             ```
 
             Named as a group, see [the component rule](component-libraries.md#materialization),
-            and the palette is in [the color scheme](color-scheme.md).
+            and the contrast rules are in [accessibility](accessibility.md).
             """);
         File.WriteAllText(Path.Combine(root, ".design", "component-libraries.md"), "# Component libraries\n\n## Materialization\n\nWhy the library is the product's own.\n");
-        File.WriteAllText(Path.Combine(root, ".design", "color-scheme.md"), "# Color scheme\n\nThe tokens.\n");
+        File.WriteAllText(Path.Combine(root, ".design", "accessibility.md"), "# Accessibility\n\nThe contrast rules.\n");
 
         // The adoption record's one outward reference: a `depends-on` into the
         // technology registry, which is the direction the folder's rule allows.

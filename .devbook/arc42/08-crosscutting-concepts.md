@@ -1,7 +1,6 @@
 # 08. Cross-cutting Concepts
 
 ```meta
-status: active
 ```
 
 Concepts that apply across multiple channels and domains and must be handled
@@ -10,7 +9,6 @@ uniformly. Shared data types define the vocabulary exchanged between them.
 ## Storage and Sync
 
 ```meta
-status: active
 related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".devbook/arc42/06-runtime-view.md#copilot-app-session-capture", ".devbook/arc42/08-crosscutting-concepts.md#session-record-sync", ".devbook/arc42/08-crosscutting-concepts.md#task-sync", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/domain/capture/domain.md#source-adapter", ".devbook/domain/sessions/domain.md#session-log"]
 ```
 
@@ -117,7 +115,6 @@ related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/ar
 ## Task Sync
 
 ```meta
-status: active
 related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/domain/capture/domain.md#capture", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/tasks/domain.md#task"]
 ```
 
@@ -224,7 +221,6 @@ sequenceDiagram
 ## Session Record Sync
 
 ```meta
-status: active
 related: [".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/08-crosscutting-concepts.md#task-sync", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/sessions/features.md#sessions-from-another-machine"]
 ```
 
@@ -304,7 +300,6 @@ and local ADR 0005 argues each.
 ## Devbook Database
 
 ```meta
-status: active
 related: [".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/domain/devbook/features.md#repository-devbook-areas"]
 ```
 
@@ -320,10 +315,12 @@ How every channel reads the knowledge a repository carries alongside its code.
   repository, so nothing about it is committed or needs ignoring and a repository
   the app reads is left as it was found; per path, so two worktrees of one
   repository, and a branch snapshot, each get their own.
-- **The authored half stays text** — each directory's reading order and root
-  document, the hand-written Archify specifications, and the Structurizr C4
-  workspace under `.devbook/arc42/_c4/`, are committed and reviewed in diffs. Only what a
-  generator produces goes into the database. The C4 workspace has no derived half
+- **The authored half stays text** — the hand-written Archify specifications and
+  the Structurizr C4 workspace under `.devbook/arc42/_c4/` are committed and
+  reviewed in diffs. Only what a generator produces goes into the database. The
+  reading order is not authored at all: both writers derive it the way the devbook
+  generator does, from `index: root`, the folder's convention root and the numbers
+  in filenames (local ADR 0016). The C4 workspace has no derived half
   at all: it is not attached to a fence and nothing is rendered from it ahead of
   time, so there is nothing about it for an index to hold or to go stale.
 - **Structural first, semantic optional** — the structural tier is deterministic and
@@ -403,7 +400,6 @@ related: [".devbook/arc42/04-solution-strategy.md", ".devbook/domain/devbook/fea
 ## Tagging and Organization
 
 ```meta
-status: active
 related: [".devbook/domain/roadmap/domain.md#roadmap-item-gathering"]
 ```
 
@@ -424,7 +420,6 @@ references, they stay node attributes and produce no edges in the knowledge grap
 ## Authentication and Authorization
 
 ```meta
-status: active
 related: [".devbook/arc42/09-architecture-decisions.md"]
 ```
 
@@ -447,7 +442,6 @@ error-contract decisions apply — `.devbook/arc42/adr/guidelines/0012-authentic
 ## Observability
 
 ```meta
-status: active
 related: [".devbook/arc42/09-architecture-decisions.md"]
 ```
 
@@ -459,7 +453,6 @@ latency per project) alongside local queue/backlog health metrics. Telemetry fol
 ## Shared Data Types
 
 ```meta
-status: active
 related: [".devbook/arc42/12-glossary.md", ".devbook/domain/inbox/domain.md#inbox-item", ".devbook/domain/tasks/domain.md#task", ".devbook/domain/devbook/domain.md#knowledge-note", ".devbook/domain/monitoring/domain.md#progress-signal", ".devbook/domain/dev-pc-management/domain.md#machine-registry", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/repository-management/domain.md#repository-registry", ".devbook/domain/technology-stack/domain.md#technology-registry", ".devbook/domain/roadmap/domain.md#roadmap-item-gathering"]
 ```
 

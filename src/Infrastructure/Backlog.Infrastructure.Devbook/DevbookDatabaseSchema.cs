@@ -23,8 +23,11 @@ public static class DevbookDatabaseSchema
     /// builder writes — the <c>schema-version</c> line of <c>devbook-schema.sql</c>.
     /// <para>2 added <c>chapter.search_text</c> and moved <c>chapter_fts</c> onto
     /// it, so the index holds each chapter's prose instead of its raw
-    /// Markdown.</para></summary>
-    public const int Version = 2;
+    /// Markdown.</para>
+    /// <para>3 added <c>chapter.open_annotations</c>, each chapter's count of open
+    /// review notes, and derives <c>outline_entry</c> from the folder convention
+    /// rather than from <c>_reading-order.json</c> (local ADR 0016).</para></summary>
+    public const int Version = 3;
 
     /// <summary>The embedded resource holding <c>devbook-schema.sql</c>.</summary>
     internal const string DdlResourceName = "Backlog.Infrastructure.Devbook.devbook-schema.sql";

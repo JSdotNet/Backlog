@@ -30,7 +30,7 @@ component library on its own, with no app or cloud reference, so a single compon
 validated without the application around it.
 
 This repository also carries the checked-in knowledge folders (`.devbook/arc42/`, `.devbook/domain/`,
-`.backlog/`, `.devbook/tech/`, `.devbook/design/`, `.devbook/ai/`) and generator tooling under `.github/tools/knowledge-meta/`.
+`.devbook/tech/`, `.devbook/design/`, `.devbook/ai/`) and generator tooling under `.github/tools/knowledge-meta/`.
 Changes confined to those folders are documentation work — see `## QA Depth`.
 
 ## How to Run
@@ -210,7 +210,7 @@ phone-width behavior), discovering their URLs at run time rather than assuming p
 
 Two standing exceptions:
 
-- **Documentation-only changes** — edits confined to `.devbook/arc42/`, `.devbook/domain/`, `.backlog/`,
+- **Documentation-only changes** — edits confined to `.devbook/arc42/`, `.devbook/domain/`,
   `.devbook/tech/`, `.devbook/design/`, `.devbook/ai/`, `.github/`, or `README.md` have no runtime surface. Verification is
   documentation review plus `build.mjs --check`; skip startup and Playwright.
 - **Non-UI code changes** — work confined to `tests/`, `src/Core/Backlog.SharedKernel`, or
@@ -244,9 +244,8 @@ repository had to change for it.
 
 This repository ships no repo-native `orch-*` skills. The knowledge-folder flows
 (`flow-arc42-content`, `flow-domain`, `flow-tech`, `flow-design`) come from the
-`devbook-flows` plugin, which sits on the `devbook` plugin (formerly `knowledge-base`);
-`.backlog` has no successor flow until it is dropped with the devbook contract v6, a
-follow-up. Every other orchestration — including `orch-fallback`, the generic entrypoint
+`devbook-flows` plugin, which sits on the `devbook` plugin (formerly `knowledge-base`).
+Every other orchestration — including `orch-fallback`, the generic entrypoint
 for task categories with no dedicated `orch-*` skill — comes from the `copilot-app`
 plugin.
 

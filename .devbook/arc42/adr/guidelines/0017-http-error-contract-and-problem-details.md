@@ -3,7 +3,6 @@
 ```meta
 status: proposed
 related: [".devbook/arc42/05-building-block-view.md#cloud-service", ".devbook/arc42/09-architecture-decisions.md"]
-issue: null
 ```
 
 Inherited from the organization's ADR 0017 (decided 2026-06-04,

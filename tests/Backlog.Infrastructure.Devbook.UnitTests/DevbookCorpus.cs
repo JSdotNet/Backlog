@@ -148,8 +148,8 @@ internal static class DevbookCorpus
         Run(
             connection,
             """
-            INSERT INTO chapter (path, folder, slug, level, title, status, line, text, search_text, content_hash, source_hash, size, mtime)
-            VALUES ($path, 'domain', 'inbox', 2, 'Inbox', 'active', 7, $text, $searchText, $contentHash, $sourceHash, $size, $mtime)
+            INSERT INTO chapter (path, folder, slug, level, title, status, line, text, search_text, content_hash, source_hash, size, mtime, open_annotations)
+            VALUES ($path, 'domain', 'inbox', 2, 'Inbox', 'active', 7, $text, $searchText, $contentHash, $sourceHash, $size, $mtime, 2)
             """,
             ("$path", ChapterPath),
             ("$text", ChapterText),

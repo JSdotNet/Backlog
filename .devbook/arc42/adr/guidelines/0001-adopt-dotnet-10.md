@@ -1,9 +1,7 @@
 # ADR 0001: .NET 10 as the target framework
 
 ```meta
-status: active
 related: [".devbook/tech/shared.md", ".devbook/arc42/09-architecture-decisions.md"]
-issue: null
 ```
 
 Inherited from the organization's ADR 0001 (decided 2026-06-02,

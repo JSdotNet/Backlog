@@ -1,7 +1,6 @@
 # Design Knowledge (`.devbook/design`)
 
 ```meta
-status: active
 related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/04-solution-strategy.md#technology-choices", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync"]
 ```
 
@@ -20,7 +19,6 @@ implementation code.
 ## Purpose
 
 ```meta
-status: active
 ```
 
 The Backlog product spans several UI channels that share one canonical data
@@ -38,7 +36,6 @@ testable rules that keep those channels consistent:
 ## Headline Principles
 
 ```meta
-status: active
 ```
 
 Two product-level decisions override defaults everywhere and must be honored by
@@ -52,7 +49,6 @@ every channel and component:
 ## How to Use This Folder
 
 ```meta
-status: active
 ```
 
 - Treat every rule marked with **MUST** / **MUST NOT** as testable acceptance
@@ -70,7 +66,6 @@ status: active
 ## Living Reference: The UI Storybook
 
 ```meta
-status: active
 related: [".devbook/design/color-scheme.md", ".devbook/design/typography-and-layout.md", ".devbook/design/component-libraries.md"]
 ```
 
@@ -164,7 +159,6 @@ Rules:
 ## Table of Contents
 
 ```meta
-status: active
 ```
 
 | File | Scope |
@@ -180,7 +174,6 @@ status: active
 ## Provenance
 
 ```meta
-status: active
 ```
 
 The visual design tokens and UX patterns in this folder were adapted from the
@@ -195,7 +188,6 @@ change here is a change to the product's design language.
 ## Status Vocabulary
 
 ```meta
-status: active
 ```
 
 Files and chapters in `.devbook/design` use `status: draft | active | deprecated`

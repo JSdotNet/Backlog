@@ -1,9 +1,7 @@
 # ADR 0015: Resilience for outbound dependencies
 
 ```meta
-status: active
 related: [".devbook/arc42/06-runtime-view.md", ".devbook/arc42/09-architecture-decisions.md"]
-issue: null
 ```
 
 Inherited from the organization's ADR 0015 (decided 2026-06-04,
