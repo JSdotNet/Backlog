@@ -13,10 +13,15 @@ Accepted, 2026-09-26. This is the first entry (`import-adr`) of the
 `inbox-capture-extension` plan. It is written first so that every later entry
 implements this one decision.
 
-Built on 2026-09-27 (`import-adapter`). Building it amended two rules, marked
-where they apply. An item without an `external_id` is imported under a fallback
-id rather than skipped. The manifest also carries optional `url` and `tags`
-keys.
+The `url` and `tags` keys and the fallback `external_id` were added on
+2026-09-26, when the generating skill was written (`import-skill`). Its
+grammar,
+`plugins/backlog-tools/skills/backlog-import-inbox/assets/inbox-import-manifest.md`,
+gives every key's rule.
+
+Built on 2026-09-27 (`import-adapter`). Building it changed one rule, marked in
+section 2: an item without an `external_id` is imported under the same fallback
+id the skill writes, rather than skipped.
 
 The repository owner settled four choices on 2026-09-25. They are inputs here,
 not open questions:
@@ -115,7 +120,8 @@ A task moved between two exports comes in again for the same reason.
   - `url` (optional): the original link the item points at.
   - `kind` (optional): a `Content Kind`. When it is absent, the kind is detected
     from the item the way any capture's is.
-  - `tags` (optional): tag names, separated by commas.
+  - `tags` (optional): the source tool's labels that the person mapped to
+    tags, separated by commas.
   - `person` (optional): who shared it, stored as the item's `@name`.
   - `list` (optional): the Inbox List to file it in.
 - Everything after the fence, up to the next `#` title, is the item's notes. It

@@ -85,20 +85,17 @@ test('the repository corpus passes', async () => {
     );
 });
 
-test('a .devbook/ chapter is judged by the current checker, with nothing suppressed', async () => {
+test('a .devbook/ chapter is judged by the installed checker', async () => {
     // The `.devbook/` layout is validated by the materialized devbook checker, whose
-    // schema the corpus is written against. The stale-install suppressions exist for
-    // the root layout only: under `.devbook/` a `context`/`setting` pair is simply
-    // valid, and no finding is ever filed as pending re-sync.
+    // schema the corpus is written against: a `context`/`setting` pair is valid.
     const current = await checkFixture(
         '.devbook/domain/sample/context.md',
         chapter({ type: 'context' }, { type: 'setting', key: 'sample.json', scope: 'user', default: '1' })
     );
     assert.equal(current.blocking.length, 0, blockingText(current));
-    assert.equal(current.suppressed, 0);
     assert.deepEqual(current.folders.map((folder) => folder.folder), ['.devbook/domain']);
 
-    // An unrecognized field is still promoted to blocking, as it is at the root.
+    // An unrecognized field is promoted to blocking.
     const unknown = await checkFixture(
         '.devbook/design/sample.md',
         chapter({ status: 'active' }, { status: 'active', owner: 'nobody' })
@@ -115,51 +112,23 @@ test('a .devbook/ chapter is judged by the current checker, with nothing suppres
     assert.match(blockingText(bad), /"idea"/);
 });
 
-test('a field the installed generator predates is not a failure', async () => {
-    // The gate is pinned to the copy of the generator under
-    // `.github/tools/knowledge-meta/`, which is four plugin releases behind.
-    // 0.16.0 allows `type`, `date` and `tests` on any block and `index` on a
-    // file-level one; chapter authors are told to write that schema, because the
-    // instructions and skills that describe it come from the plugin rather than
-    // from here. Blocking on them would fail a pull request for correct metadata.
-    const result = await checkFixture(
-        '.design/sample.md',
-        chapter(
-            { status: 'active', index: 'root' },
-            { status: 'active', type: 'component', date: '2026-09-05', tests: 'unit:xunit:Foo' }
-        )
-    );
-
-    assert.equal(result.blocking.length, 0, blockingText(result));
-    assert.ok(result.suppressed > 0, 'The newer fields should be suppressed, not silently advisory.');
-
-    // The exemption is those field names, not the whole class: a field no schema
-    // at any version defines still blocks.
-    const unknown = await checkFixture(
-        '.design/sample.md',
-        chapter({ status: 'active' }, { status: 'active', owner: 'nobody' })
-    );
-    assert.equal(unknown.blocking.length, 1, blockingText(unknown));
-    assert.match(unknown.blocking[0].message, /unrecognized field `owner`/);
-});
-
 test('an adopted folder that holds nothing is an error, not a silent pass', async () => {
     // `result.folders` carries every folder present on disk, empty included, so
     // the corpus assertion above can actually fail. Dropping empty entries is
     // what would let a renamed or unreadable folder go quietly ungated.
     const root = await mkdtemp(join(tmpdir(), 'devbook-check-'));
     try {
-        await mkdir(join(root, '.domain', 'sample'), { recursive: true });
+        await mkdir(join(root, '.devbook', 'domain', 'sample'), { recursive: true });
         await writeFile(
-            join(root, '.domain', 'sample', 'features.md'),
+            join(root, '.devbook', 'domain', 'sample', 'features.md'),
             chapter({ status: 'active', type: 'features' }, { status: 'active', type: 'feature' }),
             'utf8'
         );
-        await mkdir(join(root, '.design'), { recursive: true });
+        await mkdir(join(root, '.devbook', 'design'), { recursive: true });
 
         const result = await checkRepository(root);
-        assert.deepEqual(result.folders.map((folder) => folder.folder), ['.domain', '.design']);
-        assert.equal(result.folders.find((folder) => folder.folder === '.design').files, 0);
+        assert.deepEqual(result.folders.map((folder) => folder.folder), ['.devbook/domain', '.devbook/design']);
+        assert.equal(result.folders.find((folder) => folder.folder === '.devbook/design').files, 0);
 
         const run = spawnSync(process.execPath, [SCRIPT, '--root', root], { encoding: 'utf8' });
         assert.equal(run.status, 2, `${run.stdout}${run.stderr}`);
@@ -171,13 +140,13 @@ test('an adopted folder that holds nothing is an error, not a silent pass', asyn
 
 test('a status outside the folder vocabulary blocks, naming the value and the list', async () => {
     const result = await checkFixture(
-        '.domain/sample/features.md',
+        '.devbook/domain/sample/features.md',
         chapter({ status: 'active', type: 'features' }, { status: 'idea', type: 'feature' })
     );
 
     assert.equal(result.blocking.length, 1, blockingText(result));
     const [finding] = result.blocking;
-    assert.equal(finding.path, '.domain/sample/features.md');
+    assert.equal(finding.path, '.devbook/domain/sample/features.md');
     assert.match(finding.message, /## A chapter/);
     assert.match(finding.message, /[(]line 8[)]/);
     assert.match(finding.message, /"idea"/);
@@ -185,11 +154,11 @@ test('a status outside the folder vocabulary blocks, naming the value and the li
 });
 
 test('each folder is judged against its own ladder', async () => {
-    // `adopted` is a real status in `.tech`, and `active` is a real status in
-    // `.domain`. Borrowing another folder vocabulary is the mistake that one
+    // `adopted` is a real status in `tech/`, and `active` is a real status in
+    // `domain/`. Borrowing another folder vocabulary is the mistake that one
     // shared list would wave through.
     const design = await checkFixture(
-        '.design/sample.md',
+        '.devbook/design/sample.md',
         chapter({ status: 'active' }, { status: 'adopted' })
     );
     assert.equal(design.blocking.length, 1, blockingText(design));
@@ -197,20 +166,24 @@ test('each folder is judged against its own ladder', async () => {
     assert.match(design.blocking[0].message, /draft, active, deprecated/);
 });
 
-test('a root-level .backlog folder is not a devbook folder and is not gated', async () => {
-    // Local ADR 0016 dropped `.backlog` with no `.devbook/` successor, so a stray
-    // one is somebody's own folder: invalid metadata in it blocks nothing.
-    const result = await checkFixture(
-        '.backlog/sample.md',
-        chapter({ status: 'draft' }, { status: 'not-a-status' })
-    );
-    assert.equal(result.blocking.length, 0, blockingText(result));
-    assert.deepEqual(result.folders, []);
+test('a root-level folder is not a devbook folder and is not gated', async () => {
+    // Local ADR 0016 retired the root layout and `.backlog` with it, and the
+    // predecessor generator that validated `.domain/`, `.arc42/`, `.tech/` and
+    // `.design/` is gone. A stray root-level folder is somebody's own: invalid
+    // metadata in it blocks nothing.
+    for (const relPath of ['.backlog/sample.md', '.domain/sample/features.md', '.design/sample.md']) {
+        const result = await checkFixture(
+            relPath,
+            chapter({ status: 'draft' }, { status: 'not-a-status' })
+        );
+        assert.equal(result.blocking.length, 0, `${relPath}: ${blockingText(result)}`);
+        assert.deepEqual(result.folders, [], relPath);
+    }
 });
 
 test('a bad type value blocks', async () => {
     const result = await checkFixture(
-        '.domain/sample/model.md',
+        '.devbook/domain/sample/model.md',
         chapter({ status: 'active', type: 'model' }, { status: 'active', type: 'widget' })
     );
 
@@ -223,79 +196,12 @@ test('an unrecognized field blocks', async () => {
     // because a field the schema does not know is the same class of defect as a
     // value the schema does not know, and that class is what this gate is for.
     const result = await checkFixture(
-        '.design/sample.md',
+        '.devbook/design/sample.md',
         chapter({ status: 'active' }, { status: 'active', owner: 'nobody' })
     );
 
     assert.equal(result.blocking.length, 1, blockingText(result));
     assert.match(result.blocking[0].message, /unrecognized field `owner`/);
-});
-
-test('the stale tech field rename is suppressed, and only it', async () => {
-    // Every `.tech` chapter in this repository authors `type:`, which the
-    // installed generator predates: it still requires the pre-rename `kind` and
-    // does not recognise `type`. Both halves have to go — the missing-`kind`
-    // error by the `.tech` rule, the unrecognized `type` by the pending-re-sync
-    // field list — or the gate is red on 89 chapters the day it lands.
-    const current = await checkFixture(
-        '.tech/sample.md',
-        chapter({ status: 'adopted' }, { status: 'adopted', type: 'tool' })
-    );
-    assert.equal(current.blocking.length, 0, blockingText(current));
-    assert.equal(
-        current.suppressed,
-        2,
-        'Expected the missing-`kind` and unrecognized-`type` pair, and nothing else.'
-    );
-
-    // The suppression is those two messages rather than the folder: a bad
-    // status and a genuinely unknown field in `.tech` still block.
-    const bad = await checkFixture(
-        '.tech/sample.md',
-        chapter({ status: 'adopted' }, { status: 'active', type: 'tool', owner: 'nobody' })
-    );
-    assert.equal(bad.blocking.length, 2, blockingText(bad));
-    assert.match(blockingText(bad), /status "active"/);
-    assert.match(blockingText(bad), /unrecognized field `owner`/);
-});
-
-test('a context.md of setting chapters is suppressed, and only where it is legal', async () => {
-    // The installed generator's domain vocabulary predates `context.md`: it has
-    // neither the file-level `context` type nor the chapter-level `setting` one,
-    // and none of `key`, `scope`, `default`. Both halves have to go — the two
-    // type errors by the paired rule, the fields by the pending-re-sync list — or
-    // the gate is red on every context that records a switch.
-    const current = await checkFixture(
-        '.domain/sample/context.md',
-        chapter(
-            { status: 'draft', type: 'context' },
-            { status: 'draft', type: 'setting', key: 'sample.json', scope: 'user', default: '1' }
-        )
-    );
-    assert.equal(current.blocking.length, 0, blockingText(current));
-    assert.equal(
-        current.suppressed,
-        5,
-        'Expected the two unknown `type` values and the three switch fields, and nothing else.'
-    );
-
-    // The pairing is the point: `context` is a file-level type and `setting` a
-    // chapter-level one, so the two swapped over still block. A vocabulary this
-    // wide would suppress a genuine typo in either position.
-    const swapped = await checkFixture(
-        '.domain/sample/context.md',
-        chapter({ status: 'draft', type: 'setting' }, { status: 'draft', type: 'context' })
-    );
-    assert.equal(swapped.blocking.length, 2, blockingText(swapped));
-
-    // And the suppression is those two names rather than the folder: any other
-    // unknown domain type still blocks.
-    const bogus = await checkFixture(
-        '.domain/sample/context.md',
-        chapter({ status: 'draft', type: 'context' }, { status: 'draft', type: 'preference' })
-    );
-    assert.equal(bogus.blocking.length, 1, blockingText(bogus));
-    assert.match(blockingText(bogus), /type "preference"/);
 });
 
 test('the report names every folder it scanned and what it found', async () => {
@@ -318,9 +224,9 @@ test('the command exits 0 on this repository and 1 on a violation', async () => 
 
     const root = await mkdtemp(join(tmpdir(), 'devbook-check-'));
     try {
-        await mkdir(join(root, '.domain', 'sample'), { recursive: true });
+        await mkdir(join(root, '.devbook', 'domain', 'sample'), { recursive: true });
         await writeFile(
-            join(root, '.domain', 'sample', 'features.md'),
+            join(root, '.devbook', 'domain', 'sample', 'features.md'),
             chapter({ status: 'active', type: 'features' }, { status: 'idea', type: 'feature' }),
             'utf8'
         );
@@ -333,14 +239,14 @@ test('the command exits 0 on this repository and 1 on a violation', async () => 
     }
 });
 
-test('a root with no knowledge folders is an error, not a pass', async () => {
+test('a root with no devbook folders is an error, not a pass', async () => {
     // The one way to make this gate green by accident is to point it somewhere
     // that has nothing to check.
     const root = await mkdtemp(join(tmpdir(), 'devbook-check-'));
     try {
         const empty = spawnSync(process.execPath, [SCRIPT, '--root', root], { encoding: 'utf8' });
         assert.equal(empty.status, 2, `${empty.stdout}${empty.stderr}`);
-        assert.match(`${empty.stdout}${empty.stderr}`, /No knowledge folders found/);
+        assert.match(`${empty.stdout}${empty.stderr}`, /No devbook folders found/);
     } finally {
         await rm(root, { recursive: true, force: true });
     }

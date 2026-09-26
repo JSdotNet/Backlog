@@ -175,12 +175,10 @@ Never edit anything under `.devbook/_tools/`, the `AGENTS.md` markers, or the
 report the file customized and stop maintaining it. Never hand-edit anything under
 `_meta/`.
 
-`tools/devbook/build-database.mjs` is repo-native. Everything under
-`.github/tools/knowledge-meta/` and `build/Update-KnowledgeIndex.ps1` are the unchanged
-install from `knowledge-base`, the `devbook` plugin's predecessor, which knows only the
-root layout: never edit them here. Its two `knowledge-meta*` workflows are retired, because
-this repository has no root-layout folder left for them to check; retiring the rest is a
-follow-up. Where this repository departs from the derived-artifacts
+`tools/devbook/build-database.mjs` and `tools/devbook/check-metadata.mjs` are repo-native;
+the second is the metadata half of the gate, run by `.github/workflows/devbook-metadata.yml`
+beside the installed `devbook-meta.yml`. The `knowledge-base` install that preceded the
+`devbook` plugin is retired with the root layout it indexed. Where this repository departs from the derived-artifacts
 convention — on format, and on committing — ADR 0004 says so and says why.
 `update-devbook-index` is this repository's own command and ships as
 `.claude/commands/update-devbook-index.md`.

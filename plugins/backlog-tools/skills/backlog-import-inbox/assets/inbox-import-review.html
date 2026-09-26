@@ -1,0 +1,526 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>{{MANIFEST_TITLE}}</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@600&family=Inter:wght@400;500;600&family=Fira+Code:wght@400;500&display=swap">
+<style>
+  /* Backlog's own palette (.devbook/design/color-scheme.md): dark-first, gold accent. */
+  :root {
+    color-scheme: dark;
+    --ground: #121214;
+    --surface: #202023;
+    --raised: #353539;
+    --border: #545459;
+    --border-strong: #737379;
+    --ink: #F8F9FA;
+    --ink-2: #CED4DA;
+    --ink-3: #8E8E96;
+    --accent: #F2C14E;
+    --accent-tint: rgba(242, 193, 78, 0.14);
+    --on-accent: #212529;
+    --ok: #7BC47F;
+    --ok-tint: rgba(123, 196, 127, 0.14);
+    --fail: #E4626F;
+    --fail-tint: rgba(228, 98, 111, 0.16);
+    --warn: #E9A23B;
+    --warn-tint: rgba(233, 162, 59, 0.16);
+    --info: #8FB3E8;
+    --info-tint: rgba(143, 179, 232, 0.14);
+    --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-heading: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-mono: 'Fira Code', 'Cascadia Code', 'Courier New', monospace;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      color-scheme: light;
+      --ground: #F6F6F3; --surface: #FFFFFF; --raised: #ECECE8; --border: #CFCFD3;
+      --border-strong: #A9A9B0; --ink: #1B1B1F; --ink-2: #4E4E56; --ink-3: #77777F;
+      --accent: #B8891C; --accent-tint: rgba(184, 137, 28, 0.12); --on-accent: #FFFFFF;
+      --ok: #2E8B4A; --ok-tint: rgba(46, 139, 74, 0.12); --fail: #C2404D; --fail-tint: rgba(194, 64, 77, 0.12);
+      --warn: #B4700F; --warn-tint: rgba(180, 112, 15, 0.12); --info: #2F5E9E; --info-tint: rgba(47, 94, 158, 0.10);
+    }
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --ground: #F6F6F3; --surface: #FFFFFF; --raised: #ECECE8; --border: #CFCFD3;
+    --border-strong: #A9A9B0; --ink: #1B1B1F; --ink-2: #4E4E56; --ink-3: #77777F;
+    --accent: #B8891C; --accent-tint: rgba(184, 137, 28, 0.12); --on-accent: #FFFFFF;
+    --ok: #2E8B4A; --ok-tint: rgba(46, 139, 74, 0.12); --fail: #C2404D; --fail-tint: rgba(194, 64, 77, 0.12);
+    --warn: #B4700F; --warn-tint: rgba(180, 112, 15, 0.12); --info: #2F5E9E; --info-tint: rgba(47, 94, 158, 0.10);
+  }
+
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.55;
+    padding-inline: 16px;
+    padding-block: 0 48px;
+    margin: 0;
+  }
+  a { color: var(--accent); }
+  code { font-family: var(--font-mono); font-size: 0.88em; background: var(--raised); padding: 0.05em 0.35em; border-radius: 3px; overflow-wrap: anywhere; }
+  h1, h2, h3 { font-family: var(--font-heading); font-weight: 600; line-height: 1.25; margin: 0; text-wrap: balance; }
+  h2 { font-size: 1.15rem; margin-block: 32px 12px; }
+  .wrap { max-width: 980px; margin-inline: auto; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+  /* Header */
+  .head {
+    position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+    background: var(--ground); border-bottom: 1px solid var(--border);
+    margin-inline: -16px; padding-inline: 16px; padding-block: 14px 0;
+  }
+  .head-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; }
+  .eyebrow { font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
+  .head h1 { font-size: 1.35rem; }
+  .tool { font-family: var(--font-mono); color: var(--accent); font-size: 0.95rem; }
+  .stats { display: flex; flex-wrap: wrap; gap: 4px 20px; margin-block: 10px 0; font-variant-numeric: tabular-nums; }
+  .stat { display: flex; flex-direction: column; min-width: 64px; }
+  .stat b { font-size: 1.15rem; font-weight: 600; }
+  .stat span { font-size: 0.72rem; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.06em; }
+  .tabs { display: flex; gap: 2px; margin-block: 12px 0; }
+  .tab {
+    appearance: none; background: none; border: 0; border-bottom: 2px solid transparent;
+    color: var(--ink-2); font: inherit; font-weight: 500; padding: 8px 12px; cursor: pointer; margin-bottom: -1px;
+  }
+  .tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+  .tab:focus-visible, .btn:focus-visible, summary:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* Checks */
+  .verdict { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-bottom: 12px; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px; font-size: 0.8rem; font-weight: 600; border: 1px solid var(--border); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .pill-ok { color: var(--ok); background: var(--ok-tint); border-color: var(--ok); }
+  .pill-fail { color: var(--fail); background: var(--fail-tint); border-color: var(--fail); }
+  .pill-warn { color: var(--warn); background: var(--warn-tint); border-color: var(--warn); }
+  .checks { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); }
+  .check { display: grid; grid-template-columns: 22px 1fr; gap: 10px; padding: 8px 12px; border-top: 1px solid var(--border); font-size: 0.92rem; }
+  .check:first-child { border-top: 0; }
+  .check .mark { font-weight: 700; text-align: center; }
+  .check-pass .mark { color: var(--ok); }
+  .check-fail .mark { color: var(--fail); }
+  .check-warn .mark { color: var(--warn); }
+  .check-info .mark { color: var(--info); }
+  .check-pass { color: var(--ink-2); }
+  .check .where { color: var(--ink-3); font-size: 0.85em; }
+  .check .where a { color: inherit; }
+  .checks-toggle { margin-top: 8px; }
+  .btn { appearance: none; font: inherit; font-size: 0.85rem; font-weight: 500; color: var(--ink); background: var(--raised); border: 1px solid var(--border); border-radius: 4px; padding: 5px 10px; cursor: pointer; }
+  .btn:hover { border-color: var(--border-strong); }
+
+  /* Counts */
+  .counts { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+  .count-box { border: 1px solid var(--border); border-radius: 6px; background: var(--surface); padding: 10px 14px; }
+  .count-box h3 { font-size: 0.8rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 6px; font-family: var(--font-body); }
+  .count-box table { width: 100%; border-collapse: collapse; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+  .count-box td { padding: 3px 0; border-top: 1px solid var(--border); overflow-wrap: anywhere; }
+  .count-box tr:first-child td { border-top: 0; }
+  .count-box td.n { text-align: right; width: 4ch; color: var(--ink-2); }
+  .count-box .muted { color: var(--ink-3); }
+  .count-box .note { margin: 8px 0 0; font-size: 0.8rem; color: var(--ink-3); }
+
+  /* Items */
+  .items { display: flex; flex-direction: column; gap: 8px; }
+  details.item { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--border-strong); border-radius: 6px; scroll-margin-top: 150px; }
+  details.item.flagged { border-color: var(--fail); border-left-color: var(--fail); }
+  details.item.warned { border-left-color: var(--warn); }
+  details.item > summary { list-style: none; cursor: pointer; padding: 10px 14px; display: grid; grid-template-columns: 3ch 1fr auto; gap: 4px 10px; align-items: baseline; }
+  details.item > summary::-webkit-details-marker { display: none; }
+  .pos { font-family: var(--font-mono); font-size: 0.75rem; color: var(--ink-3); }
+  .item-title { font-weight: 600; overflow-wrap: anywhere; }
+  .item-title.missing { color: var(--fail); font-style: italic; font-weight: 500; }
+  .item-date { font-family: var(--font-mono); font-size: 0.8rem; color: var(--ink-2); white-space: nowrap; }
+  .item-sub { grid-column: 2 / -1; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 0.8rem; color: var(--ink-3); }
+  .item-sub .src { font-family: var(--font-mono); overflow-wrap: anywhere; }
+  .chip { font-family: var(--font-mono); font-size: 0.72rem; padding: 0 6px; border-radius: 3px; background: var(--raised); color: var(--ink-2); }
+  .chip.list { background: var(--accent-tint); color: var(--accent); }
+  .chip.bad { background: var(--fail-tint); color: var(--fail); }
+  .item-body { padding: 0 14px 12px 14px; }
+  .meta { display: grid; grid-template-columns: max-content 1fr; gap: 2px 14px; margin: 0; font-family: var(--font-mono); font-size: 0.8rem; }
+  .meta dt { color: var(--ink-3); }
+  .meta dd { margin: 0; color: var(--ink-2); overflow-wrap: anywhere; }
+  .notes { margin-top: 10px; max-width: 70ch; font-size: 0.92rem; }
+  .notes p { margin: 0 0 8px; overflow-wrap: anywhere; }
+  .notes ul { margin: 0 0 8px; padding-left: 22px; }
+  .notes li.todo { list-style: none; margin-left: -22px; }
+  .notes li.todo::before { content: '☐ '; color: var(--ink-3); }
+  .notes li.done::before { content: '☑ '; color: var(--ok); }
+  .notes .h { font-weight: 600; margin: 0 0 6px; }
+  .notes .empty-notes { color: var(--ink-3); font-style: italic; }
+  .findings { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 3px; font-size: 0.85rem; }
+  .findings li { padding-left: 18px; position: relative; }
+  .findings li::before { content: '✕'; position: absolute; left: 0; color: var(--fail); font-weight: 700; }
+  .findings li.warn::before { content: '!'; color: var(--warn); }
+  .empty { color: var(--ink-3); padding: 24px; text-align: center; border: 1px dashed var(--border); border-radius: 6px; }
+
+  /* Raw */
+  .raw-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-block: 20px 8px; color: var(--ink-2); font-size: 0.88rem; }
+  .raw-bar .note { flex: 1 1 260px; }
+  textarea.raw {
+    width: 100%; min-height: 60vh; resize: vertical; font-family: var(--font-mono); font-size: 0.83rem; line-height: 1.5;
+    color: var(--ink); background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 12px; tab-size: 2;
+  }
+  .toast { color: var(--ok); font-weight: 500; }
+  @media (max-width: 480px) { .head h1 { font-size: 1.15rem; } .stat b { font-size: 1rem; } details.item > summary { grid-template-columns: 1fr auto; } .pos { display: none; } .item-sub { grid-column: 1 / -1; } }
+</style>
+
+<div class="wrap">
+  <header class="head">
+    <div class="head-row">
+      <div>
+        <div class="eyebrow">Backlog inbox import manifest · review</div>
+        <h1 id="manifest-name">Inbox import</h1>
+      </div>
+      <div class="tool" id="tool"></div>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div class="tabs" role="tablist" aria-label="Views">
+      <button class="tab" id="tab-review" role="tab" aria-selected="true" aria-controls="panel-review" type="button">Review</button>
+      <button class="tab" id="tab-raw" role="tab" aria-selected="false" aria-controls="panel-raw" type="button">Raw manifest</button>
+    </div>
+  </header>
+
+  <section id="panel-review" role="tabpanel" aria-labelledby="tab-review">
+    <h2>Checks</h2>
+    <div class="verdict" id="verdict"></div>
+    <ul class="checks" id="checks"></ul>
+    <div class="checks-toggle"><button class="btn" id="toggle-passed" type="button">Show passed checks</button></div>
+
+    <h2>Counts</h2>
+    <div class="counts" id="counts"></div>
+
+    <h2>Items</h2>
+    <div class="checks-toggle" style="margin-block: 0 10px"><button class="btn" id="toggle-open" type="button">Expand all</button></div>
+    <div class="items" id="items"></div>
+  </section>
+
+  <section id="panel-raw" role="tabpanel" aria-labelledby="tab-raw" hidden>
+    <div class="raw-bar">
+      <span class="note">The manifest exactly as Import file reads it. Edits here re-run the review; they are not saved anywhere, so copy the text out when you are done.</span>
+      <button class="btn" id="copy-raw" type="button">Copy</button>
+      <span class="toast" id="copy-toast" aria-live="polite"></span>
+    </div>
+    <label class="sr" for="raw">Raw manifest text</label>
+    <textarea class="raw" id="raw" spellcheck="false"></textarea>
+  </section>
+</div>
+
+<script type="text/plain" id="manifest-source">{{MANIFEST}}</script>
+
+<script>
+(function () {
+  'use strict';
+  // Mirrors assets/inbox-import-manifest.md. Change the grammar there first, then here.
+  const SCHEMA = '1';
+  const FM_KEYS = ['schema', 'tool'];
+  const META_KEYS = ['external_id', 'captured_at', 'url', 'kind', 'tags', 'person', 'list'];
+  const KINDS = ['text', 'article', 'link', 'youtube', 'image', 'document', 'email', 'code'];
+  const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+  const FALLBACK_RE = /^title-sha256:/;
+  const FALLBACK_OK = /^title-sha256:[0-9a-f]{16}$/;
+  const TIME_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/;
+  const UTC_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
+  const KV_RE = /^([A-Za-z_][\w-]*):(?: (.*))?$/;
+
+  // ---------- parsing ----------
+  function parseManifest(text) {
+    const lines = text.replace(/^﻿/, '').replace(/\r\n?/g, '\n').split('\n');
+    const doc = { fm: null, fmClosed: false, fmKeys: {}, fmBad: [], fmDupes: [], preamble: false, items: [] };
+    let i = 0;
+    if (lines[0] !== undefined && lines[0].trim() === '---') {
+      doc.fm = [];
+      for (i = 1; i < lines.length; i++) {
+        if (lines[i].trim() === '---') { doc.fmClosed = true; i++; break; }
+        if (/^# /.test(lines[i])) break; // an item began before the front matter closed
+        if (!lines[i].trim()) continue;
+        const m = KV_RE.exec(lines[i].trim());
+        if (!m) { doc.fmBad.push(lines[i]); continue; }
+        if (m[1] in doc.fmKeys) doc.fmDupes.push(m[1]);
+        doc.fmKeys[m[1]] = (m[2] || '').trim();
+      }
+    }
+    let cur = null;
+    for (; i < lines.length; i++) {
+      const line = lines[i];
+      if (line === '#' || /^# /.test(line)) {
+        cur = { title: line.slice(1).trim(), line: i + 1, raw: [] };
+        doc.items.push(cur);
+        continue;
+      }
+      if (cur) cur.raw.push(line);
+      else if (line.trim()) doc.preamble = true;
+    }
+    doc.items.forEach((it, n) => parseItem(it, n));
+    return doc;
+  }
+
+  function parseItem(it, n) {
+    it.index = n;
+    it.meta = {}; it.metaOpen = false; it.metaClosed = false; it.badLines = []; it.dupeKeys = []; it.notes = []; it.findings = [];
+    let i = 0;
+    while (i < it.raw.length && !it.raw[i].trim()) i++;
+    if (i < it.raw.length && it.raw[i].trim() === '```meta') {
+      it.metaOpen = true;
+      for (i++; i < it.raw.length; i++) {
+        const line = it.raw[i];
+        if (line.trim() === '```') { it.metaClosed = true; i++; break; }
+        const m = KV_RE.exec(line.trim());
+        if (!line.trim() || !m) { it.badLines.push(line.trim() || '(a blank line)'); continue; }
+        if (m[1] in it.meta) it.dupeKeys.push(m[1]);
+        it.meta[m[1]] = (m[2] || '').trim();
+      }
+      if (!it.metaClosed) { it.badLines = []; it.meta = {}; } // an unclosed fence swallows the rest; its lines say nothing
+    }
+    it.notes = it.metaOpen && !it.metaClosed ? [] : it.raw.slice(i);
+    while (it.notes.length && !it.notes[it.notes.length - 1].trim()) it.notes.pop();
+  }
+
+  // ---------- checks ----------
+  function runChecks(doc) {
+    const checks = [];
+    const add = (level, text, item) => { const c = { level, text, item }; checks.push(c); if (item && level !== 'pass') item.findings.push(c); return c; };
+    const over = (label, fn, list) => {
+      list = list || doc.items;
+      if (!list.length) return;
+      const failed = [];
+      list.forEach(it => { const r = fn(it); if (r) failed.push({ it, r }); });
+      if (!failed.length) add('pass', label);
+      failed.forEach(f => add(f.r.level || 'fail', `${label} — ${f.r.text}`, f.it));
+    };
+
+    // Front matter
+    if (!doc.fm) add('fail', 'The manifest opens with front matter — the first line is not "---"');
+    else if (!doc.fmClosed) add('fail', 'The front matter closes with a "---" line before the first item');
+    else add('pass', 'The manifest opens with front matter');
+    if (doc.fm) {
+      const schema = doc.fmKeys.schema;
+      if (schema === undefined) add('fail', 'The front matter names its schema — no schema: key');
+      else if (schema !== SCHEMA) add('fail', `The schema version is ${SCHEMA} — it says ${schema || '(empty)'}`);
+      else add('pass', `The schema version is ${SCHEMA}`);
+      const tool = doc.fmKeys.tool;
+      if (tool === undefined || !tool) add('fail', 'The front matter names the tool — no tool: value');
+      else if (!SLUG_RE.test(tool)) add('fail', `The tool is a lower-case slug — "${tool}" is not`);
+      else add('pass', `The tool is ${tool}`);
+      doc.fmBad.forEach(l => add('fail', `Every front-matter line is key: value — "${l.trim()}" is not`));
+      doc.fmDupes.forEach(k => add('fail', `No front-matter key appears twice — ${k} does`));
+      const extra = Object.keys(doc.fmKeys).filter(k => !FM_KEYS.includes(k));
+      if (extra.length) add('warn', `The front matter holds only schema and tool — ${extra.join(', ')} ${extra.length === 1 ? 'is' : 'are'} ignored`);
+    }
+    if (doc.preamble) add('warn', 'Nothing stands between the front matter and the first item — the text there is ignored');
+    if (!doc.items.length) { add('fail', 'The manifest has at least one item — no line starts with "# "'); return checks; }
+
+    // Shape of each item
+    over('Every item has a title', it => !it.title && { text: `the "#" line ${it.line} has no text` });
+    over('Every item opens with a meta fence', it => !it.metaOpen && { text: 'the first line under the title is not ```meta, so the import skips the item' });
+    over('Every meta fence closes', it => it.metaOpen && !it.metaClosed && { text: 'no closing ``` before the next item; the import skips it' }, doc.items.filter(it => it.metaOpen));
+    over('Every meta line is key: value', it => it.badLines.length && { text: `cannot read ${it.badLines.map(l => `"${l}"`).join(', ')}; the import skips the item` }, doc.items.filter(it => it.metaClosed));
+    over('No meta key appears twice', it => it.dupeKeys.length && { text: `${[...new Set(it.dupeKeys)].join(', ')} appears more than once` }, doc.items.filter(it => it.metaClosed));
+    // Only a fence that reads whole is judged further; the import skips the rest.
+    const readable = doc.items.filter(it => it.metaClosed && !it.badLines.length && !it.dupeKeys.length);
+
+    // Identity
+    over('Every item has an external_id', it => !it.meta.external_id && { level: 'warn', text: 'none, so the import uses the title-sha256 fallback of its title and captured_at, which changes if the title does' }, readable);
+    const withId = readable.filter(it => it.meta.external_id);
+    over('Every external_id is the tool\'s own id', it => {
+      const id = it.meta.external_id;
+      if (!FALLBACK_RE.test(id)) return null;
+      if (!FALLBACK_OK.test(id)) return { text: `${id} is not title-sha256: and 16 hex digits` };
+      return { level: 'warn', text: 'a title-and-timestamp fallback; renaming the item in the tool brings it in again' };
+    }, withId);
+    const seen = new Map(), dupes = [];
+    withId.forEach(it => { const k = it.meta.external_id; if (seen.has(k)) dupes.push([it, seen.get(k)]); else seen.set(k, it); });
+    if (dupes.length) dupes.forEach(([it, first]) => add('fail', `No two items share an external_id — this repeats item ${first.index + 1}'s, and the import keeps only the first`, it));
+    else if (withId.length) add('pass', 'No two items share an external_id');
+
+    // Timestamps
+    over('Every item has a captured_at', it => !it.meta.captured_at && { text: 'none, so the import skips the item' }, readable);
+    over('Every captured_at parses as an ISO 8601 timestamp', it => {
+      const t = it.meta.captured_at;
+      if (!t) return null;
+      if (!TIME_RE.test(t) || Number.isNaN(Date.parse(t))) return { text: `"${t}" does not parse; the import skips the item` };
+      if (!UTC_RE.test(t)) return { level: 'warn', text: `"${t}" reads, but the manifest writes UTC as YYYY-MM-DDTHH:MM:SSZ` };
+    }, readable);
+
+    // Optional keys
+    over('Every url is an absolute http(s) link', it => {
+      const u = it.meta.url;
+      if (u === undefined) return null;
+      try { const p = new URL(u); if (p.protocol === 'http:' || p.protocol === 'https:') return null; } catch (_) { /* falls through */ }
+      return { level: 'warn', text: `"${u}" is not an http or https URL` };
+    }, readable.filter(it => 'url' in it.meta));
+    over('Every kind is a known Content Kind', it => !KINDS.includes(it.meta.kind) && { level: 'warn', text: `"${it.meta.kind}" is not one of ${KINDS.join(', ')}; it is kept as its own word` }, readable.filter(it => 'kind' in it.meta));
+    over('Every tag is a bare name', it => {
+      const bad = splitTags(it.meta.tags).filter(t => /^[#@]/.test(t) || /\s/.test(t));
+      return bad.length && { level: 'warn', text: `${bad.map(t => `"${t}"`).join(', ')}; a tag has no #, no @ and no spaces` };
+    }, readable.filter(it => 'tags' in it.meta));
+    over('Every optional key has a value', it => {
+      const empty = ['url', 'kind', 'tags', 'person', 'list'].filter(k => k in it.meta && !it.meta[k]);
+      return empty.length && { level: 'warn', text: `${empty.join(', ')} ${empty.length === 1 ? 'is' : 'are'} empty; leave a key out instead` };
+    }, readable);
+    over('Every meta key is one the import reads', it => {
+      const extra = Object.keys(it.meta).filter(k => !META_KEYS.includes(k));
+      return extra.length && { level: 'warn', text: `${extra.join(', ')} ${extra.length === 1 ? 'is' : 'are'} ignored` };
+    }, readable);
+
+    // Lists: an import files into lists that exist and never creates one (ADR 0017).
+    const lists = countBy(readable.filter(it => it.meta.list && !it.findings.some(f => f.level === 'fail')), it => it.meta.list);
+    if (lists.size) add('info', `Files items into ${lists.size} Inbox List${lists.size === 1 ? '' : 's'} — ${[...lists].map(([l, n]) => `${l} (${n})`).join(', ')}. Each must exist in the Inbox before the import runs: an import never creates a list, and an item whose list is missing lands unfiled.`);
+    else add('info', 'Files no item into a list: every item lands unfiled.');
+
+    doc.items.forEach(it => {
+      if (it.findings.some(f => f.level === 'fail')) it.flagged = true;
+      else if (it.findings.some(f => f.level === 'warn')) it.warned = true;
+    });
+    return checks;
+  }
+
+  function splitTags(s) { return (s || '').split(',').map(t => t.trim()).filter(Boolean); }
+  function countBy(list, key) { const m = new Map(); list.forEach(x => { const k = key(x); m.set(k, (m.get(k) || 0) + 1); }); return new Map([...m].sort((a, b) => b[1] - a[1] || String(a[0]).localeCompare(String(b[0])))); }
+
+  // ---------- rendering ----------
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const inline = s => esc(s).replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  function renderNotes(lines) {
+    const out = []; let para = [], list = null, fence = null;
+    const flushP = () => { if (para.length) { out.push(`<p>${inline(para.join(' '))}</p>`); para = []; } };
+    const flushL = () => { if (list) { out.push(`<ul>${list.join('')}</ul>`); list = null; } };
+    lines.forEach(l => {
+      const t = l.trim();
+      if (fence) { if (t.startsWith('```')) { out.push(`<pre><code>${esc(fence.join('\n'))}</code></pre>`); fence = null; } else fence.push(l); return; }
+      if (t.startsWith('```')) { flushP(); flushL(); fence = []; return; }
+      if (!t) { flushP(); flushL(); return; }
+      const h = /^#{2,6}\s+(.*)$/.exec(t);
+      if (h) { flushP(); flushL(); out.push(`<p class="h">${inline(h[1])}</p>`); return; }
+      const cb = /^[-*]\s+\[( |x|X)\]\s*(.*)$/.exec(t);
+      const li = !cb && /^[-*]\s+(.*)$/.exec(t);
+      if (cb || li) {
+        flushP(); list = list || [];
+        list.push(cb ? `<li class="${cb[1] === ' ' ? 'todo' : 'todo done'}">${inline(cb[2])}</li>` : `<li>${inline(li[1])}</li>`);
+        return;
+      }
+      if (list) { list[list.length - 1] = list[list.length - 1].replace(/<\/li>$/, ' ' + inline(t) + '</li>'); return; }
+      para.push(t);
+    });
+    if (fence) out.push(`<pre><code>${esc(fence.join('\n'))}</code></pre>`);
+    flushP(); flushL();
+    return out.join('');
+  }
+  const anchor = it => 'item-' + (it.index + 1);
+  const hostOf = u => { try { return new URL(u).host; } catch (_) { return u; } };
+  const dateOf = t => { if (!t || Number.isNaN(Date.parse(t))) return t || ''; return new Date(t).toISOString().slice(0, 10); };
+
+  function render(text) {
+    const doc = parseManifest(text);
+    const checks = runChecks(doc);
+    // What the import takes: every item no failed check names.
+    const importable = doc.items.filter(it => !it.flagged);
+    const fails = checks.filter(c => c.level === 'fail').length;
+    const warns = checks.filter(c => c.level === 'warn').length;
+    const passes = checks.filter(c => c.level === 'pass').length;
+    const fallbacks = importable.filter(it => FALLBACK_RE.test(it.meta.external_id || '')).length;
+    const skipped = doc.items.filter(it => it.flagged).length;
+    const listed = importable.filter(it => it.meta.list).length;
+
+    document.getElementById('tool').textContent = doc.fmKeys.tool || '';
+    document.getElementById('stats').innerHTML = [
+      ['Items', doc.items.length], ['Filed', listed], ['Unfiled', importable.length - listed], ['Fallback ids', fallbacks], ['Skipped', skipped],
+    ].map(([k, v]) => `<div class="stat"><b>${v}</b><span>${k}</span></div>`).join('') +
+      `<div class="stat"><b>${esc(doc.fmKeys.schema || '—')}</b><span>Schema</span></div>`;
+
+    document.getElementById('verdict').innerHTML =
+      (fails ? `<span class="pill pill-fail">${fails} failed</span>` : `<span class="pill pill-ok">Nothing failed</span>`) +
+      (warns ? `<span class="pill pill-warn">${warns} to look at</span>` : '') +
+      `<span class="pill">${passes} passed</span>`;
+    const rank = c => ({ fail: 0, warn: 1, info: 2, pass: 3 }[c.level]);
+    document.getElementById('checks').innerHTML = checks
+      .sort((a, b) => rank(a) - rank(b))
+      .map(c => `<li class="check check-${c.level}"${c.level === 'pass' ? ' data-pass' : ''}><span class="mark">${{ pass: '✓', warn: '!', info: 'i', fail: '✕' }[c.level]}</span><span>${esc(c.text)}${c.item ? ` <span class="where">· <a href="#${anchor(c.item)}" data-open="${anchor(c.item)}">${esc(c.item.title || 'item ' + (c.item.index + 1))}</a></span>` : ''}</span></li>`)
+      .join('');
+    applyPassedVisibility();
+
+    // Counts per kind and per target list
+    const byKind = countBy(importable, it => it.meta.kind || '');
+    const byList = countBy(importable, it => it.meta.list || '');
+    const table = (m, blank) => m.size ? `<table>${[...m].map(([k, n]) => `<tr><td>${k ? `<code>${esc(k)}</code>` : `<span class="muted">${blank}</span>`}</td><td class="n">${n}</td></tr>`).join('')}</table>` : '<p class="note">No item the import would take.</p>';
+    document.getElementById('counts').innerHTML =
+      `<div class="count-box"><h3>Per kind</h3>${table(byKind, 'detected on import')}<p class="note">An item with no kind is given one by intake, from its title, link and notes.</p></div>` +
+      `<div class="count-box"><h3>Per target list</h3>${table(byList, 'unfiled')}<p class="note">Each named list must already exist in the Inbox.</p></div>` +
+      (skipped ? `<div class="count-box"><h3>Skipped</h3><table><tr><td>items with a failed check</td><td class="n">${skipped}</td></tr></table><p class="note">Not in the counts beside this: the import skips them.</p></div>` : '');
+
+    document.getElementById('items').innerHTML = doc.items.map(it => {
+      const m = it.meta;
+      const sub = [
+        m.url ? `<span class="src" title="${esc(m.url)}">${esc(hostOf(m.url))}</span>` : '<span>no link</span>',
+        m.list ? `<span class="chip list">${esc(m.list)}</span>` : '',
+        m.kind ? `<span class="chip">${esc(m.kind)}</span>` : '',
+        ...splitTags(m.tags).map(t => `<span class="chip">${esc(t)}</span>`),
+        it.flagged ? '<span class="chip bad">skipped by the import</span>' : '',
+      ].filter(Boolean).join('');
+      const metaRows = Object.keys(m).length ? `<dl class="meta">${Object.entries(m).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>` : '<p class="notes empty-notes">No readable meta fence.</p>';
+      const notes = renderNotes(it.notes);
+      return `<details class="item${it.flagged ? ' flagged' : it.warned ? ' warned' : ''}" id="${anchor(it)}">
+        <summary>
+          <span class="pos">${it.index + 1}</span>
+          <span class="item-title${it.title ? '' : ' missing'}">${it.title ? esc(it.title) : '(no title)'}</span>
+          <span class="item-date">${esc(dateOf(m.captured_at)) || '—'}</span>
+          <span class="item-sub">${sub}</span>
+        </summary>
+        <div class="item-body">
+          ${metaRows}
+          <div class="notes">${notes || '<p class="empty-notes">No notes.</p>'}</div>
+          ${it.findings.length ? `<ul class="findings">${it.findings.map(f => `<li class="${f.level}">${esc(f.text)}</li>`).join('')}</ul>` : ''}
+        </div>
+      </details>`;
+    }).join('') || '<div class="empty">No items. An item starts with a line beginning "# ".</div>';
+  }
+
+  // ---------- chrome ----------
+  let showPassed = false;
+  function applyPassedVisibility() {
+    document.querySelectorAll('.check[data-pass]').forEach(li => { li.hidden = !showPassed; });
+    document.getElementById('toggle-passed').textContent = showPassed ? 'Hide passed checks' : 'Show passed checks';
+  }
+  document.getElementById('toggle-passed').addEventListener('click', () => { showPassed = !showPassed; applyPassedVisibility(); });
+  let allOpen = false;
+  document.getElementById('toggle-open').addEventListener('click', () => {
+    allOpen = !allOpen;
+    document.querySelectorAll('details.item').forEach(d => { d.open = allOpen; });
+    document.getElementById('toggle-open').textContent = allOpen ? 'Collapse all' : 'Expand all';
+  });
+  document.getElementById('checks').addEventListener('click', e => {
+    const a = e.target.closest('a[data-open]');
+    if (a) { const d = document.getElementById(a.dataset.open); if (d) d.open = true; }
+  });
+
+  const tabs = { review: document.getElementById('tab-review'), raw: document.getElementById('tab-raw') };
+  function selectTab(name) {
+    Object.entries(tabs).forEach(([k, b]) => { b.setAttribute('aria-selected', String(k === name)); document.getElementById('panel-' + k).hidden = k !== name; });
+    try { localStorage.setItem('inbox-import-review-tab', name); } catch (_) { /* per-viewer convenience only */ }
+  }
+  tabs.review.addEventListener('click', () => selectTab('review'));
+  tabs.raw.addEventListener('click', () => selectTab('raw'));
+
+  const raw = document.getElementById('raw');
+  const toast = document.getElementById('copy-toast');
+  document.getElementById('copy-raw').addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(raw.value); toast.textContent = 'Copied'; }
+    catch (_) { raw.focus(); raw.select(); toast.textContent = 'Select-all and copy by hand — the clipboard is blocked here.'; }
+    setTimeout(() => { toast.textContent = ''; }, 2500);
+  });
+  let timer = null;
+  raw.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => render(raw.value), 250); });
+
+  // Boot: the manifest is embedded verbatim by the backlog-import-inbox skill, each "</script"
+  // written as "<\/script" so it cannot close this element; reverse that to get the file back.
+  const source = (document.getElementById('manifest-source').textContent || '').replace(/^\n/, '').replace(/<\\\/script/gi, '</script');
+  raw.value = source;
+  const t = document.title && !/\{\{/.test(document.title) ? document.title : null;
+  if (t) document.getElementById('manifest-name').textContent = t;
+  render(source);
+  let saved = null;
+  try { saved = localStorage.getItem('inbox-import-review-tab'); } catch (_) { /* fine */ }
+  selectTab(saved === 'raw' ? 'raw' : 'review');
+})();
+</script>

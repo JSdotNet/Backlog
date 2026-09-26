@@ -3633,7 +3633,63 @@ h1, h2, h3 {
 }
 
 .inbox-pane__item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-xs);
     min-width: 0;
+}
+
+/* --- Picking several ----------------------------------------------------- */
+
+/* The chips and the Select toggle on one wrapping line, the toggle pushed to
+   the end so it does not read as one more kind. */
+.inbox-pane__toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-xs);
+}
+
+/* Sticky over the rows, as the Tasks pane's bar is, so the count and the acts
+   stay in reach while the reader scrolls to pick more. */
+.inbox-pane__bulk-bar {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.inbox-pane__item > .inbox-pane__row {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+/* The box beside the row, level with the row's first line. */
+.inbox-pane__gutter {
+    display: inline-flex;
+    align-items: center;
+    flex: none;
+    padding-top: var(--spacing-sm);
+}
+
+/* Named by aria-label, so the empty label span is dropped — the task gutter's
+   rule, for the same box. */
+.inbox-pane__pick .checkbox__label {
+    display: none;
+}
+
+/* Picked, and distinct from the chosen row: the detail's row keeps its strip,
+   a picked row gets the raised background the task list's picked rows wear. */
+.inbox-pane__item--picked .inbox-pane__row {
+    background: var(--color-background-raised);
+    border-color: var(--color-border-focus);
+}
+
+.inbox-pane__bulk-remove {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    margin-top: var(--spacing-sm);
 }
 
 /* The row is a button, and it is styled here from scratch rather than as a
