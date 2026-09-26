@@ -41,5 +41,19 @@ public sealed record CaptureRequest(
 /// something a caller states, it is something the service reads out of the
 /// caller's token. See <see cref="SyncClaims"/>.
 /// </para>
+/// <para>
+/// <paramref name="BodyMd"/>, <paramref name="Tags"/> and <paramref name="Person"/>
+/// came later and are optional, so a reader that knows only the first four —
+/// the desktop pane, the editor extension — reads the same record it always
+/// did. The person is split back out of the <c>@name</c> tag it travels as, so
+/// a reader never has to know that convention to show who a capture is about.
+/// </para>
 /// </summary>
-public sealed record InboxItem(Guid Id, string Title, string Source, DateTimeOffset CapturedAt);
+public sealed record InboxItem(
+    Guid Id,
+    string Title,
+    string Source,
+    DateTimeOffset CapturedAt,
+    string? BodyMd = null,
+    IReadOnlyList<string>? Tags = null,
+    string? Person = null);

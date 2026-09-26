@@ -53,9 +53,25 @@ status: draft
 Local storage of captures when offline and background synchronization when the
 network returns.
 
+Every capture is kept on the phone before it is sent, so no signal never costs a
+capture. It appears in the Inbox list at once, marked waiting, and leaves in the
+order it was made. A failed send is retried on its own a few times with growing
+waits. After that it shows "waiting — tap to retry", and is tried again on a
+tap, when the app is reopened, or when the network comes back. Nothing captured
+later is sent ahead of it.
+The status line says how many captures are waiting.
+
 Each capture carries an id the phone mints before its first send, so resending
 it after a lost answer delivers it once: the service answers with the capture it
 already holds instead of storing a second one.
+
+The Inbox list reads at a glance: when each capture was made, a glyph for what
+kind of thing it is, and the first line of its body. A tap opens the whole
+capture with its source, tags and person. The phone acknowledges rather than
+triages, so the one action on a row is Dismiss. The list refreshes on a pull
+down, on the refresh button and on returning to the app. When the service
+cannot answer, the last list the phone saw stays on screen with a line saying
+why it is not newer.
 
 ### Share-sheet and shortcuts
 

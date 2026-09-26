@@ -1,6 +1,7 @@
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Sync.DomainModels;
+using Backlog.Modules.Sync.Features.ListInbox;
 using Backlog.Modules.Sync.Ports;
 using Backlog.SharedKernel.Handlers;
 using Backlog.SharedKernel.Results;
@@ -104,13 +105,7 @@ public sealed class CaptureInboxItemCommandHandler(ITaskReplica replica, TimePro
                     "That id already names a task, not a capture."));
             }
 
-            return new CaptureOutcome(
-                new InboxItem(
-                    stored.Change.Id,
-                    stored.Change.Task.Title,
-                    stored.Change.Task.SourceInboxId ?? string.Empty,
-                    stored.Change.Task.CreatedAt),
-                Created: false);
+            return new CaptureOutcome(ListInboxQueryHandler.Project(stored.Change), Created: false);
         }
 
         var now = clock.GetUtcNow();
@@ -151,7 +146,7 @@ public sealed class CaptureInboxItemCommandHandler(ITaskReplica replica, TimePro
 
         await replica.Upsert(command.Scope, [change], cancellationToken);
 
-        return new CaptureOutcome(new InboxItem(id, command.Title, command.Source, now), Created: true);
+        return new CaptureOutcome(ListInboxQueryHandler.Project(change), Created: true);
     }
 
     /// <summary>The tags as sent, trimmed, followed by the person as one

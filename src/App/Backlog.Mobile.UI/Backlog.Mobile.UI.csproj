@@ -8,6 +8,14 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.Web" />
     <PackageReference Include="Microsoft.Extensions.Http" />
+    <!-- The outbox and the cached inbox: what the phone keeps on itself so a
+         capture outlives a dead network and the list outlives a cold replica. -->
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The tests wait on the outbox going idle, which only they need to see. -->
+    <InternalsVisibleTo Include="Backlog.Mobile.UI.UnitTests" />
   </ItemGroup>
 
   <ItemGroup>

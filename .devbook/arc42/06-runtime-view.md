@@ -86,34 +86,57 @@ status: active
 related: [".devbook/arc42/05-building-block-view.md#mobile-app"]
 ```
 
-Captures are stored locally first and flushed to the cloud when the network is
-available, with exponential-backoff retry on failure.
+A capture is written to the phone's own SQLite outbox before anything touches
+the network, then sent in the order it was made. The phone never loses a capture
+to a missing signal: it shows the item at once, marked waiting, and delivers it
+when the service answers.
+
+- **One outbox, many kinds.** Each row is `id, kind, payload, attempts,
+  last_error, created_at`. The `kind` picks the sender; `capture` is the first,
+  and later kinds (an attachment upload that must go ahead of its capture, a task
+  pushed to its own endpoint) join the same queue and the same order.
+- **Oldest first, head of line.** A transient failure (no network, a timeout, a
+  5xx, or a 401 from a service that restarted with a new signing key) stops the
+  flush, so nothing overtakes it. It is retried after 2s, 4s, 8s, 16s. The fifth
+  failure parks the entry as *waiting — tap to retry*, and it stays first in
+  line. A refusal (any other 4xx) is set aside at once and holds nothing up.
+- **Same id on every attempt.** The id is minted (`Guid.CreateVersion7()`) when
+  the capture is queued. The service answers a repeat of it with 200 and the
+  capture it already holds, so a retry after a lost 201 delivers it once.
+- **Flush triggers.** Queuing an entry, the backoff timer, the app returning to
+  the foreground, the network coming back, and a tap on a parked entry. The
+  last three skip the pending wait and give a parked entry its attempts back,
+  since the reason for the wait has most likely gone.
+- **The list outlives the service.** Every successful pull is kept in the same
+  file with its time. A failed pull, including 503 `sync.replica_unavailable`
+  while the Cosmos emulator warms up, shows that cached list with one status line
+  saying why it is not newer.
 
 ```mermaid
 sequenceDiagram
     actor ME
     participant App as Phone App
-    participant Storage as Local JSON Store
-    participant Sync as Sync Engine
-    participant Cloud as Cloud Service
+    participant Outbox as SQLite Outbox
+    participant Sync as Sync Service
 
-    ME->>App: Capture item (text or voice)
-    App->>Storage: INSERT inbox_item (status=captured)
-    App-->>ME: Stored locally
+    ME->>App: Capture (title)
+    App->>Outbox: INSERT outbox (id v7, kind=capture, attempts=0)
+    App-->>ME: Row shown at once, marked waiting
 
-    Note over Sync,Cloud: When network becomes available
-    Sync->>Storage: Query pending items
-    Storage-->>Sync: inbox_items where status=pending_sync
-    Sync->>+Cloud: POST /sync/items (batch upload)
-    Cloud-->>-Sync: 200 OK (merged_count)
-    Sync->>Storage: UPDATE status=synced
-    App-->>ME: Sync complete
+    loop Oldest entry first
+        Outbox->>+Sync: POST /api/sync/inbox (same id every attempt)
+        alt 201 Created, or 200 for an id it already holds
+            Sync-->>-Outbox: Capture
+            Outbox->>Outbox: DELETE entry
+            App->>Sync: GET /api/sync/inbox (refresh, cache the list)
+        else No network, timeout, 5xx or 401
+            Outbox->>Outbox: attempts+1, last_error; wait 2s·2^(n-1); stop the flush
+        else Any other 4xx
+            Outbox->>Outbox: set aside as refused; continue with the next entry
+        end
+    end
 
-    Note over Sync,Cloud: On sync failure
-    Sync->>+Cloud: POST /sync/items
-    Cloud-->>-Sync: Error or timeout
-    Sync->>Storage: UPDATE status=sync_failed, increment retry
-    Sync->>Sync: Schedule retry (exponential backoff)
+    Note over App,Outbox: Five failures park the head entry and hold the queue behind it; resume, network back or a tap tries again
 ```
 
 ## Sync Item Lifecycle
@@ -125,20 +148,23 @@ related: [".devbook/arc42/05-building-block-view.md#mobile-app"]
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Captured: User captures item
-    Captured --> PendingSync: Network available
-    PendingSync --> Syncing: Sync engine picks up item
-    Syncing --> Synced: POST /sync/items succeeds
-    Syncing --> SyncFailed: Network error or timeout
-    SyncFailed --> PendingSync: Retry scheduled
-    Synced --> [*]
-    PendingSync --> Captured: Network lost before sync starts
+    [*] --> Queued: Capture written to the outbox
+    Queued --> Sending: Flush reaches it (oldest first)
+    Sending --> Delivered: 201, or 200 for a known id
+    Sending --> Backoff: No network, timeout, 5xx or 401
+    Backoff --> Sending: 2s, 4s, 8s, 16s, or resume / network back
+    Backoff --> Parked: Fifth failed attempt
+    Parked --> Queued: Tap, resume or network back (attempts reset)
+    Sending --> Refused: Any other 4xx
+    Refused --> Queued: Tap to retry
+    Delivered --> [*]
 
-    note right of Synced
-        Item confirmed on Cloud Service
+    note right of Parked
+        "Waiting — tap to retry";
+        still first in line, holds the rest
     end note
-    note right of SyncFailed
-        Exponential backoff, max 5 retries
+    note right of Refused
+        Set aside; the queue moves past it
     end note
 ```
 

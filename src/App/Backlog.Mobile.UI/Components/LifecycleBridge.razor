@@ -1,0 +1,56 @@
+@inject IJSRuntime Js
+@inject AppLifecycle Lifecycle
+@implements IAsyncDisposable
+
+@*
+    Draws nothing. Hands the page's visibilitychange and online events to
+    AppLifecycle, which is how the browser harness hears a resume at all and a
+    second way the MAUI head does. Lives in the layout, so it runs on every tab.
+*@
+
+@code {
+    private IJSObjectReference? _module;
+    private IJSObjectReference? _watch;
+    private DotNetObjectReference<LifecycleBridge>? _self;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        try
+        {
+            _module = await Js.InvokeAsync<IJSObjectReference>("import", "./_content/Backlog.Mobile.UI/lifecycle.js");
+            if (_module is null) return;
+
+            _self = DotNetObjectReference.Create(this);
+            _watch = await _module.InvokeAsync<IJSObjectReference>("watch", _self);
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or InvalidOperationException)
+        {
+            // No browser to watch — a prerender, or a page already gone. The
+            // resume still arrives from the MAUI head's window where there is one.
+        }
+    }
+
+    [JSInvokable]
+    public void OnResumed() => Lifecycle.Resume();
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (_watch is not null)
+            {
+                await _watch.InvokeVoidAsync("dispose");
+                await _watch.DisposeAsync();
+            }
+
+            if (_module is not null) await _module.DisposeAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+
+        _self?.Dispose();
+    }
+}

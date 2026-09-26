@@ -51,6 +51,14 @@ builder.Services.AddScoped<ISpeechTranscriber, WebSpeechTranscriber>();
 // because it reads the address the current circuit was opened on.
 builder.Services.AddScoped<ISharedContentReceiver, QuerySharedContentReceiver>();
 
+// The outbox and the cached inbox, under this harness's own content root beside
+// its device credential, for the same reason: it is this device's, not the
+// desktop harness's. The override variable is this harness's own.
+var deviceStorePath = Environment.GetEnvironmentVariable("BACKLOG_MOBILE_OUTBOX_PATH");
+builder.Services.AddDeviceOutbox(string.IsNullOrWhiteSpace(deviceStorePath)
+    ? Path.Combine(builder.Environment.ContentRootPath, "obj", "local-development", "mobile-outbox.db")
+    : deviceStorePath);
+
 // The shell's own state: the capture draft that outlives a tab switch, and the
 // sync status the app bar reads. The MAUI head calls the same method.
 builder.Services.AddMobileShell();

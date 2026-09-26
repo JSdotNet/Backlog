@@ -23,8 +23,10 @@ public sealed record ListInboxQuery(OwnerScope Scope);
 /// nothing the desktop made from it.
 /// </para>
 /// <para>
-/// The two fields this reads out of the payload, <c>Title</c> and
-/// <c>CreatedAt</c>, are the whole of what the service understands about a task.
+/// What this reads out of the payload — the title, the body, when it was
+/// made, where from, and its tags — is copied rather than understood. The one
+/// reading it does is the <c>@name</c> tag the capture handler wrote the person
+/// as, handed back as the person so no reader has to know the convention.
 /// Nothing else is interpreted here, which is what keeps .devbook/arc42/adr/0005's "no
 /// domain logic runs against the replica" true of the one view it serves.
 /// </para>
@@ -42,13 +44,36 @@ public sealed class ListInboxQueryHandler(ITaskReplica replica)
 
         IReadOnlyList<InboxItem> items =
         [
-            .. captures.Select(record => new InboxItem(
-                record.Change.Id,
-                record.Change.Task.Title,
-                record.Change.Task.SourceInboxId ?? string.Empty,
-                record.Change.Task.CreatedAt)),
+            .. captures.Select(record => Project(record.Change)),
         ];
 
         return Result.Success(items);
+    }
+
+    /// <summary>A capture document as the inbox contract reads it. Shared with
+    /// the capture handler, which answers a retried id with the stored capture
+    /// and must answer it in the same shape the list does.</summary>
+    internal static InboxItem Project(TaskChange change)
+    {
+        var task = change.Task;
+        var tags = new List<string>();
+        string? person = null;
+
+        foreach (var tag in task.Tags)
+        {
+            // The first @name is the person; the endpoint refuses a tag that
+            // reads as one, so there is only ever the one the handler wrote.
+            if (person is null && tag.StartsWith('@') && tag.Length > 1) person = tag[1..];
+            else tags.Add(tag);
+        }
+
+        return new InboxItem(
+            change.Id,
+            task.Title,
+            task.SourceInboxId ?? string.Empty,
+            task.CreatedAt,
+            string.IsNullOrEmpty(task.ContentMd) ? null : task.ContentMd,
+            tags,
+            person);
     }
 }

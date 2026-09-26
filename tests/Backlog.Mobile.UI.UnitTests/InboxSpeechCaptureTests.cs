@@ -174,6 +174,7 @@ public sealed class InboxSpeechCaptureTests
                 new HttpClient(new EmptyInboxHandler()) { BaseAddress = new Uri("https://sync.test") },
                 new InMemoryDeviceCredentialStore()));
             _context.Services.AddMobileShell();
+            _context.Services.AddTestDeviceOutbox();
         }
 
         public FakeSpeechTranscriber Speech { get; }
