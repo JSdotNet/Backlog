@@ -31,7 +31,39 @@ internal static partial class ContentKindDetector
     /// entry names its own. The named link is what the kind is read off; the
     /// text is only searched for one when nothing was named, so a title that
     /// mentions some other address does not reclassify the capture.</summary>
-    public static ContentKind Detect(string title, string? sourceUrl, string? bodyMd)
+    public static ContentKind Detect(string title, string? sourceUrl, string? bodyMd) =>
+        Detect(title, sourceUrl, bodyMd, attachmentContentTypes: null);
+
+    /// <summary>
+    /// The same, for a capture that arrived with files — read before the text,
+    /// because a file is what the capture <em>is</em> in a way a sentence about it
+    /// is not. Pictures and nothing else — no body, no link — is an image: a
+    /// photo taken on the phone, the title whatever the camera called it. Any
+    /// other file is a document, whatever the text around it says. Pictures
+    /// with words or a link beside them are read as the words are, as before;
+    /// the pictures still show above the body.
+    /// </summary>
+    public static ContentKind Detect(
+        string title,
+        string? sourceUrl,
+        string? bodyMd,
+        IReadOnlyCollection<string>? attachmentContentTypes)
+    {
+        if (attachmentContentTypes is { Count: > 0 } types)
+        {
+            if (types.Any(type => !IsImageType(type))) return ContentKind.Document;
+
+            var hasLink = !string.IsNullOrWhiteSpace(sourceUrl) || FirstUrl(title) is not null;
+            if (string.IsNullOrWhiteSpace(bodyMd) && !hasLink) return ContentKind.Image;
+        }
+
+        return DetectFromText(title, sourceUrl, bodyMd);
+    }
+
+    private static bool IsImageType(string? contentType) =>
+        (contentType ?? string.Empty).Trim().StartsWith("image/", StringComparison.OrdinalIgnoreCase);
+
+    private static ContentKind DetectFromText(string title, string? sourceUrl, string? bodyMd)
     {
         var text = string.IsNullOrWhiteSpace(bodyMd) ? title ?? string.Empty : $"{title}\n{bodyMd}";
         var address = string.IsNullOrWhiteSpace(sourceUrl) ? FirstUrl(text) : sourceUrl.Trim();

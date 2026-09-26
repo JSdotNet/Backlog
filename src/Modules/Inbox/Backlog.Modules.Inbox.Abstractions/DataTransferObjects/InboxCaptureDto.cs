@@ -39,6 +39,12 @@ namespace Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 /// among the tags. Defaulted like the two before them, so a channel that knows
 /// neither says nothing.
 /// </para>
+/// <para>
+/// <paramref name="Attachments"/> are the files the capture names (local ADR
+/// 0014) — metadata only; the intake records them on the item at once and
+/// fetches the bytes afterwards. Null or empty for a capture with none, which is
+/// every channel but the phone today.
+/// </para>
 /// </summary>
 public sealed record InboxCaptureDto(
     Guid Id,
@@ -51,4 +57,5 @@ public sealed record InboxCaptureDto(
     string? BodyMd = null,
     bool ReplicaBacked = true,
     IReadOnlyList<string>? Tags = null,
-    string? Person = null);
+    string? Person = null,
+    IReadOnlyList<InboxCaptureAttachmentDto>? Attachments = null);

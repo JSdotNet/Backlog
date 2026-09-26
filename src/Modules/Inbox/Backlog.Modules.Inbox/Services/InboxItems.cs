@@ -13,8 +13,11 @@ using Backlog.Modules.Inbox.Features.EnsureDefaultOrganizer;
 using Backlog.Modules.Inbox.Features.GetInbox;
 using Backlog.Modules.Inbox.Features.MoveListToGroup;
 using Backlog.Modules.Inbox.Features.MoveToList;
+using Backlog.Modules.Inbox.Features.OpenAttachment;
+using Backlog.Modules.Inbox.Features.ReadAttachment;
 using Backlog.Modules.Inbox.Features.RenameGroup;
 using Backlog.Modules.Inbox.Features.RenameList;
+using Backlog.Modules.Inbox.Features.RetryAttachment;
 using Backlog.Modules.Inbox.Features.RouteToBacklog;
 using Backlog.Modules.Inbox.Features.SetTags;
 using Backlog.Modules.Inbox.Features.UngroupLists;
@@ -48,6 +51,9 @@ internal sealed class InboxItems(
     ICommandHandler<RenameGroupCommand, Result> renameGroup,
     ICommandHandler<UngroupListsCommand, Result> ungroup,
     ICommandHandler<EnsureDefaultOrganizerCommand> ensureDefaultOrganizer,
+    ICommandHandler<RetryAttachmentCommand, Result> retryAttachment,
+    IQueryHandler<ReadAttachmentQuery, Result<byte[]>> readAttachment,
+    ICommandHandler<OpenAttachmentCommand, Result> openAttachment,
     IInboxPlanDrafter? drafter = null) : IInboxItems
 {
     public Task<InboxSnapshotDto> GetSnapshotAsync(CancellationToken cancellationToken = default) =>
@@ -80,6 +86,15 @@ internal sealed class InboxItems(
 
     public Task<Result<InboxRoutedDto>> CreatePlanAsync(Guid id, CancellationToken cancellationToken = default) =>
         createPlan.Handle(new CreatePlanCommand(id), cancellationToken);
+
+    public Task<Result> RetryAttachmentAsync(Guid id, Guid attachmentId, CancellationToken cancellationToken = default) =>
+        retryAttachment.Handle(new RetryAttachmentCommand(id, attachmentId), cancellationToken);
+
+    public Task<Result<byte[]>> ReadAttachmentAsync(Guid id, Guid attachmentId, CancellationToken cancellationToken = default) =>
+        readAttachment.Handle(new ReadAttachmentQuery(id, attachmentId), cancellationToken);
+
+    public Task<Result> OpenAttachmentAsync(Guid id, Guid attachmentId, CancellationToken cancellationToken = default) =>
+        openAttachment.Handle(new OpenAttachmentCommand(id, attachmentId), cancellationToken);
 
     public (bool Available, string? Reason) PlanDrafterAvailability =>
         drafter is { IsAvailable: true }

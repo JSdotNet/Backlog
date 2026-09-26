@@ -123,7 +123,8 @@ internal sealed partial class InboxBacklogTarget(ITaskItems tasks) : IInboxBackl
 
     /// <summary>
     /// The item as entry text: title line, one metadata line, body, and the
-    /// source URL as a trailing line the reader can follow. Born a draft — the
+    /// source URL as a trailing line the reader can follow — and, when the item
+    /// arrived with files, its folder as the entry's attachment. Born a draft — the
     /// Inbox has decided the thought is work, and the backlog decides when it
     /// is ready. Tags go on as the metadata line writes them, bare and
     /// lower-case, and only those the grammar can read back as a tag (a tag
@@ -164,7 +165,12 @@ internal sealed partial class InboxBacklogTarget(ITaskItems tasks) : IInboxBackl
             text.Append('\n').Append("Source: ").Append(request.SourceUrl.Trim()).Append('\n');
         }
 
-        return text.ToString();
+        // The attachment through Tasks' own writer rather than a token spelled
+        // here: how a path is written on the metadata line is the grammar's
+        // business, and a workspace under "My Documents" has spaces in it.
+        return Attachment.From(request.AttachmentPath) is { } attachment
+            ? EntryTextParser.WithAttachment(text.ToString(), attachment)
+            : text.ToString();
     }
 
     [GeneratedRegex(@"\s+")]

@@ -390,6 +390,56 @@ internal sealed class FakeInboxItems : IInboxItems
         return Task.FromResult(Result.Success());
     }
 
+    // --- Attachments --------------------------------------------------------
+
+    /// <summary>The bytes each downloaded attachment reads as, by id.</summary>
+    public Dictionary<Guid, byte[]> AttachmentBytes { get; } = [];
+
+    /// <summary>Every open and retry asked for, in order, by attachment id.</summary>
+    public List<Guid> Opened { get; } = [];
+
+    public List<Guid> Retried { get; } = [];
+
+    /// <summary>What the next Retry answers: null downloads the file, an error
+    /// keeps it failed with that reason. Reset after one use.</summary>
+    public Error? NextRetryError { get; set; }
+
+    /// <summary>Puts files on a seeded item, the way the intake would have.</summary>
+    public InboxItemDto SeedAttachments(Guid itemId, params InboxAttachmentDto[] attachments)
+    {
+        var index = _items.FindIndex(item => item.Id == itemId);
+        _items[index] = _items[index] with { Attachments = [.. _items[index].Attachments, .. attachments] };
+        return _items[index];
+    }
+
+    public async Task<Result> RetryAttachmentAsync(Guid id, Guid attachmentId, CancellationToken cancellationToken = default)
+    {
+        Retried.Add(attachmentId);
+
+        var error = NextRetryError;
+        NextRetryError = null;
+
+        var updated = await Update(id, item => item with
+        {
+            Attachments = [.. item.Attachments.Select(attachment => attachment.Id != attachmentId
+                ? attachment
+                : attachment with { Downloaded = error is null, LastError = error?.Message })],
+        });
+
+        return updated.IsFailure || error is null ? updated : Result.Failure(error.Value);
+    }
+
+    public Task<Result<byte[]>> ReadAttachmentAsync(Guid id, Guid attachmentId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(AttachmentBytes.TryGetValue(attachmentId, out var bytes)
+            ? Result.Success(bytes)
+            : Result.Failure<byte[]>(InboxErrors.AttachmentNotDownloaded));
+
+    public Task<Result> OpenAttachmentAsync(Guid id, Guid attachmentId, CancellationToken cancellationToken = default)
+    {
+        Opened.Add(attachmentId);
+        return Task.FromResult(Result.Success());
+    }
+
     /// <summary>The module's seed, restated: the starter groups and lists, only
     /// when there are none of either.</summary>
     public Task EnsureDefaultOrganizerAsync(CancellationToken cancellationToken = default)

@@ -17,10 +17,14 @@ namespace Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 /// aggregate refuses them as tags.</param>
 /// <param name="RepoIds">Registry ids (<c>owner/name</c>), one entry each. Empty
 /// means one entry with no repository.</param>
+/// <param name="AttachmentPath">The item's attachment folder when it arrived
+/// with files, else null. Every entry made from the item points at it, so the
+/// files go where the work goes.</param>
 public sealed record InboxRouteRequestDto(
     Guid InboxItemId,
     string Title,
     string BodyMd,
     string? SourceUrl,
     IReadOnlyList<string> Tags,
-    IReadOnlyList<string> RepoIds);
+    IReadOnlyList<string> RepoIds,
+    string? AttachmentPath = null);

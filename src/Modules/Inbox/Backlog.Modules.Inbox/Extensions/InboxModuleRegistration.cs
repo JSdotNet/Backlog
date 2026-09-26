@@ -12,9 +12,12 @@ using Backlog.Modules.Inbox.Features.EnsureDefaultOrganizer;
 using Backlog.Modules.Inbox.Features.GetInbox;
 using Backlog.Modules.Inbox.Features.MoveListToGroup;
 using Backlog.Modules.Inbox.Features.MoveToList;
+using Backlog.Modules.Inbox.Features.OpenAttachment;
+using Backlog.Modules.Inbox.Features.ReadAttachment;
 using Backlog.Modules.Inbox.Features.ReceiveCapture;
 using Backlog.Modules.Inbox.Features.RenameGroup;
 using Backlog.Modules.Inbox.Features.RenameList;
+using Backlog.Modules.Inbox.Features.RetryAttachment;
 using Backlog.Modules.Inbox.Features.RouteToBacklog;
 using Backlog.Modules.Inbox.Features.SetTags;
 using Backlog.Modules.Inbox.Features.UngroupLists;
@@ -68,6 +71,14 @@ public static class InboxModuleRegistration
         services.AddScoped<ICommandHandler<UngroupListsCommand, Result>, UngroupListsCommandHandler>();
         services.AddScoped<ICommandHandler<EnsureDefaultOrganizerCommand>, EnsureDefaultOrganizerCommandHandler>();
 
+        // The file acts on the pane. The two attachment ports they take are
+        // optional constructor parameters the host may leave out — see
+        // IInboxAttachmentSource — so a head without them still builds, and the
+        // handlers answer inbox.attachment.unavailable.
+        services.AddScoped<ICommandHandler<RetryAttachmentCommand, Result>, RetryAttachmentCommandHandler>();
+        services.AddScoped<IQueryHandler<ReadAttachmentQuery, Result<byte[]>>, ReadAttachmentQueryHandler>();
+        services.AddScoped<ICommandHandler<OpenAttachmentCommand, Result>, OpenAttachmentCommandHandler>();
+
         services.AddScoped<IInboxItems, InboxItems>();
 
         // The two sync-facing ports, and the one slice behind them, are
@@ -77,7 +88,9 @@ public static class InboxModuleRegistration
         // the loop reads as "this host does not replicate" — captures would stop
         // arriving with nothing on screen to say so. Transient is safe because all
         // three capture only the item repository and the clock, which a host
-        // registers as singletons the way it does Tasks' repository.
+        // registers as singletons the way it does Tasks' repository — and the
+        // two optional attachment ports the intake fetches files through, which a
+        // host registers as singletons or transients for the same reason.
         services.AddTransient<ICommandHandler<ReceiveCaptureCommand, Result<InboxIntakeOutcome>>, ReceiveCaptureCommandHandler>();
         services.AddTransient<IInboxIntake, InboxIntake>();
         services.AddTransient<IInboxCaptureOutbox, InboxCaptureOutbox>();

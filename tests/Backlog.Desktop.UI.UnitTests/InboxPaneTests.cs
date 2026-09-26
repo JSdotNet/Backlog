@@ -385,6 +385,87 @@ public sealed class InboxPaneTests
         Assert.Empty(pane.FindAll("[data-testid='inbox-detail-image']"));
     }
 
+    // --- A capture's own files ----------------------------------------------
+
+    [Fact]
+    public async Task A_captured_picture_is_a_thumbnail_and_a_captured_file_is_a_row_with_open()
+    {
+        using var harness = Harness.Create();
+        var jpeg = new InboxAttachmentDto(Guid.NewGuid(), "whiteboard.jpg", "image/jpeg", 7, IsImage: true, Downloaded: true, LastError: null);
+        var pdf = new InboxAttachmentDto(Guid.NewGuid(), "contract.pdf", "application/pdf", 2_400_000, IsImage: false, Downloaded: true, LastError: null);
+        var item = harness.Inbox.Seed("Planning session", ContentKind.Document, channel: "mobile", bodyMd: "Notes from the room.");
+        harness.Inbox.SeedAttachments(item.Id, jpeg, pdf);
+        harness.Inbox.AttachmentBytes[jpeg.Id] = [0xFF, 0xD8, 0xFF, 0xE0, 1, 2, 3];
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, item.Id);
+
+        // The picture above the body, drawn from the file's own bytes.
+        var image = pane.WaitForElement("[data-testid='inbox-detail-attachment-image']");
+        Assert.Equal("data:image/jpeg;base64,/9j/4AECAw==", image.GetAttribute("src"));
+        Assert.Equal("whiteboard.jpg", image.GetAttribute("alt"));
+        var content = pane.Find("[data-testid='inbox-detail-kind-document']");
+        Assert.True(
+            content.InnerHtml.IndexOf("inbox-detail-thumbnails", StringComparison.Ordinal)
+                < content.InnerHtml.IndexOf("inbox-detail-body", StringComparison.Ordinal),
+            "The thumbnails are drawn above the body.");
+
+        // The PDF is a row, with its size, and Open hands it to the module.
+        var row = pane.Find($"[data-testid='inbox-attachment-row-{pdf.Id:N}']");
+        Assert.Contains("contract.pdf", row.TextContent);
+        Assert.Contains("2.3 MB", row.TextContent);
+        Assert.Empty(pane.FindAll($"[data-testid='inbox-attachment-row-{jpeg.Id:N}']"));
+
+        await pane.Find($"[data-testid='inbox-attachment-open-{pdf.Id:N}']").ClickAsync(new());
+        await pane.Find($"[data-testid='inbox-attachment-thumbnail-{jpeg.Id:N}']").ClickAsync(new());
+
+        Assert.Equal([pdf.Id, jpeg.Id], harness.Inbox.Opened);
+    }
+
+    [Fact]
+    public async Task A_file_that_failed_to_download_shows_why_and_retry_brings_it_down()
+    {
+        using var harness = Harness.Create();
+        var pdf = new InboxAttachmentDto(Guid.NewGuid(), "contract.pdf", "application/pdf", 900, IsImage: false, Downloaded: false,
+            LastError: "The sync service could not be reached.");
+        var item = harness.Inbox.Seed("Contract", ContentKind.Document, channel: "mobile");
+        harness.Inbox.SeedAttachments(item.Id, pdf);
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, item.Id);
+
+        Assert.Equal(
+            "The sync service could not be reached.",
+            pane.Find($"[data-testid='inbox-attachment-error-{pdf.Id:N}']").TextContent.Trim());
+        Assert.Empty(pane.FindAll($"[data-testid='inbox-attachment-open-{pdf.Id:N}']"));
+
+        await pane.Find($"[data-testid='inbox-attachment-retry-{pdf.Id:N}']").ClickAsync(new());
+
+        Assert.Equal([pdf.Id], harness.Inbox.Retried);
+        pane.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(pane.FindAll($"[data-testid='inbox-attachment-open-{pdf.Id:N}']"));
+            Assert.Empty(pane.FindAll($"[data-testid='inbox-attachment-error-{pdf.Id:N}']"));
+        });
+    }
+
+    [Fact]
+    public async Task A_file_not_fetched_yet_says_it_is_waiting_and_a_picture_not_on_disk_is_a_row()
+    {
+        using var harness = Harness.Create();
+        var photo = new InboxAttachmentDto(Guid.NewGuid(), "IMG_2041.jpg", "image/jpeg", 12, IsImage: true, Downloaded: false, LastError: null);
+        var item = harness.Inbox.Seed("IMG_2041", ContentKind.Image, channel: "mobile");
+        harness.Inbox.SeedAttachments(item.Id, photo);
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, item.Id);
+
+        Assert.Empty(pane.FindAll("[data-testid='inbox-detail-thumbnails']"));
+        Assert.Equal(
+            "Waiting to download",
+            pane.Find($"[data-testid='inbox-attachment-waiting-{photo.Id:N}']").TextContent.Trim());
+    }
+
     [Fact]
     public async Task A_voice_memo_shows_its_transcript()
     {

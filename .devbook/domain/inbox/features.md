@@ -44,6 +44,36 @@ queue the reader is filling and opens in the detail beside it rather than
 anywhere else. It needs no paired device, which makes it the offline path and
 the way an inbox is seeded without a phone.
 
+### Capture attachments
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/inbox/requirements.md#capture-attachments, .devbook/domain/inbox/domain.md#attachment, .devbook/domain/inbox/domain.md#attachment-folder, .devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md]
+feature-flag: .devbook/domain/inbox/context.md#inbox-pane
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.A_captured_picture_is_a_thumbnail_and_a_captured_file_is_a_row_with_open, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.A_file_that_failed_to_download_shows_why_and_retry_brings_it_down, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.A_file_not_fetched_yet_says_it_is_waiting_and_a_picture_not_on_disk_is_a_row]
+```
+
+A thought captured on the phone often comes with a file: a photo, a
+screenshot, a PDF. This sub-feature brings those files to the desktop Inbox,
+so the reader can see the file while deciding what to do with the item.
+
+The files follow the item. The item arrives first with the list of files the
+capture named, and the desktop then downloads each file into the item's
+[attachment folder](domain.md#attachment-folder). A file that cannot be
+downloaded does not hold up the capture or the rest of the sync. The item still
+lands, and the file shows why it did not arrive. Its **Retry** tries it again.
+
+In the detail view, pictures show as thumbnails above the body, and each one
+opens the file. Every other file shows as a row with its size and an **Open**
+action. A file still on its way reads *Waiting to download*. An item whose
+only content is pictures reads as an `image` in the queue, and an item with any
+other file reads as a `document`.
+
+When the item is routed to Tasks, its attachment folder goes with it: every
+task it becomes carries the folder as its attachment. Create plan does not hand
+the folder on yet.
+
 ### Organise into lists and groups
 
 ```meta
@@ -115,7 +145,8 @@ status: draft
 Auto-suggest tags from content analysis, auto-suggest a routing destination from
 keywords/patterns, apply routing rules (source patterns → repo mapping), and
 enrich items with links to related tasks or knowledge notes. Built today: the
-`Content Kind` and source link are read from the captured text on intake.
+`Content Kind` and source link are read from the captured text on intake, and
+from the item's attachments when it has any.
 
 ## Routing
 
@@ -133,14 +164,15 @@ Move a triaged item to its destination.
 ```meta
 type: sub-feature
 status: draft
-related: [.devbook/domain/tasks/features.md#task-creation, .devbook/domain/inbox/domain.md#itemtriaged]
-tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBacklogTests]
+related: [.devbook/domain/tasks/features.md#task-creation, .devbook/domain/inbox/domain.md#itemtriaged, .devbook/domain/inbox/domain.md#attachment-folder]
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBacklogTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests.Routing_hands_the_items_folder_to_the_task_as_its_attachment]
 ```
 
 Create one draft task per repository assigned to the item — or a single
 untargeted task when none is — each carrying the item's id as its provenance.
-The item records the tasks it became and is routed exactly once; a failure on
-the Tasks side leaves it unrouted.
+An item with attachments gives each task its attachment folder as the task's
+attachment. The item records the tasks it became and is routed exactly once; a
+failure on the Tasks side leaves it unrouted.
 
 ### Create plan from an item
 

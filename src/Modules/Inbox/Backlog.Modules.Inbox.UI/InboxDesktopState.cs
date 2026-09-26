@@ -451,6 +451,82 @@ public sealed class InboxDesktopState
         await ReloadAsync();
     }
 
+    // --- Attachments --------------------------------------------------------
+
+    /// <summary>The largest picture drawn as a thumbnail. A bigger one is shown
+    /// as a file row instead: a thumbnail travels to the page as a data URI, and
+    /// in the web harness that is a render batch over the circuit.</summary>
+    internal const long ThumbnailMaxBytes = 8L * 1024 * 1024;
+
+    /// <summary>Thumbnails already read, by attachment id, as data URIs. Kept for
+    /// the window's life: a file on this machine does not change under its id.</summary>
+    private readonly Dictionary<Guid, string> _thumbnails = [];
+
+    /// <summary>The file a Retry is running for, so its row can show it busy.</summary>
+    public Guid? RetryingAttachmentId { get; private set; }
+
+    /// <summary>Whether a picture on the item is drawn as a thumbnail rather than
+    /// listed as a file: it is an image, it is on this machine, and it is small
+    /// enough to draw.</summary>
+    public static bool ShowsAsThumbnail(InboxAttachmentDto attachment) =>
+        attachment.IsImage && attachment.Downloaded && attachment.SizeBytes <= ThumbnailMaxBytes;
+
+    /// <summary>The thumbnail for one attachment, once <see cref="LoadThumbnailsAsync"/>
+    /// has read it; null before, or when it could not be read.</summary>
+    public string? Thumbnail(Guid attachmentId) => _thumbnails.GetValueOrDefault(attachmentId);
+
+    /// <summary>Reads every thumbnail the item shows that is not read yet, and
+    /// re-renders once when any arrived. A file that cannot be read is left out
+    /// silently: its row still names it, and a toast per picture on every render
+    /// would be noise about something the row already says.</summary>
+    public async Task LoadThumbnailsAsync(InboxItemDto item)
+    {
+        var loaded = false;
+
+        foreach (var attachment in item.Attachments.Where(ShowsAsThumbnail))
+        {
+            if (_thumbnails.ContainsKey(attachment.Id)) continue;
+
+            var read = await _inbox.ReadAttachmentAsync(item.Id, attachment.Id);
+            if (read.IsFailure) continue;
+
+            _thumbnails[attachment.Id] = $"data:{attachment.ContentType};base64,{Convert.ToBase64String(read.Value)}";
+            loaded = true;
+        }
+
+        if (loaded) Changed?.Invoke();
+    }
+
+    /// <summary>Opens one of the selected item's files with the machine's own
+    /// application for it.</summary>
+    public async Task OpenAttachmentAsync(Guid attachmentId)
+    {
+        if (SelectedItem is not { } item) return;
+
+        Report(await _inbox.OpenAttachmentAsync(item.Id, attachmentId));
+    }
+
+    /// <summary>Fetches one of the selected item's files again, then reloads so
+    /// the row shows the file or the new reason it failed.</summary>
+    public async Task RetryAttachmentAsync(Guid attachmentId)
+    {
+        if (SelectedItem is not { } item || RetryingAttachmentId is not null) return;
+
+        RetryingAttachmentId = attachmentId;
+        Changed?.Invoke();
+
+        try
+        {
+            Report(await _inbox.RetryAttachmentAsync(item.Id, attachmentId));
+        }
+        finally
+        {
+            RetryingAttachmentId = null;
+        }
+
+        await ReloadAsync();
+    }
+
     /// <summary>Turns the selected item into backlog entries and tells the shell
     /// so. The item stays selected: its detail now says where it went.</summary>
     public async Task RouteToBacklogAsync()

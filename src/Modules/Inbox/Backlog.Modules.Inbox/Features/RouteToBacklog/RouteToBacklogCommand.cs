@@ -23,11 +23,20 @@ public sealed record RouteToBacklogCommand(Guid Id);
 /// does not know about them, which the person can see in the backlog and which
 /// routing again would only duplicate. The aggregate refuses a second routing,
 /// so that case surfaces as an error rather than a second set of entries.
+/// <para>
+/// An item that arrived with files hands its folder to every entry it becomes,
+/// as the entry's attachment, so the file goes where the work goes. The folder,
+/// not the files: a task points at one place (Tasks' <c>Attachment</c>), and the
+/// item's folder holds exactly its files. Handed on whether or not every file
+/// arrived — the folder is still where they belong, and a Retry on the item
+/// fills it in.
+/// </para>
 /// </summary>
 public sealed class RouteToBacklogCommandHandler(
     IInboxItemRepository items,
     IInboxBacklogTarget target,
-    TimeProvider clock)
+    TimeProvider clock,
+    IInboxAttachmentFiles? attachmentFiles = null)
     : ICommandHandler<RouteToBacklogCommand, Result<InboxRoutedDto>>
 {
     public async Task<Result<InboxRoutedDto>> Handle(
@@ -54,7 +63,8 @@ public sealed class RouteToBacklogCommandHandler(
             item.BodyMd,
             item.SourceUrl,
             [.. item.Tags.Select(tag => tag.Name)],
-            [.. item.RepoIds]);
+            [.. item.RepoIds],
+            item.Attachments.Count > 0 ? attachmentFiles?.FolderFor(item.Id) : null);
 
         var created = await target.CreateTasksAsync(request, cancellationToken).ConfigureAwait(false);
         if (created.IsFailure) return created.Error;

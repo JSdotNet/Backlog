@@ -491,8 +491,10 @@ public sealed class TaskReplicaMerge(
         string.Equals(change.Task.Type, CaptureType, StringComparison.Ordinal);
 
     /// <summary>The capture as the Inbox wants it: the document's id, title,
-    /// source, stamps, body, tags and person, and nothing else of the task shape
-    /// around them. The tombstone stamp travels as <c>WithdrawnAt</c>; a source
+    /// source, stamps, body, tags, person and the files it names, and nothing
+    /// else of the task shape around them. The files travel as metadata; the
+    /// intake fetches their bytes itself and records a fetch that fails on the
+    /// item rather than throwing, so a file can never be why a page stalls. The tombstone stamp travels as <c>WithdrawnAt</c>; a source
     /// the service did not record is filed as unknown rather than dropped.
     /// <para>
     /// The service writes the capture's person among the document's tags as
@@ -515,7 +517,11 @@ public sealed class TaskReplicaMerge(
             record.Change.DeletedAt,
             BodyMd: string.IsNullOrWhiteSpace(record.Change.Task.ContentMd) ? null : record.Change.Task.ContentMd,
             Tags: [.. tags.Where(tag => !tag.StartsWith('@'))],
-            Person: person);
+            Person: person,
+            Attachments: record.Change.Task.Attachments is { Count: > 0 } attachments
+                ? [.. attachments.Select(attachment => new InboxCaptureAttachmentDto(
+                    attachment.Id, attachment.Name, attachment.ContentType, attachment.SizeBytes, attachment.Sha256))]
+                : null);
     }
 
     /// <summary>The apply-against-local decision on its own, by the rule in

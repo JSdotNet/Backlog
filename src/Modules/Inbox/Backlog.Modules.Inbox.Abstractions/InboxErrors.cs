@@ -25,6 +25,22 @@ public static class InboxErrors
         "inbox.item.invalid_transition",
         detail);
 
+    public static readonly Error AttachmentNotFound = Error.NotFound(
+        "inbox.attachment.not_found",
+        "That file is not on this item.");
+
+    /// <summary>The file is named on the item but not on this machine yet —
+    /// still waiting, or its fetch failed. The pane offers Retry for the second.</summary>
+    public static readonly Error AttachmentNotDownloaded = Error.Validation(
+        "inbox.attachment.not_downloaded",
+        "That file has not been downloaded to this machine.");
+
+    /// <summary>This head was composed without the attachment store or the
+    /// sync source, so there is nowhere to fetch a file from or keep it in.</summary>
+    public static readonly Error AttachmentsUnavailable = Error.Validation(
+        "inbox.attachment.unavailable",
+        "Attachments are not available here: this app has no sync service or no workspace folder to keep files in.");
+
     public static readonly Error PersonIsNotATag = Error.Validation(
         "inbox.tag.person_not_a_tag",
         "A person (@name) is a source, not a tag.");

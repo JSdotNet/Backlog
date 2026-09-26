@@ -1,6 +1,7 @@
 using Backlog.Infrastructure.Sync.Annotations;
 using Backlog.Infrastructure.Sync.Sessions;
 using Backlog.Modules.Devbook.Abstractions;
+using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
 
@@ -157,6 +158,15 @@ public static class SyncClientRegistration
         // sharing one would mean choosing between them.
         services.AddHttpClient<TaskSyncClient>((sp, client) => client.BaseAddress = baseAddress(sp))
             .AddHttpMessageHandler<SyncAuthenticationHandler>();
+
+        // Where a pulled capture's files come from (local ADR 0014). Here and
+        // not in AddSyncClient because the intake that asks for them is part of
+        // task replication — a capture arrives on the task feed — and a head
+        // without that feed has no capture to fetch files for. Bearer, like the
+        // feed, and transient over its typed client for the reason below.
+        services.AddHttpClient<InboxAttachmentSyncSource>((sp, client) => client.BaseAddress = baseAddress(sp))
+            .AddHttpMessageHandler<SyncAuthenticationHandler>();
+        services.TryAddTransient<IInboxAttachmentSource>(sp => sp.GetRequiredService<InboxAttachmentSyncSource>());
 
         // Transient rather than singleton, because both take the typed client
         // above and IHttpClientFactory owns its lifetime — a singleton here would

@@ -10,9 +10,9 @@ using Microsoft.Data.Sqlite;
 namespace Backlog.Infrastructure.Sqlite.Inbox;
 
 /// <summary>
-/// Local-first store for the Inbox module — its items, lists and groups — in
-/// three tables of the same <c>backlog.db</c> the tasks and the roadmap plan
-/// live in. Fully offline; no cloud dependency.
+/// Local-first store for the Inbox module — its items and their files, lists and
+/// groups — in four tables of the same <c>backlog.db</c> the tasks and the
+/// roadmap plan live in. Fully offline; no cloud dependency.
 /// <para>
 /// One class answering both <see cref="IInboxItemRepository"/> and
 /// <see cref="IInboxOrganizerRepository"/>, because the two ports are one
@@ -21,7 +21,7 @@ namespace Backlog.Infrastructure.Sqlite.Inbox;
 /// where the separation means something.
 /// </para>
 /// <para>
-/// This repository creates <em>only</em> its own three tables, and never reads
+/// This repository creates <em>only</em> its own tables, and never reads
 /// <c>tasks</c> or <c>roadmap_plan</c>. Inherited ADR 0014 puts persistence in
 /// the hands of the module that owns the data; what the adapters here share is
 /// a file, not a schema. The tables are created by idempotent
@@ -42,6 +42,9 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
         "id, title, body_md, source_url, captured_at, received_at, status, deferred_until, kind, " +
         "channel, person, tags, repo_ids, list_id, routing_domain, routing_repo_ids, routing_task_ids, " +
         "routed_at, replica_backed, replica_ack_pending, updated_at";
+
+    private const string AttachmentColumns =
+        "item_id, attachment_id, name, content_type, size_bytes, sha256, local_path, downloaded_at, last_error, sort_order";
 
     private const string ListColumns = "id, name, group_id, sort_order, created_at, updated_at";
 
@@ -72,7 +75,14 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
         ArgumentNullException.ThrowIfNull(item);
 
         await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
+
+        // One transaction for the row and its files, so a reader never sees an
+        // item with half its attachments — the rows are replaced whole below.
+        await using var transaction = (SqliteTransaction)await connection
+            .BeginTransactionAsync(cancellationToken)
+            .ConfigureAwait(false);
         await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
 
         // One statement for create and update alike: the aggregate is written
         // whole either way, so there is nothing for two code paths to disagree
@@ -133,17 +143,114 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
         command.Parameters.AddWithValue("$updated_at", WriteInstant(item.UpdatedAt));
 
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+
+        await SaveAttachmentsAsync(connection, transaction, item, cancellationToken).ConfigureAwait(false);
+
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Replaces the item's attachment rows with the aggregate's list —
+    /// the same whole-aggregate write the item row gets, over a child table
+    /// because a list of files is not a JSON column anything should have to
+    /// parse to answer "which items still wait for a file".</summary>
+    private static async Task SaveAttachmentsAsync(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        InboxItem item,
+        CancellationToken cancellationToken)
+    {
+        await using (var delete = connection.CreateCommand())
+        {
+            delete.Transaction = transaction;
+            delete.CommandText = "DELETE FROM inbox_item_attachments WHERE item_id = $item_id;";
+            delete.Parameters.AddWithValue("$item_id", item.Id.ToString());
+            await delete.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        for (var order = 0; order < item.Attachments.Count; order++)
+        {
+            var attachment = item.Attachments[order];
+
+            await using var insert = connection.CreateCommand();
+            insert.Transaction = transaction;
+            insert.CommandText = $"""
+                INSERT INTO inbox_item_attachments ({AttachmentColumns})
+                VALUES ($item_id, $attachment_id, $name, $content_type, $size_bytes, $sha256,
+                        $local_path, $downloaded_at, $last_error, $sort_order);
+                """;
+
+            insert.Parameters.AddWithValue("$item_id", item.Id.ToString());
+            insert.Parameters.AddWithValue("$attachment_id", attachment.Id.ToString());
+            insert.Parameters.AddWithValue("$name", attachment.Name);
+            insert.Parameters.AddWithValue("$content_type", attachment.ContentType);
+            insert.Parameters.AddWithValue("$size_bytes", attachment.SizeBytes);
+            insert.Parameters.AddWithValue("$sha256", attachment.Sha256);
+            insert.Parameters.AddWithValue("$local_path", Nullable(attachment.LocalPath));
+            insert.Parameters.AddWithValue("$downloaded_at", Nullable(attachment.DownloadedAt is { } at ? WriteInstant(at) : null));
+            insert.Parameters.AddWithValue("$last_error", Nullable(attachment.LastError));
+            insert.Parameters.AddWithValue("$sort_order", order);
+
+            await insert.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        }
     }
 
     public async Task<InboxItem?> GetAsync(Guid id, CancellationToken cancellationToken = default)
     {
         await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
+
+        InboxItem? item;
+        await using (var command = connection.CreateCommand())
+        {
+            command.CommandText = $"SELECT {ItemColumns} FROM inbox_items WHERE id = $id;";
+            command.Parameters.AddWithValue("$id", id.ToString());
+
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+            item = await reader.ReadAsync(cancellationToken).ConfigureAwait(false) ? ReadItem(reader) : null;
+        }
+
+        if (item is not null)
+        {
+            var attachments = await ReadAttachmentsAsync(connection, item.Id, cancellationToken).ConfigureAwait(false);
+            if (attachments.TryGetValue(item.Id, out var files)) item.LoadAttachments(files);
+        }
+
+        return item;
+    }
+
+    /// <summary>Every attachment row, or one item's, grouped by item and in the
+    /// order they were recorded. One read for a whole list, rather than one per
+    /// item: the inbox is read whole on every reload.</summary>
+    private static async Task<Dictionary<Guid, List<InboxAttachment>>> ReadAttachmentsAsync(
+        SqliteConnection connection,
+        Guid? itemId,
+        CancellationToken cancellationToken)
+    {
         await using var command = connection.CreateCommand();
-        command.CommandText = $"SELECT {ItemColumns} FROM inbox_items WHERE id = $id;";
-        command.Parameters.AddWithValue("$id", id.ToString());
+        command.CommandText = itemId is null
+            ? $"SELECT {AttachmentColumns} FROM inbox_item_attachments ORDER BY item_id, sort_order;"
+            : $"SELECT {AttachmentColumns} FROM inbox_item_attachments WHERE item_id = $item_id ORDER BY sort_order;";
+        if (itemId is { } id) command.Parameters.AddWithValue("$item_id", id.ToString());
+
+        var byItem = new Dictionary<Guid, List<InboxAttachment>>();
 
         await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
-        return await reader.ReadAsync(cancellationToken).ConfigureAwait(false) ? ReadItem(reader) : null;
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            var owner = Guid.Parse(reader.GetString(AttachmentCol.ItemId));
+            if (!byItem.TryGetValue(owner, out var list)) byItem[owner] = list = [];
+
+            list.Add(InboxAttachment.Load(
+                Guid.Parse(reader.GetString(AttachmentCol.AttachmentId)),
+                reader.GetString(AttachmentCol.Name),
+                reader.GetString(AttachmentCol.ContentType),
+                reader.GetInt64(AttachmentCol.SizeBytes),
+                reader.GetString(AttachmentCol.Sha256),
+                Text(reader, AttachmentCol.LocalPath),
+                Text(reader, AttachmentCol.DownloadedAt) is { } at ? ParseInstant(at) : null,
+                Text(reader, AttachmentCol.LastError)));
+        }
+
+        return byItem;
     }
 
     public Task<IReadOnlyList<InboxItem>> ListAsync(CancellationToken cancellationToken = default) =>
@@ -162,10 +269,18 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
         command.CommandText = sql;
 
         var items = new List<InboxItem>();
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
-        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        await using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
         {
-            items.Add(ReadItem(reader));
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                items.Add(ReadItem(reader));
+            }
+        }
+
+        var attachments = await ReadAttachmentsAsync(connection, itemId: null, cancellationToken).ConfigureAwait(false);
+        foreach (var item in items)
+        {
+            if (attachments.TryGetValue(item.Id, out var files)) item.LoadAttachments(files);
         }
 
         return items;
@@ -279,7 +394,7 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
 
     // --- Schema -------------------------------------------------------------
 
-    /// <summary>Creates the database and the three inbox tables if they are not
+    /// <summary>Creates the database and the inbox tables if they are not
     /// there yet. Called on the way into every operation, for the reason
     /// <see cref="SqliteTaskRepository"/> gives: the statements are idempotent,
     /// and caching which paths have been prepared would be wrong the first time
@@ -358,12 +473,34 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
                 CREATE INDEX IF NOT EXISTS ix_inbox_items_captured ON inbox_items (captured_at DESC);
                 CREATE INDEX IF NOT EXISTS ix_inbox_items_list     ON inbox_items (list_id);
                 CREATE INDEX IF NOT EXISTS ix_inbox_items_ack      ON inbox_items (replica_ack_pending);
+
+                -- The files a capture arrived with (local ADR 0014), one row each.
+                -- A table of its own added beside the others rather than a column
+                -- on inbox_items: additive, so a database written before it
+                -- simply has none (local ADR 0006). The first five columns are
+                -- what the capture said and never change; the last three are
+                -- this machine's copy.
+                CREATE TABLE IF NOT EXISTS inbox_item_attachments (
+                    item_id        TEXT NOT NULL,
+                    attachment_id  TEXT NOT NULL,
+                    name           TEXT NOT NULL,
+                    content_type   TEXT NOT NULL,
+                    size_bytes     INTEGER NOT NULL,
+                    sha256         TEXT NOT NULL,
+                    local_path     TEXT NULL,
+                    downloaded_at  TEXT NULL,
+                    last_error     TEXT NULL,
+                    sort_order     INTEGER NOT NULL DEFAULT 0,
+                    PRIMARY KEY (item_id, attachment_id)
+                );
                 """;
             await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
 
             // No EnsureColumnAsync calls yet: every column above shipped with its
-            // table. The method is here so the first additive column has the same
-            // home it has in SqliteTaskRepository, and the same rules.
+            // table — inbox_item_attachments included, which arrived as a whole
+            // table rather than as columns on one that had rows. The method is
+            // here so the first additive column has the same home it has in
+            // SqliteTaskRepository, and the same rules.
 
             return connection;
         }
@@ -427,6 +564,13 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
 
         public const int ListName = 1, ListGroupId = 2, ListOrder = 3, ListCreatedAt = 4, ListUpdatedAt = 5;
         public const int GroupName = 1, GroupOrder = 2, GroupCreatedAt = 3, GroupUpdatedAt = 4;
+    }
+
+    /// <summary>Ordinals into <see cref="AttachmentColumns"/>.</summary>
+    private static class AttachmentCol
+    {
+        public const int ItemId = 0, AttachmentId = 1, Name = 2, ContentType = 3, SizeBytes = 4, Sha256 = 5;
+        public const int LocalPath = 6, DownloadedAt = 7, LastError = 8;
     }
 
     private static InboxItem ReadItem(IDataRecord row)

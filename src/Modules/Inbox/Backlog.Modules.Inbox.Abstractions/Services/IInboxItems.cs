@@ -66,6 +66,21 @@ public interface IInboxItems
     /// <see cref="PlanDrafterAvailability"/> says so.</summary>
     Task<Result<InboxRoutedDto>> CreatePlanAsync(Guid id, CancellationToken cancellationToken = default);
 
+    /// <summary>Fetches one of the item's files again — the act behind Retry on a
+    /// file row whose download failed. A file already on this machine with the
+    /// right digest is not fetched; a failure is recorded on the file and
+    /// answered, so the row shows the new reason.</summary>
+    Task<Result> RetryAttachmentAsync(Guid id, Guid attachmentId, CancellationToken cancellationToken = default);
+
+    /// <summary>The bytes of one downloaded file — what a thumbnail is drawn
+    /// from. Fails with <c>inbox.attachment.not_downloaded</c> for a file that
+    /// is not on this machine.</summary>
+    Task<Result<byte[]>> ReadAttachmentAsync(Guid id, Guid attachmentId, CancellationToken cancellationToken = default);
+
+    /// <summary>Opens one downloaded file with whatever this machine opens that
+    /// kind of file with.</summary>
+    Task<Result> OpenAttachmentAsync(Guid id, Guid attachmentId, CancellationToken cancellationToken = default);
+
     /// <summary>Whether "Create plan" can be offered, and why not when it cannot.
     /// Read by the pane on render so the control is shown disabled with its
     /// reason rather than hidden — unavailability never hides an act.</summary>
