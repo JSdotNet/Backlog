@@ -1,7 +1,9 @@
 using Backlog.Mobile.UI.Outbox;
+using Backlog.Mobile.UI.TalkNotes;
 using Backlog.Mobile.UI.Tasks;
 
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Backlog.Mobile.UI.UnitTests;
 
@@ -61,6 +63,9 @@ internal static class TestOutbox
         services.AddSingleton(store ?? new InMemoryDeviceStore());
         services.AddSingleton<IOutboxKind, CaptureOutboxKind>();
         services.AddSingleton<IOutboxKind, TaskOutboxKind>();
+        services.TryAddSingleton(_ => new TalkNoteFiles(TestFolders.Create()));
+        services.AddSingleton<IOutboxKind, TalkNoteOutboxKind>();
+        services.AddSingleton<TalkNoteComposer>();
         services.AddSingleton<DeviceOutbox>();
         services.AddSingleton(taskView ?? new InMemoryTaskViewStore());
         services.AddSingleton<TaskViewProjection>();

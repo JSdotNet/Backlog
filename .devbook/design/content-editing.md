@@ -5,9 +5,10 @@ related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/de
 ```
 
 > Rules for the product's core editing surface: **direct Markdown editing through
-> a rich text (WYSIWYG-style) editor where Markdown is the canonical stored
-> format**. Per `.devbook/arc42/02-constraints.md#technical-constraints`, Markdown is the
-> single source of truth; the editor is a view over it and MUST never corrupt it.
+> a rich text (WYSIWYG-style) editor where Markdown is a task's canonical
+> content**, stored as text in SQLite
+> (`.devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md`); the editor
+> is a view over that Markdown and MUST never corrupt it.
 > Rendering (headings, code, etc.) uses the tokens in
 > `typography-and-layout.md`; editor persistence follows the auto-save rules in
 > `interaction-guidelines.md#auto-save-no-save-buttons`.
@@ -67,6 +68,9 @@ serialize them to canonical Markdown.
 
 ### Block Constructs
 
+```meta
+```
+
 | Construct | Notes |
 |---|---|
 | Headings `#`–`######` | Rendered per `typography-and-layout.md` heading defaults; heading level drives chapter reorder/nesting (`interaction-guidelines.md#nesting--indent-rules-chapters`). |
@@ -81,6 +85,9 @@ serialize them to canonical Markdown.
 | Front-matter / metadata block | Preserved verbatim; not silently reformatted. |
 
 ### Inline Constructs
+
+```meta
+```
 
 | Construct | Notes |
 |---|---|

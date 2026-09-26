@@ -175,7 +175,7 @@
         @<text>
             @if (!string.IsNullOrWhiteSpace(Metadata.Version))
             {
-                <MetadataField Label="version" ShowLabel="false"><MetadataScalar Value="@Metadata.Version" Prefix="v" Title="@($"version: {Metadata.Version}")" /></MetadataField>
+                <MetadataField Label="version" ShowLabel="false"><MetadataScalar Value="@Metadata.Version" Prefix="@MetadataScalar.VersionPrefix(Metadata.Version)" Title="@($"version: {Metadata.Version}")" /></MetadataField>
             }
         </text>;
 

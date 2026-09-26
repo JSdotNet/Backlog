@@ -57,9 +57,7 @@ from a chapter's **roadmap contribution** — the roadmap-item tags a chapter na
 in its `roadmap` metadata to say which planned work it feeds. A discovery tag finds
 notes here; a roadmap contribution is read by Roadmap Planning when it gathers work
 by tag, draws no edge, and is never confused with a `#keyword` even though both are
-loosely "tags". A chapter may also declare an `effort` in story points, sized the
-same way a Task is; like the roadmap contribution it is registered here
-and only read by Roadmap Planning.
+loosely "tags". A chapter may also declare an [Effort](domain.md#effort); like the roadmap contribution it is registered here and only read by Roadmap Planning.
 
 ## Bi-directional linking
 
@@ -78,7 +76,7 @@ domains and embedding knowledge context directly in task details.
 ```meta
 type: feature
 status: draft
-feature-flag: .devbook/domain/devbook/context.md#repository-devbook
+feature-flag: .devbook/domain/devbook/context.md#devbook-pane
 related: [.devbook/domain/repository-management/features.md#repository-knowledge-folder-settings, .devbook/domain/tasks/features.md#search-filter-and-organize]
 ```
 
@@ -267,8 +265,7 @@ Knowledge kept outside a repository has no latest version to be on, and is not a
 about.
 
 Bringing a clone up to date replaces what its folders say, so the knowledge on screen
-becomes the knowledge that arrived with it. The folders are the source of truth before
-and after, by the rule above.
+becomes the knowledge that arrived with it.
 
 ## Instruction optimization
 
@@ -288,10 +285,7 @@ set costs, where it disagrees with itself, and what would make it sharper; the
 repository keeps ownership of every word, so a finding is a proposal and nothing
 is rewritten unattended.
 
-Two costs are named separately and never traded silently. **Context load** is what
-an always-loaded instruction spends on every agent turn whether or not it applies.
-The other is the person's own cost of knowing which document to reach for, which
-is what buys human judgement and is not a number to drive to zero. An instruction
+Two costs are named separately and never traded silently: [Context Load](domain.md#context-load), and the person's own cost of knowing which document to reach for, which is not a number to drive to zero. An instruction
 set that got smaller while the agents got worse has failed, and the review reports
 that rather than a saving.
 
@@ -303,9 +297,7 @@ status: draft
 related: [.devbook/domain/devbook/domain.md#instruction-set]
 ```
 
-See every instruction document the repository carries and which tool reads it: the
-file a tool loads on every run, the ones it loads only when a condition matches,
-and the skills it can reach. Each is shown with what it costs to load and whether
+See every [Instruction Set](domain.md#instruction-set) the repository carries, document by document. Each is shown with what it costs to load and whether
 that cost is paid always or only on the branch that reaches it. A document
 belonging to a tool the product does not recognize is listed as exactly that
 rather than dropped, because the next tool arriving is a normal event.
@@ -348,9 +340,7 @@ related: [.devbook/domain/devbook/domain.md#instruction-alignment]
 
 Check whether the instruction sets different tools read for one repository still
 agree where they overlap, and surface a rule one tool is told and another is not.
-Two documents stating one rule in each tool's own agent, skill, and command names
-are **aligned**, not duplicated: both are meant to keep saying it, so the finding
-is a disagreement or an omission and never the fact that both exist. Documents
+Documents in [Instruction Alignment](domain.md#instruction-alignment) are not duplicates, so the finding is a disagreement or an omission and never the fact that both exist. Documents
 maintained as a pair are named as a pair, so editing one raises the other as work
 not yet finished.
 
@@ -405,10 +395,7 @@ status: draft
 related: [.devbook/domain/devbook/domain.md#saving-evidence]
 ```
 
-State how every claimed reduction was obtained — read from this machine's own agent
-activity, or measured in a controlled before-and-after — and express it as a
-reduction in what agents load rather than as money. A figure with no stated basis
-is not shown.
+Show every claimed reduction with its [Saving Evidence](domain.md#saving-evidence); a figure with none is not shown.
 
 ## Devbook retrieval
 

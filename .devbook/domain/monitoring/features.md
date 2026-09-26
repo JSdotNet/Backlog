@@ -40,7 +40,7 @@ status: draft
 ```
 
 Present layered dashboards across application health, backlog/GitHub progress,
-queue health, and optional Copilot sessions.
+queue health, and optional agent sessions.
 
 ### Project dashboard (Application Insights)
 
@@ -82,8 +82,7 @@ status: draft
 related: [.devbook/domain/sessions/features.md#session-inventory]
 ```
 
-Monitor active Copilot sessions linked to issues/tasks and alert when a
-session stalls.
+Monitor the sessions [Sessions](../sessions/features.md#session-inventory) records, linked to issues/tasks, and alert when one is `stalled`.
 
 ## Multi-repo scanning
 

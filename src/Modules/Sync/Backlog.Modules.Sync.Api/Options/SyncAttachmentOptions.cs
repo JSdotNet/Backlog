@@ -1,5 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 
+using Backlog.Modules.Sync.Abstractions;
+
 namespace Backlog.Modules.Sync.Api.Options;
 
 /// <summary>
@@ -14,34 +16,16 @@ public sealed class SyncAttachmentOptions
     /// it.</summary>
     public const string SectionName = "Modules:Sync:Attachments";
 
-    /// <summary>
-    /// The allowlist when the setting names none: images, PDF, plain text,
-    /// Markdown and CSV, and the Office Open XML document, spreadsheet and
-    /// presentation types. It exists to refuse executables, scripts and HTML,
-    /// not to enumerate every useful format.
-    /// </summary>
-    public static readonly IReadOnlyList<string> DefaultContentTypes =
-    [
-        "image/jpeg",
-        "image/png",
-        "image/heic",
-        "image/heif",
-        "image/webp",
-        "image/gif",
-        "application/pdf",
-        "text/plain",
-        "text/markdown",
-        "text/csv",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-    ];
+    /// <summary>The allowlist when the setting names none —
+    /// <see cref="SyncAttachmentLimits.DefaultContentTypes"/>, which the phone
+    /// reads too.</summary>
+    public static IReadOnlyList<string> DefaultContentTypes => SyncAttachmentLimits.DefaultContentTypes;
 
     /// <summary>The most one attachment may weigh: 25 MB by default. Bounded
     /// above so a typo cannot open the service to uploads the container app
     /// would hold a connection open for minutes to receive.</summary>
     [Range(1, 256L * 1024 * 1024)]
-    public long MaxBytes { get; set; } = 25L * 1024 * 1024;
+    public long MaxBytes { get; set; } = SyncAttachmentLimits.DefaultMaxBytes;
 
     /// <summary>
     /// The media types an upload may declare, compared without their

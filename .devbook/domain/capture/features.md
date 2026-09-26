@@ -57,8 +57,7 @@ Every capture is kept on the phone before it is sent, so no signal never costs a
 capture. It appears in the Inbox list at once, marked waiting, and leaves in the
 order it was made. A failed send is retried on its own a few times with growing
 waits. After that it shows "waiting — tap to retry", and is tried again on a
-tap, when the app is reopened, or when the network comes back. Nothing captured
-later is sent ahead of it.
+tap, when the app is reopened, or when the network comes back.
 The status line says how many captures are waiting.
 
 Each capture carries an id the phone mints before its first send, so resending
@@ -72,6 +71,38 @@ triages, so the one action on a row is Dismiss. The list refreshes on a pull
 down, on the refresh button and on returning to the app. When the service
 cannot answer, the last list the phone saw stays on screen with a line saying
 why it is not newer.
+
+### Talk note
+
+```meta
+type: sub-feature
+related: [".devbook/arc42/06-runtime-view.md#talk-note-upload", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md"]
+```
+
+A note taken during a conference talk — what was said, the slide photo, the
+handout — that lands in the desktop Inbox as one ordinary capture. It is called
+a talk note, never a session note: Sessions is a bounded context of its own.
+
+The Note tab holds a title, a Markdown body that dictation appends to, the
+speaker as one `@name`, tags, and the files attached to it: photos taken with
+the camera, pictures and files chosen from the phone, several to a note. Each
+file shows its name, type and size. A file cloud sync would not take — over the
+per-file limit, or not a picture, PDF, text or Office file — stays on the strip
+with the reason written under it, and the note is not sent until it is taken
+off. The note being written survives a switch to another tab and the app going
+to the background.
+
+Pictures are made smaller before they leave: at most 1600 pixels on the longest
+side, as JPEG, with the location, camera and time details removed and only the
+way-up kept. A note can keep its pictures as taken instead. Files go as they
+are.
+
+Sending the note keeps it on the phone first, like any capture, and it appears
+in the Inbox list marked waiting. Each file is uploaded before the capture that
+names it; a file that already went is never sent again, and a failed one is
+retried on its own. The note says where it stands — waiting, uploading 2 of 3,
+synced. A note sent without a title is named for the first line of its body,
+or "Photo · <date>" when a picture is attached, or else the first file's name.
 
 ### Share-sheet and shortcuts
 
@@ -98,7 +129,7 @@ configurable schedule, with retry/backoff and failure logging.
 type: sub-feature
 status: draft
 related: [.devbook/domain/capture/domain.md#source-adapter, .devbook/domain/inbox/features.md#incoming-queue]
-feature-flag: .devbook/domain/capture/context.md#inbox-pane
+feature-flag: .devbook/domain/inbox/context.md#inbox-pane
 ```
 
 The reader runs the monitors on demand from the Inbox, without waiting for a

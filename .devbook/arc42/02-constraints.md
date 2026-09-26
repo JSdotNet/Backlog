@@ -3,8 +3,8 @@
 ```meta
 ```
 
-Constraints the architecture must respect. They are stable design boundaries, not
-decisions open for reconsideration per feature.
+The constraints below are stable design boundaries, not decisions open for
+reconsideration per feature.
 
 ## Technical Constraints
 

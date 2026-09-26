@@ -50,8 +50,7 @@ stateDiagram-v2
 
 ## Capture intake and acknowledgement
 
-How a capture made on another device becomes an item here, and how that device
-learns it was dealt with. The replica document and its `capture` kind token are
+The replica document and its `capture` kind token are
 decided in `.devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md`.
 
 ```mermaid

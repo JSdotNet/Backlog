@@ -36,10 +36,10 @@ related: [.devbook/domain/context-map.md, .devbook/domain/dev-pc-management/doma
   map's published-language table at the same time.
 
 - **`Environment` here is not the Environment context's Environment.** That context
-  owns launchable destinations — a dashboard, a staging app, a resource group. This
-  one means "where an agent ran", which today is a development PC. The words collide
-  and the concepts do not, which is why each is defined in its own `naming.md` and why
-  neither context references the other. See
+  owns launchable destinations — a dashboard, a staging app, a resource group. The
+  words collide and the concepts do not, which is why each is defined under
+  `## Ubiquitous Language` in its own `domain.md` and why neither context references
+  the other. See
   `.devbook/domain/sessions/domain.md#environment`.
 
 - **The overlap with Dev PC Management is resolved, not tolerated.** That context

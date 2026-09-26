@@ -73,6 +73,21 @@ public sealed class TechnologyDevbookPanelTests : IDisposable
     }
 
     [Fact]
+    public async Task A_quoted_version_is_drawn_as_the_version_without_its_quotes()
+    {
+        await using var harness = CreateHarness();
+
+        var component = harness.RenderLayers();
+
+        // The layer file writes `version: "10.0.11"`, the YAML spelling that keeps
+        // the value a string. The quotes are syntax, not part of the version.
+        component.WaitForAssertion(() => Assert.Equal(
+            "v10.0.11",
+            component.Find("[data-testid='technology-node'] code.devbook-value").TextContent));
+        Assert.DoesNotContain('"', component.Find(".tech-node-grid").TextContent);
+    }
+
+    [Fact]
     public async Task Switching_layer_switches_the_nodes_on_screen()
     {
         await using var harness = CreateHarness();
@@ -301,6 +316,7 @@ public sealed class TechnologyDevbookPanelTests : IDisposable
         ```meta
         status: accepted
         kind: runtime
+        version: "10.0.11"
         ```
 
         Cross-platform runtime.

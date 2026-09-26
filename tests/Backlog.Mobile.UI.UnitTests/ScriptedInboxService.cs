@@ -18,6 +18,7 @@ internal sealed class ScriptedInboxService
     private readonly Lock _lock = new();
     private readonly List<InboxItem> _items = [];
     private readonly List<CaptureRequest> _received = [];
+    private readonly List<(Guid Id, long Bytes)> _uploads = [];
 
     public ScriptedInboxService(params InboxItem[] items) => _items.AddRange(items);
 
@@ -35,12 +36,28 @@ internal sealed class ScriptedInboxService
         }
     }
 
+    /// <summary>Every attachment upload that reached the service, in order: its
+    /// id and how many bytes came.</summary>
+    public IReadOnlyList<(Guid Id, long Bytes)> Uploads
+    {
+        get
+        {
+            lock (_lock) return [.. _uploads];
+        }
+    }
+
     /// <summary>Only the posts answered 201 — the ones that wrote something.</summary>
     public int Created { get; private set; }
 
     public async Task<HttpResponseMessage> AnswerAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         Requests++;
+
+        byte[]? upload = null;
+        if (request.Method == HttpMethod.Put && request.Content is not null)
+        {
+            upload = await request.Content.ReadAsByteArrayAsync(cancellationToken);
+        }
 
         CaptureRequest? capture = null;
         if (request.Method == HttpMethod.Post && request.Content is not null)
@@ -70,6 +87,13 @@ internal sealed class ScriptedInboxService
                     };
             }
 
+            if (upload is not null)
+            {
+                var uploaded = Guid.Parse(request.RequestUri!.Segments[^1]);
+                _uploads.Add((uploaded, upload.LongLength));
+                return new HttpResponseMessage(HttpStatusCode.Created);
+            }
+
             if (request.Method == HttpMethod.Get)
             {
                 return JsonAnswer(HttpStatusCode.OK, _items.ToList());
@@ -83,7 +107,7 @@ internal sealed class ScriptedInboxService
                 return JsonAnswer(HttpStatusCode.OK, existing);
             }
 
-            var stored = new InboxItem(id, capture.Title, capture.Source, DateTimeOffset.UtcNow, capture.BodyMd, capture.Tags ?? [], capture.Person);
+            var stored = new InboxItem(id, capture.Title, capture.Source, DateTimeOffset.UtcNow, capture.BodyMd, capture.Tags ?? [], capture.Person, capture.Attachments);
             _items.Add(stored);
             Created++;
 

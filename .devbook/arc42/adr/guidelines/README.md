@@ -16,6 +16,9 @@ know what governs the code.
 
 ## What these documents are
 
+```meta
+```
+
 Each file states a decision the organization took, **trimmed to what applies to
 Backlog and grounded in what this repository actually does**. Three sections:
 
@@ -31,6 +34,9 @@ closes it, not a violation to be argued away.
 
 ### What `status` means here
 
+```meta
+```
+
 Every one of these decisions is **accepted upstream**. The `status` in the
 metadata block answers a narrower question: *does this decision govern code that
 exists in Backlog today?*
@@ -45,6 +51,9 @@ A `proposed` decision is not optional and not up for reconsideration — moving 
 to `active` is a matter of writing the code it describes.
 
 ## Relationship to the local ADRs
+
+```meta
+```
 
 These are architecture decision records like any other — they sit under
 `.devbook/arc42/adr/` for that reason. What separates them from their siblings is
@@ -65,6 +74,9 @@ The two numbering sequences are independent. **Inherited ADR 0003** (Aspire) and
 always say which set you mean.
 
 ## Index
+
+```meta
+```
 
 | # | Decision | Status | Governs |
 |---|---|---|---|
@@ -90,6 +102,9 @@ Numbers are the organization's and are kept as they were, so **0008** and
 
 ## What was deliberately not imported
 
+```meta
+```
+
 | Not imported | Why |
 |---|---|
 | **ADR 0008 — Vertical Slice Architecture** | Superseded in physical-layout detail by ADR 0009, which is imported. Importing both would put two layouts in one folder. |
@@ -101,6 +116,9 @@ Numbers are the organization's and are kept as they were, so **0008** and
 | **Design and UX style guides** | Already materialized, product-specific, in `.devbook/design/`. That folder is authoritative for design; it is not duplicated here. |
 
 ## Changing an inherited decision
+
+```meta
+```
 
 These files are a **fork, not a mirror**. There is no sync job and no upstream
 read at session start.
