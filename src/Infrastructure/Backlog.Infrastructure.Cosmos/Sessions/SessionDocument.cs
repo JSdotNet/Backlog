@@ -31,7 +31,7 @@ namespace Backlog.Infrastructure.Cosmos.Sessions;
 /// <para>
 /// Flat is also honest here in a way it would not be for a task. A task payload
 /// is an open shape the service stores whole and never reads; a session record
-/// is a closed list of nineteen fields that .arc42/adr/0005 §Session records
+/// is a closed list of nineteen fields that .devbook/arc42/adr/0005 §Session records
 /// enumerates, so writing them out is writing down the whitelist rather than
 /// duplicating a contract that will grow behind this file's back. A field
 /// appearing here that is not in that table is a defect, not a feature.
@@ -61,7 +61,7 @@ internal sealed class SessionDocument
     /// <para>
     /// The composition is argued where the key is built, and both halves of the
     /// argument matter: the agent because
-    /// .domain/sessions/naming.md#session-identity puts a session's identity at
+    /// .devbook/domain/sessions/domain.md#session-identity puts a session's identity at
     /// the agent plus the id that agent issued, and the machine id first because
     /// that makes the single-writer rule structural rather than checked.
     /// </para>
@@ -86,7 +86,7 @@ internal sealed class SessionDocument
     public string SessionId { get; set; } = string.Empty;
 
     /// <summary>Which assistant ran it, as the opaque token the device wrote.
-    /// Never parsed here: .arc42/adr/0005 §Storage says no domain logic runs
+    /// Never parsed here: .devbook/arc42/adr/0005 §Storage says no domain logic runs
     /// against the replica, so a third assistant needs no redeployment.</summary>
     public string AgentKind { get; set; } = string.Empty;
 
@@ -121,7 +121,7 @@ internal sealed class SessionDocument
     /// <summary>How long it has been running, in seconds.</summary>
     public long DurationSeconds { get; set; }
 
-    /// <summary>The eleventh whitelisted field (.arc42/adr/0005 §Session records,
+    /// <summary>The eleventh whitelisted field (.devbook/arc42/adr/0005 §Session records,
     /// 2026-09-22): the repository the pushing machine placed the session in from
     /// its working folder. Absent on every document written before it existed,
     /// and read back as null from those.</summary>
@@ -150,7 +150,7 @@ internal sealed class SessionDocument
     /// prompted it yet, on the same terms as <see cref="Runs"/>.</summary>
     public IReadOnlyList<ActivityInterval>? Waits { get; set; }
 
-    /// <summary>What the session is called in a list (.arc42/adr/0005 §Session
+    /// <summary>What the session is called in a list (.devbook/arc42/adr/0005 §Session
     /// records, 2026-09-23). Absent on every document written before it existed.</summary>
     public string? Title { get; set; }
 

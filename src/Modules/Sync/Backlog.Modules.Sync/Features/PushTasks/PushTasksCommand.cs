@@ -23,7 +23,7 @@ public sealed record PushTasksCommand(OwnerScope Scope, IReadOnlyList<TaskChange
 /// Writes the batch and says how much of it was taken.
 /// <para>
 /// There is no per-change outcome and no merge. A task document is the unit of
-/// last-write-wins (.arc42/adr/0005): the replica keeps the later version and
+/// last-write-wins (.devbook/arc42/adr/0005): the replica keeps the later version and
 /// the desktop reconciles, so this handler has nothing to decide and
 /// deliberately does not look inside a payload. "Later" is the replica's call
 /// (<c>TaskChangePrecedence</c>), which is why <see cref="PushTasksResponse.Accepted"/>

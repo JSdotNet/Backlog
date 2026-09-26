@@ -264,7 +264,7 @@ public sealed class GitHubPushFlowTests : IDisposable
     /// <summary>
     /// A sub-item push used to be asserted here, filing one chapter as its own issue
     /// in the parent's repository. It has gone with the method behind it, and the
-    /// reason is the model rather than the plumbing: <c>.domain/tasks/domain.md</c>
+    /// reason is the model rather than the plumbing: <c>.devbook/domain/tasks/domain.md</c>
     /// gives <c>ProjectionRef</c> to the entry and says a Sub-Item "may project to
     /// GitHub issue task-list checkboxes" — checkboxes inside the entry's issue. A
     /// step filed as its own issue had nowhere to record the link, so nothing could

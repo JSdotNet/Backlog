@@ -16,7 +16,7 @@ namespace Backlog.Desktop.UI.Tasks;
 /// Open is "not ticked off", the same test the tag chips' open counts use. Points
 /// are summed over the open rows that carry an estimate — zero is one — and the
 /// rows with none are counted beside the total rather than silently as zero, which
-/// is the rule <c>.domain/roadmap/features.md</c> sets for every effort total.
+/// is the rule <c>.devbook/domain/roadmap/features.md</c> sets for every effort total.
 /// </para>
 /// </summary>
 public sealed record OpenWorkTotals(int Open, int Points, int Unestimated)

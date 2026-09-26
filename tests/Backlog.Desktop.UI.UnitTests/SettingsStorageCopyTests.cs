@@ -18,7 +18,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// folder - stopped being true when local ADR 0003 made the store one SQLite
 /// database. Somebody followed it onto OneDrive, which cannot merge a binary
 /// file, and lost committed status edits to six conflicted copies. That is R9 in
-/// <c>.arc42/11-risks-and-technical-debt.md</c>, and its mitigation says the copy
+/// <c>.devbook/arc42/11-risks-and-technical-debt.md</c>, and its mitigation says the copy
 /// must be corrected regardless of when sync ships.
 /// </para>
 /// <para>

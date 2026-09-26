@@ -11,7 +11,7 @@ namespace Backlog.UI.Components.Integrations;
 /// says <c>merged</c> and whose text says "Closed" is worse than either, and
 /// letting a host pass the three separately is letting a host do that. Taking an
 /// enum and returning all three is the only shape where the mismatch is
-/// unreachable, which is how <c>.design/accessibility.md</c>'s "colour is never
+/// unreachable, which is how <c>.devbook/design/accessibility.md</c>'s "colour is never
 /// the sole carrier" rule becomes enforced rather than remembered.</para>
 ///
 /// <para>The slug goes through <see cref="BadgeSlug"/> like every other badge in
@@ -217,7 +217,7 @@ internal static class IntegrationStates
     ///
     /// <para>Four, three, two and none — deliberately tighter than the six acts
     /// this family ships, so the default state of a busy surface is a short row
-    /// and a menu. <c>.design/design-principles.md#low-chrome-content-first</c>
+    /// and a menu. <c>.devbook/design/design-principles.md#low-chrome-content-first</c>
     /// asks for "contextual and on-demand affordances over always-visible button
     /// rows", and a budget that fitted everything would be a budget that never
     /// applied.</para>

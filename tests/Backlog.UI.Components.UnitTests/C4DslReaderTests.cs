@@ -3,7 +3,7 @@ namespace Backlog.UI.Components.UnitTests;
 /// <summary>
 /// The reader is a second implementation of a dialect whose first implementation is
 /// c4hero's TypeScript parser, in another repository, where nothing here can see
-/// it. <c>.arc42/adr/0004</c> names that as a drift hazard, so what is pinned below
+/// it. <c>.devbook/arc42/adr/0004</c> names that as a drift hazard, so what is pinned below
 /// is not "the parser works" but the specific readings that would go wrong quietly:
 /// the positional arguments that differ between element kinds, the identifier
 /// resolution order, and the promise that an unsupported construct is reported

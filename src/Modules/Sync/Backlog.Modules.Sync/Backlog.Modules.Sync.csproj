@@ -2,7 +2,7 @@
 
   <!--
     Sync module — the device half of the Sync bounded context
-    (.arc42/adr/0005 §Identity). Clean architecture, inside out:
+    (.devbook/arc42/adr/0005 §Identity). Clean architecture, inside out:
       DomainModels/  the device, the pairing code, and the owner scope every
                      other slice is measured against
       Ports/         what the module needs storage to do

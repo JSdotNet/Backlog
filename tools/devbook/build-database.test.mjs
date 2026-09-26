@@ -496,7 +496,7 @@ test("this repository's own corpus builds", async () => {
             // Every scope the repository adopts produced an outline, so a folder
             // that quietly stopped resolving cannot pass as "nothing to order".
             const scopes = db.prepare('SELECT DISTINCT scope FROM outline_entry ORDER BY scope').all().map((r) => r.scope);
-            assert.deepEqual(scopes, ['.', '.arc42', '.backlog', '.design', '.domain', '.tech']);
+            assert.deepEqual(scopes, ['.', '.devbook/ai', '.devbook/arc42', '.devbook/design', '.devbook/domain', '.devbook/tech']);
         } finally {
             db.close();
         }
@@ -540,17 +540,19 @@ after(async () => {
 test("an excerpt from this repository's corpus reads as prose, not fence debris", async () => {
     const { all } = await withRepositoryCorpus();
 
-    // The chapter QA reported. Searching for a word in its first sentence used to
-    // return the tail of its ```meta block:
+    // The chapter QA reported, since folded from `naming.md` into the aggregate it
+    // named. Searching for a word in its first sentence used to return the tail
+    // of its ```meta block:
     //   "...draft aliases: [KnowledgeNote, Note] related: [...] ``` The durable"
     const [hit] = all(`
         SELECT snippet(chapter_fts, 1, '', '', '...', 24) AS excerpt
         FROM chapter_fts JOIN chapter ON chapter.id = chapter_fts.rowid
-        WHERE chapter_fts MATCH 'durable' AND chapter.path = '.domain/devbook/naming.md'
+        WHERE chapter_fts MATCH 'organized' AND chapter.path = '.devbook/domain/devbook/domain.md'
+            AND chapter.slug = 'knowledge-note'
     `);
 
-    assert.ok(hit, 'expected .domain/devbook/naming.md to match "durable"');
-    assert.match(hit.excerpt, /The durable unit of captured knowledge/);
+    assert.ok(hit, 'expected .devbook/domain/devbook/domain.md#knowledge-note to match "organized"');
+    assert.match(hit.excerpt, /An organized unit of project knowledge/);
     assert.doesNotMatch(hit.excerpt, /```/);
     assert.doesNotMatch(hit.excerpt, /\b(status|aliases|related|type):/);
 

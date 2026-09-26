@@ -13,7 +13,7 @@ namespace Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 /// columns hold (<c>task</c>, <c>draft</c>, <c>in_progress</c>, <c>medium</c>,
 /// <c>weekdays</c>, <c>steps</c>, and the rest), and the sync service never
 /// parses one. A service that understood them would have to be redeployed the
-/// day the desktop learns a new status, and .arc42/adr/0005 says the replica
+/// day the desktop learns a new status, and .devbook/arc42/adr/0005 says the replica
 /// runs no domain logic: a device writes the token, another device reads it
 /// back, and the middle stays ignorant.
 /// </para>
@@ -70,7 +70,7 @@ public sealed record TaskPayload(
     /// the field gone. That is how <see cref="CompletedOn"/> was lost from every
     /// synced task until the service was redeployed. With the field held here,
     /// the service passes through what it cannot read, which is what
-    /// .arc42/adr/0005's ignorant middle was always meant to do.
+    /// .devbook/arc42/adr/0005's ignorant middle was always meant to do.
     /// </para>
     /// <para>
     /// Null when there was nothing unrecognised, so a payload a device builds
@@ -118,7 +118,7 @@ public sealed record ProjectionPayload(string RepoId, string ExternalId, string 
 /// It carries no owner and no device id, and that absence is the security
 /// property: both come from the caller's validated token, so there is no field
 /// a client could set to write into somebody else's data
-/// (.arc42/adr/0005 §Identity). <see cref="TaskChangeRecord"/> is where the
+/// (.devbook/arc42/adr/0005 §Identity). <see cref="TaskChangeRecord"/> is where the
 /// service adds them back on the way out.
 /// </para>
 /// <para>

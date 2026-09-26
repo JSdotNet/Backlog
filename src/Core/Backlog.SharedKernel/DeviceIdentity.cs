@@ -31,7 +31,7 @@ public sealed record DeviceIdentity(Guid Id, string Name);
 /// the host composes the adapter and does not move while the app is open: a machine
 /// is not renamed mid-session, and a watcher would buy a case nobody has against a
 /// contract every consumer would then have to subscribe to. "Device" is the
-/// product-wide word — see <c>.domain/tasks/naming.md#device</c>; Sessions keeps
+/// product-wide word — see <c>.devbook/domain/tasks/domain.md#device</c>; Sessions keeps
 /// calling it an Environment and the Dashboard calls it a Machine, because each
 /// context keeps its own vocabulary and the kernel carries the product's.
 /// </para>

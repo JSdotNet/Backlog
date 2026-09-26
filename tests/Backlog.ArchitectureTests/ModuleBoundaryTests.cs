@@ -21,7 +21,7 @@ public class ModuleBoundaryTests
 {
     /// <summary>
     /// The cross-context references between module UI projects that
-    /// <c>.domain/context-map.md</c> already carries as a relationship, each
+    /// <c>.devbook/domain/context-map.md</c> already carries as a relationship, each
     /// with the relationship that justifies it written beside it.
     ///
     /// <para>Adding an entry here is a claim that the map says these two
@@ -131,7 +131,7 @@ public class ModuleBoundaryTests
         Assert.True(
             offenders.Count == 0,
             "These context UIs reach into another context without a relationship in "
-            + ".domain/context-map.md to stand on: " + string.Join(", ", offenders));
+            + ".devbook/domain/context-map.md to stand on: " + string.Join(", ", offenders));
     }
 
     /// <summary>

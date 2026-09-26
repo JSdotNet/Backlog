@@ -432,7 +432,7 @@ public sealed class FileViewHeaderLayoutTests
     /// not exist here, and in a knowledge side pane the 120px it charges is most of
     /// a 272px row: the name gave what was left and was cut to a couple of
     /// characters by the pill qualifying it. A header identifies; it is not a second
-    /// document (.design/design-principles.md#low-chrome-content-first).</para>
+    /// document (.devbook/design/design-principles.md#low-chrome-content-first).</para>
     ///
     /// <para>So the pill takes its content's width in this one header, on the terms
     /// <c>.entry-row__pickers .badge--status</c> already narrows it on an entry

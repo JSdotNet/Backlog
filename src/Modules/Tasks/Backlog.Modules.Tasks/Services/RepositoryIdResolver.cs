@@ -15,7 +15,7 @@ namespace Backlog.Modules.Tasks.Services;
 /// </para>
 /// <para>
 /// This is where the alias stops being the stored identity.
-/// <c>.design/content-editing.md</c> describes the token as a label somebody
+/// <c>.devbook/design/content-editing.md</c> describes the token as a label somebody
 /// types; the registry is the authority on what that label means, and resolution
 /// is the only way a value reaches <c>repo_ids</c>. <c>EntryTextParser</c> is
 /// deliberately not involved: per ADR 0002 it lives in <c>.Abstractions</c>, may

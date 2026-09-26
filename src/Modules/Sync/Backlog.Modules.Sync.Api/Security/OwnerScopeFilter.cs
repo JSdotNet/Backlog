@@ -14,7 +14,7 @@ namespace Backlog.Modules.Sync.Api.Security;
 /// downstream re-derives it, and no endpoint accepts an owner id from a route,
 /// a query string, or a body — that is what makes the service, rather than the
 /// store, the thing that keeps a device inside its own owner
-/// (.arc42/adr/0005 §Identity).
+/// (.devbook/arc42/adr/0005 §Identity).
 /// </para>
 /// <para>
 /// The authorization policy already requires both claims, so a request that

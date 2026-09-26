@@ -2,7 +2,7 @@ namespace Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 
 /// <summary>
 /// The published language of <c>ItemTriaged</c> when the route is Tasks
-/// (<c>.domain/inbox/domain.md</c>): everything the Tasks context needs to make
+/// (<c>.devbook/domain/inbox/domain.md</c>): everything the Tasks context needs to make
 /// an entry out of an inbox item, in the Inbox's own words.
 /// <para>
 /// No entry text here. How a title, some tags and a repository become a

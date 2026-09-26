@@ -121,7 +121,7 @@ public class TaskSyncEndpointTests : IDisposable
     }
 
     /// <summary>
-    /// The case .arc42/adr/0005 §Consequences asks for by name. A Cosmos
+    /// The case .devbook/arc42/adr/0005 §Consequences asks for by name. A Cosmos
     /// continuation embeds the feed range it was minted for, so replaying one
     /// belonging to somebody else reads their partition and the store has no
     /// opinion about it — the service reaches Cosmos under one identity that can

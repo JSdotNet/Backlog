@@ -113,7 +113,7 @@ public sealed class TaskSyncSessionTests
     /// The selection has to read the one list that sees a tombstone: the
     /// ordinary list hides one by design, so a push built on it offers a deleted
     /// task to nobody and the other device keeps it forever — the failure
-    /// <c>.arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md</c>
+    /// <c>.devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md</c>
     /// §"The sync model" rules out in as many words.
     /// </para>
     /// </summary>
@@ -404,7 +404,7 @@ public sealed class TaskSyncSessionTests
 
     /// <summary>
     /// The one cursor failure that is not recovered from. A correctly-signed
-    /// cursor naming another owner's feed is the event .arc42/adr/0005
+    /// cursor naming another owner's feed is the event .devbook/arc42/adr/0005
     /// section Consequences asks to be loud about, and quietly starting over
     /// would be exactly the quiet.
     /// </summary>

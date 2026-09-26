@@ -128,7 +128,7 @@ public sealed class DevbookChapterWriter
     /// here. Otherwise the text wins, which is what keeps a status typed into the
     /// raw markdown from being quietly reverted by a blunt "disk always wins".
     /// This is per-field last-write-wins, sanctioned by
-    /// <c>.arc42/08-crosscutting-concepts.md#storage-and-sync</c>.
+    /// <c>.devbook/arc42/08-crosscutting-concepts.md#storage-and-sync</c>.
     /// </para>
     /// <para>
     /// Fences are paired between the two texts by the heading that owns them,

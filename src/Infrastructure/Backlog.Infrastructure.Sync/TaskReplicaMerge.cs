@@ -366,7 +366,7 @@ public sealed class TaskReplicaMerge(
     /// </para>
     /// <para>
     /// The watermark used to decide the older case: a local row at or below it
-    /// had been pushed, so under .arc42/adr/0005's original "the replica is
+    /// had been pushed, so under .devbook/arc42/adr/0005's original "the replica is
     /// authoritative for anything already sent" an older inbound copy replaced
     /// it. That was written for a replica that kept whichever push arrived
     /// last. Since the replica refuses a push that is not a later version, the

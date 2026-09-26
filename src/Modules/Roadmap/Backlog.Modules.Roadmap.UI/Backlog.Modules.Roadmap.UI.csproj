@@ -3,7 +3,7 @@
   <!--
     The Roadmap module's UI: the planning band that sits above the panes, and the
     mapping from a stored plan onto the shared timeline control
-    (.domain/roadmap/features.md#feature-reading-and-rescheduling-on-a-timeline).
+    (.devbook/domain/roadmap/features.md#feature-reading-and-rescheduling-on-a-timeline).
 
     It references the shared control library rather than growing its own controls,
     which is the rule every module UI project follows.

@@ -110,7 +110,7 @@ public static class SyncErrorCodes
     /// to 403 rather than 404 on purpose: this is not a caller who mistyped an
     /// id, it is a correctly-signed cursor for another person's feed being
     /// replayed, and the one thing that must not happen is for it to pass
-    /// quietly (.arc42/adr/0005 §Consequences).</summary>
+    /// quietly (.devbook/arc42/adr/0005 §Consequences).</summary>
     public const string SyncCursorNotYours = "sync.cursor_not_yours";
 
     /// <summary>The cursor was ours and the store will no longer resume from it.

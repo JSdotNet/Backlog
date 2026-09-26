@@ -340,7 +340,7 @@ public sealed class MarkdownViewMetaFenceTests
     /// of is not fixed at all. Measured in the desktop knowledge side pane the
     /// reading column is about 240px, so 120px of it was gutter and the first
     /// paragraph rendered at about 95px — two words a line, nowhere near the
-    /// 72–90 characters <c>.design/typography-and-layout.md</c> asks for. A column
+    /// 72–90 characters <c>.devbook/design/typography-and-layout.md</c> asks for. A column
     /// that costs half the measure is not a column; it is a document with a margin
     /// where the words were.</para>
     ///
@@ -445,7 +445,7 @@ public sealed class MarkdownViewMetaFenceTests
     /// <c>FileView</c> into the same <c>.md-view</c>. A host reserving the column
     /// itself would be a fourth width to find, and the library would no longer own
     /// the one the component draws
-    /// (<c>.arc42/adr/guidelines/0011-centralized-frontend-styling-variables.md</c>).</para>
+    /// (<c>.devbook/arc42/adr/guidelines/0011-centralized-frontend-styling-variables.md</c>).</para>
     /// </summary>
     [Fact]
     public void No_host_reserves_the_column_for_itself()

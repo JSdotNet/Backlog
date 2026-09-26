@@ -5,7 +5,7 @@ general-purpose or knowledge-folder tooling. Three skills: one for each directio
 and one for the remarks a person leaves while reading.
 
 - **`backlog-import-plan`** — turns an agreed specification into a Backlog import plan
-  (ADR 0007: `.arc42/adr/0007-import-reuses-the-entry-text-grammar.md`). Every entry is
+  (ADR 0007: `.devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md`). Every entry is
   a `prompt` an AI session runs, or a `task` or `test` only the user does — never both in one
   entry. It always ships a review view next to the raw plan — one HTML page built from
   `skills/backlog-import-plan/assets/plan-review.html` that parses the embedded plan
@@ -13,7 +13,7 @@ and one for the remarks a person leaves while reading.
   the host has one and written beside the plan otherwise. User-invoked only
   (`disable-model-invocation: true`); it never talks to the Backlog app or GitHub.
   A plan imports at two levels (ADR 0013:
-  `.arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md`): it opens with
+  `.devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md`): it opens with
   one `plan` entry, which Import turns into the Roadmap Item, and the step entries under it
   share its `+tag`, so the item gathers them:
 
@@ -49,7 +49,7 @@ and one for the remarks a person leaves while reading.
   through the devbook plugin's own `annotations.mjs`, and only then resolves the note
   (`resolve_annotation`). Fence first, resolve second, because that is the order whose
   half-done state is recoverable. The two annotation kinds stay two things —
-  `.arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md` §6 is the decision,
+  `.devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md` §6 is the decision,
   and the app is never the fence's writer. `backlog-run-plan-item` carries a short form of
   the same procedure for the notes an item it just ran leaves answerable.
 

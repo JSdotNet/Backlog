@@ -12,7 +12,7 @@ using Microsoft.Extensions.Options;
 namespace Backlog.Infrastructure.Cosmos.Sessions;
 
 /// <summary>
-/// The session replica, in Cosmos DB (.arc42/adr/0005 §Session records).
+/// The session replica, in Cosmos DB (.devbook/arc42/adr/0005 §Session records).
 /// <para>
 /// One container, partitioned on <c>/ownerId</c>, whole records in and whole
 /// records out. There is no query at all here — not even the one exception

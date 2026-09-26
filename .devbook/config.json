@@ -1,15 +1,288 @@
 {
   "id": "backlog",
   "bindings": {
-    "delivery.tracker": { "provider": "backlog" },
+    "delivery.tracker": {
+      "provider": "backlog"
+    },
     "delivery.mcp": {
-      "spec": ["backlog"],
-      "deliver": ["backlog"]
+      "spec": [
+        "backlog"
+      ],
+      "deliver": [
+        "backlog"
+      ]
     }
   },
   "components": {
     "delivery": {
-      "pluginVersion": "1.5.0"
+      "pluginVersion": "1.7.0"
+    },
+    "devbook": {
+      "pluginVersion": "1.7.0",
+      "contractVersion": 17,
+      "adopted": [
+        "arc42",
+        "domain",
+        "tech",
+        "design",
+        "ai"
+      ],
+      "materialized": {
+        ".devbook/_tools/devbook-meta": {
+          "from": "1.7.0",
+          "hash": "sha256:253d77912dbb9c6ebae2693c3a1b8be48dc9198b721d2e2d88a33e99e1ec161a",
+          "managed": true
+        },
+        ".devbook/_tools/devbook-tech": {
+          "from": "1.7.0",
+          "hash": "sha256:ba1ba69421528ced3b88424235baaa869de429ae8989a1a6ec7236c7c957b0be",
+          "managed": true
+        },
+        ".github/workflows/devbook-meta.yml": {
+          "from": "1.7.0",
+          "hash": "sha256:d6ea4420f852a22b878d5ad15e10e4ec2366e9d507ac4a54edda43a777c7f772",
+          "managed": true
+        },
+        "AGENTS.md#devbook": {
+          "from": "1.7.0",
+          "hash": "sha256:601e6d85335687ec8d3c0af4cb6844f0437467a2867c44fc952ffca70458b5ab",
+          "managed": true
+        },
+        ".agents/rules/devbook-ai.md": {
+          "from": "1.7.0",
+          "hash": "sha256:746411ce3aed9a32901e853b563d47edf248e762024a11164ba7867af58264cc",
+          "managed": true
+        },
+        ".claude/rules/devbook-ai.md": {
+          "from": "1.7.0",
+          "hash": "sha256:71565ce2531437853a08501a5631f5ee2ae0d17b012e499bf0d0a8f42a829b58",
+          "managed": true
+        },
+        ".github/instructions/devbook-ai.instructions.md": {
+          "from": "1.7.0",
+          "hash": "sha256:f9ba3ab598b46ea959fed6fe2ae2a7438fa63ce18cd0210cd61fb5c6131d6265",
+          "managed": true
+        },
+        ".agents/rules/devbook-annotations.md": {
+          "from": "1.7.0",
+          "hash": "sha256:dbe5bc5fd0d4fa32b949c8bb03d64d5eede89ab52aa8437de45d7126748f0c5a",
+          "managed": true
+        },
+        ".claude/rules/devbook-annotations.md": {
+          "from": "1.7.0",
+          "hash": "sha256:f5373d9b68b55ee44dc7879eb34a3c054fd4d45989e0c97616275bd89c86c008",
+          "managed": true
+        },
+        ".github/instructions/devbook-annotations.instructions.md": {
+          "from": "1.7.0",
+          "hash": "sha256:2f2d0faae5ae5c4e73fb0d321cde73d86f6864e3fd43b3e1cbd07c01b9fb5685",
+          "managed": true
+        },
+        ".agents/rules/devbook-arc42.md": {
+          "from": "1.7.0",
+          "hash": "sha256:19793f2eb269d7f8126e3e87ceaebfd371187790111e74a3c0714c138338f511",
+          "managed": true
+        },
+        ".claude/rules/devbook-arc42.md": {
+          "from": "1.7.0",
+          "hash": "sha256:a8a60911deea32f3e0e33bb7d81aef93d3c2db7cb6e06d637b9e2014b16e9af9",
+          "managed": true
+        },
+        ".github/instructions/devbook-arc42.instructions.md": {
+          "from": "1.7.0",
+          "hash": "sha256:52047a3e078a538a6be9becb04605244c6bcc5fba45e1a71f8e5fcc1ae35d188",
+          "managed": true
+        },
+        ".agents/rules/devbook-chapter-metadata.md": {
+          "from": "1.7.0",
+          "hash": "sha256:01adc5f859c3810393f1427dfbcae06e8dc9516922ddb540fac22d2a68e5b2a3",
+          "managed": true
+        },
+        ".claude/rules/devbook-chapter-metadata.md": {
+          "from": "1.7.0",
+          "hash": "sha256:5f317ca4e0c59cdae8dd2dfe99566115cabf6955e998e2e9fa3148dbd6d63a54",
+          "managed": true
+        },
+        ".github/instructions/devbook-chapter-metadata.instructions.md": {
+          "from": "1.7.0",
+          "hash": "sha256:53c59c4667424b4d201fe9a76c5b61ffac0a9369423b84d329d7e47b31e257d1",
+          "managed": true
+        },
+        ".agents/rules/devbook-design.md": {
+          "from": "1.7.0",
+          "hash": "sha256:2edb255b99b3354bc15349b34466026e901c094119b59a4657663739137c7807",
+          "managed": true
+        },
+        ".claude/rules/devbook-design.md": {
+          "from": "1.7.0",
+          "hash": "sha256:83b34973226befcf2a37e5d1b35f57548188159cf4d4e3be1d0bb9ae2de53408",
+          "managed": true
+        },
+        ".github/instructions/devbook-design.instructions.md": {
+          "from": "1.7.0",
+          "hash": "sha256:06e93d3fbf4d512948e6a75c030cc174210db186ac5dcd7820da9451340adb51",
+          "managed": true
+        },
+        ".agents/rules/devbook-domain.md": {
+          "from": "1.7.0",
+          "hash": "sha256:db99ae9b3c0fe2a652b0758e727006fe9ccdb1fe123e89bbb38022a3ef605c34",
+          "managed": true
+        },
+        ".claude/rules/devbook-domain.md": {
+          "from": "1.7.0",
+          "hash": "sha256:43f1051607d73f810b9e4340f4ad90efb2c473e4b46f331c443bec64af529288",
+          "managed": true
+        },
+        ".github/instructions/devbook-domain.instructions.md": {
+          "from": "1.7.0",
+          "hash": "sha256:9955a3f9bca503c60b3dbbfd0fc7c2f04aaf8ef122f3cfc802b3ce6124b8ff09",
+          "managed": true
+        },
+        ".agents/rules/devbook-naming.md": {
+          "from": "1.7.0",
+          "hash": "sha256:780980263bea05a257c700eaf0f204038377f701a66a48ae903a8db01a1907aa",
+          "managed": true
+        },
+        ".claude/rules/devbook-naming.md": {
+          "from": "1.7.0",
+          "hash": "sha256:21e942583e0cdcac06f8840f12faab65c1e7a2568707f227fc4607fb4c45059f",
+          "managed": true
+        },
+        ".github/instructions/devbook-naming.instructions.md": {
+          "from": "1.7.0",
+          "hash": "sha256:552462f07195ec7fbcb07d0c15431b0c4c4ddb32fd78e0520093cd7ba2dcfc20",
+          "managed": true
+        },
+        ".agents/rules/devbook-tech.md": {
+          "from": "1.7.0",
+          "hash": "sha256:0ec9537b79896bb4416b84546a079dd70e608d783ff63b5c3853db9847064862",
+          "managed": true
+        },
+        ".claude/rules/devbook-tech.md": {
+          "from": "1.7.0",
+          "hash": "sha256:6e8ad7dcafeb8fe02cb344761641e2123794195ec7e6cf9405760928e6d39e55",
+          "managed": true
+        },
+        ".github/instructions/devbook-tech.instructions.md": {
+          "from": "1.7.0",
+          "hash": "sha256:b5e876e4851849a2f9dc75fabb595cde1fb1a9e7eeb5d509a5bfa7fc0586ec97",
+          "managed": true
+        }
+      },
+      "migrations": [
+        {
+          "id": "010-terms-live-in-domain-md",
+          "applied": "2026-09-25"
+        },
+        {
+          "id": "011-context-md",
+          "applied": "2026-09-25"
+        },
+        {
+          "id": "012-no-checkout-overlay",
+          "applied": "2026-09-25"
+        },
+        {
+          "id": "013-decision-rungs-are-domains",
+          "applied": "2026-09-25"
+        },
+        {
+          "id": "015-openspec-verbs",
+          "applied": "2026-09-25"
+        },
+        {
+          "id": "017-invariants-under-domain",
+          "applied": "2026-09-25"
+        }
+      ]
+    },
+    "devbook-procedures": {
+      "pluginVersion": "1.7.0",
+      "adopted": [
+        "start",
+        "show",
+        "capture",
+        "debug"
+      ],
+      "materialized": {
+        ".agents/skills/start.md": {
+          "from": "1.7.0",
+          "hash": "sha256:803a989fa01cab8b768a2ea1670ee4e9716111b5baafd0a758ec47c5d0af46da",
+          "managed": false
+        },
+        ".claude/skills/start/SKILL.md": {
+          "from": "1.7.0",
+          "hash": "sha256:00fdab521f742c325df36617c365a0046160ba7b24340412f9fa919a7d935c21",
+          "managed": true
+        },
+        ".github/skills/start/SKILL.md": {
+          "from": "1.7.0",
+          "hash": "sha256:00fdab521f742c325df36617c365a0046160ba7b24340412f9fa919a7d935c21",
+          "managed": true
+        },
+        ".agents/skills/show.md": {
+          "from": "1.7.0",
+          "hash": "sha256:c624fd3bb5b576d0e215d826d2cc4f38ae30a15c2029d98e766a0353c7b12cab",
+          "managed": false
+        },
+        ".claude/skills/show/SKILL.md": {
+          "from": "1.7.0",
+          "hash": "sha256:35e9994fdc2e01fd7143337536dd87b06dc0aed2b382b080eebf7b22d57085c9",
+          "managed": true
+        },
+        ".github/skills/show/SKILL.md": {
+          "from": "1.7.0",
+          "hash": "sha256:35e9994fdc2e01fd7143337536dd87b06dc0aed2b382b080eebf7b22d57085c9",
+          "managed": true
+        },
+        ".agents/skills/capture.md": {
+          "from": "1.7.0",
+          "hash": "sha256:29138325cf714963243e05b2529697e757a97ab6f357674bacbde5bea101da91",
+          "managed": false
+        },
+        ".claude/skills/capture/SKILL.md": {
+          "from": "1.7.0",
+          "hash": "sha256:36a9747effbfa406050b77d79fe9cf38843f1a1a3afe8e5b853ee6d73e6d3403",
+          "managed": true
+        },
+        ".github/skills/capture/SKILL.md": {
+          "from": "1.7.0",
+          "hash": "sha256:36a9747effbfa406050b77d79fe9cf38843f1a1a3afe8e5b853ee6d73e6d3403",
+          "managed": true
+        },
+        ".agents/skills/debug.md": {
+          "from": "1.7.0",
+          "hash": "sha256:88e77f9ae9f4a1e5e9deeff3ba38a59c09f93503ee36bc292ad691ee04b23942",
+          "managed": false
+        },
+        ".claude/skills/debug/SKILL.md": {
+          "from": "1.7.0",
+          "hash": "sha256:3b4d67c5f8385574f04d6b8ffba870edfee2ba9ac0c8a015e3267537143514ff",
+          "managed": true
+        },
+        ".github/skills/debug/SKILL.md": {
+          "from": "1.7.0",
+          "hash": "sha256:3b4d67c5f8385574f04d6b8ffba870edfee2ba9ac0c8a015e3267537143514ff",
+          "managed": true
+        }
+      }
+    },
+    "schedule": {
+      "pluginVersion": "1.7.0",
+      "enabled": [
+        "issue-sweep",
+        "merge-review",
+        "morning-brief",
+        "devbook-validate",
+        "instruction-review",
+        "devbook-verify",
+        "prose-check",
+        "package-update",
+        "tech-update",
+        "weekly-update",
+        "change-report"
+      ],
+      "overrides": {}
     }
   }
 }

@@ -15,7 +15,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { checkRepository, formatReport, KNOWLEDGE_FOLDERS } from './check-metadata.mjs';
+import { checkRepository, formatReport, DEVBOOK_FOLDERS } from './check-metadata.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..', '..');
@@ -78,10 +78,41 @@ test('the repository corpus passes', async () => {
     );
     assert.deepEqual(
         result.folders.map((folder) => folder.folder).sort(),
-        [...KNOWLEDGE_FOLDERS].sort(),
-        'This repository has adopted all five knowledge folders, so all five have to be scanned. '
-        + 'A gate that quietly covers four of them is the defect issue #241 is about.'
+        [...DEVBOOK_FOLDERS, '.backlog'].sort(),
+        'This repository keeps every devbook folder under .devbook/ and .backlog at the root, '
+        + 'so all of them have to be scanned. A gate that quietly covers fewer is the defect '
+        + 'issue #241 is about.'
     );
+});
+
+test('a .devbook/ chapter is judged by the current checker, with nothing suppressed', async () => {
+    // The `.devbook/` layout is validated by the materialized devbook checker, whose
+    // schema the corpus is written against. The stale-install suppressions exist for
+    // the root layout only: under `.devbook/` a `context`/`setting` pair is simply
+    // valid, and no finding is ever filed as pending re-sync.
+    const current = await checkFixture(
+        '.devbook/domain/sample/context.md',
+        chapter({ type: 'context' }, { type: 'setting', key: 'sample.json', scope: 'user', default: '1' })
+    );
+    assert.equal(current.blocking.length, 0, blockingText(current));
+    assert.equal(current.suppressed, 0);
+    assert.deepEqual(current.folders.map((folder) => folder.folder), ['.devbook/domain']);
+
+    // An unrecognized field is still promoted to blocking, as it is at the root.
+    const unknown = await checkFixture(
+        '.devbook/design/sample.md',
+        chapter({ status: 'active' }, { status: 'active', owner: 'nobody' })
+    );
+    assert.ok(unknown.blocking.length >= 1, blockingText(unknown));
+    assert.match(blockingText(unknown), /unrecognized field `owner`/);
+
+    // And a status outside the folder's vocabulary blocks.
+    const bad = await checkFixture(
+        '.devbook/domain/sample/features.md',
+        chapter({ type: 'features' }, { status: 'idea', type: 'feature' })
+    );
+    assert.ok(bad.blocking.length >= 1, blockingText(bad));
+    assert.match(blockingText(bad), /"idea"/);
 });
 
 test('a field the installed generator predates is not a failure', async () => {

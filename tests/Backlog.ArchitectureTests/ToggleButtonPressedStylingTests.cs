@@ -27,7 +27,7 @@ namespace Backlog.ArchitectureTests;
 /// stayed green throughout — which is exactly why neither could catch this. The
 /// strips the defect was reported against have no class coverage at all.</para>
 ///
-/// <para><c>.design/interaction-guidelines.md#focus-and-selection</c> requires the
+/// <para><c>.devbook/design/interaction-guidelines.md#focus-and-selection</c> requires the
 /// selected state to be visually distinct, so a fill stuck on the wrong member is a
 /// rule broken rather than a preference missed.</para>
 /// </summary>

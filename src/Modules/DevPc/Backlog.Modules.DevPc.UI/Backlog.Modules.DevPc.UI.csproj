@@ -3,7 +3,7 @@
   <!--
     The Dev PC Management context's UI: what the machines the work system runs on
     are configured with, and what an operator can do about it (see
-    .domain/context-map.md). Today that is the system tools pane — the Copilot
+    .devbook/domain/context-map.md). Today that is the system tools pane — the Copilot
     plugins, repository tools and MCP servers this PC is set up for.
 
     It references the shared control library rather than growing its own

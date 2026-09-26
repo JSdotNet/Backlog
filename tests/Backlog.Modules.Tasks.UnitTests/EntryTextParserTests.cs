@@ -659,7 +659,7 @@ public class EntryTextParserTests
     //
     // Neither is Import-specific: `id:` names an entry before it has a real
     // backlog_item_id and `repo:` targets a repository, exactly as
-    // .design/content-editing.md#scheduling-and-dependency-tokens describes them
+    // .devbook/design/content-editing.md#scheduling-and-dependency-tokens describes them
     // for any pasted batch, hand-typed or brought in through Import alike.
 
     [Fact]
@@ -1625,7 +1625,7 @@ public class EntryTextParserTests
 
     /// <summary>
     /// The narrower line a plan entry reads
-    /// (<c>.design/content-editing.md#scheduling-and-dependency-tokens</c>). Each
+    /// (<c>.devbook/design/content-editing.md#scheduling-and-dependency-tokens</c>). Each
     /// token comes off exactly the member it would for a task, so nothing
     /// downstream needs a second parser to read a roadmap item.
     /// </summary>
@@ -1650,7 +1650,7 @@ public class EntryTextParserTests
     }
 
     /// <summary>
-    /// "Sigil wins over guessing" (<c>.design/content-editing.md</c>), now that
+    /// "Sigil wins over guessing" (<c>.devbook/design/content-editing.md</c>), now that
     /// there is a fourth word to guess at. A sigil already declared what its token
     /// is; that the value spells a type word does not promote it to one, and the
     /// entry stays the task it said it was rather than turning into a roadmap item
@@ -1691,7 +1691,7 @@ public class EntryTextParserTests
     }
 
     /// <summary>
-    /// The canonical-rewrite rule in <c>.design/content-editing.md</c>: a token
+    /// The canonical-rewrite rule in <c>.devbook/design/content-editing.md</c>: a token
     /// the rewrite cannot represent is dropped by the next ordinary save, with no
     /// error to notice it by. Editing one field of a plan entry must therefore
     /// leave the word — and every token around it — exactly where it was.

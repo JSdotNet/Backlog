@@ -14,7 +14,7 @@ namespace Backlog.Modules.Tasks.Services;
 /// <para>
 /// It is called synchronously by the use case that completes the entry, and
 /// deliberately not wired as an event-triggered policy. This context publishes no
-/// domain events yet — they are documented in <c>.domain/tasks/domain.md</c> and
+/// domain events yet — they are documented in <c>.devbook/domain/tasks/domain.md</c> and
 /// carried by nothing — and ADR 0006 already rejected putting a mediator behind
 /// these handlers. Nothing about the spawn waits on that machinery: what an event
 /// would add is a consumer being told, not the successor existing.

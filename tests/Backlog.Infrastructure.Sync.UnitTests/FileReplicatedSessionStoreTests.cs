@@ -54,7 +54,7 @@ public sealed class FileReplicatedSessionStoreTests
     /// Two agents may issue the same session id, and two machines may too, so
     /// identity is all three together. Collapsing on the id alone would merge
     /// unrelated sessions — the one failure
-    /// <c>.domain/sessions/naming.md#session-identity</c> exists to prevent.
+    /// <c>.devbook/domain/sessions/domain.md#session-identity</c> exists to prevent.
     /// </summary>
     [Fact]
     public void One_session_id_on_two_agents_or_two_machines_is_not_one_session()

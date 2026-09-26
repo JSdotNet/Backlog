@@ -52,7 +52,7 @@ internal static class IntegrationFixtures
     /// which repository they are looking at.</summary>
     /// <summary>The colours are the workspace's answer, which in the app means the one
     /// chosen in Settings. A fixture stands in for it here because the library declines
-    /// to pick — see <c>.design/color-scheme.md#band-identity-tokens</c>.</summary>
+    /// to pick — see <c>.devbook/design/color-scheme.md#band-identity-tokens</c>.</summary>
     public static readonly IntegrationRepositoryRef ProductRepo =
         new("repo-backlog", "jsdotnet/backlog", "Backlog") { Colour = 1 };
 

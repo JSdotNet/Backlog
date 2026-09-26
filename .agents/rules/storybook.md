@@ -9,10 +9,10 @@ paths:
 
 `src/Harness/Backlog.UI.Storybook` renders every component of
 `src/Core/Backlog.UI.Components` with no application behind it. It is the review
-surface for everything `.design/` specifies.
+surface for everything `.devbook/design/` specifies.
 
 **The rules that govern this host are in
-`.design/README.md#living-reference-the-ui-storybook`. Read them before adding a
+`.devbook/design/README.md#living-reference-the-ui-storybook`. Read them before adding a
 page or a story.** They cover what a page may show, when a subject earns its own
 page, that every sample is its own section, and what folds. This file does not
 repeat them — a rule written in two places is a rule that can disagree with
@@ -26,7 +26,7 @@ and never in the library.
 
 | Component | What it is for |
 |---|---|
-| `Shared/StoryPage.razor` | The page. Title, one-sentence summary, the `.design` chapters that govern it, then the stories. |
+| `Shared/StoryPage.razor` | The page. Title, one-sentence summary, the `.devbook/design` chapters that govern it, then the stories. |
 | `Shared/Story.razor` | One sample. Renders the `<section>`, the anchor, the test id, and both folds. |
 | `Shared/MarkdownStory.razor` | A read view of one markdown sample, so a page does not re-implement parse-and-render per story. |
 
@@ -49,7 +49,7 @@ and never in the library.
 ```
 
 `DesignGuideline` takes two strings: the chapter and its anchor relative to
-`.design` — no leading folder, `Label` prepends it — and one line saying what
+`.devbook/design` — no leading folder, `Label` prepends it — and one line saying what
 that chapter decides for this page. The second string is the reason to open the
 fold, not a summary of what is inside it.
 
@@ -100,7 +100,7 @@ it wrong shows up only in the sidebar:
 3. `Exact: true` on the entry if another page's route sits under its path, or the
    parent stays highlighted while a child is open.
 
-Placement inside `StorybookIndex` follows the ordering rule in `.design`. Where a
+Placement inside `StorybookIndex` follows the ordering rule in `.devbook/design`. Where a
 page cannot honour it, record the bend in a comment on the entry saying which way
 the rule was bent and why — the file already carries several, and they only read
 as exceptions because the rule is written.
@@ -111,7 +111,7 @@ as exceptions because the rule is written.
 
 1. every component in the library is rendered by at least one story;
 2. every page is reachable from the index;
-3. every `.design` chapter and anchor a page names still resolves to a heading.
+3. every `.devbook/design` chapter and anchor a page names still resolves to a heading.
 
 `tests/Backlog.ArchitectureTests/StorybookOrderTests.cs`:
 
@@ -128,6 +128,6 @@ own subject. Those are review concerns until a test claims them.
 
 ## Related
 
-- `.design/README.md#living-reference-the-ui-storybook` — the rules.
+- `.devbook/design/README.md#living-reference-the-ui-storybook` — the rules.
 - `.agents/rules/ui-components.md` — why the library exists
   and when a screen must adopt from it rather than grow its own copy.

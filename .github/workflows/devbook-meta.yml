@@ -1,0 +1,54 @@
+name: Devbook metadata
+
+# Enforces the devbook convention: every metadata reference must
+# resolve and every `meta` block must match the schema. Installed by the
+# `devbook:init` skill. It writes nothing; whether the committed _meta/
+# indexes are current is devbook-derived's question, asked by its own
+# devbook-meta-drift.yml beside this file where that plugin is installed.
+#
+# The two path filters below are rendered, not copied: delete the rows for
+# folders this repository has not adopted. Every devbook folder lives under
+# .devbook/, so there is one spelling and nothing else to substitute.
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.devbook/arc42/**'
+      - '.devbook/domain/**'
+      - '.devbook/tech/**'
+      - '.devbook/design/**'
+      - '.devbook/ai/**'
+      - '.devbook/_tools/devbook-meta/**'
+      - '.github/workflows/devbook-meta.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.devbook/arc42/**'
+      - '.devbook/domain/**'
+      - '.devbook/tech/**'
+      - '.devbook/design/**'
+      - '.devbook/ai/**'
+      - '.devbook/_tools/devbook-meta/**'
+      - '.github/workflows/devbook-meta.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: devbook-meta-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Validate metadata
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Check references and metadata blocks
+        run: node .devbook/_tools/devbook-meta/build.mjs --check

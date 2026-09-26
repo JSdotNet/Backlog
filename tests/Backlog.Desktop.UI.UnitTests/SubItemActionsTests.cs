@@ -13,7 +13,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// </para>
 /// <para>
 /// This time the removal is the decision, and it comes out of the model rather than
-/// out of taste. <c>.domain/tasks/domain.md</c> says a Sub-Item "may project to
+/// out of taste. <c>.devbook/domain/tasks/domain.md</c> says a Sub-Item "may project to
 /// GitHub issue task-list checkboxes" — checkboxes inside the entry's issue — and
 /// <c>ProjectionRef</c> is owned by <c>TaskItem</c> and never by <c>SubItem</c>.
 /// A step that was its own issue had nowhere to record the link it got back, so it

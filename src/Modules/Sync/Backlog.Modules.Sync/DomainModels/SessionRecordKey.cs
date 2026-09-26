@@ -14,14 +14,14 @@ namespace Backlog.Modules.Sync.DomainModels;
 /// </para>
 /// <para>
 /// <strong>The agent is in the key because a session id is not an identity on
-/// its own.</strong> .domain/sessions/naming.md#session-identity puts a session's
+/// its own.</strong> .devbook/domain/sessions/domain.md#session-identity puts a session's
 /// identity at the agent plus the identifier that agent issued, both halves
 /// always: an id is unique only within its own agent, so keying on the id alone
 /// would let two unrelated sessions collapse into one record and show one row
 /// where there were two.
 /// </para>
 /// <para>
-/// <strong>The machine id leads it because that turns .arc42/adr/0005's
+/// <strong>The machine id leads it because that turns .devbook/arc42/adr/0005's
 /// single-writer rule into a structural property.</strong> A machine can only
 /// ever address keys beginning with its own device id, so no machine can
 /// overwrite another's record even if the stamping above it were wrong. That is

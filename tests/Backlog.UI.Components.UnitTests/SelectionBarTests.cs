@@ -3,7 +3,7 @@ namespace Backlog.UI.Components.UnitTests;
 /// <summary>
 /// The bar a surface puts up once a reader has picked more than one of
 /// something. Every assertion here is about the chrome —
-/// <c>.design/interaction-guidelines.md#focus-and-selection</c> asks for a live
+/// <c>.devbook/design/interaction-guidelines.md#focus-and-selection</c> asks for a live
 /// count, a clear-selection control and an indeterminate select-all, and this is
 /// what says the bar has all three.
 /// <para>
@@ -112,7 +112,7 @@ public sealed class SelectionBarTests
         // no visible label, so the third state has to land on the box itself —
         // asserted through the selector the stylesheet uses, because a bar whose
         // partial state looked plainly unchecked is what
-        // `.design/interaction-guidelines.md#focus-and-selection` forbids and what
+        // `.devbook/design/interaction-guidelines.md#focus-and-selection` forbids and what
         // an aria-only assertion cannot see.
         Assert.Single(bar.FindAll(".checkbox--mixed .checkbox__input"));
     }

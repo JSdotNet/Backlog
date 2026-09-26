@@ -21,7 +21,7 @@ namespace Backlog.Modules.Sync.Adapters;
 /// Keyed by <see cref="OwnerId"/> at the outer level, and that nesting is doing
 /// real work rather than organising a dictionary: a record belonging to another
 /// owner is unreachable by construction here instead of by a predicate somebody
-/// could forget to write. The cross-owner tests .arc42/adr/0005 §Consequences
+/// could forget to write. The cross-owner tests .devbook/arc42/adr/0005 §Consequences
 /// asks for are only worth running against a store that could not have leaked in
 /// the first place — otherwise they assert that one <c>Where</c> clause exists.
 /// </para>
@@ -109,7 +109,7 @@ public sealed class InMemorySessionReplica : ISessionReplica
             lock (_gate)
             {
                 // Keyed the same way the Cosmos document is, and the machine id
-                // leading the key is what makes .arc42/adr/0005's single-writer
+                // leading the key is what makes .devbook/arc42/adr/0005's single-writer
                 // rule structural: this machine can only ever address records
                 // whose key begins with its own id, so re-pushing a session
                 // replaces its own record and can never touch another machine's

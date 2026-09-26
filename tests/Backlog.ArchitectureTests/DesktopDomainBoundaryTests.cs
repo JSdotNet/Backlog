@@ -168,7 +168,7 @@ public class DesktopDomainBoundaryTests
 
         Assert.True(
             offenders.Count == 0,
-            $"{context} must not depend on {forbidden} — see .domain/context-map.md for the relationships that do exist. "
+            $"{context} must not depend on {forbidden} — see .devbook/domain/context-map.md for the relationships that do exist. "
             + string.Join(", ", offenders));
     }
 

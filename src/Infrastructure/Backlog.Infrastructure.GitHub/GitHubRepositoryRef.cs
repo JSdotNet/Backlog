@@ -33,7 +33,7 @@ public sealed record GitHubRepositoryRef(string Alias, string Owner, string Name
     /// is why this is nullable rather than defaulted.
     /// <para>
     /// A number, never a colour. Inventing a hue is a design decision and
-    /// <c>.design/color-scheme.md#band-identity-tokens</c> is where it is made; this
+    /// <c>.devbook/design/color-scheme.md#band-identity-tokens</c> is where it is made; this
     /// records only which of the approved ones somebody picked.
     /// </para>
     /// </summary>

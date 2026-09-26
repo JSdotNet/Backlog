@@ -1,6 +1,6 @@
 namespace Backlog.Modules.Inbox.Abstractions;
 
-/// <summary>Lifecycle state of an inbox item (<c>.domain/inbox/flow.md</c>).
+/// <summary>Lifecycle state of an inbox item (<c>.devbook/domain/inbox/flow.md</c>).
 /// "Routed" is deliberately not a member: it is <see cref="Triaged"/> with a
 /// routing target on the item, and the persisted status stays <c>triaged</c>.</summary>
 public enum InboxStatus

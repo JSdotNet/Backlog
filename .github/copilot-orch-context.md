@@ -29,8 +29,8 @@ Target them for UI validation. `ui-storybook` is the exception in kind: it hosts
 component library on its own, with no app or cloud reference, so a single component can be
 validated without the application around it.
 
-This repository also carries the checked-in knowledge folders (`.arc42/`, `.domain/`,
-`.backlog/`, `.tech/`, `.design/`) and generator tooling under `.github/tools/knowledge-meta/`.
+This repository also carries the checked-in knowledge folders (`.devbook/arc42/`, `.devbook/domain/`,
+`.backlog/`, `.devbook/tech/`, `.devbook/design/`, `.devbook/ai/`) and generator tooling under `.github/tools/knowledge-meta/`.
 Changes confined to those folders are documentation work — see `## QA Depth`.
 
 ## How to Run
@@ -165,14 +165,14 @@ Authority order and fallbacks are defined in
 `jsdotnet-project-design` servers were retired on 2026-08-27, and their relevant content now
 lives in the repository:
 
-- **`.arc42/adr/guidelines/`** — the inherited organization architecture decisions that govern
+- **`.devbook/arc42/adr/guidelines/`** — the inherited organization architecture decisions that govern
   this repository's .NET code. Read the one that governs the change before making it; the
   folder's `README.md` indexes them.
-- **`.arc42/adr/`** — the decisions Backlog took for itself.
-- **`.design/`** — design and UX guidance, including the color scheme and design tokens.
+- **`.devbook/arc42/adr/`** — the decisions Backlog took for itself.
+- **`.devbook/design/`** — design and UX guidance, including the color scheme and design tokens.
 
 A plugin-provided skill that instructs you to query `jsdotnet-guidelines-mcpserver` should be
-served from `.arc42/adr/guidelines/` instead; the absent server is not a blocked precondition.
+served from `.devbook/arc42/adr/guidelines/` instead; the absent server is not a blocked precondition.
 The MCP servers still in use are runtime and tooling servers — Aspire, Playwright, and the
 orchestration dashboard.
 
@@ -209,8 +209,8 @@ phone-width behavior), discovering their URLs at run time rather than assuming p
 
 Two standing exceptions:
 
-- **Documentation-only changes** — edits confined to `.arc42/`, `.domain/`, `.backlog/`,
-  `.tech/`, `.design/`, `.github/`, or `README.md` have no runtime surface. Verification is
+- **Documentation-only changes** — edits confined to `.devbook/arc42/`, `.devbook/domain/`, `.backlog/`,
+  `.devbook/tech/`, `.devbook/design/`, `.devbook/ai/`, `.github/`, or `README.md` have no runtime surface. Verification is
   documentation review plus `build.mjs --check`; skip startup and Playwright.
 - **Non-UI code changes** — work confined to `tests/`, `src/Core/Backlog.SharedKernel`, or
   `src/Infrastructure/` with no user-visible behavior change is adequately covered by

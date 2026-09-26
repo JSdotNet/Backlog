@@ -14,7 +14,7 @@ namespace Backlog.Modules.Sync.Features.PushSessions;
 /// The scope comes from the token and the records come from the body, and the
 /// two never mix: nothing in a <see cref="SessionRecord"/> can name a machine or
 /// an owner, so there is no batch a client could compose that writes a record
-/// attributed to somebody else's machine (.arc42/adr/0005 §Session records).
+/// attributed to somebody else's machine (.devbook/arc42/adr/0005 §Session records).
 /// </para>
 /// </summary>
 public sealed record PushSessionsCommand(OwnerScope Scope, IReadOnlyList<SessionRecord> Records);
@@ -26,7 +26,7 @@ public sealed record PushSessionsCommand(OwnerScope Scope, IReadOnlyList<Session
 /// not because a conflict policy resolved it — it is because there is no
 /// conflict to have. A session ran on one machine and only that machine holds
 /// the evidence for it, so last-write-wins never applies here and there is never
-/// a second version to discard (.arc42/adr/0005 §Session records).
+/// a second version to discard (.devbook/arc42/adr/0005 §Session records).
 /// </para>
 /// <para>
 /// The handler does not look inside a record beyond the validation above it. It

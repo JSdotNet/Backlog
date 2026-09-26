@@ -27,7 +27,7 @@ public sealed record ListInboxQuery(OwnerScope Scope);
 /// made, where from, and its tags — is copied rather than understood. The one
 /// reading it does is the <c>@name</c> tag the capture handler wrote the person
 /// as, handed back as the person so no reader has to know the convention.
-/// Nothing else is interpreted here, which is what keeps .arc42/adr/0005's "no
+/// Nothing else is interpreted here, which is what keeps .devbook/arc42/adr/0005's "no
 /// domain logic runs against the replica" true of the one view it serves.
 /// </para>
 /// </summary>

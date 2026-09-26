@@ -710,7 +710,7 @@ public sealed class FileViewActionsTests
     public void The_two_controls_are_marks_with_their_words_kept_where_a_reader_can_hear_them()
     {
         // An icon-only control says nothing on its own, so the name and the
-        // tooltip are the whole of what it says (.design/accessibility.md). The
+        // tooltip are the whole of what it says (.devbook/design/accessibility.md). The
         // test ids do not move: they are what the panels and QA select on.
         using var context = new BunitContext();
 

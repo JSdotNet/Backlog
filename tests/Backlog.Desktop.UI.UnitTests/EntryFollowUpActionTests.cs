@@ -14,7 +14,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// <para>
 /// The refusals are here too, and they are half the behaviour: an entry nothing can
 /// point at yet, and one nothing can wait on any more, both keep the row and say why
-/// rather than dropping it (<c>.design/interaction-guidelines.md#action-density-and-overflow</c>).
+/// rather than dropping it (<c>.devbook/design/interaction-guidelines.md#action-density-and-overflow</c>).
 /// </para>
 /// </summary>
 [Collection(WorkspaceSettingsCollection.Name)]

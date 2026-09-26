@@ -40,12 +40,12 @@ public sealed class TaskRenameFieldUnderlineTests
             DrawsABottomBorder(field),
             "A field that replaces the title is the title with a caret in it, and a line under it is the one "
             + "thing that makes it look like something else. It is also not needed to say where the focus is — "
-            + $"the outline below does that, and says it the way .design/accessibility.md#focus-visibility asks. Rule found:\n{field}");
+            + $"the outline below does that, and says it the way .devbook/design/accessibility.md#focus-visibility asks. Rule found:\n{field}");
     }
 
     /// <summary>
     /// What the border was quietly paying for. <c>outline: none</c> without a
-    /// replacement is prohibited by <c>.design/accessibility.md#focus-visibility</c>,
+    /// replacement is prohibited by <c>.devbook/design/accessibility.md#focus-visibility</c>,
     /// and the border was the replacement — so taking it away without putting the
     /// outline back would have traded a cosmetic defect for an accessibility one.
     /// </summary>

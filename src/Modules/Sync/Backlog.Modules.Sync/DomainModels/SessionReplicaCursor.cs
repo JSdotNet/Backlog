@@ -11,7 +11,7 @@ namespace Backlog.Modules.Sync.DomainModels;
 /// embeds the feed range it was minted for, so replaying somebody else's
 /// continuation reads somebody else's partition and the store will not object —
 /// the service reaches Cosmos under one identity that can see every partition
-/// (.arc42/adr/0005 §Identity). Carrying the owner inside the value means an
+/// (.devbook/arc42/adr/0005 §Identity). Carrying the owner inside the value means an
 /// unverified cursor cannot be handed to <c>ISessionReplica</c> at all: there is
 /// no way to construct one without having said whose it is.
 /// </para>

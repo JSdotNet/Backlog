@@ -15,7 +15,7 @@ namespace Backlog.Infrastructure.FileSystem;
 /// device wants a copy of. It is deliberately not a table in <c>backlog.db</c>:
 /// that file has three owners already and a remark on a repository's chapter is
 /// Devbook's, not Tasks'. And it is deliberately not <c>_meta/devbook.db</c> in
-/// the repository, which .arc42/adr/0004 makes a generated, ignored build output
+/// the repository, which .devbook/arc42/adr/0004 makes a generated, ignored build output
 /// the app never writes — a remark kept there would be lost on the next
 /// generator run and could never leave the machine.
 /// </para>
@@ -385,7 +385,7 @@ public sealed class DevbookAnnotationStore : IDevbookAnnotationStore
     /// their canonical name, and reading is all that happens: nothing is written
     /// back from here. Rewriting every repository file at startup would be the
     /// destructive automatic migration
-    /// <c>.arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md</c>
+    /// <c>.devbook/arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md</c>
     /// rules out, and it would buy nothing, because the in-memory form is the one
     /// every reader sees from the moment this returns.
     /// </para>

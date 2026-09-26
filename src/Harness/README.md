@@ -53,7 +53,7 @@ Use it to review a component, and to test one without starting the application.
   section out of the `.design` files the csproj embeds, and `GuidelineChapter` draws
   it with `MarkdownView`. A page whose prose argued for a tone, a hierarchy or a
   contrast ratio would be keeping a second copy of one of those files. See
-  `.design/README.md#living-reference-the-ui-storybook`.
+  `.devbook/design/README.md#living-reference-the-ui-storybook`.
 - **Nothing is shown before its parts.** The sidebar order is that rule, not taste:
   the component groups first, then the subjects that are a convention rather than a
   component, then *Combined usage*, where whole surfaces are composed out of

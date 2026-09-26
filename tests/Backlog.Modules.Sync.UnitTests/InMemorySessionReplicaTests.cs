@@ -41,7 +41,7 @@ public class InMemorySessionReplicaTests
     /// <summary>
     /// Single-writer, held structurally. The record is keyed on the machine id
     /// first, so two machines reporting the same session id keep two records and
-    /// neither can reach the other's — which is .arc42/adr/0005 §Session records'
+    /// neither can reach the other's — which is .devbook/arc42/adr/0005 §Session records'
     /// rule surviving even a bug in the code that stamps the id.
     /// </summary>
     [Fact]
@@ -59,7 +59,7 @@ public class InMemorySessionReplicaTests
     }
 
     /// <summary>Two agents may issue the same session id, and
-    /// .domain/sessions/naming.md#session-identity says that is two sessions.
+    /// .devbook/domain/sessions/domain.md#session-identity says that is two sessions.
     /// Keying on the id alone would show one row where there were two.</summary>
     [Fact]
     public async Task Two_agents_reporting_one_session_id_keep_two_records()
@@ -147,7 +147,7 @@ public class InMemorySessionReplicaTests
     /// not something a person did: the handler verifies it first. It throws rather
     /// than answering an empty page, because an empty page looks exactly like a
     /// drained feed and would hide the bug — which is the failure
-    /// .arc42/adr/0005 §Consequences says must not pass quietly.
+    /// .devbook/arc42/adr/0005 §Consequences says must not pass quietly.
     /// </summary>
     [Fact]
     public async Task A_cursor_for_another_owner_is_a_bug_and_says_so()

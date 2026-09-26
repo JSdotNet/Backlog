@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 namespace Backlog.ArchitectureTests;
 
 /// <summary>
-/// The palette from both sides of the contract: what <c>.design/color-scheme.md</c>
+/// The palette from both sides of the contract: what <c>.devbook/design/color-scheme.md</c>
 /// states — the single source of token <em>values</em> that file claims to be — and
 /// what <c>components.css</c> actually declares, read back so tests can hold each to
 /// the other.
@@ -33,7 +33,7 @@ internal static class DesignPalette
     public static Dictionary<string, string> SpecifiedColors()
     {
         var markdown = File.ReadAllText(
-            RepositoryRoot.File(".design", "color-scheme.md"));
+            RepositoryRoot.File(".devbook", "design", "color-scheme.md"));
 
         var declaring = string.Concat(
             Regex.Split(markdown, @"^(?=## )", RegexOptions.Multiline)

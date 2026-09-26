@@ -5,7 +5,7 @@ namespace Backlog.UI.Components.Diagrams.C4;
 /// <para>
 /// This is a second implementation of a dialect whose first implementation is
 /// c4hero's TypeScript parser, in another repository, where no test here can see
-/// it. <c>.arc42/adr/0004</c> names that shape of duplication as a drift hazard and
+/// it. <c>.devbook/arc42/adr/0004</c> names that shape of duplication as a drift hazard and
 /// it applies in full, so two things are true of this reader by construction.
 /// </para>
 /// <para>

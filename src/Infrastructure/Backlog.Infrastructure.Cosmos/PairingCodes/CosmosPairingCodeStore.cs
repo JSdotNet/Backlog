@@ -8,7 +8,7 @@ using Microsoft.Extensions.Options;
 namespace Backlog.Infrastructure.Cosmos.PairingCodes;
 
 /// <summary>
-/// The pairing-code store, in Cosmos DB (.arc42/adr/0005 §Identity).
+/// The pairing-code store, in Cosmos DB (.devbook/arc42/adr/0005 §Identity).
 /// <para>
 /// One container, partitioned on the code hash, every operation a point
 /// operation on one document. What this adapter owes the handler above it is

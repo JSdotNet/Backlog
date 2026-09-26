@@ -1,6 +1,6 @@
 ---
 name: context-loading
-description: Repository-specific orchestration policy - the gate on code changes under src/ and tests/, and when the checked-in knowledge folders (.arc42, .domain, .backlog, .tech, .design) may be loaded as working context.
+description: Repository-specific orchestration policy - the gate on code changes under src/ and tests/, and when the checked-in knowledge folders (.devbook/arc42, .devbook/domain, .backlog, .devbook/tech, .devbook/design) may be loaded as working context.
 paths:
   - "**"
 ---
@@ -70,24 +70,24 @@ when no reproduction has been written up yet.
 ## Context loading by orchestration and agent
 
 - `orch-architecture`, `orch-arc42`, `flow-arc42-content`, `orch-blueprint`, `orch-adr`,
-  `orch-tdr`, and `architecture:architect` may load `.arc42/` as working context, but
+  `orch-tdr`, and `architecture:architect` may load `.devbook/arc42/` as working context, but
   should load only the chapter(s) relevant to the requested scope.
-- `flow-domain` and `domain-design:domain-architect` may load `.domain/` as
+- `flow-domain` and `domain-design:domain-architect` may load `.devbook/domain/` as
   working context, but should load only the relevant bounded-context chapters.
 - Backlog-writing or issue-writing workflows may load `.backlog/` as working context,
   but should load only the relevant work-item chapters. (`orch-backlog` has no
   successor in `devbook-flows`; the folder goes with the devbook contract v6, a
   follow-up.)
-- `flow-tech` may load `.tech/` as working context, plus the
-  `.arc42` chapters (solution strategy, deployment view, ADRs) that ground the
+- `flow-tech` may load `.devbook/tech/` as working context, plus the
+  `.devbook/arc42` chapters (solution strategy, deployment view, ADRs) that ground the
   stack choices it records.
-- `flow-design` and `ux-design:ux-designer` may load `.design/` as working
+- `flow-design` and `ux-design:ux-designer` may load `.devbook/design/` as working
   context, but should load only the relevant guideline file(s).
 - Non-architecture implementation, bug-fix, package-update, documentation, and UX flows
-  should not load `.arc42/` by default. Consult it only when the user explicitly asks
+  should not load `.devbook/arc42/` by default. Consult it only when the user explicitly asks
   for architecture context or when implementation depends on a specific documented
   decision, view, constraint, or glossary term.
-- UI implementation and UI bug-fix flows should consult `.design/` when the change
+- UI implementation and UI bug-fix flows should consult `.devbook/design/` when the change
   touches visual design, interaction behavior, content editing, or accessibility —
   loading only the relevant guideline file(s), not the whole folder.
 

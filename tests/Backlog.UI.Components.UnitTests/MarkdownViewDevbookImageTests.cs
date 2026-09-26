@@ -22,7 +22,7 @@ public sealed class MarkdownViewDevbookImageTests
 {
     [Theory]
     // The one image the knowledge folders actually hold, written the way
-    // `.domain/tasks/features.md` writes it.
+    // `.devbook/domain/tasks/features.md` writes it.
     [InlineData("assets/task-inline-markdown-editing.png")]
     // A sibling, and a picture kept above the chapter's own folder.
     [InlineData("shot.png")]

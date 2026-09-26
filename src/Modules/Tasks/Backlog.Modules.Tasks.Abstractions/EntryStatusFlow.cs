@@ -4,7 +4,7 @@ namespace Backlog.Modules.Tasks.Abstractions;
 /// The lifecycle graph an entry's status moves along, and the two questions
 /// anybody asks of it: may it go there, and where may it go.
 /// <para>
-/// The table is <c>.domain/tasks/flow.md#task-lifecycle</c> written down once.
+/// The table is <c>.devbook/domain/tasks/flow.md#task-lifecycle</c> written down once.
 /// It lived on <c>TaskItem</c> — the aggregate that enforces it — and moved here
 /// without changing a single edge, because a second caller arrived that may not
 /// see the aggregate. Local ADR 0012 §5 says the MCP <c>transition</c> tool
@@ -39,7 +39,7 @@ public static class EntryStatusFlow
     /// Private because the two methods below are the whole of what a caller
     /// needs, and an exposed dictionary is an exposed <em>mutable</em> dictionary
     /// unless somebody remembers to wrap it. The shape mirrors the mermaid
-    /// diagram in <c>.domain/tasks/flow.md</c> edge for edge, so a reader can hold
+    /// diagram in <c>.devbook/domain/tasks/flow.md</c> edge for edge, so a reader can hold
     /// the two side by side and see that they agree.
     /// </para>
     /// </summary>

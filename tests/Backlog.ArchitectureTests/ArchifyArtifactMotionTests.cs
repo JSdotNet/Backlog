@@ -34,11 +34,13 @@ namespace Backlog.ArchitectureTests;
 public class ArchifyArtifactMotionTests
 {
     /// <summary>The knowledge folders that hold chapter artifacts, mirroring
-    /// <c>KNOWLEDGE_FOLDERS</c> in <c>tools/diagrams/archify-artifacts.mjs</c>.
-    /// <c>.design</c> has no artifacts today and <c>.ai</c> is not adopted here
-    /// yet; both are listed anyway, so the first one authored there is covered
-    /// without anybody remembering this file.</summary>
-    private static readonly string[] DevbookFolders = [".arc42", ".domain", ".tech", ".design", ".ai"];
+    /// <c>KNOWLEDGE_FOLDERS</c> in <c>tools/diagrams/archify-artifacts.mjs</c>:
+    /// both layouts, the devbook layout's <c>.devbook/&lt;name&gt;</c> and the
+    /// root-level <c>.&lt;name&gt;</c> before it. <c>design</c> and <c>ai</c> have
+    /// no artifacts today; both are listed anyway, so the first one authored there
+    /// is covered without anybody remembering this file.</summary>
+    private static readonly string[] DevbookFolders =
+        [.. new[] { "arc42", "domain", "tech", "design", "ai" }.SelectMany(name => new[] { $".devbook/{name}", $".{name}" })];
 
     /// <summary>The artifact folder beside a chapter.</summary>
     private const string ArtifactFolder = "_archify";
@@ -435,7 +437,7 @@ public class ArchifyArtifactMotionTests
     {
         foreach (var knowledge in DevbookFolders)
         {
-            var root = new DirectoryInfo(Path.Combine(RepositoryRoot.Root.FullName, knowledge));
+            var root = new DirectoryInfo(Path.Combine([RepositoryRoot.Root.FullName, .. knowledge.Split('/')]));
             if (!root.Exists) continue;
 
             foreach (var folder in root.EnumerateDirectories(ArtifactFolder, SearchOption.AllDirectories))

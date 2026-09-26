@@ -17,7 +17,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// the screen took it away. It is the app shell's footer now, which changes what
 /// the state has to mean: a resting "Saved" would sit on Settings asserting
 /// something about a screen the reader is not on, and
-/// <c>.design/interaction-guidelines.md#save-state-indicator-vocabulary</c> says in
+/// <c>.devbook/design/interaction-guidelines.md#save-state-indicator-vocabulary</c> says in
 /// so many words that <c>Saved</c> "MUST NOT nag". So the band has a quiet state,
 /// it starts in it, and it goes back to it.
 /// </para>
@@ -165,7 +165,7 @@ public sealed class TasksSaveStateBandTests : IDisposable
     /// and it is raised at the end of every debounce flush — so an unguarded
     /// re-assert would redraw the list on every keystroke's worth of typing. It is
     /// also what
-    /// <c>.design/accessibility.md#screen-reader--announcements</c> asks for: routine
+    /// <c>.devbook/design/accessibility.md#screen-reader--announcements</c> asks for: routine
     /// Saving/Saved transitions "MUST be throttled so screen readers are not
     /// flooded during continuous typing", and re-raising a polite live region for a
     /// state that did not change is exactly that flood.
@@ -284,7 +284,7 @@ public sealed class TasksSaveStateBandTests : IDisposable
         // The row keeps its own line as well. The toast is the action-level
         // feedback and goes away; the inline alert is the section-level record and
         // stays with the entry that failed, per
-        // .design/interaction-guidelines.md#error-states.
+        // .devbook/design/interaction-guidelines.md#error-states.
         Assert.Equal("No CLI here.", row.CopilotError);
     }
 
