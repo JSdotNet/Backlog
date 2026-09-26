@@ -4688,35 +4688,61 @@ h1, h2, h3 {
     font-size: var(--font-size-lg);
 }
 
-/* The reader's pace: the typed figure and the strip choosing which pace places a
-   plan, on one line after the buttons that add to the plan. Wraps under them on a
-   narrow window rather than pushing the filters off the header. */
+/* A band's pace, under its name in the chart's sidebar: the field and its unit on
+   one line, then the choices that measured something — Mine and up to three
+   stretches, each with its figure — wrapping onto a second line within the
+   sidebar's own width, then at most one line of note. Sized to that width and to
+   the rows the band asks for (RoadmapPlanView.PaceRows), so every measure here
+   is the smallest the library offers. */
 .roadmap-pace {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--spacing-xs);
+    display: grid;
+    gap: var(--spacing-2xs);
     min-width: 0;
 }
 
-.roadmap-pace__label,
-.roadmap-pace__note {
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-xs);
-}
-
-.roadmap-pace__label {
-    font-weight: 600;
+.roadmap-pace__line {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2xs);
+    min-width: 0;
 }
 
 .roadmap-pace__manual {
-    width: 5.5rem;
+    width: 4rem;
+}
+
+.roadmap-pace__unit,
+.roadmap-pace__note {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+}
+
+/* Wrapping, not a strip: however many choices measured something, each keeps its
+   figure on one line, and a second line takes the ones the first cannot. Each
+   button keeps its own corners, since once wrapped none of them is an end. */
+.roadmap-pace .roadmap-pace__options.btn-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+}
+
+.roadmap-pace .roadmap-pace__options.btn-group > .btn {
+    display: inline-flex;
+    gap: var(--spacing-2xs);
+    padding: 1px var(--spacing-2xs);
+    border-radius: var(--border-radius-sm);
+    white-space: nowrap;
 }
 
 .roadmap-pace__option-value {
-    margin-left: var(--spacing-2xs);
-    color: var(--color-text-secondary);
     font-variant-numeric: tabular-nums;
+}
+
+.roadmap-pace__note {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: help;
 }
 
 /* The cell the timeline is drawn in. It does not scroll: the height it is given is

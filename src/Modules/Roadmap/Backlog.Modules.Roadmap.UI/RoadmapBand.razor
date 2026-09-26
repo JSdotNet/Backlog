@@ -41,6 +41,7 @@
 @inject IImportedPlanSource ImportedPlans
 @inject GitHubSettingsStore Repositories
 @inject IRoadmapWorkChanges WorkChanges
+@inject IPlanningPace Paces
 
 <section class="roadmap-band" id="roadmap-band" aria-labelledby="roadmap-band-title" data-testid="roadmap-band">
     @* The heading lives in one of two places, and which one depends on whether
@@ -75,6 +76,7 @@
                                  OnBarSelected="Select"
                                  OnBarChanged="Apply"
                                  OnLinkCreated="LinkAsync"
+                                 GroupContent="@BandPace"
                                  CssClass="roadmap-band__timeline"
                                  TestId="roadmap-timeline" />
 
@@ -212,11 +214,24 @@
                    TestId="roadmap-band-add-date">
             Add a date
         </AppButton>
-
-        @* After the controls that add to the plan: it decides how long a plan sized
-           by its effort is drawn, and changing it re-draws those bars. *@
-        <RoadmapPaceControl OnPaceChanged="RelengthenAtNewPace" />
     </text>;
+
+    /// <summary>
+    /// The pace a band's plans are placed at, under the band's name in the chart's
+    /// sidebar and above its named lanes — where the reader is looking at them.
+    /// <para>
+    /// Drawn only for a band that asked for room (<see cref="RoadmapPlanView"/> gives
+    /// every configured repository's band and the unfiled band
+    /// <see cref="RoadmapPlanView.PaceRows"/>). A repository's band carries that repository's pace. The
+    /// unfiled band carries the default pace — the one its plans are placed at, and
+    /// the one a repository nobody set a pace for reads — measured over all finished
+    /// work. The milestones band places nothing and has none. A change re-lengthens
+    /// every plan still sized by its effort, each at its own pace.
+    /// </para>
+    /// </summary>
+    private RenderFragment<RoadmapGroup> BandPace => group =>
+        @<RoadmapPaceControl Repository="@(group.Id == RoadmapPlanView.UnfiledGroupId ? null : group.Id)"
+                             OnPaceChanged="RelengthenAtNewPace" />;
 
     /// <summary>Where the "now" line is drawn. A parameter so a test can put
     /// today somewhere it chooses rather than wherever the clock happens to
@@ -249,10 +264,36 @@
         // 6). Read on every load and never kept — progress belongs to Tasks.
         var rollups = await Rollups.GatherPlanAsync(_plan);
 
-        _view = RoadmapPlanView.From(_plan, Configured(), rollups);
+        var configured = Configured();
+        var choices = await PaceChoicesAsync(configured);
+
+        _view = RoadmapPlanView.From(_plan, configured, rollups, scope => choices.Contains(scope ?? string.Empty));
 
         _imported = await ImportedPlans.ListAsync();
         _unplanned = Unplanned(_imported, _plan);
+    }
+
+    /// <summary>
+    /// The paces that have a choice to offer — a stretch that measured something —
+    /// by repository alias, with the default pace as the empty string. A band whose
+    /// pace offers one is drawn taller, to fit the choices under the field. Read on
+    /// every load, which the band already does when finished work changes; choosing
+    /// or typing a pace changes what is chosen, never what was measured.
+    /// </summary>
+    private async Task<HashSet<string>> PaceChoicesAsync(IReadOnlyList<PlannedRepository> configured)
+    {
+        var offering = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var scope in configured.Select(repository => (string?)repository.Alias).Prepend(null))
+        {
+            var paces = await Paces.ReadAsync(scope);
+            if (paces.LastTwoWeeks is not null || paces.LastFourWeeks is not null || paces.LastEightWeeks is not null)
+            {
+                offering.Add(scope ?? string.Empty);
+            }
+        }
+
+        return offering;
     }
 
     /// <summary>

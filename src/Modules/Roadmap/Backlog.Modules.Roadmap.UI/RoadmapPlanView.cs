@@ -81,10 +81,16 @@ public static class RoadmapPlanView
     /// <c>IRoadmapItemRollup.GatherPlanAsync</c> answers it. An item missing from it
     /// — or no rollups at all — draws with no steps, which is what an item nothing
     /// points at looks like anyway.</param>
+    /// <param name="offersPaceChoices">Whether the pace a band carries has a choice to
+    /// offer — whether any of its stretches measured something — asked with the
+    /// repository's alias, or <c>null</c> for the default pace the unfiled band
+    /// carries. It decides how tall the band is (<see cref="PaceRows"/>). Left unset,
+    /// no pace offers one.</param>
     public static RoadmapTimelineModel From(
         RoadmapPlanDto? plan,
         IReadOnlyList<PlannedRepository>? repositories,
-        IReadOnlyDictionary<Guid, RoadmapItemRollupDto>? rollups = null)
+        IReadOnlyDictionary<Guid, RoadmapItemRollupDto>? rollups = null,
+        Func<string?, bool>? offersPaceChoices = null)
     {
         if (plan is null || plan.IsEmpty) return RoadmapTimelineModel.Empty;
 
@@ -113,7 +119,7 @@ public static class RoadmapPlanView
             .ToList();
 
         var stacked = Stack(items);
-        var groups = BuildGroups(items, stacked.Rows, milestones.Count > 0, configured);
+        var groups = BuildGroups(items, stacked.Rows, milestones.Count > 0, configured, offersPaceChoices);
         var drawn = groups.SelectMany(group => group.RowList).Select(row => row.Id).ToHashSet();
 
         var bars = items
@@ -538,11 +544,31 @@ public static class RoadmapPlanView
 
     private static string Lane(string? lane) => string.IsNullOrWhiteSpace(lane) ? DefaultLane : lane.Trim();
 
+    /// <summary>
+    /// How many rows a band carrying a pace keeps for its name and the pace under it,
+    /// before its first named lane. The pace starts under the name, about 2.1rem down,
+    /// and the rows are the chart's 2.75rem.
+    /// <para>
+    /// The field alone, with at most one line of note under it, is about 2.75rem:
+    /// two rows. With choices to offer — Mine and up to three measured stretches,
+    /// each with its figure, wrapping onto a second line within the sidebar's 11rem —
+    /// and a line of note, it is about 5.6rem: three.
+    /// </para>
+    /// </summary>
+    public static int PaceRows(bool offersChoices) => offersChoices ? PaceRowsWithChoices : PaceRowsFieldOnly;
+
+    /// <summary>A band whose pace is only the field.</summary>
+    public const int PaceRowsFieldOnly = 2;
+
+    /// <summary>A band whose pace offers measured stretches to choose from.</summary>
+    public const int PaceRowsWithChoices = 3;
+
     private static List<RoadmapGroup> BuildGroups(
         List<ItemPart> items,
         Dictionary<(string GroupId, string Lane), int> stackedRows,
         bool hasMilestones,
-        List<PlannedRepository> configured)
+        List<PlannedRepository> configured,
+        Func<string?, bool>? offersPaceChoices)
     {
         // Configured order first, so the bands read the way Settings lists them, then
         // the unfiled band last — it is where things end up rather than somewhere
@@ -594,8 +620,11 @@ public static class RoadmapPlanView
 
             // The hue the repository wears, as Settings resolved it. The unfiled band
             // arrives with none and stays neutral, which reads as "nobody said" rather
-            // than as one more project.
-            bands.Add(new RoadmapGroup(id, title, rows, BandColour(hue)));
+            // than as one more project. Every band here makes room under its name for the
+            // pace its plans are placed at — a repository's own, or, for the unfiled
+            // band, the default pace — as tall as that pace needs.
+            var offers = offersPaceChoices?.Invoke(id == UnfiledGroupId ? null : id) ?? false;
+            bands.Add(new RoadmapGroup(id, title, rows, BandColour(hue), PaceRows(offers)));
         }
 
         return bands;

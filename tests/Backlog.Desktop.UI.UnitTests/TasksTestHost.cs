@@ -188,17 +188,19 @@ internal static class TasksTestHost
     {
         public event Action? Changed { add { } remove { } }
 
-        public decimal Manual => 7;
+        public decimal Manual(string? repository = null) => 7;
 
-        public PaceSource Source => PaceSource.Manual;
+        public PaceSource Source(string? repository = null) => PaceSource.Manual;
 
-        public string? SetManual(string? typed) => null;
+        public string? SetManual(string? typed, string? repository = null) => null;
 
-        public string? Choose(PaceSource source) => null;
+        public string? Choose(PaceSource source, string? repository = null) => null;
     }
 
     private sealed class NothingFinished : IRoadmapCompletedWork
     {
+        public IReadOnlyList<string> Repositories => [];
+
         public Task<IReadOnlyList<CompletedEffortDto>> CompletedSinceAsync(
             DateOnly since,
             CancellationToken cancellationToken = default) =>

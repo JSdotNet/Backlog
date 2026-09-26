@@ -23,14 +23,19 @@ public class RelengthenPlanTests
         new RelengthenPlanCommandHandler(_plans, _velocity)
             .Handle(new RelengthenPlanCommand(gathered), TestContext.Current.CancellationToken);
 
-    private Guid Imported(string tag, int days = 5, ImportPlacement placement = ImportPlacement.Effort)
+    private Guid Imported(
+        string tag,
+        int days = 5,
+        ImportPlacement placement = ImportPlacement.Effort,
+        params string[] repositories)
     {
         var plan = _plans.Current;
         var added = plan.AddImportedItem(
             tag,
             PlanningTag.Of(tag),
             PlannedWindow.Of(Start, Start.AddDays(days - 1)),
-            placement);
+            placement,
+            scope: RepositoryScope.Of(repositories));
         Assert.True(added.IsSuccess);
         _plans.Current = plan;
         return added.Value.Id;
@@ -53,6 +58,26 @@ public class RelengthenPlanTests
         Assert.Equal(ImportPlacement.Effort, Stored(a).PlacedByImport);
         Assert.Equal(2, result.Value.Count);
         Assert.Equal(1, _plans.Saves);
+    }
+
+    [Fact]
+    public async Task EachItemIsRedrawnAtItsOwnRepositorysPace_FromOneRead()
+    {
+        var backlog = Imported("plan-a", days: 14, repositories: "backlog");
+        var site = Imported("plan-b", days: 14, repositories: "site");
+        var both = Imported("plan-c", days: 14, repositories: ["backlog", "site"]);
+        var unfiled = Imported("plan-d", days: 14);
+        _velocity.ByRepository["backlog"] = 14;
+        _velocity.ByRepository["site"] = 2;
+
+        var result = await RelengthenAsync(new() { [backlog] = 14, [site] = 14, [both] = 14, [unfiled] = 14 });
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(7, Stored(backlog).Window.Days);  // 14 points at 14 a week
+        Assert.Equal(49, Stored(site).Window.Days);    // 14 points at 2 a week
+        Assert.Equal(49, Stored(both).Window.Days);    // the slower of the two
+        Assert.Equal(14, Stored(unfiled).Window.Days); // the global 7 a week: unchanged
+        Assert.Equal(1, _velocity.Reads);
     }
 
     [Fact]
@@ -131,13 +156,5 @@ public class RelengthenPlanTests
                 milestone.Id, milestone.Title, milestone.On, milestone.Kind, milestone.Scope, milestone.Lane,
                 Dependencies.Of(milestone.Dependencies.All), milestone.IsPlanWide)),
             plan.BandColours);
-    }
-
-    private sealed class FixedVelocity(decimal storyPointsPerWeek) : IPlanningVelocity
-    {
-        public decimal StoryPointsPerWeek { get; set; } = storyPointsPerWeek;
-
-        public Task<decimal> GetStoryPointsPerWeekAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(StoryPointsPerWeek);
     }
 }
