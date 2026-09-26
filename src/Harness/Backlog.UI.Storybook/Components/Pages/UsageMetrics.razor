@@ -155,6 +155,31 @@ Parts take ramp steps in the order given, so the caller owns the ordinal scale �
         </div>
     </Story>
 
+    <Story Name="MetricRanking"
+           Description="Which one took the most: a row per item, each with its own bar, ranked largest first by the component. Not a part-to-whole — the bars are scaled to the leader, not to a total, so rows that overlap (a run's MCP servers and its tool categories) never claim to add up.
+
+Every figure is printed; the bars are `aria-hidden`. `Detail` carries what a reader wants beside the value — the call count and the failures next to the time they took — and `NameCssClass` sets names in the monospace face when they are identifiers."
+           Code="@RankingCode">
+        <div class="sb-stack">
+            <MetricRanking Items="ToolTime"
+                           Label="Tool calls by time spent"
+                           FormatValue="Elapsed"
+                           TestId="ranking-tools" />
+
+            <MetricRanking Items="ServerTime"
+                           Label="MCP servers by time spent"
+                           FormatValue="Elapsed"
+                           NameCssClass="data-table__mono"
+                           TestId="ranking-servers" />
+
+            <p class="sb-state">No rows is the empty state, not an empty list:</p>
+            <MetricRanking Items="NoRanking"
+                           Label="Tool calls by time spent"
+                           EmptyMessage="No tool calls recorded."
+                           TestId="ranking-empty" />
+        </div>
+    </Story>
+
     <Story Name="MetricMeter"
            Description="Spend against a cap: the one component here about a limit rather than a quantity, so it is a meter with a known maximum and a reading inside it.
 
@@ -328,6 +353,37 @@ A total across two currencies is a wrong number rather than a missing one, so th
 
     private static readonly IReadOnlyList<MetricRow> NoRows = [];
 
+    /// <summary>Seconds, from a real run's fold, in no particular order: the
+    /// component ranks them.</summary>
+    private static readonly IReadOnlyList<MetricRankItem> ToolTime =
+    [
+        new("Edit", 2m, "22 calls"),
+        new("Shell", 7380m, "74 calls"),
+        new("MCP tool", 1003m, "17 calls"),
+        new("QA (Playwright/Aspire)", 630m, "36 calls · 2 failed"),
+        new("Agent tasks", 285m, "2 calls"),
+        new("Agents", 285m, "2 calls")
+    ];
+
+    private static readonly IReadOnlyList<MetricRankItem> ServerTime =
+    [
+        new("plugin_qa_playwright", 332m, "23 calls"),
+        new("plugin_qa_aspire", 297m, "13 calls"),
+        new("ccd_session_mgmt", 971m, "1 call"),
+        new("plugin_delivery-surface-dashboard", 17m, "9 calls")
+    ];
+
+    private static readonly IReadOnlyList<MetricRankItem> NoRanking = [];
+
+    private static string Elapsed(decimal seconds)
+    {
+        var span = TimeSpan.FromSeconds((double)seconds);
+
+        return span.TotalHours >= 1 ? $"{(int)span.TotalHours}h {span.Minutes}m"
+            : span.TotalMinutes >= 1 ? $"{span.Minutes}m {span.Seconds}s"
+            : $"{span.Seconds}s";
+    }
+
     private sealed record FormatExample(string Call, string Result, string Why);
 
     private static readonly IReadOnlyList<FormatExample> FormatExamples =
@@ -421,6 +477,15 @@ A total across two currencies is a wrong number rather than a missing one, so th
                                 new("Cache write", tokens.CacheCreationInputTokens),
                                 new("Output", tokens.OutputTokens)
                             })" />
+        """;
+
+    private const string RankingCode = """
+        @* Any order in; the component ranks. Detail is printed, never drawn. *@
+        <MetricRanking Label="Tool calls by time spent"
+                       Items="@(run.InsightsByCategory
+                           .Select(group => new MetricRankItem(group.Name, group.DurationMs, $"{group.Count} calls"))
+                           .ToList())"
+                       FormatValue="ms => Duration((long)ms)" />
         """;
 
     private const string MeterCode = """

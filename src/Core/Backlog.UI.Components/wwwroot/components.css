@@ -10507,6 +10507,87 @@ select.field__input {
     text-align: right;
 }
 
+/* --- Metrics: ranking ---------------------------------------------------- */
+/*
+   A name and its figures on one line, the bar under both across the full width.
+   Side by side would leave the bar whatever a narrow column has left after the
+   name and the figures, which in a quarter-pane group is nothing.
+*/
+
+.metric-ranking {
+    display: grid;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.metric-ranking__label {
+    margin: 0;
+    color: var(--chart-ink-muted);
+    font-size: var(--font-size-sm);
+}
+
+.metric-ranking__list {
+    display: grid;
+    gap: var(--spacing-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.metric-ranking__item {
+    display: grid;
+    grid-template-columns: minmax(4rem, 1fr) auto;
+    align-items: baseline;
+    gap: 2px var(--spacing-sm);
+    min-width: 0;
+    font-size: var(--font-size-sm);
+}
+
+.metric-ranking__name {
+    overflow: hidden;
+    color: var(--chart-ink);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.metric-ranking__figures {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0 var(--spacing-sm);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.metric-ranking__detail {
+    color: var(--chart-ink-muted);
+}
+
+.metric-ranking__value {
+    color: var(--chart-ink);
+}
+
+.metric-ranking__track {
+    grid-column: 1 / -1;
+    display: block;
+    overflow: hidden;
+    height: 0.375rem;
+    border-radius: var(--border-radius-full);
+    background: var(--chart-track);
+}
+
+.metric-ranking__fill {
+    display: block;
+    height: 100%;
+    /* A row worth a sliver of the leader still shows a mark, the way a
+       breakdown segment does; the printed value says how small. */
+    min-width: var(--border-width-2);
+    border-radius: inherit;
+    background: var(--chart-ramp-3);
+}
+
 /* --- Metrics: budget meter ----------------------------------------------- */
 
 .metric-meter {
