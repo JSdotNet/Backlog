@@ -168,14 +168,18 @@ Lifecycle state of an Inbox Item:
 ```meta
 type: enum
 status: draft
+related: [.devbook/domain/capture/domain.md#capture-source, .devbook/arc42/adr/0017-inbox-import-is-a-capture-source-with-a-markdown-manifest.md]
 aliases: [CaptureSource, source, channel]
 ```
 
 Origin of the item, mirrored from Capture as provenance: `mobile`, `youtube`,
-`website`, `email`, `web_clipper`, `ide`, `manual`. `manual` is the channel of
-an item typed straight into the desktop's Add dialog — the one channel with
-no replica behind it. A channel token nobody recognises is kept as written
-rather than folded into a default.
+`website`, `email`, `web_clipper`, `ide`, `manual`, `import`. `manual` is the
+channel of an item typed straight into the desktop's Add dialog, and it is the
+one channel with no replica behind it. `import` is the channel of an item read
+from an import manifest. It can arrive filed in the Inbox List the manifest
+names, but it is `unprocessed` like any other capture, because filing is not
+triage. A channel token nobody recognises is kept as written rather than folded
+into a default.
 
 ## Inbox List
 

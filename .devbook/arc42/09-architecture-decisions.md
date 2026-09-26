@@ -220,3 +220,12 @@ related: [".devbook/arc42/04-solution-strategy.md"]
   and the schedule catalog are adopted as shipped. The delivery engine replaces
   the orch-* gate, with its roles bound to the `jsdotnet-ai-plugins` agents.
   Local ADR 0011 stands unchanged.
+- **[ADR 0017 — Inbox import is a capture source; its manifest is Markdown with front matter, not entry text](adr/0017-inbox-import-is-a-capture-source-with-a-markdown-manifest.md)**
+  *(accepted, not yet built)*: importing another tool's items, Microsoft To Do
+  first, is the `import` `Capture Source`, not an Inbox feature. Dedup is the
+  deterministic `CaptureIds.For` id the feed monitors already use, so nothing
+  records what was imported. The manifest has a `---` block naming `schema` and
+  `tool`, then one `#`-titled item per capture with a `meta` fence of capture
+  facts. It shares entry text's shape but none of its tokens, so local ADR 0002
+  holds. Completed items are dropped before import. Mapped lists are filed and
+  the rest land unfiled.
