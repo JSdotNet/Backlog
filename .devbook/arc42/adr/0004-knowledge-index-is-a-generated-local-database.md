@@ -1,7 +1,7 @@
 # ADR 0004: One generated local database holds the derived knowledge layer; markdown stays canonical
 
 ```meta
-related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/08-crosscutting-concepts.md#devbook-database", ".devbook/arc42/07-deployment-view.md#local-deployment-desktop", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0016-knowledge-folders-adopt-the-devbook-convention.md", ".devbook/domain/devbook/features.md#repository-devbook-areas", ".devbook/tech/tooling.md#knowledge-meta-generator", ".devbook/tech/shared.md#sqlite"]
+related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/08-crosscutting-concepts.md#devbook-database", ".devbook/arc42/07-deployment-view.md#local-deployment-desktop", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0016-knowledge-folders-adopt-the-devbook-convention.md", ".devbook/domain/devbook/features.md#repository-devbook-areas", ".devbook/tech/tooling.md#devbook-meta-generator", ".devbook/tech/shared.md#sqlite"]
 ```
 
 ## Status
@@ -50,7 +50,7 @@ never required for correctness, and the semantic tier's one live call.
 > This record says "the Node generator" as though there were one. There are two:
 > `.github/tools/knowledge-meta/` is the unchanged install from `knowledge-base`,
 > the `devbook` plugin's predecessor, which `CLAUDE.md` and
-> `.devbook/tech/tooling.md#knowledge-meta-generator` both say never to edit here — and
+> `.devbook/tech/tooling.md#devbook-meta-generator` both say never to edit here — and
 > that install was already four `knowledge-base` releases behind (measured against
 > `knowledge-base` 0.16.0) before the plugin was renamed; re-syncing it from
 > `devbook` is the contract v6 follow-up (settled by local ADR 0016). So `tools/devbook/build-database.mjs`
@@ -127,7 +127,7 @@ them moves.
 ## Context
 
 `.devbook/arc42/`, `.devbook/domain/`, `.backlog/`, `.devbook/tech/` and `.devbook/design/` are markdown, and
-the [knowledge-meta generator](../../tech/tooling.md#knowledge-meta-generator)
+the [knowledge-meta generator](../../tech/tooling.md#devbook-meta-generator)
 derives two JSON artifacts from them per scope: `graph.json`, the reference
 graph, and `index.json`, the ordered reading outline. Six scopes, twelve files,
 about 1.8 MB — the repository-wide `_meta/graph.json` alone is 836 KB for 772

@@ -314,6 +314,7 @@ public sealed class InboxDesktopState
         if (SelectedListId is { } listId && FindList(listId) is null)
         {
             SelectedListId = null;
+            ForgetSelection();
         }
 
         if (SelectedItemId is { } itemId && Items.All(item => item.Id != itemId))
@@ -325,6 +326,8 @@ public sealed class InboxDesktopState
         {
             EditingId = null;
         }
+
+        PruneSelection();
 
         Changed?.Invoke();
     }
@@ -353,6 +356,7 @@ public sealed class InboxDesktopState
         SelectedListId = listId;
         SelectedItemId = null;
         _kindFilter.Clear();
+        ForgetSelection();
         Changed?.Invoke();
     }
 
@@ -369,6 +373,7 @@ public sealed class InboxDesktopState
     public void ToggleKind(string slug)
     {
         if (!_kindFilter.Add(slug)) _kindFilter.Remove(slug);
+        PruneSelection();
         Changed?.Invoke();
     }
 
@@ -377,6 +382,7 @@ public sealed class InboxDesktopState
         if (_kindFilter.Count == 0) return;
 
         _kindFilter.Clear();
+        PruneSelection();
         Changed?.Invoke();
     }
 
@@ -406,6 +412,7 @@ public sealed class InboxDesktopState
         // A capture lands in the unfiled inbox. Opening it there rather than in
         // whatever list was showing, so the row the reader just made is on
         // screen — a capture that vanished into another slice would read as lost.
+        if (SelectedListId is not null) ForgetSelection();
         SelectedListId = null;
         _kindFilter.Clear();
         SelectedItemId = captured.Value.Id;
@@ -580,6 +587,343 @@ public sealed class InboxDesktopState
         }
     }
 
+    // --- Picking several items -------------------------------------------------
+    //
+    // A set beside SelectedItemId rather than an extension of it, on the terms
+    // TasksDesktopState sets for its own: SelectedItemId is "which item am I
+    // reading" and drives the detail, this is "which items am I about to act on"
+    // and drives the bar. Held here rather than in the list component because
+    // the shell re-mounts the pane when it moves slots, and a selection held in
+    // the component would drop with it.
+    //
+    // Mode and selection are one state, enforced both ways as Tasks enforces it:
+    // leaving the mode empties the selection, and a pick turns the mode on.
+
+    private readonly HashSet<Guid> _selection = [];
+
+    /// <summary>The last box pressed, and so where a Shift press measures its
+    /// range from.</summary>
+    private Guid? _selectionAnchor;
+
+    /// <summary>Whether the rows carry a box, because the reader asked for them.</summary>
+    public bool SelectionMode { get; private set; }
+
+    public IReadOnlyCollection<Guid> SelectedIds => _selection;
+
+    public int SelectionCount => _selection.Count;
+
+    public bool IsPicked(Guid id) => _selection.Contains(id);
+
+    /// <summary>The picked items in the order the list draws them, and a
+    /// snapshot: a bulk act reloads, and the reload prunes the live set.</summary>
+    public IReadOnlyList<InboxItemDto> SelectedItems =>
+        [.. VisibleItems.Where(item => _selection.Contains(item.Id))];
+
+    /// <summary>A bulk act is in flight; the bar's acts wait, because a second
+    /// press would run the batch again over whatever the first left.</summary>
+    public bool BulkRunning { get; private set; }
+
+    /// <summary>Turns the boxes on, or off and empty.</summary>
+    public void SetSelectionMode(bool on)
+    {
+        if (SelectionMode == on) return;
+
+        SelectionMode = on;
+        if (!on) ForgetSelection();
+
+        Changed?.Invoke();
+    }
+
+    /// <summary>
+    /// A row's box pressed. Plain, it is that row; with Shift and an anchor still
+    /// in view, every row from the anchor to this one takes the state this box
+    /// now reads as — a state rather than a flip, so the run comes out uniform.
+    /// The anchor moves either way: extending twice means "from where I just got
+    /// to". The same gesture <c>TaskListView</c> gives the Tasks list.
+    /// </summary>
+    public void TogglePicked(Guid id, bool picked, bool range)
+    {
+        var order = VisibleItems;
+        var pressed = IndexOf(order, id);
+        if (pressed < 0) return;
+
+        var anchor = range && _selectionAnchor is { } previous ? IndexOf(order, previous) : -1;
+
+        if (anchor >= 0)
+        {
+            for (var index = Math.Min(anchor, pressed); index <= Math.Max(anchor, pressed); index++)
+            {
+                if (picked) _selection.Add(order[index].Id);
+                else _selection.Remove(order[index].Id);
+            }
+        }
+        else if (picked)
+        {
+            _selection.Add(id);
+        }
+        else
+        {
+            _selection.Remove(id);
+        }
+
+        _selectionAnchor = id;
+        if (_selection.Count > 0) SelectionMode = true;
+
+        Changed?.Invoke();
+    }
+
+    /// <summary>Takes every row in view, or gives them all back. In view rather
+    /// than in the slice: "select all" under a kind filter means what is shown,
+    /// which is also what the bar's count is counting.</summary>
+    public void SetSelectAllVisible(bool picked)
+    {
+        _selection.Clear();
+
+        if (picked)
+        {
+            foreach (var item in VisibleItems) _selection.Add(item.Id);
+            SelectionMode = true;
+        }
+
+        Changed?.Invoke();
+    }
+
+    /// <summary>Puts the whole thing down: the picked items and the boxes.</summary>
+    public void ClearSelection()
+    {
+        SelectionMode = false;
+        ForgetSelection();
+        Changed?.Invoke();
+    }
+
+    /// <summary>Archives every picked item. A routed item is refused by the
+    /// command and named, rather than quietly skipped.</summary>
+    public Task<InboxBulkOutcome> BulkArchiveAsync() =>
+        RunBulkAsync(
+            "archived",
+            refuse: _ => null,
+            alreadyThere: item => item.Status == InboxStatus.Archived,
+            apply: items => _inbox.ArchiveAsync(Ids(items)));
+
+    /// <summary>Files every picked item in one list, or back in the unfiled
+    /// inbox with null. They leave the slice, and the selection with it.</summary>
+    public Task<InboxBulkOutcome> BulkMoveToListAsync(Guid? listId)
+    {
+        var name = listId is { } id ? FindList(id)?.Name ?? "the list" : "Inbox";
+
+        return RunBulkAsync(
+            $"moved to {name}",
+            refuse: _ => null,
+            alreadyThere: item => item.ListId == listId,
+            apply: items => _inbox.MoveToListAsync(Ids(items), listId));
+    }
+
+    /// <summary>
+    /// Adds tags to every picked item, keeping each item's own. Union rather
+    /// than replace, for the reason Tasks gives: a bulk tag change that wrote the
+    /// picked set would take every other tag off every item. So each item's
+    /// target set is worked out here, from its own tags, and the batch hands the
+    /// command one set per item.
+    /// </summary>
+    public Task<InboxBulkOutcome> BulkAddTagsAsync(IEnumerable<string> tags)
+    {
+        ArgumentNullException.ThrowIfNull(tags);
+
+        var added = tags
+            .Where(tag => !string.IsNullOrWhiteSpace(tag))
+            .Select(tag => tag.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (added.Count == 0) return Task.FromResult(InboxBulkOutcome.Nothing);
+
+        return RunBulkAsync(
+            $"tagged {string.Join(", ", added)}",
+            refuse: RefuseDecided,
+            alreadyThere: item => added.All(tag => HasTag(item, tag)),
+            apply: items => _inbox.SetTagsAsync(items.ToDictionary(
+                item => item.Id,
+                item => (IReadOnlyList<string>)[.. TagNames(item).Concat(added).Distinct(StringComparer.OrdinalIgnoreCase)])));
+    }
+
+    /// <summary>Takes one tag off every picked item, leaving the rest. An item
+    /// that never had it is unchanged rather than rewritten.</summary>
+    public Task<InboxBulkOutcome> BulkRemoveTagAsync(string tag)
+    {
+        if (string.IsNullOrWhiteSpace(tag)) return Task.FromResult(InboxBulkOutcome.Nothing);
+
+        var removed = tag.Trim();
+
+        return RunBulkAsync(
+            $"no longer tagged {removed}",
+            refuse: RefuseDecided,
+            alreadyThere: item => !HasTag(item, removed),
+            apply: items => _inbox.SetTagsAsync(items.ToDictionary(
+                item => item.Id,
+                item => (IReadOnlyList<string>)[.. TagNames(item).Where(name => !string.Equals(name, removed, StringComparison.OrdinalIgnoreCase))])));
+    }
+
+    /// <summary>Points every picked item at these repositories, replacing what
+    /// each targeted before — "these all belong here now". Set-only, as in
+    /// Tasks: an empty pick is a reader who has not chosen yet, not one asking
+    /// to untarget the lot.</summary>
+    public Task<InboxBulkOutcome> BulkAssignRepositoriesAsync(IReadOnlyList<string> repoIds)
+    {
+        ArgumentNullException.ThrowIfNull(repoIds);
+
+        var chosen = repoIds
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (chosen.Count == 0) return Task.FromResult(InboxBulkOutcome.Nothing);
+
+        return RunBulkAsync(
+            $"pointed at {string.Join(", ", chosen.Select(RepositoryAlias))}",
+            refuse: RefuseDecided,
+            alreadyThere: item => item.RepoIds.Count == chosen.Count
+                && chosen.All(id => item.RepoIds.Contains(id, StringComparer.OrdinalIgnoreCase)),
+            apply: items => _inbox.AssignRepositoriesAsync(Ids(items), chosen));
+    }
+
+    /// <summary>The tags every picked item's union offers to take off: each tag
+    /// carried by at least one picked item, once.</summary>
+    public IReadOnlyList<string> SelectedTags =>
+        [.. SelectedItems
+            .SelectMany(TagNames)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)];
+
+    /// <summary>
+    /// One bulk act, end to end: sort the picked items into refused up front,
+    /// already there, and to be written; hand the last to the module's batch;
+    /// fold its refusals in; reload; and say what happened.
+    /// <para>
+    /// An item already at the value is not written, the skip-if-unchanged
+    /// Tasks' bulk edit does: a save per item where nothing moved overstates the
+    /// count. An item refused — here or by its command — is named in the
+    /// sentence, so a batch that only partly landed never reads as a success.
+    /// </para>
+    /// </summary>
+    private async Task<InboxBulkOutcome> RunBulkAsync(
+        string did,
+        Func<InboxItemDto, Error?> refuse,
+        Func<InboxItemDto, bool> alreadyThere,
+        Func<IReadOnlyList<InboxItemDto>, Task<InboxBatchResultDto>> apply)
+    {
+        var picked = SelectedItems;
+        if (picked.Count == 0 || BulkRunning) return InboxBulkOutcome.Nothing;
+
+        var refused = new Dictionary<Guid, Error>();
+        var unchanged = 0;
+        var pending = new List<InboxItemDto>();
+
+        foreach (var item in picked)
+        {
+            if (refuse(item) is { } error) refused[item.Id] = error;
+            else if (alreadyThere(item)) unchanged++;
+            else pending.Add(item);
+        }
+
+        BulkRunning = true;
+        Changed?.Invoke();
+
+        try
+        {
+            var result = pending.Count == 0 ? InboxBatchResultDto.Nothing : await apply(pending);
+
+            foreach (var failure in result.Failed) refused[failure.Id] = failure.Error;
+
+            var failures = picked
+                .Where(item => refused.ContainsKey(item.Id))
+                .Select(item => new InboxBulkFailure(item.Id, ItemTitle(item), refused[item.Id]))
+                .ToList();
+
+            var outcome = new InboxBulkOutcome(result.Changed.Count, unchanged, failures);
+
+            await ReloadAsync();
+
+            var message = BulkMessage(outcome, did);
+            _toasts?.Publish(failures.Count > 0
+                ? ToastMessage.Warning(message, BulkResultTestId)
+                : ToastMessage.Info(message, BulkResultTestId));
+
+            return outcome;
+        }
+        finally
+        {
+            BulkRunning = false;
+            Changed?.Invoke();
+        }
+    }
+
+    /// <summary>
+    /// What a bulk act did, in one sentence and then the names. The count of
+    /// what landed leads, so it never goes missing behind a refusal; every item
+    /// refused follows by title with its own reason, because "2 could not be
+    /// saved" leaves the reader hunting for which two.
+    /// </summary>
+    internal static string BulkMessage(InboxBulkOutcome outcome, string did)
+    {
+        var clauses = new List<string>
+        {
+            outcome.Changed > 0 ? $"{Counted(outcome.Changed, "item", "items")} {did}" : "No items changed"
+        };
+
+        if (outcome.Unchanged > 0) clauses.Add($"{outcome.Unchanged} already up to date");
+
+        var sentence = string.Join(", ", clauses) + ".";
+
+        if (outcome.Failures.Count == 0) return sentence;
+
+        var named = outcome.Failures.Select(failure => $"\"{failure.Title}\": {failure.Error.Message}");
+
+        return $"{sentence} Not changed — {string.Join(" ", named)}";
+    }
+
+    private static Error? RefuseDecided(InboxItemDto item) => IsOpen(item) ? null : InboxErrors.ItemAlreadyDecided;
+
+    private static IEnumerable<string> TagNames(InboxItemDto item) => item.Tags.Select(tag => tag.Name);
+
+    private static bool HasTag(InboxItemDto item, string tag) =>
+        item.Tags.Any(existing => string.Equals(existing.Name, tag, StringComparison.OrdinalIgnoreCase));
+
+    private static IReadOnlyList<Guid> Ids(IReadOnlyList<InboxItemDto> items) => [.. items.Select(item => item.Id)];
+
+    private static string ItemTitle(InboxItemDto item) =>
+        string.IsNullOrWhiteSpace(item.Title) ? "Untitled" : item.Title;
+
+    private static int IndexOf(IReadOnlyList<InboxItemDto> items, Guid id)
+    {
+        for (var i = 0; i < items.Count; i++)
+        {
+            if (items[i].Id == id) return i;
+        }
+
+        return -1;
+    }
+
+    /// <summary>Drops every pick that is no longer on screen — archived, moved
+    /// away, filtered out — and keeps the rest. What a refresh does to the
+    /// selection: it survives, less what left.</summary>
+    private void PruneSelection()
+    {
+        if (_selection.Count == 0 && _selectionAnchor is null) return;
+
+        var visible = VisibleItems.Select(item => item.Id).ToHashSet();
+
+        _selection.IntersectWith(visible);
+        if (_selectionAnchor is { } anchor && !visible.Contains(anchor)) _selectionAnchor = null;
+    }
+
+    /// <summary>Empties the picks without leaving the mode: the slice changed,
+    /// and a pick made in another slice is not one the reader can see.</summary>
+    private void ForgetSelection()
+    {
+        _selection.Clear();
+        _selectionAnchor = null;
+    }
+
     // --- Lists and groups ------------------------------------------------------
 
     /// <summary>Makes a list and opens its name for typing. Born with a
@@ -595,6 +939,7 @@ public sealed class InboxDesktopState
 
         if (groupId is { } group) _collapsedGroups.Remove(group);
 
+        ForgetSelection();
         SelectedListId = created.Value.Id;
         SelectedItemId = null;
         _kindFilter.Clear();
@@ -762,6 +1107,9 @@ public sealed class InboxDesktopState
     private const string ErrorTestId = "inbox-error";
     private const string AddErrorTestId = "inbox-add-error";
 
+    /// <summary>The toast a bulk act's sentence lands on, success or not.</summary>
+    public const string BulkResultTestId = "inbox-bulk-result";
+
     /// <summary>Puts a refused result on a toast and says whether it was one.
     /// Action-level feedback per the interaction guidelines: an error toast, and
     /// the control that failed is left as it was so the reader can try again.</summary>
@@ -777,3 +1125,20 @@ public sealed class InboxDesktopState
 /// <summary>One kind chip: the slug the marker draws, the word beside it, and
 /// how many rows of the slice it stands for.</summary>
 public sealed record InboxKindCount(string Slug, string Label, int Count);
+
+/// <summary>
+/// What a bulk act across the picked items did: how many it changed, how many
+/// were already at the value and left alone, and which it could not change.
+/// Three answers, as Tasks' <c>BulkEditOutcome</c> gives — the Inbox keeps its
+/// own because its pane may not reach into Tasks'.
+/// </summary>
+public sealed record InboxBulkOutcome(int Changed, int Unchanged, IReadOnlyList<InboxBulkFailure> Failures)
+{
+    public static readonly InboxBulkOutcome Nothing = new(0, 0, []);
+
+    public int Total => Changed + Unchanged + Failures.Count;
+}
+
+/// <summary>One item a bulk act could not change: which, what it is called, and
+/// why.</summary>
+public readonly record struct InboxBulkFailure(Guid Id, string Title, Error Error);

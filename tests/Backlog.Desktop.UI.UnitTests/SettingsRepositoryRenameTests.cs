@@ -254,6 +254,10 @@ public sealed class SettingsRepositoryRenameTests
         public Task<Result> AssignRepositoriesAsync(Guid id, IReadOnlyList<string> repoIds, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Result> MoveToListAsync(Guid id, Guid? listId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Result> ArchiveAsync(Guid id, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<InboxBatchResultDto> SetTagsAsync(IReadOnlyDictionary<Guid, IReadOnlyList<string>> tagsByItem, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<InboxBatchResultDto> AssignRepositoriesAsync(IReadOnlyList<Guid> ids, IReadOnlyList<string> repoIds, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<InboxBatchResultDto> MoveToListAsync(IReadOnlyList<Guid> ids, Guid? listId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<InboxBatchResultDto> ArchiveAsync(IReadOnlyList<Guid> ids, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Result<InboxRoutedDto>> RouteToBacklogAsync(Guid id, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Result<InboxRoutedDto>> CreatePlanAsync(Guid id, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Result<InboxListDto>> CreateListAsync(string name, Guid? groupId = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();

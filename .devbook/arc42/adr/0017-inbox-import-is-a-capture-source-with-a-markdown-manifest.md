@@ -13,6 +13,12 @@ Accepted, 2026-09-26. Not built yet. This is the first entry (`import-adr`) of
 the `inbox-capture-extension` plan. It is written first so that every later
 entry implements this one decision.
 
+The `url` and `tags` keys and the fallback `external_id` were added on
+2026-09-26, when the generating skill was written (`import-skill`). Its
+grammar,
+`plugins/backlog-tools/skills/backlog-import-inbox/assets/inbox-import-manifest.md`,
+gives every key's rule.
+
 The repository owner settled four choices on 2026-09-25. They are inputs here,
 not open questions:
 
@@ -82,6 +88,12 @@ what was imported, and nothing needs clearing when an import is repeated. An
 item the person has since archived or routed stays where they put it. Its id is
 already known, so it is never re-created.
 
+A tool that gives an item no id of its own still yields an `external_id`. The
+generating skill writes a fallback derived from the item's title and
+`captured_at`. So the manifest never lacks the key, and an item without one is
+skipped as malformed. The fallback is only as stable as the title: a renamed
+item comes in again.
+
 ### 3. The manifest is Markdown with front matter
 
 ```meta
@@ -95,7 +107,9 @@ already known, so it is never re-created.
 - Directly under each title is a fenced `meta` block of `key: value` lines:
   - `external_id` (required): the tool's own id for the item.
   - `captured_at` (required): when the item was made in the tool, as ISO 8601.
+  - `url` (optional): the original link the item points at.
   - `kind` (optional): a `Content Kind`, `text` when absent.
+  - `tags` (optional): the source tool's labels that the person mapped to tags.
   - `person` (optional): who shared it, stored as the item's `@name`.
   - `list` (optional): the Inbox List to file it in.
 - Everything after the fence, up to the next `#` title, is the item's notes. It
@@ -177,7 +191,7 @@ fields the adapter needs to parse strictly.
   `Capture Source` gains the same token. An older build that meets the token
   keeps it as written, as it does for any channel it does not recognise.
 - The capture that `Delivery` hands over has to carry the manifest's `kind`,
-  `person`, and `list`. Today `CaptureItem` carries a source kind, title, URL,
+  `tags`, `person`, and `list`. Today `CaptureItem` carries a source kind, title, URL,
   body, and time. Widening it is additive, as `ItemCaptured`'s published-language
   rules allow.
 - An import is run on demand with a file, not on a schedule. Its result is one
