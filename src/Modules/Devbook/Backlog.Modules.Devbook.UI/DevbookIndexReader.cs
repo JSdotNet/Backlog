@@ -15,7 +15,7 @@ namespace Backlog.Desktop.UI.Devbook;
 /// every one of them before the panel could draw its first tab.
 /// </para>
 /// <para>
-/// Local ADR 0004 moved the outline into the generated <c>_meta/devbook.db</c>,
+/// Local ADR 0004 moved the outline into the generated devbook database,
 /// where it is one <c>WHERE scope = ?</c> rather than one file per folder, and
 /// this reads it from there. The committed <c>_meta/index.json</c> stays as a
 /// fallback rung, for a repository that has the old artifacts and no database yet
@@ -123,7 +123,7 @@ public sealed class DevbookIndexDocument
     private sealed record Cached(DevbookIndexDocument? Document);
 
     /// <summary>
-    /// The outline out of <c>_meta/devbook.db</c>, for the scope this folder is.
+    /// The outline out of the devbook database, for the scope this folder is.
     ///
     /// <para>The scope is the folder's own name — <c>.domain</c> — because that is
     /// what the writer files its rows under. A folder configured somewhere that is

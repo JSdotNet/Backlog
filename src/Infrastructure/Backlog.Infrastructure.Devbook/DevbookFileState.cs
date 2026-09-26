@@ -142,10 +142,6 @@ public enum DevbookRetrievalTier
 /// <summary>What a retrieval surface says about the tier it has.</summary>
 public static class DevbookRetrieval
 {
-    /// <summary>The command that builds the database, named wherever its absence
-    /// is reported so the answer to "search is unavailable" is one line away.</summary>
-    public const string BuildCommand = "node tools/devbook/build-database.mjs";
-
     /// <summary>
     /// The tier available from an open database, or
     /// <see cref="DevbookRetrievalTier.Unavailable"/> when there is none.
@@ -159,14 +155,13 @@ public static class DevbookRetrieval
 
     /// <summary>
     /// The words a surface shows for <see cref="DevbookRetrievalTier.Unavailable"/>.
-    /// Modelled on the atlas's "not generated yet" message, which is the one place
-    /// this repository already tells a reader that a generated artifact is missing
-    /// rather than showing them an empty panel.
+    /// The app builds the database itself when a repository is read (local
+    /// ADR 0015), so there is nothing for the reader to run: what they are told is
+    /// that it is on its way.
     /// </summary>
     public static string UnavailableMessage(string surface) =>
         string.Format(
             CultureInfo.InvariantCulture,
-            "{0} needs the generated devbook database, which has not been written yet. Run {1} to build it.",
-            surface,
-            BuildCommand);
+            "{0} needs this repository's devbook index, which has not been built yet. Backlog builds it in the background when the devbook is opened — try again in a moment.",
+            surface);
 }

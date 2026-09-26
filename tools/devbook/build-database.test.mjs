@@ -172,17 +172,18 @@ async function withFixture(body) {
     }
 }
 
-test('the database builds when _meta does not exist yet', async () => {
+test('the database builds into a folder that does not exist yet', async () => {
     const root = await writeFixture();
+    const outside = await mkdtemp(join(tmpdir(), 'devbook-out-'));
     try {
-        assert.equal(await exists(join(root, '_meta')), false);
-
-        const target = join(root, '_meta', 'devbook.db');
+        const target = join(outside, 'not-yet', 'devbook.db');
         await buildDatabase(root, target);
 
         assert.equal(await exists(target), true);
+        assert.equal(await exists(join(root, '_meta')), false, 'nothing is written into the repository');
     } finally {
         await rm(root, { recursive: true, force: true });
+        await rm(outside, { recursive: true, force: true });
     }
 });
 
@@ -474,9 +475,7 @@ test('the resolver reads the same order the database records', async () => {
 });
 
 test("this repository's own corpus builds", async () => {
-    // Built into a temp file rather than over `_meta/devbook.db`: a test suite
-    // that replaces the database the desktop is reading would be a side effect
-    // nobody asked for, on a file that is a build output either way.
+    // Built into a temp file: nothing this suite builds belongs anywhere else.
     const scratch = await mkdtemp(join(tmpdir(), 'devbook-db-repo-'));
     const target = join(scratch, 'devbook.db');
     try {
@@ -517,9 +516,7 @@ let repositoryCorpus = null;
 
 function withRepositoryCorpus() {
     repositoryCorpus ??= (async () => {
-        // Into a temp file rather than over `_meta/devbook.db`, for the reason
-        // the case above gives: a suite that replaces the database the desktop is
-        // reading is a side effect nobody asked for.
+        // Into a temp file, for the reason the case above gives.
         const scratch = await mkdtemp(join(tmpdir(), 'devbook-db-corpus-'));
         const target = join(scratch, 'devbook.db');
         await buildDatabase(DEFAULT_ROOT, target);

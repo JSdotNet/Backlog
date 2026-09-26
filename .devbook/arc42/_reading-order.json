@@ -23,7 +23,8 @@
         "0011-devbook-annotations-are-a-third-replica-container.md",
         "0012-backlog-is-an-mcp-server-inside-the-desktop-app.md",
         "0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md",
-        "0014-attachments-travel-through-a-blob-store-beside-the-replica.md"
+        "0014-attachments-travel-through-a-blob-store-beside-the-replica.md",
+        "0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md"
       ]
     },
     ".devbook/arc42/adr/guidelines": {

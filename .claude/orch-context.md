@@ -199,8 +199,9 @@ checks pass:
 - Derived `_meta/` artifacts are regenerated rather than hand-edited, and
   `node .github/tools/knowledge-meta/build.mjs --check` passes. Nothing under
   `_meta/` is committed any more, so there is no `git diff` to be clean: what
-  replaces it is `node tools/devbook/build-database.mjs` building without
-  error, which is a blocking step in `devbook-metadata.yml`.
+  replaces it is `node tools/devbook/build-database.mjs --check` building without
+  error, which is a blocking step in `devbook-metadata.yml`. The database the app
+  reads is built by the app into its own storage (local ADR 0015).
 
 ## QA Depth
 

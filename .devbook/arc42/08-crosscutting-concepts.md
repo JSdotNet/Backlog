@@ -36,7 +36,7 @@ related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/ar
   Task aggregate, session records, the phone's captures, and the person's
   remarks on Devbook chapters. A remark is Devbook's own record — one JSON
   file per repository in `devbook-annotations/` under the storage folder,
-  moved with the backlog, never the repository's `_meta/devbook.db` and never
+  moved with the backlog, never the generated devbook database and never
   a table in `backlog.db` — and it travels through a third replica container
   on the task container's terms
   (`.devbook/arc42/adr/0011-devbook-annotations-are-a-third-replica-container.md`).
@@ -305,7 +305,7 @@ and local ADR 0005 argues each.
 
 ```meta
 status: active
-related: [".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/domain/devbook/features.md#repository-devbook-areas"]
+related: [".devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md", ".devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md", ".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/domain/devbook/features.md#repository-devbook-areas"]
 ```
 
 How every channel reads the knowledge a repository carries alongside its code.
@@ -314,13 +314,12 @@ How every channel reads the knowledge a repository carries alongside its code.
   chapters, the resolved reading outline, the retrieval indexes and the diagram
   artifact index are all derived. Nothing that is derived is authoritative, and
   nothing that is authored lives only in the derived layer.
-- **One generated SQLite database per knowledge repository**, at `_meta/devbook.db`
-  beside the folders it describes rather than in the workspace root, because an area
-  is resolved per registered repository and the app reads repositories it did not
-  build.
-- **Generated, not committed.** The database is a build output and is ignored by
-  git, which is what keeps two branches editing different chapters from conflicting
-  on a file neither of them authored.
+- **One generated SQLite database per repository path, in the app's storage** —
+  `_databases/<name>-<hash>/devbook.db` under the devbook cache folder the branch
+  snapshots use, keyed by the repository root's absolute path. Outside every
+  repository, so nothing about it is committed or needs ignoring and a repository
+  the app reads is left as it was found; per path, so two worktrees of one
+  repository, and a branch snapshot, each get their own.
 - **The authored half stays text** — each directory's reading order and root
   document, the hand-written Archify specifications, and the Structurizr C4
   workspace under `.devbook/arc42/_c4/`, are committed and reviewed in diffs. Only what a
@@ -331,16 +330,19 @@ How every channel reads the knowledge a repository carries alongside its code.
   builds offline; embeddings are keyed by chapter content hash, need a model, and
   are versioned by it. A reader must work correctly with the semantic tier absent,
   falling back to full-text search.
-- **The generator is the only writer.** The app reads and never writes, so the
-  markdown parse has exactly one implementation. A chapter the app has just edited
-  is treated as drifted and served from its markdown, rather than re-indexed by a
-  second parser in C#.
+- **The app builds it.** A C# builder beside the reader parses the folders the
+  way the devbook generator does and writes every table; the reader stays
+  read-only. `tools/devbook/build-database.mjs` remains as CI's build check and as
+  the reference a comparison test holds the C# builder to, row for row, on this
+  repository's own corpus — the two parsers stay in step through that test. A
+  chapter the app has just edited is still treated as drifted and served from its
+  markdown until the next check rebuilds.
 - **Refresh is an optimisation, never a precondition** — nothing on the app's own
-  write, a stat-per-file check when an area is opened, a debounced watcher while a
-  folder is in view, and a cancellable idle-time background pass for repositories
-  nobody has opened and for embeddings. **Not on startup**: startup only stats each
-  registered repository to learn whether an index exists, and schedules rather than
-  performs the work.
+  write; when a repository's database is first asked for, and again after a quiet
+  interval, a background check stats each file against its row and rebuilds the
+  whole database when anything differs, never waited on by the read that
+  triggered it. **Not on startup**. A debounced watcher and an idle pass for
+  repositories nobody has opened remain unbuilt optimisations.
 - **A reader degrades in defined steps** rather than on or off: current row →
   drifted file read from its markdown → unrecognised schema version ignored
   entirely → absent, locked or unreadable database → markdown, which is the path
@@ -350,6 +352,10 @@ How every channel reads the knowledge a repository carries alongside its code.
 - **One artifact, every channel** — desktop, mobile, the IDE extensions and a future
   MCP server read the same schema rather than each carrying its own markdown parser.
 
+> Moved on 2026-09-25 (local ADR 0015): the database left the repository for the
+> app's storage, and the app became its writer, which is what the first gap below
+> was waiting on. The note that follows is the 2026-09-08 state.
+>
 > Implemented on 2026-09-08, with two deliberate gaps. The derived layer is
 > `_meta/devbook.db`, written by `tools/devbook/build-database.mjs` and
 > git-ignored; each knowledge folder carries a committed `_reading-order.json`

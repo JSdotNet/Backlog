@@ -89,7 +89,7 @@ public sealed class DevbookAtlasViewTests : IDisposable
         var component = harness.Render(DomainScope);
 
         component.WaitForAssertion(() =>
-            Assert.Contains("has not been written yet", component.Markup));
+            Assert.Contains("has not been built yet", component.Markup));
 
         Assert.Empty(component.FindAll("[data-testid=\"graph-atlas-index-option\"]"));
     }

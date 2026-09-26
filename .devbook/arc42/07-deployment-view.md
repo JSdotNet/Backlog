@@ -24,8 +24,9 @@ The desktop app is installed on Windows machines and is the canonical deployment
   up, and one to keep off a synced disk.
 - **Repository Devbook** — knowledge folders are not deployed with the app. They
   live in each registered repository's own working copy, wherever the user cloned it,
-  and are read in place; the generated index over them (`_meta/devbook.db`) is
-  built beside the folders in that repository rather than under the workspace root.
+  and are read in place; the generated index over them (`devbook.db`) is built by
+  the app into its own storage, one per repository path under the devbook cache
+  folder, and never into the repository.
   See `.devbook/arc42/08-crosscutting-concepts.md#devbook-database`.
 - **Local Fetch Workers** — YouTube, website, email, GitHub-sync, and stale-detection
   workers run in-process/background on the desktop.

@@ -13,11 +13,11 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// <para>What these hold is the property the rest of Devbook depends on: the
 /// shape a caller gets back is the same whichever rung answered. The panels ask
 /// for entries, titles, statuses and a staleness verdict, and none of them knows
-/// whether that came out of <c>_meta/devbook.db</c>, out of the committed
+/// whether that came out of the devbook database, out of the committed
 /// <c>_meta/index.json</c>, or out of a directory scan.</para>
 ///
 /// <para>The database here is created from the DDL in
-/// <c>tools/devbook/devbook-schema.mjs</c>, read at test time, for the same
+/// <c>tools/devbook/devbook-schema.sql</c>, read at test time, for the same
 /// reason <c>DevbookSchemaContractTests</c> does it: nothing on the C# side is
 /// allowed to restate the schema, including a fixture.</para>
 /// </summary>
@@ -164,7 +164,7 @@ public sealed class DevbookIndexDatabaseTests : IDisposable
         // A rebuild, as far as the stamp can tell: the file grows. Grown by more
         // than a page rather than by one small row, so the check is on the size
         // and not on how finely the filesystem records a write time.
-        var databasePath = Path.Combine(_root, "_meta", "devbook.db");
+        var databasePath = DevbookDatabaseLocation.ForRepositoryRoot(_root)!;
         // The reader's pooled connection would keep the write in the WAL file
         // rather than the database itself; the generator never writes into a
         // file a reader holds either — it renames a new one over it.
@@ -200,7 +200,7 @@ public sealed class DevbookIndexDatabaseTests : IDisposable
 
         if (!withDatabase) return folder;
 
-        var databasePath = Path.Combine(_root, "_meta", "devbook.db");
+        var databasePath = DevbookDatabaseLocation.ForRepositoryRoot(_root)!;
         Directory.CreateDirectory(Path.GetDirectoryName(databasePath)!);
 
         using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
@@ -261,18 +261,11 @@ public sealed class DevbookIndexDatabaseTests : IDisposable
     }
 
     /// <summary>
-    /// The writer's DDL, read out of <c>tools/devbook/devbook-schema.mjs</c>.
+    /// The writer's DDL, read out of <c>tools/devbook/devbook-schema.sql</c>.
     /// Copying it into C# would make this fixture agree with a schema nobody
     /// writes, which is precisely the drift ADR 0004 asks to be pinned.
     /// </summary>
-    private static string WriterSchema()
-    {
-        var source = File.ReadAllText(RepositoryRoot.File("tools", "devbook", "devbook-schema.mjs"));
-        var match = Regex.Match(source, @"export const DEVBOOK_SCHEMA = `(?<value>[^`]*)`", RegexOptions.Singleline);
-
-        Assert.True(match.Success, "tools/devbook/devbook-schema.mjs no longer exports DEVBOOK_SCHEMA.");
-        return match.Groups["value"].Value;
-    }
+    private static string WriterSchema() => DevbookDatabaseSchema.Ddl;
 
     public void Dispose()
     {

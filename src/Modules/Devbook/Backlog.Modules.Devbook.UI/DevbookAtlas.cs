@@ -10,7 +10,7 @@ namespace Backlog.Desktop.UI.Devbook;
 /// The knowledge folders as a map, read from the graph the metadata generator
 /// already derives.
 ///
-/// <para>Nothing here parses Markdown. The generated <c>_meta/devbook.db</c>
+/// <para>Nothing here parses Markdown. The generated devbook database
 /// holds the whole repository's graph in one table — nodes with a label, a
 /// folder, a status and a path, edges with a kind — and a scope is a filter over
 /// it rather than a file of its own, which is what local ADR 0004 changed. A

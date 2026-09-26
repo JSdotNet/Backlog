@@ -27,15 +27,13 @@ public class DevbookSchemaContractTests
     }
 
     [Fact]
-    public void The_database_path_matches_the_writers()
+    public void The_embedded_schema_is_the_file_the_node_writer_loads()
     {
-        Assert.Equal(DevbookDatabaseSchema.RelativePath, DevbookSchemaSource.DatabasePath);
-    }
-
-    [Fact]
-    public void The_devbook_layout_database_path_matches_the_writers()
-    {
-        Assert.Equal(DevbookDatabaseSchema.DevbookLayoutRelativePath, DevbookSchemaSource.DevbookLayoutDatabasePath);
+        // One text for both writers (local ADR 0015): the builder's embedded copy
+        // and tools/devbook/devbook-schema.sql are the same file, line endings aside.
+        Assert.Equal(
+            DevbookSchemaSource.Ddl.ReplaceLineEndings(),
+            DevbookDatabaseSchema.Ddl.ReplaceLineEndings());
     }
 
     [Fact]
@@ -72,7 +70,7 @@ public class DevbookSchemaContractTests
     public void Every_table_the_reader_claims_round_trips_a_row()
     {
         using var temporary = new TemporaryDatabase();
-        var seeded = DevbookCorpus.Seed(temporary.DatabaseFile);
+        var seeded = DevbookCorpus.Seed(temporary);
 
         using var database = DevbookDatabase.TryOpen(temporary.DatabaseFile);
         Assert.NotNull(database);
