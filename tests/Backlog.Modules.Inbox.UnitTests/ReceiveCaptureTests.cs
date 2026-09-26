@@ -290,6 +290,77 @@ public sealed class ReceiveCaptureTests
         Assert.Equal(InboxIntakeOutcome.Received, outcome);
     }
 
+    /// <summary>An import manifest states what an item is; the stated kind is
+    /// kept even where the detector would have read the link differently.</summary>
+    [Fact]
+    public async Task A_capture_that_states_its_kind_keeps_it()
+    {
+        var store = new InMemoryInboxStore();
+        var capture = Capture("Aspire 13 walkthrough", channel: "import") with
+        {
+            SourceUrl = "https://www.youtube.com/watch?v=abc",
+            Kind = "article",
+        };
+
+        await Receive(store, capture);
+
+        var item = Assert.Single(store.Items.Values);
+        Assert.Equal(ContentKind.Article, item.Kind);
+        Assert.Equal("article", item.KindSlug);
+        Assert.Equal("import", item.Source.Channel);
+    }
+
+    [Fact]
+    public async Task A_stated_kind_this_build_does_not_know_is_kept_as_written()
+    {
+        var store = new InMemoryInboxStore();
+
+        await Receive(store, Capture("Standup notes", channel: "import") with { Kind = "podcast" });
+
+        var item = Assert.Single(store.Items.Values);
+        Assert.Equal(ContentKind.Text, item.Kind);
+        Assert.Equal("podcast", item.KindSlug);
+    }
+
+    [Fact]
+    public async Task A_capture_without_a_kind_is_read_by_the_detector()
+    {
+        var store = new InMemoryInboxStore();
+
+        await Receive(store, Capture("Walkthrough", channel: "import") with { SourceUrl = "https://youtu.be/abc" });
+
+        Assert.Equal(ContentKind.YouTube, Assert.Single(store.Items.Values).Kind);
+    }
+
+    /// <summary>Filed, not triaged: the item is in the list and still waiting.</summary>
+    [Fact]
+    public async Task A_capture_naming_a_list_is_filed_there_unprocessed()
+    {
+        var store = new InMemoryInboxStore();
+        var listId = Guid.NewGuid();
+
+        await Receive(store, Capture("Buy oat milk", channel: "import") with { ListId = listId });
+
+        var item = Assert.Single(store.Items.Values);
+        Assert.Equal(listId, item.ListId);
+        Assert.Equal(InboxStatus.Unprocessed, item.Status);
+    }
+
+    [Fact]
+    public async Task A_known_capture_is_not_refiled_by_a_second_import()
+    {
+        var store = new InMemoryInboxStore();
+        var capture = Capture("Buy oat milk", channel: "import");
+        await Receive(store, capture);
+
+        var outcome = await Receive(store, capture with { ListId = Guid.NewGuid(), Kind = "link" });
+
+        Assert.Equal(InboxIntakeOutcome.AlreadyKnown, outcome);
+        var item = Assert.Single(store.Items.Values);
+        Assert.Null(item.ListId);
+        Assert.Equal(ContentKind.Text, item.Kind);
+    }
+
     private static InboxCaptureDto Capture(string title, string channel = "mobile") =>
         new(Guid.CreateVersion7(), title, channel, Items.Noon, Items.Noon, WithdrawnAt: null);
 

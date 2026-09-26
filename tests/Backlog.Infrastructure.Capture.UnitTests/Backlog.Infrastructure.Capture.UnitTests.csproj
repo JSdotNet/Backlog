@@ -4,4 +4,9 @@
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Capture\Backlog.Infrastructure.Capture.csproj" />
   </ItemGroup>
 
+  <!-- Import manifests read from disk, as the adapter reads them. -->
+  <ItemGroup>
+    <None Update="Fixtures\*.md" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

@@ -290,6 +290,79 @@ public sealed class RunCaptureCommandHandlerTests
             () => handler.Handle(new RunCaptureCommand(), cancellation.Token));
     }
 
+    /// <summary>An import is run with its file whatever the settings say, and
+    /// on its own: the switched-on monitors are not looked at.</summary>
+    [Fact]
+    public async Task A_run_given_one_source_looks_at_that_source_alone()
+    {
+        var settings = new FakeSettings();
+        settings.SetEnabled(CaptureSourceKind.YouTube, true);
+        var youtube = new RecordingAdapter(CaptureSourceKind.YouTube, Entry("v"));
+        var import = new RecordingAdapter(CaptureSourceKind.Import, Entry("a"));
+        var log = new FakeLog();
+        var only = new MonitoredSource(CaptureSourceKind.Import, Enabled: true, Targets: ["C:/exports/todo.md"]);
+
+        var result = await Handler(settings, new FakeDelivery(), log, youtube, import).Handle(new RunCaptureCommand(only), TestContext.Current.CancellationToken);
+
+        Assert.Null(youtube.Received);
+        Assert.Same(only, import.Received);
+        Assert.Equal(CaptureSourceKind.Import, Assert.Single(result.Value.Sources).Kind);
+        Assert.Same(result.Value, Assert.Single(log.Recorded));
+    }
+
+    [Fact]
+    public async Task An_imports_line_names_its_tool_and_counts_what_was_already_known()
+    {
+        var delivery = new FakeDelivery();
+        var findings = new CaptureSourceFindings([Entry("a"), Entry("b"), Entry("c")], []) { Label = "Import (microsoft-todo)" };
+        var import = new RecordingAdapter(CaptureSourceKind.Import, findings);
+        var only = new MonitoredSource(CaptureSourceKind.Import, true, ["todo.md"]);
+        var handler = Handler(new FakeSettings(), delivery, import);
+
+        var first = await handler.Handle(new RunCaptureCommand(only), TestContext.Current.CancellationToken);
+        var second = await handler.Handle(new RunCaptureCommand(only), TestContext.Current.CancellationToken);
+
+        Assert.Equal("Import (microsoft-todo): 3 new items · 0 already known.", Assert.Single(first.Value.Sources).Message);
+        Assert.Equal("Import (microsoft-todo): 0 new items · 3 already known.", Assert.Single(second.Value.Sources).Message);
+        Assert.Equal(0, second.Value.TotalNewItems);
+    }
+
+    [Fact]
+    public async Task An_item_whose_list_is_missing_counts_as_new_and_the_line_names_the_list()
+    {
+        var facts = new CaptureFacts(null, [], null, "Someday/Maybe");
+        var findings = new CaptureSourceFindings(
+            [Entry("a") with { Facts = facts }, Entry("b") with { Facts = facts }],
+            ["Item 3 \"Buy oat milk\": its meta block is never closed — add a line with just ``` after its last key"]);
+        var import = new RecordingAdapter(CaptureSourceKind.Import, findings);
+        var delivery = new FakeDelivery { Answer = CaptureDeliveryOutcome.DeliveredUnfiled };
+
+        var result = await Handler(new FakeSettings(), delivery, import)
+            .Handle(new RunCaptureCommand(new MonitoredSource(CaptureSourceKind.Import, true, ["todo.md"])), TestContext.Current.CancellationToken);
+
+        var line = Assert.Single(result.Value.Sources);
+        Assert.Equal(2, line.NewItems);
+        Assert.Equal(
+            "Import: 2 new items · 0 already known · Item 3 \"Buy oat milk\": its meta block is never closed — add a line with just ``` after its last key · no list is called \"Someday/Maybe\", so what was meant for it landed unfiled.",
+            line.Message);
+    }
+
+    /// <summary>The facts an adapter read travel to the delivery untouched.</summary>
+    [Fact]
+    public async Task An_entrys_facts_are_handed_to_the_delivery()
+    {
+        var facts = new CaptureFacts("youtube", ["home"], "maria", "Errands");
+        var import = new RecordingAdapter(CaptureSourceKind.Import, Entry("a") with { Facts = facts });
+        var delivery = new FakeDelivery();
+
+        await Handler(new FakeSettings(), delivery, import)
+            .Handle(new RunCaptureCommand(new MonitoredSource(CaptureSourceKind.Import, true, ["todo.md"])), TestContext.Current.CancellationToken);
+
+        var item = Assert.Single(delivery.Delivered);
+        Assert.Same(facts, item.Facts);
+        Assert.Equal(CaptureIds.For(CaptureSourceKind.Import, "a"), item.Id);
+    }
+
     private static RunCaptureCommandHandler Handler(ICaptureSourceSettings settings, ICaptureDelivery delivery, params ICaptureSourceAdapter[] adapters) =>
         Handler(settings, delivery, new FakeLog(), adapters);
 

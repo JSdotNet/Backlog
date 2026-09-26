@@ -18,4 +18,10 @@ namespace Backlog.Modules.Capture.Abstractions.Services;
 public interface ICaptureRunner
 {
     Task<CaptureRunResultDto> RunAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Imports one manifest file (local ADR 0017) through the same run:
+    /// one <see cref="CaptureSourceKind.Import"/> line in the result, written to
+    /// the run log like any source's. A file that cannot be read, or items that
+    /// cannot, are that line's notes — never a throw.</summary>
+    Task<CaptureRunResultDto> ImportAsync(string manifestPath, CancellationToken cancellationToken = default);
 }

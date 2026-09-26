@@ -16,7 +16,12 @@ public enum CaptureDeliveryOutcome
     AlreadyKnown,
 
     /// <summary>Nothing to make an item of — a capture with no title.</summary>
-    Ignored
+    Ignored,
+
+    /// <summary>A new item was made of it, but the list its facts named does
+    /// not exist, so it landed unfiled. Counted as new; the run's line says
+    /// which list was missing, because the reader asked for it by name.</summary>
+    DeliveredUnfiled
 }
 
 /// <summary>
@@ -34,13 +39,16 @@ public enum CaptureDeliveryOutcome
 /// <param name="BodyMd">What the source offered beneath the title, or null.</param>
 /// <param name="CapturedAt">When the entry appeared at the source, or when the
 /// run saw it if the source did not say.</param>
+/// <param name="Facts">What the source said beyond the text — a content kind,
+/// tags, a person, a list — or null when it said nothing (every feed).</param>
 public sealed record CaptureItem(
     Guid Id,
     CaptureSourceKind Kind,
     string Title,
     string? SourceUrl,
     string? BodyMd,
-    DateTimeOffset CapturedAt);
+    DateTimeOffset CapturedAt,
+    CaptureFacts? Facts = null);
 
 /// <summary>
 /// Where a capture goes once the run has made one.

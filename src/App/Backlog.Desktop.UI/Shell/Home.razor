@@ -1505,7 +1505,9 @@
     private RenderFragment InboxPaneContent =>
         @<InboxPane OnCapture="RunCaptureAsync" CaptureRunning="_captureRunning" CaptureMessage="@_captureMessage">
             <Sources>
-                <CaptureSourcesPanel Expanded="_captureSourcesOpen" ExpandedChanged="open => _captureSourcesOpen = open" />
+                <CaptureSourcesPanel Expanded="_captureSourcesOpen"
+                                     ExpandedChanged="open => _captureSourcesOpen = open"
+                                     OnImported="ImportedAsync" />
             </Sources>
         </InboxPane>;
 
@@ -1545,6 +1547,14 @@
         }
 
         if (run is { TotalNewItems: > 0 }) await ReloadInboxAfterCaptureAsync();
+    }
+
+    /// <summary>The sources panel's Import file…, answered the way the Capture
+    /// button's run is: when it delivered anything, the Inbox is re-read so the
+    /// imported rows are on screen. The panel prints the import's own line.</summary>
+    private async Task ImportedAsync(CaptureRunResultDto run)
+    {
+        if (run.TotalNewItems > 0) await ReloadInboxAfterCaptureAsync();
     }
 
     /// <summary>The same read <see cref="HandleTaskSyncChanged"/> does after a

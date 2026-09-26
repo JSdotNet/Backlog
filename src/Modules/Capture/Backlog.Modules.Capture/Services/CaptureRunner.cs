@@ -1,3 +1,4 @@
+using Backlog.Modules.Capture.Abstractions;
 using Backlog.Modules.Capture.Abstractions.DataTransferObjects;
 using Backlog.Modules.Capture.Abstractions.Services;
 using Backlog.Modules.Capture.Features.RunCapture;
@@ -19,9 +20,20 @@ namespace Backlog.Modules.Capture.Services;
 internal sealed class CaptureRunner(
     ICommandHandler<RunCaptureCommand, Result<CaptureRunResultDto>> runCapture) : ICaptureRunner
 {
-    public async Task<CaptureRunResultDto> RunAsync(CancellationToken cancellationToken = default)
+    public Task<CaptureRunResultDto> RunAsync(CancellationToken cancellationToken = default) =>
+        HandleAsync(new RunCaptureCommand(), cancellationToken);
+
+    public Task<CaptureRunResultDto> ImportAsync(string manifestPath, CancellationToken cancellationToken = default)
     {
-        var result = await runCapture.Handle(new RunCaptureCommand(), cancellationToken);
+        ArgumentException.ThrowIfNullOrWhiteSpace(manifestPath);
+
+        var import = new MonitoredSource(CaptureSourceKind.Import, Enabled: true, Targets: [manifestPath]);
+        return HandleAsync(new RunCaptureCommand(import), cancellationToken);
+    }
+
+    private async Task<CaptureRunResultDto> HandleAsync(RunCaptureCommand command, CancellationToken cancellationToken)
+    {
+        var result = await runCapture.Handle(command, cancellationToken);
 
         return result.IsSuccess
             ? result.Value

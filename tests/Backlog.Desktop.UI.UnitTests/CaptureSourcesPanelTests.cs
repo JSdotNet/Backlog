@@ -7,6 +7,8 @@ using Backlog.Modules.Capture.UI;
 
 using Bunit;
 
+using Microsoft.AspNetCore.Components.Forms;
+
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -225,6 +227,66 @@ public sealed class CaptureSourcesPanelTests
     }
 
     [Fact]
+    public void The_import_row_offers_a_file_and_its_own_last_run()
+    {
+        using var panel = RenderPanel(expanded: true);
+
+        var row = panel.Component.Find("[data-testid='capture-source-import']");
+        Assert.Contains("Import file", row.TextContent, StringComparison.Ordinal);
+        Assert.Equal("file", panel.Component.Find("[data-testid='capture-source-import-file']").GetAttribute("type"));
+        Assert.Equal("Never imported.", panel.Component.Find("[data-testid='capture-source-import-last-run']").TextContent.Trim());
+        Assert.NotEmpty(panel.Component.FindAll("[data-testid='capture-source-import-log-toggle']"));
+
+        // An import is run with a file, not switched on: no toggle, no targets.
+        Assert.Empty(panel.Component.FindAll("[data-testid='capture-source-import-enabled']"));
+        Assert.Empty(panel.Component.FindAll("[data-testid='capture-source-import-targets']"));
+    }
+
+    /// <summary>The picked file goes through the run, the panel prints the
+    /// run's line, and the host is told so it can re-read the Inbox.</summary>
+    [Fact]
+    public void A_picked_manifest_is_imported_and_its_line_shown()
+    {
+        var imported = new List<CaptureRunResultDto>();
+        using var panel = RenderPanel(expanded: true, imported: imported.Add);
+        const string manifest = "---\nschema: 1\ntool: microsoft-todo\n---\n";
+
+        var input = panel.Component.FindComponent<InputFile>();
+        var picked = input.Instance;
+        input.UploadFiles(InputFileContent.CreateFromText(manifest, "microsoft-todo-inbox-import.md"));
+
+        panel.Component.WaitForAssertion(() => Assert.Equal(
+            "Import (microsoft-todo): 2 new items · 1 already known.",
+            panel.Component.Find("[data-testid='capture-source-import-result']").TextContent.Trim()));
+
+        Assert.Equal([manifest], panel.Runner.Imported);
+        Assert.Single(imported);
+
+        // The file the run read was the panel's to write, and it is gone.
+        Assert.False(File.Exists(panel.Runner.Paths.Single()));
+
+        // A fresh input, so picking the same file again imports it again: a
+        // file input that still holds a file raises no change for it.
+        Assert.NotSame(picked, panel.Component.FindComponent<InputFile>().Instance);
+    }
+
+    [Fact]
+    public void The_import_logs_last_run_is_read_like_a_monitors()
+    {
+        using var panel = RenderPanel(
+            expanded: true,
+            log: store => store.Record(new CaptureRunResultDto(
+                [new CaptureRunSourceResult(CaptureSourceKind.Import, 3, "Import (microsoft-todo): 3 new items · 0 already known.")],
+                Noon)));
+
+        Assert.StartsWith("Last import", panel.Component.Find("[data-testid='capture-source-import-last-run']").TextContent.Trim(), StringComparison.Ordinal);
+
+        panel.Component.Find("[data-testid='capture-source-import-log-toggle']").Click();
+
+        Assert.Contains("0 already known", panel.Component.Find("[data-testid='capture-source-import-log']").TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void The_panel_says_where_the_choices_are_kept()
     {
         using var panel = RenderPanel(expanded: true);
@@ -240,7 +302,8 @@ public sealed class CaptureSourcesPanelTests
         Action<bool>? expandedChanged = null,
         ICaptureSourceSettings? captureSources = null,
         Action<ICaptureSourceSettings>? before = null,
-        Action<ICaptureRunLog>? log = null)
+        Action<ICaptureRunLog>? log = null,
+        Action<CaptureRunResultDto>? imported = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-capture-sources-panel-tests", Guid.NewGuid().ToString("n"));
 
@@ -253,12 +316,38 @@ public sealed class CaptureSourcesPanelTests
         var context = new BunitContext();
         context.Services.AddSingleton(captureSources);
         context.Services.AddSingleton<ICaptureRunLog>(runLog);
+        var runner = new RecordingRunner();
+        context.Services.AddSingleton<ICaptureRunner>(runner);
 
         var component = context.Render<CaptureSourcesPanel>(parameters => parameters
             .Add(p => p.Expanded, expanded)
-            .Add(p => p.ExpandedChanged, open => expandedChanged?.Invoke(open)));
+            .Add(p => p.ExpandedChanged, open => expandedChanged?.Invoke(open))
+            .Add(p => p.OnImported, run => imported?.Invoke(run)));
 
-        return new PanelRenderContext(root, context, component, captureSources, runLog);
+        return new PanelRenderContext(root, context, component, captureSources, runLog, runner);
+    }
+
+    /// <summary>The run, answering an import with a fixed line and keeping the
+    /// text of the file it was pointed at — read at the moment it was asked,
+    /// since the panel removes the file afterwards.</summary>
+    private sealed class RecordingRunner : ICaptureRunner
+    {
+        public List<string> Imported { get; } = [];
+
+        public List<string> Paths { get; } = [];
+
+        public Task<CaptureRunResultDto> RunAsync(CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException("The panel does not run the monitors.");
+
+        public async Task<CaptureRunResultDto> ImportAsync(string manifestPath, CancellationToken cancellationToken = default)
+        {
+            Paths.Add(manifestPath);
+            Imported.Add(await File.ReadAllTextAsync(manifestPath, cancellationToken));
+
+            return new CaptureRunResultDto(
+                [new CaptureRunSourceResult(CaptureSourceKind.Import, 2, "Import (microsoft-todo): 2 new items · 1 already known.")],
+                Noon);
+        }
     }
 
     /// <summary>A store whose disk has gone away: every write is refused with
@@ -287,7 +376,8 @@ public sealed class CaptureSourcesPanelTests
         BunitContext TestContext,
         IRenderedComponent<CaptureSourcesPanel> Component,
         ICaptureSourceSettings CaptureSources,
-        ICaptureRunLog Log) : IDisposable
+        ICaptureRunLog Log,
+        RecordingRunner Runner) : IDisposable
     {
         public void Dispose()
         {

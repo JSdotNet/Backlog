@@ -13,6 +13,11 @@ namespace Backlog.Modules.Capture.Ports;
 /// that failed is reported without hiding the ones that did not.</param>
 public sealed record CaptureSourceFindings(IReadOnlyList<CapturedEntry> Entries, IReadOnlyList<string> Notes)
 {
+    /// <summary>What the source's line opens with, when the kind's own label
+    /// says too little — an import names the tool its manifest came from,
+    /// <c>Import (microsoft-todo)</c>. Null for the kind's label.</summary>
+    public string? Label { get; init; }
+
     /// <summary>Nothing found and nothing to say.</summary>
     public static CaptureSourceFindings Empty { get; } = new([], []);
 }

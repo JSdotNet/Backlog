@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 
 using Backlog.Infrastructure.Capture.Feeds;
+using Backlog.Infrastructure.Capture.Import;
 using Backlog.Infrastructure.Capture.Inbox;
 using Backlog.Infrastructure.Capture.Website;
 using Backlog.Infrastructure.Capture.YouTube;
@@ -50,7 +51,8 @@ public static class CaptureAdapterRegistration
     private const string UserAgent = "Backlog/1.0 (+https://github.com/JSdotNet/Backlog)";
 
     /// <summary>
-    /// Registers the YouTube and Website source adapters and the Inbox delivery.
+    /// Registers the YouTube, Website and Import source adapters and the Inbox
+    /// delivery.
     /// Call after <c>AddCaptureModule()</c> and <c>AddInboxModule()</c>: the
     /// first declares the ports these answer, and the second supplies the
     /// intake the delivery captures.
@@ -99,6 +101,8 @@ public static class CaptureAdapterRegistration
         services.AddScoped<FeedFetcher>();
         services.AddScoped<ICaptureSourceAdapter, YouTubeChannelAdapter>();
         services.AddScoped<ICaptureSourceAdapter, WebsiteFeedAdapter>();
+        services.AddScoped<ICaptureSourceAdapter, ImportFileAdapter>();
+        services.AddScoped<IInboxListLookup, InboxListLookup>();
         services.AddScoped<ICaptureDelivery, InboxCaptureDelivery>();
 
         return services;
