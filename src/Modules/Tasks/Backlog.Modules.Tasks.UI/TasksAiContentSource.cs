@@ -1,3 +1,4 @@
+using Backlog.Modules.Tasks.Abstractions;
 using Backlog.SharedKernel.Ai;
 
 namespace Backlog.Desktop.UI.Tasks;
@@ -55,8 +56,37 @@ internal sealed class TasksAiContentSource(TasksDesktopState state) : IAiContent
             Text,
             request.Question,
             request.BudgetCharacters,
-            pinned: row => selected is not null && ReferenceEquals(row, selected)));
+            pinned: row => selected is not null && ReferenceEquals(row, selected),
+            note: Totals(rows)));
     }
+
+    /// <summary>
+    /// One line of counts over every record in scope, not just the ones that fit.
+    /// <para>
+    /// The budget sends a slice of a large backlog, and a slice cannot answer
+    /// "how many open tasks do I have?" — the assistant said so, correctly. The
+    /// counts cost one line whatever the backlog's size, so they go with every
+    /// question. "Open" is spelled out because it is the word people ask with and
+    /// no status is called that. Every status and type is listed, zeros included:
+    /// "0 in progress" is an answer, a missing word is not.
+    /// </para>
+    /// </summary>
+    private static string? Totals(IReadOnlyList<EntryRow> rows)
+    {
+        if (rows.Count == 0) return null;
+
+        var statuses = rows.CountBy(row => row.PreviewStatus).ToDictionary();
+        var types = rows.CountBy(row => row.PreviewType).ToDictionary();
+        var open = rows.Count(row => row.PreviewStatus is not (EntryStatus.Done or EntryStatus.Archived));
+
+        return $"Totals across all entries in scope: {open} open (not done or archived). " +
+            $"By status: {string.Join(", ", Enum.GetValues<EntryStatus>().Select(status => $"{statuses.GetValueOrDefault(status)} {StatusName(status)}"))}. " +
+            $"By type: {string.Join(", ", Enum.GetValues<EntryType>().Select(type => $"{types.GetValueOrDefault(type)} {type.ToString().ToLowerInvariant()}"))}.";
+    }
+
+    private static string StatusName(EntryStatus status) => status == EntryStatus.InProgress
+        ? "in progress"
+        : status.ToString().ToLowerInvariant();
 
     /// <summary>The area, with the repository scope that defines it: the scope is
     /// content — it says which projects' entries these are — so the first line
