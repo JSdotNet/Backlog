@@ -41,9 +41,14 @@ public class AspireAppModelTests
     /// registration that names a head names it by path.</summary>
     private static readonly string[] MauiHeads = ["Backlog.Mobile", "Backlog.Desktop"];
 
-    /// <summary>The runtime context a flow run reads: how the app starts and what
-    /// QA depth applies.</summary>
-    private static readonly string[] RuntimeContext = [".claude", "orch-context.md"];
+    /// <summary>The procedures a flow run reads before it touches the running app:
+    /// <c>start</c> for how the app starts and what healthy looks like, <c>debug</c>
+    /// for how its logs and traces are queried.</summary>
+    private static readonly string[][] RuntimeProcedures =
+    [
+        [".agents", "skills", "start.md"],
+        [".agents", "skills", "debug.md"],
+    ];
 
     [Fact]
     public void The_apphost_opts_in_to_the_aspire_cli_bundle()
@@ -423,21 +428,21 @@ public class AspireAppModelTests
         }
     }
 
-    /// <summary>The runtime context file is the brief every flow run reads before it
-    /// starts the app. A runtime fact missing from it is one a run discovers the hard
-    /// way.</summary>
+    /// <summary>The start and debug procedures are the brief every flow run reads
+    /// before it starts the app. A runtime fact missing from them is one a run
+    /// discovers the hard way.</summary>
     [Theory]
     [InlineData("foundry-local")]
     [InlineData("telemetry filtering")]
     [InlineData("remembered surface")]
-    public void The_runtime_context_carries_the_runtime_facts(string fact)
+    public void The_runtime_procedures_carry_the_runtime_facts(string fact)
     {
-        var text = File.ReadAllText(RepositoryRoot.File(RuntimeContext));
+        var text = string.Concat(RuntimeProcedures.Select(path => File.ReadAllText(RepositoryRoot.File(path))));
 
         Assert.True(
             text.Contains(fact, StringComparison.OrdinalIgnoreCase),
-            $"{Path.Combine(RuntimeContext)} does not mention '{fact}'. Every flow run reads it before "
-            + "starting the app, so a fact missing from it leaves the run working from a stale brief.");
+            $"Neither the start nor the debug procedure mentions '{fact}'. Every flow run reads them before "
+            + "starting the app, so a fact missing from them leaves the run working from a stale brief.");
     }
 
     /// <summary>The README resource table is the first thing anyone reads before

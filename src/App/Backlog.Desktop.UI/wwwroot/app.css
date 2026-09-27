@@ -1422,6 +1422,20 @@ h1, h2, h3 {
     color: var(--color-primary-light);
 }
 
+/* A recorded pull request that merged, or was closed without merging, says so
+   in its ink rather than with a chip: the entry is already Done, so this is a
+   quiet second fact. Hover keeps the state's colour, since the state is what the
+   reader is looking at. */
+.entry-doc__work-link--merged.integration-link--link,
+.entry-doc__work-link--merged.integration-link--link:hover {
+    color: var(--color-success-text);
+}
+
+.entry-doc__work-link--closed.integration-link--link,
+.entry-doc__work-link--closed.integration-link--link:hover {
+    color: var(--color-text-disabled);
+}
+
 /* The panel's: in the footer beside the creation date, small like it, wrapping
    onto a second line of the footer rather than pushing delete and close apart. */
 .entry-doc__work {
@@ -3705,6 +3719,80 @@ h1, h2, h3 {
     gap: var(--spacing-xs);
 }
 
+/* Triage and Select together at the end: two ways of working the rows. */
+.inbox-pane__modes {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+/* --- Triage, one item at a time ------------------------------------------- */
+
+/* Takes the body's place in the pane's column, with the body's floor, and
+   scrolls on its own so the pager stays put over a long item. */
+.inbox-pane__triage {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    min-width: 0;
+    min-height: var(--inbox-queue-min-height);
+}
+
+.inbox-pane__triage-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    padding-bottom: var(--spacing-sm);
+    border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.inbox-pane__triage-leave {
+    margin-left: auto;
+}
+
+.inbox-pane__triage > .inbox-pane__column--detail {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: auto;
+}
+
+/* The shortcuts dialog: the key in a fixed column, what it does beside it. */
+.inbox-pane__shortcuts {
+    display: grid;
+    gap: var(--spacing-2xs);
+    margin: 0;
+}
+
+.inbox-pane__shortcut {
+    display: grid;
+    grid-template-columns: 4rem minmax(0, 1fr);
+    align-items: baseline;
+    gap: var(--spacing-sm);
+}
+
+.inbox-pane__shortcut > dt,
+.inbox-pane__shortcut > dd {
+    margin: 0;
+}
+
+.inbox-pane__key {
+    padding: 0 var(--spacing-2xs);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-background);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-xs);
+}
+
+.inbox-pane__shortcuts-note {
+    margin: var(--spacing-sm) 0 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
 /* Sticky over the rows, as the Tasks pane's bar is, so the count and the acts
    stay in reach while the reader scrolls to pick more. */
 .inbox-pane__bulk-bar {
@@ -4834,12 +4922,13 @@ h1, h2, h3 {
     font-size: var(--font-size-lg);
 }
 
-/* A band's pace, under its name in the chart's sidebar: the field and its unit on
-   one line, then the choices that measured something — Mine and up to three
-   stretches, each with its figure — wrapping onto a second line within the
-   sidebar's own width, then at most one line of note. Sized to that width and to
-   the rows the band asks for (RoadmapPlanView.PaceRows), so every measure here
-   is the smallest the library offers. */
+/* A band's pace, under its name in the chart's sidebar: the stretches that
+   measured something, each with its figure, wrapping onto a second line within the
+   sidebar's own width — or, with none, one line saying the reader's own pace is
+   used. Sized to that width and to the rows the band asks for
+   (RoadmapPlanView.PaceRows), so every measure here is the smallest the library
+   offers. The reader's own pace — "Mine", the field and its unit — sits once in the
+   roadmap's heading (.roadmap-pace--mine). */
 .roadmap-pace {
     display: grid;
     gap: var(--spacing-2xs);
@@ -4855,6 +4944,17 @@ h1, h2, h3 {
 
 .roadmap-pace__manual {
     width: 4rem;
+}
+
+.roadmap-pace--mine {
+    grid-auto-flow: column;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.roadmap-pace__label {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
 }
 
 .roadmap-pace__unit,

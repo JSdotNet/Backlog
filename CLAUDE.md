@@ -13,8 +13,15 @@ This file carries the repository rules that apply to **Claude Code**.
 
 ## Delivery gate
 
-**Before the first `Edit` or `Write` to any file under `src/` or `tests/`, invoke
-`delivery:flow-code`** — or `delivery:flow-update-packages` for a dependency move.
+**Before the first `Edit` or `Write` to any file under `src/` or `tests/`, invoke the
+matching flow:**
+
+| Change | Flow |
+| --- | --- |
+| Code, and tooling, CI, scripting, documentation outside `.devbook/`, housekeeping | `delivery:flow-code` |
+| A devbook chapter, decision record or debt record under `.devbook/` | `delivery:flow-spec` |
+| A dependency, package or framework move | `delivery:flow-update-packages` |
+| Creating, governing or scaffolding a repository | `delivery:flow-project` |
 
 Reading, searching, and exploring are always allowed first — the gate is on the first
 write, not the first action, so orienting yourself does not consume it.
@@ -52,8 +59,8 @@ item's instructions *through* the gate — the matching flow — rather than add
 execution path beside it.
 
 Changes confined to the devbook folders under `.devbook/` (`arc42/`, `domain/`, `tech/`,
-`design/`, `ai/`) run through `delivery:flow-spec`, not the code gate. See `## QA Depth`
-in `.claude/orch-context.md` for how they are verified instead.
+`design/`, `ai/`) run through `delivery:flow-spec`, not the code gate.
+`.agents/rules/context-loading.md` says how they are verified instead.
 
 ## Delivery surfaces
 
@@ -68,9 +75,11 @@ without explicit user approval.
 
 ## Runtime configuration
 
-`.claude/orch-context.md` holds the runtime facts a flow needs — how to run the Aspire
-AppHost, which harness resources to target for UI validation, healthy-startup signals, and
-default QA depth. `.agents/skills/start.md` is the procedure that uses them.
+The runtime facts a flow needs are the procedures': `.agents/skills/start.md` runs the
+Aspire AppHost, says what healthy startup looks like and which harness answers which
+question; `show.md` picks the harness for a branch's change; `debug.md` queries logs and
+traces. QA depth is the engine's per change kind, capped by `policy` in
+`.devbook/config.json`.
 
 This repository configures no model overrides. Flows use each plugin's default model per
 category unless a run is given an explicit model instruction.
@@ -154,14 +163,15 @@ UX guidance. A skill that says to consult a guidelines MCP server reads
 Path-scoped rules are authored once under `.agents/rules/` and wrapped in
 `.claude/rules/<topic>.md` (`paths`). `.agents/rules/README.md` is the convention.
 
-- `.agents/rules/context-loading.md` — the full gate and the policy on
-  which devbook folders a workflow may load.
+- `.agents/rules/context-loading.md` — the repository context file: the full gate, the
+  bound agents and procedures, how a no-runtime change is verified, and which devbook
+  folders a workflow may load.
 - `.agents/rules/ui-components.md` — shared component adoption in the
   application screens.
 - `.agents/rules/storybook.md` — authoring a storybook page and a
   story; the rules it satisfies are in `.devbook/design/README.md#living-reference-the-ui-storybook`.
 - `.agents/rules/mcp-usage.md` — guidance authority order and which MCP servers remain in use.
-- `.claude/orch-context.md` — repo runtime and QA context.
+- `.agents/skills/` — the `start`, `show`, `capture`, `debug` and `estimate` procedures.
 - `plugins/backlog-tools/skills/backlog-import-plan/SKILL.md` — generates a Backlog import
   plan (ADR 0007) from an agreed specification; user-invoked only.
 - `plugins/backlog-tools/skills/backlog-run-plan-item/SKILL.md` — runs one item of such a

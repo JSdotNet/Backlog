@@ -194,7 +194,10 @@ related: [.devbook/domain/roadmap/domain.md#plan-sequencing]
 Show every [Contradiction](domain.md#contradiction) in the plan. They are
 reported, not silently corrected: discovering that a date does not fit
 is the point of drawing the plan, and quietly moving the dependent work would
-hide it.
+hide it. The one thing that moves by itself is a window the importer still sizes
+by effort, and only while nothing has started there, as
+[Placing a plan in time](#placing-a-plan-in-time) says. That is the importer's
+own rule applied again, not a date a person chose being overruled.
 
 ## Repository-scoped planning
 
@@ -449,10 +452,17 @@ repository that is not configured, at the default pace. A repository nobody has
 set a pace for uses the default typed pace and choice, over its own work, until
 somebody does.
 
-Changing a pace re-draws every plan whose window is still sized by its effort,
-each at its own repository's pace, from what its tasks gather now; a plan moved
-by hand or ending on its due date keeps its dates. Re-importing re-places too,
-and so does asking one item to update from its tasks.
+A plan whose window is still sized by its effort **keeps up with its work**.
+Every time the roadmap opens, and every time a task changes, the plan is laid out
+again from what is **not done yet**, at its repository's pace, from today. A plan
+whose work has begun keeps its start and moves its end. A plan nobody has started
+whose start has passed starts today. Finished tasks no longer count toward its
+length. A plan that ran late therefore shows the day the rest of its work will
+actually land, and one that ran ahead pulls its end in. Changing a pace, or a
+measured pace moving as work is finished, re-draws the same way. A finished plan
+keeps its window and is drawn over the stretch its work actually ran. A plan
+moved by hand, or ending on its due date, keeps its dates (ADR 0013, ruling 5 as
+amended on 2026-09-27).
 
 An item the import placed remembers that it did. The first time a person moves
 it by hand, that memory is cleared and the importer never touches its dates
@@ -464,26 +474,16 @@ plan by an import: a plan the document has stopped describing stays planned,
 because taking work off the roadmap is a planning decision — other work waits on
 it — and the person makes it [in place](#editing-the-plan-in-place).
 
-Between imports, tasks get added and estimates change, and the window stays
-what the last import made it. So an item whose window is **still sized by its
-effort** offers to **update from its tasks**: the item shows what its tasks add
-up to now and the end that makes, beside the end it has, and the person decides.
-Taking the offer keeps the start, sets the end from what the tasks register now
-at the person's pace for the item's repositories, and leaves the window the importer's — it is the same rule
-a re-import of the tasks applies, asked for rather than waited for. It is never
-offered for an item a person has moved or one that ends on its due date, and not
-when the tasks already make the window it has. Nothing moves but that item: work
-that waits on it and now starts before it finishes is
+Work that waits on a plan that moved follows it when nothing has started there
+yet and its own window is still sized by effort: it starts the day after the
+plan it waits on ends, and keeps its length. Work that has begun, or that was
+placed by hand or by a due date, keeps its dates. When such work now starts
+before what it waits on finishes, the conflict is
 [named, not moved](#surfacing-contradictions-instead-of-fixing-them).
 
-The update happens where it was offered. The item's editor stays open and shows
-the new dates in its fields, so a Save afterwards keeps them rather than putting
-the old window back as a hand move. Work the update has just made overlap is
-named in the editor too — "Now overlaps: …. They keep their dates." — and work
-that already overlapped before is not named again. An offer can go stale while
-it is on screen, when the item was moved by hand in the meantime; taking it then
-is refused with the reason in the same dialog, nothing changes, and the offer
-is withdrawn.
+Because the plan keeps itself up to date, there is no longer an offer to
+**update from its tasks**. The item's editor shows the window as it has been laid
+out, and a Save that leaves the dates alone is not a hand move.
 
 An import says what it could not do rather than guessing. A plan entry with no
 tag is skipped and named, because the tag is how the next import finds it. A tag

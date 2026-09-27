@@ -197,6 +197,7 @@
                 @if (open)
                 {
                     <TagMultiSelect Label="Tags"
+                                    Id="@TagsInputId"
                                     Options="@State.TagOptions"
                                     SelectedValues="@TagNames(item)"
                                     SelectedValuesChanged="tags => State.SetTagsAsync(tags)"
@@ -289,6 +290,23 @@
                        TestId="inbox-delete-dialog"
                        ConfirmTestId="inbox-delete-confirm"
                        CancelTestId="inbox-delete-cancel" />
+
+        @* The keyboard's way to defer: the review dates a triage decision
+           reaches for, one key and Enter away. A particular date is still the
+           field beside the pickers — this is the quick half, not a second
+           date picker. *@
+        <Modal Open="@_deferOpen"
+               OpenChanged="open => _deferOpen = open"
+               Title="Defer until"
+               CssClass="inbox-pane__dialog"
+               TestId="inbox-defer-dialog">
+            <ChildContent>
+                <MenuList Items="@DeferChoices()"
+                          AriaLabel="Review dates"
+                          TestId="inbox-defer-choices"
+                          OnItemSelected="OnDeferChoiceAsync" />
+            </ChildContent>
+        </Modal>
     }
 </div>
 
@@ -606,6 +624,60 @@
         }
 
         return items;
+    }
+
+    // --- Opened from the keyboard -------------------------------------------
+
+    /// <summary>The tag field's input, which the pane focuses for <c>t</c>.</summary>
+    public const string TagsInputId = "inbox-detail-tags-input";
+
+    /// <summary>Whether the item on screen can still be decided on — the acts
+    /// a shortcut reaches are the ones the header offers.</summary>
+    public bool CanDecide => State.SelectedItem is { Status: InboxStatus.Unprocessed or InboxStatus.Deferred } && !Busy;
+
+    /// <summary>Opens "Move to list", as <c>l</c> does. Filing is allowed in
+    /// every state, so only a missing item or a run in flight refuses it.</summary>
+    public void OpenMove()
+    {
+        if (State.SelectedItem is null || Busy) return;
+
+        _moveOpen = true;
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>Opens the review dates, as <c>d</c> does.</summary>
+    public void OpenDefer()
+    {
+        if (!CanDecide) return;
+
+        _deferOpen = true;
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private bool _deferOpen;
+
+    private const string DeferUndated = "none";
+
+    private IReadOnlyList<MenuItem> DeferChoices()
+    {
+        var today = State.Today;
+        return
+        [
+            DeferChoice("Tomorrow", today.AddDays(1)),
+            DeferChoice("Next week", today.AddDays(7)),
+            DeferChoice("Next month", today.AddMonths(1)),
+            new MenuItem(DeferUndated, "Without a date")
+        ];
+
+        static MenuItem DeferChoice(string label, DateOnly date) =>
+            new(date.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
+                $"{label} · {date.ToString("ddd d MMM", System.Globalization.CultureInfo.InvariantCulture)}");
+    }
+
+    private async Task OnDeferChoiceAsync(MenuItem choice)
+    {
+        _deferOpen = false;
+        await State.DeferAsync(choice.Id == DeferUndated ? null : ParseDate(choice.Id));
     }
 
     private async Task OnMoveTargetAsync(MenuItem target)

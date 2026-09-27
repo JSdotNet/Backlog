@@ -136,6 +136,27 @@ The .NET wrapper over Windows DPAPI.
 - **Why** — the OS credential store local ADR 0005's Identity section names for
   Windows: no key of the app's own to generate, rotate, or leak.
 
+## Model Context Protocol C# SDK
+
+```meta
+status: adopted
+type: package
+version: "2.2.0"
+depends-on: [".devbook/tech/shared.md#aspnet-core", ".devbook/tech/shared.md#net-runtime"]
+related: [".devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md", ".devbook/tech/ai-development.md#model-context-protocol-servers"]
+```
+
+The `ModelContextProtocol` packages the desktop app serves its own MCP server
+with.
+
+- **Used for** — `ModelContextProtocol.Core` in `Backlog.Infrastructure.Mcp`,
+  which defines the tools; `ModelContextProtocol` in `Backlog.Desktop.UI`; and
+  `ModelContextProtocol.AspNetCore` in the desktop head and its web harness,
+  which host the Streamable HTTP endpoint agents reach as the `backlog` server.
+- **Why** — local ADR 0012 puts the server inside the running app so it reads
+  the same store the person does; the official SDK carries the protocol so the
+  repository writes only tools.
+
 ## GitHub CLI
 
 ```meta

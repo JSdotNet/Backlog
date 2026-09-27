@@ -161,9 +161,36 @@ the reader is looking at, the other what the next act will reach.
 ```meta
 type: sub-feature
 status: draft
+related: [.devbook/domain/inbox/requirements.md#triage-from-the-keyboard, .devbook/design/accessibility.md#keyboard-navigation]
+feature-flag: .devbook/domain/inbox/context.md#inbox-pane
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests]
 ```
 
-Keyboard/shortcut actions for common routing patterns to speed up triage.
+A triage session is a run of small decisions, and it is kept short by taking
+them from the keyboard. With the Inbox pane in use, **j** and **k** move to the
+next and previous row, **a** archives, **d** offers review dates to defer to —
+tomorrow, next week, next month, or without a date — **l** opens Move to list,
+**r** moves the item to the backlog, **t** goes to its tags, and **x** picks it
+for an act on several at once. The Tasks pane binds no letters, so the one key
+the two panes share is **Escape**, which in both leaves the mode the reader is
+in. A key offers only the acts the item's detail offers: a routed or archived
+item is not archived again from the keyboard.
+
+A key pressed while typing is typing. A letter in a field, anywhere inside a
+dialog, with Ctrl, Alt or Meta held, or while the focus is in another pane is
+left to what it was pressed in. That is decided in the browser at the moment
+the key goes down, because a decision made on the server arrives one key late.
+
+**Triage mode** shows one item at a time, full width, with where it stands in
+the rows — "12 of 40" — and the keys under the count. Each decision (archive,
+defer, move to a list, move to the backlog) moves on to the next row; past the
+last it goes back to the first item still waiting, which is where a reader who
+skipped some with **j** left them, and when none is left it says so. Tags and
+repositories are not decisions and leave the reader where they are. Escape, or
+**Back to the list**, returns to the rows on the item the session stopped at.
+
+The keys are listed in the **Shortcuts** dialog in the pane's header, which **?**
+also opens, and the buttons they stand for name them in their titles.
 
 ## Classification and enrichment
 
