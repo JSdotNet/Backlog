@@ -73,6 +73,41 @@ The token library the sync service issues its own device tokens with.
   transitively, so the code that signs a token and the code that validates it
   share one build of the same library rather than two that could drift apart.
 
+## Microsoft.AspNetCore.OpenApi
+
+```meta
+status: adopted
+type: package
+version: "10.0.11"
+depends-on: [".devbook/tech/shared.md#aspnet-core"]
+```
+
+Generates the OpenAPI document for the sync API.
+
+- **Used for** — `AddOpenApi()` and an anonymous `MapOpenApi()` in
+  `Backlog.Modules.Sync.Api`.
+- **Why** — the first-party generator for minimal APIs, with no Swashbuckle
+  dependency.
+
+## Azure.Identity
+
+```meta
+status: adopted
+type: package
+version: "1.21.0"
+depends-on: [".devbook/tech/shared.md#net-runtime"]
+related: [".devbook/tech/cloud.md#azure-ai-foundry"]
+```
+
+Microsoft Entra token credentials.
+
+- **Used for** — `AzureManagementTokenSource` in
+  `Backlog.Infrastructure.AzureFoundry`, which reads Foundry cost data from the
+  management plane through an explicit `ChainedTokenCredential`, deliberately
+  not `DefaultAzureCredential` and its probing chain.
+- **Why** — the governed way to obtain an Entra token; chat completions still
+  use the API key, so this is the cost reader's only credential.
+
 ## Azure Container Apps
 
 ```meta
@@ -167,6 +202,27 @@ one database, **five containers**.
 - **Status** — `candidate` and no higher. The template and its `Deploy Sync`
   workflow exist, but nothing is provisioned in Azure and none of it has been
   validated by real use.
+
+## Azure Blob Storage
+
+```meta
+status: candidate
+type: service
+depends-on: [".devbook/tech/cloud.md#aspnet-core-minimal-apis"]
+related: [".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/tech/cloud.md#azure-cosmos-db"]
+```
+
+The attachment store beside the Cosmos replica (local ADR 0014).
+
+- **Used for** — the files on a phone capture, in a private `attachments`
+  container keyed `{ownerId}/{attachmentId}`, reached only through the sync
+  service. `Backlog.Infrastructure.BlobStorage` uses `Azure.Storage.Blobs`
+  12.28.0 through the `Aspire.Azure.Storage.Blobs` client integration; locally
+  the AppHost runs Azurite in its place.
+- **Why** — a capture document carries metadata only, and a device never holds
+  a storage credential.
+- **Status** — `candidate` for the same reason as the rest of the Azure tier:
+  the deployment view records nothing provisioned and validated by real use.
 
 ## Azure Key Vault
 

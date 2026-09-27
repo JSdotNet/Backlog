@@ -118,6 +118,39 @@ The Razor component test framework.
   behaviour is pinned in `dotnet test` and Playwright is reserved for real
   end-to-end flows.
 
+## Microsoft.AspNetCore.Mvc.Testing
+
+```meta
+status: adopted
+type: package
+version: "10.0.11"
+depends-on: [".devbook/tech/shared.md#aspnet-core", ".devbook/tech/testing.md#xunit-v3"]
+```
+
+In-memory hosting of an ASP.NET Core app under test.
+
+- **Used for** — `WebApplicationFactory` in `Backlog.Modules.Sync.Api.UnitTests`
+  and `Backlog.HostComposition.UnitTests`, which exercise the real pipeline —
+  authentication, routing, filters — without a socket.
+- **Why** — the first-party test host; an endpoint test goes through the same
+  middleware a deployed request does.
+
+## Microsoft.Extensions.TimeProvider.Testing
+
+```meta
+status: adopted
+type: package
+version: "10.9.0"
+depends-on: [".devbook/tech/shared.md#net-runtime"]
+```
+
+`FakeTimeProvider`, a clock a test moves by hand.
+
+- **Used for** — nine unit-test projects whose code takes a `TimeProvider`:
+  token lifetimes, sync cycles, deferral and resurfacing, roadmap dates.
+- **Why** — time-dependent behaviour is asserted without sleeping and without
+  flaking on a slow machine.
+
 ## coverlet
 
 ```meta
@@ -145,7 +178,7 @@ related: [".devbook/tech/ai-development.md#model-context-protocol-servers", ".de
 
 Browser automation for end-to-end validation.
 
-- **Used for** — the QA Validation phase of a code-modifying orchestration run:
+- **Used for** — the Validation phase of a code-modifying `flow-*` run:
   driving the Blazor Server harnesses and the storybook, capturing screenshots
   and video as evidence, and attaching to the desktop head over WebView2's CDP
   debugging port.
