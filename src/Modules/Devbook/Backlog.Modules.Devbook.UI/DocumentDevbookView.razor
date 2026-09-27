@@ -401,12 +401,32 @@
 
     /// <summary>The configured folder moved, so every cached read is stale —
     /// including the open chapter, which is why this goes through
-    /// <see cref="ReloadAsync"/> rather than re-reading the folder alone.</summary>
-    private async void OnDevbookChanged()
-    {
-        await ReloadAsync();
-        await InvokeAsync(StateHasChanged);
-    }
+    /// <see cref="ReloadAsync"/> rather than re-reading the folder alone.
+    /// <para>
+    /// Inside <c>InvokeAsync</c>, because a pull announces itself off the
+    /// dispatcher — <c>DevbookUpdateService</c> raises the event after awaited git
+    /// work — and the reload writes fields the render path reads. Guarded,
+    /// because a folder moving mid-pull makes the provider's read throw, and
+    /// reached from the folder source there is no renderer pipeline underneath to
+    /// catch it: out of an <c>async void</c> it would end the process. The
+    /// documents that last read stay on screen, as they do on the instructions
+    /// panel, and the next change asks again.
+    /// </para></summary>
+    private async void OnDevbookChanged() =>
+        await InvokeAsync(async () =>
+        {
+            try
+            {
+                await ReloadAsync();
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DirectoryNotFoundException)
+            {
+                // Nothing to record and nothing to show: the documents that last
+                // read stay up.
+            }
+
+            StateHasChanged();
+        });
 
     /// <summary>Parses the folder again and re-reads the open chapter, whatever
     /// the guard in <see cref="OnParametersSetAsync"/> would have decided. The

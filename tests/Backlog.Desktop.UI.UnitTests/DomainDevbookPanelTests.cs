@@ -29,6 +29,30 @@ public sealed class DomainDevbookPanelTests : IDisposable
 
     private readonly List<string> _roots = [];
 
+    /// <summary>
+    /// A pull announces the folder change off the renderer's thread, and the
+    /// reload it starts can find the folder gone. The chapter that last read stays
+    /// on screen rather than the handler's exception ending the process. An unguarded handler
+    /// crashes the test run on its thread-pool throw; the markup check confirms
+    /// the last good read stays on screen.
+    /// </summary>
+    [Fact]
+    public async Task A_folder_that_cannot_be_read_after_a_change_leaves_the_last_chapter_on_screen()
+    {
+        await using var harness = CreateHarness();
+        var folders = UnreadableDevbookFolderSource.Install(harness.Context);
+
+        var component = harness.Render(ContextMapPath);
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='domain-chapter-file-edit']")));
+
+        folders.MakeUnreadable();
+        folders.NotifyContentChanged();
+        await component.InvokeAsync(() => { });
+
+        Assert.Single(component.FindAll("[data-testid='domain-chapter-file-edit']"));
+        Assert.Contains("Original prose.", component.Markup, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task A_selected_chapter_opens_as_the_file_read_and_offers_a_way_in()
     {
