@@ -371,10 +371,10 @@ az monitor log-analytics workspace show --name <workspace> --resource-group <gro
 
 `dailyQuotaGb` should read `1.0`; `-1.0` means no cap.
 
-### Nightly exception triage
+### Exception triage
 
 `.github/workflows/app-insights-exceptions.yml` reads the component's `exceptions` table
-every night and files one GitHub issue per distinct `problemId`, labelled
+and files one GitHub issue per distinct `problemId`, labelled
 `app-insights-exception`; a problem that keeps occurring gets a comment on its open
 issue rather than a second issue. It signs in with the same federated credential and the
 same `backlog-sync` environment variables as `Deploy Sync`, so prerequisites 2 and 3
@@ -383,6 +383,21 @@ above are its prerequisites too. Reading telemetry through the query API needs
 the resource group already includes it. The component is found by listing the group;
 set `APPLICATIONINSIGHTS_NAME` on the environment only if the group ever holds a second
 one. `workflow_dispatch` takes a `dry_run` input that reports without filing.
+
+The nightly schedule is off. The workflow runs by hand only until the `backlog-sync`
+environment holds `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` and
+`AZURE_RESOURCE_GROUP`: with them blank its preflight fails, and the schedule filed a
+failed run every day. To turn it back on:
+
+1. Set the variables on the `backlog-sync` environment (prerequisite 3 above).
+2. Run the workflow once from the Actions tab with `dry_run` ticked, and see it succeed.
+3. Restore the `schedule:` block under `on:`, beside `workflow_dispatch`:
+
+   ```yaml
+   schedule:
+     # 04:23 UTC, a quiet hour; scheduled jobs are best-effort, so leave slack.
+     - cron: '23 4 * * *'
+   ```
 
 Verified 2026-09-15: the query API answers for `appi-u47q76w3zjori` in `JS-AI`, and its
 `exceptions` table is empty over thirty days — not because nothing failed, but because
