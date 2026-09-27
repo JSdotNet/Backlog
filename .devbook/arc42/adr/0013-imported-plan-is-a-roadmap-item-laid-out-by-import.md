@@ -66,7 +66,10 @@ For the `confirm-rulings` entry, in one screen. The reasoning is in
    setting is story points **a week**, default 7, and the length is effort × 7 ÷
    it in calendar days — see [Deviations](#deviations). Amended 2026-09-26: it is
    kept per repository band, with the global pace as the fallback; an item under
-   several repositories is placed at the lowest of their paces.*
+   several repositories is placed at the lowest of their paces. Amended
+   2026-09-27: a window still sized by effort is re-projected by itself from the
+   effort **not yet done**, from today, whenever the plan is read on a new day or
+   a task changes — see [ruling 5](#5-placed_by_import-and-what-a-re-import-may-touch).*
 5. **[Provenance and re-import](#5-placed_by_import-and-what-a-re-import-may-touch).**
    An import-created item carries `placed_by_import`, cleared the moment a person
    reschedules it by hand. A roadmap-level re-import, matched by tag, replaces
@@ -74,7 +77,11 @@ For the `confirm-rulings` entry, in one screen. The reasoning is in
    `placed_by_import`; keeps a hand-moved one; deletes nothing. A tag several
    items carry updates the first by creation order and is reported. A task-level
    re-import changes nothing on the item except — while still `placed_by_import`
-   by effort — its length.
+   by effort — its length. *Amended 2026-09-27: an `effort`-placed item keeps up
+   with its work by itself — its remaining effort, at the pace in use, laid out
+   from today; its start kept once its work has begun, moved to today when it has
+   not and its start has passed — and an unstarted `effort`-placed item that
+   waits on it follows it. `due-date` and hand-placed items never move.*
 6. **[Steps inside the item](#6-drawing-the-plans-steps-inside-its-item).** On the
    timeline an item expands into the tasks it gathers, ordered by the tasks' own
    `after:` (topological, ties by creation order), each step's width proportional
@@ -356,7 +363,10 @@ changes; it is re-placed only by a re-import
 every window still sized by effort — ruling 5 and [Deviations](#deviations).
 Amended 2026-09-26: the setting is kept per repository band, measured over each
 repository's own finished work, with the global pace for an item filed under
-none — [Deviations](#deviations).* So
+none — [Deviations](#deviations). Amended 2026-09-27: an `effort`-placed window
+is no longer stored and left — it is re-projected from the effort still to do,
+from today, by itself; the rule is in
+[ruling 5](#5-placed_by_import-and-what-a-re-import-may-touch).* So
 `.devbook/domain/roadmap/domain.md`'s invariant stands with one word added to it: the
 total is plain arithmetic over registered points, and the *length* is plain
 arithmetic over that total and a factor the person set.
@@ -425,6 +435,46 @@ from what it gathers now, keeping the start; `due-date` and hand-placed items ar
 untouched, and nothing that waits on a re-lengthened item moves. It is still a
 person's gesture that moves a window: finished work shifting a measured pace
 moves no bar until the next change, import, or update from tasks.
+
+**An `effort`-placed item keeps up with its work** — *amended 2026-09-27, on the
+owner's request, reversing the last two sentences above: a plan that ran late
+kept drawing its old window, and nobody could read from the roadmap when the
+work would actually land.* No gesture is needed. Whenever the roadmap loads the
+plan, and whenever a task is written, every item still `effort`-placed and not
+finished is re-projected:
+
+```
+remaining = total registered effort − finished registered effort
+days      = ceil(remaining × 7 ÷ pace in use)   — never under 1
+days      = 5                                    — when nothing estimated remains but work does
+begun     = any backlog entry the item gathers has started or is done
+start     = kept                                 — when begun
+start     = max(today, day after the latest predecessor end)   — when not begun
+end       = max(today, start) + days − 1
+```
+
+The pace in use is the one ruling 4 names for the item's repositories — typed or
+measured, as the person chose — so a measured pace that moved with finished work
+now moves the bars at the next projection. A pace change is simply one more
+reason to project, by the same rule, so the "re-lengthen, keeping the start"
+rule above no longer exists on its own. A **finished** item is not touched: its
+window stays as stored, and it is drawn over the stretch its work actually ran.
+The value stays `effort` — the window is still the importer's rule applied, not a
+hand move — and an item a person moves stops keeping up, exactly as it stops
+being re-placed by an import.
+
+**What waits on it follows it, when nothing has started there.** Items are
+projected in dependency order, so an unstarted `effort`-placed item that waits
+on a re-projected one takes its start from the new end by the `not begun` line
+above and keeps its length. An item whose work has begun, or that is
+`due-date`- or hand-placed, never moves for a predecessor: when it now starts
+before its predecessor finishes, [Plan
+Sequencing](../../domain/roadmap/domain.md#plan-sequencing) reports the
+contradiction as it always has.
+
+A projection that changes nothing writes nothing, so loading the plan twice on
+one day stores at most once. Each window it moves is written through the same path as
+any re-placement, with `RoadmapItemScheduled` carrying the previous window.
 
 ### 6. Drawing the plan's steps inside its item
 
@@ -561,6 +611,22 @@ Changed on the owner's request, on 2026-09-26:
   pace in use re-lengthens as ruling 5 says, each `effort`-placed item at its own
   repository's pace.
 
+Changed on the owner's request, on 2026-09-27:
+
+- **[Ruling 5](#5-placed_by_import-and-what-a-re-import-may-touch): an
+  `effort`-placed item keeps up with its work by itself**, as amended there. The
+  owner's case: a plan placed for 24–26 September, which had finished none of
+  its 83 points by the 27th, still drew as due on the 26th. Only the effort not
+  yet done is laid out, and it is laid out from today. The start is kept once the
+  work has begun. An unstarted plan whose start has passed starts today, and
+  unstarted `effort`-placed successors follow their predecessor. The one
+  projection rule replaces the pace-change re-length and the "update from its
+  tasks" offer, which asked a person to do what the plan now does itself.
+  Remaining effort is read as the rollup's total less its finished effort. The
+  projection runs where the band reads the plan, on every load and on
+  `IRoadmapWorkChanges`. It is idempotent within a day, so it stores something
+  only when a date changes, and a new day shows up on the next load.
+
 Changed on the owner's request, when the roadmap became a full-screen surface:
 
 - **[Ruling 6](#6-drawing-the-plans-steps-inside-its-item)'s expansion is not
@@ -606,10 +672,11 @@ Negative:
   the next roadmap-level re-import. The alternative — merging the two sets — would
   make it impossible for a document to *remove* a dependency, and the document
   is what the person is editing when they re-import.
-- A velocity change does not move anything already placed. A person who changes
-  their pace and wants the plan to follow re-imports it; that is one gesture, and
-  making the setting reach into stored windows would make a preference an
-  editor of the plan.
+- An `effort`-placed window no longer keeps the date it was first given, so the
+  roadmap shows when the work will land, not when it was first hoped to (amended
+  2026-09-27). What slipped, and by how much, is not kept: nothing records the
+  original window, and a person who wants a date to hold places the item by hand
+  or gives the plan a `due:`.
 - A window computed from effort ignores the working week. An item of 10 points
   at velocity 1 spans 10 calendar days, weekends included. Until Roadmap models
   a calendar, that is the honest reading; the person's velocity can absorb it.

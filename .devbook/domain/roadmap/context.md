@@ -66,14 +66,14 @@ does state a due date is placed on it, and this figure is not consulted.
 
 It is a **reading preference, not an estimate** (ADR 0013, ruling 4). The effort
 stays the tasks' own, added and never invented; the only thing the placement
-adds is how fast the reader says they work through it. A person **changing the
-pace in use** — typing a new one while it is chosen, or choosing another, for
-any repository or globally — re-lengthens every plan whose window is still sized
-by its effort, each at its own repository's pace: the start is kept and the end
-recomputed from what its tasks gather now (ruling 5 as amended). A window placed by its due date, or moved by hand, stays where it is.
-Finished work moving a measured pace is nobody's decision and moves no bar; the
-new figure is used at the next change, a re-import, or when one item is asked to
-[update from its tasks](features.md#placing-a-plan-in-time).
+adds is how fast the reader says they work through it. Every plan whose window
+is still sized by its effort is laid out from the work it has **not done yet**,
+at the pace in use for its repositories, from today. This happens each time the
+roadmap loads, each time a task changes, and when a person changes the pace in
+use (ruling 5 as amended on 2026-09-27). A measured pace that moves as work is
+finished therefore moves those bars too, at the next load. A window placed by its
+due date, or moved by hand, stays where it is — see
+[Placing a plan in time](features.md#placing-a-plan-in-time).
 
 Per value:
 
