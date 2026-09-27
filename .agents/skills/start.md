@@ -60,9 +60,12 @@ later stages all use it.
 - **Not started is healthy.** `desktop`, `mobile-android`, `mobile-maui-android-emulator`,
   `mobile-tunnel`, `ide-vscode-build` and `ide-vscode-host` use `WithExplicitStart()`, so
   sitting `NotStarted` is the healthy state, not a failure. Start one only when the task
-  needs that channel.
+  needs that channel. Start `mobile-tunnel` before `mobile-maui-android-emulator`: the
+  tunnel publishes `sync` to the emulator, which waits for it rather than failing.
 - **Absent is healthy.** `foundry-local` is registered only when the `foundry` CLI is on
-  PATH, so on most machines it does not appear at all.
+  PATH, so on most machines it does not appear at all. Where it is registered it starts with
+  the app model, not on demand. The Android head's OTLP tunnel is likewise wired only when a
+  run pins the dashboard's OTLP port.
 - **Slow is healthy.** Nothing waits on the `cosmos` emulator, its `backlog` database or its
   containers. They can take minutes, or stay unhealthy. Until they are ready, `sync`
   answers `503 sync.replica_unavailable`. The harnesses, the Devbook pane and
@@ -86,17 +89,26 @@ from `list_resources` (or `aspire describe`) for this run. The dashboard URL is 
 
 A fresh load of `desktop-web-harness` reopens the surface the previous run left open. The
 remembered surface is stored per worktree in `shell-navigation.settings.json`. Check where
-the page actually landed before you act on it.
+the page actually landed before you act on it: a click meant to open the Dashboard may
+instead close a takeover that was already on screen.
 
 ## Sign in
 
 - The harnesses have no user sign-in locally. The sync features need a paired device
   instead. On `desktop-web-harness`, go to Settings → Features and turn on `sync`, then go
   to Settings → Devices and choose **Register this device**. `mobile-web-harness` shows a
-  pairing-code entry while it is unpaired. Details are under `## Test Credentials` in
-  `.claude/orch-context.md`.
-- Restarting `sync` generates a new signing key. That drops every device token, but not
-  the pairings themselves.
+  pairing-code entry while it is unpaired, and takes a code copied from the desktop
+  harness's **Pair with a code**. The service checks a bearer token on
+  `/api/sync/devices/me` and every `/api/sync/inbox` endpoint, so pair before exercising
+  them.
+- Each harness keeps its own device credential under its own `obj/local-development/`
+  (`BACKLOG_DESKTOP_DEVICE_CREDENTIAL_PATH`, `BACKLOG_MOBILE_DEVICE_CREDENTIAL_PATH`), so
+  the two register as two devices under one owner.
+- Restarting `sync` generates a new signing key. That drops every device token and sync
+  cursor, but not the pairings themselves: they live in the Cosmos `devices` container, and
+  the client trades its credential for a fresh token on the next sync. A wiped emulator, or
+  **Forget this device**, is what unpairs; the Devices tab offers re-pairing on the spot.
+- No external secret is needed. If one ever is, record only a pointer to where it lives.
 - Never type a password, token or key into a form yourself. Open the page, say where the
   credential lives, and let the person sign in.
 
@@ -105,5 +117,7 @@ the page actually landed before you act on it.
 - Restart an instance that is already running without saying so.
 - Run destructive setup as part of starting: `desktop-web-harness`'s **Reset local data**
   command, a Cosmos volume prune, or `git clean`. Propose it instead. Every worktree on the
-  machine shares one `%LOCALAPPDATA%\Backlog.Debug` workspace.
+  machine shares one `%LOCALAPPDATA%\Backlog.Debug` workspace. When a task does ask for the
+  reset, stop `desktop-web-harness` first — it holds the task database open — and expect it
+  to forget the remembered surface too.
 - Put a secret in this file. It is committed.

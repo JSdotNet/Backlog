@@ -39,6 +39,9 @@
       "devbook:update"
     ]
   },
+  "policy": {
+    "qa.ceiling": "full"
+  },
   "components": {
     "delivery": {
       "pluginVersion": "1.9.0"

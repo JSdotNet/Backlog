@@ -20,6 +20,20 @@ public interface IGitHubClient
         int number,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Reads one pull request by number — what an entry's recorded pull
+    /// request is asked, so its link can say whether it merged.
+    /// <para>
+    /// A default body because every test double in the suite implements this
+    /// interface and none of them is about pull requests: one that is not asked
+    /// answers like a GitHub that cannot find it, which a caller already has to
+    /// treat as "not read".
+    /// </para></summary>
+    Task<GitHubPullRequest> GetPullRequestAsync(
+        GitHubRepositoryRef repository,
+        int number,
+        CancellationToken cancellationToken = default) =>
+        Task.FromException<GitHubPullRequest>(new GitHubException("This GitHub client cannot read a pull request."));
+
     /// <summary>Commits <paramref name="content"/> to <paramref name="path"/> on
     /// <paramref name="branch"/>, creating the branch off the repository's default
     /// branch first if it does not already exist, and returns the raw URL the
@@ -125,6 +139,22 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
         }
 
         return new GitHubIssueSnapshot(issue, pullRequests, DateTimeOffset.UtcNow);
+    }
+
+    public async Task<GitHubPullRequest> GetPullRequestAsync(
+        GitHubRepositoryRef repository,
+        int number,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+
+        var response = await transport.SendAsync(
+            HttpMethod.Get,
+            $"repos/{repository.Owner}/{repository.Name}/pulls/{number}",
+            body: null,
+            cancellationToken: cancellationToken);
+
+        return ReadPullRequest(response, repository.FullName);
     }
 
     public async Task<GitHubUploadedFile> UploadFileAsync(
@@ -336,6 +366,35 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
                 ? GitHubItemState.Closed
                 : GitHubItemState.Open,
             Timestamp(element, "updated_at"));
+    }
+
+    /// <summary>A pull request as the pulls endpoint returns it. Merged is read from
+    /// <c>merged_at</c>: <c>state</c> says "closed" for merged and abandoned
+    /// alike.</summary>
+    internal static GitHubPullRequest ReadPullRequest(JsonElement element, string repositoryFullName)
+    {
+        if (element.ValueKind != JsonValueKind.Object)
+        {
+            throw new GitHubException("GitHub did not return a pull request.");
+        }
+
+        var number = element.TryGetProperty("number", out var n) && n.TryGetInt32(out var value) ? value : 0;
+        if (number == 0) throw new GitHubException("GitHub returned a pull request without a number.");
+
+        var state = Timestamp(element, "merged_at") is not null
+            ? GitHubItemState.Merged
+            : string.Equals(String(element, "state"), "closed", StringComparison.OrdinalIgnoreCase)
+                ? GitHubItemState.Closed
+                : element.TryGetProperty("draft", out var draft) && draft.ValueKind == JsonValueKind.True
+                    ? GitHubItemState.Draft
+                    : GitHubItemState.Open;
+
+        return new GitHubPullRequest(
+            number,
+            String(element, "html_url") ?? $"https://github.com/{repositoryFullName}/pull/{number}",
+            String(element, "title") ?? string.Empty,
+            state,
+            repositoryFullName);
     }
 
     /// <summary>

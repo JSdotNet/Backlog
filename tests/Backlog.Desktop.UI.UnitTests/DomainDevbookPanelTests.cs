@@ -500,10 +500,7 @@ public sealed class DomainDevbookPanelTests : IDisposable
         // The affordance on a block opens a fresh remark straight into its own
         // textarea. Block 2 is the prose under the heading: block 1 is the `meta`
         // fence, which has no row of its own because the heading above it drew it.
-        // Awaited: this test was seen failing once under full-suite load, and the wait
-        // below is all that stood between it and a dispatch that had not run — the
-        // await makes it deterministic instead of dependent on that timeout.
-        await component.Find("[data-testid='markdown-comment-2']").ClickAsync(new());
+        await OpenRemarkOnBlockTwoAsync(component);
 
         component.WaitForAssertion(() => Assert.Single(component.FindAll(".md-block-row[data-block='2'] .md-comment")));
 
@@ -520,7 +517,7 @@ public sealed class DomainDevbookPanelTests : IDisposable
         var component = harness.Render(ContextMapPath);
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid^='markdown-comment-']")));
 
-        component.Find("[data-testid='markdown-comment-2']").Click();
+        await OpenRemarkOnBlockTwoAsync(component);
 
         // No second press on Edit: the affordance and the box to type into are
         // the same act now, so the box is already there and the read-mode Edit
@@ -544,7 +541,7 @@ public sealed class DomainDevbookPanelTests : IDisposable
         var component = harness.Render(ContextMapPath);
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid^='markdown-comment-']")));
 
-        component.Find("[data-testid='markdown-comment-2']").Click();
+        await OpenRemarkOnBlockTwoAsync(component);
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".md-comment__edit-actions [data-testid^='markdown-comment-cancel-']")));
 
         component.Find(".md-comment__edit-actions [data-testid^='markdown-comment-cancel-']").Click();
@@ -560,7 +557,7 @@ public sealed class DomainDevbookPanelTests : IDisposable
         var component = harness.Render(ContextMapPath);
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid^='markdown-comment-']")));
 
-        component.Find("[data-testid='markdown-comment-2']").Click();
+        await OpenRemarkOnBlockTwoAsync(component);
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll(".md-comment__edit textarea")));
         component.Find(".md-comment__edit textarea").Input("Say which team owns this.");
         component.Find(".md-comment__edit-actions [data-testid^='markdown-comment-save-']").Click();
@@ -586,7 +583,7 @@ public sealed class DomainDevbookPanelTests : IDisposable
         var first = harness.Render(ContextMapPath);
         first.WaitForAssertion(() => Assert.NotEmpty(first.FindAll("[data-testid^='markdown-comment-']")));
 
-        await first.Find("[data-testid='markdown-comment-2']").ClickAsync(new());
+        await OpenRemarkOnBlockTwoAsync(first);
         first.WaitForAssertion(() => Assert.NotEmpty(first.FindAll(".md-comment__edit textarea")));
         first.Find(".md-comment__edit textarea").Input("Still here after Settings.");
         first.Find(".md-comment__edit-actions [data-testid^='markdown-comment-save-']").Click();
@@ -927,6 +924,28 @@ public sealed class DomainDevbookPanelTests : IDisposable
                 []),
             []);
     }
+
+    /// <summary>
+    /// Presses the remark affordance on block 2, the prose under the heading —
+    /// block 1 is the <c>meta</c> fence, which has no row of its own.
+    /// <para>
+    /// Found and clicked in one turn of the renderer. Opening a chapter draws the
+    /// remark buttons twice: once when the committed-baseline read asks for a
+    /// render part-way through the parameter pass, and again when that pass
+    /// completes — the same markup under new event handler ids. The wait that
+    /// lets a test in passes on the first, so a button found then and clicked
+    /// after the second names a handler that no longer exists. With the test
+    /// first in the process, the JIT puts enough time between the two renders
+    /// that this lost every run; warm, it never did.
+    /// </para>
+    /// <para>
+    /// Awaited as well: the click's own render is what the next wait asserts on,
+    /// and a dispatch still pending would leave only that wait's timeout between
+    /// the test and a flake.
+    /// </para>
+    /// </summary>
+    private static Task OpenRemarkOnBlockTwoAsync(IRenderedComponent<DomainDevbookPanel> component) =>
+        component.InvokeAsync(() => component.Find("[data-testid='markdown-comment-2']").ClickAsync(new()));
 
     private Harness CreateHarness(StubGitFileHistory? history = null, bool diagramChapter = false, IDevbookAnnotationStore? annotations = null)
     {

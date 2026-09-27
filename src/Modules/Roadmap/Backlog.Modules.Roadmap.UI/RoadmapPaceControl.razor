@@ -1,61 +1,34 @@
 @*
-    The reader's pace: how many story points a week an imported plan with no due
-    date is drawn at (ADR 0013, ruling 4).
+    The pace a band's plans are placed at: how many story points a week an imported
+    plan with no due date is drawn at (ADR 0013, ruling 4).
 
-    Four paces, one of them chosen. The one the reader types, and three measured
-    from the estimated work they finished over the last two, four and eight weeks,
-    each shown with its figure so the reader can see what they are choosing. A
-    stretch that finished nothing estimated measured no pace and is not offered at
-    all, since there is nothing to place by; with none measured there is no choice
-    to offer and only the field is drawn. A line under the choices says so when a
-    choice that has since gone empty is placing by the typed pace instead, because
-    its button is gone.
+    Up to three paces, one of them in use, each measured from the estimated work
+    finished over the last two, four and eight weeks and shown with its figure so the
+    reader can see what they are choosing. A stretch that finished nothing measured no
+    pace and is not offered at all. The pressed one is the one in use: the chosen
+    stretch, the last two weeks until one is chosen, or — when the chosen one has
+    since measured nothing — the first stretch that did.
+
+    With no stretch measured there is nothing to choose, and the band places by the
+    reader's own pace, typed once in the roadmap's heading (RoadmapTypedPace); a line
+    says so, with the figure.
 
     Kept per repository band, because productivity differs from one project to the
-    next (ADR 0013, ruling 4 as amended on 2026-09-26), and each pace sits under its
-    band's name in the chart's sidebar, above the band's named lanes, where the plans
-    it places are drawn. A repository's band carries that repository's pace (Repository set), measured over
-    its own finished work. The unfiled band carries the default pace (Repository
-    unset), measured over all of it: the one a plan filed in no repository is
-    placed at, and the one every repository nobody has set a pace for reads.
+    next (ADR 0013, ruling 4 as amended), under the band's name in the chart's
+    sidebar, above the band's named lanes. A repository's band carries that
+    repository's pace (Repository set), measured over its own finished work. The
+    unfiled band carries the default pace (Repository unset), measured over all of it.
 
-    It lives on the roadmap rather than the settings screen because it is read here:
-    the figure only decides how long a bar is drawn, and the reader deciding between
-    their own guess and what they actually did wants to see both beside the chart.
-    A change here that alters the pace this control shows is reported through
-    OnPaceChanged, and the band re-lengthens every bar still sized by its effort,
-    each at its own repository's pace (ADR 0013, ruling 5 as amended). Finished work
-    moving a measured figure is not a change anybody made, so it redraws the figures
-    and moves no bar.
+    A choice here that alters the pace in use is reported through OnPaceChanged, and
+    the band re-lengthens every bar still sized by its effort, each at its own
+    repository's pace (ADR 0013, ruling 5 as amended). Finished work moving a measured
+    figure is not a change anybody made, so it redraws the figures and moves no bar.
 *@
-@* For @onchange: without it the directive is a plain attribute and never fires. *@
-@using Microsoft.AspNetCore.Components.Web
 @implements IDisposable
 @inject IPlanningPace Pace
 @inject IRoadmapWorkChanges WorkChanges
 
 <div class="roadmap-pace" data-testid="@TestIdOf(null)">
-    @* Committed on change rather than bound, so a half-typed pace never reaches the
-       store: "2." on the way to "2.5" is not a number. min and step are affordances
-       only — the store is the one gate, and refuses the 0 this min still allows. *@
-    <div class="roadmap-pace__line">
-        <TextField Compact="true"
-                   Type="number"
-                   AriaLabel="@ManualLabel"
-                   CssClass="roadmap-pace__manual"
-                   TestId="@TestIdOf("manual")"
-                   min="0"
-                   step="1"
-                   autocomplete="off"
-                   Value="@_draft"
-                   @onchange="ApplyManual" />
-        <span class="roadmap-pace__unit" aria-hidden="true">pt/wk</span>
-    </div>
-
-    @* Only the stretches that measured something, each with its figure: one that
-       finished nothing has no pace to place by, so it is not offered at all. With
-       none of them, "Mine" would be a choice between one thing, so there is no
-       group — the field is the pace. *@
     @if (HasMeasured)
     {
         <ButtonGroup CssClass="roadmap-pace__options"
@@ -67,15 +40,12 @@
                 if (value is null) continue;
 
                 <ToggleButton BaseClass="btn btn--toggle btn--small"
-                              Pressed="@(_paces.Source == option.Source)"
-                              Title="@option.Title(value, Repository)"
+                              Pressed="@(_paces.InEffect == option.Source)"
+                              Title="@option.Title(value.Value, Repository)"
                               OnClick="() => Choose(option.Source)"
                               TestId="@TestIdOf(option.Key)">
                     <span class="roadmap-pace__option-name">@option.Name</span>
-                    @if (option.Source != PaceSource.Manual)
-                    {
-                        <span class="roadmap-pace__option-value">@Rounded(value.Value)</span>
-                    }
+                    <span class="roadmap-pace__option-value">@Rounded(value.Value)</span>
                 </ToggleButton>
             }
         </ButtonGroup>
@@ -98,14 +68,12 @@
 @code {
     private sealed record Option(PaceSource Source, string Key, string Name, string Stretch)
     {
-        public string Title(decimal? value, string? repository)
+        public string Title(decimal measured, string? repository)
         {
             var plans = repository is null ? "plans in no repository" : $"{repository}'s plans";
             var finished = repository is null ? "what you finished" : $"what you finished in {repository}";
 
-            return Source == PaceSource.Manual || value is not { } measured
-                ? $"Place {plans} by the pace you typed"
-                : $"Place {plans} by {finished} over the {Stretch}: {Rounded(measured)} points a week";
+            return $"Place {plans} by {finished} over the {Stretch}: {Rounded(measured)} points a week";
         }
     }
 
@@ -115,34 +83,27 @@
 
     private static readonly Option[] Options =
     [
-        new(PaceSource.Manual, "manual-option", "Mine", "pace you typed"),
         new(PaceSource.LastTwoWeeks, "two-weeks", "2 wk", "last two weeks"),
         new(PaceSource.LastFourWeeks, "four-weeks", "4 wk", "last four weeks"),
         new(PaceSource.LastEightWeeks, "eight-weeks", "8 wk", "last eight weeks")
     ];
 
     /// <summary>The repository whose pace this is, by alias; unset for the default
-    /// pace — the one a plan filed in no repository is placed at, and the one a
-    /// repository nobody set a pace for reads.</summary>
+    /// pace — the one a plan filed in no repository is placed at.</summary>
     [Parameter]
     public string? Repository { get; set; }
 
-    /// <summary>Raised after the reader changed the pace placement uses for this
-    /// control's scope — typed a new one while it is in use, or chose another — so
-    /// the band can re-lengthen the bars sized by it. Not raised for a refusal, or
-    /// for a change that leaves the pace in use where it was.</summary>
+    /// <summary>Raised after the reader chose a stretch that changed the pace
+    /// placement uses for this control's scope, so the band can re-lengthen the bars
+    /// sized by it. Not raised for a choice that leaves the pace in use where it
+    /// was.</summary>
     [Parameter]
     public EventCallback OnPaceChanged { get; set; }
 
     private PlanningPacesDto _paces = new(7m, null, null, null, PaceSource.Manual);
-    private string _draft = string.Empty;
     private string? _error;
     private string? _read;
     private bool _initialized;
-
-    private string ManualLabel => Repository is null
-        ? "Default points a week, for plans in no repository and repositories without a pace of their own"
-        : $"Points a week for {Repository}";
 
     private string OptionsLabel => Repository is null
         ? "Which default pace places a plan"
@@ -152,14 +113,11 @@
 
     /// <summary>Whether any stretch measured something — and so whether there is a
     /// choice to offer at all.</summary>
-    private bool HasMeasured =>
-        _paces.LastTwoWeeks is not null || _paces.LastFourWeeks is not null || _paces.LastEightWeeks is not null;
+    private bool HasMeasured => !_paces.FellBack;
 
-    /// <summary>What the line under the choices says, most pressing first: a refused
-    /// figure, since it is what the reader just did; then a chosen stretch that has
-    /// since measured nothing — its button is gone, so this is the only place left
-    /// that says the typed pace is placing instead. A stretch that measured nothing
-    /// needs no line: its missing button says it.</summary>
+    /// <summary>What the line under the choices says, most pressing first: a choice
+    /// that could not be kept, since it is what the reader just did; then, with no
+    /// stretch measured, that the reader's own pace is placing this band.</summary>
     private PaceNote? Note
     {
         get
@@ -168,10 +126,11 @@
 
             if (_paces.FellBack)
             {
+                var mine = Rounded(_paces.Manual);
                 return new PaceNote(
                     "fell-back",
-                    "Empty stretch: using Mine",
-                    $"Nothing estimated was finished{Where} in that stretch, so the pace you typed is used.");
+                    $"Using Mine: {mine} pt/wk",
+                    $"Nothing estimated was finished{Where} in the last eight weeks, so your own pace is used: {mine} points a week.");
             }
 
             return null;
@@ -205,20 +164,6 @@
     {
         _read = Repository;
         _paces = await Pace.ReadAsync(Repository);
-
-        // A refused value stays on screen beside its reason, so the reader can see
-        // what they typed; otherwise the field shows what is stored.
-        if (_error is null) _draft = Format(_paces.Manual);
-    }
-
-    private async Task ApplyManual(ChangeEventArgs e)
-    {
-        var typed = e.Value?.ToString() ?? string.Empty;
-        _draft = typed;
-        var before = _paces.InUse;
-        _error = Pace.SetManual(typed, Repository);
-        await Read();
-        await Announce(before);
     }
 
     private async Task Choose(PaceSource source)
@@ -226,15 +171,6 @@
         var before = _paces.InUse;
         _error = Pace.Choose(source, Repository);
         await Read();
-        await Announce(before);
-    }
-
-    /// <summary>Compared on the pace in use rather than on the setter's answer: a
-    /// pace that took but could not be written for next time still answers with a
-    /// warning, and a new typed pace while a measured one is chosen moves
-    /// nothing.</summary>
-    private async Task Announce(decimal before)
-    {
         if (_paces.InUse != before) await OnPaceChanged.InvokeAsync();
     }
 
@@ -256,11 +192,7 @@
     private static string Slug(string value) =>
         new([.. value.Select(character => char.IsLetterOrDigit(character) ? char.ToLowerInvariant(character) : '-')]);
 
-    /// <summary>Four decimals, no trailing zeroes, invariant — how the store writes
-    /// a pace, so a committed value reads back spelled the way it was kept.</summary>
-    private static string Format(decimal pace) => pace.ToString("0.####", CultureInfo.InvariantCulture);
-
-    /// <summary>A measured pace to two decimals for reading at a glance. Placement
-    /// still divides by the four it was measured to.</summary>
+    /// <summary>A pace to two decimals for reading at a glance. Placement still
+    /// divides by the four it was measured to.</summary>
     private static string Rounded(decimal pace) => pace.ToString("0.##", CultureInfo.InvariantCulture);
 }
