@@ -5088,6 +5088,75 @@ h1, h2, h3 {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
     gap: var(--spacing-sm);
+    /* Top-aligned, so help text under one field does not stretch its neighbour and
+       drop that one's label below the other's. */
+    align-items: start;
+}
+
+/* The waves a roadmap item's gathered entries fall into — the plan review's Order
+   diagram, inside the dialog. A column per wave; what shares a column can run side
+   by side. Scrolls sideways rather than squeezing a long chain. */
+.roadmap-order {
+    overflow-x: auto;
+    padding-bottom: var(--spacing-2xs);
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background: var(--color-background-alt);
+}
+
+.roadmap-order__graph {
+    display: block;
+}
+
+.roadmap-order__wave {
+    fill: var(--color-text-secondary);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.roadmap-order__node rect {
+    fill: var(--color-background-raised);
+    stroke: var(--color-primary);
+    stroke-width: 1.25;
+}
+
+.roadmap-order__node--done rect {
+    stroke: var(--color-border-strong);
+}
+
+.roadmap-order__node--done .roadmap-order__title {
+    fill: var(--color-text-secondary);
+}
+
+.roadmap-order__title {
+    fill: var(--color-text-primary);
+    font-size: 12px;
+    font-weight: var(--font-weight-semibold);
+}
+
+.roadmap-order__meta,
+.roadmap-order__points {
+    fill: var(--color-text-secondary);
+    font-size: 10px;
+}
+
+.roadmap-order__meta {
+    font-family: var(--font-family-mono);
+}
+
+.roadmap-order__points {
+    text-anchor: end;
+}
+
+.roadmap-order__edge {
+    fill: none;
+    stroke: var(--color-text-secondary);
+    stroke-width: 1.25;
+}
+
+.roadmap-order__arrow {
+    fill: var(--color-text-secondary);
 }
 
 /* What a roadmap item has already gathered — its linked and tagged backlog
