@@ -9,6 +9,7 @@ using Backlog.Modules.Inbox.Features.CreateGroup;
 using Backlog.Modules.Inbox.Features.CreateList;
 using Backlog.Modules.Inbox.Features.CreatePlan;
 using Backlog.Modules.Inbox.Features.DeferItem;
+using Backlog.Modules.Inbox.Features.DeleteItem;
 using Backlog.Modules.Inbox.Features.DeleteList;
 using Backlog.Modules.Inbox.Features.EnsureDefaultOrganizer;
 using Backlog.Modules.Inbox.Features.GetInbox;
@@ -44,6 +45,7 @@ internal sealed class InboxItems(
     ICommandHandler<RenameRepositoryCommand, Result<int>> renameRepository,
     ICommandHandler<MoveToListCommand, Result> moveToList,
     ICommandHandler<ArchiveItemCommand, Result> archive,
+    ICommandHandler<DeleteItemCommand, Result> delete,
     ICommandHandler<DeferItemCommand, Result> defer,
     ICommandHandler<ResurfaceItemCommand, Result> resurface,
     ICommandHandler<ResurfaceDueItemsCommand, Result<int>> resurfaceDue,
@@ -86,6 +88,9 @@ internal sealed class InboxItems(
 
     public Task<Result> ArchiveAsync(Guid id, CancellationToken cancellationToken = default) =>
         archive.Handle(new ArchiveItemCommand(id), cancellationToken);
+
+    public Task<Result> DeleteAsync(Guid id, CancellationToken cancellationToken = default) =>
+        delete.Handle(new DeleteItemCommand(id), cancellationToken);
 
     public Task<Result> DeferAsync(Guid id, DateOnly? until, CancellationToken cancellationToken = default) =>
         defer.Handle(new DeferItemCommand(id, until), cancellationToken);

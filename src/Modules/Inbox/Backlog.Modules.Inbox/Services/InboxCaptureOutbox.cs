@@ -7,15 +7,23 @@ namespace Backlog.Modules.Inbox.Services;
 /// repository. Not a feature slice: draining an outbox decides nothing, and a
 /// handler with no rule in it would be ceremony. The acknowledgement's stamp is
 /// the item's <c>UpdatedAt</c>, which the routing or archiving step set — the
-/// instant this desktop decided, which is what the tombstone should say.
+/// instant this desktop decided, which is what the tombstone should say. A
+/// deleted capture carries its own stamp, the instant it was deleted.
 /// </summary>
 internal sealed class InboxCaptureOutbox(IInboxItemRepository items) : IInboxCaptureOutbox
 {
     public async Task<IReadOnlyList<InboxCaptureAckDto>> ListPendingAsync(CancellationToken cancellationToken = default)
     {
         var pending = await items.ListPendingReplicaAckAsync(cancellationToken).ConfigureAwait(false);
+        var deleted = await items.ListDeletedCapturesAsync(cancellationToken).ConfigureAwait(false);
 
-        return [.. pending.Select(item => new InboxCaptureAckDto(item.Id, item.Title, item.CapturedAt, item.UpdatedAt))];
+        return
+        [
+            .. pending
+                .Select(item => new InboxCaptureAckDto(item.Id, item.Title, item.CapturedAt, item.UpdatedAt))
+                .Concat(deleted.Select(capture => new InboxCaptureAckDto(capture.Id, capture.Title, capture.CapturedAt, capture.DeletedAt)))
+                .OrderBy(ack => ack.AcknowledgedAt),
+        ];
     }
 
     public async Task MarkSentAsync(IReadOnlyList<Guid> captureIds, CancellationToken cancellationToken = default)
@@ -25,7 +33,16 @@ internal sealed class InboxCaptureOutbox(IInboxItemRepository items) : IInboxCap
         foreach (var id in captureIds)
         {
             var item = await items.GetAsync(id, cancellationToken).ConfigureAwait(false);
-            if (item is null || !item.ReplicaAckPending) continue;
+
+            // No item: either a deleted capture, whose acknowledgement is all
+            // that was left of it, or nothing — and forgetting nothing is free.
+            if (item is null)
+            {
+                await items.ForgetDeletedCaptureAsync(id, cancellationToken).ConfigureAwait(false);
+                continue;
+            }
+
+            if (!item.ReplicaAckPending) continue;
 
             item.MarkReplicaAcknowledged();
             await items.SaveAsync(item, cancellationToken).ConfigureAwait(false);

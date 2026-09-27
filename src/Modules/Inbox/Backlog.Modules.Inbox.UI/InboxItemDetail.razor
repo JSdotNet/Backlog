@@ -2,13 +2,14 @@
     The right column: one item, read by its kind, and the acts on it.
 
     The header is the library's SectionHeader with the acts in its Actions slot:
-    file it, dismiss it, send it to the backlog, or have a plan drafted about
-    it. Four acts is the toolbar budget in
-    .devbook/design/interaction-guidelines.md#action-density-and-overflow exactly, so
-    there is no overflow menu — and "Create plan" stays on screen when it cannot
-    run, disabled with its reason on the title, because unavailability never
-    hides an act. Once an item has been routed or archived the acts go except
-    "Move to list": filing is not triage and is allowed in every state.
+    file it, dismiss it, send it to the backlog, have a plan drafted about it,
+    or delete it. Five acts is one over the toolbar budget in
+    .devbook/design/interaction-guidelines.md#action-density-and-overflow, and
+    "one item never gets a menu", so all five stay on screen — and "Create plan"
+    stays when it cannot run, disabled with its reason on the title, because
+    unavailability never hides an act. Once an item has been routed or archived
+    the triage acts go except "Move to list", filing being allowed in every
+    state, and "Delete", which removes an item whatever became of it.
 
     What the body shows depends on the kind. A video gets its thumbnail and the
     link; an article or a link gets the link and whatever excerpt was captured;
@@ -80,6 +81,10 @@
                                        OnClick="State.CreatePlanAsync"
                                        TestId="inbox-create-plan">Create plan</AppButton>
                         }
+                        <DeleteButton Size="ButtonSize.Small"
+                                      Disabled="@Busy"
+                                      OnClick="() => _deleteOpen = true"
+                                      TestId="inbox-delete" />
                     </ButtonGroup>
                 </Actions>
             </SectionHeader>
@@ -271,6 +276,19 @@
                           OnItemSelected="OnMoveTargetAsync" />
             </ChildContent>
         </Modal>
+
+        @* Confirmed because nothing is kept: Archive is the undoable dismissal,
+           and the message says so rather than leaving the difference to guess. *@
+        <ConfirmDialog Open="@_deleteOpen"
+                       Title="Delete this item?"
+                       Message="@DeleteMessage(item)"
+                       ConfirmText="Delete item"
+                       Destructive="true"
+                       OnConfirm="OnDeleteConfirmedAsync"
+                       OnCancel="() => _deleteOpen = false"
+                       TestId="inbox-delete-dialog"
+                       ConfirmTestId="inbox-delete-confirm"
+                       CancelTestId="inbox-delete-cancel" />
     }
 </div>
 
@@ -281,6 +299,18 @@
     public InboxDesktopState State { get; set; } = default!;
 
     private bool _moveOpen;
+
+    private bool _deleteOpen;
+
+    private static string DeleteMessage(InboxItemDto item) =>
+        $"“{Title(item)}” is removed for good. Archive keeps an item findable; delete does not."
+        + (item.Routing is null ? "" : " The backlog entries it became stay where they are.");
+
+    private async Task OnDeleteConfirmedAsync()
+    {
+        _deleteOpen = false;
+        await State.DeleteAsync();
+    }
 
     /// <summary>The review date as the date field holds it, <c>yyyy-MM-dd</c> or
     /// empty. Held here until "Defer" is pressed rather than written on every

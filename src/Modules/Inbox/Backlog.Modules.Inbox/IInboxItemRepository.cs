@@ -5,12 +5,11 @@ namespace Backlog.Modules.Inbox;
 /// <summary>
 /// Local-first persistence for <see cref="InboxItem"/> aggregates, whole.
 /// <para>
-/// No delete member, and no tombstone either — the two reasons differ from
-/// Tasks'. Nothing in this scope deletes an item: archived is its terminal
-/// state, and an archived row is what the archive view shows. And nothing
-/// replicates an item, so there is no other machine to tell about a deletion;
-/// the only thing that leaves this store for the replica is an
-/// acknowledgement, which <see cref="ListPendingReplicaAckAsync"/> serves.
+/// A deleted item is removed, not tombstoned — nothing replicates an item, so
+/// there is no other machine to tell about the row. What does leave this store
+/// for the replica is an acknowledgement: <see cref="ListPendingReplicaAckAsync"/>
+/// serves the items that owe one, and <see cref="ListDeletedCapturesAsync"/> the
+/// deleted ones that still did when they went.
 /// </para>
 /// </summary>
 public interface IInboxItemRepository
@@ -29,4 +28,21 @@ public interface IInboxItemRepository
     /// <summary>The outbox read: items whose replica has not yet heard what
     /// this desktop decided about them.</summary>
     Task<IReadOnlyList<InboxItem>> ListPendingReplicaAckAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Removes an item <see cref="InboxItem.Delete"/> has run on, with
+    /// its file rows. When it still owes the replica an acknowledgement, an
+    /// <see cref="InboxDeletedCapture"/> is kept in the same write.</summary>
+    Task DeleteAsync(InboxItem item, CancellationToken cancellationToken = default);
+
+    /// <summary>The other half of the outbox read: deleted captures the replica
+    /// has not yet heard about, oldest deletion first.</summary>
+    Task<IReadOnlyList<InboxDeletedCapture>> ListDeletedCapturesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>The deleted capture with that id, or null when there is none
+    /// waiting — so a replay of it is not taken for a new capture.</summary>
+    Task<InboxDeletedCapture?> GetDeletedCaptureAsync(Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>Drops a deleted capture once the replica has it, or once the
+    /// replica withdrew it itself. Nothing happens when there is none.</summary>
+    Task ForgetDeletedCaptureAsync(Guid id, CancellationToken cancellationToken = default);
 }

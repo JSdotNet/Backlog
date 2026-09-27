@@ -86,11 +86,13 @@ sequenceDiagram
 - The intake decides by id and status and parses no token; every case has an
   answer and none is an error, because the caller is the sync client and an
   error there would replay the page for ever.
-- Only a decision about a replica-backed item — route or archive — puts an
-  acknowledgement in the outbox. An item archived *because* the replica already
-  carried a tombstone owes nothing. The acknowledgement is durable on the item,
-  so a decision taken offline reaches the phone on the first push that
-  succeeds.
+- Only a decision about a replica-backed item — route, archive or delete — puts
+  an acknowledgement in the outbox. An item archived *because* the replica
+  already carried a tombstone owes nothing. The acknowledgement is durable on the
+  item, so a decision taken offline reaches the phone on the first push that
+  succeeds; a deleted item's is kept beside the item store, all that is left of
+  it, and until it is sent a replay of the capture is `AlreadyKnown` rather than
+  a new item.
 - The desktop's own tombstone comes back round on the next pull as a known id
   it has already decided on: `AlreadyKnown`, nothing written. A second desktop
   still holding the item open archives it instead — the honest multi-desktop

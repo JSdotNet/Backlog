@@ -55,6 +55,11 @@ public interface IInboxItems
     /// item reaches without leaving anything behind in another context.</summary>
     Task<Result> ArchiveAsync(Guid id, CancellationToken cancellationToken = default);
 
+    /// <summary>Deletes the item for good, from any state. Unlike archiving
+    /// nothing is kept, except — for an item from the replica the phone may
+    /// still be offering — the acknowledgement that tells it to stop.</summary>
+    Task<Result> DeleteAsync(Guid id, CancellationToken cancellationToken = default);
+
     /// <summary>Puts the item aside until <paramref name="until"/>, or with no
     /// date until a person returns it. On an item already deferred it changes
     /// the review date.</summary>
