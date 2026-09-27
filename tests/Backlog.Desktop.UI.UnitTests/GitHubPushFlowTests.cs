@@ -125,6 +125,50 @@ public sealed class GitHubPushFlowTests : IDisposable
         Assert.Equal(GitHubItemState.Merged, row.Snapshot.Headline!.State);
     }
 
+    /// <summary>A pull request recorded by <c>link_change</c> is read too — on an
+    /// entry never filed as an issue, which is the usual case for work an agent
+    /// picked up from the backlog.</summary>
+    [Fact]
+    public async Task Syncing_reads_whether_a_recorded_pull_request_merged()
+    {
+        var harness = Build("JSdotNet/Backlog");
+
+        var row = await WriteEntryAsync(harness.State, "# Add GitHub support\n`task` `*high` `!done` `repo:backlog`\n");
+        var merged = new EntryPullRequestLink("JSdotNet/Backlog", 708);
+        var open = new EntryPullRequestLink("JSdotNet/Backlog", 710);
+        row.PullRequestLinks = [merged, open];
+        Assert.True(harness.State.HasLinkedRows);
+        harness.Client.PullRequestStates[708] = GitHubItemState.Merged;
+        harness.Client.PullRequestStates[710] = GitHubItemState.Open;
+
+        await harness.State.SyncGitHubAsync();
+
+        Assert.Null(row.IssueLink);
+        Assert.Equal(GitHubItemState.Merged, row.PullRequestStates[merged]);
+        Assert.Equal(GitHubItemState.Open, row.PullRequestStates[open]);
+    }
+
+    /// <summary>A pull request GitHub will not answer for is left unread rather
+    /// than failing the issue it sits beside, and says nothing out loud: the issue
+    /// is what the entry was filed as, the pull request a detail of its work.</summary>
+    [Fact]
+    public async Task A_pull_request_that_cannot_be_read_stays_unread_without_failing_the_issue()
+    {
+        var harness = Build("JSdotNet/Backlog");
+
+        var row = await WriteEntryAsync(harness.State, "# Add GitHub support\n`task` `*high` `!draft` `repo:backlog`\n");
+        await harness.State.PushToGitHubAsync(row);
+        var pr = new EntryPullRequestLink("JSdotNet/Backlog", 708);
+        row.PullRequestLinks = [pr];
+        harness.Client.PullRequestFailure = new GitHubException("Not Found");
+
+        await harness.State.RefreshGitHubAsync(row);
+
+        Assert.Null(row.GitHubError);
+        Assert.NotNull(row.Snapshot);
+        Assert.False(row.PullRequestStates.ContainsKey(pr));
+    }
+
     /// <summary>
     /// A sync that fails says so once, not once per row.
     /// <para>
@@ -522,6 +566,25 @@ public sealed class GitHubPushFlowTests : IDisposable
         {
             if (Failure is not null) throw Failure;
             return Task.FromResult(Snapshot);
+        }
+
+        public Dictionary<int, GitHubItemState> PullRequestStates { get; } = [];
+        public Exception? PullRequestFailure { get; set; }
+
+        public Task<GitHubPullRequest> GetPullRequestAsync(
+            GitHubRepositoryRef repository,
+            int number,
+            CancellationToken cancellationToken = default)
+        {
+            if (PullRequestFailure is not null) throw PullRequestFailure;
+            if (!PullRequestStates.TryGetValue(number, out var state)) throw new GitHubException("Not Found");
+
+            return Task.FromResult(new GitHubPullRequest(
+                number,
+                $"https://github.com/{repository.FullName}/pull/{number}",
+                "A pull request",
+                state,
+                repository.FullName));
         }
 
         public Task<GitHubUploadedFile> UploadFileAsync(

@@ -46,7 +46,7 @@ observed issue are this repository's own skills under `.agents/skills/`, each re
 a wrapper per host that fixes its goal. A flow calls `start` at its `app.start` extension
 instead of guessing a command.
 
-- **Used for** — starting the AppHost the way `.claude/orch-context.md` says, walking a
+- **Used for** — starting the AppHost the way `start` says, walking a
   change for a reviewer, and finding a cause from logs and traces without handing the person
   a debugger.
 - **Adopted by** — the flows, since the procedures were seeded on 2026-09-25.

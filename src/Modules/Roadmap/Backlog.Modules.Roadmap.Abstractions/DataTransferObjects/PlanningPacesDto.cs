@@ -5,16 +5,19 @@ namespace Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 /// <para>
 /// A measured pace is <c>null</c> when nothing with an estimate was finished in its
 /// stretch: a pace of zero has no length to draw, so it is not offered rather than
-/// offered as nothing. Choosing one that is empty places by <see cref="Manual"/>
-/// instead, and <see cref="FellBack"/> says so.
+/// offered as nothing. A measured pace is used whenever there is one — the chosen
+/// stretch, the last two weeks when none was chosen, otherwise the first stretch that
+/// measured something — and <see cref="Manual"/>, the one typed pace at the top of
+/// the roadmap, only when none did; <see cref="FellBack"/> says so.
 /// </para>
 /// </summary>
-/// <param name="Manual">The pace the reader typed, in story points a week. Always
-/// positive.</param>
+/// <param name="Manual">The pace the reader typed, in story points a week — the
+/// fallback every scope shares. Always positive.</param>
 /// <param name="LastTwoWeeks">Effort finished in the last 14 days, over 2 weeks.</param>
 /// <param name="LastFourWeeks">Effort finished in the last 28 days, over 4 weeks.</param>
 /// <param name="LastEightWeeks">Effort finished in the last 56 days, over 8 weeks.</param>
-/// <param name="Source">The pace the reader chose.</param>
+/// <param name="Source">The stretch the reader chose. <see cref="PaceSource.Manual"/>
+/// is no stretch chosen, which reads as the last two weeks.</param>
 public sealed record PlanningPacesDto(
     decimal Manual,
     decimal? LastTwoWeeks,
@@ -32,12 +35,35 @@ public sealed record PlanningPacesDto(
         _ => Manual
     };
 
-    /// <summary>What placement divides by. Always positive.</summary>
-    public decimal InUse => Of(Source) ?? Manual;
+    /// <summary>The stretches, shortest first — the order a stretch is looked for in
+    /// when the chosen one measured nothing.</summary>
+    public static IReadOnlyList<PaceSource> Stretches { get; } =
+        [PaceSource.LastTwoWeeks, PaceSource.LastFourWeeks, PaceSource.LastEightWeeks];
 
-    /// <summary>The chosen pace measured nothing, so <see cref="Manual"/> is in
-    /// use in its place.</summary>
-    public bool FellBack => Of(Source) is null;
+    /// <summary>The pace placement reads: the chosen stretch when it measured
+    /// something, otherwise the first stretch that did, otherwise the typed pace.
+    /// No stretch chosen reads as the last two weeks.</summary>
+    public PaceSource InEffect
+    {
+        get
+        {
+            var chosen = Source == PaceSource.Manual ? PaceSource.LastTwoWeeks : Source;
+            if (Of(chosen) is not null) return chosen;
+
+            foreach (var stretch in Stretches)
+            {
+                if (Of(stretch) is not null) return stretch;
+            }
+
+            return PaceSource.Manual;
+        }
+    }
+
+    /// <summary>What placement divides by. Always positive.</summary>
+    public decimal InUse => Of(InEffect) ?? Manual;
+
+    /// <summary>No stretch measured anything, so <see cref="Manual"/> is in use.</summary>
+    public bool FellBack => InEffect == PaceSource.Manual;
 }
 
 /// <summary>A finished backlog entry's estimate, the day it was finished, and the

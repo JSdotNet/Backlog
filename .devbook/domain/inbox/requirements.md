@@ -141,6 +141,94 @@ The system SHALL keep picked items picked across a refresh of the pane while the
 - **When** the reader opens a list in the side menu
 - **Then** nothing is picked
 
+## Triage from the keyboard
+
+```meta
+type: requirements
+status: draft
+related: [.devbook/domain/inbox/features.md#quick-triage-shortcuts]
+```
+
+> The requirements of triaging the Inbox from the keyboard and one item at a
+> time. The feature chapter says what the keys are and why; this says what
+> they promise.
+
+### Requirement: A key does what its button does
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests.A_and_r_decide_the_chosen_item_the_way_its_buttons_do, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests.A_key_does_not_offer_an_act_the_header_withholds, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests.L_opens_move_to_list_and_d_offers_review_dates_that_defer_the_item]
+```
+
+The system SHALL decide the chosen item by a triage key through the same act its detail's button performs, and SHALL offer by key no act the detail withholds for that item.
+
+#### Scenario: Archiving by key
+
+- **Given** an unprocessed item is chosen
+- **When** the reader presses a
+- **Then** the item is archived
+
+#### Scenario: A routed item
+
+- **Given** an item already moved to the backlog is chosen
+- **When** the reader presses a or d
+- **Then** the item stays as it is and no dialog opens
+
+### Requirement: A key in a field types
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests.Components_js_decides_at_the_keydown_that_a_key_in_a_field_or_with_a_modifier_types, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests.The_pane_registers_for_shortcuts_and_no_inbox_markup_arms_a_server_side_prevent_default]
+```
+
+The system SHALL treat a letter pressed in a text field, inside a dialog, with Ctrl, Alt or Meta held, or while the focus is outside the Inbox pane as that place's key and not as a shortcut.
+
+#### Scenario: Typing a tag
+
+- **Given** the reader is typing in the tag field
+- **When** they type "a"
+- **Then** the letter appears in the field and nothing is archived
+
+### Requirement: Triage moves on after each decision
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests.Triage_shows_one_item_counted_and_moves_on_after_each_decision, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests.Past_the_last_row_triage_returns_to_the_item_skipped_on_the_way]
+```
+
+The system SHALL, in triage mode, show one item with its place among the rows shown and move on to the next row after each archive, deferral, move to a list or move to the backlog.
+
+#### Scenario: Archiving the first of three
+
+- **Given** triage mode is open on the first of three items, reading "1 of 3"
+- **When** the reader archives it
+- **Then** the second item is shown, reading "1 of 2"
+
+#### Scenario: Deciding the last row
+
+- **Given** the reader skipped the first item with j and is on the last
+- **When** they archive it
+- **Then** the skipped item is shown
+
+### Requirement: Leaving triage keeps the reader's place
+
+```meta
+type: requirement
+status: draft
+tests: unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests.Escape_leaves_triage_on_the_row_the_reader_stopped_at
+```
+
+The system SHALL return from triage mode to the rows with the item the session stopped at chosen and focused.
+
+#### Scenario: Escape on the second item
+
+- **Given** triage mode shows the second of three items
+- **When** the reader presses Escape
+- **Then** the list is shown with the second item chosen and focused
+
 ## Capture attachments
 
 ```meta

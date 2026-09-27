@@ -1252,6 +1252,75 @@
         event.preventDefault();
     });
 
+    // Single-letter shortcuts over a pane — the Inbox's j/k/a/d/l/r/t/x today.
+    // A letter is a shortcut only where it cannot be typing, and that has to be
+    // decided here, at the keydown, for the reason the tag picker's keys are: a
+    // server-side `@onkeydown:preventDefault` is rendered after the handler that
+    // wanted it, so it lets the first key type and eats the next. So the pane
+    // registers its element id and a .NET reference, and this listener decides
+    // synchronously whether the key is the pane's before anything is typed.
+    //
+    // A key is left alone when it lands in a field — an input, a textarea, a
+    // select, anything editable — or anywhere inside an open dialog, when a
+    // modifier is held (Ctrl+A and friends belong to the platform), while an IME
+    // is composing, and when the focus is somewhere outside the pane: a key
+    // pressed while another pane or the side menu of the shell holds the focus is
+    // that region's. The body counts as the pane's only when the pane was the
+    // last place the reader pressed or focused — a decision that removes the
+    // focused button leaves the focus on the body, and the next key is still
+    // meant for the pane; but the Inbox can share the screen with the Tasks list,
+    // and an `a` meant for nothing there must not archive an inbox item.
+    //
+    // Escape is passed on without its default refused: it has none worth
+    // stopping, and a pane handler may still want to hear it bubble.
+    const shortcutPanes = new Map();
+    const SHORTCUT_PANE_KEYS = new Set(['j', 'k', 'a', 'd', 'l', 'r', 't', 'x', '?', 'Escape']);
+    const TYPING_TARGETS = 'input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="dialog"]';
+    let lastShortcutPane = null;
+
+    window.backlogPaneShortcuts = {
+        register(paneId, dotNetRef) { shortcutPanes.set(paneId, dotNetRef); },
+        unregister(paneId) {
+            shortcutPanes.delete(paneId);
+            if (lastShortcutPane === paneId) lastShortcutPane = null;
+        }
+    };
+
+    const rememberShortcutPane = (event) => {
+        if (shortcutPanes.size === 0) return;
+        const target = event.target instanceof Node ? event.target : null;
+        lastShortcutPane = null;
+        for (const paneId of shortcutPanes.keys()) {
+            if (target && document.getElementById(paneId)?.contains(target)) lastShortcutPane = paneId;
+        }
+    };
+
+    document.addEventListener('focusin', rememberShortcutPane, true);
+    document.addEventListener('pointerdown', rememberShortcutPane, true);
+
+    document.addEventListener('keydown', (event) => {
+        if (shortcutPanes.size === 0 || !SHORTCUT_PANE_KEYS.has(event.key)) return;
+        if (event.ctrlKey || event.altKey || event.metaKey || event.isComposing) return;
+
+        const target = event.target instanceof Element ? event.target : null;
+        if (target && target.closest(TYPING_TARGETS)) return;
+        if (document.querySelector('[aria-modal="true"]')) return;
+
+        const active = document.activeElement;
+        for (const [paneId, dotNetRef] of shortcutPanes) {
+            const pane = document.getElementById(paneId);
+            if (!pane || pane.getClientRects().length === 0) continue;
+            const inPane = active && active !== document.body
+                ? pane.contains(active)
+                : lastShortcutPane === paneId;
+            if (!inPane) continue;
+
+            if (event.key !== 'Escape') event.preventDefault();
+            dotNetRef.invokeMethodAsync('OnShortcutAsync', event.key).catch(() => { });
+            return;
+        }
+    });
+
     // The picker's open list is positioned under its control and is as tall as
     // fourteen rem of options. The control is often the last thing in a column
     // that scrolls — the inbox's detail, an entry's editor — and a popup that
