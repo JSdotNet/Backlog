@@ -43,9 +43,10 @@ public interface IPlanningVelocity
 /// for one repository. The roadmap view's side of <see cref="IPlanningVelocity"/>.
 /// <para>
 /// A <c>repository</c> of <c>null</c> means the global pace, the one every plan filed
-/// under no configured repository is placed at. A repository the reader never set a
-/// pace for reads the global typed pace and choice, measured over its own finished
-/// work; the first change made for it gives it a pace of its own.
+/// under no configured repository is placed at. The typed pace is one for every
+/// scope, the fallback a scope places by when none of its stretches measured
+/// anything. Which stretch a scope uses is chosen per repository; a repository nobody
+/// chose one for reads the global choice, measured over its own finished work.
 /// </para>
 /// </summary>
 public interface IPlanningPace
@@ -60,10 +61,10 @@ public interface IPlanningPace
     /// plans are placed at.</summary>
     Task<PlanningPacesDto> ReadAsync(string? repository = null, CancellationToken cancellationToken = default);
 
-    /// <summary>Sets the typed pace from what a text field hands back. Returns
-    /// <c>null</c> when it took and was saved, and a message to show beside the
-    /// field otherwise.</summary>
-    string? SetManual(string? typed, string? repository = null);
+    /// <summary>Sets the typed pace — the one fallback every scope shares — from what
+    /// a text field hands back. Returns <c>null</c> when it took and was saved, and a
+    /// message to show beside the field otherwise.</summary>
+    string? SetManual(string? typed);
 
     /// <summary>Chooses the pace placement uses. Returns <c>null</c> when saved, a
     /// warning when it took but could not be written for next time.</summary>

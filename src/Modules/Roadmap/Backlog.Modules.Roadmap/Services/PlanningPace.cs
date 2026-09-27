@@ -19,9 +19,10 @@ namespace Backlog.Modules.Roadmap.Services;
 /// <para>
 /// A repository's measured paces count only the work filed under it, and work filed
 /// under two counts in full toward both: each repository was worked on at the pace
-/// its own finished work shows. The global paces count every finished task once. A
-/// repository the reader never set a pace for places by the global typed pace and
-/// choice, measured over its own work (ADR 0013, ruling 4 as amended on 2026-09-26).
+/// its own finished work shows. The global paces count every finished task once.
+/// The typed pace is one for every scope — the fallback a scope places by when none
+/// of its stretches measured anything — and which stretch a scope uses is chosen per
+/// repository; a repository nobody chose one for reads the global choice.
 /// </para>
 /// <para>
 /// Read on every call and kept nowhere, so a task ticked off is in the next reading.
@@ -76,8 +77,7 @@ internal sealed class PlanningPace(
         CancellationToken cancellationToken = default) =>
         (await ReadPacesInUseAsync(cancellationToken)).For(repositoryAliases);
 
-    public string? SetManual(string? typed, string? repository = null) =>
-        settings.SetManual(typed, Scope(repository));
+    public string? SetManual(string? typed) => settings.SetManual(typed);
 
     public string? Choose(PaceSource source, string? repository = null) =>
         settings.Choose(source, Scope(repository));
@@ -123,7 +123,8 @@ internal sealed class PlanningPace(
     }
 
     /// <summary>The paces for one scope: the global ones for <c>null</c>, otherwise
-    /// the repository's typed pace and choice over the work filed under it.</summary>
+    /// the repository's choice over the work filed under it. The typed pace is the
+    /// global one either way: it is the single fallback.</summary>
     private PlanningPacesDto PacesOf(string? repository, IReadOnlyList<CompletedEffortDto> finished, DateOnly today)
     {
         if (repository is null) return Paces(settings.Manual(), settings.Source(), finished, today);
@@ -133,7 +134,7 @@ internal sealed class PlanningPace(
             .. finished.Where(entry => entry.RepositoryAliases.Contains(repository, StringComparer.OrdinalIgnoreCase))
         ];
 
-        return Paces(settings.Manual(repository), settings.Source(repository), own, today);
+        return Paces(settings.Manual(), settings.Source(repository), own, today);
     }
 
     /// <summary>The configured repository an alias names, or <c>null</c> — the global
