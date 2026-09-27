@@ -49,6 +49,10 @@ public static class InboxErrors
         "inbox.item.already_decided",
         "Already routed or archived, so there is nothing left to change.");
 
+    public static readonly Error SuggestionKeyRequired = Error.Validation(
+        "inbox.suggestion.key_required",
+        "Say which suggestion to turn down.");
+
     public static readonly Error PersonIsNotATag = Error.Validation(
         "inbox.tag.person_not_a_tag",
         "A person (@name) is a source, not a tag.");

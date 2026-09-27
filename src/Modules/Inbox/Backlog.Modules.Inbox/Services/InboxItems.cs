@@ -11,6 +11,7 @@ using Backlog.Modules.Inbox.Features.CreatePlan;
 using Backlog.Modules.Inbox.Features.DeferItem;
 using Backlog.Modules.Inbox.Features.DeleteItem;
 using Backlog.Modules.Inbox.Features.DeleteList;
+using Backlog.Modules.Inbox.Features.DismissSuggestion;
 using Backlog.Modules.Inbox.Features.EnsureDefaultOrganizer;
 using Backlog.Modules.Inbox.Features.GetInbox;
 using Backlog.Modules.Inbox.Features.MoveListToGroup;
@@ -24,6 +25,7 @@ using Backlog.Modules.Inbox.Features.ResurfaceDueItems;
 using Backlog.Modules.Inbox.Features.ResurfaceItem;
 using Backlog.Modules.Inbox.Features.RouteToBacklog;
 using Backlog.Modules.Inbox.Features.SetTags;
+using Backlog.Modules.Inbox.Features.Suggest;
 using Backlog.Modules.Inbox.Features.UngroupLists;
 using Backlog.SharedKernel.Handlers;
 using Backlog.SharedKernel.Results;
@@ -62,6 +64,8 @@ internal sealed class InboxItems(
     ICommandHandler<RetryAttachmentCommand, Result> retryAttachment,
     IQueryHandler<ReadAttachmentQuery, Result<byte[]>> readAttachment,
     ICommandHandler<OpenAttachmentCommand, Result> openAttachment,
+    IQueryHandler<SuggestQuery, Result<IReadOnlyList<InboxSuggestionDto>>> suggest,
+    ICommandHandler<DismissSuggestionCommand, Result> dismissSuggestion,
     IInboxPlanDrafter? drafter = null) : IInboxItems
 {
     public Task<InboxSnapshotDto> GetSnapshotAsync(CancellationToken cancellationToken = default) =>
@@ -141,6 +145,12 @@ internal sealed class InboxItems(
 
     public Task<Result> OpenAttachmentAsync(Guid id, Guid attachmentId, CancellationToken cancellationToken = default) =>
         openAttachment.Handle(new OpenAttachmentCommand(id, attachmentId), cancellationToken);
+
+    public Task<Result<IReadOnlyList<InboxSuggestionDto>>> SuggestAsync(Guid id, CancellationToken cancellationToken = default) =>
+        suggest.Handle(new SuggestQuery(id), cancellationToken);
+
+    public Task<Result> DismissSuggestionAsync(Guid id, string key, CancellationToken cancellationToken = default) =>
+        dismissSuggestion.Handle(new DismissSuggestionCommand(id, key), cancellationToken);
 
     public (bool Available, string? Reason) PlanDrafterAvailability =>
         drafter is { IsAvailable: true }

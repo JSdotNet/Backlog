@@ -4159,6 +4159,36 @@ h1, h2, h3 {
     margin: 0;
 }
 
+/* The detail takes focus when its text is clicked, so the suggestion digits
+   reach it; that focus is a mouse's, never a tab stop, and draws no ring. */
+.inbox-pane__detail:focus {
+    outline: none;
+}
+
+/* Classification's proposals, above the pickers: a small heading and a row of
+   suggested chips that wraps. The heading names the row once, so no chip has to
+   say it is a suggestion in words. */
+.inbox-pane__suggestions {
+    display: grid;
+    gap: var(--spacing-xs);
+}
+
+.inbox-pane__suggestions-title {
+    margin: 0;
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.inbox-pane__suggestion-chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
 /* --- Narrow ---------------------------------------------------------------- */
 
 /* Beside the backlog the pane is a column, not a page. The side menu goes

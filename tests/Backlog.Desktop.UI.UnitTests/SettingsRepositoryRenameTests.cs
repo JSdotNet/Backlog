@@ -248,6 +248,12 @@ public sealed class SettingsRepositoryRenameTests
         }
 
         public (bool Available, string? Reason) PlanDrafterAvailability => (false, null);
+
+        public Task<Result<IReadOnlyList<InboxSuggestionDto>>> SuggestAsync(Guid id, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Result.Success<IReadOnlyList<InboxSuggestionDto>>([]));
+
+        public Task<Result> DismissSuggestionAsync(Guid id, string key, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Result.Success());
         public Task<InboxSnapshotDto> GetSnapshotAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Result<InboxItemDto>> CaptureAsync(string title, string? notes = null, string channel = "manual", CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Result> SetTagsAsync(Guid id, IReadOnlyList<string> tags, CancellationToken cancellationToken = default) => throw new NotSupportedException();

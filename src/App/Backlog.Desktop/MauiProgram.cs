@@ -215,6 +215,9 @@ public static class MauiProgram
             new RootedSqliteInboxRepository(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
         builder.Services.AddSingleton<IInboxItemRepository>(sp => sp.GetRequiredService<RootedSqliteInboxRepository>());
         builder.Services.AddSingleton<IInboxOrganizerRepository>(sp => sp.GetRequiredService<RootedSqliteInboxRepository>());
+        // The reader's routing rules, which Settings writes and Classification
+        // reads: a per-user file beside the capture sources, for their reason.
+        builder.Services.AddSingleton<IInboxRoutingRules, InboxRoutingRulesStore>();
         builder.Services.AddInboxModule();
 
         // The cross-context join routing takes part in: the Inbox's backlog

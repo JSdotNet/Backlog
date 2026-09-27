@@ -10,6 +10,7 @@ using Backlog.Modules.Inbox.Features.CreatePlan;
 using Backlog.Modules.Inbox.Features.DeferItem;
 using Backlog.Modules.Inbox.Features.DeleteItem;
 using Backlog.Modules.Inbox.Features.DeleteList;
+using Backlog.Modules.Inbox.Features.DismissSuggestion;
 using Backlog.Modules.Inbox.Features.EnsureDefaultOrganizer;
 using Backlog.Modules.Inbox.Features.GetInbox;
 using Backlog.Modules.Inbox.Features.MoveListToGroup;
@@ -24,6 +25,7 @@ using Backlog.Modules.Inbox.Features.ResurfaceDueItems;
 using Backlog.Modules.Inbox.Features.ResurfaceItem;
 using Backlog.Modules.Inbox.Features.RouteToBacklog;
 using Backlog.Modules.Inbox.Features.SetTags;
+using Backlog.Modules.Inbox.Features.Suggest;
 using Backlog.Modules.Inbox.Features.UngroupLists;
 using Backlog.Modules.Inbox.Services;
 using Backlog.SharedKernel.Handlers;
@@ -86,6 +88,13 @@ public static class InboxModuleRegistration
         services.AddScoped<ICommandHandler<RetryAttachmentCommand, Result>, RetryAttachmentCommandHandler>();
         services.AddScoped<IQueryHandler<ReadAttachmentQuery, Result<byte[]>>, ReadAttachmentQueryHandler>();
         services.AddScoped<ICommandHandler<OpenAttachmentCommand, Result>, OpenAttachmentCommandHandler>();
+
+        // Classification's suggestions. The tag source and the routing rules
+        // the query reads are optional constructor parameters, like the plan
+        // drafter: a host without them is offered what the item's own text
+        // supports.
+        services.AddScoped<IQueryHandler<SuggestQuery, Result<IReadOnlyList<InboxSuggestionDto>>>, SuggestQueryHandler>();
+        services.AddScoped<ICommandHandler<DismissSuggestionCommand, Result>, DismissSuggestionCommandHandler>();
 
         services.AddScoped<IInboxItems, InboxItems>();
 

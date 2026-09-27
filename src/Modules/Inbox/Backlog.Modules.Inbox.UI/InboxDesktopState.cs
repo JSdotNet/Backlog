@@ -393,6 +393,11 @@ public sealed class InboxDesktopState
         BacklogTags = backlogTags;
         Loaded = true;
 
+        // Whatever the item now carries — a tag just accepted, a suggestion just
+        // turned down, a rule the backlog's tags now meet — the suggestions are
+        // asked for again on the next render rather than trusted from before.
+        _suggestionsFor = null;
+
         if (SelectedListId is { } listId && FindList(listId) is null)
         {
             SelectedListId = null;
@@ -553,6 +558,130 @@ public sealed class InboxDesktopState
 
         if (Report(await _inbox.DeleteAsync(item.Id))) return;
 
+        await ReloadAsync();
+    }
+
+    // --- Suggestions ----------------------------------------------------------
+    //
+    // Classification's proposals for the item on screen. Asked of the module
+    // rather than worked out here — which tags the backlog uses, which rules the
+    // reader wrote and which suggestions they turned down are all the module's —
+    // and applied only through the act each one names, when the reader takes it.
+
+    /// <summary>The item the suggestions on screen were asked for, as the DTO
+    /// instance it was then; a reload hands over new instances and clears this,
+    /// so the next render asks again.</summary>
+    private InboxItemDto? _suggestionsFor;
+
+    /// <summary>What Classification proposes for the selected item, in the order
+    /// the chips are drawn. Empty for no item, a decided item, or before the
+    /// first answer.</summary>
+    public IReadOnlyList<InboxSuggestionDto> Suggestions { get; private set; } = [];
+
+    /// <summary>The suggestions a key takes, in order: the ones that can be taken
+    /// at all, up to nine, so the digit on each chip is its position here.</summary>
+    public IReadOnlyList<InboxSuggestionDto> ShortcutSuggestions =>
+        [.. Suggestions.Where(suggestion => suggestion.Available).Take(9)];
+
+    /// <summary>The digit that takes <paramref name="suggestion"/>, or null for
+    /// one no key takes.</summary>
+    public string? ShortcutFor(InboxSuggestionDto suggestion)
+    {
+        var index = ShortcutSuggestions.ToList().IndexOf(suggestion);
+        return index < 0 ? null : (index + 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>Asks for the selected item's suggestions when the ones on screen
+    /// were asked for another item, or before the last reload. Called on every
+    /// render of the detail, and a no-op when nothing changed. A failure leaves
+    /// no chips rather than a toast: a suggestion is an offer, and an offer that
+    /// could not be made is not an error the reader has to deal with.</summary>
+    public async Task LoadSuggestionsAsync()
+    {
+        var item = SelectedItem;
+        if (ReferenceEquals(item, _suggestionsFor)) return;
+
+        _suggestionsFor = item;
+
+        if (item is null || item.Status is not (InboxStatus.Unprocessed or InboxStatus.Deferred))
+        {
+            if (Suggestions.Count == 0) return;
+
+            Suggestions = [];
+            Changed?.Invoke();
+            return;
+        }
+
+        var answer = await _inbox.SuggestAsync(item.Id);
+
+        // Another item was chosen, or a reload landed, while this was asked.
+        if (!ReferenceEquals(item, _suggestionsFor)) return;
+
+        Suggestions = answer.IsSuccess ? answer.Value : [];
+        Changed?.Invoke();
+    }
+
+    /// <summary>
+    /// Takes a suggestion through the act it names: a tag is added to the item's
+    /// tags, a repository to its repositories, and a destination decides the item
+    /// — the backlog routes it, archive archives it. A suggestion that cannot be
+    /// taken is left alone; the chip says why.
+    /// </summary>
+    public async Task AcceptSuggestionAsync(InboxSuggestionDto suggestion)
+    {
+        ArgumentNullException.ThrowIfNull(suggestion);
+
+        if (SelectedItem is not { } item || !suggestion.Available || RouteRunning || PlanRunning) return;
+
+        switch (suggestion.Kind)
+        {
+            case InboxSuggestionKind.Tag:
+                await SetTagsAsync([.. item.Tags.Select(tag => tag.Name), suggestion.Value]);
+                break;
+
+            case InboxSuggestionKind.Repository:
+                await AssignRepositoriesAsync([.. item.RepoIds, suggestion.Value]);
+                break;
+
+            case InboxSuggestionKind.Destination when suggestion.Value == InboxEnumMap.ToWire(RoutingDomain.Tasks):
+                await RouteToBacklogAsync();
+                break;
+
+            case InboxSuggestionKind.Destination when suggestion.Value == InboxEnumMap.ToWire(RoutingDomain.Archive):
+                await ArchiveAsync();
+                break;
+        }
+    }
+
+    /// <summary>Takes the suggestion whose chip shows <paramref name="key"/> — a
+    /// digit from 1 to 9 — and answers whether one did. Any other key, or a
+    /// digit with no chip, is left to whatever else wants it.</summary>
+    public async Task<bool> AcceptShortcutAsync(string? key)
+    {
+        if (key is not { Length: 1 } || key[0] is < '1' or > '9') return false;
+
+        var index = key[0] - '1';
+        var shortcuts = ShortcutSuggestions;
+        if (index >= shortcuts.Count) return false;
+
+        await AcceptSuggestionAsync(shortcuts[index]);
+        return true;
+    }
+
+    /// <summary>Turns a suggestion down for the selected item. The module records
+    /// it, so it is not offered for this item again — after a reload, a restart
+    /// or another reason to propose it.</summary>
+    public async Task DismissSuggestionAsync(InboxSuggestionDto suggestion)
+    {
+        ArgumentNullException.ThrowIfNull(suggestion);
+
+        if (SelectedItem is not { } item) return;
+
+        if (Report(await _inbox.DismissSuggestionAsync(item.Id, suggestion.Key))) return;
+
+        // Gone from the row at once rather than after the reload's round trip,
+        // so a second press of the same digit cannot reach a chip already refused.
+        Suggestions = [.. Suggestions.Where(other => other.Key != suggestion.Key)];
         await ReloadAsync();
     }
 
