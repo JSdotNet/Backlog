@@ -42,6 +42,39 @@ public class RoadmapPlanViewHandOverTests
         IReadOnlyDictionary<Guid, RoadmapItemRollupDto> rollups) =>
         RoadmapPlanView.From(new RoadmapPlanDto([.. items], [], [], null), Configured, rollups);
 
+    private static RoadmapGatheredLink Done(string key, string repository, int started, int completed, params string[] waits) =>
+        new(key, key.ToUpperInvariant(), 5, RollupOrigin.Tag, RoadmapProgress.Done, waits, [repository],
+            StartedOn: new DateOnly(2026, 1, started), CompletedOn: new DateOnly(2026, 1, completed));
+
+    [Fact]
+    public void AnItemInFlight_DrawsItsDoneSegmentsWhereTheyRan_AndOnlyTheOpenOnesForward()
+    {
+        // Planned across all of January; backlog and fincent finished their parts in
+        // the first week, and one point is left in backlog. Today is the 10th.
+        var item = Item();
+        var rollups = new Dictionary<Guid, RoadmapItemRollupDto>
+        {
+            [item.Id] = new(
+            [
+                Done("a", "JSdotNet/Backlog", 1, 2),
+                Done("b", "JSdotNet/Fincent", 3, 4, "a"),
+                new RoadmapGatheredLink("c", "C", 1, RollupOrigin.Tag, RoadmapProgress.Ready, ["b"], ["JSdotNet/Backlog"])
+            ], [])
+        };
+
+        var view = RoadmapPlanView.From(
+            new RoadmapPlanDto([item], [], [], null),
+            Configured,
+            rollups,
+            forecast: new RoadmapForecast(new DateOnly(2026, 1, 10), new PacesInUseDto(7m, new Dictionary<string, decimal>())));
+
+        var bars = view.Bars.OrderBy(bar => bar.Start).ToList();
+        Assert.Equal(
+            [(1, 2), (3, 4), (10, 10)],
+            bars.Select(bar => (bar.Start.Day, bar.End.Day)));
+        Assert.All(bars, bar => Assert.True(bar.Locked));
+    }
+
     [Fact]
     public void TasksHandingOverBetweenRepositories_AreDrawnAsConsecutiveSegments()
     {

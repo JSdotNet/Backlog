@@ -38,6 +38,7 @@
 @implements IDisposable
 @inject IRoadmapPlanning Planning
 @inject IRoadmapItemRollup Rollups
+@inject IPlanningPace Paces
 @inject IImportedPlanSource ImportedPlans
 @inject GitHubSettingsStore Repositories
 @inject IRoadmapWorkChanges WorkChanges
@@ -273,10 +274,34 @@
         // 6). Read on every load and never kept — progress belongs to Tasks.
         var rollups = await Rollups.GatherPlanAsync(_plan);
 
-        _view = RoadmapPlanView.From(_plan, Configured(), rollups);
+        var configured = Configured();
+
+        // Work in flight is drawn from the work: from when it began to when what is
+        // left should be done at the pace its band is placed at (RoadmapPlanView.AsDrawn).
+        var forecast = new RoadmapForecast(
+            Today ?? DateOnly.FromDateTime(DateTime.Today),
+            await PacesInUseAsync(configured));
+
+        _view = RoadmapPlanView.From(_plan, configured, rollups, forecast);
 
         _imported = await ImportedPlans.ListAsync();
         _unplanned = Unplanned(_imported, _plan);
+    }
+
+    /// <summary>The pace each band is in use at — the one its pace control shows —
+    /// and the global one for work filed under none. Read on every load, which the
+    /// band already does when finished work or a pace changes.</summary>
+    private async Task<PacesInUseDto> PacesInUseAsync(IReadOnlyList<PlannedRepository> configured)
+    {
+        var global = (await Paces.ReadAsync()).InUse;
+        var byRepository = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var repository in configured)
+        {
+            byRepository[repository.Alias] = (await Paces.ReadAsync(repository.Alias)).InUse;
+        }
+
+        return new PacesInUseDto(global, byRepository);
     }
 
     /// <summary>

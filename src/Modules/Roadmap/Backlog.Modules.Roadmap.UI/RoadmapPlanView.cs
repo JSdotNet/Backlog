@@ -21,6 +21,16 @@ namespace Backlog.Modules.Roadmap.UI;
 /// </para></param>
 public sealed record PlannedRepository(string Alias, string Title, int? Colour = null);
 
+/// <summary>
+/// What a plan's work in flight is forecast against: the day it is, and the pace each
+/// repository's work goes at.
+/// </summary>
+/// <param name="Today">The day the forecast starts from — the first day open work
+/// can be drawn on.</param>
+/// <param name="Paces">The pace in use, globally and per repository, that the work
+/// left in an item is divided by — the same pace its window was placed at.</param>
+public sealed record RoadmapForecast(DateOnly Today, PacesInUseDto Paces);
+
 /// <summary>Everything <c>RoadmapTimeline</c> needs, in the four shapes it takes.</summary>
 public sealed record RoadmapTimelineModel(
     IReadOnlyList<RoadmapGroup> Groups,
@@ -81,25 +91,29 @@ public static class RoadmapPlanView
     /// <c>IRoadmapItemRollup.GatherPlanAsync</c> answers it. An item missing from it
     /// — or no rollups at all — draws with no steps, which is what an item nothing
     /// points at looks like anyway.</param>
+    /// <param name="forecast">Today and the paces in use, to draw work in flight from
+    /// the work itself (<see cref="AsDrawn"/>). Left unset, only finished items are
+    /// drawn from their work and everything else where it was planned.</param>
     public static RoadmapTimelineModel From(
         RoadmapPlanDto? plan,
         IReadOnlyList<PlannedRepository>? repositories,
-        IReadOnlyDictionary<Guid, RoadmapItemRollupDto>? rollups = null)
+        IReadOnlyDictionary<Guid, RoadmapItemRollupDto>? rollups = null,
+        RoadmapForecast? forecast = null)
     {
         if (plan is null || plan.IsEmpty) return RoadmapTimelineModel.Empty;
 
         var configured = Configured(repositories);
         var contradicting = plan.Contradictions.Select(contradiction => contradiction.NodeId).ToHashSet();
-        var finished = new HashSet<Guid>();
+        var drawnFromWork = new Dictionary<Guid, DrawnFrom>();
 
         // Ordered before anything is grouped, so lanes appear in the order the work
         // actually starts rather than in whatever order the file happened to list
         // it. Two runs over the same plan must draw the same picture.
         var items = plan.Items
-            .Select(item => AsDrawn(item, rollups, finished))
+            .Select(item => AsDrawn(item, rollups, forecast, drawnFromWork))
             .OrderBy(item => item.Start)
             .ThenBy(item => item.Title, StringComparer.CurrentCulture)
-            .SelectMany(item => PartsOf(item, configured, rollups))
+            .SelectMany(item => PartsOf(item, configured, rollups, drawnFromWork.GetValueOrDefault(item.Id)))
             // Again by start once split, so a segment late in its item's window is
             // stacked after work that begins before it — first-fit needs the order.
             .OrderBy(part => part.Start)
@@ -117,7 +131,7 @@ public static class RoadmapPlanView
         var drawn = groups.SelectMany(group => group.RowList).Select(row => row.Id).ToHashSet();
 
         var bars = items
-            .Select(part => Bar(part, stacked.RowOf[part.BarId], contradicting, configured, finished.Contains(part.Item.Id)))
+            .Select(part => Bar(part, stacked.RowOf[part.BarId], contradicting, configured, drawnFromWork.GetValueOrDefault(part.Item.Id)))
             .Where(bar => drawn.Contains(bar.RowId))
             .ToList();
 
@@ -181,7 +195,8 @@ public static class RoadmapPlanView
     private static IEnumerable<ItemPart> PartsOf(
         RoadmapItemDto item,
         List<PlannedRepository> configured,
-        IReadOnlyDictionary<Guid, RoadmapItemRollupDto>? rollups)
+        IReadOnlyDictionary<Guid, RoadmapItemRollupDto>? rollups,
+        DrawnFrom? drawnFrom)
     {
         var bands = item.RepositoryAliases
             .Select(alias => (Alias: alias, GroupId: GroupIdFor([alias], configured)))
@@ -230,7 +245,7 @@ public static class RoadmapPlanView
         // Work whose tasks hand over from one repository to another is drawn as the
         // sequence it is: a segment per repository per phase, rather than one bar per
         // repository all spanning the same window as though the parts ran side by side.
-        var segments = Sequence(item, links, bandOfTask, bands);
+        var segments = Sequence(item, links, bandOfTask, bands, drawnFrom);
         if (segments is not null)
         {
             foreach (var segment in segments) yield return segment;
@@ -266,12 +281,20 @@ public static class RoadmapPlanView
     /// running the whole window: the item still names it, and dropping it would hide
     /// that.
     /// </para>
+    /// <para>
+    /// An item drawn from its work (<paramref name="drawnFrom"/>) draws each segment
+    /// whose tasks are all done where that work ran, and shares out only the open
+    /// phases, from the first day open work can be drawn on to the item's end. A done
+    /// segment stretched over a proportional slice would draw finished work into the
+    /// future.
+    /// </para>
     /// </summary>
     private static List<ItemPart>? Sequence(
         RoadmapItemDto item,
         IReadOnlyList<RoadmapGatheredLink> ordered,
         Dictionary<string, string> bandOfTask,
-        List<(string GroupId, List<string> Aliases)> bands)
+        List<(string GroupId, List<string> Aliases)> bands,
+        DrawnFrom? drawnFrom)
     {
         // Ordered so a task's waits are seen before it; a wait inside a cycle, or on
         // something not gathered, counts as nothing.
@@ -305,7 +328,32 @@ public static class RoadmapPlanView
             .ToList();
 
         var phases = groups.Max(group => group.Phase) + 1;
-        var weights = Enumerable.Range(0, phases)
+
+        // Where each segment whose work is over actually ran — only when every such
+        // segment says, so a half-dated history never mixes with a proportional one.
+        var ran = new Dictionary<(int Phase, string Band), (DateOnly Start, DateOnly End)>();
+        if (drawnFrom is not null)
+        {
+            foreach (var group in groups.Where(group => group.Links.All(link => link.IsDone)))
+            {
+                if (WhenItRan(group.Links) is not { } when)
+                {
+                    ran.Clear();
+                    break;
+                }
+
+                ran[(group.Phase, group.Band)] = when;
+            }
+        }
+
+        // The phases that share the window: all of them, unless the work drew the done
+        // segments — then the ones with a segment still open, from the first day open
+        // work can be drawn on.
+        var open = Enumerable.Range(0, phases)
+            .Where(phase => groups.Any(group => group.Phase == phase && !ran.ContainsKey((group.Phase, group.Band))))
+            .ToList();
+
+        var weights = open
             .Select(phase => groups
                 .Where(group => group.Phase == phase)
                 .Select(group => group.Links.Sum(link => Math.Max(1, link.Effort ?? 1)))
@@ -313,7 +361,10 @@ public static class RoadmapPlanView
                 .Max())
             .ToList();
 
-        var slices = Slices(item.Start, item.End, weights);
+        var openFrom = ran.Count == 0 ? item.Start : Max(drawnFrom!.OpenFrom, item.Start);
+        var shared = weights.Count == 0 ? [] : Slices(openFrom, Max(openFrom, item.End), weights);
+        var slices = new Dictionary<int, (DateOnly Start, DateOnly End)>();
+        for (var index = 0; index < open.Count; index++) slices[open[index]] = shared[index];
 
         string BarIdOf(int phase, string band) => $"{item.Id}{PartSeparator}{band}{SegmentSeparator}{phase + 1}";
 
@@ -334,6 +385,8 @@ public static class RoadmapPlanView
                 .Distinct(StringComparer.Ordinal)
                 .ToList();
 
+            var window = ran.TryGetValue((phase, band), out var history) ? history : slices[phase];
+
             parts.Add(new ItemPart(
                 item,
                 BarIdOf(phase, band),
@@ -341,8 +394,8 @@ public static class RoadmapPlanView
                 bands.First(entry => string.Equals(entry.GroupId, band, StringComparison.OrdinalIgnoreCase)).Aliases,
                 Steps(links),
                 partCount,
-                slices[phase].Start,
-                slices[phase].End,
+                window.Start,
+                window.End,
                 waitsFor));
         }
 
@@ -649,7 +702,7 @@ public static class RoadmapPlanView
         string rowId,
         HashSet<Guid> contradicting,
         List<PlannedRepository> configured,
-        bool finished) =>
+        DrawnFrom? drawnFrom) =>
         new(
             part.BarId,
             rowId,
@@ -658,37 +711,97 @@ public static class RoadmapPlanView
             part.End,
             Shade(part.Item.Priority),
             Facets(part.Item, part.Aliases, configured),
-            Detail(part.Item, contradicting, part.PartCount, part.IsSegment),
-            Locked: finished,
+            Detail(part.Item, contradicting, part.PartCount, part.IsSegment, drawnFrom),
+            Locked: drawnFrom is not null,
             Steps: part.Steps);
 
     /// <summary>
-    /// An item as it is drawn: where it was planned, or — once every task it gathered
-    /// is done — where the work actually happened, from the day its first task was
-    /// started to the day its last was ticked off.
+    /// How an item drawn from its work was drawn: finished, or in flight with its end
+    /// forecast — and the first day its open work can be drawn on.
+    /// </summary>
+    private sealed record DrawnFrom(bool Finished, DateOnly OpenFrom);
+
+    /// <summary>
+    /// An item as it is drawn: where it was planned, or — once work on it has begun —
+    /// where the work actually runs.
     /// <para>
-    /// A finished plan is history, and a planned window is only what somebody hoped.
-    /// Drawing it where it really ran is what lets a reader scroll back and see how
-    /// long the work took; drawing the hope would keep last quarter's optimism on the
-    /// chart as though it were a record. Either end the tasks do not say falls back to
-    /// the planned one, and the bar is locked: the dates are read off the work, so
-    /// dragging them would change nothing the next draw keeps.
+    /// A finished item is drawn from the day its first task was started to the day its
+    /// last was ticked off. A finished plan is history, and a planned window is only
+    /// what somebody hoped: drawing it where it really ran is what lets a reader scroll
+    /// back and see how long the work took. When nothing says when the work ended, the
+    /// planned end stands — but with a <paramref name="forecast"/>, never after today,
+    /// because finished work cannot end in the future.
+    /// </para>
+    /// <para>
+    /// With a <paramref name="forecast"/>, an item whose work is in flight — something
+    /// started or done, something still open — is drawn from the day its work began,
+    /// when that was earlier than planned, to a forecast of when what is left will be
+    /// done: the open points, an unestimated task counted as one, at the item's pace,
+    /// from today. A planned window stretching finished work over months, or ending
+    /// before the work left could, would be the hope again rather than the reading.
+    /// Nothing is stored: the item keeps its planned window, and the forecast is read
+    /// off the work each time, like the rollup it comes from.
+    /// </para>
+    /// <para>
+    /// Either way the bar is locked: its dates are read off the work, so dragging them
+    /// would change nothing the next draw keeps.
     /// </para>
     /// </summary>
     private static RoadmapItemDto AsDrawn(
         RoadmapItemDto item,
         IReadOnlyDictionary<Guid, RoadmapItemRollupDto>? rollups,
-        HashSet<Guid> finished)
+        RoadmapForecast? forecast,
+        Dictionary<Guid, DrawnFrom> drawnFromWork)
     {
-        if (rollups is null || !rollups.TryGetValue(item.Id, out var rollup) || !rollup.IsFinished) return item;
+        if (rollups is null || !rollups.TryGetValue(item.Id, out var rollup) || rollup.BacklogEntries.Count == 0) return item;
 
-        finished.Add(item.Id);
+        if (rollup.IsFinished)
+        {
+            var start = rollup.FirstStartedOn ?? item.Start;
+            var end = Max(start, rollup.LastCompletedOn
+                ?? (forecast is not null ? Min(item.End, forecast.Today) : item.End));
 
-        var start = rollup.FirstStartedOn ?? item.Start;
-        var end = rollup.LastCompletedOn ?? item.End;
+            drawnFromWork[item.Id] = new DrawnFrom(Finished: true, end);
+            return item with { Start = start, End = end };
+        }
 
-        return item with { Start = start, End = end < start ? start : end };
+        if (forecast is null) return item;
+
+        var begun = rollup.BacklogEntries
+            .Where(link => link.Progress is RoadmapProgress.InProgress or RoadmapProgress.Done)
+            .ToList();
+        if (begun.Count == 0) return item;
+
+        var pace = forecast.Paces.For(item.RepositoryAliases);
+        if (pace <= 0) return item;
+
+        var began = begun.Select(link => link.StartedOn ?? link.CreatedOn).Where(day => day is not null).Min();
+        var from = began is { } day ? Min(day, item.Start) : item.Start;
+        var openFrom = Max(forecast.Today, from);
+
+        var left = rollup.BacklogEntries.Where(link => !link.IsDone).Sum(link => Math.Max(0, link.Effort ?? 1));
+        var days = (int)Math.Clamp(Math.Ceiling(left * 7m / pace), 1, 3650);
+
+        drawnFromWork[item.Id] = new DrawnFrom(Finished: false, openFrom);
+        return item with { Start = from, End = openFrom.AddDays(days - 1) };
     }
+
+    /// <summary>When a segment's work ran: its first task's start — or, for one
+    /// stamped before <c>started:</c> existed, its creation — to its last completion.
+    /// Null when any of that is missing.</summary>
+    private static (DateOnly Start, DateOnly End)? WhenItRan(IReadOnlyList<RoadmapGatheredLink> links)
+    {
+        var starts = links.Select(link => link.StartedOn ?? link.CreatedOn).ToList();
+        var ends = links.Select(link => link.CompletedOn).ToList();
+        if (starts.Any(day => day is null) || ends.Any(day => day is null)) return null;
+
+        var start = starts.Min()!.Value;
+        return (start, Max(start, ends.Max()!.Value));
+    }
+
+    private static DateOnly Min(DateOnly first, DateOnly second) => first < second ? first : second;
+
+    private static DateOnly Max(DateOnly first, DateOnly second) => first > second ? first : second;
 
     /// <summary>
     /// The item's gathered tasks as the steps drawn inside its bar (ADR 0013,
@@ -792,9 +905,22 @@ public static class RoadmapPlanView
         return facets;
     }
 
-    private static string Detail(RoadmapItemDto item, HashSet<Guid> contradicting, int partCount, bool segment = false)
+    private static string Detail(
+        RoadmapItemDto item,
+        HashSet<Guid> contradicting,
+        int partCount,
+        bool segment = false,
+        DrawnFrom? drawnFrom = null)
     {
         var parts = new List<string> { $"{Word(item.Priority)} priority" };
+
+        // Said, because a locked bar otherwise only says it cannot be moved, not why.
+        if (drawnFrom is not null)
+        {
+            parts.Add(drawnFrom.Finished
+                ? "finished, drawn where the work ran"
+                : "in progress, drawn from when the work began to when what is left should be done");
+        }
 
         if (!string.IsNullOrEmpty(item.Tag)) parts.Add($"tagged {item.Tag}");
 

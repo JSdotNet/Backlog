@@ -131,8 +131,10 @@ public sealed record RoadmapWindow
     /// Before this week is history, reached by scrolling back — finished plans are
     /// drawn where their work actually happened. It is ruled in weeks for the
     /// <see cref="GraduatedWeeks"/> before this one, where recently finished work
-    /// sits, and in months before that, the last clipped to meet the first week;
-    /// and only as far back as the earliest date given.
+    /// sits, and in months before that, the last clipped to meet the first week.
+    /// The weeks are always there, so a reader can look back at the last month
+    /// whatever is drawn; the months reach only as far back as the earliest date
+    /// given.
     /// </para>
     /// <para>
     /// It always reaches at least to the end of the monthly tier, so the horizon's
@@ -166,8 +168,9 @@ public sealed record RoadmapWindow
             previousMonth = cursor.Month;
         }
 
-        // Just before it: weeks, from the one the earliest date falls in.
-        for (var cursor = first < pastWeeksFrom ? pastWeeksFrom : StartOfWeek(Min(first, thisWeek), weekStart); cursor < thisWeek; cursor = cursor.AddDays(7))
+        // Just before it: weeks, always all of them, so there is recent history to
+        // scroll back into even when nothing drawn began before this week.
+        for (var cursor = pastWeeksFrom; cursor < thisWeek; cursor = cursor.AddDays(7))
         {
             columns.Add(Week(cursor, cursor.Month != previousMonth));
             previousMonth = cursor.Month;
