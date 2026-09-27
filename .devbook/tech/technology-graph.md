@@ -14,7 +14,9 @@ desktop channel, the testing layer, and everything used to build and govern the
 repository are in daily use and marked `adopted`. What is still `candidate` is
 concentrated in three places: the Azure deployment targets the sync service will
 eventually run on, the Visual Studio channel, and the parts of the desktop and
-mobile clients that are designed but not yet implemented.
+mobile clients that are designed but not yet implemented. Two things sit at
+`trial`: the unattended schedules, and the inventory scripts this graph's
+package versions are checked against.
 
 ## Layers
 
@@ -52,6 +54,7 @@ to what it sits on top of, mirroring each chapter's `depends-on` field.
 flowchart LR
     subgraph Legend["Status legend"]
         CandidateLegend["candidate"]:::candidate
+        TrialLegend["trial"]:::trial
         AdoptedLegend["adopted"]:::adopted
         HoldLegend["hold"]:::hold
         FoundationLegend["foundation / external"]:::foundation
@@ -97,6 +100,7 @@ flowchart LR
         MexResilience["Microsoft.Extensions.Http.Resilience"]:::adopted
         MexDiscovery["Microsoft.Extensions.ServiceDiscovery"]:::adopted
         MexLogging["Microsoft.Extensions.Logging"]:::adopted
+        Polly["Polly"]:::adopted
         YamlDotNet["YamlDotNet"]:::hold
         CopilotUsage["GitHub Copilot Usage APIs"]:::candidate
     end
@@ -111,6 +115,7 @@ flowchart LR
             LocalStore["Local Task Store"]:::adopted
             Workers["Background Workers"]:::candidate
             ProtectedData["System.Security.Cryptography.ProtectedData"]:::adopted
+            McpSdk["Model Context Protocol C# SDK"]:::adopted
             GhCli["GitHub CLI"]:::adopted
             MSIX["MSIX Packaging"]:::adopted
             AppInstaller["App Installer (.appinstaller)"]:::adopted
@@ -118,6 +123,7 @@ flowchart LR
 
         subgraph Mobile["Mobile - Android capture and review"]
             OfflineStore["Local Offline Store"]:::candidate
+            SkiaSharp["SkiaSharp"]:::adopted
             AndroidTools["Android SDK Build Tools"]:::adopted
             APK["APK Packaging"]:::adopted
         end
@@ -133,6 +139,9 @@ flowchart LR
             MinimalApis["ASP.NET Core Minimal APIs"]:::adopted
             JwtBearer["Microsoft.AspNetCore.Authentication.JwtBearer"]:::adopted
             JsonWebTokens["Microsoft.IdentityModel.JsonWebTokens"]:::adopted
+            OpenApi["Microsoft.AspNetCore.OpenApi"]:::adopted
+            AzureIdentity["Azure.Identity"]:::adopted
+            BlobStorage["Azure Blob Storage"]:::candidate
             ACA["Azure Container Apps"]:::candidate
         end
     end
@@ -143,6 +152,8 @@ flowchart LR
         TestSdk["Microsoft.NET.Test.Sdk"]:::adopted
         VsRunner["xunit.runner.visualstudio"]:::adopted
         TrxReport["Microsoft.Testing.Extensions.TrxReport"]:::adopted
+        MvcTesting["Microsoft.AspNetCore.Mvc.Testing"]:::adopted
+        FakeTime["Microsoft.Extensions.TimeProvider.Testing"]:::adopted
         BUnit["bUnit"]:::adopted
         Coverlet["coverlet"]:::adopted
         Playwright["Playwright"]:::adopted
@@ -160,6 +171,8 @@ flowchart LR
         InstructionFiles["Repository Instruction Files"]:::adopted
         Hooks["Claude Code Hooks"]:::adopted
         DevbookPlugin["Devbook Plugin"]:::adopted
+        DevbookConfig["Devbook Config"]:::adopted
+        DevbookProcedures["Devbook Procedures"]:::adopted
     end
 
     subgraph Tooling["Build and governance tooling"]
@@ -176,6 +189,9 @@ flowchart LR
         CodeQL["CodeQL"]:::adopted
         Dependabot["Dependabot"]:::adopted
         KnowledgeMeta["devbook-meta Generator"]:::adopted
+        DevbookTech["devbook-tech Inventory Scripts"]:::trial
+        DbWriter["Devbook Database Writer"]:::adopted
+        C4Hero["c4hero"]:::adopted
         Archify["Archify"]:::adopted
         Ajv["Ajv"]:::adopted
         SimpleIcons["simple-icons"]:::adopted
@@ -206,6 +222,7 @@ flowchart LR
     MexResilience --> MexHttp
     MexDiscovery --> Aspire
     MexLogging --> DotNet
+    Polly --> DotNet
     YamlDotNet --> DotNet
     CopilotUsage --> GitHubPlatform
 
@@ -220,11 +237,14 @@ flowchart LR
     Workers --> DotNet
     ProtectedData --> Windows
     ProtectedData --> DotNet
+    McpSdk --> AspNetCore
+    McpSdk --> DotNet
     GhCli --> GitHubPlatform
     MSIX --> WinAppSDK
     AppInstaller --> MSIX
 
     OfflineStore --> JSON
+    SkiaSharp --> DotNet
     AndroidTools --> Android
     AndroidTools --> JavaJdk
     APK --> Android
@@ -241,7 +261,10 @@ flowchart LR
     MinimalApis --> CSharp
     JwtBearer --> AspNetCore
     JsonWebTokens --> DotNet
+    OpenApi --> AspNetCore
+    AzureIdentity --> DotNet
     ACA --> MinimalApis
+    BlobStorage --> MinimalApis
 
     XUnit --> DotNet
     XUnit --> CSharp
@@ -249,6 +272,9 @@ flowchart LR
     TestSdk --> MTP
     VsRunner --> XUnit
     TrxReport --> MTP
+    MvcTesting --> AspNetCore
+    MvcTesting --> XUnit
+    FakeTime --> DotNet
     BUnit --> RazorComponents
     BUnit --> XUnit
     Coverlet --> TestSdk
@@ -273,6 +299,10 @@ flowchart LR
     Hooks --> ClaudeCode
     DevbookPlugin --> Plugins
     DevbookPlugin --> NodeJS
+    DevbookConfig --> Plugins
+    DevbookConfig --> JSON
+    DevbookProcedures --> Plugins
+    DevbookProcedures --> Skills
 
     DotNetSdk --> DotNet
     MSBuild --> DotNetSdk
@@ -289,6 +319,13 @@ flowchart LR
     Dependabot --> GitHubPlatform
     KnowledgeMeta --> NodeJS
     KnowledgeMeta --> JSON
+    KnowledgeMeta --> DevbookPlugin
+    DevbookTech --> NodeJS
+    DevbookTech --> JSON
+    DevbookTech --> DevbookPlugin
+    DbWriter --> NodeJS
+    DbWriter --> Sqlite
+    C4Hero --> NodeJS
     Archify --> NodeJS
     Archify --> Mermaid
     Ajv --> Archify
@@ -343,7 +380,7 @@ Terms below are the dictionary's; the right-hand column is this repository.
 | Harness | [Claude Code](ai-development.md#claude-code) |
 | Effort | Not configured. `CLAUDE.md` records that this repository sets no model or effort override; runs take each plugin's default. |
 | Token, input/output tokens, cache tokens, prefix cache | Measured, not configured: `Backlog.Infrastructure.Claude` imports token counts and cost from the Admin API, and `Backlog.Infrastructure.GitHub` does the same for Copilot, for the Productivity domain. |
-| Non-determinism | Why the [testing layer](testing.md) exists in the shape it does — deterministic checks (`dotnet test`, `knowledge-meta`, CodeQL) gate what a non-deterministic agent produces. |
+| Non-determinism | Why the [testing layer](testing.md) exists in the shape it does — deterministic checks (`dotnet test`, the devbook-meta check, CodeQL) gate what a non-deterministic agent produces. |
 
 ### Sessions, context windows, and turns
 
@@ -370,11 +407,11 @@ Terms below are the dictionary's; the right-hand column is this repository.
 
 | Term | In this repository |
 |---|---|
-| Knowledge cutoff | Why `microsoft-code-reference` and the guideline MCP servers are consulted rather than answered from memory |
-| Parametric vs. contextual knowledge | The whole reason `.devbook/arc42`, `.devbook/domain`, `.devbook/tech`, and `.devbook/design` are checked in: project facts are read, not recalled |
+| Knowledge cutoff | Why the `microsoft-learn` MCP server and the checked-in guidelines under `.devbook/arc42/adr/guidelines/` are consulted rather than answered from memory |
+| Parametric vs. contextual knowledge | The whole reason the five `.devbook/` folders are checked in: project facts are read, not recalled |
 | Attention degradation, smart zone | Why long runs hand off rather than continue, and why chapters are kept short |
-| Hallucination | What deterministic checks catch: a broken `depends-on` fails `knowledge-meta`, a wrong API fails the build |
-| Sycophancy | Addressed procedurally, by the `review` plugin's adversarial review skills |
+| Hallucination | What deterministic checks catch: a broken `depends-on` fails the devbook-meta check, a wrong API fails the build |
+| Sycophancy | Addressed procedurally: every `flow-*` run closes on a review and on Personal Validation, where a person rather than the agent decides |
 
 ### Handoffs
 
@@ -401,7 +438,7 @@ Terms below are the dictionary's; the right-hand column is this repository.
 
 | Term | In this repository |
 |---|---|
-| Automated check | `dotnet test`, `dotnet build`, CodeQL, the `knowledge-meta` staleness diff, `apksigner verify`, Archify's 9/9 validation |
+| Automated check | `dotnet test`, `dotnet build`, CodeQL, the devbook-meta check and `check-metadata.mjs`, `apksigner verify`, Archify's 9/9 validation |
 | Automated review | The [scheduled merge review](../ai/05-unattended-runs.md#scheduled-merge-review), and the Validation phase every code-modifying flow runs |
 | Human review | [Personal Validation](../ai/03-test.md#personal-validation-gate) — the gate no flow may skip and no agent may self-approve |
 | Human-in-the-loop | The default mode of every `flow-*` run |
@@ -437,5 +474,11 @@ Full authoring rules: `.agents/rules/devbook-tech.md`.
   (`.devbook/tech/tooling.md#central-package-management`). Turning it on is a reviewed
   change nobody has scheduled, and `YamlDotNet` is the visible symptom: pinned
   centrally, referenced by nothing.
+- The Azure tier's ratings wait on the deployment view. `cloud.md` holds Cosmos
+  DB, Container Apps, Blob Storage, Key Vault and Azure Monitor at `candidate`
+  because `.devbook/arc42/07-deployment-view.md#cloud-deployment-azure` says
+  nothing is provisioned, while `docs/deployment/sync.md` records the template
+  provisioned into Azure on 2026-09-14 and a sync service has been deployed by
+  hand since. The deployment view is corrected first; the ratings follow it.
 - The Visual Studio channel has no project yet, so `Visual Studio Extensibility`
   and `WPF` remain named intentions rather than validated choices.

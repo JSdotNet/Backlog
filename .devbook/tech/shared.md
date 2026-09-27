@@ -124,8 +124,10 @@ related: [".devbook/tech/ide.md#vs-code-extension-api"]
 The JavaScript runtime hosting the VS Code extension and every repository-local
 tool.
 
-- **Used for** — the VS Code extension host, the `knowledge-meta` generator, the
-  vendored Archify renderer, and the `tools/diagrams` artifact commands.
+- **Used for** — the VS Code extension host, the devbook plugin's checker and
+  inventory scripts under `.devbook/_tools/`, the repository's own
+  `tools/devbook` writer and metadata check, the vendored Archify renderer, and
+  the `tools/diagrams` artifact commands.
 - **Why** — mandated by the VS Code extension model, already present on
   developer machines, and it lets the repository's own tooling run with nothing
   installed beyond Node itself.
@@ -267,8 +269,9 @@ alternatives: ["Docker Compose only", "no orchestration"]
 The app model that composes every runnable piece of this repository into one
 local run.
 
-- **Used for** — the AppHost starts the sync service, the three web harnesses,
-  and the Foundry test service, and registers everything that needs a device, a
+- **Used for** — the AppHost starts the sync service with the Cosmos emulator
+  and the Azurite `storage` emulator beside it, the three web harnesses, and the
+  Foundry test service, and registers everything that needs a device, a
   CLI, or an account behind `WithExplicitStart()`: the desktop head, both Android
   registrations (`mobile-android` through the MSBuild `Run` target, and
   `mobile-maui-android-emulator` — the platform child of the `mobile-maui` parent
@@ -404,6 +407,27 @@ Standard retry, timeout, and circuit-breaker handlers for HTTP clients.
   press on the user's own machine, not a background job.
 - **Why** — every external call in this system crosses a network the app does not
   control, and the shipped defaults beat per-call ad-hoc retries.
+
+## Polly
+
+```meta
+status: adopted
+type: package
+version: "8.6.6"
+depends-on: [".devbook/tech/shared.md#net-runtime"]
+related: [".devbook/tech/shared.md#microsoftextensionshttpresilience", ".devbook/arc42/08-crosscutting-concepts.md#task-sync"]
+```
+
+The resilience pipeline library under the HTTP resilience handlers.
+
+- **Used for** — a direct `Polly.Core` reference in
+  `Backlog.Infrastructure.Sync`, so `SyncHttp` and `SyncTokenProvider` can catch
+  what the host's resilience pipeline throws when it gives up —
+  `TimeoutRejectedException` and `ExecutionRejectedException` — and name the
+  cause rather than falling into a catch-all.
+- **Why** — those exception types are Polly's, not the handler package's; the
+  version is pinned centrally so it matches what
+  `Microsoft.Extensions.Http.Resilience` resolves.
 
 ## Microsoft.Extensions.ServiceDiscovery
 

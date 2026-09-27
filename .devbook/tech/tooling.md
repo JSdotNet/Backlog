@@ -89,8 +89,8 @@ depends-on: [".devbook/tech/tooling.md#net-sdk"]
 
 The package manager for .NET dependencies.
 
-- **Used for** — restoring the twenty-three packages the solution pins, plus the
-  Aspire AppHost SDK.
+- **Used for** — restoring the forty-seven packages `Directory.Packages.props`
+  pins, plus the Aspire AppHost SDK.
 - **Why** — the standard .NET package ecosystem.
 
 ## Central Package Management
@@ -146,8 +146,9 @@ type: language
 
 The scripting language for build, release, and hook automation on Windows.
 
-- **Used for** — `build/New-AppInstaller.ps1`, `build/Get-ReleasePaths.ps1`,
-  `build/Install-AndroidApp.ps1`, `build/stop-aspire-before-pr.ps1`, the
+- **Used for** — the scripts under `build/` (packaging, `Deploy-Azure.ps1`,
+  `Get-SyncServiceVersion.ps1`, `Initialize-SelfHostedRunner.ps1`,
+  `Install-AndroidApp.ps1`, `stop-aspire-before-pr.ps1`), the
   `spawn-task-to-issue` hook, and the `run:` steps of both release workflows and
   the Foundry deployment.
 - **Why** — the release workflows run on Windows runners, and packaging, signing,
@@ -240,9 +241,11 @@ depends-on: [".devbook/tech/shared.md#github-platform"]
 
 The CI/CD automation platform.
 
-- **Used for** — six workflows: `pull-request` (build, test, TRX artifact, and
-  the VS Code extension compile), `codeql`, `knowledge-meta`, `deploy-foundry`,
-  `release-desktop`, and `release-mobile`.
+- **Used for** — ten workflows: `pull-request` (build, test, TRX artifact, and
+  the VS Code extension compile), `codeql`, the two halves of the devbook gate
+  (`devbook-meta` and `devbook-metadata`), `deploy-foundry`, `deploy-sync`,
+  `deploy-all`, `release-desktop`, `release-mobile`, and the scheduled
+  `app-insights-exceptions` report.
 - **Why** — native to the repository host, with least-privilege and OIDC support.
 - **How** — every third-party action is pinned to a full commit SHA with the
   version in a trailing comment, so a moved tag cannot change what runs.
@@ -281,16 +284,17 @@ Automated dependency and security updates.
 ```meta
 status: adopted
 type: tool
-depends-on: [".devbook/tech/shared.md#nodejs", ".devbook/tech/shared.md#json"]
-related: [".devbook/tech/ai-development.md#devbook-plugin", ".devbook/tech/tooling.md#github-actions"]
+version: "1.9.0"
+depends-on: [".devbook/tech/shared.md#nodejs", ".devbook/tech/shared.md#json", ".devbook/tech/ai-development.md#devbook-plugin"]
+related: [".devbook/tech/tooling.md#github-actions", ".devbook/arc42/adr/0016-knowledge-folders-adopt-the-devbook-convention.md"]
 ```
 
 The devbook plugin's checker for the devbook folders' `meta` blocks and the
 references between chapters.
 
 - **Used for** — `node .devbook/_tools/devbook-meta/build.mjs --check`, which
-  resolves every `depends-on`, `related` and `implements` reference and reports a
-  broken one. It writes nothing: the installed check keeps no `_meta/` output, and
+  resolves every `depends-on` and `related` reference and reports a broken one.
+  It writes nothing: the installed check keeps no `_meta/` output, and
   what this repository reads is the database below, built from the same exported
   modules. Not hand-written here: `devbook:init` materialized it under
   `.devbook/_tools/devbook-meta/` and `devbook:update` refreshes it.
@@ -305,10 +309,30 @@ references between chapters.
   an unknown `type` or a field no schema defines fails the pull request. It is a
   separate script and a separate workflow because everything under
   `.devbook/_tools/` is refreshed rather than edited here.
-- **Caveat** — the `knowledge-base` install it replaced, under
-  `.github/tools/knowledge-meta/`, knew only the root-level layout and is retired
-  with it (local ADR 0016). A root-level `.domain/` or `.arc42/` is no longer
-  checked by anything.
+- **Caveat** — it checks the `.devbook/` layout only. The product still reads a
+  root-level `.domain/` or `.arc42/` as the legacy fallback, but no check in this
+  repository covers one (local ADR 0016).
+
+## devbook-tech Inventory Scripts
+
+```meta
+status: trial
+type: tool
+depends-on: [".devbook/tech/shared.md#nodejs", ".devbook/tech/shared.md#json", ".devbook/tech/ai-development.md#devbook-plugin"]
+related: [".devbook/tech/tooling.md#central-package-management", ".devbook/tech/tooling.md#npm"]
+```
+
+The devbook plugin's deterministic package scanners, materialized at
+`.devbook/_tools/devbook-tech/`.
+
+- **Used for** — `dotnet-packages.mjs` reads `Directory.Packages.props`,
+  `global.json` and every project file; `frontend-packages.mjs` reads every
+  `package.json` and lock file. Both print sorted JSON with no timestamp, which
+  `devbook:tech-update` compares against the `version` fields in this folder. The
+  output is evidence for one run and is not committed.
+- **Why `trial`** — run by hand for the first refresh on 2026-09-27; the
+  `tech-update` schedule that would run it unattended has not yet published a
+  result.
 
 ## Devbook Database Writer
 
