@@ -123,6 +123,16 @@ public interface IInboxItems
     /// kind of file with.</summary>
     Task<Result> OpenAttachmentAsync(Guid id, Guid attachmentId, CancellationToken cancellationToken = default);
 
+    /// <summary>What Classification proposes for the item — tags, repositories,
+    /// a destination — less the ones the reader turned down for it. Proposals
+    /// only: each is applied, if at all, through the act it names. Empty for an
+    /// item already routed or archived.</summary>
+    Task<Result<IReadOnlyList<InboxSuggestionDto>>> SuggestAsync(Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>Turns a suggestion down for the item, by its key, so it is never
+    /// offered for that item again. Idempotent.</summary>
+    Task<Result> DismissSuggestionAsync(Guid id, string key, CancellationToken cancellationToken = default);
+
     /// <summary>Whether "Create plan" can be offered, and why not when it cannot.
     /// Read by the pane on render so the control is shown disabled with its
     /// reason rather than hidden — unavailability never hides an act.</summary>

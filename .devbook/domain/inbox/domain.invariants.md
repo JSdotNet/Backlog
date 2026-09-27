@@ -333,6 +333,20 @@ file keeps the name, so a retry writes to the same place the first attempt did.
 
 Enforced at: `AttachmentFileName()`
 
+### Invariant: A suggestion is turned down once, by its key
+
+```meta
+type: invariant
+status: draft
+tests: unit:dotnet:Backlog.Modules.Inbox.UnitTests.SuggestionTests.Dismissing_twice_writes_once_and_a_blank_key_or_a_missing_item_is_refused
+```
+
+A turned-down suggestion is recorded once, by its key in lower case: a second
+refusal of the same key, in any case, changes nothing. A blank key is refused
+(`inbox.suggestion.key_required`).
+
+Enforced at: `DismissSuggestion()`
+
 ## Inbox List
 
 ```meta
@@ -408,3 +422,67 @@ tests: unit:dotnet:Backlog.Modules.Inbox.UnitTests.OrganizerTests.Ungrouping_mov
 Removing a group never removes a list: its lists are moved to the top level first.
 
 Enforced at: `UngroupLists` command
+
+## Classification
+
+```meta
+type: invariants
+status: draft
+related: [.devbook/domain/inbox/domain.md#classification]
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.SuggestionTests]
+```
+
+> The rules Classification holds its suggestions to, whoever asks for them.
+
+### Invariant: Suggesting changes nothing
+
+```meta
+type: invariant
+status: draft
+tests: unit:dotnet:Backlog.Modules.Inbox.UnitTests.SuggestionTests.Suggesting_changes_nothing_about_the_item
+```
+
+Asking for suggestions leaves the item exactly as it was: no tag, repository,
+status or stamp changes until the reader takes a suggestion through its own act.
+
+Enforced at: `InboxClassifier.Suggest()`
+
+### Invariant: A turned-down suggestion is never offered again
+
+```meta
+type: invariant
+status: draft
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.SuggestionTests.A_dismissed_suggestion_is_not_offered_again_whatever_proposes_it, unit:dotnet:Backlog.Modules.Inbox.UnitTests.SuggestionTests.A_dismissed_destination_is_not_replaced_by_another_guess]
+```
+
+A suggestion whose key the item records as turned down is not offered for that
+item, whatever proposes it. A turned-down destination is not replaced by
+another one.
+
+Enforced at: `InboxClassifier.Suggest()`
+
+### Invariant: A decided item is offered nothing
+
+```meta
+type: invariant
+status: draft
+tests: unit:dotnet:Backlog.Modules.Inbox.UnitTests.SuggestionTests.A_routed_or_archived_item_is_offered_nothing
+```
+
+A routed or archived item is offered no suggestion: its tags and repositories
+are what that decision was made with.
+
+Enforced at: `InboxClassifier.Suggest()`
+
+### Invariant: What the item carries is not suggested
+
+```meta
+type: invariant
+status: draft
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.SuggestionTests.A_tag_the_item_already_carries_is_not_offered, unit:dotnet:Backlog.Modules.Inbox.UnitTests.SuggestionTests.A_repository_already_assigned_is_not_offered_and_two_rules_for_one_repository_offer_it_once]
+```
+
+A tag the item carries, or a repository it is assigned, is not suggested, and
+nothing is suggested twice.
+
+Enforced at: `InboxClassifier.Suggest()`

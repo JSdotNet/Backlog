@@ -1168,6 +1168,28 @@ button.badge:hover {
     padding: 0 var(--spacing-xs);
 }
 
+/*
+  A suggested chip — something the product proposes that nothing has applied.
+  Proposed, not yet the reader's: the edge is dashed, the one line style no other
+  chip or badge wears here, and the ink is secondary until the reader takes it.
+  The label on it is always the act ("Add #sync"), so the dashed edge is never
+  the only thing that says the chip is an offer.
+*/
+.tag-chip--suggested {
+    color: var(--color-text-secondary);
+    background: transparent;
+    border: var(--border-width) dashed var(--color-border-strong);
+    border-radius: var(--border-radius-full);
+    padding: 0 var(--spacing-xs);
+    max-width: 14rem;
+}
+
+.tag-chip--suggested:hover,
+.tag-chip--suggested:focus-within {
+    color: var(--color-text-primary);
+    border-color: var(--color-primary);
+}
+
 /* --- Save-state indicator ------------------------------------------------ */
 
 .save-indicator {
@@ -6072,6 +6094,19 @@ body.is-resizing-pane {
 
 button.tag-chip__label {
     cursor: pointer;
+}
+
+/* The key that takes the chip, in front of its label: small and quiet, so the
+   label is still what the eye lands on. */
+.tag-chip__key {
+    margin-right: var(--spacing-xs);
+    padding: 0 0.25rem;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    font-family: inherit;
+    font-size: var(--font-size-xs);
+    line-height: 1.2;
+    color: var(--color-text-secondary);
 }
 
 /*

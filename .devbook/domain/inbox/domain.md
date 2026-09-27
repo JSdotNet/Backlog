@@ -20,7 +20,7 @@ type: aggregate
 status: draft
 related: [.devbook/domain/inbox/domain.invariants.md#inbox-item, .devbook/domain/capture/domain.md#capture, .devbook/arc42/08-crosscutting-concepts.md#shared-data-types, .devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md, .devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md]
 tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxItemTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxAttachmentTests]
-aliases: [InboxItem, InboxItemDto, inbox_items]
+aliases: [InboxItem, InboxItemDto, inbox_items, dismissed_suggestions]
 ```
 
 A single unit of captured, unprocessed information moving through triage. The
@@ -46,6 +46,13 @@ While an item waits, a reader may prepare it and put it somewhere: assign it
 it in an [Inbox List](#inbox-list) through `list_id`. Filing is organisation,
 not triage — an item in a list with no routing decision is still `unprocessed`,
 and an archived item may still be moved between lists.
+
+The item also remembers which of [Classification](#classification)'s
+suggestions the reader turned down, as `dismissed_suggestions`. Each is kept
+by its key: `tag:sync`, `repository:owner/name` or `destination:tasks`. The
+key names what was proposed, not why, so a suggestion the reader refused is
+not offered again, even when something new would propose it. It sits on the
+item because the refusal is the reader's decision about this item.
 
 An item is born one of two ways. A capture pulled from the replica becomes an
 item that **reuses the capture's id**, which is what makes intake idempotent: a
@@ -86,10 +93,14 @@ type: value-object
 status: draft
 ```
 
-A `#keyword` extracted during classification or applied during triage.
-`auto_generated` distinguishes suggested tags from user-applied ones. Equality is
-by canonical `name`, without regard to case. A person is not a tag: `@name` is
-recorded on `Source`, not here.
+A `#keyword` applied during triage. Equality is by canonical `name`, without
+regard to case. A person is not a tag: `@name` is recorded on `Source`, not
+here.
+
+`auto_generated` is kept for a tag applied without the reader. Nothing applies
+one today. A tag [Classification](#classification) suggests is only a
+proposal until the reader takes it, and a tag the reader took is theirs, so it
+is stored with `auto_generated` false like one they typed.
 
 ### Source
 
@@ -294,21 +305,61 @@ Routing to Devbook is modelled and not built.
 ```meta
 type: domain-service
 status: draft
-tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.ContentKindDetectorTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests.A_picture_and_nothing_else_arrives_as_an_image_and_a_file_as_a_document]
+related: [.devbook/domain/inbox/domain.invariants.md#classification, .devbook/domain/inbox/features.md#classification-and-enrichment, .devbook/domain/inbox/context.md#inbox-routing-rules]
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.ContentKindDetectorTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests.A_picture_and_nothing_else_arrives_as_an_image_and_a_file_as_a_document, unit:dotnet:Backlog.Modules.Inbox.UnitTests.SuggestionTests]
+aliases: [ContentKindDetector, InboxClassifier, SuggestQuery, DismissSuggestionCommand, InboxSuggestionDto, suggestion]
 ```
 
-Enriches an unprocessed Inbox Item before or during triage. Built today: on
-intake it reads the captured text for its `Content Kind` (a YouTube host, a
-Claude host, an image or document extension, a bare URL against a titled one, a
-fenced snippet) and its first URL as the source link. An item with
-[attachments](#attachment) is read by its files first: it is an `image` when
-its only content is pictures (no body and no link), and a `document` when any
-file is not a picture. Modelled and not built:
-auto-suggested tags from content analysis, an auto-suggested routing destination
-from keywords/patterns, and configured routing rules (source/tag patterns → repo
-mapping). It is a service because suggestions draw on rules and analysis
-external to any single item's state. Invocation semantics: invoked during
-intake/triage or by configured queue-processing rules.
+Reads what an Inbox Item is and proposes where it goes. It has two jobs.
+
+**On intake**, it reads the item's `Content Kind` and its first URL, which
+becomes the source link. The kind comes from the captured text: a YouTube
+host, a Claude host, an image or document extension, a bare URL against a
+titled one, or a fenced snippet. An item with [attachments](#attachment) is
+read by its files first. It is an `image` when its only content is pictures
+(no body and no link), and a `document` when any file is not a picture.
+
+**While an item is open**, it proposes *suggestions*. It never applies one.
+It reads three things:
+
+- **The item itself.** A `#word` in the title or body is a tag suggestion.
+- **The backlog's own tags,** through the `IBacklogTagSource` port. One the
+  text mentions as a whole word is a tag suggestion, in the backlog's
+  spelling.
+- **The reader's routing rules,** through the `IInboxRoutingRules` port (the
+  [Inbox routing rules](context.md#inbox-routing-rules) setting). The
+  repository of each rule the item matches is a repository suggestion.
+
+It also proposes one destination from the item's own facts:
+
+- `archive` for a newsletter.
+- `tasks` for an item with a repository, or a note of the reader's own.
+- `devbook` for collected material. The `devbook` proposal carries the reason
+  it cannot be taken yet: routing to Devbook is not built.
+
+Each suggestion carries a key, the value it would apply, and a sentence saying
+why it was proposed. It leaves out anything the item already has, and anything
+the reader turned down for it (the item's `dismissed_suggestions`).
+
+Taking a suggestion goes through the ordinary act it names: set the tags,
+assign the repositories, route, or archive. Classification adds no second way
+to change an item.
+
+It is a service because a suggestion draws on the backlog and on the reader's
+rules, which are outside any single item's state.
+
+Modelled and not built:
+
+- Enriching an item with links to related tasks or knowledge notes.
+- A rule that applies a decision by itself: every proposal waits for the
+  reader.
+
+Invocation semantics:
+
+- On intake, it is called by the intake and capture commands.
+- Otherwise it is a query (`SuggestQuery`) the pane asks for whenever the item
+  on screen changes.
+- A refusal is the `DismissSuggestionCommand`.
 
 ## ItemTriaged
 

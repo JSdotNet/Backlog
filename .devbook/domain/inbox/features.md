@@ -170,13 +170,56 @@ Keyboard/shortcut actions for common routing patterns to speed up triage.
 ```meta
 type: feature
 status: draft
+related: [.devbook/domain/inbox/requirements.md#classification-and-enrichment, .devbook/domain/inbox/domain.md#classification]
+feature-flag: .devbook/domain/inbox/context.md#inbox-pane
+setting: .devbook/domain/inbox/context.md#inbox-routing-rules
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.SuggestionTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests]
 ```
 
-Auto-suggest tags from content analysis, auto-suggest a routing destination from
-keywords/patterns, apply routing rules (source patterns → repo mapping), and
-enrich items with links to related tasks or knowledge notes. Built today: the
-`Content Kind` and source link are read from the captured text on intake, and
-from the item's attachments when it has any.
+Read what an item is and propose where it goes, so triage starts from a
+proposal rather than from nothing. Nothing here is applied without the reader.
+
+On intake, the item's `Content Kind` and source link are read from the
+captured text, or from its attachments when it has any.
+
+While an item is open, the detail shows a **Suggested** row above the pickers.
+It holds up to three kinds of proposal:
+
+- **Tags.** A `#word` written in the title or the body. Also any tag the
+  backlog already files entries under that the text mentions as a whole word.
+  The backlog's spelling is used, so the same tag is not spelled two ways. At
+  most five tag chips are shown.
+- **Repositories.** Every repository whose
+  [routing rule](context.md#inbox-routing-rules) the item matches. A tag rule
+  reads the tags the item carries, not the ones only suggested. So taking a
+  suggested tag can bring its rule's repository onto the row.
+- **One destination.**
+  - *Archive* for a newsletter: the item offers to unsubscribe.
+  - *Move to backlog* for an item that already has a repository, or for a note
+    of the reader's own (text, code, a voice memo).
+  - *Keep as knowledge* for collected material: an article, a link, a video, a
+    picture, a file or a mail.
+
+Each suggestion is a chip with its reason on it. The reader takes a chip with
+its number key (1–9, from the list or the detail but never while typing in a
+field), with Enter, or with a click. Taking it does what the chip says:
+
+- A tag chip adds the tag.
+- A repository chip assigns the repository.
+- *Move to backlog* routes the item.
+- *Archive* archives it.
+
+The × on a chip turns it down. A turned-down suggestion is recorded on the
+item and is never offered for that item again, whatever would propose it
+next. A decided item — routed or archived — is offered nothing.
+
+Still modelled and not built:
+
+- *Keep as knowledge* is proposed but cannot be taken, because [Route to
+  Devbook](#route-to-devbook) is not built. The chip says so, has no number,
+  and can still be turned down.
+- Enriching an item with links to related tasks or knowledge notes.
+- Suggestions from anything other than these rules: no model reads the item.
 
 ## Routing
 

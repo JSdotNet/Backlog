@@ -156,5 +156,7 @@ public sealed class BatchTests
             ensureDefaultOrganizer: null!,
             retryAttachment: null!,
             readAttachment: null!,
-            openAttachment: null!);
+            openAttachment: null!,
+            suggest: null!,
+            dismissSuggestion: null!);
 }

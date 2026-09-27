@@ -323,3 +323,115 @@ item's attachment folder as that task's attachment.
 - **Given** an item with no attachments
 - **When** the person routes it to Tasks
 - **Then** the new task has no attachment
+
+## Classification and enrichment
+
+```meta
+type: requirements
+status: draft
+related: [.devbook/domain/inbox/features.md#classification-and-enrichment]
+```
+
+> What the suggestion row promises the reader triaging an item.
+
+### Requirement: Nothing is applied until the reader takes it
+
+```meta
+type: requirement
+status: draft
+tests: unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.An_open_items_suggestions_are_numbered_chips_and_nothing_is_applied_until_one_is_taken
+```
+
+The system SHALL show every suggestion for an open item as a chip, and change the item only when the reader takes one.
+
+#### Scenario: Suggestions on screen
+
+- **Given** an open item for which a tag, a repository and a destination are suggested
+- **When** the reader opens it
+- **Then** three numbered chips show, and the item has no new tag, no repository and is still unprocessed
+
+### Requirement: One key takes a suggestion
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.A_digit_on_the_detail_or_on_the_rows_takes_the_chip_with_that_number, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Pressing_a_chip_adds_its_tag_and_the_chip_leaves_the_row, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Taking_the_backlog_suggestion_routes_the_item_and_taking_archive_archives_it]
+```
+
+The system SHALL take the suggestion whose chip shows a digit when the reader presses that digit in the list or the detail, and apply it through the act the chip names.
+
+#### Scenario: Taking a repository
+
+- **Given** an open item whose second chip suggests a repository
+- **When** the reader presses 2
+- **Then** the item is assigned that repository and the chip leaves the row
+
+#### Scenario: Taking the backlog
+
+- **Given** an open item whose chip suggests moving it to the backlog
+- **When** the reader presses that chip's digit
+- **Then** the item is routed to the backlog and no suggestions remain
+
+### Requirement: Typing is never taken as a suggestion
+
+```meta
+type: requirement
+status: draft
+tests: unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.A_digit_typed_into_a_picker_or_with_a_modifier_held_takes_nothing
+```
+
+The system SHALL leave every suggestion alone when a digit is typed into a field or pressed with a modifier held.
+
+#### Scenario: A digit in the tag picker
+
+- **Given** an open item with a suggestion numbered 1
+- **When** the reader types 1 into the tag picker
+- **Then** the suggestion is still offered and the item is unchanged
+
+### Requirement: A turned-down suggestion does not come back
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.A_dismissed_suggestion_is_recorded_and_does_not_come_back_after_a_reload, unit:dotnet:Backlog.Infrastructure.Sqlite.UnitTests.SqliteInboxRepositoryTests.The_suggestions_a_reader_turned_down_come_back_with_the_item]
+```
+
+The system SHALL record a suggestion the reader turns down on the item and never offer it for that item again.
+
+#### Scenario: After a reload
+
+- **Given** an open item with a tag suggestion and a destination suggestion
+- **When** the reader turns the tag down and the inbox reloads
+- **Then** only the destination is offered, now numbered 1
+
+### Requirement: A suggestion that cannot be taken says why
+
+```meta
+type: requirement
+status: draft
+tests: unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.A_knowledge_suggestion_says_why_it_cannot_be_taken_has_no_number_and_can_still_be_dismissed
+```
+
+The system SHALL show a suggestion to keep an item as knowledge without a number, with the reason it cannot be taken, and let the reader turn it down.
+
+#### Scenario: Collected material
+
+- **Given** an open article with a knowledge suggestion
+- **When** the reader presses 1
+- **Then** nothing happens, and the chip still offers its ×
+
+### Requirement: Routing rules are kept only when every line reads
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.SettingsInboxRoutingRulesTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxRoutingRulesStoreTests]
+```
+
+The system SHALL keep the routing rules typed on the Repositories page only when every line reads as `pattern => owner/repo`, and otherwise name the line and keep the rules in use.
+
+#### Scenario: A line without an arrow
+
+- **Given** one rule in use
+- **When** the reader adds a second line with no `=>`
+- **Then** the page names line 2 and the one rule stays in use

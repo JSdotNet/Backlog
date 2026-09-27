@@ -1428,6 +1428,204 @@ public sealed class InboxPaneTests
     private static Task PickAsync(IRenderedComponent<InboxPane> pane, Guid id, bool shift = false) =>
         pane.Find($"[data-testid='inbox-pick-{id:D}'] input").ClickAsync(new MouseEventArgs { ShiftKey = shift });
 
+    // --- Suggestions ----------------------------------------------------------
+
+    [Fact]
+    public async Task An_open_items_suggestions_are_numbered_chips_and_nothing_is_applied_until_one_is_taken()
+    {
+        using var harness = Harness.Create();
+        harness.GitHub.SetRepositories([new GitHubRepositoryRef("backlog", "JSdotNet", "Backlog")]);
+        var item = harness.Inbox.Seed("The sync service drops release notes");
+        harness.Inbox.SeedSuggestion(item.Id, InboxSuggestionKind.Tag, "sync", "The backlog files entries under #sync.");
+        harness.Inbox.SeedSuggestion(item.Id, InboxSuggestionKind.Repository, Repo, "Your rule #sync => JSdotNet/Backlog.");
+        harness.Inbox.SeedSuggestion(item.Id, InboxSuggestionKind.Destination, "tasks", "A note of your own.");
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, item.Id);
+
+        pane.WaitForAssertion(() =>
+        {
+            var chips = pane.FindAll("[data-testid='inbox-detail-suggestions'] .tag-chip");
+            Assert.Equal(
+                ["1#sync", "2Repository backlog", "3Move to backlog"],
+                chips.Select(chip => chip.TextContent.Replace("×", string.Empty, StringComparison.Ordinal).Trim()));
+        });
+        var tag = pane.Find("[data-testid='inbox-suggestion-tag-sync'] .tag-chip__label");
+        Assert.Equal("Add #sync: The backlog files entries under #sync.", tag.GetAttribute("aria-label"));
+        Assert.Equal("1", tag.GetAttribute("aria-keyshortcuts"));
+
+        var shown = harness.Inbox.Find(item.Id)!;
+        Assert.Empty(shown.Tags);
+        Assert.Empty(shown.RepoIds);
+        Assert.Equal(InboxStatus.Unprocessed, shown.Status);
+    }
+
+    [Fact]
+    public async Task Pressing_a_chip_adds_its_tag_and_the_chip_leaves_the_row()
+    {
+        using var harness = Harness.Create();
+        var item = harness.Inbox.Seed("About sync", tags: ["infra"]);
+        harness.Inbox.SeedSuggestion(item.Id, InboxSuggestionKind.Tag, "sync");
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, item.Id);
+        pane.WaitForElement("[data-testid='inbox-suggestion-tag-sync']");
+
+        await pane.Find("[data-testid='inbox-suggestion-tag-sync'] .tag-chip__label").ClickAsync(new());
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Equal(["infra", "sync"], harness.Inbox.Find(item.Id)!.Tags.Select(tag => tag.Name));
+            Assert.Empty(pane.FindAll("[data-testid='inbox-suggestion-tag-sync']"));
+        });
+    }
+
+    [Fact]
+    public async Task A_digit_on_the_detail_or_on_the_rows_takes_the_chip_with_that_number()
+    {
+        using var harness = Harness.Create();
+        harness.GitHub.SetRepositories([new GitHubRepositoryRef("backlog", "JSdotNet", "Backlog")]);
+        var item = harness.Inbox.Seed("The sync service");
+        harness.Inbox.SeedSuggestion(item.Id, InboxSuggestionKind.Tag, "sync");
+        harness.Inbox.SeedSuggestion(item.Id, InboxSuggestionKind.Repository, Repo);
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, item.Id);
+        pane.WaitForElement("[data-testid='inbox-suggestion-repository-jsdotnet-backlog']");
+
+        // The detail takes focus from a click on its text, out of the tab order,
+        // which is how the digits reach it after reading the item.
+        Assert.Equal("-1", pane.Find("[data-testid='inbox-detail']").GetAttribute("tabindex"));
+
+        // "2" on the detail takes the second chip, the repository.
+        await pane.Find("[data-testid='inbox-detail']").KeyDownAsync(new KeyboardEventArgs { Key = "2" });
+        pane.WaitForAssertion(() => Assert.Equal([Repo], harness.Inbox.Find(item.Id)!.RepoIds));
+
+        // "1" on the rows, where focus is right after choosing one, takes the tag.
+        pane.WaitForElement("[data-testid='inbox-suggestion-tag-sync']");
+        await pane.Find("[data-testid='inbox-pane-list']").KeyDownAsync(new KeyboardEventArgs { Key = "1" });
+        pane.WaitForAssertion(() => Assert.Equal(["sync"], harness.Inbox.Find(item.Id)!.Tags.Select(tag => tag.Name)));
+    }
+
+    [Fact]
+    public async Task A_digit_typed_into_a_picker_or_with_a_modifier_held_takes_nothing()
+    {
+        using var harness = Harness.Create();
+        var item = harness.Inbox.Seed("The sync service");
+        harness.Inbox.SeedSuggestion(item.Id, InboxSuggestionKind.Tag, "sync");
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, item.Id);
+        pane.WaitForElement("[data-testid='inbox-suggestion-tag-sync']");
+
+        await pane.Find("[data-testid='inbox-detail-tags'] .tag-select__input").KeyDownAsync(new KeyboardEventArgs { Key = "1" });
+        await pane.Find("[data-testid='inbox-detail']").KeyDownAsync(new KeyboardEventArgs { Key = "1", CtrlKey = true });
+        await pane.Find("[data-testid='inbox-detail']").KeyDownAsync(new KeyboardEventArgs { Key = "7" });
+
+        Assert.Empty(harness.Inbox.Find(item.Id)!.Tags);
+        Assert.NotEmpty(pane.FindAll("[data-testid='inbox-suggestion-tag-sync']"));
+    }
+
+    [Fact]
+    public async Task A_dismissed_suggestion_is_recorded_and_does_not_come_back_after_a_reload()
+    {
+        using var harness = Harness.Create();
+        var item = harness.Inbox.Seed("The sync service");
+        harness.Inbox.SeedSuggestion(item.Id, InboxSuggestionKind.Tag, "sync");
+        harness.Inbox.SeedSuggestion(item.Id, InboxSuggestionKind.Destination, "tasks");
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, item.Id);
+        pane.WaitForElement("[data-testid='inbox-suggestion-tag-sync']");
+
+        await pane.Find("[data-testid='inbox-suggestion-tag-sync'] [aria-label='Dismiss #sync']").ClickAsync(new());
+
+        pane.WaitForAssertion(() => Assert.Empty(pane.FindAll("[data-testid='inbox-suggestion-tag-sync']")));
+        Assert.Contains((item.Id, "tag:sync"), harness.Inbox.Dismissed);
+        Assert.Empty(harness.Inbox.Find(item.Id)!.Tags);
+
+        await pane.InvokeAsync(harness.State.ReloadAsync);
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.Empty(pane.FindAll("[data-testid='inbox-suggestion-tag-sync']"));
+            // The one left is now number 1.
+            Assert.Equal("1", pane.Find("[data-testid='inbox-suggestion-destination-tasks'] .tag-chip__key").TextContent);
+        });
+    }
+
+    [Fact]
+    public async Task Taking_the_backlog_suggestion_routes_the_item_and_taking_archive_archives_it()
+    {
+        using var harness = Harness.Create();
+        var work = harness.Inbox.Seed("Fix the flaky test");
+        var digest = harness.Inbox.Seed("Weekly digest");
+        harness.Inbox.SeedSuggestion(work.Id, InboxSuggestionKind.Destination, "tasks");
+        harness.Inbox.SeedSuggestion(digest.Id, InboxSuggestionKind.Destination, "archive");
+        var routed = new List<InboxRoutedDto>();
+        harness.State.Routed += routed.Add;
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, work.Id);
+        pane.WaitForElement("[data-testid='inbox-suggestion-destination-tasks']");
+        await pane.Find("[data-testid='inbox-detail']").KeyDownAsync(new KeyboardEventArgs { Key = "1" });
+
+        pane.WaitForAssertion(() => Assert.Equal(work.Id, Assert.Single(routed).InboxItemId));
+        // A decided item is offered nothing more.
+        pane.WaitForAssertion(() => Assert.Empty(pane.FindAll("[data-testid='inbox-detail-suggestions']")));
+
+        await harness.SelectAsync(pane, digest.Id);
+        pane.WaitForElement("[data-testid='inbox-suggestion-destination-archive']");
+        await pane.Find("[data-testid='inbox-suggestion-destination-archive'] .tag-chip__label").ClickAsync(new());
+
+        pane.WaitForAssertion(() => Assert.Equal(InboxStatus.Archived, harness.Inbox.Find(digest.Id)!.Status));
+    }
+
+    [Fact]
+    public async Task A_knowledge_suggestion_says_why_it_cannot_be_taken_has_no_number_and_can_still_be_dismissed()
+    {
+        using var harness = Harness.Create();
+        var item = harness.Inbox.Seed("Local-first patterns", ContentKind.Article);
+        harness.Inbox.SeedSuggestion(item.Id, InboxSuggestionKind.Destination, "devbook", "Collected material.", "Keeping an item as knowledge is not built yet.");
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, item.Id);
+        var chip = pane.WaitForElement("[data-testid='inbox-suggestion-destination-devbook']");
+
+        Assert.Contains("Keep as knowledge", chip.TextContent, StringComparison.Ordinal);
+        Assert.Contains("not built yet", chip.GetAttribute("title"), StringComparison.Ordinal);
+        Assert.Empty(chip.QuerySelectorAll("button.tag-chip__label"));
+        Assert.Empty(chip.QuerySelectorAll(".tag-chip__key"));
+
+        await pane.Find("[data-testid='inbox-detail']").KeyDownAsync(new KeyboardEventArgs { Key = "1" });
+        Assert.Equal(InboxStatus.Unprocessed, harness.Inbox.Find(item.Id)!.Status);
+
+        await pane.Find("[data-testid='inbox-suggestion-destination-devbook'] [aria-label='Dismiss Keep as knowledge']").ClickAsync(new());
+        pane.WaitForAssertion(() => Assert.Contains((item.Id, "destination:devbook"), harness.Inbox.Dismissed));
+    }
+
+    [Fact]
+    public async Task Choosing_another_item_shows_that_items_suggestions()
+    {
+        using var harness = Harness.Create();
+        var first = harness.Inbox.Seed("First");
+        var second = harness.Inbox.Seed("Second");
+        harness.Inbox.SeedSuggestion(first.Id, InboxSuggestionKind.Tag, "alpha");
+        harness.Inbox.SeedSuggestion(second.Id, InboxSuggestionKind.Tag, "beta");
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, first.Id);
+        pane.WaitForElement("[data-testid='inbox-suggestion-tag-alpha']");
+
+        await harness.SelectAsync(pane, second.Id);
+
+        pane.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(pane.FindAll("[data-testid='inbox-suggestion-tag-beta']"));
+            Assert.Empty(pane.FindAll("[data-testid='inbox-suggestion-tag-alpha']"));
+        });
+    }
+
     private static IReadOnlyList<string> MenuIds(IRenderedComponent<InboxPane> pane) =>
         [.. pane.FindAll("[data-testid='inbox-nav-menu'] [role='menuitem']")
             .Select(item => item.GetAttribute("data-testid")!.Replace("inbox-nav-menu-item-", string.Empty, StringComparison.Ordinal))];

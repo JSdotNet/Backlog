@@ -24,6 +24,10 @@
     every row, Shift extends from the last box pressed, and InboxBulkBar acts on
     what is picked. The chosen row (the detail) and the picked rows (the bar)
     are independent, as they are in the Tasks list.
+
+    The rows also hear the digits that take the chosen item's suggestions, so a
+    reader who has just clicked a row can take "2" without moving focus to the
+    detail. Only the rows: the bulk bar above them has fields of its own.
 *@
 
 <div class="inbox-pane__column inbox-pane__column--list" data-testid="inbox-pane-column-list">
@@ -115,7 +119,7 @@
         }
         else
         {
-            <ul class="inbox-pane__list" aria-label="@State.SliceName" data-testid="inbox-pane-list">
+            <ul class="inbox-pane__list" aria-label="@State.SliceName" data-testid="inbox-pane-list" @onkeydown="OnShortcutKeyAsync">
                 @foreach (var item in rows)
                 {
                     var selected = item.Id == State.SelectedItemId;
@@ -201,6 +205,11 @@
 @code {
     [Parameter, EditorRequired]
     public InboxDesktopState State { get; set; } = default!;
+
+    /// <summary>A bare digit takes the chosen item's suggestion with that number,
+    /// as it does in the detail.</summary>
+    private Task OnShortcutKeyAsync(KeyboardEventArgs e) =>
+        e.CtrlKey || e.AltKey || e.MetaKey || e.ShiftKey ? Task.CompletedTask : State.AcceptShortcutAsync(e.Key);
 
     private static string Title(InboxItemDto item) =>
         string.IsNullOrWhiteSpace(item.Title) ? "Untitled" : item.Title;

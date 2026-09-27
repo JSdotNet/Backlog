@@ -183,6 +183,10 @@ builder.Services.AddSingleton<RootedSqliteInboxRepository>(sp =>
     new RootedSqliteInboxRepository(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
 builder.Services.AddSingleton<IInboxItemRepository>(sp => sp.GetRequiredService<RootedSqliteInboxRepository>());
 builder.Services.AddSingleton<IInboxOrganizerRepository>(sp => sp.GetRequiredService<RootedSqliteInboxRepository>());
+// The reader's routing rules, scoped to the content root like the harness's
+// other settings files, so a session here never rewrites the real per-user rules.
+builder.Services.AddSingleton<IInboxRoutingRules>(
+    _ => CreateLocalDevelopmentInboxRoutingRulesStore(builder.Environment.ContentRootPath));
 builder.Services.AddInboxModule();
 
 // The cross-context join routing takes part in: the Inbox's backlog target,
@@ -777,6 +781,17 @@ static WorkingHoursSettingsStore CreateLocalDevelopmentWorkingHoursSettingsStore
     }
 
     return new WorkingHoursSettingsStore(settingsPath);
+}
+
+static InboxRoutingRulesStore CreateLocalDevelopmentInboxRoutingRulesStore(string contentRootPath)
+{
+    var settingsPath = Environment.GetEnvironmentVariable("BACKLOG_INBOX_ROUTING_RULES_PATH");
+    if (string.IsNullOrWhiteSpace(settingsPath))
+    {
+        settingsPath = Path.Combine(contentRootPath, "obj", "local-development", "inbox-routing-rules.settings.json");
+    }
+
+    return new InboxRoutingRulesStore(settingsPath);
 }
 
 static CaptureSourcesSettingsStore CreateLocalDevelopmentCaptureSourcesSettingsStore(string contentRootPath)

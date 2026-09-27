@@ -289,6 +289,61 @@ public sealed class SqliteInboxRepositoryTests : IDisposable
         Assert.Equal(1, await RowCountAsync("inbox_groups"));
     }
 
+    // --- Suggestions turned down ----------------------------------------------
+
+    [Fact]
+    public async Task The_suggestions_a_reader_turned_down_come_back_with_the_item()
+    {
+        var item = Manual("About #sync");
+        item.DismissSuggestion("tag:sync");
+        item.DismissSuggestion("destination:tasks");
+        await _repository.SaveAsync(item, TestContext.Current.CancellationToken);
+
+        var loaded = await _repository.GetAsync(item.Id, TestContext.Current.CancellationToken);
+
+        Assert.NotNull(loaded);
+        Assert.Equal(["tag:sync", "destination:tasks"], loaded.DismissedSuggestions);
+        Assert.Equal(item.UpdatedAt, loaded.UpdatedAt);
+    }
+
+    [Fact]
+    public async Task An_inbox_table_written_before_suggestions_gains_the_column_and_its_rows_load_with_none_turned_down()
+    {
+        // A database from before the column: the inbox_items table as it shipped,
+        // holding a row. The next open adds the column (local ADR 0006) and the
+        // row reads with nothing refused.
+        Directory.CreateDirectory(Path.GetDirectoryName(_repository.DatabasePath)!);
+        await using (var connection = await OpenAsync())
+        {
+            await using var command = connection.CreateCommand();
+            command.CommandText = """
+                CREATE TABLE inbox_items (
+                    id TEXT PRIMARY KEY NOT NULL, title TEXT NOT NULL, body_md TEXT NOT NULL DEFAULT '',
+                    source_url TEXT NULL, captured_at TEXT NOT NULL, received_at TEXT NOT NULL, status TEXT NOT NULL,
+                    deferred_until TEXT NULL, kind TEXT NOT NULL, channel TEXT NOT NULL, person TEXT NULL,
+                    tags TEXT NOT NULL DEFAULT '[]', repo_ids TEXT NOT NULL DEFAULT '[]', list_id TEXT NULL,
+                    routing_domain TEXT NULL, routing_repo_ids TEXT NOT NULL DEFAULT '[]',
+                    routing_task_ids TEXT NOT NULL DEFAULT '[]', routed_at TEXT NULL,
+                    replica_backed INTEGER NOT NULL DEFAULT 0, replica_ack_pending INTEGER NOT NULL DEFAULT 0,
+                    updated_at TEXT NOT NULL);
+                INSERT INTO inbox_items (id, title, captured_at, received_at, status, kind, channel, updated_at)
+                VALUES ('0199a000-0000-7000-8000-000000000001', 'Written before', '2026-09-07T12:00:00.0000000+00:00',
+                        '2026-09-07T12:00:00.0000000+00:00', 'unprocessed', 'text', 'manual', '2026-09-07T12:00:00.0000000+00:00');
+                """;
+            await command.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
+        }
+
+        var only = Assert.Single(await _repository.ListAsync(TestContext.Current.CancellationToken));
+
+        Assert.Equal("Written before", only.Title);
+        Assert.Empty(only.DismissedSuggestions);
+
+        only.DismissSuggestion("tag:sync");
+        await _repository.SaveAsync(only, TestContext.Current.CancellationToken);
+
+        Assert.Equal(["tag:sync"], (await _repository.GetAsync(only.Id, TestContext.Current.CancellationToken))!.DismissedSuggestions);
+    }
+
     // --- Sharing the file ---------------------------------------------------
 
     [Fact]
