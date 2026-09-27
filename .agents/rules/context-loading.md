@@ -1,68 +1,104 @@
 ---
 name: context-loading
-description: Repository-specific delivery policy - the gate on code changes under src/ and tests/, and when the checked-in devbook folders (.devbook/arc42, .devbook/domain, .devbook/tech, .devbook/design, .devbook/ai) may be loaded as working context.
+description: Repository delivery policy - the gate that routes every change through a delivery flow, the specialist agents and procedures those flows use, what a flow verifies, and when the checked-in devbook folders (.devbook/arc42, .devbook/domain, .devbook/tech, .devbook/design, .devbook/ai) may be loaded as working context.
 paths:
   - "**"
 ---
 
 # Repository delivery and context policy
 
-Routing — which `flow-*` skill handles which task category — is delivered by the `delivery`
-plugin's session context and is not restated here. `CLAUDE.md` restates the gate; keep both
-in step when changing it.
-
-This file covers only what is specific to Backlog: **the gate that forces code changes
-through a flow**, and **which checked-in devbook folders a given workflow may read, and how
-much of them.** Treat those folders as task-scoped context, not baseline context, per
-`.agents/rules/mcp-usage.md`.
+The one repository context file for delivery: how work is routed here, what the flows lean
+on, and how much of the devbook they may read. `CLAUDE.md` restates the gate for Claude
+Code; keep both in step. The folder rules themselves live in `AGENTS.md`'s devbook section
+and `.agents/rules/devbook-*.md` and are not restated here.
 
 ## The gate
 
-**Before the first edit or create to any file under `src/` or `tests/`, invoke
-`delivery:flow-code`** — or `delivery:flow-update-packages` for a dependency move.
-Exploration first is expected and does not consume the gate; the trigger is the first
-write, not the first action. A change to a devbook folder runs through `delivery:flow-spec`.
+**Before the first edit or create to any file under `src/` or `tests/`, invoke the matching
+flow.** Exploration first is expected and does not consume the gate; the trigger is the first
+write, not the first action. Never go straight from exploration to implementation.
 
-Every flow reports its stages to every bound delivery surface and stops at Personal
-Validation before a pull request. Loading a phase skill directly instead of the flow is not
-sufficient for code-modifying work, because it bypasses the run record, Validation, and the
-Personal Validation gate.
+| Change | Flow |
+| --- | --- |
+| Code: a feature, a bug fix, a refactor, a new module or service; and tooling, CI, scripting, documentation outside `.devbook/`, and housekeeping | `delivery:flow-code` |
+| A devbook chapter, decision record or debt record under `.devbook/` | `delivery:flow-spec` |
+| A dependency, package or framework move | `delivery:flow-update-packages` |
+| Creating, governing or scaffolding a repository | `delivery:flow-project` |
+
+This repository ships no repo-native `flow-*` skill; all four come from the `delivery`
+plugin. The repository owner authorizes running any of them, and the agents they hand
+stages to, without per-session confirmation.
 
 Apply the gate literally:
 
 - **Size is not a criterion.** A one-control UI tweak and a multi-service feature route
-  the same way. Do not reason about whether a request is "big enough" for a flow.
-- **A missing specification is not an exemption.** Ad-hoc requests with no story,
-  acceptance criteria, or approved design still route through `flow-code`, whose Scope
-  Discovery stage derives the missing scope.
-- **Unmet preconditions are not an exemption.** If the flow's stated inputs are absent,
-  invoke it anyway and derive them inside it.
+  the same way.
+- **A missing specification is not an exemption.** An ad-hoc request still routes through
+  its flow, whose first stage derives the missing scope.
+- **Unmet preconditions are not an exemption.** Invoke the flow anyway and derive the
+  missing inputs inside it.
+- **A phase skill is not a flow.** Loading `phase-validation` or another phase directly
+  bypasses the run record and the Personal Validation gate.
+
+Whatever the engine: never skip Personal Validation, and never open a pull request or
+call a run complete without the person's explicit approval.
+
+## What the flows lean on
+
+`.devbook/config.json` binds them; read it rather than a copy here.
+
+- **Specialist agents** — `architecture:architect` for the architecture role,
+  `qa:qa` for QA, `domain-design:domain-architect` for domain, `ux-design:ux-designer` for
+  UX, `documentation:documentation` for docs, and `csharp-coding:coding` for
+  implementation. Product and security are deliberately unbound.
+- **Procedures** — `.agents/skills/start.md` starts the Aspire AppHost and says what healthy
+  looks like and which harness answers which question; `show.md` walks a branch's change in
+  the harness that serves it; `capture.md` places evidence; `debug.md` finds a cause from
+  logs and traces; `estimate.md` sizes work. A flow calls `start` at `app.start` rather than
+  guessing a command.
+- **QA depth** — the engine picks it from the change kind: full Playwright QA with capture
+  for new behaviour, targeted checks for a fix, startup-only for a dependency move, and
+  skipped when nothing runs. `policy` in the config caps it at `full`.
+- **Checked-in end-to-end tests** — `tests/Backlog.EndToEndTests` is the repeatable form of
+  scenarios QA has already walked, such as `ConferenceDayTests`.
+  - Run it in Validation when the change touches a flow it covers:
+    `$env:BACKLOG_E2E='1'; dotnet test --project tests\Backlog.EndToEndTests`, against this
+    worktree's running AppHost. Its screenshots and `sync` logs under `.qa-workspace/e2e/`
+    are evidence.
+  - It stops and starts `sync` and resets the phone harness's pairing, so never run it while
+    another scenario drives the same AppHost.
+  - Its `README.md` covers the browser install and what a run changes.
+
+A change that runs nothing — `.devbook/`, `.agents/`, `.claude/`, `.github/`, or
+`README.md` alone — is verified by review plus the devbook checks:
+`node .devbook/_tools/devbook-meta/build.mjs --check`, `node tools/devbook/check-metadata.mjs`
+and `node tools/devbook/build-database.mjs --check`. Every rule here keeps `name`,
+`description` and `paths`, and its wrappers stay derived from it:
+`.claude/rules/<topic>.md` copies `paths`, and
+`.github/instructions/<topic>.instructions.md` sets `applyTo` to `paths`, comma-joined.
 
 ## Context loading by flow and agent
 
-- `flow-spec` on `.devbook/arc42/` and `architecture:architect` may load `.devbook/arc42/`
-  as working context, but should load only the chapter(s) relevant to the requested scope.
-- `flow-spec` on `.devbook/domain/` and `domain-design:domain-architect` may load
-  `.devbook/domain/` as working context, but should load only the relevant bounded-context
-  chapters.
-- `flow-spec` on `.devbook/tech/` may load `.devbook/tech/`, plus the `.devbook/arc42`
-  chapters (solution strategy, deployment view, ADRs) that ground the stack choices it
-  records.
-- `flow-spec` on `.devbook/design/` and `ux-design:ux-designer` may load `.devbook/design/`,
-  but should load only the relevant guideline file(s).
-- `flow-spec` on `.devbook/ai/` loads `adoption-map.md` plus the files in scope.
-- Implementation, bug-fix, package-update, and UX work should not load `.devbook/arc42/` by
-  default. Consult it only when the user explicitly asks for architecture context or when
-  implementation depends on a specific documented decision, view, constraint, or glossary
-  term.
-- UI implementation and UI bug-fix work should consult `.devbook/design/` when the change
-  touches visual design, interaction behavior, content editing, or accessibility —
-  loading only the relevant guideline file(s), not the whole folder.
+Every edit to a devbook folder routes through `delivery:flow-spec`; say so when it answers.
 
-## Runtime and QA context
+- Architecture, arc42, ADR and TDR work — `flow-spec` on `.devbook/arc42/` and
+  `architecture:architect` — may load `.devbook/arc42/`, but only the chapters in scope.
+  A chapter, a decision record and a debt record all route that way.
+- Domain modelling — `flow-spec` on `.devbook/domain/` and `domain-design:domain-architect`
+  — may load `.devbook/domain/`, but only the bounded contexts in scope.
+- Design and UX work — `ux-design:ux-designer` — may load `.devbook/design/`, and stack,
+  dependency or upgrade work may load `.devbook/tech/`, in both cases only the relevant files.
+  `flow-spec` on `.devbook/tech/` may add the arc42 chapters that ground a stack choice.
+- Work about how this team works with AI may load `.devbook/ai/`: `adoption-map.md` plus the
+  stage files in scope. Agents do not read `ai/` to decide how to do their own task; it
+  records a way of working, it does not instruct one.
+- Implementation, bug-fix, package-update, documentation and UX flows do not load
+  `.devbook/arc42/` by default. Consult it when the person asks for architecture context or
+  the change depends on a specific decision, view, constraint or glossary term.
+- UI work consults `.devbook/design/` when it touches visual design, interaction, content
+  editing or accessibility, loading only the relevant guideline files.
 
-Startup and QA expectations live in `.claude/orch-context.md`. Model choice is not
-configured in this repository; flows use the plugin defaults unless overridden per run.
-For code-modifying runs the Validation phase uses the Aspire AppHost, dynamic harness URLs,
-and the configured QA depth: Playwright QA for UI behavior, with the documented exceptions
-in `.claude/orch-context.md` for documentation-only and non-UI code changes.
+## Documentation drift
+
+After a change lands, check the devbook for what it moved — architecture, technology,
+design, domain behaviour — and update the chapters in the same pull request.

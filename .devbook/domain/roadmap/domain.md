@@ -102,13 +102,16 @@ placed its window — `placed_by_import`.
 velocity) or `due-date` (end from the `due:` the plan wrote). Absent means a
 person placed it. It is cleared the moment a person moves the window, and never
 set again except by an import creating the item anew; an import re-places only a
-window that still carries it. While it is still `effort`, a person may also ask
-for that same re-length between imports: the start stays, the end is recomputed
-from the total registered effort at the reader's velocity, and the value stays
-`effort`, because the window is still the importer's rule applied, not a hand
-move. A person changing the reading pace in use applies the same re-length to
-every item still `effort` at once. An item carrying `due-date`, or none, is
-refused. A drop onto another lane
+window that still carries it. While it is still `effort` and its work is not
+finished, the item **keeps up with its work** without being asked. Its window is
+re-projected from the effort not yet done (the total registered effort less the
+finished effort) at the reader's velocity, laid out from today. The start is kept
+once any of its work has begun. An item whose work has not begun starts on the
+later of today and the day after its latest predecessor ends, so an unstarted
+item follows the item it waits on. The value stays `effort`, because the window
+is still the importer's rule applied, not a hand move. An item carrying
+`due-date`, or none, never moves this way (ADR 0013, ruling 5 as amended on
+2026-09-27). A drop onto another lane
 that leaves the dates alone keeps it, because no date the importer chose was
 overruled.
 
@@ -409,7 +412,10 @@ progress reading is drawn from: how much of the registered effort is **finished*
 **how many** finished things there are. The two are reported together for the reason
 the total and the unestimated count are — finished work that registered no estimate is
 invisible to the first, and a reading drawn from effort alone would overstate how far
-along the plan is the moment the finished work turned out to be unsized.
+along the plan is the moment the finished work turned out to be unsized. The
+difference between the total and the finished effort is the effort **still to
+do**, which is what an item still sized by its effort is laid out from. Like the
+total, it is arithmetic over registered values and nothing more.
 
 A gathered backlog entry also carries **when** its work happened, as Tasks recorded
 it: the day it first moved to in progress, the day it was ticked off, and the day it

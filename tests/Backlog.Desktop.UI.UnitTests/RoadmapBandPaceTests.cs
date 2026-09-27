@@ -10,16 +10,15 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// The reader's paces, each under its band's name in the chart's sidebar: the one
-/// they type, those measured from what they finished over the last two, four and
-/// eight weeks — each shown with its figure, and only when it measured something —
-/// and which of them places an imported plan
-/// (ADR 0013, ruling 4, as amended on 2026-09-26) — and a change to one redrawing
-/// every bar still sized by its effort, each at its own pace (ruling 5 as amended).
+/// The reader's paces. Their own — "Mine" — typed once in the roadmap's heading, the
+/// fallback every band shares; and per band, under its name in the chart's sidebar,
+/// those measured from what was finished over the last two, four and eight weeks —
+/// each shown with its figure, only when it measured something, and used whenever
+/// one did (ADR 0013, ruling 4, as amended) — and a change to one redrawing every
+/// bar still sized by its effort, each at its own pace (ruling 5 as amended).
 /// <para>
-/// A repository's band carries that repository's pace. The unfiled band carries the
-/// default pace, the one its plans are placed at and every repository without a pace
-/// of its own reads. The heading carries none.
+/// A repository's band carries that repository's measured paces. The unfiled band
+/// carries the default ones, measured over all finished work.
 /// </para>
 /// </summary>
 public sealed class RoadmapBandPaceTests : RoadmapBandHarness
@@ -29,7 +28,7 @@ public sealed class RoadmapBandPaceTests : RoadmapBandHarness
     // --- Where the paces are ------------------------------------------------------
 
     [Fact]
-    public async Task There_is_no_pace_in_the_heading_only_in_the_bands()
+    public async Task Mine_is_typed_once_in_the_heading_and_each_band_carries_its_measured_pace()
     {
         Configure("JSdotNet/Backlog");
         await ImportedAsync("plan-a", "backlog");
@@ -38,11 +37,14 @@ public sealed class RoadmapBandPaceTests : RoadmapBandHarness
         using var context = Context();
         var band = Banded(context);
 
-        var paces = band.FindAll(".roadmap-pace");
+        var heading = band.Find(".roadmap-timeline__heading");
+        Assert.Single(heading.QuerySelectorAll("input"));
+        Assert.Equal("Mine", heading.QuerySelector(".roadmap-pace__label")!.TextContent);
+        Assert.Equal("pt/wk", heading.QuerySelector(".roadmap-pace__unit")!.TextContent);
+
+        var paces = band.FindAll(".roadmap-timeline__group-content .roadmap-pace");
         Assert.Equal(2, paces.Count);
-        Assert.All(paces, pace => Assert.NotNull(pace.Closest(".roadmap-timeline__group-content")));
-        Assert.Empty(band.FindAll("[data-testid='roadmap-pace']"));
-        Assert.Empty(band.Find(".roadmap-timeline__heading").QuerySelectorAll(".roadmap-pace"));
+        Assert.All(paces, pace => Assert.Empty(pace.QuerySelectorAll("input")));
     }
 
     [Fact]
@@ -67,16 +69,14 @@ public sealed class RoadmapBandPaceTests : RoadmapBandHarness
         using var context = Context();
         var band = Banded(context);
 
-        Assert.Equal("Points a week for backlog", Manual(band, "backlog").GetAttribute("aria-label"));
-        Assert.Equal("Points a week for site", Manual(band, "site").GetAttribute("aria-label"));
-        Assert.Contains("Default points a week", Manual(band, Default).GetAttribute("aria-label"), StringComparison.Ordinal);
+        Assert.NotNull(band.Find("[data-testid='roadmap-timeline-group-backlog-content'] [data-testid='roadmap-pace-backlog']"));
+        Assert.NotNull(band.Find("[data-testid='roadmap-timeline-group-site-content'] [data-testid='roadmap-pace-site']"));
         Assert.NotNull(band.Find("[data-testid='roadmap-timeline-group-unfiled-content'] [data-testid='roadmap-pace-default']"));
         Assert.Empty(band.FindAll("[data-testid='roadmap-timeline-group-milestones-content']"));
-        Assert.Equal("pt/wk", band.Find("[data-testid='roadmap-pace-backlog'] .roadmap-pace__unit").TextContent);
     }
 
     [Fact]
-    public async Task A_band_is_as_tall_as_its_pace_needs_before_its_first_named_lane()
+    public async Task A_band_keeps_the_same_rows_for_its_pace_whether_it_measured_anything_or_not()
     {
         Configure("JSdotNet/Backlog", "JSdotNet/Site");
         Finished.Add(new CompletedEffortDto(PaceToday, 14) { RepositoryAliases = ["site"] });
@@ -86,39 +86,40 @@ public sealed class RoadmapBandPaceTests : RoadmapBandHarness
         using var context = Context();
         var band = Banded(context);
 
-        // backlog measured nothing, so its pace is the field alone; site offers choices.
+        // backlog measured nothing, so its pace is a line saying Mine is used; site offers choices.
         Assert.Equal(
-            RoadmapPlanView.PaceRowsFieldOnly,
+            RoadmapPlanView.PaceRows,
             band.FindAll("[data-testid='roadmap-timeline-group-backlog'] .roadmap-timeline__row-name").Count);
         Assert.Equal(
-            RoadmapPlanView.PaceRowsWithChoices,
+            RoadmapPlanView.PaceRows,
             band.FindAll("[data-testid='roadmap-timeline-group-site'] .roadmap-timeline__row-name").Count);
-        Assert.Equal(2, RoadmapPlanView.PaceRowsFieldOnly);
-        Assert.Equal(3, RoadmapPlanView.PaceRowsWithChoices);
+        Assert.Equal(2, RoadmapPlanView.PaceRows);
     }
 
     // --- What each pace shows ----------------------------------------------------
 
     [Fact]
-    public async Task A_pace_that_measured_nothing_is_the_field_alone()
+    public async Task A_band_that_measured_nothing_says_Mine_is_used_with_its_figure()
     {
         await UnfiledAsync("plan-a");
 
         using var context = Context();
         var band = Banded(context);
 
-        Assert.Equal("7", Manual(band, Default).GetAttribute("value"));
-        Assert.Equal("number", Manual(band, Default).GetAttribute("type"));
+        Assert.Equal("7", Manual(band).GetAttribute("value"));
+        Assert.Equal("number", Manual(band).GetAttribute("type"));
 
-        // No choices, not even Mine — a choice between one thing is no choice — and
-        // no line saying so: the missing buttons say it.
+        // No choices — there is nothing measured to choose between.
         Assert.Empty(band.FindAll("[data-testid='roadmap-pace-options-default']"));
         Assert.Empty(band.FindAll("[data-testid='roadmap-pace-default'] button"));
-        Assert.Empty(band.FindAll("[data-testid='roadmap-pace-default'] .roadmap-pace__note"));
+
+        var note = band.Find("[data-testid='roadmap-pace-fell-back-default']");
+        Assert.Equal("status", note.GetAttribute("role"));
+        Assert.Contains("Using Mine: 7 pt/wk", note.TextContent, StringComparison.Ordinal);
     }
 
     [Fact]
-    public async Task Every_measured_figure_is_shown_on_its_button()
+    public async Task Every_measured_figure_is_shown_on_its_button_and_two_weeks_is_used_until_chosen()
     {
         Configure("JSdotNet/Backlog");
         Finished.Add(new CompletedEffortDto(PaceToday, 14) { RepositoryAliases = ["backlog"] });
@@ -139,12 +140,14 @@ public sealed class RoadmapBandPaceTests : RoadmapBandHarness
         var value = Option(band, "two-weeks", "backlog").QuerySelector(".roadmap-pace__option-value")!;
         Assert.DoesNotContain("sr-only", value.ClassName!, StringComparison.Ordinal);
         Assert.Equal("2 wk", Option(band, "two-weeks", "backlog").QuerySelector(".roadmap-pace__option-name")!.TextContent);
-        Assert.Equal("true", Option(band, "manual-option", "backlog").GetAttribute("aria-pressed"));
+        Assert.Equal("true", Option(band, "two-weeks", "backlog").GetAttribute("aria-pressed"));
+        Assert.Empty(band.FindAll("[data-testid='roadmap-pace-manual-option-backlog']"));
+        Assert.Empty(band.FindAll("[data-testid='roadmap-pace-fell-back-backlog']"));
         Assert.Empty(band.FindAll("[data-testid='roadmap-pace-backlog'] button[disabled]"));
     }
 
     [Fact]
-    public async Task A_stretch_that_measured_nothing_is_not_offered()
+    public async Task A_stretch_that_measured_nothing_is_not_offered_and_the_next_one_is_used()
     {
         Configure("JSdotNet/Backlog");
         // Twenty days ago: outside the last two weeks, inside the last four and eight.
@@ -159,7 +162,7 @@ public sealed class RoadmapBandPaceTests : RoadmapBandHarness
             Assert.Empty(band.FindAll("[data-testid='roadmap-pace-two-weeks-backlog']"));
             Assert.Equal("7", Measured(band, "four-weeks", "backlog"));
             Assert.Equal("3.5", Measured(band, "eight-weeks", "backlog"));
-            Assert.NotNull(Option(band, "manual-option", "backlog"));
+            Assert.Equal("true", Option(band, "four-weeks", "backlog").GetAttribute("aria-pressed"));
         });
     }
 
@@ -169,7 +172,6 @@ public sealed class RoadmapBandPaceTests : RoadmapBandHarness
         Configure("JSdotNet/Backlog", "JSdotNet/Site");
         Finished.Add(new CompletedEffortDto(PaceToday, 14) { RepositoryAliases = ["backlog"] });
         Finished.Add(new CompletedEffortDto(PaceToday, 28));
-        _ = PaceFile.Set(12m, "site");
         await ImportedAsync("plan-a", "backlog");
         await ImportedAsync("plan-b", "site");
         await UnfiledAsync("plan-c");
@@ -181,11 +183,10 @@ public sealed class RoadmapBandPaceTests : RoadmapBandHarness
         {
             Assert.Equal("21", Measured(band, "two-weeks", Default)); // 42 over 2 weeks
             Assert.Equal("7", Measured(band, "two-weeks", "backlog"));
-            Assert.Empty(band.FindAll("[data-testid='roadmap-pace-options-site']"));
 
-            // Site has a pace of its own; backlog still reads the default one.
-            Assert.Equal("12", Manual(band, "site").GetAttribute("value"));
-            Assert.Equal("7", Manual(band, "backlog").GetAttribute("value"));
+            // Site finished nothing of its own, so it places by Mine.
+            Assert.Empty(band.FindAll("[data-testid='roadmap-pace-options-site']"));
+            Assert.NotNull(band.Find("[data-testid='roadmap-pace-fell-back-site']"));
         });
     }
 
@@ -214,11 +215,18 @@ public sealed class RoadmapBandPaceTests : RoadmapBandHarness
 
         _ = PaceFile.Set(3m);
 
-        band.WaitForAssertion(() => Assert.Equal("3", Manual(band, Default).GetAttribute("value")));
+        band.WaitForAssertion(() =>
+        {
+            Assert.Equal("3", Manual(band).GetAttribute("value"));
+            Assert.Contains(
+                "Using Mine: 3 pt/wk",
+                band.Find("[data-testid='roadmap-pace-fell-back-default']").TextContent,
+                StringComparison.Ordinal);
+        });
     }
 
     [Fact]
-    public async Task A_chosen_pace_that_measured_nothing_says_the_typed_one_is_used()
+    public async Task A_band_whose_every_stretch_measured_nothing_says_Mine_is_used_there()
     {
         Configure("JSdotNet/Backlog");
         Finished.Add(new CompletedEffortDto(PaceToday, 14)); // unfiled: the default pace's alone
@@ -233,21 +241,19 @@ public sealed class RoadmapBandPaceTests : RoadmapBandHarness
         {
             var note = band.Find("[data-testid='roadmap-pace-fell-back-backlog']");
             Assert.Equal("status", note.GetAttribute("role"));
-            Assert.Contains("Empty stretch: using Mine", note.TextContent, StringComparison.Ordinal);
+            Assert.Contains("Using Mine: 7 pt/wk", note.TextContent, StringComparison.Ordinal);
             Assert.Contains("Nothing estimated was finished in backlog", note.GetAttribute("title"), StringComparison.Ordinal);
         });
 
         // The default pace measured something, so its band says nothing.
         Assert.Empty(band.FindAll("[data-testid^='roadmap-pace-fell-back-default']"));
-
-        // backlog's chosen stretch has no button any more, so the line is what says it.
         Assert.Empty(band.FindAll("[data-testid='roadmap-pace-options-backlog']"));
     }
 
     // --- Setting a pace ----------------------------------------------------------
 
     [Fact]
-    public async Task A_default_pace_typed_in_the_unfiled_band_is_stored_as_the_default()
+    public async Task Mine_typed_in_the_heading_is_stored_once_for_every_band()
     {
         Configure("JSdotNet/Backlog");
         await ImportedAsync("plan-a", "backlog");
@@ -256,16 +262,22 @@ public sealed class RoadmapBandPaceTests : RoadmapBandHarness
         using var context = Context();
         var band = Banded(context);
 
-        Manual(band, Default).Change("2.5");
+        Manual(band).Change("2.5");
 
         Assert.Equal(2.5m, PaceFile.StoryPointsPerWeek);
         Assert.False(PaceFile.KeepsOwnPace("backlog"));
 
-        // backlog has no pace of its own, so it shows the new default.
         band.WaitForAssertion(() =>
         {
-            Assert.Equal("2.5", Manual(band, Default).GetAttribute("value"));
-            Assert.Equal("2.5", Manual(band, "backlog").GetAttribute("value"));
+            Assert.Equal("2.5", Manual(band).GetAttribute("value"));
+            Assert.Contains(
+                "Using Mine: 2.5 pt/wk",
+                band.Find("[data-testid='roadmap-pace-fell-back-backlog']").TextContent,
+                StringComparison.Ordinal);
+            Assert.Contains(
+                "Using Mine: 2.5 pt/wk",
+                band.Find("[data-testid='roadmap-pace-fell-back-default']").TextContent,
+                StringComparison.Ordinal);
         });
     }
 
@@ -282,13 +294,12 @@ public sealed class RoadmapBandPaceTests : RoadmapBandHarness
         using var context = Context();
         var band = Banded(context);
 
-        Manual(band, "backlog").Change(refused);
+        Manual(band).Change(refused);
 
-        Assert.False(PaceFile.KeepsOwnPace("backlog"));
         Assert.Equal(4m, PaceFile.StoryPointsPerWeek);
         band.WaitForAssertion(() =>
         {
-            var note = band.Find("[data-testid='roadmap-pace-refused-backlog']");
+            var note = band.Find("[data-testid='roadmap-pace-refused-mine']");
             Assert.Equal("status", note.GetAttribute("role"));
             Assert.False(string.IsNullOrWhiteSpace(note.GetAttribute("title")));
         });
@@ -305,14 +316,14 @@ public sealed class RoadmapBandPaceTests : RoadmapBandHarness
         using var context = Context();
         var band = Banded(context);
 
-        Option(band, "two-weeks", "site").Click();
+        Option(band, "eight-weeks", "site").Click();
 
-        Assert.Equal(PaceSource.LastTwoWeeks, PaceFile.SourceFor("site"));
+        Assert.Equal(PaceSource.LastEightWeeks, PaceFile.SourceFor("site"));
         Assert.Equal(PaceSource.Manual, PaceFile.Source);
         band.WaitForAssertion(() =>
         {
-            Assert.Equal("true", Option(band, "two-weeks", "site").GetAttribute("aria-pressed"));
-            Assert.Equal("false", Option(band, "manual-option", "site").GetAttribute("aria-pressed"));
+            Assert.Equal("true", Option(band, "eight-weeks", "site").GetAttribute("aria-pressed"));
+            Assert.Equal("false", Option(band, "two-weeks", "site").GetAttribute("aria-pressed"));
 
             // backlog measured nothing, so it offers no choice to press.
             Assert.Empty(band.FindAll("[data-testid='roadmap-pace-options-backlog']"));
@@ -322,7 +333,7 @@ public sealed class RoadmapBandPaceTests : RoadmapBandHarness
     // --- A pace change redraws the bars sized by effort -------------------------
 
     [Fact]
-    public async Task Typing_a_new_default_pace_relengthens_an_unfiled_plan()
+    public async Task Typing_Mine_relengthens_an_unfiled_plan_that_measured_nothing()
     {
         var plan = await UnfiledAsync("plan-a");
         Assert.Equal(5, Days(plan)); // nothing gathered at import: the default span
@@ -330,7 +341,7 @@ public sealed class RoadmapBandPaceTests : RoadmapBandHarness
         using var context = GatheringContext(14);
         var band = Banded(context);
 
-        Manual(band, Default).Change("14");
+        Manual(band).Change("14");
 
         // 14 points at 14 a week is a week.
         await WaitForDaysAsync("plan-a", 7);
@@ -340,37 +351,38 @@ public sealed class RoadmapBandPaceTests : RoadmapBandHarness
     [Fact]
     public async Task Choosing_a_measured_default_pace_relengthens_an_unfiled_plan()
     {
-        Finished.Add(new CompletedEffortDto(PaceToday, 56)); // 28 a week over two weeks
+        Finished.Add(new CompletedEffortDto(PaceToday, 56)); // 28 a week over two weeks, 7 over eight
         await UnfiledAsync("plan-a");
 
         using var context = GatheringContext(14);
         var band = Banded(context);
 
-        Option(band, "two-weeks", Default).Click();
+        // Two weeks is in use until another is chosen.
+        Option(band, "eight-weeks", Default).Click();
 
-        // 14 points at 28 a week is three and a half days, rounded up.
-        await WaitForDaysAsync("plan-a", 4);
+        // 14 points at 7 a week is two weeks.
+        await WaitForDaysAsync("plan-a", 14);
     }
 
     [Fact]
-    public async Task Typing_a_pace_in_a_band_relengthens_each_plan_at_its_own_pace()
+    public async Task Typing_Mine_relengthens_each_plan_at_its_own_pace()
     {
         Configure("JSdotNet/Backlog", "JSdotNet/Site");
+        Finished.Add(new CompletedEffortDto(PaceToday, 28) { RepositoryAliases = ["backlog"] }); // 14 a week
         await ImportedAsync("plan-a", "backlog");
         await ImportedAsync("plan-b", "site");
 
         using var context = GatheringContext(14);
         var band = Banded(context);
 
-        Manual(band, "site").Change("14");
+        Manual(band).Change("28");
 
-        // Site's 14 points at its new 14 a week is a week; backlog's still read the
-        // default 7 a week, which makes two.
-        await WaitForDaysAsync("plan-b", 7);
-        await WaitForDaysAsync("plan-a", 14);
-        Assert.Equal(14m, PaceFile.StoryPointsPerWeekFor("site"));
-        Assert.Equal(7m, PaceFile.StoryPointsPerWeek);
-        Assert.False(PaceFile.KeepsOwnPace("backlog"));
+        // Site measured nothing, so its 14 points go at Mine's 28 a week: three and a
+        // half days, rounded up. Backlog's go at its own measured 14 a week: a week.
+        await WaitForDaysAsync("plan-b", 4);
+        await WaitForDaysAsync("plan-a", 7);
+        Assert.Equal(28m, PaceFile.StoryPointsPerWeek);
+        Assert.False(PaceFile.KeepsOwnPace("site"));
     }
 
     [Fact]
@@ -384,23 +396,22 @@ public sealed class RoadmapBandPaceTests : RoadmapBandHarness
         using var context = GatheringContext(14);
         var band = Banded(context);
 
-        Manual(band, Default).Change("14");
+        Manual(band).Change("14");
 
         band.WaitForAssertion(() => Assert.Equal(14m, PaceFile.StoryPointsPerWeek));
         Assert.Equal(7, Days(await StoredAsync("plan-a")));
     }
 
     [Fact]
-    public async Task A_typed_pace_while_a_measured_one_is_in_use_moves_no_plan()
+    public async Task Typing_Mine_while_every_band_measured_something_moves_no_plan()
     {
         Finished.Add(new CompletedEffortDto(PaceToday, 14));
-        _ = PaceFile.Choose(PaceSource.LastTwoWeeks);
         await UnfiledAsync("plan-a");
 
         using var context = GatheringContext(14);
         var band = Banded(context);
 
-        Manual(band, Default).Change("100");
+        Manual(band).Change("100");
 
         band.WaitForAssertion(() => Assert.Equal(100m, PaceFile.StoryPointsPerWeek));
         Assert.Equal(5, Days(await StoredAsync("plan-a")));
@@ -469,7 +480,7 @@ public sealed class RoadmapBandPaceTests : RoadmapBandHarness
                 plan.Items.ToDictionary(item => item.Id, _ => Rollup));
     }
 
-    /// <summary>A band drawn with its chart, and with the paces in its sidebar read.</summary>
+    /// <summary>A band drawn with its chart, and with the paces read.</summary>
     private static IRenderedComponent<RoadmapBand> Banded(BunitContext context)
     {
         var band = context.Render<RoadmapBand>();
@@ -478,8 +489,9 @@ public sealed class RoadmapBandPaceTests : RoadmapBandHarness
         return band;
     }
 
-    private static AngleSharp.Dom.IElement Manual(IRenderedComponent<RoadmapBand> band, string scope) =>
-        band.Find($"[data-testid='roadmap-pace-manual-{scope}'] input");
+    /// <summary>Mine: the one typed pace, in the heading.</summary>
+    private static AngleSharp.Dom.IElement Manual(IRenderedComponent<RoadmapBand> band) =>
+        band.Find("[data-testid='roadmap-pace-manual'] input");
 
     private static AngleSharp.Dom.IElement Option(IRenderedComponent<RoadmapBand> band, string key, string scope) =>
         band.Find($"[data-testid='roadmap-pace-{key}-{scope}']");

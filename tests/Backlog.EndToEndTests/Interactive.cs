@@ -25,9 +25,20 @@ internal static class Interactive
     public static Task FillAsync(ILocator input, string value) =>
         FillAsync(input, value, async () => await input.InputValueAsync() == value);
 
-    /// <summary>Clicks until <paramref name="took"/> is visible.</summary>
+    /// <summary>Clicks until <paramref name="took"/> is visible. A target that went
+    /// disabled or away is not clicked again: that is usually the first click
+    /// having worked — "Send to Inbox" empties the draft it sent, "Register" gives
+    /// way to a spinner — with its result still on its way.</summary>
     public static Task ClickAsync(ILocator target, ILocator took) =>
-        RepeatAsync(() => target.ClickAsync(), () => took.IsVisibleAsync(), $"clicking {target}");
+        RepeatAsync(
+            async () =>
+            {
+                // IsEnabledAsync waits for an element that is not there; the
+                // count does not.
+                if (await target.CountAsync() > 0 && await target.IsEnabledAsync()) await target.ClickAsync();
+            },
+            () => took.IsVisibleAsync(),
+            $"clicking {target}");
 
     public static async Task RepeatAsync(Func<Task> act, Func<Task<bool>> took, string what)
     {

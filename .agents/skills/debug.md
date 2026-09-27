@@ -40,6 +40,11 @@ Use the Aspire MCP tools, whose prefix you resolve from the live tool list.
 | What did the browser see? | The browser tool's console and network requests, against `desktop-web-harness` or `mobile-web-harness` |
 | What is on disk? | `%LOCALAPPDATA%\Backlog.Debug`: `backlog.db`, `devbook-cache`, `activity-cache` |
 
+Ask for the slice, not the stream. The dashboard's telemetry filtering is matched on the
+server, so pass `resourceName` and `search` on every log and trace call, including a
+background log monitor's. Pulling everything and filtering it yourself fills the session
+and makes the one error slower to notice.
+
 The `%LOCALAPPDATA%\Backlog.Debug` folder is shared by every worktree on the machine, so
 copy a file before you take any step that could change it.
 

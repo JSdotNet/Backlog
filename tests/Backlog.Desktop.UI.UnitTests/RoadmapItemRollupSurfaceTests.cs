@@ -115,6 +115,43 @@ public sealed class RoadmapItemRollupSurfaceTests : IDisposable
     }
 
     [Fact]
+    public void The_order_graph_stacks_what_can_run_side_by_side_and_waves_what_waits()
+    {
+        var rollup = new RoadmapItemRollupDto(
+            [
+                new RoadmapGatheredLink("a", "Adopt devbook", 5, RollupOrigin.Tag),
+                new RoadmapGatheredLink("b", "Clear the warnings", 2, RollupOrigin.Tag),
+                new RoadmapGatheredLink("c", "Reconcile the repository", 8, RollupOrigin.Tag, DependsOn: ["a"]),
+                new RoadmapGatheredLink("d", "Write the procedures", 5, RollupOrigin.Tag, DependsOn: ["b", "c"])
+            ],
+            []);
+
+        var editor = Render(Item(), rollup);
+
+        var waves = editor.FindAll("[data-testid='roadmap-item-order-wave']").Select(wave => wave.TextContent).ToList();
+        Assert.Equal(["Start", "Wave 2", "Wave 3"], waves);
+
+        var waveOf = editor.FindAll("[data-testid='roadmap-item-order-node']")
+            .ToDictionary(node => node.QuerySelector("title")!.TextContent, node => node.GetAttribute("data-wave"));
+        Assert.Equal("1", waveOf["Adopt devbook"]);
+        Assert.Equal("1", waveOf["Clear the warnings"]);
+        Assert.Equal("2", waveOf["Reconcile the repository"]);
+        Assert.Equal("3", waveOf["Write the procedures"]);
+
+        Assert.Equal(3, editor.FindAll(".roadmap-order__edge").Count);
+    }
+
+    [Fact]
+    public void A_single_gathered_entry_has_no_order_to_draw()
+    {
+        var rollup = new RoadmapItemRollupDto([new RoadmapGatheredLink("a", "Only one", 3, RollupOrigin.Direct)], []);
+
+        var editor = Render(Item(), rollup);
+
+        Assert.Empty(editor.FindAll("[data-testid='roadmap-item-order']"));
+    }
+
+    [Fact]
     public void A_new_item_has_nothing_to_roll_up_so_the_section_is_absent()
     {
         var editor = Render(item: null, RoadmapItemRollupDto.Empty);

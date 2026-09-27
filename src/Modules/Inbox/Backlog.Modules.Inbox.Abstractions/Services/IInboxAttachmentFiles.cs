@@ -45,4 +45,9 @@ public interface IInboxAttachmentFiles
     /// <summary>Opens the file with whatever this machine opens that kind of
     /// file with.</summary>
     Result Open(string path);
+
+    /// <summary>Removes the item's folder and everything in it, for an item
+    /// deleted before anything else was handed the folder. Nothing happens
+    /// when there is no folder.</summary>
+    Task RemoveFolderAsync(Guid itemId, CancellationToken cancellationToken = default);
 }

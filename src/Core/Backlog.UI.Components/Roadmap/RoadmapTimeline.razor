@@ -1704,11 +1704,10 @@
     };
 
     private string Tooltip(RoadmapMilestone milestone) =>
-        string.Join(" — ", new[] { milestone.Title, DateLabel(milestone.On), milestone.Detail }
-            .Where(part => !string.IsNullOrWhiteSpace(part)));
+        RoadmapDetail.Report(new[] { milestone.Title, DateLabel(milestone.On) }.Concat(RoadmapDetail.Lines(milestone.Detail)));
 
     private string Spoken(RoadmapMilestone milestone, PlacedRow placed) =>
-        string.Join(". ", new[] { $"Milestone: {milestone.Title}", Context(placed), DateLabel(milestone.On), milestone.Detail }
+        string.Join(". ", new[] { $"Milestone: {milestone.Title}", Context(placed), DateLabel(milestone.On), RoadmapDetail.Spoken(milestone.Detail) }
             .Where(part => !string.IsNullOrWhiteSpace(part))) + ".";
 
     private string BarButtonId(string barId) => $"roadmap-bar-{_instance}-{Slug(barId)}";

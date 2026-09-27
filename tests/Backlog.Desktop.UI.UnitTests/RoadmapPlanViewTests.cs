@@ -695,6 +695,111 @@ public class RoadmapPlanViewTests
         Assert.False(bar.Locked);
     }
 
+    // --- Drawn from the work, forecast at the pace in use ------------------------
+
+    // Saturday 10 January 2026, and a backlog pace of 7 points a week: a point a day.
+    private static readonly RoadmapForecast Forecast = new(
+        new DateOnly(2026, 1, 10),
+        new PacesInUseDto(14m, new Dictionary<string, decimal> { ["backlog"] = 7m }));
+
+    private static RoadmapBar Forecasted(RoadmapItemDto item, params RoadmapGatheredLink[] links) =>
+        Assert.Single(RoadmapPlanView.From(
+            Plan([item]),
+            Configured,
+            new Dictionary<Guid, RoadmapItemRollupDto> { [item.Id] = new(links, []) },
+            forecast: Forecast).Bars);
+
+    private static RoadmapGatheredLink Sized(
+        string key,
+        int? effort,
+        RoadmapProgress progress,
+        DateOnly? started = null,
+        DateOnly? completed = null,
+        DateOnly? created = null) =>
+        new(key, key.ToUpperInvariant(), effort, RollupOrigin.Tag, progress, StartedOn: started, CompletedOn: completed, CreatedOn: created);
+
+    [Fact]
+    public void AnItemInFlight_StartsWhenItsWorkBegan_AndEndsWhenWhatIsLeftShouldBeDone_AndIsLocked()
+    {
+        // Planned 5–9 January. Work began on 20 December; 3 points and an unestimated
+        // task are left, at a point a day from today, the 10th: 4 days, to the 13th.
+        var bar = Forecasted(
+            Item("Plan", startDay: 5, endDay: 9, repositories: ["backlog"]),
+            Sized("a", 2, RoadmapProgress.Done, started: new DateOnly(2025, 12, 20), completed: new DateOnly(2025, 12, 28)),
+            Sized("b", 3, RoadmapProgress.InProgress, started: new DateOnly(2026, 1, 2)),
+            Sized("c", null, RoadmapProgress.Planned));
+
+        Assert.Equal(new DateOnly(2025, 12, 20), bar.Start);
+        Assert.Equal(new DateOnly(2026, 1, 13), bar.End);
+        Assert.True(bar.Locked);
+        Assert.Contains("in progress", bar.Detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AnItemInFlight_NearlyDone_IsNotStretchedToItsPlannedEnd()
+    {
+        // Planned to run to the 31st; only one point is left.
+        var bar = Forecasted(
+            Item("Plan", startDay: 5, endDay: 31, repositories: ["backlog"]),
+            Sized("a", 8, RoadmapProgress.Done, started: new DateOnly(2026, 1, 5), completed: new DateOnly(2026, 1, 8)),
+            Sized("b", 1, RoadmapProgress.Ready));
+
+        Assert.Equal(new DateOnly(2026, 1, 5), bar.Start);
+        Assert.Equal(new DateOnly(2026, 1, 10), bar.End);
+    }
+
+    [Fact]
+    public void AnItemInFlight_StartingLaterThanPlanned_KeepsThePlannedStart()
+    {
+        // Planned from the 12th, and its task started on the 14th. Work beginning after
+        // the planned start leaves the start alone, and the 2 points left run from the
+        // 12th — the later of the start and today, the 10th.
+        var bar = Forecasted(
+            Item("Plan", startDay: 12, endDay: 20, repositories: ["backlog"]),
+            Sized("a", 2, RoadmapProgress.InProgress, started: new DateOnly(2026, 1, 14)));
+
+        Assert.Equal(new DateOnly(2026, 1, 12), bar.Start);
+        Assert.Equal(new DateOnly(2026, 1, 13), bar.End);
+    }
+
+    [Fact]
+    public void AnItemNobodyStarted_IsDrawnWherePlanned_AndCanBeMoved()
+    {
+        var bar = Forecasted(
+            Item("Plan", startDay: 5, endDay: 9, repositories: ["backlog"]),
+            Sized("a", 13, RoadmapProgress.Ready),
+            Sized("b", 5, RoadmapProgress.Planned));
+
+        Assert.Equal(new DateOnly(2026, 1, 5), bar.Start);
+        Assert.Equal(new DateOnly(2026, 1, 9), bar.End);
+        Assert.False(bar.Locked);
+    }
+
+    [Fact]
+    public void AFinishedItem_NobodyTicked_NeverEndsAfterToday()
+    {
+        var bar = Forecasted(
+            Item("Plan", startDay: 5, endDay: 31, repositories: ["backlog"]),
+            Sized("a", 2, RoadmapProgress.Done, started: new DateOnly(2026, 1, 2)));
+
+        Assert.Equal(new DateOnly(2026, 1, 2), bar.Start);
+        Assert.Equal(new DateOnly(2026, 1, 10), bar.End);
+        Assert.Contains("finished", bar.Detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AnItemInFlight_WithNoRepository_IsForecastAtTheGlobalPace()
+    {
+        // Two points a day globally: 4 points left is 2 days, the 10th and 11th.
+        var bar = Forecasted(
+            Item("Plan", startDay: 5, endDay: 31),
+            Sized("a", 1, RoadmapProgress.Done, started: new DateOnly(2026, 1, 6), completed: new DateOnly(2026, 1, 7)),
+            Sized("b", 4, RoadmapProgress.InProgress, started: new DateOnly(2026, 1, 8)));
+
+        Assert.Equal(new DateOnly(2026, 1, 5), bar.Start);
+        Assert.Equal(new DateOnly(2026, 1, 11), bar.End);
+    }
+
     [Fact]
     public void AnItemsStepsAreItsGatheredTasksInDependencyOrder()
     {

@@ -35,6 +35,29 @@
     else
     {
         var kinds = State.KindCounts;
+        var health = State.QueueHealth;
+
+        @* The Inbox half of queue health (features.md#queue-health): the whole
+           queue, whichever slice is open, because "how is the queue doing" is
+           not a question about one list. The chip is there only when something
+           has waited too long — a chip reading zero is a chip to ignore. *@
+        <div class="inbox-pane__health" role="status" aria-label="Queue health" data-testid="inbox-queue-health">
+            @if (health.OldestCapturedAt is { } oldest)
+            {
+                <Badge BaseClass="inbox-pane__health-count" Kind="" TestId="inbox-queue-health-count">@InboxDesktopState.Counted(health.Unprocessed, "unprocessed item", "unprocessed items")</Badge>
+                <span class="inbox-pane__health-oldest" data-testid="inbox-queue-health-oldest">oldest captured @State.Age(oldest)</span>
+                @if (health.Stale > 0)
+                {
+                    <Badge BaseClass="badge" Kind="priority" Slug="high"
+                           Title="@($"Unprocessed for more than {InboxDesktopState.StaleAfterDays} days")"
+                           TestId="inbox-queue-health-stale">@($"{health.Stale} over {InboxDesktopState.StaleAfterDays} days")</Badge>
+                }
+            }
+            else
+            {
+                <Badge BaseClass="inbox-pane__health-count" Kind="" TestId="inbox-queue-health-count">Nothing waiting</Badge>
+            }
+        </div>
 
         @if (kinds.Count > 0)
         {
@@ -66,12 +89,21 @@
                                    TestId="inbox-kind-clear">Clear filters</AppButton>
                     }
                 </div>
-                <ToggleButton Pressed="@State.SelectionMode"
-                              PressedChanged="on => State.SetSelectionMode(on)"
-                              BaseClass="btn btn--toggle"
-                              CssClass="btn--small inbox-pane__select-toggle"
-                              Title="@(State.SelectionMode ? "Stop picking items" : "Pick items to act on together")"
-                              TestId="inbox-select-toggle">Select</ToggleButton>
+                <div class="inbox-pane__modes">
+                    @* Triage opens the rows one at a time; it is a way of reading
+                       this list, so it sits with Select rather than in the header. *@
+                    <AppButton Size="ButtonSize.Small"
+                               CssClass="inbox-pane__triage-start"
+                               Title="Decide on the items here one at a time (Esc returns to the list)"
+                               OnClick="() => State.SetTriageMode(true)"
+                               TestId="inbox-triage-start">Triage</AppButton>
+                    <ToggleButton Pressed="@State.SelectionMode"
+                                  PressedChanged="on => State.SetSelectionMode(on)"
+                                  BaseClass="btn btn--toggle"
+                                  CssClass="btn--small inbox-pane__select-toggle"
+                                  Title="@(State.SelectionMode ? "Stop picking items" : "Pick items to act on together (x)")"
+                                  TestId="inbox-select-toggle">Select</ToggleButton>
+                </div>
             </div>
         }
 
@@ -145,6 +177,7 @@
                                    CssClass="@(selected ? "inbox-pane__row--selected" : null)"
                                    OnClick="() => State.SelectItem(item.Id)"
                                    TestId="@($"inbox-item-{item.Id:D}")"
+                                   id="@RowId(item.Id)"
                                    aria-pressed="@(selected ? "true" : "false")">
                             @* The kind: a mark and the word. The mark is aria-hidden
                                because the word is right beside it, and the word is
@@ -201,6 +234,10 @@
 @code {
     [Parameter, EditorRequired]
     public InboxDesktopState State { get; set; } = default!;
+
+    /// <summary>A row's element id, so the pane can put the focus back on the
+    /// row a keyboard step or a triage session ended on.</summary>
+    public static string RowId(Guid id) => $"inbox-row-{id:D}";
 
     private static string Title(InboxItemDto item) =>
         string.IsNullOrWhiteSpace(item.Title) ? "Untitled" : item.Title;

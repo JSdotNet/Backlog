@@ -38,10 +38,10 @@
 @implements IDisposable
 @inject IRoadmapPlanning Planning
 @inject IRoadmapItemRollup Rollups
+@inject IPlanningPace Paces
 @inject IImportedPlanSource ImportedPlans
 @inject GitHubSettingsStore Repositories
 @inject IRoadmapWorkChanges WorkChanges
-@inject IPlanningPace Paces
 
 <section class="roadmap-band" id="roadmap-band" aria-labelledby="roadmap-band-title" data-testid="roadmap-band">
     @* The heading lives in one of two places, and which one depends on whether
@@ -214,6 +214,15 @@
                    TestId="roadmap-band-add-date">
             Add a date
         </AppButton>
+
+        @* The reader's own pace, once for the whole roadmap: the fallback a band
+           places by until it has finished work to measure one. Only with a chart —
+           with nothing planned there is nothing to place. *@
+        @if (_view.HasAnythingToDraw)
+        {
+            <RoadmapTypedPace Repositories="@([.. Configured().Select(repository => repository.Alias)])"
+                              OnPaceChanged="RelengthenAtNewPace" />
+        }
     </text>;
 
     /// <summary>
@@ -223,10 +232,11 @@
     /// Drawn only for a band that asked for room (<see cref="RoadmapPlanView"/> gives
     /// every configured repository's band and the unfiled band
     /// <see cref="RoadmapPlanView.PaceRows"/>). A repository's band carries that repository's pace. The
-    /// unfiled band carries the default pace — the one its plans are placed at, and
-    /// the one a repository nobody set a pace for reads — measured over all finished
-    /// work. The milestones band places nothing and has none. A change re-lengthens
-    /// every plan still sized by its effort, each at its own pace.
+    /// unfiled band carries the default pace — the one its plans are placed at —
+    /// measured over all finished work. A band with nothing measured places by the
+    /// reader's own pace in the heading. The milestones band places nothing and has
+    /// none. A change re-lengthens every plan still sized by its effort, each at its
+    /// own pace.
     /// </para>
     /// </summary>
     private RenderFragment<RoadmapGroup> BandPace => group =>
@@ -265,35 +275,33 @@
         var rollups = await Rollups.GatherPlanAsync(_plan);
 
         var configured = Configured();
-        var choices = await PaceChoicesAsync(configured);
 
-        _view = RoadmapPlanView.From(_plan, configured, rollups, scope => choices.Contains(scope ?? string.Empty));
+        // Work in flight is drawn from the work: from when it began to when what is
+        // left should be done at the pace its band is placed at (RoadmapPlanView.AsDrawn).
+        var forecast = new RoadmapForecast(
+            Today ?? DateOnly.FromDateTime(DateTime.Today),
+            await PacesInUseAsync(configured));
+
+        _view = RoadmapPlanView.From(_plan, configured, rollups, forecast);
 
         _imported = await ImportedPlans.ListAsync();
         _unplanned = Unplanned(_imported, _plan);
     }
 
-    /// <summary>
-    /// The paces that have a choice to offer — a stretch that measured something —
-    /// by repository alias, with the default pace as the empty string. A band whose
-    /// pace offers one is drawn taller, to fit the choices under the field. Read on
-    /// every load, which the band already does when finished work changes; choosing
-    /// or typing a pace changes what is chosen, never what was measured.
-    /// </summary>
-    private async Task<HashSet<string>> PaceChoicesAsync(IReadOnlyList<PlannedRepository> configured)
+    /// <summary>The pace each band is in use at — the one its pace control shows —
+    /// and the global one for work filed under none. Read on every load, which the
+    /// band already does when finished work or a pace changes.</summary>
+    private async Task<PacesInUseDto> PacesInUseAsync(IReadOnlyList<PlannedRepository> configured)
     {
-        var offering = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var global = (await Paces.ReadAsync()).InUse;
+        var byRepository = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var scope in configured.Select(repository => (string?)repository.Alias).Prepend(null))
+        foreach (var repository in configured)
         {
-            var paces = await Paces.ReadAsync(scope);
-            if (paces.LastTwoWeeks is not null || paces.LastFourWeeks is not null || paces.LastEightWeeks is not null)
-            {
-                offering.Add(scope ?? string.Empty);
-            }
+            byRepository[repository.Alias] = (await Paces.ReadAsync(repository.Alias)).InUse;
         }
 
-        return offering;
+        return new PacesInUseDto(global, byRepository);
     }
 
     /// <summary>

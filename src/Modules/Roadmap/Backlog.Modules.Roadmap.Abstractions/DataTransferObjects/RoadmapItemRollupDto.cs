@@ -338,6 +338,43 @@ public static class RoadmapRollup
         return result;
     }
 
+    /// <summary>
+    /// Groups gathered links into waves: what could run side by side. The first wave
+    /// holds everything that waits on nothing in the list; each later wave holds what
+    /// is freed once the one before it is done — a link's wave is one past the latest
+    /// wave of anything it waits on, so its place is set by its longest chain.
+    /// <para>
+    /// Built on <see cref="InDependencyOrder"/>, and tolerant the same way: a wait on
+    /// something not in the list, or one the order had to break to get out of a
+    /// cycle, counts as nothing. Within a wave, links keep that order.
+    /// </para>
+    /// </summary>
+    public static IReadOnlyList<IReadOnlyList<RoadmapGatheredLink>> InWaves(IEnumerable<RoadmapGatheredLink> links)
+    {
+        ArgumentNullException.ThrowIfNull(links);
+
+        var waveOf = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var waves = new List<List<RoadmapGatheredLink>>();
+
+        foreach (var link in InDependencyOrder(links))
+        {
+            // A duplicate key sits where it first landed, as in the order itself.
+            if (waveOf.ContainsKey(link.Key)) continue;
+
+            var wave = 0;
+            foreach (var wait in link.Waits)
+            {
+                if (wait is not null && waveOf.TryGetValue(wait, out var before)) wave = Math.Max(wave, before + 1);
+            }
+
+            waveOf[link.Key] = wave;
+            while (waves.Count <= wave) waves.Add([]);
+            waves[wave].Add(link);
+        }
+
+        return [.. waves];
+    }
+
     /// <summary>The earliest link that has nothing left to wait for, or
     /// <c>-1</c>.</summary>
     private static int FirstFree(bool[] emitted, int[] remaining)

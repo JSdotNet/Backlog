@@ -2,13 +2,14 @@
     The right column: one item, read by its kind, and the acts on it.
 
     The header is the library's SectionHeader with the acts in its Actions slot:
-    file it, dismiss it, send it to the backlog, or have a plan drafted about
-    it. Four acts is the toolbar budget in
-    .devbook/design/interaction-guidelines.md#action-density-and-overflow exactly, so
-    there is no overflow menu — and "Create plan" stays on screen when it cannot
-    run, disabled with its reason on the title, because unavailability never
-    hides an act. Once an item has been routed or archived the acts go except
-    "Move to list": filing is not triage and is allowed in every state.
+    file it, dismiss it, send it to the backlog, have a plan drafted about it,
+    or delete it. Five acts is one over the toolbar budget in
+    .devbook/design/interaction-guidelines.md#action-density-and-overflow, and
+    "one item never gets a menu", so all five stay on screen — and "Create plan"
+    stays when it cannot run, disabled with its reason on the title, because
+    unavailability never hides an act. Once an item has been routed or archived
+    the triage acts go except "Move to list", filing being allowed in every
+    state, and "Delete", which removes an item whatever became of it.
 
     What the body shows depends on the kind. A video gets its thumbnail and the
     link; an article or a link gets the link and whatever excerpt was captured;
@@ -80,6 +81,10 @@
                                        OnClick="State.CreatePlanAsync"
                                        TestId="inbox-create-plan">Create plan</AppButton>
                         }
+                        <DeleteButton Size="ButtonSize.Small"
+                                      Disabled="@Busy"
+                                      OnClick="() => _deleteOpen = true"
+                                      TestId="inbox-delete" />
                     </ButtonGroup>
                 </Actions>
             </SectionHeader>
@@ -192,6 +197,7 @@
                 @if (open)
                 {
                     <TagMultiSelect Label="Tags"
+                                    Id="@TagsInputId"
                                     Options="@State.TagOptions"
                                     SelectedValues="@TagNames(item)"
                                     SelectedValuesChanged="tags => State.SetTagsAsync(tags)"
@@ -271,6 +277,36 @@
                           OnItemSelected="OnMoveTargetAsync" />
             </ChildContent>
         </Modal>
+
+        @* Confirmed because nothing is kept: Archive is the undoable dismissal,
+           and the message says so rather than leaving the difference to guess. *@
+        <ConfirmDialog Open="@_deleteOpen"
+                       Title="Delete this item?"
+                       Message="@DeleteMessage(item)"
+                       ConfirmText="Delete item"
+                       Destructive="true"
+                       OnConfirm="OnDeleteConfirmedAsync"
+                       OnCancel="() => _deleteOpen = false"
+                       TestId="inbox-delete-dialog"
+                       ConfirmTestId="inbox-delete-confirm"
+                       CancelTestId="inbox-delete-cancel" />
+
+        @* The keyboard's way to defer: the review dates a triage decision
+           reaches for, one key and Enter away. A particular date is still the
+           field beside the pickers — this is the quick half, not a second
+           date picker. *@
+        <Modal Open="@_deferOpen"
+               OpenChanged="open => _deferOpen = open"
+               Title="Defer until"
+               CssClass="inbox-pane__dialog"
+               TestId="inbox-defer-dialog">
+            <ChildContent>
+                <MenuList Items="@DeferChoices()"
+                          AriaLabel="Review dates"
+                          TestId="inbox-defer-choices"
+                          OnItemSelected="OnDeferChoiceAsync" />
+            </ChildContent>
+        </Modal>
     }
 </div>
 
@@ -281,6 +317,18 @@
     public InboxDesktopState State { get; set; } = default!;
 
     private bool _moveOpen;
+
+    private bool _deleteOpen;
+
+    private static string DeleteMessage(InboxItemDto item) =>
+        $"“{Title(item)}” is removed for good. Archive keeps an item findable; delete does not."
+        + (item.Routing is null ? "" : " The backlog entries it became stay where they are.");
+
+    private async Task OnDeleteConfirmedAsync()
+    {
+        _deleteOpen = false;
+        await State.DeleteAsync();
+    }
 
     /// <summary>The review date as the date field holds it, <c>yyyy-MM-dd</c> or
     /// empty. Held here until "Defer" is pressed rather than written on every
@@ -576,6 +624,60 @@
         }
 
         return items;
+    }
+
+    // --- Opened from the keyboard -------------------------------------------
+
+    /// <summary>The tag field's input, which the pane focuses for <c>t</c>.</summary>
+    public const string TagsInputId = "inbox-detail-tags-input";
+
+    /// <summary>Whether the item on screen can still be decided on — the acts
+    /// a shortcut reaches are the ones the header offers.</summary>
+    public bool CanDecide => State.SelectedItem is { Status: InboxStatus.Unprocessed or InboxStatus.Deferred } && !Busy;
+
+    /// <summary>Opens "Move to list", as <c>l</c> does. Filing is allowed in
+    /// every state, so only a missing item or a run in flight refuses it.</summary>
+    public void OpenMove()
+    {
+        if (State.SelectedItem is null || Busy) return;
+
+        _moveOpen = true;
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>Opens the review dates, as <c>d</c> does.</summary>
+    public void OpenDefer()
+    {
+        if (!CanDecide) return;
+
+        _deferOpen = true;
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private bool _deferOpen;
+
+    private const string DeferUndated = "none";
+
+    private IReadOnlyList<MenuItem> DeferChoices()
+    {
+        var today = State.Today;
+        return
+        [
+            DeferChoice("Tomorrow", today.AddDays(1)),
+            DeferChoice("Next week", today.AddDays(7)),
+            DeferChoice("Next month", today.AddMonths(1)),
+            new MenuItem(DeferUndated, "Without a date")
+        ];
+
+        static MenuItem DeferChoice(string label, DateOnly date) =>
+            new(date.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
+                $"{label} · {date.ToString("ddd d MMM", System.Globalization.CultureInfo.InvariantCulture)}");
+    }
+
+    private async Task OnDeferChoiceAsync(MenuItem choice)
+    {
+        _deferOpen = false;
+        await State.DeferAsync(choice.Id == DeferUndated ? null : ParseDate(choice.Id));
     }
 
     private async Task OnMoveTargetAsync(MenuItem target)

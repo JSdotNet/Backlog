@@ -92,6 +92,18 @@ public sealed class ReceiveCaptureCommandHandler(
         var existing = await items.GetAsync(capture.Id, cancellationToken).ConfigureAwait(false);
         var withdrawn = capture.WithdrawnAt is not null;
 
+        // Deleted here while the phone was still offering it: not a new
+        // capture. A replay is known already; the phone withdrawing it itself
+        // leaves nothing to tell it, so the acknowledgement goes too.
+        if (existing is null
+            && await items.GetDeletedCaptureAsync(capture.Id, cancellationToken).ConfigureAwait(false) is not null)
+        {
+            if (!withdrawn) return InboxIntakeOutcome.AlreadyKnown;
+
+            await items.ForgetDeletedCaptureAsync(capture.Id, cancellationToken).ConfigureAwait(false);
+            return InboxIntakeOutcome.Withdrawn;
+        }
+
         if (existing is null)
         {
             // Nothing to withdraw, or nothing to keep: a title is the one

@@ -141,6 +141,94 @@ The system SHALL keep picked items picked across a refresh of the pane while the
 - **When** the reader opens a list in the side menu
 - **Then** nothing is picked
 
+## Triage from the keyboard
+
+```meta
+type: requirements
+status: draft
+related: [.devbook/domain/inbox/features.md#quick-triage-shortcuts]
+```
+
+> The requirements of triaging the Inbox from the keyboard and one item at a
+> time. The feature chapter says what the keys are and why; this says what
+> they promise.
+
+### Requirement: A key does what its button does
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests.A_and_r_decide_the_chosen_item_the_way_its_buttons_do, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests.A_key_does_not_offer_an_act_the_header_withholds, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests.L_opens_move_to_list_and_d_offers_review_dates_that_defer_the_item]
+```
+
+The system SHALL decide the chosen item by a triage key through the same act its detail's button performs, and SHALL offer by key no act the detail withholds for that item.
+
+#### Scenario: Archiving by key
+
+- **Given** an unprocessed item is chosen
+- **When** the reader presses a
+- **Then** the item is archived
+
+#### Scenario: A routed item
+
+- **Given** an item already moved to the backlog is chosen
+- **When** the reader presses a or d
+- **Then** the item stays as it is and no dialog opens
+
+### Requirement: A key in a field types
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests.Components_js_decides_at_the_keydown_that_a_key_in_a_field_or_with_a_modifier_types, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests.The_pane_registers_for_shortcuts_and_no_inbox_markup_arms_a_server_side_prevent_default]
+```
+
+The system SHALL treat a letter pressed in a text field, inside a dialog, with Ctrl, Alt or Meta held, or while the focus is outside the Inbox pane as that place's key and not as a shortcut.
+
+#### Scenario: Typing a tag
+
+- **Given** the reader is typing in the tag field
+- **When** they type "a"
+- **Then** the letter appears in the field and nothing is archived
+
+### Requirement: Triage moves on after each decision
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests.Triage_shows_one_item_counted_and_moves_on_after_each_decision, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests.Past_the_last_row_triage_returns_to_the_item_skipped_on_the_way]
+```
+
+The system SHALL, in triage mode, show one item with its place among the rows shown and move on to the next row after each archive, deferral, move to a list or move to the backlog.
+
+#### Scenario: Archiving the first of three
+
+- **Given** triage mode is open on the first of three items, reading "1 of 3"
+- **When** the reader archives it
+- **Then** the second item is shown, reading "1 of 2"
+
+#### Scenario: Deciding the last row
+
+- **Given** the reader skipped the first item with j and is on the last
+- **When** they archive it
+- **Then** the skipped item is shown
+
+### Requirement: Leaving triage keeps the reader's place
+
+```meta
+type: requirement
+status: draft
+tests: unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxKeyboardTriageTests.Escape_leaves_triage_on_the_row_the_reader_stopped_at
+```
+
+The system SHALL return from triage mode to the rows with the item the session stopped at chosen and focused.
+
+#### Scenario: Escape on the second item
+
+- **Given** triage mode shows the second of three items
+- **When** the reader presses Escape
+- **Then** the list is shown with the second item chosen and focused
+
 ## Capture attachments
 
 ```meta
@@ -323,3 +411,119 @@ item's attachment folder as that task's attachment.
 - **Given** an item with no attachments
 - **When** the person routes it to Tasks
 - **Then** the new task has no attachment
+
+## Delete
+
+```meta
+type: requirements
+status: draft
+related: [.devbook/domain/inbox/features.md#delete]
+```
+
+> The requirements of deleting an Inbox Item. The feature chapter says how it
+> differs from Archive; this says what it promises.
+
+### Requirement: Delete removes the item after asking
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Delete_asks_first_and_cancelling_keeps_the_item, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Confirming_delete_removes_the_item_and_clears_the_detail, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.An_archived_item_can_still_be_deleted]
+```
+
+The system SHALL offer Delete on an item in any status, ask for confirmation first, and on confirmation remove the item from every slice so it cannot be found again.
+
+#### Scenario: Cancelling
+
+- **Given** an item is shown in the detail
+- **When** the reader presses Delete and then Cancel
+- **Then** the item is still in the queue
+
+#### Scenario: Confirming
+
+- **Given** an item is shown in the detail
+- **When** the reader presses Delete and confirms
+- **Then** the item is gone from the queue and the detail shows no item
+
+#### Scenario: Clearing the archive
+
+- **Given** an archived item is shown in the detail
+- **When** the reader looks at its acts
+- **Then** Archive is not offered and Delete is
+
+### Requirement: The phone hears about a deleted capture
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.DeleteItemTests.Deleting_an_open_item_from_the_phone_leaves_its_acknowledgement_in_the_outbox, unit:dotnet:Backlog.Modules.Inbox.UnitTests.DeleteItemTests.Once_the_outbox_sends_it_the_deleted_capture_is_forgotten, unit:dotnet:Backlog.Modules.Inbox.UnitTests.DeleteItemTests.Deleting_a_phone_item_the_phone_already_heard_about_owes_it_nothing]
+```
+
+Deleting an item that arrived through sync SHALL leave the acknowledgement archiving would, whenever the phone may still be offering the capture, and SHALL keep nothing once that acknowledgement has been sent.
+
+#### Scenario: An open item from the phone
+
+- **Given** an unprocessed item that arrived through sync
+- **When** the reader deletes it
+- **Then** the outbox holds one acknowledgement for its capture, stamped with the moment it was deleted
+
+#### Scenario: Already acknowledged
+
+- **Given** an archived item from the phone whose acknowledgement has been sent
+- **When** the reader deletes it
+- **Then** nothing of it is kept
+
+### Requirement: A deleted capture does not come back
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.DeleteItemTests.A_replay_of_a_deleted_capture_does_not_bring_it_back, unit:dotnet:Backlog.Modules.Inbox.UnitTests.DeleteItemTests.The_phone_withdrawing_a_deleted_capture_forgets_its_acknowledgement]
+```
+
+The system SHALL treat a capture it deleted and has not yet acknowledged as already known when the replica sends it again, and SHALL forget the acknowledgement when the replica withdraws the capture itself.
+
+#### Scenario: A replayed page
+
+- **Given** a capture from the phone was deleted before its acknowledgement was pushed
+- **When** the next pull carries the capture again
+- **Then** no item is created
+
+#### Scenario: The phone triaged it too
+
+- **Given** a capture from the phone was deleted before its acknowledgement was pushed
+- **When** the next pull carries the capture's tombstone
+- **Then** the acknowledgement is dropped unsent
+
+## Queue health
+
+```meta
+type: requirements
+status: draft
+related: [.devbook/domain/inbox/features.md#queue-health-strip]
+```
+
+> The requirements of the Inbox's queue health strip. What Monitoring shows of
+> the same numbers is Monitoring's to promise.
+
+### Requirement: The strip reads the whole unprocessed queue
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.The_queue_health_strip_counts_every_unprocessed_item_and_calls_out_the_stale_ones, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.The_queue_health_strip_has_no_chip_when_nothing_has_waited_too_long, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.An_empty_queue_says_nothing_is_waiting]
+```
+
+The system SHALL show above the queue the number of unprocessed items in every list, how long ago the oldest of them was captured, and, only when there are any, how many were captured more than fourteen days ago — leaving deferred, routed and archived items out.
+
+#### Scenario: A mixed queue
+
+- **Given** three unprocessed items captured two hours, fifteen days and twenty days ago, one of them filed in a list, and a deferred and an archived item older than all three
+- **When** the pane opens
+- **Then** the strip reads "3 unprocessed items", "oldest captured 20d ago" and "2 over 14 days"
+
+#### Scenario: Nothing waiting
+
+- **Given** no unprocessed items
+- **When** the pane opens
+- **Then** the strip reads "Nothing waiting" and shows no age and no chip

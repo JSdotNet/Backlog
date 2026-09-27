@@ -100,4 +100,17 @@ internal sealed class FakeAttachmentFiles : IInboxAttachmentFiles
         OpenedPaths.Add(path);
         return Result.Success();
     }
+
+    public List<Guid> RemovedFolders { get; } = [];
+
+    public Task RemoveFolderAsync(Guid itemId, CancellationToken cancellationToken = default)
+    {
+        RemovedFolders.Add(itemId);
+        foreach (var path in Files.Keys.Where(path => path.StartsWith(FolderFor(itemId) + "/", StringComparison.OrdinalIgnoreCase)).ToList())
+        {
+            Files.Remove(path);
+        }
+
+        return Task.CompletedTask;
+    }
 }

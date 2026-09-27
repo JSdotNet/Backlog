@@ -54,6 +54,7 @@ work made while offline.
 status: adopted
 type: library
 version: "4.152.1"
+depends-on: [".devbook/tech/shared.md#net-runtime"]
 related: [".devbook/domain/capture/features.md#talk-note", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md"]
 alternatives: ["ImageSharp", "Android Bitmap plus a browser canvas"]
 ```

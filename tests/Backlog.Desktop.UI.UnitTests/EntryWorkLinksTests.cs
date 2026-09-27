@@ -1,4 +1,5 @@
 using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
+using Backlog.Infrastructure.GitHub;
 using Bunit;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -139,6 +140,59 @@ public sealed class EntryWorkLinksTests
         await pane.Find("[data-testid='row-session']").ClickAsync(new());
 
         Assert.Equal("e711d47d-3e09-4254", opened);
+    }
+
+    /// <summary>A recorded pull request says whether it merged, on the row and on
+    /// the open entry: the entry went Done when the pull request was recorded, and
+    /// the link is the one place that can say the work actually landed. Quietly —
+    /// the link's own ink, with the word in its tooltip, and no chip.</summary>
+    [Fact]
+    public async Task A_merged_pull_request_says_so_on_the_row_and_the_entry()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync(Entry);
+        var pr = new EntryPullRequestLink("JSdotNet/Backlog", 708);
+        row.PullRequestLinks = [pr];
+        row.PullRequestStates = new Dictionary<EntryPullRequestLink, GitHubItemState> { [pr] = GitHubItemState.Merged };
+
+        var pane = host.Render();
+
+        foreach (var link in new[] { pane.Find("[data-testid='row-pull-request']"), pane.Find("[data-testid='entry-pull-request']") })
+        {
+            Assert.Contains("entry-doc__work-link--merged", link.ClassList);
+            Assert.Equal("Pull request JSdotNet/Backlog#708 — merged", link.GetAttribute("title"));
+            Assert.Null(link.QuerySelector(".badge"));
+        }
+    }
+
+    [Fact]
+    public async Task A_closed_pull_request_is_told_apart_from_a_merged_one()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync(Entry);
+        var pr = new EntryPullRequestLink("JSdotNet/Backlog", 708);
+        row.PullRequestLinks = [pr];
+        row.PullRequestStates = new Dictionary<EntryPullRequestLink, GitHubItemState> { [pr] = GitHubItemState.Closed };
+
+        var link = host.Render().Find("[data-testid='entry-pull-request']");
+
+        Assert.Contains("entry-doc__work-link--closed", link.ClassList);
+        Assert.DoesNotContain("entry-doc__work-link--merged", link.ClassList);
+    }
+
+    /// <summary>Not read yet is the ordinary link rather than a guess: "open" would
+    /// be a state nobody checked.</summary>
+    [Fact]
+    public async Task A_pull_request_whose_state_was_never_read_shows_none()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync(Entry);
+        row.PullRequestLinks = [new EntryPullRequestLink("JSdotNet/Backlog", 708)];
+
+        var link = host.Render().Find("[data-testid='entry-pull-request']");
+
+        Assert.DoesNotContain(link.ClassList, c => c.StartsWith("entry-doc__work-link--", StringComparison.Ordinal));
+        Assert.Equal("Pull request JSdotNet/Backlog#708", link.GetAttribute("title"));
     }
 
     /// <summary>With nobody to open it, a session is text, not a button that has

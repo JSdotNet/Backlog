@@ -118,6 +118,39 @@ The Razor component test framework.
   behaviour is pinned in `dotnet test` and Playwright is reserved for real
   end-to-end flows.
 
+## Microsoft.AspNetCore.Mvc.Testing
+
+```meta
+status: adopted
+type: package
+version: "10.0.11"
+depends-on: [".devbook/tech/shared.md#aspnet-core", ".devbook/tech/testing.md#xunit-v3"]
+```
+
+In-memory hosting of an ASP.NET Core app under test.
+
+- **Used for** — `WebApplicationFactory` in `Backlog.Modules.Sync.Api.UnitTests`
+  and `Backlog.HostComposition.UnitTests`, which exercise the real pipeline —
+  authentication, routing, filters — without a socket.
+- **Why** — the first-party test host; an endpoint test goes through the same
+  middleware a deployed request does.
+
+## Microsoft.Extensions.TimeProvider.Testing
+
+```meta
+status: adopted
+type: package
+version: "10.9.0"
+depends-on: [".devbook/tech/shared.md#net-runtime"]
+```
+
+`FakeTimeProvider`, a clock a test moves by hand.
+
+- **Used for** — nine unit-test projects whose code takes a `TimeProvider`:
+  token lifetimes, sync cycles, deferral and resurfacing, roadmap dates.
+- **Why** — time-dependent behaviour is asserted without sleeping and without
+  flaking on a slow machine.
+
 ## coverlet
 
 ```meta
@@ -147,9 +180,9 @@ related: [".devbook/tech/ai-development.md#model-context-protocol-servers", ".de
 Browser automation for end-to-end validation.
 
 - **Used for** — two things:
-  - The QA Validation phase of a code-modifying orchestration run. It drives the
-    Blazor Server harnesses and the storybook, captures screenshots and video as
-    evidence, and attaches to the desktop head over WebView2's CDP debugging port.
+  - The Validation phase of a code-modifying `flow-*` run. It drives the Blazor
+    Server harnesses and the storybook, captures screenshots and video as evidence,
+    and attaches to the desktop head over WebView2's CDP debugging port.
   - The checked-in end-to-end tests in `tests/Backlog.EndToEndTests`. They use
     `Microsoft.Playwright` from xUnit against the harnesses of a running AppHost, and
     reach that AppHost through the Aspire CLI. They skip unless `BACKLOG_E2E=1`.

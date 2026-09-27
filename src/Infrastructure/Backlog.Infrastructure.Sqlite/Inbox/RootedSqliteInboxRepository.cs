@@ -55,6 +55,18 @@ public sealed class RootedSqliteInboxRepository(Func<string> currentRootDirector
     public Task<IReadOnlyList<InboxItem>> ListPendingReplicaAckAsync(CancellationToken cancellationToken = default) =>
         Current.ListPendingReplicaAckAsync(cancellationToken);
 
+    public Task DeleteAsync(InboxItem item, CancellationToken cancellationToken = default) =>
+        Current.DeleteAsync(item, cancellationToken);
+
+    public Task<IReadOnlyList<InboxDeletedCapture>> ListDeletedCapturesAsync(CancellationToken cancellationToken = default) =>
+        Current.ListDeletedCapturesAsync(cancellationToken);
+
+    public Task<InboxDeletedCapture?> GetDeletedCaptureAsync(Guid id, CancellationToken cancellationToken = default) =>
+        Current.GetDeletedCaptureAsync(id, cancellationToken);
+
+    public Task ForgetDeletedCaptureAsync(Guid id, CancellationToken cancellationToken = default) =>
+        Current.ForgetDeletedCaptureAsync(id, cancellationToken);
+
     public Task<IReadOnlyList<InboxList>> ListListsAsync(CancellationToken cancellationToken = default) =>
         Current.ListListsAsync(cancellationToken);
 

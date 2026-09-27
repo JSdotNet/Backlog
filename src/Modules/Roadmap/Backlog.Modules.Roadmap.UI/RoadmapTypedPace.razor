@@ -1,0 +1,119 @@
+@*
+    The reader's own pace — "Mine" — in story points a week, once, in the roadmap's
+    heading (ADR 0013, ruling 4).
+
+    It is the fallback: a band places its plans by what its repository finished over
+    a measured stretch whenever one measured something, and by this only when none
+    did. So it is one figure for the whole roadmap rather than one per band, and it
+    sits where the whole roadmap is headed.
+
+    A change here re-lengthens the bars sized by effort only when it moved a pace in
+    use somewhere — a band that measured something is not placed by it — which is
+    what OnPaceChanged reports.
+*@
+@* For @onchange: without it the directive is a plain attribute and never fires. *@
+@using Microsoft.AspNetCore.Components.Web
+@implements IDisposable
+@inject IPlanningPace Pace
+
+<div class="roadmap-pace roadmap-pace--mine"
+     title="Your pace: used for a band until it has finished estimated work to measure one by"
+     data-testid="roadmap-pace-mine">
+    @* Committed on change rather than bound, so a half-typed pace never reaches the
+       store: "2." on the way to "2.5" is not a number. min and step are affordances
+       only — the store is the one gate, and refuses the 0 this min still allows. *@
+    <div class="roadmap-pace__line">
+        <span class="roadmap-pace__label" aria-hidden="true">Mine</span>
+        <TextField Compact="true"
+                   Type="number"
+                   AriaLabel="Your points a week, used wherever nothing estimated was finished to measure a pace by"
+                   CssClass="roadmap-pace__manual"
+                   TestId="roadmap-pace-manual"
+                   min="0"
+                   step="1"
+                   autocomplete="off"
+                   Value="@_draft"
+                   @onchange="ApplyManual" />
+        <span class="roadmap-pace__unit" aria-hidden="true">pt/wk</span>
+    </div>
+
+    @if (_error is { } error)
+    {
+        <span class="roadmap-pace__note"
+              role="status"
+              title="@error"
+              data-testid="roadmap-pace-refused-mine">
+            <span aria-hidden="true">Not saved — see why</span>
+            <span class="sr-only">@error</span>
+        </span>
+    }
+</div>
+
+@code {
+    /// <summary>Raised after a new typed pace changed the pace some scope places by,
+    /// so the band can re-lengthen the bars sized by it. Not raised for a refusal, or
+    /// when every scope places by a measured pace.</summary>
+    [Parameter]
+    public EventCallback OnPaceChanged { get; set; }
+
+    /// <summary>The configured repositories, by alias: with the default scope, every
+    /// scope whose pace in use a new typed pace might move.</summary>
+    [Parameter]
+    public IReadOnlyList<string> Repositories { get; set; } = [];
+
+    private string _draft = string.Empty;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Pace.Changed += OnChanged;
+        await Read();
+    }
+
+    public void Dispose() => Pace.Changed -= OnChanged;
+
+    private async Task Read()
+    {
+        var paces = await Pace.ReadAsync();
+
+        // A refused value stays on screen beside its reason, so the reader can see
+        // what they typed; otherwise the field shows what is stored.
+        if (_error is null) _draft = Format(paces.Manual);
+    }
+
+    private async Task ApplyManual(ChangeEventArgs e)
+    {
+        var typed = e.Value?.ToString() ?? string.Empty;
+        _draft = typed;
+
+        var before = await InUseAsync();
+        _error = Pace.SetManual(typed);
+        await Read();
+
+        if (!before.SequenceEqual(await InUseAsync())) await OnPaceChanged.InvokeAsync();
+    }
+
+    /// <summary>The pace in use for the default scope, then for each repository in
+    /// order.</summary>
+    private async Task<List<decimal>> InUseAsync()
+    {
+        var inUse = new List<decimal>();
+        foreach (var scope in Repositories.Prepend(null))
+        {
+            inUse.Add((await Pace.ReadAsync(scope)).InUse);
+        }
+
+        return inUse;
+    }
+
+    // Raised from whatever thread saved the pace.
+    private void OnChanged() => _ = InvokeAsync(async () =>
+    {
+        await Read();
+        StateHasChanged();
+    });
+
+    /// <summary>Four decimals, no trailing zeroes, invariant — how the store writes
+    /// a pace, so a committed value reads back spelled the way it was kept.</summary>
+    private static string Format(decimal pace) => pace.ToString("0.####", CultureInfo.InvariantCulture);
+}

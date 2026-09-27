@@ -24,9 +24,10 @@ namespace Backlog.UI.Components.Roadmap;
 /// as a set.</param>
 /// <param name="Facets">What the bar can be filtered on. See
 /// <see cref="RoadmapFacet"/> for why the names are the caller's.</param>
-/// <param name="Detail">A second line for the tooltip and the accessible name —
-/// a status, an owner, a note. Never drawn on the bar itself, which has room for
-/// a title and nothing else.</param>
+/// <param name="Detail">More for the tooltip and the accessible name — a status,
+/// an owner, a note — one fact to a line. The tooltip lists the lines under the
+/// title and dates; the accessible name runs them together with commas. Never drawn
+/// on the bar itself, which has room for a title and nothing else.</param>
 /// <param name="Locked">Whether the bar refuses to be moved or resized even when
 /// the timeline allows it. A dependency that is somebody else's commitment is
 /// the usual reason.</param>
@@ -96,7 +97,8 @@ public sealed record RoadmapBar(
 /// <param name="On">The day it falls on.</param>
 /// <param name="Marker">Which glyph. Three shapes rather than three colours,
 /// because colour alone must not be what tells two kinds of marker apart.</param>
-/// <param name="Detail">A second line for the tooltip and accessible name.</param>
+/// <param name="Detail">More for the tooltip and accessible name, one fact to a line,
+/// read as <see cref="RoadmapBar"/>'s detail is.</param>
 /// <param name="Line">Whether a rule is drawn down the whole chart at this date,
 /// through every row rather than only the one the marker sits on.
 /// <para>

@@ -28,11 +28,12 @@ public sealed class RoadmapGraduatedAxisTests
         var window = Window(new DateOnly(2026, 10, 1), new DateOnly(2027, 8, 15));
 
         Assert.True(window.IsGraduated);
-        Assert.Equal(new DateOnly(2026, 9, 21), window.Start);
+        Assert.Equal(new DateOnly(2026, 8, 24), window.Start);
         Assert.Equal(new DateOnly(2027, 9, 30), window.End);
 
         var days = window.Columns.Where(column => column.Scale == RoadmapColumnScale.Day).ToList();
-        var weeks = window.Columns.Where(column => column.Scale == RoadmapColumnScale.Week).ToList();
+        var history = window.Columns.Where(column => column.Scale == RoadmapColumnScale.Week && column.Start < Today).ToList();
+        var weeks = window.Columns.Where(column => column.Scale == RoadmapColumnScale.Week && column.Start > Today).ToList();
         var months = window.Columns.Where(column => column.Scale == RoadmapColumnScale.Month).ToList();
         var quarters = window.Columns.Where(column => column.Scale == RoadmapColumnScale.Quarter).ToList();
 
@@ -41,6 +42,7 @@ public sealed class RoadmapGraduatedAxisTests
         Assert.Equal(new DateOnly(2026, 9, 21), days[0].Start);
         Assert.Equal(new DateOnly(2026, 9, 27), days[^1].End);
 
+        Assert.Equal(RoadmapWindow.GraduatedWeeks, history.Count);
         Assert.Equal(RoadmapWindow.GraduatedWeeks - 1, weeks.Count);
         Assert.All(weeks, week => Assert.Equal(7, week.TotalDays));
         Assert.Equal(new DateOnly(2026, 10, 18), weeks[^1].End);
@@ -52,7 +54,7 @@ public sealed class RoadmapGraduatedAxisTests
 
         // In order, and with no day left out or ruled twice.
         Assert.Equal(
-            [RoadmapColumnScale.Day, RoadmapColumnScale.Week, RoadmapColumnScale.Month, RoadmapColumnScale.Quarter],
+            [RoadmapColumnScale.Week, RoadmapColumnScale.Day, RoadmapColumnScale.Month, RoadmapColumnScale.Quarter],
             window.Columns.Select(column => column.Scale).Distinct());
         AssertContiguous(window);
     }
@@ -85,16 +87,26 @@ public sealed class RoadmapGraduatedAxisTests
     }
 
     [Fact]
-    public void RecentHistory_IsRuledOnlyAsFarBackAsTheWeekItBeganIn()
+    public void RecentHistory_AlwaysOffersTheFourWeeksBeforeThisOne_EvenWhenNothingStartedThen()
     {
-        // Wednesday 9 September: two weeks of history, from Monday the 7th.
-        var window = Window(new DateOnly(2026, 9, 9), new DateOnly(2026, 11, 1));
+        // Nothing drawn before this week: the four weeks before it are still there to
+        // scroll back into, from Monday 24 August, and nothing earlier.
+        var window = Window(new DateOnly(2026, 9, 24), new DateOnly(2026, 11, 1));
 
-        Assert.Equal(new DateOnly(2026, 9, 7), window.Start);
+        Assert.Equal(new DateOnly(2026, 8, 24), window.Start);
         Assert.Equal(
-            [RoadmapColumnScale.Week, RoadmapColumnScale.Week, RoadmapColumnScale.Day],
-            window.Columns.Take(3).Select(column => column.Scale));
+            [RoadmapColumnScale.Week, RoadmapColumnScale.Week, RoadmapColumnScale.Week, RoadmapColumnScale.Week, RoadmapColumnScale.Day],
+            window.Columns.Take(5).Select(column => column.Scale));
         Assert.DoesNotContain(window.Columns.TakeWhile(column => column.Start < Today), column => column.Scale == RoadmapColumnScale.Month);
+        AssertContiguous(window);
+    }
+
+    [Fact]
+    public void AnEmptyPlan_StillOffersTheFourWeeksBeforeThisOne()
+    {
+        var window = Window();
+
+        Assert.Equal(new DateOnly(2026, 8, 24), window.Start);
         AssertContiguous(window);
     }
 
@@ -116,7 +128,7 @@ public sealed class RoadmapGraduatedAxisTests
     public void AWeekHead_IsItsWeekNumber_AndNamesTheMonthOnlyWhereTheMonthChanges()
     {
         var weeks = Window(new DateOnly(2026, 10, 1)).Columns
-            .Where(column => column.Scale == RoadmapColumnScale.Week)
+            .Where(column => column.Scale == RoadmapColumnScale.Week && column.Start > Today)
             .ToList();
 
         // The week after this one, still in September, so no month under it.
@@ -200,12 +212,14 @@ public sealed class RoadmapGraduatedAxisTests
         var view = RenderPlan(context);
 
         Assert.Equal(7, view.FindAll(".roadmap-timeline__quarter--day").Count);
-        Assert.Equal(3, view.FindAll(".roadmap-timeline__quarter--week").Count);
+        // Four weeks of history before this week, three after it.
+        Assert.Equal(7, view.FindAll(".roadmap-timeline__quarter--week").Count);
         Assert.Equal(6, view.FindAll(".roadmap-timeline__quarter--month").Count);
 
         // The rest of October, though under a fortnight, is still wide enough to be named.
         Assert.Equal(1, view.FindAll(".roadmap-timeline__quarter--month")[0].QuerySelectorAll(".roadmap-timeline__quarter-label").Length);
-        Assert.Equal(2, view.FindAll(".roadmap-timeline__rule--scale").Count);
+        // Where history's weeks meet this week's days, then weeks, then months.
+        Assert.Equal(3, view.FindAll(".roadmap-timeline__rule--scale").Count);
 
         // One label column row per track row, the group named once, and the lane
         // named where it changes — never the unnamed lane, and never twice.
@@ -235,16 +249,19 @@ public sealed class RoadmapGraduatedAxisTests
         var view = RenderPlan(context);
         var track = view.Find(".roadmap-timeline__track");
         var natural = RemOf(track.GetAttribute("style")!);
+        var history = LeftOf(view.Find(".roadmap-timeline__quarter--day").GetAttribute("style")!);
+        var shown = natural - history;
 
-        // Wider than the chart: every column widens by the same factor until the
-        // chart is exactly the scroller's width, and the days name their weekdays.
-        view.InvokeAsync(() => view.Instance.Measured(natural * 2));
+        // Wider than the chart from this week on: every column widens by the same
+        // factor until that stretch is exactly the scroller's width — the history to
+        // its left widening with it — and the days name their weekdays.
+        view.InvokeAsync(() => view.Instance.Measured(shown * 2));
 
         Assert.Equal(natural * 2, RemOf(view.Find(".roadmap-timeline__track").GetAttribute("style")!), 2);
         Assert.Contains(" ", view.Find(".roadmap-timeline__quarter--current .roadmap-timeline__quarter-label").TextContent.Trim());
 
         // Narrower than the chart: never squeezed below its natural width.
-        view.InvokeAsync(() => view.Instance.Measured(natural / 2));
+        view.InvokeAsync(() => view.Instance.Measured(shown / 2));
 
         Assert.Equal(natural, RemOf(view.Find(".roadmap-timeline__track").GetAttribute("style")!), 2);
     }
@@ -283,6 +300,14 @@ public sealed class RoadmapGraduatedAxisTests
             ])
             .Add(timeline => timeline.Today, Today)
             .Add(timeline => timeline.Graduated, true));
+
+    private static double LeftOf(string style)
+    {
+        var start = style.IndexOf("left:", StringComparison.Ordinal) + "left:".Length;
+        var end = style.IndexOf("rem", start, StringComparison.Ordinal);
+
+        return double.Parse(style[start..end].Trim(), System.Globalization.CultureInfo.InvariantCulture);
+    }
 
     private static double RemOf(string style)
     {
