@@ -339,6 +339,27 @@ Dismiss items that are not actionable while keeping them accessible. An item
 that has been routed cannot be archived — routing is the terminal outcome — and
 archiving an item that arrived through sync tells the phone to stop offering it.
 
+### Delete
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/inbox/requirements.md#delete, .devbook/domain/inbox/features.md#archive, .devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md]
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.DeleteItemTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests]
+```
+
+Remove an item for good — a mis-capture, a duplicate, or an archive being
+cleared out. It is the opposite of Archive: archive keeps an item findable,
+delete keeps nothing, so the detail asks before it acts and says which of the
+two it is. Delete is offered on every item, decided or not, because clearing
+the archive is exactly what it is for.
+
+An item that arrived through sync still owes the phone its acknowledgement, the
+same one archiving sends, so the phone stops offering the capture rather than
+sending it back. That acknowledgement is all that outlives the item, and only
+until the outbox has pushed it. The item's downloaded files go with it — unless
+it was routed, because routing handed that folder to the task.
+
 ## Queue health
 
 ```meta
@@ -349,3 +370,20 @@ related: [.devbook/domain/monitoring/features.md#inbox-and-queue-health]
 
 Track unprocessed count and oldest item age, surface items unprocessed for too
 long, and raise configurable alerts when the queue exceeds a threshold.
+
+### Queue health strip
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/inbox/requirements.md#queue-health, .devbook/domain/monitoring/features.md#inbox-and-queue-health]
+feature-flag: .devbook/domain/inbox/context.md#inbox-pane
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests]
+```
+
+The Inbox half of queue health: one line over the queue that says how many
+items wait unprocessed, how long ago the oldest was captured, and — only when
+there are any — a chip counting those unprocessed for more than fourteen days.
+It reads the whole queue, whichever list is open, because how the queue is doing
+is not a question about one list. The dashboard half, and the configurable
+alerts, are Monitoring's.

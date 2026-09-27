@@ -31,8 +31,10 @@ namespace Backlog.Infrastructure.Sqlite.Inbox;
 /// </para>
 /// <para>
 /// Lists and groups are hard-deleted. Tombstoning is for documents that travel
-/// (local ADR 0005) and nothing replicates the organiser. Items are never
-/// deleted at all in this scope; archived is their terminal state.
+/// (local ADR 0005) and nothing replicates the organiser. So are items: a
+/// deleted item's row and files go, and all that stays — in
+/// <c>inbox_deleted_captures</c>, and only for an item from the replica — is
+/// the acknowledgement the phone is still owed.
 /// </para>
 /// </summary>
 public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganizerRepository
@@ -264,6 +266,92 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
             $"SELECT {ItemColumns} FROM inbox_items WHERE replica_ack_pending = 1 ORDER BY updated_at;",
             cancellationToken);
 
+    public async Task DeleteAsync(InboxItem item, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+        if (!item.Deleted) throw new ArgumentException("Only an item Delete() has run on is removed.", nameof(item));
+
+        await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
+
+        // One transaction, so the item never goes without its acknowledgement
+        // staying behind when it owes one.
+        await using var transaction = (SqliteTransaction)await connection
+            .BeginTransactionAsync(cancellationToken)
+            .ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = """
+            DELETE FROM inbox_item_attachments WHERE item_id = $id;
+            DELETE FROM inbox_items WHERE id = $id;
+            """;
+        command.Parameters.AddWithValue("$id", item.Id.ToString());
+        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+
+        if (item.ReplicaAckPending)
+        {
+            await using var keep = connection.CreateCommand();
+            keep.Transaction = transaction;
+            keep.CommandText = """
+                INSERT INTO inbox_deleted_captures (id, title, captured_at, deleted_at)
+                VALUES ($id, $title, $captured_at, $deleted_at)
+                ON CONFLICT(id) DO UPDATE SET deleted_at = excluded.deleted_at;
+                """;
+            keep.Parameters.AddWithValue("$id", item.Id.ToString());
+            keep.Parameters.AddWithValue("$title", item.Title);
+            keep.Parameters.AddWithValue("$captured_at", WriteInstant(item.CapturedAt));
+            keep.Parameters.AddWithValue("$deleted_at", WriteInstant(item.UpdatedAt));
+            await keep.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<IReadOnlyList<InboxDeletedCapture>> ListDeletedCapturesAsync(CancellationToken cancellationToken = default) =>
+        await ReadDeletedCapturesAsync(
+            "SELECT id, title, captured_at, deleted_at FROM inbox_deleted_captures ORDER BY deleted_at;",
+            id: null,
+            cancellationToken).ConfigureAwait(false);
+
+    public async Task<InboxDeletedCapture?> GetDeletedCaptureAsync(Guid id, CancellationToken cancellationToken = default) =>
+        (await ReadDeletedCapturesAsync(
+            "SELECT id, title, captured_at, deleted_at FROM inbox_deleted_captures WHERE id = $id;",
+            id,
+            cancellationToken).ConfigureAwait(false)).FirstOrDefault();
+
+    public async Task ForgetDeletedCaptureAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+        command.CommandText = "DELETE FROM inbox_deleted_captures WHERE id = $id;";
+        command.Parameters.AddWithValue("$id", id.ToString());
+
+        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<IReadOnlyList<InboxDeletedCapture>> ReadDeletedCapturesAsync(
+        string sql,
+        Guid? id,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        if (id is { } value) command.Parameters.AddWithValue("$id", value.ToString());
+
+        var captures = new List<InboxDeletedCapture>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            captures.Add(new InboxDeletedCapture(
+                Guid.Parse(reader.GetString(0)),
+                reader.GetString(1),
+                ParseInstant(reader.GetString(2)),
+                ParseInstant(reader.GetString(3))));
+        }
+
+        return captures;
+    }
+
     private async Task<IReadOnlyList<InboxItem>> ReadItemsAsync(string sql, CancellationToken cancellationToken)
     {
         await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
@@ -494,6 +582,17 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
                     last_error     TEXT NULL,
                     sort_order     INTEGER NOT NULL DEFAULT 0,
                     PRIMARY KEY (item_id, attachment_id)
+                );
+
+                -- What is left of a deleted replica-backed item until the phone
+                -- has its tombstone (local ADR 0009): enough to rebuild the
+                -- capture document, and nothing else. A table of its own, so the
+                -- item row really is gone, and additive (local ADR 0006).
+                CREATE TABLE IF NOT EXISTS inbox_deleted_captures (
+                    id           TEXT PRIMARY KEY NOT NULL,
+                    title        TEXT NOT NULL,
+                    captured_at  TEXT NOT NULL,
+                    deleted_at   TEXT NOT NULL
                 );
                 """;
             await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);

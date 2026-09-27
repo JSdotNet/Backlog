@@ -278,10 +278,13 @@
 
     private string Dates => $"{DateLabel(Placement.Start)} to {DateLabel(Placement.End)}";
 
-    /// <summary>What the tooltip says. The title is on the bar already, but a
-    /// narrow bar clips it, and the dates are nowhere else on screen at all.</summary>
-    private string Tooltip => string.Join(" — ", new[] { Placement.Title, Dates, Bar.Detail, Progress }
-        .Where(part => !string.IsNullOrWhiteSpace(part)));
+    /// <summary>What the tooltip says, as a short report with one fact to a line.
+    /// The title is on the bar already, but a narrow bar clips it, and the dates are
+    /// nowhere else on screen at all.</summary>
+    private string Tooltip => RoadmapDetail.Report(
+        new[] { Placement.Title, Dates, Progress }
+            .Concat(RoadmapDetail.Lines(Bar.Detail))
+            .Append(Bar.Locked ? "Fixed, cannot be moved" : null));
 
     /// <summary>
     /// Everything the bar is that its label does not say. Read after the title,
@@ -291,7 +294,7 @@
     {
         ContextLabel,
         Dates,
-        Bar.Detail,
+        RoadmapDetail.Spoken(Bar.Detail),
         Progress,
         DependencyCount switch
         {

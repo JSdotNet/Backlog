@@ -334,6 +334,18 @@ internal sealed class FakeInboxItems : IInboxItems
             ? throw new InvalidOperationException("Already archived.")
             : item with { Status = InboxStatus.Archived, DeferredUntil = null });
 
+    /// <summary>Every id deleted, in order.</summary>
+    public List<Guid> Deleted { get; } = [];
+
+    public Task<Result> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        if (Find(id) is not { } item) return Task.FromResult(Result.Failure(InboxErrors.ItemNotFound));
+
+        _items.Remove(item);
+        Deleted.Add(id);
+        return Task.FromResult(Result.Success());
+    }
+
     public Task<Result> DeferAsync(Guid id, DateOnly? until, CancellationToken cancellationToken = default)
     {
         if (Find(id) is { } item && (item.Routing is not null || item.Status == InboxStatus.Archived))

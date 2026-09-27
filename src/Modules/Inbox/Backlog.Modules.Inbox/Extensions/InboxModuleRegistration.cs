@@ -8,6 +8,7 @@ using Backlog.Modules.Inbox.Features.CreateGroup;
 using Backlog.Modules.Inbox.Features.CreateList;
 using Backlog.Modules.Inbox.Features.CreatePlan;
 using Backlog.Modules.Inbox.Features.DeferItem;
+using Backlog.Modules.Inbox.Features.DeleteItem;
 using Backlog.Modules.Inbox.Features.DeleteList;
 using Backlog.Modules.Inbox.Features.DismissSuggestion;
 using Backlog.Modules.Inbox.Features.EnsureDefaultOrganizer;
@@ -65,6 +66,7 @@ public static class InboxModuleRegistration
         services.AddScoped<ICommandHandler<RenameRepositoryCommand, Result<int>>, RenameRepositoryCommandHandler>();
         services.AddScoped<ICommandHandler<MoveToListCommand, Result>, MoveToListCommandHandler>();
         services.AddScoped<ICommandHandler<ArchiveItemCommand, Result>, ArchiveItemCommandHandler>();
+        services.AddScoped<ICommandHandler<DeleteItemCommand, Result>, DeleteItemCommandHandler>();
         services.AddScoped<ICommandHandler<DeferItemCommand, Result>, DeferItemCommandHandler>();
         services.AddScoped<ICommandHandler<ResurfaceItemCommand, Result>, ResurfaceItemCommandHandler>();
         services.AddScoped<ICommandHandler<ResurfaceDueItemsCommand, Result<int>>, ResurfaceDueItemsCommandHandler>();

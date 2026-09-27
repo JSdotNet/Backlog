@@ -248,6 +248,47 @@ public sealed class SqliteInboxRepositoryTests : IDisposable
         Assert.Equal(pending.Id, flagged.Id);
     }
 
+    /// <summary>A deleted item's row and file rows go; what stays, for an item
+    /// the phone was still offering, is its acknowledgement — and that goes
+    /// too once forgotten.</summary>
+    [Fact]
+    public async Task A_deleted_item_is_gone_and_only_an_owed_acknowledgement_stays()
+    {
+        var owed = FromPhone("Still on the phone");
+        owed.RecordAttachments([InboxAttachment.Named(Guid.CreateVersion7(), "board.jpg", "image/jpeg", 2048, new string('c', 64))]);
+        var local = Manual("Typed at the desk");
+
+        foreach (var item in new[] { owed, local })
+        {
+            await _repository.SaveAsync(item, TestContext.Current.CancellationToken);
+            item.Delete(Noon.AddHours(2));
+            await _repository.DeleteAsync(item, TestContext.Current.CancellationToken);
+        }
+
+        Assert.Empty(await _repository.ListAsync(TestContext.Current.CancellationToken));
+        Assert.Null(await _repository.GetAsync(owed.Id, TestContext.Current.CancellationToken));
+        Assert.Empty(await _repository.ListPendingReplicaAckAsync(TestContext.Current.CancellationToken));
+
+        var kept = Assert.Single(await _repository.ListDeletedCapturesAsync(TestContext.Current.CancellationToken));
+        Assert.Equal(new InboxDeletedCapture(owed.Id, "Still on the phone", owed.CapturedAt, Noon.AddHours(2)), kept);
+        Assert.Equal(kept, await _repository.GetDeletedCaptureAsync(owed.Id, TestContext.Current.CancellationToken));
+        Assert.Null(await _repository.GetDeletedCaptureAsync(local.Id, TestContext.Current.CancellationToken));
+
+        await _repository.ForgetDeletedCaptureAsync(owed.Id, TestContext.Current.CancellationToken);
+
+        Assert.Empty(await _repository.ListDeletedCapturesAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task Only_an_item_delete_has_run_on_can_be_removed()
+    {
+        var item = Manual("Not deleted");
+        await _repository.SaveAsync(item, TestContext.Current.CancellationToken);
+
+        await Assert.ThrowsAsync<ArgumentException>(() => _repository.DeleteAsync(item, TestContext.Current.CancellationToken));
+        Assert.NotNull(await _repository.GetAsync(item.Id, TestContext.Current.CancellationToken));
+    }
+
     // --- Lists and groups ---------------------------------------------------
 
     [Fact]

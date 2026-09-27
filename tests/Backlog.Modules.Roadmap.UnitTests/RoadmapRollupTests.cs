@@ -306,3 +306,60 @@ public class RoadmapRollupOrderTests
         Assert.Equal(["a", "b", "c", "d"], ordered);
     }
 }
+
+/// <summary>
+/// The waves a roadmap item's gathered work falls into — what can run side by side.
+/// A link lands one wave past the latest thing it waits on, so its longest chain
+/// decides its place, and a cycle or a wait outside the list never stalls the pass.
+/// </summary>
+public class RoadmapRollupWaveTests
+{
+    private static RoadmapGatheredLink Link(string key, params string[] waitsOn) =>
+        new(key, key, null, RollupOrigin.Tag, RoadmapProgress.Ready, waitsOn);
+
+    private static IReadOnlyList<IReadOnlyList<string>> Waves(params RoadmapGatheredLink[] links) =>
+        [.. RoadmapRollup.InWaves(links).Select(wave => (IReadOnlyList<string>)[.. wave.Select(link => link.Key)])];
+
+    [Fact]
+    public void WorkWaitingOnNothing_AllSitsInTheFirstWave()
+    {
+        var waves = Waves(Link("a"), Link("b"), Link("c"));
+
+        Assert.Equal(["a", "b", "c"], Assert.Single(waves));
+    }
+
+    [Fact]
+    public void AStepSitsOnePastTheLatestThingItWaitsOn()
+    {
+        // d waits on a (wave 1) and c (wave 3), so the longer chain places it.
+        var waves = Waves(Link("a"), Link("b", "a"), Link("c", "b"), Link("d", "a", "c"), Link("e", "a"));
+
+        Assert.Equal(4, waves.Count);
+        Assert.Equal(["a"], waves[0]);
+        Assert.Equal(["b", "e"], waves[1]);
+        Assert.Equal(["c"], waves[2]);
+        Assert.Equal(["d"], waves[3]);
+    }
+
+    [Fact]
+    public void AWaitOnSomethingNotGathered_CountsAsNothing()
+    {
+        var waves = Waves(Link("a", "elsewhere"), Link("b"));
+
+        Assert.Equal(["a", "b"], Assert.Single(waves));
+    }
+
+    [Fact]
+    public void ACycle_StillPlacesEveryStepExactlyOnce()
+    {
+        var waves = Waves(Link("a", "b"), Link("b", "a"), Link("c", "b"));
+
+        Assert.Equal(["a", "b", "c"], waves.SelectMany(wave => wave).Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public void NothingGathered_MakesNoWaves()
+    {
+        Assert.Empty(RoadmapRollup.InWaves([]));
+    }
+}

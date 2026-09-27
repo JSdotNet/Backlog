@@ -141,6 +141,7 @@ public sealed class BatchTests
             renameRepository: null!,
             moveToList: new MoveToListCommandHandler(store, store),
             archive: new ArchiveItemCommandHandler(store, Clock),
+            delete: null!,
             defer: null!,
             resurface: null!,
             resurfaceDue: null!,

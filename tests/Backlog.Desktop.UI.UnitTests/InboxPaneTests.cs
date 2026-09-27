@@ -582,6 +582,104 @@ public sealed class InboxPaneTests
         Assert.Equal(InboxStatus.Archived, harness.Inbox.Find(item.Id)!.Status);
     }
 
+    // --- Delete -------------------------------------------------------------
+
+    [Fact]
+    public async Task Delete_asks_first_and_cancelling_keeps_the_item()
+    {
+        using var harness = Harness.Create();
+        var item = harness.Inbox.Seed("Maybe delete me");
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, item.Id);
+        await pane.Find("[data-testid='inbox-delete']").ClickAsync(new());
+
+        Assert.Contains("Archive keeps an item findable", pane.Find("[data-testid='inbox-delete-dialog']").TextContent);
+
+        await pane.Find("[data-testid='inbox-delete-cancel']").ClickAsync(new());
+
+        Assert.Empty(harness.Inbox.Deleted);
+        Assert.Equal(["Maybe delete me"], Titles(pane));
+    }
+
+    [Fact]
+    public async Task Confirming_delete_removes_the_item_and_clears_the_detail()
+    {
+        using var harness = Harness.Create();
+        var item = harness.Inbox.Seed("Delete me");
+        harness.Inbox.Seed("Keep me");
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, item.Id);
+        await pane.Find("[data-testid='inbox-delete']").ClickAsync(new());
+        await pane.Find("[data-testid='inbox-delete-confirm']").ClickAsync(new());
+
+        Assert.Equal([item.Id], harness.Inbox.Deleted);
+        Assert.Null(harness.Inbox.Find(item.Id));
+        Assert.Equal(["Keep me"], Titles(pane));
+        Assert.NotNull(pane.Find("[data-testid='inbox-detail-empty']"));
+    }
+
+    /// <summary>Archive goes once an item is decided; delete does not, because
+    /// clearing out the archive is exactly what it is for.</summary>
+    [Fact]
+    public async Task An_archived_item_can_still_be_deleted()
+    {
+        using var harness = Harness.Create();
+        var item = harness.Inbox.Seed("Dismiss me");
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, item.Id);
+        await pane.Find("[data-testid='inbox-archive']").ClickAsync(new());
+
+        Assert.Empty(pane.FindAll("[data-testid='inbox-archive']"));
+        Assert.NotNull(pane.Find("[data-testid='inbox-delete']"));
+    }
+
+    // --- Queue health ---------------------------------------------------------
+
+    [Fact]
+    public async Task The_queue_health_strip_counts_every_unprocessed_item_and_calls_out_the_stale_ones()
+    {
+        var now = new FakeInboxItems().Now;
+        using var harness = Harness.Create(new Microsoft.Extensions.Time.Testing.FakeTimeProvider(now));
+        var resources = harness.Inbox.SeedList("Resources");
+        harness.Inbox.Seed("Fresh", capturedAt: now.AddHours(-2));
+        harness.Inbox.Seed("Filed and old", listId: resources.Id, capturedAt: now.AddDays(-20));
+        harness.Inbox.Seed("Just over", capturedAt: now.AddDays(-15));
+        harness.Inbox.Seed("Put aside long ago", status: InboxStatus.Deferred, capturedAt: now.AddDays(-40));
+        harness.Inbox.Seed("Dismissed long ago", status: InboxStatus.Archived, capturedAt: now.AddDays(-60));
+
+        var pane = await harness.RenderAsync();
+
+        Assert.Equal("3 unprocessed items", pane.Find("[data-testid='inbox-queue-health-count']").TextContent.Trim());
+        Assert.Equal("oldest captured 20d ago", pane.Find("[data-testid='inbox-queue-health-oldest']").TextContent.Trim());
+        Assert.Equal("2 over 14 days", pane.Find("[data-testid='inbox-queue-health-stale']").TextContent.Trim());
+    }
+
+    [Fact]
+    public async Task The_queue_health_strip_has_no_chip_when_nothing_has_waited_too_long()
+    {
+        using var harness = Harness.Create();
+        harness.Inbox.Seed("Fresh", capturedAt: harness.Inbox.Now);
+
+        var pane = await harness.RenderAsync();
+
+        Assert.Empty(pane.FindAll("[data-testid='inbox-queue-health-stale']"));
+    }
+
+    [Fact]
+    public async Task An_empty_queue_says_nothing_is_waiting()
+    {
+        using var harness = Harness.Create();
+        harness.Inbox.Seed("Dismissed", status: InboxStatus.Archived);
+
+        var pane = await harness.RenderAsync();
+
+        Assert.Equal("Nothing waiting", pane.Find("[data-testid='inbox-queue-health-count']").TextContent.Trim());
+        Assert.Empty(pane.FindAll("[data-testid='inbox-queue-health-oldest']"));
+    }
+
     // --- Deferral ------------------------------------------------------------
 
     [Fact]
@@ -1656,7 +1754,9 @@ public sealed class InboxPaneTests
 
         public InboxDesktopState State => Context.Services.GetRequiredService<InboxDesktopState>();
 
-        public static Harness Create()
+        /// <summary>A harness over the fake module. <paramref name="clock"/>
+        /// is what the state reads "now" from; the system clock when null.</summary>
+        public static Harness Create(TimeProvider? clock = null)
         {
             var root = Path.Combine(Path.GetTempPath(), "backlog-inbox-pane-tests", Guid.NewGuid().ToString("n"));
             var gitHub = new GitHubSettingsStore(Path.Combine(root, "github.json"));
@@ -1666,6 +1766,7 @@ public sealed class InboxPaneTests
             // reach for JS; none of it is what these tests are about.
             context.JSInterop.Mode = JSRuntimeMode.Loose;
             context.Services.AddSingleton(gitHub);
+            if (clock is not null) context.Services.AddSingleton(clock);
             TasksTestHost.AddToastChannel(context.Services);
             var inbox = InboxTestHost.AddInboxState(context.Services);
 

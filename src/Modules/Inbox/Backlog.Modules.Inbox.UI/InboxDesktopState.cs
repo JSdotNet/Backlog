@@ -232,6 +232,32 @@ public sealed class InboxDesktopState
     public int GroupCount(Guid groupId) =>
         Lists.Where(list => list.GroupId == groupId).Sum(list => ListCount(list.Id));
 
+    /// <summary>How long an item may wait unprocessed before the queue health
+    /// strip calls it out (features.md#queue-health).</summary>
+    public const int StaleAfterDays = 14;
+
+    /// <summary>
+    /// The queue health strip's three numbers, over every unprocessed item in
+    /// every list: how many, how long the oldest has waited, and how many have
+    /// waited longer than <see cref="StaleAfterDays"/>. Deferred items are left
+    /// out — put aside is not waiting — and age runs from the capture, the same
+    /// instant each row's own age is read from.
+    /// </summary>
+    public InboxQueueHealth QueueHealth
+    {
+        get
+        {
+            var waiting = Items.Where(item => item.Status == InboxStatus.Unprocessed).ToList();
+            if (waiting.Count == 0) return InboxQueueHealth.Clear;
+
+            var now = _clock.GetUtcNow();
+            var oldest = waiting.Min(item => item.CapturedAt);
+            var stale = waiting.Count(item => now - item.CapturedAt > TimeSpan.FromDays(StaleAfterDays));
+
+            return new InboxQueueHealth(waiting.Count, oldest, stale);
+        }
+    }
+
     /// <summary>Whether the group's lists are showing.</summary>
     public bool IsGroupExpanded(Guid groupId) => !_collapsedGroups.Contains(groupId);
 
@@ -523,6 +549,17 @@ public sealed class InboxDesktopState
 
     public Task ArchiveAsync() =>
         DecideAsync(item => _inbox.ArchiveAsync(item.Id));
+
+    /// <summary>Deletes the selected item for good. The detail confirms first;
+    /// the reload then finds the item gone and clears the selection.</summary>
+    public async Task DeleteAsync()
+    {
+        if (SelectedItem is not { } item) return;
+
+        if (Report(await _inbox.DeleteAsync(item.Id))) return;
+
+        await ReloadAsync();
+    }
 
     // --- Suggestions ----------------------------------------------------------
     //
@@ -1450,6 +1487,14 @@ public sealed class InboxDesktopState
         _toasts?.Publish(ToastMessage.Error(result.Error.Message, testId));
         return true;
     }
+}
+
+/// <summary>What the queue health strip shows: the unprocessed count, when the
+/// oldest of them was captured (null with none), and how many have waited too
+/// long.</summary>
+public sealed record InboxQueueHealth(int Unprocessed, DateTimeOffset? OldestCapturedAt, int Stale)
+{
+    public static readonly InboxQueueHealth Clear = new(0, null, 0);
 }
 
 /// <summary>One kind chip: the slug the marker draws, the word beside it, and

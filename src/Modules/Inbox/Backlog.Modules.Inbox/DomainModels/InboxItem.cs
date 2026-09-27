@@ -504,6 +504,30 @@ public sealed class InboxItem
         Touch();
     }
 
+    /// <summary>
+    /// Removes the item for good, from any state. Not Archive: nothing is kept,
+    /// so there is no terminal state to protect, and a routed item's entries
+    /// live in Tasks whatever happens to the item that produced them.
+    /// <para>
+    /// An item that came from the replica still owes it an acknowledgement
+    /// when the phone may be offering it — while it was open, or when an
+    /// earlier decision's tombstone has not left yet. The store keeps that
+    /// acknowledgement, and nothing else of the item, until the outbox drains it.
+    /// </para>
+    /// </summary>
+    public void Delete(DateTimeOffset now)
+    {
+        if (Deleted) throw new InvalidInboxTransitionException(Status, "deleted again");
+
+        if (ReplicaBacked && IsOpen) ReplicaAckPending = true;
+        Deleted = true;
+        Touch(now);
+    }
+
+    /// <summary>True once <see cref="Delete"/> has run. Never stored: a
+    /// deleted item has no row to store it in.</summary>
+    public bool Deleted { get; private set; }
+
     // --- Rehydration --------------------------------------------------------
 
     /// <summary>

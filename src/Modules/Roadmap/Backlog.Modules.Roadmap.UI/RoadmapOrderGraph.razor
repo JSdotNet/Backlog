@@ -1,0 +1,144 @@
+@*
+    The order a roadmap item's gathered work can run in, drawn as waves.
+
+    The same picture a plan review draws for an import plan: a column per wave, the
+    first holding everything that waits on nothing gathered, each later one what the
+    one before it frees. Work stacked in one column can run side by side; an arrow runs
+    from a prerequisite to what waits on it. The layering is RoadmapRollup.InWaves, so
+    a cycle or a wait on something outside the item never stalls the drawing.
+
+    A <text> that is a code block's first child sits inside a <g>: Razor reads a bare
+    one there as its own <text> directive and refuses the attributes.
+
+    Plain SVG sized to its content inside a horizontally scrolling frame: a long chain
+    scrolls rather than squeezing every box until its title no longer reads.
+*@
+
+@if (_waves.Count > 0)
+{
+    <div class="roadmap-order" data-testid="roadmap-item-order">
+        <svg class="roadmap-order__graph"
+             width="@Width" height="@Height" viewBox="0 0 @Width @Height"
+             role="img" aria-label="@AriaLabel">
+            <defs>
+                <marker id="@_arrowId" viewBox="0 0 10 10" refX="9" refY="5"
+                        markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                    <path d="M0,0 L10,5 L0,10 z" class="roadmap-order__arrow" />
+                </marker>
+            </defs>
+
+            @for (var column = 0; column < _waves.Count; column++)
+            {
+                <g><text class="roadmap-order__wave" x="@X(column)" y="@(Pad + 10)"
+                         data-testid="roadmap-item-order-wave">@WaveLabel(column)</text></g>
+            }
+
+            @foreach (var (from, to) in _edges)
+            {
+                <path class="roadmap-order__edge" d="@EdgePath(from, to)" marker-end="url(#@_arrowId)" />
+            }
+
+            @foreach (var (link, position) in _nodes)
+            {
+                <g class="@NodeClass(link)" data-testid="roadmap-item-order-node" data-wave="@(position.Column + 1)">
+                    <title>@link.Title</title>
+                    <rect x="@X(position.Column)" y="@Y(position.Row)" width="@NodeWidth" height="@NodeHeight" rx="4" />
+                    <text class="roadmap-order__title" x="@(X(position.Column) + 8)" y="@(Y(position.Row) + 18)">@Clip(link.Title)</text>
+                    <text class="roadmap-order__meta" x="@(X(position.Column) + 8)" y="@(Y(position.Row) + 35)">@Meta(link)</text>
+                    @if (link.Effort is int points)
+                    {
+                        <g><text class="roadmap-order__points" x="@(X(position.Column) + NodeWidth - 8)" y="@(Y(position.Row) + 35)">@points pt</text></g>
+                    }
+                </g>
+            }
+        </svg>
+    </div>
+}
+
+@code {
+    private const int NodeWidth = 176;
+    private const int NodeHeight = 44;
+    private const int ColumnGap = 36;
+    private const int RowGap = 10;
+    private const int Pad = 4;
+    private const int Top = 22;
+    private const int TitleLength = 24;
+
+    private readonly string _arrowId = "roadmap-order-arrow-" + Guid.NewGuid().ToString("N");
+
+    private IReadOnlyList<IReadOnlyList<RoadmapGatheredLink>> _waves = [];
+    private List<(RoadmapGatheredLink Link, (int Column, int Row) Position)> _nodes = [];
+    private List<((int Column, int Row) From, (int Column, int Row) To)> _edges = [];
+
+    /// <summary>The backlog entries the item gathered, with the waits between them.</summary>
+    [Parameter]
+    public IReadOnlyList<RoadmapGatheredLink> Links { get; set; } = [];
+
+    private int Width => Pad * 2 + _waves.Count * NodeWidth + (_waves.Count - 1) * ColumnGap;
+
+    private int Height => Pad * 2 + Top + Rows * NodeHeight + (Rows - 1) * RowGap;
+
+    private int Rows => _waves.Count == 0 ? 0 : _waves.Max(wave => wave.Count);
+
+    private string AriaLabel => _waves.Count == 1
+        ? "Every gathered entry can run side by side"
+        : $"Gathered entries in {_waves.Count} waves, each waiting on the one before";
+
+    protected override void OnParametersSet()
+    {
+        _waves = RoadmapRollup.InWaves(Links);
+
+        var positionOf = new Dictionary<string, (int Column, int Row)>(StringComparer.OrdinalIgnoreCase);
+        _nodes = [];
+        for (var column = 0; column < _waves.Count; column++)
+        {
+            for (var row = 0; row < _waves[column].Count; row++)
+            {
+                var link = _waves[column][row];
+                positionOf[link.Key] = (column, row);
+                _nodes.Add((link, (column, row)));
+            }
+        }
+
+        // Only waits that land on something drawn, and only forward: a wait the
+        // layering broke to get out of a cycle points backwards and is left out.
+        _edges = [.. _nodes
+            .SelectMany(node => node.Link.Waits
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Where(wait => wait is not null && positionOf.ContainsKey(wait))
+                .Select(wait => (From: positionOf[wait], To: node.Position)))
+            .Where(edge => edge.From.Column < edge.To.Column)];
+    }
+
+    private static int X(int column) => Pad + column * (NodeWidth + ColumnGap);
+
+    private static int Y(int row) => Pad + Top + row * (NodeHeight + RowGap);
+
+    private static string WaveLabel(int column) => column == 0 ? "Start" : $"Wave {column + 1}";
+
+    private static string EdgePath((int Column, int Row) from, (int Column, int Row) to)
+    {
+        var x1 = X(from.Column) + NodeWidth;
+        var y1 = Y(from.Row) + NodeHeight / 2;
+        var x2 = X(to.Column) - 2;
+        var y2 = Y(to.Row) + NodeHeight / 2;
+        var bend = (x1 + x2) / 2;
+        return FormattableString.Invariant($"M{x1},{y1} C{bend},{y1} {bend},{y2} {x2},{y2}");
+    }
+
+    private static string Clip(string title) =>
+        title.Length <= TitleLength ? title : title[..(TitleLength - 1)].TrimEnd() + "…";
+
+    private static string Meta(RoadmapGatheredLink link) => link.Progress switch
+    {
+        RoadmapProgress.Done => "done",
+        RoadmapProgress.InProgress => "in progress",
+        RoadmapProgress.Ready => "ready",
+        RoadmapProgress.Planned => "planned",
+        _ => link.Effort is null ? "not estimated" : string.Empty
+    };
+
+    private static string NodeClass(RoadmapGatheredLink link) => link.IsDone
+        ? "roadmap-order__node roadmap-order__node--done"
+        : "roadmap-order__node";
+}
