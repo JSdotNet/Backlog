@@ -834,7 +834,7 @@ public static class RoadmapPlanView
 
         if (item.TaskId is not null) parts.Add("linked to a backlog entry");
 
-        // A count rather than the references themselves: the detail line is a summary,
+        // A count rather than the references themselves: the detail is a summary,
         // and a chapter path is too long to belong on it.
         if (item.Knowledge.Count > 0)
         {
@@ -843,7 +843,9 @@ public static class RoadmapPlanView
                 : $"references {item.Knowledge.Count} knowledge chapters");
         }
 
-        return string.Join(" · ", parts);
+        // One fact to a line: the timeline lists them in the tooltip and reads them
+        // out as one sentence.
+        return string.Join('\n', parts);
     }
 
     private static RoadmapMilestone Marker(
@@ -870,7 +872,7 @@ public static class RoadmapPlanView
 
         if (contradicting.Contains(milestone.Id)) parts.Add("falls before what it waits for has finished");
 
-        return string.Join(" · ", parts);
+        return string.Join('\n', parts);
     }
 
     /// <summary>Four kinds over three glyphs, with the kind always written into the
