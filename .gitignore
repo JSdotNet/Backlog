@@ -80,7 +80,7 @@ nunit-*.xml
 # written to the working directory of whichever session drove the browser.
 .playwright-mcp/
 
-# Claude Code worktree sessions. The rest of .claude/ (orch-context.md,
+# Claude Code worktree sessions. The rest of .claude/ (rules/, skills/,
 # settings.json, hooks/) is tracked team configuration.
 .claude/worktrees/
 
