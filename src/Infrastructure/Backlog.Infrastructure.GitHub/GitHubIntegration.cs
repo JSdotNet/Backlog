@@ -124,22 +124,31 @@ public sealed class GitHubIntegration(
     /// requests that reference it.</summary>
     public Task<GitHubIssueSnapshot> RefreshAsync(
         GitHubIssueLink link,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        client.GetIssueAsync(RepositoryForFullName(link.RepoFullName), link.IssueNumber, cancellationToken);
+
+    /// <summary>Reads the current state of one pull request an entry's work
+    /// recorded, named by <c>owner/repo</c> and number.</summary>
+    public Task<GitHubPullRequest> ReadPullRequestAsync(
+        string repoFullName,
+        int number,
+        CancellationToken cancellationToken = default) =>
+        client.GetPullRequestAsync(RepositoryForFullName(repoFullName), number, cancellationToken);
+
+    private GitHubRepositoryRef RepositoryForFullName(string repoFullName)
     {
-        var parts = link.RepoFullName.Split('/', 2);
+        var parts = repoFullName.Split('/', 2);
         if (parts.Length != 2)
         {
-            throw new GitHubException($"'{link.RepoFullName}' is not an owner/repo pair.");
+            throw new GitHubException($"'{repoFullName}' is not an owner/repo pair.");
         }
 
         // Monitoring must keep working for an entry pushed to a repository that
         // has since been removed from Settings — the link itself already says
         // everything the call needs.
-        var repository = settings.Current.Repositories
-                             .FirstOrDefault(r => string.Equals(r.FullName, link.RepoFullName, StringComparison.OrdinalIgnoreCase))
-                         ?? new GitHubRepositoryRef(GitHubRepositoryRef.NormalizeAlias(parts[1]), parts[0], parts[1]);
-
-        return client.GetIssueAsync(repository, link.IssueNumber, cancellationToken);
+        return settings.Current.Repositories
+                   .FirstOrDefault(r => string.Equals(r.FullName, repoFullName, StringComparison.OrdinalIgnoreCase))
+               ?? new GitHubRepositoryRef(GitHubRepositoryRef.NormalizeAlias(parts[1]), parts[0], parts[1]);
     }
 }
 

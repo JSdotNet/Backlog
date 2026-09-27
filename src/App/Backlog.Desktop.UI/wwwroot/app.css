@@ -1416,6 +1416,20 @@ h1, h2, h3 {
     color: var(--color-primary-light);
 }
 
+/* A recorded pull request that merged, or was closed without merging, says so
+   in its ink rather than with a chip: the entry is already Done, so this is a
+   quiet second fact. Hover keeps the state's colour, since the state is what the
+   reader is looking at. */
+.entry-doc__work-link--merged.integration-link--link,
+.entry-doc__work-link--merged.integration-link--link:hover {
+    color: var(--color-success-text);
+}
+
+.entry-doc__work-link--closed.integration-link--link,
+.entry-doc__work-link--closed.integration-link--link:hover {
+    color: var(--color-text-disabled);
+}
+
 /* The panel's: in the footer beside the creation date, small like it, wrapping
    onto a second line of the footer rather than pushing delete and close apart. */
 .entry-doc__work {

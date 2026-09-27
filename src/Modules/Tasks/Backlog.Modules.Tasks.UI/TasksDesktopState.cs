@@ -2366,8 +2366,9 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     }
 
     /// <summary>True when the rows currently on screen include anything linked
-    /// to GitHub, which is what makes a whole-list sync worth offering.</summary>
-    public bool HasLinkedRows => Rows.Any(r => r.IssueLink is not null);
+    /// to GitHub — an issue, or a pull request its work recorded — which is what
+    /// makes a whole-list sync worth offering.</summary>
+    public bool HasLinkedRows => Rows.Any(r => r.IssueLink is not null || r.PullRequestLinks.Count > 0);
 
     public bool GitHubSyncing { get; private set; }
 
@@ -2489,6 +2490,41 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
             row.GitHubBusy = false;
             Changed?.Invoke();
         }
+
+        await RefreshPullRequestStatesAsync(row);
+    }
+
+    /// <summary>
+    /// Reads whether each pull request the entry's work recorded is open, merged
+    /// or closed. The entry went Done when the pull request was recorded; this is
+    /// what says the work actually landed.
+    /// <para>
+    /// Quietly per pull request: one that cannot be read keeps whatever was last
+    /// known, and says nothing out loud. The issue is what an entry was filed as
+    /// and has its own line and toast; a pull request is a detail of its work, and
+    /// the failure that would take one out — a dead token — already fails the
+    /// issue beside it, or the sync that asked.
+    /// </para>
+    /// </summary>
+    private async Task RefreshPullRequestStatesAsync(EntryRow row)
+    {
+        if (row.PullRequestLinks.Count == 0) return;
+
+        var states = new Dictionary<EntryPullRequestLink, GitHubItemState>(row.PullRequestStates);
+
+        foreach (var pr in row.PullRequestLinks)
+        {
+            try
+            {
+                states[pr] = (await _gitHub.ReadPullRequestAsync(pr.Repository, pr.Number)).State;
+            }
+            catch (Exception ex) when (ex is GitHubException or GitHubNotConfiguredException or HttpRequestException)
+            {
+            }
+        }
+
+        row.PullRequestStates = states;
+        Changed?.Invoke();
     }
 
     /// <summary>
@@ -2535,6 +2571,13 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
             {
                 await RefreshGitHubAsync(row, announce: false);
                 if (row.GitHubError is not null) failed++;
+            }
+
+            // An entry an agent worked from the backlog is often never filed as
+            // an issue, and still has the pull request its session recorded.
+            foreach (var row in Rows.Where(r => r.IssueLink is null && r.PullRequestLinks.Count > 0).ToList())
+            {
+                await RefreshPullRequestStatesAsync(row);
             }
         }
         finally
@@ -3565,6 +3608,12 @@ public sealed class EntryRow
     /// persisted: it is a view of something GitHub owns, and a stale copy in the
     /// markdown file would be worse than an empty one.</summary>
     public GitHubIssueSnapshot? Snapshot { get; set; }
+
+    /// <summary>Last known state of each recorded pull request in
+    /// <see cref="PullRequestLinks"/>; one that was never read, or could not be,
+    /// is absent. Not persisted, for the reason <see cref="Snapshot"/> is not.</summary>
+    public IReadOnlyDictionary<EntryPullRequestLink, GitHubItemState> PullRequestStates { get; set; } =
+        new Dictionary<EntryPullRequestLink, GitHubItemState>();
 
     /// <summary>Set while a push or refresh is in flight, so the control can say
     /// so instead of looking dead.</summary>

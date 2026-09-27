@@ -764,15 +764,33 @@
             || pr.Number != shown?.Number);
     }
 
-    private static IntegrationLinkRef Link(EntryPullRequestLink pr) =>
+    /// <summary>The state the last GitHub check read goes in the tooltip; the ink
+    /// is <see cref="WorkLinkClass"/>'s. One never read says nothing rather than a
+    /// guessed state.</summary>
+    private static IntegrationLinkRef Link(EntryRow row, EntryPullRequestLink pr) =>
         new(
             pr.Url,
             IntegrationProvider.GitHub,
             IntegrationLinkKind.PullRequest,
             pr.Label,
-            $"Pull request {pr.Repository}#{pr.Number}",
+            row.PullRequestStates.TryGetValue(pr, out var state)
+                ? $"Pull request {pr.Repository}#{pr.Number} — {GitHubStateLabel(state)}"
+                : $"Pull request {pr.Repository}#{pr.Number}",
             pr.Url,
             Repository: new IntegrationRepositoryRef(pr.Repository, pr.Repository));
+
+    /// <summary>
+    /// A recorded pull request's state as the colour of its mark and number rather
+    /// than a chip: the entry already says Done, and this only has to say whether
+    /// the work landed. Merged takes the success ink — "finished, and correct" in
+    /// <c>.devbook/design/color-scheme.md</c> — and closed the disabled ink; open and
+    /// draft keep the ordinary link colour. The word is in the tooltip, so colour
+    /// is never the only carrier.
+    /// </summary>
+    private static string WorkLinkClass(EntryRow row, EntryPullRequestLink pr) =>
+        row.PullRequestStates.TryGetValue(pr, out var state)
+            ? $"entry-doc__work-link entry-doc__work-link--{GitHubStateClass(state)}"
+            : "entry-doc__work-link";
 
     /// <summary>The short id alone, beside the Claude mark; the words are in the
     /// tooltip, where the whole id is too.</summary>
@@ -798,9 +816,9 @@
 
             foreach (var pr in latestOnly ? pulls.TakeLast(1) : pulls)
             {
-                <IntegrationLink Link="@Link(pr)"
+                <IntegrationLink Link="@Link(row, pr)"
                                  ShowTitle="false"
-                                 CssClass="entry-doc__work-link"
+                                 CssClass="@WorkLinkClass(row, pr)"
                                  TestId="@($"{testIdPrefix}pull-request")" />
             }
 
