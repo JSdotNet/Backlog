@@ -4816,12 +4816,13 @@ h1, h2, h3 {
     font-size: var(--font-size-lg);
 }
 
-/* A band's pace, under its name in the chart's sidebar: the field and its unit on
-   one line, then the choices that measured something — Mine and up to three
-   stretches, each with its figure — wrapping onto a second line within the
-   sidebar's own width, then at most one line of note. Sized to that width and to
-   the rows the band asks for (RoadmapPlanView.PaceRows), so every measure here
-   is the smallest the library offers. */
+/* A band's pace, under its name in the chart's sidebar: the stretches that
+   measured something, each with its figure, wrapping onto a second line within the
+   sidebar's own width — or, with none, one line saying the reader's own pace is
+   used. Sized to that width and to the rows the band asks for
+   (RoadmapPlanView.PaceRows), so every measure here is the smallest the library
+   offers. The reader's own pace — "Mine", the field and its unit — sits once in the
+   roadmap's heading (.roadmap-pace--mine). */
 .roadmap-pace {
     display: grid;
     gap: var(--spacing-2xs);
@@ -4837,6 +4838,17 @@ h1, h2, h3 {
 
 .roadmap-pace__manual {
     width: 4rem;
+}
+
+.roadmap-pace--mine {
+    grid-auto-flow: column;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.roadmap-pace__label {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
 }
 
 .roadmap-pace__unit,
