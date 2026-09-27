@@ -51,6 +51,7 @@
       "tests\\Backlog.ArchitectureTests\\Backlog.ArchitectureTests.csproj",
       "tests\\Backlog.Aspire.ServiceDefaults.UnitTests\\Backlog.Aspire.ServiceDefaults.UnitTests.csproj",
       "tests\\Backlog.Desktop.UI.UnitTests\\Backlog.Desktop.UI.UnitTests.csproj",
+      "tests\\Backlog.EndToEndTests\\Backlog.EndToEndTests.csproj",
       "tests\\Backlog.HostComposition.UnitTests\\Backlog.HostComposition.UnitTests.csproj",
       "tests\\Backlog.Infrastructure.Capture.UnitTests\\Backlog.Infrastructure.Capture.UnitTests.csproj",
       "tests\\Backlog.Infrastructure.Claude.UnitTests\\Backlog.Infrastructure.Claude.UnitTests.csproj",
