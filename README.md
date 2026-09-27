@@ -150,6 +150,7 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `tests/Backlog.UI.Components.UnitTests` | Unit tests for the shared control library, rendered without an application behind it |
 | `tests/Backlog.Desktop.UI.UnitTests` | Unit tests for the desktop UI services, the context panes, and GitHub integration |
 | `tests/Backlog.Mobile.UI.UnitTests` | Unit tests for the mobile channel's components |
+| `tests/Backlog.EndToEndTests` | Playwright end-to-end tests against the running AppHost's harnesses; skipped unless `BACKLOG_E2E=1` — see [End-to-end tests](#end-to-end-tests) |
 | `tests/Backlog.ArchitectureTests` | Executable structure rules — module boundaries, desktop context boundaries, design-token and storybook coverage, and "harness is never shipped" |
 
 ### The desktop channel's bounded contexts
@@ -282,6 +283,24 @@ All ports are dynamic (`port 0` in every `launchSettings.json`), so several git
 worktrees of this repository can run their own AppHost side by side. Read the
 actual dashboard and resource URLs from the `aspire start` output, or with
 `aspire describe`.
+
+## End-to-end tests
+
+`tests/Backlog.EndToEndTests` drives the harnesses of this worktree's running AppHost with
+Playwright. It takes resources away and back through the Aspire CLI and reads the dashboard's
+telemetry for evidence. Its tests skip unless `BACKLOG_E2E=1`. With the AppHost healthy:
+
+```powershell
+$env:BACKLOG_E2E = '1'
+dotnet test --project tests\Backlog.EndToEndTests
+```
+
+[`tests/Backlog.EndToEndTests/README.md`](tests/Backlog.EndToEndTests/README.md) covers:
+
+- what each test covers;
+- the one-time browser install;
+- where the screenshots and logs go;
+- what a run changes in the harnesses and the shared workspace.
 
 ## Deploying everything at once
 

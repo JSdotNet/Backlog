@@ -213,6 +213,28 @@ Two standing exceptions:
   `src/Infrastructure/` with no user-visible behavior change is adequately covered by
   `dotnet test`; `targeted` depth is sufficient.
 
+### Checked-in end-to-end tests
+
+`tests/Backlog.EndToEndTests` is the repeatable form of scenarios QA has already walked.
+It targets the running AppHost's harnesses, like the QA agent does, and skips unless
+`BACKLOG_E2E=1`. When a change touches a flow it covers, run it in the Validation phase
+beside the Playwright MCP walk. Its screenshots and `sync` logs under
+`.qa-workspace/e2e/` are evidence in their own right:
+
+```powershell
+$env:BACKLOG_E2E = '1'
+dotnet test --project tests\Backlog.EndToEndTests
+```
+
+- **`ConferenceDayTests`** — pairing, offline capture and talk note with attachments,
+  flush order, routing to Tasks, and My Day on the phone. It needs `cosmos`, `storage`,
+  `sync`, `desktop-web-harness` and `mobile-web-harness` healthy.
+  - It stops and starts `sync` itself, so do not run it while another scenario is
+    driving the same AppHost.
+  - It resets the mobile harness's pairing.
+
+The project's `README.md` has the browser install and what a run changes.
+
 ### Dashboard telemetry filtering
 
 Aspire 13.5.2 added telemetry filtering to the dashboard, and the `plugin_qa_aspire` MCP

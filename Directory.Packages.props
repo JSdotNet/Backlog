@@ -131,6 +131,9 @@
     <PackageVersion Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
     <PackageVersion Include="Microsoft.Maui.Core" Version="$(MauiVersion)" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.9.0" />
+    <!-- Browser end-to-end tests only (tests/Backlog.EndToEndTests). Its browsers
+         are installed separately, by the playwright.ps1 the build writes to bin. -->
+    <PackageVersion Include="Microsoft.Playwright" Version="1.63.0" />
     <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport" Version="2.3.3" />
     <!--
       The MCP server ADR 0012 decided. .Core is the transport-neutral half the tool
