@@ -267,11 +267,33 @@
 
     private void SelectLayer(TechnologyLayer layer) => _activeLayerFile = layer.FileName;
 
-    private async void OnDevbookChanged()
-    {
-        await LoadAsync();
-        await InvokeAsync(StateHasChanged);
-    }
+    /// <summary>The folder moved or changed underneath the panel, so the layers
+    /// are read again.
+    /// <para>
+    /// Inside <c>InvokeAsync</c>, because a pull announces itself off the
+    /// dispatcher — <c>DevbookUpdateService</c> raises the event after awaited git
+    /// work — and the load writes fields the render path reads. Guarded, because
+    /// a folder moving mid-pull makes the folder fetch throw, and reached from the
+    /// folder source there is no renderer pipeline underneath to catch it: out of
+    /// an <c>async void</c> it would end the process. The layers that last read
+    /// stay on screen, as the instructions panel's list does, and the next change
+    /// asks again.
+    /// </para></summary>
+    private async void OnDevbookChanged() =>
+        await InvokeAsync(async () =>
+        {
+            try
+            {
+                await LoadAsync();
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DirectoryNotFoundException)
+            {
+                // Nothing to record and nothing to show: the layers that last
+                // read stay up.
+            }
+
+            StateHasChanged();
+        });
 
     private static bool PathMatches(string candidate, string selectedPath)
     {

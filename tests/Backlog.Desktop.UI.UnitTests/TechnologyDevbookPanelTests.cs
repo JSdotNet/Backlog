@@ -22,6 +22,29 @@ public sealed class TechnologyDevbookPanelTests : IDisposable
 {
     private readonly List<string> _roots = [];
 
+    /// <summary>
+    /// A pull announces the folder change off the renderer's thread, and the
+    /// reload it starts can find the folder gone. The layers that last read stay
+    /// on screen rather than the handler's exception ending the process. An unguarded handler
+    /// crashes the test run on its thread-pool throw; the markup check confirms
+    /// the last good read stays on screen.
+    /// </summary>
+    [Fact]
+    public async Task A_folder_that_cannot_be_read_after_a_change_leaves_the_last_layers_on_screen()
+    {
+        await using var harness = CreateHarness();
+        var folders = UnreadableDevbookFolderSource.Install(harness.Context);
+
+        var component = harness.RenderLayers();
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='technology-node']")));
+
+        folders.MakeUnreadable();
+        folders.NotifyContentChanged();
+        await component.InvokeAsync(() => { });
+
+        Assert.Contains(".NET", component.Find(".tech-node-grid").TextContent, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task The_active_layer_renders_the_node_grid_and_no_document_surface()
     {
