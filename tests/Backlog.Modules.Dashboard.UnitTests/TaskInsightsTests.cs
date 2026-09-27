@@ -1,3 +1,4 @@
+using System.Globalization;
 using Backlog.Modules.Dashboard.Abstractions;
 using Backlog.Modules.Dashboard.Abstractions.Insights;
 using Backlog.Modules.Dashboard.Abstractions.Services;
@@ -6,8 +7,9 @@ using Backlog.Modules.Dashboard.Services;
 namespace Backlog.Modules.Dashboard.UnitTests;
 
 /// <summary>
-/// The tasks section: tasks ticked off and their story points per ISO week, narrowed by
-/// the repository scope in this module rather than by the source.
+/// The tasks section: tasks ticked off and their story points per ISO week, and the
+/// roadmap items the window shows with how each one's work stands — both narrowed by the
+/// repository scope in this module rather than by the source.
 /// </summary>
 public class TaskInsightsTests
 {
@@ -83,7 +85,178 @@ public class TaskInsightsTests
         Assert.Contains("The database is locked.", result.Availability.Reason, StringComparison.Ordinal);
     }
 
-    private static TaskInsights Insights(ICompletedTaskSource source) => new(source, new FixedClock(Now));
+    [Fact]
+    public async Task The_plan_source_is_asked_for_the_window_dates_and_the_repositories_in_scope()
+    {
+        var plan = new StubPlanSource();
+
+        _ = await Insights(plan).GetPlanAsync(
+            FourWeeks with { Repositories = RepositoryFocus.Of("backlog", "backlog-ide") },
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(new DateOnly(2026, 8, 27), plan.From);
+        Assert.Equal(new DateOnly(2026, 9, 24), plan.To);
+        Assert.Equal(["backlog", "backlog-ide"], plan.Aliases);
+    }
+
+    [Fact]
+    public async Task All_repositories_asks_the_plan_source_for_no_repository()
+    {
+        var plan = new StubPlanSource();
+
+        _ = await Insights(plan).GetPlanAsync(FourWeeks, TestContext.Current.CancellationToken);
+
+        Assert.Empty(plan.Aliases!);
+    }
+
+    [Fact]
+    public async Task A_roadmap_that_is_switched_off_reads_as_ready_with_no_plan()
+    {
+        var plan = new StubPlanSource(Item("Ignored")) { Enabled = false };
+
+        var result = await Insights(plan).GetPlanAsync(FourWeeks, TestContext.Current.CancellationToken);
+
+        Assert.True(result.HasValue);
+        Assert.False(result.Value!.RoadmapEnabled);
+        Assert.Empty(result.Value.Items);
+    }
+
+    [Fact]
+    public async Task An_item_naming_a_repository_out_of_scope_is_dropped_and_a_plan_wide_one_is_kept()
+    {
+        var plan = new StubPlanSource(
+            Item("Elsewhere", aliases: ["other"]),
+            Item("Plan-wide"),
+            Item("Shared", aliases: ["other", "Backlog"]));
+
+        var narrowed = await Insights(plan).GetPlanAsync(
+            FourWeeks with { Repositories = RepositoryFocus.Of("backlog") },
+            TestContext.Current.CancellationToken);
+        var all = await Insights(plan).GetPlanAsync(FourWeeks, TestContext.Current.CancellationToken);
+
+        Assert.Equal(["Plan-wide", "Shared"], narrowed.Value!.Items.Select(item => item.Item.Title));
+        Assert.Equal(3, all.Value!.Items.Count);
+    }
+
+    [Fact]
+    public async Task Items_are_ordered_by_start_then_title()
+    {
+        var plan = new StubPlanSource(
+            Item("b", start: new DateOnly(2026, 9, 1)),
+            Item("a", start: new DateOnly(2026, 9, 1)),
+            Item("c", start: new DateOnly(2026, 8, 20)));
+
+        var result = await Insights(plan).GetPlanAsync(FourWeeks, TestContext.Current.CancellationToken);
+
+        Assert.Equal(["c", "a", "b"], result.Value!.Items.Select(item => item.Item.Title));
+    }
+
+    /// <summary>
+    /// Today is Thursday 24 September. The projection lays the effort left out from
+    /// today at the item's own pace — seven points a week is a point a day — and judges
+    /// the last day it lands on against the planned end.
+    /// </summary>
+    [Theory]
+    [InlineData(true, false, 10, 4, 7, "2026-09-30", PlanOutlook.Finished, "2026-09-20")]
+    [InlineData(false, true, 10, 0, 7, "2026-09-26", PlanOutlook.PlacedByEffort, "2026-09-26")]
+    [InlineData(false, false, 0, 0, 7, "2026-09-30", PlanOutlook.Unsized, null)]
+    [InlineData(false, false, 5, 0, 0, "2026-09-30", PlanOutlook.NoPace, null)]
+    [InlineData(false, false, 5, 0, 7, "2026-09-23", PlanOutlook.Overdue, "2026-09-28")]
+    [InlineData(false, false, 10, 5, 7, "2026-09-30", PlanOutlook.OnTrack, "2026-09-28")]
+    [InlineData(false, false, 10, 0, 7, "2026-09-26", PlanOutlook.Behind, "2026-10-03")]
+    [InlineData(false, false, 4, 4, 7, "2026-09-24", PlanOutlook.OnTrack, "2026-09-24")]
+    [InlineData(false, false, 3, 0, 14, "2026-09-25", PlanOutlook.OnTrack, "2026-09-25")]
+    public async Task The_outlook_projects_the_effort_left_at_the_items_own_pace(
+        bool finished,
+        bool placedByEffort,
+        int totalEffort,
+        int doneEffort,
+        int pace,
+        string end,
+        PlanOutlook expected,
+        string? projected)
+    {
+        var plan = new StubPlanSource(Item(
+            "Item",
+            end: DateOnly.Parse(end, CultureInfo.InvariantCulture),
+            totalEffort: totalEffort,
+            doneEffort: doneEffort,
+            finished: finished,
+            lastCompletedOn: new DateOnly(2026, 9, 20),
+            pace: pace,
+            placedByEffort: placedByEffort));
+
+        var result = await Insights(plan).GetPlanAsync(FourWeeks, TestContext.Current.CancellationToken);
+
+        var only = Assert.Single(result.Value!.Items);
+        Assert.Equal(expected, only.Outlook);
+        Assert.Equal(projected is null ? null : DateOnly.Parse(projected, CultureInfo.InvariantCulture), only.ProjectedEnd);
+    }
+
+    [Fact]
+    public async Task The_plan_totals_add_up_the_items_in_scope()
+    {
+        var plan = new StubPlanSource(
+            Item("One", totalEffort: 8, doneEffort: 3, unestimated: 1),
+            Item("Two", totalEffort: 5, doneEffort: 5, unestimated: 2),
+            Item("Out", aliases: ["other"], totalEffort: 13, doneEffort: 13, unestimated: 4))
+        {
+            Pace = new PlanPace(6m, PlanPaceBasis.LastFourWeeks)
+        };
+
+        var result = await Insights(plan).GetPlanAsync(
+            FourWeeks with { Repositories = RepositoryFocus.Of("backlog") },
+            TestContext.Current.CancellationToken);
+
+        Assert.True(result.Value!.RoadmapEnabled);
+        Assert.Equal(new PlanPace(6m, PlanPaceBasis.LastFourWeeks), result.Value.Pace);
+        Assert.Equal(13, result.Value.PlannedEffort);
+        Assert.Equal(8, result.Value.DoneEffort);
+        Assert.Equal(3, result.Value.Unestimated);
+    }
+
+    [Fact]
+    public async Task A_plan_source_that_fails_reads_as_unavailable_with_its_reason()
+    {
+        var plan = new StubPlanSource { Throw = new InvalidOperationException("The plan file is locked.") };
+
+        var result = await Insights(plan).GetPlanAsync(FourWeeks, TestContext.Current.CancellationToken);
+
+        Assert.False(result.HasValue);
+        Assert.Contains("The plan file is locked.", result.Availability.Reason, StringComparison.Ordinal);
+    }
+
+    private static TaskInsights Insights(ICompletedTaskSource source) => new(source, new StubPlanSource(), new FixedClock(Now));
+
+    private static TaskInsights Insights(IPlanProgressSource plan) => new(new StubSource(), plan, new FixedClock(Now));
+
+    private static PlanItemProgress Item(
+        string title,
+        DateOnly? start = null,
+        DateOnly? end = null,
+        string[]? aliases = null,
+        int totalEffort = 5,
+        int doneEffort = 0,
+        int unestimated = 0,
+        bool finished = false,
+        DateOnly? lastCompletedOn = null,
+        decimal pace = 7m,
+        bool placedByEffort = false) =>
+        new(
+            Guid.NewGuid(),
+            title,
+            start ?? new DateOnly(2026, 9, 1),
+            end ?? new DateOnly(2026, 9, 30),
+            aliases ?? [],
+            GatheredCount: 3,
+            DoneCount: finished ? 3 : 0,
+            totalEffort,
+            doneEffort,
+            unestimated,
+            finished,
+            lastCompletedOn,
+            pace,
+            placedByEffort);
 
     private static CompletedTask Ticked(int year, int month, int day, int? effort, params string[] aliases) =>
         new(new DateOnly(year, month, day), effort, aliases);
@@ -104,8 +277,40 @@ public class TaskInsightsTests
         }
     }
 
+    private sealed class StubPlanSource(params PlanItemProgress[] items) : IPlanProgressSource
+    {
+        public DateOnly? From { get; private set; }
+
+        public DateOnly? To { get; private set; }
+
+        public IReadOnlyList<string>? Aliases { get; private set; }
+
+        public bool Enabled { get; init; } = true;
+
+        public PlanPace Pace { get; init; } = new(7m, PlanPaceBasis.LastTwoWeeks);
+
+        public Exception? Throw { get; init; }
+
+        public Task<PlanReading> ReadAsync(
+            DateOnly from,
+            DateOnly to,
+            IReadOnlyList<string> repositoryAliases,
+            CancellationToken cancellationToken = default)
+        {
+            From = from;
+            To = to;
+            Aliases = repositoryAliases;
+            if (Throw is not null) throw Throw;
+            return Task.FromResult(Enabled ? new PlanReading(true, Pace, items) : PlanReading.Off);
+        }
+    }
+
+    /// <summary>A clock stopped at one instant, in UTC both ways, so the local date the
+    /// plan's outlook is read on does not depend on the machine running the test.</summary>
     private sealed class FixedClock(DateTimeOffset now) : TimeProvider
     {
         public override DateTimeOffset GetUtcNow() => now;
+
+        public override TimeZoneInfo LocalTimeZone => TimeZoneInfo.Utc;
     }
 }

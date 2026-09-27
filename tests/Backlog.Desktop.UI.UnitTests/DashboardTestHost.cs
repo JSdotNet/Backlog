@@ -125,6 +125,11 @@ internal static class DashboardTestHost
             DashboardScope scope,
             CancellationToken cancellationToken = default) =>
             Task.FromResult(InsightResult<TaskThroughputInsight>.Unavailable(UnavailableReason));
+
+        public Task<InsightResult<PlanInsight>> GetPlanAsync(
+            DashboardScope scope,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(InsightResult<PlanInsight>.Unavailable(UnavailableReason));
     }
 
     private sealed class UnavailableCostInsights : ICostInsights

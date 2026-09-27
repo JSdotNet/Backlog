@@ -23,6 +23,17 @@
         </div>
     </Story>
 
+    <Story Name="Outlook"
+           Description="How a roadmap item's work stands against the window it was planned into, as the dashboard's Tasks section draws it. Seven words on four tones of the shared scale: finished is settled, behind is alert and overdue is fault — the three a reader acts on, filled — on track is live, and the three that cannot be judged at all are quiet. The word is always printed, so the tone is never the only carrier."
+           Code="@OutlookCode">
+        <div class="sb-row" data-testid="badges-outlook">
+            @foreach (var (slug, word) in Outlooks)
+            {
+                <Badge Kind="outlook" Slug="@slug" Title="@($"outlook: {slug}")">@word</Badge>
+            }
+        </div>
+    </Story>
+
     <Story Name="A badge that leads somewhere"
            Description="Three shapes, one badge. What it renders depends on what the host can do with the value rather than on what the value is: given a URL it is an anchor, given a callback it is a button, given neither it is the span every badge in this library has always been. An anchor can be middle-clicked, copied and opened in a new window and a button cannot, and a value nobody can follow should not invite a click or take a tab stop to refuse one.
 
@@ -176,6 +187,19 @@ The hash is still the caller's, as it always was here: `TagChip` draws exactly t
     private static readonly string[] FeatureStatusValues = ["dev", "beta"];
     private static readonly string[] FixedTags = ["ui", "markdown", "aspire"];
 
+    /// <summary>The outlook family's whole vocabulary, slug and word, in the order the
+    /// dashboard's enum declares them.</summary>
+    private static readonly (string Slug, string Word)[] Outlooks =
+    [
+        ("finished", "Finished"),
+        ("on-track", "On track"),
+        ("behind", "Behind"),
+        ("overdue", "Overdue"),
+        ("unsized", "Unsized"),
+        ("no-pace", "No pace"),
+        ("placed-by-effort", "Placed by effort")
+    ];
+
     /// <summary>Each kind, written the way each is actually stored: a person tag
     /// keeps its <c>@</c> and a plan tag its <c>+</c> in the value, a general tag
     /// is stored bare and only ever wears its hash on screen.</summary>
@@ -195,6 +219,10 @@ The hash is still the caller's, as it always was here: `TagChip` draws exactly t
 
     private const string BadgeCode = """
         <Badge Kind="status" Slug="ready">Ready</Badge>
+        """;
+
+    private const string OutlookCode = """
+        <Badge Kind="outlook" Slug="on-track" Title="@sentence">On track</Badge>
         """;
 
     private const string LinkedCode = """
