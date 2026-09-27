@@ -47,6 +47,33 @@ internal sealed class InMemoryInboxStore : IInboxItemRepository, IInboxOrganizer
     public Task<IReadOnlyList<InboxItem>> ListPendingReplicaAckAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<InboxItem>>([.. Items.Values.Where(item => item.ReplicaAckPending)]);
 
+    public Dictionary<Guid, InboxDeletedCapture> DeletedCaptures { get; } = [];
+
+    public Task DeleteAsync(InboxItem item, CancellationToken cancellationToken = default)
+    {
+        if (!item.Deleted) throw new ArgumentException("Only an item Delete() has run on is removed.", nameof(item));
+
+        Items.Remove(item.Id);
+        if (item.ReplicaAckPending)
+        {
+            DeletedCaptures[item.Id] = new InboxDeletedCapture(item.Id, item.Title, item.CapturedAt, item.UpdatedAt);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task<IReadOnlyList<InboxDeletedCapture>> ListDeletedCapturesAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<InboxDeletedCapture>>([.. DeletedCaptures.Values.OrderBy(capture => capture.DeletedAt)]);
+
+    public Task<InboxDeletedCapture?> GetDeletedCaptureAsync(Guid id, CancellationToken cancellationToken = default) =>
+        Task.FromResult(DeletedCaptures.GetValueOrDefault(id));
+
+    public Task ForgetDeletedCaptureAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        DeletedCaptures.Remove(id);
+        return Task.CompletedTask;
+    }
+
     public Task<IReadOnlyList<InboxList>> ListListsAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<InboxList>>(
             [.. Lists.Values.OrderBy(list => list.Order).ThenBy(list => list.Name, StringComparer.OrdinalIgnoreCase)]);

@@ -430,5 +430,8 @@ public sealed class AttachmentIntakeTests
             _inner.ReadAsync(path, cancellationToken);
 
         public Result Open(string path) => _inner.Open(path);
+
+        public Task RemoveFolderAsync(Guid id, CancellationToken cancellationToken = default) =>
+            _inner.RemoveFolderAsync(id, cancellationToken);
     }
 }

@@ -11,7 +11,7 @@ public sealed record InboxCaptureAckDto(
 
 /// <summary>
 /// The port the sync client drains on every push: captures this desktop has
-/// routed or archived and has not yet told the replica about.
+/// routed, archived or deleted and has not yet told the replica about.
 /// <para>
 /// An outbox rather than a call on the spot, because routing happens offline
 /// as readily as online. The flag sits on the item, so an acknowledgement
@@ -24,7 +24,7 @@ public interface IInboxCaptureOutbox
     Task<IReadOnlyList<InboxCaptureAckDto>> ListPendingAsync(CancellationToken cancellationToken = default);
 
     /// <summary>Clears the flag on the items whose tombstones the replica
-    /// accepted. Called only after a successful push, so a failed one leaves
+    /// accepted, and forgets the deleted ones outright. Called only after a successful push, so a failed one leaves
     /// them for the next.</summary>
     Task MarkSentAsync(IReadOnlyList<Guid> captureIds, CancellationToken cancellationToken = default);
 }

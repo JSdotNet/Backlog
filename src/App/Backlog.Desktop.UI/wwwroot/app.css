@@ -3689,6 +3689,24 @@ h1, h2, h3 {
     min-width: 0;
 }
 
+/* --- Queue health -------------------------------------------------------- */
+
+/* One quiet line over the queue: a reading, not a toolbar, so muted text
+   and the stale chip as its only colour. */
+.inbox-pane__health {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs) var(--spacing-sm);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+.inbox-pane__health-count {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
 /* --- Picking several ----------------------------------------------------- */
 
 /* The chips and the Select toggle on one wrapping line, the toggle pushed to

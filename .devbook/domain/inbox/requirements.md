@@ -411,3 +411,119 @@ item's attachment folder as that task's attachment.
 - **Given** an item with no attachments
 - **When** the person routes it to Tasks
 - **Then** the new task has no attachment
+
+## Delete
+
+```meta
+type: requirements
+status: draft
+related: [.devbook/domain/inbox/features.md#delete]
+```
+
+> The requirements of deleting an Inbox Item. The feature chapter says how it
+> differs from Archive; this says what it promises.
+
+### Requirement: Delete removes the item after asking
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Delete_asks_first_and_cancelling_keeps_the_item, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Confirming_delete_removes_the_item_and_clears_the_detail, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.An_archived_item_can_still_be_deleted]
+```
+
+The system SHALL offer Delete on an item in any status, ask for confirmation first, and on confirmation remove the item from every slice so it cannot be found again.
+
+#### Scenario: Cancelling
+
+- **Given** an item is shown in the detail
+- **When** the reader presses Delete and then Cancel
+- **Then** the item is still in the queue
+
+#### Scenario: Confirming
+
+- **Given** an item is shown in the detail
+- **When** the reader presses Delete and confirms
+- **Then** the item is gone from the queue and the detail shows no item
+
+#### Scenario: Clearing the archive
+
+- **Given** an archived item is shown in the detail
+- **When** the reader looks at its acts
+- **Then** Archive is not offered and Delete is
+
+### Requirement: The phone hears about a deleted capture
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.DeleteItemTests.Deleting_an_open_item_from_the_phone_leaves_its_acknowledgement_in_the_outbox, unit:dotnet:Backlog.Modules.Inbox.UnitTests.DeleteItemTests.Once_the_outbox_sends_it_the_deleted_capture_is_forgotten, unit:dotnet:Backlog.Modules.Inbox.UnitTests.DeleteItemTests.Deleting_a_phone_item_the_phone_already_heard_about_owes_it_nothing]
+```
+
+Deleting an item that arrived through sync SHALL leave the acknowledgement archiving would, whenever the phone may still be offering the capture, and SHALL keep nothing once that acknowledgement has been sent.
+
+#### Scenario: An open item from the phone
+
+- **Given** an unprocessed item that arrived through sync
+- **When** the reader deletes it
+- **Then** the outbox holds one acknowledgement for its capture, stamped with the moment it was deleted
+
+#### Scenario: Already acknowledged
+
+- **Given** an archived item from the phone whose acknowledgement has been sent
+- **When** the reader deletes it
+- **Then** nothing of it is kept
+
+### Requirement: A deleted capture does not come back
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.DeleteItemTests.A_replay_of_a_deleted_capture_does_not_bring_it_back, unit:dotnet:Backlog.Modules.Inbox.UnitTests.DeleteItemTests.The_phone_withdrawing_a_deleted_capture_forgets_its_acknowledgement]
+```
+
+The system SHALL treat a capture it deleted and has not yet acknowledged as already known when the replica sends it again, and SHALL forget the acknowledgement when the replica withdraws the capture itself.
+
+#### Scenario: A replayed page
+
+- **Given** a capture from the phone was deleted before its acknowledgement was pushed
+- **When** the next pull carries the capture again
+- **Then** no item is created
+
+#### Scenario: The phone triaged it too
+
+- **Given** a capture from the phone was deleted before its acknowledgement was pushed
+- **When** the next pull carries the capture's tombstone
+- **Then** the acknowledgement is dropped unsent
+
+## Queue health
+
+```meta
+type: requirements
+status: draft
+related: [.devbook/domain/inbox/features.md#queue-health-strip]
+```
+
+> The requirements of the Inbox's queue health strip. What Monitoring shows of
+> the same numbers is Monitoring's to promise.
+
+### Requirement: The strip reads the whole unprocessed queue
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.The_queue_health_strip_counts_every_unprocessed_item_and_calls_out_the_stale_ones, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.The_queue_health_strip_has_no_chip_when_nothing_has_waited_too_long, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.An_empty_queue_says_nothing_is_waiting]
+```
+
+The system SHALL show above the queue the number of unprocessed items in every list, how long ago the oldest of them was captured, and, only when there are any, how many were captured more than fourteen days ago — leaving deferred, routed and archived items out.
+
+#### Scenario: A mixed queue
+
+- **Given** three unprocessed items captured two hours, fifteen days and twenty days ago, one of them filed in a list, and a deferred and an archived item older than all three
+- **When** the pane opens
+- **Then** the strip reads "3 unprocessed items", "oldest captured 20d ago" and "2 over 14 days"
+
+#### Scenario: Nothing waiting
+
+- **Given** no unprocessed items
+- **When** the pane opens
+- **Then** the strip reads "Nothing waiting" and shows no age and no chip

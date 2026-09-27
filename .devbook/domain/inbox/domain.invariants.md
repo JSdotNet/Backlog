@@ -78,6 +78,18 @@ An archived item is never routed.
 
 Enforced at: `RouteToBacklog()`
 
+### Invariant: A deleted item still owes the phone what it owed
+
+```meta
+status: draft
+type: invariant
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.DeleteItemTests.Deleting_an_open_item_from_the_phone_leaves_its_acknowledgement_in_the_outbox, unit:dotnet:Backlog.Modules.Inbox.UnitTests.DeleteItemTests.Deleting_a_decided_item_whose_acknowledgement_has_not_left_keeps_it]
+```
+
+Deleting a replica-backed item leaves an acknowledgement pending when the item was still open, and keeps one an earlier decision had not yet sent.
+
+Enforced at: `Delete()`
+
 ### Invariant: A deferred item resurfaces
 
 ```meta
