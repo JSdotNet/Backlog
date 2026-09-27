@@ -265,9 +265,13 @@
         var rollups = await Rollups.GatherPlanAsync(_plan);
 
         var configured = Configured();
-        var choices = await PaceChoicesAsync(configured);
+        var (choices, inUse) = await PaceChoicesAsync(configured);
 
-        _view = RoadmapPlanView.From(_plan, configured, rollups, scope => choices.Contains(scope ?? string.Empty));
+        // Work in flight is drawn from the work: from when it began to when what is
+        // left should be done at the pace each band shows (RoadmapPlanView.AsDrawn).
+        var forecast = new RoadmapForecast(Today ?? DateOnly.FromDateTime(DateTime.Today), inUse);
+
+        _view = RoadmapPlanView.From(_plan, configured, rollups, scope => choices.Contains(scope ?? string.Empty), forecast);
 
         _imported = await ImportedPlans.ListAsync();
         _unplanned = Unplanned(_imported, _plan);
@@ -279,10 +283,16 @@
     /// pace offers one is drawn taller, to fit the choices under the field. Read on
     /// every load, which the band already does when finished work changes; choosing
     /// or typing a pace changes what is chosen, never what was measured.
+    /// <para>
+    /// Also the pace each band is in use at — the one its field shows — which work in
+    /// flight is forecast at.
+    /// </para>
     /// </summary>
-    private async Task<HashSet<string>> PaceChoicesAsync(IReadOnlyList<PlannedRepository> configured)
+    private async Task<(HashSet<string> Offering, PacesInUseDto InUse)> PaceChoicesAsync(IReadOnlyList<PlannedRepository> configured)
     {
         var offering = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var global = 0m;
+        var byRepository = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var scope in configured.Select(repository => (string?)repository.Alias).Prepend(null))
         {
@@ -291,9 +301,12 @@
             {
                 offering.Add(scope ?? string.Empty);
             }
+
+            if (scope is null) global = paces.InUse;
+            else byRepository[scope] = paces.InUse;
         }
 
-        return offering;
+        return (offering, new PacesInUseDto(global, byRepository));
     }
 
     /// <summary>
