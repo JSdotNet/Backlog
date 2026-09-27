@@ -1,5 +1,7 @@
-@implements IDisposable
+@implements IAsyncDisposable
+@using Microsoft.JSInterop
 @inject InboxDesktopState State
+@inject IJSRuntime Js
 
 @*
     The Inbox pane: what has been captured but not yet decided on, read the way
@@ -45,6 +47,17 @@
     an inbox item looked like. This one asks its own module; the four
     parameters it does take are the Capture button's and its sources slot, and
     the shell renders it with those alone.
+
+    Triage is meant to be short, so it runs from the keyboard: j and k move
+    through the rows, a archives, d defers, l moves to a list, r routes, t goes
+    to the tags, x picks, ? lists them all. Whether a key is a shortcut or a
+    letter being typed is decided in components.js at the keydown — a key in a
+    field, a dialog, or with a modifier held types — because a preventDefault
+    rendered from here arrives one key late. Triage mode swaps the columns for
+    one item at full width with "12 of 40" over it; each decision moves on, and
+    Escape or "Back to the list" returns to the rows on the item it stopped at.
+    The Tasks pane binds no letters, so the one key the two share is Escape,
+    which in both leaves the mode the reader is in.
 *@
 
 <section @key=@("inbox-pane") class="inbox-pane" id="inbox-pane" aria-labelledby="inbox-pane-title" data-testid="inbox-pane">
@@ -78,6 +91,14 @@
                        Busy="@CaptureRunning"
                        BusyLabel="Capturing"
                        OnClick="() => OnCapture.InvokeAsync()">Capture</AppButton>
+            @* The keys, where a first-time reader looks for what a pane can do:
+               beside its other actions, whether or not the queue has rows. *@
+            <AppButton Variant="ButtonVariant.Ghost"
+                       Size="ButtonSize.Small"
+                       TestId="inbox-pane-shortcuts"
+                       id="inbox-pane-shortcuts"
+                       Title="Keyboard shortcuts (?)"
+                       OnClick="OpenShortcuts">Shortcuts</AppButton>
         </Actions>
     </SectionHeader>
 
@@ -103,27 +124,92 @@
         </div>
     }
 
-    <div class="inbox-pane__body" data-testid="inbox-pane-body">
-        <InboxSideMenu State="State" />
+    @if (State.TriageMode)
+    {
+        @* One item at full width: the side menu and the rows step aside, and
+           the same detail the columns show takes the whole body, so every act
+           it offers is here too. The pager says where in the rows the reader
+           is and which keys drive it. *@
+        <div class="inbox-pane__triage" data-testid="inbox-triage">
+            <div class="inbox-pane__triage-bar">
+                @if (State.TriagePosition >= 0)
+                {
+                    <RecordPager Index="@State.TriagePosition"
+                                 Total="@State.VisibleItems.Count"
+                                 OnPrevious="() => State.Step(-1)"
+                                 OnNext="() => State.Step(1)"
+                                 PreviousLabel="Previous item"
+                                 NextLabel="Next item"
+                                 AriaLabel="@($"Triage position in {State.SliceName}")"
+                                 Hints="TriageHints"
+                                 CssClass="inbox-pane__triage-pager"
+                                 TestId="inbox-triage-pager" />
+                }
+                <AppButton Size="ButtonSize.Small"
+                           CssClass="inbox-pane__triage-leave"
+                           Title="Return to the list on this item (Esc)"
+                           OnClick="LeaveTriage"
+                           TestId="inbox-triage-leave">Back to the list</AppButton>
+            </div>
 
-        @* The list is the fixed pane and the detail takes the rest: a row is a
-           line of metadata that fits a known width, and a detail is a page that
-           wants whatever is left. Anchored at the start for that reason. *@
-        <SplitPane CssClass="inbox-pane__split"
-                   Anchor="SplitPaneAnchor.Start"
-                   FixedWidthRem="28"
-                   MinRem="18"
-                   AriaLabel="Inbox list width"
-                   TestId="inbox-pane-split"
-                   SeparatorTestId="inbox-pane-split-handle">
-            <Start>
-                <InboxItemList State="State" />
-            </Start>
-            <End>
-                <InboxItemDetail State="State" />
-            </End>
-        </SplitPane>
-    </div>
+            @if (State.SelectedItem is null)
+            {
+                <EmptyState Title="@($"Nothing left to triage in {State.SliceName}.")"
+                            Description="Every item here has been decided on. Go back to the list to see where they went."
+                            BaseClass="empty-state inbox-pane__empty-state"
+                            TestId="inbox-triage-done" />
+            }
+            else
+            {
+                <InboxItemDetail @ref="_detail" State="State" />
+            }
+        </div>
+    }
+    else
+    {
+        <div class="inbox-pane__body" data-testid="inbox-pane-body">
+            <InboxSideMenu State="State" />
+
+            @* The list is the fixed pane and the detail takes the rest: a row is a
+               line of metadata that fits a known width, and a detail is a page that
+               wants whatever is left. Anchored at the start for that reason. *@
+            <SplitPane CssClass="inbox-pane__split"
+                       Anchor="SplitPaneAnchor.Start"
+                       FixedWidthRem="28"
+                       MinRem="18"
+                       AriaLabel="Inbox list width"
+                       TestId="inbox-pane-split"
+                       SeparatorTestId="inbox-pane-split-handle">
+                <Start>
+                    <InboxItemList State="State" />
+                </Start>
+                <End>
+                    <InboxItemDetail @ref="_detail" State="State" />
+                </End>
+            </SplitPane>
+        </div>
+    }
+
+    @* Every key, in one place a reader can open from the header or with ?. *@
+    <Modal Open="@_shortcutsOpen"
+           OpenChanged="v => _shortcutsOpen = v"
+           Title="Keyboard shortcuts"
+           RestoreFocusToId="inbox-pane-shortcuts"
+           CssClass="inbox-pane__dialog"
+           TestId="inbox-shortcuts-dialog">
+        <ChildContent>
+            <dl class="inbox-pane__shortcuts" data-testid="inbox-shortcuts-list">
+                @foreach (var (keys, action) in Shortcuts)
+                {
+                    <div class="inbox-pane__shortcut">
+                        <dt><kbd class="inbox-pane__key">@keys</kbd></dt>
+                        <dd>@action</dd>
+                    </div>
+                }
+            </dl>
+            <p class="inbox-pane__shortcuts-note">Keys do nothing while you are typing in a field — a letter there is a letter.</p>
+        </ChildContent>
+    </Modal>
 
     @* The Add dialog: a title and, optionally, some notes. The shared Modal
        brings the focus handling and Escape; this pane brings two fields and a
@@ -198,9 +284,116 @@
     private string _title = string.Empty;
     private string _notes = string.Empty;
 
+    private const string PaneId = "inbox-pane";
+
+    private bool _shortcutsOpen;
+    private InboxItemDetail? _detail;
+    private DotNetObjectReference<InboxPane>? _self;
+
+    /// <summary>An element to focus once the render that draws it has landed —
+    /// the row a step or a triage session ended on, or the tag field.</summary>
+    private string? _focusAfterRender;
+
+    /// <summary>Every key the pane binds, in the order a session uses them.</summary>
+    internal static readonly IReadOnlyList<(string Keys, string Action)> Shortcuts =
+    [
+        ("j", "Next item"),
+        ("k", "Previous item"),
+        ("a", "Archive"),
+        ("d", "Defer…"),
+        ("l", "Move to list…"),
+        ("r", "Move to backlog"),
+        ("t", "Tags"),
+        ("x", "Pick the item for a bulk action"),
+        ("Esc", "Back to the list, from triage"),
+        ("?", "These shortcuts"),
+    ];
+
+    private static readonly IReadOnlyList<RecordPagerHint> TriageHints =
+    [
+        new("j k", "move"),
+        new("a", "archive"),
+        new("d", "defer"),
+        new("l", "list"),
+        new("r", "route"),
+        new("t", "tags"),
+        new("Esc", "back"),
+    ];
+
     protected override void OnInitialized()
     {
         State.Changed += HandleStateChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _self = DotNetObjectReference.Create(this);
+            await Js.InvokeVoidAsync("backlogPaneShortcuts.register", PaneId, _self);
+        }
+
+        if (_focusAfterRender is { } id)
+        {
+            _focusAfterRender = null;
+            await Js.InvokeVoidAsync("backlogFocus", id, false);
+        }
+    }
+
+    /// <summary>One shortcut, already judged by components.js to be a shortcut
+    /// rather than typing. An act the header would not offer for this item — a
+    /// decided item has no Archive — is not offered by its key either.</summary>
+    [JSInvokable]
+    public async Task OnShortcutAsync(string key)
+    {
+        await InvokeAsync(async () =>
+        {
+            switch (key)
+            {
+                case "j":
+                case "k":
+                    State.Step(key == "j" ? 1 : -1);
+                    if (!State.TriageMode && State.SelectedItemId is { } id) _focusAfterRender = InboxItemList.RowId(id);
+                    break;
+                case "a" when _detail?.CanDecide == true:
+                    await State.ArchiveAsync();
+                    break;
+                case "r" when _detail?.CanDecide == true:
+                    await State.RouteToBacklogAsync();
+                    break;
+                case "d":
+                    _detail?.OpenDefer();
+                    break;
+                case "l":
+                    _detail?.OpenMove();
+                    break;
+                case "t" when _detail?.CanDecide == true:
+                    _focusAfterRender = InboxItemDetail.TagsInputId;
+                    break;
+                case "x" when State.SelectedItemId is { } picked && State.TriagePosition >= 0:
+                    State.TogglePicked(picked, !State.IsPicked(picked), range: false);
+                    break;
+                case "?":
+                    _shortcutsOpen = true;
+                    break;
+                case "Escape" when State.TriageMode:
+                    LeaveTriage();
+                    break;
+                default:
+                    return;
+            }
+
+            StateHasChanged();
+        });
+    }
+
+    private void OpenShortcuts() => _shortcutsOpen = true;
+
+    /// <summary>Back to the columns, on the row the session stopped at.</summary>
+    private void LeaveTriage()
+    {
+        State.SetTriageMode(false);
+        if (State.SelectedItemId is { } id && State.TriagePosition >= 0) _focusAfterRender = InboxItemList.RowId(id);
     }
 
     private void OpenAdd() => _addOpen = true;
@@ -231,8 +424,21 @@
     /// the render is marshalled onto the renderer's.</summary>
     private void HandleStateChanged() => _ = InvokeAsync(StateHasChanged);
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
         State.Changed -= HandleStateChanged;
+
+        if (_self is null) return;
+
+        try
+        {
+            await Js.InvokeVoidAsync("backlogPaneShortcuts.unregister", PaneId);
+        }
+        catch (JSDisconnectedException)
+        {
+            // The circuit is gone, and the page with it; there is nothing left to unregister from.
+        }
+
+        _self.Dispose();
     }
 }

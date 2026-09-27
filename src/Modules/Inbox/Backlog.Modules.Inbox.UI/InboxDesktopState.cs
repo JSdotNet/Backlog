@@ -435,6 +435,7 @@ public sealed class InboxDesktopState
         if (id == SelectedItemId) return;
 
         SelectedItemId = id;
+        RememberPosition();
         Changed?.Invoke();
     }
 
@@ -510,24 +511,13 @@ public sealed class InboxDesktopState
     }
 
     /// <summary>Files the selected item in a list, or back in the inbox with
-    /// null. The item stays selected: it moved, the reader did not.</summary>
-    public async Task MoveToListAsync(Guid? listId)
-    {
-        if (SelectedItem is not { } item) return;
+    /// null. The item stays selected: it moved, the reader did not — except in
+    /// triage mode, where every decision moves on to the next item.</summary>
+    public Task MoveToListAsync(Guid? listId) =>
+        DecideAsync(item => _inbox.MoveToListAsync(item.Id, listId));
 
-        if (Report(await _inbox.MoveToListAsync(item.Id, listId))) return;
-
-        await ReloadAsync();
-    }
-
-    public async Task ArchiveAsync()
-    {
-        if (SelectedItem is not { } item) return;
-
-        if (Report(await _inbox.ArchiveAsync(item.Id))) return;
-
-        await ReloadAsync();
-    }
+    public Task ArchiveAsync() =>
+        DecideAsync(item => _inbox.ArchiveAsync(item.Id));
 
     // --- Attachments --------------------------------------------------------
 
@@ -609,14 +599,12 @@ public sealed class InboxDesktopState
     /// with no date until the reader returns it; on a deferred item it changes
     /// the date. The item stays selected: it leaves the queue's rows, and the
     /// detail still owes the reader the line that says until when.</summary>
-    public async Task DeferAsync(DateOnly? until)
-    {
-        if (SelectedItem is not { } item) return;
+    public Task DeferAsync(DateOnly? until) =>
+        DecideAsync(item => _inbox.DeferAsync(item.Id, until));
 
-        if (Report(await _inbox.DeferAsync(item.Id, until))) return;
-
-        await ReloadAsync();
-    }
+    /// <summary>The reader's calendar date, which is what a review date is
+    /// counted from — the same local "today" the resurface sweep uses.</summary>
+    public DateOnly Today => DateOnly.FromDateTime(_clock.GetLocalNow().DateTime);
 
     /// <summary>Returns the selected deferred item to the queue now.</summary>
     public async Task ResurfaceAsync()
@@ -634,6 +622,8 @@ public sealed class InboxDesktopState
     {
         if (SelectedItem is not { } item || RouteRunning || PlanRunning) return;
 
+        var before = VisibleItems;
+        RememberPosition();
         RouteRunning = true;
         Changed?.Invoke();
 
@@ -643,6 +633,7 @@ public sealed class InboxDesktopState
             if (Report(routed)) return;
 
             await ReloadAsync();
+            if (TriageMode) AdvancePast(before, item.Id);
             Routed?.Invoke(routed.Value);
         }
         finally
@@ -679,6 +670,112 @@ public sealed class InboxDesktopState
             PlanRunning = false;
             Changed?.Invoke();
         }
+    }
+
+    // --- Triage, one item at a time ---------------------------------------------
+    //
+    // A triage session is a run of decisions over the rows on screen, and the
+    // mode exists to make it short: one item at a time, "12 of 40" over it, and
+    // each decision — archive, defer, move to a list, route — moving straight on
+    // to the next item instead of leaving the reader on the one just decided.
+    // Tags and repositories are not decisions; they refine the item and leave it
+    // where it is. Held here rather than in the pane for the reason the picks
+    // are: the shell re-mounts the pane when it moves slots, and a session that
+    // forgot where it was would be a session started over.
+    //
+    // Leaving the mode changes nothing but the view: the item the reader stopped
+    // at stays selected, so the queue opens on it.
+
+    /// <summary>Where the item being read sat in the rows, the last time it was
+    /// in them. A decision takes an item out of the rows while it stays
+    /// selected, and "next" from there means the row that slid into its place.</summary>
+    private int _lastPosition;
+
+    /// <summary>Whether the pane shows one item at a time.</summary>
+    public bool TriageMode { get; private set; }
+
+    /// <summary>The zero-based place of the item being read among the rows on
+    /// screen, or -1 when none is chosen or it has left them.</summary>
+    public int TriagePosition => SelectedItemId is { } id ? IndexOf(VisibleItems, id) : -1;
+
+    /// <summary>Opens or leaves triage mode. Opening it on nothing, or on an
+    /// item no longer in the rows, starts at the first row.</summary>
+    public void SetTriageMode(bool on)
+    {
+        if (TriageMode == on) return;
+
+        TriageMode = on;
+        if (on && TriagePosition < 0)
+        {
+            SelectedItemId = VisibleItems.Count > 0 ? VisibleItems[0].Id : null;
+            RememberPosition();
+        }
+
+        Changed?.Invoke();
+    }
+
+    /// <summary>Reads the next row (<paramref name="delta"/> 1) or the previous
+    /// one (-1), stopping at either end rather than wrapping — a reader who
+    /// pressed past the last row has read them all, and landing back on the first
+    /// would hide that. From an item that has just left the rows, next is the row
+    /// now in its place and previous the one above it.</summary>
+    public void Step(int delta)
+    {
+        var order = VisibleItems;
+        if (order.Count == 0 || delta == 0) return;
+
+        var at = TriagePosition;
+        var next = at >= 0
+            ? at + delta
+            : delta > 0 ? _lastPosition : _lastPosition - 1;
+
+        SelectItem(order[Math.Clamp(next, 0, order.Count - 1)].Id);
+    }
+
+    private void RememberPosition()
+    {
+        var at = TriagePosition;
+        if (at >= 0) _lastPosition = at;
+    }
+
+    /// <summary>One decision on the selected item: the module's act, a reload,
+    /// and in triage mode the step on to the next item.</summary>
+    private async Task DecideAsync(Func<InboxItemDto, Task<Result>> act)
+    {
+        if (SelectedItem is not { } item) return;
+
+        var before = VisibleItems;
+        RememberPosition();
+
+        if (Report(await act(item))) return;
+
+        await ReloadAsync();
+        if (TriageMode) AdvancePast(before, item.Id);
+    }
+
+    /// <summary>Selects what comes after <paramref name="decided"/> in the rows as
+    /// they were before the decision — the first of them still on screen, so an
+    /// item that left the rows is not landed on. Past the last row it goes back
+    /// to the first item still waiting for a decision, which is where a reader
+    /// who skipped some with j left them; with none left, nothing is selected
+    /// and the mode says the queue is done.</summary>
+    private void AdvancePast(IReadOnlyList<InboxItemDto> before, Guid decided)
+    {
+        var now = VisibleItems;
+        var onScreen = now.Select(item => item.Id).ToHashSet();
+        var at = IndexOf(before, decided);
+
+        Guid? next = null;
+        for (var index = at + 1; at >= 0 && index < before.Count && next is null; index++)
+        {
+            if (onScreen.Contains(before[index].Id)) next = before[index].Id;
+        }
+
+        next ??= now.FirstOrDefault(item => item.Id != decided && IsOpen(item))?.Id;
+
+        SelectedItemId = next;
+        RememberPosition();
+        Changed?.Invoke();
     }
 
     // --- Picking several items -------------------------------------------------
