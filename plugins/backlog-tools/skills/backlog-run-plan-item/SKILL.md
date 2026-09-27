@@ -59,8 +59,8 @@ and the session-name line, `## Sub-item conventions` what the item's `##` headin
    `transition` it to In progress — an entry already there is fine — then `link_session`
    with this session's id, so the task can open the session. Then
    `Setup:` sub-items in order, then the instructions, exactly the way the repository's own
-   instructions say work is done there — its orchestration gate, review and validation
-   rules; this skill adds no execution path of its own. Tick `- [ ]` lines as they land;
+   instructions say work is done there — the matching flow its gate names, and its review
+   and validation rules; this skill adds no execution path of its own. Tick `- [ ]` lines as they land;
    a sub-item's status line cannot be changed through the connector — no tool edits one.
 6. **Answer the notes the item leaves open.** With the connector, `list_annotations` for the
    repository; a chapter this item rewrote may carry a remark the change now answers. For

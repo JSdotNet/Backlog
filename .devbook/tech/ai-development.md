@@ -190,7 +190,7 @@ it pulls in per task.
 
 - **Used for** — `AGENTS.md`, imported by `CLAUDE.md`; the rules under
   `.agents/rules/` with their wrappers in `.claude/rules/`; and the runtime
-  facts in `.claude/orch-context.md`.
+  facts in the `start` and `debug` procedures under `.agents/skills/`.
 - **Why** — the standing brief has to stay short enough to be read every time,
   so it points at the detail rather than containing it. How the rules are
   authored once and wrapped is the adoption record's:
