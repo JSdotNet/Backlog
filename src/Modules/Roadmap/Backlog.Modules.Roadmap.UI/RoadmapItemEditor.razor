@@ -46,7 +46,8 @@
             </div>
 
             <div class="roadmap-editor__row">
-                <SelectField Label="Priority"
+                <SelectField Form="true"
+                             Label="Priority"
                              CurrentValue="@_priority"
                              Options="@PriorityOptions"
                              OnChanged="value => _priority = value ?? MediumPriority"
@@ -144,6 +145,17 @@
                                     @GatheredRow(link)
                                 }
                             </ul>
+                        </div>
+                    }
+
+                    @* Only once there are two things to order: one entry has no
+                       order to show. The list above stays the place to read each one;
+                       this says which of them can run side by side. *@
+                    @if (Rollup.BacklogEntries.Count > 1)
+                    {
+                        <div class="roadmap-gathered__group">
+                            <p class="roadmap-gathered__group-title">Order</p>
+                            <RoadmapOrderGraph Links="@Rollup.BacklogEntries" />
                         </div>
                     }
 
