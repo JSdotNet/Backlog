@@ -2,33 +2,38 @@
   "schema_version": 1,
   "diagram_type": "sequence",
   "meta": {
-    "title": "Copilot App Session Capture",
+    "title": "Mobile My Day and Task Push",
     "animation": "trace",
     "quality_profile": "showcase",
     "column_fit": "spread",
-    "viewBox": [1440, 700]
+    "viewBox": [1200, 740]
   },
   "participants": [
     { "id": "me", "type": "external", "label": "ME" },
-    { "id": "copilot", "type": "external", "label": "GitHub Copilot App Session" },
-    { "id": "adapter", "type": "backend", "label": "Source Adapter" },
-    { "id": "capture", "type": "backend", "label": "Capture Service" },
-    { "id": "store", "type": "database", "label": "Local Markdown" },
-    { "id": "api", "type": "backend", "label": "Backend API" }
+    { "id": "tasks", "type": "frontend", "label": "Phone Tasks tab" },
+    { "id": "view", "type": "database", "label": "task_view (SQLite)" },
+    { "id": "outbox", "type": "database", "label": "SQLite Outbox" },
+    { "id": "sync", "type": "cloud", "label": "Sync Service" }
   ],
   "segments": [
-    { "from": 150, "to": 248, "label": "Capture from the session" },
-    { "from": 264, "to": 404, "label": "Local markdown first, then inbox" },
-    { "from": 420, "to": 560, "label": "Confirmation" }
+    { "from": 150, "to": 336, "label": "Added on the phone" },
+    { "from": 352, "to": 448, "label": "Push the change" },
+    { "from": 464, "to": 662, "label": "Loop: until hasMore is false" }
   ],
   "messages": [
-    { "id": "capture-command", "from": "me", "to": "copilot", "y": 182, "label": "/capture \"follow-up\"", "variant": "default" },
-    { "id": "build-metadata", "from": "copilot", "to": "adapter", "y": 226, "label": "Build source metadata (session_id, worktree_path, branch)", "variant": "default" },
-    { "id": "create-item", "from": "adapter", "to": "capture", "y": 294, "label": "createItem(title, body, source=ide, metadata)", "variant": "emphasis" },
-    { "id": "write-markdown", "from": "capture", "to": "store", "y": 338, "label": "Write to local markdown cache", "variant": "default" },
-    { "id": "post-inbox", "from": "capture", "to": "api", "y": 382, "label": "POST /inbox/items", "variant": "emphasis" },
-    { "id": "inbox-created", "from": "api", "to": "capture", "y": 450, "label": "201 Created (id)", "variant": "return" },
-    { "id": "item-created", "from": "capture", "to": "copilot", "y": 494, "label": "Item created (id, deep_link)", "variant": "return" },
-    { "id": "confirmation", "from": "copilot", "to": "me", "y": 538, "label": "Confirmation + deep-link", "variant": "return", "note": "Local-first path only; no credential forwarding through Cloud Service" }
+    { "id": "add-task", "from": "me", "to": "tasks", "y": 182, "label": "Add \"Buy a charger\"", "variant": "default" },
+    { "id": "insert-outbox", "from": "tasks", "to": "outbox", "y": 226, "label": "INSERT outbox (id v7, kind=task, TaskChange with InMyDayOn=today)", "variant": "emphasis" },
+    { "id": "upsert-row", "from": "tasks", "to": "view", "y": 270, "label": "UPSERT row (server stamp 0)", "variant": "default" },
+    { "id": "in-my-day", "from": "tasks", "to": "me", "y": 314, "label": "In My Day at once, marked waiting", "variant": "return" },
+    { "id": "post-tasks", "from": "outbox", "to": "sync", "y": 384, "label": "POST /api/sync/tasks (same id every attempt)", "variant": "emphasis" },
+    { "id": "accepted", "from": "sync", "to": "outbox", "y": 432, "label": "200 Accepted", "variant": "return", "note": "Outbox then: DELETE entry" },
+    { "id": "get-tasks", "from": "tasks", "to": "sync", "y": 496, "label": "GET /api/sync/tasks?since=cursor", "variant": "emphasis" },
+    { "id": "page", "from": "sync", "to": "tasks", "y": 544, "label": "TaskChangeRecords, next cursor", "variant": "return", "note": "alt: Page" },
+    { "id": "fold-page", "from": "tasks", "to": "view", "y": 588, "label": "Fold page (LWW, tombstones kept, captures skipped) + cursor", "variant": "default" },
+    { "id": "forget-cursor", "from": "tasks", "to": "view", "y": 640, "label": "Forget the cursor; pull again from the beginning", "variant": "default", "note": "else: 400 sync.cursor_malformed / sync.cursor_expired" }
+  ],
+  "activations": [
+    { "participant": "sync", "from": 378, "to": 438, "type": "cloud" },
+    { "participant": "sync", "from": 490, "to": 550, "type": "cloud" }
   ]
 }

@@ -1,17 +1,6 @@
 {
   "schemaVersion": 1,
   "entries": {
-    "00db947e1c6c304d78a56e674a7fd78baac89ac6d051ba497efeb61b350fc23e": {
-      "chapter": "05-building-block-view.md",
-      "ordinal": 6,
-      "type": "architecture",
-      "quality": "showcase",
-      "kind": "flowchart",
-      "spec": "05-building-block-view.6.architecture.json",
-      "artifact": "05-building-block-view.6.architecture.html",
-      "checksPassed": 9,
-      "checkCount": 9
-    },
     "0952277797eebcd96e552034cec2da3ea61c8b86c4cd3e4f8d1735af697c676a": {
       "chapter": "03-context-and-scope.md",
       "ordinal": 1,
@@ -78,36 +67,39 @@
       "checksPassed": 9,
       "checkCount": 9
     },
-    "502e5a1ec32012d37e7b55817ef4ffc5a8401ccf6599272b10d06b067762eda7": {
+    "3f39bcef98a12d7c35b4b5438071d6f050bfe93234804c48fba0c28665b5a7e5": {
       "chapter": "06-runtime-view.md",
-      "ordinal": 4,
-      "type": "lifecycle",
+      "ordinal": 6,
+      "type": "sequence",
       "quality": "showcase",
-      "kind": "statediagram-v2",
-      "spec": "06-runtime-view.4.lifecycle.json",
-      "artifact": "06-runtime-view.4.lifecycle.html",
+      "kind": "sequencediagram",
+      "spec": "06-runtime-view.6.sequence.json",
+      "specSha256": "4d3e72e3c48b54ecf1c47f19d614ef9e96680f90170b4cedbb215b948c36d87c",
+      "artifact": "06-runtime-view.6.sequence.html",
       "checksPassed": 9,
       "checkCount": 9
     },
     "584b90999719ae84e50a7b28a610030457334a661e821f287c6319545e4f0e16": {
       "chapter": "06-runtime-view.md",
-      "ordinal": 5,
+      "ordinal": 8,
       "type": "sequence",
       "quality": "showcase",
       "kind": "sequencediagram",
-      "spec": "06-runtime-view.5.sequence.json",
-      "artifact": "06-runtime-view.5.sequence.html",
+      "spec": "06-runtime-view.8.sequence.json",
+      "specSha256": "a121fa93219a7d829abd06ce442dce0644f4b18cacc7a80f2cc87ab260188b09",
+      "artifact": "06-runtime-view.8.sequence.html",
       "checksPassed": 9,
       "checkCount": 9
     },
     "5f6722885c17c26f454d2f0ab46deef7a7a7a958558e59e65c6707cc2c97cbb7": {
       "chapter": "06-runtime-view.md",
-      "ordinal": 7,
+      "ordinal": 10,
       "type": "sequence",
       "quality": "showcase",
       "kind": "sequencediagram",
-      "spec": "06-runtime-view.7.sequence.json",
-      "artifact": "06-runtime-view.7.sequence.html",
+      "spec": "06-runtime-view.10.sequence.json",
+      "specSha256": "a9b56d55f7d6039ae7b0658f63be617cdb5313fea1ee39f0acdeacbcd3920d39",
+      "artifact": "06-runtime-view.10.sequence.html",
       "checksPassed": 9,
       "checkCount": 9
     },
@@ -122,13 +114,50 @@
       "checksPassed": 9,
       "checkCount": 9
     },
-    "81ef2c8769cf075c17a0e85ba1a69be1303e1bf309087745f8ce64345d1cdad5": {
+    "858274e9220b1f342030496115db1f93d26eee7b2699226ccd7554d176d5268a": {
+      "chapter": "06-runtime-view.md",
+      "ordinal": 5,
+      "type": "sequence",
+      "quality": "showcase",
+      "kind": "sequencediagram",
+      "spec": "06-runtime-view.5.sequence.json",
+      "specSha256": "3b21b50c311a43b2fe7a3050e0e33e507faf98693804ba1ea8d957a8d2fc5d43",
+      "artifact": "06-runtime-view.5.sequence.html",
+      "checksPassed": 9,
+      "checkCount": 9
+    },
+    "95b89d5afb87e7bd9f7638e32f5d81b4dca45ac1e5a9e55d98aed9f3a68a19dd": {
+      "chapter": "06-runtime-view.md",
+      "ordinal": 3,
+      "type": "sequence",
+      "quality": "showcase",
+      "kind": "sequencediagram",
+      "spec": "06-runtime-view.3.sequence.json",
+      "specSha256": "5cccee752b9bd8b7369199d9ee3cac3ae1767e4e623e480c17d6cd993b41085f",
+      "artifact": "06-runtime-view.3.sequence.html",
+      "checksPassed": 9,
+      "checkCount": 9
+    },
+    "9a96442a0a05de501c59efe2c64123275f187e7a13e8fb87d5b8cc0dd9056169": {
+      "chapter": "05-building-block-view.md",
+      "ordinal": 6,
+      "type": "architecture",
+      "quality": "showcase",
+      "kind": "flowchart",
+      "spec": "05-building-block-view.6.architecture.json",
+      "specSha256": "77f81f5af5b6f0394751a67e82daec947ee8156298cc46ce8e6cb029fe076ad9",
+      "artifact": "05-building-block-view.6.architecture.html",
+      "checksPassed": 9,
+      "checkCount": 9
+    },
+    "9b4a569768a296e995ca617f9d505298c31ac399e07be9ae0dcfc714f5d9bb87": {
       "chapter": "07-deployment-view.md",
       "ordinal": 3,
       "type": "architecture",
       "quality": "showcase",
       "kind": "flowchart",
       "spec": "07-deployment-view.3.architecture.json",
+      "specSha256": "648b2f92af1b7fc748cfe10e9692509bac72ceb48df31431f57f685abba192b2",
       "artifact": "07-deployment-view.3.architecture.html",
       "checksPassed": 9,
       "checkCount": 9
@@ -155,6 +184,18 @@
       "checksPassed": 9,
       "checkCount": 9
     },
+    "c5f832de5681e6c030eb260e4d7c68bd151eebb382561018b9ab46b4bd258a7c": {
+      "chapter": "06-runtime-view.md",
+      "ordinal": 4,
+      "type": "sequence",
+      "quality": "showcase",
+      "kind": "sequencediagram",
+      "spec": "06-runtime-view.4.sequence.json",
+      "specSha256": "8380247d6a2ed795cd8c82ff4dbb81a69124f61504e63d1f6ce243bfeff28ab9",
+      "artifact": "06-runtime-view.4.sequence.html",
+      "checksPassed": 9,
+      "checkCount": 9
+    },
     "ca584c1290d1063ffbc969939df870e976fe58ec7ec7fe33c3bca1cc6b10ff1d": {
       "chapter": "07-deployment-view.md",
       "ordinal": 2,
@@ -168,34 +209,37 @@
     },
     "d33c4dd5ed908008428c4a2cd243c53e343a431240e0661df898921ade8d93d9": {
       "chapter": "06-runtime-view.md",
-      "ordinal": 6,
+      "ordinal": 9,
       "type": "sequence",
       "quality": "showcase",
       "kind": "sequencediagram",
-      "spec": "06-runtime-view.6.sequence.json",
-      "artifact": "06-runtime-view.6.sequence.html",
+      "spec": "06-runtime-view.9.sequence.json",
+      "specSha256": "603cdf792325d2f45d2b4ac1091c21c5bae611d022e66123c0dc314cf2e1c68d",
+      "artifact": "06-runtime-view.9.sequence.html",
+      "checksPassed": 9,
+      "checkCount": 9
+    },
+    "dfb24ae7fd7113796f1307c494711c462db26efcc642f213949d732a22bc645c": {
+      "chapter": "06-runtime-view.md",
+      "ordinal": 7,
+      "type": "lifecycle",
+      "quality": "showcase",
+      "kind": "statediagram-v2",
+      "spec": "06-runtime-view.7.lifecycle.json",
+      "specSha256": "3a24497f178756a2c54772eff39ba196d0821837c4805b49a9ee7c009589f0a5",
+      "artifact": "06-runtime-view.7.lifecycle.html",
       "checksPassed": 9,
       "checkCount": 9
     },
     "fc0992c6c7ca9a7cea128d0996c0777fb50142d3f845f8b9e393ec55dad7dd09": {
       "chapter": "06-runtime-view.md",
-      "ordinal": 8,
+      "ordinal": 11,
       "type": "sequence",
       "quality": "showcase",
       "kind": "sequencediagram",
-      "spec": "06-runtime-view.8.sequence.json",
-      "artifact": "06-runtime-view.8.sequence.html",
-      "checksPassed": 9,
-      "checkCount": 9
-    },
-    "fc852a79a9869118619b69fa0eac7c6ec0bd5f79a044bba99aae98e677c99786": {
-      "chapter": "06-runtime-view.md",
-      "ordinal": 3,
-      "type": "sequence",
-      "quality": "showcase",
-      "kind": "sequencediagram",
-      "spec": "06-runtime-view.3.sequence.json",
-      "artifact": "06-runtime-view.3.sequence.html",
+      "spec": "06-runtime-view.11.sequence.json",
+      "specSha256": "61a09768ab0928b5a2815f27cd9c5277775893c3b776c3d08cfe7e6886da4b14",
+      "artifact": "06-runtime-view.11.sequence.html",
       "checksPassed": 9,
       "checkCount": 9
     }

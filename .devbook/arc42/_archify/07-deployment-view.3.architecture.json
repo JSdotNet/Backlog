@@ -6,8 +6,8 @@
     "animation": "trace",
     "quality_profile": "showcase",
     "viewBox": [
-      1160,
-      700
+      1220,
+      710
     ]
   },
   "components": [
@@ -69,15 +69,15 @@
       "id": "cosmos",
       "type": "database",
       "label": "Azure Cosmos DB (serverless)",
-      "sublabel": "tasks replica + change feed, sync state, webhook events, machine registry",
+      "sublabel": "tasks + sessions containers, change feed per container, webhook events, machine registry",
       "tag": "Data",
       "pos": [
         750,
-        120
+        110
       ],
       "size": [
-        350,
-        90
+        440,
+        80
       ]
     },
     {
@@ -88,11 +88,26 @@
       "tag": "Data",
       "pos": [
         750,
-        300
+        230
       ],
       "size": [
-        350,
-        90
+        440,
+        80
+      ]
+    },
+    {
+      "id": "storage",
+      "type": "database",
+      "label": "Azure Storage (Standard LRS)",
+      "sublabel": "private container attachments, 30-day lifecycle rule",
+      "tag": "Data",
+      "pos": [
+        750,
+        350
+      ],
+      "size": [
+        440,
+        80
       ]
     },
     {
@@ -102,7 +117,7 @@
       "sublabel": "webhooks in",
       "pos": [
         380,
-        490
+        530
       ],
       "size": [
         180,
@@ -116,7 +131,7 @@
       "sublabel": "Android push",
       "pos": [
         750,
-        490
+        530
       ],
       "size": [
         350,
@@ -140,7 +155,8 @@
       "wraps": [
         "appservice",
         "cosmos",
-        "keyvault"
+        "keyvault",
+        "storage"
       ]
     },
     {
@@ -184,6 +200,16 @@
       "to": "keyvault"
     },
     {
+      "id": "appservice-storage",
+      "from": "appservice",
+      "to": "storage",
+      "label": "Managed identity — Blob Data Contributor",
+      "labelAt": [
+        655,
+        330
+      ]
+    },
+    {
       "id": "webhooks-in",
       "from": "github",
       "to": "appservice",
@@ -193,7 +219,9 @@
       "id": "android-push",
       "from": "appservice",
       "to": "fcm",
-      "label": "Android push"
+      "label": "Android push",
+      "fromSide": "bottom",
+      "toSide": "top"
     },
     {
       "id": "push-notification",
@@ -206,16 +234,16 @@
       "via": [
         [
           925,
-          640
+          660
         ],
         [
           115,
-          640
+          660
         ]
       ],
       "labelAt": [
         520,
-        635
+        655
       ]
     }
   ]

@@ -6,36 +6,33 @@
     "animation": "trace",
     "quality_profile": "showcase",
     "column_fit": "spread",
-    "viewBox": [960, 830]
+    "viewBox": [960, 680]
   },
   "participants": [
     { "id": "me", "type": "external", "label": "ME" },
     { "id": "app", "type": "frontend", "label": "Phone App" },
-    { "id": "storage", "type": "database", "label": "Local JSON Store" },
-    { "id": "sync", "type": "backend", "label": "Sync Engine" },
-    { "id": "cloud", "type": "cloud", "label": "Cloud Service" }
+    { "id": "outbox", "type": "database", "label": "SQLite Outbox" },
+    { "id": "sync", "type": "backend", "label": "Sync Service" }
   ],
   "segments": [
     { "from": 150, "to": 292, "label": "Captured locally" },
-    { "from": 308, "to": 580, "label": "Flush to cloud" },
-    { "from": 596, "to": 740, "label": "Failure and retry" }
+    { "from": 308, "to": 362, "label": "Loop: oldest entry first" },
+    { "from": 378, "to": 476, "label": "Alt: 201 Created, or 200 for an id it already holds; Outbox: DELETE entry" },
+    { "from": 492, "to": 530, "label": "Else: No network, timeout, 5xx or 401; Outbox: attempts+1, last_error; wait 2s·2^(n-1); stop the flush" },
+    { "from": 546, "to": 584, "label": "Else: Any other 4xx; Outbox: set aside as refused; continue with the next entry" }
   ],
   "messages": [
-    { "id": "capture", "from": "me", "to": "app", "y": 182, "label": "Capture item (text or voice)", "variant": "default" },
-    { "id": "insert-item", "from": "app", "to": "storage", "y": 226, "label": "INSERT inbox_item (status=captured)", "variant": "emphasis" },
-    { "id": "stored-locally", "from": "app", "to": "me", "y": 270, "label": "Stored locally", "variant": "return" },
-    { "id": "query-pending", "from": "sync", "to": "storage", "y": 338, "label": "Query pending items", "variant": "default", "note": "When network becomes available" },
-    { "id": "pending-items", "from": "storage", "to": "sync", "y": 382, "label": "inbox_items where status=pending_sync", "variant": "return" },
-    { "id": "batch-upload", "from": "sync", "to": "cloud", "y": 426, "label": "POST /sync/items (batch upload)", "variant": "emphasis" },
-    { "id": "upload-ok", "from": "cloud", "to": "sync", "y": 470, "label": "200 OK (merged_count)", "variant": "return" },
-    { "id": "mark-synced", "from": "sync", "to": "storage", "y": 514, "label": "UPDATE status=synced", "variant": "default" },
-    { "id": "sync-complete", "from": "app", "to": "me", "y": 558, "label": "Sync complete", "variant": "return" },
-    { "id": "retry-upload", "from": "sync", "to": "cloud", "y": 626, "label": "POST /sync/items", "variant": "default", "note": "On sync failure" },
-    { "id": "upload-error", "from": "cloud", "to": "sync", "y": 670, "label": "Error or timeout", "variant": "return" },
-    { "id": "mark-failed", "from": "sync", "to": "storage", "y": 714, "label": "UPDATE status=sync_failed, increment retry", "variant": "default", "note": "Sync Engine then schedules a retry (exponential backoff)" }
+    { "id": "capture", "from": "me", "to": "app", "y": 182, "label": "Capture (title)", "variant": "default" },
+    { "id": "insert-outbox", "from": "app", "to": "outbox", "y": 226, "label": "INSERT outbox (id v7, kind=capture, attempts=0)", "variant": "emphasis" },
+    { "id": "row-shown", "from": "app", "to": "me", "y": 270, "label": "Row shown at once, marked waiting", "variant": "return" },
+    { "id": "post-inbox", "from": "outbox", "to": "sync", "y": 340, "label": "POST /api/sync/inbox (same id every attempt)", "variant": "emphasis" },
+    { "id": "capture-returned", "from": "sync", "to": "outbox", "y": 410, "label": "Capture", "variant": "return" },
+    { "id": "refresh-inbox", "from": "app", "to": "sync", "y": 454, "label": "GET /api/sync/inbox (refresh, cache the list)", "variant": "default" }
   ],
   "activations": [
-    { "participant": "cloud", "from": 420, "to": 476, "type": "cloud" },
-    { "participant": "cloud", "from": 620, "to": 676, "type": "cloud" }
+    { "participant": "sync", "from": 334, "to": 416, "type": "backend" }
+  ],
+  "cards": [
+    { "dot": "amber", "title": "Note over Phone App and SQLite Outbox", "items": ["Five failures park the head entry and hold the queue behind it", "Resume, network back or a tap tries again"] }
   ]
 }

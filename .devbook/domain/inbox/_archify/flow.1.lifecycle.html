@@ -5038,73 +5038,53 @@
 
         <!-- Lifecycle bands -->
         <path d="M 72 112 L 908 112" class="a-default" stroke-width="0.8" stroke-dasharray="3,8"/>
-        <text x="72" y="100" class="t-dim" font-size="10" font-weight="600">01 / Triage path</text>
+        <text x="72" y="100" class="t-dim" font-size="10" font-weight="600">01 / Inbox</text>
         <path d="M 72 264 L 908 264" class="a-default" stroke-width="0.8" stroke-dasharray="3,8"/>
         <text x="72" y="252" class="t-dim" font-size="10" font-weight="600">02 / Deferral</text>
         <path d="M 72 436 L 908 436" class="a-default" stroke-width="0.8" stroke-dasharray="3,8"/>
         <text x="72" y="424" class="t-dim" font-size="10" font-weight="600">03 / Terminal outcome</text>
 
         <!-- Primary lifecycle rail -->
-        <path d="M 154 157 L 594 157" class="a-emphasis" stroke-width="2.2" marker-end="url(#arrowhead-emphasis)"/>
+        <path d="M 154 157 L 748 157" class="a-emphasis" stroke-width="2.2" marker-end="url(#arrowhead-emphasis)"/>
 
         <!-- Transition paths -->
-        <path data-edge-from="captured" data-edge-to="unprocessed" data-edge-label="Capture delivers item" data-edge-key="0" data-edge-id="capture-delivers" data-composition-points="153,157;189,157" d="M 153 157 L 189 157" class="a-default" data-animate="edge" style="--step:0" stroke-width="1.1" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="unprocessed" data-edge-to="triaged" data-edge-label="Triage action taken" data-edge-key="1" data-edge-id="triage-action" data-composition-points="307,157;343,157" d="M 307 157 L 343 157" class="a-default" data-animate="edge" style="--step:1" stroke-width="1.1" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="triaged" data-edge-to="routed" data-edge-label="Route to Backlog or Knowledge" data-edge-key="2" data-edge-id="route-out" data-composition-points="461,157;497,157" d="M 461 157 L 497 157" class="a-default" data-animate="edge" style="--step:2" stroke-width="1.1" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="triaged" data-edge-to="deferred" data-edge-label="Defer for later review" data-edge-key="3" data-edge-id="defer" data-composition-points="402,188;402,278" d="M 402 188 L 402 278" class="a-default" data-animate="edge" style="--step:3" stroke-width="1.1" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="deferred" data-edge-to="unprocessed" data-edge-label="Review date reached" data-edge-key="4" data-edge-id="review-date" data-composition-points="339,307;248,307;248,188" d="M 339 307 L 258 307 Q 248 307 248 297 L 248 188" class="a-default" data-animate="edge" style="--step:4" stroke-width="1.1" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="triaged" data-edge-to="archived" data-edge-label="Dismiss / not actionable" data-edge-key="5" data-edge-id="dismiss" data-composition-points="461,157;480,157;480,400;710,400;710,450" d="M 461 157 L 470.5 157 Q 480 157 480 166.5 L 480 390 Q 480 400 490 400 L 700 400 Q 710 400 710 410 L 710 450" class="a-default" data-animate="edge" style="--step:5" stroke-width="1.1" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="deferred" data-edge-to="archived" data-edge-label="Dismissed after deferral" data-edge-key="6" data-edge-id="dismiss-deferred" data-composition-points="402,336;402,420;710,420;710,450" d="M 402 336 L 402 410 Q 402 420 412 420 L 700 420 Q 710 420 710 430 L 710 450" class="a-default" data-animate="edge" style="--step:6" stroke-width="1.1" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="unprocessed" data-edge-to="routed" data-edge-label="Route to Tasks / Create plan" data-edge-key="0" data-edge-id="route-out" data-composition-points="480,157;651,157" d="M 480 157 L 651 157" class="a-default" data-animate="edge" style="--step:0" stroke-width="1.1" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="unprocessed" data-edge-to="deferred" data-edge-label="Defer for later review" data-edge-key="1" data-edge-id="defer" data-composition-points="395,188;395,278" d="M 395 188 L 395 278" class="a-default" data-animate="edge" style="--step:1" stroke-width="1.1" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="deferred" data-edge-to="unprocessed" data-edge-label="Review date reached / Return to inbox" data-edge-key="2" data-edge-id="review-date" data-composition-points="409,278;409,188" d="M 409 278 L 409 188" class="a-default" data-animate="edge" style="--step:2" stroke-width="1.1" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="unprocessed" data-edge-to="archived" data-edge-label="Dismiss / not actionable" data-edge-key="3" data-edge-id="dismiss" data-composition-points="402,126;402,96;850,96;850,479;615,479" d="M 402 126 L 402 106 Q 402 96 412 96 L 840 96 Q 850 96 850 106 L 850 469 Q 850 479 840 479 L 615 479" class="a-default" data-animate="edge" style="--step:3" stroke-width="1.1" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="deferred" data-edge-to="deferred" data-edge-label="Change the review date" data-edge-key="4" data-edge-id="change-review-date" data-composition-points="402,336;402,372;300,372;300,307;324,307" d="M 402 336 L 402 362 Q 402 372 392 372 L 310 372 Q 300 372 300 362 L 300 317 Q 300 307 310 307 L 324 307" class="a-default" data-animate="edge" style="--step:4" stroke-width="1.1" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="deferred" data-edge-to="routed" data-edge-label="Route to Tasks / Create plan" data-edge-key="5" data-edge-id="route-deferred" data-composition-points="480,300;710,300;710,188" d="M 480 300 L 700 300 Q 710 300 710 290 L 710 188" class="a-default" data-animate="edge" style="--step:5" stroke-width="1.1" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="deferred" data-edge-to="archived" data-edge-label="Dismissed after deferral" data-edge-key="6" data-edge-id="dismiss-deferred" data-composition-points="480,314;556,314;556,450" d="M 480 314 L 546 314 Q 556 314 556 324 L 556 450" class="a-default" data-animate="edge" style="--step:6" stroke-width="1.1" marker-end="url(#arrowhead)"/>
 
         <!-- States -->
-        <g id="node-captured" data-node-id="captured" data-node-label="Captured" tabindex="0" role="button" aria-label="Focus Captured, Triage path" aria-pressed="false" data-node-kind="start" data-node-context="Triage path">
-          <title>Captured · Triage path</title>
-          <rect x="35" y="126" width="118" height="62" rx="7" class="c-mask"/>
-          <rect x="35" y="126" width="118" height="62" rx="7" class="c-frontend" data-animate="node" style="--step:0" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="start" class="semantic-sigil s-frontend" transform="translate(136 132) scale(0.6875)">
+        <g id="node-unprocessed" data-node-id="unprocessed" data-node-label="Unprocessed" tabindex="0" role="button" aria-label="Focus Unprocessed, capture delivers item / typed by hand, Inbox" aria-pressed="false" data-node-kind="start" data-node-sublabel="capture delivers item / typed by hand" data-node-context="Inbox">
+          <title>Unprocessed · capture delivers item / typed by hand · Inbox</title>
+          <rect x="324" y="126" width="156" height="62" rx="7" class="c-mask"/>
+          <rect x="324" y="126" width="156" height="62" rx="7" class="c-frontend" data-animate="node" style="--step:0" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="start" class="semantic-sigil s-frontend" transform="translate(463 132) scale(0.6875)">
             <circle cx="8" cy="8" r="5"/>
             <path d="m7 5.4 3.6 2.6L7 10.6Z" class="sigil-fill"/>
           </g>
-          <text data-node-label x="94" y="147" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">Captured</text>
+          <text data-node-label data-detail-anchor x="402" y="147" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">Unprocessed</text>
+          <text data-detail="context" x="402" y="163" class="t-muted" font-size="6.6" text-anchor="middle">capture delivers item / typed by hand</text>
         </g>
 
-        <g id="node-unprocessed" data-node-id="unprocessed" data-node-label="Unprocessed" tabindex="0" role="button" aria-label="Focus Unprocessed, Triage path" aria-pressed="false" data-node-kind="active" data-node-context="Triage path">
-          <title>Unprocessed · Triage path</title>
-          <rect x="189" y="126" width="118" height="62" rx="7" class="c-mask"/>
-          <rect x="189" y="126" width="118" height="62" rx="7" class="c-backend" data-animate="node" style="--step:1" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="active" class="semantic-sigil s-backend" transform="translate(290 132) scale(0.6875)">
-            <path d="M2 8h3l1.5-3.5L9 12l1.6-4H14"/>
-          </g>
-          <text data-node-label x="248" y="147" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">Unprocessed</text>
-        </g>
-
-        <g id="node-triaged" data-node-id="triaged" data-node-label="Triaged" tabindex="0" role="button" aria-label="Focus Triaged, Triage path" aria-pressed="false" data-node-kind="decision" data-node-context="Triage path">
-          <title>Triaged · Triage path</title>
-          <rect x="343" y="126" width="118" height="62" rx="7" class="c-mask"/>
-          <rect x="343" y="126" width="118" height="62" rx="7" class="c-security" data-animate="node" style="--step:2" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="neutral" class="semantic-sigil s-external" transform="translate(444 132) scale(0.6875)">
-            <rect x="3" y="3" width="10" height="10" rx="2"/>
-            <circle cx="8" cy="8" r="1.2" class="sigil-fill"/>
-          </g>
-          <text data-node-label x="402" y="147" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">Triaged</text>
-        </g>
-
-        <g id="node-routed" data-node-id="routed" data-node-label="Routed" tabindex="0" role="button" aria-label="Focus Routed, Triage path" aria-pressed="false" data-node-kind="success" data-node-context="Triage path">
-          <title>Routed · Triage path</title>
-          <rect x="497" y="126" width="118" height="62" rx="7" class="c-mask"/>
-          <rect x="497" y="126" width="118" height="62" rx="7" class="c-database" data-animate="node" style="--step:3" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="success" class="semantic-sigil s-database" transform="translate(598 132) scale(0.6875)">
+        <g id="node-routed" data-node-id="routed" data-node-label="Routed" tabindex="0" role="button" aria-label="Focus Routed, Inbox" aria-pressed="false" data-node-kind="success" data-node-context="Inbox">
+          <title>Routed · Inbox</title>
+          <rect x="651" y="126" width="118" height="62" rx="7" class="c-mask"/>
+          <rect x="651" y="126" width="118" height="62" rx="7" class="c-database" data-animate="node" style="--step:1" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="success" class="semantic-sigil s-database" transform="translate(752 132) scale(0.6875)">
             <circle cx="8" cy="8" r="5.3"/>
             <path d="m5.2 8 1.8 1.8 3.8-4"/>
           </g>
-          <text data-node-label x="556" y="147" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">Routed</text>
+          <text data-node-label x="710" y="147" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">Routed</text>
         </g>
 
         <g id="node-deferred" data-node-id="deferred" data-node-label="Deferred" tabindex="0" role="button" aria-label="Focus Deferred, Deferral" aria-pressed="false" data-node-kind="waiting" data-node-context="Deferral">
           <title>Deferred · Deferral</title>
-          <rect x="339" y="278" width="126" height="58" rx="7" class="c-mask"/>
-          <rect x="339" y="278" width="126" height="58" rx="7" class="c-cloud" data-animate="node" style="--step:4" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="waiting" class="semantic-sigil s-cloud" transform="translate(448 284) scale(0.6875)">
+          <rect x="324" y="278" width="156" height="58" rx="7" class="c-mask"/>
+          <rect x="324" y="278" width="156" height="58" rx="7" class="c-cloud" data-animate="node" style="--step:2" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="waiting" class="semantic-sigil s-cloud" transform="translate(463 284) scale(0.6875)">
             <path d="M4 2.5h8M4 13.5h8M5 3c0 2.8 2 3.2 3 5-1 1.8-3 2.2-3 5M11 3c0 2.8-2 3.2-3 5 1 1.8 3 2.2 3 5"/>
           </g>
           <text data-node-label x="402" y="299" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">Deferred</text>
@@ -5112,43 +5092,43 @@
 
         <g id="node-archived" data-node-id="archived" data-node-label="Archived" tabindex="0" role="button" aria-label="Focus Archived, Terminal outcome" aria-pressed="false" data-node-kind="neutral" data-node-context="Terminal outcome">
           <title>Archived · Terminal outcome</title>
-          <rect x="651" y="450" width="118" height="58" rx="7" class="c-mask"/>
-          <rect x="651" y="450" width="118" height="58" rx="7" class="c-external" data-animate="node" style="--step:6" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="neutral" class="semantic-sigil s-external" transform="translate(752 456) scale(0.6875)">
+          <rect x="497" y="450" width="118" height="58" rx="7" class="c-mask"/>
+          <rect x="497" y="450" width="118" height="58" rx="7" class="c-external" data-animate="node" style="--step:4" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="neutral" class="semantic-sigil s-external" transform="translate(598 456) scale(0.6875)">
             <rect x="3" y="3" width="10" height="10" rx="2"/>
             <circle cx="8" cy="8" r="1.2" class="sigil-fill"/>
           </g>
-          <text data-node-label x="710" y="471" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">Archived</text>
+          <text data-node-label x="556" y="471" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">Archived</text>
         </g>
 
         <!-- Transition labels -->
-        <g data-detail="context" data-edge-from="captured" data-edge-to="unprocessed" data-edge-label="Capture delivers item" data-edge-key="0" data-edge-id="capture-delivers">
-          <rect x="113.55" y="201" width="114.9" height="16" rx="4" class="c-mask"/>
-          <text x="171" y="212" class="t-muted" font-size="8" text-anchor="middle">Capture delivers item</text>
+        <g data-detail="context" data-edge-from="unprocessed" data-edge-to="routed" data-edge-label="Route to Tasks / Create plan" data-edge-key="0" data-edge-id="route-out">
+          <rect x="490.9" y="136" width="149.20000000000002" height="16" rx="4" class="c-mask"/>
+          <text x="565.5" y="147" class="t-muted" font-size="8" text-anchor="middle">Route to Tasks / Create plan</text>
         </g>
-        <g data-detail="context" data-edge-from="unprocessed" data-edge-to="triaged" data-edge-label="Triage action taken" data-edge-key="1" data-edge-id="triage-action">
-          <rect x="272.45" y="201" width="105.10000000000001" height="16" rx="4" class="c-mask"/>
-          <text x="325" y="212" class="t-muted" font-size="8" text-anchor="middle">Triage action taken</text>
+        <g data-detail="context" data-edge-from="unprocessed" data-edge-to="deferred" data-edge-label="Defer for later review" data-edge-key="1" data-edge-id="defer">
+          <rect x="269.1" y="227" width="119.80000000000001" height="16" rx="4" class="c-mask"/>
+          <text x="329" y="238" class="t-muted" font-size="8" text-anchor="middle">Defer for later review</text>
         </g>
-        <g data-detail="context" data-edge-from="triaged" data-edge-to="routed" data-edge-label="Route to Backlog or Knowledge" data-edge-key="2" data-edge-id="route-out">
-          <rect x="401.95" y="89" width="154.10000000000002" height="16" rx="4" class="c-mask"/>
-          <text x="479" y="100" class="t-muted" font-size="8" text-anchor="middle">Route to Backlog or Knowledge</text>
+        <g data-detail="context" data-edge-from="deferred" data-edge-to="unprocessed" data-edge-label="Review date reached / Return to inbox" data-edge-key="2" data-edge-id="review-date">
+          <rect x="415.35" y="211" width="193.3" height="16" rx="4" class="c-mask"/>
+          <text x="512" y="222" class="t-muted" font-size="8" text-anchor="middle">Review date reached / Return to inbox</text>
         </g>
-        <g data-detail="context" data-edge-from="triaged" data-edge-to="deferred" data-edge-label="Defer for later review" data-edge-key="3" data-edge-id="defer">
-          <rect x="270.1" y="222" width="119.80000000000001" height="16" rx="4" class="c-mask"/>
-          <text x="330" y="233" class="t-muted" font-size="8" text-anchor="middle">Defer for later review</text>
+        <g data-detail="context" data-edge-from="unprocessed" data-edge-to="archived" data-edge-label="Dismiss / not actionable" data-edge-key="3" data-edge-id="dismiss">
+          <rect x="561.2" y="75" width="129.60000000000002" height="16" rx="4" class="c-mask"/>
+          <text x="626" y="86" class="t-muted" font-size="8" text-anchor="middle">Dismiss / not actionable</text>
         </g>
-        <g data-detail="context" data-edge-from="deferred" data-edge-to="unprocessed" data-edge-label="Review date reached" data-edge-key="4" data-edge-id="review-date">
-          <rect x="122.44999999999999" y="296" width="105.10000000000001" height="16" rx="4" class="c-mask"/>
-          <text x="175" y="307" class="t-muted" font-size="8" text-anchor="middle">Review date reached</text>
+        <g data-detail="context" data-edge-from="deferred" data-edge-to="deferred" data-edge-label="Change the review date" data-edge-key="4" data-edge-id="change-review-date">
+          <rect x="291.1" y="351" width="119.80000000000001" height="16" rx="4" class="c-mask"/>
+          <text x="351" y="362" class="t-muted" font-size="8" text-anchor="middle">Change the review date</text>
         </g>
-        <g data-detail="context" data-edge-from="triaged" data-edge-to="archived" data-edge-label="Dismiss / not actionable" data-edge-key="5" data-edge-id="dismiss">
-          <rect x="495.2" y="374" width="129.60000000000002" height="16" rx="4" class="c-mask"/>
-          <text x="560" y="385" class="t-muted" font-size="8" text-anchor="middle">Dismiss / not actionable</text>
+        <g data-detail="context" data-edge-from="deferred" data-edge-to="routed" data-edge-label="Route to Tasks / Create plan" data-edge-key="5" data-edge-id="route-deferred">
+          <rect x="635.4" y="223" width="149.20000000000002" height="16" rx="4" class="c-mask"/>
+          <text x="710" y="234" class="t-muted" font-size="8" text-anchor="middle">Route to Tasks / Create plan</text>
         </g>
         <g data-detail="context" data-edge-from="deferred" data-edge-to="archived" data-edge-label="Dismissed after deferral" data-edge-key="6" data-edge-id="dismiss-deferred">
-          <rect x="255.2" y="369" width="129.60000000000002" height="16" rx="4" class="c-mask"/>
-          <text x="320" y="380" class="t-muted" font-size="8" text-anchor="middle">Dismissed after deferral</text>
+          <rect x="491.2" y="361" width="129.60000000000002" height="16" rx="4" class="c-mask"/>
+          <text x="556" y="372" class="t-muted" font-size="8" text-anchor="middle">Dismissed after deferral</text>
         </g>
 
         <!-- Legend -->
@@ -5158,25 +5138,17 @@
             <rect x="40" y="616" width="14" height="9" rx="2" class="c-frontend" stroke-width="1"/>
             <text x="62" y="624" class="t-muted" font-size="10" font-weight="500">start</text>
           </g>
-          <g data-legend-semantic-kind="active" data-legend-kind="active" data-legend-label="active state" data-legend-x="130" data-legend-baseline="624" data-legend-width="103">
-            <rect x="130" y="616" width="14" height="9" rx="2" class="c-backend" stroke-width="1"/>
-            <text x="152" y="624" class="t-muted" font-size="10" font-weight="500">active state</text>
+          <g data-legend-semantic-kind="waiting" data-legend-kind="waiting" data-legend-label="waiting" data-legend-x="130" data-legend-baseline="624" data-legend-width="78">
+            <rect x="130" y="616" width="14" height="9" rx="2" class="c-cloud" stroke-width="1"/>
+            <text x="152" y="624" class="t-muted" font-size="10" font-weight="500">waiting</text>
           </g>
-          <g data-legend-semantic-kind="waiting" data-legend-kind="waiting" data-legend-label="waiting" data-legend-x="255" data-legend-baseline="624" data-legend-width="78">
-            <rect x="255" y="616" width="14" height="9" rx="2" class="c-cloud" stroke-width="1"/>
-            <text x="277" y="624" class="t-muted" font-size="10" font-weight="500">waiting</text>
+          <g data-legend-semantic-kind="success" data-legend-kind="success" data-legend-label="terminal success" data-legend-x="230" data-legend-baseline="624" data-legend-width="123">
+            <rect x="230" y="616" width="14" height="9" rx="2" class="c-database" stroke-width="1"/>
+            <text x="252" y="624" class="t-muted" font-size="10" font-weight="500">terminal success</text>
           </g>
-          <g data-legend-semantic-kind="decision" data-legend-kind="decision" data-legend-label="decision" data-legend-x="355" data-legend-baseline="624" data-legend-width="83">
-            <rect x="355" y="616" width="14" height="9" rx="2" class="c-security" stroke-width="1"/>
-            <text x="377" y="624" class="t-muted" font-size="10" font-weight="500">decision</text>
-          </g>
-          <g data-legend-semantic-kind="success" data-legend-kind="success" data-legend-label="terminal success" data-legend-x="460" data-legend-baseline="624" data-legend-width="123">
-            <rect x="460" y="616" width="14" height="9" rx="2" class="c-database" stroke-width="1"/>
-            <text x="482" y="624" class="t-muted" font-size="10" font-weight="500">terminal success</text>
-          </g>
-          <g data-legend-semantic-kind="neutral" data-legend-kind="neutral" data-legend-label="neutral" data-legend-x="605" data-legend-baseline="624" data-legend-width="78">
-            <rect x="605" y="616" width="14" height="9" rx="2" class="c-external" stroke-width="1"/>
-            <text x="627" y="624" class="t-muted" font-size="10" font-weight="500">neutral</text>
+          <g data-legend-semantic-kind="neutral" data-legend-kind="neutral" data-legend-label="neutral" data-legend-x="375" data-legend-baseline="624" data-legend-width="78">
+            <rect x="375" y="616" width="14" height="9" rx="2" class="c-external" stroke-width="1"/>
+            <text x="397" y="624" class="t-muted" font-size="10" font-weight="500">neutral</text>
           </g>
         </g>
       </svg>
