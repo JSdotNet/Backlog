@@ -146,36 +146,36 @@ internal static class FileFixtures
     /// <summary>The file from the request that prompted the file pane, kept long
     /// enough that the story actually scrolls.</summary>
     public const string LongBody = """
-        # Repository orchestration and context policy
+        # Repository delivery and context policy
 
-        General orchestration routing — which `orch-*` skill or specialist agent
-        handles which task category, and its fallbacks — is delivered globally by
-        the `copilot-app` plugin and is no longer restated in this repository.
+        General delivery routing — which `flow-*` skill handles which task
+        category — is delivered by the `delivery` plugin and is not restated in
+        this repository.
 
         This file covers only what is specific to Backlog: **the gate that forces
-        code changes through an orchestration skill**, and **which checked-in
-        knowledge folders a given workflow may read, and how much of them.**
+        code changes through a flow**, and **which checked-in devbook folders a
+        given workflow may read, and how much of them.**
 
         ## The gate
 
         Before the first `edit` or `create` to any file under `src/` or `tests/`,
-        you must invoke the matching `orch-*` skill through the orchestrator
-        agent. Exploration first is expected and does not consume the gate; the
-        trigger is the first write, not the first action.
+        you must invoke the matching `flow-*` skill. Exploration first is
+        expected and does not consume the gate; the trigger is the first write,
+        not the first action.
 
         Apply the gate literally:
 
         - **Size is not a criterion.** A one-control UI tweak and a multi-service
           feature route the same way.
         - **A missing specification is not an exemption.** Ad-hoc requests still
-          route through `orch-feature` or `orch-bug`.
-        - **Unmet preconditions are not an exemption.** Invoke the skill anyway
-          and say so.
-        - **No match means `orch-fallback`**, not direct implementation.
+          route through `flow-code`.
+        - **Unmet preconditions are not an exemption.** Invoke the flow anyway
+          and derive them inside it.
+        - **There is no fallback flow**, and no direct implementation.
 
         ## Context loading
 
-        > Treat the knowledge folders as task-scoped context, not baseline
+        > Treat the devbook folders as task-scoped context, not baseline
         > context.
 
         1. Architecture workflows may load `.devbook/arc42/`, one chapter at a time.

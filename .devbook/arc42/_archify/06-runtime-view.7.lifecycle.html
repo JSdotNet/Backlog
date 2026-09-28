@@ -5050,104 +5050,124 @@
 
         <!-- Lifecycle bands -->
         <path d="M 72 112 L 908 112" class="a-default" stroke-width="0.8" stroke-dasharray="3,8"/>
-        <text x="72" y="100" class="t-dim" font-size="10" font-weight="600">01 / Item states</text>
+        <text x="72" y="100" class="t-dim" font-size="10" font-weight="600">01 / Outbox flush</text>
         <path d="M 72 264 L 908 264" class="a-default" stroke-width="0.8" stroke-dasharray="3,8"/>
-        <text x="72" y="252" class="t-dim" font-size="10" font-weight="600">02 / Retry loop</text>
+        <text x="72" y="252" class="t-dim" font-size="10" font-weight="600">02 / Failed sends</text>
         <path d="M 72 436 L 908 436" class="a-default" stroke-width="0.8" stroke-dasharray="3,8"/>
-        <text x="72" y="424" class="t-dim" font-size="10" font-weight="600">03 / Outcomes</text>
+        <text x="72" y="424" class="t-dim" font-size="10" font-weight="600">03 / Held at the head of the queue</text>
 
         <!-- Primary lifecycle rail -->
-        <path d="M 154 157 L 594 157" class="a-emphasis" stroke-width="2.2" marker-end="url(#arrowhead-emphasis)"/>
+        <path d="M 154 157 L 748 157" class="a-emphasis" stroke-width="2.2" marker-end="url(#arrowhead-emphasis)"/>
 
         <!-- Transition paths -->
-        <path data-edge-from="captured" data-edge-to="pendingsync" data-edge-label="Network available" data-edge-key="0" data-edge-id="network-available" data-composition-points="153,157;189,157" d="M 153 157 L 189 157" class="a-default" data-animate="edge" style="--step:0" stroke-width="1.1" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="pendingsync" data-edge-to="syncing" data-edge-label="Sync engine picks up item" data-edge-key="1" data-edge-id="picked-up" data-composition-points="307,157;343,157" d="M 307 157 L 343 157" class="a-default" data-animate="edge" style="--step:1" stroke-width="1.1" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="syncing" data-edge-to="synced" data-edge-label="POST /sync/items succeeds" data-edge-key="2" data-edge-id="sync-succeeds" data-composition-points="461,157;497,157" d="M 461 157 L 497 157" class="a-emphasis" data-animate="edge" style="--step:2" stroke-width="2" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="syncing" data-edge-to="syncfailed" data-edge-label="Network error or timeout" data-edge-key="3" data-edge-id="sync-fails" data-composition-points="402,188;402,278" d="M 402 188 L 402 278" class="a-security" data-animate="edge" style="--step:3" stroke-width="1.1" marker-end="url(#arrowhead-security)"/>
-        <path data-edge-from="syncfailed" data-edge-to="pendingsync" data-edge-label="Retry scheduled" data-edge-key="4" data-edge-id="retry-scheduled" data-composition-points="327,307;317,307;317,157;307,157" d="M 327 307 L 322 307 Q 317 307 317 302 L 317 162 Q 317 157 312 157 L 307 157" class="a-emphasis" data-animate="edge" style="--step:4" stroke-width="2" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="pendingsync" data-edge-to="captured" data-edge-label="Network lost before sync starts" data-edge-key="5" data-edge-id="network-lost" data-composition-points="248,188;248,222;94,222;94,188" d="M 248 188 L 248 212 Q 248 222 238 222 L 104 222 Q 94 222 94 212 L 94 188" class="a-default" data-animate="edge" style="--step:5" stroke-width="1.1" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="queued" data-edge-to="sending" data-edge-label="Flush reaches it (oldest first)" data-edge-key="0" data-edge-id="flush" data-composition-points="156,157;343,157" d="M 156 157 L 343 157" class="a-default" data-animate="edge" style="--step:0" stroke-width="1.1" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="sending" data-edge-to="delivered" data-edge-label="201, or 200 for a known id" data-edge-key="1" data-edge-id="delivered-ok" data-composition-points="461,157;651,157" d="M 461 157 L 651 157" class="a-emphasis" data-animate="edge" style="--step:1" stroke-width="2" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="sending" data-edge-to="backoff" data-edge-label="No network, timeout, 5xx or 401" data-edge-key="2" data-edge-id="send-failed" data-composition-points="409,188;409,278" d="M 409 188 L 409 278" class="a-security" data-animate="edge" style="--step:2" stroke-width="1.1" marker-end="url(#arrowhead-security)"/>
+        <path data-edge-from="backoff" data-edge-to="sending" data-edge-label="2s, 4s, 8s, 16s, or resume / network back" data-edge-key="3" data-edge-id="backoff-retry" data-composition-points="395,278;395,188" d="M 395 278 L 395 188" class="a-emphasis" data-animate="edge" style="--step:3" stroke-width="2" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="backoff" data-edge-to="parked" data-edge-label="Fifth failed attempt" data-edge-key="4" data-edge-id="fifth-failure" data-composition-points="402,336;402,450" d="M 402 336 L 402 450" class="a-security" data-animate="edge" style="--step:4" stroke-width="1.1" marker-end="url(#arrowhead-security)"/>
+        <path data-edge-from="parked" data-edge-to="queued" data-edge-label="Tap, resume or network back (attempts reset)" data-edge-key="5" data-edge-id="parked-requeue" data-composition-points="272,479;94,479;94,188" d="M 272 479 L 104 479 Q 94 479 94 469 L 94 188" class="a-default" data-animate="edge" style="--step:5" stroke-width="1.1" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="sending" data-edge-to="refused" data-edge-label="Any other 4xx" data-edge-key="6" data-edge-id="other-4xx" data-composition-points="402,126;402,96;830,96;830,307;795,307" d="M 402 126 L 402 106 Q 402 96 412 96 L 820 96 Q 830 96 830 106 L 830 297 Q 830 307 820 307 L 795 307" class="a-security" data-animate="edge" style="--step:6" stroke-width="1.1" marker-end="url(#arrowhead-security)"/>
+        <path data-edge-from="refused" data-edge-to="queued" data-edge-label="Tap to retry" data-edge-key="7" data-edge-id="refused-retry" data-composition-points="710,336;710,540;20,540;20,157;32,157" d="M 710 336 L 710 530 Q 710 540 700 540 L 30 540 Q 20 540 20 530 L 20 163 Q 20 157 26 157 L 32 157" class="a-default" data-animate="edge" style="--step:7" stroke-width="1.1" marker-end="url(#arrowhead)"/>
 
         <!-- States -->
-        <g id="node-captured" data-node-id="captured" data-node-label="Captured" tabindex="0" role="button" aria-label="Focus Captured, user captures item, Item states" aria-pressed="false" data-node-kind="start" data-node-sublabel="user captures item" data-node-context="Item states">
-          <title>Captured · user captures item · Item states</title>
-          <rect x="35" y="126" width="118" height="62" rx="7" class="c-mask"/>
-          <rect x="35" y="126" width="118" height="62" rx="7" class="c-frontend" data-animate="node" style="--step:0" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="start" class="semantic-sigil s-frontend" transform="translate(136 132) scale(0.6875)">
+        <g id="node-queued" data-node-id="queued" data-node-label="Queued" tabindex="0" role="button" aria-label="Focus Queued, capture written to the outbox, Outbox flush" aria-pressed="false" data-node-kind="start" data-node-sublabel="capture written to the outbox" data-node-context="Outbox flush">
+          <title>Queued · capture written to the outbox · Outbox flush</title>
+          <rect x="32" y="126" width="124" height="62" rx="7" class="c-mask"/>
+          <rect x="32" y="126" width="124" height="62" rx="7" class="c-frontend" data-animate="node" style="--step:0" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="start" class="semantic-sigil s-frontend" transform="translate(139 132) scale(0.6875)">
             <circle cx="8" cy="8" r="5"/>
             <path d="m7 5.4 3.6 2.6L7 10.6Z" class="sigil-fill"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="94" y="147" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">Captured</text>
-          <text data-detail="context" x="94" y="163" class="t-muted" font-size="7" text-anchor="middle">user captures item</text>
+          <text data-node-label="" data-detail-anchor="" x="94" y="147" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">Queued</text>
+          <text data-detail="context" x="94" y="163" class="t-muted" font-size="6.6" text-anchor="middle">capture written to the outbox</text>
         </g>
 
-        <g id="node-pendingsync" data-node-id="pendingsync" data-node-label="PendingSync" tabindex="0" role="button" aria-label="Focus PendingSync, Item states" aria-pressed="false" data-node-kind="waiting" data-node-context="Item states">
-          <title>PendingSync · Item states</title>
-          <rect x="189" y="126" width="118" height="62" rx="7" class="c-mask"/>
-          <rect x="189" y="126" width="118" height="62" rx="7" class="c-cloud" data-animate="node" style="--step:1" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="waiting" class="semantic-sigil s-cloud" transform="translate(290 132) scale(0.6875)">
-            <path d="M4 2.5h8M4 13.5h8M5 3c0 2.8 2 3.2 3 5-1 1.8-3 2.2-3 5M11 3c0 2.8-2 3.2-3 5 1 1.8 3 2.2 3 5"/>
-          </g>
-          <text data-node-label="" x="248" y="147" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">PendingSync</text>
-        </g>
-
-        <g id="node-syncing" data-node-id="syncing" data-node-label="Syncing" tabindex="0" role="button" aria-label="Focus Syncing, Item states" aria-pressed="false" data-node-kind="active" data-node-context="Item states">
-          <title>Syncing · Item states</title>
+        <g id="node-sending" data-node-id="sending" data-node-label="Sending" tabindex="0" role="button" aria-label="Focus Sending, Outbox flush" aria-pressed="false" data-node-kind="active" data-node-context="Outbox flush">
+          <title>Sending · Outbox flush</title>
           <rect x="343" y="126" width="118" height="62" rx="7" class="c-mask"/>
-          <rect x="343" y="126" width="118" height="62" rx="7" class="c-backend" data-animate="node" style="--step:2" stroke-width="1.5"/>
+          <rect x="343" y="126" width="118" height="62" rx="7" class="c-backend" data-animate="node" style="--step:1" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="active" class="semantic-sigil s-backend" transform="translate(444 132) scale(0.6875)">
             <path d="M2 8h3l1.5-3.5L9 12l1.6-4H14"/>
           </g>
-          <text data-node-label="" x="402" y="147" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">Syncing</text>
+          <text data-node-label="" x="402" y="147" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">Sending</text>
         </g>
 
-        <g id="node-synced" data-node-id="synced" data-node-label="Synced" tabindex="0" role="button" aria-label="Focus Synced, confirmed on Cloud Service, Item states" aria-pressed="false" data-node-kind="success" data-node-sublabel="confirmed on Cloud Service" data-node-context="Item states">
-          <title>Synced · confirmed on Cloud Service · Item states</title>
-          <rect x="497" y="126" width="118" height="62" rx="7" class="c-mask"/>
-          <rect x="497" y="126" width="118" height="62" rx="7" class="c-database" data-animate="node" style="--step:3" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="success" class="semantic-sigil s-database" transform="translate(598 132) scale(0.6875)">
+        <g id="node-delivered" data-node-id="delivered" data-node-label="Delivered" tabindex="0" role="button" aria-label="Focus Delivered, Outbox flush" aria-pressed="false" data-node-kind="success" data-node-context="Outbox flush">
+          <title>Delivered · Outbox flush</title>
+          <rect x="651" y="126" width="118" height="62" rx="7" class="c-mask"/>
+          <rect x="651" y="126" width="118" height="62" rx="7" class="c-database" data-animate="node" style="--step:2" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="success" class="semantic-sigil s-database" transform="translate(752 132) scale(0.6875)">
             <circle cx="8" cy="8" r="5.3"/>
             <path d="m5.2 8 1.8 1.8 3.8-4"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="556" y="147" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">Synced</text>
-          <text data-detail="context" x="556" y="163" class="t-muted" font-size="7" text-anchor="middle">confirmed on Cloud Service</text>
+          <text data-node-label="" x="710" y="147" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">Delivered</text>
         </g>
 
-        <g id="node-syncfailed" data-node-id="syncfailed" data-node-label="SyncFailed" tabindex="0" role="button" aria-label="Focus SyncFailed, exponential backoff, max 5 retries, Retry loop" aria-pressed="false" data-node-kind="failure" data-node-sublabel="exponential backoff, max 5 retries" data-node-context="Retry loop">
-          <title>SyncFailed · exponential backoff, max 5 retries · Retry loop</title>
-          <rect x="327" y="278" width="150" height="58" rx="7" class="c-mask"/>
-          <rect x="327" y="278" width="150" height="58" rx="7" class="c-security" data-animate="node" style="--step:4" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="failure" class="semantic-sigil s-security" transform="translate(460 284) scale(0.6875)">
+        <g id="node-backoff" data-node-id="backoff" data-node-label="Backoff" tabindex="0" role="button" aria-label="Focus Backoff, Failed sends" aria-pressed="false" data-node-kind="waiting" data-node-context="Failed sends">
+          <title>Backoff · Failed sends</title>
+          <rect x="343" y="278" width="118" height="58" rx="7" class="c-mask"/>
+          <rect x="343" y="278" width="118" height="58" rx="7" class="c-cloud" data-animate="node" style="--step:3" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="waiting" class="semantic-sigil s-cloud" transform="translate(444 284) scale(0.6875)">
+            <path d="M4 2.5h8M4 13.5h8M5 3c0 2.8 2 3.2 3 5-1 1.8-3 2.2-3 5M11 3c0 2.8-2 3.2-3 5 1 1.8 3 2.2 3 5"/>
+          </g>
+          <text data-node-label="" x="402" y="299" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">Backoff</text>
+        </g>
+
+        <g id="node-refused" data-node-id="refused" data-node-label="Refused" tabindex="0" role="button" aria-label="Focus Refused, set aside; the queue moves past it, Failed sends" aria-pressed="false" data-node-kind="failure" data-node-sublabel="set aside; the queue moves past it" data-node-context="Failed sends">
+          <title>Refused · set aside; the queue moves past it · Failed sends</title>
+          <rect x="625" y="278" width="170" height="58" rx="7" class="c-mask"/>
+          <rect x="625" y="278" width="170" height="58" rx="7" class="c-security" data-animate="node" style="--step:7" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="failure" class="semantic-sigil s-security" transform="translate(778 284) scale(0.6875)">
             <circle cx="8" cy="8" r="5.3"/>
             <path d="m5.7 5.7 4.6 4.6m0-4.6-4.6 4.6"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="402" y="299" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">SyncFailed</text>
-          <text data-detail="context" x="402" y="315" class="t-muted" font-size="6.9" text-anchor="middle">exponential backoff, max 5 retries</text>
+          <text data-node-label="" data-detail-anchor="" x="710" y="299" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">Refused</text>
+          <text data-detail="context" x="710" y="315" class="t-muted" font-size="7" text-anchor="middle">set aside; the queue moves past it</text>
+        </g>
+
+        <g id="node-parked" data-node-id="parked" data-node-label="Parked" tabindex="0" role="button" aria-label="Focus Parked, &quot;Waiting — tap to retry&quot;; still first in line, holds the rest, Held at the head of the queue" aria-pressed="false" data-node-kind="waiting" data-node-sublabel="&quot;Waiting — tap to retry&quot;; still first in line, holds the rest" data-node-context="Held at the head of the queue">
+          <title>Parked · &quot;Waiting — tap to retry&quot;; still first in line, holds the rest · Held at the head of the queue</title>
+          <rect x="272" y="450" width="260" height="58" rx="7" class="c-mask"/>
+          <rect x="272" y="450" width="260" height="58" rx="7" class="c-cloud" data-animate="node" style="--step:5" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="waiting" class="semantic-sigil s-cloud" transform="translate(515 456) scale(0.6875)">
+            <path d="M4 2.5h8M4 13.5h8M5 3c0 2.8 2 3.2 3 5-1 1.8-3 2.2-3 5M11 3c0 2.8-2 3.2-3 5 1 1.8 3 2.2 3 5"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="402" y="471" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">Parked</text>
+          <text data-detail="context" x="402" y="487" class="t-muted" font-size="6.8" text-anchor="middle">&quot;Waiting — tap to retry&quot;; still first in line, holds the rest</text>
         </g>
 
         <!-- Transition labels -->
-        <g data-detail="context" data-edge-from="captured" data-edge-to="pendingsync" data-edge-label="Network available" data-edge-key="0" data-edge-id="network-available">
-          <rect x="123.35" y="107" width="95.30000000000001" height="16" rx="4" class="c-mask"/>
-          <text x="171" y="118" class="t-muted" font-size="8" text-anchor="middle">Network available</text>
+        <g data-detail="context" data-edge-from="queued" data-edge-to="sending" data-edge-label="Flush reaches it (oldest first)" data-edge-key="0" data-edge-id="flush">
+          <rect x="167.55" y="136" width="163.9" height="16" rx="4" class="c-mask"/>
+          <text x="249.5" y="147" class="t-muted" font-size="8" text-anchor="middle">Flush reaches it (oldest first)</text>
         </g>
-        <g data-detail="context" data-edge-from="pendingsync" data-edge-to="syncing" data-edge-label="Sync engine picks up item" data-edge-key="1" data-edge-id="picked-up">
-          <rect x="257.75" y="107" width="134.5" height="16" rx="4" class="c-mask"/>
-          <text x="325" y="118" class="t-muted" font-size="8" text-anchor="middle">Sync engine picks up item</text>
+        <g data-detail="context" data-edge-from="sending" data-edge-to="delivered" data-edge-label="201, or 200 for a known id" data-edge-key="1" data-edge-id="delivered-ok">
+          <rect x="486.3" y="136" width="139.4" height="16" rx="4" class="c-mask"/>
+          <text x="556" y="147" class="t-backend" font-size="8" text-anchor="middle">201, or 200 for a known id</text>
         </g>
-        <g data-detail="context" data-edge-from="syncing" data-edge-to="synced" data-edge-label="POST /sync/items succeeds" data-edge-key="2" data-edge-id="sync-succeeds">
-          <rect x="411.75" y="107" width="134.5" height="16" rx="4" class="c-mask"/>
-          <text x="479" y="118" class="t-backend" font-size="8" text-anchor="middle">POST /sync/items succeeds</text>
+        <g data-detail="context" data-edge-from="sending" data-edge-to="backoff" data-edge-label="No network, timeout, 5xx or 401" data-edge-key="2" data-edge-id="send-failed">
+          <rect x="415.05" y="227" width="163.9" height="16" rx="4" class="c-mask"/>
+          <text x="497" y="238" class="t-security" font-size="8" text-anchor="middle">No network, timeout, 5xx or 401</text>
         </g>
-        <g data-detail="context" data-edge-from="syncing" data-edge-to="syncfailed" data-edge-label="Network error or timeout" data-edge-key="3" data-edge-id="sync-fails">
-          <rect x="337.2" y="191" width="129.60000000000002" height="16" rx="4" class="c-mask"/>
-          <text x="402" y="202" class="t-security" font-size="8" text-anchor="middle">Network error or timeout</text>
+        <g data-detail="context" data-edge-from="backoff" data-edge-to="sending" data-edge-label="2s, 4s, 8s, 16s, or resume / network back" data-edge-key="3" data-edge-id="backoff-retry">
+          <rect x="176.55" y="211" width="212.9" height="16" rx="4" class="c-mask"/>
+          <text x="283" y="222" class="t-backend" font-size="8" text-anchor="middle">2s, 4s, 8s, 16s, or resume / network back</text>
         </g>
-        <g data-detail="context" data-edge-from="syncfailed" data-edge-to="pendingsync" data-edge-label="Retry scheduled" data-edge-key="4" data-edge-id="retry-scheduled">
-          <rect x="274.25" y="211" width="85.5" height="16" rx="4" class="c-mask"/>
-          <text x="317" y="222" class="t-backend" font-size="8" text-anchor="middle">Retry scheduled</text>
+        <g data-detail="context" data-edge-from="backoff" data-edge-to="parked" data-edge-label="Fifth failed attempt" data-edge-key="4" data-edge-id="fifth-failure">
+          <rect x="408" y="387" width="110" height="16" rx="4" class="c-mask"/>
+          <text x="463" y="398" class="t-security" font-size="8" text-anchor="middle">Fifth failed attempt</text>
         </g>
-        <g data-detail="context" data-edge-from="pendingsync" data-edge-to="captured" data-edge-label="Network lost before sync starts" data-edge-key="5" data-edge-id="network-lost">
-          <rect x="89.05" y="201" width="163.9" height="16" rx="4" class="c-mask"/>
-          <text x="171" y="212" class="t-muted" font-size="8" text-anchor="middle">Network lost before sync starts</text>
+        <g data-detail="context" data-edge-from="parked" data-edge-to="queued" data-edge-label="Tap, resume or network back (attempts reset)" data-edge-key="5" data-edge-id="parked-requeue">
+          <rect x="39.19999999999999" y="458" width="227.60000000000002" height="16" rx="4" class="c-mask"/>
+          <text x="153" y="469" class="t-muted" font-size="8" text-anchor="middle">Tap, resume or network back (attempts reset)</text>
+        </g>
+        <g data-detail="context" data-edge-from="sending" data-edge-to="refused" data-edge-label="Any other 4xx" data-edge-key="6" data-edge-id="other-4xx">
+          <rect x="578.15" y="75" width="75.7" height="16" rx="4" class="c-mask"/>
+          <text x="616" y="86" class="t-security" font-size="8" text-anchor="middle">Any other 4xx</text>
+        </g>
+        <g data-detail="context" data-edge-from="refused" data-edge-to="queued" data-edge-label="Tap to retry" data-edge-key="7" data-edge-id="refused-retry">
+          <rect x="329.6" y="519" width="70.80000000000001" height="16" rx="4" class="c-mask"/>
+          <text x="365" y="530" class="t-muted" font-size="8" text-anchor="middle">Tap to retry</text>
         </g>
 
         <!-- Legend -->

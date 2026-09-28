@@ -5068,7 +5068,7 @@
 
 
         <!-- Edge paths -->
-        <path data-edge-from="occurrence-n" data-edge-to="save-use-case" data-edge-label="completed by a save" data-edge-key="0" data-edge-id="completed-by-save" data-composition-points="88,145;88,166;88,166;88,217" d="M 88 145 L 88 166 L 88 166 L 88 217" class="a-default" data-animate="edge" style="--step:0" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="occurrence-n" data-edge-to="save-use-case" data-edge-label="ticked off by a save (completed_on set)" data-edge-key="0" data-edge-id="completed-by-save" data-composition-points="88,145;88,166;88,166;88,217" d="M 88 145 L 88 166 L 88 166 L 88 217" class="a-default" data-animate="edge" style="--step:0" stroke-width="1.4" marker-end="url(#arrowhead)"/>
         <path data-edge-from="save-use-case" data-edge-to="recurrence-check" data-edge-key="1" data-edge-id="check" data-composition-points="134,243;225,243" d="M 134 243 L 225 243" class="a-default" data-animate="edge" style="--step:1" stroke-width="1.4" marker-end="url(#arrowhead)"/>
         <path data-edge-from="recurrence-check" data-edge-to="end-of-line" data-edge-label="no" data-edge-key="2" data-edge-id="no-recurrence" data-composition-points="300,217;300,166;300,166;300,145" d="M 300 217 L 300 166 L 300 166 L 300 145" class="a-default" data-animate="edge" style="--step:7" stroke-width="1.4" marker-end="url(#arrowhead)"/>
         <path data-edge-from="recurrence-check" data-edge-to="spawning-policy" data-edge-label="yes" data-edge-key="3" data-edge-id="yes-recurrence" data-composition-points="375,243;435,243" d="M 375 243 L 435 243" class="a-emphasis" data-animate="edge" style="--step:2" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
@@ -5110,15 +5110,15 @@
           <text data-node-label="" x="300" y="238" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Carries a Recurrence?</text>
         </g>
 
-        <g id="node-end-of-line" data-node-id="end-of-line" data-node-label="Stays Done" tabindex="0" role="button" aria-label="Focus Stays Done, end of the line, Completed occurrence" aria-pressed="false" data-node-kind="database" data-node-sublabel="end of the line" data-node-context="Completed occurrence">
-          <title>Stays Done · end of the line · Completed occurrence</title>
+        <g id="node-end-of-line" data-node-id="end-of-line" data-node-label="Stays ticked" tabindex="0" role="button" aria-label="Focus Stays ticked, end of the line, Completed occurrence" aria-pressed="false" data-node-kind="database" data-node-sublabel="end of the line" data-node-context="Completed occurrence">
+          <title>Stays ticked · end of the line · Completed occurrence</title>
           <rect x="245" y="93" width="110" height="52" rx="6" class="c-mask"/>
           <rect x="245" y="93" width="110" height="52" rx="6" class="c-database" data-animate="node" style="--step:8" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(251 99) scale(0.6875)">
             <ellipse cx="8" cy="4" rx="5" ry="2"/>
             <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="300" y="114" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Stays Done</text>
+          <text data-node-label="" data-detail-anchor="" x="300" y="114" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Stays ticked</text>
           <text data-detail="context" x="300" y="131" class="t-muted" font-size="8" text-anchor="middle">end of the line</text>
         </g>
 
@@ -5133,15 +5133,15 @@
           <text data-detail="context" x="500" y="255" class="t-muted" font-size="8" text-anchor="middle">policy</text>
         </g>
 
-        <g id="node-stays-done" data-node-id="stays-done" data-node-label="Occurrence N stays Done" tabindex="0" role="button" aria-label="Focus Occurrence N stays Done, the record of what was done, Completed occurrence" aria-pressed="false" data-node-kind="database" data-node-sublabel="the record of what was done" data-node-context="Completed occurrence">
-          <title>Occurrence N stays Done · the record of what was done · Completed occurrence</title>
+        <g id="node-stays-done" data-node-id="stays-done" data-node-label="Occurrence N stays ticked" tabindex="0" role="button" aria-label="Focus Occurrence N stays ticked, the record of what was done, Completed occurrence" aria-pressed="false" data-node-kind="database" data-node-sublabel="the record of what was done" data-node-context="Completed occurrence">
+          <title>Occurrence N stays ticked · the record of what was done · Completed occurrence</title>
           <rect x="416" y="93" width="168" height="52" rx="6" class="c-mask"/>
           <rect x="416" y="93" width="168" height="52" rx="6" class="c-database" data-animate="node" style="--step:10" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(422 99) scale(0.6875)">
             <ellipse cx="8" cy="4" rx="5" ry="2"/>
             <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="500" y="114" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Occurrence N stays Done</text>
+          <text data-node-label="" data-detail-anchor="" x="500" y="114" class="t-primary" font-size="10.6" font-weight="600" text-anchor="middle">Occurrence N stays ticked</text>
           <text data-detail="context" x="500" y="131" class="t-muted" font-size="8" text-anchor="middle">the record of what was done</text>
         </g>
 
@@ -5171,9 +5171,9 @@
         </g>
 
         <!-- Edge labels -->
-        <g data-detail="context" data-edge-from="occurrence-n" data-edge-to="save-use-case" data-edge-label="completed by a save" data-edge-key="0" data-edge-id="completed-by-save">
-          <rect x="37.4" y="146" width="101.2" height="14" rx="3" class="c-mask"/>
-          <text x="88" y="156" class="t-muted" font-size="8" text-anchor="middle">completed by a save</text>
+        <g data-detail="context" data-edge-from="occurrence-n" data-edge-to="save-use-case" data-edge-label="ticked off by a save (completed_on set)" data-edge-key="0" data-edge-id="completed-by-save">
+          <rect x="-10.599999999999994" y="146" width="197.2" height="14" rx="3" class="c-mask"/>
+          <text x="88" y="156" class="t-muted" font-size="8" text-anchor="middle">ticked off by a save (completed_on set)</text>
         </g>
 
         <g data-detail="context" data-edge-from="recurrence-check" data-edge-to="end-of-line" data-edge-label="no" data-edge-key="2" data-edge-id="no-recurrence">
@@ -5403,7 +5403,7 @@
           <h3>Completion does not roll forward</h3>
         </div>
         <ul>
-          <li>&bull; The finished occurrence stays Done as the record of what was done</li>
+          <li>&bull; The finished occurrence stays ticked as the record of what was done</li>
           <li>&bull; The next occurrence is a separate aggregate with its own lifecycle</li>
           <li>&bull; recurrence_source_id is provenance, not ownership</li>
         </ul>

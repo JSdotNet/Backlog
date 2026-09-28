@@ -157,13 +157,12 @@ node tools/diagrams/archify-artifacts.mjs verify
 This is `deliver` with the arguments `archify-artifacts.mjs render` passes, run
 directly, and it is direct on purpose: an upgrade changes what an artifact looks like,
 never which diagram it belongs to, so no `index.json` may change. `render` is the wrong
-tool for that job both ways it can be called. `render --all` judges staleness from the
-mermaid fence hash, which an upgrade does not change, so it reports `Nothing to
-render.` and exits 0. `render <spec>` re-keys the index to whatever fence now sits at
-the spec's ordinal. On a chapter whose fences have moved or changed since its artifacts
-were authored — `06-runtime-view.md` had several at `v2.16.0` — that reassigns an
-artifact to mermaid it was never authored from, and `verify` reports the lie as
-rendered. `verify` should list exactly what it listed before the upgrade.
+tool for that job. `render --all` judges staleness from the mermaid fence hash, which an
+upgrade does not change, so it reports `Nothing to render.` and exits 0. `render <spec>`
+writes the index entry for the fence now at the spec's ordinal. It refuses the cases
+where the spec provably was not authored from that fence (see **Re-rendering** in
+`tools/diagrams/README.md`), but it is still a record of authoring, and an upgrade
+authors nothing. `verify` should list exactly what it listed before the upgrade.
 
 The template changes carry forward as a patch: diff the vendored `template.html`
 against upstream's at the old pin, and apply that diff to the new revision's. From

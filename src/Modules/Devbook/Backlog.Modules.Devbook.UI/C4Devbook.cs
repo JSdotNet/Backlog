@@ -45,9 +45,9 @@ public sealed class C4DevbookStore : IDisposable
     /// </para>
     /// <para>
     /// A file at all because the two better homes are both closed. A chapter's own
-    /// <c>related:</c> list is refused by the knowledge-meta generator, which resolves
+    /// <c>related:</c> list is refused by the devbook-meta checker, which resolves
     /// references against <c>.md</c> nodes only and treats anything under
-    /// <c>.arc42/</c> as an error rather than a warning — and that generator is an
+    /// <c>.devbook/arc42/</c> as an error rather than a warning — and that checker is an
     /// installed copy of plugin tooling this repository must not edit. A
     /// <c>properties</c> block in the workspace or on a view keeps the link with the
     /// model and is deleted by c4hero, whose parser skips both and never writes them

@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "Sync Item Lifecycle",
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "viewBox": [980, 660]
+  },
+  "lanes": [
+    { "id": "main", "label": "Outbox flush" },
+    { "id": "failed", "label": "Failed sends" },
+    { "id": "terminal", "label": "Held at the head of the queue" }
+  ],
+  "states": [
+    { "id": "queued", "type": "start", "label": "Queued", "sublabel": "capture written to the outbox", "lane": "main", "col": 0, "width": 124 },
+    { "id": "sending", "type": "active", "label": "Sending", "lane": "main", "col": 2 },
+    { "id": "delivered", "type": "success", "label": "Delivered", "lane": "main", "col": 4 },
+    { "id": "backoff", "type": "waiting", "label": "Backoff", "lane": "failed", "col": 0, "width": 118 },
+    { "id": "refused", "type": "failure", "label": "Refused", "sublabel": "set aside; the queue moves past it", "lane": "failed", "col": 2, "width": 170 },
+    { "id": "parked", "type": "waiting", "label": "Parked", "sublabel": "\"Waiting — tap to retry\"; still first in line, holds the rest", "lane": "terminal", "col": 0, "width": 260 }
+  ],
+  "transitions": [
+    { "id": "flush", "from": "queued", "to": "sending", "label": "Flush reaches it (oldest first)" },
+    { "id": "delivered-ok", "from": "sending", "to": "delivered", "label": "201, or 200 for a known id", "variant": "emphasis" },
+    { "id": "send-failed", "from": "sending", "to": "backoff", "label": "No network, timeout, 5xx or 401", "variant": "security", "fromSide": "bottom", "toSide": "top", "labelDx": 88, "labelDy": 60 },
+    { "id": "backoff-retry", "from": "backoff", "to": "sending", "label": "2s, 4s, 8s, 16s, or resume / network back", "variant": "emphasis", "fromSide": "top", "toSide": "bottom", "labelDx": -112, "labelDy": -46 },
+    { "id": "fifth-failure", "from": "backoff", "to": "parked", "label": "Fifth failed attempt", "variant": "security", "fromSide": "bottom", "toSide": "top", "route": "straight", "labelDx": 61, "labelDy": 72 },
+    { "id": "parked-requeue", "from": "parked", "to": "queued", "label": "Tap, resume or network back (attempts reset)", "fromSide": "left", "toSide": "bottom", "via": [[94, 479]], "labelSegment": 0, "labelDx": -30 },
+    { "id": "other-4xx", "from": "sending", "to": "refused", "label": "Any other 4xx", "variant": "security", "fromSide": "top", "toSide": "right", "via": [[402, 96], [830, 96], [830, 307]] },
+    { "id": "refused-retry", "from": "refused", "to": "queued", "label": "Tap to retry", "fromSide": "bottom", "toSide": "left", "via": [[710, 540], [20, 540], [20, 157]] }
+  ]
+}

@@ -257,6 +257,7 @@ sequenceDiagram
     Outbox->>Outbox: DELETE entry
     Outbox->>Files: Delete the note's files
     App-->>ME: "synced"
+```
 
 ## Mobile My Day and Task Push
 

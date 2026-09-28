@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Capture Attachments",
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "column_fit": "spread",
+    "viewBox": [1080, 1180]
+  },
+  "participants": [
+    { "id": "phone", "type": "frontend", "label": "Phone App" },
+    { "id": "sync", "type": "backend", "label": "Sync Service" },
+    { "id": "blob", "type": "database", "label": "Attachment Store" },
+    { "id": "cosmos", "type": "database", "label": "Task Replica" },
+    { "id": "desktop", "type": "frontend", "label": "Desktop App" }
+  ],
+  "segments": [
+    { "from": 150, "to": 248, "label": "Upload; Sync Service checks allowlist, cap, digest shape" },
+    { "from": 264, "to": 362, "label": "Alt: Digest matches" },
+    { "from": 378, "to": 432, "label": "Else: Mismatch, over the cap" },
+    { "from": 448, "to": 546, "label": "Capture carries the metadata" },
+    { "from": 562, "to": 660, "label": "Alt: All stored as claimed" },
+    { "from": 676, "to": 730, "label": "Else: Any missing or mismatched" },
+    { "from": 746, "to": 888, "label": "Desktop downloads" },
+    { "from": 904, "to": 1090, "label": "Tombstone deletes the files" }
+  ],
+  "messages": [
+    { "id": "put-attachment", "from": "phone", "to": "sync", "y": 182, "label": "PUT /api/sync/attachments/{id} (Content-Type, X-Attachment-Sha256)", "variant": "emphasis" },
+    { "id": "stage-blocks", "from": "sync", "to": "blob", "y": 226, "label": "Stage blocks {ownerId}/{id} while hashing", "variant": "default" },
+    { "id": "commit-blocks", "from": "sync", "to": "blob", "y": 296, "label": "Commit block list (content type, sha256)", "variant": "emphasis" },
+    { "id": "stored-attachment", "from": "sync", "to": "phone", "y": 340, "label": "201 StoredAttachment", "variant": "return" },
+    { "id": "upload-refused", "from": "sync", "to": "phone", "y": 410, "label": "400 / 413 — nothing committed", "variant": "return" },
+    { "id": "post-inbox", "from": "phone", "to": "sync", "y": 480, "label": "POST /api/sync/inbox (attachments: metadata)", "variant": "emphasis" },
+    { "id": "find-blobs", "from": "sync", "to": "blob", "y": 524, "label": "Find each {ownerId}/{id}: size + sha256", "variant": "default" },
+    { "id": "upsert-capture", "from": "sync", "to": "cosmos", "y": 594, "label": "Upsert capture document (metadata only)", "variant": "emphasis" },
+    { "id": "inbox-item", "from": "sync", "to": "phone", "y": 638, "label": "201 InboxItem", "variant": "return" },
+    { "id": "capture-refused", "from": "sync", "to": "phone", "y": 708, "label": "400 inbox.capture_attachment_missing (ids)", "variant": "return" },
+    { "id": "get-attachment", "from": "desktop", "to": "sync", "y": 778, "label": "GET /api/sync/attachments/{id}", "variant": "emphasis" },
+    { "id": "download-blob", "from": "sync", "to": "blob", "y": 822, "label": "Download {ownerId}/{id}", "variant": "default" },
+    { "id": "attachment-bytes", "from": "sync", "to": "desktop", "y": 866, "label": "Bytes (attachment, nosniff)", "variant": "return" },
+    { "id": "post-tombstone", "from": "desktop", "to": "sync", "y": 936, "label": "POST /api/sync/tasks (capture tombstone)", "variant": "emphasis" },
+    { "id": "upsert-tombstone", "from": "sync", "to": "cosmos", "y": 980, "label": "Find held capture, then upsert tombstone", "variant": "default" },
+    { "id": "delete-files", "from": "sync", "to": "blob", "y": 1024, "label": "Delete the held capture's files (best effort)", "variant": "default" },
+    { "id": "tombstone-ok", "from": "sync", "to": "desktop", "y": 1068, "label": "200", "variant": "return" }
+  ],
+  "activations": [
+    { "participant": "sync", "from": 176, "to": 416, "type": "backend" },
+    { "participant": "sync", "from": 474, "to": 714, "type": "backend" },
+    { "participant": "sync", "from": 772, "to": 872, "type": "backend" },
+    { "participant": "sync", "from": 930, "to": 1074, "type": "backend" }
+  ]
+}

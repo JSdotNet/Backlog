@@ -12,8 +12,8 @@
 // silently shows nothing.
 //
 //   node tools/diagrams/archify-artifacts.mjs scan [--json] [--missing]
-//   node tools/diagrams/archify-artifacts.mjs render <spec.json> [more.json ...]
-//   node tools/diagrams/archify-artifacts.mjs render --all
+//   node tools/diagrams/archify-artifacts.mjs render <spec.json> [more.json ...] [--confirm-fence]
+//   node tools/diagrams/archify-artifacts.mjs render --all [--confirm-fence]
 //   node tools/diagrams/archify-artifacts.mjs scaffold <chapter.md> <ordinal>
 //   node tools/diagrams/archify-artifacts.mjs verify [--json]
 
@@ -88,9 +88,10 @@ const ALL_TYPES = ['architecture', 'workflow', 'sequence', 'dataflow', 'lifecycl
 
 /** The Archify quality profile a specification is rendered at.
  *
- *  `showcase` for everything, with one recorded exception. Two diagrams in this
- *  repository are provably non-planar — `.devbook/domain/context-map.md` #1 and
- *  `.devbook/arc42/05-building-block-view.md` #3 each contain a K3,3 — so at least one
+ *  `showcase` for everything, with one recorded exception. Three diagrams in this
+ *  repository are provably non-planar — `.devbook/domain/context-map.md` #1,
+ *  `.devbook/arc42/05-building-block-view.md` #3 and `.devbook/tech/technology-graph.md` #1
+ *  (tools/diagrams/README.md has each proof) — so at least one
  *  edge crossing is forced in every possible drawing of them, and showcase raises
  *  `composition/proper-crossing` as an error. No faithful specification of either
  *  can ever pass showcase, so they are rendered at `standard` instead, which
@@ -289,8 +290,10 @@ function discoverSpecs(artifactDir, chapterFile, ordinal) {
  *  specification's filename when it is not, so an index written before this field
  *  existed still answers correctly rather than silently matching everything. */
 function isSameDiagram(entry, chapterFile, ordinal) {
-    if (!entry || entry.ordinal !== ordinal) return false;
+    return !!entry && entry.ordinal === ordinal && isSameChapter(entry, chapterFile);
+}
 
+function isSameChapter(entry, chapterFile) {
     const chapter = basename(chapterFile, '.md');
     const fromSpec = typeof entry.spec === 'string'
         ? SPEC_NAME.exec(basename(entry.spec))?.[1] ?? null
@@ -403,13 +406,81 @@ function scan() {
 // render
 // ---------------------------------------------------------------------------
 
+/** The SHA-256 of a specification's text, LF-normalised so that a CRLF checkout
+ *  does not read as a re-authoring. */
+function specDigest(text) {
+    return createHash('sha256').update(String(text).replace(/\r\n?/g, '\n'), 'utf8').digest('hex');
+}
+
+/** The committed text of a file at HEAD, or null when there is none to read — an
+ *  untracked file, no git, or not a repository. */
+function committedText(file) {
+    const result = spawnSync('git', ['show', `HEAD:${relative(REPO, file).split(sep).join('/')}`],
+        { cwd: REPO, encoding: 'utf8' });
+    return result.status === 0 ? result.stdout : null;
+}
+
+/** The digest of the specification an index entry was rendered from, or null
+ *  when nothing records it. Entries written since `specSha256` existed carry it;
+ *  an older entry is answered from the committed copy of the specification it
+ *  names, since a render and its specification are committed together. */
+function renderedSpecDigest(entry, artifactDir) {
+    if (typeof entry.specSha256 === 'string') return entry.specSha256;
+    if (typeof entry.spec !== 'string') return null;
+    const committed = committedText(join(artifactDir, entry.spec));
+    return committed === null ? null : specDigest(committed);
+}
+
+/** Refuses a render that would record a specification against a fence it was
+ *  not authored from.
+ *
+ *  `render` keys the index to whatever fence sits at the specification's ordinal,
+ *  and it cannot tell by itself whether the specification says what that fence
+ *  says. Two cases are provably wrong, and both used to come back as `rendered`:
+ *
+ *  - The fence was recorded under another ordinal. Diagrams were inserted above
+ *    it, and the specification authored from it is the one named in that entry —
+ *    rendering whatever now carries this ordinal hands the fence someone else's
+ *    picture.
+ *  - The fence changed since this ordinal was last rendered, and the
+ *    specification did not. Rendering it anyway marks an artifact of the old
+ *    diagram current.
+ *
+ *  `--confirm-fence` is the author's word that the specification still says what
+ *  the fence says — a `%%` comment or whitespace edit that never reaches the
+ *  picture. */
+function assertAuthoredFrom(specFile, chapterFile, ordinal, fence, index) {
+    const hash = diagramSourceHash(fence.source);
+    const artifactDir = dirname(specFile);
+    const digest = specDigest(readFileSync(specFile, 'utf8'));
+    const where = `${relative(REPO, chapterFile)} diagram ${ordinal}`;
+
+    const moved = index.entries[hash];
+    if (moved && moved.ordinal !== ordinal && isSameChapter(moved, chapterFile)) {
+        if (renderedSpecDigest(moved, artifactDir) !== digest) {
+            throw new Error(`${where} is the mermaid recorded as diagram ${moved.ordinal}, authored as ${moved.spec}. The fences have moved: rename that specification to ordinal ${ordinal} rather than rendering ${basename(specFile)} against it. If ${basename(specFile)} really was authored from this fence, pass --confirm-fence.`);
+        }
+        return;
+    }
+
+    const previous = Object.entries(index.entries)
+        .find(([entryHash, entry]) => entryHash !== hash && isSameDiagram(entry, chapterFile, ordinal))?.[1];
+    if (previous) {
+        const rendered = renderedSpecDigest(previous, artifactDir);
+        if (rendered === null || rendered === digest) {
+            throw new Error(`${where} has changed since ${previous.spec} was rendered from it, and ${basename(specFile)} has not. Compare the fence with the specification and re-author what changed. If the change never reaches the picture — a %% comment, whitespace — pass --confirm-fence.`);
+        }
+    }
+}
+
 /** Renders one specification and records what it was authored from.
  *
  *  `deliver` validates before it writes and exits non-zero if it cannot, so this
- *  adds no checking of its own — it forwards the receipt. What it does add is the
- *  index entry, which is the only thing that will ever connect the artifact back to
- *  the fence. */
-function render(specFile) {
+ *  adds no checking of the picture — it forwards the receipt. What it does check
+ *  is that the specification belongs to the fence it is about to be keyed to
+ *  (`assertAuthoredFrom`), and what it adds is the index entry, which is the only
+ *  thing that will ever connect the artifact back to the fence. */
+function render(specFile, { confirmFence = false } = {}) {
     const { chapterFile, ordinal, type, quality } = parseSpecName(specFile);
     const fences = mermaidFences(chapterFile);
     const fence = fences.find(f => f.ordinal === ordinal);
@@ -435,6 +506,11 @@ function render(specFile) {
                 : `${relative(REPO, chapterFile)} diagram ${ordinal} is a ${kind}, so its type must be ${allowed.join(' or ')}, not ${type}`);
     }
 
+    // Before `deliver`, so a refused render writes nothing at all.
+    const file = indexPath(chapterFile);
+    const index = readIndex(file);
+    if (!confirmFence) assertAuthoredFrom(specFile, chapterFile, ordinal, fence, index);
+
     const artifactFile = specFile.replace(/\.json$/, '.html');
     const result = spawnSync(process.execPath,
         [ARCHIFY, 'deliver', type, specFile, artifactFile, '--quality', quality, '--json'],
@@ -455,14 +531,15 @@ function render(specFile) {
         throw new Error(`deliver reported ${errors} composition error(s) for ${relative(REPO, specFile)}:\n${JSON.stringify(receipt.validation, null, 2)}`);
     }
 
-    const file = indexPath(chapterFile);
-    const index = readIndex(file);
     // Drop whatever used to hold this chapter's diagram N. Re-rendering after an
     // edited fence is exactly the case that produces a second entry for one
     // diagram, and a leftover would keep the old artifact matching the old text
-    // nobody can see any more.
+    // nobody can see any more. An entry whose fence is still in the chapter is
+    // not a leftover: that diagram moved to another ordinal, and its entry is the
+    // record `assertAuthoredFrom` needs when its renamed specification renders.
+    const current = new Set(fences.map(f => diagramSourceHash(f.source)));
     for (const [hash, entry] of Object.entries(index.entries)) {
-        if (isSameDiagram(entry, chapterFile, ordinal)) delete index.entries[hash];
+        if (isSameDiagram(entry, chapterFile, ordinal) && !current.has(hash)) delete index.entries[hash];
     }
     index.entries[diagramSourceHash(fence.source)] = {
         chapter: basename(chapterFile),
@@ -471,6 +548,7 @@ function render(specFile) {
         quality,
         kind,
         spec: basename(specFile),
+        specSha256: specDigest(readFileSync(specFile, 'utf8')),
         artifact: basename(artifactFile),
         checksPassed: receipt.validation?.checksPassed ?? null,
         checkCount: receipt.validation?.checkCount ?? null
@@ -571,9 +649,10 @@ function main(argv) {
             }
             const results = [];
             let failed = 0;
+            const confirmFence = rest.includes('--confirm-fence');
             for (const spec of specs) {
                 try {
-                    const result = render(spec);
+                    const result = render(spec, { confirmFence });
                     results.push({ ok: true, ...result });
                     // The warning count is printed rather than hidden: a `standard`
                     // render is allowed to have warnings, and an author who cannot
@@ -614,7 +693,11 @@ function main(argv) {
                 console.log(`ok: ${rendered} of ${rows.length} knowledge chapter diagrams have a current artifact, and none is out of date.`);
             } else {
                 for (const row of broken) console.error(`${row.state} ${row.chapter} #${row.ordinal}${row.error ? ` — ${row.error}` : ''}`);
-                console.error(`\n${broken.length} artifact(s) out of date or unrendered. Run: node tools/diagrams/archify-artifacts.mjs render --all`);
+                // Not "run render --all": a stale artifact's specification was
+                // authored from the old fence, and rendering it unchanged would
+                // mark the old picture current. `render` refuses that now; the
+                // hint says what has to happen first.
+                console.error(`\n${broken.length} artifact(s) out of date or unrendered. Compare each fence with its specification and re-author what changed, then render that specification — see "Re-rendering" in tools/diagrams/README.md.`);
             }
             return broken.length === 0 ? 0 : 1;
         }

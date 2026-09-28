@@ -17,14 +17,14 @@
     { "id": "occurrence-n", "lane": "completed", "col": 0, "type": "database", "label": "Occurrence N", "sublabel": "due 21 Aug" },
     { "id": "save-use-case", "lane": "save", "col": 0, "type": "backend", "label": "Save use case" },
     { "id": "recurrence-check", "lane": "save", "col": 2, "width": 150, "type": "security", "label": "Carries a Recurrence?" },
-    { "id": "end-of-line", "lane": "completed", "col": 2, "width": 110, "type": "database", "label": "Stays Done", "sublabel": "end of the line" },
+    { "id": "end-of-line", "lane": "completed", "col": 2, "width": 110, "type": "database", "label": "Stays ticked", "sublabel": "end of the line" },
     { "id": "spawning-policy", "lane": "save", "col": 4, "width": 130, "type": "backend", "label": "Occurrence Spawning", "sublabel": "policy" },
-    { "id": "stays-done", "lane": "completed", "col": 4, "width": 168, "type": "database", "label": "Occurrence N stays Done", "sublabel": "the record of what was done" },
+    { "id": "stays-done", "lane": "completed", "col": 4, "width": 168, "type": "database", "label": "Occurrence N stays ticked", "sublabel": "the record of what was done" },
     { "id": "occurrence-next", "lane": "next", "col": 4, "width": 210, "type": "database", "label": "Occurrence N+1 created", "sublabel": "ready, due 28 Aug, sub-items pending", "tag": "recurrence_source_id points at N" },
     { "id": "monitoring-reader", "lane": "monitoring", "col": 4, "width": 130, "type": "external", "label": "Monitoring", "sublabel": "would read the series" }
   ],
   "edges": [
-    { "id": "completed-by-save", "from": "occurrence-n", "to": "save-use-case", "label": "completed by a save", "role": "main", "route": "drop", "fromSide": "bottom", "toSide": "top" },
+    { "id": "completed-by-save", "from": "occurrence-n", "to": "save-use-case", "label": "ticked off by a save (completed_on set)", "role": "main", "route": "drop", "fromSide": "bottom", "toSide": "top" },
     { "id": "check", "from": "save-use-case", "to": "recurrence-check", "role": "main" },
     { "id": "no-recurrence", "from": "recurrence-check", "to": "end-of-line", "label": "no", "role": "branch", "fromSide": "top", "toSide": "bottom" },
     { "id": "yes-recurrence", "from": "recurrence-check", "to": "spawning-policy", "label": "yes", "role": "main", "variant": "emphasis" },
@@ -37,7 +37,7 @@
       "dot": "emerald",
       "title": "Completion does not roll forward",
       "items": [
-        "The finished occurrence stays Done as the record of what was done",
+        "The finished occurrence stays ticked as the record of what was done",
         "The next occurrence is a separate aggregate with its own lifecycle",
         "recurrence_source_id is provenance, not ownership"
       ]

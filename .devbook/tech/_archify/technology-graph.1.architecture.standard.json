@@ -1,0 +1,3440 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Technology Graph",
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1392,
+      3336
+    ]
+  },
+  "components": [
+    {
+      "id": "Windows",
+      "type": "external",
+      "label": "Windows",
+      "sublabel": "adopted",
+      "tag": "Foundations",
+      "pos": [
+        960,
+        1488
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "Android",
+      "type": "external",
+      "label": "Android",
+      "sublabel": "adopted",
+      "tag": "Foundations",
+      "pos": [
+        1168,
+        1648
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "JavaJdk",
+      "type": "external",
+      "label": "Java JDK",
+      "sublabel": "adopted",
+      "tag": "Foundations",
+      "pos": [
+        1168,
+        1808
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "GitHubPlatform",
+      "type": "external",
+      "label": "GitHub Platform",
+      "sublabel": "adopted",
+      "tag": "Foundations",
+      "pos": [
+        528,
+        48
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "Anthropic",
+      "type": "external",
+      "label": "Anthropic Claude Platform",
+      "sublabel": "candidate",
+      "tag": "Foundations",
+      "pos": [
+        1152,
+        1168
+      ],
+      "size": [
+        160,
+        64
+      ]
+    },
+    {
+      "id": "Foundry",
+      "type": "external",
+      "label": "Azure AI Foundry",
+      "sublabel": "adopted",
+      "tag": "Foundations",
+      "pos": [
+        96,
+        2448
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "Cosmos",
+      "type": "external",
+      "label": "Azure Cosmos DB",
+      "sublabel": "candidate",
+      "tag": "Foundations",
+      "pos": [
+        1168,
+        2928
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "KeyVault",
+      "type": "external",
+      "label": "Azure Key Vault",
+      "sublabel": "candidate",
+      "tag": "Foundations",
+      "pos": [
+        960,
+        48
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "AzureMonitor",
+      "type": "external",
+      "label": "Azure Monitor",
+      "sublabel": "candidate",
+      "tag": "Foundations",
+      "pos": [
+        96,
+        3088
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "FCM",
+      "type": "external",
+      "label": "Firebase Cloud Messaging",
+      "sublabel": "candidate",
+      "tag": "Foundations",
+      "pos": [
+        288,
+        3088
+      ],
+      "size": [
+        160,
+        64
+      ]
+    },
+    {
+      "id": "Git",
+      "type": "external",
+      "label": "Git",
+      "sublabel": "adopted",
+      "tag": "Foundations",
+      "pos": [
+        736,
+        2928
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "PowerShell",
+      "type": "external",
+      "label": "PowerShell",
+      "sublabel": "adopted",
+      "tag": "Foundations",
+      "pos": [
+        96,
+        48
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "AzureCli",
+      "type": "external",
+      "label": "Azure CLI",
+      "sublabel": "adopted",
+      "tag": "Foundations",
+      "pos": [
+        1168,
+        48
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "ClaudeCode",
+      "type": "external",
+      "label": "Claude Code",
+      "sublabel": "adopted",
+      "tag": "Foundations",
+      "pos": [
+        960,
+        2288
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "YAML",
+      "type": "external",
+      "label": "YAML",
+      "sublabel": "adopted",
+      "tag": "Foundations",
+      "pos": [
+        304,
+        2448
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "Markdown",
+      "type": "external",
+      "label": "Markdown",
+      "sublabel": "adopted",
+      "tag": "Foundations",
+      "pos": [
+        304,
+        2608
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "JSON",
+      "type": "external",
+      "label": "JSON",
+      "sublabel": "adopted",
+      "tag": "Foundations",
+      "pos": [
+        736,
+        2768
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "DotNet",
+      "type": "external",
+      "label": ".NET Runtime",
+      "sublabel": "adopted",
+      "tag": "Foundations",
+      "pos": [
+        304,
+        1328
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "NodeJS",
+      "type": "external",
+      "label": "Node.js",
+      "sublabel": "adopted",
+      "tag": "Foundations",
+      "pos": [
+        1168,
+        2128
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "Mermaid",
+      "type": "backend",
+      "label": "Mermaid",
+      "sublabel": "adopted",
+      "tag": "Shared",
+      "pos": [
+        736,
+        3088
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "CSharp",
+      "type": "backend",
+      "label": "C# Language",
+      "sublabel": "adopted",
+      "tag": "Shared",
+      "pos": [
+        1168,
+        848
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "TypeScript",
+      "type": "backend",
+      "label": "TypeScript",
+      "sublabel": "adopted",
+      "tag": "Shared",
+      "pos": [
+        960,
+        1968
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "AspNetCore",
+      "type": "backend",
+      "label": "ASP.NET Core",
+      "sublabel": "adopted",
+      "tag": "Shared",
+      "pos": [
+        496,
+        688
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "RazorComponents",
+      "type": "backend",
+      "label": "Razor Components",
+      "sublabel": "adopted",
+      "tag": "Shared",
+      "pos": [
+        736,
+        1008
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "BlazorServer",
+      "type": "backend",
+      "label": "Blazor Server",
+      "sublabel": "adopted",
+      "tag": "Shared",
+      "pos": [
+        528,
+        1008
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "MAUI",
+      "type": "backend",
+      "label": ".NET MAUI",
+      "sublabel": "adopted",
+      "tag": "Shared",
+      "pos": [
+        1168,
+        1488
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "BlazorHybrid",
+      "type": "backend",
+      "label": "Blazor Hybrid",
+      "sublabel": "adopted",
+      "tag": "Shared",
+      "pos": [
+        1168,
+        1328
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "Aspire",
+      "type": "backend",
+      "label": ".NET Aspire",
+      "sublabel": "adopted",
+      "tag": "Shared",
+      "pos": [
+        352,
+        368
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "Otel",
+      "type": "backend",
+      "label": "OpenTelemetry",
+      "sublabel": "adopted",
+      "tag": "Shared",
+      "pos": [
+        96,
+        1648
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "Sqlite",
+      "type": "backend",
+      "label": "SQLite",
+      "sublabel": "adopted",
+      "tag": "Shared",
+      "pos": [
+        96,
+        2768
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "DataSqlite",
+      "type": "backend",
+      "label": "Microsoft.Data.Sqlite",
+      "sublabel": "adopted",
+      "tag": "Shared",
+      "pos": [
+        80,
+        2928
+      ],
+      "size": [
+        160,
+        64
+      ]
+    },
+    {
+      "id": "MexDi",
+      "type": "backend",
+      "label": "Microsoft.Extensions.DependencyInjection",
+      "sublabel": "adopted",
+      "tag": "Shared",
+      "pos": [
+        48,
+        1488
+      ],
+      "size": [
+        256,
+        64
+      ]
+    },
+    {
+      "id": "MexHttp",
+      "type": "backend",
+      "label": "Microsoft.Extensions.Http",
+      "sublabel": "adopted",
+      "tag": "Shared",
+      "pos": [
+        288,
+        1008
+      ],
+      "size": [
+        160,
+        64
+      ]
+    },
+    {
+      "id": "MexResilience",
+      "type": "backend",
+      "label": "Microsoft.Extensions.Http.Resilience",
+      "sublabel": "adopted",
+      "tag": "Shared",
+      "pos": [
+        304,
+        848
+      ],
+      "size": [
+        256,
+        64
+      ]
+    },
+    {
+      "id": "MexDiscovery",
+      "type": "backend",
+      "label": "Microsoft.Extensions.ServiceDiscovery",
+      "sublabel": "adopted",
+      "tag": "Shared",
+      "pos": [
+        48,
+        368
+      ],
+      "size": [
+        256,
+        64
+      ]
+    },
+    {
+      "id": "MexLogging",
+      "type": "backend",
+      "label": "Microsoft.Extensions.Logging",
+      "sublabel": "adopted",
+      "tag": "Shared",
+      "pos": [
+        64,
+        1328
+      ],
+      "size": [
+        192,
+        64
+      ]
+    },
+    {
+      "id": "Polly",
+      "type": "backend",
+      "label": "Polly",
+      "sublabel": "adopted",
+      "tag": "Shared",
+      "pos": [
+        96,
+        1168
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "YamlDotNet",
+      "type": "backend",
+      "label": "YamlDotNet",
+      "sublabel": "hold",
+      "tag": "Shared",
+      "pos": [
+        304,
+        1808
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "CopilotUsage",
+      "type": "backend",
+      "label": "GitHub Copilot Usage APIs",
+      "sublabel": "candidate",
+      "tag": "Shared",
+      "pos": [
+        512,
+        208
+      ],
+      "size": [
+        160,
+        64
+      ]
+    },
+    {
+      "id": "WinAppSDK",
+      "type": "backend",
+      "label": "Windows App SDK",
+      "sublabel": "adopted",
+      "tag": "Desktop",
+      "pos": [
+        784,
+        1328
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "WinUI",
+      "type": "backend",
+      "label": "WinUI 3",
+      "sublabel": "adopted",
+      "tag": "Desktop",
+      "pos": [
+        960,
+        1328
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "WebView2",
+      "type": "backend",
+      "label": "WebView2",
+      "sublabel": "adopted",
+      "tag": "Desktop",
+      "pos": [
+        736,
+        1168
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "LocalStore",
+      "type": "backend",
+      "label": "Local Task Store",
+      "sublabel": "adopted",
+      "tag": "Desktop",
+      "pos": [
+        304,
+        2928
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "Workers",
+      "type": "backend",
+      "label": "Background Workers",
+      "sublabel": "candidate",
+      "tag": "Desktop",
+      "pos": [
+        304,
+        2128
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "ProtectedData",
+      "type": "backend",
+      "label": "System.Security.Cryptography.ProtectedData",
+      "sublabel": "adopted",
+      "tag": "Desktop",
+      "pos": [
+        448,
+        1488
+      ],
+      "size": [
+        288,
+        64
+      ]
+    },
+    {
+      "id": "McpSdk",
+      "type": "backend",
+      "label": "Model Context Protocol C# SDK",
+      "sublabel": "adopted",
+      "tag": "Desktop",
+      "pos": [
+        64,
+        848
+      ],
+      "size": [
+        192,
+        64
+      ]
+    },
+    {
+      "id": "GhCli",
+      "type": "backend",
+      "label": "GitHub CLI",
+      "sublabel": "adopted",
+      "tag": "Desktop",
+      "pos": [
+        736,
+        48
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "MSIX",
+      "type": "backend",
+      "label": "MSIX Packaging",
+      "sublabel": "adopted",
+      "tag": "Desktop",
+      "pos": [
+        528,
+        1808
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "AppInstaller",
+      "type": "backend",
+      "label": "App Installer (.appinstaller)",
+      "sublabel": "adopted",
+      "tag": "Desktop",
+      "pos": [
+        272,
+        1968
+      ],
+      "size": [
+        192,
+        64
+      ]
+    },
+    {
+      "id": "OfflineStore",
+      "type": "backend",
+      "label": "Local Offline Store",
+      "sublabel": "candidate",
+      "tag": "Mobile",
+      "pos": [
+        528,
+        2768
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "SkiaSharp",
+      "type": "backend",
+      "label": "SkiaSharp",
+      "sublabel": "adopted",
+      "tag": "Mobile",
+      "pos": [
+        304,
+        1168
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "AndroidTools",
+      "type": "backend",
+      "label": "Android SDK Build Tools",
+      "sublabel": "adopted",
+      "tag": "Mobile",
+      "pos": [
+        944,
+        1808
+      ],
+      "size": [
+        160,
+        64
+      ]
+    },
+    {
+      "id": "APK",
+      "type": "backend",
+      "label": "APK Packaging",
+      "sublabel": "adopted",
+      "tag": "Mobile",
+      "pos": [
+        992,
+        1648
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "VSCodeApi",
+      "type": "backend",
+      "label": "VS Code Extension API",
+      "sublabel": "adopted",
+      "tag": "IDE",
+      "pos": [
+        720,
+        1968
+      ],
+      "size": [
+        160,
+        64
+      ]
+    },
+    {
+      "id": "Webview",
+      "type": "backend",
+      "label": "VS Code Webview UI",
+      "sublabel": "candidate",
+      "tag": "IDE",
+      "pos": [
+        816,
+        1648
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "VSSDK",
+      "type": "backend",
+      "label": "Visual Studio Extensibility",
+      "sublabel": "candidate",
+      "tag": "IDE",
+      "pos": [
+        1136,
+        1008
+      ],
+      "size": [
+        192,
+        64
+      ]
+    },
+    {
+      "id": "WPF",
+      "type": "backend",
+      "label": "WPF",
+      "sublabel": "candidate",
+      "tag": "IDE",
+      "pos": [
+        960,
+        368
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "MinimalApis",
+      "type": "backend",
+      "label": "ASP.NET Core Minimal APIs",
+      "sublabel": "adopted",
+      "tag": "Cloud",
+      "pos": [
+        576,
+        528
+      ],
+      "size": [
+        160,
+        64
+      ]
+    },
+    {
+      "id": "JwtBearer",
+      "type": "backend",
+      "label": "Microsoft.AspNetCore.Authentication.JwtBearer",
+      "sublabel": "adopted",
+      "tag": "Cloud",
+      "pos": [
+        208,
+        528
+      ],
+      "size": [
+        320,
+        64
+      ]
+    },
+    {
+      "id": "JsonWebTokens",
+      "type": "backend",
+      "label": "Microsoft.IdentityModel.JsonWebTokens",
+      "sublabel": "adopted",
+      "tag": "Cloud",
+      "pos": [
+        480,
+        1328
+      ],
+      "size": [
+        256,
+        64
+      ]
+    },
+    {
+      "id": "OpenApi",
+      "type": "backend",
+      "label": "Microsoft.AspNetCore.OpenApi",
+      "sublabel": "adopted",
+      "tag": "Cloud",
+      "pos": [
+        256,
+        688
+      ],
+      "size": [
+        192,
+        64
+      ]
+    },
+    {
+      "id": "AzureIdentity",
+      "type": "backend",
+      "label": "Azure.Identity",
+      "sublabel": "adopted",
+      "tag": "Cloud",
+      "pos": [
+        304,
+        1648
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "BlobStorage",
+      "type": "backend",
+      "label": "Azure Blob Storage",
+      "sublabel": "candidate",
+      "tag": "Cloud",
+      "pos": [
+        528,
+        368
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "ACA",
+      "type": "backend",
+      "label": "Azure Container Apps",
+      "sublabel": "candidate",
+      "tag": "Cloud",
+      "pos": [
+        736,
+        368
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "XUnit",
+      "type": "backend",
+      "label": "xUnit v3",
+      "sublabel": "adopted",
+      "tag": "Testing",
+      "pos": [
+        960,
+        848
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "MTP",
+      "type": "backend",
+      "label": "Microsoft.Testing.Platform",
+      "sublabel": "adopted",
+      "tag": "Testing",
+      "pos": [
+        944,
+        688
+      ],
+      "size": [
+        192,
+        64
+      ]
+    },
+    {
+      "id": "TestSdk",
+      "type": "backend",
+      "label": "Microsoft.NET.Test.Sdk",
+      "sublabel": "adopted",
+      "tag": "Testing",
+      "pos": [
+        1184,
+        688
+      ],
+      "size": [
+        160,
+        64
+      ]
+    },
+    {
+      "id": "VsRunner",
+      "type": "backend",
+      "label": "xunit.runner.visualstudio",
+      "sublabel": "adopted",
+      "tag": "Testing",
+      "pos": [
+        720,
+        848
+      ],
+      "size": [
+        160,
+        64
+      ]
+    },
+    {
+      "id": "TrxReport",
+      "type": "backend",
+      "label": "Microsoft.Testing.Extensions.TrxReport",
+      "sublabel": "adopted",
+      "tag": "Testing",
+      "pos": [
+        896,
+        528
+      ],
+      "size": [
+        256,
+        64
+      ]
+    },
+    {
+      "id": "MvcTesting",
+      "type": "backend",
+      "label": "Microsoft.AspNetCore.Mvc.Testing",
+      "sublabel": "adopted",
+      "tag": "Testing",
+      "pos": [
+        672,
+        688
+      ],
+      "size": [
+        224,
+        64
+      ]
+    },
+    {
+      "id": "FakeTime",
+      "type": "backend",
+      "label": "Microsoft.Extensions.TimeProvider.Testing",
+      "sublabel": "adopted",
+      "tag": "Testing",
+      "pos": [
+        480,
+        1648
+      ],
+      "size": [
+        288,
+        64
+      ]
+    },
+    {
+      "id": "BUnit",
+      "type": "backend",
+      "label": "bUnit",
+      "sublabel": "adopted",
+      "tag": "Testing",
+      "pos": [
+        960,
+        1008
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "Coverlet",
+      "type": "backend",
+      "label": "coverlet",
+      "sublabel": "adopted",
+      "tag": "Testing",
+      "pos": [
+        1200,
+        528
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "Playwright",
+      "type": "backend",
+      "label": "Playwright",
+      "sublabel": "adopted",
+      "tag": "Testing",
+      "pos": [
+        528,
+        1168
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "Plugins",
+      "type": "backend",
+      "label": "Claude Code Plugins",
+      "sublabel": "adopted",
+      "tag": "AI development",
+      "pos": [
+        736,
+        2448
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "Skills",
+      "type": "backend",
+      "label": "Agent Skills",
+      "sublabel": "adopted",
+      "tag": "AI development",
+      "pos": [
+        528,
+        2608
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "Subagents",
+      "type": "backend",
+      "label": "Subagents",
+      "sublabel": "adopted",
+      "tag": "AI development",
+      "pos": [
+        736,
+        2288
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "MCP",
+      "type": "backend",
+      "label": "Model Context Protocol Servers",
+      "sublabel": "adopted",
+      "tag": "AI development",
+      "pos": [
+        1136,
+        2288
+      ],
+      "size": [
+        192,
+        64
+      ]
+    },
+    {
+      "id": "DeliveryEngine",
+      "type": "backend",
+      "label": "Delivery Engine",
+      "sublabel": "adopted",
+      "tag": "AI development",
+      "pos": [
+        1168,
+        2608
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "DeliverySchedule",
+      "type": "backend",
+      "label": "Delivery Schedule",
+      "sublabel": "trial",
+      "tag": "AI development",
+      "pos": [
+        960,
+        2448
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "Surfaces",
+      "type": "backend",
+      "label": "Delivery Surfaces",
+      "sublabel": "adopted",
+      "tag": "AI development",
+      "pos": [
+        1168,
+        2448
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "BacklogTools",
+      "type": "backend",
+      "label": "Backlog Tools Plugin",
+      "sublabel": "adopted",
+      "tag": "AI development",
+      "pos": [
+        528,
+        2288
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "InstructionFiles",
+      "type": "backend",
+      "label": "Repository Instruction Files",
+      "sublabel": "adopted",
+      "tag": "AI development",
+      "pos": [
+        272,
+        2768
+      ],
+      "size": [
+        192,
+        64
+      ]
+    },
+    {
+      "id": "Hooks",
+      "type": "backend",
+      "label": "Claude Code Hooks",
+      "sublabel": "adopted",
+      "tag": "AI development",
+      "pos": [
+        736,
+        2128
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "DevbookPlugin",
+      "type": "backend",
+      "label": "Devbook Plugin",
+      "sublabel": "adopted",
+      "tag": "AI development",
+      "pos": [
+        960,
+        2608
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "DevbookConfig",
+      "type": "backend",
+      "label": "Devbook Config",
+      "sublabel": "adopted",
+      "tag": "AI development",
+      "pos": [
+        736,
+        2608
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "DevbookProcedures",
+      "type": "backend",
+      "label": "Devbook Procedures",
+      "sublabel": "adopted",
+      "tag": "AI development",
+      "pos": [
+        528,
+        2448
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "DotNetSdk",
+      "type": "backend",
+      "label": ".NET SDK",
+      "sublabel": "adopted",
+      "tag": "Tooling",
+      "pos": [
+        96,
+        2128
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "MSBuild",
+      "type": "backend",
+      "label": "MSBuild",
+      "sublabel": "adopted",
+      "tag": "Tooling",
+      "pos": [
+        96,
+        2288
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "MauiWorkloads",
+      "type": "backend",
+      "label": ".NET MAUI Workloads",
+      "sublabel": "adopted",
+      "tag": "Tooling",
+      "pos": [
+        736,
+        1808
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "NuGet",
+      "type": "backend",
+      "label": "NuGet",
+      "sublabel": "adopted",
+      "tag": "Tooling",
+      "pos": [
+        96,
+        2608
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "CPM",
+      "type": "backend",
+      "label": "Central Package Management",
+      "sublabel": "adopted",
+      "tag": "Tooling",
+      "pos": [
+        272,
+        2288
+      ],
+      "size": [
+        192,
+        64
+      ]
+    },
+    {
+      "id": "Npm",
+      "type": "backend",
+      "label": "npm",
+      "sublabel": "adopted",
+      "tag": "Tooling",
+      "pos": [
+        960,
+        2128
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "Bicep",
+      "type": "backend",
+      "label": "Bicep",
+      "sublabel": "adopted",
+      "tag": "Tooling",
+      "pos": [
+        1168,
+        208
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "Azd",
+      "type": "backend",
+      "label": "Azure Developer CLI",
+      "sublabel": "adopted",
+      "tag": "Tooling",
+      "pos": [
+        1168,
+        368
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "AspireCli",
+      "type": "backend",
+      "label": "Aspire CLI",
+      "sublabel": "adopted",
+      "tag": "Tooling",
+      "pos": [
+        96,
+        208
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "Actions",
+      "type": "backend",
+      "label": "GitHub Actions",
+      "sublabel": "adopted",
+      "tag": "Tooling",
+      "pos": [
+        736,
+        208
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "CodeQL",
+      "type": "backend",
+      "label": "CodeQL",
+      "sublabel": "adopted",
+      "tag": "Tooling",
+      "pos": [
+        960,
+        208
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "Dependabot",
+      "type": "backend",
+      "label": "Dependabot",
+      "sublabel": "adopted",
+      "tag": "Tooling",
+      "pos": [
+        304,
+        48
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "KnowledgeMeta",
+      "type": "backend",
+      "label": "devbook-meta Generator",
+      "sublabel": "adopted",
+      "tag": "Tooling",
+      "pos": [
+        1168,
+        2768
+      ],
+      "size": [
+        160,
+        64
+      ]
+    },
+    {
+      "id": "DevbookTech",
+      "type": "backend",
+      "label": "devbook-tech Inventory Scripts",
+      "sublabel": "trial",
+      "tag": "Tooling",
+      "pos": [
+        928,
+        2768
+      ],
+      "size": [
+        192,
+        64
+      ]
+    },
+    {
+      "id": "DbWriter",
+      "type": "backend",
+      "label": "Devbook Database Writer",
+      "sublabel": "adopted",
+      "tag": "Tooling",
+      "pos": [
+        512,
+        2128
+      ],
+      "size": [
+        160,
+        64
+      ]
+    },
+    {
+      "id": "C4Hero",
+      "type": "backend",
+      "label": "c4hero",
+      "sublabel": "adopted",
+      "tag": "Tooling",
+      "pos": [
+        1168,
+        1968
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "Archify",
+      "type": "backend",
+      "label": "Archify",
+      "sublabel": "adopted",
+      "tag": "Tooling",
+      "pos": [
+        960,
+        3088
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "Ajv",
+      "type": "backend",
+      "label": "Ajv",
+      "sublabel": "adopted",
+      "tag": "Tooling",
+      "pos": [
+        960,
+        2928
+      ],
+      "size": [
+        128,
+        64
+      ]
+    },
+    {
+      "id": "SimpleIcons",
+      "type": "backend",
+      "label": "simple-icons",
+      "sublabel": "adopted",
+      "tag": "Tooling",
+      "pos": [
+        1168,
+        3088
+      ],
+      "size": [
+        128,
+        64
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "from": "Mermaid",
+      "to": "Markdown",
+      "fromSide": "left",
+      "toSide": "right",
+      "via": [
+        [
+          496,
+          3120
+        ],
+        [
+          496,
+          2640
+        ]
+      ]
+    },
+    {
+      "from": "CSharp",
+      "to": "DotNet",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": [
+        [
+          1360,
+          880
+        ],
+        [
+          1360,
+          512
+        ],
+        [
+          880,
+          512
+        ],
+        [
+          880,
+          288
+        ],
+        [
+          448,
+          288
+        ],
+        [
+          448,
+          192
+        ],
+        [
+          32,
+          192
+        ],
+        [
+          32,
+          1088
+        ],
+        [
+          272,
+          1088
+        ],
+        [
+          272,
+          1360
+        ]
+      ]
+    },
+    {
+      "from": "TypeScript",
+      "to": "NodeJS",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "via": [
+        [
+          1024,
+          2112
+        ],
+        [
+          1232,
+          2112
+        ]
+      ]
+    },
+    {
+      "from": "AspNetCore",
+      "to": "DotNet",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "via": [
+        [
+          560,
+          832
+        ],
+        [
+          576,
+          832
+        ],
+        [
+          576,
+          976
+        ],
+        [
+          512,
+          976
+        ],
+        [
+          512,
+          1312
+        ],
+        [
+          368,
+          1312
+        ]
+      ]
+    },
+    {
+      "from": "AspNetCore",
+      "to": "CSharp",
+      "fromSide": "top",
+      "toSide": "right",
+      "via": [
+        [
+          560,
+          608
+        ],
+        [
+          880,
+          608
+        ],
+        [
+          880,
+          512
+        ],
+        [
+          1360,
+          512
+        ],
+        [
+          1360,
+          880
+        ]
+      ]
+    },
+    {
+      "from": "RazorComponents",
+      "to": "AspNetCore",
+      "fromSide": "left",
+      "toSide": "bottom",
+      "via": [
+        [
+          672,
+          1040
+        ],
+        [
+          672,
+          832
+        ],
+        [
+          560,
+          832
+        ]
+      ]
+    },
+    {
+      "from": "RazorComponents",
+      "to": "CSharp",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": [
+        [
+          880,
+          1040
+        ],
+        [
+          880,
+          1088
+        ],
+        [
+          1120,
+          1088
+        ],
+        [
+          1120,
+          880
+        ]
+      ]
+    },
+    {
+      "from": "BlazorServer",
+      "to": "RazorComponents",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": []
+    },
+    {
+      "from": "BlazorServer",
+      "to": "AspNetCore",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "via": [
+        [
+          592,
+          832
+        ],
+        [
+          560,
+          832
+        ]
+      ]
+    },
+    {
+      "from": "MAUI",
+      "to": "WinUI",
+      "fromSide": "left",
+      "toSide": "right",
+      "via": [
+        [
+          1120,
+          1520
+        ],
+        [
+          1120,
+          1360
+        ]
+      ]
+    },
+    {
+      "from": "MAUI",
+      "to": "Android",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "via": []
+    },
+    {
+      "from": "MAUI",
+      "to": "CSharp",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": [
+        [
+          1312,
+          1520
+        ],
+        [
+          1312,
+          1248
+        ],
+        [
+          1120,
+          1248
+        ],
+        [
+          1120,
+          880
+        ]
+      ]
+    },
+    {
+      "from": "BlazorHybrid",
+      "to": "MAUI",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "via": []
+    },
+    {
+      "from": "BlazorHybrid",
+      "to": "RazorComponents",
+      "fromSide": "left",
+      "toSide": "right",
+      "via": [
+        [
+          1136,
+          1360
+        ],
+        [
+          1136,
+          1264
+        ],
+        [
+          880,
+          1264
+        ],
+        [
+          880,
+          1040
+        ]
+      ]
+    },
+    {
+      "from": "Aspire",
+      "to": "AspNetCore",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "via": [
+        [
+          416,
+          512
+        ],
+        [
+          560,
+          512
+        ]
+      ]
+    },
+    {
+      "from": "Aspire",
+      "to": "CSharp",
+      "fromSide": "right",
+      "toSide": "right",
+      "via": [
+        [
+          512,
+          400
+        ],
+        [
+          512,
+          352
+        ],
+        [
+          880,
+          352
+        ],
+        [
+          880,
+          512
+        ],
+        [
+          1360,
+          512
+        ],
+        [
+          1360,
+          880
+        ]
+      ]
+    },
+    {
+      "from": "Otel",
+      "to": "DotNet",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "via": [
+        [
+          160,
+          1616
+        ],
+        [
+          368,
+          1616
+        ]
+      ]
+    },
+    {
+      "from": "Sqlite",
+      "to": "Markdown",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": [
+        [
+          240,
+          2800
+        ],
+        [
+          240,
+          2640
+        ]
+      ]
+    },
+    {
+      "from": "DataSqlite",
+      "to": "Sqlite",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "via": []
+    },
+    {
+      "from": "DataSqlite",
+      "to": "DotNet",
+      "fromSide": "left",
+      "toSide": "bottom",
+      "via": [
+        [
+          48,
+          2960
+        ],
+        [
+          48,
+          1616
+        ],
+        [
+          368,
+          1616
+        ]
+      ]
+    },
+    {
+      "from": "MexDi",
+      "to": "DotNet",
+      "fromSide": "right",
+      "toSide": "bottom",
+      "via": [
+        [
+          368,
+          1520
+        ]
+      ]
+    },
+    {
+      "from": "MexHttp",
+      "to": "DotNet",
+      "fromSide": "left",
+      "toSide": "left",
+      "via": [
+        [
+          272,
+          1040
+        ],
+        [
+          272,
+          1360
+        ]
+      ]
+    },
+    {
+      "from": "MexResilience",
+      "to": "MexHttp",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "via": [
+        [
+          432,
+          992
+        ],
+        [
+          368,
+          992
+        ]
+      ]
+    },
+    {
+      "from": "MexDiscovery",
+      "to": "Aspire",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": []
+    },
+    {
+      "from": "MexLogging",
+      "to": "DotNet",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": []
+    },
+    {
+      "from": "Polly",
+      "to": "DotNet",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": [
+        [
+          272,
+          1200
+        ],
+        [
+          272,
+          1360
+        ]
+      ]
+    },
+    {
+      "from": "YamlDotNet",
+      "to": "DotNet",
+      "fromSide": "right",
+      "toSide": "bottom",
+      "via": [
+        [
+          448,
+          1840
+        ],
+        [
+          448,
+          1632
+        ],
+        [
+          368,
+          1632
+        ]
+      ]
+    },
+    {
+      "from": "CopilotUsage",
+      "to": "GitHubPlatform",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "via": []
+    },
+    {
+      "from": "WinAppSDK",
+      "to": "Windows",
+      "fromSide": "bottom",
+      "toSide": "left",
+      "via": [
+        [
+          848,
+          1520
+        ]
+      ]
+    },
+    {
+      "from": "WinAppSDK",
+      "to": "DotNet",
+      "fromSide": "left",
+      "toSide": "top",
+      "via": [
+        [
+          752,
+          1360
+        ],
+        [
+          752,
+          1312
+        ],
+        [
+          368,
+          1312
+        ]
+      ]
+    },
+    {
+      "from": "WinUI",
+      "to": "WinAppSDK",
+      "fromSide": "left",
+      "toSide": "right",
+      "via": []
+    },
+    {
+      "from": "WinUI",
+      "to": "CSharp",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": [
+        [
+          1120,
+          1360
+        ],
+        [
+          1120,
+          880
+        ]
+      ]
+    },
+    {
+      "from": "WebView2",
+      "to": "WinAppSDK",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "via": [
+        [
+          800,
+          1312
+        ],
+        [
+          848,
+          1312
+        ]
+      ]
+    },
+    {
+      "from": "LocalStore",
+      "to": "Sqlite",
+      "fromSide": "left",
+      "toSide": "right",
+      "via": [
+        [
+          256,
+          2960
+        ],
+        [
+          256,
+          2800
+        ]
+      ]
+    },
+    {
+      "from": "LocalStore",
+      "to": "DataSqlite",
+      "fromSide": "left",
+      "toSide": "right",
+      "via": []
+    },
+    {
+      "from": "LocalStore",
+      "to": "JSON",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": [
+        [
+          672,
+          2960
+        ],
+        [
+          672,
+          2800
+        ]
+      ]
+    },
+    {
+      "from": "Workers",
+      "to": "DotNet",
+      "fromSide": "left",
+      "toSide": "bottom",
+      "via": [
+        [
+          240,
+          2160
+        ],
+        [
+          240,
+          1616
+        ],
+        [
+          368,
+          1616
+        ]
+      ]
+    },
+    {
+      "from": "ProtectedData",
+      "to": "Windows",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": []
+    },
+    {
+      "from": "ProtectedData",
+      "to": "DotNet",
+      "fromSide": "left",
+      "toSide": "bottom",
+      "via": [
+        [
+          368,
+          1520
+        ]
+      ]
+    },
+    {
+      "from": "McpSdk",
+      "to": "AspNetCore",
+      "fromSide": "right",
+      "toSide": "bottom",
+      "via": [
+        [
+          288,
+          880
+        ],
+        [
+          288,
+          832
+        ],
+        [
+          560,
+          832
+        ]
+      ]
+    },
+    {
+      "from": "McpSdk",
+      "to": "DotNet",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": [
+        [
+          272,
+          880
+        ],
+        [
+          272,
+          1360
+        ]
+      ]
+    },
+    {
+      "from": "GhCli",
+      "to": "GitHubPlatform",
+      "fromSide": "left",
+      "toSide": "right",
+      "via": []
+    },
+    {
+      "from": "MSIX",
+      "to": "WinAppSDK",
+      "fromSide": "right",
+      "toSide": "bottom",
+      "via": [
+        [
+          720,
+          1840
+        ],
+        [
+          720,
+          1728
+        ],
+        [
+          784,
+          1728
+        ],
+        [
+          784,
+          1568
+        ],
+        [
+          1104,
+          1568
+        ],
+        [
+          1104,
+          1472
+        ],
+        [
+          848,
+          1472
+        ]
+      ]
+    },
+    {
+      "from": "AppInstaller",
+      "to": "MSIX",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": [
+        [
+          512,
+          2000
+        ],
+        [
+          512,
+          1840
+        ]
+      ]
+    },
+    {
+      "from": "OfflineStore",
+      "to": "JSON",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": []
+    },
+    {
+      "from": "SkiaSharp",
+      "to": "DotNet",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "via": []
+    },
+    {
+      "from": "AndroidTools",
+      "to": "Android",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": [
+        [
+          1152,
+          1840
+        ],
+        [
+          1152,
+          1680
+        ]
+      ]
+    },
+    {
+      "from": "AndroidTools",
+      "to": "JavaJdk",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": []
+    },
+    {
+      "from": "APK",
+      "to": "Android",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": []
+    },
+    {
+      "from": "APK",
+      "to": "AndroidTools",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "via": [
+        [
+          1056,
+          1792
+        ],
+        [
+          1024,
+          1792
+        ]
+      ]
+    },
+    {
+      "from": "VSCodeApi",
+      "to": "TypeScript",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": []
+    },
+    {
+      "from": "VSCodeApi",
+      "to": "NodeJS",
+      "fromSide": "right",
+      "toSide": "top",
+      "via": [
+        [
+          944,
+          2000
+        ],
+        [
+          944,
+          2112
+        ],
+        [
+          1232,
+          2112
+        ]
+      ]
+    },
+    {
+      "from": "Webview",
+      "to": "VSCodeApi",
+      "fromSide": "bottom",
+      "toSide": "right",
+      "via": [
+        [
+          880,
+          1952
+        ],
+        [
+          896,
+          1952
+        ],
+        [
+          896,
+          2000
+        ]
+      ]
+    },
+    {
+      "from": "VSSDK",
+      "to": "CSharp",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "via": []
+    },
+    {
+      "from": "WPF",
+      "to": "VSSDK",
+      "fromSide": "bottom",
+      "toSide": "right",
+      "via": [
+        [
+          1024,
+          496
+        ],
+        [
+          1376,
+          496
+        ],
+        [
+          1376,
+          1040
+        ]
+      ]
+    },
+    {
+      "from": "WPF",
+      "to": "DotNet",
+      "fromSide": "left",
+      "toSide": "left",
+      "via": [
+        [
+          896,
+          400
+        ],
+        [
+          896,
+          288
+        ],
+        [
+          448,
+          288
+        ],
+        [
+          448,
+          192
+        ],
+        [
+          32,
+          192
+        ],
+        [
+          32,
+          1088
+        ],
+        [
+          272,
+          1088
+        ],
+        [
+          272,
+          1360
+        ]
+      ]
+    },
+    {
+      "from": "MinimalApis",
+      "to": "AspNetCore",
+      "fromSide": "left",
+      "toSide": "top",
+      "via": [
+        [
+          560,
+          560
+        ]
+      ]
+    },
+    {
+      "from": "MinimalApis",
+      "to": "CSharp",
+      "fromSide": "right",
+      "toSide": "right",
+      "via": [
+        [
+          880,
+          560
+        ],
+        [
+          880,
+          512
+        ],
+        [
+          1360,
+          512
+        ],
+        [
+          1360,
+          880
+        ]
+      ]
+    },
+    {
+      "from": "JwtBearer",
+      "to": "AspNetCore",
+      "fromSide": "right",
+      "toSide": "top",
+      "via": [
+        [
+          560,
+          560
+        ]
+      ]
+    },
+    {
+      "from": "JsonWebTokens",
+      "to": "DotNet",
+      "fromSide": "left",
+      "toSide": "right",
+      "via": []
+    },
+    {
+      "from": "OpenApi",
+      "to": "AspNetCore",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": []
+    },
+    {
+      "from": "AzureIdentity",
+      "to": "DotNet",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "via": []
+    },
+    {
+      "from": "ACA",
+      "to": "MinimalApis",
+      "fromSide": "bottom",
+      "toSide": "right",
+      "via": [
+        [
+          800,
+          560
+        ]
+      ]
+    },
+    {
+      "from": "BlobStorage",
+      "to": "MinimalApis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "via": [
+        [
+          592,
+          512
+        ],
+        [
+          656,
+          512
+        ]
+      ]
+    },
+    {
+      "from": "XUnit",
+      "to": "DotNet",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "via": [
+        [
+          1024,
+          976
+        ],
+        [
+          512,
+          976
+        ],
+        [
+          512,
+          1312
+        ],
+        [
+          368,
+          1312
+        ]
+      ]
+    },
+    {
+      "from": "XUnit",
+      "to": "CSharp",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": []
+    },
+    {
+      "from": "MTP",
+      "to": "XUnit",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "via": [
+        [
+          1040,
+          832
+        ],
+        [
+          1024,
+          832
+        ]
+      ]
+    },
+    {
+      "from": "TestSdk",
+      "to": "MTP",
+      "fromSide": "left",
+      "toSide": "right",
+      "via": []
+    },
+    {
+      "from": "VsRunner",
+      "to": "XUnit",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": []
+    },
+    {
+      "from": "TrxReport",
+      "to": "MTP",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "via": [
+        [
+          1024,
+          672
+        ],
+        [
+          1040,
+          672
+        ]
+      ]
+    },
+    {
+      "from": "MvcTesting",
+      "to": "AspNetCore",
+      "fromSide": "left",
+      "toSide": "right",
+      "via": []
+    },
+    {
+      "from": "MvcTesting",
+      "to": "XUnit",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": [
+        [
+          928,
+          720
+        ],
+        [
+          928,
+          880
+        ]
+      ]
+    },
+    {
+      "from": "FakeTime",
+      "to": "DotNet",
+      "fromSide": "left",
+      "toSide": "bottom",
+      "via": [
+        [
+          448,
+          1680
+        ],
+        [
+          448,
+          1632
+        ],
+        [
+          368,
+          1632
+        ]
+      ]
+    },
+    {
+      "from": "BUnit",
+      "to": "RazorComponents",
+      "fromSide": "left",
+      "toSide": "right",
+      "via": []
+    },
+    {
+      "from": "BUnit",
+      "to": "XUnit",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "via": []
+    },
+    {
+      "from": "Coverlet",
+      "to": "TestSdk",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "via": []
+    },
+    {
+      "from": "Playwright",
+      "to": "BlazorServer",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "via": []
+    },
+    {
+      "from": "Playwright",
+      "to": "WebView2",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": []
+    },
+    {
+      "from": "Plugins",
+      "to": "ClaudeCode",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": [
+        [
+          896,
+          2480
+        ],
+        [
+          896,
+          2320
+        ]
+      ]
+    },
+    {
+      "from": "Skills",
+      "to": "Plugins",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": [
+        [
+          672,
+          2640
+        ],
+        [
+          672,
+          2480
+        ]
+      ]
+    },
+    {
+      "from": "Skills",
+      "to": "Markdown",
+      "fromSide": "left",
+      "toSide": "right",
+      "via": []
+    },
+    {
+      "from": "Skills",
+      "to": "YAML",
+      "fromSide": "left",
+      "toSide": "right",
+      "via": [
+        [
+          512,
+          2640
+        ],
+        [
+          512,
+          2480
+        ]
+      ]
+    },
+    {
+      "from": "Subagents",
+      "to": "Plugins",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "via": []
+    },
+    {
+      "from": "MCP",
+      "to": "ClaudeCode",
+      "fromSide": "left",
+      "toSide": "right",
+      "via": []
+    },
+    {
+      "from": "DeliveryEngine",
+      "to": "Plugins",
+      "fromSide": "top",
+      "toSide": "right",
+      "via": [
+        [
+          1232,
+          2528
+        ],
+        [
+          896,
+          2528
+        ],
+        [
+          896,
+          2480
+        ]
+      ]
+    },
+    {
+      "from": "DeliverySchedule",
+      "to": "DeliveryEngine",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "via": [
+        [
+          1024,
+          2528
+        ],
+        [
+          1232,
+          2528
+        ]
+      ]
+    },
+    {
+      "from": "DeliverySchedule",
+      "to": "ClaudeCode",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "via": []
+    },
+    {
+      "from": "Surfaces",
+      "to": "MCP",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "via": []
+    },
+    {
+      "from": "Surfaces",
+      "to": "DeliveryEngine",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "via": []
+    },
+    {
+      "from": "BacklogTools",
+      "to": "Plugins",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": [
+        [
+          672,
+          2320
+        ],
+        [
+          672,
+          2480
+        ]
+      ]
+    },
+    {
+      "from": "BacklogTools",
+      "to": "Skills",
+      "fromSide": "left",
+      "toSide": "left",
+      "via": [
+        [
+          512,
+          2320
+        ],
+        [
+          512,
+          2640
+        ]
+      ]
+    },
+    {
+      "from": "BacklogTools",
+      "to": "Hooks",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": [
+        [
+          720,
+          2320
+        ],
+        [
+          720,
+          2160
+        ]
+      ]
+    },
+    {
+      "from": "InstructionFiles",
+      "to": "Markdown",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "via": []
+    },
+    {
+      "from": "Hooks",
+      "to": "ClaudeCode",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": [
+        [
+          896,
+          2160
+        ],
+        [
+          896,
+          2320
+        ]
+      ]
+    },
+    {
+      "from": "DevbookPlugin",
+      "to": "Plugins",
+      "fromSide": "left",
+      "toSide": "right",
+      "via": [
+        [
+          896,
+          2640
+        ],
+        [
+          896,
+          2480
+        ]
+      ]
+    },
+    {
+      "from": "DevbookPlugin",
+      "to": "NodeJS",
+      "fromSide": "right",
+      "toSide": "right",
+      "via": [
+        [
+          1136,
+          2640
+        ],
+        [
+          1136,
+          2688
+        ],
+        [
+          1344,
+          2688
+        ],
+        [
+          1344,
+          2160
+        ]
+      ]
+    },
+    {
+      "from": "DevbookConfig",
+      "to": "Plugins",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "via": []
+    },
+    {
+      "from": "DevbookConfig",
+      "to": "JSON",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "via": []
+    },
+    {
+      "from": "DevbookProcedures",
+      "to": "Plugins",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": []
+    },
+    {
+      "from": "DevbookProcedures",
+      "to": "Skills",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "via": []
+    },
+    {
+      "from": "DotNetSdk",
+      "to": "DotNet",
+      "fromSide": "right",
+      "toSide": "bottom",
+      "via": [
+        [
+          240,
+          2160
+        ],
+        [
+          240,
+          1616
+        ],
+        [
+          368,
+          1616
+        ]
+      ]
+    },
+    {
+      "from": "MSBuild",
+      "to": "DotNetSdk",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "via": []
+    },
+    {
+      "from": "MauiWorkloads",
+      "to": "DotNetSdk",
+      "fromSide": "bottom",
+      "toSide": "bottom",
+      "via": [
+        [
+          800,
+          1952
+        ],
+        [
+          704,
+          1952
+        ],
+        [
+          704,
+          2096
+        ],
+        [
+          448,
+          2096
+        ],
+        [
+          448,
+          2208
+        ],
+        [
+          160,
+          2208
+        ]
+      ]
+    },
+    {
+      "from": "MauiWorkloads",
+      "to": "MAUI",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "via": [
+        [
+          800,
+          1632
+        ],
+        [
+          1232,
+          1632
+        ]
+      ]
+    },
+    {
+      "from": "NuGet",
+      "to": "DotNetSdk",
+      "fromSide": "left",
+      "toSide": "left",
+      "via": [
+        [
+          80,
+          2640
+        ],
+        [
+          80,
+          2160
+        ]
+      ]
+    },
+    {
+      "from": "CPM",
+      "to": "NuGet",
+      "fromSide": "left",
+      "toSide": "left",
+      "via": [
+        [
+          240,
+          2320
+        ],
+        [
+          240,
+          2416
+        ],
+        [
+          80,
+          2416
+        ],
+        [
+          80,
+          2640
+        ]
+      ]
+    },
+    {
+      "from": "Npm",
+      "to": "NodeJS",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": []
+    },
+    {
+      "from": "Bicep",
+      "to": "AzureCli",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "via": []
+    },
+    {
+      "from": "Azd",
+      "to": "Bicep",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "via": []
+    },
+    {
+      "from": "AspireCli",
+      "to": "Aspire",
+      "fromSide": "right",
+      "toSide": "top",
+      "via": [
+        [
+          416,
+          240
+        ]
+      ]
+    },
+    {
+      "from": "Actions",
+      "to": "GitHubPlatform",
+      "fromSide": "left",
+      "toSide": "right",
+      "via": [
+        [
+          704,
+          240
+        ],
+        [
+          704,
+          80
+        ]
+      ]
+    },
+    {
+      "from": "CodeQL",
+      "to": "Actions",
+      "fromSide": "left",
+      "toSide": "right",
+      "via": []
+    },
+    {
+      "from": "Dependabot",
+      "to": "GitHubPlatform",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": []
+    },
+    {
+      "from": "KnowledgeMeta",
+      "to": "NodeJS",
+      "fromSide": "right",
+      "toSide": "right",
+      "via": [
+        [
+          1344,
+          2800
+        ],
+        [
+          1344,
+          2160
+        ]
+      ]
+    },
+    {
+      "from": "KnowledgeMeta",
+      "to": "JSON",
+      "fromSide": "bottom",
+      "toSide": "bottom",
+      "via": [
+        [
+          1248,
+          2848
+        ],
+        [
+          800,
+          2848
+        ]
+      ]
+    },
+    {
+      "from": "KnowledgeMeta",
+      "to": "DevbookPlugin",
+      "fromSide": "left",
+      "toSide": "right",
+      "via": [
+        [
+          1152,
+          2800
+        ],
+        [
+          1152,
+          2640
+        ]
+      ]
+    },
+    {
+      "from": "DevbookTech",
+      "to": "NodeJS",
+      "fromSide": "right",
+      "toSide": "right",
+      "via": [
+        [
+          1136,
+          2800
+        ],
+        [
+          1136,
+          2688
+        ],
+        [
+          1344,
+          2688
+        ],
+        [
+          1344,
+          2160
+        ]
+      ]
+    },
+    {
+      "from": "DevbookTech",
+      "to": "JSON",
+      "fromSide": "left",
+      "toSide": "right",
+      "via": []
+    },
+    {
+      "from": "DevbookTech",
+      "to": "DevbookPlugin",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "via": []
+    },
+    {
+      "from": "DbWriter",
+      "to": "NodeJS",
+      "fromSide": "right",
+      "toSide": "top",
+      "via": [
+        [
+          704,
+          2160
+        ],
+        [
+          704,
+          2112
+        ],
+        [
+          1232,
+          2112
+        ]
+      ]
+    },
+    {
+      "from": "DbWriter",
+      "to": "Sqlite",
+      "fromSide": "left",
+      "toSide": "right",
+      "via": [
+        [
+          480,
+          2160
+        ],
+        [
+          480,
+          2432
+        ],
+        [
+          240,
+          2432
+        ],
+        [
+          240,
+          2800
+        ]
+      ]
+    },
+    {
+      "from": "C4Hero",
+      "to": "NodeJS",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "via": []
+    },
+    {
+      "from": "Archify",
+      "to": "NodeJS",
+      "fromSide": "top",
+      "toSide": "right",
+      "via": [
+        [
+          1024,
+          3008
+        ],
+        [
+          1360,
+          3008
+        ],
+        [
+          1360,
+          2160
+        ]
+      ]
+    },
+    {
+      "from": "Archify",
+      "to": "Mermaid",
+      "fromSide": "left",
+      "toSide": "right",
+      "via": []
+    },
+    {
+      "from": "Ajv",
+      "to": "Archify",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "via": []
+    },
+    {
+      "from": "Ajv",
+      "to": "JSON",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "via": [
+        [
+          1024,
+          2848
+        ],
+        [
+          800,
+          2848
+        ]
+      ]
+    },
+    {
+      "from": "SimpleIcons",
+      "to": "Archify",
+      "fromSide": "left",
+      "toSide": "right",
+      "via": []
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Status legend",
+      "items": [
+        "candidate — named as the intended choice, not yet validated by real use",
+        "trial — being tried out in a limited, reversible way",
+        "adopted — in active use and the default choice for its role",
+        "hold — kept but no longer expanded; avoid new usage",
+        "foundation / external — nothing in this project sits below it"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "Layers",
+      "items": [
+        "Foundations — formats, runtimes, operating systems, external services, and host tools the project builds on",
+        "Shared — shared technologies used across channels",
+        "Product channels — Desktop (local-first Windows client), Mobile (Android capture and review), IDE (editor extensions), Cloud (Azure services)",
+        "Testing — testing and validation",
+        "AI development — AI-assisted development",
+        "Tooling — build and governance tooling"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Reading the edges",
+      "items": [
+        "Every edge points from a technology to what it sits on top of.",
+        "Foundations carry no outgoing edge: nothing in this project sits below them."
+      ]
+    }
+  ]
+}
