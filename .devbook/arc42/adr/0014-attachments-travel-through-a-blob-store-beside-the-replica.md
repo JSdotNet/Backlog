@@ -11,13 +11,22 @@ Accepted, 2026-09-26, as proposed on 2026-09-25 for the `mobile-inbox-slice`
 plan: the per-file cap stays at 25 MB, the allowlist is the one under **The
 transport**, and upload and download go through the service rather than by SAS.
 
-The service side is built: the `storage` resource (Azurite) and its
-`attachments` container in the AppHost, the storage account, lifecycle rule
-and role in `infra/sync/main.bicep`, both routes, the capture's attachment
-list, and the release on acknowledgement. The cap and the allowlist are
-`Modules:Sync:Attachments` settings (`MaxBytes`, `AllowedContentTypes`). Not
-yet built: the phone's upload and the desktop's intake, which are later items
-of the same plan.
+The decision is built end to end, on all three sides. On the service: the
+`storage` resource (Azurite) and its `attachments` container in the AppHost,
+the storage account, lifecycle rule and role in `infra/sync/main.bicep`, both
+routes, the capture's attachment list, and the release on acknowledgement. The
+cap and the allowlist are `Modules:Sync:Attachments` settings (`MaxBytes`,
+`AllowedContentTypes`).
+
+On the phone: the `/note` talk-note screen in `Backlog.Mobile.UI`, an
+`IAttachmentPicker` with an Android and a web registration, `TalkNoteOutboxKind`
+and `AttachmentRules`, and files staged through the device outbox, so every
+`PUT /api/sync/attachments/{id}` completes before the `POST` that names them. On
+the desktop: an `inbox_item_attachments` table behind `SqliteInboxRepository`,
+download through `GET /api/sync/attachments/{id}` into the workspace folder,
+thumbnails and file rows in `InboxItemDetail.razor`, and the item's folder handed
+to the task when the item is routed to Tasks. Task attachments stay out of scope
+and machine-local, as the Consequences say.
 
 Two details the record left open are settled in the build. The upload declares
 its digest in an `X-Attachment-Sha256` header, as hex. The metadata field is
