@@ -6,7 +6,7 @@
 //                                                             --author <who> --body <text> [--kind question]
 //   node .devbook/_tools/devbook-meta/annotations.mjs reply   --chapter <path#slug> --index <n> --author <who> --body <text>
 //   node .devbook/_tools/devbook-meta/annotations.mjs resolve --chapter <path#slug> --index <n> [--delete]
-//   node .devbook/_tools/devbook-meta/annotations.mjs sweep   --chapter <path#slug> [--status resolved]
+//   node .devbook/_tools/devbook-meta/annotations.mjs sweep   --chapter <path#slug>
 //
 // Several channels legitimately write a note — a person in an editor, a skill,
 // the desktop app, a device with no clone queuing one for later — and they all
@@ -31,6 +31,7 @@ import {
     resolveAnnotation,
     annotationKinds,
     annotationStatuses,
+    slugify,
 } from "./metadata.mjs";
 
 const FENCE = "```";
@@ -58,7 +59,7 @@ function chapterRange(lines, slug) {
         const heading = /^(#{1,6})\s+(.*)$/.exec(lines[i]);
         if (!heading) continue;
         if (start === -1) {
-            if (slugifyLocal(heading[2].trim()) === slug) {
+            if (slugify(heading[2].trim()) === slug) {
                 start = i;
                 level = heading[1].length;
             }
@@ -70,15 +71,6 @@ function chapterRange(lines, slug) {
     return [start, lines.length];
 }
 
-// Kept local rather than imported so this module's slug never drifts from the
-// one `parseAnnotations` reports addresses with — both mirror GitHub's anchors.
-function slugifyLocal(text) {
-    return text
-        .toLowerCase()
-        .trim()
-        .replace(/[^\w\s-]/g, "")
-        .replace(/\s/g, "-");
-}
 
 const FENCE_LINE = /^(\s*)(`{3,}|~{3,})\s*([^\s`~]*)\s*$/;
 
@@ -140,6 +132,16 @@ function blocksIn(lines, start, end) {
 }
 
 /** Serialize a note as fence lines, omitting whatever the defaults already say. */
+// The only writer of a fence writes only what the checker accepts: a known kind, an
+// author, and a body. A fence `--check` would reject is refused before anything is read.
+function requireNote({ kind, author, body }) {
+    if (kind !== undefined && kind !== null && !annotationKinds().includes(kind)) {
+        throw new Error(`Unknown annotation kind "${kind}" — one of ${annotationKinds().join(", ")}.`);
+    }
+    if (typeof author !== "string" || !author.trim()) throw new Error("--author is required: a note names who raised it.");
+    if (typeof body !== "string" || !body.trim()) throw new Error("--body is required: a note with nothing to say is not written.");
+}
+
 export function renderAnnotation({ kind, status, author, date, quote, body }) {
     const out = [FENCE + "annotation"];
     if (kind && kind !== "comment") out.push(`kind: ${kind}`);
@@ -205,6 +207,7 @@ function noteAddress(note, relPath) {
  * annotates the chapter as a whole.
  */
 export async function add(repoRoot, address, note) {
+    requireNote(note);
     const chapter = await loadChapter(repoRoot, address);
     const { lines, range } = chapter;
     const blocks = blocksIn(lines, range[0], range[1]);
@@ -256,7 +259,7 @@ function annotationsIn(chapter) {
     let slug = null;
     for (const block of blocksIn(chapter.lines, chapter.range[0], chapter.range[1])) {
         if (block.kind === "heading") {
-            slug = slugifyLocal(block.text);
+            slug = slugify(block.text);
             continue;
         }
         if (block.kind !== "annotation") continue;
@@ -289,6 +292,7 @@ function fenceFor(chapter, index) {
  * the block that is already there and leaves every other line untouched.
  */
 export async function reply(repoRoot, address, index, { author, date, body }) {
+    requireNote({ author, body });
     const chapter = await loadChapter(repoRoot, address);
     const block = fenceFor(chapter, index);
     const { lines } = chapter;
@@ -385,10 +389,10 @@ export async function resolve(repoRoot, address, index, { delete: sweep = false 
  * Deletes bottom-up, so a fence earlier in the file still sits where the sweep
  * found it by the time its turn comes.
  */
-export async function sweep(repoRoot, address, { status = "resolved" } = {}) {
-    if (!annotationStatuses().includes(status)) {
-        throw new Error(`Unknown annotation status "${status}" — one of ${annotationStatuses().join(", ")}.`);
-    }
+export async function sweep(repoRoot, address) {
+    // Only a resolved note is ever swept: an open one is somebody waiting, and there is
+    // no option to take it, so no caller can sweep it by mistake.
+    const status = "resolved";
     const chapter = await loadChapter(repoRoot, address);
     const { lines } = chapter;
 
@@ -429,7 +433,7 @@ const USAGE = `annotations.mjs — read and write annotation fences
           [--kind ${annotationKinds().join("|")}] [--date YYYY-MM-DD]
   reply   --chapter <path#slug> --index <n> --author <who> --body <text> [--date YYYY-MM-DD]
   resolve --chapter <path#slug> --index <n> [--delete]
-  sweep   --chapter <path#slug> [--status ${annotationStatuses().join("|")}]
+  sweep   --chapter <path#slug>
 
   --root <dir>   repository root (default: the working directory)`;
 
@@ -495,9 +499,7 @@ async function main(argv) {
             return 0;
         }
         case "sweep": {
-            const result = await sweep(repoRoot, address, {
-                status: optionValue(args, "--status") ?? "resolved",
-            });
+            const result = await sweep(repoRoot, address);
             for (const note of result.swept) {
                 console.log(`swept   ${result.path}#${note.chapter ?? ""} #${note.index} — ${note.author}, ${note.date}`);
             }

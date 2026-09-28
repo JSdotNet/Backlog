@@ -52,5 +52,5 @@ Use kebab-case for files and folders (`.devbook/domain/order-management/`,
 
 ## Reference
 
-- `devbook-derived-artifacts.md` (a layered plugin's rule) — placement, naming,
-  and envelope rules for generated artifacts under `_meta/`.
+- The rule for `_meta/` — placement, naming, and envelope rules for generated artifacts,
+  delivered by the layered plugin that commits the index, where a repository has adopted it.

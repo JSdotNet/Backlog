@@ -1,6 +1,6 @@
 // Exercises the one folder layout: five folders under a single `.devbook/`
 // parent whose subfolders drop the dot. The root-level dot-folder spelling
-// (`.arc42/`) is no longer a layout (record 80): a stray one is reported as an
+// (`.arc42/`) is no longer a layout (the chapter-schema decision): a stray one is reported as an
 // error and never indexed, so a repository that has not moved learns it from
 // the check rather than from a quiet half-corpus.
 //
