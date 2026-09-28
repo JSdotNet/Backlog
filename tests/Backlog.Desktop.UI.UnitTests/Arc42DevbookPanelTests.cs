@@ -454,7 +454,7 @@ public sealed class Arc42DevbookPanelTests : IDisposable
         var folderPath = configuredPath ?? ".arc42";
         var arc42 = Path.Combine(root, folderPath.Replace('/', Path.DirectorySeparatorChar));
 
-        // What `build/Update-KnowledgeIndex.ps1` writes: every entry is spelled
+        // What `devbook-meta/build.mjs --write` puts in `_meta/index.json`: every entry is spelled
         // from the repository root down, so an index inside docs/arch reads
         // docs/arch/... and never arch/.... Arranging the folder-relative spelling
         // instead would be arranging a file no generator produces, and the panel

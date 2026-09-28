@@ -113,8 +113,8 @@ public class GeneratedIndexLineEndingTests
     /// <summary>
     /// The comment above the rules names every generator whose output they pin.
     ///
-    /// <para>It named only the predecessor's <c>knowledge-meta.yml</c> workflow, which is a
-    /// consumer rather than a generator, so the next person to add one had nothing
+    /// <para>It once named only a workflow that consumed an index rather than a
+    /// generator that writes one, so the next person to add one had nothing
     /// telling them the rule was theirs to extend — which is how the Archify index
     /// came to be missed in the first place.</para>
     /// </summary>
