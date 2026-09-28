@@ -660,6 +660,8 @@ public sealed class InboxPaneTests
     [Fact]
     public async Task The_queue_health_strip_has_no_chip_when_nothing_has_waited_too_long()
     {
+        // Pinned to the fake's own now: on the system clock the item grows stale
+        // fourteen days after FakeInboxItems.Now, and the chip appears.
         var now = new FakeInboxItems().Now;
         using var harness = Harness.Create(new Microsoft.Extensions.Time.Testing.FakeTimeProvider(now));
         harness.Inbox.Seed("Fresh", capturedAt: now);
