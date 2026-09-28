@@ -1,12 +1,12 @@
 # Vendored Archify
 
 Upstream: <https://github.com/tt-a1i/archify> — MIT, see `LICENSE`.
-Pinned revision: `af45e517fb9441e769593c1bf0a6395de1acb7ca`.
+Pinned revision: `c826e6c3a7abad19c0f3cd1ca57207d54b1ad8de` — tag `v2.16.0`.
 
 ## What this folder is
 
-The upstream repository's `archify/` subfolder, verbatim except for the one omission
-and the two changes below. That folder is the documented unit of distribution: `npx skills add
+The upstream repository's `archify/` subfolder, verbatim except for the omissions
+and the three changes below. That folder is the documented unit of distribution: `npx skills add
 tt-a1i/archify -g` and the manual `archify.zip` install both produce exactly this
 directory as a skill folder. Vendoring it is therefore the supported way to use
 Archify, not a repackaging of it.
@@ -22,6 +22,11 @@ Node 18+. Verified on Node 24.18.0.
 ## What was omitted
 
 `test/` (1.2 MB): upstream's own test suite, which this repository does not run.
+
+`scripts/check-update.mjs` and `scripts/update-contract.mjs`: the update checker
+upstream added in v2.16.0, and the module only it imports. See the third change
+below. `skill-release.json` is kept — it is inert version metadata that nothing else
+reads.
 
 ## What was changed
 
@@ -89,6 +94,22 @@ control whose name is stuck is a defect on exactly the control the loop depends 
 `ArchifyArtifactMotionTests` fails if a re-copy drops this one too, and checks the
 template alongside all 42 artifacts for the same reason.
 
+`SKILL.md` — the **Update awareness** step is replaced by a note saying this copy has
+no update checker.
+
+Upstream's step, new in v2.16.0, tells the authoring agent to run
+`scripts/check-update.mjs` after the first candidate. That script fetches a release
+manifest from `tt-a1i.github.io` and keeps acknowledgement state on the machine. It is
+reachable only through `SKILL.md` — no renderer, `bin/` entrypoint or template calls it
+— so removing the step and the two scripts takes the network out of the authoring path
+without touching rendering. Two reasons it does not belong here: this copy is pinned
+and moved forward on purpose through **Updating** below, so a per-run notice has nothing
+to offer, and `.devbook/design/component-libraries.md` asks for local assets, which is
+why this folder is vendored at all.
+
+`ArchifyArtifactMotionTests.The_vendored_archify_skill_has_no_update_checker` fails if
+a re-copy brings the scripts or the step back.
+
 ## `bin/` needs a .gitignore negation
 
 `.gitignore` carries `[Bb]in/` for .NET build output. That rule matches
@@ -119,13 +140,40 @@ support.
 
 ## Updating
 
-Re-copy the folder at a newer revision, drop `test/`, record the new SHA above,
-re-apply both changes in **What was changed**, then regenerate every artifact and confirm
-each still reports 9 of 9 checks:
+Re-copy the folder at a newer revision, drop everything in **What was omitted**,
+record the new SHA above, re-apply all three changes in **What was changed**, then
+re-deliver every specification to its own artifact. Each one must exit 0; `deliver`
+refuses to write an artifact that fails any of its 9 checks.
 
 ```bash
+for spec in $(git ls-files '*_archify/*.json' 'src/Harness/*/Archify/*.json' | grep -v 'index\.json$'); do
+  base=${spec%.json}; stem=${base%.standard}; quality=showcase
+  [ "$stem" != "$base" ] && quality=standard
+  node tools/archify/bin/archify.mjs deliver "${stem##*.}" "$spec" "$base.html" --quality "$quality" --json > /dev/null || echo "FAIL $spec"
+done
 node tools/diagrams/archify-artifacts.mjs verify
 ```
+
+This is `deliver` with the arguments `archify-artifacts.mjs render` passes, run
+directly, and it is direct on purpose: an upgrade changes what an artifact looks like,
+never which diagram it belongs to, so no `index.json` may change. `render` is the wrong
+tool for that job both ways it can be called. `render --all` judges staleness from the
+mermaid fence hash, which an upgrade does not change, so it reports `Nothing to
+render.` and exits 0. `render <spec>` re-keys the index to whatever fence now sits at
+the spec's ordinal. On a chapter whose fences have moved or changed since its artifacts
+were authored — `06-runtime-view.md` had several at `v2.16.0` — that reassigns an
+artifact to mermaid it was never authored from, and `verify` reports the lie as
+rendered. `verify` should list exactly what it listed before the upgrade.
+
+The template changes carry forward as a patch: diff the vendored `template.html`
+against upstream's at the old pin, and apply that diff to the new revision's. From
+`af45e51` to `v2.16.0` every hunk applied except the Motion Governor's `render()` hunk,
+whose context line — the Live/Still label — upstream had localized; its two edits
+(`else { startAmbient(); }` and the `isPlaying` guard) went in by hand.
+
+Workflow specifications here are `schema_version: 1`. Since v2.16.0 upstream also has
+a schema 2 layout compiler and a `migrate` command; v1 output is preserved
+byte-for-byte, so an update does not require migrating them.
 
 An Archify upgrade that changes the renderer changes every artifact's bytes. That is
 expected; a *validation* regression is not.
