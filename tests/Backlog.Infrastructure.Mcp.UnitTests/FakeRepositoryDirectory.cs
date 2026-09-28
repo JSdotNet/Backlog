@@ -1,4 +1,5 @@
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Infrastructure.Mcp.UnitTests;
 
@@ -47,7 +48,7 @@ internal sealed class FakeRepositoryDirectory : IRepositoryDirectory
         return Find(name);
     }
 
-    public TasksRepositoryRef Register(string name)
+    public Result<TasksRepositoryRef> Register(string name)
     {
         // Recorded and then honoured, rather than throwing. A double that threw
         // would make "never registers" true of the test harness instead of true

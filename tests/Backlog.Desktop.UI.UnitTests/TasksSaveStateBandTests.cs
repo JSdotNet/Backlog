@@ -1,3 +1,4 @@
+using Backlog.Desktop.UI.Tasks;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
@@ -85,6 +86,34 @@ public sealed class TasksSaveStateBandTests : IDisposable
         await Task.Delay(PastTheDwell, TestContext.Current.CancellationToken);
 
         Assert.Equal(AppSaveState.Error, state.SaveState);
+    }
+
+    /// <summary>
+    /// A repository a plan names that the registry could not keep stops the
+    /// import, and the import surface says so in the registry's own words rather
+    /// than the generic "Import failed." — which says nothing about what to fix.
+    /// Driven through the real Settings adapter over a registry that cannot be
+    /// read, the worse of the two ways a registration fails.
+    /// </summary>
+    [Fact]
+    public async Task An_import_whose_repository_could_not_be_registered_says_why()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "backlog-save-band", Guid.NewGuid().ToString("n"));
+        _tempDirs.Add(root);
+        var registry = Path.Combine(root, "github", GitHubSettingsStore.RegistryFolderName, "repos.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(registry)!);
+        File.WriteAllText(registry, "{ this is not a registry");
+
+        var settings = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
+        Assert.NotNull(settings.RegistryError);
+
+        var (state, store) = Build(repositories: new SettingsRepositoryDirectory(settings));
+        await state.InitializeAsync();
+
+        var sentence = await state.ImportPlanAsync("# One\n`prompt` `repo:newcomer`\n");
+
+        Assert.Equal(settings.RegistryError, sentence);
+        Assert.Empty(await TasksTestHost.EntriesFor(store).ListAsync(TestContext.Current.CancellationToken));
     }
 
     /// <summary>
@@ -293,7 +322,8 @@ public sealed class TasksSaveStateBandTests : IDisposable
     private (TasksDesktopState State, WorkspaceSettingsStore Store) Build(
         Func<ITaskItems, ITaskItems>? decorate = null,
         TasksCopilotCli? copilot = null,
-        IToastChannel? toasts = null)
+        IToastChannel? toasts = null,
+        IRepositoryDirectory? repositories = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-save-band", Guid.NewGuid().ToString("n"));
         _tempDirs.Add(root);
@@ -304,7 +334,7 @@ public sealed class TasksSaveStateBandTests : IDisposable
         var settings = new GitHubSettingsStore(Path.Combine(root, "github.json"));
         var integration = new GitHubIntegration(settings, new UnusedGitHubClient(), new UnusedProbe());
 
-        var entries = TasksTestHost.EntriesFor(store);
+        var entries = TasksTestHost.EntriesFor(TasksTestHost.RepositoryFor(store), repositories);
         var state = new TasksDesktopState(
             TasksTestHost.TaskStoreFor(store),
             decorate is null ? entries : decorate(entries),
