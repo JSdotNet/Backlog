@@ -40,6 +40,11 @@ public static class DashboardCrossContextAdapterRegistration
         // adapters are scoped to avoid.
         services.AddScoped<ICompletedTaskSource, TaskItemsCompletedTaskSource>();
 
+        // Scoped for the same reason: the roadmap's planning, rollup and pace ports are
+        // scoped, so this needs AddRoadmapModule() and AddRoadmapCrossContextAdapters()
+        // registered first.
+        services.AddScoped<IPlanProgressSource, RoadmapPlanProgressSource>();
+
         return services;
     }
 }

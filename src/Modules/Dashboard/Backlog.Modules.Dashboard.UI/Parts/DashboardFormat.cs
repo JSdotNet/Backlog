@@ -113,6 +113,23 @@ public static class DashboardFormat
     public static string Day(DateOnly day) => day.ToString("ddd dd", CultureInfo.InvariantCulture);
 
     /// <summary>
+    /// A planned day, as <c>05 Oct</c>: the day and the month, no weekday.
+    /// <para>
+    /// Not <see cref="Day(DateOnly)"/>, which names a row of a seven-day grid and can
+    /// leave the month out because a week never repeats one. A roadmap item runs for
+    /// weeks and its two ends are routinely in different months, so here the month is
+    /// the half that cannot go. No year, for the reason <see cref="Moment"/> gives.
+    /// Invariant, for the reason every format here is.
+    /// </para>
+    /// </summary>
+    public static string Date(DateOnly day) => day.ToString("dd MMM", CultureInfo.InvariantCulture);
+
+    /// <summary>A stretch from one planned day to another, both inclusive, as
+    /// <c>21 Sep – 05 Oct</c>. An en dash, the range mark, and the two ends in
+    /// <see cref="Date"/>'s words so a sentence and a table cell name a day the same way.</summary>
+    public static string Span(DateOnly start, DateOnly end) => $"{Date(start)} – {Date(end)}";
+
+    /// <summary>
     /// A column heading for the activity grid: the hour, zero-padded, as <c>07</c>.
     /// <para>
     /// Padded because the grid matches its cells on this string, so <c>7</c> and

@@ -5461,6 +5461,42 @@ h1, h2, h3 {
     min-width: 0;
 }
 
+/* A section's More fold: the same FoldControl a step in from the section, with a
+   quieter heading so it reads as the rest of the section rather than a section of its
+   own. After the rule above on purpose — the two region selectors are equally
+   specific, and a More region nested in a section region has to take this one. */
+.dashboard-section__more {
+    display: grid;
+    margin-top: var(--spacing-sm);
+    min-width: 0;
+}
+
+.dashboard-section__more-title {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--color-text-secondary);
+}
+
+.dashboard-section__more .fold__region:not([hidden]) {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    padding-top: var(--spacing-sm);
+    min-width: 0;
+}
+
+/* The sessions part's chart and grid controls: a select and a toggle strip on one
+   line above the thing they drive, wrapping under each other where the part is
+   narrow. */
+.dashboard-sessions__controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+    align-items: center;
+    min-width: 0;
+}
+
 /* Two parts side by side where there is room for them, one above the other where
    there is not. auto-fit rather than a media query, because what decides this is
    the panel's own width and the panel is inside a takeover whose width is the
