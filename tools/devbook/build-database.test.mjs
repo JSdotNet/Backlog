@@ -596,7 +596,7 @@ test("this repository's own corpus builds", async () => {
         assert.ok(counts.chapter > counts.files, 'every file should contribute at least one chapter');
         assert.ok(counts.node > 0 && counts.edge > 0, 'the graph came out empty');
         assert.ok(counts.outline_entry > 0, 'the outline came out empty');
-        assert.equal(counts.archify_artifact, 39, 'the fourteen _archify indexes hold 39 artifacts');
+        assert.equal(counts.archify_artifact, 42, 'the fourteen _archify indexes hold 42 artifacts');
 
         const db = new DatabaseSync(target, { readOnly: true });
         try {
