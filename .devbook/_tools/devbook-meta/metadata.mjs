@@ -24,7 +24,7 @@ import { createHash } from "node:crypto";
  * one of them lives under the one `.devbook/` parent: `.devbook/arc42`,
  * `.devbook/domain`, and so on. The parent already carries the "hidden support
  * directory" signal, so the subfolders drop the dot. There is no other layout
- * (record 80); five root-level dot-folders are reported, never indexed.
+ * (the chapter-schema decision); five root-level dot-folders are reported, never indexed.
  */
 export const DEVBOOK_FOLDER_NAMES = ["arc42", "domain", "tech", "design", "ai"];
 
@@ -104,7 +104,7 @@ const CONTENT_HASH_PATTERN = /^sha256:[0-9a-f]{8}$/;
 // Where a chapter's review stands, who owes the next move, and since when. The
 // triad mirrors the approval triad on purpose — a chapter reads the same way on
 // its way to a decision as it does past one — and, like it, is devbook's
-// vocabulary written by the review workflow layered on top (record 77). Each
+// vocabulary written by the review workflow layered on top (the annotations decision). Each
 // state names who is waiting: `requested` the reviewer, `changes-requested`
 // the author, `cleared` nobody. The notes in the chapter body are the evidence
 // a state stands on, so the two are checked against each other below.
@@ -257,7 +257,7 @@ const LEGACY_TYPE_FIELD_BY_FOLDER = { tech: "kind" };
 // validates none of it, and produces no edges from it. That is the whole point.
 // Without it, every extension would force a devbook schema bump and a migration
 // in every consuming repository. Reserved and currently unused: the first
-// extension's state became schema fields instead (record 77).
+// extension's state became schema fields instead (the annotations decision).
 //
 // The block grammar is flat single-line scalars, so the namespace is spelled
 // with dotted keys — `ext.<plugin>.<key>: <value>` — rather than by nesting.
@@ -1619,12 +1619,14 @@ export function validateDocument(relPath, markdown) {
 
     const { fileTitle, fileMeta, chapters } = parseDocument(markdown);
     for (const issue of escapeSequenceIssues(markdown)) {
-        issues.push({ severity: issue.severity, message: `${relPath} ${issue.message}` });
+        // graph.mjs prefixes every issue with the path; doing it here too printed it twice.
+        issues.push({ severity: issue.severity, message: issue.message });
     }
     // Annotations are authored Markdown in the same file, so they are linted
     // here rather than by a second pass a repository could forget to run.
     for (const issue of annotationIssues(markdown)) {
-        issues.push({ severity: issue.severity, message: `${relPath} ${issue.message}` });
+        // graph.mjs prefixes every issue with the path; doing it here too printed it twice.
+        issues.push({ severity: issue.severity, message: issue.message });
     }
     const allowedStatus = STATUS_BY_FOLDER[kind];
     const resting = restingStatusFor(kind);

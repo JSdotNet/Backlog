@@ -5,7 +5,7 @@ description: Common per-chapter and per-file metadata convention for domain/, ar
 
 # Chapter and file metadata
 
-`domain/`, `arc42/`, `tech/`, `design/`, and `ai/` are intended to be read by a
+`domain/`, `arc42/`, `tech/`, `design/`, and `ai/` are intended to be read by
 visualization and indexing tooling, not just by humans. To make that
 possible, every **chapter** in these folders carries a small, parseable
 metadata block directly under its heading, in a fenced `meta` (YAML) code
@@ -461,7 +461,7 @@ A chapter that is estimated and carried by a roadmap item therefore reads:
 ## Offline Sync Queue
 
 \`\`\`meta
-status: ready
+status: draft
 effort: 8
 roadmap: [sync-service, mobile-mvp]
 related: [.devbook/domain/sync/features.md#offline-sync]
@@ -477,7 +477,8 @@ capability is covered end to end, and a viewer can offer to run the thing.
 ### Why a test link and not a code link
 
 This schema deliberately has **no field linking a chapter to a source path** —
-see "Counterpart resolution" in `assets/code-sync-protocol.md`, shared by
+see "Counterpart resolution" in the devbook plugin's `assets/code-sync-protocol.md` — never
+materialized into a repository — shared by
 `capture-specs`, `apply-change`, and `verify-change`. A path in a metadata block rots on the first refactor
 and gives no signal when it does, so a chapter and its implementation are paired
 through naming instead.
@@ -747,11 +748,11 @@ These metadata blocks are checked by `.devbook/_tools/devbook-meta/build.mjs`,
 which builds the reference graph and the reading outline to do it. A layered
 plugin may ask the same tool to write them, with `--write`, as derived indexes —
 one set per devbook folder plus a repository-wide rollup, placed per that
-plugin's `devbook-derived-artifacts.md`:
+plugin's own rule for `_meta/`:
 
 ```text
 .devbook/_meta/graph.json          # reference graph, all adopted folders
-_meta/index.json          # reading outline, all adopted folders
+.devbook/_meta/index.json          # reading outline, all adopted folders
 .devbook/arc42/_meta/graph.json   # arc42/ only
 .devbook/arc42/_meta/index.json
 .devbook/domain/_meta/…
@@ -762,13 +763,14 @@ _meta/index.json          # reading outline, all adopted folders
 
 Only folders the repository actually has produce a scope.
 
-Regenerate whenever a chapter or file is added, renamed, or re-linked:
+Run the check whenever a chapter or file is added, renamed, or re-linked:
 
 ```bash
-node .devbook/_tools/devbook-meta/build.mjs
+node .devbook/_tools/devbook-meta/build.mjs --check
 ```
 
-These are derived output — never edit them by hand. CI
-(`.github/workflows/devbook-meta.yml`) fails when a reference does not
-resolve or when a committed index is stale. See
+The indexes are derived output — never edited by hand, and never regenerated in a
+session: where a repository commits them, the layered plugin's own refresh path writes
+them. CI (`.github/workflows/devbook-meta.yml`) fails when a reference does not resolve;
+whether a committed index has drifted is that plugin's question and never a failure. See
 the devbook-meta tooling README (`.devbook/_tools/devbook-meta/README.md`) for the output shape.

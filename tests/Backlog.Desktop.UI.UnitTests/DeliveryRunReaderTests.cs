@@ -515,6 +515,56 @@ public sealed class DeliveryRunReaderTests : IDisposable
     public void The_worktree_name_is_the_folder_without_its_hash(string folder, string name) =>
         Assert.Equal(name, DeliveryRunReader.WorktreeName(folder));
 
+    /// <summary>
+    /// A flow reports to every surface it is bound to, and each surface files the run
+    /// under an id of its own. Two folders, two files, one run in the catalog: the
+    /// dashboard's record, naming both surfaces, with what only the backlog's file
+    /// knew added to it. Trimmed from a real pair, disagreement included.
+    /// </summary>
+    [Fact]
+    public async Task One_run_reported_to_two_surfaces_is_read_as_one()
+    {
+        GivenRun("backlog", "version-number-display-9fdeac-20b24a3e", "run-mujubkak-7fq49u.json", BacklogHalf);
+        GivenRun("delivery-surface-dashboard", "version-number-display-9fdeac-20b24a3e", "run-mujubkgt-mny0y2.json", DashboardHalf);
+
+        var catalog = await ReadAsync();
+
+        var run = Assert.Single(catalog.Runs);
+
+        Assert.Equal("run-mujubkgt-mny0y2", run.Id);
+        Assert.Equal("delivery-surface-dashboard", run.Dashboard);
+        Assert.Equal(["delivery-surface-dashboard", "backlog"], run.Surfaces);
+        Assert.Equal("flow-spec", run.SkillId);
+
+        // The dashboard's word for the outcome, not the backlog's: the two disagree
+        // because the dashboard's finish_run has no "parked".
+        Assert.Equal("blocked", run.Status);
+
+        // The dashboard measured the whole session; the backlog surface only its own
+        // calls. One measurement, the record's.
+        Assert.Equal(86, run.TokenUsage!.Total.ModelCalls);
+
+        // The change kind the dashboard never recorded, and the issue only the
+        // backlog file named, after the pull request the dashboard's stage linked.
+        Assert.Equal("bug-fix", run.ChangeKind);
+        Assert.Collection(
+            run.References,
+            reference =>
+            {
+                Assert.Equal(DeliveryRunReferenceKind.PullRequest, reference.Kind);
+                Assert.Equal("PR #771", reference.Label);
+            },
+            reference =>
+            {
+                Assert.Equal(DeliveryRunReferenceKind.Issue, reference.Kind);
+                Assert.Equal("#770", reference.Label);
+            });
+
+        Assert.Equal(["3c3beb1b-c8c1-4db7-9cdc-6d82d2c90f74"], run.SessionIds);
+        Assert.Equal(new DateTimeOffset(2026, 9, 27, 13, 14, 7, 835, TimeSpan.Zero), run.UpdatedAt);
+        Assert.Empty(catalog.Unreadable);
+    }
+
     private Task<DeliveryRunCatalog> ReadAsync() => new LocalDeliveryRunSource(_home, MachineId, Machine).GetRunsAsync();
 
     private void GivenRun(string dashboard, string worktree, string file, string json)
@@ -776,6 +826,73 @@ public sealed class DeliveryRunReaderTests : IDisposable
         """;
 
     /// <summary>A run of the delivery surface, still under way.</summary>
+    /// <summary>The dashboard surface's half of a real pair: the flow said "blocked"
+    /// here because this surface's finish_run has no "parked", recorded no change
+    /// kind, linked the pull request from a stage, and measured every model call the
+    /// session made.</summary>
+    private const string DashboardHalf = """
+        {
+          "id": "run-mujubkgt-mny0y2",
+          "skillId": "flow-spec",
+          "title": "Amend ADR 0013: roadmap self-adjusts from remaining work",
+          "status": "blocked",
+          "changeKind": null,
+          "approval": { "state": "approved", "decidedAt": "2026-09-27T13:12:46.622Z", "note": "approved, go" },
+          "sessionIds": ["3c3beb1b-c8c1-4db7-9cdc-6d82d2c90f74"],
+          "workItem": null,
+          "destinations": [],
+          "startedAt": "2026-09-27T13:06:36.259Z",
+          "updatedAt": "2026-09-27T13:14:07.835Z",
+          "stages": [
+            { "name": "Context Loading", "agents": [], "status": "done", "output": "", "startedAt": "2026-09-27T13:06:40.000Z", "doneCount": 1, "completedAt": "2026-09-27T13:07:29.000Z", "updatedAt": "2026-09-27T13:07:29.000Z", "durationMs": 49000 },
+            { "name": "Drafting", "agents": [], "status": "blocked", "output": "", "startedAt": "2026-09-27T13:07:29.000Z", "doneCount": 0, "completedAt": null, "updatedAt": "2026-09-27T13:14:07.835Z", "durationMs": null,
+              "links": [{ "label": "PR #771", "url": "https://github.com/JSdotNet/Backlog/pull/771", "description": "Edit roadmap alignment" }] }
+          ],
+          "summary": "",
+          "insights": [],
+          "tokenUsage": {
+            "total": { "modelCalls": 86, "inputTokens": 172, "outputTokens": 108442, "reasoningTokens": 0, "cacheReadTokens": 57000000, "cacheWriteTokens": 104600 },
+            "subAgent": { "modelCalls": 0, "inputTokens": 0, "outputTokens": 0, "reasoningTokens": 0, "cacheReadTokens": 0, "cacheWriteTokens": 0 },
+            "byStage": {},
+            "models": ["claude-opus-5"],
+            "updatedAt": "2026-09-27T13:14:07.835Z"
+          },
+          "context": { "currentTokens": 256624, "tokenLimit": 1000000, "peakTokens": 256624, "sampledAt": "2026-09-27T13:14:07.835Z", "pressureNotified": [] }
+        }
+        """;
+
+    /// <summary>The backlog surface's half of the same run: its own id, 200 ms
+    /// earlier, "parked", the change kind and the issue the dashboard never had, and
+    /// only the model calls this surface saw.</summary>
+    private const string BacklogHalf = """
+        {
+          "id": "run-mujubkak-7fq49u",
+          "skillId": "flow-spec",
+          "title": "Amend ADR 0013: roadmap self-adjusts from remaining work",
+          "status": "parked",
+          "changeKind": "bug-fix",
+          "approval": { "personalValidation": "approved", "decidedAt": "2026-09-27T13:12:46.410Z", "note": "approved, go" },
+          "sessionIds": ["3c3beb1b-c8c1-4db7-9cdc-6d82d2c90f74"],
+          "githubIssue": { "repo": "JSdotNet/Backlog", "url": "https://github.com/JSdotNet/Backlog/issues/770", "title": "Roadmap self-adjusts from work not done", "number": 770 },
+          "startedAt": "2026-09-27T13:06:36.058Z",
+          "updatedAt": "2026-09-27T13:14:07.626Z",
+          "stages": [
+            { "name": "Context Loading", "agents": [], "status": "done", "output": "", "startedAt": "2026-09-27T13:06:40.000Z", "doneCount": 1, "completedAt": "2026-09-27T13:07:29.000Z", "updatedAt": "2026-09-27T13:07:29.000Z", "durationMs": 49000 },
+            { "name": "Drafting", "agents": [], "status": "blocked", "output": "", "startedAt": "2026-09-27T13:07:29.000Z", "doneCount": 0, "completedAt": null, "updatedAt": "2026-09-27T13:14:07.626Z", "durationMs": null }
+          ],
+          "summary": "",
+          "insights": [],
+          "tokenUsage": {
+            "total": { "modelCalls": 25, "inputTokens": 50, "outputTokens": 22079, "reasoningTokens": 0, "cacheReadTokens": 9000000, "cacheWriteTokens": 30000 },
+            "subAgent": { "modelCalls": 0, "inputTokens": 0, "outputTokens": 0, "reasoningTokens": 0, "cacheReadTokens": 0, "cacheWriteTokens": 0 },
+            "byStage": {},
+            "models": ["claude-opus-5"],
+            "updatedAt": "2026-09-27T13:14:07.626Z"
+          },
+          "context": { "currentTokens": 256624, "tokenLimit": 1000000, "peakTokens": 256624, "sampledAt": "2026-09-27T13:14:07.626Z", "pressureNotified": [] }
+        }
+        """;
+
     private const string DeliverySurfaceRun = """
         {
           "id": "run-mv1a2b3c-flow01",

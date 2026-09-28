@@ -1,5 +1,5 @@
 // Asserts the review triad — `review`, `reviewer`, `review-at` — against the
-// rules record 77 moved into the schema: written together or not at all, one
+// rules the annotations decision moved into the schema: written together or not at all, one
 // of three states, a verdict held to the open notes it claims to stand on, and
 // none of it left standing once the chapter is approved.
 //

@@ -85,7 +85,7 @@ const DIRECTORY_CONVENTION = {
             "dependencies.md",
         ],
         last: [],
-        split: ["domain.md", "features.md", "skills.md", "model.md", "flow.md"],
+        split: ["domain.md", "requirements.md", "features.md", "skills.md", "model.md", "flow.md"],
         subpage: { suffix: "invariants", of: ["domain.md"] },
     },
     "tech": { root: "technology-graph.md", first: ["shared.md"], last: ["tooling.md"] },
@@ -304,8 +304,8 @@ async function readDirectory(repoRoot, relDir, problems) {
     for (const name of sequence) {
         if (parsed.has(name)) {
             const doc = parsed.get(name);
-            // Titles are name-only, so every file in a `.domain` bounded context
-            // shares one title; `kind` is what tells them apart in a viewer.
+            // A title names what the page holds and may repeat across contexts
+            // or match a heading; `kind` is what a viewer groups and sorts by.
             const folder = folderKindForPath(doc.relPath);
             const fileKind = resolveType(folder, doc.meta);
             // Resolved, not passed through: a file that omits its status in an

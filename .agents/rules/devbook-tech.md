@@ -8,7 +8,7 @@ description: Structure and authoring rules for the technology devbook folder, ho
 `tech/` is the durable record of **which technologies this project itself is
 built with, and how they depend on each other** — the technology graph. It is
 complementary to `arc42/` (system architecture), `domain/` (domain model), and
-and the rest of the devbook folders.
+the rest of the devbook folders.
 
 `tech/` answers "what do we build on, at which version, with what maturity, and
 what depends on what". `arc42/` stays the place for *why* an architecture looks
@@ -21,7 +21,7 @@ the way it does; `tech/` links back to it rather than restating rationale.
 > `tech/` is also the **registry for AI tooling** — Claude Code, an MCP server,
 > a model provider — with its version and its maturity here. How that tooling is
 > actually used across the development flow, and how far that use has been
-> adopted, is `ai/`. A `ai/` chapter points at the `tech/` chapter with
+> adopted, is `ai/`. An `ai/` chapter points at the `tech/` chapter with
 > `depends-on`; the reverse link is never written. See
 > `devbook-ai.md`.
 
@@ -67,8 +67,9 @@ last — the order shown in the tree above. See
     carries a file-level block only (same rule as `.devbook/domain/context-map.md`).
   - It is `tech/`'s root document, so it is the first file read in the folder.
 - **`_meta/*.json`** — Derived, generated indexes for this folder.
-  Never hand-edited; see `devbook-derived-artifacts.md`
-  and the devbook-meta tooling README (`.devbook/_tools/devbook-meta/README.md`).
+  Never hand-edited; the rule for them comes with the layered plugin that commits the
+  index, and the output shape is in the devbook-meta tooling README
+  (`.devbook/_tools/devbook-meta/README.md`).
 - **`<layer>.md`** — One `## <Technology Name>` chapter per technology used (or
   under consideration) in that layer. Each chapter is an addressable node in
   the graph and carries a chapter metadata block.
@@ -159,8 +160,8 @@ Omit every optional field that has no value (no `related: []`, no
 - Every technology appears exactly **once**, in the layer that owns it. If two
   layers use the same technology, document it in `shared.md` and point at it
   with `depends-on` from the layer chapters.
-- `depends-on` must reference an existing `tech/` chapter. Do not point it at
-  `arc42/`/`domain/` — use `related` for those.
+- `depends-on` must reference an existing `tech/` chapter; the check warns on one that
+  points elsewhere. Do not point it at `arc42/`/`domain/` — use `related` for those.
 - Keep `technology-graph.md`'s Mermaid diagram in sync with the `depends-on`
   edges in the layer files whenever a node or edge is added, removed, or
   renamed, and run the check in the same change:

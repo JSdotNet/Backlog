@@ -60,6 +60,7 @@ classDiagram
     class DeliveryRun {
         +string run_id
         +string dashboard
+        +string[] surfaces
         +string worktree
         +string skill_id
         +string title

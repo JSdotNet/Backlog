@@ -336,6 +336,14 @@ type: aggregate
 
 The order.
 
+### Money
+
+\`\`\`meta
+type: value-object
+\`\`\`
+
+An amount the order owns.
+
 ## Pricing
 
 \`\`\`meta
@@ -343,6 +351,28 @@ type: domain-service
 \`\`\`
 
 Prices things.
+
+## Shared Value Objects
+
+\`\`\`meta
+type: shared-value-objects
+\`\`\`
+
+### IBAN
+
+\`\`\`meta
+type: value-object
+\`\`\`
+
+An account number every aggregate here may hold.
+
+## Shared Enums
+
+\`\`\`meta
+type: shared-enums
+\`\`\`
+
+Enums every aggregate here may hold.
 `;
 
 const featuresMd = `# Ordering
@@ -387,6 +417,16 @@ const pairing = [
         errors: 0,
     },
     {
+        name: "an `invariants` chapter may point at the Shared Value Objects grouping",
+        related: `${CONTEXT}/domain.md#shared-value-objects`,
+        errors: 0,
+    },
+    {
+        name: "an `invariants` chapter may point at the Shared Enums grouping",
+        related: `${CONTEXT}/domain.md#shared-enums`,
+        errors: 0,
+    },
+    {
         name: "one right target among several is enough",
         related: `${CONTEXT}/features.md#checkout, ${CONTEXT}/domain.md#order`,
         errors: 0,
@@ -394,6 +434,16 @@ const pairing = [
     {
         name: "an `invariants` chapter pointing at a feature is an error",
         related: `${CONTEXT}/features.md#checkout`,
+        errors: 1,
+    },
+    {
+        name: "a shared value object is not a target — its grouping is",
+        related: `${CONTEXT}/domain.md#iban`,
+        errors: 1,
+    },
+    {
+        name: "an owned value object is not a target — its aggregate is",
+        related: `${CONTEXT}/domain.md#money`,
         errors: 1,
     },
     {
@@ -489,6 +539,18 @@ const placement = [
         name: "`domain.invariants.md` holding a split-out aggregate's rules warns",
         file: "domain.invariants.md",
         related: `${CONTEXT}/domain.order.md#order`,
+        warnings: 1,
+    },
+    {
+        name: "`domain.invariants.md` pairing with a shared grouping is clean",
+        file: "domain.invariants.md",
+        related: `${CONTEXT}/domain.md#shared-value-objects`,
+        warnings: 0,
+    },
+    {
+        name: "a split page's subpage pairing with a shared grouping warns",
+        file: "domain.order.invariants.md",
+        related: `${CONTEXT}/domain.md#shared-enums`,
         warnings: 1,
     },
 ];

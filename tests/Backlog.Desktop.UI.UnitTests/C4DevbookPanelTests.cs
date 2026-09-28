@@ -371,7 +371,7 @@ public sealed class C4DevbookPanelTests : IDisposable
     {
         const string workspace = """
             workspace "Partly readable" {
-                !docs docs
+                !include other.dsl
                 model {
                     backlog = softwareSystem "Prompt Backlog" "The system"
                 }
@@ -389,7 +389,7 @@ public sealed class C4DevbookPanelTests : IDisposable
         await component.Find("[data-testid='arc42-c4-tab']").ClickAsync(new());
 
         Assert.NotEmpty(component.FindAll("[data-testid='c4-problems']"));
-        Assert.Contains("!docs", component.Markup, StringComparison.Ordinal);
+        Assert.Contains("!include", component.Markup, StringComparison.Ordinal);
     }
 
     [Fact]
