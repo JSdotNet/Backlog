@@ -78,7 +78,7 @@ Across facets it is AND and within a facet it is OR, which is what lets it answe
     </Story>
 
     <Story Name="What could not be read"
-           Description="The reader never guesses. This workspace opens with a `!docs` directive, which pulls in content it has no way to honour, and names an element that does not exist — so both are reported with the line they were on, and the rest of the file is still read.
+           Description="The reader never guesses. This workspace opens with an `!include` directive, which pulls in content it has no way to honour, and names an element that does not exist — so both are reported with the line they were on, and the rest of the file is still read.
 
 That behaviour is the whole safeguard. This reader is a second implementation of a dialect whose first implementation is c4hero's own TypeScript parser, in another repository, where no test here can compare the two. The failure that matters is not a workspace that will not open; it is one that opens, draws a confident picture, and silently leaves out whatever could not be parsed. In the app this list appears under the diagram."
            Code="@Unreadable"
@@ -304,7 +304,7 @@ That behaviour is the whole safeguard. This reader is a second implementation of
 
     private const string Unreadable = """
         workspace "Partly readable" {
-            !docs docs
+            !include other.dsl
             model {
                 backlog = softwareSystem "Prompt Backlog" "The system"
                 backlog -> ghost "Calls something that does not exist"
