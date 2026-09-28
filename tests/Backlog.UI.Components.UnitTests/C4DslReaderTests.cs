@@ -462,8 +462,7 @@ public sealed class C4DslReaderTests
     /// </summary>
     [Theory]
     [InlineData("!include other.dsl")]
-    [InlineData("!docs docs")]
-    [InlineData("!adrs adrs")]
+    [InlineData("!script groovy.script")]
     [InlineData("!plugin com.example.Plugin")]
     public void A_directive_the_reader_cannot_honour_is_named_in_the_problems(string directive)
     {
@@ -527,6 +526,33 @@ public sealed class C4DslReaderTests
         Assert.Empty(workspace.Problems);
     }
 
+    /// <summary>
+    /// c4hero 0.7 reads a <c>!docs</c> and an <c>!adrs</c> folder, and adds the lines
+    /// on save when a scope lacks them. Both attach documentation to the workspace or
+    /// to an element and neither adds anything to a picture, so reporting them would
+    /// make an ordinary c4hero save look like a partly read workspace.
+    /// </summary>
+    [Theory]
+    [InlineData("!docs docs")]
+    [InlineData("!adrs decisions")]
+    public void A_documentation_directive_is_understood_and_not_reported(string directive)
+    {
+        var workspace = C4DslReader.Read($$"""
+            workspace {
+                {{directive}}
+                model {
+                    app = softwareSystem "App" {
+                        {{directive}}
+                        web = container "Web"
+                    }
+                }
+            }
+            """);
+
+        Assert.Empty(workspace.Problems);
+        Assert.Equal("Web", workspace.Element("web")!.Name);
+    }
+
     [Fact]
     public void A_file_that_does_not_open_with_workspace_is_refused_with_a_reason()
     {
@@ -559,7 +585,7 @@ public sealed class C4DslReaderTests
                     // a slash comment
                     app = softwareSystem "App"  # trailing
                 }
-                !docs docs
+                !include other.dsl
             }
             """);
 

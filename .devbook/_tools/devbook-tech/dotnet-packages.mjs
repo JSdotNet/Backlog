@@ -8,13 +8,16 @@ const args = process.argv.slice(2);
 const repoRoot = path.resolve(optionValue("--root") ?? process.cwd());
 const outputPath = optionValue("--output");
 
+// Code-point order, so the inventory reads the same on every machine: localeCompare
+// follows the host's collation and would reorder the output between two contributors.
+const compare = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+
 const EXCLUDED_DIRECTORIES = new Set([
     ".git",
     ".vs",
     "bin",
     "obj",
     "node_modules",
-    "packages",
     "TestResults",
     "_meta",
 ]);
@@ -24,13 +27,35 @@ function optionValue(name) {
     return index === -1 ? null : args[index + 1];
 }
 
+// A `packages/` folder is a NuGet cache when nothing inside it is a project, and a
+// monorepo's source tree when something is. Only the cache is skipped.
+async function holdsProject(directory, depth = 0) {
+    let entries;
+    try {
+        entries = await readdir(directory, { withFileTypes: true });
+    } catch {
+        return false;
+    }
+    for (const entry of entries) {
+        if (entry.isFile() && /\.(csproj|fsproj|vbproj|props)$/i.test(entry.name)) return true;
+        if (entry.isDirectory() && depth < 2 && (await holdsProject(path.join(directory, entry.name), depth + 1))) return true;
+    }
+    return false;
+}
+
 async function walk(directory) {
-    const entries = await readdir(directory, { withFileTypes: true });
+    let entries;
+    try {
+        entries = await readdir(directory, { withFileTypes: true });
+    } catch {
+        return []; // unreadable, or a junction loop: skipped, never a crash
+    }
     const files = [];
 
-    for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
+    for (const entry of entries.sort((a, b) => compare(a.name, b.name))) {
         if (entry.isDirectory()) {
             if (EXCLUDED_DIRECTORIES.has(entry.name)) continue;
+            if (entry.name === "packages" && !(await holdsProject(path.join(directory, entry.name)))) continue;
             files.push(...(await walk(path.join(directory, entry.name))));
             continue;
         }
@@ -87,7 +112,7 @@ function splitTargetFrameworks(value) {
         .split(";")
         .map((entry) => entry.trim())
         .filter(Boolean)
-        .sort((a, b) => a.localeCompare(b));
+        .sort((a, b) => compare(a, b));
 }
 
 function parseProjectFile(content) {
@@ -120,7 +145,7 @@ function parseProjectFile(content) {
         type: "project",
         targetFrameworks: [...targetFrameworks],
         packages: sortPackages(packages),
-        projectReferences: projectReferences.sort((a, b) => a.localeCompare(b)),
+        projectReferences: projectReferences.sort((a, b) => compare(a, b)),
     };
 }
 
@@ -172,7 +197,7 @@ function parseDotnetTools(content) {
     const tools = Object.entries(parsed.tools ?? {}).map(([name, value]) => ({
         name,
         version: value.version ?? null,
-        commands: [...(value.commands ?? [])].sort((a, b) => a.localeCompare(b)),
+        commands: [...(value.commands ?? [])].sort((a, b) => compare(a, b)),
         source: "dotnet-tools",
     }));
     return { type: "dotnet-tools", packages: sortPackages(tools) };
@@ -181,9 +206,9 @@ function parseDotnetTools(content) {
 function sortPackages(packages) {
     return packages.sort(
         (a, b) =>
-            a.name.localeCompare(b.name) ||
-            String(a.version ?? "").localeCompare(String(b.version ?? "")) ||
-            String(a.source ?? "").localeCompare(String(b.source ?? ""))
+            compare(a.name, b.name) ||
+            compare(String(a.version ?? ""), String(b.version ?? "")) ||
+            compare(String(a.source ?? ""), String(b.source ?? ""))
     );
 }
 
@@ -202,11 +227,11 @@ function summarizePackages(files) {
     return [...byName.values()]
         .map((entry) => ({
             name: entry.name,
-            versions: [...entry.versions].sort((a, b) => a.localeCompare(b)),
-            files: [...entry.files].sort((a, b) => a.localeCompare(b)),
-            sources: [...entry.sources].sort((a, b) => a.localeCompare(b)),
+            versions: [...entry.versions].sort((a, b) => compare(a, b)),
+            files: [...entry.files].sort((a, b) => compare(a, b)),
+            sources: [...entry.sources].sort((a, b) => compare(a, b)),
         }))
-        .sort((a, b) => a.name.localeCompare(b.name));
+        .sort((a, b) => compare(a.name, b.name));
 }
 
 async function parseManifest(fullPath) {
@@ -229,7 +254,7 @@ const files = [];
 for (const fullPath of await walk(repoRoot)) {
     files.push(await parseManifest(fullPath));
 }
-files.sort((a, b) => a.path.localeCompare(b.path));
+files.sort((a, b) => compare(a.path, b.path));
 const packages = summarizePackages(files);
 
 const document = {

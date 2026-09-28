@@ -833,6 +833,88 @@ public sealed class SessionsPaneRunTests
         }
     }
 
+    /// <summary>
+    /// A flow reports to every surface it is bound to, and each surface files the run
+    /// under an id of its own: two files in two dashboards' folders for one piece of
+    /// work. Read off the disk the way the app reads them, the pair is one line under
+    /// the session that drove it, and the fold says which surfaces reported it.
+    /// </summary>
+    [Fact]
+    public void A_run_two_surfaces_reported_is_one_line_under_its_session()
+    {
+        var home = Path.Combine(Path.GetTempPath(), "backlog-sessions-pane-tests", Guid.NewGuid().ToString("n"));
+
+        try
+        {
+            GivenRun(home, "delivery-surface-dashboard", "run-mujuq9gz-xn8tz3", Noon.AddMinutes(-60), "in_progress");
+            GivenRun(home, "backlog", "run-mujuq9av-zxl8tg", Noon.AddMinutes(-60).AddMilliseconds(-220), "in_progress");
+
+            using var context = new BunitContext();
+            context.Services.AddSingleton<IAgentSessionSource>(new StubSessionSource([Live]));
+            context.Services.AddSingleton<IDeliveryRunSource>(new LocalDeliveryRunSource(home, Live.EnvironmentId, Live.Environment));
+
+            var pane = context.Render<SessionsPane>();
+
+            pane.WaitForAssertion(() =>
+            {
+                var row = Assert.Single(pane.FindAll(".data-table__row"));
+
+                Assert.Contains("keen-bose-667825", row.TextContent);
+
+                // One line, not two: the dashboard's file is the record.
+                var line = Assert.Single(pane.FindAll("[data-testid='sessions-run']"));
+
+                Assert.Equal("run-mujuq9gz-xn8tz3", line.GetAttribute("data-run-id"));
+
+                // And the fold says who reported it, after the run's own identity.
+                var surfaces = line.QuerySelector("[data-testid='sessions-run-surfaces']");
+
+                Assert.NotNull(surfaces);
+                Assert.Equal("Reported to 2 surfaces: delivery-surface-dashboard, backlog", surfaces!.TextContent.Trim());
+                Assert.Equal("Surfaces", surfaces.PreviousElementSibling!.TextContent.Trim());
+            });
+        }
+        finally
+        {
+            try
+            {
+                if (Directory.Exists(home)) Directory.Delete(home, recursive: true);
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+        }
+    }
+
+    /// <summary>One surface's file of a run the <see cref="Live"/> session drove,
+    /// in the folder the dashboards key on that session's worktree.</summary>
+    private static void GivenRun(string home, string dashboard, string id, DateTimeOffset started, string status)
+    {
+        var folder = Path.Combine(home, dashboard, Worktree, "runs");
+
+        Directory.CreateDirectory(folder);
+        File.WriteAllText(
+            Path.Combine(folder, id + ".json"),
+            $$"""
+            {
+              "id": "{{id}}",
+              "skillId": "flow-code",
+              "title": "Roadmap: an effort-placed plan keeps up with its work",
+              "status": "{{status}}",
+              "sessionIds": ["{{Live.Id}}"],
+              "startedAt": "{{Stamp(started)}}",
+              "updatedAt": "{{Stamp(started.AddMinutes(30))}}",
+              "stages": [{ "name": "Scope Discovery", "status": "done", "doneCount": 1 }]
+            }
+            """);
+    }
+
+    private static string Stamp(DateTimeOffset moment) =>
+        moment.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", System.Globalization.CultureInfo.InvariantCulture);
+
     private static BunitContext Context(
         IReadOnlyList<AgentSession> sessions,
         IReadOnlyList<DeliveryRun> runs,

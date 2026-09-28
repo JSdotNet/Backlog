@@ -23,6 +23,10 @@ const LOCK_FILES = new Set([
     "bun.lockb",
     "bun.lock",
 ]);
+// Code-point order, so the inventory reads the same on every machine: localeCompare
+// follows the host's collation and would reorder the output between two contributors.
+const compare = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+
 const EXCLUDED_DIRECTORIES = new Set([
     ".git",
     ".next",
@@ -45,10 +49,15 @@ function optionValue(name) {
 }
 
 async function walk(directory) {
-    const entries = await readdir(directory, { withFileTypes: true });
+    let entries;
+    try {
+        entries = await readdir(directory, { withFileTypes: true });
+    } catch {
+        return []; // unreadable, or a junction loop: skipped, never a crash
+    }
     const files = [];
 
-    for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
+    for (const entry of entries.sort((a, b) => compare(a.name, b.name))) {
         if (entry.isDirectory()) {
             if (EXCLUDED_DIRECTORIES.has(entry.name)) continue;
             files.push(...(await walk(path.join(directory, entry.name))));
@@ -69,12 +78,12 @@ function relativePath(fullPath) {
 }
 
 function sortedObjectEntries(value) {
-    return Object.entries(value ?? {}).sort(([a], [b]) => a.localeCompare(b));
+    return Object.entries(value ?? {}).sort(([a], [b]) => compare(a, b));
 }
 
 function normalizeArray(value) {
     if (!Array.isArray(value)) return [];
-    return [...value].map(String).sort((a, b) => a.localeCompare(b));
+    return [...value].map(String).sort((a, b) => compare(a, b));
 }
 
 function dependenciesFromPackageJson(parsed) {
@@ -96,9 +105,9 @@ function dependenciesFromPackageJson(parsed) {
 
     return dependencies.sort(
         (a, b) =>
-            a.section.localeCompare(b.section) ||
-            a.name.localeCompare(b.name) ||
-            String(a.version ?? "").localeCompare(String(b.version ?? ""))
+            compare(a.section, b.section) ||
+            compare(a.name, b.name) ||
+            compare(String(a.version ?? ""), String(b.version ?? ""))
     );
 }
 
@@ -167,11 +176,11 @@ function summarizePackages(files) {
     return [...byName.values()]
         .map((entry) => ({
             name: entry.name,
-            versions: [...entry.versions].sort((a, b) => a.localeCompare(b)),
-            sections: [...entry.sections].sort((a, b) => a.localeCompare(b)),
-            files: [...entry.files].sort((a, b) => a.localeCompare(b)),
+            versions: [...entry.versions].sort((a, b) => compare(a, b)),
+            sections: [...entry.sections].sort((a, b) => compare(a, b)),
+            files: [...entry.files].sort((a, b) => compare(a, b)),
         }))
-        .sort((a, b) => a.name.localeCompare(b.name));
+        .sort((a, b) => compare(a.name, b.name));
 }
 
 const files = [];
@@ -182,7 +191,7 @@ for (const fullPath of await walk(repoRoot)) {
         files.push(parseLockFile(fullPath));
     }
 }
-files.sort((a, b) => a.path.localeCompare(b.path));
+files.sort((a, b) => compare(a.path, b.path));
 const packageJsonFiles = files.filter((file) => file.type === "package-json");
 const packages = summarizePackages(packageJsonFiles);
 
