@@ -58,7 +58,7 @@ public sealed class C4DevbookPanelTests : IDisposable
     /// What <c>_c4/references.json</c> says.
     /// <para>
     /// The authored half of the reference, and the only statement of it. It is not in
-    /// the chapter — the knowledge-meta generator refuses a <c>.dsl</c> target in a
+    /// the chapter — the devbook-meta checker refuses a <c>.dsl</c> target in a
     /// <c>related:</c> list — and it is not in the DSL, because c4hero deletes the
     /// <c>properties</c> blocks it would live in. The chapter side of the link is this
     /// inverted.

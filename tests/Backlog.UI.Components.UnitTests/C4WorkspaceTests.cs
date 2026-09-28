@@ -234,9 +234,9 @@ public sealed class C4WorkspaceTests
     /// <summary>
     /// Where the reference lives, and why it is not in the chapter.
     /// <para>
-    /// A <c>related:</c> entry in a chapter is the natural home and the knowledge-meta
-    /// generator refuses it: it resolves references against nodes built from <c>.md</c>
-    /// files only, and treats an unresolvable target under <c>.arc42/</c> as an error
+    /// A <c>related:</c> entry in a chapter is the natural home and the devbook-meta
+    /// checker refuses it: it resolves references against nodes built from <c>.md</c>
+    /// files only, and treats an unresolvable target under <c>.devbook/arc42/</c> as an error
     /// rather than a warning. A <c>properties</c> block in the workspace or on a view
     /// keeps the link with the model and c4hero deletes it — its parser skips both and
     /// never writes them back, so the reference would vanish on the first save in the

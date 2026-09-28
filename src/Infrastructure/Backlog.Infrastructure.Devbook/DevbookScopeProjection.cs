@@ -12,7 +12,7 @@ namespace Backlog.Infrastructure.Devbook;
 /// The projection therefore moved to the reading side, and this is it.</para>
 ///
 /// <para>It is a faithful restatement of <c>projectScope</c> in
-/// the <c>knowledge-base</c> generator's <c>graph.mjs</c>, which is what produced
+/// <c>.devbook/_tools/devbook-meta/graph.mjs</c>, which is what produced
 /// the scoped <c>graph.json</c> files the atlas and the technology panel read.
 /// Three of its rules are load-bearing and none is obvious:</para>
 ///
