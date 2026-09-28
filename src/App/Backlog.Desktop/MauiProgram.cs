@@ -265,8 +265,13 @@ public static class MauiProgram
         // The device half of cloud sync. DPAPI is the store ADR 0005 asks for on
         // Windows, and this head is the Windows one; the credential lands beside the
         // app's other per-user state rather than in the backlog folder, because it
-        // belongs to this machine and not to the workspace.
-        builder.Services.AddSingleton<IDeviceCredentialStore>(_ => new DpapiDeviceCredentialStore());
+        // belongs to this machine and not to the workspace. Under the workspace's
+        // own app-data folder, like the log above - Backlog.Debug for a debug
+        // head - so a checkout run beside a paired installed app starts unpaired
+        // rather than syncing as that device. Every sync file below follows it.
+        builder.Services.AddSingleton<IDeviceCredentialStore>(_ => new DpapiDeviceCredentialStore(Path.Combine(
+            WorkspaceSettingsStore.DefaultAppDataDirectory,
+            "device-credential.json")));
         // And this device's replication progress, beside that credential and for
         // the same reason: LocalApplicationData, never the workspace root. The
         // watermark and the cursor describe how far *this machine* has got, and a
@@ -277,31 +282,25 @@ public static class MauiProgram
         // registers no store of its own, so a head that skips this line has the
         // session registered and unconstructable.
         builder.Services.AddSingleton<ITaskSyncStateStore>(_ => new FileTaskSyncStateStore(Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Backlog",
+            WorkspaceSettingsStore.DefaultAppDataDirectory,
             "task-sync-state.json")));
         // Session replication's two files, in that same folder and for the same
         // reasons - per-user, per-installation, never the workspace root. Two
         // stores rather than one because a session save that corrupted a shared
         // file would reset the task watermark above and re-push the whole machine;
         // one call because where they go is the only part the host knows.
-        builder.Services.AddSessionSyncStores(Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Backlog"));
+        builder.Services.AddSessionSyncStores(WorkspaceSettingsStore.DefaultAppDataDirectory);
         // And annotation replication's progress file, in that same folder for the
         // same reasons. The remarks themselves are the Devbook annotation store's,
         // under the storage folder with the rest of the person's data.
-        builder.Services.AddAnnotationSyncStore(Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Backlog"));
+        builder.Services.AddAnnotationSyncStore(WorkspaceSettingsStore.DefaultAppDataDirectory);
         // What the last backup did, in that same folder and for the same reason:
         // per-installation bookkeeping, never the workspace root. The worker
         // reads the repository and the schedule off the workspace settings and
         // uploads through the same GitHub client the feedback dialog commits
         // screenshots with.
         builder.Services.AddSingleton<IBackupStateStore>(_ => new FileBackupStateStore(Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Backlog",
+            WorkspaceSettingsStore.DefaultAppDataDirectory,
             "backup-state.json")));
         builder.Services.AddSingleton<BackupWorker>();
         // The loopback MCP listener local ADR 0012 decided. TryAdd rather than
@@ -331,7 +330,9 @@ public static class MauiProgram
         // workspace. Task replication is the second call and not part of the
         // first: it needs the ITaskRepository this head registers, and a head
         // without one composes only the pairing surface.
-        builder.Services.AddSingleton<SyncServiceSettingsStore>();
+        builder.Services.AddSingleton(_ => new SyncServiceSettingsStore(Path.Combine(
+            WorkspaceSettingsStore.DefaultAppDataDirectory,
+            "sync-service.json")));
         builder.Services.AddSingleton<SyncServiceEndpoint>();
         builder.Services.AddSyncClient(SyncServiceAddress);
         builder.Services.AddTaskSyncClient(SyncServiceAddress);
