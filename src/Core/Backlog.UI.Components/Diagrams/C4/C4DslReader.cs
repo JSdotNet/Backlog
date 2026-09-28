@@ -45,12 +45,14 @@ public static class C4DslReader
 
     /// <summary>Constructs this reader understands the syntax of and deliberately
     /// does not act on, because none of them changes a picture: server-side
-    /// configuration, layout animation steps, arbitrary key/value properties. Held
-    /// as a list so they are skipped knowingly rather than falling through to the
-    /// problem report and burying the constructs that matter.</summary>
+    /// configuration, layout animation steps, arbitrary key/value properties, and the
+    /// <c>!docs</c> and <c>!adrs</c> folders — documentation attached to a scope,
+    /// which c4hero 0.7 adds on save. Held as a list so they are skipped knowingly
+    /// rather than falling through to the problem report and burying the constructs
+    /// that matter.</summary>
     private static readonly HashSet<string> SilentlySkipped = new(StringComparer.OrdinalIgnoreCase)
     {
-        "configuration", "properties", "animation", "branding", "terminology", "default", "url"
+        "configuration", "properties", "animation", "branding", "terminology", "default", "url", "!docs", "!adrs"
     };
 
     /// <summary>Directives that pull in, generate, or decorate content this reader
@@ -59,7 +61,7 @@ public static class C4DslReader
     /// workspace this reader has only partly seen.</summary>
     private static readonly HashSet<string> UnsupportedDirectives = new(StringComparer.OrdinalIgnoreCase)
     {
-        "!include", "!docs", "!adrs", "!script", "!plugin", "!constant", "!impliedRelationships", "!ref", "!extend"
+        "!include", "!script", "!plugin", "!constant", "!impliedRelationships", "!ref", "!extend"
     };
 
     public static C4Workspace Read(string? source) => new Parser(C4DslLexer.Tokenize(source)).ParseWorkspace();
