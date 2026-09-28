@@ -3,8 +3,8 @@ name: Devbook metadata
 # Enforces the devbook convention: every metadata reference must
 # resolve and every `meta` block must match the schema. Installed by the
 # `devbook:init` skill. It writes nothing; whether the committed _meta/
-# indexes are current is devbook-derived's question, asked by its own
-# devbook-meta-drift.yml beside this file where that plugin is installed.
+# indexes are current is the question of the layered plugin that commits
+# them, asked by its own drift workflow beside this file where it is installed.
 #
 # The two path filters below are rendered, not copied: delete the rows for
 # folders this repository has not adopted. Every devbook folder lives under

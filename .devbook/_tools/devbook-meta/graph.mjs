@@ -121,7 +121,13 @@ export { DEVBOOK_FOLDER_NAMES, DEVBOOK_ROOT };
 // pages by title can tell them from the context's other pages. A file still
 // titled by its context validates; `migrations/018-behaviour-titles/`
 // retitles it, because reconcile never touches an authored file.
-export const CONTRACT_VERSION = 18;
+//
+// Version 19 lets an invariants chapter pair with the `## Shared Value
+// Objects` or `## Shared Enums` grouping, so a shared type's own rules sit
+// beside it in `domain.invariants.md` instead of under an aggregate that
+// happens to use it. It only widens what `related` may name: nothing written
+// under 18 stops validating, and no migration is owed.
+export const CONTRACT_VERSION = 19;
 
 // The oldest contract a reconcile still carries forward. A migration lives
 // for the major version it ships in: a major release raises this to the
@@ -193,11 +199,18 @@ const SWITCH_TARGET_KIND = { "feature-flag": "feature-flag", setting: "setting" 
 //
 // A domain service is in the `invariants` row because it enforces rules of its
 // own; what it *reacts* to is a requirement of whatever reacts, and lands in
-// the `requirements` row through that feature. The check asks for one entry of
-// the right kind and no more: a chapter may link onward to anything else.
+// the `requirements` row through that feature. The `## Shared Value Objects`
+// and `## Shared Enums` groupings are there because they hold what belongs to
+// no single aggregate, and the rules a shared type enforces belong to it too:
+// pinned under one aggregate that uses the type they read as that aggregate's,
+// and copied under each they are the duplicate the prose side forbids. The
+// groupings live on `domain.md`, which never splits, so their rules land in
+// `domain.invariants.md` and the placement check below needs nothing more.
+// The check asks for one entry of the right kind and no more: a chapter may
+// link onward to anything else.
 const RELATED_TARGET_KINDS = {
     requirements: ["feature", "sub-feature"],
-    invariants: ["aggregate", "domain-service"],
+    invariants: ["aggregate", "domain-service", "shared-value-objects", "shared-enums"],
 };
 
 // The authored `type` field is emitted under the node key `kind`, because
@@ -310,10 +323,10 @@ function applyMeta(node, meta, folder) {
 /**
  * Compose a file node's display label.
  *
- * Heading text carries the name only, so every file in a `.domain` bounded
- * context is titled with the bare context name — six nodes sharing one label.
- * The file's `type` disambiguates them, and is left off when the title already
- * says it ("Context Map" + `context-map`).
+ * A `domain/` file is titled by what it holds, so a split file's title is its
+ * chapter's name and an older file's may still be the context's. The file's
+ * `type` says which kind of page it is, and is left off when the title already
+ * says it ("Domain" + `domain`, "Context Map" + `context-map`).
  */
 function composeFileLabel(title, type) {
     if (!type || slugify(title) === type) return title;
@@ -530,6 +543,15 @@ export async function buildGraph(repoRoot, folders = null) {
                         message: `${node.id} has \`${field}\` reference "${ref}" that resolves to a ${targetKind ? `\`${targetKind}\` chapter` : "heading or file"}, not a \`${expectedKind}\` chapter — point it at the switch's own chapter in the context's \`context.md\`.`,
                     });
                 }
+                // tech/ points depends-on at tech/ alone; a relation to another folder is
+                // `related`, per the tech rule.
+                if (field === "depends-on" && node.folder === "tech" && folderKindForPath(targetPath) !== "tech") {
+                    problems.push({
+                        severity: "warning",
+                        path: node.path,
+                        message: `${node.id} has \`depends-on\` reference "${ref}" outside tech/; tech/ uses \`related\` for a chapter in another folder.`,
+                    });
+                }
                 edges.push({
                     id: `${edgeType}:${node.id}->${ref}`,
                     source: node.id,
@@ -738,7 +760,7 @@ export async function discoverScopes(repoRoot) {
  *
  * `folders` holds the real repository paths under `.devbook/`. `stray` lists
  * any of the five spelled as a root-level dot-folder — the layout this
- * convention no longer supports (record 80). A stray folder is reported by the
+ * convention no longer supports (the chapter-schema decision). A stray folder is reported by the
  * graph build and never indexed, so a repository that has not moved yet learns
  * it from an error rather than from a quiet half-corpus.
  */

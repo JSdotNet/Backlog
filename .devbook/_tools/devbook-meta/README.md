@@ -35,7 +35,8 @@ The repository root defaults to the working directory. Only devbook folders
 that actually exist under `.devbook/` produce a scope, so a repository that
 adopts just `domain/` and `arc42/` never grows `_meta/` folders for the rest.
 `--scope` takes `tech`, `tech/`, or `.devbook/tech` for the same scope. The
-generator exits `2` when no devbook folder is present at all, and a root-level
+generator exits `2` when no devbook folder is present at all or when `--scope` names one
+the repository has not adopted, and a root-level
 `tech/` is reported as an error and never indexed — the only layout is
 `.devbook/`.
 
@@ -172,20 +173,23 @@ the canvas and the committed `graph.json` never disagree about it.
 
 ### File node labels
 
-Heading text carries the name only, so all six files of a `domain/` bounded
-context are titled with the bare context name. A file node's label is therefore
-composed as `<title> (<kind>)`, and the suffix is dropped when the title
-already slugifies to the kind:
+A `domain/` file is titled by what it holds — a base file by its kind, a split
+file by its chapter, `context.md` by the context — and a file written before that
+rule may still carry the context name. A file node's label is therefore composed
+as `<title> (<kind>)`, and the suffix is dropped when the title already slugifies
+to the kind:
 
 | File | Title | `type` | Node label |
 |---|---|---|---|
-| `.devbook/domain/order-management/domain.md` | `Order Management` | `domain` | `Order Management (domain)` |
+| `.devbook/domain/order-management/domain.md` | `Domain` | `domain` | `Domain` |
+| `.devbook/domain/order-management/domain.order.md` | `Order` | `domain` | `Order (domain)` |
 | `.devbook/domain/order-management/features.md` | `Order Management` | `features` | `Order Management (features)` |
 | `.devbook/domain/context-map.md` | `Order Platform` | `context-map` | `Order Platform (context-map)` |
 | `.devbook/domain/context-map.md` | `Context Map` | `context-map` | `Context Map` |
 | `.devbook/arc42/01-introduction-and-goals.md` | `01. Introduction and Goals` | none | `01. Introduction and Goals` |
 
-Node `id` is the path and was always unique; this only fixes the display label.
+Node `id` is the path and was always unique; the label is for display, and it names
+the context only where the title does.
 
 The two `context-map.md` rows are the recommended shape and the fallback: title
 that file after the system it maps, and reach for the literal `Context Map` only

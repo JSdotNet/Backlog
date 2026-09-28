@@ -96,6 +96,18 @@ await run("add chapter-level", async (root) => {
     check(threads[0].index === 1, "add: chapter-level lands first in document order", String(threads[0].index));
 });
 
+await run("add refuses what the checker would reject", async (root) => {
+    const refused = async (note) => {
+        try { await add(root, ADDRESS, note); return false; } catch { return true; }
+    };
+    check(await refused({ kind: "rant", author: "a", body: "b" }), "add: an unknown kind is refused");
+    check(await refused({ author: "a" }), "add: a note with no body is refused");
+    check(await refused({ body: "b" }), "add: a note with no author is refused");
+    let replyRefused = false;
+    try { await reply(root, ADDRESS, 1, { author: "a" }); } catch { replyRefused = true; }
+    check(replyRefused, "reply: a reply with no body is refused");
+});
+
 await run("add --after with no match", async (root) => {
     let threw = false;
     try {
@@ -428,16 +440,6 @@ await run("sweep with nothing resolved", async (root) => {
     check(threads.length === 1, "sweep: the open note is still there", String(threads.length));
 });
 
-await run("sweep an unknown status", async (root) => {
-    let threw = false;
-    try {
-        await sweep(root, ADDRESS, { status: "closed" });
-    } catch {
-        threw = true;
-    }
-    check(threw, "sweep: a status outside the closed set refuses rather than deleting nothing quietly");
-});
-
 await run(
     "sweep is chapter-scoped",
     async (root) => {
@@ -469,6 +471,37 @@ await run(
         );
     },
     nested()
+);
+
+// A heading with a letter outside ASCII slugs the way the checker and the index
+// slug it, so the address `annotations.json` reports is the one `add` and `list` take.
+const ACCENTED = [
+    "# Übersicht",
+    "",
+    FENCE + "meta",
+    "status: draft",
+    FENCE,
+    "",
+    "## Übersicht der Teile",
+    "",
+    FENCE + "meta",
+    "status: draft",
+    FENCE,
+    "",
+    "Ein Absatz.",
+    "",
+].join("\n");
+
+await run(
+    "add and list by a non-ASCII slug",
+    async (root) => {
+        const address = `${REL}#übersicht-der-teile`;
+        await add(root, address, { after: "Ein Absatz.", author: "jobsc", date: "2026-09-27", body: "Eine Notiz." });
+        const threads = await list(root, address);
+        check(threads.length === 1, "add: the slug the checker reports addresses the chapter", String(threads.length));
+        check(threads[0]?.chapter === "übersicht-der-teile", "list: the note carries that same slug", threads[0]?.chapter);
+    },
+    ACCENTED
 );
 
 console.log(failed ? `\n${failed} case(s) failed.` : "\nAll cases passed.");

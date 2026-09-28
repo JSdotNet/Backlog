@@ -30,7 +30,7 @@ Code, an MCP server, a model provider, a CI agent — is registered as a `tech/`
 chapter like any other technology, with `tech/`'s `status` recording its maturity
 as a technology in this project.
 
-`ai/` never re-registers it. A `ai/` chapter names the **usage**: the practice,
+`ai/` never re-registers it. An `ai/` chapter names the **usage**: the practice,
 the agent persona, the skill, the guardrail — the thing that exists only because
 of how we chose to work — and points at the registered technology with
 `depends-on`.
@@ -44,7 +44,7 @@ of how we chose to work — and points at the registered technology with
 | "Every agent-authored change is reviewed by a human before merge" | `ai/` |
 
 The test: **if it has a vendor and a version, it is a `tech/` chapter.** If it is
-a decision about how we work, it is a `ai/` chapter. A `ai/` chapter whose
+a decision about how we work, it is an `ai/` chapter. An `ai/` chapter whose
 `depends-on` points at nothing in `tech/` is usually fine — most practices,
 concepts, and guardrails have no product behind them.
 
@@ -109,7 +109,7 @@ nothing in the picture.
 - **concepts.md** — The ideas the practices rest on. A concept carries `stage`
   where it applies at particular stages and omits it when it applies throughout.
 - **`_meta/*.json`** — Derived, generated indexes for this folder. Never
-  hand-edited; see `devbook-derived-artifacts.md`.
+  hand-edited; the rule for them comes with the layered plugin that commits the index.
 
 ## The loop picture
 
@@ -291,4 +291,5 @@ domain chapter beside it.
 
 - `devbook-chapter-metadata.md` — required `meta` block fields.
 - `devbook-tech.md` — the technology registry `ai/` links into.
-- `devbook-derived-artifacts.md` (a layered plugin's rule) — rules for `_meta/`.
+- The rule for `_meta/` — delivered by the layered plugin that commits the index, where
+  a repository has adopted it.
