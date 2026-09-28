@@ -99,7 +99,7 @@ different offer under the diagram — or none:
 # What to write for one diagram, and where. Prints the fence; writes no stub.
 node tools/diagrams/archify-artifacts.mjs scaffold .devbook/domain/tasks/flow.md 1
 
-# Render one specification, or everything unrendered and stale.
+# Render one specification, or every re-authored stale and unrendered one.
 node tools/diagrams/archify-artifacts.mjs render .devbook/domain/tasks/_archify/flow.1.workflow.json
 node tools/diagrams/archify-artifacts.mjs render --all
 
@@ -113,7 +113,9 @@ validate is worse than no file at all: `scan` would then call the diagram
 
 `render` shells the pinned Archify `deliver`, which validates before it writes
 and exits non-zero if it cannot. A specification is only accepted at 9/9 checks
-with no errors, and — at the default `showcase` profile — no warnings either. On
+with no errors, and — at the default `showcase` profile — no warnings either.
+Before that it refuses a specification that was not authored from the fence at
+its ordinal — see **Re-rendering** below. On
 success the command writes the index entry —
 the only thing that will ever connect the artifact back to the fence — and drops
 whatever used to hold that ordinal, so a re-render after an edited fence leaves
@@ -171,23 +173,55 @@ Inside the app,
 the artifact's governor can decide — without that lift, a correctly generated
 artifact still would not move.
 
-## Re-rendering after editing a specification
+## Re-rendering
 
-`render --all` will not do it. It renders what `scan` calls `stale` or
-`unrendered`, and both are judged from the **mermaid fence hash** — which does
-not change when you edit a specification. Change a spec and `--all` reports
-`Nothing to render.` and exits 0, which reads exactly like success.
+`render` keys the index entry to whatever fence sits at the specification's
+ordinal. Rendering is never how a stale artifact is fixed: a stale
+specification was authored from the old fence, and rendering it unchanged marks
+the old picture current — `verify` then calls it `rendered`. Re-authoring is the
+fix, and rendering only records it.
 
-Pass the paths instead:
+So `render` refuses the two cases where the specification provably was not
+authored from the fence it is about to be keyed to, and writes nothing:
 
-```powershell
-node tools/diagrams/archify-artifacts.mjs render (git ls-files '*_archify/*.json' | Where-Object { $_ -notlike '*index.json' })
-```
+- **The fence changed and the specification did not.** The index entry at this
+  ordinal is for an older hash, and the specification is byte-for-byte the one
+  that entry was rendered from.
+- **The fence moved.** Inserting a diagram renumbers every fence after it. The
+  moved fence's hash is still in the index under its old ordinal, naming the
+  specification authored from it, and rendering whichever specification now
+  carries the new ordinal would hand it another diagram's picture.
 
-`--all` is for the case it was built for: a fence was edited, so the artifact is
-genuinely stale.
+Both are judged by the specification's SHA-256, which every entry records as
+`specSha256`. An entry written before that field existed is answered from the
+committed copy of the specification it names. `--confirm-fence` overrides both,
+for a fence edit that never reaches the picture — a `%%` comment, whitespace. It
+is your word that the specification still says what the fence says, so read the
+fence diff before passing it.
 
-## The two diagrams that render at `standard`
+**A fence was edited.** `verify` lists it as `stale`. Diff the fence against the
+version the specification was authored from — `git log -p` on the chapter, back
+to the commit that last touched the specification — re-author what changed, then
+render it. `render --all` renders every `stale` and `unrendered` specification,
+refusing each one nobody re-authored, so it is safe after re-authoring several.
+
+**Diagrams were inserted or removed.** Rename the specifications to their fences'
+new ordinals with `git mv`, the `.json` and `.html` together, keeping one
+specification per ordinal, and render each renamed one. The guard accepts a
+renamed specification because it is the one recorded for its fence. Then author
+the new diagrams as usual.
+
+**A specification was edited and its fence was not.** `render --all` will not
+pick it up: `stale` and `unrendered` are judged from the fence hash, which did
+not change, so it reports `Nothing to render.` Render that specification by path.
+
+Render only the specifications you touched. Rendering every specification by
+path once marked stale artifacts current and moved artifacts onto the wrong
+fences. The guard now refuses both, but a sweep is still the wrong tool. A
+renderer upgrade changes no index entry at all, and re-delivers each
+specification directly: see **Updating** in `tools/archify/UPSTREAM.md`.
+
+## The diagrams that render at `standard`
 
 Archify has two composition profiles. `showcase` is the default and the bar
 everything in this repository is held to. `standard` demotes four rules —
@@ -196,12 +230,13 @@ from errors to warnings. It relaxes nothing else: edge-through-node,
 endpoint-side-direction and label-overlap are enforced identically at both, and a
 `standard` render still fails on any error.
 
-Three diagrams here render at `standard`, and not for want of trying:
+Four diagrams here render at `standard`, and not for want of trying:
 
 | diagram | why |
 | --- | --- |
 | `.devbook/domain/context-map.md` #1 | the relationship graph is non-planar — a K3,3 subdivision drawn straight from the fence |
 | `.devbook/arc42/05-building-block-view.md` #3 | contains a complete K3,3: `{UI Layer, Local Storage, JSON Indexes}` × `{Inbox Service, Backlog Service, Devbook Service}` |
+| `.devbook/tech/technology-graph.md` #1 | two non-planar blocks: the .NET block (23 nodes, 38 edges) needs at least two edges removed to become planar, and the AI/devbook block (24 nodes, 37 edges) at least one, so three crossings are forced; the artifact has five |
 | `.devbook/arc42/05-building-block-view.md` #2 | no proof of impossibility — three residual crossings nobody has managed to remove. See the note below; this one is different from the other two. |
 
 `showcase` raises `composition/proper-crossing` as an error for any crossing
@@ -226,12 +261,15 @@ Anything other than `standard` in that position is rejected — it is not a seco
 way to name a type.
 
 **This is an exception, not a dial**, and the exceptions are not all of one
-kind. Two of them rest on a proof and one does not, and that difference is worth
-keeping visible rather than blurring the three together:
+kind. Three of them rest on a proof and one does not, and that difference is worth
+keeping visible rather than blurring the four together:
 
-- `.devbook/domain/context-map.md` #1 and `.devbook/arc42/05-building-block-view.md` #3 are
-  **provably non-planar**. A crossing is forced in every possible drawing. No
-  amount of further effort changes that.
+- `.devbook/domain/context-map.md` #1, `.devbook/arc42/05-building-block-view.md` #3 and
+  `.devbook/tech/technology-graph.md` #1 are **provably non-planar**. A crossing is
+  forced in every possible drawing. No amount of further effort changes that. The
+  technology graph is also two crossings above its proven floor of three: those two
+  are unfound embeddings, not forced ones. `networkx.check_planarity` over the
+  specification's connections settles planarity itself.
 - `.devbook/arc42/05-building-block-view.md` #2 is **not known to be impossible** — it
   has no K3,3, and the agent that got closest judged the remaining three
   crossings "unfound, not impossible". It renders at `standard` because two
@@ -315,5 +353,6 @@ of the toolbar; open the `.html` directly for the full viewer.
 ## Updating the vendored generator
 
 See `tools/archify/UPSTREAM.md`. The pinned commit is recorded there, and the
-artifacts in the repository were rendered by it — bumping it means re-running
-`render --all` and reading the diff, not just accepting it.
+artifacts in the repository were rendered by it. Bumping it means re-delivering
+every specification the way its **Updating** section says, not `render`, and
+reading the diff rather than just accepting it.

@@ -90,6 +90,20 @@
       ]
     },
     {
+      "id": "blobs",
+      "type": "database",
+      "label": "Attachment Store",
+      "sublabel": "capture files, 30-day backstop",
+      "pos": [
+        740,
+        880
+      ],
+      "size": [
+        230,
+        80
+      ]
+    },
+    {
       "id": "githubWebhooks",
       "type": "backend",
       "label": "GitHub Webhook Receiver",
@@ -160,7 +174,8 @@
       "kind": "region",
       "label": "Data Layer",
       "wraps": [
-        "db"
+        "db",
+        "blobs"
       ]
     },
     {
@@ -170,6 +185,7 @@
         "gateway",
         "syncApi",
         "db",
+        "blobs",
         "githubWebhooks",
         "notificationService"
       ]
@@ -219,6 +235,14 @@
       "toSide": "top"
     },
     {
+      "id": "sync-blobs",
+      "from": "syncApi",
+      "to": "blobs",
+      "label": "Upload / download, owner-prefixed",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
       "id": "github-webhooks",
       "from": "github",
       "to": "githubWebhooks",
@@ -246,11 +270,15 @@
       "from": "notificationService",
       "to": "phone",
       "label": "Push",
-      "fromSide": "bottom",
+      "fromSide": "right",
       "toSide": "left",
       "via": [
         [
-          855,
+          1030,
+          700
+        ],
+        [
+          1030,
           1030
         ],
         [

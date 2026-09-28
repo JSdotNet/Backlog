@@ -1,14 +1,15 @@
 {
   "schemaVersion": 1,
   "entries": {
-    "1afcb4d9ced7baa272e16313082d8e1d250c2e6f747358a5b640ee84ca8138c3": {
+    "1eac99b0e474405e3606076da5e5610c4bbc7f5eaec1898aa9f72ded123caf11": {
       "chapter": "technology-graph.md",
       "ordinal": 1,
       "type": "architecture",
-      "quality": "showcase",
+      "quality": "standard",
       "kind": "flowchart",
-      "spec": "technology-graph.1.architecture.json",
-      "artifact": "technology-graph.1.architecture.html",
+      "spec": "technology-graph.1.architecture.standard.json",
+      "specSha256": "c8329f7d3d57193163db127ccf9c15fb6867c99f6d5dbd45ea3a262bd3b90036",
+      "artifact": "technology-graph.1.architecture.standard.html",
       "checksPassed": 9,
       "checkCount": 9
     }
