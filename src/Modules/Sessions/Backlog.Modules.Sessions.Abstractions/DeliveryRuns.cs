@@ -94,6 +94,27 @@ public sealed record DeliveryRun(
     /// by worktree and overlapping time.
     /// </summary>
     public IReadOnlyList<string> SessionIds { get; init; } = [];
+
+    /// <summary>
+    /// Every dashboard that reported this run, the one whose file is the record
+    /// first. One entry for a run one surface recorded; two or more once
+    /// <see cref="DeliveryRunMerging"/> has folded a flow's reports to every surface
+    /// it was bound to into one run. Provenance beside <see cref="Dashboard"/>, which
+    /// stays the record's name so that every key and every line built on it holds.
+    /// <para>
+    /// Computed from <see cref="Dashboard"/> until set, not initialised from it: an
+    /// initialiser runs once, at construction, and a <c>with</c> that renames the
+    /// dashboard would carry the old name here — which is how the first draft of this
+    /// property failed its own test.
+    /// </para>
+    /// </summary>
+    public IReadOnlyList<string> Surfaces
+    {
+        get => _surfaces ?? [Dashboard];
+        init => _surfaces = value;
+    }
+
+    private readonly IReadOnlyList<string>? _surfaces;
 }
 
 /// <summary>What a run is linked to.</summary>
