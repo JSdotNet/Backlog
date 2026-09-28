@@ -1,9 +1,19 @@
 @*
     A tag reads as a chip. Clickable and removable are independent: filtering by
     a tag and dropping it are different intents, so they are different controls.
+
+    A suggested chip is one the product proposes and nothing has applied yet: it
+    is drawn outlined in a dashed edge, the label is the act that takes it, and
+    the remove control is the act that turns it down. A shortcut, when the
+    caller binds one, is drawn as a keycap in front of the label so the key is
+    read where the chip is.
 *@
 
 <span class="@ClassValue" data-testid="@TestId" @attributes="AdditionalAttributes">
+    @if (!string.IsNullOrWhiteSpace(Shortcut))
+    {
+        <kbd class="tag-chip__key" aria-hidden="true">@Shortcut</kbd>
+    }
     @if (OnClick.HasDelegate)
     {
         @* The label is the tag; the name is what pressing it does. "#sync" alone
@@ -14,6 +24,7 @@
                 class="tag-chip__label"
                 aria-label="@Label"
                 title="@Label"
+                aria-keyshortcuts="@(string.IsNullOrWhiteSpace(Shortcut) ? null : Shortcut)"
                 @onclick="OnClick"
                 @onclick:stopPropagation="true"
                 disabled="@Disabled">@Text</button>
@@ -26,7 +37,7 @@
     {
         @* A multiplication sign, not the letter x: the letter sits on the
            baseline and reads as part of the tag's text. *@
-        <IconButton AriaLabel="@($"Remove {Text}")"
+        <IconButton AriaLabel="@(RemoveLabel ?? $"Remove {Text}")"
                     CssClass="tag-chip__remove"
                     Disabled="@Disabled"
                     OnClick="OnRemoveClicked">&#215;</IconButton>
@@ -54,6 +65,22 @@
     /// as the name, which is what a chip that only reads as a tag wants.</summary>
     [Parameter]
     public string? Label { get; set; }
+
+    /// <summary>A chip the product proposes and nothing has applied yet — drawn
+    /// outlined in a dashed edge, whatever kind of tag its text names.</summary>
+    [Parameter]
+    public bool Suggested { get; set; }
+
+    /// <summary>The key that takes the chip, drawn as a keycap in front of the
+    /// label and announced on the label's button. The caller binds the key; the
+    /// chip only says which it is.</summary>
+    [Parameter]
+    public string? Shortcut { get; set; }
+
+    /// <summary>The accessible name of the remove control — "Dismiss #sync" on a
+    /// suggestion rather than "Remove #sync". Null keeps "Remove {Text}".</summary>
+    [Parameter]
+    public string? RemoveLabel { get; set; }
 
     [Parameter]
     public string? CssClass { get; set; }
@@ -90,6 +117,8 @@
                 TagKind.Plan => "tag-chip tag-chip--plan",
                 _ => "tag-chip"
             };
+
+            if (Suggested) classes += " tag-chip--suggested";
 
             return string.IsNullOrWhiteSpace(CssClass) ? classes : $"{classes} {CssClass}";
         }

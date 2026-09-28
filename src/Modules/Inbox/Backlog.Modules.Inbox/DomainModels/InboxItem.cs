@@ -26,6 +26,7 @@ public sealed class InboxItem
     private readonly List<InboxTag> _tags = [];
     private readonly List<string> _repoIds = [];
     private readonly List<InboxAttachment> _attachments = [];
+    private readonly List<string> _dismissedSuggestions = [];
 
     /// <summary>A thought captured on this machine, or through a channel with no
     /// replica behind it. Born <see cref="InboxStatus.Unprocessed"/> with a fresh
@@ -146,6 +147,12 @@ public sealed class InboxItem
 
     public Guid? ListId { get; private set; }
 
+    /// <summary>The suggestions the reader turned down for this item, by key —
+    /// <c>tag:sync</c>, <c>repository:owner/name</c>, <c>destination:tasks</c> —
+    /// lower case, each once. Classification leaves out whatever is here, which
+    /// is what keeps a rejected suggestion from coming back.</summary>
+    public IReadOnlyList<string> DismissedSuggestions => _dismissedSuggestions;
+
     public RoutingTarget? Routing { get; private set; }
 
     /// <summary>True when <see cref="Id"/> is a replica capture id — the item
@@ -255,6 +262,44 @@ public sealed class InboxItem
         ListId = listId;
         Touch();
     }
+
+    // --- Suggestions --------------------------------------------------------
+
+    /// <summary>Records that the reader turned a suggestion down, and answers
+    /// whether it was new. Kept by key, not by the suggestion's wording, so the
+    /// same tag suggested again for another reason is still the one refused.
+    /// Allowed in every state: a refusal is the reader's, whatever became of the
+    /// item since.</summary>
+    public bool DismissSuggestion(string key)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(key);
+
+        var normalized = NormalizeSuggestionKey(key);
+        if (_dismissedSuggestions.Contains(normalized, StringComparer.Ordinal)) return false;
+
+        _dismissedSuggestions.Add(normalized);
+        Touch();
+        return true;
+    }
+
+    /// <summary>Whether the reader turned down the suggestion with this key.</summary>
+    public bool IsSuggestionDismissed(string key) =>
+        !string.IsNullOrWhiteSpace(key) && _dismissedSuggestions.Contains(NormalizeSuggestionKey(key), StringComparer.Ordinal);
+
+    /// <summary>Restores the refusals a persisted item was written with. No rule
+    /// and no stamp, for the reason <see cref="LoadTags"/> gives.</summary>
+    public void LoadDismissedSuggestions(IEnumerable<string> keys)
+    {
+        ArgumentNullException.ThrowIfNull(keys);
+
+        _dismissedSuggestions.Clear();
+        _dismissedSuggestions.AddRange(keys
+            .Where(key => !string.IsNullOrWhiteSpace(key))
+            .Select(NormalizeSuggestionKey)
+            .Distinct(StringComparer.Ordinal));
+    }
+
+    private static string NormalizeSuggestionKey(string key) => key.Trim().ToLowerInvariant();
 
     // --- Attachments --------------------------------------------------------
 

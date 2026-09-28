@@ -19,6 +19,17 @@
     line is written to read well rather than as an error — it is the ordinary
     case, not a broken one.
 
+    Above the pickers sit the suggestions: the tags, repositories and destination
+    Classification proposes, each a chip the reader takes with the digit drawn
+    on it, with Enter, or with a click, and turns down with its ×. Nothing is
+    applied until then, and a chip turned down is recorded by the module and
+    not offered for this item again. The digits are read here and on the list —
+    wherever the reader's focus is while deciding. The article takes focus
+    (tabindex -1, out of the tab order) so a click on its text is enough to put
+    the keys here. Never from a field: the
+    pickers stop the key on its way up, so typing "2" into the tag picker adds a
+    "2" rather than taking the second chip.
+
     The pickers write through the state, and the state reloads: a tag or a
     repository is a decision the module records, not something this component
     holds. Repositories come from the settings store — the same list the Tasks
@@ -42,7 +53,12 @@
         var open = item.Status is InboxStatus.Unprocessed or InboxStatus.Deferred;
         var repos = item.RepoIds.Count;
 
-        <article class="inbox-pane__detail" aria-labelledby="inbox-detail-title" data-inbox-kind="@item.KindSlug" data-testid="inbox-detail">
+        <article class="inbox-pane__detail"
+                 aria-labelledby="inbox-detail-title"
+                 data-inbox-kind="@item.KindSlug"
+                 data-testid="inbox-detail"
+                 tabindex="-1"
+                 @onkeydown="OnShortcutKeyAsync">
             <SectionHeader BaseClass="inbox-pane__detail-header"
                            TextCssClass="inbox-pane__detail-text"
                            EyebrowCssClass="inbox-pane__detail-eyebrow"
@@ -193,7 +209,35 @@
                 @FileRows(item)
             </div>
 
-            <div class="inbox-pane__pickers">
+            @if (open && State.Suggestions.Count > 0)
+            {
+                <section class="inbox-pane__suggestions" aria-labelledby="inbox-detail-suggestions-title" data-testid="inbox-detail-suggestions">
+                    <h4 class="inbox-pane__suggestions-title" id="inbox-detail-suggestions-title">Suggested</h4>
+                    <div class="inbox-pane__suggestion-chips" role="list">
+                        @foreach (var suggestion in State.Suggestions)
+                        {
+                            var chip = suggestion;
+                            <TagChip Text="@SuggestionText(chip)"
+                                     Suggested="true"
+                                     Shortcut="@State.ShortcutFor(chip)"
+                                     Label="@SuggestionLabel(chip)"
+                                     OnClick="@AcceptCallback(chip)"
+                                     Disabled="@Busy"
+                                     Removable="true"
+                                     RemoveLabel="@($"Dismiss {SuggestionText(chip)}")"
+                                     OnRemove="() => State.DismissSuggestionAsync(chip)"
+                                     title="@SuggestionLabel(chip)"
+                                     role="listitem"
+                                     data-suggestion-key="@chip.Key"
+                                     TestId="@($"inbox-suggestion-{SuggestionTestId(chip)}")" />
+                        }
+                    </div>
+                </section>
+            }
+
+            @* Keys typed into a picker are the picker's: stopping them here ends
+               Blazor's walk up to the article, whose digits take a suggestion. *@
+            <div class="inbox-pane__pickers" @onkeydown:stopPropagation="true">
                 @if (open)
                 {
                     <TagMultiSelect Label="Tags"
@@ -358,6 +402,57 @@
 
     private bool Busy => State.PlanRunning || State.RouteRunning;
 
+    // --- Suggestions --------------------------------------------------------
+
+    /// <summary>The digit keys that take a suggestion. Only a bare digit: with a
+    /// modifier held the key is somebody else's shortcut.</summary>
+    private Task OnShortcutKeyAsync(KeyboardEventArgs e) =>
+        e.CtrlKey || e.AltKey || e.MetaKey || e.ShiftKey ? Task.CompletedTask : State.AcceptShortcutAsync(e.Key);
+
+    /// <summary>The label's press takes the suggestion; a suggestion that cannot
+    /// be taken gets no callback, so the chip draws its label as text rather than
+    /// as a button that does nothing.</summary>
+    private EventCallback<MouseEventArgs> AcceptCallback(InboxSuggestionDto suggestion) =>
+        suggestion.Available
+            ? EventCallback.Factory.Create<MouseEventArgs>(this, () => State.AcceptSuggestionAsync(suggestion))
+            : default;
+
+    /// <summary>What the chip says: the tag as a tag, the repository by the alias
+    /// Settings gives it, the destination as the act it would be.</summary>
+    private string SuggestionText(InboxSuggestionDto suggestion) => suggestion.Kind switch
+    {
+        InboxSuggestionKind.Tag => TagText.Display(suggestion.Value),
+        InboxSuggestionKind.Repository => $"Repository {State.RepositoryAlias(suggestion.Value)}",
+        _ => suggestion.Value switch
+        {
+            "tasks" => "Move to backlog",
+            "archive" => "Archive",
+            "devbook" => "Keep as knowledge",
+            var other => other
+        }
+    };
+
+    /// <summary>The act and the reason, for the accessible name and the tooltip —
+    /// and for a chip that cannot be taken, why not.</summary>
+    private string SuggestionLabel(InboxSuggestionDto suggestion)
+    {
+        var act = suggestion.Kind switch
+        {
+            InboxSuggestionKind.Tag => $"Add {TagText.Display(suggestion.Value)}",
+            InboxSuggestionKind.Repository => $"Assign {State.RepositoryAlias(suggestion.Value)}",
+            _ => SuggestionText(suggestion)
+        };
+
+        return suggestion.UnavailableReason is { } unavailable
+            ? $"{act}: {suggestion.Reason} {unavailable}"
+            : $"{act}: {suggestion.Reason}";
+    }
+
+    /// <summary>A test id that names the suggestion: <c>tag-sync</c>,
+    /// <c>repository-owner-name</c>, <c>destination-tasks</c>.</summary>
+    private static string SuggestionTestId(InboxSuggestionDto suggestion) =>
+        suggestion.Key.Replace(':', '-').Replace('/', '-');
+
     private (bool Available, string? Reason) Availability => State.PlanDrafterAvailability;
 
     private static string Title(InboxItemDto item) =>
@@ -512,13 +607,15 @@
         _ => (bytes / (1024d * 1024)).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + " MB",
     };
 
-    /// <summary>Reads the thumbnails of the item on screen. A parameter set is
-    /// every render the pane asks for — the state is the one parameter, and it
-    /// is an object, so Blazor always hands it on — and the read is a no-op once
-    /// each picture is cached.</summary>
+    /// <summary>Reads the thumbnails and the suggestions of the item on screen. A
+    /// parameter set is every render the pane asks for — the state is the one
+    /// parameter, and it is an object, so Blazor always hands it on — and both
+    /// reads are no-ops once the item's are in hand.</summary>
     protected override async Task OnParametersSetAsync()
     {
         if (State.SelectedItem is { Attachments.Count: > 0 } item) await State.LoadThumbnailsAsync(item);
+
+        await State.LoadSuggestionsAsync();
     }
 
     private static RenderFragment Note(string line) =>

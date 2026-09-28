@@ -2058,6 +2058,165 @@ public sealed class TaskListTests
     }
 
     [Fact]
+    public async Task A_dragged_row_says_where_it_landed_as_a_keyboard_move_does()
+    {
+        // Two ways of making the same move, and only one of them used to say so.
+        // A reader who dropped a row heard nothing, or heard the last keyboard
+        // move's sentence still sitting in the region.
+        using var context = new BunitContext();
+        context.JSInterop.SetupVoid("backlogFocus", _ => true);
+        context.JSInterop.SetupVoid("taskListDrag.register", _ => true);
+        context.JSInterop.SetupVoid("taskListDrag.unregister", _ => true);
+        TaskMove? move = null;
+
+        var view = context.Render<TaskListView>(p => p
+            .Add(l => l.Tasks, Three)
+            .Add(l => l.Reorderable, true)
+            .Add(l => l.OnReorder, m => move = m)
+            .Add(l => l.TestId, "list"));
+
+        await view.InvokeAsync(() => view.Instance.PointerDragStart("a"));
+        await view.InvokeAsync(() => view.Instance.PointerDragOver("c"));
+        await view.InvokeAsync(view.Instance.PointerDragEnd);
+
+        Assert.Equal(
+            "Moved First to 3 of 3.",
+            view.Find("[data-testid='list-announcement']").TextContent.Trim());
+
+        // The sentence and the move are one answer: the position read out is
+        // where the host applying the move puts the row.
+        var applied = move!.ApplyTo(Three, task => task.Id);
+        Assert.Equal(3, applied.ToList().FindIndex(task => task.Id == "a") + 1);
+
+        // Said, not focused: a pointer drop leaves the focus where the reader put it.
+        Assert.Empty(context.JSInterop.Invocations["backlogFocus"]);
+    }
+
+    [Fact]
+    public async Task A_drag_after_a_keyboard_move_replaces_its_sentence()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.SetupVoid("backlogFocus", _ => true);
+        context.JSInterop.SetupVoid("taskListDrag.register", _ => true);
+        context.JSInterop.SetupVoid("taskListDrag.unregister", _ => true);
+
+        var view = context.Render<TaskListView>(p => p
+            .Add(l => l.Tasks, Three)
+            .Add(l => l.Reorderable, true)
+            .Add(l => l.OnReorder, _ => { })
+            .Add(l => l.TestId, "list"));
+
+        view.FindAll(".task-item__body")[0].KeyDown(new KeyboardEventArgs { Key = "ArrowDown", AltKey = true });
+        Assert.Equal("Moved First to 2 of 3.", view.Find("[data-testid='list-announcement']").TextContent.Trim());
+
+        await view.InvokeAsync(() => view.Instance.PointerDragStart("c"));
+        await view.InvokeAsync(() => view.Instance.PointerDragOver("a"));
+        await view.InvokeAsync(view.Instance.PointerDragEnd);
+
+        Assert.Equal("Moved Third to 1 of 3.", view.Find("[data-testid='list-announcement']").TextContent.Trim());
+    }
+
+    public static TheoryData<string> DragsThatMoveNothing => ["released on itself", "released over no row", "cancelled"];
+
+    [Theory]
+    [MemberData(nameof(DragsThatMoveNothing))]
+    public async Task A_drag_that_moves_nothing_says_nothing(string how)
+    {
+        // An abandoned drag is not a move, so it neither raises one nor claims
+        // one: the region keeps whatever it last said.
+        using var context = new BunitContext();
+        context.JSInterop.SetupVoid("backlogFocus", _ => true);
+        context.JSInterop.SetupVoid("taskListDrag.register", _ => true);
+        context.JSInterop.SetupVoid("taskListDrag.unregister", _ => true);
+        var raised = 0;
+
+        var view = context.Render<TaskListView>(p => p
+            .Add(l => l.Tasks, Three)
+            .Add(l => l.Reorderable, true)
+            .Add(l => l.OnReorder, _ => raised++)
+            .Add(l => l.TestId, "list"));
+
+        view.FindAll(".task-item__body")[0].KeyDown(new KeyboardEventArgs { Key = "ArrowDown", AltKey = true });
+        raised = 0;
+
+        await view.InvokeAsync(() => view.Instance.PointerDragStart("b"));
+
+        switch (how)
+        {
+            case "released on itself":
+                await view.InvokeAsync(() => view.Instance.PointerDragOver("b"));
+                await view.InvokeAsync(view.Instance.PointerDragEnd);
+                break;
+            case "released over no row":
+                await view.InvokeAsync(view.Instance.PointerDragEnd);
+                break;
+            default:
+                await view.InvokeAsync(() => view.Instance.PointerDragOver("c"));
+                await view.InvokeAsync(view.Instance.PointerDragCancel);
+                break;
+        }
+
+        Assert.Equal(0, raised);
+        Assert.Equal("Moved First to 2 of 3.", view.Find("[data-testid='list-announcement']").TextContent.Trim());
+    }
+
+    [Fact]
+    public async Task A_link_drag_says_only_what_it_linked()
+    {
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+
+        var view = context.Render<TaskListView>(p => p
+            .Add(l => l.Tasks, Three)
+            .Add(l => l.Reorderable, true)
+            .Add(l => l.OnReorder, _ => { })
+            .Add(l => l.OnLink, (TaskLink _) => { })
+            .Add(l => l.TestId, "list"));
+
+        await view.InvokeAsync(() => view.Instance.PointerLinkStart("a"));
+        await view.InvokeAsync(() => view.Instance.PointerDragOver("c"));
+        await view.InvokeAsync(view.Instance.PointerDragEnd);
+
+        var said = view.Find("[data-testid='list-announcement']").TextContent.Trim();
+        Assert.Equal("First now waits for Third.", said);
+        Assert.DoesNotContain("Moved", said, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_dragged_row_counts_only_the_rows_the_reader_can_see()
+    {
+        // With finished rows folded away the position and the total are the open
+        // list's, as they are for a keyboard move.
+        using var context = new BunitContext();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        TaskMove? move = null;
+
+        IReadOnlyList<TaskRow> tasks =
+        [
+            new("a", "First"),
+            new("done", "Finished", Done: true),
+            new("c", "Third"),
+            new("d", "Fourth")
+        ];
+
+        var view = context.Render<TaskListView>(p => p
+            .Add(l => l.Tasks, tasks)
+            .Add(l => l.GroupCompleted, true)
+            .Add(l => l.Reorderable, true)
+            .Add(l => l.OnReorder, m => move = m)
+            .Add(l => l.TestId, "list"));
+
+        await view.InvokeAsync(() => view.Instance.PointerDragStart("a"));
+        await view.InvokeAsync(() => view.Instance.PointerDragOver("c"));
+        await view.InvokeAsync(view.Instance.PointerDragEnd);
+
+        Assert.Equal("Moved First to 2 of 3.", view.Find("[data-testid='list-announcement']").TextContent.Trim());
+
+        var open = move!.ApplyTo(tasks, task => task.Id).Where(task => !task.Done).ToList();
+        Assert.Equal(2, open.FindIndex(task => task.Id == "a") + 1);
+    }
+
+    [Fact]
     public void A_row_moved_by_key_swaps_with_the_row_the_reader_can_see()
     {
         // The neighbour comes from the order on screen, not from Tasks. With

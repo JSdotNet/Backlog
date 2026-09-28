@@ -670,6 +670,44 @@ button.badge:hover {
 }
 
 /*
+  A roadmap item's outlook — how its work stands against the window it was planned
+  into — on the shared tone scale of
+  .devbook/design/color-scheme.md#badge-and-chip-tones rather than a scale of its own.
+
+  Finished is settled, behind is alert and overdue is fault: the three a reader acts on,
+  filled, each inside the strong border because the semantic surfaces are invisible as
+  boundaries against the card. On track is live — the plan tag's primary-light ink on a
+  primary-dark edge, in progress and unfilled. The three that cannot be judged at all —
+  unsized, no pace, and a window still sized from effort — are quiet: information, never
+  a verdict, so none of them is filled.
+
+  The word is always printed; the tone is the second carrier, never the first.
+*/
+.badge--outlook {
+    background: var(--color-background-alt);
+    border: var(--border-width) solid var(--color-border);
+    color: var(--color-secondary);
+    white-space: nowrap;
+}
+
+.badge--outlook-finished,
+.badge--outlook-behind,
+.badge--outlook-overdue {
+    border-color: var(--color-border-strong);
+    color: var(--color-text-primary);
+}
+
+.badge--outlook-finished { background: var(--color-success); }
+.badge--outlook-behind { background: var(--color-warning); }
+.badge--outlook-overdue { background: var(--color-error); }
+
+.badge--outlook-on-track {
+    background: transparent;
+    border-color: var(--color-primary-dark);
+    color: var(--color-primary-light);
+}
+
+/*
   An alias, drawn as the qualifier it is.
 
   An alias applies to a name rather than standing on its own — `TaskItem` is
@@ -1166,6 +1204,28 @@ button.badge:hover {
     border: var(--border-width) solid var(--color-primary-dark);
     border-radius: var(--border-radius-sm);
     padding: 0 var(--spacing-xs);
+}
+
+/*
+  A suggested chip — something the product proposes that nothing has applied.
+  Proposed, not yet the reader's: the edge is dashed, the one line style no other
+  chip or badge wears here, and the ink is secondary until the reader takes it.
+  The label on it is always the act ("Add #sync"), so the dashed edge is never
+  the only thing that says the chip is an offer.
+*/
+.tag-chip--suggested {
+    color: var(--color-text-secondary);
+    background: transparent;
+    border: var(--border-width) dashed var(--color-border-strong);
+    border-radius: var(--border-radius-full);
+    padding: 0 var(--spacing-xs);
+    max-width: 14rem;
+}
+
+.tag-chip--suggested:hover,
+.tag-chip--suggested:focus-within {
+    color: var(--color-text-primary);
+    border-color: var(--color-primary);
 }
 
 /* --- Save-state indicator ------------------------------------------------ */
@@ -6072,6 +6132,19 @@ body.is-resizing-pane {
 
 button.tag-chip__label {
     cursor: pointer;
+}
+
+/* The key that takes the chip, in front of its label: small and quiet, so the
+   label is still what the eye lands on. */
+.tag-chip__key {
+    margin-right: var(--spacing-xs);
+    padding: 0 0.25rem;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    font-family: inherit;
+    font-size: var(--font-size-xs);
+    line-height: 1.2;
+    color: var(--color-text-secondary);
 }
 
 /*

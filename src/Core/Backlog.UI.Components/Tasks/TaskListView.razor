@@ -1688,7 +1688,19 @@
 
         if (!linking)
         {
-            await OnReorder.InvokeAsync(new TaskMove(moved, target));
+            var move = new TaskMove(moved, target);
+
+            // Said as a keyboard move says it, from the order on screen with the
+            // drag over — so the position is where the host applying this move
+            // puts the row, among the rows the reader can see. No focus to set:
+            // the pointer never took it anywhere.
+            var order = move.ApplyTo(Open, task => task.Id);
+            if (IndexOf(order, target) >= 0 && IndexOf(order, moved) is var to and >= 0)
+            {
+                _announcement = $"Moved {order[to].Title} to {to + 1} of {order.Count}.";
+            }
+
+            await OnReorder.InvokeAsync(move);
             return;
         }
 

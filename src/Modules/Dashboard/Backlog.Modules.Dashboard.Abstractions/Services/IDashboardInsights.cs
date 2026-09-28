@@ -76,6 +76,14 @@ public interface ITaskInsights
     Task<InsightResult<TaskThroughputInsight>> GetThroughputAsync(
         DashboardScope scope,
         CancellationToken cancellationToken = default);
+
+    /// <summary>The roadmap items the window shows in the repositories in scope, and
+    /// how each one's work stands. Ready with <see cref="PlanInsight.Off"/> when the
+    /// roadmap is switched off, because a feature somebody turned off is a state, not a
+    /// failure.</summary>
+    Task<InsightResult<PlanInsight>> GetPlanAsync(
+        DashboardScope scope,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>

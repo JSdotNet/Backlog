@@ -26,8 +26,8 @@ namespace Backlog.Infrastructure.Sqlite.Inbox;
 /// the hands of the module that owns the data; what the adapters here share is
 /// a file, not a schema. The tables are created by idempotent
 /// <c>IF NOT EXISTS</c> DDL on every open (local ADR 0003); a column added
-/// later goes through <see cref="EnsureColumnAsync"/> (local ADR 0006). None is
-/// needed at birth — the method exists so the next one has a home.
+/// later goes through <see cref="EnsureColumnAsync"/> (local ADR 0006) — the
+/// first was <c>dismissed_suggestions</c>, the suggestions a reader turned down.
 /// </para>
 /// <para>
 /// Lists and groups are hard-deleted. Tombstoning is for documents that travel
@@ -43,7 +43,7 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
     private const string ItemColumns =
         "id, title, body_md, source_url, captured_at, received_at, status, deferred_until, kind, " +
         "channel, person, tags, repo_ids, list_id, routing_domain, routing_repo_ids, routing_task_ids, " +
-        "routed_at, replica_backed, replica_ack_pending, updated_at";
+        "routed_at, replica_backed, replica_ack_pending, updated_at, dismissed_suggestions";
 
     private const string AttachmentColumns =
         "item_id, attachment_id, name, content_type, size_bytes, sha256, local_path, downloaded_at, last_error, sort_order";
@@ -94,7 +94,7 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
             VALUES (
                 $id, $title, $body_md, $source_url, $captured_at, $received_at, $status, $deferred_until, $kind,
                 $channel, $person, $tags, $repo_ids, $list_id, $routing_domain, $routing_repo_ids, $routing_task_ids,
-                $routed_at, $replica_backed, $replica_ack_pending, $updated_at)
+                $routed_at, $replica_backed, $replica_ack_pending, $updated_at, $dismissed_suggestions)
             ON CONFLICT(id) DO UPDATE SET
                 title = excluded.title,
                 body_md = excluded.body_md,
@@ -115,7 +115,8 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
                 routed_at = excluded.routed_at,
                 replica_backed = excluded.replica_backed,
                 replica_ack_pending = excluded.replica_ack_pending,
-                updated_at = excluded.updated_at;
+                updated_at = excluded.updated_at,
+                dismissed_suggestions = excluded.dismissed_suggestions;
             """;
 
         command.Parameters.AddWithValue("$id", item.Id.ToString());
@@ -143,6 +144,7 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
         command.Parameters.AddWithValue("$replica_backed", item.ReplicaBacked ? 1 : 0);
         command.Parameters.AddWithValue("$replica_ack_pending", item.ReplicaAckPending ? 1 : 0);
         command.Parameters.AddWithValue("$updated_at", WriteInstant(item.UpdatedAt));
+        command.Parameters.AddWithValue("$dismissed_suggestions", TaskPayloads.Write(item.DismissedSuggestions));
 
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
 
@@ -595,11 +597,11 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
                 """;
             await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
 
-            // No EnsureColumnAsync calls yet: every column above shipped with its
-            // table — inbox_item_attachments included, which arrived as a whole
-            // table rather than as columns on one that had rows. The method is
-            // here so the first additive column has the same home it has in
-            // SqliteTaskRepository, and the same rules.
+            // Columns added after inbox_items had rows. Every column above shipped
+            // with its table; these arrive on a database written before them, so
+            // each carries a default a row written then can stand on.
+            await EnsureColumnAsync(connection, "inbox_items", "dismissed_suggestions", "TEXT NOT NULL DEFAULT '[]'", cancellationToken)
+                .ConfigureAwait(false);
 
             return connection;
         }
@@ -612,9 +614,7 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
 
     /// <summary>Adds a column to one of the inbox tables when it is not already
     /// there, and does nothing when it is — the same additive-only bootstrap
-    /// <see cref="SqliteTaskRepository"/> keeps (local ADR 0006). Unused until the
-    /// first column is added after a table has rows, and kept so that column has a
-    /// home rather than a fresh idea. <paramref name="table"/>,
+    /// <see cref="SqliteTaskRepository"/> keeps (local ADR 0006). <paramref name="table"/>,
     /// <paramref name="column"/> and <paramref name="definition"/> are compile-time
     /// constants from this class and never anything a caller supplies, which is
     /// what makes composing the DDL by string safe here.</summary>
@@ -659,7 +659,7 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
         public const int Status = 6, DeferredUntil = 7, Kind = 8, Channel = 9, Person = 10;
         public const int Tags = 11, RepoIds = 12, ListId = 13;
         public const int RoutingDomain = 14, RoutingRepoIds = 15, RoutingTaskIds = 16, RoutedAt = 17;
-        public const int ReplicaBacked = 18, ReplicaAckPending = 19, UpdatedAt = 20;
+        public const int ReplicaBacked = 18, ReplicaAckPending = 19, UpdatedAt = 20, DismissedSuggestions = 21;
 
         public const int ListName = 1, ListGroupId = 2, ListOrder = 3, ListCreatedAt = 4, ListUpdatedAt = 5;
         public const int GroupName = 1, GroupOrder = 2, GroupCreatedAt = 3, GroupUpdatedAt = 4;
@@ -697,6 +697,7 @@ public sealed class SqliteInboxRepository : IInboxItemRepository, IInboxOrganize
             .Select(tag => new InboxTag(tag.Name, tag.Auto)));
         item.SetRepoIds(TaskPayloads.Read<string>(Text(row, Col.RepoIds)));
         item.MoveToList(ParseGuid(Text(row, Col.ListId)));
+        item.LoadDismissedSuggestions(TaskPayloads.Read<string>(Text(row, Col.DismissedSuggestions)));
 
         RoutingTarget? routing = null;
         if (Text(row, Col.RoutingDomain) is { } domain && Text(row, Col.RoutedAt) is { } routedAt)

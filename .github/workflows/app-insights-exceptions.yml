@@ -3,7 +3,7 @@ name: Application Insights exceptions
 # Reads the exceptions Application Insights recorded for the cloud sync tier
 # (local ADR 0005; infra/sync/main.bicep provisions the component) and files one
 # GitHub issue per distinct problem, so a failure nobody was watching the portal
-# for still lands in the backlog by morning.
+# for still lands in the backlog.
 #
 # One issue per `problemId`, which is Application Insights' own grouping of an
 # exception by type and throw site. The issue body carries the id in an HTML
@@ -26,11 +26,13 @@ name: Application Insights exceptions
 #   2. Nothing exports to the component until the sync service sends telemetry
 #      to Azure Monitor. Until then every run reports "no exceptions" honestly —
 #      an empty result is what the query returned, not a failure.
+#
+# It runs by hand only. The nightly schedule is off until the `backlog-sync`
+# environment holds its variables: with them blank the preflight fails, and a
+# schedule would file a red run every day. docs/deployment/sync.md says how to
+# turn it back on.
 
 on:
-  schedule:
-    # 04:23 UTC, a quiet hour; scheduled jobs are best-effort, so leave slack.
-    - cron: '23 4 * * *'
   workflow_dispatch:
     inputs:
       lookback_hours:
@@ -71,8 +73,8 @@ jobs:
       id-token: write
 
     env:
-      # Both triggers arrive here; a scheduled run has no inputs and takes the
-      # defaults, so a run that says nothing reads one day and files for real.
+      # The fallbacks cover a run with no inputs, so a run that says nothing
+      # reads one day and files for real.
       LOOKBACK_HOURS: ${{ inputs.lookback_hours || '24' }}
       DRY_RUN: ${{ inputs.dry_run == true && 'true' || 'false' }}
       AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
@@ -83,9 +85,9 @@ jobs:
       # The label every filed issue wears, and the only thing a later run
       # lists to find the issues it filed before.
       ISSUE_LABEL: app-insights-exception
-      # A ceiling on new issues per run. A bad night could produce dozens of
+      # A ceiling on new issues per run. A bad day could produce dozens of
       # distinct problems; the noisiest twenty get issues, the rest get the
-      # summary, and the next night picks up whatever is still happening.
+      # summary, and the next run picks up whatever is still happening.
       MAX_NEW_ISSUES: '20'
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}

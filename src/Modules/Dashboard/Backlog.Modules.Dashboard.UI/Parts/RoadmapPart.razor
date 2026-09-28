@@ -1,0 +1,225 @@
+@*
+    What the roadmap planned into the window and how that work stands: the pace the
+    roadmap places work at, the items whose own stretch overlaps the window, the effort
+    gathered under each and how much of it is ticked off.
+
+    Not the timeline. The roadmap surface keeps the bars; this part answers the one
+    question the tasks section beside it cannot — whether the work that was planned is
+    landing where it was planned to — and answers it in the roadmap's own terms, so a
+    figure here can be found again on the roadmap. The pace is the one the roadmap
+    quotes for the repositories in scope, and the stretch it was measured over is said
+    with it, because a measured pace and a typed one are different claims.
+
+    An outlook is text on a tone, never a colour alone: the word is printed in the badge
+    and the projection behind it is in the badge's title, so a reader who cannot tell
+    the tones apart loses nothing.
+
+    Nothing at all while the roadmap is switched off. The roadmap sits behind a feature
+    flag, and a frame announcing a switched-off surface would be this dashboard
+    advertising it. An unavailable answer still draws the frame with its reason: the
+    roadmap is on and could not be read, which is news.
+*@
+@inherits DashboardPartBase<PlanInsight>
+@inject ITaskInsights Insights
+
+@if (Value is not { RoadmapEnabled: false })
+{
+    <PartFrame Title="Roadmap"
+               Note="@Note"
+               Busy="Status == MetricStatusKind.Loading"
+               OnRefresh="RefreshAsync"
+               TestId="dashboard-roadmap">
+        @if (IsReady)
+        {
+            <div class="dashboard-part__stack">
+                <MetricGrid Label="The roadmap over the selected window" TestId="dashboard-roadmap-tiles">
+                    <MetricTile Label="Pace in use"
+                                Value="@MetricFormat.Score(Value!.Pace.PointsPerWeek)"
+                                Unit="pts/week"
+                                Emphasis="true"
+                                Footnote="@Basis(Value!.Pace.Basis)"
+                                FootnoteAsHint="true"
+                                TestId="dashboard-roadmap-pace" />
+                    <MetricTile Label="Items in window"
+                                Value="@MetricFormat.Compact(Value!.Items.Count)"
+                                TestId="dashboard-roadmap-items" />
+                    @* A floor whenever something gathered carries no estimate, and the
+                       footnote says how many — the effort total is not allowed to hide
+                       the work it could not weigh. *@
+                    <MetricTile Label="Planned effort"
+                                Value="@MetricFormat.Compact(Value!.PlannedEffort)"
+                                Unit="pts"
+                                Footnote="@PlannedFootnote"
+                                FootnoteAsHint="true"
+                                TestId="dashboard-roadmap-planned" />
+                    <MetricTile Label="Done"
+                                Value="@MetricFormat.Compact(Value!.DoneEffort)"
+                                Unit="@($"of {MetricFormat.Compact(Value!.PlannedEffort)} pts")"
+                                TestId="dashboard-roadmap-done" />
+                </MetricGrid>
+
+                <DataTable TItem="PlanItemInsight"
+                           Columns="@Columns"
+                           Items="@Value!.Items"
+                           RowKey="@(row => row.Item.Id)"
+                           AriaLabel="@($"Roadmap items overlapping the last {Scope.Weeks} weeks")"
+                           RowNoun="item"
+                           TestId="dashboard-roadmap-table">
+                    <Row Context="row">
+                        <td>@row.Item.Title</td>
+                        <td>@DashboardFormat.Span(row.Item.Start, row.Item.End)</td>
+                        <td>
+                            @if (row.Item.RepositoryAliases.Count == 0)
+                            {
+                                @* Plan-wide: filed under no repository, which every
+                                   repository scope keeps. *@
+                                <text>—</text>
+                            }
+                            else
+                            {
+                                @foreach (var alias in row.Item.RepositoryAliases)
+                                {
+                                    <Badge Kind="area" Slug="@alias">@alias</Badge>
+                                }
+                            }
+                        </td>
+                        <td>@Progress(row.Item)</td>
+                        <td>
+                            <Badge Kind="outlook"
+                                   Slug="@Slug(row.Outlook)"
+                                   Title="@Sentence(row)">@Word(row.Outlook)</Badge>
+                        </td>
+                    </Row>
+                </DataTable>
+            </div>
+        }
+        else
+        {
+            <MetricStatus Kind="Status" Message="@StatusMessage" TestId="dashboard-roadmap-status" />
+        }
+    </PartFrame>
+}
+
+@code {
+    /// <summary>A plan is filed under repositories, so the chips narrow it — the
+    /// insight keeps the plan-wide items in every scope.</summary>
+    protected override bool FollowsRepository => true;
+
+    /// <summary>The window picks which items overlap it.</summary>
+    protected override bool FollowsWindow => true;
+
+    private const string Note =
+        "The roadmap's items whose own window overlaps the selected one, with the effort gathered "
+        + "under each and how much of it is ticked off. The pace is the one the roadmap places work "
+        + "at for the repositories in scope; an item's outlook uses its own repositories' pace "
+        + "(ADR 0013). The repository chips narrow it; the machine filter does not apply, because a "
+        + "plan records no machine.";
+
+    private static readonly IReadOnlyList<DataTableColumn> Columns =
+    [
+        new("Item"),
+        new("Window"),
+        new("Repositories"),
+        new("Done"),
+        new("Outlook")
+    ];
+
+    /// <summary>The stretch the pace was measured over, in words — or that nothing was
+    /// measured and the figure is the one typed on the roadmap.</summary>
+    private static string Basis(PlanPaceBasis basis) => basis switch
+    {
+        PlanPaceBasis.LastTwoWeeks => "Measured over the last 2 weeks",
+        PlanPaceBasis.LastFourWeeks => "Measured over the last 4 weeks",
+        PlanPaceBasis.LastEightWeeks => "Measured over the last 8 weeks",
+        _ => "Set by hand in the roadmap"
+    };
+
+    /// <summary>Only when something was left unweighed: a footnote saying "0 entries
+    /// have no estimate" on every complete reading would train the reader past it.</summary>
+    private string? PlannedFootnote =>
+        IsReady && Value!.Unestimated > 0
+            ? Value!.Unestimated == 1
+                ? "1 gathered entry has no estimate and adds nothing, so this is a floor."
+                : $"{Value!.Unestimated} gathered entries have no estimate and add nothing, so this is a floor."
+            : null;
+
+    /// <summary>
+    /// The effort done against the effort gathered, and the entries behind both. An
+    /// item nothing it gathered is estimated on has no points to compare, so it says
+    /// the count and that it is unsized rather than "0 / 0 pts".
+    /// </summary>
+    private static string Progress(PlanItemProgress item) =>
+        item.TotalEffort == 0
+            ? $"{item.DoneCount} of {item.GatheredCount} entries · unsized"
+            : $"{item.DoneEffort} / {item.TotalEffort} pts · {item.DoneCount} of {item.GatheredCount} entries";
+
+    private static string Word(PlanOutlook outlook) => outlook switch
+    {
+        PlanOutlook.Finished => "Finished",
+        PlanOutlook.OnTrack => "On track",
+        PlanOutlook.Behind => "Behind",
+        PlanOutlook.Overdue => "Overdue",
+        PlanOutlook.Unsized => "Unsized",
+        PlanOutlook.NoPace => "No pace",
+        _ => "Placed by effort"
+    };
+
+    /// <summary>The class modifier the outlook badge family is keyed on.</summary>
+    private static string Slug(PlanOutlook outlook) => outlook switch
+    {
+        PlanOutlook.Finished => "finished",
+        PlanOutlook.OnTrack => "on-track",
+        PlanOutlook.Behind => "behind",
+        PlanOutlook.Overdue => "overdue",
+        PlanOutlook.Unsized => "unsized",
+        PlanOutlook.NoPace => "no-pace",
+        _ => "placed-by-effort"
+    };
+
+    /// <summary>
+    /// What the word stands on: the projected end and the pace it was projected at
+    /// beside the planned end, where there is a projection — or why there is none. The
+    /// badge's title rather than another column, so the table stays five columns wide
+    /// and the reasoning is one pointer away from the word it explains.
+    /// </summary>
+    private static string Sentence(PlanItemInsight row)
+    {
+        var item = row.Item;
+        var planned = DashboardFormat.Date(item.End);
+        var pace = MetricFormat.Score(item.PacePointsPerWeek);
+
+        return row.Outlook switch
+        {
+            PlanOutlook.Finished => row.ProjectedEnd is { } landed
+                ? $"Every gathered entry is done; the last on {DashboardFormat.Date(landed)}. Planned to end {planned}."
+                : $"Every gathered entry is done. Planned to end {planned}.",
+            PlanOutlook.OnTrack or PlanOutlook.Behind when row.ProjectedEnd is { } projected =>
+                $"Projected to end {DashboardFormat.Date(projected)} at {pace} pts/week; planned to end {planned}.",
+            PlanOutlook.Overdue => row.ProjectedEnd is { } late
+                ? $"Planned to end {planned}, which has passed with {item.TotalEffort - item.DoneEffort} pts still open; projected to end {DashboardFormat.Date(late)} at {pace} pts/week."
+                : $"Planned to end {planned}, which has passed with work still open.",
+            PlanOutlook.Unsized => "Nothing it gathered carries an estimate, so there is nothing to project.",
+            PlanOutlook.NoPace => "There is no pace to project at for its repositories.",
+            PlanOutlook.PlacedByEffort =>
+                $"Its window is still the one the importer sized from effort, so it moves with the pace and is not judged against itself. Planned to end {planned}.",
+            _ => $"Planned to end {planned}."
+        };
+    }
+
+    protected override Task<InsightResult<PlanInsight>> FetchAsync(CancellationToken cancellationToken) =>
+        Insights.GetPlanAsync(Scope, cancellationToken);
+
+    /// <summary>
+    /// Empty when the roadmap is on and nothing it holds overlaps the window. Not when
+    /// it is off: that answer renders nothing at all, for the reason the header gives,
+    /// and an empty state would be the part announcing the switched-off surface anyway.
+    /// </summary>
+    protected override bool IsEmpty(PlanInsight value) => value.RoadmapEnabled && value.Items.Count == 0;
+
+    protected override string EmptyMessage => "No roadmap item overlaps this window.";
+
+    // Nothing to drop: the roadmap is read afresh on every call, as the tasks are.
+    protected override void InvalidateSource()
+    {
+    }
+}

@@ -23,6 +23,17 @@
         </div>
     </Story>
 
+    <Story Name="Outlook"
+           Description="How a roadmap item's work stands against the window it was planned into, as the dashboard's Tasks section draws it. Seven words on four tones of the shared scale: finished is settled, behind is alert and overdue is fault — the three a reader acts on, filled — on track is live, and the three that cannot be judged at all are quiet. The word is always printed, so the tone is never the only carrier."
+           Code="@OutlookCode">
+        <div class="sb-row" data-testid="badges-outlook">
+            @foreach (var (slug, word) in Outlooks)
+            {
+                <Badge Kind="outlook" Slug="@slug" Title="@($"outlook: {slug}")">@word</Badge>
+            }
+        </div>
+    </Story>
+
     <Story Name="A badge that leads somewhere"
            Description="Three shapes, one badge. What it renders depends on what the host can do with the value rather than on what the value is: given a URL it is an anchor, given a callback it is a button, given neither it is the span every badge in this library has always been. An anchor can be middle-clicked, copied and opened in a new window and a button cannot, and a value nobody can follow should not invite a click or take a tab stop to refuse one.
 
@@ -110,7 +121,9 @@ Nothing changes for a caller that passes neither parameter, down to the attribut
 
 There are three kinds of tag and one component. The chip reads its own kind off the text it is handed — a leading `@@` means a person, a leading `+` means a plan tag (the roadmap item an entry is filed under), anything else is a general tag — so there is no parameter to set, no second component, and every caller that already drew tags got the person and plan variants without being edited. The sigil is drawn rather than merely implied, which makes the pill behind a person tag and the outlined edge around a plan tag the *second* carrier of each distinction and never the only one. A plan tag is outlined rather than filled on purpose: filled means the product acts on it, and a plan tag is information about where the entry is filed.
 
-The hash is still the caller's, as it always was here: `TagChip` draws exactly the text it is given. What the row and the panel pass through first is `TagText.Display`, which adds a hash to a general tag and leaves a person or plan tag alone — because those keep their sigil in the stored value while a general tag is stored bare. That asymmetry is what lets every tag written before people and plans existed keep meaning “general” with no migration behind it."
+The hash is still the caller's, as it always was here: `TagChip` draws exactly the text it is given. What the row and the panel pass through first is `TagText.Display`, which adds a hash to a general tag and leaves a person or plan tag alone — because those keep their sigil in the stored value while a general tag is stored bare. That asymmetry is what lets every tag written before people and plans existed keep meaning “general” with no migration behind it.
+
+`Suggested` draws a chip the product proposes and nothing has applied yet — the Inbox's suggestions are the caller. It is outlined in a dashed edge whatever its text names, the label is the act that takes it and the remove control the act that turns it down (`RemoveLabel` names it “Dismiss” rather than “Remove”). `Shortcut` draws the key that takes the chip as a keycap in front of the label and announces it on the label's button; the caller binds the key, the chip only says which it is."
            Code="@TagCode">
         <div class="sb-stack">
             <div>
@@ -145,6 +158,29 @@ The hash is still the caller's, as it always was here: `TagChip` draws exactly t
                     <AppButton Variant="ButtonVariant.Ghost" OnClick="ResetTags">Put them back</AppButton>
                 </div>
             </div>
+            <div>
+                <p class="sb-label">Suggested</p>
+                <div class="sb-row" data-testid="suggested-tags">
+                    @for (var index = 0; index < _suggestions.Count; index++)
+                    {
+                        var suggestion = _suggestions[index];
+                        <TagChip Text="@suggestion"
+                                 Suggested="true"
+                                 Shortcut="@((index + 1).ToString(System.Globalization.CultureInfo.InvariantCulture))"
+                                 Label="@($"Add {suggestion}")"
+                                 OnClick="() => AcceptSuggestion(suggestion)"
+                                 Removable="true"
+                                 RemoveLabel="@($"Dismiss {suggestion}")"
+                                 OnRemove="DismissSuggestion"
+                                 TestId="@($"suggested-tag-{suggestion.TrimStart('#')}")" />
+                    }
+                    <TagChip Text="Knowledge" Suggested="true" Disabled="true" Removable="true" RemoveLabel="Dismiss Knowledge" />
+                </div>
+                <p class="sb-state" data-testid="suggested-tags-value">Taken: [@string.Join(", ", _taken)]</p>
+                <div class="sb-row" style="margin-top: 0.5rem">
+                    <AppButton Variant="ButtonVariant.Ghost" OnClick="ResetSuggestions">Suggest them again</AppButton>
+                </div>
+            </div>
         </div>
     </Story>
 
@@ -176,6 +212,19 @@ The hash is still the caller's, as it always was here: `TagChip` draws exactly t
     private static readonly string[] FeatureStatusValues = ["dev", "beta"];
     private static readonly string[] FixedTags = ["ui", "markdown", "aspire"];
 
+    /// <summary>The outlook family's whole vocabulary, slug and word, in the order the
+    /// dashboard's enum declares them.</summary>
+    private static readonly (string Slug, string Word)[] Outlooks =
+    [
+        ("finished", "Finished"),
+        ("on-track", "On track"),
+        ("behind", "Behind"),
+        ("overdue", "Overdue"),
+        ("unsized", "Unsized"),
+        ("no-pace", "No pace"),
+        ("placed-by-effort", "Placed by effort")
+    ];
+
     /// <summary>Each kind, written the way each is actually stored: a person tag
     /// keeps its <c>@</c> and a plan tag its <c>+</c> in the value, a general tag
     /// is stored bare and only ever wears its hash on screen.</summary>
@@ -187,6 +236,24 @@ The hash is still the caller's, as it always was here: `TagChip` draws exactly t
 
     private void ResetTags() => _tags = ["ui", "markdown", "sync", "aspire", "docs"];
 
+    private List<string> _suggestions = ["#sync", "#release-notes"];
+
+    private readonly List<string> _taken = [];
+
+    private void AcceptSuggestion(string tag)
+    {
+        _suggestions.Remove(tag);
+        _taken.Add(tag);
+    }
+
+    private void DismissSuggestion(string tag) => _suggestions.Remove(tag);
+
+    private void ResetSuggestions()
+    {
+        _suggestions = ["#sync", "#release-notes"];
+        _taken.Clear();
+    }
+
     private string? _pressed;
 
     private string Pressed => _pressed is null
@@ -195,6 +262,10 @@ The hash is still the caller's, as it always was here: `TagChip` draws exactly t
 
     private const string BadgeCode = """
         <Badge Kind="status" Slug="ready">Ready</Badge>
+        """;
+
+    private const string OutlookCode = """
+        <Badge Kind="outlook" Slug="on-track" Title="@sentence">On track</Badge>
         """;
 
     private const string LinkedCode = """
@@ -227,6 +298,11 @@ The hash is still the caller's, as it always was here: `TagChip` draws exactly t
 
     private const string TagCode = """
         <TagChip Text="@tag" Removable="true" OnRemove="RemoveTag" />
+
+        @* A suggestion: the label takes it, the remove control turns it down. *@
+        <TagChip Text="#sync" Suggested="true" Shortcut="1"
+                 Label="Add #sync" OnClick="Accept"
+                 Removable="true" RemoveLabel="Dismiss #sync" OnRemove="Dismiss" />
         """;
 
     private const string MetadataCode = """

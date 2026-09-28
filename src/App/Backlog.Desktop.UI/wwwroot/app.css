@@ -4159,6 +4159,36 @@ h1, h2, h3 {
     margin: 0;
 }
 
+/* The detail takes focus when its text is clicked, so the suggestion digits
+   reach it; that focus is a mouse's, never a tab stop, and draws no ring. */
+.inbox-pane__detail:focus {
+    outline: none;
+}
+
+/* Classification's proposals, above the pickers: a small heading and a row of
+   suggested chips that wraps. The heading names the row once, so no chip has to
+   say it is a suggestion in words. */
+.inbox-pane__suggestions {
+    display: grid;
+    gap: var(--spacing-xs);
+}
+
+.inbox-pane__suggestions-title {
+    margin: 0;
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.inbox-pane__suggestion-chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
 /* --- Narrow ---------------------------------------------------------------- */
 
 /* Beside the backlog the pane is a column, not a page. The side menu goes
@@ -5428,6 +5458,42 @@ h1, h2, h3 {
 .dashboard-section__fold .fold__region:not([hidden]) {
     display: grid;
     gap: var(--spacing-md);
+    min-width: 0;
+}
+
+/* A section's More fold: the same FoldControl a step in from the section, with a
+   quieter heading so it reads as the rest of the section rather than a section of its
+   own. After the rule above on purpose — the two region selectors are equally
+   specific, and a More region nested in a section region has to take this one. */
+.dashboard-section__more {
+    display: grid;
+    margin-top: var(--spacing-sm);
+    min-width: 0;
+}
+
+.dashboard-section__more-title {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--color-text-secondary);
+}
+
+.dashboard-section__more .fold__region:not([hidden]) {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    padding-top: var(--spacing-sm);
+    min-width: 0;
+}
+
+/* The sessions part's chart and grid controls: a select and a toggle strip on one
+   line above the thing they drive, wrapping under each other where the part is
+   narrow. */
+.dashboard-sessions__controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+    align-items: center;
     min-width: 0;
 }
 

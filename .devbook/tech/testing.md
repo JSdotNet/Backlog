@@ -172,17 +172,22 @@ The code-coverage collector.
 ```meta
 status: adopted
 type: tool
+version: "1.63.0"
 depends-on: [".devbook/tech/shared.md#blazor-server", ".devbook/tech/desktop.md#webview2"]
-related: [".devbook/tech/ai-development.md#model-context-protocol-servers", ".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md", ".devbook/tech/shared.md#net-aspire"]
+related: [".devbook/tech/ai-development.md#model-context-protocol-servers", ".devbook/arc42/adr/0001-desktop-stack-maui-blazor-hybrid.md", ".devbook/tech/shared.md#net-aspire", ".devbook/tech/testing.md#xunit-v3"]
 ```
 
 Browser automation for end-to-end validation.
 
-- **Used for** — the Validation phase of a code-modifying `flow-*` run:
-  driving the Blazor Server harnesses and the storybook, capturing screenshots
-  and video as evidence, and attaching to the desktop head over WebView2's CDP
-  debugging port.
+- **Used for** — two things:
+  - The Validation phase of a code-modifying `flow-*` run. It drives the Blazor
+    Server harnesses and the storybook, captures screenshots and video as evidence,
+    and attaches to the desktop head over WebView2's CDP debugging port.
+  - The checked-in end-to-end tests in `tests/Backlog.EndToEndTests`. They use
+    `Microsoft.Playwright` from xUnit against the harnesses of a running AppHost, and
+    reach that AppHost through the Aspire CLI. They skip unless `BACKLOG_E2E=1`.
 - **Why** — being Playwright-drivable is one of the two reasons ADR 0001 chose
-  MAUI Blazor Hybrid over plain WinUI 3. It reaches this repository as an MCP
-  server supplied by the `qa` plugin, not as a checked-in dependency, so there
-  is no Playwright package or config in the solution.
+  MAUI Blazor Hybrid over plain WinUI 3.
+  - QA reaches it as an MCP server supplied by the `qa` plugin.
+  - A scenario worth repeating is checked in as a test, because an MCP walk leaves
+    evidence behind but nothing to run again.

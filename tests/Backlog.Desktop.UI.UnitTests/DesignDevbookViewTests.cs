@@ -34,6 +34,31 @@ public sealed class DesignDevbookViewTests : IDisposable
 {
     private readonly List<string> _roots = [];
 
+    /// <summary>
+    /// A pull announces the folder change off the renderer's thread, and the
+    /// reload it starts can find the folder gone. The chapter that last read stays
+    /// on screen rather than the handler's exception ending the process. An unguarded handler
+    /// crashes the test run on its thread-pool throw; the markup check confirms
+    /// the last good read stays on screen. The
+    /// handler is the shared document view's, so this covers the AI view as well.
+    /// </summary>
+    [Fact]
+    public async Task A_folder_that_cannot_be_read_after_a_change_leaves_the_last_chapter_on_screen()
+    {
+        await using var harness = CreateHarness();
+        var folders = UnreadableDevbookFolderSource.Install(harness.Context);
+
+        var component = harness.Render("color-scheme.md");
+        component.WaitForAssertion(() => Assert.Single(component.FindAll("[data-testid='design-chapter-file-edit']")));
+
+        folders.MakeUnreadable();
+        folders.NotifyContentChanged();
+        await component.InvokeAsync(() => { });
+
+        Assert.Single(component.FindAll("[data-testid='design-chapter-file-edit']"));
+        Assert.Contains("The palette and how it is applied.", component.Markup, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task A_selected_design_chapter_is_read_before_it_is_written()
     {

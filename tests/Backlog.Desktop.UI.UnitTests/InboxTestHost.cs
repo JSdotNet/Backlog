@@ -138,6 +138,75 @@ internal sealed class FakeInboxItems : IInboxItems
 
     public int EnsureDefaultOrganizerCalls { get; private set; }
 
+    // --- Suggestions --------------------------------------------------------
+
+    private readonly Dictionary<Guid, List<InboxSuggestionDto>> _suggestions = [];
+
+    /// <summary>The suggestions the reader turned down, by item and key — what
+    /// the module would have recorded on the item.</summary>
+    public HashSet<(Guid Id, string Key)> Dismissed { get; } = [];
+
+    /// <summary>How many times the pane asked for suggestions.</summary>
+    public int SuggestCalls { get; private set; }
+
+    /// <summary>What Classification would propose for the item, in order. The
+    /// fake answers them for an open item, less what was turned down — the two
+    /// rules the pane relies on; which suggestions exist is the module's
+    /// business and has its own tests.</summary>
+    public InboxSuggestionDto SeedSuggestion(
+        Guid id,
+        InboxSuggestionKind kind,
+        string value,
+        string reason = "Because.",
+        string? unavailableReason = null)
+    {
+        var prefix = kind switch
+        {
+            InboxSuggestionKind.Tag => "tag",
+            InboxSuggestionKind.Repository => "repository",
+            _ => "destination"
+        };
+        var suggestion = new InboxSuggestionDto($"{prefix}:{value.ToLowerInvariant()}", kind, value, reason)
+        {
+            UnavailableReason = unavailableReason
+        };
+
+        if (!_suggestions.TryGetValue(id, out var list)) _suggestions[id] = list = [];
+        list.Add(suggestion);
+        return suggestion;
+    }
+
+    public Task<Result<IReadOnlyList<InboxSuggestionDto>>> SuggestAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        SuggestCalls++;
+
+        if (Find(id) is not { } item) return Task.FromResult(Result.Failure<IReadOnlyList<InboxSuggestionDto>>(InboxErrors.ItemNotFound));
+
+        IReadOnlyList<InboxSuggestionDto> offered =
+            item.Status is InboxStatus.Unprocessed or InboxStatus.Deferred && _suggestions.TryGetValue(id, out var list)
+                ? [.. list.Where(suggestion => !Dismissed.Contains((id, suggestion.Key)) && !Carries(item, suggestion))]
+                : [];
+
+        return Task.FromResult(Result.Success(offered));
+    }
+
+    /// <summary>Whether the item already has what the suggestion offers — the
+    /// module never offers a tag or a repository the item carries.</summary>
+    private static bool Carries(InboxItemDto item, InboxSuggestionDto suggestion) => suggestion.Kind switch
+    {
+        InboxSuggestionKind.Tag => item.Tags.Any(tag => string.Equals(tag.Name, suggestion.Value, StringComparison.OrdinalIgnoreCase)),
+        InboxSuggestionKind.Repository => item.RepoIds.Contains(suggestion.Value, StringComparer.OrdinalIgnoreCase),
+        _ => false
+    };
+
+    public Task<Result> DismissSuggestionAsync(Guid id, string key, CancellationToken cancellationToken = default)
+    {
+        if (Find(id) is null) return Task.FromResult(Result.Failure(InboxErrors.ItemNotFound));
+
+        Dismissed.Add((id, key));
+        return Task.FromResult(Result.Success());
+    }
+
     public InboxItemDto Seed(
         string title,
         ContentKind kind = ContentKind.Text,

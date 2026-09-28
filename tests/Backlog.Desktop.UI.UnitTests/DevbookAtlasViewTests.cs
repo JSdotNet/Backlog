@@ -21,6 +21,30 @@ public sealed class DevbookAtlasViewTests : IDisposable
 {
     private readonly List<string> _roots = [];
 
+    /// <summary>
+    /// A pull announces the folder change off the renderer's thread, and the
+    /// reload it starts can find the folder gone. The atlas that last read stays
+    /// on screen rather than the handler's exception ending the process. An unguarded handler
+    /// crashes the test run on its thread-pool throw; the markup check confirms
+    /// the last good read stays on screen.
+    /// </summary>
+    [Fact]
+    public async Task A_folder_that_cannot_be_read_after_a_change_leaves_the_last_atlas_on_screen()
+    {
+        using var harness = CreateHarness();
+        var folders = UnreadableDevbookFolderSource.Install(harness.Context);
+
+        var component = harness.Render(DomainScope);
+        component.WaitForAssertion(() =>
+            Assert.Equal(3, component.FindAll("[data-testid=\"graph-atlas-index-option\"]").Count));
+
+        folders.MakeUnreadable();
+        folders.NotifyContentChanged();
+        await component.InvokeAsync(() => { });
+
+        Assert.Equal(3, component.FindAll("[data-testid=\"graph-atlas-index-option\"]").Count);
+    }
+
     [Fact]
     public void The_atlas_renders_a_folder_and_lists_what_is_in_it()
     {

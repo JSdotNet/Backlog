@@ -361,12 +361,32 @@
 
     /// <summary>A folder that moved or changed underneath the panel. A refresh
     /// rather than a load for the same reason a save is: the scope did not change,
-    /// and an open editor is not something a background event gets to close.</summary>
-    private async void OnDevbookChanged()
-    {
-        await RefreshAsync(_selected?.Path);
-        await InvokeAsync(StateHasChanged);
-    }
+    /// and an open editor is not something a background event gets to close.
+    /// <para>
+    /// Inside <c>InvokeAsync</c>, because a pull announces itself off the
+    /// dispatcher — <c>DevbookUpdateService</c> raises the event after awaited git
+    /// work — and the refresh writes fields the render path reads. Guarded,
+    /// because a folder moving mid-pull makes the catalog read throw, and reached
+    /// from the folder source there is no renderer pipeline underneath to catch
+    /// it: out of an <c>async void</c> it would end the process. The chapter that
+    /// last read stays on screen, as it does on the instructions panel, and the
+    /// next change asks again.
+    /// </para></summary>
+    private async void OnDevbookChanged() =>
+        await InvokeAsync(async () =>
+        {
+            try
+            {
+                await RefreshAsync(_selected?.Path);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DirectoryNotFoundException)
+            {
+                // Nothing to record and nothing to show: the catalog that last
+                // read stays up.
+            }
+
+            StateHasChanged();
+        });
 
     /// <summary>The first load, and any load where what is on screen has stopped
     /// being about the repository being read. The loading line is honest there —

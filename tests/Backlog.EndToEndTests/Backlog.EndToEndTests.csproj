@@ -1,0 +1,20 @@
+<!-- Browser end-to-end tests against the Aspire-hosted harnesses. They drive an
+     AppHost that is already running (an isolated `aspire start`) through the
+     Aspire CLI rather than referencing it: no test project may reference the
+     AppHost (see AspireAppModelTests). Every test skips unless BACKLOG_E2E=1, so
+     the solution-wide `dotnet test` and CI build this project and run nothing.
+     README.md beside this file says how to run them. -->
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Playwright" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The slide photo and handout the talk-note unit tests already use, so QA
+         and the unit tests upload the same bytes. -->
+    <None Include="..\Backlog.Mobile.UI.UnitTests\Fixtures\slide-photo.jpg" Link="Fixtures\slide-photo.jpg" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\Backlog.Mobile.UI.UnitTests\Fixtures\handout.pdf" Link="Fixtures\handout.pdf" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

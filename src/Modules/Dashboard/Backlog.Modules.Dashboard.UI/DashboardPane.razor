@@ -54,6 +54,13 @@
     rather than removing it — so unfolding a section brings back the figures it had, not
     a fresh fetch.
 
+    Inside a section, a face and a More fold. The face is what a reader scans — a row of
+    tiles and the one weekly chart — and everything that answers a second question sits
+    behind a nested fold that starts closed, because a surface that opens with every part
+    it has is a surface nobody reads to the bottom of. The parts inside it are rendered
+    and fetched with the rest and only hidden, so opening it brings back what they had,
+    not a fetch.
+
     The ✕ only reports that it was pressed; what that closes is the shell's business.
 *@
 
@@ -125,17 +132,27 @@
                          BaseClass="dashboard-section__fold"
                          TestId="dashboard-productivity-toggle">
                 <HeadlinePart Scope="_scope" />
-                <div class="dashboard-section__split">
-                    <ScorePart Scope="_scope" />
-                    <ReworkPart Scope="_scope" />
-                </div>
                 <TrendPart Scope="_scope" />
+                <FoldControl @bind-Expanded="_productivityMore"
+                             Label="More: score, rework and churn"
+                             HeadingLevel="4"
+                             HeadingCssClass="dashboard-section__more-title"
+                             BaseClass="dashboard-section__more"
+                             TestId="dashboard-productivity-more">
+                    <div class="dashboard-section__split">
+                        <ScorePart Scope="_scope" />
+                        <ReworkPart Scope="_scope" />
+                    </div>
+                </FoldControl>
             </FoldControl>
         </div>
 
         @* The backlog's side of the same question the productivity section asks of
-           GitHub. The repository chips narrow it; the machine filter does not, because
-           a task records no machine — both parts say so. *@
+           GitHub, and the roadmap's plan held against it. The repository chips narrow
+           all three; the machine filter does not, because neither a task nor a plan
+           records a machine — every part says so. No More fold: the roadmap's table is
+           the reason this section exists, and folding it away would leave two charts
+           the productivity section already rhymes with. *@
         <div class="dashboard-section" data-testid="dashboard-tasks-section">
             <FoldControl @bind-Expanded="_tasksExpanded"
                          Label="Tasks"
@@ -147,6 +164,7 @@
                     <CompletedTasksPart Scope="_scope" />
                     <TaskEffortPart Scope="_scope" />
                 </div>
+                <RoadmapPart Scope="_scope" />
             </FoldControl>
         </div>
 
@@ -169,10 +187,15 @@
                          BaseClass="dashboard-section__fold"
                          TestId="dashboard-cost-toggle">
                 <SpendThisMonthPart Scope="_scope" />
-                <div class="dashboard-section__split">
-                    <SpendTrendPart Scope="_scope" />
+                <SpendTrendPart Scope="_scope" />
+                <FoldControl @bind-Expanded="_costMore"
+                             Label="More: spend by model"
+                             HeadingLevel="4"
+                             HeadingCssClass="dashboard-section__more-title"
+                             BaseClass="dashboard-section__more"
+                             TestId="dashboard-cost-more">
                     <SpendByModelPart Scope="_scope" />
-                </div>
+                </FoldControl>
             </FoldControl>
         </div>
     </div>
@@ -201,6 +224,14 @@
     private bool _tasksExpanded = true;
     private bool _sessionsExpanded = true;
     private bool _costExpanded = true;
+
+    /// <summary>Which More folds are open. Every one starts closed, the opposite of the
+    /// sections and for the same reason turned round: a section is opened to be read,
+    /// and its face is what a reader scans before deciding whether the rest is worth
+    /// opening. Fields, not persisted, like the section fields. The sessions part owns
+    /// its own, because what sits behind it is that part's.</summary>
+    private bool _productivityMore;
+    private bool _costMore;
 
     /// <summary>What the machine directory answered. Empty until it has, which renders
     /// as the "All machines" option on its own — the honest shape of "not asked yet",

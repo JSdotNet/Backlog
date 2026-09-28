@@ -59,6 +59,15 @@ call a run complete without the person's explicit approval.
 - **QA depth** — the engine picks it from the change kind: full Playwright QA with capture
   for new behaviour, targeted checks for a fix, startup-only for a dependency move, and
   skipped when nothing runs. `policy` in the config caps it at `full`.
+- **Checked-in end-to-end tests** — `tests/Backlog.EndToEndTests` is the repeatable form of
+  scenarios QA has already walked, such as `ConferenceDayTests`.
+  - Run it in Validation when the change touches a flow it covers:
+    `$env:BACKLOG_E2E='1'; dotnet test --project tests\Backlog.EndToEndTests`, against this
+    worktree's running AppHost. Its screenshots and `sync` logs under `.qa-workspace/e2e/`
+    are evidence.
+  - It stops and starts `sync` and resets the phone harness's pairing, so never run it while
+    another scenario drives the same AppHost.
+  - Its `README.md` covers the browser install and what a run changes.
 
 A change that runs nothing — `.devbook/`, `.agents/`, `.claude/`, `.github/`, or
 `README.md` alone — is verified by review plus the devbook checks:
