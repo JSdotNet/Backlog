@@ -122,6 +122,28 @@ public sealed class ChangeScopePickerTests
         Assert.Equal("committed", selected);
     }
 
+    /// <summary>
+    /// Which keys the browser swallows is decided in components.js, on the
+    /// <c>.change-scope__row</c> class, not by a flag the keydown handler sets —
+    /// the flag was rendered after the handler and so applied to the key after the
+    /// one that set it. Both kinds of row carried it, so both are checked.
+    /// </summary>
+    [Theory]
+    [InlineData("scope-scope-committed", "ArrowDown")]
+    [InlineData("scope-scope-committed", "Enter")]
+    [InlineData("scope-commit-6e636df", "ArrowDown")]
+    [InlineData("scope-commit-6e636df", "Enter")]
+    public void No_key_arms_a_prevent_default_for_the_key_after_it(string row, string key)
+    {
+        using var context = new BunitContext();
+
+        var picker = Render(context, "committed");
+
+        picker.Find($"[data-testid={row}]").KeyDown(new KeyboardEventArgs { Key = key });
+
+        Assert.All(picker.FindAll(".change-scope__row"), button => Assert.Null(button.GetAttribute("blazor:onkeydown:preventdefault")));
+    }
+
     [Fact]
     public void Exactly_one_row_is_in_the_tab_order()
     {

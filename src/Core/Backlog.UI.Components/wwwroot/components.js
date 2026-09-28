@@ -1252,6 +1252,26 @@
         event.preventDefault();
     });
 
+    // The keys the single-select rows take for themselves: MenuList's items and
+    // the compare surface's ChangeScopePicker and ChangedFileList rows. Up/Down,
+    // Home and End move the cursor and would otherwise scroll the page; Enter and
+    // Space select from the keydown handler and would otherwise fire the button's
+    // click as a second selection. The same reasoning as the tag picker's keys
+    // above: each of the three used to arm an `@onkeydown:preventDefault` flag
+    // from its handler, which applied to the key after the one that set it. And
+    // the same contract: only the default is refused, the event keeps bubbling to
+    // the hosts — ContextMenu, the Inbox bars — that listen above the list.
+    const ROW_SWALLOWED_KEYS = new Set(['ArrowDown', 'ArrowUp', 'Home', 'End', ' ', 'Enter']);
+
+    document.addEventListener('keydown', (event) => {
+        if (!ROW_SWALLOWED_KEYS.has(event.key)) return;
+
+        const target = event.target instanceof Element ? event.target : null;
+        if (!target || !target.matches('.changed-file, .change-scope__row, .menu-list__item')) return;
+
+        event.preventDefault();
+    });
+
     // Single-letter shortcuts over a pane — the Inbox's j/k/a/d/l/r/t/x today.
     // A letter is a shortcut only where it cannot be typing, and that has to be
     // decided here, at the keydown, for the reason the tag picker's keys are: a
