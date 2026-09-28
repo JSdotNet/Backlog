@@ -57,9 +57,11 @@ internal static class QuickEditField
         }
         catch (JSDisconnectedException)
         {
+            // The circuit is gone, and the field with it: there is nothing to guard.
         }
         catch (InvalidOperationException)
         {
+            // Prerendering: there is no browser to call yet.
         }
     }
 }

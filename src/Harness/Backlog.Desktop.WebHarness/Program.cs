@@ -218,10 +218,16 @@ builder.Services.AddSingleton<IGhCliAccountSource>(_ => new GhCliAccountSource()
 builder.Services.AddSingleton<IGitHubCredentialResolver>(sp => new GitHubCredentialResolver(
     sp.GetRequiredService<GitHubSettingsStore>(),
     sp.GetRequiredService<IGhCliAccountSource>()));
+// The token route asks the factory for its client on every send, and the
+// client carries GitHub's own pipeline: reads retried, writes sent once,
+// budgets sized for a database-sized backup PUT. The web harness and the
+// desktop app call the same registration so the two cannot drift.
+builder.Services.AddGitHubHttpClient();
 builder.Services.AddSingleton(sp => new ResolvingGitHubTransport(
     sp.GetRequiredService<GitHubSettingsStore>(),
     credentials: sp.GetRequiredService<IGitHubCredentialResolver>(),
-    accounts: sp.GetRequiredService<IGhCliAccountSource>()));
+    accounts: sp.GetRequiredService<IGhCliAccountSource>(),
+    httpClients: sp.GetRequiredService<IHttpClientFactory>()));
 builder.Services.AddSingleton<IGitHubConnectionProbe>(sp => sp.GetRequiredService<ResolvingGitHubTransport>());
 builder.Services.AddSingleton<IGitHubAccountProbe>(sp => sp.GetRequiredService<ResolvingGitHubTransport>());
 builder.Services.AddSingleton<IAppFeatureSettings>(_ => CreateLocalDevelopmentFeatureSettingsStore(builder.Environment.ContentRootPath));
