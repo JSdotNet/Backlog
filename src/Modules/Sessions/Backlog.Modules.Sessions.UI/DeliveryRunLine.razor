@@ -172,6 +172,16 @@
                 <dt>Run</dt>
                 <dd class="data-table__mono">@Run.Id · @Run.Dashboard · @Run.WorktreeName</dd>
 
+                @* Provenance, where more than one surface reported the run: a flow
+                   reports to every surface it is bound to, each files its own copy,
+                   and the reader folded them into this one line. Only then — a run
+                   one surface recorded has nothing to say about it. *@
+                @if (Run.Surfaces.Count > 1)
+                {
+                    <dt>Surfaces</dt>
+                    <dd data-testid="sessions-run-surfaces">Reported to @Run.Surfaces.Count surfaces: @string.Join(", ", Run.Surfaces)</dd>
+                }
+
                 @if (!string.IsNullOrWhiteSpace(Run.ChangeKind))
                 {
                     <dt>Change</dt>

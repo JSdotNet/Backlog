@@ -108,7 +108,10 @@ internal sealed partial class DeliveryRunReader
             }
         }
 
-        return new DeliveryRunCatalog(runs, unreadable);
+        // Folded before anyone sees them: a flow reports to every surface it is bound
+        // to, and each surface files the same run under an id of its own, so the
+        // folders hold two files for one piece of work. See DeliveryRunMerging.
+        return new DeliveryRunCatalog(DeliveryRunMerging.Merge(runs), unreadable);
     }
 
     private async Task ReadWorktreeAsync(

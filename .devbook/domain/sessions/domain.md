@@ -329,6 +329,21 @@ never over it. Where a run names a session the list holds, it joins that session
 identity; only a run that names none — every dashboard file written before, and any
 writer that does not send one — is attached by worktree key and overlapping activity.
 
+**One run reported to two surfaces is one run here.** As of 2026-09-27 a flow reports
+its run to every surface it is bound to, and each surface files it under an id of its
+own — so one piece of work is two files, in two dashboards' folders, that agree on the
+worktree, the skill, the session and the moment they started. The reading folds those
+into one `Delivery Run` before anything else sees them, on all of: the same worktree
+key, the same skill, different dashboards, starts within five minutes of each other,
+and session ids that do not contradict — they share one, or neither names any. The
+first of `delivery-surface-dashboard`, `orch-dashboard` and `backlog` to have reported
+it is the record — its id, its status word, its stages and its measured figures — and
+the others fill only what it left blank and add the references it did not name. Which
+surfaces reported it is kept, as provenance, beside which one wrote the file. Five
+minutes because a surface reattaches a run of the same skill in the same worktree
+rather than opening a second, so one surface cannot hold two runs that close; the
+window is what keeps a run whose partner never arrived from pairing with the next one.
+
 *Delivery* run, with the adjective: this context already has a run, the stretch of
 transcript in which an agent was producing, derived here from the agent's own record.
 This one is another tool's record of work it was tracking, with a status that tool
