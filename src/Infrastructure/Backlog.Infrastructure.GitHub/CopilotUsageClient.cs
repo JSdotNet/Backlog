@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using static Backlog.Infrastructure.IsoTimestamps;
 
 namespace Backlog.Infrastructure.GitHub;
 
@@ -253,12 +254,6 @@ public sealed class CopilotUsageClient(IGitHubTransport transport) : ICopilotUsa
 
     private static DateOnly? Date(JsonElement element, string name) =>
         String(element, name) is { } text && DateOnly.TryParse(text, CultureInfo.InvariantCulture, out var parsed)
-            ? parsed
-            : null;
-
-    private static DateTimeOffset? Timestamp(JsonElement element, string name) =>
-        String(element, name) is { } text
-        && DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var parsed)
             ? parsed
             : null;
 }
