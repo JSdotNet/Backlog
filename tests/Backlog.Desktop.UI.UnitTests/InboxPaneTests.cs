@@ -660,8 +660,13 @@ public sealed class InboxPaneTests
     [Fact]
     public async Task The_queue_health_strip_has_no_chip_when_nothing_has_waited_too_long()
     {
-        using var harness = Harness.Create();
-        harness.Inbox.Seed("Fresh", capturedAt: harness.Inbox.Now);
+        // The clock is pinned to the fake items' own "now", as the sibling above pins
+        // it: "fresh" is measured against the pane's clock, and left to the real one
+        // the fixed capture date ages past the 14-day line on its own — this test
+        // went red on 2026-09-28 with nothing in the pane changed.
+        var now = new FakeInboxItems().Now;
+        using var harness = Harness.Create(new Microsoft.Extensions.Time.Testing.FakeTimeProvider(now));
+        harness.Inbox.Seed("Fresh", capturedAt: now);
 
         var pane = await harness.RenderAsync();
 
