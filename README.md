@@ -147,6 +147,7 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `tests/Backlog.Infrastructure.FileSystem.UnitTests` | Unit tests for the knowledge graph and the roadmap item rollup. The same adapter's workspace-settings and feature-flag tests sit in `Backlog.Desktop.UI.UnitTests`, where the collection fixture they serialize on lives |
 | `tests/Backlog.Infrastructure.GitHub.UnitTests` | Unit tests for the GitHub adapter — issue projection, activity, and billing |
 | `tests/Backlog.Infrastructure.Claude.UnitTests` | Unit tests for the Claude usage adapter |
+| `tests/Backlog.Infrastructure.Copilot.UnitTests` | Unit tests for the Copilot CLI launcher — what it starts, and that it releases the process handle |
 | `tests/Backlog.UI.Components.UnitTests` | Unit tests for the shared control library, rendered without an application behind it |
 | `tests/Backlog.Desktop.UI.UnitTests` | Unit tests for the desktop UI services, the context panes, and GitHub integration |
 | `tests/Backlog.Mobile.UI.UnitTests` | Unit tests for the mobile channel's components |
