@@ -50,7 +50,7 @@ type: sub-feature
 status: draft
 related: [.devbook/domain/inbox/requirements.md#capture-attachments, .devbook/domain/inbox/domain.md#attachment, .devbook/domain/inbox/domain.md#attachment-folder, .devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md]
 feature-flag: .devbook/domain/inbox/context.md#inbox-pane
-tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.A_captured_picture_is_a_thumbnail_and_a_captured_file_is_a_row_with_open, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.A_file_that_failed_to_download_shows_why_and_retry_brings_it_down, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.A_file_not_fetched_yet_says_it_is_waiting_and_a_picture_not_on_disk_is_a_row]
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.A_plans_task_entries_carry_the_items_attachment_folder, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.A_captured_picture_is_a_thumbnail_and_a_captured_file_is_a_row_with_open, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.A_file_that_failed_to_download_shows_why_and_retry_brings_it_down, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.A_file_not_fetched_yet_says_it_is_waiting_and_a_picture_not_on_disk_is_a_row]
 ```
 
 A thought captured on the phone often comes with a file: a photo, a
@@ -70,8 +70,9 @@ only content is pictures reads as an `image` in the queue, and an item with any
 other file reads as a `document`.
 
 When the item is routed to Tasks, its attachment folder goes with it: every
-task it becomes carries the folder as its attachment. Create plan does not hand
-the folder on yet.
+task it becomes carries the folder as its attachment. Create plan hands it on
+the same way: every task the drafted plan makes carries the folder, and the
+drafter itself never sees it.
 
 ### Organise into lists and groups
 
@@ -341,8 +342,68 @@ An item whose entries were made but which could not then be marked routed is
 named along with those entries, so routing it again, which would duplicate
 them, is not the only way to find them.
 
-Proposing dependencies between the items of a batch is not part of this
-sub-feature.
+Which item waits on which is settled before the batch goes, in
+[Before you route](#before-you-route).
+
+### Before you route
+
+```meta
+type: sub-feature
+status: draft
+depends-on: [.devbook/domain/inbox/features.md#route-a-batch-to-tasks]
+related: [.devbook/domain/inbox/domain.md#dependency-tier, .devbook/domain/inbox/domain.md#batch, .devbook/domain/tasks/features.md#import]
+feature-flag: .devbook/domain/inbox/context.md#inbox-pane
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.ProposeBatchTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.DependencyProposalTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.InboxBatchOrderTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxRouteDraftTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBatchDependencyImportTests]
+```
+
+Routing two or more items opens a panel that shows what the batch would do
+before it does it: the order the items go in, the plan tag, the task count, the
+repositories per item (or one choice for all), the items that will not go and
+why, and the dependencies the Inbox can see. A single item routes on the press,
+without the panel.
+
+Each dependency is a switch, on by default, that puts one item after another
+item of the batch or after an open task already in the backlog. The
+[stated](domain.md#dependency-tier) ones are always proposed: the item's own
+text names the other thing — another item's source link or title, or an open
+task's issue, pull request or source link — and the switch quotes that text. A person
+turns off any that are wrong. A loop is named and holds Confirm until a switch
+breaks it. Confirm routes the batch once, with the switches left on written as
+`after:` tokens; Cancel changes nothing.
+
+### Order a batch with the drafter
+
+```meta
+type: sub-feature
+status: draft
+depends-on: [.devbook/domain/inbox/features.md#before-you-route, .devbook/domain/inbox/features.md#create-plan-from-an-item]
+related: [.devbook/domain/inbox/domain.md#dependency-tier, .devbook/domain/inbox/requirements.md#order-a-batch-with-the-drafter, .devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md]
+feature-flag: .devbook/domain/inbox/context.md#inbox-pane
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.InferBatchOrderTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxRouteDraftTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests]
+```
+
+**Ask the AI to order** in the panel asks the plan drafter which item of the
+batch waits on which. It is opt-in per batch: the drafter is asked only on the
+press, one model call per press, because every ask costs one. When no drafter
+is configured the button stays visible, disabled, titled with the drafter's
+reason, as Create plan does.
+
+The drafter is the one Create plan uses, handed the whole batch instead of one
+item. It answers in the import grammar
+(`.devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md`): one entry
+per item, whose `id:` is the item's id and whose `after:` tokens are its
+reading of the order. The answer is only read, never imported. It is refused
+whole, and no dependency offered, when it names a repository none of the
+batch's items goes to — the rule a drafted plan is held to — or an entry or an
+`after:` that is not one of the batch's items.
+
+What it reads becomes [inferred](domain.md#dependency-tier) dependencies,
+between two items of the batch only, added to the panel as switches marked
+AI-inferred and on by default. One the panel already shows between the same two
+items is not added again. A person turns off any that are wrong; a loop still
+holds Confirm, and Confirm waits while the ask is out. A refused or failed ask
+says why in the panel and adds nothing. Confirm routes the batch through
+[Route a batch to Tasks](#route-a-batch-to-tasks), as it would without the ask.
 
 ### Route to Devbook
 

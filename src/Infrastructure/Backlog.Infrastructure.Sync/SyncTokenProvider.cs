@@ -66,6 +66,7 @@ public sealed class SyncTokenProvider : IDisposable
     private string? _token;
     private DateTimeOffset _expiresAt;
     private bool _credentialRejected;
+    private long _tokensRefused;
 
     /// <summary>Bumped every time the cache is dropped. A fetch reads it on the
     /// way out and again on the way back: a token minted under a credential that
@@ -151,6 +152,27 @@ public sealed class SyncTokenProvider : IDisposable
         Interlocked.Increment(ref _generation);
         _token = null;
         _expiresAt = default;
+    }
+
+    /// <summary>
+    /// How many bearer tokens the service has refused since this provider was
+    /// made. A caller reads it before and after a piece of work to learn whether
+    /// that work met a token that was already dead - the one failure that the
+    /// next attempt, starting from the credential again, can clear.
+    /// <para>
+    /// A count rather than a flag, because nobody owns the resetting of a flag
+    /// that several callers read.
+    /// </para>
+    /// </summary>
+    public long TokensRefused => Interlocked.Read(ref _tokensRefused);
+
+    /// <summary>A token this provider handed out was refused by a bearer
+    /// endpoint. Drops it, as <see cref="Invalidate"/> does, and counts it in
+    /// <see cref="TokensRefused"/>; says nothing about the credential.</summary>
+    public void Refused()
+    {
+        Interlocked.Increment(ref _tokensRefused);
+        Invalidate();
     }
 
     public void Dispose()

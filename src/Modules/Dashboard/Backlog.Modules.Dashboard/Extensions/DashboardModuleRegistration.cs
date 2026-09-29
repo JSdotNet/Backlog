@@ -12,8 +12,10 @@ namespace Backlog.Modules.Dashboard.Extensions;
 /// <para>
 /// The ports are deliberately not registered here. They are the module's contract
 /// with the outside, and which adapter answers each one is the host's decision —
-/// today the GitHub and Anthropic clients and the device identity, wired by
-/// <c>AddDashboardAdapters()</c> in the UI project and by
+/// today the GitHub, Anthropic and Azure Foundry clients and the device identity,
+/// wired by each provider's own infrastructure call — <c>AddGitHubDashboardAdapters()</c>,
+/// <c>AddClaudeDashboardAdapters()</c>, <c>AddAzureFoundryDashboardAdapters()</c> — and
+/// <c>AddDashboardUi()</c> in the UI project, and by
 /// <c>AddDashboardCrossContextAdapters()</c> in infrastructure for the join that has
 /// to see two contexts, and a fake in a test. Registering them here would make the
 /// module choose its own providers, which is the coupling the ports exist to prevent.

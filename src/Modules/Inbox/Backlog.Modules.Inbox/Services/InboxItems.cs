@@ -18,6 +18,7 @@ using Backlog.Modules.Inbox.Features.LinkToTask;
 using Backlog.Modules.Inbox.Features.MoveListToGroup;
 using Backlog.Modules.Inbox.Features.MoveToList;
 using Backlog.Modules.Inbox.Features.OpenAttachment;
+using Backlog.Modules.Inbox.Features.InferBatchOrder;
 using Backlog.Modules.Inbox.Features.ProposeBatch;
 using Backlog.Modules.Inbox.Features.ReadAttachment;
 using Backlog.Modules.Inbox.Features.Related;
@@ -59,6 +60,7 @@ internal sealed class InboxItems(
     ICommandHandler<CreatePlanCommand, Result<InboxRoutedDto>> createPlan,
     ICommandHandler<RouteBatchToBacklogCommand, Result<InboxBatchRoutedDto>> routeBatchToBacklog,
     IQueryHandler<ProposeBatchQuery, Result<InboxBatchProposalDto>> proposeBatch,
+    IQueryHandler<InferBatchOrderQuery, Result<IReadOnlyList<ProposedDependency>>> inferBatchOrder,
     ICommandHandler<CreateListCommand, Result<InboxListDto>> createList,
     ICommandHandler<RenameListCommand, Result> renameList,
     ICommandHandler<DeleteListCommand, Result> deleteList,
@@ -156,6 +158,13 @@ internal sealed class InboxItems(
         Guid? listId = null,
         CancellationToken cancellationToken = default) =>
         proposeBatch.Handle(new ProposeBatchQuery(ids, listId), cancellationToken);
+
+    public Task<Result<IReadOnlyList<ProposedDependency>>> InferBatchOrderAsync(
+        IReadOnlyList<Guid> ids,
+        string planTag,
+        IReadOnlyDictionary<Guid, IReadOnlyList<string>>? repositories = null,
+        CancellationToken cancellationToken = default) =>
+        inferBatchOrder.Handle(new InferBatchOrderQuery(ids, planTag, repositories), cancellationToken);
 
     public Task<Result<InboxBatchRoutedDto>> RouteToBacklogAsync(
         IReadOnlyList<Guid> ids,

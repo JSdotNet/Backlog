@@ -19,7 +19,8 @@ namespace Backlog.Desktop.UI.Inbox;
 /// </summary>
 public sealed class InboxRouteDraft
 {
-    private readonly bool[] _enabled;
+    private readonly List<ProposedDependency> _dependencies;
+    private readonly List<bool> _enabled;
     private readonly bool[] _merged;
     private readonly Dictionary<Guid, IReadOnlyList<string>> _repositories;
     private readonly Dictionary<Guid, string> _titles;
@@ -35,6 +36,7 @@ public sealed class InboxRouteDraft
 
         // Every proposal starts on: each one is something an item's own text
         // said, and turning one off is the deliberate act.
+        _dependencies = [.. proposal.Dependencies];
         _enabled = [.. proposal.Dependencies.Select(_ => true)];
 
         // Every merge starts off, the opposite of a dependency: a hint is only
@@ -55,7 +57,9 @@ public sealed class InboxRouteDraft
 
     public string PlanTag => Proposal.PlanTag;
 
-    public IReadOnlyList<ProposedDependency> Dependencies => Proposal.Dependencies;
+    /// <summary>The proposal's dependencies, then the ones the drafter added
+    /// when asked — see <see cref="AddInferred"/>.</summary>
+    public IReadOnlyList<ProposedDependency> Dependencies => _dependencies;
 
     public bool IsEnabled(int index) => _enabled[index];
 
@@ -64,6 +68,62 @@ public sealed class InboxRouteDraft
     /// <summary>The dependencies left on, in the proposal's order.</summary>
     public IReadOnlyList<ProposedDependency> EnabledDependencies =>
         [.. Dependencies.Where((_, index) => _enabled[index])];
+
+    // --- The drafter's order ---------------------------------------------------
+
+    /// <summary>Whether the drafter's order is being asked for now. Confirm
+    /// waits for it, so the batch never goes on half an answer.</summary>
+    public bool Inferring { get; set; }
+
+    /// <summary>What the last ask came to, in a sentence — how many it added,
+    /// or why it added none. Null before the first ask.</summary>
+    public string? InferenceNote { get; private set; }
+
+    /// <summary>Whether the last ask failed, so the note reads as a warning.</summary>
+    public bool InferenceFailed { get; private set; }
+
+    /// <summary>
+    /// Adds the drafter's dependencies after the proposal's, on — the person
+    /// asked for them, and turning one off is still the deliberate act. One the
+    /// panel already shows between the same two items is not added twice,
+    /// whatever tier it came from: the item's own words already said it.
+    /// </summary>
+    /// <returns>How many were added.</returns>
+    public int AddInferred(IReadOnlyList<ProposedDependency> inferred)
+    {
+        ArgumentNullException.ThrowIfNull(inferred);
+
+        var added = 0;
+        foreach (var dependency in inferred)
+        {
+            var known = _dependencies.Any(existing =>
+                existing.From == dependency.From
+                && existing.To.Kind == dependency.To.Kind
+                && existing.To.Id == dependency.To.Id);
+            if (known || !_titles.ContainsKey(dependency.From)) continue;
+
+            _dependencies.Add(dependency);
+            _enabled.Add(true);
+            added++;
+        }
+
+        InferenceFailed = false;
+        InferenceNote = added switch
+        {
+            0 => "The AI found no order beyond what the items already say.",
+            1 => "The AI added 1 dependency. Turn it off if it is wrong.",
+            _ => $"The AI added {added} dependencies. Turn off any that are wrong.",
+        };
+
+        return added;
+    }
+
+    /// <summary>The ask failed: the note says why, and nothing was added.</summary>
+    public void InferenceRefused(string message)
+    {
+        InferenceFailed = true;
+        InferenceNote = message;
+    }
 
     /// <summary>The routable items in the order they will go: each after what
     /// it waits on, otherwise as asked. Re-read on every render, so a toggle
@@ -179,7 +239,7 @@ public sealed class InboxRouteDraft
     public IReadOnlyList<string> Loops =>
         [.. InboxBatchOrder.Loops(ItemIds, InboxBatchOrder.Edges(CarriedDependencies)).Select(loop => InboxBatchOrder.Name(loop, id => _titles[id]))];
 
-    public bool CanConfirm => Loops.Count == 0;
+    public bool CanConfirm => Loops.Count == 0 && !Inferring;
 
     /// <summary>"<c>A</c> after <c>B</c>": the dependency the way the panel
     /// says it.</summary>

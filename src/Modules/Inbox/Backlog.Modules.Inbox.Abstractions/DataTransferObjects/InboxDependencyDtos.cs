@@ -12,18 +12,24 @@ public enum DependencyTargetKind
 }
 
 /// <summary>
-/// How sure the Inbox is of a dependency it proposes. One tier:
-/// <see cref="Stated"/>, where the item's own text names the other thing — its
-/// link, its title, its issue. What would be a second tier — two items in the
-/// same list or repository, the order they were captured in, one that reads like
-/// setup — is not a dependency at all but an <see cref="OrderingHint"/>: said,
-/// never written as an <c>after:</c> token, and never part of the order or of a
-/// loop.
+/// How sure the Inbox is of a dependency it proposes. <see cref="Stated"/>,
+/// where the item's own text names the other thing — its link, its title, its
+/// issue — is always proposed. <see cref="Inferred"/> is the plan drafter's
+/// reading of a whole batch, proposed only when the person asks for it. A guess
+/// from similar wording would be a tier between the two, and is not built.
+/// What else the Inbox notices about the order — two items in the same list or
+/// repository, the order they were captured in, one that reads like setup — is
+/// not a dependency at all but an <see cref="OrderingHint"/>: said, never
+/// written as an <c>after:</c> token, and never part of the order or of a loop.
 /// </summary>
 public enum DependencyTier
 {
     /// <summary>The item's text names the thing it waits on.</summary>
-    Stated
+    Stated,
+
+    /// <summary>The plan drafter read the batch and put this item after the
+    /// other one. Only ever between two items of the batch.</summary>
+    Inferred
 }
 
 /// <summary>

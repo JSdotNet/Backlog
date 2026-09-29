@@ -331,7 +331,7 @@ public sealed partial class RouteBatchToBacklogCommandHandler(
     /// <summary>The repositories an item goes to: the person's choice when the
     /// panel made one, else the ones it is assigned — trimmed, blank ones
     /// dropped, each once.</summary>
-    private static IReadOnlyList<string> RepositoriesFor(InboxItem item, InboxBatchRouteChoicesDto? choices)
+    internal static IReadOnlyList<string> RepositoriesFor(InboxItem item, InboxBatchRouteChoicesDto? choices)
     {
         var chosen = choices?.Repositories is { } overrides && overrides.TryGetValue(item.Id, out var picked) && picked is not null
             ? picked

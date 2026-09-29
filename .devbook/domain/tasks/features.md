@@ -471,7 +471,7 @@ that AI was put to work on it.
 type: feature
 status: proposed
 depends-on: [.devbook/domain/tasks/features.md#task-creation, .devbook/domain/tasks/features.md#task-dependencies, .devbook/domain/tasks/features.md#multi-repo-targeting]
-related: [.devbook/domain/tasks/features.md#prompt-features, .devbook/domain/tasks/features.md#sub-items-and-steps, .devbook/domain/tasks/features.md#filing-a-task-against-a-roadmap-tag, .devbook/domain/tasks/domain.md#task-type, .devbook/domain/tasks/domain.md#task-status, .devbook/domain/repository-management/features.md#repository-registration]
+related: [.devbook/domain/tasks/features.md#prompt-features, .devbook/domain/tasks/features.md#sub-items-and-steps, .devbook/domain/tasks/features.md#filing-a-task-against-a-roadmap-tag, .devbook/domain/tasks/domain.md#task-type, .devbook/domain/tasks/domain.md#task-status, .devbook/domain/repository-management/features.md#repository-registration, .devbook/domain/inbox/domain.md#triage]
 ```
 
 Bring in a plan that lists a sequence of work to do across one or more
@@ -498,12 +498,20 @@ What the plan states is the status the task is created with — the value
 directly, not a lifecycle step applied on top of a new task — so every status is
 reachable this way, the settled ones included, and a plan can record a step
 that was finished before the plan was ever imported, or hold back one still
-being shaped as `draft`. An entry stating no status starts at `ready`. This is
-the one default Import sets differently from a hand-typed task, which starts at
-`draft` because it is being shaped as it is typed: a plan is work already agreed
+being shaped as `draft` — unless the entry came from an inbox item. An entry
+stating no status starts at `ready`. This is the one default Import sets
+differently from a hand-typed task, which starts at `draft` because it is being shaped as it is typed: a plan is work already agreed
 and written down to be picked up, and a plan whose every entry landed at `draft`
 would leave somebody promoting each one by hand before
 [Readiness](domain.md#readiness) showed any of it.
+
+An entry drafted from an inbox item — the one item a plan was drafted from
+(`sourceInboxId`), or, for a batch of items routed together, the item its `id:`
+maps to (`sourceInboxIds`) — carries that item as its `source_inbox_id` and is
+born `draft` whatever status its text states. A model wrote it about captured
+content, and nobody has read it yet; the provenance decides, not the text. It
+governs birth only: a later version that restates the status of a task already
+under way still moves it.
 
 The entry's own instructions become that task's body, and the order the plan
 declares between entries becomes an ordinary

@@ -9,6 +9,10 @@
     and how many tasks will that make? The order is re-read from the switches on
     every render, so turning a dependency off moves the list at once.
 
+    "Ask the AI to order" is opt-in: the drafter is asked only on the press, and
+    what it infers joins the switches marked AI-inferred, never routed unseen.
+    With no drafter the button stays, disabled, titled with the reason.
+
     Beneath the dependencies are the hints: what the Inbox noticed about the
     order — same list, same repository, capture order, setup first — said and
     never written, so they change neither the order nor the loops. A duplicate
@@ -60,16 +64,34 @@
                             <li class="inbox-route-panel__edge"
                                 data-testid="inbox-route-panel-edge"
                                 data-target-kind="@(dependency.To.Kind == DependencyTargetKind.Task ? "task" : "item")"
+                                data-tier="@(dependency.Tier == DependencyTier.Inferred ? "inferred" : "stated")"
                                 data-enabled="@(draft.IsEnabled(at) ? "true" : "false")">
                                 <Toggle Checked="@draft.IsEnabled(at)"
                                         CheckedChanged="on => OnDependencyChanged(draft, at, on)"
                                         Label="@draft.Describe(dependency)"
-                                        Description="@($"It says “{dependency.Reason}”.")"
+                                        Description="@Because(dependency)"
                                         TestId="@($"inbox-route-panel-edge-toggle-{at}")" />
                             </li>
                         }
                     </ul>
                 }
+                <div class="inbox-route-panel__infer">
+                    <AppButton Variant="ButtonVariant.Secondary"
+                               Size="ButtonSize.Small"
+                               Disabled="@(!State.PlanDrafterAvailability.Available || draft.Inferring || State.RoutingInFlight)"
+                               Busy="@draft.Inferring"
+                               BusyLabel="Asking the AI"
+                               Title="@(State.PlanDrafterAvailability.Available ? "Ask the AI which of these items waits on which — one model call" : State.PlanDrafterAvailability.Reason)"
+                               OnClick="State.InferRouteOrderAsync"
+                               TestId="inbox-route-panel-infer">Ask the AI to order</AppButton>
+                    @if (draft.InferenceNote is { } note)
+                    {
+                        <Alert BaseClass="@(draft.InferenceFailed ? "inbox-route-panel__infer-refused" : "inbox-pane__note")"
+                               Role="status"
+                               Message="@note"
+                               TestId="inbox-route-panel-infer-note" />
+                    }
+                </div>
                 @if (draft.Loops.Count > 0)
                 {
                     <Alert BaseClass="inbox-route-panel__loop"
@@ -180,7 +202,7 @@
             <AppButton Variant="ButtonVariant.Primary"
                        Size="ButtonSize.Small"
                        Disabled="@(!draft.CanConfirm || State.RoutingInFlight)"
-                       Title="@(draft.CanConfirm ? "Route every item as one plan" : "Turn a dependency off to break the loop first")"
+                       Title="@(draft.CanConfirm ? "Route every item as one plan" : draft.Inferring ? "Waiting for the AI's order" : "Turn a dependency off to break the loop first")"
                        OnClick="() => State.ConfirmRouteAsync()"
                        TestId="inbox-route-panel-confirm">Route @InboxDesktopState.Counted(draft.GoingItems.Count, "item", "items")</AppButton>
         </Footer>
@@ -197,6 +219,12 @@
     }
 
     private static void OnDependencyChanged(InboxRouteDraft draft, int index, bool on) => draft.SetEnabled(index, on);
+
+    /// <summary>Why the dependency is on the panel: the item's own words for a
+    /// stated one, and plainly the AI for one it inferred, so the two are never
+    /// mistaken for each other.</summary>
+    private static string Because(ProposedDependency dependency) =>
+        dependency.Tier == DependencyTier.Inferred ? $"AI-inferred. {dependency.Reason}" : $"It says “{dependency.Reason}”.";
 
     /// <summary>One sentence naming every loop, so the person knows which
     /// switch to reach for.</summary>

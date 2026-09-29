@@ -3,10 +3,12 @@
     listener: the element disappears with the menu, so there is no listener left
     behind to leak and no ordering puzzle about which handler runs first.
 
-    The backdrop has to take focus for that to work with the keyboard too. A
-    keydown is delivered to the focused element and bubbles from there, so
-    without the tabindex and the focus call an Escape press lands on whatever
-    was focused before the menu opened and never reaches this handler.
+    Opening puts the focus on the first item (FocusFirstItem), so arrows and
+    Enter work straight away. A keydown is delivered to the focused element and
+    bubbles from there, so Escape pressed on an item still reaches the
+    backdrop's handler. When no item can take the focus the backdrop takes it
+    instead — hence its tabindex — or an Escape press would land on whatever was
+    focused before the menu opened and never reach this handler.
 *@
 
 @if (Open)
@@ -24,6 +26,7 @@
             <MenuList Items="@Items"
                       AriaLabel="@AriaLabel"
                       TestId="@($"{TestId}-item")"
+                      FocusFirstItem="true"
                       OnItemSelected="OnItemSelectedAsync" />
         </div>
     </div>
@@ -78,6 +81,10 @@
         if (!_focusPending || !Open) return;
 
         _focusPending = false;
+
+        // The menu list focuses its own first item; the backdrop only stands in
+        // when there is none to focus.
+        if (Items.Any(item => !item.Separator && !item.Disabled)) return;
 
         try
         {

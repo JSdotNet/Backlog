@@ -17,6 +17,7 @@ using Backlog.Modules.Inbox.Features.LinkToTask;
 using Backlog.Modules.Inbox.Features.MoveListToGroup;
 using Backlog.Modules.Inbox.Features.MoveToList;
 using Backlog.Modules.Inbox.Features.OpenAttachment;
+using Backlog.Modules.Inbox.Features.InferBatchOrder;
 using Backlog.Modules.Inbox.Features.ProposeBatch;
 using Backlog.Modules.Inbox.Features.ReadAttachment;
 using Backlog.Modules.Inbox.Features.ReceiveCapture;
@@ -82,6 +83,10 @@ public static class InboxModuleRegistration
         // are an optional constructor parameter, like the tag source below: a
         // host without them is proposed what the batch's own items state.
         services.AddScoped<IQueryHandler<ProposeBatchQuery, Result<InboxBatchProposalDto>>, ProposeBatchQueryHandler>();
+
+        // Its opt-in third tier: the plan drafter's order for the batch. The
+        // drafter is optional here as it is for Create plan.
+        services.AddScoped<IQueryHandler<InferBatchOrderQuery, Result<IReadOnlyList<ProposedDependency>>>, InferBatchOrderQueryHandler>();
         services.AddScoped<ICommandHandler<CreateListCommand, Result<InboxListDto>>, CreateListCommandHandler>();
         services.AddScoped<ICommandHandler<RenameListCommand, Result>, RenameListCommandHandler>();
         services.AddScoped<ICommandHandler<DeleteListCommand, Result>, DeleteListCommandHandler>();
