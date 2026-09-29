@@ -29,6 +29,7 @@ jobs:
     # Android heads build on Linux and the runner image ships the Android SDK, so
     # this channel does not need the windows-latest runner the MSIX flow requires.
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     permissions:
       contents: write
       issues: write
