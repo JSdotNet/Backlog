@@ -17,3 +17,54 @@ updates:
         update-types:
           - minor
           - patch
+
+  # Every NuGet version sits in the central Directory.Packages.props at the root.
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: weekly
+    labels:
+      - enhancement
+    open-pull-requests-limit: 5
+    groups:
+      aspire:
+        patterns:
+          - Aspire.*
+      maui:
+        patterns:
+          - Microsoft.Maui.*
+          - Microsoft.AspNetCore.Components.WebView.Maui
+      microsoft:
+        patterns:
+          - Microsoft.Extensions.*
+      azure:
+        patterns:
+          - Azure.*
+      test:
+        patterns:
+          - xunit.*
+          - bunit
+          - coverlet*
+          - Microsoft.Testing.*
+    ignore:
+      # MauiVersion in Directory.Build.props owns these; they move in lockstep with the workload.
+      - dependency-name: Microsoft.Maui.*
+      - dependency-name: Microsoft.AspNetCore.Components.WebView.Maui
+      # The Aspire family moves in lockstep: Aspire.Hosting.Foundry and Aspire.Hosting.Maui ship
+      # one preview build per Aspire release and bind against the Aspire.Hosting the AppHost
+      # resolves, and Aspire.AppHost.Sdk is an <Sdk> element Dependabot never moves. A major
+      # Aspire move is therefore an attended flow-update-packages run, never a grouped PR.
+      - dependency-name: Aspire.*
+        update-types:
+          - version-update:semver-major
+
+  - package-ecosystem: npm
+    directory: /src/App/Backlog.Ide.VsCode
+    schedule:
+      interval: weekly
+    labels:
+      - enhancement
+    open-pull-requests-limit: 5
+
+  # tools/archify is vendored verbatim from upstream (tools/archify/UPSTREAM.md); its
+  # dependencies move by re-vendoring, so it has no npm entry here.
