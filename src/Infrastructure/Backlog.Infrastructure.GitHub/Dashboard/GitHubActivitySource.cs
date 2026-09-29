@@ -2,7 +2,7 @@ using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Dashboard.Abstractions.Insights;
 using Backlog.Modules.Dashboard.Abstractions.Services;
 
-namespace Backlog.Modules.Dashboard.UI.Adapters;
+namespace Backlog.Infrastructure.GitHub.Dashboard;
 
 /// <summary>
 /// Answers <see cref="IActivitySource"/> from GitHub: the person's own merged pull
