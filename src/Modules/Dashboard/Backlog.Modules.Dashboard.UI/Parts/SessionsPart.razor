@@ -791,7 +791,7 @@
             }
 
             var scoped = Scope.IsAllRepositories
-                ? " \"No repository recorded\" is every session whose agent recorded none and whose folder lies in no registered clone — "
+                ? $" \"{RepositoryWeekly.UnrecordedName}\" is every session whose agent recorded none and whose folder lies in no registered clone — "
                   + "Claude records none, so its sessions are placed by the clone alone. Repository bands follow the header's scope."
                 : " Narrowed to the header's repository scope — the sessions with no repository, recorded or placed, are out of it.";
 
