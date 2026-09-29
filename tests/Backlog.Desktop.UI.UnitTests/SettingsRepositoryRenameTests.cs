@@ -8,6 +8,7 @@ using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.SharedKernel.Results;
+using Backlog.UI.Components.Layout;
 
 using Bunit;
 
@@ -144,6 +145,40 @@ public sealed class SettingsRepositoryRenameTests
         Assert.Empty(settings.Inbox.Renames);
         Assert.Empty(settings.Component.FindAll("[data-testid='github-repos-replaced-hint']"));
     }
+
+    /// <summary>
+    /// Removing the first repository leaves the second one's panel standing rather
+    /// than handing the first panel the second one's id: each repository panel is
+    /// keyed by its alias, so the component that was the docs panel before the
+    /// removal is the docs panel after it, and its tab is the one selected.
+    /// </summary>
+    [Fact]
+    public void Removing_the_first_repository_keeps_the_second_panel_bound()
+    {
+        using var settings = RenderSettings();
+        OpenRepositoriesTab(settings.Component);
+        var docsPanel = RepositoryPanel(settings.Component, "docs");
+
+        settings.Component.Find("[data-testid='remove-repository-button']").Click();
+
+        var remaining = Assert.Single(
+            settings.Component.FindComponents<TabPanel>(),
+            panel => panel.Instance.Id is "backlog" or "docs");
+        Assert.Equal("docs", remaining.Instance.Id);
+        Assert.Same(docsPanel, remaining.Instance);
+
+        var tab = Assert.Single(settings.Component.FindAll("[data-testid='repo-subpage-tab']"));
+        Assert.Equal("JSdotNet/Docs", tab.TextContent.Trim());
+        Assert.Equal("true", tab.GetAttribute("aria-selected"));
+
+        var card = settings.Component.Find("[data-testid='github-repo-card']");
+        Assert.Equal("JSdotNet/Docs repository settings", card.GetAttribute("aria-label"));
+        Assert.False(card.HasAttribute("hidden"));
+        Assert.Equal(tab.GetAttribute("aria-controls"), card.GetAttribute("id"));
+    }
+
+    private static TabPanel RepositoryPanel(IRenderedComponent<Settings> component, string alias) =>
+        component.FindComponents<TabPanel>().Single(panel => panel.Instance.Id == alias).Instance;
 
     private static void Rename(IRenderedComponent<Settings> component, string newName)
     {

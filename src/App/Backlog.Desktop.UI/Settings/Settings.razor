@@ -80,6 +80,9 @@
 @* The two sync collaborators are read off this rather than injected; see the
    Devices section of the code block for why. *@
 @inject IServiceProvider Services
+@* The pages the modules bring, each registered by its own .UI project; empty in
+   a host that registers none, and then only the app-wide pages are drawn. *@
+@inject IEnumerable<SettingsSection> RegisteredSections
 @implements IDisposable
 
 @*
@@ -1248,7 +1251,8 @@
                     {
                         var activeAccount = account;
 
-                        <TabPanel Id="@activeAccount.Login"
+                        <TabPanel @key="activeAccount.Login"
+                                  Id="@activeAccount.Login"
                                   TabTestId="account-subpage-tab"
                                   Element="article"
                                   BaseClass="repo-card"
@@ -1489,7 +1493,8 @@
                     {
                         var activeRepo = repository;
 
-                        <TabPanel Id="@activeRepo.Alias"
+                        <TabPanel @key="activeRepo.Alias"
+                                  Id="@activeRepo.Alias"
                                   TabTestId="repo-subpage-tab"
                                   Element="article"
                                   BaseClass="repo-card"
@@ -1938,44 +1943,6 @@
                 </Tabs>
             }
 
-            @* The Inbox's routing rules sit with the repositories they route to:
-               a rule is a pattern and one of the repositories above. Only while
-               the Inbox pane is on, since nothing else reads them, and only when
-               the host keeps them somewhere. *@
-            @if (InboxRoutingRules is not null && Features.IsEnabled(AppFeatures.InboxPane))
-            {
-                <h3 class="setting__subtitle" id="inbox-routing-rules-title">Inbox routing rules</h3>
-                <p class="setting__body">
-                    One rule per line, written <code>pattern =&gt; owner/repo</code>. An Inbox item that
-                    matches is offered that repository as a suggestion; nothing is assigned until you
-                    take it. <code>#design</code> matches a tag, <code>@@alice</code> the person who shared
-                    the item, and anything else its channel or link — <code>youtube</code>,
-                    <code>*github.com/JSdotNet/*</code>. <code>*</code> stands for anything.
-                </p>
-                <TextArea Bare="true"
-                          AutoGrow="false"
-                          GrowCssClass=""
-                          LabelCssClass="setting__label"
-                          InputCssClass="@($"{SettingInputClass(_routingRulesError)} setting__input--multiline")"
-                          Label="Rules"
-                          Id="inbox-routing-rules"
-                          data-testid="inbox-routing-rules-input"
-                          Rows="4"
-                          spellcheck="false"
-                          autocomplete="off"
-                          aria-describedby="inbox-routing-rules-result"
-                          Placeholder="#design => owner/repo"
-                          Value="@_draftRoutingRules"
-                          ValueChanged="value => _draftRoutingRules = value"
-                          @onchange="ApplyRoutingRules" />
-                @* The library's own error look when a line did not read, the
-                   page's note look otherwise. *@
-                <Alert Message="@RoutingRulesMessage"
-                       BaseClass="@(_routingRulesError is null ? "setting__note" : "app-error-message")"
-                       Role="status"
-                       Id="inbox-routing-rules-result"
-                       TestId="inbox-routing-rules-result" />
-            }
         </TabPanel>
 
     @if (IsSettingsPageAvailable(SettingsPage.Devices))
@@ -2324,6 +2291,22 @@
                            OnCancel="@(() => _forgettingDevice = false)" />
         </TabPanel>
     }
+
+    @* The modules' own pages, after the app-wide ones and in their registered
+       order. The shell knows each only as a title and a component: what is on
+       the page, and what it writes, is the module's. *@
+    @foreach (var section in OfferedSections)
+    {
+        <TabPanel @key="section.Id"
+                  Id="@section.Id"
+                  Title="@section.Title"
+                  Element="section"
+                  BaseClass="setting"
+                  aria-label="@($"{section.Title} settings")">
+            <h2 class="setting__title">@section.Title</h2>
+            <DynamicComponent Type="@section.Component" />
+        </TabPanel>
+    }
     </Tabs>
 </div>
 
@@ -2352,39 +2335,6 @@
 
     private string _draftRepos = string.Empty;
     private string? _repoError;
-
-    // --- Inbox routing rules ------------------------------------------------
-
-    /// <summary>Where the Inbox keeps its routing rules, or null in a host that
-    /// keeps none — then the field is not drawn.</summary>
-    private IInboxRoutingRules? InboxRoutingRules => Services.GetService<IInboxRoutingRules>();
-
-    private string _draftRoutingRules = string.Empty;
-    private string? _routingRulesError;
-
-    /// <summary>The line under the field: why the rules were not kept, or how many
-    /// are in use.</summary>
-    private string RoutingRulesMessage => _routingRulesError ?? (InboxRoutingRules?.Current.Count ?? 0) switch
-    {
-        0 => "No rules yet — items are offered only the tags and destination their own text suggests.",
-        1 => "1 rule is in use.",
-        var count => $"{count} rules are in use."
-    };
-
-    /// <summary>Keeps what the field says when it reads as rules, and says which
-    /// line does not when it does not — keeping nothing, so the rules in use stay
-    /// the last set that read. The draft is left as typed either way, so the
-    /// reader fixes the line rather than retyping the set.</summary>
-    private void ApplyRoutingRules()
-    {
-        if (InboxRoutingRules is not { } rules) return;
-
-        _routingRulesError = rules.SetRules(_draftRoutingRules);
-        if (_routingRulesError is null)
-        {
-            _draftRoutingRules = Backlog.Modules.Inbox.Abstractions.InboxRoutingRule.Format(rules.Current);
-        }
-    }
 
     /// <summary>The sentence pointing at Rename after a save of the repositories
     /// text that both removed a repository and added one — or null when the last
@@ -2463,12 +2413,24 @@
     // The strip speaks in ids; the page still thinks in the enum.
     private static string PageId(SettingsPage page) => page.ToString().ToLowerInvariant();
 
-    private string ActivePageId => PageId(_activePage);
+    /// <summary>The registered section being shown, or null while one of the
+    /// app-wide pages is.</summary>
+    private string? _activeSectionId;
+
+    private string ActivePageId => _activeSectionId ?? PageId(_activePage);
 
     private void ShowSettingsPageById(string id)
     {
         if (Enum.TryParse<SettingsPage>(id, ignoreCase: true, out var page)) ShowSettingsPage(page);
+        else if (OfferedSections.Any(section => section.Id == id)) _activeSectionId = id;
     }
+
+    /// <summary>The registered sections the strip offers, lowest order first: those
+    /// whose feature is on, and never one that would take an app-wide page's id.</summary>
+    private IEnumerable<SettingsSection> OfferedSections => RegisteredSections
+        .Where(section => !Enum.TryParse<SettingsPage>(section.Id, ignoreCase: true, out _))
+        .Where(section => section.FeatureKey is null || Features.IsEnabled(section.FeatureKey))
+        .OrderBy(section => section.Order);
 
     private GitHubRepositoryRef? ActiveRepository => FindActiveRepository();
 
@@ -2491,6 +2453,7 @@
         if (IsSettingsPageAvailable(page))
         {
             _activePage = page;
+            _activeSectionId = null;
         }
     }
 
@@ -2904,6 +2867,12 @@
         {
             _activePage = SettingsPage.Features;
         }
+
+        if (_activeSectionId is not null && !OfferedSections.Any(section => section.Id == _activeSectionId))
+        {
+            _activeSectionId = null;
+            _activePage = SettingsPage.Features;
+        }
     }
 
     private void ShowRepositoryPage(string alias) => _activeRepositoryAlias = GitHubRepositoryRef.NormalizeAlias(alias);
@@ -2937,9 +2906,6 @@
         _syncService = Services.GetService<SyncServiceSettingsStore>();
         _syncServiceEndpoint = Services.GetService<SyncServiceEndpoint>();
         _draftSyncServiceUrl = _syncService?.Current.ServiceUrl ?? string.Empty;
-        _draftRoutingRules = InboxRoutingRules is { } routingRules
-            ? Backlog.Modules.Inbox.Abstractions.InboxRoutingRule.Format(routingRules.Current)
-            : string.Empty;
         _deviceLog = Services.GetService<ILoggerFactory>()?.CreateLogger(GetType());
         _deviceTokens = Services.GetService<SyncTokenProvider>();
         _activityCache = Services.GetService<IPullRequestDetailCache>();

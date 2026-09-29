@@ -155,4 +155,20 @@ public class WebHarnessHostTests
         // either of them to replicate.
         Assert.Null(scope.ServiceProvider.GetService<Backlog.Infrastructure.Sync.TaskSyncWorker>());
     }
+
+    /// <summary>
+    /// The desktop harness registers the Inbox's settings section, so its settings
+    /// screen carries the routing rules the way the desktop app's does. The shell
+    /// holds no copy of its own: without the registration the page is simply gone.
+    /// </summary>
+    [Fact]
+    public void The_desktop_harness_registers_the_inbox_settings_section()
+    {
+        using var harness = new Harness<DesktopHarness::Program>();
+
+        using var scope = harness.Services.CreateScope();
+
+        var sections = scope.ServiceProvider.GetServices<Backlog.SharedKernel.SettingsSection>();
+        Assert.Contains(sections, section => section.Id == "inbox" && section.Title == "Inbox");
+    }
 }
