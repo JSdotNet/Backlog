@@ -331,6 +331,43 @@ public sealed class AccountForPathTests
         Assert.True(settings.AccountForPath(path).IsDefault);
     }
 
+    // --- graphql#{owner}/{name} ----------------------------------------------
+    //
+    // GitHub's GraphQL endpoint is one path for every repository, so the path by
+    // itself names nobody and would go out as this machine's default identity.
+    // For a pull request status that is a wrong answer; for a merge it is the wrong
+    // person pressing the button. The client appends the repository after a '#',
+    // which no transport sends, so the path can say whose call this is.
+
+    [Fact]
+    public void A_graphql_path_binds_to_the_account_its_repository_hint_names()
+    {
+        var settings = Configured(
+            [Account("j-schepers_innobv", token: "ghp_innobv"), Account("JSdotNet", token: "ghp_jsdotnet")],
+            Repository("spec", "innovadis-dev", "spec-manager", account: "j-schepers_innobv"),
+            Repository("backlog", "JSdotNet", "Backlog", account: "JSdotNet"));
+
+        var choice = settings.AccountForPath("graphql#innovadis-dev/spec-manager");
+
+        Assert.True(choice.IsBound);
+        Assert.Equal("ghp_innobv", choice.Token);
+        Assert.Equal("innovadis-dev/spec-manager", choice.Subject);
+    }
+
+    [Theory]
+    [InlineData("graphql")]
+    [InlineData("graphql#")]
+    [InlineData("graphql#malformed")]
+    [InlineData("graphql#someone/else")]
+    public void A_graphql_path_that_names_no_configured_repository_is_the_default(string path)
+    {
+        var settings = Configured(
+            [Account("JSdotNet", token: "ghp_jsdotnet")],
+            Repository("backlog", "JSdotNet", "Backlog", account: "JSdotNet"));
+
+        Assert.True(settings.AccountForPath(path).IsDefault);
+    }
+
     // --- everything else ------------------------------------------------------
 
     /// <summary>Including the pathless probe, which is the shape that used to be
@@ -427,6 +464,9 @@ public sealed class AccountForPathTests
     [InlineData("rate_limit", null)]
     [InlineData("repos/octo", null)]
     [InlineData("orgs", null)]
+    [InlineData("graphql#innovadis-dev/spec-manager", "ghp_innobv")]
+    [InlineData("graphql#octo/demo", "ghp_demo")]
+    [InlineData("graphql", null)]
     public void Every_path_shape_answers_what_it_always_answered(string path, string? token)
     {
         var settings = Configured(

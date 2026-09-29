@@ -2496,8 +2496,10 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
 
     /// <summary>
     /// Reads whether each pull request the entry's work recorded is open, merged
-    /// or closed. The entry went Done when the pull request was recorded; this is
-    /// what says the work actually landed.
+    /// or closed — and, in the same query, how its checks stand and whether GitHub
+    /// is holding it for auto-merge. The entry went Done when the pull request was
+    /// recorded; this is what says the work actually landed, or what it is waiting
+    /// on.
     /// <para>
     /// Quietly per pull request: one that cannot be read keeps whatever was last
     /// known, and says nothing out loud. The issue is what an entry was filed as
@@ -2510,21 +2512,198 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     {
         if (row.PullRequestLinks.Count == 0) return;
 
-        var states = new Dictionary<EntryPullRequestLink, GitHubItemState>(row.PullRequestStates);
-
-        foreach (var pr in row.PullRequestLinks)
+        // Each pull request is written as its read comes back, into the row's maps
+        // as they are at that moment. A copy taken when the sweep began and written
+        // over the row at its end would put back what was read before a merge act
+        // that landed in the meantime — undoing the act's own, newer re-read.
+        foreach (var pr in row.PullRequestLinks.ToList())
         {
-            try
+            if (await TryReadPullRequestStatusAsync(pr) is { } status)
             {
-                states[pr] = (await _gitHub.ReadPullRequestAsync(pr.Repository, pr.Number)).State;
+                RecordPullRequestRead(row, pr, status.State, status);
             }
-            catch (Exception ex) when (ex is GitHubException or GitHubNotConfiguredException or HttpRequestException)
+            else if (await TryReadPullRequestStateAsync(pr) is { } state)
             {
+                // The state alone, so the merged colour survives a server that
+                // cannot answer the status query. The status is dropped rather
+                // than kept from an earlier read: a stale one would draw checks
+                // and offer a merge the state beside it may no longer allow.
+                RecordPullRequestRead(row, pr, state, status: null);
             }
         }
 
-        row.PullRequestStates = states;
         Changed?.Invoke();
+    }
+
+    /// <summary>
+    /// Writes one pull request's read onto the row: its state, and its status or the
+    /// absence of one.
+    /// <para>
+    /// Copy-on-write of the maps the row holds <em>now</em>, never of an earlier
+    /// snapshot — the maps are replaced rather than mutated because the pane reads
+    /// them during render, and copied at the moment of writing because two reads of
+    /// the same row can be in flight at once, the sweep's and a merge act's.
+    /// </para>
+    /// </summary>
+    private static void RecordPullRequestRead(
+        EntryRow row,
+        EntryPullRequestLink pr,
+        GitHubItemState state,
+        GitHubPullRequestStatus? status)
+    {
+        row.PullRequestStates = new Dictionary<EntryPullRequestLink, GitHubItemState>(row.PullRequestStates) { [pr] = state };
+
+        var statuses = new Dictionary<EntryPullRequestLink, GitHubPullRequestStatus>(row.PullRequestStatuses);
+        if (status is null) statuses.Remove(pr);
+        else statuses[pr] = status;
+
+        row.PullRequestStatuses = statuses;
+    }
+
+    /// <summary>One pull request's status, or null when it could not be read — the
+    /// quiet half of <see cref="RefreshPullRequestStatesAsync"/>, shared with the
+    /// re-read after a merge act.</summary>
+    private async Task<GitHubPullRequestStatus?> TryReadPullRequestStatusAsync(EntryPullRequestLink pr)
+    {
+        try
+        {
+            return await _gitHub.ReadPullRequestStatusAsync(pr.Repository, pr.Number);
+        }
+        catch (Exception ex) when (ex is GitHubException or GitHubNotConfiguredException or HttpRequestException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// One pull request's state over REST, or null when that cannot be read either.
+    /// <para>
+    /// The fallback for a status query that failed. The status query asks for
+    /// fields — the auto-merge request, the merge state — that an older GitHub
+    /// Enterprise Server's schema may not have, and GraphQL fails the whole query
+    /// over one missing field. Without this, such a server would lose the merged
+    /// colour it showed before the status query existed. Only the state comes back,
+    /// so a pull request read this way draws no checks mark and offers no merge.
+    /// </para>
+    /// </summary>
+    private async Task<GitHubItemState?> TryReadPullRequestStateAsync(EntryPullRequestLink pr)
+    {
+        try
+        {
+            return (await _gitHub.ReadPullRequestAsync(pr.Repository, pr.Number)).State;
+        }
+        catch (Exception ex) when (ex is GitHubException or GitHubNotConfiguredException or HttpRequestException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// The merge act a row's menu offers, or null when there is none to offer.
+    /// <para>
+    /// The latest recorded pull request that the last read found open and not a
+    /// draft. The latest because a row's menu names one act on one pull request,
+    /// and the one work most recently produced is the one a reader means; open and
+    /// not a draft because those are the only states GitHub will merge from.
+    /// Unread offers nothing: the label has to say which act it is, and only the
+    /// status can say that.
+    /// </para>
+    /// </summary>
+    public PullRequestMergeOffer? MergeOfferFor(EntryRow row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        for (var index = row.PullRequestLinks.Count - 1; index >= 0; index--)
+        {
+            var pr = row.PullRequestLinks[index];
+
+            if (row.PullRequestStatuses.TryGetValue(pr, out var status) && status.State is GitHubItemState.Open)
+            {
+                return new PullRequestMergeOffer(pr, status);
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Hands one of the row's pull requests to GitHub's native auto-merge, or takes
+    /// it back. GitHub does the waiting — nothing here polls or merges later — and
+    /// the pull request is read again afterwards, so the link says what GitHub now
+    /// holds rather than what was asked for.
+    /// </summary>
+    public Task SetAutoMergeAsync(EntryRow row, EntryPullRequestLink pr, bool enable) =>
+        ActOnPullRequestAsync(
+            row,
+            pr,
+            status => enable ? _gitHub.EnableAutoMergeAsync(status) : _gitHub.DisableAutoMergeAsync(status),
+            enable ? "Couldn't turn on auto-merge." : "Couldn't cancel auto-merge.");
+
+    /// <summary>Merges one of the row's pull requests now — the act for one GitHub
+    /// reports already mergeable, which it would refuse to queue.</summary>
+    public Task MergeNowAsync(EntryRow row, EntryPullRequestLink pr) =>
+        ActOnPullRequestAsync(row, pr, status => _gitHub.MergePullRequestAsync(status), "Couldn't merge the pull request.");
+
+    /// <summary>
+    /// One merge act, and the read that follows it.
+    /// <para>
+    /// A refusal is a toast and nothing else: it names the entry and, where GitHub's
+    /// refusal is a known one, the switch that fixes it (the façade words it). It is
+    /// not put on the row's GitHub line, which is the issue's — the entry did
+    /// nothing wrong, and the next refresh must not find a stale merge refusal
+    /// standing where an issue error would be.
+    /// </para>
+    /// <para>
+    /// The pull request is read again whether the act worked or not. After a success
+    /// that is what makes the link show auto-merge on, or merged; after a refusal it
+    /// is what corrects a status that had moved on since the menu was drawn — a pull
+    /// request that went clean in the meantime is offered "merge now" next time
+    /// rather than the act GitHub just refused.
+    /// </para>
+    /// </summary>
+    private async Task ActOnPullRequestAsync(
+        EntryRow row,
+        EntryPullRequestLink pr,
+        Func<GitHubPullRequestStatus, Task> act,
+        string fallbackMessage)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        ArgumentNullException.ThrowIfNull(pr);
+
+        if (row.GitHubBusy) return;
+        if (!row.PullRequestStatuses.TryGetValue(pr, out var status)) return;
+
+        row.GitHubBusy = true;
+        Changed?.Invoke();
+
+        // Busy until the read that follows the act has come back, not just the act:
+        // a second act started in between would act on the status this one has
+        // just made stale.
+        try
+        {
+            try
+            {
+                await act(status);
+            }
+            catch (Exception ex) when (ex is GitHubException or GitHubNotConfiguredException or HttpRequestException)
+            {
+                AnnounceRowFailure(row, ex.Message, GitHubFailureTestId);
+            }
+            catch (Exception)
+            {
+                AnnounceRowFailure(row, fallbackMessage, GitHubFailureTestId);
+            }
+
+            if (await TryReadPullRequestStatusAsync(pr) is { } reread)
+            {
+                RecordPullRequestRead(row, pr, reread.State, reread);
+            }
+        }
+        finally
+        {
+            row.GitHubBusy = false;
+            Changed?.Invoke();
+        }
     }
 
     /// <summary>
@@ -3615,8 +3794,23 @@ public sealed class EntryRow
     public IReadOnlyDictionary<EntryPullRequestLink, GitHubItemState> PullRequestStates { get; set; } =
         new Dictionary<EntryPullRequestLink, GitHubItemState>();
 
-    /// <summary>Set while a push or refresh is in flight, so the control can say
-    /// so instead of looking dead.</summary>
+    /// <summary>
+    /// Last known status of each recorded pull request — its checks, whether GitHub
+    /// is holding it for auto-merge, and what a merge act needs to act on it. Read
+    /// in the same query as <see cref="PullRequestStates"/>, so the two always come
+    /// from one answer. Not persisted, for the reason <see cref="Snapshot"/> is not.
+    /// <para>
+    /// Kept beside the state map rather than replacing it, because the state is what
+    /// every existing reader asks and the only thing a pull request whose status
+    /// could not be read may still have from before.
+    /// </para>
+    /// </summary>
+    public IReadOnlyDictionary<EntryPullRequestLink, GitHubPullRequestStatus> PullRequestStatuses { get; set; } =
+        new Dictionary<EntryPullRequestLink, GitHubPullRequestStatus>();
+
+    /// <summary>Set while a push, a refresh or a merge act is in flight, so the
+    /// control can say so instead of looking dead — and so a second act is not
+    /// started on top of the first.</summary>
     public bool GitHubBusy { get; set; }
 
     /// <summary>Why the last GitHub call failed, in words fit to read. Shown on

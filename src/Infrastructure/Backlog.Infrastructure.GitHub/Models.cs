@@ -39,6 +39,62 @@ public sealed record GitHubPullRequest(
     GitHubItemState State,
     string? RepositoryFullName);
 
+/// <summary>
+/// The combined result of every check and commit status on a pull request's head
+/// commit — GitHub's <c>statusCheckRollup</c>, in the four answers a link can give.
+/// <para>
+/// <see cref="None"/> is its own member rather than a null: a pull request with no
+/// checks configured is a real, common state and not a failure to read one, and a
+/// link that drew "pending" for it would be promising a result that never comes.
+/// GitHub's <c>ERROR</c> folds into <see cref="Failing"/> and <c>EXPECTED</c> into
+/// <see cref="Pending"/>, because the reader's question is only ever "will this go
+/// green on its own".
+/// </para>
+/// </summary>
+public enum GitHubCheckState
+{
+    None,
+    Pending,
+    Passing,
+    Failing
+}
+
+/// <summary>How a pull request is merged — GitHub's <c>PullRequestMergeMethod</c>.
+/// Which of the three a repository allows is its own setting.</summary>
+public enum GitHubMergeMethod
+{
+    Merge,
+    Squash,
+    Rebase
+}
+
+/// <summary>
+/// One pull request as the merge controls need it: what state it is in, how its
+/// checks stand, and whether GitHub is already holding it for auto-merge.
+/// <para>
+/// Read in one GraphQL query rather than assembled from REST, because REST has no
+/// home for the check roll-up or the auto-merge request and no endpoint for
+/// enabling auto-merge at all. <see cref="NodeId"/> is what the mutations name the
+/// pull request by, and <see cref="PreferredMergeMethod"/> is the method they send —
+/// so reading this is everything a merge act has to know beforehand.
+/// </para>
+/// </summary>
+/// <param name="MergeReady">GitHub's <c>mergeStateStatus</c> is <c>CLEAN</c>,
+/// <c>UNSTABLE</c> or <c>HAS_HOOKS</c>: the pull request can merge right now. GitHub
+/// refuses to queue auto-merge in exactly these states, which is why they are the
+/// ones that turn the offer into "merge now".</param>
+/// <param name="PreferredMergeMethod">The first method the repository allows, in the
+/// order its merge button lists them: merge commit, then squash, then rebase.</param>
+public sealed record GitHubPullRequestStatus(
+    int Number,
+    string RepositoryFullName,
+    string NodeId,
+    GitHubItemState State,
+    GitHubCheckState Checks,
+    bool AutoMergeEnabled,
+    bool MergeReady,
+    GitHubMergeMethod PreferredMergeMethod);
+
 /// <summary>Everything one refresh learned about a pushed entry: the issue and
 /// the pull requests that mention it.</summary>
 public sealed record GitHubIssueSnapshot(

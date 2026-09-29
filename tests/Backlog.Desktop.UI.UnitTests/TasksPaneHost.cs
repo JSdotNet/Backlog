@@ -240,6 +240,44 @@ internal sealed class TasksPaneHost : IDisposable
             string commitMessage,
             CancellationToken cancellationToken = default) =>
             Task.FromResult(new GitHubUploadedFile(path, $"https://github.com/{repository.FullName}/blob/{branch}/{path}"));
+
+        /// <summary>What GitHub holds for each pull request, by number. A merge act
+        /// moves the entry the way GitHub would, so the re-read that follows it
+        /// sees the result; a number not here answers not found.</summary>
+        public Dictionary<int, GitHubPullRequestStatus> PullRequestStatuses { get; } = [];
+
+        /// <summary>What every merge act throws, when set.</summary>
+        public Exception? MergeFailure { get; set; }
+
+        /// <summary>Every merge act asked for, as "act number".</summary>
+        public List<string> MergeCalls { get; } = [];
+
+        public Task<GitHubPullRequestStatus> GetPullRequestStatusAsync(
+            GitHubRepositoryRef repository,
+            int number,
+            CancellationToken cancellationToken = default) =>
+            PullRequestStatuses.TryGetValue(number, out var status)
+                ? Task.FromResult(status)
+                : Task.FromException<GitHubPullRequestStatus>(new GitHubException("Not Found"));
+
+        public Task EnableAutoMergeAsync(GitHubRepositoryRef repository, string pullRequestId, GitHubMergeMethod method, CancellationToken cancellationToken = default) =>
+            Act("enable", pullRequestId, status => status with { AutoMergeEnabled = true });
+
+        public Task DisableAutoMergeAsync(GitHubRepositoryRef repository, string pullRequestId, CancellationToken cancellationToken = default) =>
+            Act("disable", pullRequestId, status => status with { AutoMergeEnabled = false });
+
+        public Task MergePullRequestAsync(GitHubRepositoryRef repository, string pullRequestId, GitHubMergeMethod method, CancellationToken cancellationToken = default) =>
+            Act("merge", pullRequestId, status => status with { State = GitHubItemState.Merged, MergeReady = false });
+
+        private Task Act(string act, string pullRequestId, Func<GitHubPullRequestStatus, GitHubPullRequestStatus> change)
+        {
+            if (MergeFailure is not null) return Task.FromException(MergeFailure);
+
+            var status = PullRequestStatuses.Values.Single(candidate => candidate.NodeId == pullRequestId);
+            MergeCalls.Add($"{act} {status.Number}");
+            PullRequestStatuses[status.Number] = change(status);
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class ConnectedProbe : IGitHubConnectionProbe

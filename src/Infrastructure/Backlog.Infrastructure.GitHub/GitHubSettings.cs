@@ -248,6 +248,17 @@ public sealed class GitHubSettings
     {
         if (string.IsNullOrWhiteSpace(path)) return GitHubAccountChoice.Default;
 
+        // GraphQL is one endpoint for every repository, so its path names nobody
+        // by itself; the client appends the repository after a '#' that neither
+        // transport sends. Read before the split below, which would take the '#'
+        // for part of the first segment.
+        if (GitHubGraphQl.IsGraphQl(path))
+        {
+            return GitHubGraphQl.RepositoryOf(path) is { } repository
+                ? ChoiceForRepository(repository.Owner, repository.Name)
+                : GitHubAccountChoice.Default;
+        }
+
         var parts = path.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         if (parts.Length == 0) return GitHubAccountChoice.Default;
 
