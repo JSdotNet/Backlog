@@ -817,13 +817,33 @@ public sealed class TasksDesktopState : IDisposable, ISaveStatusSource
     /// render and would paper over that; reading a store with anything in it
     /// does not, and the list would sit on "Nothing here yet." over a backlog
     /// that was already in memory.
+    /// </para>
+    /// <para>
+    /// <see cref="IsLoading"/> is up for the length of it, so the list draws its
+    /// placeholder rows rather than an empty state that is not yet true. No
+    /// announcement when it goes up: the shell renders while this is out, which
+    /// is when the list first reads it.
     /// </para></summary>
     public async Task InitializeAsync()
     {
-        await ReconcileRepositoryIdsAsync();
-        await ReloadRowsAsync();
+        IsLoading = true;
+
+        try
+        {
+            await ReconcileRepositoryIdsAsync();
+            await ReloadRowsAsync();
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+
         Changed?.Invoke();
     }
+
+    /// <summary>Whether the first load of a freshly opened view is still out.
+    /// Only that one: a reload over rows already on screen keeps them there.</summary>
+    public bool IsLoading { get; private set; }
 
     public void SetStatusFilter(string? wire)
     {

@@ -19,6 +19,9 @@
   <ItemGroup>
     <ProjectReference Include="..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
     <ProjectReference Include="..\..\Modules\Inbox\Backlog.Modules.Inbox.Abstractions\Backlog.Modules.Inbox.Abstractions.csproj" />
+    <!-- The Dashboard's published surface, for the same reason: the spend adapter
+         under Dashboard/ answers its Azure Foundry spend port from the cost client. -->
+    <ProjectReference Include="..\..\Modules\Dashboard\Backlog.Modules.Dashboard.Abstractions\Backlog.Modules.Dashboard.Abstractions.csproj" />
   </ItemGroup>
 
   <ItemGroup>

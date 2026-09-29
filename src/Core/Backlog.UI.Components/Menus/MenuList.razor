@@ -2,6 +2,17 @@
     A menu is one tab stop: arrows walk it, Enter and Space activate, and only
     the item under the cursor is tabbable. Disabled items and separators are
     skipped by the arrows rather than focused and refused.
+
+    FocusFirstItem is for a host that opens the menu from the keyboard or a
+    pointer and wants the next key to land in it (WAI-ARIA menu pattern): the
+    first item that can be activated takes the focus once the menu is drawn.
+
+    Enter and Space select from the keydown. The keys the menu takes for
+    itself (the arrows, Home, End, Enter, Space) have their default refused in
+    components.js, at the keydown, by the item's class: a server-bound
+    `@onkeydown:preventDefault` is rendered after the handler and would apply
+    to the key after the one that set it, and an unrefused Enter or Space would
+    select a second time through the button's click.
 *@
 
 <ul class="@ClassValue" role="menu" aria-label="@AriaLabel" data-testid="@TestId" @attributes="AdditionalAttributes">
@@ -20,6 +31,7 @@
             <button type="button"
                     class="@ItemClass(item)"
                     role="menuitem"
+                    @ref="_itemElements[index]"
                     data-testid="@($"{TestId}-{item.Id}")"
                     disabled="@item.Disabled"
                     tabindex="@(index == ActiveIndex ? 0 : -1)"
@@ -37,7 +49,10 @@
 </ul>
 
 @code {
+    private readonly Dictionary<int, ElementReference> _itemElements = [];
     private int _activeIndex = -1;
+    private bool _focusPending;
+    private bool _focusRequested;
 
     [Parameter]
     public IReadOnlyList<MenuItem> Items { get; set; } = [];
@@ -47,6 +62,11 @@
 
     [Parameter]
     public string? AriaLabel { get; set; }
+
+    /// <summary>Moves the focus to the first enabled item once the menu is
+    /// drawn, and again each time this turns from false to true.</summary>
+    [Parameter]
+    public bool FocusFirstItem { get; set; }
 
     [Parameter]
     public string? CssClass { get; set; }
@@ -71,6 +91,33 @@
             }
 
             return -1;
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (FocusFirstItem && !_focusRequested) _focusPending = true;
+        _focusRequested = FocusFirstItem;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_focusPending) return;
+
+        _focusPending = false;
+
+        var first = FirstEnabled;
+        if (first < 0 || !_itemElements.TryGetValue(first, out var element)) return;
+
+        try
+        {
+            await element.FocusAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
         }
     }
 

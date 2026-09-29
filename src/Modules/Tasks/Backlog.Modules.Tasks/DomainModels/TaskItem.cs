@@ -529,32 +529,39 @@ public sealed class TaskItem
     /// metadata line is the most consequential edit in the product — and the load
     /// path does not come through here at all, because storage passes status
     /// through the constructor.
+    /// </para>
+    /// <para>
+    /// <paramref name="today"/> is the caller's local date, stamped as
+    /// <see cref="StartedOn"/> when this is the first move into progress.
     /// </para></summary>
-    public void SetStatus(EntryStatus target)
+    public void SetStatus(EntryStatus target, DateOnly today)
     {
         Status = target;
-        StampStartedOnFirstInProgress();
+        StampStartedOnFirstInProgress(today);
         Touch();
     }
 
     /// <summary>Moves the entry to <paramref name="target"/> if the transition is
-    /// permitted by the lifecycle; throws otherwise.</summary>
-    public void ChangeStatus(EntryStatus target)
+    /// permitted by the lifecycle; throws otherwise. <paramref name="today"/> is
+    /// the caller's local date, as for <see cref="SetStatus"/>.</summary>
+    public void ChangeStatus(EntryStatus target, DateOnly today)
     {
         if (target == Status) return;
         if (!CanChangeStatusTo(target))
             throw new InvalidStatusTransitionException(Status, target);
         Status = target;
-        StampStartedOnFirstInProgress();
+        StampStartedOnFirstInProgress(today);
         Touch();
     }
 
-    /// <summary>Stamps <see cref="StartedOn"/> with today's local date the first
-    /// time the entry is in progress; a date already carried is kept.</summary>
-    private void StampStartedOnFirstInProgress()
+    /// <summary>Stamps <see cref="StartedOn"/> with <paramref name="today"/> the
+    /// first time the entry is in progress; a date already carried is kept.
+    /// The date comes from the caller rather than a clock read here, so the rule
+    /// is the aggregate's and the calendar is the host's.</summary>
+    private void StampStartedOnFirstInProgress(DateOnly today)
     {
         if (Status == EntryStatus.InProgress && StartedOn is null)
-            StartedOn = DateOnly.FromDateTime(DateTime.Now);
+            StartedOn = today;
     }
 
     /// <summary>Marks this task deleted, leaving it behind as a tombstone rather
