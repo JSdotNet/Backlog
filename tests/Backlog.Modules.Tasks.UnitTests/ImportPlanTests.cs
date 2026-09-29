@@ -110,7 +110,7 @@ public sealed class ImportPlanTests
         // Finished, so the re-import below leaves it standing rather than clearing
         // it as not-yet-started — which is also the realistic shape: the second
         // half of a plan is written once the first half has been done.
-        store.Entries[syncTasksId].SetStatus(EntryStatus.Done);
+        store.Entries[syncTasksId].SetStatus(EntryStatus.Done, new DateOnly(2026, 1, 1));
 
         var second = await Import(store, "# First deployment\n`prompt` `#myplan` `id:first-deploy` `after:sync-tasks`\n");
 
@@ -129,7 +129,7 @@ public sealed class ImportPlanTests
 
         var first = await Import(store, "# Task sync endpoints\n`prompt` `#local-sync-storage` `id:sync-tasks`\n");
         var syncTasksId = Assert.Single(first.Entries).Id;
-        store.Entries[syncTasksId].SetStatus(EntryStatus.Done);
+        store.Entries[syncTasksId].SetStatus(EntryStatus.Done, new DateOnly(2026, 1, 1));
 
         const string batch =
             "# First deployment\n`prompt` `#local-sync-storage` `id:first-deploy` `after:sync-tasks`\n\n"
@@ -343,7 +343,7 @@ public sealed class ImportPlanTests
 
         var first = await Import(store, "# Step one\n`prompt` `!ready` `#myplan` `id:step-one`\n");
         var firstId = Assert.Single(first.Entries).Id;
-        store.Entries[firstId].SetStatus(EntryStatus.InProgress);
+        store.Entries[firstId].SetStatus(EntryStatus.InProgress, new DateOnly(2026, 1, 1));
 
         var second = await Import(store, "# Step one\n`task` `!in-progress` `#myplan` `id:step-one`\n");
 
@@ -366,7 +366,7 @@ public sealed class ImportPlanTests
 
         var first = await Import(store, "# Step one\n`prompt` `!ready` `#myplan` `id:step-one`\n");
         var firstId = Assert.Single(first.Entries).Id;
-        store.Entries[firstId].SetStatus(EntryStatus.InProgress);
+        store.Entries[firstId].SetStatus(EntryStatus.InProgress, new DateOnly(2026, 1, 1));
 
         await Import(store, "# Step one\n`prompt` `#myplan` `id:step-one`\n\nRevised body.\n");
 
@@ -385,7 +385,7 @@ public sealed class ImportPlanTests
 
         var first = await Import(store, "# Step one\n`prompt` `!ready` `#myplan` `id:step-one`\n");
         var firstId = Assert.Single(first.Entries).Id;
-        store.Entries[firstId].SetStatus(EntryStatus.Done);
+        store.Entries[firstId].SetStatus(EntryStatus.Done, new DateOnly(2026, 1, 1));
 
         var second = await Import(store, "# Step one\n`prompt` `!ready` `#myplan` `id:step-one`\n");
 
@@ -549,8 +549,8 @@ public sealed class ImportPlanTests
 
         var first = await Import(store, "# Step one\n`prompt` `!ready` `#myplan` `id:step-one`\n");
         var firstId = Assert.Single(first.Entries).Id;
-        if (status is EntryStatus.Archived) store.Entries[firstId].SetStatus(EntryStatus.Done);
-        store.Entries[firstId].SetStatus(status);
+        if (status is EntryStatus.Archived) store.Entries[firstId].SetStatus(EntryStatus.Done, new DateOnly(2026, 1, 1));
+        store.Entries[firstId].SetStatus(status, new DateOnly(2026, 1, 1));
 
         var second = await Import(store, "# Step one\n`prompt` `#myplan` `id:step-one`\n");
 
@@ -584,7 +584,7 @@ public sealed class ImportPlanTests
 
         var first = await Import(store, "# Draft title\n`prompt` `#myplan` `id:step-one` `!ready`\n\nOriginal body.\n");
         var firstId = Assert.Single(first.Entries).Id;
-        store.Entries[firstId].SetStatus(EntryStatus.Done);
+        store.Entries[firstId].SetStatus(EntryStatus.Done, new DateOnly(2026, 1, 1));
 
         var second = await Import(store, "# Revised title\n`prompt` `#myplan` `id:step-one`\n\nRevised body.\n");
 
@@ -608,8 +608,8 @@ public sealed class ImportPlanTests
 
         var first = await Import(store, "# Draft title\n`prompt` `#myplan` `id:step-one` `!ready`\n\nOriginal body.\n");
         var firstId = Assert.Single(first.Entries).Id;
-        store.Entries[firstId].SetStatus(EntryStatus.Done);
-        store.Entries[firstId].SetStatus(EntryStatus.Archived);
+        store.Entries[firstId].SetStatus(EntryStatus.Done, new DateOnly(2026, 1, 1));
+        store.Entries[firstId].SetStatus(EntryStatus.Archived, new DateOnly(2026, 1, 1));
 
         var second = await Import(store, "# Revised title\n`prompt` `#myplan` `id:step-one`\n\nRevised body.\n");
 
@@ -648,7 +648,7 @@ public sealed class ImportPlanTests
 
         var first = await Import(store, "# Step one\n`prompt` `#myplan` `id:step-one` `!ready`\n");
         var firstId = Assert.Single(first.Entries).Id;
-        store.Entries[firstId].SetStatus(EntryStatus.Done);
+        store.Entries[firstId].SetStatus(EntryStatus.Done, new DateOnly(2026, 1, 1));
 
         const string plan =
             "# Step one\n`prompt` `#myplan` `id:step-one`\n\n"

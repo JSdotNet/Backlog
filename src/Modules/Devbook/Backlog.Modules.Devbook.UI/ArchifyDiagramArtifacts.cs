@@ -210,7 +210,11 @@ public sealed class ArchifyDiagramArtifacts : IDiagramArtifactSource, IDisposabl
         {
             candidates = Directory.GetFiles(directory, $"{chapter}.{diagram.Ordinal}.*.json");
         }
-        catch (Exception)
+        catch (IOException)
+        {
+            return null;
+        }
+        catch (UnauthorizedAccessException)
         {
             return null;
         }
@@ -476,9 +480,12 @@ public sealed class ArchifyDiagramArtifacts : IDiagramArtifactSource, IDisposabl
                     var written = File.GetLastWriteTimeUtc(chapter).Ticks;
                     if (written > newest) newest = written;
                 }
-                catch (Exception)
+                catch (IOException)
                 {
                     // A file that cannot be stated is one BuildIndex will skip too.
+                }
+                catch (UnauthorizedAccessException)
+                {
                 }
             }
         }
@@ -538,7 +545,14 @@ public sealed class ArchifyDiagramArtifacts : IDiagramArtifactSource, IDisposabl
                 {
                     location = _folders.Resolve(key, alias);
                 }
-                catch (Exception)
+                // A clone that cannot be reached is a folder with nothing in it.
+                // Anything else is a bug in the folder source, and reading it as
+                // "no diagrams" would hide it.
+                catch (IOException)
+                {
+                    continue;
+                }
+                catch (UnauthorizedAccessException)
                 {
                     continue;
                 }
@@ -571,7 +585,11 @@ public sealed class ArchifyDiagramArtifacts : IDiagramArtifactSource, IDisposabl
                 subdirectories = Directory.GetDirectories(directory);
                 files = Directory.GetFiles(directory, "*.md");
             }
-            catch (Exception)
+            catch (IOException)
+            {
+                continue;
+            }
+            catch (UnauthorizedAccessException)
             {
                 continue;
             }
@@ -599,7 +617,11 @@ public sealed class ArchifyDiagramArtifacts : IDiagramArtifactSource, IDisposabl
         {
             text = File.ReadAllText(file);
         }
-        catch (Exception)
+        catch (IOException)
+        {
+            yield break;
+        }
+        catch (UnauthorizedAccessException)
         {
             yield break;
         }
@@ -721,11 +743,19 @@ public sealed class ArchifyDiagramArtifacts : IDiagramArtifactSource, IDisposabl
                 ? new Dictionary<string, IndexEntry>(entries, StringComparer.Ordinal)
                 : [];
         }
-        catch (Exception)
+        catch (JsonException)
         {
             // An unreadable index is the same answer as no index: mermaid, with an
             // offer. A Devbook pane must not fail to draw a chapter because a
             // generated file beside it is malformed.
+            return [];
+        }
+        catch (IOException)
+        {
+            return [];
+        }
+        catch (UnauthorizedAccessException)
+        {
             return [];
         }
     }
@@ -736,7 +766,11 @@ public sealed class ArchifyDiagramArtifacts : IDiagramArtifactSource, IDisposabl
         {
             return File.ReadAllText(file);
         }
-        catch (Exception)
+        catch (IOException)
+        {
+            return null;
+        }
+        catch (UnauthorizedAccessException)
         {
             return null;
         }

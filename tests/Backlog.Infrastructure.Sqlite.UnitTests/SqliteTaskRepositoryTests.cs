@@ -62,7 +62,7 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
 
         task.SetArea("repos");
         task.SetOrder(4);
-        task.SetStatus(EntryStatus.InProgress);
+        task.SetStatus(EntryStatus.InProgress, new DateOnly(2026, 1, 1));
         task.SetEffort(13);
         var step = task.AddSubItem("Write the tests", "xUnit");
         task.AddSubItem("Then the code");
@@ -840,7 +840,7 @@ public sealed class SqliteTaskRepositoryTests : IDisposable
     public async Task A_done_entry_saved_unticked_now_stays_unticked()
     {
         var task = new TaskItem("Ship it", "Body.", EntryType.Task);
-        task.SetStatus(EntryStatus.Done);
+        task.SetStatus(EntryStatus.Done, new DateOnly(2026, 1, 1));
 
         await _repository.SaveAsync(task, TestContext.Current.CancellationToken);
         Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();

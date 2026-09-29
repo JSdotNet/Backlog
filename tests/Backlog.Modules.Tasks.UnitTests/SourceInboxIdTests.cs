@@ -65,7 +65,7 @@ public sealed class SourceInboxIdTests
         // re-import updates it in place and must not rewrite its provenance.
         const string first = "# First prompt\n`prompt` `#myplan` `id:first`\n";
         await handler.Handle(new ImportPlanCommand(first), TestContext.Current.CancellationToken);
-        store.Entries.Values.Single().SetStatus(EntryStatus.InProgress);
+        store.Entries.Values.Single().SetStatus(EntryStatus.InProgress, new DateOnly(2026, 1, 1));
 
         const string second = first + "\n# Second prompt\n`prompt` `#myplan` `id:second`\n";
         var result = await handler.Handle(new ImportPlanCommand(second, SourceInboxId: InboxItem), TestContext.Current.CancellationToken);

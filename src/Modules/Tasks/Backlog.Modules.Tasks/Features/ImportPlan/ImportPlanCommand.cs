@@ -289,7 +289,7 @@ public sealed class ImportPlanCommandHandler(
             else
             {
                 TaskEntryFields.ApplyToExisting(entry, outcome.Parsed with { DependsOn = resolvedDependsOn });
-                if (outcome.Parsed.Status is { } status) entry.SetStatus(status);
+                if (outcome.Parsed.Status is { } status) entry.SetStatus(status, TaskEntryFields.LocalToday);
 
                 await entries.SaveAsync(entry, cancellationToken);
                 resultEntries.Add(entry.ToDto());
@@ -612,8 +612,8 @@ public sealed class ImportPlanCommandHandler(
     {
         var entry = TaskEntryFields.CreateFrom(parsed, order, sourceInboxId);
 
-        if (sourceInboxId is not null) entry.SetStatus(EntryStatus.Draft);
-        else if (parsed.Status is null) entry.SetStatus(EntryStatus.Ready);
+        if (sourceInboxId is not null) entry.SetStatus(EntryStatus.Draft, TaskEntryFields.LocalToday);
+        else if (parsed.Status is null) entry.SetStatus(EntryStatus.Ready, TaskEntryFields.LocalToday);
 
         return entry;
     }

@@ -1252,6 +1252,25 @@
         event.preventDefault();
     });
 
+    // The keys a MenuList takes for itself, decided here for the tag picker's
+    // reason: a server-bound `@onkeydown:preventDefault` lands one key late. The
+    // arrows, Home and End walk the menu and would otherwise scroll whatever it
+    // sits in. Enter and Space are deliberately not in the set: the item is a
+    // button, and the click the browser raises for them is the menu's only
+    // activation path — refusing their default would leave the keyboard reader
+    // with no way to choose. Only the default is refused; the key keeps
+    // bubbling, so a ContextMenu backdrop still hears Escape.
+    const MENU_LIST_SWALLOWED_KEYS = new Set(['ArrowDown', 'ArrowUp', 'Home', 'End']);
+
+    document.addEventListener('keydown', (event) => {
+        if (!MENU_LIST_SWALLOWED_KEYS.has(event.key)) return;
+
+        const target = event.target instanceof Element ? event.target : null;
+        if (!target || !target.matches('.menu-list__item')) return;
+
+        event.preventDefault();
+    });
+
     // Single-letter shortcuts over a pane — the Inbox's j/k/a/d/l/r/t/x today.
     // A letter is a shortcut only where it cannot be typing, and that has to be
     // decided here, at the keydown, for the reason the tag picker's keys are: a
