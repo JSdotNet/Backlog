@@ -1,4 +1,5 @@
 ﻿using Backlog.Modules.Tasks.Abstractions;
+using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.DevPc.Abstractions;
 using Backlog.Modules.Devbook.Abstractions;
@@ -50,11 +51,11 @@ namespace Backlog.Desktop.UI.Shell;
 /// </summary>
 public static class AppFeatures
 {
-    /// <summary>Show the Inbox option and pane in the Home shell. The Inbox has
-    /// no abstractions project — it is a UI project and nothing else — and one
-    /// constant is not a reason to create one, so the Shell that is its only
-    /// reader keeps it.</summary>
-    public const string InboxPane = "inbox-pane";
+    /// <summary>Show the Inbox option and pane in the Home shell. The key is the
+    /// Inbox's own (<see cref="InboxFeatures.Pane"/>): its settings section gates
+    /// on it too and cannot read the Shell. Named here as well so the catalog and
+    /// the Shell's readers keep the name they had.</summary>
+    public const string InboxPane = InboxFeatures.Pane;
 
     /// <summary>Report a Desktop app issue to GitHub from the app chrome.</summary>
     public const string FeedbackReporting = "feedback-reporting";

@@ -467,6 +467,9 @@ builder.Services.AddTasksAiContentSource();
 builder.Services.AddScoped<InboxDesktopState>();
 // The Inbox behind the shell's Ask AI port, beside the state it reads.
 builder.Services.AddInboxAiContentSource();
+// The Inbox's page on the settings screen: the routing rules. The shell draws
+// it only because it is registered here, and holds no copy of its own.
+builder.Services.AddInboxSettings();
 // The save-state band and the toast tray, both mounted by MainLayout under every
 // route. Scoped rather than singleton, and that is forced rather than tidy: this
 // host has one circuit per visitor, a singleton forwarding to a scoped

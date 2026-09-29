@@ -476,6 +476,9 @@ public static class MauiProgram
         builder.Services.AddSingleton<InboxDesktopState>();
         // The Inbox behind the shell's Ask AI port, beside the state it reads.
         builder.Services.AddInboxAiContentSource();
+        // The Inbox's page on the settings screen: the routing rules. The shell draws
+        // it only because it is registered here, and holds no copy of its own.
+        builder.Services.AddInboxSettings();
         // The band under every route reads the backlog's save state through the
         // library's own interface rather than reaching for the state class, so the
         // shell's footer never learns which module is the interesting one. Same
