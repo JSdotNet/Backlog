@@ -58,7 +58,9 @@ capture. It appears in the Inbox list at once, marked waiting, and leaves in the
 order it was made. A failed send is retried on its own a few times with growing
 waits. After that it shows "waiting — tap to retry", and is tried again on a
 tap, when the app is reopened, or when the network comes back.
-The status line says how many captures are waiting.
+The status line says how many captures are waiting. A capture stops reading
+waiting the moment the service takes it, and stays in the list while the next
+pull brings it back, even when that pull was asked before it landed or fails.
 
 Each capture carries an id the phone mints before its first send, so resending
 it after a lost answer delivers it once: the service answers with the capture it
