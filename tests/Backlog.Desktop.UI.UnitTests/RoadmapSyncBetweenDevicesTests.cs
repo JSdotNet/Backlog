@@ -13,10 +13,15 @@ using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Roadmap.Extensions;
+using Backlog.Modules.Roadmap.UI;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks;
+using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.Extensions;
 using Backlog.SharedKernel.Results;
+using Backlog.UI.Components.Roadmap;
+
+using Bunit;
 
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.DependencyInjection;
@@ -159,6 +164,70 @@ public sealed class RoadmapSyncBetweenDevicesTests : IDisposable
         Assert.Equal("Edited on B meanwhile", Assert.Single((await a.Planning(planning => planning.GetPlanAsync())).Items).Title);
     }
 
+    /// <summary>
+    /// ADR 0018 Verification 4, driven the way a person drives it: B edits the plan, and
+    /// afterwards — so a plan stamp from A would be the newer one — A types a pace into
+    /// its open roadmap. A pace change writes the pace's document and nothing else, so
+    /// after both sync B's edit stands on both; and B, whose roadmap is open when the
+    /// pace arrives, redraws the bar still sized by its effort exactly as A draws it.
+    /// </summary>
+    [Fact]
+    public async Task A_pace_typed_on_the_roadmap_leaves_a_plan_edit_made_elsewhere_and_redraws_both()
+    {
+        using var a = Device("a");
+        using var b = Device("b");
+
+        // One plan sized by its effort: 14 points gathered by its tag, nobody started.
+        await a.EntryAsync("# Ship the sync\n`task` `!ready` `+ship` `effort:14`\n");
+        var imported = await a.Planning(planning => planning.ImportPlanItemsAsync(
+            [new PlanImportEntryDto("Ship", "ship", RepositoryAliases: [])],
+            cancellationToken: Cancellation));
+        Assert.True(imported.IsSuccess);
+        Assert.True((await a.SyncAsync()).IsSuccess);
+        Assert.True((await b.SyncAsync()).IsSuccess);
+
+        var ship = Assert.Single((await b.Planning(planning => planning.GetPlanAsync())).Items);
+        var onB = b.Roadmap();
+        // 14 points at the untouched 7 a week: two weeks.
+        onB.WaitForAssertion(() => Assert.Equal((ship.Start, 14), DrawnWindow(onB, ship.Id)));
+
+        await b.AddItemAsync("Edited on B meanwhile");
+
+        var onA = a.Roadmap();
+        onA.WaitForElement("[data-testid='roadmap-pace-manual'] input").Change("14");
+        onA.WaitForAssertion(() => Assert.Equal((ship.Start, 7), DrawnWindow(onA, ship.Id)));
+
+        Assert.True((await a.SyncAsync()).IsSuccess);
+        Assert.True((await b.SyncAsync()).IsSuccess);
+        Assert.True((await a.SyncAsync()).IsSuccess);
+
+        // B's edit survived on both: A's pace change sent no plan to win over it.
+        Assert.Equal(await b.PlanCopyAsync(), await a.PlanCopyAsync());
+        Assert.Contains(
+            (await a.Planning(planning => planning.GetPlanAsync())).Items,
+            item => item.Title == "Edited on B meanwhile");
+
+        // And B draws what A draws, from the pace alone.
+        Assert.Equal(14m, b.Pace.StoryPointsPerWeek);
+        onB.WaitForAssertion(() => Assert.Equal((ship.Start, 7), DrawnWindow(onB, ship.Id)));
+        Assert.Equal(ship.End, Assert.Single(
+            (await b.Planning(planning => planning.GetPlanAsync())).Items,
+            item => item.Id == ship.Id).End);
+    }
+
+    /// <summary>Where a device's chart draws an item: its first day and how many days
+    /// its bars cover.</summary>
+    private static (DateOnly Start, int Days) DrawnWindow(IRenderedComponent<RoadmapBand> band, Guid itemId)
+    {
+        var bars = band.FindComponent<RoadmapTimeline>().Instance.Bars
+            .Where(bar => RoadmapPlanView.NodeIdOf(bar.Id) == itemId)
+            .ToList();
+        Assert.NotEmpty(bars);
+
+        var start = bars.Min(bar => bar.Start);
+        return (start, bars.Max(bar => bar.End).DayNumber - start.DayNumber + 1);
+    }
+
     /// <summary>ADR 0018 Verification 5: B has no plan row and no velocity file, pairs
     /// and syncs. It pushes nothing, and afterwards holds A's plan and pace; A still
     /// holds its own.</summary>
@@ -255,6 +324,35 @@ public sealed class RoadmapSyncBetweenDevicesTests : IDisposable
             return await use(scope.ServiceProvider.GetRequiredService<IPlanningVelocity>());
         }
 
+        /// <summary>
+        /// The roadmap open on this device: the real band, resolving what it injects
+        /// from this device's own composition, so what it draws is what this device
+        /// holds and what it writes is written here. Disposed with the device.
+        /// </summary>
+        public IRenderedComponent<RoadmapBand> Roadmap()
+        {
+            var scope = _provider.CreateScope();
+            var ui = new BunitContext();
+            ui.JSInterop.Mode = JSRuntimeMode.Loose;
+            ui.Services.AddFallbackServiceProvider(scope.ServiceProvider);
+            _open.Add(ui);
+            _open.Add(scope);
+
+            var band = ui.Render<RoadmapBand>();
+            band.WaitForElement("[data-testid='roadmap-timeline']");
+            return band;
+        }
+
+        private readonly List<IDisposable> _open = [];
+
+        public async Task EntryAsync(string text)
+        {
+            using var scope = _provider.CreateScope();
+            var saved = await scope.ServiceProvider.GetRequiredService<ITaskItems>()
+                .SaveFromTextAsync(null, text, 0, cancellationToken: Cancellation);
+            Assert.True(saved.IsSuccess);
+        }
+
         public async Task AddItemAsync(string title)
         {
             var added = await Planning(planning => planning.AddItemAsync(
@@ -283,6 +381,8 @@ public sealed class RoadmapSyncBetweenDevicesTests : IDisposable
 
         public void Dispose()
         {
+            // The open roadmaps first: each holds a scope of the provider below.
+            foreach (var open in Enumerable.Reverse(_open)) open.Dispose();
             _http.Dispose();
             _provider.Dispose();
         }

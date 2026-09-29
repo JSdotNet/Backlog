@@ -26,9 +26,10 @@ namespace Backlog.Modules.Roadmap.Services;
 /// </para>
 /// <para>
 /// Read on every call and kept nowhere, so a task ticked off is in the next reading.
-/// A person changing the pace or the choice re-lengthens the windows the importer
-/// still owns; finished work moving a measured pace does not (ADR 0013, ruling 5 as
-/// amended).
+/// The windows the importer still owns are read at the pace in use wherever they are
+/// drawn or reported (<c>EffortWindow</c>), so a person changing the pace or the
+/// choice — or finished work moving a measured pace — redraws them without writing the
+/// plan (ADR 0013, ruling 5 as amended; local ADR 0018).
 /// </para>
 /// </summary>
 internal sealed class PlanningPace(

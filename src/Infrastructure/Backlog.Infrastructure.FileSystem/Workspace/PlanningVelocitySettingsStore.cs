@@ -26,8 +26,9 @@ namespace Backlog.Infrastructure.FileSystem;
 /// This is a <em>reading preference</em> (ADR 0013, ruling 4). It decides how long
 /// an imported plan's bar is drawn when the plan states no due date — gathered
 /// effort ÷ this, in calendar days, rounded up — and it registers no estimate
-/// against anything. A change is re-drawn by the roadmap, which re-lengthens every
-/// window the importer still owns (ADR 0013, ruling 5 as amended).
+/// against anything. A change is re-drawn by the roadmap, which reads every window
+/// the importer still owns at the pace in use and writes nothing to the plan (ADR
+/// 0013, ruling 5 as amended; local ADR 0018).
 /// </para>
 /// <para>
 /// A file from before the pace was a week holds <c>storyPointsPerDay</c> and no

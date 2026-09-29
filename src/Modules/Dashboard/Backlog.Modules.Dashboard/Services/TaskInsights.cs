@@ -119,9 +119,11 @@ internal sealed class TaskInsights(ICompletedTaskSource source, IPlanProgressSou
     /// drawn past its end. It departs in one place: an open entry nobody estimated counts
     /// nothing here where the bar counts it a point, because the section reports it as
     /// unestimated and a figure that also guessed at it would count it twice. An item
-    /// placed by effort is not judged at all: ADR 0013 ruling 4, as amended with ruling 5, has its window
-    /// re-projected from the effort not yet done at the pace in use, so its end is
-    /// already the projection and it could never read as behind.
+    /// placed by effort is not judged at all: its end is not a date anybody set but one
+    /// read off the plan each time — its whole gathered effort at its pace in use, from
+    /// its planned start (ADR 0013 rulings 4 and 5 as amended; local ADR 0018) — so there
+    /// is no promised end for it to be behind. Once its work has begun the roadmap draws
+    /// it from the work instead; this section reports the effort-sized end either way.
     /// </remarks>
     private static PlanItemInsight Outlook(PlanItemProgress item, DateOnly today)
     {

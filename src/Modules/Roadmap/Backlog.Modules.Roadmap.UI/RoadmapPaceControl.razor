@@ -20,9 +20,10 @@
     unfiled band carries the default pace (Repository unset), measured over all of it.
 
     A choice here that alters the pace in use is reported through OnPaceChanged, and
-    the band re-lengthens every bar still sized by its effort, each at its own
-    repository's pace (ADR 0013, ruling 5 as amended). Finished work moving a measured
-    figure is not a change anybody made, so it redraws the figures and moves no bar.
+    the band redraws every bar still sized by its effort, each at its own repository's
+    pace (ADR 0013, ruling 5 as amended). Those windows are read, not stored (local ADR
+    0018), so the choice writes the pace and nothing else — and finished work moving a
+    measured figure moves those bars too, since they are drawn at the pace in use.
 *@
 @implements IDisposable
 @inject IPlanningPace Pace
@@ -94,8 +95,8 @@
     public string? Repository { get; set; }
 
     /// <summary>Raised after the reader chose a stretch that changed the pace
-    /// placement uses for this control's scope, so the band can re-lengthen the bars
-    /// sized by it. Not raised for a choice that leaves the pace in use where it
+    /// placement uses for this control's scope, so the band can redraw the bars sized
+    /// by it. Not raised for a choice that leaves the pace in use where it
     /// was.</summary>
     [Parameter]
     public EventCallback OnPaceChanged { get; set; }

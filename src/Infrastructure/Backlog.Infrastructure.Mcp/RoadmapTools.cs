@@ -1,5 +1,6 @@
 using System.ComponentModel;
 
+using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Tasks.Abstractions.Services;
 
@@ -28,9 +29,21 @@ namespace Backlog.Infrastructure.Mcp;
 /// <c>list_entries</c>, which has nothing to do with the roadmap. One port per
 /// class keeps a group's cost to the group.
 /// </para>
+/// <para>
+/// <b>Windows as the roadmap draws them.</b> An item the import sized by its effort is
+/// answered with the end its gathered effort reaches at its pace in use
+/// (<see cref="EffortWindow"/>), not the end stored when it was placed: a pace change
+/// writes nothing to the plan (local ADR 0018). The rollup and the pace are optional
+/// for the same reason the class is its own: a head that composes the plan without the
+/// backlog still answers — with the stored windows.
+/// </para>
 /// </summary>
 [McpServerToolType]
-public sealed class RoadmapTools(IRoadmapPlanning planning, IRepositoryDirectory repositories)
+public sealed class RoadmapTools(
+    IRoadmapPlanning planning,
+    IRepositoryDirectory repositories,
+    IRoadmapItemRollup? rollups = null,
+    IPlanningVelocity? velocity = null)
 {
     internal const string GetRoadmap = "get_roadmap";
 
@@ -44,6 +57,12 @@ public sealed class RoadmapTools(IRoadmapPlanning planning, IRepositoryDirectory
         var scope = RepositoryScope.Resolve(repositories, repository).ValueOrThrow();
 
         var plan = await planning.GetPlanAsync(cancellationToken).ConfigureAwait(false);
+        if (rollups is not null && velocity is not null)
+        {
+            // Only this repository's slice is gathered: gathering walks the backlog.
+            var slice = plan with { Items = [.. plan.Items.Where(item => Names(item.RepositoryAliases, scope.Alias))] };
+            plan = await slice.WithDerivedWindowsAsync(rollups, velocity, cancellationToken).ConfigureAwait(false);
+        }
 
         // Aliases here, ids in the backlog tools, and the difference is not an
         // inconsistency to be smoothed over: the plan files work under the short
