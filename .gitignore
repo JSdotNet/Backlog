@@ -60,6 +60,18 @@ CodeCoverage/
 TestResult.xml
 nunit-*.xml
 
+# IDE state and per-user settings, for an IDE opened anywhere in the repository
+.vs/
+.idea/
+*.user
+*.suo
+
+# Publish profiles (Visual Studio writes them under Properties/PublishProfiles/)
+*.pubxml
+
+# npm dependencies (tools/archify, src/App/Backlog.Ide.VsCode)
+node_modules/
+
 # Scratch space for work in progress: QA evidence, notes, throwaway artifacts.
 .wip/
 
@@ -83,6 +95,9 @@ nunit-*.xml
 # Claude Code worktree sessions. The rest of .claude/ (rules/, skills/,
 # settings.json, hooks/) is tracked team configuration.
 .claude/worktrees/
+
+# Claude Code per-user settings; settings.json beside it is the shared one.
+.claude/settings.local.json
 
 # Local Android developer signing material created by build/Install-AndroidApp.ps1.
 # Never commit a keystore or its password; release signing comes from repo secrets.
