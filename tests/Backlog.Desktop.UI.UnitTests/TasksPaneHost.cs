@@ -70,10 +70,15 @@ internal sealed class TasksPaneHost : IDisposable
 
     /// <summary>As <see cref="CreateAsync(string[])"/>, and with the roadmap tag
     /// source the backlog picker offers planned tags from. A host with a roadmap
-    /// registers one; a test that cares about planned tags hands one in here.</summary>
+    /// registers one; a test that cares about planned tags hands one in here.
+    /// <paramref name="clock"/> is what the state's debounce, flash and dwell wait
+    /// on, for a test that wants to move time rather than sleep through it;
+    /// <paramref name="storeCalls"/> counts the state's calls into the use cases.</summary>
     public static async Task<TasksPaneHost> CreateAsync(
         IRoadmapTagSource? roadmapTags,
-        string[] repositories)
+        string[] repositories,
+        TimeProvider? clock = null,
+        TaskStoreCalls? storeCalls = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-pane-host", Guid.NewGuid().ToString("n"));
 
@@ -92,7 +97,7 @@ internal sealed class TasksPaneHost : IDisposable
         var gitHub = new GitHubIntegration(gitHubSettings, client, new ConnectedProbe());
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features.json"));
         var toasts = new ToastChannel();
-        var state = TasksTestHost.StateFor(store, gitHub, copilot: null, roadmapTags: roadmapTags, toasts: toasts);
+        var state = TasksTestHost.StateFor(store, gitHub, copilot: null, roadmapTags: roadmapTags, toasts: toasts, clock: clock, storeCalls: storeCalls);
 
         await state.InitializeAsync();
 
