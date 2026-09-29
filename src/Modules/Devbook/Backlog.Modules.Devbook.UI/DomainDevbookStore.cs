@@ -38,15 +38,19 @@ public sealed class DomainDevbookStore : IDisposable
     /// (it declares <c>index: root</c>); then <c>domain.md</c>, <c>actors.md</c>,
     /// <c>features.md</c> or <c>skills.md</c> — a context takes one of the two, so
     /// their relative order never shows — <c>requirements.md</c>,
-    /// <c>invariants.md</c>, <c>model.md</c>, <c>flow.md</c> and
-    /// <c>dependencies.md</c>, and after all of them the additional pages the
-    /// convention does not name. A legacy <c>index.md</c>, which some contexts
-    /// used as their root before contract 11, reads straight after the model
-    /// narrative, where it always has.</para>
+    /// <c>model.md</c>, <c>flow.md</c> and <c>dependencies.md</c>, and after all of
+    /// them the additional pages the convention does not name. A legacy
+    /// <c>index.md</c>, which some contexts used as their root before contract 11,
+    /// reads straight after the model narrative, where it always has, and a
+    /// contract-16 <c>invariants.md</c> after the requirements, where it did.</para>
     ///
     /// <para>A split file reads directly after the file it is named after, and in
     /// that file's place when the file itself is gone — which ranking by kind gives
-    /// for free, because a split file is the same kind as its base.</para>
+    /// for free, because a split file is the same kind as its base. An invariants
+    /// subpage reads directly after its domain page — <c>domain.md</c>,
+    /// <c>domain.invariants.md</c>, <c>domain.order.md</c>,
+    /// <c>domain.order.invariants.md</c> — which <see cref="InReadingOrder"/>
+    /// arranges, because the subpage is not its page's kind.</para>
     /// </summary>
     private static readonly DomainDevbookDocumentKind[] ContextReadingOrder =
     [
@@ -317,14 +321,42 @@ public sealed class DomainDevbookStore : IDisposable
     /// </summary>
     internal static IEnumerable<T> InReadingOrder<T>(IEnumerable<T> files, Func<T, string> fileName) =>
         files
-            .OrderBy(file => ReadingRank(KindFromFile(fileName(file))))
-            .ThenBy(file => IsSplitFile(fileName(file)) ? 1 : 0)
-            .ThenBy(fileName, StringComparer.OrdinalIgnoreCase);
+            .OrderBy(file => ReadingRank(fileName(file)))
+            .ThenBy(file => IsSplitFile(PageOf(fileName(file))) ? 1 : 0)
+            .ThenBy(file => PageOf(fileName(file)), StringComparer.OrdinalIgnoreCase)
+            .ThenBy(file => IsInvariantsSubpage(fileName(file)) ? 1 : 0);
 
-    private static int ReadingRank(DomainDevbookDocumentKind kind)
+    /// <summary>Where a file ranks. An invariants subpage is an
+    /// <see cref="DomainDevbookDocumentKind.Invariants"/> file that reads with its
+    /// domain page, so it ranks as that page does.</summary>
+    private static int ReadingRank(string file)
     {
+        var kind = IsInvariantsSubpage(file) ? DomainDevbookDocumentKind.Domain : KindFromFile(file);
         var rank = Array.IndexOf(ContextReadingOrder, kind);
         return rank < 0 ? ContextReadingOrder.Length : rank;
+    }
+
+    /// <summary>The page a file reads beside: an invariants subpage's domain page
+    /// — <c>domain.order.invariants.md</c> is <c>domain.order.md</c>'s — and any
+    /// other file itself.</summary>
+    private static string PageOf(string file)
+    {
+        var name = Path.GetFileName(file);
+        return IsInvariantsSubpage(name) ? name[..^InvariantsSubpageSuffix.Length] + ".md" : name;
+    }
+
+    private const string InvariantsSubpageSuffix = ".invariants.md";
+
+    /// <summary>Whether a file is the invariants subpage of a domain page —
+    /// <c>domain.invariants.md</c>, <c>domain.&lt;name&gt;.invariants.md</c>. Since
+    /// contract 17 a context's invariants live there rather than in a file of
+    /// their own; the trailing <c>.invariants</c> makes the file
+    /// <c>type: invariants</c>, not a split of <c>domain.md</c>.</summary>
+    internal static bool IsInvariantsSubpage(string file)
+    {
+        var name = Path.GetFileName(file);
+        return name.StartsWith("domain.", StringComparison.OrdinalIgnoreCase)
+            && name.EndsWith(InvariantsSubpageSuffix, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>Whether a file is <c>&lt;file&gt;.&lt;name&gt;.md</c> for a file that
@@ -531,7 +563,12 @@ public sealed class DomainDevbookStore : IDisposable
     /// <para><c>context-map.md</c> is here even though the loader passes its kind
     /// in directly: the map is a file like any other to a caller holding only a
     /// name, and leaving it out made this mapping right for all but one.</para>
-    /// <para>Contract 16's files, each by its name; a split file
+    /// <para>Contract 19's files, each by its name; an invariants subpage
+    /// (<c>domain.invariants.md</c>, <c>domain.order.invariants.md</c>) as
+    /// <see cref="DomainDevbookDocumentKind.Invariants"/>, the exception its name
+    /// spells out; contract 16's <c>invariants.md</c> and
+    /// <c>invariants.&lt;name&gt;.md</c> the same, since they still validate until
+    /// they are moved; a split file
     /// (<c>domain.order.md</c>) as the file it is named after, because it
     /// "carries the type of the file it came from"; and every other file as an
     /// additional page, whose type is its own filename. <c>naming.md</c> used to
@@ -554,6 +591,7 @@ public sealed class DomainDevbookStore : IDisposable
         "flow.md" => DomainDevbookDocumentKind.Flow,
         "dependencies.md" => DomainDevbookDocumentKind.Dependencies,
         "index.md" => DomainDevbookDocumentKind.Other,
+        var name when IsInvariantsSubpage(name) => DomainDevbookDocumentKind.Invariants,
         var name when name.EndsWith(".md", StringComparison.Ordinal) => SplitBase(name) ?? DomainDevbookDocumentKind.Page,
         _ => DomainDevbookDocumentKind.Other
     };
@@ -666,7 +704,7 @@ public sealed record DomainDevbookDocument(string Path, string Title, DomainDevb
 public sealed record DomainDevbookSection(string Title, int Level, string Status, IReadOnlyDictionary<string, string> Metadata, string Excerpt, IReadOnlyList<DomainDevbookDiagram> Diagrams, IReadOnlyList<string> Links, string Anchor);
 public sealed record DomainDevbookDiagram(string Title, string Kind, string Source, string Language);
 
-/// <summary>What a <c>.domain</c> file is — contract 16's file types, plus the
+/// <summary>What a <c>.domain</c> file is — contract 19's file types, plus the
 /// two this module needs of its own: an additional page, whose type is its own
 /// filename, and <see cref="Other"/>, which claims nothing.</summary>
 public enum DomainDevbookDocumentKind

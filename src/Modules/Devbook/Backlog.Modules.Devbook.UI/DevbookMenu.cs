@@ -211,7 +211,7 @@ public sealed class DevbookMenu(IDevbookFolderSource source)
                 .Where(path => isRoot || (!IsIndexMarkdown(path) && !string.Equals(path, indexPath, StringComparison.OrdinalIgnoreCase)))
                 .Select(path => (DiskPath: path, Node: new DevbookMenuNode(
                     Key(root, path),
-                    FileLabel(path),
+                    FileLabel(path, areaKey),
                     RelativePath(root, path),
                     DevbookMenuNodeKind.File,
                     areaKey,
@@ -449,10 +449,29 @@ public sealed class DevbookMenu(IDevbookFolderSource source)
         return relative == "." ? Path.GetFileName(root) : relative;
     }
 
-    private static string FileLabel(string path)
+    private static string FileLabel(string path, string? areaKey = null)
     {
+        if (areaKey == "domain" && InvariantsSubpageLabel(path) is { } subpage) return subpage;
+
         var name = Path.GetFileNameWithoutExtension(path);
         return name.Equals("README", StringComparison.OrdinalIgnoreCase) ? "README" : Humanize(name);
+    }
+
+    /// <summary>
+    /// A domain page's invariants subpage (contract 17), labelled by what it
+    /// holds: <c>domain.invariants.md</c> is "Invariants" and
+    /// <c>domain.order.invariants.md</c> "Order invariants". Title-casing the
+    /// filename drew them as "Domain.invariants", and their <c># Invariants</c>
+    /// titles (contract 18) are one word shared by every subpage, so neither
+    /// tells the rows apart the way this does. Null for any other file.
+    /// </summary>
+    private static string? InvariantsSubpageLabel(string path)
+    {
+        if (!DomainDevbookStore.IsInvariantsSubpage(path)) return null;
+
+        var stem = Path.GetFileName(path)[..^".invariants.md".Length];
+        var dot = stem.IndexOf('.');
+        return dot < 0 ? "Invariants" : $"{Humanize(stem[(dot + 1)..])} invariants";
     }
 
     /// <summary>Name segments that are acronyms rather than words, so a folder
