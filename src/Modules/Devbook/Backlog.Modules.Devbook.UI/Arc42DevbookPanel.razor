@@ -14,9 +14,22 @@
 *@
 
 <aside class="devbook-pane devbook-pane--arc42" data-testid="arc42-devbook-panel" aria-label="Architecture area">
-    @if (_loading)
+    @if (_loadError is not null)
     {
-        <Alert Message="Loading the architecture area..." BaseClass="devbook-empty" Role="status" />
+        @* The folder could not be read, so there is nothing to show but that and
+           the way back (.devbook/design/interaction-guidelines.md, Error States).
+           Retry is the load itself. *@
+        <Alert Message="@_loadError"
+               ActionLabel="Retry"
+               OnAction="() => LoadAsync()"
+               ActionTestId="arc42-load-retry"
+               TestId="arc42-load-error" />
+    }
+    else if (_loading)
+    {
+        @* The whole panel waits on one read and has nothing to lay out until it
+           is in, so the spinner rather than a skeleton — and never a sentence. *@
+        <Spinner Label="Loading the architecture area" TestId="arc42-loading" />
     }
     else if (_catalog is null || !_catalog.Exists)
     {
@@ -288,6 +301,9 @@
     private DevbookChapterEditor? _editor;
     private string? _chapterSaveError;
     private bool _loading = true;
+
+    /// <summary>Why the folder could not be read, when the last load failed.</summary>
+    private string? _loadError;
     private bool _editing;
     private string? _loadedRepositoryAlias;
 
@@ -396,8 +412,23 @@
     private async Task LoadAsync(string? selectedPath = null)
     {
         _loading = true;
-        await RefreshAsync(selectedPath);
-        _loading = false;
+        _loadError = null;
+
+        // Caught here and not in the refresh: a refresh has a catalog on screen to
+        // keep, and a failed first load has nothing — left to throw, it took the
+        // renderer's pipeline down and the loading line stayed up for good.
+        try
+        {
+            await RefreshAsync(selectedPath);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _loadError = $"Could not read the architecture area. {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
     }
 
     /// <summary>
@@ -428,6 +459,11 @@
         _catalog = catalog;
         _c4 = c4;
         _loadedRepositoryAlias = alias;
+
+        // The folder read, so an earlier failure no longer describes it. Cleared
+        // here rather than only by LoadAsync, because a folder change refreshes
+        // without it and the failure alert is drawn before the catalog.
+        _loadError = null;
 
         // A workspace that is gone must not stay selected. The explorer holds the view
         // and re-resolves it against whatever loaded, so only the workspace is checked
