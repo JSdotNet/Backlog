@@ -12,8 +12,9 @@ namespace Backlog.Modules.Sync.Features.CaptureInboxItem;
 /// the phone, the editor extension — to be picked up on the desktop
 /// later. Everything after <paramref name="Source"/> is optional: a
 /// <paramref name="Id"/> the client minted, so a retry is recognised; the notes
-/// beneath the title; tags; and a person, with or without its <c>@</c>. The
-/// endpoint has bounded all of them before this is built.</summary>
+/// beneath the title; tags; a person, with or without its <c>@</c>; and when
+/// the device made it. The endpoint has bounded all of them before this is
+/// built.</summary>
 public sealed record CaptureInboxItemCommand(
     OwnerScope Scope,
     string Title,
@@ -22,7 +23,8 @@ public sealed record CaptureInboxItemCommand(
     string? BodyMd = null,
     IReadOnlyList<string>? Tags = null,
     string? Person = null,
-    IReadOnlyList<AttachmentMetadata>? Attachments = null);
+    IReadOnlyList<AttachmentMetadata>? Attachments = null,
+    DateTimeOffset? CapturedAt = null);
 
 /// <summary>The capture the caller now has, and whether this call is what
 /// wrote it. <see cref="Created"/> is false for a retry that found its own
@@ -80,6 +82,14 @@ public sealed record CaptureOutcome(InboxItem Item, bool Created);
 /// written. So a capture on the replica never names a blob that is not there.
 /// What the document carries is the metadata as the capture sent it — the name
 /// is the capture's to give — and never a byte of the file.
+/// </para>
+/// <para>
+/// <b>The device's time is the capture's time.</b> A capture that says when it
+/// was made carries that as the document's creation stamp, which is what the
+/// inbox list and the desktop's intake read as when it was captured; one that
+/// does not is stamped on arrival. The change stamp is always the service's
+/// own: it orders writes on the replica, and a phone's clock has no say in
+/// that.
 /// </para>
 /// </summary>
 public sealed class CaptureInboxItemCommandHandler(ITaskReplica replica, IAttachmentStore attachments, TimeProvider clock)
@@ -142,7 +152,7 @@ public sealed class CaptureInboxItemCommandHandler(ITaskReplica replica, IAttach
                 MediumPriority,
                 Order: 0,
                 Area: null,
-                now,
+                command.CapturedAt ?? now,
                 // Where it was captured — the phone, the editor — which the
                 // desktop files the item under as its channel.
                 command.Source,

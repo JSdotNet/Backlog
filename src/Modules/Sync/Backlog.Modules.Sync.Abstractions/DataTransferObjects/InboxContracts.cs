@@ -32,6 +32,13 @@ namespace Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 /// differs from what was stored, so a capture on the replica never names a blob
 /// that is not there.
 /// </para>
+/// <para>
+/// <paramref name="CapturedAt"/> is when the capture was made on the device,
+/// which for a phone flushing its outbox after a day offline is hours before
+/// the service sees it. The service keeps it as the capture's time, within
+/// bounds of its own clock; without it the capture is stamped when it arrives,
+/// as it always was.
+/// </para>
 /// </summary>
 public sealed record CaptureRequest(
     string Title,
@@ -40,7 +47,8 @@ public sealed record CaptureRequest(
     string? BodyMd = null,
     IReadOnlyList<string>? Tags = null,
     string? Person = null,
-    IReadOnlyList<AttachmentMetadata>? Attachments = null);
+    IReadOnlyList<AttachmentMetadata>? Attachments = null,
+    DateTimeOffset? CapturedAt = null);
 
 /// <summary>
 /// An unsynced capture awaiting pickup by the desktop.

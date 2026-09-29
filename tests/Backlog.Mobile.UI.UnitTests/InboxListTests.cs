@@ -69,6 +69,38 @@ public sealed class InboxListTests
         Assert.Equal(1, inbox.Created);
     }
 
+    /// <summary>A talk note written with no network in the morning and flushed
+    /// three hours later still reads as written in the morning — before it leaves
+    /// the phone and after the service has it — because the capture carries the
+    /// time it was made and the service keeps it.</summary>
+    [Fact]
+    public void A_capture_made_offline_keeps_its_time_once_the_service_takes_it()
+    {
+        var clock = new FakeTimeProvider(Now);
+        var inbox = new ScriptedInboxService { State = InboxServiceState.Unreachable, Clock = clock };
+        using var host = ShellHost.Paired(inbox, clock: clock);
+        var app = host.Open();
+
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='inbox-pull-notice']")));
+        app.Find("[data-testid='capture-field'] input").Input("Ask the speaker for the slides");
+        app.Find("[data-testid='capture-submit']").Click();
+        app.WaitForAssertion(() => Assert.NotNull(app.Find("[data-testid='inbox-waiting']")));
+
+        inbox.State = InboxServiceState.Answering;
+        clock.Advance(TimeSpan.FromHours(3));
+
+        app.WaitForAssertion(() =>
+        {
+            var row = Assert.Single(app.FindAll("[data-testid='inbox-row']"));
+            Assert.Equal("false", row.GetAttribute("data-waiting"));
+            Assert.Equal("3h ago", row.QuerySelector("[data-testid='inbox-time']")!.TextContent);
+        });
+
+        // Every attempt, the failed one included, says the same time.
+        Assert.NotEmpty(inbox.Received);
+        Assert.All(inbox.Received, capture => Assert.Equal(Now, capture.CapturedAt));
+    }
+
     /// <summary>While the Cosmos emulator warms up the service answers 503
     /// <c>sync.replica_unavailable</c>. The phone shows what it pulled last, and
     /// a line saying why it is not newer — never a blank screen.</summary>

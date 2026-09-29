@@ -63,9 +63,10 @@ internal static class InboxEndpoints
         HttpContext context,
         CaptureRequest request,
         ICommandHandler<CaptureInboxItemCommand, Result<CaptureOutcome>> handler,
+        TimeProvider clock,
         CancellationToken cancellationToken)
     {
-        if (OutOfBounds(request) is { } refusal)
+        if (OutOfBounds(request, clock.GetUtcNow()) is { } refusal)
         {
             return SyncResults.From(context, Result.Failure<InboxItem>(refusal), Results.Ok);
         }
@@ -79,7 +80,8 @@ internal static class InboxEndpoints
                 request.BodyMd,
                 request.Tags,
                 request.Person,
-                request.Attachments),
+                request.Attachments,
+                request.CapturedAt),
             cancellationToken);
 
         return SyncResults.From(
@@ -100,9 +102,15 @@ internal static class InboxEndpoints
     /// do anything different about them, and the message says which field it
     /// was.
     /// </para>
+    /// <para>
+    /// The capture's time is measured against <paramref name="now"/>, the
+    /// service's own clock: a phone's clock is believed within a small skew
+    /// ahead and a year behind, and past either it is a clock set wrong.
+    /// </para>
     /// </summary>
-    private static Error? OutOfBounds(CaptureRequest request) =>
+    private static Error? OutOfBounds(CaptureRequest request, DateTimeOffset now) =>
         FieldsOutOfBounds(request)
+        ?? CapturedAtOutOfBounds(request.CapturedAt, now)
         ?? (request.Tags is { } tags ? TagsOutOfBounds(tags) : null)
         ?? (request.Attachments is { } attachments ? AttachmentsOutOfBounds(attachments) : null);
 
@@ -132,6 +140,17 @@ internal static class InboxEndpoints
         // One handle, because the desktop reads it back as one @name token.
         { Person: { } person } when person.Trim().TrimStart('@').Any(char.IsWhiteSpace) =>
             Invalid("A capture's person is one name, with no spaces."),
+
+        _ => null,
+    };
+
+    private static Error? CapturedAtOutOfBounds(DateTimeOffset? capturedAt, DateTimeOffset now) => capturedAt switch
+    {
+        { } at when at > now + SyncRequestLimits.MaximumCaptureClockSkew =>
+            Invalid($"A capture's time may be at most {SyncRequestLimits.MaximumCaptureClockSkew.TotalMinutes:0} minutes ahead of the service's clock."),
+
+        { } at when at < now - SyncRequestLimits.MaximumCaptureAge =>
+            Invalid($"A capture's time may be at most {SyncRequestLimits.MaximumCaptureAge.TotalDays:0} days old."),
 
         _ => null,
     };
