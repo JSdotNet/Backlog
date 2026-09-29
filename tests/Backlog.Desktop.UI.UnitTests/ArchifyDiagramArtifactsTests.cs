@@ -1,3 +1,5 @@
+using System.Security.AccessControl;
+using System.Security.Principal;
 using System.Text;
 using System.Text.Json;
 using Backlog.Infrastructure.Copilot;
@@ -506,6 +508,108 @@ public sealed class ArchifyDiagramArtifactsTests
     }
 
     /// <summary>
+    /// A knowledge folder that cannot be reached — a clone on a drive that went
+    /// away, a folder somebody locked down — is the same answer as no folder:
+    /// the diagrams everywhere else are still found.
+    /// </summary>
+    [Theory]
+    [InlineData(nameof(IOException))]
+    [InlineData(nameof(UnauthorizedAccessException))]
+    public void A_folder_that_cannot_be_resolved_for_io_reasons_is_skipped_and_the_others_still_answer(string failure)
+    {
+        using var workspace = ArchifyWorkspace.CreateArc42();
+        workspace.WriteChapter(RuntimeChapter, RuntimeFlow);
+
+        // `.domain` is asked first, so a skip that ended the scan would lose the
+        // `.arc42` chapter behind it.
+        workspace.FailResolve(".domain", failure == nameof(IOException)
+            ? new IOException("The network path was not found.")
+            : new UnauthorizedAccessException("Access is denied."));
+
+        using var artifacts = workspace.Artifacts();
+
+        Assert.NotNull(artifacts.Find(RuntimeFlow, "mermaid"));
+    }
+
+    /// <summary>
+    /// A bug in the folder source is not "no diagrams". Swallowing it made a
+    /// broken resolver indistinguishable from a repository with nothing drawn in
+    /// it; it has to surface where somebody will see it.
+    /// </summary>
+    [Fact]
+    public void A_folder_source_that_fails_for_any_other_reason_is_not_read_as_no_diagrams()
+    {
+        using var workspace = ArchifyWorkspace.CreateArc42();
+        workspace.WriteChapter(RuntimeChapter, RuntimeFlow);
+        workspace.FailResolve(".domain", new InvalidOperationException("The folder source is broken."));
+
+        using var artifacts = workspace.Artifacts();
+
+        var thrown = Assert.Throws<InvalidOperationException>(() => artifacts.Find(RuntimeFlow, "mermaid"));
+        Assert.Equal("The folder source is broken.", thrown.Message);
+    }
+
+    /// <summary>A chapter another process holds open cannot be read, and is
+    /// skipped; the chapter beside it is not.</summary>
+    [Fact]
+    public void A_chapter_that_cannot_be_read_is_skipped_and_its_neighbours_still_answer()
+    {
+        using var workspace = ArchifyWorkspace.CreateArc42();
+        workspace.WriteChapter(RuntimeChapter, RuntimeFlow);
+        workspace.WriteChapter(DeploymentChapter, DeploymentSequence);
+
+        using var locked = new FileStream(
+            Path.Combine(workspace.ChapterDirectory, DeploymentChapter), FileMode.Open, FileAccess.Read, FileShare.None);
+
+        using var artifacts = workspace.Artifacts();
+
+        Assert.NotNull(artifacts.Find(RuntimeFlow, "mermaid"));
+        Assert.Null(artifacts.Find(DeploymentSequence, "mermaid"));
+    }
+
+    /// <summary>A folder inside a knowledge folder that cannot be listed is
+    /// skipped; the chapters beside it are not.</summary>
+    [Fact]
+    public void A_directory_that_cannot_be_listed_is_skipped_and_its_neighbours_still_answer()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Assert.Skip("Denying a directory listing is set through a Windows ACL.");
+            return;
+        }
+
+        using var workspace = ArchifyWorkspace.CreateArc42();
+        workspace.WriteChapter(RuntimeChapter, RuntimeFlow);
+
+        var sealedFolder = new DirectoryInfo(Path.Combine(workspace.ChapterDirectory, "sealed"));
+        sealedFolder.Create();
+        File.WriteAllText(Path.Combine(sealedFolder.FullName, "hidden.md"), $"```mermaid\n{DeploymentSequence}\n```\n");
+
+        var deny = new FileSystemAccessRule(
+            new SecurityIdentifier(WellKnownSidType.WorldSid, null),
+            FileSystemRights.ListDirectory,
+            AccessControlType.Deny);
+        var security = sealedFolder.GetAccessControl();
+        security.AddAccessRule(deny);
+        sealedFolder.SetAccessControl(security);
+
+        try
+        {
+            Assert.Throws<UnauthorizedAccessException>(() => Directory.GetFiles(sealedFolder.FullName));
+
+            using var artifacts = workspace.Artifacts();
+
+            Assert.NotNull(artifacts.Find(RuntimeFlow, "mermaid"));
+            Assert.Null(artifacts.Find(DeploymentSequence, "mermaid"));
+        }
+        finally
+        {
+            security.RemoveAccessRule(deny);
+            sealedFolder.SetAccessControl(security);
+        }
+    }
+
+    /// <summary>
     /// The chapter scan is cached, because it answers once per diagram per render.
     /// A moved folder, a new clone or a switched flag all change the answer, so
     /// the signal that any of them happened throws the whole scan away rather
@@ -762,6 +866,10 @@ file sealed class ArchifyWorkspace : IDisposable
     /// <summary>What a repointed clone or a moved knowledge folder raises.</summary>
     internal void MoveFolders() => _folders.Move();
 
+    /// <summary>Makes resolving one knowledge folder throw, the way a folder
+    /// source reading an unreachable clone — or a broken one — would.</summary>
+    internal void FailResolve(string key, Exception failure) => _folders.Failures[key] = failure;
+
     /// <summary>Writes a chapter whose mermaid fences are the sources given, in
     /// order, with the line ending a checkout would have left behind. A test that
     /// cares when the chapter was written says so, because the rebuild signature
@@ -896,10 +1004,15 @@ file sealed class FakeDevbookFolderSource(string root) : IDevbookFolderSource
 
     public string StorageDirectory => root;
 
+    /// <summary>What resolving a key throws instead of answering.</summary>
+    internal Dictionary<string, Exception> Failures { get; } = new(StringComparer.Ordinal);
+
     public IReadOnlyList<DevbookFolderSetting> Folders(string? repositoryAlias) => [];
 
     public DevbookFolderLocation Resolve(string key, string? repositoryAlias = null)
     {
+        if (Failures.TryGetValue(key, out var failure)) throw failure;
+
         var full = Path.Combine(root, key);
 
         return Directory.Exists(full)
