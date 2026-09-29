@@ -23,6 +23,7 @@ using Backlog.Modules.Inbox.Features.RenameList;
 using Backlog.Modules.Inbox.Features.RetryAttachment;
 using Backlog.Modules.Inbox.Features.ResurfaceDueItems;
 using Backlog.Modules.Inbox.Features.ResurfaceItem;
+using Backlog.Modules.Inbox.Features.RouteBatchToBacklog;
 using Backlog.Modules.Inbox.Features.RouteToBacklog;
 using Backlog.Modules.Inbox.Features.SetTags;
 using Backlog.Modules.Inbox.Features.Suggest;
@@ -72,6 +73,7 @@ public static class InboxModuleRegistration
         services.AddScoped<ICommandHandler<ResurfaceDueItemsCommand, Result<int>>, ResurfaceDueItemsCommandHandler>();
         services.AddScoped<ICommandHandler<RouteToBacklogCommand, Result<InboxRoutedDto>>, RouteToBacklogCommandHandler>();
         services.AddScoped<ICommandHandler<CreatePlanCommand, Result<InboxRoutedDto>>, CreatePlanCommandHandler>();
+        services.AddScoped<ICommandHandler<RouteBatchToBacklogCommand, Result<InboxBatchRoutedDto>>, RouteBatchToBacklogCommandHandler>();
         services.AddScoped<ICommandHandler<CreateListCommand, Result<InboxListDto>>, CreateListCommandHandler>();
         services.AddScoped<ICommandHandler<RenameListCommand, Result>, RenameListCommandHandler>();
         services.AddScoped<ICommandHandler<DeleteListCommand, Result>, DeleteListCommandHandler>();

@@ -36,7 +36,7 @@ namespace Backlog.Infrastructure.FileSystem.Inbox;
 /// on a title line. The capture said it; the entry keeps it.
 /// </para>
 /// </summary>
-internal sealed partial class InboxBacklogTarget(ITaskItems tasks) : IInboxBacklogTarget
+internal sealed partial class InboxBacklogTarget(ITaskItems tasks, IRepositoryDirectory repositories) : IInboxBacklogTarget
 {
     public async Task<Result<IReadOnlyList<Guid>>> CreateTasksAsync(
         InboxRouteRequestDto request,
@@ -78,6 +78,126 @@ internal sealed partial class InboxBacklogTarget(ITaskItems tasks) : IInboxBackl
 
         return created;
     }
+
+    /// <summary>
+    /// The batch as one import document: each item's entries exactly as
+    /// <see cref="CreateTasksAsync"/> would write them, plus the batch's plan tag
+    /// and an <c>id:</c> naming the item — <c>{item}/{repo}</c> when the item has
+    /// several repositories, so every id stays one entry's inside the document.
+    /// The ids are what the import's answer is matched back by, and what the
+    /// per-entry source map is keyed on, so each entry is stamped with its own
+    /// item and born Draft by the same rule as a single route.
+    /// <para>
+    /// Each item is decided on its own before anything is written, and one that
+    /// cannot go is left out — named, with its reason — rather than taking the
+    /// batch down with it. Two reasons. Notes that would not stay one entry
+    /// inside a document: a top-level heading splits there, an unclosed fence
+    /// hides the next item's heading. And a repository the workspace does not
+    /// know: Tasks' import registers a <c>repo:</c> it has never seen, where the
+    /// single route's save only resolves one, so a batch asks the registry the
+    /// same read-only question the save does and never lets the import register.
+    /// </para>
+    /// </summary>
+    public async Task<InboxBatchTargetResultDto> CreateBatchTasksAsync(
+        InboxBatchRouteRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var document = new StringBuilder();
+        var sources = new Dictionary<string, string>(StringComparer.Ordinal);
+        var sent = new List<(Guid Item, IReadOnlyList<string> ImportItemIds)>(request.Items.Count);
+        var refused = new List<(int Position, InboxBatchFailureDto Failure)>();
+
+        for (var position = 0; position < request.Items.Count; position++)
+        {
+            var item = request.Items[position];
+
+            if (Unsendable(item, request.PlanTag) is { } reason)
+            {
+                refused.Add((position, new InboxBatchFailureDto(item.InboxItemId, reason)));
+                continue;
+            }
+
+            var itemId = item.InboxItemId.ToString("D");
+            IReadOnlyList<string?> targets = item.RepoIds.Count == 0 ? [null] : [.. item.RepoIds];
+            var importItemIds = new List<string>(targets.Count);
+
+            foreach (var repo in targets)
+            {
+                var importItemId = ImportItemId(itemId, repo, targets.Count);
+                if (document.Length > 0) document.Append('\n');
+                document.Append(Compose(item, repo, request.PlanTag, importItemId));
+                sources[importItemId] = itemId;
+                importItemIds.Add(importItemId);
+            }
+
+            sent.Add((item.InboxItemId, importItemIds));
+        }
+
+        if (sent.Count == 0) return new InboxBatchTargetResultDto([], Ordered(refused));
+
+        var imported = await tasks
+            .ImportPlanAsync(document.ToString(), defaultRepo: null, repoMatches: null, sourceInboxId: null, sourceInboxIds: sources, cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+
+        if (imported.IsFailure) return new InboxBatchTargetResultDto([], Ordered(refused), imported.Error);
+
+        var byImportItemId = imported.Value.Entries
+            .Where(entry => entry.ImportItemId is not null)
+            .GroupBy(entry => entry.ImportItemId!, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First().Id, StringComparer.Ordinal);
+
+        var routed = new List<InboxRoutedDto>(sent.Count);
+        var positions = request.Items.Select((item, index) => (item.InboxItemId, index)).ToDictionary(pair => pair.InboxItemId, pair => pair.index);
+
+        foreach (var (item, importItemIds) in sent)
+        {
+            var made = importItemIds
+                .Where(byImportItemId.ContainsKey)
+                .Select(importItemId => byImportItemId[importItemId])
+                .ToList();
+
+            // Written already, so not a refusal of the batch: the other items
+            // are routed, and whatever was made for this one is named.
+            if (made.Count == importItemIds.Count) routed.Add(new InboxRoutedDto(item, made));
+            else refused.Add((positions[item], new InboxBatchFailureDto(item, InboxErrors.BatchItemMissing(made))));
+        }
+
+        return new InboxBatchTargetResultDto(routed, Ordered(refused));
+    }
+
+    /// <summary>Why an item cannot go into a batch's document, or null when it
+    /// can: a repository the workspace does not know, or notes that would not
+    /// stay one entry inside the document.</summary>
+    private Error? Unsendable(InboxRouteRequestDto item, string planTag)
+    {
+        if (item.RepoIds.FirstOrDefault(repo => repositories.Resolve(repo.Trim()) is null) is { } unknown)
+        {
+            return InboxErrors.BatchUnknownRepository(unknown.Trim());
+        }
+
+        var itemId = item.InboxItemId.ToString("D");
+        IReadOnlyList<string?> targets = item.RepoIds.Count == 0 ? [null] : [.. item.RepoIds];
+
+        return targets.All(repo => StandsAlone(Compose(item, repo, planTag, ImportItemId(itemId, repo, targets.Count))))
+            ? null
+            : InboxErrors.BatchItemNotSeparable;
+    }
+
+    private static string ImportItemId(string itemId, string? repo, int targets) =>
+        targets > 1 ? $"{itemId}/{repo!.Trim()}" : itemId;
+
+    private static List<InboxBatchFailureDto> Ordered(List<(int Position, InboxBatchFailureDto Failure)> refused) =>
+        [.. refused.OrderBy(entry => entry.Position).Select(entry => entry.Failure)];
+
+    /// <summary>Whether one composed entry stays one entry inside a document:
+    /// it splits into no second segment, and it leaves no fence open to hide the
+    /// next entry's heading. Asked of the parser the import splits with, and of
+    /// fences the way it counts them.</summary>
+    private static bool StandsAlone(string entry) =>
+        EntryTextParser.SplitSegments(entry).Count == 1
+        && entry.Split('\n').Count(line => line.TrimStart().StartsWith("```", StringComparison.Ordinal)) % 2 == 0;
 
     public async Task<Result<IReadOnlyList<Guid>>> ImportPlanAsync(
         string planMarkdown,
@@ -138,7 +258,11 @@ internal sealed partial class InboxBacklogTarget(ITaskItems tasks) : IInboxBackl
     /// because the layout it writes is its own to keep.
     /// </para>
     /// </summary>
-    internal static string Compose(InboxRouteRequestDto request, string? repo)
+    internal static string Compose(
+        InboxRouteRequestDto request,
+        string? repo,
+        string? planTag = null,
+        string? importItemId = null)
     {
         var text = new StringBuilder();
 
@@ -153,7 +277,11 @@ internal sealed partial class InboxBacklogTarget(ITaskItems tasks) : IInboxBackl
             text.Append(" `#").Append(tag).Append('`');
         }
 
+        // A batch's two tokens: the plan the entry belongs to, sigil and all,
+        // and the name it goes by inside the batch's document.
+        if (!string.IsNullOrWhiteSpace(planTag)) text.Append(" `").Append(planTag.Trim()).Append('`');
         if (!string.IsNullOrWhiteSpace(repo)) text.Append(" `repo:").Append(repo.Trim()).Append('`');
+        if (!string.IsNullOrWhiteSpace(importItemId)) text.Append(" `id:").Append(importItemId).Append('`');
 
         text.Append('\n');
 

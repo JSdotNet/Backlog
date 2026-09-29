@@ -1484,6 +1484,252 @@ public sealed class InboxPaneTests
 
     // --- The state's own arithmetic -----------------------------------------
 
+    // --- Routing a batch --------------------------------------------------------
+
+    [Fact]
+    public async Task Move_to_backlog_across_the_selection_routes_it_as_one_batch_and_refreshes_tasks_once()
+    {
+        using var harness = Harness.Create();
+        var items = SeedNewestFirst(harness, "One", "Two", "Three");
+        var batches = new List<InboxBatchRoutedDto>();
+        var singles = new List<InboxRoutedDto>();
+        harness.State.BatchRouted += batches.Add;
+        harness.State.Routed += singles.Add;
+
+        var pane = await harness.RenderAsync();
+        await pane.Find("[data-testid='inbox-select-toggle']").ClickAsync(new());
+        await PickAsync(pane, items[0].Id);
+        await PickAsync(pane, items[1].Id);
+        await pane.Find("[data-testid='inbox-bulk-backlog']").ClickAsync(new());
+
+        var route = Assert.Single(harness.Inbox.BatchRoutes);
+        Assert.Equal([items[0].Id, items[1].Id], route.Ids);
+        Assert.Null(route.ListId);
+        Assert.Matches(@"^\+inbox-batch-[0-9a-f]{8}$", route.PlanTag);
+
+        var batch = Assert.Single(batches);
+        Assert.Equal([items[0].Id, items[1].Id], batch.Routed.Select(routed => routed.InboxItemId));
+        Assert.Empty(singles);
+        Assert.All(items.Take(2), item => Assert.NotNull(harness.Inbox.Find(item.Id)!.Routing));
+        Assert.Null(harness.Inbox.Find(items[2].Id)!.Routing);
+
+        var toast = Assert.Single(harness.Toasts.Visible, toast => toast.TestId == InboxDesktopState.BulkResultTestId);
+        Assert.Equal(ToastSeverity.Info, toast.Severity);
+        Assert.Equal($"2 items moved to the backlog as {route.PlanTag}.", toast.Message);
+    }
+
+    [Fact]
+    public async Task A_decided_item_in_the_selection_is_named_and_never_sent_and_the_rest_still_go()
+    {
+        using var harness = Harness.Create();
+        var open = harness.Inbox.Seed("Open", capturedAt: harness.Inbox.Now.AddMinutes(1));
+        var decided = harness.Inbox.Seed("Decided", status: InboxStatus.Triaged);
+
+        var pane = await harness.RenderAsync();
+        await pane.InvokeAsync(() => harness.State.SetSelectAllVisible(true));
+        var outcome = await pane.InvokeAsync(() => harness.State.BulkRouteToBacklogAsync());
+
+        Assert.Equal(1, outcome.Changed);
+        Assert.Equal(decided.Id, Assert.Single(outcome.Failures).Id);
+        Assert.Equal([open.Id], Assert.Single(harness.Inbox.BatchRoutes).Ids);
+
+        var toast = Assert.Single(harness.Toasts.Visible, toast => toast.TestId == InboxDesktopState.BulkResultTestId);
+        Assert.Equal(ToastSeverity.Warning, toast.Severity);
+        Assert.StartsWith("1 item moved to the backlog as +inbox-batch-", toast.Message, StringComparison.Ordinal);
+        Assert.Contains("\"Decided\": Already routed or archived", toast.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_batch_tasks_refused_moves_nothing_and_the_toast_says_so_once()
+    {
+        using var harness = Harness.Create();
+        var items = SeedNewestFirst(harness, "One", "Two");
+        harness.Inbox.RefuseBatch = Error.Validation("import.duplicate_item_id", "Two entries both claim it.");
+        var batches = new List<InboxBatchRoutedDto>();
+        harness.State.BatchRouted += batches.Add;
+
+        var pane = await harness.RenderAsync();
+        await pane.InvokeAsync(() => harness.State.SetSelectAllVisible(true));
+        var outcome = await pane.InvokeAsync(() => harness.State.BulkRouteToBacklogAsync());
+
+        Assert.Equal(0, outcome.Changed);
+        Assert.Equal(2, outcome.Failures.Count);
+        Assert.All(items, item => Assert.Null(harness.Inbox.Find(item.Id)!.Routing));
+        Assert.Empty(batches);
+
+        var toast = Assert.Single(harness.Toasts.Visible, toast => toast.TestId == InboxDesktopState.BulkResultTestId);
+        Assert.Equal(ToastSeverity.Warning, toast.Severity);
+        Assert.Equal(
+            "The whole batch was refused, so nothing was routed and every item is still in the Inbox. Two entries both claim it.",
+            toast.Message);
+    }
+
+    [Fact]
+    public async Task Move_list_to_backlog_confirms_then_routes_the_lists_open_items_and_keeps_the_list()
+    {
+        using var harness = Harness.Create();
+        var reading = harness.Inbox.SeedList("Reading List");
+        var first = harness.Inbox.Seed("First article", listId: reading.Id, capturedAt: harness.Inbox.Now.AddMinutes(2));
+        var second = harness.Inbox.Seed("Second article", listId: reading.Id, capturedAt: harness.Inbox.Now.AddMinutes(1));
+        harness.Inbox.Seed("Already routed", listId: reading.Id, status: InboxStatus.Triaged);
+        harness.Inbox.Seed("Not in the list");
+        var batches = new List<InboxBatchRoutedDto>();
+        harness.State.BatchRouted += batches.Add;
+
+        var pane = await harness.RenderAsync();
+        Assert.Empty(pane.FindAll("[data-testid='inbox-list-to-backlog']"));
+
+        await pane.Find($"[data-testid='inbox-nav-{InboxDesktopState.ListNavId(reading.Id)}']").ClickAsync(new());
+        await pane.Find("[data-testid='inbox-list-to-backlog']").ClickAsync(new());
+
+        var dialog = pane.Find("[data-testid='inbox-list-to-backlog-dialog']");
+        Assert.Contains("Move 2 open items of Reading List to the backlog as one plan tagged +reading-list-…?", dialog.TextContent);
+        Assert.Empty(harness.Inbox.BatchRoutes);
+
+        await pane.Find("[data-testid='inbox-list-to-backlog-confirm']").ClickAsync(new());
+
+        var route = Assert.Single(harness.Inbox.BatchRoutes);
+        Assert.Equal([first.Id, second.Id], route.Ids);
+        Assert.Equal(reading.Id, route.ListId);
+        Assert.Matches(@"^\+reading-list-[0-9a-f]{8}$", route.PlanTag);
+        Assert.Single(batches);
+        Assert.Contains(harness.Inbox.Lists, list => list.Id == reading.Id);
+        Assert.Empty(pane.FindAll("[data-testid='inbox-list-to-backlog-dialog']"));
+
+        // Nothing open is left, so the action says why it has nothing to do.
+        var button = pane.Find("[data-testid='inbox-list-to-backlog']");
+        Assert.True(button.HasAttribute("disabled"));
+        Assert.Equal("Nothing open in Reading List to move.", button.GetAttribute("title"));
+    }
+
+    /// <summary>An item the adapter could not put into the document is named
+    /// like any other refusal in a bulk sentence — not as a refused batch — and
+    /// the rest still go.</summary>
+    [Fact]
+    public async Task An_item_left_out_of_the_batch_is_named_like_any_refusal_and_the_rest_still_go()
+    {
+        using var harness = Harness.Create();
+        var items = SeedNewestFirst(harness, "Fine", "Clipped article");
+        harness.Inbox.LeaveOutOfBatch[items[1].Id] = InboxErrors.BatchItemNotSeparable;
+
+        var pane = await harness.RenderAsync();
+        await pane.InvokeAsync(() => harness.State.SetSelectAllVisible(true));
+        var outcome = await pane.InvokeAsync(() => harness.State.BulkRouteToBacklogAsync());
+
+        Assert.Equal(1, outcome.Changed);
+        Assert.NotNull(harness.Inbox.Find(items[0].Id)!.Routing);
+        Assert.Null(harness.Inbox.Find(items[1].Id)!.Routing);
+
+        var toast = Assert.Single(harness.Toasts.Visible, toast => toast.TestId == InboxDesktopState.BulkResultTestId);
+        Assert.Equal(ToastSeverity.Warning, toast.Severity);
+        Assert.Equal(
+            $"1 item moved to the backlog as {harness.Inbox.BatchRoutes.Single().PlanTag}. Not changed — \"Clipped article\": {InboxErrors.BatchItemNotSeparable.Message}",
+            toast.Message);
+    }
+
+    /// <summary>One routing at a time: while a batch is in flight the detail's
+    /// Move to backlog waits, and a keyboard reaching its handler anyway routes
+    /// nothing.</summary>
+    [Fact]
+    public async Task A_batch_in_flight_holds_the_single_route()
+    {
+        using var harness = Harness.Create();
+        var items = SeedNewestFirst(harness, "One", "Two");
+        var release = new TaskCompletionSource();
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, items[0].Id);
+        await pane.InvokeAsync(() => harness.State.SetSelectAllVisible(true));
+
+        harness.Inbox.BeforeRoute = () => release.Task;
+        var batch = pane.InvokeAsync(() => harness.State.BulkRouteToBacklogAsync());
+
+        pane.WaitForAssertion(() => Assert.True(pane.Find("[data-testid='inbox-move-to-backlog']").HasAttribute("disabled")));
+        // Not awaited before the release: were the guard missing, the route
+        // would sit on the same gate — and the count below would already say so.
+        var single = pane.InvokeAsync(() => harness.State.RouteToBacklogAsync());
+        var calls = harness.Inbox.SingleRouteCalls;
+
+        release.SetResult();
+        await batch;
+        await single;
+        Assert.Equal(0, calls);
+        Assert.Single(harness.Inbox.BatchRoutes);
+    }
+
+    [Fact]
+    public async Task A_single_route_in_flight_holds_the_batch_route()
+    {
+        using var harness = Harness.Create();
+        var items = SeedNewestFirst(harness, "One", "Two");
+        var release = new TaskCompletionSource();
+
+        var pane = await harness.RenderAsync();
+        await harness.SelectAsync(pane, items[0].Id);
+
+        harness.Inbox.BeforeRoute = () => release.Task;
+        var single = pane.InvokeAsync(() => harness.State.RouteToBacklogAsync());
+        await pane.InvokeAsync(() => harness.State.SetSelectAllVisible(true));
+
+        pane.WaitForAssertion(() => Assert.True(pane.Find("[data-testid='inbox-bulk-backlog']").HasAttribute("disabled")));
+        var batch = pane.InvokeAsync(() => harness.State.BulkRouteToBacklogAsync());
+        var batches = harness.Inbox.BatchRoutes.Count;
+
+        release.SetResult();
+        await single;
+        Assert.Equal(InboxBulkOutcome.Nothing, await batch);
+        Assert.Equal(0, batches);
+        Assert.Equal(1, harness.Inbox.SingleRouteCalls);
+    }
+
+    /// <summary>Deferred items stay in the list when it is routed; the confirm
+    /// says so, and says nothing about them when there are none.</summary>
+    [Fact]
+    public async Task The_list_confirm_says_the_deferred_items_stay_when_there_are_any()
+    {
+        using var harness = Harness.Create();
+        var reading = harness.Inbox.SeedList("Reading");
+        harness.Inbox.Seed("Open one", listId: reading.Id);
+        harness.Inbox.Seed("Later", listId: reading.Id, status: InboxStatus.Deferred);
+        harness.Inbox.Seed("Much later", listId: reading.Id, status: InboxStatus.Deferred);
+        var quiet = harness.Inbox.SeedList("Quiet");
+        harness.Inbox.Seed("Only open", listId: quiet.Id);
+
+        var pane = await harness.RenderAsync();
+        await pane.Find($"[data-testid='inbox-nav-{InboxDesktopState.ListNavId(reading.Id)}']").ClickAsync(new());
+        await pane.Find("[data-testid='inbox-list-to-backlog']").ClickAsync(new());
+
+        Assert.Contains(
+            "Move 1 open item of Reading to the backlog as one plan tagged +reading-…? The list stays; its 2 deferred items stay with it.",
+            pane.Find("[data-testid='inbox-list-to-backlog-dialog']").TextContent);
+
+        await pane.Find("[data-testid='inbox-list-to-backlog-cancel']").ClickAsync(new());
+        await pane.Find($"[data-testid='inbox-nav-{InboxDesktopState.ListNavId(quiet.Id)}']").ClickAsync(new());
+        await pane.Find("[data-testid='inbox-list-to-backlog']").ClickAsync(new());
+
+        var text = pane.Find("[data-testid='inbox-list-to-backlog-dialog']").TextContent;
+        Assert.Contains("Move 1 open item of Quiet to the backlog as one plan tagged +quiet-…? The list stays.", text);
+        Assert.DoesNotContain("deferred", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_batch_sentence_says_the_whole_batch_was_refused_once_and_still_names_the_items_refused_first()
+    {
+        var refusal = InboxErrors.BatchRefused(Error.Validation("import.empty_plan", "Nothing parsed."));
+        var outcome = new InboxBulkOutcome(
+            0,
+            0,
+            [
+                new InboxBulkFailure(Guid.NewGuid(), "One", refusal),
+                new InboxBulkFailure(Guid.NewGuid(), "Routed", InboxErrors.ItemAlreadyDecided),
+                new InboxBulkFailure(Guid.NewGuid(), "Two", refusal),
+            ]);
+
+        Assert.Equal(
+            "The whole batch was refused, so nothing was routed and every item is still in the Inbox. Nothing parsed. Not sent either — \"Routed\": Already routed or archived, so there is nothing left to change.",
+            InboxDesktopState.BatchRouteMessage(outcome, "+inbox-batch-1a2b3c4d"));
+    }
+
     [Fact]
     public void A_bulk_sentence_leads_with_what_landed_and_names_what_did_not()
     {

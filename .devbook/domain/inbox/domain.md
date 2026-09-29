@@ -448,14 +448,37 @@ through sync.
 ```meta
 type: term
 status: draft
-aliases: [PlanTag, import_plan_id]
-related: [.devbook/domain/inbox/domain.md#triage, .devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md]
+aliases: [PlanTag, InboxPlanTag, import_plan_id]
+related: [.devbook/domain/inbox/domain.md#triage, .devbook/domain/inbox/domain.md#batch, .devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md]
 ```
 
-The `#tag` every entry of a plan drafted from an item shares, which Tasks reads
-as the plan's identity (`import_plan_id`). Shaped `{title-slug}-{last eight hex
-digits of the item id}`, at most forty characters, so it is unique per item and
-a legal tag on the metadata line.
+The `+tag` every entry of a plan shares, which Tasks reads as the plan's
+identity (`import_plan_id`). It is written with the plan sigil `+`, never `#`:
+a `#tag` is a general tag and would be a different plan. The shape is
+`+{slug}-{last eight hex digits of an id}`, at most forty characters after the
+sigil (`InboxPlanTag.For`).
+
+- For a plan drafted from an item, the slug is the item's title and the id is
+  the item's.
+- For a [batch](#batch), the slug is the list's name when a list is routed, or
+  `inbox-batch` for a selection, and the id is minted fresh for the batch.
+
+Each plan is therefore new, and importing one never clears another's entries.
+
+### Batch
+
+```meta
+type: term
+status: draft
+aliases: [InboxBatchRouteRequestDto, InboxBatchRoutedDto, RouteBatchToBacklogCommand]
+related: [.devbook/domain/inbox/features.md#route-a-batch-to-tasks, .devbook/domain/inbox/domain.md#plan-tag]
+```
+
+A set of Inbox Items routed to Tasks together, as one plan import under one
+[plan tag](#plan-tag). A batch is formed from the reader's selection or from a
+list's open items. It lives only for the route: nothing stores it, and
+afterwards each item keeps its own Routing Target naming only the tasks it
+became. Never called a *group*: an `Inbox Group` is a fold in the side menu.
 
 ### Attachment folder
 

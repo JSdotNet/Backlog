@@ -144,10 +144,12 @@ Shift extends a run from the last box pressed, and a bar over the list keeps a
 running count of what is picked, a box that takes every row shown, and a way
 back out.
 
-Four acts are offered across the selection: **Archive**, **Move to list**,
-**Tags** — add tags, or take one tag off — and **Repositories**. Each is the
-same decision the item's own detail makes, applied to each picked item in turn,
-so an item the single-item act would refuse is refused here too. Tags are added
+Five acts are offered across the selection: **Archive**, **Move to list**,
+**Tags** — add tags, or take one tag off — **Repositories**, and **Move to
+backlog**, which routes the selection as one [batch](#route-a-batch-to-tasks).
+Each of the first four is the same decision the item's own detail makes,
+applied to each picked item in turn, so an item the single-item act would
+refuse is refused here too. Tags are added
 to what each item already carries rather than replacing it; repositories
 replace what each item targeted before. An item already at the value is left
 alone. The tags and repositories of an item already routed or archived are what
@@ -294,6 +296,53 @@ was assigned — a plan that names another is refused whole. The item is routed
 to the entries the import created, the same outcome as Route to Tasks reached
 through a different door. When no drafter is configured the action stays
 visible, disabled, with its reason.
+
+### Route a batch to Tasks
+
+```meta
+type: sub-feature
+status: draft
+depends-on: [.devbook/domain/inbox/features.md#route-to-tasks, .devbook/domain/inbox/features.md#act-on-several-at-once]
+related: [.devbook/domain/inbox/domain.md#batch, .devbook/domain/inbox/requirements.md#route-a-batch-to-tasks, .devbook/domain/tasks/features.md#import, .devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md]
+feature-flag: .devbook/domain/inbox/context.md#inbox-pane
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteBatchToBacklogTests, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests]
+```
+
+Route several items to Tasks in one go, as one plan import, so a set of
+captures that belong together lands in the backlog as one plan. A batch is
+formed in two ways:
+
+- **Move to backlog** in the selection bar routes the picked items. Their plan
+  tag is `+inbox-batch-` and eight hex digits.
+- **Move list to backlog** in the list's toolbar routes every open item of the
+  list the reader has open, after a confirmation that gives the count and the
+  tag, `+{list-name}-…`. The list stays; routed items simply leave it. Its
+  deferred items stay with it, and the confirmation says so when there are any.
+
+Each item becomes what Route to Tasks would make of it: a draft task per
+repository, or one untargeted task, carrying the item's id as its provenance
+and its files as the task's attachment. All the entries share the batch's plan
+tag. Each item records only the tasks it became.
+
+Some items are named and left out before Tasks is asked, and the rest still go:
+
+- an item already routed or archived;
+- an item whose notes carry a top-level `#` heading or an unclosed code fence,
+  which would break the document apart (routed on its own, it goes through);
+- an item assigned to a repository the workspace no longer knows. A batch never
+  registers a repository, just as a single route never does.
+
+Tasks' import takes the rest as one document, whole or not at all. If Tasks
+refuses it, nothing is routed, the message says so, and every item stays in the
+queue. Only one route runs at a time: a batch waits for a single route to
+finish, and a single route waits for a batch.
+
+An item whose entries were made but which could not then be marked routed is
+named along with those entries, so routing it again, which would duplicate
+them, is not the only way to find them.
+
+Proposing dependencies between the items of a batch is not part of this
+sub-feature.
 
 ### Route to Devbook
 
