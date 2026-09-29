@@ -244,6 +244,7 @@ internal sealed partial class InboxBacklogTarget(ITaskItems tasks, IRepositoryDi
         string planMarkdown,
         Guid sourceInboxId,
         IReadOnlyList<string> allowedRepoIds,
+        string? attachmentPath = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(allowedRepoIds);
@@ -259,12 +260,29 @@ internal sealed partial class InboxBacklogTarget(ITaskItems tasks, IRepositoryDi
         }
 
         var imported = await tasks
-            .ImportPlanAsync(planMarkdown, defaultRepo: null, repoMatches: null, sourceInboxId.ToString("D"), cancellationToken: cancellationToken)
+            .ImportPlanAsync(WithAttachment(planMarkdown, attachmentPath), defaultRepo: null, repoMatches: null, sourceInboxId.ToString("D"), cancellationToken: cancellationToken)
             .ConfigureAwait(false);
 
         if (imported.IsFailure) return Result.Failure<IReadOnlyList<Guid>>(imported.Error);
 
         return Result.Success<IReadOnlyList<Guid>>([.. imported.Value.Entries.Select(entry => entry.Id)]);
+    }
+
+    /// <summary>The drafted plan with every task entry carrying the item's
+    /// attachment folder, or the plan as it came when there is none. Written
+    /// entry by entry through Tasks' own writer, as <see cref="Compose"/> writes
+    /// a routed entry's, so the path is spelled the way the grammar spells it and
+    /// a <c>files:</c> the model wrote is replaced rather than kept beside it. A
+    /// <c>plan</c> entry is left as written: it becomes a roadmap item, never a
+    /// task, and a segment with no title is dropped by the import anyway.</summary>
+    private static string WithAttachment(string planMarkdown, string? attachmentPath)
+    {
+        if (Attachment.From(attachmentPath) is not { } attachment) return planMarkdown;
+
+        return string.Join("\n\n", EntryTextParser.SplitSegments(planMarkdown).Select(segment =>
+            EntryTextParser.Parse(segment) is { Kind: not EntryKind.Plan } parsed && !string.IsNullOrWhiteSpace(parsed.Title)
+                ? EntryTextParser.WithAttachment(segment, attachment)
+                : segment));
     }
 
     /// <summary>The first <c>repo:</c> value in the plan that is not one of the

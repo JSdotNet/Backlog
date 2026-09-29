@@ -150,7 +150,7 @@ public sealed class InboxBacklogTargetTests
         var tasks = new RecordingTaskItems(existing: 0);
 
         var result = await new InboxBacklogTarget(tasks, Known()).ImportPlanAsync(
-            "# One\n`prompt`\n\n# Two\n`prompt`\n", Item, allowedRepoIds: [], TestContext.Current.CancellationToken);
+            "# One\n`prompt`\n\n# Two\n`prompt`\n", Item, allowedRepoIds: [], cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(2, result.Value.Count);
@@ -173,7 +173,7 @@ public sealed class InboxBacklogTargetTests
             "# One\n`prompt` `repo:JSdotNet/Backlog`\n\n# Two\n`prompt` `repo:evil/x`\n",
             Item,
             allowedRepoIds: ["JSdotNet/Backlog"],
-            TestContext.Current.CancellationToken);
+            cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.True(result.IsFailure);
         Assert.Equal("inbox.plan.unknown_repository", result.Error.Code);
@@ -191,11 +191,49 @@ public sealed class InboxBacklogTargetTests
             "# One\n`prompt` `repo:jsdotnet/backlog`\n\n# Two\n`prompt` `repo:JSdotNet/Other`\n",
             Item,
             allowedRepoIds: ["JSdotNet/Backlog", "jsdotnet/other"],
-            TestContext.Current.CancellationToken);
+            cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(2, result.Value.Count);
         Assert.Single(tasks.Imports);
+    }
+
+    /// <summary>Create plan's half of "the file goes where the work goes": every
+    /// task entry the drafted plan makes carries the item's folder, written by
+    /// Tasks' own writer so a path with spaces survives, and a <c>plan</c> entry
+    /// — a roadmap item, never a task — is left as the model wrote it.</summary>
+    [Fact]
+    public async Task A_plans_task_entries_carry_the_items_attachment_folder()
+    {
+        var tasks = new RecordingTaskItems(existing: 0);
+        const string folder = @"C:\Users\me\My Documents\_inbox\attachments\item";
+
+        var result = await new InboxBacklogTarget(tasks, Known()).ImportPlanAsync(
+            "# The plan\n`plan` `+talk`\n\n# One\n`prompt` `+talk`\n\nDo it.\n\n# Two\n`prompt` `+talk`\n",
+            Item,
+            allowedRepoIds: [],
+            attachmentPath: folder,
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+
+        var parsed = EntryTextParser.SplitSegments(Assert.Single(tasks.Imports).RawText).Select(EntryTextParser.Parse).ToList();
+        Assert.Equal(["The plan", "One", "Two"], parsed.Select(entry => entry.Title));
+        Assert.Null(parsed[0].Attachment);
+        Assert.All(parsed.Skip(1), entry => Assert.Equal(folder, entry.Attachment?.Path));
+        Assert.Equal("Do it.", parsed[1].Body.Trim());
+    }
+
+    [Fact]
+    public async Task A_plan_without_an_attachment_folder_is_imported_as_drafted()
+    {
+        var tasks = new RecordingTaskItems(existing: 0);
+        const string plan = "# One\n`prompt`\n\n# Two\n`prompt`\n";
+
+        await new InboxBacklogTarget(tasks, Known()).ImportPlanAsync(
+            plan, Item, allowedRepoIds: [], cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(plan, Assert.Single(tasks.Imports).RawText);
     }
 
     private static readonly Guid Other = Guid.Parse("0199a3f2-7c41-7d1a-9d0f-000000000002");
@@ -504,7 +542,7 @@ public sealed class InboxBacklogTargetTests
         public TasksRepositoryRef? Resolve(string name) =>
             Repositories.FirstOrDefault(repository => string.Equals(repository.Id, name, StringComparison.OrdinalIgnoreCase));
 
-        public TasksRepositoryRef Register(string name)
+        public Result<TasksRepositoryRef> Register(string name)
         {
             Registered.Add(name);
             return new TasksRepositoryRef(name, "x", name);
