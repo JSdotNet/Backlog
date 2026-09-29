@@ -16,6 +16,12 @@ namespace Backlog.Modules.Tasks.Services;
 /// </summary>
 internal static class TaskEntryFields
 {
+    /// <summary>The local calendar date a status change is made on, which the
+    /// aggregate stamps as <see cref="TaskItem.StartedOn"/> on the first move into
+    /// progress. Read here, once for the module's saves, so the aggregate itself
+    /// reads no clock.</summary>
+    public static DateOnly LocalToday => DateOnly.FromDateTime(DateTime.Now);
+
     /// <summary>Constructs a new entry from a parsed segment, at the given manual
     /// rank. Mirrors what a fresh <c>SaveTaskFromText</c> create used to do
     /// inline: born at <see cref="EntryStatus.Draft"/> unless the text itself
@@ -46,7 +52,7 @@ internal static class TaskEntryFields
         // so writing `!done` on a fresh entry means what it says.
         // The started stamp goes on first so the status below can fill it in.
         ApplyStarted(entry, parsed);
-        if (parsed.Status is { } initialStatus) entry.SetStatus(initialStatus);
+        if (parsed.Status is { } initialStatus) entry.SetStatus(initialStatus, LocalToday);
 
         entry.SetOrder(Math.Max(order, 0));
         entry.SetArea(parsed.Area);

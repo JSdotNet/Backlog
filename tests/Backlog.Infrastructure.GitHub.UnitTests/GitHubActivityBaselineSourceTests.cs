@@ -1,8 +1,8 @@
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Dashboard.Abstractions.Services;
-using Backlog.Modules.Dashboard.UI.Adapters;
+using Backlog.Infrastructure.GitHub.Dashboard;
 
-namespace Backlog.Desktop.UI.UnitTests;
+namespace Backlog.Infrastructure.GitHub.UnitTests;
 
 /// <summary>
 /// The baseline adapter asks the search API <c>author:</c> a login, and the login

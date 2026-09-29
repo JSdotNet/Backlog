@@ -51,8 +51,52 @@ public sealed class MenuListTests
         Assert.Equal("Delete", tabbable.TextContent.Trim());
     }
 
+    /// <summary>
+    /// The first key a menu sees is often Enter or Space, straight after
+    /// FocusFirstItem put the focus on the first item, and the keydown chooses
+    /// that row. components.js refuses the key's default, so the browser raises
+    /// no click to choose it a second time.
+    /// </summary>
+    [Theory]
+    [InlineData("Enter")]
+    [InlineData(" ")]
+    public void A_key_that_activates_the_focused_item_chooses_it_once(string key)
+    {
+        using var context = new BunitContext();
+        var selected = new List<string>();
+
+        var menu = context.Render<MenuList>(parameters => parameters
+            .Add(m => m.Items, Items)
+            .Add(m => m.FocusFirstItem, true)
+            .Add(m => m.OnItemSelected, (MenuItem item) => selected.Add(item.Id)));
+
+        var first = menu.FindAll("[role='menuitem']")[0];
+        Assert.Equal(first.GetAttribute("blazor:elementReference"), FocusedReference(context).Id);
+
+        first.KeyDown(new KeyboardEventArgs { Key = key });
+
+        Assert.Equal(["open"], selected);
+    }
+
+    /// <summary>
+    /// The keydown never refuses the default of the key it is handed: the
+    /// browser, not the server, decides the row keys' default, so no flag armed
+    /// by one key can swallow the next.
+    /// </summary>
     [Fact]
-    public void Enter_activates_the_row_under_the_cursor_but_never_a_disabled_one()
+    public void Menu_items_bind_no_server_side_prevent_default()
+    {
+        using var context = new BunitContext();
+
+        var menu = context.Render<MenuList>(parameters => parameters.Add(m => m.Items, Items));
+
+        menu.FindAll("[role='menuitem']")[0].KeyDown(new KeyboardEventArgs { Key = "ArrowDown" });
+
+        Assert.DoesNotContain("preventDefault", menu.Markup, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void A_disabled_row_is_never_chosen()
     {
         using var context = new BunitContext();
         var selected = new List<string>();
@@ -61,11 +105,62 @@ public sealed class MenuListTests
             .Add(m => m.Items, Items)
             .Add(m => m.OnItemSelected, (MenuItem item) => selected.Add(item.Id)));
 
-        menu.FindAll("[role='menuitem']")[0].KeyDown(new KeyboardEventArgs { Key = "Enter" });
         menu.FindAll("[role='menuitem']")[2].KeyDown(new KeyboardEventArgs { Key = "Enter" });
+        menu.FindAll("[role='menuitem']")[2].Click();
 
-        Assert.Equal(["open"], selected);
+        Assert.Empty(selected);
     }
+
+    /// <summary>
+    /// A host that opens a menu for the keyboard asks for the first item to be
+    /// focused, so the next arrow or Enter lands in the menu (WAI-ARIA menu
+    /// pattern). The first item that can be activated, that is: a disabled row
+    /// or a separator at the top is skipped rather than focused and refused.
+    /// </summary>
+    [Fact]
+    public void Focus_first_item_focuses_the_first_enabled_item_which_is_the_tab_stop()
+    {
+        using var context = new BunitContext();
+        MenuItem[] items =
+        [
+            new("archive", "Archive", Disabled: true),
+            MenuItem.Divider("sep"),
+            new("open", "Open"),
+            new("delete", "Delete")
+        ];
+
+        var menu = context.Render<MenuList>(parameters => parameters
+            .Add(m => m.Items, items)
+            .Add(m => m.FocusFirstItem, true));
+
+        var focused = FocusedReference(context);
+        var open = menu.FindAll("[role='menuitem']").Single(item => item.TextContent.Trim() == "Open");
+
+        Assert.Equal(open.GetAttribute("blazor:elementReference"), focused.Id);
+        Assert.Equal("0", open.GetAttribute("tabindex"));
+    }
+
+    /// <summary>A menu rendered inline is one tab stop among the page's, and
+    /// must not pull the focus to itself just by appearing.</summary>
+    [Fact]
+    public void Without_focus_first_item_rendering_the_menu_moves_no_focus()
+    {
+        using var context = new BunitContext();
+
+        context.Render<MenuList>(parameters => parameters.Add(m => m.Items, Items));
+
+        Assert.DoesNotContain(context.JSInterop.Invocations, IsFocus);
+    }
+
+    internal static ElementReference FocusedReference(BunitContext context)
+    {
+        var invocation = Assert.Single(context.JSInterop.Invocations, IsFocus);
+        return Assert.IsType<ElementReference>(invocation.Arguments[0]);
+    }
+
+    /// <summary>What <c>ElementReference.FocusAsync</c> goes out as.</summary>
+    private static bool IsFocus(JSRuntimeInvocation invocation) =>
+        invocation.Identifier.EndsWith(".focus", StringComparison.Ordinal);
 
     /// <summary>
     /// Which keys the browser swallows is decided in components.js, on the
@@ -157,11 +252,13 @@ public sealed class ContextMenuTests
         Assert.False(open);
     }
 
-    // bUnit dispatches keydown straight at the element, so it cannot notice that
-    // a real browser delivers the key to the focused element instead. The
-    // backdrop must therefore be focusable for Escape to ever reach it.
+    /// <summary>
+    /// Opening a context menu puts the focus on its first item, so a keyboard
+    /// user can press ArrowDown or Enter straight away instead of Tabbing into
+    /// the menu first.
+    /// </summary>
     [Fact]
-    public void Context_menu_backdrop_is_focusable_so_escape_reaches_it()
+    public void Opening_the_context_menu_focuses_its_first_item()
     {
         using var context = new BunitContext();
 
@@ -169,7 +266,48 @@ public sealed class ContextMenuTests
             .Add(m => m.Open, true)
             .Add(m => m.Items, Items));
 
-        Assert.Equal("-1", menu.Find(".context-menu__backdrop").GetAttribute("tabindex"));
+        var focused = MenuListTests.FocusedReference(context);
+        var first = menu.FindAll("[role='menuitem']")[0];
+
+        Assert.Equal(first.GetAttribute("blazor:elementReference"), focused.Id);
+        Assert.Equal("0", first.GetAttribute("tabindex"));
+    }
+
+    // In a real browser a keydown is delivered to the focused element — now the
+    // first item — and bubbles from there, so Escape pressed on an item has to
+    // reach the backdrop's handler.
+    [Fact]
+    public void Escape_pressed_on_a_focused_item_closes_the_context_menu()
+    {
+        using var context = new BunitContext();
+        bool? open = null;
+
+        var menu = context.Render<ContextMenu>(parameters => parameters
+            .Add(m => m.Open, true)
+            .Add(m => m.Items, Items)
+            .Add(m => m.OpenChanged, (bool value) => open = value));
+
+        menu.FindAll("[role='menuitem']")[0].KeyDown(new KeyboardEventArgs { Key = "Escape" });
+
+        Assert.False(open);
+    }
+
+    // A menu with nothing to focus still has to hear Escape, so the backdrop
+    // stays focusable and takes the focus itself in that one case.
+    [Fact]
+    public void A_context_menu_with_no_enabled_item_focuses_its_backdrop_so_escape_reaches_it()
+    {
+        using var context = new BunitContext();
+
+        var menu = context.Render<ContextMenu>(parameters => parameters
+            .Add(m => m.Open, true)
+            .Add(m => m.Items, [new MenuItem("archive", "Archive", Disabled: true)]));
+
+        var backdrop = menu.Find(".context-menu__backdrop");
+        var focused = MenuListTests.FocusedReference(context);
+
+        Assert.Equal("-1", backdrop.GetAttribute("tabindex"));
+        Assert.Equal(backdrop.GetAttribute("blazor:elementReference"), focused.Id);
     }
 
     [Fact]

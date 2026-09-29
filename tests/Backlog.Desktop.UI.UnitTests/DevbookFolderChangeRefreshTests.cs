@@ -469,7 +469,7 @@ public sealed class DevbookFolderChangeRefreshTests
 /// settings that decide which of them the source resolves against, so a test
 /// can move the folder the way a user would: by changing the setting.
 /// </summary>
-file sealed class DevbookWorkspace : IDisposable
+internal sealed class DevbookWorkspace : IDisposable
 {
     public const string Alias = "backlog";
 
