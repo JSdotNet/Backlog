@@ -3,14 +3,19 @@ namespace Backlog.UI.Components.UnitTests;
 /// <summary>
 /// The product's devbook vocabularies, pinned against the rule text CI enforces.
 ///
-/// <para>Every expected value below is read out of the vendored contract-16 rule
-/// files through <see cref="DevbookRuleText"/>, never restated here. A contract
-/// bump swaps those files; whatever the product has not yet learned then fails
-/// by name. <c>DevbookSchemaContractTests</c> is the same idea for the
-/// database's DDL.</para>
+/// <para>Every expected value below is read out of the vendored rule files through
+/// <see cref="DevbookRuleText"/>, never restated here. A contract bump swaps those
+/// files; whatever the product has not yet learned then fails by name.
+/// <c>DevbookSchemaContractTests</c> is the same idea for the database's DDL.</para>
 /// </summary>
 public sealed class DevbookRuleTextContractTests
 {
+    [Fact]
+    public void The_product_claims_the_contract_the_vendored_rules_were_taken_at()
+    {
+        Assert.Equal(DevbookRuleText.VendoredContract(), DevbookSchema.ContractVersion);
+    }
+
     [Theory]
     [InlineData("domain", DevbookFolder.Domain)]
     [InlineData("tech", DevbookFolder.Tech)]

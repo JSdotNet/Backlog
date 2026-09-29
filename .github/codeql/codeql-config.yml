@@ -1,0 +1,7 @@
+name: Backlog CodeQL config
+
+# The Archify renders are generated HTML with inline script; left in, they
+# crowd the JavaScript results with findings nobody writes by hand.
+paths-ignore:
+  - '.devbook/**/_archify/*.html'
+  - 'tools/archify/examples/*.html'

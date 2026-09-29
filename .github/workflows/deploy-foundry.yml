@@ -132,6 +132,9 @@ jobs:
   foundry:
     name: Validate and deploy Foundry
     runs-on: [self-hosted]
+    # The single self-hosted runner serves every dispatch, so a hung step here
+    # would block all of them for GitHub's six-hour default.
+    timeout-minutes: 60
     environment: ${{ inputs.environment_name }}
     permissions:
       contents: read

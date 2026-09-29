@@ -237,7 +237,10 @@ the Inbox Item, List and Group aggregates and one feature slice per action
 create plan, and the list/group organiser). It reaches Tasks only through the
 `IInboxBacklogTarget` port, answered by `InboxBacklogTarget` in
 `Backlog.Infrastructure.FileSystem` over Tasks' published `ITaskItems` — the one
-place an inbox item becomes entry text — and reaches the AI plan drafter through
+place an inbox item becomes entry text. A batch of items goes through the same
+port's `CreateBatchTasksAsync` as one multi-entry document into Tasks'
+`ImportPlanAsync`. The adapter maps the created entries back to items by
+`import_item_id` and names each entry's own item as its source. The Inbox reaches the AI plan drafter through
 `IInboxPlanDrafter`, answered in `Backlog.Infrastructure.AzureFoundry`. The
 `Backlog.Modules.Inbox.UI` pane references its own module's Abstractions and
 nothing of Tasks; the earlier Tasks.UI → Inbox.UI edge is gone. See local ADR 0009.

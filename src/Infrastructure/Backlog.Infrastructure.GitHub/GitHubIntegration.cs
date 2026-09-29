@@ -22,7 +22,7 @@ namespace Backlog.Infrastructure.GitHub;
 /// the Shell's lives in its <c>FeedbackReporter</c>.
 /// </para>
 /// </summary>
-public sealed class GitHubIntegration(
+public sealed partial class GitHubIntegration(
     GitHubSettingsStore settings,
     IGitHubClient client,
     IGitHubConnectionProbe probe,
@@ -134,6 +134,175 @@ public sealed class GitHubIntegration(
         int number,
         CancellationToken cancellationToken = default) =>
         client.GetPullRequestAsync(RepositoryForFullName(repoFullName), number, cancellationToken);
+
+    /// <summary>Reads one recorded pull request's state, check roll-up and
+    /// auto-merge request. See <see cref="IGitHubClient.GetPullRequestStatusAsync"/>.</summary>
+    public Task<GitHubPullRequestStatus> ReadPullRequestStatusAsync(
+        string repoFullName,
+        int number,
+        CancellationToken cancellationToken = default) =>
+        client.GetPullRequestStatusAsync(RepositoryForFullName(repoFullName), number, cancellationToken);
+
+    /// <summary>
+    /// Hands the pull request to GitHub's native auto-merge, with the method the
+    /// repository allows. GitHub does the waiting: nothing here polls, and nothing
+    /// here merges later on its own.
+    /// </summary>
+    /// <exception cref="GitHubException">GitHub refused, in a sentence naming the
+    /// pull request and what would fix it where the refusal is a known one.</exception>
+    public Task EnableAutoMergeAsync(GitHubPullRequestStatus pullRequest, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(pullRequest);
+
+        return Explained(
+            MergeAct.EnableAutoMerge,
+            pullRequest,
+            () => client.EnableAutoMergeAsync(
+                RepositoryForFullName(pullRequest.RepositoryFullName),
+                pullRequest.NodeId,
+                pullRequest.PreferredMergeMethod,
+                cancellationToken));
+    }
+
+    /// <summary>Withdraws a pending auto-merge request.</summary>
+    /// <exception cref="GitHubException">As <see cref="EnableAutoMergeAsync"/>.</exception>
+    public Task DisableAutoMergeAsync(GitHubPullRequestStatus pullRequest, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(pullRequest);
+
+        return Explained(
+            MergeAct.DisableAutoMerge,
+            pullRequest,
+            () => client.DisableAutoMergeAsync(
+                RepositoryForFullName(pullRequest.RepositoryFullName),
+                pullRequest.NodeId,
+                cancellationToken));
+    }
+
+    /// <summary>Merges the pull request now — the act for one GitHub would refuse
+    /// to queue because it is already mergeable.</summary>
+    /// <exception cref="GitHubException">As <see cref="EnableAutoMergeAsync"/>.</exception>
+    public Task MergePullRequestAsync(GitHubPullRequestStatus pullRequest, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(pullRequest);
+
+        return Explained(
+            MergeAct.Merge,
+            pullRequest,
+            () => client.MergePullRequestAsync(
+                RepositoryForFullName(pullRequest.RepositoryFullName),
+                pullRequest.NodeId,
+                pullRequest.PreferredMergeMethod,
+                cancellationToken));
+    }
+
+    private enum MergeAct
+    {
+        EnableAutoMerge,
+        DisableAutoMerge,
+        Merge
+    }
+
+    /// <summary>
+    /// Runs one merge act and, when GitHub refuses it, says so in words a person can
+    /// act on.
+    /// <para>
+    /// Here rather than in the client, because this is the one place that knows both
+    /// which pull request was asked about and which act was attempted — the two
+    /// things GitHub's refusals leave out. "Pull request Auto merge is not allowed for
+    /// this repository" names neither the pull request nor the switch that fixes it.
+    /// </para>
+    /// <para>
+    /// Matched on GitHub's words, and on the GraphQL error type where there is one,
+    /// because that is all a refusal carries: the CLI reports GraphQL errors on its
+    /// error line and exits non-zero, the token transport reads them out of the
+    /// <c>errors</c> array, and both arrive here as the same exception with the same
+    /// sentence in it. A refusal not recognised keeps GitHub's own sentence behind the
+    /// act and the pull request rather than being paraphrased into something vaguer.
+    /// </para>
+    /// </summary>
+    private static async Task Explained(MergeAct act, GitHubPullRequestStatus pullRequest, Func<Task> send)
+    {
+        try
+        {
+            await send();
+        }
+        catch (GitHubException ex)
+        {
+            throw new GitHubException(DescribeRefusal(act, pullRequest, ex), ex)
+            {
+                Status = ex.Status,
+                ErrorType = ex.ErrorType
+            };
+        }
+    }
+
+    private static string DescribeRefusal(MergeAct act, GitHubPullRequestStatus pullRequest, GitHubException refusal)
+    {
+        var subject = $"{pullRequest.RepositoryFullName}#{pullRequest.Number}";
+        var what = act switch
+        {
+            MergeAct.EnableAutoMerge => $"Couldn't turn on auto-merge for {subject}",
+            MergeAct.DisableAutoMerge => $"Couldn't cancel auto-merge for {subject}",
+            _ => $"Couldn't merge {subject}"
+        };
+
+        var said = refusal.Message;
+
+        bool Says(string phrase) => said.Contains(phrase, StringComparison.OrdinalIgnoreCase);
+
+        if (Says("auto merge is not allowed") || Says("auto-merge is not allowed"))
+        {
+            return $"{what}: auto-merge is off for {pullRequest.RepositoryFullName}. "
+                + "Turn on \"Allow auto-merge\" in the repository's settings (General, Pull Requests), then try again.";
+        }
+
+        // The three merge states GitHub refuses to queue auto-merge in, because the
+        // pull request can merge right now. See GitHubClient.MergeableNow.
+        if (Says("clean status") || Says("unstable status") || Says("has_hooks status"))
+        {
+            return $"{what}: it can already merge, so GitHub won't queue it. "
+                + $"Choose \"Merge #{pullRequest.Number} now\" instead.";
+        }
+
+        if (Says("merge queue"))
+        {
+            return $"{what}: #{pullRequest.Number} must go through the merge queue — "
+                + $"{pullRequest.RepositoryFullName} merges through one, so add it to the queue on GitHub.";
+        }
+
+        if (Says("protected branch rules not configured") || Says("branch protection"))
+        {
+            return $"{what}: auto-merge needs branch protection on the base branch with required status checks. "
+                + "Add a branch protection rule or ruleset that requires checks, then try again.";
+        }
+
+        // Narrow on purpose. GitHub says "permission" in sentences about other
+        // things too, and telling somebody they lack write access when they do not
+        // sends them to the wrong settings page — so only the refusal's type or
+        // status, or the two phrasings GitHub uses for a missing grant, count.
+        if (string.Equals(refusal.ErrorType, "FORBIDDEN", StringComparison.Ordinal)
+            || refusal.Status is System.Net.HttpStatusCode.Forbidden
+            || Says("resource not accessible")
+            || MustHavePermission().IsMatch(said))
+        {
+            return $"{what}: the GitHub account in use doesn't have permission to merge in "
+                + $"{pullRequest.RepositoryFullName} — it needs write access to the repository.";
+        }
+
+        if (Says("not mergeable"))
+        {
+            return $"{what}: GitHub says it isn't mergeable. "
+                + "Check it for conflicts, required reviews or failing required checks.";
+        }
+
+        return $"{what}: {said}";
+    }
+
+    /// <summary>"must have write permission", "must have admin permissions to …" —
+    /// GitHub's wording for a grant the account lacks.</summary>
+    [System.Text.RegularExpressions.GeneratedRegex(@"must have\b.*\bpermission", System.Text.RegularExpressions.RegexOptions.IgnoreCase)]
+    private static partial System.Text.RegularExpressions.Regex MustHavePermission();
 
     private GitHubRepositoryRef RepositoryForFullName(string repoFullName)
     {

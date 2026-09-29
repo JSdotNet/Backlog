@@ -125,6 +125,7 @@ public static class SyncActivityPresentation
         SyncItemKind.Task => "Task",
         SyncItemKind.Capture => "Capture",
         SyncItemKind.Session => "Session",
+        SyncItemKind.Roadmap => "Roadmap",
         _ => kind.ToString(),
     };
 

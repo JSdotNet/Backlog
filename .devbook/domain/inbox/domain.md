@@ -269,9 +269,9 @@ and then removes the group, so no list is ever deleted by deleting its group.
 ```meta
 type: domain-service
 status: draft
-related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/devbook/domain.md#knowledge-note, .devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md]
-tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBacklogTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.CreatePlanTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests.Routing_hands_the_items_folder_to_the_task_as_its_attachment]
-aliases: [RouteToBacklogCommand, CreatePlanCommand, ArchiveItemCommand]
+related: [.devbook/domain/tasks/domain.md#task, .devbook/domain/tasks/features.md#import, .devbook/domain/devbook/domain.md#knowledge-note, .devbook/domain/inbox/domain.md#batch, .devbook/domain/inbox/features.md#route-a-batch-to-tasks, .devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md]
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteToBacklogTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.CreatePlanTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteBatchToBacklogTests, unit:dotnet:Backlog.Modules.Inbox.UnitTests.AttachmentIntakeTests.Routing_hands_the_items_folder_to_the_task_as_its_attachment]
+aliases: [RouteToBacklogCommand, CreatePlanCommand, RouteBatchToBacklogCommand, ArchiveItemCommand]
 ```
 
 Coordinates the triage decision for an Inbox Item and the resulting cross-context
@@ -283,7 +283,7 @@ bounded-context boundaries rather than mutating a single aggregate. Invocation
 semantics: command-invoked application service triggered by a human or automated
 triage decision.
 
-Two doors lead to Tasks and both end in the same `Routing Target`:
+Three doors lead to Tasks and all end in the same `Routing Target`:
 
 - **Route to backlog** creates one draft task per assigned repository — or one
   untargeted task when none is assigned — each stamped with the item's id as
@@ -293,10 +293,19 @@ Two doors lead to Tasks and both end in the same `Routing Target`:
   Tasks' import. Every entry carries the item's [Plan tag](#plan-tag), so two items with one title cannot clear each other's plan; the entries are born Draft whatever the
   plan says, because nobody has read them yet; and a plan naming a repository the
   item was not assigned is refused whole before Tasks sees it.
+- **Route a batch** sends several items to Tasks as one plan import under a
+  fresh [Plan tag](#plan-tag) — `+{slug}-{8 hex}`, the eight digits minted for
+  the [batch](#batch), so routing the same list twice makes two plans. Each
+  entry carries its own item's id as its `source_inbox_id`, and every entry is
+  born Draft. Tasks takes the document whole or refuses it whole, but an item
+  that would spoil it is left out by name first and the rest still go: one
+  already routed or archived, one whose notes carry a top-level `#` heading or
+  leave a fence open, and one naming a repository the workspace does not know.
+  A batch never registers a repository.
 
 An item with attachments hands its [attachment folder](#attachment-folder) to
-every task Route to backlog creates, as that task's attachment. The file goes
-where the work goes. Create plan does not hand the folder on yet.
+every task Route to backlog or Route a batch creates, as that task's
+attachment. The file goes where the work goes. Create plan does not hand the folder on yet.
 
 Routing to Devbook is modelled and not built.
 
@@ -448,14 +457,37 @@ through sync.
 ```meta
 type: term
 status: draft
-aliases: [PlanTag, import_plan_id]
-related: [.devbook/domain/inbox/domain.md#triage, .devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md]
+aliases: [PlanTag, InboxPlanTag, import_plan_id]
+related: [.devbook/domain/inbox/domain.md#triage, .devbook/domain/inbox/domain.md#batch, .devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md]
 ```
 
-The `#tag` every entry of a plan drafted from an item shares, which Tasks reads
-as the plan's identity (`import_plan_id`). Shaped `{title-slug}-{last eight hex
-digits of the item id}`, at most forty characters, so it is unique per item and
-a legal tag on the metadata line.
+The `+tag` every entry of a plan shares, which Tasks reads as the plan's
+identity (`import_plan_id`). It is written with the plan sigil `+`, never `#`:
+a `#tag` is a general tag and would be a different plan. The shape is
+`+{slug}-{last eight hex digits of an id}`, at most forty characters after the
+sigil (`InboxPlanTag.For`).
+
+- For a plan drafted from an item, the slug is the item's title and the id is
+  the item's.
+- For a [batch](#batch), the slug is the list's name when a list is routed, or
+  `inbox-batch` for a selection, and the id is minted fresh for the batch.
+
+Each plan is therefore new, and importing one never clears another's entries.
+
+### Batch
+
+```meta
+type: term
+status: draft
+aliases: [InboxBatchRouteRequestDto, InboxBatchRoutedDto, RouteBatchToBacklogCommand]
+related: [.devbook/domain/inbox/features.md#route-a-batch-to-tasks, .devbook/domain/inbox/domain.md#plan-tag]
+```
+
+A set of Inbox Items routed to Tasks together, as one plan import under one
+[plan tag](#plan-tag). A batch is formed from the reader's selection or from a
+list's open items. It lives only for the route: nothing stores it, and
+afterwards each item keeps its own Routing Target naming only the tasks it
+became. Never called a *group*: an `Inbox Group` is a fold in the side menu.
 
 ### Attachment folder
 

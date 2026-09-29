@@ -113,6 +113,17 @@ public sealed class TokenTransport : IGitHubTransport
             "X-GitHub-Api-Version",
             string.IsNullOrWhiteSpace(apiVersion) ? IGitHubTransport.DefaultApiVersion : apiVersion.Trim());
 
+        if (GitHubGraphQl.IsGraphQl(path))
+        {
+            // mergeStateStatus began behind the merge-info schema preview, and an
+            // Enterprise Server that still gates it answers the field as absent
+            // without the preview media type. Set on the request, which replaces
+            // the client's default Accept rather than adding to it — so the
+            // ordinary media type is named again beside it.
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue(GitHubGraphQl.MergeInfoPreview));
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue(GitHubGraphQl.GitHubJsonMediaType));
+        }
+
         if (body is not null)
         {
             request.Content = JsonContent.Create(body, options: GitHubJson.Options);
@@ -151,6 +162,18 @@ public sealed class TokenTransport : IGitHubTransport
     }
 
 
+    /// <summary>
+    /// The address one path is requested at.
+    /// <para>
+    /// GraphQL is the exception to joining the path onto the endpoint. github.com
+    /// keeps REST and GraphQL side by side at its API root, so the join is right
+    /// there; GitHub Enterprise Server keeps REST under <c>/api/v3</c> and GraphQL
+    /// beside it at <c>/api/graphql</c>, where the join would produce
+    /// <c>/api/v3/graphql</c> — an address that does not exist. The routing hint a
+    /// GraphQL path carries is dropped here too; it names a repository for the
+    /// credential resolver and is not part of the request.
+    /// </para>
+    /// </summary>
     /// <param name="apiEndpoint">An endpoint the resolved credential named, which
     /// wins over the install-wide one. That is how an account on a GitHub Enterprise
     /// Server host reaches its own API without the whole install moving there.</param>
@@ -169,6 +192,16 @@ public sealed class TokenTransport : IGitHubTransport
         var baseText = baseUri.AbsoluteUri.EndsWith("/", StringComparison.Ordinal)
             ? baseUri.AbsoluteUri
             : baseUri.AbsoluteUri + "/";
+
+        if (GitHubGraphQl.IsGraphQl(path))
+        {
+            // "…/api/v3" becomes "…/api/graphql"; anything else takes the plain join.
+            var basePath = baseUri.AbsolutePath.TrimEnd('/');
+
+            return basePath.EndsWith("/api/v3", StringComparison.OrdinalIgnoreCase)
+                ? new Uri(baseUri, basePath[..^"v3".Length] + GitHubGraphQl.Resource)
+                : new Uri(baseText + GitHubGraphQl.Resource);
+        }
 
         return new Uri(baseText + path.TrimStart('/'));
     }

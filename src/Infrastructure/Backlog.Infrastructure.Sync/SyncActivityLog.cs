@@ -11,15 +11,17 @@ public enum SyncDirection
     Received,
 }
 
-/// <summary>What kind of document it was. Three rather than one because the
-/// three travel by different rules and a person reading the log asks different
-/// questions of each: a task is the backlog, a capture is the Inbox's, and a
-/// session is a record of what an agent did somewhere.</summary>
+/// <summary>What kind of document it was. Several rather than one because they
+/// travel by different rules and a person reading the log asks different
+/// questions of each: a task is the backlog, a capture is the Inbox's, a
+/// session is a record of what an agent did somewhere, and a roadmap document is
+/// the whole plan or the pace it is drawn at (local ADR 0018).</summary>
 public enum SyncItemKind
 {
     Task,
     Capture,
     Session,
+    Roadmap,
 }
 
 /// <summary>

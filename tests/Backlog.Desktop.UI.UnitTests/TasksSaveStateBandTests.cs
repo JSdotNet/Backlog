@@ -1,3 +1,4 @@
+using Backlog.Desktop.UI.Tasks;
 using Backlog.Infrastructure.Copilot;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
@@ -5,7 +6,7 @@ using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.SharedKernel.Results;
 using Backlog.UI.Components.Feedback;
 
-using System.Diagnostics;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Desktop.UI.UnitTests;
 
@@ -21,18 +22,23 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// so many words that <c>Saved</c> "MUST NOT nag". So the band has a quiet state,
 /// it starts in it, and it goes back to it.
 /// </para>
+/// <para>
+/// The dwell runs on a <see cref="FakeTimeProvider"/> the tests move by hand, so
+/// "goes back to it" is asserted on either side of the 2 s rather than after a
+/// sleep comfortably past it.
+/// </para>
 /// </summary>
 [Collection(WorkspaceSettingsCollection.Name)]
 public sealed class TasksSaveStateBandTests : IDisposable
 {
-    /// <summary>Comfortably past the 2s dwell, and the same order of slack the
-    /// other timed tests in this suite give the debounce.</summary>
-    private const int PastTheDwell = 2600;
+    /// <summary>The 2 s dwell, one millisecond short of it.</summary>
+    private static readonly TimeSpan JustShortOfTheDwell = TimeSpan.FromMilliseconds(1999);
 
     /// <summary>A roadmap-level entry: the same grammar, and the one type word
     /// this path refuses.</summary>
     private const string PlanEntry = "# Imported plans on the roadmap\n`plan` `+roadmap-imported-plans`\n";
 
+    private readonly FakeTimeProvider _clock = new();
     private readonly List<string> _tempDirs = [];
     private readonly List<TasksDesktopState> _states = [];
 
@@ -58,13 +64,18 @@ public sealed class TasksSaveStateBandTests : IDisposable
         var raised = 0;
         state.Changed += () => raised++;
 
-        await Task.Delay(PastTheDwell, TestContext.Current.CancellationToken);
+        _clock.Advance(JustShortOfTheDwell);
 
-        Assert.Equal(AppSaveState.Idle, state.SaveState);
+        Assert.Equal(AppSaveState.Saved, state.SaveState);
+        var beforeTheSettle = raised;
+
+        _clock.Advance(TimeSpan.FromMilliseconds(1));
+
+        await TasksTestHost.UntilAsync(state, () => state.SaveState == AppSaveState.Idle);
 
         // The settle has to tell the footer, or the band would keep drawing the
         // word after the state behind it had stopped meaning it.
-        Assert.True(raised > 0, "Settling back to Idle re-renders the band.");
+        Assert.True(raised > beforeTheSettle, "Settling back to Idle re-renders the band.");
     }
 
     /// <summary>
@@ -82,9 +93,37 @@ public sealed class TasksSaveStateBandTests : IDisposable
 
         Assert.Equal(AppSaveState.Error, state.SaveState);
 
-        await Task.Delay(PastTheDwell, TestContext.Current.CancellationToken);
+        _clock.Advance(TimeSpan.FromMinutes(1));
 
         Assert.Equal(AppSaveState.Error, state.SaveState);
+    }
+
+    /// <summary>
+    /// A repository a plan names that the registry could not keep stops the
+    /// import, and the import surface says so in the registry's own words rather
+    /// than the generic "Import failed." — which says nothing about what to fix.
+    /// Driven through the real Settings adapter over a registry that cannot be
+    /// read, the worse of the two ways a registration fails.
+    /// </summary>
+    [Fact]
+    public async Task An_import_whose_repository_could_not_be_registered_says_why()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "backlog-save-band", Guid.NewGuid().ToString("n"));
+        _tempDirs.Add(root);
+        var registry = Path.Combine(root, "github", GitHubSettingsStore.RegistryFolderName, "repos.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(registry)!);
+        File.WriteAllText(registry, "{ this is not a registry");
+
+        var settings = new GitHubSettingsStore(Path.Combine(root, "github", "github.json"));
+        Assert.NotNull(settings.RegistryError);
+
+        var (state, store) = Build(repositories: new SettingsRepositoryDirectory(settings));
+        await state.InitializeAsync();
+
+        var sentence = await state.ImportPlanAsync("# One\n`prompt` `repo:newcomer`\n");
+
+        Assert.Equal(settings.RegistryError, sentence);
+        Assert.Empty(await TasksTestHost.EntriesFor(store).ListAsync(TestContext.Current.CancellationToken));
     }
 
     /// <summary>
@@ -220,9 +259,8 @@ public sealed class TasksSaveStateBandTests : IDisposable
     /// second later, so the reader gets no confirmation that it landed.
     /// </para>
     /// <para>
-    /// Measured from the second save rather than against a wall clock, which is
-    /// what makes this robust: a slow machine only lengthens the interval, and the
-    /// bug is the interval being too <em>short</em>.
+    /// Measured from the second save on a moved clock: one millisecond short of
+    /// its own 2 s the band still says Saved, and it goes quiet on the next one.
     /// </para>
     /// </summary>
     [Fact]
@@ -235,26 +273,21 @@ public sealed class TasksSaveStateBandTests : IDisposable
 
         Assert.Equal(AppSaveState.Saved, state.SaveState);
 
-        var wentQuiet = new TaskCompletionSource();
-        state.Changed += () =>
-        {
-            if (state.SaveState == AppSaveState.Idle) wentQuiet.TrySetResult();
-        };
-
         // Partway into the first dwell, so the settle it armed is still pending.
-        await Task.Delay(1000, TestContext.Current.CancellationToken);
+        _clock.Advance(TimeSpan.FromMilliseconds(1000));
 
-        var since = Stopwatch.StartNew();
         await state.StartCopilotCliAsync(row);
 
         Assert.Equal(AppSaveState.Saved, state.SaveState);
 
-        await wentQuiet.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
-        since.Stop();
+        // Past where the first dwell would have ended, and short of the second.
+        _clock.Advance(JustShortOfTheDwell);
 
-        Assert.True(
-            since.ElapsedMilliseconds >= 1500,
-            $"The band went quiet {since.ElapsedMilliseconds}ms after the second save, so it inherited the first one's dwell.");
+        Assert.Equal(AppSaveState.Saved, state.SaveState);
+
+        _clock.Advance(TimeSpan.FromMilliseconds(1));
+
+        await TasksTestHost.UntilAsync(state, () => state.SaveState == AppSaveState.Idle);
     }
 
     /// <summary>
@@ -293,7 +326,8 @@ public sealed class TasksSaveStateBandTests : IDisposable
     private (TasksDesktopState State, WorkspaceSettingsStore Store) Build(
         Func<ITaskItems, ITaskItems>? decorate = null,
         TasksCopilotCli? copilot = null,
-        IToastChannel? toasts = null)
+        IToastChannel? toasts = null,
+        IRepositoryDirectory? repositories = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-save-band", Guid.NewGuid().ToString("n"));
         _tempDirs.Add(root);
@@ -304,13 +338,14 @@ public sealed class TasksSaveStateBandTests : IDisposable
         var settings = new GitHubSettingsStore(Path.Combine(root, "github.json"));
         var integration = new GitHubIntegration(settings, new UnusedGitHubClient(), new UnusedProbe());
 
-        var entries = TasksTestHost.EntriesFor(store);
+        var entries = TasksTestHost.EntriesFor(TasksTestHost.RepositoryFor(store), repositories);
         var state = new TasksDesktopState(
             TasksTestHost.TaskStoreFor(store),
             decorate is null ? entries : decorate(entries),
             integration,
             copilot,
-            toasts: toasts);
+            toasts: toasts,
+            timeProvider: _clock);
 
         _states.Add(state);
 
@@ -375,6 +410,7 @@ public sealed class TasksSaveStateBandTests : IDisposable
             string? defaultRepo = null,
             IReadOnlyDictionary<string, string>? repoMatches = null,
             string? sourceInboxId = null,
+            IReadOnlyDictionary<string, string>? sourceInboxIds = null,
             bool layOutOnRoadmap = false,
             CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException("The store is not reachable.");

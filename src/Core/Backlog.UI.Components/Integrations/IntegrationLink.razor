@@ -83,6 +83,45 @@ else
     [Parameter]
     public string? DriftTestId { get; set; }
 
+    /// <summary>Addressed apart from the link, like the chips, so a test can find
+    /// the checks mark rather than assert on the link's whole markup.</summary>
+    [Parameter]
+    public string? ChecksTestId { get; set; }
+
+    [Parameter]
+    public string? AutoMergeTestId { get; set; }
+
+    /// <summary>
+    /// The three check glyphs, in the chips' own drawing — stroked at 1.6, never
+    /// filled but for a dot — at 12 px rather than 14, because these sit inside a
+    /// line of text beside a number rather than in a chip of their own.
+    /// <para>
+    /// Three shapes as well as three inks: a tick, a cross and a dot read apart
+    /// with the colour taken away, which is what lets the ink be decoration here.
+    /// </para>
+    /// </summary>
+    private static RenderFragment ChecksIcon(IntegrationCheckState checks) =>
+        @<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor"
+              stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
+              aria-hidden="true" focusable="false">
+            @if (checks is IntegrationCheckState.Passing)
+            {
+                <path d="M3.5 8.5 6.5 11.5 12.5 4.5" />
+            }
+            else if (checks is IntegrationCheckState.Failing)
+            {
+                <path d="M4.5 4.5 11.5 11.5" />
+                <path d="M11.5 4.5 4.5 11.5" />
+            }
+            else
+            {
+                @* Pending: a dot in a ring — something is there and has not
+                   finished, the same idea as the open state's centred dot. *@
+                <circle cx="8" cy="8" r="4.75" />
+                <circle cx="8" cy="8" r="1.75" fill="currentColor" stroke="none" />
+            }
+        </svg>;
+
     private bool IconOnly => IntegrationStates.IsIconOnly(Density);
 
     /// <summary>The artifact's own title where it has one, and the label
@@ -111,6 +150,44 @@ else
                           TestId="@MarkTestId" />
 
             <span class="integration-link__label" data-testid="@LabelTestId">@Link.Label</span>
+
+            @* Two small marks about the pull request, after the number they speak
+               about and before anything else, so the label stays the first thing a
+               reader scans for. Marks rather than chips: a row already carries its
+               state chip, and two more pills beside a number would out-shout it.
+               Each says its words twice — on its title for a pointer, and in an
+               sr-only span for a screen reader, because a title is not reliably
+               announced — so the ink is never the only carrier. *@
+            @if (Link.Checks is not IntegrationCheckState.None)
+            {
+                var checksLabel = IntegrationStates.LabelOf(Link.Checks);
+
+                <span class="integration-link__checks integration-link__checks--@IntegrationStates.SlugOf(Link.Checks)"
+                      title="@checksLabel"
+                      data-testid="@ChecksTestId">
+                    @ChecksIcon(Link.Checks)
+                    <span class="sr-only">@checksLabel</span>
+                </span>
+            }
+
+            @if (Link.AutoMerge)
+            {
+                <span class="integration-link__auto-merge"
+                      title="@IntegrationStates.AutoMergeLabel"
+                      data-testid="@AutoMergeTestId">
+                    @* A branch bending into a trunk with an arrow on it: the merge,
+                       still to happen, going ahead on its own. *@
+                    <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor"
+                         stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"
+                         aria-hidden="true" focusable="false">
+                        <circle cx="4.5" cy="3.5" r="1.5" />
+                        <path d="M4.5 5v8" />
+                        <path d="M4.5 6.5a4 4 0 0 0 4 4H13" />
+                        <path d="M11 8.5 13 10.5 11 12.5" />
+                    </svg>
+                    <span class="sr-only">@IntegrationStates.AutoMergeLabel</span>
+                </span>
+            }
 
             @if (ShowRepository && Link.Repository is { } repository)
             {

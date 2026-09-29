@@ -83,7 +83,11 @@ public sealed partial class GhCliTransport : IGitHubTransport
         string? apiVersion = null,
         CancellationToken cancellationToken = default)
     {
-        var arguments = new List<string> { "api", "--method", method.Method, path.TrimStart('/') };
+        // A GraphQL path's routing hint names a repository for the credential
+        // resolver and is not a resource: `gh api` recognises the literal
+        // "graphql" and sends it to the host's GraphQL endpoint, and would read
+        // anything longer as a REST path. See GitHubGraphQl.
+        var arguments = new List<string> { "api", "--method", method.Method, GitHubGraphQl.ResourceOf(path).TrimStart('/') };
 
         // `gh api` sends its own X-GitHub-Api-Version, so the version has to be
         // overridden per call rather than left to the CLI's default — otherwise the
@@ -96,6 +100,15 @@ public sealed partial class GhCliTransport : IGitHubTransport
             "X-GitHub-Api-Version: "
                 + (string.IsNullOrWhiteSpace(apiVersion) ? IGitHubTransport.DefaultApiVersion : apiVersion.Trim())
         ]);
+
+        if (GitHubGraphQl.IsGraphQl(path))
+        {
+            // The merge-info preview the token transport asks for too, so both read
+            // mergeStateStatus from the same schema. Named alongside the ordinary
+            // media type, because -H replaces the CLI's own Accept rather than
+            // adding to it. REST calls leave the CLI's Accept alone.
+            arguments.AddRange(["--header", $"Accept: {GitHubGraphQl.AcceptMediaTypes}"]);
+        }
 
         string? input = null;
         if (body is not null)

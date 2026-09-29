@@ -36,7 +36,7 @@ namespace Backlog.Infrastructure.FileSystem.Inbox;
 /// on a title line. The capture said it; the entry keeps it.
 /// </para>
 /// </summary>
-internal sealed partial class InboxBacklogTarget(ITaskItems tasks) : IInboxBacklogTarget
+internal sealed partial class InboxBacklogTarget(ITaskItems tasks, IRepositoryDirectory repositories) : IInboxBacklogTarget
 {
     public async Task<Result<IReadOnlyList<Guid>>> CreateTasksAsync(
         InboxRouteRequestDto request,
@@ -78,6 +78,167 @@ internal sealed partial class InboxBacklogTarget(ITaskItems tasks) : IInboxBackl
 
         return created;
     }
+
+    /// <summary>
+    /// The batch as one import document: each item's entries exactly as
+    /// <see cref="CreateTasksAsync"/> would write them, plus the batch's plan tag
+    /// and an <c>id:</c> naming the item — <c>{item}/{repo}</c> when the item has
+    /// several repositories, so every id stays one entry's inside the document.
+    /// The ids are what the import's answer is matched back by, and what the
+    /// per-entry source map is keyed on, so each entry is stamped with its own
+    /// item and born Draft by the same rule as a single route.
+    /// <para>
+    /// Each item is decided on its own before anything is written, and one that
+    /// cannot go is left out — named, with its reason — rather than taking the
+    /// batch down with it. Two reasons. Notes that would not stay one entry
+    /// inside a document: a top-level heading splits there, an unclosed fence
+    /// hides the next item's heading. And a repository the workspace does not
+    /// know: Tasks' import registers a <c>repo:</c> it has never seen, where the
+    /// single route's save only resolves one, so a batch asks the registry the
+    /// same read-only question the save does and never lets the import register.
+    /// </para>
+    /// <para>
+    /// The dependencies the person confirmed become <c>after:</c> tokens, which
+    /// is why the document is written only once every item has been decided.
+    /// One on another item of the batch names every <c>id:</c> that item went
+    /// into the document under — all of its repositories' entries, since the
+    /// work waits on all of them — and one on an item left out names nothing and
+    /// is dropped, because an <c>after:</c> naming no entry would block the task
+    /// for good. One on a task already in the backlog is written as given: its
+    /// imported <c>id:</c> or its own id, both of which Tasks' import resolves
+    /// against the stored entries (ADR 0007).
+    /// </para>
+    /// </summary>
+    public async Task<InboxBatchTargetResultDto> CreateBatchTasksAsync(
+        InboxBatchRouteRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var sendable = new List<(InboxRouteRequestDto Item, IReadOnlyList<(string? Repo, string ImportItemId)> Entries)>(request.Items.Count);
+        var refused = new List<(int Position, InboxBatchFailureDto Failure)>();
+
+        for (var position = 0; position < request.Items.Count; position++)
+        {
+            var item = request.Items[position];
+
+            if (Unsendable(item, request.PlanTag) is { } reason)
+            {
+                refused.Add((position, new InboxBatchFailureDto(item.InboxItemId, reason)));
+                continue;
+            }
+
+            var itemId = item.InboxItemId.ToString("D");
+            IReadOnlyList<string?> targets = item.RepoIds.Count == 0 ? [null] : [.. item.RepoIds];
+            sendable.Add((item, [.. targets.Select(repo => (repo, ImportItemId(itemId, repo, targets.Count)))]));
+        }
+
+        if (sendable.Count == 0) return new InboxBatchTargetResultDto([], Ordered(refused));
+
+        var importItemIdsOf = sendable.ToDictionary(
+            entry => entry.Item.InboxItemId,
+            entry => entry.Entries.Select(written => written.ImportItemId).ToList());
+
+        var document = new StringBuilder();
+        var sources = new Dictionary<string, string>(StringComparer.Ordinal);
+        var sent = new List<(Guid Item, IReadOnlyList<string> ImportItemIds)>(sendable.Count);
+
+        foreach (var (item, entries) in sendable)
+        {
+            var itemId = item.InboxItemId.ToString("D");
+            var after = After(item, importItemIdsOf);
+
+            foreach (var (repo, importItemId) in entries)
+            {
+                if (document.Length > 0) document.Append('\n');
+                document.Append(Compose(item, repo, request.PlanTag, importItemId, after));
+                sources[importItemId] = itemId;
+            }
+
+            sent.Add((item.InboxItemId, importItemIdsOf[item.InboxItemId]));
+        }
+
+        var imported = await tasks
+            .ImportPlanAsync(document.ToString(), defaultRepo: null, repoMatches: null, sourceInboxId: null, sourceInboxIds: sources, cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+
+        if (imported.IsFailure) return new InboxBatchTargetResultDto([], Ordered(refused), imported.Error);
+
+        var byImportItemId = imported.Value.Entries
+            .Where(entry => entry.ImportItemId is not null)
+            .GroupBy(entry => entry.ImportItemId!, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First().Id, StringComparer.Ordinal);
+
+        var routed = new List<InboxRoutedDto>(sent.Count);
+        var positions = request.Items.Select((item, index) => (item.InboxItemId, index)).ToDictionary(pair => pair.InboxItemId, pair => pair.index);
+
+        foreach (var (item, importItemIds) in sent)
+        {
+            var made = importItemIds
+                .Where(byImportItemId.ContainsKey)
+                .Select(importItemId => byImportItemId[importItemId])
+                .ToList();
+
+            // Written already, so not a refusal of the batch: the other items
+            // are routed, and whatever was made for this one is named.
+            if (made.Count == importItemIds.Count) routed.Add(new InboxRoutedDto(item, made));
+            else refused.Add((positions[item], new InboxBatchFailureDto(item, InboxErrors.BatchItemMissing(made))));
+        }
+
+        return new InboxBatchTargetResultDto(routed, Ordered(refused));
+    }
+
+    /// <summary>Why an item cannot go into a batch's document, or null when it
+    /// can: a repository the workspace does not know, or notes that would not
+    /// stay one entry inside the document.</summary>
+    private Error? Unsendable(InboxRouteRequestDto item, string planTag)
+    {
+        if (item.RepoIds.FirstOrDefault(repo => repositories.Resolve(repo.Trim()) is null) is { } unknown)
+        {
+            return InboxErrors.BatchUnknownRepository(unknown.Trim());
+        }
+
+        var itemId = item.InboxItemId.ToString("D");
+        IReadOnlyList<string?> targets = item.RepoIds.Count == 0 ? [null] : [.. item.RepoIds];
+
+        return targets.All(repo => StandsAlone(Compose(item, repo, planTag, ImportItemId(itemId, repo, targets.Count))))
+            ? null
+            : InboxErrors.BatchItemNotSeparable;
+    }
+
+    private static string ImportItemId(string itemId, string? repo, int targets) =>
+        targets > 1 ? $"{itemId}/{repo!.Trim()}" : itemId;
+
+    /// <summary>The <c>after:</c> values one item's entries carry: every
+    /// <c>id:</c> of each batch item it waits on that is in the document, then
+    /// each task value as given — each once, in that order.</summary>
+    private static List<string> After(InboxRouteRequestDto item, Dictionary<Guid, List<string>> importItemIdsOf)
+    {
+        var after = new List<string>();
+
+        foreach (var target in item.AfterItems ?? [])
+        {
+            if (target == item.InboxItemId || !importItemIdsOf.TryGetValue(target, out var ids)) continue;
+            after.AddRange(ids);
+        }
+
+        after.AddRange((item.AfterTasks ?? [])
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value.Trim()));
+
+        return [.. after.Distinct(StringComparer.Ordinal)];
+    }
+
+    private static List<InboxBatchFailureDto> Ordered(List<(int Position, InboxBatchFailureDto Failure)> refused) =>
+        [.. refused.OrderBy(entry => entry.Position).Select(entry => entry.Failure)];
+
+    /// <summary>Whether one composed entry stays one entry inside a document:
+    /// it splits into no second segment, and it leaves no fence open to hide the
+    /// next entry's heading. Asked of the parser the import splits with, and of
+    /// fences the way it counts them.</summary>
+    private static bool StandsAlone(string entry) =>
+        EntryTextParser.SplitSegments(entry).Count == 1
+        && entry.Split('\n').Count(line => line.TrimStart().StartsWith("```", StringComparison.Ordinal)) % 2 == 0;
 
     public async Task<Result<IReadOnlyList<Guid>>> ImportPlanAsync(
         string planMarkdown,
@@ -138,7 +299,12 @@ internal sealed partial class InboxBacklogTarget(ITaskItems tasks) : IInboxBackl
     /// because the layout it writes is its own to keep.
     /// </para>
     /// </summary>
-    internal static string Compose(InboxRouteRequestDto request, string? repo)
+    internal static string Compose(
+        InboxRouteRequestDto request,
+        string? repo,
+        string? planTag = null,
+        string? importItemId = null,
+        IReadOnlyList<string>? after = null)
     {
         var text = new StringBuilder();
 
@@ -153,7 +319,12 @@ internal sealed partial class InboxBacklogTarget(ITaskItems tasks) : IInboxBackl
             text.Append(" `#").Append(tag).Append('`');
         }
 
+        // A batch's tokens: the plan the entry belongs to, sigil and all, the
+        // name it goes by inside the batch's document, and what it comes after.
+        if (!string.IsNullOrWhiteSpace(planTag)) text.Append(" `").Append(planTag.Trim()).Append('`');
         if (!string.IsNullOrWhiteSpace(repo)) text.Append(" `repo:").Append(repo.Trim()).Append('`');
+        if (!string.IsNullOrWhiteSpace(importItemId)) text.Append(" `id:").Append(importItemId).Append('`');
+        foreach (var value in after ?? []) text.Append(" `after:").Append(value).Append('`');
 
         text.Append('\n');
 

@@ -77,6 +77,56 @@ Whether a date is that kind of date is a planning judgement, so it is recorded o
 the milestone rather than decided by whatever is drawing it. A plan where every date
 claimed it would be a plan of lines.
 
+## Syncing the plan between devices
+
+```meta
+type: feature
+status: draft
+depends-on: [.devbook/domain/roadmap/features.md#owning-a-stored-plan, .devbook/domain/tasks/features.md#multi-device-sync]
+related: [.devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md, .devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md, .devbook/domain/roadmap/domain.md#roadmap-plan, .devbook/domain/tasks/domain.md#device, .devbook/domain/roadmap/context.md#story-points-a-week]
+```
+
+Keep one plan on every device the person has paired, so the plan drawn on one
+PC is the plan the next one opens. The whole plan travels — its items,
+milestones, dependencies, lanes, dates and band colours — beside the tasks the
+devices already sync
+([Multi-device sync](../tasks/features.md#multi-device-sync)). It travels only
+while sync is on and the device is paired; otherwise the plan is that device's
+own, as it always was.
+
+The plan is replaced whole, never merged. When two devices have both saved the
+plan since they last synced, the **newer save wins on every device** and the
+older one is lost. That is the same trade a task makes when it is edited in two
+places, and here it has one more reason: the plan's dependencies must never form
+a loop, and two plans that each hold none can form one when merged item by item.
+One whole plan from one device is a plan that was valid when it was saved.
+
+A device that has **never saved a plan has nothing to send**. Opening the
+roadmap on a newly paired machine shows the plan from the other device rather
+than wiping it with an empty one.
+
+How the plan is being looked at stays with the device: zoom and scroll are not
+part of the plan and do not travel.
+
+### Carrying the pace with the person
+
+```meta
+type: sub-feature
+status: draft
+related: [.devbook/domain/roadmap/context.md#story-points-a-week, .devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md]
+```
+
+The pace travels too — the typed pace, the chosen source, and each repository's
+own pace ([Story points a week](context.md#story-points-a-week)) — so a bar sized
+by its effort is drawn the same length on every device. It travels apart from
+the plan, so a pace changed on one device and the plan edited on another both
+survive; between two pace changes, the newer one wins. A device that has never
+set a pace sends none, and reads the other device's instead of offering its
+seven. The measured paces do not travel: each device counts them from the
+finished work it holds.
+
+The working week does not travel. It stays each device's own.
+
 ## Tagging planned work
 
 ```meta

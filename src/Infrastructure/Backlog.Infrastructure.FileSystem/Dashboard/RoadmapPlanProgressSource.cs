@@ -18,6 +18,12 @@ namespace Backlog.Infrastructure.FileSystem.Dashboard;
 /// repositories.
 /// </para>
 /// <para>
+/// An item the import sized by its effort is reported with the end the roadmap draws
+/// it to, derived from its gathered effort at that pace (<see cref="EffortWindow"/>),
+/// not the end stored when it was placed: a pace change writes nothing to the plan
+/// (local ADR 0018), so the stored end can be one the pace has since moved.
+/// </para>
+/// <para>
 /// With the roadmap switched off nothing is read at all: a plan somebody turned off is
 /// not one the dashboard should keep reading behind their back.
 /// </para>
@@ -40,20 +46,32 @@ public sealed class RoadmapPlanProgressSource(
         if (!features.IsEnabled(RoadmapFeatures.Roadmap)) return PlanReading.Off;
 
         var plan = await planning.GetPlanAsync(cancellationToken).ConfigureAwait(false);
-        var inWindow = InWindow(plan.Items, from, to);
-        var gathered = await rollups.GatherPlanAsync(plan with { Items = inWindow }, cancellationToken).ConfigureAwait(false);
+        var candidates = MayReach(plan.Items, from, to);
+        var gathered = await rollups.GatherPlanAsync(plan with { Items = candidates }, cancellationToken).ConfigureAwait(false);
 
         // One repository in scope quotes its own pace; several or none quote the global
         // one, because there is no single repository pace that speaks for a set.
         var scoped = await pace.ReadAsync(repositoryAliases.Count == 1 ? repositoryAliases[0] : null, cancellationToken).ConfigureAwait(false);
         var inUse = await velocity.ReadPacesInUseAsync(cancellationToken).ConfigureAwait(false);
 
+        // Narrowed again once each end reads as the roadmap draws it.
+        var inWindow = InWindow(EffortWindow.Derive(candidates, gathered, inUse), from, to);
         return Map(inWindow, gathered, scoped, inUse);
     }
 
     /// <summary>The items whose own start–end overlaps the window, both ends inclusive.</summary>
     internal static IReadOnlyList<RoadmapItemDto> InWindow(IReadOnlyList<RoadmapItemDto> items, DateOnly from, DateOnly to) =>
         [.. items.Where(item => item.Start <= to && item.End >= from)];
+
+    /// <summary>
+    /// The items that could overlap the window once read: those whose stored window
+    /// does, and any sized by its effort that starts by the window's end — its end is
+    /// derived from the effort it gathers, so the stored one does not say where it
+    /// reaches. The start is the plan's either way, so nothing starting after the
+    /// window can reach into it.
+    /// </summary>
+    internal static IReadOnlyList<RoadmapItemDto> MayReach(IReadOnlyList<RoadmapItemDto> items, DateOnly from, DateOnly to) =>
+        [.. items.Where(item => item.Start <= to && (item.End >= from || EffortWindow.IsDerived(item)))];
 
     internal static PlanReading Map(
         IReadOnlyList<RoadmapItemDto> items,
@@ -64,9 +82,10 @@ public sealed class RoadmapPlanProgressSource(
             true,
             new PlanPace(scoped.InUse, BasisOf(scoped)),
             [
-                .. items.Select(item =>
+                .. items.Select(stored =>
                 {
-                    var rollup = rollups.TryGetValue(item.Id, out var found) ? found : RoadmapItemRollupDto.Empty;
+                    var rollup = rollups.TryGetValue(stored.Id, out var found) ? found : RoadmapItemRollupDto.Empty;
+                    var item = EffortWindow.Derive(stored, rollup, inUse);
                     return new PlanItemProgress(
                         item.Id,
                         item.Title,

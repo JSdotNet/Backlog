@@ -1,5 +1,6 @@
 @implements IAsyncDisposable
 @inject DevbookChapterWriter Writer
+@inject IServiceProvider Services
 
 @*
     The one editing surface every knowledge area shares.
@@ -55,7 +56,7 @@
     /// that is a deadlock.</summary>
     private readonly SemaphoreSlim _writeGate = new(1, 1);
 
-    private Timer? _debounce;
+    private ITimer? _debounce;
     private DevbookChapterRef? _loadedChapter;
     private string _buffer = string.Empty;
     private string? _seenInitialText;
@@ -297,8 +298,18 @@
     private void ScheduleDebouncedSave()
     {
         CancelDebounce();
-        _debounce = new Timer(_ => _ = OnDebounceElapsedAsync(), null, DebounceMilliseconds, Timeout.Infinite);
+        _debounce = Clock.CreateTimer(
+            _ => _ = OnDebounceElapsedAsync(),
+            null,
+            TimeSpan.FromMilliseconds(DebounceMilliseconds),
+            Timeout.InfiniteTimeSpan);
     }
+
+    /// <summary>What the debounce is measured on: the host's registered clock, or
+    /// the system one where a host registered none. Looked up rather than injected
+    /// so a host that renders a knowledge panel does not have to know this editor
+    /// keeps time; a test registers a clock it moves by hand.</summary>
+    private TimeProvider Clock => Services.GetService(typeof(TimeProvider)) as TimeProvider ?? TimeProvider.System;
 
     /// <summary>
     /// The debounce's own save, and the only save path with no caller to hand a

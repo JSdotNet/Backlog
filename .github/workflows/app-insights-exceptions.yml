@@ -61,6 +61,7 @@ jobs:
   triage:
     name: File issues for new exceptions
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     # Declaring the environment is what makes the OIDC token's subject
     # `repo:JSdotNet/Backlog:environment:backlog-sync`, the one the federated
     # credential trusts; see docs/deployment/sync.md.

@@ -73,6 +73,7 @@ jobs:
   sync:
     name: Provision and deploy Sync
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     environment: ${{ inputs.environment_name || 'backlog-sync' }}
     permissions:
       contents: read
@@ -93,20 +94,25 @@ jobs:
       AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
       AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
       AZURE_LOCATION: ${{ vars.AZURE_LOCATION }}
-      # The one secret this workflow carries, and it is the service's, not
-      # Azure's: the HMAC key the sync service signs device tokens with. It has to
-      # be in the job environment because azd substitutes ${SYNC_TOKEN_SIGNING_KEY}
-      # in infra/sync/main.parameters.json from the process environment; it never
-      # goes through `azd env set`, so it is not written to the azd environment
-      # and does not surface in `azd env get-values`. GitHub masks it in the log;
-      # nothing below prints it anyway.
-      SYNC_TOKEN_SIGNING_KEY: ${{ secrets.SYNC_TOKEN_SIGNING_KEY }}
+      # SYNC_TOKEN_SIGNING_KEY is deliberately not here: it is set on the steps
+      # that read it (Verify, Preview, Provision, Deploy), so the third-party
+      # actions and the other steps never run with it in their environment.
 
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Verify deployment target
+        env:
+          # The one secret this workflow carries, and it is the service's, not
+          # Azure's: the HMAC key the sync service signs device tokens with. It is
+          # set on this step and on the three azd steps below, and on no other,
+          # because azd substitutes ${SYNC_TOKEN_SIGNING_KEY} in
+          # infra/sync/main.parameters.json from the process environment; it never
+          # goes through `azd env set`, so it is not written to the azd environment
+          # and does not surface in `azd env get-values`. GitHub masks it in the
+          # log; nothing below prints it anyway.
+          SYNC_TOKEN_SIGNING_KEY: ${{ secrets.SYNC_TOKEN_SIGNING_KEY }}
         run: |
           $ErrorActionPreference = 'Stop'
 
@@ -198,6 +204,9 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit 1 }
 
       - name: Preview infrastructure changes
+        env:
+          # Read from the process environment by azd; see Verify deployment target.
+          SYNC_TOKEN_SIGNING_KEY: ${{ secrets.SYNC_TOKEN_SIGNING_KEY }}
         run: |
           $ErrorActionPreference = 'Stop'
 
@@ -206,6 +215,9 @@ jobs:
 
       - name: Provision infrastructure
         if: env.DEPLOY_MODE == 'provision' || env.DEPLOY_MODE == 'deploy'
+        env:
+          # Read from the process environment by azd; see Verify deployment target.
+          SYNC_TOKEN_SIGNING_KEY: ${{ secrets.SYNC_TOKEN_SIGNING_KEY }}
         run: |
           $ErrorActionPreference = 'Stop'
 
@@ -214,6 +226,9 @@ jobs:
 
       - name: Deploy the sync service
         if: env.DEPLOY_MODE == 'deploy'
+        env:
+          # Read from the process environment by azd; see Verify deployment target.
+          SYNC_TOKEN_SIGNING_KEY: ${{ secrets.SYNC_TOKEN_SIGNING_KEY }}
         run: |
           $ErrorActionPreference = 'Stop'
 

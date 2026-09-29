@@ -21,6 +21,15 @@ public static class TaskFold
     /// shows one.</summary>
     public const string CaptureType = "capture";
 
+    /// <summary>The kind tokens of the roadmap's two documents — the whole plan and
+    /// the pace it is drawn at (.devbook/arc42/adr/0018). The phone has no roadmap to
+    /// apply them to, so it keeps no row it would never list. Literals duplicated from
+    /// the desktop's sync client, for the reason <see cref="CaptureType"/> is.</summary>
+    public const string RoadmapPlanType = "roadmap-plan";
+
+    /// <inheritdoc cref="RoadmapPlanType"/>
+    public const string PlanningPaceType = "planning-pace";
+
     /// <summary>Folds <paramref name="records"/> into <paramref name="rows"/>, and
     /// answers with the rows that changed — the ones to write.</summary>
     public static IReadOnlyList<TaskViewRow> Apply(IDictionary<Guid, TaskViewRow> rows, IEnumerable<TaskChangeRecord> records)
@@ -33,7 +42,7 @@ public static class TaskFold
         foreach (var record in records)
         {
             var change = record.Change;
-            if (string.Equals(change.Task.Type, CaptureType, StringComparison.OrdinalIgnoreCase)) continue;
+            if (!IsTask(change.Task.Type)) continue;
 
             var incoming = new TaskViewRow(change.Id, change.UpdatedAt, change.DeletedAt, record.ServerTimestamp, change.Task);
 
@@ -45,6 +54,13 @@ public static class TaskFold
 
         return [.. changed.Values];
     }
+
+    /// <summary>Whether a document of this kind is one the Tasks tab could list: not
+    /// the Inbox's capture, and not either of the roadmap's documents.</summary>
+    private static bool IsTask(string? type) =>
+        !string.Equals(type, CaptureType, StringComparison.OrdinalIgnoreCase)
+        && !string.Equals(type, RoadmapPlanType, StringComparison.OrdinalIgnoreCase)
+        && !string.Equals(type, PlanningPaceType, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Whether <paramref name="incoming"/> replaces <paramref name="current"/>.
     /// A strict order over every field that can differ, so two phones folding the

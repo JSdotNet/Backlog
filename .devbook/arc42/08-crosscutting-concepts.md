@@ -6,7 +6,7 @@
 ## Storage and Sync
 
 ```meta
-related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".devbook/arc42/06-runtime-view.md#copilot-app-session-capture", ".devbook/arc42/08-crosscutting-concepts.md#session-record-sync", ".devbook/arc42/08-crosscutting-concepts.md#task-sync", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/domain/capture/domain.md#source-adapter", ".devbook/domain/sessions/domain.md#session-log"]
+related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/06-runtime-view.md#state-sync-and-webhook-forwarding", ".devbook/arc42/06-runtime-view.md#copilot-app-session-capture", ".devbook/arc42/08-crosscutting-concepts.md#session-record-sync", ".devbook/arc42/08-crosscutting-concepts.md#task-sync", ".devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/domain/capture/domain.md#source-adapter", ".devbook/domain/sessions/domain.md#session-log"]
 ```
 
 - **Local-first, one canonical local store** — the desktop's own store is the single
@@ -39,7 +39,10 @@ related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/ar
   with the capture's own id, never a task row, and the desktop acknowledges it by
   pushing a tombstone of that document from an outbox
   (`.devbook/arc42/adr/0009-captures-are-a-document-kind-on-the-replica.md`). Lists and
-  groups the Inbox organises items into stay on the machine.
+  groups the Inbox organises items into stay on the machine. The roadmap plan and
+  the planning pace are proposed to ride the same container the same way, each as
+  one whole document with its own kind token
+  (`.devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md`).
   Conflict resolution for tasks: **new items always create; edits are
   last-write-wins**. Session records do not reconcile at all — only the machine
   that ran a session writes records for it, so there is never a second version to
@@ -63,11 +66,15 @@ related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/ar
   cache carried by a file-sync product is the hazard
   `.devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md` exists to
   remove).
-  The roadmap plan is on neither list, and since 2026-09-05 the reason is narrower
-  than it was: it is a document row in `backlog.db` rather than a file beside it, so
-  it no longer carries the database's file-sync hazard, and the row stamps
-  `updated_at` so it *could* replicate on a task's terms. Whether it should is the
-  open question — see `.devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md`.
+  The roadmap plan and the planning pace are not on this list. Local ADR 0018
+  (proposed, 2026-09-29) replicates both. The plan is one whole `roadmap-plan`
+  document on the `tasks` feed, carrying the `roadmap_plan` row's JSON and
+  last-write-wins on its `updated_at`. The pace (`planning-velocity.json`: the
+  typed pace, the chosen source and the per-repository pairs) is a second
+  `planning-pace` document, so a pace change and a plan edit never overwrite each
+  other. The working week stays with the per-device settings, and a device that
+  never saved a plan or a pace sends none — see
+  `.devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md`.
 - **Three containers in the cloud replica** — `tasks`, `sessions` and
   `annotations`, all partitioned on `/ownerId`. Separate because each wants its
   own change feed, its own indexing policy, and its own retention, and because

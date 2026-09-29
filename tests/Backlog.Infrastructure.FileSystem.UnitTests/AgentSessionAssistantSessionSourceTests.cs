@@ -130,6 +130,7 @@ public class AgentSessionAssistantSessionSourceTests
     [Theory]
     [InlineData("acme/recorded", "acme/resolved", "acme/recorded")]
     [InlineData(null, "acme/resolved", "acme/resolved")]
+    [InlineData("  ", "acme/resolved", "acme/resolved")]
     [InlineData(null, null, null)]
     public async Task The_recorded_repository_wins_and_the_resolved_one_fills_the_gap(
         string? recorded,

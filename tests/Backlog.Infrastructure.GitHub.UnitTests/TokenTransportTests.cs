@@ -22,6 +22,59 @@ public sealed class TokenTransportTests
             handler.Request!.RequestUri!.ToString());
     }
 
+    /// <summary>
+    /// GitHub Enterprise Server keeps its REST API under <c>/api/v3</c> and its
+    /// GraphQL API beside it at <c>/api/graphql</c> — not under the REST root, where
+    /// concatenating the path would put it. github.com has both at the API host's
+    /// root, so there the plain join is already right.
+    /// </summary>
+    [Theory]
+    [InlineData("https://ghe.example.internal/api/v3/", "https://ghe.example.internal/api/graphql")]
+    [InlineData("https://ghe.example.internal/api/v3", "https://ghe.example.internal/api/graphql")]
+    [InlineData("https://api.github.com", "https://api.github.com/graphql")]
+    public async Task Graphql_goes_where_the_host_keeps_it(string endpoint, string expected)
+    {
+        var handler = new RecordingHandler();
+        var transport = new TokenTransport(StubCredentialResolver.WithToken(), () => endpoint, new HttpClient(handler));
+
+        await transport.SendAsync(HttpMethod.Post, "graphql#acme/tools", new { query = "{ viewer { login } }" }, cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(expected, handler.Request!.RequestUri!.ToString());
+    }
+
+    /// <summary>The part after <c>#</c> names the repository for the credential
+    /// resolver and nothing else; it is never part of what is requested.</summary>
+    [Fact]
+    public void The_routing_hint_is_not_part_of_the_request()
+    {
+        var transport = new TokenTransport(StubCredentialResolver.WithToken(), () => GitHubSettings.DefaultApiEndpoint);
+
+        var uri = transport.EndpointUri("graphql#acme/tools");
+
+        Assert.Equal(string.Empty, uri.Fragment);
+        Assert.Equal("/graphql", uri.AbsolutePath);
+    }
+
+    /// <summary>
+    /// <c>mergeStateStatus</c> began behind the merge-info schema preview, and an
+    /// Enterprise Server that still gates it answers the field as absent without it.
+    /// Asked for on every GraphQL call — the preview media type costs nothing where
+    /// the field has already graduated — and the ordinary REST media type stays
+    /// beside it.
+    /// </summary>
+    [Fact]
+    public async Task A_graphql_call_asks_for_the_merge_info_preview()
+    {
+        var handler = new RecordingHandler();
+        var transport = new TokenTransport(StubCredentialResolver.WithToken(), http: new HttpClient(handler));
+
+        await transport.SendAsync(HttpMethod.Post, "graphql#acme/tools", new { query = "{ viewer { login } }" }, cancellationToken: TestContext.Current.CancellationToken);
+
+        var accept = handler.Request!.Headers.Accept.Select(value => value.MediaType).ToList();
+        Assert.Contains("application/vnd.github.merge-info-preview+json", accept);
+        Assert.Contains("application/vnd.github+json", accept);
+    }
+
     [Fact]
     public async Task Invalid_endpoint_is_rejected_before_any_http_call()
     {

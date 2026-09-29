@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using static Backlog.Infrastructure.IsoTimestamps;
 
 namespace Backlog.Infrastructure.GitHub;
 
@@ -162,9 +163,6 @@ public sealed class GitHubActivityBaselineClient(IGitHubTransport transport) : I
         $"search/issues?q={qualifiers}{string.Concat(repositories.Select(name => $"+repo:{name}"))}&per_page=1";
 
     private static string Range(ActivityBlock block) => $"{Rfc3339(block.From)}..{Rfc3339(block.To)}";
-
-    private static string Rfc3339(DateTimeOffset instant) =>
-        instant.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture);
 
     /// <summary>
     /// One query's count, or null when it could not be answered.

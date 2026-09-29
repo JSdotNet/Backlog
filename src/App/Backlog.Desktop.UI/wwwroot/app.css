@@ -3834,6 +3834,62 @@ h1, h2, h3 {
     margin-top: var(--spacing-sm);
 }
 
+/* Before you route: the panel a batch of two or more is decided in. Four short
+   sections read top to bottom, each under a small heading, so the order, the
+   dependencies, the repositories and the plan are four separate questions. A
+   loop is the library's Alert wearing the panel's name, in the error colour and
+   with the strong edge the pane's notes use, because Confirm is off until it is
+   gone. */
+.inbox-route-panel__section {
+    display: grid;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.inbox-route-panel__section + .inbox-route-panel__section {
+    margin-top: var(--spacing-md);
+}
+
+.inbox-route-panel__heading {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+}
+
+.inbox-route-panel__order {
+    margin: 0;
+    padding-left: var(--spacing-lg);
+    display: grid;
+    gap: var(--spacing-2xs);
+}
+
+.inbox-route-panel__edges {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: var(--spacing-xs);
+}
+
+.inbox-route-panel__edge[data-enabled="false"] {
+    color: var(--color-text-secondary);
+}
+
+.inbox-route-panel__loop {
+    margin: 0;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-left: var(--border-width-2) solid var(--color-error);
+    color: var(--color-error-text);
+    font-size: var(--font-size-sm);
+}
+
+.inbox-route-panel__plan {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+}
+
 /* The row is a button, and it is styled here from scratch rather than as a
    `.btn`: the library's button brings padding, a weight and a centred label,
    and a row is a left-aligned line of metadata. Selection is the border in
