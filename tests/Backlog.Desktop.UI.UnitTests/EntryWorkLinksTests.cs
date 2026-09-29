@@ -195,6 +195,128 @@ public sealed class EntryWorkLinksTests
         Assert.Equal("Pull request JSdotNet/Backlog#708", link.GetAttribute("title"));
     }
 
+    /// <summary>An open pull request's checks and its auto-merge request ride on
+    /// its link, on the row and on the open entry — marks after the number, and
+    /// the words in the tooltip beside the state, so colour is never the only
+    /// carrier.</summary>
+    [Fact]
+    public async Task An_open_pull_request_shows_its_checks_and_auto_merge_on_the_row_and_the_entry()
+    {
+        using var host = await TasksPaneHost.CreateAsync("JSdotNet/Backlog");
+        var row = await host.WriteEntryAsync(Entry);
+        var pr = WithStatus(row, 708, GitHubCheckState.Passing, autoMerge: true);
+
+        var pane = host.Render();
+
+        foreach (var prefix in new[] { "row-", "entry-" })
+        {
+            var link = pane.Find($"[data-testid='{prefix}pull-request']");
+            Assert.Equal(
+                $"Pull request {pr.Repository}#708 — open · checks passing · auto-merge on",
+                link.GetAttribute("title"));
+
+            Assert.Contains("integration-link__checks--passing", pane.Find($"[data-testid='{prefix}pull-request-checks']").ClassList);
+            Assert.NotNull(pane.Find($"[data-testid='{prefix}pull-request-auto-merge']"));
+        }
+    }
+
+    [Theory]
+    [InlineData(GitHubCheckState.Pending, "pending", "checks pending")]
+    [InlineData(GitHubCheckState.Failing, "failing", "checks failing")]
+    public async Task Each_check_state_is_its_own_mark_and_its_own_words(GitHubCheckState checks, string slug, string words)
+    {
+        using var host = await TasksPaneHost.CreateAsync("JSdotNet/Backlog");
+        var row = await host.WriteEntryAsync(Entry);
+        WithStatus(row, 708, checks);
+
+        var pane = host.Render();
+
+        var link = pane.Find("[data-testid='entry-pull-request']");
+        Assert.Equal($"Pull request JSdotNet/Backlog#708 — open · {words}", link.GetAttribute("title"));
+        Assert.Contains($"integration-link__checks--{slug}", pane.Find("[data-testid='entry-pull-request-checks']").ClassList);
+        Assert.Empty(pane.FindAll("[data-testid='entry-pull-request-auto-merge']"));
+    }
+
+    /// <summary>No checks is said by saying nothing: no mark, and no words about
+    /// checks in the tooltip.</summary>
+    [Fact]
+    public async Task A_pull_request_with_no_checks_shows_no_checks_mark()
+    {
+        using var host = await TasksPaneHost.CreateAsync("JSdotNet/Backlog");
+        var row = await host.WriteEntryAsync(Entry);
+        WithStatus(row, 708, GitHubCheckState.None);
+
+        var pane = host.Render();
+
+        Assert.Empty(pane.FindAll("[data-testid='entry-pull-request-checks']"));
+        Assert.Equal("Pull request JSdotNet/Backlog#708 — open", pane.Find("[data-testid='entry-pull-request']").GetAttribute("title"));
+    }
+
+    /// <summary>A merged pull request's checks are history: the link says merged
+    /// and nothing about checks that no longer gate anything.</summary>
+    [Fact]
+    public async Task A_merged_pull_request_shows_no_checks_or_auto_merge()
+    {
+        using var host = await TasksPaneHost.CreateAsync("JSdotNet/Backlog");
+        var row = await host.WriteEntryAsync(Entry);
+        WithStatus(row, 708, GitHubCheckState.Passing, autoMerge: true, state: GitHubItemState.Merged);
+
+        var pane = host.Render();
+
+        Assert.Empty(pane.FindAll("[data-testid='entry-pull-request-checks']"));
+        Assert.Empty(pane.FindAll("[data-testid='entry-pull-request-auto-merge']"));
+        Assert.Equal("Pull request JSdotNet/Backlog#708 — merged", pane.Find("[data-testid='entry-pull-request']").GetAttribute("title"));
+    }
+
+    /// <summary>Gated like everything else GitHub draws: no indicator unless the
+    /// integration is on and a repository is configured.</summary>
+    [Fact]
+    public async Task No_checks_or_auto_merge_show_while_the_integration_is_off()
+    {
+        using var host = await TasksPaneHost.CreateAsync("JSdotNet/Backlog");
+        var row = await host.WriteEntryAsync(Entry);
+        WithStatus(row, 708, GitHubCheckState.Passing, autoMerge: true);
+        host.Features.SetEnabled(TasksFeatures.GitHubIntegration, enabled: false);
+
+        var pane = host.Render();
+
+        Assert.Empty(pane.FindAll("[data-testid='entry-pull-request-checks']"));
+        Assert.Empty(pane.FindAll("[data-testid='entry-pull-request-auto-merge']"));
+        Assert.Equal("Pull request JSdotNet/Backlog#708 — open", pane.Find("[data-testid='entry-pull-request']").GetAttribute("title"));
+    }
+
+    [Fact]
+    public async Task No_checks_or_auto_merge_show_while_no_repository_is_configured()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync(Entry);
+        WithStatus(row, 708, GitHubCheckState.Passing, autoMerge: true);
+
+        var pane = host.Render();
+
+        Assert.Empty(pane.FindAll("[data-testid='entry-pull-request-checks']"));
+        Assert.Empty(pane.FindAll("[data-testid='entry-pull-request-auto-merge']"));
+    }
+
+    /// <summary>A row with one recorded pull request whose status has been read, the
+    /// way <c>RefreshPullRequestStatesAsync</c> leaves one.</summary>
+    private static EntryPullRequestLink WithStatus(
+        EntryRow row,
+        int number,
+        GitHubCheckState checks,
+        bool autoMerge = false,
+        GitHubItemState state = GitHubItemState.Open)
+    {
+        var pr = new EntryPullRequestLink("JSdotNet/Backlog", number);
+        row.PullRequestLinks = [pr];
+        row.PullRequestStates = new Dictionary<EntryPullRequestLink, GitHubItemState> { [pr] = state };
+        row.PullRequestStatuses = new Dictionary<EntryPullRequestLink, GitHubPullRequestStatus>
+        {
+            [pr] = new(number, pr.Repository, $"PR_{number}", state, checks, autoMerge, MergeReady: false, GitHubMergeMethod.Merge)
+        };
+        return pr;
+    }
+
     /// <summary>With nobody to open it, a session is text, not a button that has
     /// to refuse the click.</summary>
     [Fact]

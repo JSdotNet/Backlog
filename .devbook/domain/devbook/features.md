@@ -126,7 +126,13 @@ vocabulary rather than as an unknown one.
 Documents appear in the order the convention gives them — each directory's
 introducing document first, numbered chapters by their number, a folder's usual
 chapters in their usual places, and the rest by name — so a repository never has
-to write its reading order down, and a file that tries to is ignored.
+to write its reading order down, and a file that tries to is ignored. Inside a
+bounded context, the rules a domain page's types enforce are a page of their own
+that reads directly after it, and the menu lists them as that page's invariants
+— "Invariants", or "Order invariants" beside a page split out for one
+aggregate — rather than by their file name. A context that still keeps its rules
+in the older single invariants file has them read and listed where they always
+were.
 
 The metadata is read against the devbook convention the repository's own checks
 enforce, folder by folder, so a chapter the app shows as fine is not one those
@@ -149,7 +155,9 @@ checks reject:
 - **Kinds.** Each area that classifies its chapters is read with its own set of
   kinds, including a domain context's boundary document, its requirements and
   invariants and the single rules inside them, its switches and settings, its
-  actors, and a page of its own that the convention does not name. How a
+  actors, and a page of its own that the convention does not name. A
+  requirements or invariants page is shown under the title it carries, which
+  names what it holds rather than the context. How a
   bounded context ships — as a service of its own or as a module inside a shared
   host — is shown with it, and said out loud when the context map and the
   context's own boundary document disagree about it.

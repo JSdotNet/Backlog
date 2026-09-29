@@ -5,6 +5,9 @@
 
   <ItemGroup>
     <PackageReference Include="bunit" />
+    <!-- FakeTimeProvider: DebouncedSave waits on a TimeProvider, and its tests
+         move the clock past the delay rather than sleeping through it. -->
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
   </ItemGroup>
 
   <ItemGroup>

@@ -144,6 +144,11 @@ public sealed class ReconcileRepositoryIdsCommandHandler(ITaskRepository entries
     /// undo the removal on every start. It stays on the entry, unresolved.
     /// </para>
     /// <para>
+    /// So does an id whose registration failed. The registry could not keep it,
+    /// so a rewrite would point the entry at nothing after a restart; left as
+    /// written, the next start asks again.
+    /// </para>
+    /// <para>
     /// This does not go through <c>RepositoryIdResolver</c>, and the difference is
     /// the point: that shared rule either registers everything unrecognised
     /// (Import) or nothing (the text save), and reconciliation needs a third
@@ -154,7 +159,10 @@ public sealed class ReconcileRepositoryIdsCommandHandler(ITaskRepository entries
     {
         if (repositories.Resolve(value) is { } known) return known.Id;
 
-        return IsIdShaped(value) && !repositories.WasRemoved(value) ? repositories.Register(value).Id : value;
+        if (!IsIdShaped(value) || repositories.WasRemoved(value)) return value;
+
+        var registered = repositories.Register(value);
+        return registered.IsSuccess ? registered.Value.Id : value;
     }
 
     /// <summary>Whether a value is an <c>owner/name</c> coordinate: exactly two

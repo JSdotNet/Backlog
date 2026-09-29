@@ -343,6 +343,42 @@ public sealed class DevbookMenuReadingOrderTests : IDisposable
     }
 
     /// <summary>
+    /// Contract 17's invariants subpage reads directly after its domain page, and
+    /// its row says what it holds. Title-casing the filename drew
+    /// <c>domain.invariants.md</c> as "Domain.invariants"; the subpage is a
+    /// domain page's rules, so it is "Invariants", and a split page's is
+    /// "Order invariants" — still a filename label, and still one no sibling
+    /// shares.
+    /// </summary>
+    [Fact]
+    public async Task Labels_an_invariants_subpage_by_what_it_holds_after_its_domain_page()
+    {
+        var repo = TempDir();
+        var domain = Path.Combine(repo, ".domain");
+        var capture = Path.Combine(domain, "capture");
+        Directory.CreateDirectory(capture);
+        File.WriteAllText(Path.Combine(domain, "context-map.md"), "# Context map");
+        foreach (var file in new[] { "context.md", "domain.md", "domain.invariants.md", "domain.order.md", "domain.order.invariants.md", "features.md", "requirements.md" })
+        {
+            File.WriteAllText(Path.Combine(capture, file), "# Capture");
+        }
+
+        var tree = await LoadAsync(repo, "domain");
+
+        var context = Assert.Single(tree.Children, node => node.Key == "capture");
+        Assert.Equal(
+            [
+                ("capture/domain.md", "Domain"),
+                ("capture/domain.invariants.md", "Invariants"),
+                ("capture/domain.order.md", "Domain.order"),
+                ("capture/domain.order.invariants.md", "Order invariants"),
+                ("capture/features.md", "Features"),
+                ("capture/requirements.md", "Requirements")
+            ],
+            context.Children.Select(node => (node.Path, node.Label)));
+    }
+
+    /// <summary>
     /// The second symptom: the rail humanised the folder name, so the context
     /// whose chapters all say "Dev PC Management" was labelled "Dev Pc
     /// Management". The database holds the real title, and here it is worth

@@ -1,4 +1,5 @@
 using System.Text;
+using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.SharedKernel.Ai;
@@ -24,8 +25,18 @@ namespace Backlog.Modules.Roadmap.UI;
 /// plan's own precision is a day and a locale-formatted date is a second thing
 /// for the assistant to parse.
 /// </para>
+/// <para>
+/// An item the import sized by its effort is written with the end the band draws it
+/// to — its gathered effort at its pace in use (<see cref="EffortWindow"/>) — not the
+/// end stored when it was placed, because a pace change writes nothing to the plan
+/// (local ADR 0018). Optional, so a host that composes the plan without the backlog
+/// still answers, with the stored windows.
+/// </para>
 /// </remarks>
-internal sealed class RoadmapAiContentSource(IRoadmapPlanning planning) : IAiContentSource
+internal sealed class RoadmapAiContentSource(
+    IRoadmapPlanning planning,
+    IRoadmapItemRollup? rollups = null,
+    IPlanningVelocity? velocity = null) : IAiContentSource
 {
     public string AreaKey => "roadmap";
 
@@ -36,6 +47,10 @@ internal sealed class RoadmapAiContentSource(IRoadmapPlanning planning) : IAiCon
         ArgumentNullException.ThrowIfNull(request);
 
         var plan = await planning.GetPlanAsync(cancellationToken).ConfigureAwait(false);
+        if (rollups is not null && velocity is not null)
+        {
+            plan = await plan.WithDerivedWindowsAsync(rollups, velocity, cancellationToken).ConfigureAwait(false);
+        }
 
         // Milestones are named by items, so the lookup is built once for the
         // whole plan rather than once per item.

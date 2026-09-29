@@ -15,4 +15,11 @@
     <InternalsVisibleTo Include="Backlog.Infrastructure.Claude.UnitTests" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The one timestamp parse and RFC 3339 format every outbound adapter uses.
+         Compiled in from the GitHub adapter rather than referenced, so this
+         adapter stays free of GitHub's dependencies and the copy cannot drift. -->
+    <Compile Include="..\Backlog.Infrastructure.GitHub\IsoTimestamps.cs" Link="IsoTimestamps.cs" />
+  </ItemGroup>
+
 </Project>

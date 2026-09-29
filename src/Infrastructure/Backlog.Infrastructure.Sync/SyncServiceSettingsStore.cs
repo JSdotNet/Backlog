@@ -39,14 +39,9 @@ public sealed class SyncServiceSettingsStore
 
     private readonly string _path;
 
-    public SyncServiceSettingsStore()
-        : this(Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Backlog",
-            "sync-service.json"))
-    {
-    }
-
+    /// <summary>A store at <paramref name="path"/>. No default, for the same
+    /// reason the credential store has none: which per-user folder is the
+    /// app's is the host's to say.</summary>
     public SyncServiceSettingsStore(string path)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);

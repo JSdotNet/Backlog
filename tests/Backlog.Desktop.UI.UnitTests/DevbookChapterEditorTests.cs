@@ -13,9 +13,15 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// to another chapter — and it loses it silently, which is why the flush paths
 /// are tested one by one rather than trusted to the timer.
 /// </para>
+/// <para>
+/// The timer runs on a <see cref="FiringClock"/> the tests move by hand, so
+/// a test about the debounce says which side of the 750 ms it is on rather than
+/// sleeping past it.
+/// </para>
 /// </summary>
 public sealed class DevbookChapterEditorTests : IDisposable
 {
+    private readonly FiringClock _clock = new();
     private readonly List<string> _tempDirs = [];
 
     [Fact]
@@ -113,8 +119,12 @@ public sealed class DevbookChapterEditorTests : IDisposable
         component.Find("[data-testid='devbook-chapter-edit']").Click();
         component.Find("textarea").Input("# Notes\n\nTyped and left alone.\n");
 
+        _clock.Advance(TimeSpan.FromMilliseconds(749));
+        Assert.Equal("# Notes\n\nProse.\n", File.ReadAllText(Path.Combine(root, "notes.md")));
+
         // No gesture at all: the debounce is the save, which is what makes the
         // absence of a save button honest rather than merely a missing button.
+        _clock.Advance(TimeSpan.FromMilliseconds(1));
         component.WaitForAssertion(
             () => Assert.Contains("Typed and left alone.", File.ReadAllText(Path.Combine(root, "notes.md")), StringComparison.Ordinal),
             TimeSpan.FromSeconds(5));
@@ -143,10 +153,15 @@ public sealed class DevbookChapterEditorTests : IDisposable
         var flushed = File.ReadAllText(path);
         var flushedAt = File.GetLastWriteTimeUtc(path);
         Assert.Contains("Typed as the pane closed.", flushed, StringComparison.Ordinal);
+        var firedAfterClosing = _clock.Fired;
 
         // Well past the 750 ms the closing keystroke armed.
-        await Task.Delay(1500, TestContext.Current.CancellationToken);
+        _clock.Advance(TimeSpan.FromSeconds(2));
 
+        // The debounce never fired at all. A write it started would land after
+        // the file checks below had already passed; the callback runs inside
+        // Advance, so this count cannot miss it.
+        Assert.Equal(firedAfterClosing, _clock.Fired);
         Assert.Equal(flushed, File.ReadAllText(path));
         Assert.Equal(flushedAt, File.GetLastWriteTimeUtc(path));
     }
@@ -262,6 +277,9 @@ public sealed class DevbookChapterEditorTests : IDisposable
         // moved on: adopting its text here would take the newer sentence off the
         // screen, and the save that follows would then persist the reverted body.
         Assert.Equal(Second, component.Find("textarea").GetAttribute("value"));
+
+        // The second pass is written by the debounce its keystroke armed.
+        _clock.Advance(TimeSpan.FromMilliseconds(750));
         await component.WaitForAssertionAsync(
             () => Assert.Equal(Second, File.ReadAllText(Path.Combine(root, "notes.md"))),
             TimeSpan.FromSeconds(5));
@@ -285,6 +303,7 @@ public sealed class DevbookChapterEditorTests : IDisposable
 
         component.Find("[data-testid='devbook-chapter-edit']").Click();
         component.Find("textarea").Input("# Notes\n\nTyped and left alone.\n");
+        _clock.Advance(TimeSpan.FromMilliseconds(750));
 
         component.WaitForAssertion(
             () => Assert.Equal("Could not save", component.Find("[data-testid='devbook-chapter-save-state']").TextContent.Trim()),
@@ -392,7 +411,7 @@ public sealed class DevbookChapterEditorTests : IDisposable
             .Add(editor => editor.InitialText, text)
             .Add(editor => editor.Title, "Notes"));
 
-    private static BunitContext NewContext()
+    private BunitContext NewContext()
     {
         var context = new BunitContext();
 
@@ -400,6 +419,7 @@ public sealed class DevbookChapterEditorTests : IDisposable
         // highlight layer. None of that is what these tests are about.
         context.JSInterop.Mode = JSRuntimeMode.Loose;
         context.Services.AddSingleton<DevbookChapterWriter>();
+        context.Services.AddSingleton<TimeProvider>(_clock);
         return context;
     }
 

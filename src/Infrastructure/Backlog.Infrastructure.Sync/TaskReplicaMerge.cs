@@ -1,6 +1,8 @@
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 using Backlog.Modules.Inbox.Abstractions.Services;
+using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
+using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks;
 using Backlog.Modules.Tasks.Abstractions;
@@ -93,13 +95,23 @@ public readonly record struct TaskMergeOutcome(int Applied, int Skipped);
 /// rather than writing them anywhere, which is what a head without an inbox
 /// store should do with one.
 /// </para>
+/// <para>
+/// <b>Nor is a roadmap document.</b> A document whose kind token is
+/// <c>roadmap-plan</c> or <c>planning-pace</c> is handed to Roadmap's replication
+/// port whole — its text and its stamp — before the local task is read, the way a
+/// capture goes to the intake (local ADR 0018). The port decides by stamp; this
+/// routes by kind and knows nothing else about either document. A head composed
+/// without the port counts both Skipped and writes nothing, which is exactly what
+/// an older build that has never heard of the tokens does.
+/// </para>
 /// </summary>
 public sealed class TaskReplicaMerge(
     ITaskRepository tasks,
     IInboxIntake? inbox = null,
     ILogger<TaskReplicaMerge>? log = null,
     SyncActivityLog? activity = null,
-    ITaskChangeSignal? changes = null)
+    ITaskChangeSignal? changes = null,
+    IRoadmapReplication? roadmap = null)
 {
     /// <summary>The kind token the service writes on a capture document. Three
     /// literals, not a reference: the service's <c>CaptureInboxItemCommandHandler</c>
@@ -114,6 +126,10 @@ public sealed class TaskReplicaMerge(
     /// <summary>Optional by construction, not by omission: a head without an
     /// inbox store leaves it null and captures stay on the replica.</summary>
     private readonly IInboxIntake? _inbox = inbox;
+
+    /// <summary>Where the plan and the pace go, or null on a head without a
+    /// roadmap — the phone, or a desktop build from before the port.</summary>
+    private readonly IRoadmapReplication? _roadmap = roadmap;
 
     /// <summary>The signal the host's repository raises on every write, held
     /// here only to be silenced. A document arriving from the replica is not a
@@ -446,6 +462,11 @@ public sealed class TaskReplicaMerge(
             }
         }
 
+        if (RoadmapReplicaDocuments.KindOf(record.Change.Task.Type) is { } document)
+        {
+            return await ApplyRoadmapAsync(record, document, cancellationToken).ConfigureAwait(false);
+        }
+
         var local = await _tasks
             .GetIncludingDeletedAsync(record.Change.Id, cancellationToken)
             .ConfigureAwait(false);
@@ -485,6 +506,58 @@ public sealed class TaskReplicaMerge(
             task.DeletedAt is null ? null : "deleted");
 
         return ApplyOutcome.Written;
+    }
+
+    /// <summary>
+    /// Hands a roadmap document to Roadmap's port and counts what it answered.
+    /// <para>
+    /// Skipped, not held, on a head without the port: the document will not land
+    /// until this build can take it, which is what Skipped says — and what an older
+    /// build, meeting a token it cannot parse, reports for it anyway. Nothing is
+    /// written either way, and the page moves on.
+    /// </para>
+    /// </summary>
+    private async Task<ApplyOutcome> ApplyRoadmapAsync(
+        TaskChangeRecord record,
+        RoadmapReplicaDocument document,
+        CancellationToken cancellationToken)
+    {
+        if (_roadmap is null)
+        {
+            _log.LogWarning(
+                "Skipping {Kind} document {DocumentId} from the replica: this head keeps no roadmap.",
+                record.Change.Task.Type,
+                record.Change.Id);
+
+            return ApplyOutcome.Unreadable;
+        }
+
+        var outcome = await _roadmap
+            .ApplyAsync(
+                document,
+                new RoadmapReplicaCopyDto(record.Change.Task.ContentMd ?? string.Empty, record.Change.UpdatedAt),
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        switch (outcome)
+        {
+            case RoadmapReplicaOutcome.Taken:
+                _activity?.Record(
+                    SyncDirection.Received, SyncItemKind.Roadmap, record.Change.Id.ToString("D"), record.Change.Task.Title);
+                return ApplyOutcome.Written;
+
+            case RoadmapReplicaOutcome.Unreadable:
+                _log.LogWarning(
+                    "Skipping {Kind} document {DocumentId} from the replica: it does not read as that document. "
+                    + "The local copy is left as it is.",
+                    record.Change.Task.Type,
+                    record.Change.Id);
+                return ApplyOutcome.Unreadable;
+
+            // An echo or an older copy: the local one stands, as it does for a task.
+            default:
+                return ApplyOutcome.Held;
+        }
     }
 
     private static bool IsCapture(TaskChange change) =>

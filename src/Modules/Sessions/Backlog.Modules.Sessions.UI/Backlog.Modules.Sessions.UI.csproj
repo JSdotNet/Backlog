@@ -2,24 +2,20 @@
 
   <!--
     The Sessions context's UI: the full-screen list of the Claude and Copilot
-    sessions an environment has a record of, and the readers that answer this
-    module's port (see .devbook/domain/context-map.md and .devbook/domain/sessions/).
+    sessions an environment has a record of, and the delivery runs beside them
+    (see .devbook/domain/context-map.md and .devbook/domain/sessions/).
 
     It references the shared control library rather than growing its own controls,
     which is the rule every module UI project follows, and its own module's
     published surface for the port it injects. It sees no host, no workspace and no
     sibling context — including Dev PC Management, whose Machine this context's
-    Environment corresponds to. The local readers stamp the device identity they are
-    running under, which is the shared kernel's port and not another context's surface,
-    so nothing here has to reach sideways for it; and the day a fleet reports sessions,
-    that arrives as a second implementation of this module's port rather than as a
-    reference from this project.
+    Environment corresponds to. The day a fleet reports sessions, that arrives as a
+    second implementation of this module's port rather than as a reference from this
+    project.
 
-    The readers live here beside the pane rather than in src/Infrastructure, on the
-    Dashboard's precedent: ModuleBoundaryTests explicitly permits a .UI project to
-    hold an adapter, and the alternative — giving Backlog.Infrastructure.FileSystem a
-    dependency on this module — buys nothing for three readers whose only consumer is
-    this project.
+    The readers that answer the port are not here: they are
+    Backlog.Infrastructure.Sessions, composed by the hosts, and this project is a
+    screen and nothing else — it opens no file and starts no process.
   -->
   <PropertyGroup>
     <!--
@@ -39,24 +35,21 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.Web" />
-    <!-- For AddAgentSessionSource(): the host composes the readers, so the
-         registration extension lives beside the adapters it registers. -->
+    <!-- For AddSessionsAiContentSource(), and for the run line's optional lookup of
+         the diagram port. -->
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
   </ItemGroup>
 
   <ItemGroup>
-    <!-- What a session file says and what a row shows is where a timestamp, a
-         repository or a liveness state gets lost, so the readers are worth testing
+    <!-- The Ask AI source and the run's diagram specification are worth testing
          directly rather than only through the pane. -->
     <InternalsVisibleTo Include="Backlog.Desktop.UI.UnitTests" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\Core\Backlog.UI.Components\Backlog.UI.Components.csproj" />
-    <!-- IDeviceIdentitySource: which machine this installation is. The kernel is
-         what everything may see, and this is the question three contexts ask and
-         none of them owns — the local readers stamp what they find with it rather
-         than with a hostname, because a name is not an identity. -->
+    <!-- IAiContentSource: the shell's Ask AI port, which the kernel publishes
+         because every area answers it and none of them owns it. -->
     <ProjectReference Include="..\..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
     <!-- The module's published surface only: the IAgentSessionSource port, the DTOs
          it answers with, the grouping, and the feature key. Which host answers the

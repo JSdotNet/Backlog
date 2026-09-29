@@ -418,7 +418,9 @@ public sealed class SessionInsights(
     /// Which band a repository falls in: a configured one by its alias, an unconfigured
     /// one folded into the other row, none into the unrecorded row. One resolver for
     /// every chart cut by repository, so the activity rows, the tokens and the pull
-    /// requests cannot band the same repository two ways.
+    /// requests cannot band the same repository two ways. A session's repository is the
+    /// one its agent recorded, else the clone the product placed it in — the seam picks
+    /// before it arrives here — so "none" means neither is known.
     /// </summary>
     private Func<string?, (string Name, RepositoryBandKind Kind)> Bands()
     {

@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Sessions\Backlog.Infrastructure.Sessions.csproj" />
+    <!-- Session replication contributes keyed sources to the same composites, so the
+         composite tests compose both registrations the way the hosts do. -->
+    <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Sync\Backlog.Infrastructure.Sync.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- FakeTimeProvider: the record keeper stamps when it last saw a session, and a
+         test that proves it has to move the clock rather than wait for it. -->
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The module's published surface and the kernel's device identity, which every
+         reader here answers in and stamps with. -->
+    <Using Include="Backlog.Modules.Sessions.Abstractions" />
+    <Using Include="Backlog.SharedKernel" />
+  </ItemGroup>
+
+</Project>

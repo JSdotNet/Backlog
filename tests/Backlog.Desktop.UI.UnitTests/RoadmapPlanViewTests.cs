@@ -27,7 +27,8 @@ public class RoadmapPlanViewTests
         Guid? id = null,
         Guid? taskId = null,
         string tag = "",
-        string[]? knowledge = null) =>
+        string[]? knowledge = null,
+        ImportPlacement? placedBy = null) =>
         new(
             id ?? Guid.NewGuid(),
             title,
@@ -40,7 +41,8 @@ public class RoadmapPlanViewTests
             dependsOn ?? [],
             null,
             tag,
-            knowledge);
+            knowledge,
+            placedBy);
 
     private static RoadmapMilestoneDto Milestone(
         string title,
@@ -773,6 +775,89 @@ public class RoadmapPlanViewTests
         Assert.Equal(new DateOnly(2026, 1, 5), bar.Start);
         Assert.Equal(new DateOnly(2026, 1, 9), bar.End);
         Assert.False(bar.Locked);
+    }
+
+    // --- Sized by effort, read at the pace in use (local ADR 0018) --------------
+
+    [Fact]
+    public void AnEffortPlacedItemNobodyStarted_IsDrawnAtThePaceInUse_FromItsStart_AndCanBeMoved()
+    {
+        // Stored 5–9 January at whatever pace was in use then. 18 points at backlog's 7
+        // a week is 18 days: the 5th to the 22nd. The start is the plan's; only the end
+        // is read.
+        var bar = Forecasted(
+            Item("Plan", startDay: 5, endDay: 9, repositories: ["backlog"], placedBy: ImportPlacement.Effort),
+            Sized("a", 13, RoadmapProgress.Ready),
+            Sized("b", 5, RoadmapProgress.Planned));
+
+        Assert.Equal(new DateOnly(2026, 1, 5), bar.Start);
+        Assert.Equal(new DateOnly(2026, 1, 22), bar.End);
+        Assert.False(bar.Locked);
+    }
+
+    [Fact]
+    public void AnEffortPlacedItemNobodyStarted_WithNoRepository_IsDrawnAtTheGlobalPace()
+    {
+        // 14 points at the global 14 a week: a week, the 5th to the 11th.
+        var bar = Forecasted(
+            Item("Plan", startDay: 5, endDay: 31, placedBy: ImportPlacement.Effort),
+            Sized("a", 14, RoadmapProgress.Planned));
+
+        Assert.Equal(new DateOnly(2026, 1, 5), bar.Start);
+        Assert.Equal(new DateOnly(2026, 1, 11), bar.End);
+    }
+
+    [Fact]
+    public void AnEffortPlacedItemNobodyStarted_IsDrawnAsTheImportsOwnPlacementWouldStoreIt()
+    {
+        var item = Item("Plan", startDay: 5, endDay: 9, repositories: ["backlog"], placedBy: ImportPlacement.Effort);
+        var bar = Forecasted(item, Sized("a", 3, RoadmapProgress.Ready), Sized("b", null, RoadmapProgress.Ready));
+
+        Assert.Equal(item.Start.AddDays(EffortWindow.Days(3, 7m) - 1), bar.End);
+    }
+
+    [Fact]
+    public void AnEffortPlacedItem_WithoutAForecast_IsDrawnAsStored()
+    {
+        var bar = Drawn(
+            Item("Plan", startDay: 5, endDay: 9, repositories: ["backlog"], placedBy: ImportPlacement.Effort),
+            new RoadmapItemRollupDto([Sized("a", 30, RoadmapProgress.Ready)], []));
+
+        Assert.Equal(new DateOnly(2026, 1, 9), bar.End);
+    }
+
+    [Fact]
+    public void AnEffortPlacedItemThatGathersNothing_IsDrawnAsStored()
+    {
+        var bar = Forecasted(Item("Plan", startDay: 5, endDay: 9, repositories: ["backlog"], placedBy: ImportPlacement.Effort));
+
+        Assert.Equal(new DateOnly(2026, 1, 5), bar.Start);
+        Assert.Equal(new DateOnly(2026, 1, 9), bar.End);
+    }
+
+    [Fact]
+    public void ADueDatedItemNobodyStarted_KeepsTheEndThePersonWrote()
+    {
+        var bar = Forecasted(
+            Item("Plan", startDay: 5, endDay: 9, repositories: ["backlog"], placedBy: ImportPlacement.DueDate),
+            Sized("a", 30, RoadmapProgress.Ready));
+
+        Assert.Equal(new DateOnly(2026, 1, 9), bar.End);
+    }
+
+    [Fact]
+    public void AnEffortPlacedItemInFlight_IsStillDrawnFromItsWork()
+    {
+        // The same reading as a hand-placed item in flight: from when work began to
+        // what is left at a point a day from today, the 10th — 3 points, to the 12th.
+        var bar = Forecasted(
+            Item("Plan", startDay: 5, endDay: 9, repositories: ["backlog"], placedBy: ImportPlacement.Effort),
+            Sized("a", 2, RoadmapProgress.InProgress, started: new DateOnly(2026, 1, 3)),
+            Sized("b", 1, RoadmapProgress.Ready));
+
+        Assert.Equal(new DateOnly(2026, 1, 3), bar.Start);
+        Assert.Equal(new DateOnly(2026, 1, 12), bar.End);
+        Assert.True(bar.Locked);
     }
 
     [Fact]

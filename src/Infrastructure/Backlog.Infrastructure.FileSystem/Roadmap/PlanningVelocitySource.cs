@@ -14,8 +14,9 @@ namespace Backlog.Infrastructure.FileSystem.Roadmap;
 /// </para>
 /// <para>
 /// Read per call rather than pinned at construction, so a pace changed on the
-/// roadmap is what the next placement divides by — including the re-lengthening the
-/// roadmap runs straight after the change (ADR 0013, ruling 5 as amended).
+/// roadmap is what the next placement divides by — including the redraw the roadmap
+/// runs straight after the change, which reads every window still sized by effort at
+/// it (ADR 0013, ruling 5 as amended; local ADR 0018).
 /// </para>
 /// </summary>
 public sealed class PlanningVelocitySource : IPlanningVelocitySettings

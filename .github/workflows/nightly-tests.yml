@@ -1,0 +1,70 @@
+name: Nightly tests
+
+# The pull request run is serial (--max-parallel-test-modules 1, --parallel
+# none), while developer machines run the suite at the platform default. So the
+# guarantees that only matter in parallel -- the two DisableParallelization
+# collections, WorkspaceSettingsCollection and StoreTimestampCollection, and the
+# environment-variable test from issue #724 -- were only ever exercised on a
+# laptop. This run is the same build and suite as the pull request's dotnet job
+# at default parallelism, so a parallel flake surfaces here first (issue #748).
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dotnet:
+    name: Test .NET at default parallelism
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: '10.0.x'
+
+      # DevbookBuilderParityTests needs node:sqlite; see the pull request workflow.
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.x'
+
+      - name: Restore dependencies
+        run: dotnet restore Backlog.WithoutAppHeads.slnf
+
+      - name: Build
+        run: >
+          dotnet build Backlog.WithoutAppHeads.slnf
+          --no-restore
+          --configuration Release
+
+      # No --max-parallel-test-modules and no --parallel: leaving both out is the
+      # point of this workflow. The pull request workflow explains why every option
+      # here is checked against `dotnet test --help`.
+      - name: Run tests
+        run: >
+          dotnet test
+          --solution Backlog.WithoutAppHeads.slnf
+          --no-build
+          --configuration Release
+          --results-directory TestResults
+          --report-trx
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: nightly-test-results
+          path: TestResults
+          if-no-files-found: ignore

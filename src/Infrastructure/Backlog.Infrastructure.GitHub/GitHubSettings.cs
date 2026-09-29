@@ -248,6 +248,17 @@ public sealed class GitHubSettings
     {
         if (string.IsNullOrWhiteSpace(path)) return GitHubAccountChoice.Default;
 
+        // GraphQL is one endpoint for every repository, so its path names nobody
+        // by itself; the client appends the repository after a '#' that neither
+        // transport sends. Read before the split below, which would take the '#'
+        // for part of the first segment.
+        if (GitHubGraphQl.IsGraphQl(path))
+        {
+            return GitHubGraphQl.RepositoryOf(path) is { } repository
+                ? ChoiceForRepository(repository.Owner, repository.Name)
+                : GitHubAccountChoice.Default;
+        }
+
         var parts = path.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         if (parts.Length == 0) return GitHubAccountChoice.Default;
 
@@ -632,8 +643,10 @@ public sealed class GitHubSettingsStore
 
     /// <summary>
     /// Replaces the configured repositories. Returns an error message when
-    /// persisting failed; the in-memory value is updated either way so the
-    /// session still works.
+    /// persisting failed; a write that failed still updates the in-memory value
+    /// so the session works, while an unreadable registry refuses the change
+    /// before it reaches memory at all. <see cref="AddRepository"/> is the form
+    /// that keeps nothing it could not save.
     /// <para>
     /// Rows are continued by id and by id alone. A line that kept a configured
     /// alias and changed its <c>owner/name</c> is a new repository beside a
@@ -664,6 +677,46 @@ public sealed class GitHubSettingsStore
             ShowRepositoryColours = Current.ShowRepositoryColours,
             Accounts = [.. Current.Accounts]
         });
+    }
+
+    /// <summary>
+    /// Adds one repository to the configured list, keeping it only if it was
+    /// saved. Returns the store's message when it was not, exactly as
+    /// <see cref="SetRepositories"/> would.
+    /// <para>
+    /// The difference from <see cref="SetRepositories"/> is what a failed save
+    /// leaves behind. That method keeps the change in memory so the person
+    /// editing the list can carry on this session; this one puts the store back
+    /// as it was, in memory and, as far as it can, on disk. It exists for a
+    /// caller that files other data against the answer (a plan import
+    /// registering a repository its entries will name), for which a row that is
+    /// gone after a restart is worse than no row: a later lookup would find it
+    /// and report it as configured.
+    /// </para>
+    /// </summary>
+    public string? AddRepository(GitHubRepositoryRef repository)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+        if (_registryState is RegistryState.Unreadable) return RegistryUnreadable;
+
+        var (current, renames, removals, localRows) = (Current, _renames, _removals, _localRows);
+
+        var error = SetRepositories([.. Current.Repositories, repository]);
+        if (error is null) return null;
+
+        // Every field Save touches is reassigned rather than mutated, so the
+        // references taken above are the state as it was.
+        (Current, _renames, _removals, _localRows) = (current, renames, removals, localRows);
+
+        // Best effort: whichever of the two writes did land is put back, so the
+        // files do not hold a repository this call reported as not added. A
+        // write that fails again leaves nothing worse than the failure already
+        // being reported.
+        WriteRegistry(current);
+        WriteLocal(current);
+
+        Changed?.Invoke();
+        return error;
     }
 
     /// <summary>Why a rename was refused, or null when it was applied. Sentences

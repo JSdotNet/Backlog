@@ -16,6 +16,7 @@ using Backlog.Modules.Inbox.Features.GetInbox;
 using Backlog.Modules.Inbox.Features.MoveListToGroup;
 using Backlog.Modules.Inbox.Features.MoveToList;
 using Backlog.Modules.Inbox.Features.OpenAttachment;
+using Backlog.Modules.Inbox.Features.ProposeBatch;
 using Backlog.Modules.Inbox.Features.ReadAttachment;
 using Backlog.Modules.Inbox.Features.ReceiveCapture;
 using Backlog.Modules.Inbox.Features.RenameGroup;
@@ -23,6 +24,7 @@ using Backlog.Modules.Inbox.Features.RenameList;
 using Backlog.Modules.Inbox.Features.RetryAttachment;
 using Backlog.Modules.Inbox.Features.ResurfaceDueItems;
 using Backlog.Modules.Inbox.Features.ResurfaceItem;
+using Backlog.Modules.Inbox.Features.RouteBatchToBacklog;
 using Backlog.Modules.Inbox.Features.RouteToBacklog;
 using Backlog.Modules.Inbox.Features.SetTags;
 using Backlog.Modules.Inbox.Features.Suggest;
@@ -72,6 +74,12 @@ public static class InboxModuleRegistration
         services.AddScoped<ICommandHandler<ResurfaceDueItemsCommand, Result<int>>, ResurfaceDueItemsCommandHandler>();
         services.AddScoped<ICommandHandler<RouteToBacklogCommand, Result<InboxRoutedDto>>, RouteToBacklogCommandHandler>();
         services.AddScoped<ICommandHandler<CreatePlanCommand, Result<InboxRoutedDto>>, CreatePlanCommandHandler>();
+        services.AddScoped<ICommandHandler<RouteBatchToBacklogCommand, Result<InboxBatchRoutedDto>>, RouteBatchToBacklogCommandHandler>();
+
+        // The batch's "Before you route" proposal. The task references it reads
+        // are an optional constructor parameter, like the tag source below: a
+        // host without them is proposed what the batch's own items state.
+        services.AddScoped<IQueryHandler<ProposeBatchQuery, Result<InboxBatchProposalDto>>, ProposeBatchQueryHandler>();
         services.AddScoped<ICommandHandler<CreateListCommand, Result<InboxListDto>>, CreateListCommandHandler>();
         services.AddScoped<ICommandHandler<RenameListCommand, Result>, RenameListCommandHandler>();
         services.AddScoped<ICommandHandler<DeleteListCommand, Result>, DeleteListCommandHandler>();
