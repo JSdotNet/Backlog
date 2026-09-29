@@ -215,6 +215,50 @@ public class WebHarnessHostTests
                 new Backlog.Infrastructure.GitHub.GitHubCredential("ghp_test", null, "octocat"));
     }
 
+    }
+
+    /// <summary>
+    /// Every Dashboard port the pane and Ask AI read is still answered, with the
+    /// lifetime it had when one UI-side call registered them all: the provider
+    /// adapters and the machine directory once per app, the scope mirror and the
+    /// Ask AI source once per reader. The adapters now come from the infrastructure
+    /// they wrap, so this is what says the swap in the composition root left none
+    /// of them behind.
+    /// </summary>
+    [Fact]
+    public void The_desktop_harness_answers_every_dashboard_port_with_its_lifetime()
+    {
+        using var harness = new Harness<DesktopHarness::Program>();
+
+        AssertSingleton<Backlog.Modules.Dashboard.Abstractions.Services.IRepositoryDirectory>(harness.Services);
+        AssertSingleton<Backlog.Modules.Dashboard.Abstractions.Services.IMachineDirectory>(harness.Services);
+        AssertSingleton<Backlog.Modules.Dashboard.Abstractions.Services.IActivitySource>(harness.Services);
+        AssertSingleton<Backlog.Modules.Dashboard.Abstractions.Services.IActivityBaselineSource>(harness.Services);
+        AssertSingleton<Backlog.Modules.Dashboard.Abstractions.Services.IClaudeSpendSource>(harness.Services);
+        AssertSingleton<Backlog.Modules.Dashboard.Abstractions.Services.ICopilotSpendSource>(harness.Services);
+        AssertSingleton<Backlog.Modules.Dashboard.Abstractions.Services.IAzureFoundrySpendSource>(harness.Services);
+
+        using var first = harness.Services.CreateScope();
+        using var second = harness.Services.CreateScope();
+
+        var scope = first.ServiceProvider.GetRequiredService<Backlog.Modules.Dashboard.UI.DashboardScopeInView>();
+        Assert.Same(scope, first.ServiceProvider.GetRequiredService<Backlog.Modules.Dashboard.UI.DashboardScopeInView>());
+        Assert.NotSame(scope, second.ServiceProvider.GetRequiredService<Backlog.Modules.Dashboard.UI.DashboardScopeInView>());
+
+        var askAi = first.ServiceProvider.GetServices<Backlog.SharedKernel.Ai.IAiContentSource>()
+            .Single(source => source.GetType().Name == "DashboardAiContentSource");
+        Assert.DoesNotContain(askAi, second.ServiceProvider.GetServices<Backlog.SharedKernel.Ai.IAiContentSource>());
+
+        static void AssertSingleton<TPort>(IServiceProvider services) where TPort : class
+        {
+            using var one = services.CreateScope();
+            using var other = services.CreateScope();
+            Assert.Same(
+                one.ServiceProvider.GetRequiredService<TPort>(),
+                other.ServiceProvider.GetRequiredService<TPort>());
+        }
+    }
+
     /// <summary>
     /// Every port the Sessions adapters answer is resolvable, and answered from
     /// <c>Backlog.Infrastructure.Sessions</c> rather than from the module's screen
