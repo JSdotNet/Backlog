@@ -133,7 +133,6 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `src/Infrastructure/Backlog.Infrastructure.Devbook` | Cross-cutting adapter — the generated devbook database: the reference graph, reading outline, chapter text, full-text index and Archify rows. The app builds it itself, one per repository path, into its own storage rather than any repository, and every read degrades to the Markdown rather than failing. See [ADR 0004](.devbook/arc42/adr/0004-knowledge-index-is-a-generated-local-database.md) and [ADR 0015](.devbook/arc42/adr/0015-devbook-database-lives-in-app-storage-and-the-app-builds-it.md) |
 | `src/Infrastructure/Backlog.Infrastructure.FileSystem` | Cross-cutting adapter — the JSON on local disk: the workspace settings and feature flags behind `ITaskStore`, `IDevbookFolderSource` and `IAppFeatureSettings`, all per-device and deliberately unsynced. Also the roadmap plan's two cross-context joins, which are lookups rather than storage |
 | `src/Infrastructure/Backlog.Infrastructure.Claude` | Cross-cutting adapter — Claude usage and spend from the Anthropic organization APIs |
-| `src/Infrastructure/Backlog.Infrastructure.Sessions` | Cross-cutting adapter — the readers over the Claude and Copilot session transcripts in the user profile, agent activity, and the delivery runs the surfaces record |
 | `src/Infrastructure/Backlog.Infrastructure.Copilot` | Cross-cutting adapter — starting the GitHub Copilot CLI from a Backlog workflow |
 | `src/Infrastructure/Backlog.Infrastructure.AzureFoundry` | Cross-cutting adapter — the Azure Foundry chat client behind the AI assistant |
 | `src/Infrastructure/Backlog.Infrastructure.GitHub` | Cross-cutting adapter — GitHub issue projection, pull request and issue activity with review detail, Copilot seats, and AI-credit billing |
@@ -142,6 +141,7 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `src/Infrastructure/Backlog.Infrastructure.Sync` | Cross-cutting adapter — the client side of sync: device pairing and credentials, and the task, session and annotation sync workers with their local sync state |
 | `src/Infrastructure/Backlog.Infrastructure.Cosmos` | Cross-cutting adapter — the sync service's Cosmos DB replicas behind the Sync module's ports: tasks, session records, annotations, devices and pairing codes. See [ADR 0005](.devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md) |
 | `src/Infrastructure/Backlog.Infrastructure.BlobStorage` | Cross-cutting adapter — the sync service's attachment store, one private blob container behind `IAttachmentStore`. See [ADR 0014](.devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md) |
+| `src/Infrastructure/Backlog.Infrastructure.Sessions` | Cross-cutting adapter — the Sessions module's disk adapters: the Claude and Copilot session and transcript readers, agent activity, the delivery-run stores and their telemetry, and the Archify runner that draws a run |
 | `src/App/Backlog.Desktop.UI` | Desktop shell — layout, routes, settings, and the composition that decides which context panes are on screen |
 | `src/App/Backlog.Desktop` | Desktop channel — .NET MAUI Blazor Hybrid (Windows) |
 | `src/App/Backlog.Mobile.UI` | Shared Razor components for the mobile channel |
@@ -173,8 +173,8 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `tests/Backlog.Infrastructure.Mcp.UnitTests` | Unit tests for the MCP tools — each tool group, chapter reading, and tool creation |
 | `tests/Backlog.Infrastructure.Sync.UnitTests` | Unit tests for the sync client — device pairing and credentials, the task, session and annotation sync workers, and replica merging |
 | `tests/Backlog.Infrastructure.Cosmos.UnitTests` | Unit tests for the Cosmos DB adapter — the replica documents, the task replica, and its registration |
-| `tests/Backlog.Infrastructure.BlobStorage.UnitTests` | Unit tests for the attachment store — the blob container behind `IAttachmentStore` and its registration |
-| `tests/Backlog.Infrastructure.Sessions.UnitTests` | Unit tests for the session adapters — the transcript readers, agent activity runs, and the delivery run reader and lifecycle |
+| `tests/Backlog.Infrastructure.BlobStorage.UnitTests` | Unit tests for the attachment store — the blob adapter against a fake container, and its registration |
+| `tests/Backlog.Infrastructure.Sessions.UnitTests` | Unit tests for the Sessions adapters — the session and activity sources, transcript work, delivery-run reading, and the delivery surface lifecycle |
 | `tests/Backlog.UI.Components.UnitTests` | Unit tests for the shared control library, rendered without an application behind it |
 | `tests/Backlog.Desktop.UI.UnitTests` | Unit tests for the desktop UI services, the context panes, and GitHub integration |
 | `tests/Backlog.Mobile.UI.UnitTests` | Unit tests for the mobile channel's components |
