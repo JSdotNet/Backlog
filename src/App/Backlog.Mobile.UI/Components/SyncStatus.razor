@@ -1,15 +1,70 @@
+@using Backlog.Infrastructure.Sync
+@using Backlog.Mobile.UI.Outbox
 @inject ISyncStatusSource Source
+@inject IDeviceCredentialStore Credentials
+@inject DeviceOutbox Outbox
 @implements IDisposable
 
 @*
     The app bar's status line, fed by ISyncStatusSource. The words and the look
-    are the library's SyncStatusLine; this only keeps it current.
+    are the library's SyncStatusLine; this keeps it current, and on a paired
+    phone it is also the way to let the pairing go.
+
+    Forgetting is what a person reaches for when sync has stopped making sense -
+    the service lost the device, as a Cosmos emulator does overnight - and the
+    line saying so is where their eye already is. It asks first, and the
+    question says what becomes of anything still waiting: it stays, and goes
+    once the phone is paired again. Nothing here removes an outbox entry.
 *@
 
-<SyncStatusLine Reading="Source.Current" CssClass="app-bar__status" TestId="sync-status" />
+@if (Paired)
+{
+    <AppButton Variant="ButtonVariant.Ghost" Size="ButtonSize.Small" CssClass="app-bar__sync"
+               OnClick="@(() => _forgetting = true)" TestId="sync-status-button"
+               aria-haspopup="dialog" title="Forget this device and pair again">
+        <SyncStatusLine Reading="Source.Current" CssClass="app-bar__status" TestId="sync-status" />
+    </AppButton>
+
+    @* OpenChanged is left unbound: it is raised before OnConfirm, so closing the
+       dialog there would close it a moment before the forget ran. Escape and
+       the backdrop both arrive on OnCancel. *@
+    <ConfirmDialog Open="@_forgetting"
+                   Title="Forget this device?"
+                   Message="@ForgetMessage"
+                   ConfirmText="Forget and pair again"
+                   Destructive="true"
+                   TestId="forget-device-dialog"
+                   ConfirmTestId="forget-device-confirm"
+                   CancelTestId="forget-device-cancel"
+                   OnConfirm="Forget"
+                   OnCancel="@(() => _forgetting = false)" />
+}
+else
+{
+    <SyncStatusLine Reading="Source.Current" CssClass="app-bar__status" TestId="sync-status" />
+}
 
 @code {
     private CancellationTokenSource? _ticking;
+    private bool _forgetting;
+
+    private bool Paired => Credentials.Current is not null;
+
+    private string ForgetMessage
+    {
+        get
+        {
+            const string Stops = "This phone stops syncing and asks for a pairing code. The desktop lists it until you forget it there too.";
+            var waiting = Outbox.Entries.Count(entry => !entry.Refused);
+
+            return waiting switch
+            {
+                0 => $"{Stops} Nothing is waiting to send.",
+                1 => $"{Stops} The 1 item waiting to send stays on this phone and goes once it is paired again.",
+                _ => $"{Stops} The {waiting} items waiting to send stay on this phone and go once it is paired again."
+            };
+        }
+    }
 
     protected override void OnInitialized()
     {
@@ -19,6 +74,15 @@
         // minute. This re-reads a clock; it asks the service for nothing.
         _ticking = new CancellationTokenSource();
         _ = TickAsync(_ticking.Token);
+    }
+
+    /// <summary>Clears the credential and nothing else. The store says so, the
+    /// layout puts the pairing box on every tab, and the token cache and the
+    /// status tracker both let go of what they held for the old pairing.</summary>
+    private void Forget()
+    {
+        _forgetting = false;
+        Credentials.Clear();
     }
 
     private async Task TickAsync(CancellationToken cancellationToken)
