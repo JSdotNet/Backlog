@@ -1,4 +1,5 @@
 using System.Text.Json;
+using static Backlog.Infrastructure.IsoTimestamps;
 
 namespace Backlog.Infrastructure.GitHub;
 
@@ -720,12 +721,5 @@ public sealed class GitHubClient(IGitHubTransport transport) : IGitHubClient
     private static string? String(JsonElement element, string name) =>
         element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String
             ? value.GetString()
-            : null;
-
-    private static DateTimeOffset? Timestamp(JsonElement element, string name) =>
-        element.TryGetProperty(name, out var value)
-        && value.ValueKind == JsonValueKind.String
-        && DateTimeOffset.TryParse(value.GetString(), out var parsed)
-            ? parsed
             : null;
 }

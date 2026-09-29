@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using static Backlog.Infrastructure.IsoTimestamps;
 
 namespace Backlog.Infrastructure.Claude;
 
@@ -363,9 +364,6 @@ public sealed class ClaudeUsageClient(IClaudeTransport transport, ClaudeSettings
         _ => "1d"
     };
 
-    private static string Rfc3339(DateTimeOffset value) =>
-        value.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture);
-
     private static string? String(JsonElement element, string name) =>
         element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String
             ? value.GetString()
@@ -389,13 +387,6 @@ public sealed class ClaudeUsageClient(IClaudeTransport transport, ClaudeSettings
             _ => null
         };
     }
-
-    private static DateTimeOffset? Timestamp(JsonElement element, string name) =>
-        element.TryGetProperty(name, out var value)
-        && value.ValueKind == JsonValueKind.String
-        && DateTimeOffset.TryParse(value.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var parsed)
-            ? parsed
-            : null;
 }
 
 /// <summary>Stands in when Claude usage support is not registered in a build.</summary>
