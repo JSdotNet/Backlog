@@ -221,7 +221,7 @@
         @if (_view.HasAnythingToDraw)
         {
             <RoadmapTypedPace Repositories="@([.. Configured().Select(repository => repository.Alias)])"
-                              OnPaceChanged="RelengthenAtNewPace" />
+                              OnPaceChanged="RedrawAtNewPace" />
         }
     </text>;
 
@@ -235,13 +235,13 @@
     /// unfiled band carries the default pace — the one its plans are placed at —
     /// measured over all finished work. A band with nothing measured places by the
     /// reader's own pace in the heading. The milestones band places nothing and has
-    /// none. A change re-lengthens every plan still sized by its effort, each at its
-    /// own pace.
+    /// none. A change redraws every plan still sized by its effort, each at its own
+    /// pace, and writes nothing to the plan.
     /// </para>
     /// </summary>
     private RenderFragment<RoadmapGroup> BandPace => group =>
         @<RoadmapPaceControl Repository="@(group.Id == RoadmapPlanView.UnfiledGroupId ? null : group.Id)"
-                             OnPaceChanged="RelengthenAtNewPace" />;
+                             OnPaceChanged="RedrawAtNewPace" />;
 
     /// <summary>Where the "now" line is drawn. A parameter so a test can put
     /// today somewhere it chooses rather than wherever the clock happens to
@@ -254,6 +254,7 @@
         Repositories.Changed += OnRepositoriesChanged;
         Planning.Changed += OnPlanChanged;
         WorkChanges.Changed += OnWorkChanged;
+        Paces.Changed += OnPaceSettingsChanged;
         await Load();
     }
 
@@ -262,6 +263,7 @@
         Repositories.Changed -= OnRepositoriesChanged;
         Planning.Changed -= OnPlanChanged;
         WorkChanges.Changed -= OnWorkChanged;
+        Paces.Changed -= OnPaceSettingsChanged;
     }
 
     private async Task Load()
@@ -277,7 +279,9 @@
         var configured = Configured();
 
         // Work in flight is drawn from the work: from when it began to when what is
-        // left should be done at the pace its band is placed at (RoadmapPlanView.AsDrawn).
+        // left should be done at the pace its band is placed at; a plan nobody started
+        // that is sized by its effort, to where that effort reaches at the same pace
+        // (RoadmapPlanView.AsDrawn).
         var forecast = new RoadmapForecast(
             Today ?? DateOnly.FromDateTime(DateTime.Today),
             await PacesInUseAsync(configured));
@@ -694,21 +698,17 @@
     }
 
     /// <summary>
-    /// The reader changed their pace: every bar still sized by its effort is
-    /// re-lengthened at it, from what each item gathers now (ADR 0013, ruling 5 as
-    /// amended). Gathered here because the effort is Tasks' and this is where both
-    /// sides can be asked; the plan decides which windows are its to move.
+    /// The reader changed their pace: every bar still sized by its effort is redrawn
+    /// at it, from what each item gathers now (ADR 0013, ruling 5 as amended).
+    /// <para>
+    /// A read, never a plan write. Those windows are derived where they are drawn
+    /// (<see cref="EffortWindow"/>), so the pace document is the only thing a pace
+    /// change writes — a plan saved here would carry a newer stamp to the other PCs and
+    /// overwrite an edit made there in the same interval (local ADR 0018). A pace that
+    /// arrives from another PC redraws through <see cref="OnPaceSettingsChanged"/>.
+    /// </para>
     /// </summary>
-    private async Task RelengthenAtNewPace()
-    {
-        var rollups = await Rollups.GatherPlanAsync(_plan);
-        var result = await Planning.RelengthenPlanFromEffortAsync(
-            rollups.ToDictionary(pair => pair.Key, pair => pair.Value.TotalEffort));
-
-        _error = result.IsFailure ? result.Error.Message : null;
-
-        await Load();
-    }
+    private Task RedrawAtNewPace() => Load();
 
     /// <summary>
     /// "Update from tasks", taken: the item's window re-lengthened from what its tasks
@@ -848,6 +848,11 @@
     /// so the steps, the fill and the shelf are read again from what Tasks now
     /// holds.</summary>
     private void OnWorkChanged() => ReloadForOutsideChange();
+
+    /// <summary>A typed pace or a choice changed — here, in another window, or pulled
+    /// from another PC by the sync — so every bar still sized by its effort is drawn
+    /// again at the pace now in use. Nothing is written: the window is read.</summary>
+    private void OnPaceSettingsChanged() => ReloadForOutsideChange();
 
     /// <summary>A reload is already under way when the next change lands.</summary>
     private bool _reloading;

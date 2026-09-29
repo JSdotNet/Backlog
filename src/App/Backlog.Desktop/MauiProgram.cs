@@ -180,8 +180,13 @@ public static class MauiProgram
         // cases, and the host picks the adapter. One document row in the same
         // database the tasks use, following the same folder, so moving the storage
         // folder moves the plan with the backlog rather than leaving it behind.
-        builder.Services.AddSingleton<IRoadmapPlanRepository>(sp =>
+        // One instance behind both ports: the same row is the plan the module loads
+        // and saves and the document that travels to the person's other devices
+        // (local ADR 0018). The pace document's store is AddRoadmapCrossContextAdapters'.
+        builder.Services.AddSingleton(sp =>
             new RootedSqliteRoadmapPlanRepository(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
+        builder.Services.AddSingleton<IRoadmapPlanRepository>(sp => sp.GetRequiredService<RootedSqliteRoadmapPlanRepository>());
+        builder.Services.AddSingleton<IRoadmapReplicaStore>(sp => sp.GetRequiredService<RootedSqliteRoadmapPlanRepository>());
         builder.Services.AddRoadmapModule();
         // The plan behind the shell's Ask AI port, after the module so the scoped
         // planning port it holds exists. The other areas register theirs beside

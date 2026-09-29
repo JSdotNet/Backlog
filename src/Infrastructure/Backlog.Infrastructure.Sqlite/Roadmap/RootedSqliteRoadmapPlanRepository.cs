@@ -1,4 +1,6 @@
 using Backlog.Modules.Roadmap;
+using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
+using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Roadmap.DomainModels;
 
 namespace Backlog.Infrastructure.Sqlite.Roadmap;
@@ -14,7 +16,8 @@ namespace Backlog.Infrastructure.Sqlite.Roadmap;
 /// same root to the same file.
 /// </para>
 /// </summary>
-public sealed class RootedSqliteRoadmapPlanRepository(Func<string> currentRootDirectory) : IRoadmapPlanRepository
+public sealed class RootedSqliteRoadmapPlanRepository(Func<string> currentRootDirectory)
+    : IRoadmapPlanRepository, IRoadmapReplicaStore
 {
     private readonly Func<string> _currentRootDirectory =
         currentRootDirectory ?? throw new ArgumentNullException(nameof(currentRootDirectory));
@@ -47,4 +50,15 @@ public sealed class RootedSqliteRoadmapPlanRepository(Func<string> currentRootDi
 
     public Task SaveAsync(RoadmapPlan plan, CancellationToken cancellationToken = default) =>
         Current.SaveAsync(plan, cancellationToken);
+
+    // The replicated document (local ADR 0018): the plan row of whichever folder the
+    // app points at now, the same one LoadAsync and SaveAsync reach.
+
+    public RoadmapReplicaDocument Document => RoadmapReplicaDocument.Plan;
+
+    public Task<RoadmapReplicaCopyDto?> ReadAsync(CancellationToken cancellationToken = default) =>
+        Current.ReadAsync(cancellationToken);
+
+    public Task<bool> TryWriteAsync(RoadmapReplicaCopyDto copy, CancellationToken cancellationToken = default) =>
+        Current.TryWriteAsync(copy, cancellationToken);
 }
