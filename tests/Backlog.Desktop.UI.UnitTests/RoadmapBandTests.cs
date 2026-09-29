@@ -22,7 +22,8 @@ public class RoadmapBandTests : RoadmapBandHarness
 
         var band = context.Render<RoadmapBand>();
 
-        Assert.NotNull(band.Find("[data-testid=\"roadmap-band-empty-state\"]"));
+        // Waited for: the first render is the loading spinner until the plan is read.
+        band.WaitForElement("[data-testid=\"roadmap-band-empty-state\"]");
         Assert.Empty(band.FindAll("[data-testid=\"roadmap-timeline\"]"));
     }
 
