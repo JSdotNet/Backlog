@@ -21,10 +21,17 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// <para>
 /// So these tests assert the negative: after disposal, nothing more happens.
 /// </para>
+/// <para>
+/// Time is a <see cref="FiringClock"/> the tests move by hand. A test that
+/// slept past a threshold could only say "by then", and the one that slept right
+/// up against the debounce was a race by construction; advancing the clock to
+/// either side of each threshold says exactly which side of it the state is on.
+/// </para>
 /// </summary>
 [Collection(WorkspaceSettingsCollection.Name)]
 public sealed class TasksDesktopStateLifetimeTests : IDisposable
 {
+    private readonly FiringClock _clock = new();
     private readonly List<string> _tempDirs = [];
     private readonly List<TasksDesktopState> _states = [];
 
@@ -36,7 +43,8 @@ public sealed class TasksDesktopStateLifetimeTests : IDisposable
     [Fact]
     public async Task Disposing_the_pane_host_disarms_a_debounced_save()
     {
-        var host = await TasksPaneHost.CreateAsync();
+        var calls = new TaskStoreCalls();
+        var host = await TasksPaneHost.CreateAsync(roadmapTags: null, [], _clock, calls);
         var changes = 0;
         host.State.Changed += () => changes++;
 
@@ -46,9 +54,14 @@ public sealed class TasksDesktopStateLifetimeTests : IDisposable
 
         host.Dispose();
         var afterDisposal = changes;
+        var callsAfterDisposal = calls.Count;
 
-        await Task.Delay(1500, TestContext.Current.CancellationToken);
+        _clock.Advance(TimeSpan.FromSeconds(2));
 
+        // Counted as the save would start, not as it would land: a wrongly fired
+        // debounce reaches the use cases before Advance returns, and the row's id
+        // only after store I/O this assertion would not wait for.
+        Assert.Equal(callsAfterDisposal, calls.Count);
         Assert.Null(row.Id);
         Assert.Equal(afterDisposal, changes);
     }
@@ -71,9 +84,15 @@ public sealed class TasksDesktopStateLifetimeTests : IDisposable
         state.Changed += () => changes++;
 
         state.Dispose();
+        var firedAfterDisposal = _clock.Fired;
 
-        await Task.Delay(1500, TestContext.Current.CancellationToken);
+        _clock.Advance(TimeSpan.FromSeconds(2));
 
+        // Neither the flash's delay nor the "Saved" dwell ran out after
+        // disposal. Counted on the clock because a delay that did run out
+        // resumes its method wherever the continuation is scheduled, which may
+        // be after the count of changes below has been read.
+        Assert.Equal(firedAfterDisposal, _clock.Fired);
         Assert.Equal(0, changes);
     }
 
@@ -82,25 +101,71 @@ public sealed class TasksDesktopStateLifetimeTests : IDisposable
     /// write to belongs to a workspace the owner has finished with. Disposing the
     /// timer alone does not settle this — the callback may already be scheduled —
     /// so the callback has to be told the state is gone.
+    /// <para>
+    /// This used to sleep 700 ms against the 750 and hope the two raced. On a
+    /// moved clock there is no race to hope for: one millisecond short of the
+    /// debounce nothing has saved, and past it, after disposal, nothing does.
+    /// </para>
     /// </summary>
     [Fact]
     public async Task A_debounce_disposed_as_it_comes_due_does_not_save()
     {
-        var state = State(TempRoot());
+        var calls = new TaskStoreCalls();
+        var state = State(TempRoot(), calls);
         await state.InitializeAsync();
 
         state.NewRow();
         var row = state.Rows[^1];
         state.OnRawTextInput(row, "# Elapsing right now\n`task` `!draft`\n");
 
-        // Right up against the 750 ms, so the disposal and the callback are
-        // racing rather than comfortably ordered.
-        await Task.Delay(700, TestContext.Current.CancellationToken);
-        state.Dispose();
-
-        await Task.Delay(1500, TestContext.Current.CancellationToken);
-
+        _clock.Advance(TimeSpan.FromMilliseconds(749));
         Assert.Null(row.Id);
+
+        state.Dispose();
+        var callsAfterDisposal = calls.Count;
+
+        _clock.Advance(TimeSpan.FromSeconds(2));
+
+        // A save that started would have called the use cases before Advance
+        // returned; see TaskStoreCalls for why the row's id alone cannot say.
+        Assert.Equal(callsAfterDisposal, calls.Count);
+        Assert.Null(row.Id);
+    }
+
+    /// <summary>
+    /// Each of the state's three waits ends on its own threshold and not a
+    /// millisecond before: the 750 ms debounce, then the 900 ms tick beside the
+    /// row it saved, then the 2 s "Saved" band — in that order, because the flash
+    /// and the dwell both start where the save lands.
+    /// </summary>
+    [Fact]
+    public async Task Each_wait_ends_on_its_threshold_and_not_before()
+    {
+        var state = State(TempRoot());
+        await state.InitializeAsync();
+
+        state.NewRow();
+        var row = state.Rows[^1];
+        state.OnRawTextInput(row, "# Left to the debounce\n`task` `!draft`\n");
+
+        _clock.Advance(TimeSpan.FromMilliseconds(749));
+        Assert.Null(row.Id);
+
+        _clock.Advance(TimeSpan.FromMilliseconds(1));
+        await TasksTestHost.UntilAsync(state, () => row.Id is not null && row.JustSaved && state.SaveState == AppSaveState.Saved);
+
+        _clock.Advance(TimeSpan.FromMilliseconds(899));
+        Assert.True(row.JustSaved);
+
+        _clock.Advance(TimeSpan.FromMilliseconds(1));
+        await TasksTestHost.UntilAsync(state, () => !row.JustSaved);
+        Assert.Equal(AppSaveState.Saved, state.SaveState);
+
+        _clock.Advance(TimeSpan.FromMilliseconds(1099));
+        Assert.Equal(AppSaveState.Saved, state.SaveState);
+
+        _clock.Advance(TimeSpan.FromMilliseconds(1));
+        await TasksTestHost.UntilAsync(state, () => state.SaveState == AppSaveState.Idle);
     }
 
     /// <summary>
@@ -123,11 +188,20 @@ public sealed class TasksDesktopStateLifetimeTests : IDisposable
             rows.Add(state.Rows[^1]);
         }
 
-        // Re-arm every row continuously for well past the 750 ms debounce, so
-        // the arming runs alongside the callbacks the earlier arms scheduled.
-        var deadline = DateTime.UtcNow.AddMilliseconds(1600);
+        // Re-arm every row continuously while another thread moves the clock
+        // well past the 750 ms debounce, so the arming runs alongside the
+        // callbacks the earlier arms come due on — which run on that thread.
+        var advancing = Task.Run(() =>
+        {
+            for (var step = 0; step < 160; step++)
+            {
+                _clock.Advance(TimeSpan.FromMilliseconds(10));
+                Thread.Yield();
+            }
+        }, TestContext.Current.CancellationToken);
+
         var revision = 0;
-        while (DateTime.UtcNow < deadline)
+        while (!advancing.IsCompleted)
         {
             revision++;
             foreach (var row in rows)
@@ -143,7 +217,8 @@ public sealed class TasksDesktopStateLifetimeTests : IDisposable
             await state.EndEditAsync(row);
         }
 
-        await Task.Delay(1200, TestContext.Current.CancellationToken);
+        await advancing;
+        _clock.Advance(TimeSpan.FromSeconds(2));
 
         foreach (var row in rows)
         {
@@ -159,7 +234,8 @@ public sealed class TasksDesktopStateLifetimeTests : IDisposable
     [Fact]
     public async Task A_state_registered_with_the_bunit_container_is_disposed_with_the_context()
     {
-        var state = State(TempRoot());
+        var calls = new TaskStoreCalls();
+        var state = State(TempRoot(), calls);
         await state.InitializeAsync();
 
         var context = new BunitContext();
@@ -175,9 +251,11 @@ public sealed class TasksDesktopStateLifetimeTests : IDisposable
 
         context.Dispose();
         var afterDisposal = changes;
+        var callsAfterDisposal = calls.Count;
 
-        await Task.Delay(1500, TestContext.Current.CancellationToken);
+        _clock.Advance(TimeSpan.FromSeconds(2));
 
+        Assert.Equal(callsAfterDisposal, calls.Count);
         Assert.Null(row.Id);
         Assert.Equal(afterDisposal, changes);
     }
@@ -211,13 +289,13 @@ public sealed class TasksDesktopStateLifetimeTests : IDisposable
         return root;
     }
 
-    private TasksDesktopState State(string root)
+    private TasksDesktopState State(string root, TaskStoreCalls? storeCalls = null)
     {
         var store = new WorkspaceSettingsStore(root, Path.Combine(root, "settings.json"));
         Assert.Null(store.TryUseRoot(Path.Combine(root, "local")));
 
         var settings = new GitHubSettingsStore(Path.Combine(root, "github.json"));
-        var state = TasksTestHost.StateFor(store, new GitHubIntegration(settings, new StubGitHubClient(), new StubProbe()));
+        var state = TasksTestHost.StateFor(store, new GitHubIntegration(settings, new StubGitHubClient(), new StubProbe()), clock: _clock, storeCalls: storeCalls);
         _states.Add(state);
         return state;
     }

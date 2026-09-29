@@ -136,6 +136,49 @@ public class WebHarnessHostTests
     }
 
     /// <summary>
+    /// Every port the Sessions adapters answer is resolvable, and answered from
+    /// <c>Backlog.Infrastructure.Sessions</c> rather than from the module's screen
+    /// project; the Ask AI source the screen project keeps is still composed beside
+    /// them.
+    /// <para>
+    /// The diagram port is looked up by name in the module's published surface so that
+    /// the assertion that it lives there fails as an assertion rather than as a build.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void The_desktop_harness_composes_the_sessions_adapters_from_their_infrastructure_project()
+    {
+        const string adapter = "Backlog.Infrastructure.Sessions";
+
+        using var harness = new Harness<DesktopHarness::Program>();
+
+        var diagramPort = typeof(Backlog.Modules.Sessions.Abstractions.IAgentSessionSource).Assembly
+            .GetType("Backlog.Modules.Sessions.Abstractions.IDeliveryRunDiagrams");
+
+        Assert.NotNull(diagramPort);
+        Assert.True(diagramPort.IsPublic, "IDeliveryRunDiagrams is the module's published port.");
+
+        object[] adapters =
+        [
+            harness.Services.GetRequiredService<Backlog.Modules.Sessions.Abstractions.IAgentSessionSource>(),
+            harness.Services.GetRequiredService<Backlog.Modules.Sessions.Abstractions.IAgentActivitySource>(),
+            harness.Services.GetRequiredService<Backlog.Modules.Sessions.Abstractions.IDeliveryRunSource>(),
+            harness.Services.GetRequiredService(diagramPort),
+            harness.Services.GetRequiredService<Backlog.Modules.Sessions.Abstractions.IDeliverySurfaceLifecycle>(),
+            harness.Services.GetRequiredService<Backlog.Modules.Sessions.Abstractions.IDeliveryRunTelemetry>(),
+            harness.Services.GetRequiredService<Backlog.Modules.Sessions.Abstractions.ISessionRecordKeeper>(),
+        ];
+
+        Assert.All(adapters, instance => Assert.Equal(adapter, instance.GetType().Assembly.GetName().Name));
+
+        using var scope = harness.Services.CreateScope();
+
+        Assert.Contains(
+            scope.ServiceProvider.GetServices<Backlog.SharedKernel.Ai.IAiContentSource>(),
+            source => source.AreaKey == "sessions");
+    }
+
+    /// <summary>
     /// The mobile harness, which has no <c>ITaskRepository</c> and never will:
     /// the phone carries the Inbox, not a local task database. It composes the
     /// pairing surface and nothing of replication, and it has to start.
@@ -154,5 +197,21 @@ public class WebHarnessHostTests
         // the session, and a phone with no local task database has nothing for
         // either of them to replicate.
         Assert.Null(scope.ServiceProvider.GetService<Backlog.Infrastructure.Sync.TaskSyncWorker>());
+    }
+
+    /// <summary>
+    /// The desktop harness registers the Inbox's settings section, so its settings
+    /// screen carries the routing rules the way the desktop app's does. The shell
+    /// holds no copy of its own: without the registration the page is simply gone.
+    /// </summary>
+    [Fact]
+    public void The_desktop_harness_registers_the_inbox_settings_section()
+    {
+        using var harness = new Harness<DesktopHarness::Program>();
+
+        using var scope = harness.Services.CreateScope();
+
+        var sections = scope.ServiceProvider.GetServices<Backlog.SharedKernel.SettingsSection>();
+        Assert.Contains(sections, section => section.Id == "inbox" && section.Title == "Inbox");
     }
 }

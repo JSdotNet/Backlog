@@ -378,6 +378,75 @@ public class ModuleBoundaryTests
     }
 
     /// <summary>
+    /// The Sessions module's disk readers are an adapter under <c>src/Infrastructure</c>,
+    /// and its <c>.UI</c> project is a screen and nothing else.
+    ///
+    /// <para>The rules above let a <c>.UI</c> project take an adapter; none of them asks
+    /// whether it <em>is</em> one, and for a while this one was — the transcript
+    /// readers, the delivery-run stores and the Archify runner sat in
+    /// <c>Backlog.Modules.Sessions.UI/Adapters</c>. They are
+    /// <c>Backlog.Infrastructure.Sessions</c> now, composed by the two hosts. This pins
+    /// both halves: the folder is gone and no file in the screen project opens a file or
+    /// starts a process, and the adapter exists, answers the module's published surface,
+    /// is composed by both hosts and is in the solution and its filter.</para>
+    /// </summary>
+    [Fact]
+    public void Backlog_Modules_Sessions_UI_is_a_screen_and_Backlog_Infrastructure_Sessions_is_its_adapter()
+    {
+        const string adapter = "Backlog.Infrastructure.Sessions";
+        const string adapterTests = "Backlog.Infrastructure.Sessions.UnitTests";
+
+        var screen = new DirectoryInfo(Path.Combine(
+            Repository.Root.FullName, "src", "Modules", "Sessions", "Backlog.Modules.Sessions.UI"));
+
+        Assert.True(screen.Exists, $"{screen.FullName} is not where the Sessions screens live any more.");
+        Assert.False(
+            Directory.Exists(Path.Combine(screen.FullName, "Adapters")),
+            "Backlog.Modules.Sessions.UI/Adapters is back: the readers belong in " + adapter + ".");
+
+        var diskOrProcess = new System.Text.RegularExpressions.Regex(
+            @"\b(File|Directory|FileInfo|DirectoryInfo|FileStream|Process|ProcessStartInfo)\s*[.(]|using\s+System\.Diagnostics\s*;");
+
+        var offenders = screen.EnumerateFiles("*.cs", SearchOption.AllDirectories)
+            .Where(file => !file.FullName.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")
+                        && !file.FullName.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}"))
+            .Where(file => diskOrProcess.IsMatch(File.ReadAllText(file.FullName)))
+            .Select(file => file.Name)
+            .ToList();
+
+        Assert.True(
+            offenders.Count == 0,
+            "Backlog.Modules.Sessions.UI reads the disk or starts a process: " + string.Join(", ", offenders));
+
+        var infrastructure = Repository.ProjectsUnder("src", "Infrastructure")
+            .ToDictionary(project => Path.GetFileNameWithoutExtension(project.Name), StringComparer.OrdinalIgnoreCase);
+
+        Assert.True(infrastructure.ContainsKey(adapter), $"{adapter} is not under src/Infrastructure.");
+
+        var references = Repository.ReferencedProjectNames(infrastructure[adapter]).ToList();
+
+        Assert.Contains("Backlog.Modules.Sessions.Abstractions", references, StringComparer.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Backlog.Modules.Sessions.UI", references, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var host in new[] { ("src", "App", "Backlog.Desktop"), ("src", "Harness", "Backlog.Desktop.WebHarness") })
+        {
+            var project = Repository.ProjectsUnder(host.Item1, host.Item2)
+                .Single(candidate => Path.GetFileNameWithoutExtension(candidate.Name) == host.Item3);
+
+            Assert.Contains(adapter, Repository.ReferencedProjectNames(project), StringComparer.OrdinalIgnoreCase);
+        }
+
+        var solution = File.ReadAllText(Path.Combine(Repository.Root.FullName, "Backlog.sln"));
+        var filter = File.ReadAllText(Path.Combine(Repository.Root.FullName, "Backlog.WithoutAppHeads.slnf"));
+
+        foreach (var name in new[] { adapter, adapterTests })
+        {
+            Assert.Contains($"\\{name}.csproj\"", solution, StringComparison.Ordinal);
+            Assert.Contains($"\\\\{name}.csproj\"", filter, StringComparison.Ordinal);
+        }
+    }
+
+    /// <summary>
     /// The join between Capture and the Inbox runs through
     /// <c>Backlog.Infrastructure.Capture</c> and nowhere else: it answers
     /// Capture's ports — declared in the module implementation, next to the

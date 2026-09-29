@@ -160,6 +160,18 @@ public sealed class DpapiDeviceCredentialStoreTests : IDisposable
         Assert.True(Directory.Exists(_root), "The store creates its folder rather than failing on first save.");
     }
 
+    /// <summary>
+    /// This project cannot see which app-data folder the head runs under - a
+    /// Debug head's is Backlog.Debug - so it has no default of its own to get
+    /// wrong. A default of "Backlog" here is what made a Debug head read the
+    /// installed app's credential and sync as that device.
+    /// </summary>
+    [Fact]
+    public void The_store_has_no_default_location_of_its_own()
+    {
+        Assert.Null(typeof(DpapiDeviceCredentialStore).GetConstructor(Type.EmptyTypes));
+    }
+
     private static bool Contains(byte[] haystack, byte[] needle)
     {
         if (needle.Length == 0 || needle.Length > haystack.Length) return false;

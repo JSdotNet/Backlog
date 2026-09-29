@@ -147,6 +147,8 @@ public sealed class BatchTests
             resurfaceDue: null!,
             routeToBacklog: null!,
             createPlan: null!,
+            routeBatchToBacklog: null!,
+            proposeBatch: null!,
             createList: null!,
             renameList: null!,
             deleteList: null!,

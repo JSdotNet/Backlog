@@ -113,6 +113,21 @@ public sealed class TaskFoldTests
         Assert.Empty(rows);
     }
 
+    /// <summary>ADR 0018 Verification 8: the phone never lists the roadmap's two
+    /// documents, so its view store keeps no row for either.</summary>
+    [Theory]
+    [InlineData("roadmap-plan")]
+    [InlineData("planning-pace")]
+    public void A_roadmap_document_is_never_a_row(string type)
+    {
+        var rows = new Dictionary<Guid, TaskViewRow>();
+
+        var changed = TaskFold.Apply(rows, [Record(TestTasks.Task("Roadmap plan", T0, inMyDayOn: Today, type: type), 1)]);
+
+        Assert.Empty(changed);
+        Assert.Empty(rows);
+    }
+
     private static TaskChangeRecord Record(TaskChange change, long serverTimestamp) =>
         new(change, Guid.NewGuid(), serverTimestamp);
 

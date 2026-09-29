@@ -56,6 +56,32 @@ internal static class IntegrationStates
         _ => "State has not been read yet"
     };
 
+    // --- Checks ------------------------------------------------------------
+
+    public static string SlugOf(IntegrationCheckState checks) => BadgeSlug.Of(checks switch
+    {
+        IntegrationCheckState.Pending => "pending",
+        IntegrationCheckState.Passing => "passing",
+        IntegrationCheckState.Failing => "failing",
+        _ => Fallback
+    }, Fallback);
+
+    /// <summary>"Checks passing" rather than "Passing": the mark sits beside a pull
+    /// request's own state, and a bare "Passing" beside "Open" leaves a reader to
+    /// guess what passed.</summary>
+    public static string LabelOf(IntegrationCheckState checks) => checks switch
+    {
+        IntegrationCheckState.Pending => "Checks pending",
+        IntegrationCheckState.Passing => "Checks passing",
+        IntegrationCheckState.Failing => "Checks failing",
+        _ => string.Empty
+    };
+
+    /// <summary>The words for <see cref="IntegrationLinkRef.AutoMerge"/>. One
+    /// constant rather than a switch, because the mark is drawn only when it is
+    /// on.</summary>
+    public const string AutoMergeLabel = "Auto-merge on";
+
     // --- Sessions ----------------------------------------------------------
 
     public static string SlugOf(IntegrationSessionState state) => BadgeSlug.Of(state switch

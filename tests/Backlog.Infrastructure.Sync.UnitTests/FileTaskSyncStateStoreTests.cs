@@ -64,6 +64,24 @@ public sealed class FileTaskSyncStateStoreTests : IDisposable
         Assert.Null(store.Current.DeviceId);
     }
 
+    /// <summary>The roadmap's per-document marks (local ADR 0018) survive a restart,
+    /// and a file from before them reads as nothing sent yet.</summary>
+    [Fact]
+    public void The_roadmap_document_marks_are_read_back_and_an_older_file_has_none()
+    {
+        var path = Path.Combine(_root, "task-sync-state.json");
+
+        new FileTaskSyncStateStore(path).Save(
+            new TaskSyncState(Noon, "cursor-1").WithDocumentWatermark(RoadmapReplicaDocuments.PlanType, Noon.AddMinutes(3)));
+
+        Assert.Equal(Noon.AddMinutes(3), new FileTaskSyncStateStore(path).Current.DocumentWatermark(RoadmapReplicaDocuments.PlanType));
+        Assert.Null(new FileTaskSyncStateStore(path).Current.DocumentWatermark(RoadmapReplicaDocuments.PaceType));
+
+        File.WriteAllText(path, """{"pushWatermark":"2026-09-07T12:00:00+00:00","pullCursor":"cursor-1"}""");
+
+        Assert.Null(new FileTaskSyncStateStore(path).Current.DocumentWatermarks);
+    }
+
     [Fact]
     public void Saving_raises_changed_and_moves_current()
     {

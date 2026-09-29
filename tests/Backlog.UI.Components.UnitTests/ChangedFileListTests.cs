@@ -99,6 +99,29 @@ public sealed class ChangedFileListTests
         Assert.Equal(Files[1].Path, selected);
     }
 
+    /// <summary>
+    /// Which keys the browser swallows is decided in components.js, on the
+    /// <c>.changed-file</c> class, not by a flag the keydown handler sets. That
+    /// flag was bound to <c>@onkeydown:preventDefault</c> and read when the row
+    /// re-rendered, so it applied to the <em>next</em> key: the arrow scrolled the
+    /// page, Enter selected twice through the synthesized click, and the key after
+    /// it was eaten. bUnit renders the binding as a <c>blazor:</c> attribute, so
+    /// its absence after a key that used to set the flag proves the flag is gone.
+    /// </summary>
+    [Theory]
+    [InlineData("ArrowDown")]
+    [InlineData("Enter")]
+    public void No_key_arms_a_prevent_default_for_the_key_after_it(string key)
+    {
+        using var context = new BunitContext();
+
+        var list = Render(context, Files[0].Path);
+
+        list.Find("[data-testid='files-modified-MarkdownView.razor']").KeyDown(new KeyboardEventArgs { Key = key });
+
+        Assert.All(list.FindAll(".changed-file"), row => Assert.Null(row.GetAttribute("blazor:onkeydown:preventdefault")));
+    }
+
     [Fact]
     public void An_empty_scope_is_an_answer_and_not_an_empty_listbox()
     {

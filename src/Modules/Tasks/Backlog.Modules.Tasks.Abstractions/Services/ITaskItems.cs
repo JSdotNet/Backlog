@@ -119,12 +119,20 @@ public interface ITaskItems
     /// <paramref name="sourceInboxId"/> is stamped on the entries the import
     /// creates, and on nothing it updates or skips, for the reason
     /// <see cref="SaveFromTextAsync"/> gives: the field is birth provenance.
+    /// </para>
+    /// <para>
+    /// <paramref name="sourceInboxIds"/> is the same provenance per entry, for a
+    /// document made of several inbox items routed together as a batch: an
+    /// entry's <c>id:</c> mapped to the inbox item it came from. A created entry
+    /// the map names is stamped with its own item, and so born Draft; any other
+    /// takes <paramref name="sourceInboxId"/>.
     /// </para></summary>
     Task<Result<ImportPlanResultDto>> ImportPlanAsync(
         string rawText,
         string? defaultRepo = null,
         IReadOnlyDictionary<string, string>? repoMatches = null,
         string? sourceInboxId = null,
+        IReadOnlyDictionary<string, string>? sourceInboxIds = null,
         bool layOutOnRoadmap = false,
         CancellationToken cancellationToken = default);
 }

@@ -7,14 +7,12 @@
     pointer and wants the next key to land in it (WAI-ARIA menu pattern): the
     first item that can be activated takes the focus once the menu is drawn.
 
-    Enter and Space activate through the button's own click and nothing else.
-    A keydown handler that selected as well would run a second time on the
-    click the browser raises for that same key, and a server-bound
-    `@onkeydown:preventDefault` cannot stop it: it is rendered after the
-    handler, so it is false for the first key the menu sees and, after an
-    arrow, swallows the Enter that follows. The keys the menu does take for
-    itself (the arrows, Home, End) have their default refused in
-    components.js, at the keydown, by the item's class.
+    Enter and Space select from the keydown. The keys the menu takes for
+    itself (the arrows, Home, End, Enter, Space) have their default refused in
+    components.js, at the keydown, by the item's class: a server-bound
+    `@onkeydown:preventDefault` is rendered after the handler and would apply
+    to the key after the one that set it, and an unrefused Enter or Space would
+    select a second time through the button's click.
 *@
 
 <ul class="@ClassValue" role="menu" aria-label="@AriaLabel" data-testid="@TestId" @attributes="AdditionalAttributes">
@@ -39,7 +37,7 @@
                     tabindex="@(index == ActiveIndex ? 0 : -1)"
                     @onclick="() => SelectAsync(item)"
                     @onfocus="() => _activeIndex = index"
-                    @onkeydown="e => OnKeyDown(e, index)">
+                    @onkeydown="e => OnKeyDownAsync(e, index, item)">
                 @if (!string.IsNullOrWhiteSpace(item.Icon))
                 {
                     <span class="menu-list__icon" aria-hidden="true">@item.Icon</span>
@@ -130,8 +128,13 @@
     private Task SelectAsync(MenuItem item) =>
         item.Disabled || item.Separator ? Task.CompletedTask : OnItemSelected.InvokeAsync(item);
 
-    private void OnKeyDown(KeyboardEventArgs e, int index)
+    // Which of these keys keep their default is decided in components.js, on the
+    // `.menu-list__item` class: a flag set here would reach the browser only with
+    // the next render, after the default it meant to stop had already run.
+    private Task OnKeyDownAsync(KeyboardEventArgs e, int index, MenuItem item)
     {
+        if (e.Key is "Enter" or " ") return SelectAsync(item);
+
         var target = e.Key switch
         {
             "ArrowDown" => Step(index, 1),
@@ -142,6 +145,8 @@
         };
 
         if (target >= 0) _activeIndex = target;
+
+        return Task.CompletedTask;
     }
 
     private int Step(int from, int direction)

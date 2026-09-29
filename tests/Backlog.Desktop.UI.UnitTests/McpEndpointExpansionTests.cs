@@ -14,6 +14,7 @@ namespace Backlog.Desktop.UI.UnitTests;
 /// environment variable of the machine that syncs it onto a command line, and
 /// this file asserts that it is not one.</para>
 /// </summary>
+[Collection(ProcessEnvironmentCollection.Name)]
 public class McpEndpointExpansionTests
 {
     private const string EndpointUrl = "http://127.0.0.1:${BACKLOG_MCP_PORT}/mcp";
@@ -235,6 +236,31 @@ public class McpEndpointExpansionTests
 
         Assert.Equal("http://127.0.0.1:5757/mcp", expanded.Text);
         Assert.True(expanded.Resolved);
+    }
+
+    /// <summary>
+    /// The two environment tests above set a real, process-wide variable, which
+    /// every class running beside them — and every child process one of those
+    /// starts — would see appear and vanish. So this class runs alone, in a
+    /// collection that is not parallelised with anything else.
+    /// </summary>
+    [Fact]
+    public void This_class_runs_in_a_collection_that_is_never_parallelised()
+    {
+        var collection = typeof(McpEndpointExpansionTests).CustomAttributes
+            .SingleOrDefault(a => a.AttributeType == typeof(CollectionAttribute));
+        Assert.NotNull(collection);
+        var name = Assert.IsType<string>(collection.ConstructorArguments.Single().Value);
+
+        var definition = typeof(McpEndpointExpansionTests).Assembly.GetTypes()
+            .SelectMany(t => t.CustomAttributes)
+            .Single(a => a.AttributeType == typeof(CollectionDefinitionAttribute)
+                && a.ConstructorArguments.Count == 1
+                && Equals(a.ConstructorArguments[0].Value, name));
+
+        Assert.Contains(definition.NamedArguments, a =>
+            a.MemberName == nameof(CollectionDefinitionAttribute.DisableParallelization)
+            && Equals(a.TypedValue.Value, true));
     }
 
     /// <summary>A stand-in for the worker, which lives in the desktop head no

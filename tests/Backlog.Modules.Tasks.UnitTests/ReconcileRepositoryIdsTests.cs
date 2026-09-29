@@ -228,6 +228,25 @@ public class ReconcileRepositoryIdsTests
         Assert.Equal([Backlog], directory.Repositories);
     }
 
+    /// <summary>A registration the registry could not keep leaves the value
+    /// exactly as it was. The pass runs on every start, so the next one asks
+    /// again; rewriting the entry now would point it at a repository that is not
+    /// there after a restart.</summary>
+    [Fact]
+    public async Task An_id_whose_registration_fails_is_left_alone()
+    {
+        var store = StoreWith(["Someone/Thing"]);
+        var directory = new FakeRepositoryDirectory([Backlog]) { FailsWith = "The registry could not be written." };
+
+        var changed = await Reconcile(store, directory);
+
+        Assert.Equal(0, changed);
+        Assert.Equal(0, store.Writes);
+        Assert.Equal(["Someone/Thing"], store.Entries.Single().RepoIds);
+        Assert.Equal(["Someone/Thing"], directory.Registered);
+        Assert.Equal([Backlog], directory.Repositories);
+    }
+
     private static async Task<int> Reconcile(InMemoryTaskRepository store, FakeRepositoryDirectory directory)
     {
         var result = await new ReconcileRepositoryIdsCommandHandler(store, directory)

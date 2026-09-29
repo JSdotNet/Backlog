@@ -10,6 +10,7 @@ using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Roadmap.Extensions;
 using Backlog.Infrastructure.Sqlite.Roadmap;
+using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -45,10 +46,12 @@ internal static class TasksTestHost
     /// timers and is disposed by every harness that builds one.
     /// </para>
     /// </summary>
-    public static ITaskItems EntriesFor(ITaskRepository repository) =>
+    /// <param name="repositories">The repository registry the use cases ask; one
+    /// that forgets every registration when none is given.</param>
+    public static ITaskItems EntriesFor(ITaskRepository repository, IRepositoryDirectory? repositories = null) =>
         new ServiceCollection()
             .AddSingleton(repository)
-            .AddSingleton<IRepositoryDirectory, NoRepositoryDirectory>()
+            .AddSingleton(repositories ?? new NoRepositoryDirectory())
             .AddTasksModule()
             .BuildServiceProvider()
             .GetRequiredService<ITaskItems>();
@@ -145,8 +148,37 @@ internal static class TasksTestHost
         GitHubIntegration gitHub,
         TasksCopilotCli? copilot = null,
         IRoadmapTagSource? roadmapTags = null,
-        IToastChannel? toasts = null) =>
-        new(TaskStoreFor(store), EntriesFor(store), gitHub, copilot, roadmapTags, toasts);
+        IToastChannel? toasts = null,
+        TimeProvider? clock = null,
+        TaskStoreCalls? storeCalls = null)
+    {
+        var entries = EntriesFor(store);
+        return new(TaskStoreFor(store), storeCalls?.Watch(entries) ?? entries, gitHub, copilot, roadmapTags, toasts, timeProvider: clock);
+    }
+
+    /// <summary>Waits on <see cref="TasksDesktopState.Changed"/> for what a moved
+    /// clock set off. The timer fires on the thread that moved it, but the save
+    /// it starts goes to the store and comes back on its own.</summary>
+    public static async Task UntilAsync(TasksDesktopState state, Func<bool> condition)
+    {
+        var reached = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        void OnChanged()
+        {
+            if (condition()) reached.TrySetResult();
+        }
+
+        state.Changed += OnChanged;
+        try
+        {
+            if (condition()) return;
+            await reached.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        }
+        finally
+        {
+            state.Changed -= OnChanged;
+        }
+    }
 
     /// <summary>
     /// The notification channel a screen publishes on and MainLayout's tray reads
@@ -217,6 +249,6 @@ internal static class TasksTestHost
         /// and name standing in as the alias — so the <c>Id</c> it hands back is
         /// the same <c>name/name</c> placeholder Settings would show. It forgets
         /// immediately, which is the one thing it is for.</summary>
-        public TasksRepositoryRef Register(string name) => new(name, name, name);
+        public Result<TasksRepositoryRef> Register(string name) => new TasksRepositoryRef(name, name, name);
     }
 }

@@ -1,11 +1,14 @@
 @*
     The bar over the list while the reader is picking items: the shared
     SelectionBar — the count, the select-all with its partial state, the way
-    out — with the four acts the Inbox can take across a selection. The same
+    out — with the five acts the Inbox can take across a selection. The same
     bar the Tasks pane puts over its list, so the two panes pick things the
     same way (.devbook/domain/tasks/features.md#bulk-editing).
 
-    Archive runs on the press, as it does on the detail. The other three open a
+    Archive runs on the press, as it does on the detail. Move to backlog
+    routes the selection as one batch, one plan: on the press for one item, and
+    through the Before you route panel (InboxRoutePanel) for two or more, where
+    the order, the dependencies and the repositories are decided first. The other three open a
     dialog, because each needs a choice first — which list, which tags, which
     repositories — and a dialog is where the detail already asks "Move to
     list". Every act waits while one is in flight; the answer is a toast from
@@ -133,6 +136,11 @@
                    Disabled="@State.BulkRunning"
                    OnClick="() => State.BulkArchiveAsync()"
                    TestId="inbox-bulk-archive">Archive</AppButton>
+        <AppButton Size="ButtonSize.Small"
+                   Disabled="@State.RoutingInFlight"
+                   Title="Route the selected items to the backlog together, as one plan"
+                   OnClick="() => State.BeginBulkRouteAsync()"
+                   TestId="inbox-bulk-backlog">Move to backlog</AppButton>
         <AppButton Size="ButtonSize.Small"
                    Disabled="@State.BulkRunning"
                    OnClick="() => Open(Dialog.Move)"

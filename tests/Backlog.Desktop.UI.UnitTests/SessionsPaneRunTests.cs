@@ -1,5 +1,5 @@
 using Backlog.Modules.Sessions.UI;
-using Backlog.Modules.Sessions.UI.Adapters;
+using Backlog.Infrastructure.Sessions;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;

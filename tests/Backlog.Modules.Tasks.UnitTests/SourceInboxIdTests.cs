@@ -106,6 +106,61 @@ public sealed class SourceInboxIdTests
         });
     }
 
+    /// <summary>A batch of inbox items routed together is one document, so the
+    /// single source cannot say where each entry came from. The per-entry map
+    /// does, keyed on the entry's <c>id:</c>; an entry the map does not name falls
+    /// back to the single source, and every sourced entry is born Draft.</summary>
+    [Fact]
+    public async Task An_imported_batch_stamps_each_entry_with_its_own_inbox_item()
+    {
+        var store = new InMemoryTaskRepository();
+        var handler = new ImportPlanCommandHandler(store, new FakeRepositoryDirectory());
+
+        const string other = "0199a3f2-7c41-7d1a-9d0f-000000000002";
+        const string plan =
+            "# From the first item\n`task` `!ready` `+inbox-batch-1a2b3c4d` `id:first`\n\n"
+            + "# From the second item\n`task` `+inbox-batch-1a2b3c4d` `id:second/owner/repo`\n\n"
+            + "# Named by nobody\n`task` `+inbox-batch-1a2b3c4d` `id:third`\n";
+
+        var result = await handler.Handle(
+            new ImportPlanCommand(
+                plan,
+                SourceInboxId: null,
+                SourceInboxIds: new Dictionary<string, string> { ["first"] = InboxItem, ["second/owner/repo"] = other }),
+            TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsSuccess);
+        var byTitle = store.Entries.Values.ToDictionary(entry => entry.Title);
+        Assert.Equal(InboxItem, byTitle["From the first item"].SourceInboxId);
+        Assert.Equal(other, byTitle["From the second item"].SourceInboxId);
+        Assert.Null(byTitle["Named by nobody"].SourceInboxId);
+        Assert.Equal(EntryStatus.Draft, byTitle["From the first item"].Status);
+        Assert.Equal(EntryStatus.Draft, byTitle["From the second item"].Status);
+        Assert.Equal(EntryStatus.Ready, byTitle["Named by nobody"].Status);
+        Assert.Equal("second/owner/repo", byTitle["From the second item"].ImportItemId);
+        Assert.All(store.Entries.Values, entry => Assert.Equal("+inbox-batch-1a2b3c4d", entry.ImportPlanId));
+    }
+
+    [Fact]
+    public async Task An_entry_the_batch_map_does_not_name_keeps_the_single_source()
+    {
+        var store = new InMemoryTaskRepository();
+        var handler = new ImportPlanCommandHandler(store, new FakeRepositoryDirectory());
+
+        const string other = "0199a3f2-7c41-7d1a-9d0f-000000000002";
+        const string plan =
+            "# Mapped\n`task` `+p-1a2b3c4d` `id:one`\n\n"
+            + "# Unmapped\n`task` `+p-1a2b3c4d` `id:two`\n";
+
+        await handler.Handle(
+            new ImportPlanCommand(plan, SourceInboxId: InboxItem, SourceInboxIds: new Dictionary<string, string> { ["one"] = other }),
+            TestContext.Current.CancellationToken);
+
+        var byTitle = store.Entries.Values.ToDictionary(entry => entry.Title);
+        Assert.Equal(other, byTitle["Mapped"].SourceInboxId);
+        Assert.Equal(InboxItem, byTitle["Unmapped"].SourceInboxId);
+    }
+
     [Fact]
     public async Task A_hand_pasted_plan_still_defaults_to_ready_and_keeps_what_it_says()
     {

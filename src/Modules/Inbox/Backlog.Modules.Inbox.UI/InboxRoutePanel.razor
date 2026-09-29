@@ -1,0 +1,180 @@
+@*
+    Before you route: the one look at a batch of two or more items before it
+    becomes one import. Everything on it is the state's InboxRouteDraft, so the
+    panel draws and never decides.
+
+    Top to bottom it answers the questions in the order a person asks them. In
+    what order will these go? Why — which of them names another, or a task the
+    backlog already has, in its own words? Where will each go? Under which tag,
+    and how many tasks will that make? The order is re-read from the switches on
+    every render, so turning a dependency off moves the list at once.
+
+    A loop is named in an alert and Confirm stays off until a switch breaks it:
+    items that wait on each other could never start. Cancel — the button, the
+    close mark, Escape — puts the panel down and changes nothing.
+
+    The Modal-with-Footer shape the bulk bar's dialogs use, and only library
+    components inside it (.agents/rules/ui-components.md).
+*@
+
+@if (State.RouteDraft is { } draft)
+{
+    <Modal Open="true"
+           OpenChanged="open => OnOpenChanged(open)"
+           Title="Before you route"
+           CssClass="inbox-pane__dialog inbox-route-panel"
+           TestId="inbox-route-panel">
+        <ChildContent>
+            <section class="inbox-route-panel__section" aria-label="Order" data-testid="inbox-route-panel-order">
+                <h3 class="inbox-route-panel__heading">In this order</h3>
+                <ol class="inbox-route-panel__order">
+                    @foreach (var item in draft.OrderedItems)
+                    {
+                        <li class="inbox-route-panel__order-item" @key="item.Id" data-testid="inbox-route-panel-order-item">@TitleOf(item.Title)</li>
+                    }
+                </ol>
+            </section>
+
+            <section class="inbox-route-panel__section" aria-label="Dependencies" data-testid="inbox-route-panel-edges">
+                <h3 class="inbox-route-panel__heading">Dependencies</h3>
+                @if (draft.Dependencies.Count == 0)
+                {
+                    <Alert BaseClass="inbox-pane__note"
+                           Role="status"
+                           Message="None of these items names another, or a task already in the backlog."
+                           TestId="inbox-route-panel-no-edges" />
+                }
+                else
+                {
+                    <ul class="inbox-route-panel__edges">
+                        @for (var index = 0; index < draft.Dependencies.Count; index++)
+                        {
+                            var at = index;
+                            var dependency = draft.Dependencies[at];
+                            <li class="inbox-route-panel__edge"
+                                data-testid="inbox-route-panel-edge"
+                                data-target-kind="@(dependency.To.Kind == DependencyTargetKind.Task ? "task" : "item")"
+                                data-enabled="@(draft.IsEnabled(at) ? "true" : "false")">
+                                <Toggle Checked="@draft.IsEnabled(at)"
+                                        CheckedChanged="on => OnDependencyChanged(draft, at, on)"
+                                        Label="@draft.Describe(dependency)"
+                                        Description="@($"It says “{dependency.Reason}”.")"
+                                        TestId="@($"inbox-route-panel-edge-toggle-{at}")" />
+                            </li>
+                        }
+                    </ul>
+                }
+                @if (draft.Loops.Count > 0)
+                {
+                    <Alert BaseClass="inbox-route-panel__loop"
+                           Message="@LoopMessage(draft.Loops)"
+                           TestId="inbox-route-panel-loop" />
+                }
+            </section>
+
+            <section class="inbox-route-panel__section" aria-label="Repositories" data-testid="inbox-route-panel-repositories">
+                <h3 class="inbox-route-panel__heading">Repositories</h3>
+                <Toggle Checked="@draft.OneForAll"
+                        CheckedChanged="on => draft.SetOneForAll(on)"
+                        Label="One for all"
+                        Description="Send every item to the same repositories."
+                        TestId="inbox-route-panel-one-for-all" />
+                @if (draft.OneForAll)
+                {
+                    <TagMultiSelect Label="Every item"
+                                    Options="@State.RepositoryOptions"
+                                    SelectedValues="@draft.SharedRepositories"
+                                    SelectedValuesChanged="repos => draft.SetSharedRepositories(repos)"
+                                    Placeholder="No repository"
+                                    CssClass="inbox-pane__picker"
+                                    TestId="inbox-route-panel-repos-all" />
+                }
+                else
+                {
+                    @foreach (var item in draft.Proposal.Items)
+                    {
+                        <TagMultiSelect @key="item.Id"
+                                        Label="@TitleOf(item.Title)"
+                                        Options="@State.RepositoryOptions"
+                                        SelectedValues="@draft.OwnRepositories(item.Id)"
+                                        SelectedValuesChanged="repos => draft.SetRepositories(item.Id, repos)"
+                                        Placeholder="No repository"
+                                        CssClass="inbox-pane__picker"
+                                        TestId="@($"inbox-route-panel-repos-{item.Id:D}")" />
+                    }
+                }
+            </section>
+
+            <section class="inbox-route-panel__section" aria-label="Plan" data-testid="inbox-route-panel-plan">
+                <h3 class="inbox-route-panel__heading">Plan</h3>
+                <div class="inbox-route-panel__plan">
+                    <TagChip Text="@draft.PlanTag"
+                             title="The tag every entry of this batch shares"
+                             TestId="inbox-route-panel-tag" />
+                </div>
+                <Alert BaseClass="inbox-pane__note"
+                       Role="status"
+                       Message="@(InboxDesktopState.Counted(draft.TaskCount, "task", "tasks") + " will be created.")"
+                       TestId="inbox-route-panel-count" />
+                @if (draft.Proposal.Deferred is > 0 and var deferred)
+                {
+                    <Alert BaseClass="inbox-pane__note"
+                           Role="status"
+                           Message="@(deferred == 1 ? "The list stays; its 1 deferred item stays with it." : $"The list stays; its {deferred} deferred items stay with it.")"
+                           TestId="inbox-route-panel-deferred" />
+                }
+                @if (StaysBehind(draft) is { Count: > 0 } behind)
+                {
+                    <Alert BaseClass="inbox-pane__note"
+                           Role="status"
+                           Message="@($"Not routed: {string.Join(" ", behind)}")"
+                           TestId="inbox-route-panel-refused" />
+                }
+            </section>
+        </ChildContent>
+        <Footer>
+            <AppButton Variant="ButtonVariant.Ghost"
+                       Size="ButtonSize.Small"
+                       OnClick="State.CancelRoute"
+                       TestId="inbox-route-panel-cancel">Cancel</AppButton>
+            <AppButton Variant="ButtonVariant.Primary"
+                       Size="ButtonSize.Small"
+                       Disabled="@(!draft.CanConfirm || State.RoutingInFlight)"
+                       Title="@(draft.CanConfirm ? "Route every item as one plan" : "Turn a dependency off to break the loop first")"
+                       OnClick="() => State.ConfirmRouteAsync()"
+                       TestId="inbox-route-panel-confirm">Route @InboxDesktopState.Counted(draft.Proposal.Items.Count, "item", "items")</AppButton>
+        </Footer>
+    </Modal>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public InboxDesktopState State { get; set; } = default!;
+
+    private void OnOpenChanged(bool open)
+    {
+        if (!open) State.CancelRoute();
+    }
+
+    private static void OnDependencyChanged(InboxRouteDraft draft, int index, bool on) => draft.SetEnabled(index, on);
+
+    /// <summary>One sentence naming every loop, so the person knows which
+    /// switch to reach for.</summary>
+    private static string LoopMessage(IReadOnlyList<string> loops) =>
+        (loops.Count == 1 ? $"These wait on each other: {loops[0]}." : $"These wait on each other: {string.Join("; ", loops)}.")
+        + " Turn one off to route.";
+
+    /// <summary>The picked items that will not go, by title, with the reason:
+    /// the ones the pane refuses and the ones the module did.</summary>
+    private static List<string> StaysBehind(InboxRouteDraft draft)
+    {
+        var going = draft.Proposal.Items.Select(item => item.Id).ToHashSet();
+        var reasons = draft.Proposal.Refused.ToDictionary(failure => failure.Id, failure => failure.Error.Message);
+
+        return [.. draft.Picked
+            .Where(item => !going.Contains(item.Id))
+            .Select(item => $"\"{TitleOf(item.Title)}\" — {(reasons.TryGetValue(item.Id, out var reason) ? reason : InboxErrors.ItemAlreadyDecided.Message)}")];
+    }
+
+    private static string TitleOf(string title) => string.IsNullOrWhiteSpace(title) ? "Untitled" : title;
+}

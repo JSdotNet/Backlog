@@ -11,10 +11,11 @@ namespace Backlog.Infrastructure.FileSystem.Inbox;
 /// may see both contexts: an inbox item becomes backlog entries
 /// (<see cref="IInboxBacklogTarget"/> over <see cref="ITaskItems"/>), and the
 /// backlog's tags are offered to the inbox's picker
-/// (<see cref="IBacklogTagSource"/> over the same port).
+/// (<see cref="IBacklogTagSource"/> over the same port), and its open tasks to
+/// a batch's dependency proposal (<see cref="IInboxTaskReferences"/>, the same).
 /// <para>
 /// Registered here — in one place both hosts call — so the lifetime cannot
-/// drift between the desktop app and the web harness. Both adapters capture a
+/// drift between the desktop app and the web harness. All three capture a
 /// service the Tasks module registers as <c>Scoped</c>, so they must be
 /// <c>Scoped</c> too: a singleton over a scoped dependency is a captive
 /// dependency that a validating root provider refuses to build.
@@ -38,6 +39,7 @@ public static class InboxCrossContextAdapterRegistration
 
         services.AddScoped<IInboxBacklogTarget, InboxBacklogTarget>();
         services.AddScoped<IBacklogTagSource, InboxBacklogTagSource>();
+        services.AddScoped<IInboxTaskReferences, InboxTaskReferences>();
 
         // Where an item's files are kept: under the workspace's inbox folder,
         // read per call so a moved workspace takes them along. A singleton,

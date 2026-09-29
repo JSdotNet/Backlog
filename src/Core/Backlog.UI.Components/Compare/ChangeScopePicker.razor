@@ -60,8 +60,7 @@
                         @ref="_elements[index]"
                         @onfocus="() => _active = index"
                         @onclick="() => SelectAsync(scope.Id)"
-                        @onkeydown="args => OnKeyDownAsync(args, index)"
-                        @onkeydown:preventDefault="_preventDefault">
+                        @onkeydown="args => OnKeyDownAsync(args, index)">
                     @* aria-hidden because aria-selected already carries the
                        state; reading both says "checked" twice in different
                        words. The slot is always rendered, empty when unselected,
@@ -103,8 +102,7 @@
                                     @ref="_elements[index]"
                                     @onfocus="() => _active = index"
                                     @onclick="() => SelectAsync(commit.Id)"
-                                    @onkeydown="args => OnKeyDownAsync(args, index)"
-                                    @onkeydown:preventDefault="_preventDefault">
+                                    @onkeydown="args => OnKeyDownAsync(args, index)">
                                 <span class="change-scope__mark" aria-hidden="true">@Mark(commit.Id)</span>
                                 @* Sha first because it is the row's identity,
                                    subject second because it is what a human
@@ -132,7 +130,6 @@
 
     private int _active = -1;
     private int _focusTarget = -1;
-    private bool _preventDefault;
 
     /// <summary>The ranges at the top of the list.</summary>
     [Parameter]
@@ -271,14 +268,17 @@
     /// them from — changing the scope only changes what the panes beside it show.
     /// </summary>
     /// <remarks>
-    /// <c>_preventDefault</c> is read at render time rather than from this
-    /// handler, so it takes effect from the next keystroke — the same shape
-    /// MenuList uses, kept identical on purpose rather than fixed here alone.
+    /// The arrows, Home and End would scroll the page and Enter and Space would
+    /// fire the button's click as a second selection, so the browser swallows
+    /// those six — and which ones is decided in components.js, on the
+    /// <c>.change-scope__row</c> class, not here. Nothing this handler sets reaches
+    /// the browser before the default has run: it used to set a flag bound to
+    /// <c>@onkeydown:preventDefault</c>, rendered after the handler returned, so it
+    /// applied to the <em>next</em> key — the arrow scrolled and the key after it
+    /// was eaten. MenuList and ChangedFileList share the same listener.
     /// </remarks>
     private async Task OnKeyDownAsync(KeyboardEventArgs args, int index)
     {
-        _preventDefault = args.Key is "ArrowDown" or "ArrowUp" or "Home" or "End" or " " or "Enter";
-
         if (args.Key is "Enter" or " ")
         {
             await SelectAsync(_order[index]);
