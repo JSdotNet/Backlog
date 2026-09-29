@@ -824,6 +824,59 @@ public sealed class ImportPlanTests
     }
 
     /// <summary>
+    /// A registration the registry could not keep stops the import with the
+    /// registry's own sentence. Filing the entries anyway would point them at a
+    /// repository that is gone after a restart — or, with an unreadable registry,
+    /// one that never existed at all — and the reader would have no way to know
+    /// the import had gone wrong.
+    /// </summary>
+    [Fact]
+    public async Task A_repository_registration_that_fails_stops_the_import_with_the_registrys_message()
+    {
+        var store = new InMemoryTaskRepository();
+        var directory = new FakeRepositoryDirectory { FailsWith = "The registry could not be written." };
+
+        var result = await new ImportPlanCommandHandler(store, directory)
+            .Handle(new ImportPlanCommand("# Only prompt\n`prompt` `repo:newcomer`\n"), TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal("The registry could not be written.", result.Error.Message);
+        Assert.Equal(["newcomer"], directory.Registered);
+        Assert.Empty(store.Entries);
+        Assert.Equal(0, store.Writes);
+    }
+
+    /// <summary>The same refusal on a re-import, where it matters most: the
+    /// previous version's not-yet-started entries are cleared before the new ones
+    /// are written, so a failure found after that clear would leave the plan with
+    /// neither version. Resolution runs first, so nothing is touched.</summary>
+    [Fact]
+    public async Task A_failed_registration_on_a_reimport_leaves_the_previous_version_standing()
+    {
+        var store = new InMemoryTaskRepository();
+        var directory = new FakeRepositoryDirectory();
+
+        await Import(store, "# First prompt\n`prompt` `#myplan` `id:first`\n", directory: directory);
+        var before = Assert.Single(store.Entries).Value;
+        store.Writes = 0;
+
+        directory.FailsWith = "The registry could not be written.";
+        var result = await new ImportPlanCommandHandler(store, directory)
+            .Handle(
+                new ImportPlanCommand("# First prompt, revised\n`prompt` `#myplan` `id:first` `repo:newcomer`\n"),
+                TestContext.Current.CancellationToken);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal("The registry could not be written.", result.Error.Message);
+        Assert.Equal(0, store.Writes);
+
+        var after = Assert.Single(store.Entries).Value;
+        Assert.Same(before, after);
+        Assert.Equal("First prompt", after.Title);
+        Assert.Null(after.DeletedAt);
+    }
+
+    /// <summary>
     /// A document may hold both kinds (ADR 0013 ruling 3). The task entries come
     /// in as they always have; the <c>plan</c> entry is not one of them and does
     /// not become a task — the one outcome ruling 2 rules out, and the one this
@@ -910,8 +963,13 @@ public sealed class ImportPlanTests
     {
         public Dictionary<Guid, TaskItem> Entries { get; } = [];
 
+        /// <summary>Every save, counted, so "wrote nothing" can be asserted
+        /// rather than inferred from the rows looking the same.</summary>
+        public int Writes { get; set; }
+
         public Task SaveAsync(TaskItem entry, CancellationToken cancellationToken = default)
         {
+            Writes++;
             Entries[entry.Id] = entry;
             return Task.CompletedTask;
         }

@@ -101,7 +101,7 @@ public sealed class TasksRepositoryDirectoryTests : IDisposable
         var settings = StoreWith("JSdotNet/Backlog");
         var directory = new SettingsRepositoryDirectory(settings);
 
-        var registered = directory.Register("Newcomer");
+        var registered = directory.Register("Newcomer").Value;
 
         Assert.Equal("newcomer", registered.Alias);
         Assert.NotNull(settings.Current.Find("newcomer"));
@@ -120,7 +120,7 @@ public sealed class TasksRepositoryDirectoryTests : IDisposable
         var settings = StoreWith("JSdotNet/Backlog");
         var directory = new SettingsRepositoryDirectory(settings);
 
-        var registered = directory.Register("Backlog");
+        var registered = directory.Register("Backlog").Value;
 
         Assert.Equal("backlog", registered.Alias);
         Assert.Equal("JSdotNet", registered.Owner);
@@ -152,7 +152,7 @@ public sealed class TasksRepositoryDirectoryTests : IDisposable
         var settings = StoreWith("JSdotNet/Backlog");
         var directory = new SettingsRepositoryDirectory(settings);
 
-        var registered = directory.Register("foo/bar");
+        var registered = directory.Register("foo/bar").Value;
 
         Assert.Equal("foo/bar", registered.Id);
         Assert.Equal("foo", registered.Owner);
@@ -181,7 +181,7 @@ public sealed class TasksRepositoryDirectoryTests : IDisposable
         var settings = StoreWith("JSdotNet/Backlog");
         var directory = new SettingsRepositoryDirectory(settings);
 
-        var registered = directory.Register("someone-else/Backlog");
+        var registered = directory.Register("someone-else/Backlog").Value;
 
         Assert.Equal("someone-else-backlog", registered.Alias);
         Assert.Equal("someone-else/Backlog", registered.Id);
@@ -228,6 +228,102 @@ public sealed class TasksRepositoryDirectoryTests : IDisposable
 
         directory.Register("finance/finance");
         Assert.False(directory.WasRemoved("finance/finance"));
+    }
+
+    /// <summary>
+    /// A registration the store could not save is reported, with the store's own
+    /// sentence, rather than answered with a repository. The store keeps the row
+    /// in memory for the session, which is exactly why a plan import must not
+    /// file entries against it: after a restart they would point at nothing.
+    /// </summary>
+    [Fact]
+    public void A_registration_the_store_could_not_save_reports_the_stores_message()
+    {
+        var settings = StoreWith("JSdotNet/Backlog");
+        var directory = new SettingsRepositoryDirectory(settings);
+        MakeUnwritable(settings);
+
+        var registered = directory.Register("Newcomer");
+
+        Assert.True(registered.IsFailure);
+        Assert.Equal("Changed, but the choice couldn't be saved for next time.", registered.Error.Message);
+    }
+
+    /// <summary>
+    /// A failed registration leaves nothing behind in memory either. Retrying the
+    /// import is the obvious response to the error, and it must fail again rather
+    /// than find the unsaved row and report it as registered: an entry filed
+    /// against it would point at nothing after a restart. The same holds for the
+    /// start-up reconcile, where a second entry naming the same id asks again.
+    /// </summary>
+    [Fact]
+    public void A_registration_the_store_could_not_save_is_not_kept_so_a_retry_fails_too()
+    {
+        var settings = StoreWith("JSdotNet/Backlog");
+        var directory = new SettingsRepositoryDirectory(settings);
+        MakeUnwritable(settings);
+
+        var first = directory.Register("Newcomer");
+        var retry = directory.Register("Newcomer");
+
+        Assert.True(first.IsFailure);
+        Assert.True(retry.IsFailure);
+        Assert.Equal("Changed, but the choice couldn't be saved for next time.", retry.Error.Message);
+        Assert.Null(directory.Resolve("newcomer"));
+        Assert.Equal(["JSdotNet/Backlog"], settings.Current.Repositories.Select(r => r.FullName));
+
+        // Only the local write failed here; the registry write landed and has to
+        // be put back, or the next start would configure the repository after
+        // all while the entries that were meant to name it were never filed.
+        Assert.DoesNotContain("newcomer", File.ReadAllText(settings.RegistryPath), StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>The worse of the two failures: while the registry cannot be read
+    /// the store refuses the change outright and holds nothing new even in
+    /// memory, so a repository reported as registered would not exist
+    /// anywhere.</summary>
+    [Fact]
+    public void A_registration_against_an_unreadable_registry_reports_it_and_adds_nothing()
+    {
+        var local = Path.Combine(_root, "github", "github.json");
+        var registry = Path.Combine(_root, "github", GitHubSettingsStore.RegistryFolderName, "repos.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(registry)!);
+        File.WriteAllText(registry, "{ this is not a registry");
+
+        var settings = new GitHubSettingsStore(local);
+        var directory = new SettingsRepositoryDirectory(settings);
+        Assert.NotNull(settings.RegistryError);
+
+        var registered = directory.Register("Newcomer");
+
+        Assert.True(registered.IsFailure);
+        Assert.Equal(settings.RegistryError, registered.Error.Message);
+        Assert.Empty(settings.Current.Repositories);
+        Assert.Null(directory.Resolve("newcomer"));
+    }
+
+    /// <summary>A name that already resolves needs no save, so a store that could
+    /// not save is no reason to refuse it: the repository it answers with is
+    /// already configured.</summary>
+    [Fact]
+    public void Registering_a_known_name_succeeds_even_when_the_store_could_not_save()
+    {
+        var settings = StoreWith("JSdotNet/Backlog");
+        var directory = new SettingsRepositoryDirectory(settings);
+        MakeUnwritable(settings);
+
+        var registered = directory.Register("Backlog");
+
+        Assert.True(registered.IsSuccess);
+        Assert.Equal("JSdotNet/Backlog", registered.Value.Id);
+    }
+
+    /// <summary>A folder where the local settings file was, so the store's next
+    /// write of it fails the way a locked or read-only file would.</summary>
+    private static void MakeUnwritable(GitHubSettingsStore settings)
+    {
+        File.Delete(settings.SettingsPath);
+        Directory.CreateDirectory(settings.SettingsPath);
     }
 
     private GitHubSettingsStore StoreWith(string configuredLines)

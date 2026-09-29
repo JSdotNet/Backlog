@@ -10,6 +10,7 @@ using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Roadmap.Extensions;
 using Backlog.Infrastructure.Sqlite.Roadmap;
+using Backlog.SharedKernel.Results;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -45,10 +46,12 @@ internal static class TasksTestHost
     /// timers and is disposed by every harness that builds one.
     /// </para>
     /// </summary>
-    public static ITaskItems EntriesFor(ITaskRepository repository) =>
+    /// <param name="repositories">The repository registry the use cases ask; one
+    /// that forgets every registration when none is given.</param>
+    public static ITaskItems EntriesFor(ITaskRepository repository, IRepositoryDirectory? repositories = null) =>
         new ServiceCollection()
             .AddSingleton(repository)
-            .AddSingleton<IRepositoryDirectory, NoRepositoryDirectory>()
+            .AddSingleton(repositories ?? new NoRepositoryDirectory())
             .AddTasksModule()
             .BuildServiceProvider()
             .GetRequiredService<ITaskItems>();
@@ -217,6 +220,6 @@ internal static class TasksTestHost
         /// and name standing in as the alias — so the <c>Id</c> it hands back is
         /// the same <c>name/name</c> placeholder Settings would show. It forgets
         /// immediately, which is the one thing it is for.</summary>
-        public TasksRepositoryRef Register(string name) => new(name, name, name);
+        public Result<TasksRepositoryRef> Register(string name) => new TasksRepositoryRef(name, name, name);
     }
 }
