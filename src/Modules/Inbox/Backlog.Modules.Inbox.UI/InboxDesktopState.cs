@@ -1313,6 +1313,40 @@ public sealed class InboxDesktopState
         Changed?.Invoke();
     }
 
+    /// <summary>
+    /// "Ask the AI to order" on the panel: the drafter's reading of the batch,
+    /// added to the panel as dependencies the person keeps or turns off. Asked
+    /// only on the press — every ask is a model call — and refused up front
+    /// when the drafter is unavailable, as the button is. The repositories sent
+    /// are the panel's current choices, the only ones the answer may name. An
+    /// answer that lands after the panel was closed, or replaced, is dropped.
+    /// </summary>
+    public async Task InferRouteOrderAsync()
+    {
+        if (RouteDraft is not { Inferring: false } draft || RoutingInFlight || !PlanDrafterAvailability.Available) return;
+
+        draft.Inferring = true;
+        Changed?.Invoke();
+
+        try
+        {
+            var result = await _inbox.InferBatchOrderAsync(
+                [.. draft.Proposal.Items.Select(item => item.Id)],
+                draft.PlanTag,
+                draft.Choices().Repositories);
+
+            if (!ReferenceEquals(RouteDraft, draft)) return;
+
+            if (result.IsFailure) draft.InferenceRefused(result.Error.Message);
+            else draft.AddInferred(result.Value);
+        }
+        finally
+        {
+            draft.Inferring = false;
+            Changed?.Invoke();
+        }
+    }
+
     /// <summary>Confirm on the panel: routes the batch as one import with the
     /// choices made — the tag the panel showed, the repositories, the
     /// dependencies left on. Refused while a loop is on, as the panel's Confirm

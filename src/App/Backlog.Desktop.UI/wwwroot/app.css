@@ -3903,6 +3903,24 @@ h1, h2, h3 {
     gap: var(--spacing-xs);
 }
 
+/* "Ask the AI to order": the button and what the last ask came to, on one line
+   that wraps. A refused ask wears the loop's warning edge, since nothing it
+   said was added. */
+.inbox-route-panel__infer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.inbox-route-panel__infer-refused {
+    margin: 0;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-left: var(--border-width-2) solid var(--color-error);
+    color: var(--color-error-text);
+    font-size: var(--font-size-sm);
+}
+
 /* The row is a button, and it is styled here from scratch rather than as a
    `.btn`: the library's button brings padding, a weight and a centred label,
    and a row is a left-aligned line of metadata. Selection is the border in

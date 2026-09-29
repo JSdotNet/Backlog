@@ -2,7 +2,7 @@ using Backlog.Infrastructure.Claude;
 using Backlog.Modules.Dashboard.Abstractions.Insights;
 using Backlog.Modules.Dashboard.Abstractions.Services;
 
-namespace Backlog.Modules.Dashboard.UI.Adapters;
+namespace Backlog.Infrastructure.Claude.Dashboard;
 
 /// <summary>
 /// Answers <see cref="IClaudeSpendSource"/> from Anthropic's Claude Code analytics,

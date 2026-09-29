@@ -12,15 +12,20 @@ public enum DependencyTargetKind
 }
 
 /// <summary>
-/// How sure the Inbox is of a dependency it proposes. One tier today:
-/// <see cref="Stated"/>, where the item's own text names the other thing — its
-/// link, its title, its issue. A guess from similar wording would be a second
-/// tier, and is not built.
+/// How sure the Inbox is of a dependency it proposes. <see cref="Stated"/>,
+/// where the item's own text names the other thing — its link, its title, its
+/// issue — is always proposed. <see cref="Inferred"/> is the plan drafter's
+/// reading of a whole batch, proposed only when the person asks for it. A guess
+/// from similar wording would be a tier between the two, and is not built.
 /// </summary>
 public enum DependencyTier
 {
     /// <summary>The item's text names the thing it waits on.</summary>
-    Stated
+    Stated,
+
+    /// <summary>The plan drafter read the batch and put this item after the
+    /// other one. Only ever between two items of the batch.</summary>
+    Inferred
 }
 
 /// <summary>

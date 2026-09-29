@@ -88,5 +88,11 @@ public sealed class RouteToBacklogCommandHandler(
             item.SourceUrl,
             [.. item.Tags.Select(tag => tag.Name)],
             [.. item.RepoIds],
-            item.Attachments.Count > 0 ? attachmentFiles?.FolderFor(item.Id) : null);
+            AttachmentFolder(item, attachmentFiles));
+
+    /// <summary>The folder an item hands on as its tasks' attachment, or null
+    /// when it arrived with no files or the host keeps none. Shared with Create
+    /// plan, so the files go where the work goes whichever door it leaves by.</summary>
+    internal static string? AttachmentFolder(InboxItem item, IInboxAttachmentFiles? attachmentFiles) =>
+        item.Attachments.Count > 0 ? attachmentFiles?.FolderFor(item.Id) : null;
 }

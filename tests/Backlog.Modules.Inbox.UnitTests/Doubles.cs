@@ -42,7 +42,7 @@ internal sealed class FakeBacklogTarget : IInboxBacklogTarget
 {
     public List<InboxRouteRequestDto> Requests { get; } = [];
 
-    public List<(string Plan, Guid SourceInboxId, IReadOnlyList<string> AllowedRepoIds)> Imports { get; } = [];
+    public List<(string Plan, Guid SourceInboxId, IReadOnlyList<string> AllowedRepoIds, string? AttachmentPath)> Imports { get; } = [];
 
     public Error? FailWith { get; set; }
 
@@ -57,6 +57,21 @@ internal sealed class FakeBacklogTarget : IInboxBacklogTarget
         var count = Math.Max(request.RepoIds.Count, 1);
         return Task.FromResult(Result.Success<IReadOnlyList<Guid>>(
             [.. Enumerable.Range(0, count).Select(_ => Guid.CreateVersion7())]));
+    }
+
+    public List<(string Plan, IReadOnlyCollection<Guid> ItemIds, IReadOnlyList<string> AllowedRepoIds)> OrderReads { get; } = [];
+
+    /// <summary>What <see cref="ReadDraftedOrder"/> answers — standing in for
+    /// the adapter's reading of the entry text, which the module never sees.</summary>
+    public Result<IReadOnlyList<InboxBatchEdge>> DraftedOrder { get; set; } = Result.Success<IReadOnlyList<InboxBatchEdge>>([]);
+
+    public Result<IReadOnlyList<InboxBatchEdge>> ReadDraftedOrder(
+        string planMarkdown,
+        IReadOnlyCollection<Guid> itemIds,
+        IReadOnlyList<string> allowedRepoIds)
+    {
+        OrderReads.Add((planMarkdown, itemIds, allowedRepoIds));
+        return DraftedOrder;
     }
 
     public List<InboxBatchRouteRequestDto> BatchRequests { get; } = [];
@@ -93,9 +108,10 @@ internal sealed class FakeBacklogTarget : IInboxBacklogTarget
         string planMarkdown,
         Guid sourceInboxId,
         IReadOnlyList<string> allowedRepoIds,
+        string? attachmentPath = null,
         CancellationToken cancellationToken = default)
     {
-        Imports.Add((planMarkdown, sourceInboxId, allowedRepoIds));
+        Imports.Add((planMarkdown, sourceInboxId, allowedRepoIds, attachmentPath));
 
         if (FailWith is { } error) return Task.FromResult(Result.Failure<IReadOnlyList<Guid>>(error));
 

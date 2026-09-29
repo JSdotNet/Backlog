@@ -56,7 +56,7 @@ public sealed class TaskItemDtoCreatedAtTests
             createdAt: Stamped);
 
         entry.Rename("Write the release notes");
-        entry.ChangeStatus(EntryStatus.Ready);
+        entry.ChangeStatus(EntryStatus.Ready, new DateOnly(2026, 1, 1));
 
         Assert.Equal(Stamped, entry.ToDto().CreatedAt);
         Assert.NotEqual(Stamped, entry.UpdatedAt);

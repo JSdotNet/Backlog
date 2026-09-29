@@ -144,7 +144,7 @@ public sealed class SaveTaskFromTextCommandHandler(ITaskRepository entries, IRep
 
         TaskEntryFields.ApplyToExisting(entry, parsed);
 
-        if (parsed.Status is { } targetStatus) entry.SetStatus(targetStatus);
+        if (parsed.Status is { } targetStatus) entry.SetStatus(targetStatus, TaskEntryFields.LocalToday);
 
         await entries.SaveAsync(entry, cancellationToken);
 

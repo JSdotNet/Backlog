@@ -1,7 +1,7 @@
 using Backlog.Infrastructure.Claude;
-using Backlog.Modules.Dashboard.UI.Adapters;
+using Backlog.Infrastructure.Claude.Dashboard;
 
-namespace Backlog.Desktop.UI.UnitTests;
+namespace Backlog.Infrastructure.Claude.UnitTests;
 
 /// <summary>
 /// The Claude spend adapter over several accounts: one person, several

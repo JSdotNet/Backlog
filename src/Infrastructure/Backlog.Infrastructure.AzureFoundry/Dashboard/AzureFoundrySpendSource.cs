@@ -2,7 +2,7 @@ using Backlog.Infrastructure.AzureFoundry;
 using Backlog.Modules.Dashboard.Abstractions.Insights;
 using Backlog.Modules.Dashboard.Abstractions.Services;
 
-namespace Backlog.Modules.Dashboard.UI.Adapters;
+namespace Backlog.Infrastructure.AzureFoundry.Dashboard;
 
 /// <summary>
 /// Answers <see cref="IAzureFoundrySpendSource"/> from Azure Cost Management's

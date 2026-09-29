@@ -3,14 +3,22 @@ using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using Backlog.Desktop.UI.Tasks;
-using Backlog.Desktop.UI.Devbook;
 using Backlog.Modules.DevPc.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Microsoft.Extensions.Logging;
 
-namespace Backlog.Desktop.Services;
+namespace Backlog.Infrastructure.DevPc;
 
+/// <summary>
+/// Dev PC Management's adapter: the one <see cref="IDevToolService"/> both hosts
+/// compose.
+///
+/// <para>The desktop head composes it with a store and its MCP endpoint source,
+/// and it answers by running the CLIs a catalog entry names. The web harness
+/// composes <see cref="CatalogOnly"/>, which answers from the catalog JSON alone
+/// and starts no process — see <see cref="CatalogOnlyDevTools"/> for what it
+/// answers instead.</para>
+/// </summary>
 public sealed class DevToolService : IDevToolService
 {
     /// <summary>What a row and the status line say when the host a catalog entry
@@ -151,6 +159,34 @@ public sealed class DevToolService : IDevToolService
     }
 
     /// <summary>
+    /// Composes this adapter so that every call is answered by
+    /// <paramref name="catalogOnly"/>. Internal rather than private so that
+    /// <c>CatalogOnlyDelegationTests</c> can hand in a recorder and prove every
+    /// port member is forwarded — the guard at the top of each member is written
+    /// by hand, and a new member that forgot it would otherwise run the CLIs from
+    /// the harness.
+    /// </summary>
+    internal DevToolService(IDevToolService catalogOnly)
+    {
+        _catalogOnly = catalogOnly;
+    }
+
+    /// <summary>
+    /// The composition the web harness uses: the catalog under the store's root,
+    /// read and edited for real, and nothing run for it.
+    ///
+    /// <para>No endpoint source either, so <see cref="Changed"/> is never raised
+    /// and an HTTP row keeps its placeholders on screen: this configuration has
+    /// no listener and no port to answer with, and resolving the token would mean
+    /// minting a credential from a development host.</para>
+    /// </summary>
+    public static DevToolService CatalogOnly(ITaskStore store) => new(new CatalogOnlyDevTools(store));
+
+    /// <summary>What answers every call in the catalog-only configuration, or
+    /// nothing when this instance runs the CLIs.</summary>
+    private readonly IDevToolService? _catalogOnly;
+
+    /// <summary>
     /// Forwarded from <see cref="IMcpEndpointSource.Changed"/>, and raised by
     /// nothing else.
     ///
@@ -168,16 +204,23 @@ public sealed class DevToolService : IDevToolService
     {
         add
         {
-            if (_mcp is not null) _mcp.Changed += value;
+            if (_catalogOnly is not null) _catalogOnly.Changed += value;
+            else if (_mcp is not null) _mcp.Changed += value;
         }
         remove
         {
-            if (_mcp is not null) _mcp.Changed -= value;
+            if (_catalogOnly is not null) _catalogOnly.Changed -= value;
+            else if (_mcp is not null) _mcp.Changed -= value;
         }
     }
 
     public async Task<DevToolCatalog> ListAsync(CancellationToken ct = default)
     {
+        if (_catalogOnly is not null)
+        {
+            return await _catalogOnly.ListAsync(ct).ConfigureAwait(false);
+        }
+
         var configPaths = ConfigurationPaths;
         if (!DevToolConfiguration.CatalogExists(configPaths))
         {
@@ -981,10 +1024,16 @@ public sealed class DevToolService : IDevToolService
         };
     }
 
-    public Task<DevToolActionResult> UpdateAsync(string key, CancellationToken ct = default) => ApplyAsync(key, null, ct);
+    public Task<DevToolActionResult> UpdateAsync(string key, CancellationToken ct = default) =>
+        _catalogOnly?.UpdateAsync(key, ct) ?? ApplyAsync(key, null, ct);
 
     public async Task<DevToolActionResult> UpdateAllAsync(CancellationToken ct = default)
     {
+        if (_catalogOnly is not null)
+        {
+            return await _catalogOnly.UpdateAllAsync(ct).ConfigureAwait(false);
+        }
+
         var catalog = await ListAsync(ct).ConfigureAwait(false);
 
         // "Update all" is several runs stitched together, so its log is too: the
@@ -1045,9 +1094,11 @@ public sealed class DevToolService : IDevToolService
         return DevToolActionResult.Ok($"Updated {updated} tool(s).", commands);
     }
 
-    public Task<DevToolActionResult> EnableAsync(string key, CancellationToken ct = default) => ApplyAsync(key, true, ct);
+    public Task<DevToolActionResult> EnableAsync(string key, CancellationToken ct = default) =>
+        _catalogOnly?.EnableAsync(key, ct) ?? ApplyAsync(key, true, ct);
 
-    public Task<DevToolActionResult> DisableAsync(string key, CancellationToken ct = default) => ApplyAsync(key, false, ct);
+    public Task<DevToolActionResult> DisableAsync(string key, CancellationToken ct = default) =>
+        _catalogOnly?.DisableAsync(key, ct) ?? ApplyAsync(key, false, ct);
 
     /// <summary>
     /// Ticks — or unticks — the box on a row nothing can check.
@@ -1064,6 +1115,11 @@ public sealed class DevToolService : IDevToolService
     /// </summary>
     public async Task<DevToolActionResult> AcknowledgeAsync(string key, bool acknowledged, CancellationToken ct = default)
     {
+        if (_catalogOnly is not null)
+        {
+            return await _catalogOnly.AcknowledgeAsync(key, acknowledged, ct).ConfigureAwait(false);
+        }
+
         var log = new CommandLog();
         var result = await AcknowledgeCoreAsync(key, acknowledged, log, ct).ConfigureAwait(false);
 
@@ -1119,17 +1175,17 @@ public sealed class DevToolService : IDevToolService
     }
 
     public Task<DevToolActionResult> CreateCatalogAsync(CancellationToken ct = default) =>
-        EditCatalogAsync(
+        _catalogOnly?.CreateCatalogAsync(ct) ?? EditCatalogAsync(
             paths => DevToolConfiguration.CreateCatalogAsync(paths, ct),
             paths => $"Created a tool catalog at {paths.CatalogPath}.");
 
     public Task<DevToolActionResult> AddAsync(DevToolDraft draft, CancellationToken ct = default) =>
-        EditCatalogAsync(
+        _catalogOnly?.AddAsync(draft, ct) ?? EditCatalogAsync(
             paths => DevToolConfiguration.AddToCatalogAsync(paths, draft, ct),
             _ => $"{draft.Id} was added to the catalog.");
 
     public Task<DevToolActionResult> RemoveAsync(string key, CancellationToken ct = default) =>
-        EditCatalogAsync(
+        _catalogOnly?.RemoveAsync(key, ct) ?? EditCatalogAsync(
             async paths =>
             {
                 await DevToolConfiguration.RemoveFromCatalogAsync(paths, key, ct).ConfigureAwait(false);
@@ -1142,12 +1198,17 @@ public sealed class DevToolService : IDevToolService
             _ => $"{DevToolConfiguration.ParseKey(key).IdValue} was removed from the catalog.");
 
     public Task<DevToolActionResult> ImportAsync(string json, CancellationToken ct = default) =>
-        EditCatalogAsync(
+        _catalogOnly?.ImportAsync(json, ct) ?? EditCatalogAsync(
             paths => DevToolConfiguration.ImportCatalogAsync(paths, json, ct),
             paths => $"The catalog at {paths.CatalogPath} was replaced. The previous one is beside it as .bak.");
 
     public async Task<DevToolActionResult> RemoveCachedVersionAsync(string key, string version, CancellationToken ct = default)
     {
+        if (_catalogOnly is not null)
+        {
+            return await _catalogOnly.RemoveCachedVersionAsync(key, version, ct).ConfigureAwait(false);
+        }
+
         var log = new CommandLog();
         var result = await RemoveCachedVersionCoreAsync(key, version, log, ct).ConfigureAwait(false);
 
@@ -1235,6 +1296,11 @@ public sealed class DevToolService : IDevToolService
 
     public async Task<DevToolActionResult> RemoveStaleCacheAsync(CancellationToken ct = default)
     {
+        if (_catalogOnly is not null)
+        {
+            return await _catalogOnly.RemoveStaleCacheAsync(ct).ConfigureAwait(false);
+        }
+
         var log = new CommandLog();
         var result = await RemoveStaleCacheCoreAsync(log, ct).ConfigureAwait(false);
 

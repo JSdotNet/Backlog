@@ -3,6 +3,8 @@ using System.Security.Cryptography;
 using Backlog.Modules.Inbox.Abstractions.Services;
 using Backlog.Modules.Inbox.DomainModels;
 
+using Microsoft.Extensions.Logging;
+
 namespace Backlog.Modules.Inbox.Services;
 
 /// <summary>
@@ -23,8 +25,15 @@ namespace Backlog.Modules.Inbox.Services;
 /// downloaded without a fetch. That covers the replayed page, a Retry pressed
 /// twice, and a crash between writing the file and saving the item.
 /// </para>
+/// <para>
+/// <b>Logged once.</b> Every failure is also a warning in the caller's logger,
+/// with the file's id, the item's and the reason recorded — never the file's
+/// name or bytes — so it reaches the structured logs and not only the row. The
+/// fetch port does not log its own failures; its answer is the reason logged
+/// here.
+/// </para>
 /// </summary>
-internal static class InboxAttachmentDownloads
+internal static partial class InboxAttachmentDownloads
 {
     /// <summary>Fetches <paramref name="attachmentId"/> into the item's folder
     /// and records the outcome on the item. Answers the error recorded, or null
@@ -35,6 +44,7 @@ internal static class InboxAttachmentDownloads
         IInboxAttachmentSource source,
         IInboxAttachmentFiles files,
         TimeProvider clock,
+        ILogger logger,
         CancellationToken cancellationToken)
     {
         var attachment = item.Attachments.First(candidate => candidate.Id == attachmentId);
@@ -58,7 +68,7 @@ internal static class InboxAttachmentDownloads
             }
 
             var fetched = await source.FetchAsync(attachmentId, cancellationToken).ConfigureAwait(false);
-            if (fetched.IsFailure) return Fail(item, attachmentId, fetched.Error.Message, clock);
+            if (fetched.IsFailure) return Fail(item, attachmentId, fetched.Error.Message, clock, logger);
 
             var digest = Convert.ToHexStringLower(SHA256.HashData(fetched.Value));
             if (!string.Equals(digest, attachment.Sha256, StringComparison.Ordinal))
@@ -67,7 +77,8 @@ internal static class InboxAttachmentDownloads
                     item,
                     attachmentId,
                     "The downloaded file does not match the one that was captured, so it was not kept.",
-                    clock);
+                    clock,
+                    logger);
             }
 
             string written;
@@ -79,7 +90,7 @@ internal static class InboxAttachmentDownloads
             {
                 // Fetched fine; this machine could not keep it. Said as such, so
                 // the person looks at their disk rather than at the sync service.
-                return Fail(item, attachmentId, $"The file could not be saved on this machine: {failure.Message}", clock);
+                return Fail(item, attachmentId, $"The file could not be saved on this machine: {failure.Message}", clock, logger, failure);
             }
 
             item.MarkAttachmentDownloaded(attachmentId, written, clock.GetUtcNow());
@@ -94,13 +105,28 @@ internal static class InboxAttachmentDownloads
         {
             // Deliberately broad: see the class remarks. The message is the
             // adapter's, which for IO is the operating system's own sentence.
-            return Fail(item, attachmentId, $"The file could not be downloaded: {failure.Message}", clock);
+            return Fail(item, attachmentId, $"The file could not be downloaded: {failure.Message}", clock, logger, failure);
         }
     }
 
-    private static string Fail(InboxItem item, Guid attachmentId, string error, TimeProvider clock)
+    private static string Fail(
+        InboxItem item,
+        Guid attachmentId,
+        string error,
+        TimeProvider clock,
+        ILogger logger,
+        Exception? failure = null)
     {
         item.MarkAttachmentFailed(attachmentId, error, clock.GetUtcNow());
-        return item.Attachments.First(candidate => candidate.Id == attachmentId).LastError!;
+        var recorded = item.Attachments.First(candidate => candidate.Id == attachmentId).LastError!;
+
+        LogDownloadFailed(logger, failure, attachmentId, item.Id, recorded);
+
+        return recorded;
     }
+
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "Could not download attachment {AttachmentId} of inbox item {ItemId}: {Reason}")]
+    private static partial void LogDownloadFailed(ILogger logger, Exception? exception, Guid attachmentId, Guid itemId, string reason);
 }

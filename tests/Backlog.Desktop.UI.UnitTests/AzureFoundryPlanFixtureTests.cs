@@ -50,6 +50,45 @@ public sealed class AzureFoundryPlanFixtureTests
         Assert.Equal(expected, answer);
     }
 
+    /// <summary>A batch is told apart by its item headings and answered with
+    /// one entry per item under the item's id, each after the one listed after
+    /// it — the reverse order, so the panel visibly moves.</summary>
+    [Fact]
+    public void A_batch_is_answered_one_entry_per_item_in_reverse_order()
+    {
+        var first = Guid.NewGuid().ToString("D");
+        var second = Guid.NewGuid().ToString("D");
+
+        var answer = LocalAzureFoundryCompletion.CreateAnswer(
+        [
+            new AzureFoundryChatMessage("system", AzureFoundryPlanPrompt.BatchText),
+            new AzureFoundryChatMessage("user", AzureFoundryPlanPrompt.User(BatchRequest(first, second, "Build it."))),
+        ]);
+
+        Assert.Contains($"`+inbox-batch-1a2b3c4d` `id:{first}` `after:{second}` `effort:2`", answer, StringComparison.Ordinal);
+        Assert.Contains($"`+inbox-batch-1a2b3c4d` `id:{second}` `effort:2`", answer, StringComparison.Ordinal);
+        Assert.DoesNotContain("repo:", answer, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_batch_asking_for_a_made_up_repository_gets_one()
+    {
+        var answer = LocalAzureFoundryCompletion.CreateAnswer(
+        [
+            new AzureFoundryChatMessage("system", AzureFoundryPlanPrompt.BatchText),
+            new AzureFoundryChatMessage("user", AzureFoundryPlanPrompt.User(BatchRequest(Guid.NewGuid().ToString("D"), Guid.NewGuid().ToString("D"), "order:unknown-repo"))),
+        ]);
+
+        Assert.Contains("`repo:made-up/repository`", answer, StringComparison.Ordinal);
+    }
+
+    private static AzureFoundryPlanRequest BatchRequest(string first, string second, string content) =>
+        new("inbox-batch-1a2b3c4d", "", null, "batch", [], [], "inbox-batch-1a2b3c4d",
+        [
+            new AzureFoundryPlanBatchItem(first, "Set up the pipeline", content, null, "text", []),
+            new AzureFoundryPlanBatchItem(second, "Deploy the preview", "Ship it.", null, "text", []),
+        ]);
+
     [Fact]
     public void No_repository_means_no_repo_token()
     {

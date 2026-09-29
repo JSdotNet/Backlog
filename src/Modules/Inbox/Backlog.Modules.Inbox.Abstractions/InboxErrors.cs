@@ -104,6 +104,22 @@ public static class InboxErrors
         "inbox.plan.unknown_repository",
         $"The plan names a repository this item is not assigned to: {repoId}.");
 
+    /// <summary>The order the drafter proposed for a batch named a repository
+    /// none of the batch's items goes to. The whole answer is refused — the
+    /// same rule as <see cref="PlanUnknownRepository"/> — so none of its
+    /// dependencies is offered.</summary>
+    public static Error OrderUnknownRepository(string repoId) => Error.Validation(
+        "inbox.order.unknown_repository",
+        $"The AI's order names a repository outside this batch, so none of it was used: {repoId}.");
+
+    /// <summary>The order the drafter proposed for a batch named an entry that
+    /// is not one of the batch's items — an <c>id:</c> or an <c>after:</c> it
+    /// made up, or an entry with no id at all. Refused whole, like a repository
+    /// it made up.</summary>
+    public static Error OrderUnknownItem(string value) => Error.Validation(
+        "inbox.order.unknown_item",
+        $"The AI's order names an entry that is not in this batch, so none of it was used: {value}.");
+
     /// <summary>The code of <see cref="BatchRefused"/>, which wraps another
     /// error's message and so cannot be compared whole.</summary>
     public const string BatchRefusedCode = "inbox.batch.refused";
