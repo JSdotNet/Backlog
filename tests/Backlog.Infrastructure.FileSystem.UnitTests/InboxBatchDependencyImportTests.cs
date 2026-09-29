@@ -124,6 +124,6 @@ public sealed class InboxBatchDependencyImportTests : IDisposable
 
         public TasksRepositoryRef? Resolve(string name) => null;
 
-        public TasksRepositoryRef Register(string name) => throw new InvalidOperationException("A batch never registers a repository.");
+        public Backlog.SharedKernel.Results.Result<TasksRepositoryRef> Register(string name) => throw new InvalidOperationException("A batch never registers a repository.");
     }
 }
