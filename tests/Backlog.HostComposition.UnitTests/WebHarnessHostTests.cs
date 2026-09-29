@@ -215,8 +215,6 @@ public class WebHarnessHostTests
                 new Backlog.Infrastructure.GitHub.GitHubCredential("ghp_test", null, "octocat"));
     }
 
-    }
-
     /// <summary>
     /// Every Dashboard port the pane and Ask AI read is still answered, with the
     /// lifetime it had when one UI-side call registered them all: the provider
