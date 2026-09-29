@@ -1,6 +1,6 @@
 using System.Text.Json.Nodes;
 
-namespace Backlog.Desktop.UI.UnitTests;
+namespace Backlog.Infrastructure.DevPc.UnitTests;
 
 public class DevToolTests
 {

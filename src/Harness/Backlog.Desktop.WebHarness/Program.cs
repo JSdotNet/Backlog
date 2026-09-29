@@ -37,6 +37,7 @@ using Backlog.Modules.Roadmap.UI;
 using Backlog.Modules.DevPc.UI;
 using Backlog.Infrastructure.GitHub;
 using Backlog.Infrastructure.Devbook;
+using Backlog.Infrastructure.DevPc;
 using Backlog.Infrastructure.Sync;
 using Backlog.Infrastructure.Sync.Annotations;
 using Backlog.Infrastructure.Sync.Extensions;
@@ -486,7 +487,9 @@ builder.Services.AddScoped(sp => new DomainDevbookStore(sp.GetRequiredService<ID
 // The web host never distributes or updates the desktop app, so it always
 // reports updates as unsupported.
 builder.Services.AddSingleton<IAppUpdateService, UnsupportedAppUpdateService>();
-builder.Services.AddSingleton<IDevToolService, LocalDevelopmentDevToolService>();
+// The desktop head's own tools adapter, configured to read the catalog and run
+// nothing: a browser session operates the pane without touching the machine.
+builder.Services.AddSingleton<IDevToolService>(sp => DevToolService.CatalogOnly(sp.GetRequiredService<ITaskStore>()));
 // The tool catalog behind the shell's Ask AI port, beside the port it reads.
 builder.Services.AddToolsAiContentSource();
 

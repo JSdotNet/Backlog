@@ -1,22 +1,33 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using Backlog.Desktop.UI.Tasks;
-using Backlog.Desktop.UI.Devbook;
 using Backlog.Modules.DevPc.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.Services;
 
-namespace Backlog.Desktop.WebHarness;
+namespace Backlog.Infrastructure.DevPc;
 
 /// <summary>
-/// The harness's own answer to the tools port, read out of the catalog JSON and
-/// nothing else.
-/// <para>Public rather than internal, like <c>LocalAzureFoundryCompletion</c> in
-/// the harness beside it, so the unit tests can drive it directly. Everything it
-/// answers comes from files, so the half of the pane a browser is slowest to
-/// reach is the half a test can pin in milliseconds.</para>
+/// What <see cref="DevToolService.CatalogOnly"/> answers with: the tools port
+/// read out of the catalog JSON and nothing else.
+/// <para>The web harness's configuration of the one adapter, and not a second
+/// implementation of the port — <see cref="DevToolService"/> hands every call
+/// here when it was composed this way. Everything it answers comes from files,
+/// so the half of the pane a browser is slowest to reach is the half a test can
+/// pin in milliseconds.</para>
+/// <para>It implements the port itself, internally, so the compiler checks
+/// that this configuration answers every member of it — the check the harness's
+/// own class used to get for free. <c>CatalogOnlyDelegationTests</c> checks the
+/// other half: that <see cref="DevToolService"/> forwards every member here.</para>
 /// </summary>
-public sealed class LocalDevelopmentDevToolService : IDevToolService
+internal sealed class CatalogOnlyDevTools : IDevToolService
 {
+    /// <summary>Never raised: this configuration has no endpoint source, so an
+    /// HTTP row keeps its placeholders and there is nothing to re-list for.</summary>
+    public event Action? Changed
+    {
+        add { }
+        remove { }
+    }
+
     /// <summary>
     /// Stand-ins for the dozen processes the desktop head runs to answer a
     /// check. This fake starts none, so nothing real could be reported here —
@@ -70,7 +81,7 @@ public sealed class LocalDevelopmentDevToolService : IDevToolService
     /// shape a browser test here could not tell from a broken one.</summary>
     private readonly HashSet<string> _removedCache = new(StringComparer.OrdinalIgnoreCase);
 
-    public LocalDevelopmentDevToolService(ITaskStore store)
+    public CatalogOnlyDevTools(ITaskStore store)
     {
         _store = store;
     }
@@ -323,25 +334,6 @@ public sealed class LocalDevelopmentDevToolService : IDevToolService
             1 => "Removed 1 stale version from Claude's plugin cache.",
             _ => $"Removed {removed} stale versions from Claude's plugin cache."
         });
-    }
-
-    /// <summary>
-    /// Declared and never raised.
-    /// <para>
-    /// Nothing outside this adapter can change what a listing answers: it reads
-    /// two JSON files and starts no process, and there is no MCP endpoint source
-    /// here to hear from — see <see cref="McpServer"/> for why there deliberately
-    /// never will be.
-    /// </para>
-    /// <para>
-    /// Empty accessors rather than an auto-implemented event, which would be a
-    /// field nothing assigns and a warning this solution treats as an error.
-    /// </para>
-    /// </summary>
-    public event Action? Changed
-    {
-        add { }
-        remove { }
     }
 
     private static string CacheKey(string key, string version) => $"{key}|{version}";
