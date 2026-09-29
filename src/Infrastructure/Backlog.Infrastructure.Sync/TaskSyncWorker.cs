@@ -1,4 +1,5 @@
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Tasks;
 using Backlog.SharedKernel;
@@ -124,7 +125,13 @@ public sealed class TaskSyncWorker : IDisposable
     private readonly ITaskSyncStateStore _state;
     private readonly TimeProvider _time;
     private readonly ITaskChangeSignal? _changes;
+    private readonly IRoadmapReplication? _roadmap;
     private readonly ILogger _log;
+
+    /// <summary>Completed when the first cycle this worker runs has finished,
+    /// whether it succeeded or failed — what <see cref="CatchUpAsync"/> waits
+    /// for.</summary>
+    private readonly TaskCompletionSource _firstCycle = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     /// <summary>Cancelled on disposal and handed to every exchange, so a cycle
     /// that is half way through a page when the window closes is asked to stop
@@ -181,6 +188,9 @@ public sealed class TaskSyncWorker : IDisposable
     /// a cycle <see cref="ChangeSettleDelay"/> later rather than on the next
     /// tick; when absent, the loop is the five-minute schedule and the button,
     /// exactly as before.</param>
+    /// <param name="roadmap">Roadmap's replication port, for its local-change notice
+    /// only: a plan saved or a pace set here is pushed after the same settle delay a
+    /// task write is (local ADR 0018). Null on a head without a roadmap.</param>
     public TaskSyncWorker(
         IServiceProvider services,
         IAppFeatureSettings features,
@@ -188,7 +198,8 @@ public sealed class TaskSyncWorker : IDisposable
         ITaskSyncStateStore state,
         TimeProvider time,
         ILogger<TaskSyncWorker>? log = null,
-        ITaskChangeSignal? changes = null)
+        ITaskChangeSignal? changes = null,
+        IRoadmapReplication? roadmap = null)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(features);
@@ -202,6 +213,7 @@ public sealed class TaskSyncWorker : IDisposable
         _state = state;
         _time = time;
         _changes = changes;
+        _roadmap = roadmap;
         _log = log ?? NullLogger<TaskSyncWorker>.Instance;
 
         // Both gates can move while the app is running, and each of them moving
@@ -209,6 +221,7 @@ public sealed class TaskSyncWorker : IDisposable
         _features.Changed += OnGateChanged;
         _credentials.Changed += OnGateChanged;
         if (_changes is not null) _changes.Changed += OnLocalChange;
+        if (_roadmap is not null) _roadmap.Changed += OnLocalChange;
 
         ApplyGates();
     }
@@ -339,9 +352,46 @@ public sealed class TaskSyncWorker : IDisposable
         _features.Changed -= OnGateChanged;
         _credentials.Changed -= OnGateChanged;
         if (_changes is not null) _changes.Changed -= OnLocalChange;
+        if (_roadmap is not null) _roadmap.Changed -= OnLocalChange;
 
         _lifetime.Cancel();
         _lifetime.Dispose();
+
+        // No cycle will run now, so nothing waiting for the first one should.
+        _firstCycle.TrySetResult();
+    }
+
+    /// <summary>
+    /// Waits for this device to have pulled once, for at most
+    /// <paramref name="timeout"/> — what the roadmap's first read waits for, so a
+    /// device never draws the plan it held before another PC's edit arrived (local
+    /// ADR 0018, Consequences).
+    /// <para>
+    /// Returns at once when the loop is not running — sync switched off, or this
+    /// device not paired — because there is no pull to wait for, and once the first
+    /// cycle has finished, because the roadmap has caught up. Otherwise it asks for a
+    /// cycle now rather than waiting out <see cref="FirstCycleDelay"/>; a cycle
+    /// already in flight turns that away and is the one waited for. A failed cycle
+    /// counts as finished: an offline device reads what it has. Never throws for a
+    /// timeout — the caller reads what it holds either way.
+    /// </para>
+    /// </summary>
+    public async Task CatchUpAsync(TimeSpan timeout, CancellationToken cancellationToken = default)
+    {
+        if (_firstCycle.Task.IsCompleted || !ShouldRun) return;
+
+        RequestSync();
+
+        try
+        {
+            await _firstCycle.Task.WaitAsync(timeout, _time, cancellationToken).ConfigureAwait(false);
+        }
+        catch (TimeoutException)
+        {
+            _log.LogInformation(
+                "The first task sync cycle had not finished after {Timeout}; the roadmap reads what this device holds.",
+                timeout);
+        }
     }
 
     /// <summary>What <see cref="RequestSync"/> discards. Internal so a test can
@@ -554,6 +604,11 @@ public sealed class TaskSyncWorker : IDisposable
         finally
         {
             Volatile.Write(ref _cycleInFlight, 0);
+
+            // Succeeded or failed, this device has now tried to pull: whatever was
+            // waiting to read the roadmap reads what it holds.
+            _firstCycle.TrySetResult();
+
             Changed?.Invoke();
 
             // A reset that arrived while this cycle held the guard is still
@@ -593,7 +648,8 @@ public sealed class TaskSyncWorker : IDisposable
 
         var state = _state.Current;
 
-        if (republish) state = state with { PushWatermark = DateTimeOffset.MinValue };
+        // Every document the push offers again: the tasks, and the roadmap's two.
+        if (republish) state = state with { PushWatermark = DateTimeOffset.MinValue, DocumentWatermarks = null };
         if (rehydrate) state = state with { PullCursor = null };
 
         _state.Save(state);

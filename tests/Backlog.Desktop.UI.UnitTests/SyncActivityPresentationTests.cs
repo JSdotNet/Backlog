@@ -129,5 +129,6 @@ public sealed class SyncActivityPresentationTests
         Assert.Equal("↑ Sent", SyncActivityPresentation.Direction(SyncDirection.Sent));
         Assert.Equal("↓ Received", SyncActivityPresentation.Direction(SyncDirection.Received));
         Assert.Equal("Capture", SyncActivityPresentation.Kind(SyncItemKind.Capture));
+        Assert.Equal("Roadmap", SyncActivityPresentation.Kind(SyncItemKind.Roadmap));
     }
 }

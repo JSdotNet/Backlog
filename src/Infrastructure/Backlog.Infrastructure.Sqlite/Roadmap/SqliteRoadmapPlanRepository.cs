@@ -1,7 +1,10 @@
 using System.Globalization;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 using Backlog.Modules.Roadmap;
+using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
+using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Roadmap.DomainModels;
 
 using Microsoft.Data.Sqlite;
@@ -39,8 +42,16 @@ namespace Backlog.Infrastructure.Sqlite.Roadmap;
 /// out with <c>sqlite3</c> still reads as the same JSON — but editing it is now a job
 /// for the app.
 /// </para>
+/// <para>
+/// <b>The row is also the document that travels.</b> Local ADR 0018 replicates the
+/// plan between a person's devices as one whole document, and this row already is
+/// that document: <see cref="ReadAsync"/> hands out the stored text and its stamp,
+/// and <see cref="TryWriteAsync"/> takes another device's copy verbatim at the stamp
+/// it arrived with. Verbatim rather than through the aggregate, so a field a newer
+/// build wrote survives on disk here even though this build cannot read it.
+/// </para>
 /// </summary>
-public sealed class SqliteRoadmapPlanRepository : IRoadmapPlanRepository
+public sealed class SqliteRoadmapPlanRepository : IRoadmapPlanRepository, IRoadmapReplicaStore
 {
     /// <summary>The row's identity. One workspace plans one roadmap, so the id is a
     /// constant rather than something to look up — it exists to give the UPSERT below
@@ -120,18 +131,125 @@ public sealed class SqliteRoadmapPlanRepository : IRoadmapPlanRepository
 
         // Round-trippable, and the same format a task's timestamps use, because it has
         // to mean the same thing: an instant that survives a read on another machine
-        // unchanged.
+        // unchanged. It was written from the table's first day so that replicating the
+        // plan (local ADR 0018) found no generation of rows to back-seed, the way the
+        // tasks table had to back-seed its own from created_at.
         //
-        // Nothing reads this yet. It is written from the table's first day on purpose
-        // — local ADR 0005 could not express last-write-wins for tasks until updated_at
-        // existed, and the rows that predated the column had to be back-seeded from
-        // created_at because that was the only honest value they could offer. A plan
-        // row never has to make that apology.
-        command.Parameters.AddWithValue(
-            "$updated_at", DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture));
+        // Never at or before the stamp the row already has. A copy taken from a PC
+        // whose clock runs ahead carries a stamp this clock has not reached, and an
+        // edit stamped with plain "now" would then read as older than the plan it was
+        // made on — refused by the replica, and overwritten by that plan on the next
+        // pull. One tick past it keeps the edit the later version.
+        var stamp = DateTimeOffset.UtcNow;
+        if (await StampAsync(connection, cancellationToken).ConfigureAwait(false) is { } held && stamp <= held)
+        {
+            stamp = held.AddTicks(1);
+        }
+
+        command.Parameters.AddWithValue("$updated_at", Format(stamp));
 
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
     }
+
+    // --- The replicated document (local ADR 0018) ---------------------------
+
+    public RoadmapReplicaDocument Document => RoadmapReplicaDocument.Plan;
+
+    /// <summary>The row's document and stamp exactly as stored, or <c>null</c> when
+    /// no plan was ever saved here — a device that never planned has nothing to
+    /// send.</summary>
+    public async Task<RoadmapReplicaCopyDto?> ReadAsync(CancellationToken cancellationToken = default)
+    {
+        await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+
+        command.CommandText = "SELECT document, updated_at FROM roadmap_plan WHERE id = $id;";
+        command.Parameters.AddWithValue("$id", PlanRowId);
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false)) return null;
+
+        var document = reader.GetString(0);
+        if (string.IsNullOrWhiteSpace(document)) return null;
+
+        return new RoadmapReplicaCopyDto(document, Parse(reader.GetString(1)));
+    }
+
+    /// <summary>
+    /// Stores another device's plan verbatim, at the stamp it arrived with — not this
+    /// machine's clock, which would make the copy look newer than it is.
+    /// <para>
+    /// Refused, with nothing written, when the text is not a plan document: not JSON,
+    /// not an object, no numeric <c>version</c> — every document this repository has
+    /// ever written carries one — or a shape <see cref="LoadAsync"/> could not read.
+    /// The trade <see cref="LoadAsync"/> makes, one step earlier: a plan is never
+    /// overwritten with something unreadable.
+    /// </para>
+    /// </summary>
+    public async Task<bool> TryWriteAsync(RoadmapReplicaCopyDto copy, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(copy);
+
+        if (!IsPlanDocument(copy.Content)) return false;
+
+        await using var connection = await OpenAsync(_databasePath, cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+
+        command.CommandText =
+            """
+            INSERT INTO roadmap_plan (id, document, updated_at)
+            VALUES ($id, $document, $updated_at)
+            ON CONFLICT(id) DO UPDATE SET
+                document = excluded.document,
+                updated_at = excluded.updated_at;
+            """;
+
+        command.Parameters.AddWithValue("$id", PlanRowId);
+        command.Parameters.AddWithValue("$document", copy.Content);
+        command.Parameters.AddWithValue("$updated_at", Format(copy.UpdatedAt));
+
+        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+
+        return true;
+    }
+
+    private static bool IsPlanDocument(string content)
+    {
+        if (string.IsNullOrWhiteSpace(content)) return false;
+
+        try
+        {
+            if (JsonNode.Parse(content) is not JsonObject root
+                || !root.TryGetPropertyValue("version", out var version)
+                || version is not JsonValue number
+                || !number.TryGetValue<int>(out _))
+            {
+                return false;
+            }
+
+            return JsonSerializer.Deserialize<RoadmapPlanDocument>(content, RoadmapPlanDocument.JsonOptions) is not null;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
+    private static async Task<DateTimeOffset?> StampAsync(SqliteConnection connection, CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT updated_at FROM roadmap_plan WHERE id = $id;";
+        command.Parameters.AddWithValue("$id", PlanRowId);
+
+        return await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) is string stored
+            ? Parse(stored)
+            : null;
+    }
+
+    private static string Format(DateTimeOffset stamp) => stamp.ToString("O", CultureInfo.InvariantCulture);
+
+    private static DateTimeOffset Parse(string stored) =>
+        DateTimeOffset.Parse(stored, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);
 
     // --- Schema -------------------------------------------------------------
 

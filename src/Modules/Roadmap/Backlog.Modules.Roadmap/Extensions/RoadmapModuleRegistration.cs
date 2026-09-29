@@ -72,6 +72,17 @@ public static class RoadmapModuleRegistration
         services.TryAddSingleton<RoadmapPlanChanges>();
         services.AddScoped<IRoadmapPlanning, RoadmapPlanning>();
 
+        // The plan and the pace as the documents that travel between devices (local
+        // ADR 0018). A singleton, because it holds the plan's change notice and the
+        // pace settings' — both singletons — for a sync loop to hear. The stores are
+        // the host's: whichever it registers are the documents this head keeps, and a
+        // head that registers none keeps neither, so a copy of either reads as
+        // unreadable rather than failing the provider.
+        services.TryAddSingleton<IRoadmapReplication>(sp => new RoadmapReplication(
+            sp.GetServices<IRoadmapReplicaStore>(),
+            sp.GetRequiredService<RoadmapPlanChanges>(),
+            sp.GetService<IPlanningVelocitySettings>()));
+
         return services;
     }
 }
