@@ -314,6 +314,7 @@
     private bool CanEdit => _model?.CanEdit ?? true;
     private string? _loadedRepositoryAlias;
     private DevbookChapterContent _chapter = DevbookChapterContent.None;
+    private int _chapterRead;
     private DevbookChapterEditor? _editor;
     private string? _statusError;
     private bool _editing;
@@ -460,11 +461,22 @@
     /// debounce comes back through here after a save, and resetting there would
     /// close the editor under the reader who is typing.
     /// </para>
+    /// <para>
+    /// Only the latest read lands. Every parameter set starts one, so reads
+    /// overlap whenever the host re-renders while a file is still coming off disk,
+    /// and they can finish out of order: a read of the chapter that was open
+    /// finishing after the reader picked the folder overview put that chapter's
+    /// file view back inside the overview.
+    /// </para>
     /// </summary>
     private async Task ReadChapterAsync()
     {
+        var read = ++_chapterRead;
+        var chapter = await LoadChapterAsync();
+        if (read != _chapterRead) return;
+
         var previous = _chapter.Chapter?.RelativePath;
-        _chapter = await LoadChapterAsync();
+        _chapter = chapter;
 
         if (!string.Equals(previous, _chapter.Chapter?.RelativePath, StringComparison.OrdinalIgnoreCase)) _editing = false;
 
