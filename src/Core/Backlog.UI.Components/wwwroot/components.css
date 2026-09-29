@@ -13132,6 +13132,41 @@ select.field__input {
     font-size: var(--font-size-xs);
 }
 
+/* A pull request's check roll-up and its auto-merge request, as marks after the
+   label. Positioned because each carries an .sr-only copy of its words, and
+   .sr-only is absolutely positioned — without a positioned ancestor its 1px box
+   lands relative to something far up the page.
+
+   The inks are the two sanctioned semantic foregrounds and the live ink the
+   state chips already spend: success for passing, error for failing, the brand
+   ink for "still running". No new colour, and never the only carrier — the shape
+   and the words say it too. */
+.integration-link__checks,
+.integration-link__auto-merge {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    flex: none;
+}
+
+.integration-link__checks--passing {
+    color: var(--color-success-text);
+}
+
+.integration-link__checks--failing {
+    color: var(--color-error-text);
+}
+
+.integration-link__checks--pending {
+    color: var(--integration-live);
+}
+
+/* Inherits the link's ink: auto-merge is a fact about what will happen, not a
+   verdict, so it takes no semantic colour of its own. */
+.integration-link__auto-merge {
+    color: inherit;
+}
+
 /* The title is the part that gives, because it is the part a reader can lose and
    still know what they are looking at. */
 .integration-link__title {

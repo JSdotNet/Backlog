@@ -229,3 +229,12 @@ related: [".devbook/arc42/04-solution-strategy.md"]
   facts. It shares entry text's shape but none of its tokens, so local ADR 0002
   holds. Completed items are dropped before import. Mapped lists are filed and
   the rest land unfiled.
+- **[ADR 0018 — The roadmap plan and the planning pace ride the task feed as two whole documents](adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md)**:
+  the plan travels between paired desktops as one `roadmap-plan`
+  document on the existing `/tasks` feed, its JSON carried verbatim in
+  `ContentMd` and last-write-wins on `roadmap_plan.updated_at`. The pace travels
+  as a second `planning-pace` document, so a pace change and a plan edit never
+  overwrite each other. The service, its routes and its containers do not
+  change. A device that never saved sends nothing. Answers local ADR 0005's
+  roadmap-plan question and amends ADR 0013 ruling 4, which kept the pace on the
+  device.

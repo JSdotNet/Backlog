@@ -71,5 +71,29 @@ public sealed class SyncServiceSettingsStoreTests : IDisposable
         Assert.Equal(1, raised);
     }
 
+    /// <summary>
+    /// This project cannot see which app-data folder the head runs under - a
+    /// Debug head's is Backlog.Debug - so it has no default of its own to get
+    /// wrong. A default of "Backlog" here is what gave a Debug head the
+    /// installed app's sync URL.
+    /// </summary>
+    [Fact]
+    public void The_store_has_no_default_location_of_its_own()
+    {
+        Assert.Null(typeof(SyncServiceSettingsStore).GetConstructor(Type.EmptyTypes));
+    }
+
+    [Fact]
+    public void The_path_the_host_passes_is_the_path_used()
+    {
+        var path = NewSettingsPath();
+
+        var store = new SyncServiceSettingsStore(path);
+        store.SetServiceUrl("https://sync.example.test");
+
+        Assert.Equal(path, store.SettingsPath);
+        Assert.True(File.Exists(path));
+    }
+
     private string NewSettingsPath() => Path.Combine(_root, Guid.NewGuid().ToString("N"), "sync-service.json");
 }

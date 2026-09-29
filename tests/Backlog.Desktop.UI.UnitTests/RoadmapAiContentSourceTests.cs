@@ -1,4 +1,7 @@
+using System.Globalization;
+
 using Backlog.Modules.Roadmap.Abstractions;
+using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Roadmap.UI;
 using Backlog.SharedKernel.Ai;
@@ -53,6 +56,55 @@ public sealed class RoadmapAiContentSourceTests : IDisposable
         var content = await new RoadmapAiContentSource(planning).ComposeAsync(new AiContentRequest("polish", 6000), TestContext.Current.CancellationToken);
 
         Assert.Contains("Item: Polish, 2026-04-02 to 2026-04-03, medium priority, before milestone Freeze", content.Body, StringComparison.Ordinal);
+    }
+
+    /// <summary>A window sized by effort is written as the band draws it: its gathered
+    /// effort at the pace in use from its planned start, not the end stored when the
+    /// import placed it (local ADR 0018).</summary>
+    [Fact]
+    public async Task An_item_sized_by_its_effort_is_written_with_the_end_its_effort_reaches_at_the_pace_in_use()
+    {
+        var planning = Planning();
+        Assert.True((await planning.ImportPlanItemsAsync(
+            [new PlanImportEntryDto("Ship sync", "sync", RepositoryAliases: ["backlog"])],
+            cancellationToken: TestContext.Current.CancellationToken)).IsSuccess);
+        var stored = Assert.Single((await planning.GetPlanAsync(TestContext.Current.CancellationToken)).Items);
+        Assert.Equal(5, stored.Days); // nothing gathered at import: the default span
+
+        var content = await new RoadmapAiContentSource(planning, new EveryItemGathers(14), new GlobalPace(14m))
+            .ComposeAsync(new AiContentRequest("when does sync ship?", 6000), TestContext.Current.CancellationToken);
+
+        // 14 points at 14 a week: a week from the planned start.
+        Assert.Contains(
+            $"Item: Ship sync, {Iso(stored.Start)} to {Iso(stored.Start.AddDays(6))},",
+            content.Body,
+            StringComparison.Ordinal);
+    }
+
+    private static string Iso(DateOnly date) => date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+    private sealed class EveryItemGathers(int effort) : IRoadmapItemRollup
+    {
+        private RoadmapItemRollupDto Rollup => new([new RoadmapGatheredLink("task-1", "Task", effort, RollupOrigin.Tag)], []);
+
+        public Task<RoadmapItemRollupDto> GatherAsync(RoadmapItemDto item, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Rollup);
+
+        public Task<IReadOnlyDictionary<Guid, RoadmapItemRollupDto>> GatherPlanAsync(
+            RoadmapPlanDto plan,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyDictionary<Guid, RoadmapItemRollupDto>>(plan.Items.ToDictionary(item => item.Id, _ => Rollup));
+    }
+
+    private sealed class GlobalPace(decimal pointsPerWeek) : IPlanningVelocity
+    {
+        public Task<PacesInUseDto> ReadPacesInUseAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(new PacesInUseDto(pointsPerWeek, new Dictionary<string, decimal>()));
+
+        public Task<decimal> GetStoryPointsPerWeekAsync(
+            IReadOnlyCollection<string> repositoryAliases,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(pointsPerWeek);
     }
 
     [Fact]

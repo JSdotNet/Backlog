@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
-using Backlog.Modules.Sessions.UI.Adapters;
+using Backlog.Infrastructure.Sessions;
+using Backlog.Modules.Sessions.UI;
 
 namespace Backlog.Desktop.UI.UnitTests;
 

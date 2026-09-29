@@ -107,6 +107,52 @@ public interface IInboxItems
     /// item routes exactly once.</summary>
     Task<Result<InboxRoutedDto>> RouteToBacklogAsync(Guid id, CancellationToken cancellationToken = default);
 
+    /// <summary>Routes several items as one batch — one plan import whose
+    /// entries share a new plan tag. It overloads the single route by name, but
+    /// unlike the selection acts above it does not run the single-item command
+    /// once per item: Tasks is asked once, for one document.
+    /// <para>
+    /// Items already routed or archived, or gone, are refused before Tasks is
+    /// asked, and named. So is any item the backlog side cannot put into the
+    /// document — notes that would split it, a repository the workspace does not
+    /// know — with its own reason, while the rest still go. The ones sent go
+    /// together or, when Tasks refuses the document, not at all, each named with
+    /// <c>inbox.batch.refused</c>. An item whose entries were made but which
+    /// could not be saved as routed is named with <c>inbox.batch.save_failed</c>
+    /// and those entries.
+    /// </para>
+    /// <para>
+    /// With <paramref name="listId"/> the tag is the list's name
+    /// (<c>+reading-1a2b3c4d</c>), otherwise <c>+inbox-batch-…</c>; the list is
+    /// only where the name comes from, and is left as it is. Fails whole only
+    /// when <paramref name="listId"/> names no list.
+    /// </para>
+    /// <para>
+    /// <paramref name="choices"/> are the "Before you route" panel's: the tag
+    /// <see cref="ProposeBatchAsync"/> minted, a repository per item, and the
+    /// dependencies left on, which become <c>after:</c> tokens and put the
+    /// document in dependency order. A set of dependencies that loops fails the
+    /// whole batch with <c>inbox.batch.dependency_loop</c> before Tasks is asked.
+    /// Without choices the batch goes as it always did.
+    /// </para></summary>
+    Task<Result<InboxBatchRoutedDto>> RouteToBacklogAsync(
+        IReadOnlyList<Guid> ids,
+        Guid? listId = null,
+        InboxBatchRouteChoicesDto? choices = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>What routing these items as one batch would do, without doing
+    /// it: the plan tag the import would write — minted now, and handed back on
+    /// the route — the items that can go, the dependencies the Inbox can see
+    /// between them and on the backlog's open tasks, each with the text that
+    /// stated it, and the items that cannot go and why. For a list, also how
+    /// many of its items are deferred and stay behind. Fails only when
+    /// <paramref name="listId"/> names no list.</summary>
+    Task<Result<InboxBatchProposalDto>> ProposeBatchAsync(
+        IReadOnlyList<Guid> ids,
+        Guid? listId = null,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Asks the plan drafter for an import plan about the item, hands
     /// the plan to Tasks' import, and records the entries it produced as the
     /// item's routing. Fails with <c>inbox.plan.not_configured</c> when

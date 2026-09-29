@@ -83,14 +83,14 @@
                                        TestId="inbox-archive">Archive</AppButton>
                             <AppButton Size="ButtonSize.Small"
                                        Variant="ButtonVariant.Primary"
-                                       Disabled="@State.PlanRunning"
+                                       Disabled="@(State.PlanRunning || State.BulkRunning)"
                                        Busy="@State.RouteRunning"
                                        BusyLabel="Moving to backlog"
                                        Title="@RouteTitle(repos)"
                                        OnClick="State.RouteToBacklogAsync"
                                        TestId="inbox-move-to-backlog">@RouteLabel(repos)</AppButton>
                             <AppButton Size="ButtonSize.Small"
-                                       Disabled="@(!Availability.Available || State.RouteRunning)"
+                                       Disabled="@(!Availability.Available || State.RouteRunning || State.BulkRunning)"
                                        Busy="@State.PlanRunning"
                                        BusyLabel="Drafting a plan"
                                        Title="@(Availability.Available ? "Ask the AI for an import plan and add it to the backlog" : Availability.Reason)"
@@ -400,7 +400,7 @@
             ? date
             : null;
 
-    private bool Busy => State.PlanRunning || State.RouteRunning;
+    private bool Busy => State.RoutingInFlight;
 
     // --- Suggestions --------------------------------------------------------
 

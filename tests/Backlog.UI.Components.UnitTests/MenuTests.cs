@@ -66,6 +66,49 @@ public sealed class MenuListTests
 
         Assert.Equal(["open"], selected);
     }
+
+    /// <summary>
+    /// Which keys the browser swallows is decided in components.js, on the
+    /// <c>.menu-list__item</c> class, not by a flag the keydown handler sets —
+    /// the flag was rendered after the handler and so applied to the key after the
+    /// one that set it.
+    /// </summary>
+    [Theory]
+    [InlineData("ArrowDown")]
+    [InlineData("Enter")]
+    public void No_key_arms_a_prevent_default_for_the_key_after_it(string key)
+    {
+        using var context = new BunitContext();
+
+        var menu = context.Render<MenuList>(parameters => parameters.Add(m => m.Items, Items));
+
+        menu.FindAll("[role='menuitem']")[0].KeyDown(new KeyboardEventArgs { Key = key });
+
+        Assert.All(menu.FindAll("[role='menuitem']"), item => Assert.Null(item.GetAttribute("blazor:onkeydown:preventdefault")));
+    }
+
+    /// <summary>
+    /// The half of the fix the tests above cannot render: the listener that does
+    /// refuse the row keys' defaults. It refuses exactly the six keys the rows
+    /// navigate and select with, on the three row classes, and it never stops the
+    /// event — hosts such as ContextMenu and the Inbox bars hear the key bubble.
+    /// </summary>
+    [Fact]
+    public void Components_js_refuses_the_row_keys_default_at_the_keydown_and_lets_them_bubble()
+    {
+        var script = File.ReadAllText(RepositoryRoot.File("src", "Core", "Backlog.UI.Components", "wwwroot", "components.js"))
+            .Replace("\r\n", "\n", StringComparison.Ordinal);
+
+        var start = script.IndexOf("const ROW_SWALLOWED_KEYS", StringComparison.Ordinal);
+        Assert.True(start >= 0, "components.js no longer refuses the row keys.");
+
+        var listener = script[start..script.IndexOf("\n    });", start, StringComparison.Ordinal)];
+
+        Assert.Contains("new Set(['ArrowDown', 'ArrowUp', 'Home', 'End', ' ', 'Enter'])", listener, StringComparison.Ordinal);
+        Assert.Contains("target.matches('.changed-file, .change-scope__row, .menu-list__item')", listener, StringComparison.Ordinal);
+        Assert.Contains("event.preventDefault()", listener, StringComparison.Ordinal);
+        Assert.DoesNotContain("stopPropagation", listener, StringComparison.Ordinal);
+    }
 }
 
 public sealed class ContextMenuTests

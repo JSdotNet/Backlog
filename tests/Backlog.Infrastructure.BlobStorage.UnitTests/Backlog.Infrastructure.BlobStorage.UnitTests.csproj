@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <!-- The port and its contracts the store is asserted against. Referenced
+         directly rather than leaned on transitively through the adapter, as the
+         Cosmos adapter's tests do beside these. -->
+    <ProjectReference Include="..\..\src\Modules\Sync\Backlog.Modules.Sync\Backlog.Modules.Sync.csproj" />
+    <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.BlobStorage\Backlog.Infrastructure.BlobStorage.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The registration extension branches on the host environment, so the
+         cases that pin it need a real host builder to hand it. -->
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+  </ItemGroup>
+
+</Project>

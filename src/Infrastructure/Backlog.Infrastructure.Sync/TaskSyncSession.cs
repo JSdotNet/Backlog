@@ -1,4 +1,5 @@
 using Backlog.Modules.Inbox.Abstractions.Services;
+using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks;
@@ -57,6 +58,7 @@ public sealed class TaskSyncSession
     private readonly TimeProvider _time;
     private readonly IInboxCaptureOutbox? _outbox;
     private readonly SyncActivityLog? _activity;
+    private readonly IRoadmapReplication? _roadmap;
 
     /// <param name="credentials">Whose device this is. Read before every push
     /// and pull to check the progress in <paramref name="state"/> belongs to the
@@ -68,6 +70,9 @@ public sealed class TaskSyncSession
     /// by name, or null on a head with nothing to show one in. What arrives is
     /// recorded by the merge, which is the one that knows whether it was
     /// kept.</param>
+    /// <param name="roadmap">Where the roadmap plan and the planning pace are read
+    /// from for the push (local ADR 0018), or null on a head without a roadmap.
+    /// Optional for the reason <paramref name="outbox"/> is.</param>
     public TaskSyncSession(
         TaskSyncClient client,
         TaskReplicaMerge merge,
@@ -76,7 +81,8 @@ public sealed class TaskSyncSession
         IDeviceCredentialStore credentials,
         TimeProvider time,
         IInboxCaptureOutbox? outbox = null,
-        SyncActivityLog? activity = null)
+        SyncActivityLog? activity = null,
+        IRoadmapReplication? roadmap = null)
     {
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(merge);
@@ -93,6 +99,7 @@ public sealed class TaskSyncSession
         _time = time;
         _outbox = outbox;
         _activity = activity;
+        _roadmap = roadmap;
     }
 
     /// <summary>
@@ -174,6 +181,12 @@ public sealed class TaskSyncSession
     /// accepted the batch it went in, so an acknowledgement decided offline
     /// waits for the first push that succeeds and a failed one leaves it — and
     /// every one after it — exactly where it was.
+    /// </para>
+    /// <para>
+    /// <b>Last, the roadmap's two documents</b> (local ADR 0018): the plan and the
+    /// pace, each sent whole when its stamp is later than the one this device last
+    /// had accepted for it — see <see cref="PushRoadmapAsync"/>. A device that never
+    /// saved either sends nothing.
     /// </para>
     /// </summary>
     public async Task<Result<TaskSyncSummary>> PushAsync(CancellationToken cancellationToken = default)
@@ -265,7 +278,70 @@ public sealed class TaskSyncSession
             }
         }
 
+        if (_roadmap is not null)
+        {
+            var documents = await PushRoadmapAsync(_roadmap, cancellationToken).ConfigureAwait(false);
+            if (documents.IsFailure) return Result.Failure<TaskSyncSummary>(documents.Error);
+
+            pushed += documents.Value.Pushed;
+            refused += documents.Value.Refused;
+        }
+
         return Result.Success(new TaskSyncSummary(pushed, 0, 0, 0, _time.GetUtcNow()) { Refused = refused });
+    }
+
+    /// <summary>
+    /// Sends the roadmap plan and the planning pace, each as one whole document, when
+    /// its stamp is later than the one this device last had accepted for it.
+    /// <para>
+    /// One request per document rather than one for both, so a refusal says which
+    /// was refused. Neither is selected by the task watermark — each has its own mark
+    /// in <see cref="TaskSyncState.DocumentWatermarks"/>, moved past the copy that was
+    /// offered whether the replica took it or refused it: a refused copy is one the
+    /// replica already holds a later version of, which the pull that follows brings
+    /// back, and offering it again would be refused again. That includes the echo of a
+    /// copy this device pulled, which sits above its mark once, the way a pulled task
+    /// sits above the task watermark.
+    /// </para>
+    /// <para>
+    /// A document the port answers nothing for was never saved here and is not sent:
+    /// a newly paired machine takes the other machine's plan and pace rather than
+    /// replacing them with an empty plan or the default of seven.
+    /// </para>
+    /// </summary>
+    private async Task<Result<(int Pushed, int Refused)>> PushRoadmapAsync(
+        IRoadmapReplication roadmap,
+        CancellationToken cancellationToken)
+    {
+        var pushed = 0;
+        var refused = 0;
+
+        foreach (var document in RoadmapReplicaDocuments.All)
+        {
+            var copy = await roadmap.ReadAsync(document, cancellationToken).ConfigureAwait(false);
+            if (copy is null) continue;
+
+            var kind = RoadmapReplicaDocuments.TypeOf(document);
+            if (_state.Current.DocumentWatermark(kind) is { } sent && copy.UpdatedAt <= sent) continue;
+
+            var change = RoadmapReplicaDocuments.ToChange(document, copy.Content, copy.UpdatedAt);
+            var response = await _client.PushAsync([change], cancellationToken).ConfigureAwait(false);
+            if (response.IsFailure) return Result.Failure<(int, int)>(response.Error);
+
+            if (response.Value.Accepted > 0)
+            {
+                pushed += 1;
+                _activity?.Record(SyncDirection.Sent, SyncItemKind.Roadmap, change.Id.ToString("D"), change.Task.Title);
+            }
+            else
+            {
+                refused += 1;
+            }
+
+            _state.Save(_state.Current.WithDocumentWatermark(kind, copy.UpdatedAt));
+        }
+
+        return Result.Success((pushed, refused));
     }
 
     /// <summary>The note a sent task's log line carries: what was already known

@@ -1,4 +1,5 @@
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Modules.Tasks.UnitTests;
 
@@ -57,6 +58,12 @@ internal sealed class FakeRepositoryDirectory : IRepositoryDirectory
 
     public List<string> Registered { get; } = [];
 
+    /// <summary>The message the registry's save fails with, or null for a
+    /// registry that saves. Set, every registration that would have added a
+    /// repository reports this failure and adds nothing — the unreadable-registry
+    /// answer the real store gives, which is the worse of its two failures.</summary>
+    public string? FailsWith { get; set; }
+
     public bool WasRemoved(string id) => Removed.Contains(id.Trim());
 
     public IReadOnlyList<TasksRepositoryRef> Repositories => _repositories;
@@ -67,7 +74,7 @@ internal sealed class FakeRepositoryDirectory : IRepositoryDirectory
         return Find(name);
     }
 
-    public TasksRepositoryRef Register(string name)
+    public Result<TasksRepositoryRef> Register(string name)
     {
         // Every call is recorded, and recorded as it was asked: a second call for
         // a name already registered is exactly the thing the resolver's
@@ -77,6 +84,7 @@ internal sealed class FakeRepositoryDirectory : IRepositoryDirectory
 
         var existing = Find(name);
         if (existing is not null) return existing;
+        if (FailsWith is { } message) return new Error("repositories.registration_failed", message);
 
         // The real adapter reads a coordinate through the same grammar the
         // Settings text box uses, and falls back to the placeholder only for a

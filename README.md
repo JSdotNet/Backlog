@@ -7,12 +7,17 @@ A personal work management system built for AI-driven development. Capture work 
 
 ## Current state
 
-The project is currently in setup mode while feature ideas are being shaped and validated.
+Backlog is a local-first, AI-first work management product: desktop, mobile, and IDE
+channels plus a thin cloud sync service. It runs fully standalone on a single desktop and
+optionally connects to that sync service for multi-device sync.
 
-Current focus:
-- Finalize project setup and working conventions
-- Define and prioritize the first feature set
-- Turn feature ideas into implementation-ready backlog items
+The desktop app is released as a signed MSIX and the Android app as a signed APK — see
+[Installing the desktop app](#installing-the-desktop-app) and
+[Installing the Android app](#installing-the-android-app). Of the primary domains below,
+Capture, Inbox, Tasks, Roadmap Planning, Devbook, Monitoring and Dashboard, Dev PC
+Management and Sessions each have a module under `src/Modules/`; the others are described
+in the devbook and have no module yet. The [project table](#solution-structure) lists
+every project on `main`.
 
 ## Why
 
@@ -90,9 +95,9 @@ context's screens ship with the context instead of inside the shell.
 
 `Sync` is the one module that is not a bounded context from
 [`.devbook/domain/context-map.md`](.devbook/domain/context-map.md). It owns no domain — it
-coordinates transient state between devices for the Capture and Inbox flow, and
-holds it only until the desktop picks it up. If it ever grows rules of its own, it
-needs an entry in the context map before it grows projects.
+pairs devices and carries between them the replicas other contexts sync: tasks, session
+records, devbook annotations, and Inbox captures with their attachments. If it ever grows
+rules of its own, it needs an entry in the context map before it grows projects.
 
 Development-time hosts live under `src/Harness/` so runnable project hosts stay below
 `src/`, and automated test projects live in `tests/`.
@@ -109,6 +114,9 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `src/Modules/Inbox/Backlog.Modules.Inbox` | Inbox module — the Inbox Item, List and Group aggregates, the `IInboxItemRepository` and `IInboxOrganizerRepository` ports, and vertical-slice features (intake, capture, triage, route to backlog, create plan, organiser) |
 | `src/Modules/Inbox/Backlog.Modules.Inbox.Abstractions` | The Inbox module's published surface — DTOs, `IInboxItems`, and the `IInboxIntake`, `IInboxCaptureOutbox`, `IInboxBacklogTarget` and `IInboxPlanDrafter` ports |
 | `src/Modules/Inbox/Backlog.Modules.Inbox.UI` | Inbox's desktop face — the pane, its side menu of lists and groups, and the per-kind detail view |
+| `src/Modules/Capture/Backlog.Modules.Capture` | Capture module — the capture run over the monitored sources, the `ICaptureSourceAdapter` and `ICaptureDelivery` ports, and the deterministic capture ids that keep a rerun from capturing twice |
+| `src/Modules/Capture/Backlog.Modules.Capture.Abstractions` | The Capture module's published surface — the source settings, the run result and run log DTOs, `ICaptureRunner`, `ICaptureRunLog` and `ICaptureSourceSettings` |
+| `src/Modules/Capture/Backlog.Modules.Capture.UI` | Capture's desktop face — the sources panel behind the Inbox's Capture button |
 | `src/Modules/Devbook/Backlog.Modules.Devbook.Abstractions` | Devbook's published surface — `IDevbookFolderSource`, the configured-folder format, and the location a folder resolves to |
 | `src/Modules/Devbook/Backlog.Modules.Devbook.UI` | Devbook's desktop face — the Devbook menu and the arc42, domain, design, technology, and instruction panels |
 | `src/Modules/Roadmap/Backlog.Modules.Roadmap` | Roadmap module — the plan and its items, the sequencing rules between them, and the `IRoadmapPlanRepository` port |
@@ -129,17 +137,30 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `src/Infrastructure/Backlog.Infrastructure.AzureFoundry` | Cross-cutting adapter — the Azure Foundry chat client behind the AI assistant |
 | `src/Infrastructure/Backlog.Infrastructure.GitHub` | Cross-cutting adapter — GitHub issue projection, pull request and issue activity with review detail, Copilot seats, and AI-credit billing |
 | `src/Infrastructure/Backlog.Infrastructure.Capture` | Cross-cutting adapter — the YouTube channel and website feed monitors behind `ICaptureSourceAdapter`, fetched through the named `capture-feeds` HTTP client with its own resilience pipeline, delivering new entries straight into the Inbox over `IInboxIntake` |
+| `src/Infrastructure/Backlog.Infrastructure.Mcp` | Cross-cutting adapter — the read-only MCP tools the desktop app and its harness publish, with no transport under them. See [ADR 0012](.devbook/arc42/adr/0012-backlog-is-an-mcp-server-inside-the-desktop-app.md) |
+| `src/Infrastructure/Backlog.Infrastructure.Sync` | Cross-cutting adapter — the client side of sync: device pairing and credentials, and the task, session and annotation sync workers with their local sync state |
+| `src/Infrastructure/Backlog.Infrastructure.Cosmos` | Cross-cutting adapter — the sync service's Cosmos DB replicas behind the Sync module's ports: tasks, session records, annotations, devices and pairing codes. See [ADR 0005](.devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md) |
+| `src/Infrastructure/Backlog.Infrastructure.BlobStorage` | Cross-cutting adapter — the sync service's attachment store, one private blob container behind `IAttachmentStore`. See [ADR 0014](.devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md) |
 | `src/App/Backlog.Desktop.UI` | Desktop shell — layout, routes, settings, and the composition that decides which context panes are on screen |
 | `src/App/Backlog.Desktop` | Desktop channel — .NET MAUI Blazor Hybrid (Windows) |
 | `src/App/Backlog.Mobile.UI` | Shared Razor components for the mobile channel |
 | `src/App/Backlog.Mobile` | Mobile channel — .NET MAUI Blazor Hybrid (Android) |
 | `src/App/Backlog.Ide.VsCode` | IDE channel — VS Code extension (TypeScript) |
+| `src/Modules/Sync/Backlog.Modules.Sync` | Sync module — device pairing, the push and pull features for each replica, the replica, device, pairing-code and attachment-store ports, and in-memory adapters for them |
+| `src/Modules/Sync/Backlog.Modules.Sync.Abstractions` | The Sync module's published surface — the wire contracts, routes, claims and error codes the client and the service share |
 | `src/Modules/Sync/Backlog.Modules.Sync.Api` | Sync module's API — thin ASP.NET Core sync service, deployed to Azure |
 | `src/Harness/Backlog.Desktop.WebHarness` | **Test harness, not shipped** — Blazor Server host of `Backlog.Desktop.UI` for Aspire/Playwright |
 | `src/Harness/Backlog.Mobile.WebHarness` | **Test harness, not shipped** — Blazor Server host of `Backlog.Mobile.UI` at phone width |
 | `src/Harness/Backlog.UI.Storybook` | **Test harness, not shipped** — the shared control library rendered on its own, with each page's governing `.devbook/design` rule beside it |
 | `src/Harness/Backlog.AzureFoundry.TestService` | **Test harness, not shipped** — a stand-in for Azure Foundry so the assistant can be driven without a cloud account |
+| `tests/Backlog.SharedKernel.UnitTests` | Unit tests for the shared kernel — the AI content budget |
+| `tests/Backlog.Aspire.ServiceDefaults.UnitTests` | Unit tests for the service defaults — how a clone, a worktree and a detached head are told apart |
+| `tests/Backlog.HostComposition.UnitTests` | Unit tests for how the hosts compose — the MCP server, the MCP and telemetry endpoint gates, and the web harness host |
 | `tests/Backlog.Modules.Tasks.UnitTests` | Unit tests for the Tasks module domain |
+| `tests/Backlog.Modules.Inbox.UnitTests` | Unit tests for the Inbox module — the item and organizer aggregates, capture and intake, attachments, triage, and routing to the backlog |
+| `tests/Backlog.Modules.Capture.UnitTests` | Unit tests for the Capture module — the capture run, the capture ids, and the source kinds |
+| `tests/Backlog.Modules.Sync.UnitTests` | Unit tests for the Sync module — device pairing, the attachment store handler, and change precedence in the in-memory replicas |
+| `tests/Backlog.Modules.Sync.Api.UnitTests` | Unit tests for the sync service's endpoints — tasks, sessions, annotations, attachments, captures, device pairing, and authentication |
 | `tests/Backlog.Modules.Dashboard.UnitTests` | Unit tests for the Dashboard module's derivations — scoring, bucketing, churn rates, spend aggregation, and the cache |
 | `tests/Backlog.Modules.Roadmap.UnitTests` | Unit tests for the Roadmap module — plan items, sequencing, and the scheduling rules |
 | `tests/Backlog.Infrastructure.Sqlite.UnitTests` | Unit tests for the SQLite store — round-tripping a task aggregate and rank order, and round-tripping the roadmap plan document, its `updated_at` stamp, and the two tables coexisting in one file |
@@ -148,6 +169,10 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `tests/Backlog.Infrastructure.GitHub.UnitTests` | Unit tests for the GitHub adapter — issue projection, activity, and billing |
 | `tests/Backlog.Infrastructure.Claude.UnitTests` | Unit tests for the Claude usage adapter |
 | `tests/Backlog.Infrastructure.Copilot.UnitTests` | Unit tests for the Copilot CLI launcher — what it starts, and that it releases the process handle |
+| `tests/Backlog.Infrastructure.Capture.UnitTests` | Unit tests for the capture adapters — the feed fetcher and reader, the YouTube, website and import-file adapters, and delivery into the Inbox |
+| `tests/Backlog.Infrastructure.Mcp.UnitTests` | Unit tests for the MCP tools — each tool group, chapter reading, and tool creation |
+| `tests/Backlog.Infrastructure.Sync.UnitTests` | Unit tests for the sync client — device pairing and credentials, the task, session and annotation sync workers, and replica merging |
+| `tests/Backlog.Infrastructure.Cosmos.UnitTests` | Unit tests for the Cosmos DB adapter — the replica documents, the task replica, and its registration |
 | `tests/Backlog.UI.Components.UnitTests` | Unit tests for the shared control library, rendered without an application behind it |
 | `tests/Backlog.Desktop.UI.UnitTests` | Unit tests for the desktop UI services, the context panes, and GitHub integration |
 | `tests/Backlog.Mobile.UI.UnitTests` | Unit tests for the mobile channel's components |
@@ -232,16 +257,49 @@ harness project non-packable and non-publishable, and
 `tests/Backlog.ArchitectureTests` fails the build if a shipping `src/` project ever
 references one. See [`src/Harness/README.md`](src/Harness/README.md).
 
+## Build and test
+
+```powershell
+dotnet build Backlog.sln
+dotnet test Backlog.sln
+```
+
+Build the solution rather than a project: only the solution build builds the mobile head,
+so a green test run can sit on a red build. Read the error and warning counts, not only the
+exit code.
+
+Do not trust `dotnet test`'s exit code either. In this repository it can report
+"Zero tests ran" without running anything. Read what it printed — the list of test
+assemblies and the total — and check the assembly count matches the test projects under
+`tests/`. When it does not, run each built test executable instead, from its own project
+folder, since some tests resolve files relative to the working directory:
+
+```powershell
+Get-ChildItem tests -Directory | ForEach-Object {
+    $exe = Join-Path $_.FullName "bin\Debug\net10.0\$($_.Name).exe"
+    if (Test-Path $exe) { Push-Location $_.FullName; & $exe; Pop-Location }
+}
+```
+
+Pick each executable by its project's name, as above, never with `*.exe`: the sync service
+and the harnesses are copied into some test output folders, and starting one of those
+starts a server that never exits. Filter a run with `-class <Full.Name>` or `-method`.
+[End-to-end tests](#end-to-end-tests) need a running AppHost and are skipped otherwise.
+
 ## Running locally
 
 ```powershell
-dotnet run --project src/Aspire/Backlog.Aspire.AppHost
+aspire start --isolated --non-interactive --apphost src/Aspire/Backlog.Aspire.AppHost/Backlog.Aspire.AppHost.csproj
 ```
 
-The AppHost is opted in to the Aspire CLI bundle, so this acquires the CLI pinned
-to the AppHost SDK version and delegates to `aspire run` — the first run on a
-machine downloads it. The AppHost starts the sync service, the Foundry test
-service, and the three web test harnesses. The remaining resources need something
+Run it from the repository root; it needs the .NET SDK, the Aspire CLI, and a running
+container runtime. `--isolated` gives the run its own ports and user-secrets state, so pass
+it every time. `aspire start` starts the AppHost in the background and exits `0` even when
+the AppHost failed to come up, so judge its health from the dashboard, not the exit code.
+Stop it with `aspire stop --apphost` and the same path.
+
+The AppHost starts the sync service, the Foundry test service, and the three web test
+harnesses. The remaining resources need something
 Aspire cannot provide on its own — a desktop window, an Android emulator, a CLI,
 or a VS Code extension host — so they are registered with **explicit start** and
 launched on demand from the dashboard:
@@ -281,7 +339,8 @@ components, so the UI can be developed and tested without a device:
 (rendered at phone width) for mobile.
 
 All ports are dynamic (`port 0` in every `launchSettings.json`), so several git
-worktrees of this repository can run their own AppHost side by side. Read the
+worktrees of this repository can run their own AppHost side by side, each started with
+`--isolated` so each gets its own ports and user-secrets state. Read the
 actual dashboard and resource URLs from the `aspire start` output, or with
 `aspire describe`.
 

@@ -70,10 +70,15 @@ internal sealed class TasksPaneHost : IDisposable
 
     /// <summary>As <see cref="CreateAsync(string[])"/>, and with the roadmap tag
     /// source the backlog picker offers planned tags from. A host with a roadmap
-    /// registers one; a test that cares about planned tags hands one in here.</summary>
+    /// registers one; a test that cares about planned tags hands one in here.
+    /// <paramref name="clock"/> is what the state's debounce, flash and dwell wait
+    /// on, for a test that wants to move time rather than sleep through it;
+    /// <paramref name="storeCalls"/> counts the state's calls into the use cases.</summary>
     public static async Task<TasksPaneHost> CreateAsync(
         IRoadmapTagSource? roadmapTags,
-        string[] repositories)
+        string[] repositories,
+        TimeProvider? clock = null,
+        TaskStoreCalls? storeCalls = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-pane-host", Guid.NewGuid().ToString("n"));
 
@@ -92,7 +97,7 @@ internal sealed class TasksPaneHost : IDisposable
         var gitHub = new GitHubIntegration(gitHubSettings, client, new ConnectedProbe());
         var features = new AppFeatureSettingsStore(AppFeatures.All, Path.Combine(root, "features.json"));
         var toasts = new ToastChannel();
-        var state = TasksTestHost.StateFor(store, gitHub, copilot: null, roadmapTags: roadmapTags, toasts: toasts);
+        var state = TasksTestHost.StateFor(store, gitHub, copilot: null, roadmapTags: roadmapTags, toasts: toasts, clock: clock, storeCalls: storeCalls);
 
         await state.InitializeAsync();
 
@@ -240,6 +245,44 @@ internal sealed class TasksPaneHost : IDisposable
             string commitMessage,
             CancellationToken cancellationToken = default) =>
             Task.FromResult(new GitHubUploadedFile(path, $"https://github.com/{repository.FullName}/blob/{branch}/{path}"));
+
+        /// <summary>What GitHub holds for each pull request, by number. A merge act
+        /// moves the entry the way GitHub would, so the re-read that follows it
+        /// sees the result; a number not here answers not found.</summary>
+        public Dictionary<int, GitHubPullRequestStatus> PullRequestStatuses { get; } = [];
+
+        /// <summary>What every merge act throws, when set.</summary>
+        public Exception? MergeFailure { get; set; }
+
+        /// <summary>Every merge act asked for, as "act number".</summary>
+        public List<string> MergeCalls { get; } = [];
+
+        public Task<GitHubPullRequestStatus> GetPullRequestStatusAsync(
+            GitHubRepositoryRef repository,
+            int number,
+            CancellationToken cancellationToken = default) =>
+            PullRequestStatuses.TryGetValue(number, out var status)
+                ? Task.FromResult(status)
+                : Task.FromException<GitHubPullRequestStatus>(new GitHubException("Not Found"));
+
+        public Task EnableAutoMergeAsync(GitHubRepositoryRef repository, string pullRequestId, GitHubMergeMethod method, CancellationToken cancellationToken = default) =>
+            Act("enable", pullRequestId, status => status with { AutoMergeEnabled = true });
+
+        public Task DisableAutoMergeAsync(GitHubRepositoryRef repository, string pullRequestId, CancellationToken cancellationToken = default) =>
+            Act("disable", pullRequestId, status => status with { AutoMergeEnabled = false });
+
+        public Task MergePullRequestAsync(GitHubRepositoryRef repository, string pullRequestId, GitHubMergeMethod method, CancellationToken cancellationToken = default) =>
+            Act("merge", pullRequestId, status => status with { State = GitHubItemState.Merged, MergeReady = false });
+
+        private Task Act(string act, string pullRequestId, Func<GitHubPullRequestStatus, GitHubPullRequestStatus> change)
+        {
+            if (MergeFailure is not null) return Task.FromException(MergeFailure);
+
+            var status = PullRequestStatuses.Values.Single(candidate => candidate.NodeId == pullRequestId);
+            MergeCalls.Add($"{act} {status.Number}");
+            PullRequestStatuses[status.Number] = change(status);
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class ConnectedProbe : IGitHubConnectionProbe

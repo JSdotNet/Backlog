@@ -2,6 +2,7 @@ using Backlog.Infrastructure.FileSystem.Dashboard;
 using Backlog.Modules.Tasks.Abstractions;
 using Backlog.Modules.Tasks.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks.Abstractions.Services;
+using Backlog.SharedKernel.Results;
 
 namespace Backlog.Infrastructure.FileSystem.UnitTests;
 
@@ -70,6 +71,6 @@ public class TaskItemsCompletedTaskSourceTests
                 string.Equals(repository.Id, name, StringComparison.OrdinalIgnoreCase)
                 || string.Equals(repository.Alias, name, StringComparison.Ordinal));
 
-        public TasksRepositoryRef Register(string name) => throw new NotSupportedException();
+        public Result<TasksRepositoryRef> Register(string name) => throw new NotSupportedException();
     }
 }

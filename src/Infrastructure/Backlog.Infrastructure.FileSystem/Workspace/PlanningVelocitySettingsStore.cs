@@ -1,7 +1,11 @@
 using System.Globalization;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
+using Backlog.Modules.Roadmap;
 using Backlog.Modules.Roadmap.Abstractions;
+using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
+using Backlog.Modules.Roadmap.Abstractions.Services;
 
 namespace Backlog.Infrastructure.FileSystem;
 
@@ -22,8 +26,9 @@ namespace Backlog.Infrastructure.FileSystem;
 /// This is a <em>reading preference</em> (ADR 0013, ruling 4). It decides how long
 /// an imported plan's bar is drawn when the plan states no due date — gathered
 /// effort ÷ this, in calendar days, rounded up — and it registers no estimate
-/// against anything. A change is re-drawn by the roadmap, which re-lengthens every
-/// window the importer still owns (ADR 0013, ruling 5 as amended).
+/// against anything. A change is re-drawn by the roadmap, which reads every window
+/// the importer still owns at the pace in use and writes nothing to the plan (ADR
+/// 0013, ruling 5 as amended; local ADR 0018).
 /// </para>
 /// <para>
 /// A file from before the pace was a week holds <c>storyPointsPerDay</c> and no
@@ -49,8 +54,18 @@ namespace Backlog.Infrastructure.FileSystem;
 /// typed pace the reader was looking at. Aliases are compared without regard to
 /// case and written lower-cased, the way Settings keeps them.
 /// </para>
+/// <para>
+/// <b>The file is also the pace document that travels</b> between a person's
+/// devices (local ADR 0018, Decision §2), so bars are the same length on every one
+/// of them. It carries an <c>updatedAt</c>, written on every change, and that is the
+/// document's stamp. A file written before it has none and is stamped from its
+/// last-write time, because that is when the reader last set it. A copy from
+/// another device replaces the file whole, at the stamp it arrived with, keeping
+/// any key this build does not know. The working week is not in here and stays on
+/// the device.
+/// </para>
 /// </summary>
-public sealed class PlanningVelocitySettingsStore
+public sealed class PlanningVelocitySettingsStore : IRoadmapReplicaStore
 {
     /// <summary>Seven story points a week — one a calendar day, what the roadmap
     /// divided by when the pace was a day, so a reader who never set one sees no bar
@@ -97,6 +112,9 @@ public sealed class PlanningVelocitySettingsStore
 
     private readonly string _path;
 
+    /// <summary>What stamps a change. The system clock outside a test.</summary>
+    private readonly TimeProvider _time;
+
     /// <summary>
     /// The published figure, held behind a reference so that replacing it is a
     /// single atomic store — the guarantee both sibling stores get for free by
@@ -121,11 +139,13 @@ public sealed class PlanningVelocitySettingsStore
     /// Public rather than internal because it is the only way to give a test — or
     /// the web harness, which scopes its settings to its content root — a store
     /// that does not fight over the real per-user file.</summary>
-    public PlanningVelocitySettingsStore(string path)
+    /// <param name="time">What stamps a change; the system clock when null.</param>
+    public PlanningVelocitySettingsStore(string path, TimeProvider? time = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
         _path = path;
+        _time = time ?? TimeProvider.System;
 
         var directory = Path.GetDirectoryName(path);
 
@@ -232,6 +252,9 @@ public sealed class PlanningVelocitySettingsStore
 
     private string? Save(Pace pace)
     {
+        // Every change is a new version of the pace document, stamped past the one
+        // held — see Next for why "now" alone is not enough.
+        pace = pace with { UpdatedAt = Next(pace.UpdatedAt) };
         _pace = pace;
 
         string? error = null;
@@ -240,6 +263,7 @@ public sealed class PlanningVelocitySettingsStore
         {
             File.WriteAllText(_path, JsonSerializer.Serialize(new PlanningVelocityDto
             {
+                UpdatedAt = pace.UpdatedAt is { } stamp ? FormatStamp(stamp) : null,
                 StoryPointsPerWeek = pace.StoryPointsPerWeek,
                 Source = pace.Source.ToString(),
                 // Left out while no repository has a pace of its own, so a reader who
@@ -265,6 +289,112 @@ public sealed class PlanningVelocitySettingsStore
 
         return error;
     }
+
+    /// <summary>
+    /// The stamp for a change: now, or one tick past the stamp held when that is not
+    /// already later. A copy taken from a PC whose clock runs ahead carries a stamp
+    /// this clock has not reached, and a change stamped with plain "now" would read as
+    /// older than the pace it was made on — refused by the replica and overwritten by
+    /// that pace on the next pull.
+    /// </summary>
+    private DateTimeOffset Next(DateTimeOffset? held)
+    {
+        var now = _time.GetUtcNow();
+        return held is { } previous && now <= previous ? previous.AddTicks(1) : now;
+    }
+
+    // --- The replicated document (local ADR 0018) ---------------------------
+
+    RoadmapReplicaDocument IRoadmapReplicaStore.Document => RoadmapReplicaDocument.Pace;
+
+    /// <summary>The file as stored and its stamp, or <c>null</c> when there is no
+    /// file — a reader who never set a pace has nothing to send, and never replaces
+    /// another device's pace with the default of seven. Read from disk rather than
+    /// from the published figure, because the document is the file's text, keys this
+    /// build does not read included. A file that is not a JSON object is no document
+    /// either: it reads as the default here, and sending it would ask the other
+    /// devices to read it too.</summary>
+    Task<RoadmapReplicaCopyDto?> IRoadmapReplicaStore.ReadAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (!File.Exists(_path)) return Task.FromResult<RoadmapReplicaCopyDto?>(null);
+
+            var content = File.ReadAllText(_path);
+            if (JsonNode.Parse(content) is not JsonObject document) return Task.FromResult<RoadmapReplicaCopyDto?>(null);
+
+            // A file from before the stamp: when it was last written is when the
+            // reader last set it.
+            var stamp = StampOf(document)
+                ?? new DateTimeOffset(File.GetLastWriteTimeUtc(_path), TimeSpan.Zero);
+
+            return Task.FromResult<RoadmapReplicaCopyDto?>(new RoadmapReplicaCopyDto(content, stamp));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+        {
+            return Task.FromResult<RoadmapReplicaCopyDto?>(null);
+        }
+    }
+
+    /// <summary>
+    /// Replaces the file with another device's pace, keeping every key it carries and
+    /// setting <c>updatedAt</c> to the stamp it arrived with, then publishes it as if
+    /// the app had just started on it. Refused, with nothing written, for text that is
+    /// not a JSON object or not one this store can read — a pace that cannot be read
+    /// is never written over one that can.
+    /// </summary>
+    Task<bool> IRoadmapReplicaStore.TryWriteAsync(RoadmapReplicaCopyDto copy, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(copy);
+
+        JsonObject document;
+
+        try
+        {
+            if (string.IsNullOrWhiteSpace(copy.Content)
+                || JsonNode.Parse(copy.Content) is not JsonObject parsed
+                || JsonSerializer.Deserialize<PlanningVelocityDto>(copy.Content, JsonOptions) is null)
+            {
+                return Task.FromResult(false);
+            }
+
+            document = parsed;
+        }
+        catch (JsonException)
+        {
+            return Task.FromResult(false);
+        }
+
+        // The one key this store owns the value of. Everything else is written as it
+        // arrived, so a key a newer build added survives on this device.
+        document["updatedAt"] = FormatStamp(copy.UpdatedAt);
+        File.WriteAllText(_path, document.ToJsonString(JsonOptions));
+
+        _pace = Read();
+        Changed?.Invoke();
+
+        return Task.FromResult(true);
+    }
+
+    private static DateTimeOffset? StampOf(JsonObject document) =>
+        document.TryGetPropertyValue("updatedAt", out var value)
+        && value is JsonValue stamp
+        && stamp.TryGetValue<string>(out var spelled)
+            ? ParseStamp(spelled)
+            : null;
+
+    /// <summary>Round-trippable, invariant — the format a task's and the plan's
+    /// stamps are written in, because it has to mean the same instant on another
+    /// machine.</summary>
+    private static string FormatStamp(DateTimeOffset stamp) => stamp.ToString("O", CultureInfo.InvariantCulture);
+
+    /// <summary>A stamp as the file spells it, or <c>null</c> for one that is missing
+    /// or unreadable — which then reads as the file's last-write time rather than
+    /// costing the reader their pace.</summary>
+    private static DateTimeOffset? ParseStamp(string? spelled) =>
+        DateTimeOffset.TryParse(spelled, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var stamp)
+            ? stamp
+            : null;
 
     /// <summary>What the field shows — four decimals, no trailing zeroes, invariant,
     /// so a value committed and re-read is spelled the way it was stored.</summary>
@@ -349,7 +479,12 @@ public sealed class PlanningVelocitySettingsStore
             // typed pace.
             var source = SourceOf(dto?.Source) ?? PaceSource.Manual;
 
-            return new Pace(storyPointsPerWeek, source, RepositoriesOf(dto?.Repositories));
+            // A file from before the pace travelled has no stamp; when it was last
+            // written is when the reader last set it (local ADR 0018).
+            var updatedAt = ParseStamp(dto?.UpdatedAt)
+                ?? new DateTimeOffset(File.GetLastWriteTimeUtc(_path), TimeSpan.Zero);
+
+            return new Pace(storyPointsPerWeek, source, RepositoriesOf(dto?.Repositories), updatedAt);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
@@ -386,11 +521,13 @@ public sealed class PlanningVelocitySettingsStore
 
     /// <summary>The published figure, as one object so that swapping it is atomic.
     /// See <see cref="_pace"/>. <see cref="Pace.Repositories"/> is never edited once
-    /// published: a change builds a new dictionary.</summary>
+    /// published: a change builds a new dictionary. <see cref="Pace.UpdatedAt"/> is
+    /// the document's stamp, <c>null</c> only while there is no file.</summary>
     private sealed record Pace(
         decimal StoryPointsPerWeek,
         PaceSource Source,
-        IReadOnlyDictionary<string, RepositoryPace> Repositories);
+        IReadOnlyDictionary<string, RepositoryPace> Repositories,
+        DateTimeOffset? UpdatedAt = null);
 
     /// <summary>A repository's own pace. A half that is <c>null</c> reads the global
     /// one — only ever the case for a hand-edited file, since a change writes both.</summary>
@@ -410,6 +547,13 @@ public sealed class PlanningVelocitySettingsStore
     /// </summary>
     private sealed class PlanningVelocityDto
     {
+        /// <summary>When the pace was last set, round-trippable — the pace document's
+        /// stamp (local ADR 0018). A string rather than an instant, so a stamp that
+        /// will not parse costs the stamp and not the pace. Absent from a file written
+        /// before the pace travelled.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? UpdatedAt { get; init; }
+
         [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
         public decimal? StoryPointsPerWeek { get; init; }
 

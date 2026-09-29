@@ -52,7 +52,7 @@ internal sealed class BlobAttachmentStore(BlobContainerClient container) : IAtta
         {
             try
             {
-                var properties = await container.GetBlobClient(BlobName(owner, id)).GetPropertiesAsync(cancellationToken: cancellationToken);
+                var properties = await container.GetBlobClient(BlobName(owner, id)).GetPropertiesAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
                 return Describe(id, properties.Value.ContentType, properties.Value.ContentLength, properties.Value.Metadata);
             }
             catch (RequestFailedException missing) when (missing.Status == 404)
@@ -73,14 +73,14 @@ internal sealed class BlobAttachmentStore(BlobContainerClient container) : IAtta
             try
             {
                 int filled;
-                while ((filled = await Fill(content, buffer, cancellationToken)) > 0)
+                while ((filled = await Fill(content, buffer, cancellationToken).ConfigureAwait(false)) > 0)
                 {
                     // Fixed-length ids, as a block list requires, unique per
                     // upload so two concurrent uploads under one name do not
                     // commit each other's blocks.
                     var blockId = Convert.ToBase64String(Encoding.ASCII.GetBytes(Guid.NewGuid().ToString("N")));
                     using var block = new MemoryStream(buffer, 0, filled, writable: false);
-                    await blob.StageBlockAsync(blockId, block, cancellationToken: cancellationToken);
+                    await blob.StageBlockAsync(blockId, block, cancellationToken: cancellationToken).ConfigureAwait(false);
                     blockIds.Add(blockId);
                 }
             }
@@ -97,7 +97,7 @@ internal sealed class BlobAttachmentStore(BlobContainerClient container) : IAtta
         {
             try
             {
-                var download = await container.GetBlobClient(BlobName(owner, id)).DownloadStreamingAsync(cancellationToken: cancellationToken);
+                var download = await container.GetBlobClient(BlobName(owner, id)).DownloadStreamingAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
                 var details = download.Value.Details;
 
                 return new AttachmentContent(
@@ -115,7 +115,7 @@ internal sealed class BlobAttachmentStore(BlobContainerClient container) : IAtta
         {
             await container.GetBlobClient(BlobName(owner, id)).DeleteIfExistsAsync(
                 DeleteSnapshotsOption.IncludeSnapshots,
-                cancellationToken: cancellationToken);
+                cancellationToken: cancellationToken).ConfigureAwait(false);
             return true;
         });
 
@@ -130,7 +130,7 @@ internal sealed class BlobAttachmentStore(BlobContainerClient container) : IAtta
         int read;
 
         while (filled < BlockBytes
-            && (read = await content.ReadAsync(buffer.AsMemory(filled, BlockBytes - filled), cancellationToken)) > 0)
+            && (read = await content.ReadAsync(buffer.AsMemory(filled, BlockBytes - filled), cancellationToken).ConfigureAwait(false)) > 0)
         {
             filled += read;
         }
@@ -154,7 +154,7 @@ internal sealed class BlobAttachmentStore(BlobContainerClient container) : IAtta
     {
         try
         {
-            return await operation();
+            return await operation().ConfigureAwait(false);
         }
         catch (RequestFailedException failure) when (failure.Status is 0 or 429 or 500 or 502 or 503 or 504)
         {
@@ -194,7 +194,7 @@ internal sealed class BlobAttachmentStore(BlobContainerClient container) : IAtta
                             [Sha256MetadataKey] = attachment.Sha256,
                         },
                     },
-                    cancellationToken);
+                    cancellationToken).ConfigureAwait(false);
                 return true;
             });
     }

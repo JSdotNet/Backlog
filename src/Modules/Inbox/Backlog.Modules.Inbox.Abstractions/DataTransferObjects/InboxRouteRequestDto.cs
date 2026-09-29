@@ -20,6 +20,14 @@ namespace Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 /// <param name="AttachmentPath">The item's attachment folder when it arrived
 /// with files, else null. Every entry made from the item points at it, so the
 /// files go where the work goes.</param>
+/// <param name="AfterItems">In a batch, the other items of the same batch this
+/// one comes after — dependencies the person confirmed. Ids, not entry ids: which
+/// of the target's entries the dependency names is known only once the adapter
+/// has written the document, and a target left out of it is no dependency.
+/// Null or empty on a single route.</param>
+/// <param name="AfterTasks">In a batch, the tasks already in the backlog this
+/// one comes after, each as the value its <c>after:</c> token is written with
+/// (<see cref="DependencyTarget.After"/>). Null or empty on a single route.</param>
 public sealed record InboxRouteRequestDto(
     Guid InboxItemId,
     string Title,
@@ -27,4 +35,6 @@ public sealed record InboxRouteRequestDto(
     string? SourceUrl,
     IReadOnlyList<string> Tags,
     IReadOnlyList<string> RepoIds,
-    string? AttachmentPath = null);
+    string? AttachmentPath = null,
+    IReadOnlyList<Guid>? AfterItems = null,
+    IReadOnlyList<string>? AfterTasks = null);

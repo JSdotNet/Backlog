@@ -12,8 +12,10 @@ which order, and what is waiting on what — across projects rather than inside
 one of them.
 
 Inside the boundary: the plan itself, planning priority and sequence, the
-dependency between two pieces of planned work, and the per-device reading pace
-a plan's length is drawn from when the plan states no due date.
+dependency between two pieces of planned work, and the reading pace a plan's
+length is drawn from when the plan states no due date. Both follow their owner
+across the devices they have paired
+([ADR 0018](../../arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md)).
 
 Outside it: execution and task status, which [Tasks](../tasks/domain.md#task)
 answers, and the registered effort a plan totals but never owns, which lives on
@@ -28,7 +30,7 @@ type: setting
 key: planning-velocity.json
 scope: user
 default: 7
-related: [.devbook/domain/roadmap/features.md#placing-a-plan-in-time, .devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md#4-the-importer-places-the-window-velocity-is-the-readers]
+related: [.devbook/domain/roadmap/features.md#placing-a-plan-in-time, .devbook/domain/roadmap/features.md#syncing-the-plan-between-devices, .devbook/arc42/adr/0013-imported-plan-is-a-roadmap-item-laid-out-by-import.md#4-the-importer-places-the-window-velocity-is-the-readers, .devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md]
 ```
 
 How many story points the reader gets through in a week. A positive decimal,
@@ -104,9 +106,14 @@ until there is one; every repository band with no pace of its own still shows it
 until edited. A stretch that counted nothing is not offered at all, and with none
 measured only the field is shown; a chosen stretch that has since emptied says in
 a line under the choices that the typed pace is used — and read per placement
-rather than pinned at startup, so the next plan laid out uses the pace now in force. Stored per device
-beside the working week — the typed pace and the chosen `source`, a file
+rather than pinned at startup, so the next plan laid out uses the pace now in force. Stored on
+the device beside the working week — the typed pace and the chosen `source`, a file
 without one reading as the typed pace, and an optional `repositories` object
-holding each repository's own pair, a file without it reading as it always did —
-with the same `scope: user` caveat: the choice is one
-person's, nothing syncs it, and a second machine starts again at seven.
+holding each repository's own pair, a file without it reading as it always did.
+The choice is one person's, so it follows that person: with sync on, the typed
+pace, the chosen source and every repository's own pace travel between their
+paired devices, and a second machine reads the pace set on the first instead of
+starting again at seven
+([ADR 0018](../../arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md);
+see [Syncing the plan between devices](features.md#syncing-the-plan-between-devices)).
+The working week beside it does not travel and stays each device's own.

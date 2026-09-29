@@ -7,7 +7,7 @@
     did. So it is one figure for the whole roadmap rather than one per band, and it
     sits where the whole roadmap is headed.
 
-    A change here re-lengthens the bars sized by effort only when it moved a pace in
+    A change here redraws the bars sized by effort only when it moved a pace in
     use somewhere — a band that measured something is not placed by it — which is
     what OnPaceChanged reports.
 *@
@@ -51,7 +51,7 @@
 
 @code {
     /// <summary>Raised after a new typed pace changed the pace some scope places by,
-    /// so the band can re-lengthen the bars sized by it. Not raised for a refusal, or
+    /// so the band can redraw the bars sized by it. Not raised for a refusal, or
     /// when every scope places by a measured pace.</summary>
     [Parameter]
     public EventCallback OnPaceChanged { get; set; }

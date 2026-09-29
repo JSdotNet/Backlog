@@ -618,6 +618,7 @@
     private const string RowMenuMoveUp = "move-up";
     private const string RowMenuMoveDown = "move-down";
     private const string RowMenuDelete = "delete";
+    private const string RowMenuMergePullRequest = "merge-pr";
 
     protected override void OnInitialized()
     {
@@ -775,20 +776,56 @@
             || pr.Number != shown?.Number);
     }
 
-    /// <summary>The state the last GitHub check read goes in the tooltip; the ink
-    /// is <see cref="WorkLinkClass"/>'s. One never read says nothing rather than a
-    /// guessed state.</summary>
-    private static IntegrationLinkRef Link(EntryRow row, EntryPullRequestLink pr) =>
-        new(
+    /// <summary>
+    /// The state the last GitHub check read goes in the tooltip; the ink is
+    /// <see cref="WorkLinkClass"/>'s. One never read says nothing rather than a
+    /// guessed state.
+    /// <para>
+    /// An open pull request also carries what the same read found about its checks
+    /// and its auto-merge request: as marks after the number, and as words after the
+    /// state in the tooltip, so the ink is never the only carrier. Only while it is
+    /// open or a draft — a merged or closed pull request's checks no longer gate
+    /// anything — and only behind the same gate as everything else GitHub draws, so
+    /// switching the integration off takes the marks with it.
+    /// </para>
+    /// </summary>
+    private IntegrationLinkRef Link(EntryRow row, EntryPullRequestLink pr)
+    {
+        var read = row.PullRequestStates.TryGetValue(pr, out var state);
+
+        var status = IsFeatureEnabled(TasksFeatures.GitHubIntegration) && State.GitHubConfigured
+            && row.PullRequestStatuses.TryGetValue(pr, out var known)
+            && known.State is GitHubItemState.Open or GitHubItemState.Draft
+                ? known
+                : null;
+
+        var checks = status?.Checks switch
+        {
+            GitHubCheckState.Pending => IntegrationCheckState.Pending,
+            GitHubCheckState.Passing => IntegrationCheckState.Passing,
+            GitHubCheckState.Failing => IntegrationCheckState.Failing,
+            _ => IntegrationCheckState.None
+        };
+        var autoMerge = status?.AutoMergeEnabled == true;
+
+        var words = new List<string>();
+        if (read) words.Add(GitHubStateLabel(state));
+        if (checks is not IntegrationCheckState.None) words.Add($"checks {checks.ToString().ToLowerInvariant()}");
+        if (autoMerge) words.Add("auto-merge on");
+
+        return new(
             pr.Url,
             IntegrationProvider.GitHub,
             IntegrationLinkKind.PullRequest,
             pr.Label,
-            row.PullRequestStates.TryGetValue(pr, out var state)
-                ? $"Pull request {pr.Repository}#{pr.Number} — {GitHubStateLabel(state)}"
+            words.Count > 0
+                ? $"Pull request {pr.Repository}#{pr.Number} — {string.Join(" · ", words)}"
                 : $"Pull request {pr.Repository}#{pr.Number}",
             pr.Url,
-            Repository: new IntegrationRepositoryRef(pr.Repository, pr.Repository));
+            Repository: new IntegrationRepositoryRef(pr.Repository, pr.Repository),
+            Checks: checks,
+            AutoMerge: autoMerge);
+    }
 
     /// <summary>
     /// A recorded pull request's state as the colour of its mark and number rather
@@ -830,7 +867,9 @@
                 <IntegrationLink Link="@Link(row, pr)"
                                  ShowTitle="false"
                                  CssClass="@WorkLinkClass(row, pr)"
-                                 TestId="@($"{testIdPrefix}pull-request")" />
+                                 TestId="@($"{testIdPrefix}pull-request")"
+                                 ChecksTestId="@($"{testIdPrefix}pull-request-checks")"
+                                 AutoMergeTestId="@($"{testIdPrefix}pull-request-auto-merge")" />
             }
 
             foreach (var session in latestOnly ? sessions.TakeLast(1) : sessions)
@@ -1906,7 +1945,7 @@
         var important = IsImportant(row);
         var (above, below) = RowMenuNeighbours(row);
 
-        return
+        List<MenuItem> items =
         [
             new(RowMenuMyDay, IsInMyDay(row) ? "Remove from My Day" : "Add to My Day", "☀"),
             new(RowMenuImportant, important ? "Remove importance" : "Mark as important", important ? "★" : "☆"),
@@ -1918,10 +1957,58 @@
             new(RowMenuDueClear, "Remove due date", "🗓", Disabled: row.PreviewDueOn is null),
             MenuItem.Divider("order"),
             new(RowMenuMoveUp, "Move up", "↑", Disabled: above is null),
-            new(RowMenuMoveDown, "Move down", "↓", Disabled: below is null),
-            MenuItem.Divider("end"),
-            new(RowMenuDelete, "Delete task", "🗑", Destructive: true)
+            new(RowMenuMoveDown, "Move down", "↓", Disabled: below is null)
         ];
+
+        // Where the work went, after where the row sits and before the act that
+        // ends it. Absent rather than disabled when there is nothing to merge: the
+        // disabled-not-hidden rule is for an act the row could take and cannot yet,
+        // and a row with no open pull request — most rows — has no such act.
+        if (MergeOfferFor(row) is { } offer)
+        {
+            items.Add(MenuItem.Divider("github"));
+            items.Add(new(
+                RowMenuMergePullRequest,
+                offer.Label,
+                offer.Act is PullRequestMergeAct.CancelAutoMerge ? "✕" : "⤵",
+                Disabled: row.GitHubBusy));
+        }
+
+        items.Add(MenuItem.Divider("end"));
+        items.Add(new(RowMenuDelete, "Delete task", "🗑", Destructive: true));
+
+        return items;
+    }
+
+    /// <summary>
+    /// The merge act this row offers, behind the gate every GitHub control shares.
+    /// Which pull request and which act are the state's answer — the pane only
+    /// decides whether GitHub is on screen at all.
+    /// </summary>
+    private PullRequestMergeOffer? MergeOfferFor(EntryRow row) =>
+        IsFeatureEnabled(TasksFeatures.GitHubIntegration) && State.GitHubConfigured
+            ? State.MergeOfferFor(row)
+            : null;
+
+    /// <summary>The chosen merge act, re-derived from the row's status at the click
+    /// rather than carried from when the menu was drawn — the same answer unless a
+    /// read landed in between, and then the newer one is the one to act on.</summary>
+    private async Task OnMergeChosenAsync(EntryRow row)
+    {
+        if (MergeOfferFor(row) is not { } offer) return;
+
+        switch (offer.Act)
+        {
+            case PullRequestMergeAct.MergeNow:
+                await State.MergeNowAsync(row, offer.PullRequest);
+                break;
+            case PullRequestMergeAct.CancelAutoMerge:
+                await State.SetAutoMergeAsync(row, offer.PullRequest, enable: false);
+                break;
+            default:
+                await State.SetAutoMergeAsync(row, offer.PullRequest, enable: true);
+                break;
+        }
     }
 
     /// <summary>The rows a move from the menu would swap with: the open rows the
@@ -1985,6 +2072,9 @@
                 break;
             case RowMenuDelete:
                 await OnDeleteTaskAsync(row);
+                break;
+            case RowMenuMergePullRequest:
+                await OnMergeChosenAsync(row);
                 break;
         }
     }

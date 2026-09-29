@@ -17,12 +17,14 @@ using Backlog.Modules.Inbox.Features.GetInbox;
 using Backlog.Modules.Inbox.Features.MoveListToGroup;
 using Backlog.Modules.Inbox.Features.MoveToList;
 using Backlog.Modules.Inbox.Features.OpenAttachment;
+using Backlog.Modules.Inbox.Features.ProposeBatch;
 using Backlog.Modules.Inbox.Features.ReadAttachment;
 using Backlog.Modules.Inbox.Features.RenameGroup;
 using Backlog.Modules.Inbox.Features.RenameList;
 using Backlog.Modules.Inbox.Features.RetryAttachment;
 using Backlog.Modules.Inbox.Features.ResurfaceDueItems;
 using Backlog.Modules.Inbox.Features.ResurfaceItem;
+using Backlog.Modules.Inbox.Features.RouteBatchToBacklog;
 using Backlog.Modules.Inbox.Features.RouteToBacklog;
 using Backlog.Modules.Inbox.Features.SetTags;
 using Backlog.Modules.Inbox.Features.Suggest;
@@ -53,6 +55,8 @@ internal sealed class InboxItems(
     ICommandHandler<ResurfaceDueItemsCommand, Result<int>> resurfaceDue,
     ICommandHandler<RouteToBacklogCommand, Result<InboxRoutedDto>> routeToBacklog,
     ICommandHandler<CreatePlanCommand, Result<InboxRoutedDto>> createPlan,
+    ICommandHandler<RouteBatchToBacklogCommand, Result<InboxBatchRoutedDto>> routeBatchToBacklog,
+    IQueryHandler<ProposeBatchQuery, Result<InboxBatchProposalDto>> proposeBatch,
     ICommandHandler<CreateListCommand, Result<InboxListDto>> createList,
     ICommandHandler<RenameListCommand, Result> renameList,
     ICommandHandler<DeleteListCommand, Result> deleteList,
@@ -133,6 +137,19 @@ internal sealed class InboxItems(
 
     public Task<Result<InboxRoutedDto>> RouteToBacklogAsync(Guid id, CancellationToken cancellationToken = default) =>
         routeToBacklog.Handle(new RouteToBacklogCommand(id), cancellationToken);
+
+    public Task<Result<InboxBatchProposalDto>> ProposeBatchAsync(
+        IReadOnlyList<Guid> ids,
+        Guid? listId = null,
+        CancellationToken cancellationToken = default) =>
+        proposeBatch.Handle(new ProposeBatchQuery(ids, listId), cancellationToken);
+
+    public Task<Result<InboxBatchRoutedDto>> RouteToBacklogAsync(
+        IReadOnlyList<Guid> ids,
+        Guid? listId = null,
+        InboxBatchRouteChoicesDto? choices = null,
+        CancellationToken cancellationToken = default) =>
+        routeBatchToBacklog.Handle(new RouteBatchToBacklogCommand(ids, listId, choices), cancellationToken);
 
     public Task<Result<InboxRoutedDto>> CreatePlanAsync(Guid id, CancellationToken cancellationToken = default) =>
         createPlan.Handle(new CreatePlanCommand(id), cancellationToken);

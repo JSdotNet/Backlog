@@ -746,6 +746,12 @@ public static class RoadmapPlanView
     /// Either way the bar is locked: its dates are read off the work, so dragging them
     /// would change nothing the next draw keeps.
     /// </para>
+    /// <para>
+    /// With a <paramref name="forecast"/>, an item nobody has started that the import
+    /// sized by its effort keeps its planned start and ends where its gathered effort
+    /// reaches at its pace in use (<see cref="EffortWindow"/>). It is not locked: moving
+    /// it places it by hand, and from then on it is drawn where it was put.
+    /// </para>
     /// </summary>
     private static RoadmapItemDto AsDrawn(
         RoadmapItemDto item,
@@ -770,7 +776,12 @@ public static class RoadmapPlanView
         var begun = rollup.BacklogEntries
             .Where(link => link.Progress is RoadmapProgress.InProgress or RoadmapProgress.Done)
             .ToList();
-        if (begun.Count == 0) return item;
+
+        // Nobody started it: drawn where it was planned — and, when the import sized it
+        // by its effort, to the end that effort reaches at the pace in use now, read by
+        // the one formula the import stored its window with. A pace change moves the bar
+        // without a plan write, and a PC the pace arrives on draws the same bar.
+        if (begun.Count == 0) return EffortWindow.Derive(item, rollup, forecast.Paces);
 
         var pace = forecast.Paces.For(item.RepositoryAliases);
         if (pace <= 0) return item;

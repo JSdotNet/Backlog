@@ -172,6 +172,42 @@ public class ArchifyArtifactMotionTests
     }
 
     /// <summary>
+    /// The vendored Archify skill has no update checker.
+    ///
+    /// <para>Archify v2.16.0 added <c>scripts/check-update.mjs</c> and a
+    /// <c>SKILL.md</c> step telling the authoring agent to run it once per diagram.
+    /// It fetches a release manifest from the network and keeps acknowledgement state
+    /// in the home directory. This copy is pinned and moved forward deliberately, and
+    /// is vendored at all so authoring works offline, so the step and its two scripts
+    /// were removed — see <c>tools/archify/UPSTREAM.md</c>.</para>
+    ///
+    /// <para>Both halves are checked because a re-copy restores both, and either one
+    /// alone is enough for an agent to go looking for the checker.</para>
+    /// </summary>
+    [Fact]
+    public void The_vendored_archify_skill_has_no_update_checker()
+    {
+        var archify = Path.Combine(RepositoryRoot.Root.FullName, "tools", "archify");
+
+        foreach (var script in new[] { "check-update.mjs", "update-contract.mjs" })
+        {
+            Assert.False(
+                File.Exists(Path.Combine(archify, "scripts", script)),
+                $"tools/archify/scripts/{script} is back. It is upstream's update checker, which fetches a "
+                + "remote release manifest; tools/archify/UPSTREAM.md lists it under What was omitted. A "
+                + "re-copy brings it back — delete it again.");
+        }
+
+        var skill = File.ReadAllText(Path.Combine(archify, "SKILL.md"));
+
+        Assert.False(
+            skill.Contains("check-update.mjs", StringComparison.Ordinal)
+            && !skill.Contains("Backlog divergence from upstream", StringComparison.Ordinal),
+            "tools/archify/SKILL.md tells the authoring agent to run the update checker again. Replace "
+            + "its Update awareness section with the note tools/archify/UPSTREAM.md describes.");
+    }
+
+    /// <summary>
     /// The ambient trace loops.
     ///
     /// <para>Archify authors the trace as a single pass — the rule it emits ends in an

@@ -169,6 +169,240 @@ public sealed class GitHubPushFlowTests : IDisposable
         Assert.False(row.PullRequestStates.ContainsKey(pr));
     }
 
+    /// <summary>The same read that says whether a pull request merged says how its
+    /// checks stand and whether GitHub is holding it for auto-merge — one query, so
+    /// the link and the menu never disagree about which read they came from.</summary>
+    [Fact]
+    public async Task Syncing_reads_a_pull_requests_checks_and_auto_merge()
+    {
+        var harness = Build("JSdotNet/Backlog");
+
+        var row = await WriteEntryAsync(harness.State, "# Add GitHub support\n`task` `!done` `repo:backlog`\n");
+        var pr = new EntryPullRequestLink("JSdotNet/Backlog", 710);
+        row.PullRequestLinks = [pr];
+        harness.Client.PullRequestStates[710] = GitHubItemState.Open;
+        harness.Client.PullRequestChecks[710] = GitHubCheckState.Failing;
+        harness.Client.AutoMergeOn.Add(710);
+
+        await harness.State.SyncGitHubAsync();
+
+        var status = row.PullRequestStatuses[pr];
+        Assert.Equal(GitHubItemState.Open, row.PullRequestStates[pr]);
+        Assert.Equal(GitHubCheckState.Failing, status.Checks);
+        Assert.True(status.AutoMergeEnabled);
+    }
+
+    /// <summary>
+    /// A server that cannot answer the status query — an older Enterprise Server
+    /// whose schema lacks the auto-merge fields — still gets the merged colour: the
+    /// REST read is asked for the state alone. With no status there is nothing to
+    /// draw a checks mark from and no act to name, so neither is offered.
+    /// </summary>
+    [Fact]
+    public async Task A_status_query_that_fails_falls_back_to_the_state_alone()
+    {
+        var harness = Build("JSdotNet/Backlog");
+
+        var row = await WriteEntryAsync(harness.State, "# Add GitHub support\n`task` `!done` `repo:backlog`\n");
+        var pr = new EntryPullRequestLink("JSdotNet/Backlog", 708);
+        row.PullRequestLinks = [pr];
+        harness.Client.PullRequestStates[708] = GitHubItemState.Merged;
+        harness.Client.StatusFailure = new GitHubException("Field 'autoMergeRequest' doesn't exist on type 'PullRequest'");
+
+        await harness.State.SyncGitHubAsync();
+
+        Assert.Equal(GitHubItemState.Merged, row.PullRequestStates[pr]);
+        Assert.False(row.PullRequestStatuses.ContainsKey(pr));
+        Assert.Null(harness.State.MergeOfferFor(row));
+        Assert.Empty(harness.Toasts.Visible);
+
+        // And an open one is still not offered to merge: the offer needs a status.
+        harness.Client.PullRequestStates[708] = GitHubItemState.Open;
+        await harness.State.SyncGitHubAsync();
+
+        Assert.Equal(GitHubItemState.Open, row.PullRequestStates[pr]);
+        Assert.Null(harness.State.MergeOfferFor(row));
+    }
+
+    /// <summary>
+    /// The offer follows the pull request's status: auto-merge when it has
+    /// requirements still to meet, merge now when it can already merge — GitHub
+    /// refuses to queue one in that state — and a way back out once it is queued.
+    /// Only the latest open, non-draft pull request whose status has been read is
+    /// offered, because a row's menu names one act on one pull request.
+    /// </summary>
+    [Fact]
+    public async Task The_merge_offer_follows_the_latest_open_pull_requests_status()
+    {
+        var harness = Build("JSdotNet/Backlog");
+
+        var row = await WriteEntryAsync(harness.State, "# Add GitHub support\n`task` `!done` `repo:backlog`\n");
+        var older = new EntryPullRequestLink("JSdotNet/Backlog", 700);
+        var latest = new EntryPullRequestLink("JSdotNet/Backlog", 710);
+        var draft = new EntryPullRequestLink("JSdotNet/Backlog", 720);
+        row.PullRequestLinks = [older, latest, draft];
+
+        Assert.Null(harness.State.MergeOfferFor(row));
+
+        harness.Client.PullRequestStates[700] = GitHubItemState.Open;
+        harness.Client.PullRequestStates[710] = GitHubItemState.Open;
+        harness.Client.PullRequestStates[720] = GitHubItemState.Draft;
+        await harness.State.SyncGitHubAsync();
+
+        var offer = harness.State.MergeOfferFor(row)!;
+        Assert.Equal(latest, offer.PullRequest);
+        Assert.Equal(PullRequestMergeAct.MergeWhenChecksPass, offer.Act);
+        Assert.Equal("Merge #710 when checks pass", offer.Label);
+
+        harness.Client.MergeReady.Add(710);
+        await harness.State.SyncGitHubAsync();
+        Assert.Equal(PullRequestMergeAct.MergeNow, harness.State.MergeOfferFor(row)!.Act);
+        Assert.Equal("Merge #710 now", harness.State.MergeOfferFor(row)!.Label);
+
+        harness.Client.MergeReady.Clear();
+        harness.Client.AutoMergeOn.Add(710);
+        await harness.State.SyncGitHubAsync();
+        Assert.Equal(PullRequestMergeAct.CancelAutoMerge, harness.State.MergeOfferFor(row)!.Act);
+        Assert.Equal("Cancel auto-merge for #710", harness.State.MergeOfferFor(row)!.Label);
+
+        // Merged is no longer anything to merge.
+        harness.Client.PullRequestStates[710] = GitHubItemState.Merged;
+        harness.Client.PullRequestStates[700] = GitHubItemState.Merged;
+        await harness.State.SyncGitHubAsync();
+        Assert.Null(harness.State.MergeOfferFor(row));
+    }
+
+    [Fact]
+    public async Task Turning_on_auto_merge_asks_github_and_reads_the_pull_request_again()
+    {
+        var (harness, row, pr) = await WithReadPullRequestAsync();
+
+        await harness.State.SetAutoMergeAsync(row, pr, enable: true);
+
+        Assert.Equal(["enable PR_710 Squash"], harness.Client.MergeCalls);
+        Assert.True(row.PullRequestStatuses[pr].AutoMergeEnabled);
+        Assert.False(row.GitHubBusy);
+        Assert.Empty(harness.Toasts.Visible);
+    }
+
+    [Fact]
+    public async Task Cancelling_auto_merge_asks_github_and_reads_the_pull_request_again()
+    {
+        var (harness, row, pr) = await WithReadPullRequestAsync(autoMerge: true);
+
+        await harness.State.SetAutoMergeAsync(row, pr, enable: false);
+
+        Assert.Equal(["disable PR_710"], harness.Client.MergeCalls);
+        Assert.False(row.PullRequestStatuses[pr].AutoMergeEnabled);
+    }
+
+    [Fact]
+    public async Task Merging_now_asks_github_and_the_link_reads_merged()
+    {
+        var (harness, row, pr) = await WithReadPullRequestAsync();
+        harness.Client.MergeReady.Add(710);
+
+        await harness.State.MergeNowAsync(row, pr);
+
+        Assert.Equal(["merge PR_710 Squash"], harness.Client.MergeCalls);
+        Assert.Equal(GitHubItemState.Merged, row.PullRequestStates[pr]);
+    }
+
+    /// <summary>A refusal is said out loud, naming the entry and what would fix it,
+    /// and the row keeps working — the merge act is an Action, so it gets a toast,
+    /// and the entry itself did nothing wrong.</summary>
+    [Fact]
+    public async Task A_refused_merge_act_is_a_toast_naming_the_entry_and_the_fix()
+    {
+        var (harness, row, pr) = await WithReadPullRequestAsync();
+        harness.Client.MergeFailure = new GitHubException("Pull request Auto merge is not allowed for this repository");
+
+        await harness.State.SetAutoMergeAsync(row, pr, enable: true);
+
+        var toast = Assert.Single(harness.Toasts.Visible);
+        Assert.Equal(ToastSeverity.Error, toast.Severity);
+        Assert.Equal("github-error", toast.TestId);
+        Assert.StartsWith(row.PreviewTitle, toast.Message, StringComparison.Ordinal);
+        Assert.Contains("Allow auto-merge", toast.Message, StringComparison.Ordinal);
+        Assert.Contains("JSdotNet/Backlog#710", toast.Message, StringComparison.Ordinal);
+
+        Assert.False(row.GitHubBusy);
+        Assert.Null(row.GitHubError);
+        Assert.False(row.PullRequestStatuses[pr].AutoMergeEnabled);
+    }
+
+    /// <summary>
+    /// A sweep that was already reading when a merge act landed does not put back
+    /// what it read before the act. Each pull request is written as its read comes
+    /// back, into the row's current map — not into a copy taken when the sweep
+    /// began and written over the whole row at its end, which is how the act's own
+    /// re-read used to be clobbered by an older answer.
+    /// </summary>
+    [Fact]
+    public async Task A_sync_in_flight_does_not_undo_a_merge_act_that_landed_meanwhile()
+    {
+        var harness = Build("JSdotNet/Backlog");
+        var row = await WriteEntryAsync(harness.State, "# Add GitHub support\n`task` `!done` `repo:backlog`\n");
+        var first = new EntryPullRequestLink("JSdotNet/Backlog", 700);
+        var second = new EntryPullRequestLink("JSdotNet/Backlog", 710);
+        row.PullRequestLinks = [first, second];
+        harness.Client.PullRequestStates[700] = GitHubItemState.Open;
+        harness.Client.PullRequestStates[710] = GitHubItemState.Open;
+        await harness.State.SyncGitHubAsync();
+
+        // The next sweep reads #700 (auto-merge off), then waits on #710.
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        harness.Client.StatusGates[710] = gate;
+        var sync = harness.State.SyncGitHubAsync();
+
+        // Meanwhile #700 is handed to auto-merge and read back as on.
+        await harness.State.SetAutoMergeAsync(row, first, enable: true);
+        Assert.True(row.PullRequestStatuses[first].AutoMergeEnabled);
+
+        gate.SetResult();
+        await sync;
+
+        Assert.True(row.PullRequestStatuses[first].AutoMergeEnabled);
+        Assert.Equal(GitHubItemState.Open, row.PullRequestStates[second]);
+    }
+
+    /// <summary>The row stays busy until the read that follows the act has come
+    /// back, so a second act cannot start from the status the first one made
+    /// stale.</summary>
+    [Fact]
+    public async Task A_merge_act_keeps_the_row_busy_through_the_read_that_follows_it()
+    {
+        var (harness, row, pr) = await WithReadPullRequestAsync();
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        harness.Client.StatusGates[710] = gate;
+
+        var act = harness.State.SetAutoMergeAsync(row, pr, enable: true);
+
+        Assert.True(row.GitHubBusy);
+        await harness.State.MergeNowAsync(row, pr);
+        Assert.Equal(["enable PR_710 Squash"], harness.Client.MergeCalls);
+
+        gate.SetResult();
+        await act;
+
+        Assert.False(row.GitHubBusy);
+        Assert.True(row.PullRequestStatuses[pr].AutoMergeEnabled);
+    }
+
+    [Fact]
+    public async Task A_pull_request_nobody_read_is_not_acted_on()
+    {
+        var harness = Build("JSdotNet/Backlog");
+        var row = await WriteEntryAsync(harness.State, "# Add GitHub support\n`task` `!done` `repo:backlog`\n");
+        var pr = new EntryPullRequestLink("JSdotNet/Backlog", 710);
+        row.PullRequestLinks = [pr];
+
+        await harness.State.SetAutoMergeAsync(row, pr, enable: true);
+        await harness.State.MergeNowAsync(row, pr);
+
+        Assert.Empty(harness.Client.MergeCalls);
+    }
+
     /// <summary>
     /// A sync that fails says so once, not once per row.
     /// <para>
@@ -468,6 +702,22 @@ public sealed class GitHubPushFlowTests : IDisposable
         Assert.StartsWith("feedback-screenshots/", harness.Client.UploadedPath);
     }
 
+    /// <summary>A row with one recorded pull request, open and read, so a merge act
+    /// has a status to act on.</summary>
+    private async Task<(Harness Harness, EntryRow Row, EntryPullRequestLink PullRequest)> WithReadPullRequestAsync(bool autoMerge = false)
+    {
+        var harness = Build("JSdotNet/Backlog");
+        var row = await WriteEntryAsync(harness.State, "# Add GitHub support\n`task` `!done` `repo:backlog`\n");
+        var pr = new EntryPullRequestLink("JSdotNet/Backlog", 710);
+        row.PullRequestLinks = [pr];
+        harness.Client.PullRequestStates[710] = GitHubItemState.Open;
+        if (autoMerge) harness.Client.AutoMergeOn.Add(710);
+
+        await harness.State.SyncGitHubAsync();
+
+        return (harness, row, pr);
+    }
+
     private async Task<EntryRow> WriteEntryAsync(TasksDesktopState state, string text)
     {
         state.NewRow();
@@ -586,6 +836,83 @@ public sealed class GitHubPushFlowTests : IDisposable
                 state,
                 repository.FullName));
         }
+
+        /// <summary>The roll-up each pull request answers with; absent is no checks.</summary>
+        public Dictionary<int, GitHubCheckState> PullRequestChecks { get; } = [];
+
+        /// <summary>The pull requests GitHub is holding for auto-merge. Enabling and
+        /// disabling move a number in and out, so a re-read after the act sees it.</summary>
+        public HashSet<int> AutoMergeOn { get; } = [];
+
+        /// <summary>The pull requests whose merge state is CLEAN.</summary>
+        public HashSet<int> MergeReady { get; } = [];
+
+        /// <summary>What the GraphQL status query alone throws, when set — the REST
+        /// read beside it still answers, the way a server whose schema lacks the
+        /// auto-merge fields would.</summary>
+        public Exception? StatusFailure { get; set; }
+
+        /// <summary>What every merge act throws, when set — GitHub's own words, so the
+        /// façade's mapping is part of what a test sees.</summary>
+        public Exception? MergeFailure { get; set; }
+
+        /// <summary>Every merge act asked for, as "act node method".</summary>
+        public List<string> MergeCalls { get; } = [];
+
+        /// <summary>Status reads held open until the test releases them, by number —
+        /// how a test puts a read in flight while something else happens.</summary>
+        public Dictionary<int, TaskCompletionSource> StatusGates { get; } = [];
+
+        public async Task<GitHubPullRequestStatus> GetPullRequestStatusAsync(
+            GitHubRepositoryRef repository,
+            int number,
+            CancellationToken cancellationToken = default)
+        {
+            if (StatusGates.Remove(number, out var gate)) await gate.Task;
+
+            if (PullRequestFailure is not null) throw PullRequestFailure;
+            if (StatusFailure is not null) throw StatusFailure;
+            if (!PullRequestStates.TryGetValue(number, out var state)) throw new GitHubException("Not Found");
+
+            return new GitHubPullRequestStatus(
+                number,
+                repository.FullName,
+                $"PR_{number}",
+                state,
+                PullRequestChecks.GetValueOrDefault(number),
+                AutoMergeOn.Contains(number),
+                MergeReady.Contains(number),
+                GitHubMergeMethod.Squash);
+        }
+
+        public Task EnableAutoMergeAsync(GitHubRepositoryRef repository, string pullRequestId, GitHubMergeMethod method, CancellationToken cancellationToken = default)
+        {
+            if (MergeFailure is not null) throw MergeFailure;
+
+            MergeCalls.Add($"enable {pullRequestId} {method}");
+            AutoMergeOn.Add(NumberOf(pullRequestId));
+            return Task.CompletedTask;
+        }
+
+        public Task DisableAutoMergeAsync(GitHubRepositoryRef repository, string pullRequestId, CancellationToken cancellationToken = default)
+        {
+            if (MergeFailure is not null) throw MergeFailure;
+
+            MergeCalls.Add($"disable {pullRequestId}");
+            AutoMergeOn.Remove(NumberOf(pullRequestId));
+            return Task.CompletedTask;
+        }
+
+        public Task MergePullRequestAsync(GitHubRepositoryRef repository, string pullRequestId, GitHubMergeMethod method, CancellationToken cancellationToken = default)
+        {
+            if (MergeFailure is not null) throw MergeFailure;
+
+            MergeCalls.Add($"merge {pullRequestId} {method}");
+            PullRequestStates[NumberOf(pullRequestId)] = GitHubItemState.Merged;
+            return Task.CompletedTask;
+        }
+
+        private static int NumberOf(string pullRequestId) => int.Parse(pullRequestId["PR_".Length..], System.Globalization.CultureInfo.InvariantCulture);
 
         public Task<GitHubUploadedFile> UploadFileAsync(
             GitHubRepositoryRef repository,
