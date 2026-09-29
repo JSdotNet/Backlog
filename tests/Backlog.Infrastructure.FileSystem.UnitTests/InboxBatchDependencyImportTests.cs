@@ -4,6 +4,7 @@ using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks;
 using Backlog.Modules.Tasks.Abstractions.Services;
 using Backlog.Modules.Tasks.Extensions;
+using Backlog.SharedKernel.Results;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -124,6 +125,6 @@ public sealed class InboxBatchDependencyImportTests : IDisposable
 
         public TasksRepositoryRef? Resolve(string name) => null;
 
-        public TasksRepositoryRef Register(string name) => throw new InvalidOperationException("A batch never registers a repository.");
+        public Result<TasksRepositoryRef> Register(string name) => throw new InvalidOperationException("A batch never registers a repository.");
     }
 }
