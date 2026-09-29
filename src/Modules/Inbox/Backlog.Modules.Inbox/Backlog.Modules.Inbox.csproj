@@ -27,6 +27,9 @@
     <!-- Only for AddInboxModule(); the domain and the handlers know nothing
          about the container. -->
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <!-- A file that could not be fetched is logged as well as recorded on the
+         item, so it reaches the structured logs and not only its row. -->
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
   </ItemGroup>
 
   <ItemGroup>
