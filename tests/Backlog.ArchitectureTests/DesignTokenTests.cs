@@ -51,10 +51,10 @@ public class DesignTokenTests
                 $"{Relative(host)} does not link {LibraryStylesheet}. The tokens and the component "
                 + "styling both come from there, so the page would render unstyled.");
 
-            // A third-party base may legitimately load first — the mobile head
-            // puts bootstrap ahead of everything so the design system overrides
-            // it. What must not happen is one of ours loading first, because it
-            // would be extending tokens that have not been declared yet.
+            // A third-party base may legitimately load first, so the design
+            // system overrides it — no host links one today. What must not happen
+            // is one of ours loading first, because it would be extending tokens
+            // that have not been declared yet.
             var ourStylesheetsBefore = links.Take(libraryAt)
                 .Where(href => !IsVendored(href))
                 .ToList();
@@ -93,13 +93,6 @@ public class DesignTokenTests
                 + $"apart silently: {string.Join(", ", repeated)}");
         }
     }
-
-    /// <summary>Bootstrap's own tokens, which the mobile head inherits from the
-    /// vendored copy under <c>lib/</c>. That file is deliberately not read: keeping
-    /// up with whatever a third party declares is not this suite's job. Exempting
-    /// the prefix is narrower than it looks, because <c>--bs-</c> is Bootstrap's
-    /// reserved namespace and nothing of ours can hide behind it.</summary>
-    private const string VendorTokenPrefix = "--bs-";
 
     /// <summary>A token reference with no fallback has to resolve to a declaration
     /// somewhere, or the declaration holding it is invalid at computed-value time.
@@ -152,7 +145,6 @@ public class DesignTokenTests
             var unresolved = Regex.Matches(css, @"var\(\s*(--[a-z0-9-]+)\s*(?<fallback>,)?")
                 .Where(match => !match.Groups["fallback"].Success)
                 .Select(match => match.Groups[1].Value)
-                .Where(token => !token.StartsWith(VendorTokenPrefix, StringComparison.Ordinal))
                 .Where(token => !declared.Contains(token))
                 .Distinct()
                 .OrderBy(token => token)
@@ -231,7 +223,6 @@ public class DesignTokenTests
         {
             var unsettable = Regex.Matches(css, @"var\(\s*(--[a-z0-9-]+)\s*,")
                 .Select(match => match.Groups[1].Value)
-                .Where(token => !token.StartsWith(VendorTokenPrefix, StringComparison.Ordinal))
                 .Where(token => !declared.Contains(token))
                 .Where(token => !RuntimeComposedTokens.Contains(token))
                 .Where(token => !written.Contains(token))
@@ -280,7 +271,8 @@ public class DesignTokenTests
         Regex.Replace(css, @"/\*.*?\*/", " ", RegexOptions.Singleline);
 
     /// <summary>Every stylesheet the product ships: the component library's, and
-    /// each host's own. Vendored CSS is left out — see <see cref="VendorTokenPrefix"/>.</summary>
+    /// each host's own. Vendored CSS is left out: keeping up with whatever a third
+    /// party declares is not this suite's job.</summary>
     private static IEnumerable<FileInfo> ProductStylesheets()
     {
         var root = new DirectoryInfo(Path.Combine(Repository.Root.FullName, "src"));
@@ -342,25 +334,13 @@ public class DesignTokenTests
     /// the list is meant to shrink to nothing. Do not add to it to make a new colour
     /// pass — declare a token instead.
     ///
-    /// <para><c>Backlog.Mobile.UI</c> is the default Blazor template's stylesheet and
-    /// arrives with the template's own blue-and-red palette. The mobile harness
-    /// hand-rolls a dark shell instead of using the tokens, and the Storybook layout
-    /// carries a red pair that predates <c>color-error-text</c>.</para></summary>
+    /// <para>The mobile harness hand-rolls a dark shell instead of using the
+    /// tokens.</para></summary>
     private static readonly Dictionary<string, string[]> ToleratedColorLiterals = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["src/App/Backlog.Desktop.UI/wwwroot/app.css"] = ["#020617"],
-        ["src/App/Backlog.Mobile.UI/wwwroot/app.css"] =
-        [
-            "#fff", "#1b6ec2", "#1861ac", "#258cfb", "#26b050",
-            "#e50000", "#b32121", "#929292", "#ff8080"
-        ],
         ["src/Harness/Backlog.Mobile.WebHarness/wwwroot/app.css"] =
         [
             "#0e0e11", "#e6e6e6", "#16161a", "#2a2a32"
-        ],
-        ["src/Harness/Backlog.UI.Storybook/Components/Layout/MainLayout.razor.css"] =
-        [
-            "#E5484D", "#FF6369"
         ]
     };
 
@@ -409,6 +389,32 @@ public class DesignTokenTests
                 + "be a token, or nothing records what it means and nothing checks what it contrasts "
                 + "against: declare it on :root in components.css, give it a row and a measured contrast "
                 + "pair in .devbook/design/color-scheme.md, then reference it by name here.");
+        }
+    }
+
+    /// <summary>The other half of <see cref="ToleratedColorLiterals"/> being a
+    /// backlog: an entry whose literal has left its stylesheet is a retired
+    /// violation still holding the door open. Left in place, the same colour could
+    /// come back and pass without anyone deciding it should.</summary>
+    [Fact]
+    public void Every_tolerated_colour_literal_is_still_in_its_stylesheet()
+    {
+        foreach (var (path, tolerated) in ToleratedColorLiterals)
+        {
+            var file = new FileInfo(Path.Combine(Repository.Root.FullName, path));
+
+            Assert.True(file.Exists, $"ToleratedColorLiterals names {path}, which no longer exists.");
+
+            var present = ColorLiteral.Matches(WithoutComments(File.ReadAllText(file.FullName)))
+                .Select(match => match.Value)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            var retired = tolerated.Where(literal => !present.Contains(literal)).ToList();
+
+            Assert.True(
+                retired.Count == 0,
+                $"ToleratedColorLiterals still tolerates {string.Join(", ", retired)} in {path}, which no "
+                + "longer paints it. Remove the entry, so the literal cannot come back unnoticed.");
         }
     }
 
@@ -609,10 +615,10 @@ public class DesignTokenTests
     /// looking at one. A literal is easiest to write in exactly the scoped
     /// stylesheet this would not have read.</para>
     ///
-    /// <para>Vendored CSS is excluded — bootstrap is full of literals and none of
-    /// them are ours to fix. The library's own <c>components.css</c> is out of
-    /// scope by living under <c>src/Core</c> rather than in a UI folder: it is
-    /// where the literals are supposed to be.</para></summary>
+    /// <para>Vendored CSS is excluded — a third party's literals are not ours to
+    /// fix. The library's own <c>components.css</c> is out of scope by living
+    /// under <c>src/Core</c> rather than in a UI folder: it is where the literals
+    /// are supposed to be.</para></summary>
     private static IEnumerable<FileInfo> OurStylesheets() =>
         Repository.UserInterfaceFolders()
             .Append(new DirectoryInfo(Path.Combine(Repository.Root.FullName, "src", "Harness")))
