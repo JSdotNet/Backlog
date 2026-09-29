@@ -138,6 +138,42 @@ public sealed class TreeViewTests
         Assert.Empty(tree.FindAll(".devbook-menu__row [data-testid='open-folder']"));
     }
 
+    /// <summary>
+    /// A tree that has not arrived yet is drawn as rows in the shape of one, not
+    /// as a sentence saying so. The guidance sends lists and trees to the
+    /// skeleton (.devbook/design/interaction-guidelines.md, Loading States), and
+    /// a line of grey text on an empty column reads the same as a column that
+    /// failed to draw.
+    /// </summary>
+    [Fact]
+    public void Loading_draws_skeleton_rows_rather_than_a_sentence()
+    {
+        using var context = new BunitContext();
+
+        var tree = context.Render<TreeView>(parameters => parameters
+            .Add(v => v.IsLoading, true)
+            .Add(v => v.Nodes, new[] { Folder }));
+
+        var placeholder = tree.Find("[data-testid='tree-loading']");
+
+        Assert.Equal("true", placeholder.GetAttribute("aria-hidden"));
+        Assert.NotEmpty(placeholder.QuerySelectorAll(".skeleton"));
+        Assert.Empty(tree.FindAll("[role='tree']"));
+        Assert.DoesNotContain("Loading", tree.Markup, StringComparison.Ordinal);
+        Assert.Equal("true", tree.Find("nav").GetAttribute("aria-busy"));
+    }
+
+    [Fact]
+    public void A_tree_that_has_arrived_is_not_busy()
+    {
+        using var context = new BunitContext();
+
+        var tree = Render(context, expanded: _ => true);
+
+        Assert.Empty(tree.FindAll("[data-testid='tree-loading']"));
+        Assert.Null(tree.Find("nav").GetAttribute("aria-busy"));
+    }
+
     private static IRenderedComponent<TreeView> Render(
         BunitContext context,
         Func<TreeNode, bool> expanded,
