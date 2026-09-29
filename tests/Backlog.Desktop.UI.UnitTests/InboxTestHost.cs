@@ -465,30 +465,76 @@ internal sealed class FakeInboxItems : IInboxItems
     public int SingleRouteCalls { get; private set; }
 
     /// <summary>Every batch routed, with the ids it named, the list it was
-    /// named after, and the plan tag the fake minted for it.</summary>
-    public List<(IReadOnlyList<Guid> Ids, Guid? ListId, string PlanTag)> BatchRoutes { get; } = [];
+    /// named after, the plan tag it went under, and the panel's choices.</summary>
+    public List<(IReadOnlyList<Guid> Ids, Guid? ListId, string PlanTag, InboxBatchRouteChoicesDto? Choices)> BatchRoutes { get; } = [];
 
-    /// <summary>The module's batch route, restated: a new tag per batch named
-    /// after the list or <c>inbox-batch</c>, decided items refused up front, and
-    /// the rest routed together or — on <see cref="RefuseBatch"/> — not at all.</summary>
-    public async Task<Result<InboxBatchRoutedDto>> RouteToBacklogAsync(
+    /// <summary>What the proposal says the items' own text states, by the item
+    /// that waits — which dependencies exist is the module's business and has
+    /// its own tests; the pane only draws and sends them.</summary>
+    public List<ProposedDependency> ProposedDependencies { get; } = [];
+
+    /// <summary>Every proposal asked of the port, with the ids and the list.</summary>
+    public List<(IReadOnlyList<Guid> Ids, Guid? ListId)> Proposals { get; } = [];
+
+    /// <summary>The module's proposal, restated: the tag minted as the route
+    /// would, decided items refused, the seeded dependencies among the rest.</summary>
+    public Task<Result<InboxBatchProposalDto>> ProposeBatchAsync(
         IReadOnlyList<Guid> ids,
         Guid? listId = null,
         CancellationToken cancellationToken = default)
     {
+        Proposals.Add((ids, listId));
+
+        if (PlanTagFor(listId) is not { } tag) return Task.FromResult(Result.Failure<InboxBatchProposalDto>(InboxErrors.ListNotFound));
+
+        var refused = new List<InboxBatchFailureDto>();
+        var routable = new List<InboxItemDto>();
+
+        foreach (var id in ids)
+        {
+            if (Find(id) is not { } item) refused.Add(new InboxBatchFailureDto(id, InboxErrors.ItemNotFound));
+            else if (item.Routing is not null || item.Status == InboxStatus.Archived) refused.Add(new InboxBatchFailureDto(id, InboxErrors.InvalidTransition("Already routed.")));
+            else routable.Add(item);
+        }
+
+        var going = routable.Select(item => item.Id).ToHashSet();
+
+        return Task.FromResult(Result.Success(new InboxBatchProposalDto(
+            tag,
+            [.. routable.Select(item => new InboxBatchProposalItemDto(item.Id, item.Title, item.RepoIds))],
+            [.. ProposedDependencies.Where(dependency => going.Contains(dependency.From))],
+            refused,
+            listId is { } named ? _items.Count(item => item.ListId == named && item.Status == InboxStatus.Deferred) : null)));
+    }
+
+    /// <summary>A new tag named after the list or <c>inbox-batch</c>, or null
+    /// for a list that is gone.</summary>
+    private string? PlanTagFor(Guid? listId)
+    {
         var stem = "inbox-batch";
         if (listId is { } named)
         {
-            if (_lists.FirstOrDefault(list => list.Id == named) is not { } list)
-            {
-                return Result.Failure<InboxBatchRoutedDto>(InboxErrors.ListNotFound);
-            }
-
+            if (_lists.FirstOrDefault(list => list.Id == named) is not { } list) return null;
             stem = list.Name;
         }
 
-        var tag = "+" + InboxPlanTag.For(stem, Guid.NewGuid());
-        BatchRoutes.Add((ids, listId, tag));
+        return "+" + InboxPlanTag.For(stem, Guid.NewGuid());
+    }
+
+    /// <summary>The module's batch route, restated: a new tag per batch named
+    /// after the list or <c>inbox-batch</c> — or the proposal's, handed back —
+    /// decided items refused up front, and the rest routed together to the
+    /// repositories chosen, or — on <see cref="RefuseBatch"/> — not at all.</summary>
+    public async Task<Result<InboxBatchRoutedDto>> RouteToBacklogAsync(
+        IReadOnlyList<Guid> ids,
+        Guid? listId = null,
+        InboxBatchRouteChoicesDto? choices = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (PlanTagFor(listId) is not { } minted) return Result.Failure<InboxBatchRoutedDto>(InboxErrors.ListNotFound);
+
+        var tag = choices?.PlanTag ?? minted;
+        BatchRoutes.Add((ids, listId, tag, choices));
         if (BeforeRoute is { } gate) await gate();
 
         var failed = new List<InboxBatchFailureDto>();
@@ -511,13 +557,14 @@ internal sealed class FakeInboxItems : IInboxItems
         var routed = new List<InboxRoutedDto>();
         foreach (var item in routable)
         {
-            var taskIds = Enumerable.Range(0, Math.Max(1, item.RepoIds.Count)).Select(_ => Guid.NewGuid()).ToList();
+            var repos = choices?.Repositories is { } chosen && chosen.TryGetValue(item.Id, out var picked) ? picked : item.RepoIds;
+            var taskIds = Enumerable.Range(0, Math.Max(1, repos.Count)).Select(_ => Guid.NewGuid()).ToList();
             OnRouted?.Invoke(item, taskIds);
 
             await Update(item.Id, current => current with
             {
                 Status = InboxStatus.Triaged,
-                Routing = new InboxRoutingDto(RoutingDomain.Tasks, current.RepoIds, taskIds, Now)
+                Routing = new InboxRoutingDto(RoutingDomain.Tasks, repos, taskIds, Now)
             });
 
             routed.Add(new InboxRoutedDto(item.Id, taskIds));

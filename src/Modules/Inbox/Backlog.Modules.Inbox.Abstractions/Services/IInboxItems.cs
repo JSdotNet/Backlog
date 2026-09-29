@@ -126,8 +126,29 @@ public interface IInboxItems
     /// (<c>+reading-1a2b3c4d</c>), otherwise <c>+inbox-batch-…</c>; the list is
     /// only where the name comes from, and is left as it is. Fails whole only
     /// when <paramref name="listId"/> names no list.
+    /// </para>
+    /// <para>
+    /// <paramref name="choices"/> are the "Before you route" panel's: the tag
+    /// <see cref="ProposeBatchAsync"/> minted, a repository per item, and the
+    /// dependencies left on, which become <c>after:</c> tokens and put the
+    /// document in dependency order. A set of dependencies that loops fails the
+    /// whole batch with <c>inbox.batch.dependency_loop</c> before Tasks is asked.
+    /// Without choices the batch goes as it always did.
     /// </para></summary>
     Task<Result<InboxBatchRoutedDto>> RouteToBacklogAsync(
+        IReadOnlyList<Guid> ids,
+        Guid? listId = null,
+        InboxBatchRouteChoicesDto? choices = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>What routing these items as one batch would do, without doing
+    /// it: the plan tag the import would write — minted now, and handed back on
+    /// the route — the items that can go, the dependencies the Inbox can see
+    /// between them and on the backlog's open tasks, each with the text that
+    /// stated it, and the items that cannot go and why. For a list, also how
+    /// many of its items are deferred and stay behind. Fails only when
+    /// <paramref name="listId"/> names no list.</summary>
+    Task<Result<InboxBatchProposalDto>> ProposeBatchAsync(
         IReadOnlyList<Guid> ids,
         Guid? listId = null,
         CancellationToken cancellationToken = default);

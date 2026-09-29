@@ -105,6 +105,19 @@ internal sealed class FakeBacklogTarget : IInboxBacklogTarget
     }
 }
 
+/// <summary>The backlog's open tasks, as the test lists them, and how many
+/// times they were asked for.</summary>
+internal sealed class FakeTaskReferences(params InboxTaskReferenceDto[] tasks) : IInboxTaskReferences
+{
+    public int Calls { get; private set; }
+
+    public Task<IReadOnlyList<InboxTaskReferenceDto>> OpenTasksAsync(CancellationToken cancellationToken = default)
+    {
+        Calls++;
+        return Task.FromResult<IReadOnlyList<InboxTaskReferenceDto>>(tasks);
+    }
+}
+
 /// <summary>A drafter that answers with whatever the test set, and remembers
 /// what it was asked. A <c>{tag}</c> in the answer is replaced by the plan tag
 /// the request carried, for the tests about what the tag is.</summary>

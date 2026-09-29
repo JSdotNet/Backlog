@@ -17,6 +17,7 @@ using Backlog.Modules.Inbox.Features.GetInbox;
 using Backlog.Modules.Inbox.Features.MoveListToGroup;
 using Backlog.Modules.Inbox.Features.MoveToList;
 using Backlog.Modules.Inbox.Features.OpenAttachment;
+using Backlog.Modules.Inbox.Features.ProposeBatch;
 using Backlog.Modules.Inbox.Features.ReadAttachment;
 using Backlog.Modules.Inbox.Features.RenameGroup;
 using Backlog.Modules.Inbox.Features.RenameList;
@@ -55,6 +56,7 @@ internal sealed class InboxItems(
     ICommandHandler<RouteToBacklogCommand, Result<InboxRoutedDto>> routeToBacklog,
     ICommandHandler<CreatePlanCommand, Result<InboxRoutedDto>> createPlan,
     ICommandHandler<RouteBatchToBacklogCommand, Result<InboxBatchRoutedDto>> routeBatchToBacklog,
+    IQueryHandler<ProposeBatchQuery, Result<InboxBatchProposalDto>> proposeBatch,
     ICommandHandler<CreateListCommand, Result<InboxListDto>> createList,
     ICommandHandler<RenameListCommand, Result> renameList,
     ICommandHandler<DeleteListCommand, Result> deleteList,
@@ -136,11 +138,18 @@ internal sealed class InboxItems(
     public Task<Result<InboxRoutedDto>> RouteToBacklogAsync(Guid id, CancellationToken cancellationToken = default) =>
         routeToBacklog.Handle(new RouteToBacklogCommand(id), cancellationToken);
 
-    public Task<Result<InboxBatchRoutedDto>> RouteToBacklogAsync(
+    public Task<Result<InboxBatchProposalDto>> ProposeBatchAsync(
         IReadOnlyList<Guid> ids,
         Guid? listId = null,
         CancellationToken cancellationToken = default) =>
-        routeBatchToBacklog.Handle(new RouteBatchToBacklogCommand(ids, listId), cancellationToken);
+        proposeBatch.Handle(new ProposeBatchQuery(ids, listId), cancellationToken);
+
+    public Task<Result<InboxBatchRoutedDto>> RouteToBacklogAsync(
+        IReadOnlyList<Guid> ids,
+        Guid? listId = null,
+        InboxBatchRouteChoicesDto? choices = null,
+        CancellationToken cancellationToken = default) =>
+        routeBatchToBacklog.Handle(new RouteBatchToBacklogCommand(ids, listId, choices), cancellationToken);
 
     public Task<Result<InboxRoutedDto>> CreatePlanAsync(Guid id, CancellationToken cancellationToken = default) =>
         createPlan.Handle(new CreatePlanCommand(id), cancellationToken);

@@ -441,6 +441,56 @@ public sealed class InboxBacklogTargetTests
         Assert.Single(result.Routed);
     }
 
+    // --- Dependencies -----------------------------------------------------------
+
+    /// <summary>A confirmed dependency is an <c>after:</c> token the parser
+    /// reads back: one on another item of the batch names every <c>id:</c> that
+    /// item went in under, and one on a task is written as given.</summary>
+    [Fact]
+    public async Task A_dependency_on_a_batch_item_names_every_entry_it_went_in_under_and_one_on_a_task_is_written_as_given()
+    {
+        var tasks = new RecordingTaskItems(existing: 0);
+        var request = new InboxBatchRouteRequestDto(
+            [
+                new InboxRouteRequestDto(Other, "Set up the pipeline", string.Empty, null, [], ["a/one", "a/two"]),
+                new InboxRouteRequestDto(Item, "Deploy the preview", string.Empty, null, [], [], null, [Other], ["0199-earlier", "2f7c0a1e-0000-0000-0000-000000000009"]),
+            ],
+            BatchTag);
+
+        await new InboxBacklogTarget(tasks, Known()).CreateBatchTasksAsync(request, TestContext.Current.CancellationToken);
+
+        var parsed = EntryTextParser.SplitSegments(Assert.Single(tasks.Imports).RawText).Select(EntryTextParser.Parse).ToList();
+        Assert.Equal(3, parsed.Count);
+        Assert.All(parsed.Take(2), entry => Assert.Empty(entry.DependsOn ?? []));
+        Assert.Equal(
+            [$"{Other:D}/a/one", $"{Other:D}/a/two", "0199-earlier", "2f7c0a1e-0000-0000-0000-000000000009"],
+            parsed[2].DependsOn);
+        Assert.Empty(parsed[2].Unreadable ?? []);
+    }
+
+    /// <summary>A dependency on an item the adapter left out of the document
+    /// names no entry, and an <c>after:</c> naming none would block the task for
+    /// good — so it is not written, and the item that waited still goes.</summary>
+    [Fact]
+    public async Task A_dependency_on_an_item_left_out_of_the_document_is_dropped()
+    {
+        var tasks = new RecordingTaskItems(existing: 0);
+        var request = new InboxBatchRouteRequestDto(
+            [
+                new InboxRouteRequestDto(Other, "Unknown repository", string.Empty, null, [], ["gone/away"]),
+                new InboxRouteRequestDto(Item, "Waits on it", string.Empty, null, [], [], null, [Other]),
+            ],
+            BatchTag);
+
+        var result = await new InboxBacklogTarget(tasks, Known()).CreateBatchTasksAsync(request, TestContext.Current.CancellationToken);
+
+        Assert.Equal(Other, Assert.Single(result.Refused).Id);
+        Assert.Equal(Item, Assert.Single(result.Routed).InboxItemId);
+        var entry = EntryTextParser.Parse(Assert.Single(tasks.Imports).RawText);
+        Assert.Empty(entry.DependsOn ?? []);
+        Assert.DoesNotContain("after:", Assert.Single(tasks.Imports).RawText, StringComparison.Ordinal);
+    }
+
     /// <summary>The workspace's repository registry, as Tasks' port shows it:
     /// a fixed set, and a record of anything a caller asked it to register —
     /// which a batch never may.</summary>

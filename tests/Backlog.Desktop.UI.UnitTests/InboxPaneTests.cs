@@ -1502,10 +1502,15 @@ public sealed class InboxPaneTests
         await PickAsync(pane, items[1].Id);
         await pane.Find("[data-testid='inbox-bulk-backlog']").ClickAsync(new());
 
+        // Two items are a batch to decide on first; nothing goes until Confirm.
+        Assert.Empty(harness.Inbox.BatchRoutes);
+        await pane.Find("[data-testid='inbox-route-panel-confirm']").ClickAsync(new());
+
         var route = Assert.Single(harness.Inbox.BatchRoutes);
         Assert.Equal([items[0].Id, items[1].Id], route.Ids);
         Assert.Null(route.ListId);
         Assert.Matches(@"^\+inbox-batch-[0-9a-f]{8}$", route.PlanTag);
+        Assert.Equal(Assert.Single(harness.Inbox.Proposals).Ids, route.Ids);
 
         var batch = Assert.Single(batches);
         Assert.Equal([items[0].Id, items[1].Id], batch.Routed.Select(routed => routed.InboxItemId));
@@ -1565,7 +1570,7 @@ public sealed class InboxPaneTests
     }
 
     [Fact]
-    public async Task Move_list_to_backlog_confirms_then_routes_the_lists_open_items_and_keeps_the_list()
+    public async Task Move_list_to_backlog_decides_in_the_panel_then_routes_the_lists_open_items_and_keeps_the_list()
     {
         using var harness = Harness.Create();
         var reading = harness.Inbox.SeedList("Reading List");
@@ -1582,19 +1587,22 @@ public sealed class InboxPaneTests
         await pane.Find($"[data-testid='inbox-nav-{InboxDesktopState.ListNavId(reading.Id)}']").ClickAsync(new());
         await pane.Find("[data-testid='inbox-list-to-backlog']").ClickAsync(new());
 
-        var dialog = pane.Find("[data-testid='inbox-list-to-backlog-dialog']");
-        Assert.Contains("Move 2 open items of Reading List to the backlog as one plan tagged +reading-list-…?", dialog.TextContent);
+        Assert.Empty(pane.FindAll("[data-testid='inbox-list-to-backlog-dialog']"));
+        Assert.Single(pane.FindAll("[data-testid='inbox-route-panel']"));
+        var tag = pane.Find("[data-testid='inbox-route-panel-tag']").TextContent.Trim();
+        Assert.Matches(@"^\+reading-list-[0-9a-f]{8}$", tag);
+        Assert.Equal(reading.Id, Assert.Single(harness.Inbox.Proposals).ListId);
         Assert.Empty(harness.Inbox.BatchRoutes);
 
-        await pane.Find("[data-testid='inbox-list-to-backlog-confirm']").ClickAsync(new());
+        await pane.Find("[data-testid='inbox-route-panel-confirm']").ClickAsync(new());
 
         var route = Assert.Single(harness.Inbox.BatchRoutes);
         Assert.Equal([first.Id, second.Id], route.Ids);
         Assert.Equal(reading.Id, route.ListId);
-        Assert.Matches(@"^\+reading-list-[0-9a-f]{8}$", route.PlanTag);
+        Assert.Equal(tag, route.PlanTag);
         Assert.Single(batches);
         Assert.Contains(harness.Inbox.Lists, list => list.Id == reading.Id);
-        Assert.Empty(pane.FindAll("[data-testid='inbox-list-to-backlog-dialog']"));
+        Assert.Empty(pane.FindAll("[data-testid='inbox-route-panel']"));
 
         // Nothing open is left, so the action says why it has nothing to do.
         var button = pane.Find("[data-testid='inbox-list-to-backlog']");
@@ -1680,6 +1688,236 @@ public sealed class InboxPaneTests
         Assert.Equal(InboxBulkOutcome.Nothing, await batch);
         Assert.Equal(0, batches);
         Assert.Equal(1, harness.Inbox.SingleRouteCalls);
+    }
+
+    // --- Before you route ---------------------------------------------------------
+
+    [Fact]
+    public async Task Routing_two_items_opens_the_panel_with_the_order_the_dependencies_the_tag_and_the_count()
+    {
+        using var harness = Harness.Create();
+        var items = SeedNewestFirst(harness, "Deploy the preview", "Set up the pipeline");
+        await harness.Inbox.AssignRepositoriesAsync(items[1].Id, ["a/one", "a/two"], TestContext.Current.CancellationToken);
+        harness.Inbox.ProposedDependencies.Add(new ProposedDependency(
+            items[0].Id, DependencyTarget.ForItem(items[1].Id, "Set up the pipeline"), "set up the pipeline"));
+
+        var pane = await harness.RenderAsync();
+        await pane.InvokeAsync(() => harness.State.SetSelectAllVisible(true));
+        await pane.Find("[data-testid='inbox-bulk-backlog']").ClickAsync(new());
+
+        var panel = pane.Find("[data-testid='inbox-route-panel']");
+        Assert.Contains("Before you route", panel.TextContent, StringComparison.Ordinal);
+
+        // The pipeline first, because the preview waits on it.
+        Assert.Equal(
+            ["Set up the pipeline", "Deploy the preview"],
+            pane.FindAll("[data-testid='inbox-route-panel-order-item']").Select(item => item.TextContent.Trim()));
+
+        var edge = Assert.Single(pane.FindAll("[data-testid='inbox-route-panel-edge']"));
+        Assert.Contains("Deploy the preview after Set up the pipeline", edge.TextContent, StringComparison.Ordinal);
+        Assert.Contains("“set up the pipeline”", edge.TextContent, StringComparison.Ordinal);
+        Assert.Equal("true", pane.Find("[data-testid='inbox-route-panel-edge-toggle-0'] [role='switch']").GetAttribute("aria-checked"));
+
+        Assert.Matches(@"^\+inbox-batch-[0-9a-f]{8}$", pane.Find("[data-testid='inbox-route-panel-tag']").TextContent.Trim());
+        Assert.Equal("3 tasks will be created.", pane.Find("[data-testid='inbox-route-panel-count']").TextContent.Trim());
+        Assert.Empty(pane.FindAll("[data-testid='inbox-route-panel-loop']"));
+        Assert.False(pane.Find("[data-testid='inbox-route-panel-confirm']").HasAttribute("disabled"));
+
+        // Turning the dependency off puts them back in the order asked.
+        await pane.Find("[data-testid='inbox-route-panel-edge-toggle-0'] [role='switch']").ClickAsync(new());
+        Assert.Equal(
+            ["Deploy the preview", "Set up the pipeline"],
+            pane.FindAll("[data-testid='inbox-route-panel-order-item']").Select(item => item.TextContent.Trim()));
+    }
+
+    [Fact]
+    public async Task A_loop_is_named_and_holds_confirm_until_a_switch_breaks_it()
+    {
+        using var harness = Harness.Create();
+        var items = SeedNewestFirst(harness, "Write the release notes", "Ship the release");
+        harness.Inbox.ProposedDependencies.Add(new ProposedDependency(items[0].Id, DependencyTarget.ForItem(items[1].Id, "Ship the release"), "ship the release"));
+        harness.Inbox.ProposedDependencies.Add(new ProposedDependency(items[1].Id, DependencyTarget.ForItem(items[0].Id, "Write the release notes"), "Write the release notes"));
+
+        var pane = await harness.RenderAsync();
+        await pane.InvokeAsync(() => harness.State.SetSelectAllVisible(true));
+        await pane.Find("[data-testid='inbox-bulk-backlog']").ClickAsync(new());
+
+        var loop = pane.Find("[data-testid='inbox-route-panel-loop']");
+        Assert.Contains("Write the release notes → Ship the release → Write the release notes", loop.TextContent, StringComparison.Ordinal);
+        Assert.Equal("alert", loop.GetAttribute("role"));
+        Assert.True(pane.Find("[data-testid='inbox-route-panel-confirm']").HasAttribute("disabled"));
+
+        // A keyboard reaching Confirm anyway routes nothing.
+        await pane.InvokeAsync(() => harness.State.ConfirmRouteAsync());
+        Assert.Empty(harness.Inbox.BatchRoutes);
+
+        await pane.Find("[data-testid='inbox-route-panel-edge-toggle-1'] [role='switch']").ClickAsync(new());
+
+        Assert.Empty(pane.FindAll("[data-testid='inbox-route-panel-loop']"));
+        Assert.False(pane.Find("[data-testid='inbox-route-panel-confirm']").HasAttribute("disabled"));
+    }
+
+    [Fact]
+    public async Task Confirm_routes_once_with_the_enabled_dependencies_and_the_chosen_repositories()
+    {
+        using var harness = Harness.Create();
+        var items = SeedNewestFirst(harness, "Deploy the preview", "Set up the pipeline", "Tidy up");
+        await harness.Inbox.AssignRepositoriesAsync(items[1].Id, ["a/one", "a/two"], TestContext.Current.CancellationToken);
+        var kept = new ProposedDependency(items[0].Id, DependencyTarget.ForItem(items[1].Id, "Set up the pipeline"), "set up the pipeline");
+        var task = new DependencyTarget(DependencyTargetKind.Task, Guid.NewGuid(), "Earlier task", "0199-earlier");
+        var dropped = new ProposedDependency(items[2].Id, task, "#12");
+        harness.Inbox.ProposedDependencies.AddRange([kept, dropped]);
+        var batches = new List<InboxBatchRoutedDto>();
+        harness.State.BatchRouted += batches.Add;
+
+        var pane = await harness.RenderAsync();
+        await pane.InvokeAsync(() => harness.State.SetSelectAllVisible(true));
+        await pane.Find("[data-testid='inbox-bulk-backlog']").ClickAsync(new());
+
+        Assert.Equal("task", pane.FindAll("[data-testid='inbox-route-panel-edge']")[1].GetAttribute("data-target-kind"));
+        await pane.Find("[data-testid='inbox-route-panel-edge-toggle-1'] [role='switch']").ClickAsync(new());
+        await pane.Find($"[data-testid='inbox-route-panel-repos-{items[1].Id:D}'] .tag-chip__remove").ClickAsync(new());
+        Assert.Equal("3 tasks will be created.", pane.Find("[data-testid='inbox-route-panel-count']").TextContent.Trim());
+        var tag = pane.Find("[data-testid='inbox-route-panel-tag']").TextContent.Trim();
+
+        await pane.Find("[data-testid='inbox-route-panel-confirm']").ClickAsync(new());
+
+        var route = Assert.Single(harness.Inbox.BatchRoutes);
+        Assert.Equal(tag, route.PlanTag);
+        var choices = Assert.IsType<InboxBatchRouteChoicesDto>(route.Choices);
+        Assert.Equal(tag, choices.PlanTag);
+        Assert.Equal([kept], choices.Dependencies);
+        Assert.Equal(["a/two"], choices.Repositories![items[1].Id]);
+        Assert.Empty(choices.Repositories[items[0].Id]);
+        Assert.Equal(["a/two"], harness.Inbox.Find(items[1].Id)!.Routing!.RepoIds);
+        Assert.Single(batches);
+        Assert.Empty(pane.FindAll("[data-testid='inbox-route-panel']"));
+    }
+
+    [Fact]
+    public async Task One_for_all_sends_every_item_to_the_same_repositories()
+    {
+        using var harness = Harness.Create();
+        var items = SeedNewestFirst(harness, "One", "Two");
+        await harness.Inbox.AssignRepositoriesAsync(items[1].Id, ["a/one"], TestContext.Current.CancellationToken);
+
+        var pane = await harness.RenderAsync();
+        await pane.InvokeAsync(() => harness.State.SetSelectAllVisible(true));
+        await pane.Find("[data-testid='inbox-bulk-backlog']").ClickAsync(new());
+        await pane.Find("[data-testid='inbox-route-panel-one-for-all'] [role='switch']").ClickAsync(new());
+
+        Assert.NotEmpty(pane.FindAll("[data-testid='inbox-route-panel-repos-all']"));
+        Assert.Empty(pane.FindAll($"[data-testid='inbox-route-panel-repos-{items[0].Id:D}']"));
+
+        await pane.Find("[data-testid='inbox-route-panel-confirm']").ClickAsync(new());
+
+        var choices = Assert.Single(harness.Inbox.BatchRoutes).Choices!;
+        Assert.Equal(["a/one"], choices.Repositories![items[0].Id]);
+        Assert.Equal(["a/one"], choices.Repositories[items[1].Id]);
+    }
+
+    [Fact]
+    public async Task Cancel_closes_the_panel_and_changes_nothing()
+    {
+        using var harness = Harness.Create();
+        var items = SeedNewestFirst(harness, "One", "Two");
+        var batches = new List<InboxBatchRoutedDto>();
+        harness.State.BatchRouted += batches.Add;
+
+        var pane = await harness.RenderAsync();
+        await pane.InvokeAsync(() => harness.State.SetSelectAllVisible(true));
+        await pane.Find("[data-testid='inbox-bulk-backlog']").ClickAsync(new());
+        await pane.Find("[data-testid='inbox-route-panel-cancel']").ClickAsync(new());
+
+        Assert.Empty(pane.FindAll("[data-testid='inbox-route-panel']"));
+        Assert.Null(harness.State.RouteDraft);
+        Assert.Empty(harness.Inbox.BatchRoutes);
+        Assert.Empty(batches);
+        Assert.All(items, item => Assert.Null(harness.Inbox.Find(item.Id)!.Routing));
+        Assert.Equal(2, harness.State.SelectionCount);
+        Assert.Empty(harness.Toasts.Visible);
+    }
+
+    [Fact]
+    public async Task A_single_item_routes_on_the_press_without_the_panel()
+    {
+        using var harness = Harness.Create();
+        var items = SeedNewestFirst(harness, "Only", "Left alone");
+
+        var pane = await harness.RenderAsync();
+        await pane.Find("[data-testid='inbox-select-toggle']").ClickAsync(new());
+        await PickAsync(pane, items[0].Id);
+        await pane.Find("[data-testid='inbox-bulk-backlog']").ClickAsync(new());
+
+        Assert.Empty(pane.FindAll("[data-testid='inbox-route-panel']"));
+        Assert.Empty(harness.Inbox.Proposals);
+        Assert.Equal([items[0].Id], Assert.Single(harness.Inbox.BatchRoutes).Ids);
+        Assert.Null(harness.Inbox.BatchRoutes[0].Choices);
+    }
+
+    /// <summary>A decided item picked with two open ones does not count toward
+    /// the panel, and the panel names it as staying behind.</summary>
+    [Fact]
+    public async Task The_panel_names_a_picked_item_that_will_not_go()
+    {
+        using var harness = Harness.Create();
+        SeedNewestFirst(harness, "One", "Two");
+        harness.Inbox.Seed("Decided", status: InboxStatus.Triaged, capturedAt: harness.Inbox.Now.AddMinutes(-5));
+
+        var pane = await harness.RenderAsync();
+        await pane.InvokeAsync(() => harness.State.SetSelectAllVisible(true));
+        await pane.Find("[data-testid='inbox-bulk-backlog']").ClickAsync(new());
+
+        Assert.Equal(2, Assert.Single(harness.Inbox.Proposals).Ids.Count);
+        Assert.Contains("\"Decided\" — Already routed or archived", pane.Find("[data-testid='inbox-route-panel-refused']").TextContent, StringComparison.Ordinal);
+    }
+
+    /// <summary>A list route always asks first. When the module's answer leaves
+    /// fewer than two items to route — one was routed since the pane last
+    /// looked — there is nothing to order, so the list's plain confirm asks
+    /// instead, and nothing goes until it is answered.</summary>
+    [Fact]
+    public async Task A_list_whose_proposal_has_one_item_left_asks_the_plain_confirm_instead_of_routing()
+    {
+        using var harness = Harness.Create();
+        var reading = harness.Inbox.SeedList("Reading");
+        var first = harness.Inbox.Seed("First", listId: reading.Id, capturedAt: harness.Inbox.Now.AddMinutes(2));
+        var second = harness.Inbox.Seed("Second", listId: reading.Id, capturedAt: harness.Inbox.Now.AddMinutes(1));
+
+        var pane = await harness.RenderAsync();
+        await pane.Find($"[data-testid='inbox-nav-{InboxDesktopState.ListNavId(reading.Id)}']").ClickAsync(new());
+
+        // Routed behind the pane's back, so the pane still counts two.
+        await harness.Inbox.RouteToBacklogAsync(second.Id, TestContext.Current.CancellationToken);
+        await pane.Find("[data-testid='inbox-list-to-backlog']").ClickAsync(new());
+
+        Assert.Single(harness.Inbox.Proposals);
+        Assert.Empty(pane.FindAll("[data-testid='inbox-route-panel']"));
+        Assert.Single(pane.FindAll("[data-testid='inbox-list-to-backlog-dialog']"));
+        Assert.Empty(harness.Inbox.BatchRoutes);
+
+        await pane.Find("[data-testid='inbox-list-to-backlog-confirm']").ClickAsync(new());
+
+        Assert.Equal(first.Id, Assert.Single(Assert.Single(harness.Inbox.BatchRoutes).Ids));
+        Assert.Empty(pane.FindAll("[data-testid='inbox-list-to-backlog-dialog']"));
+    }
+
+    [Fact]
+    public async Task The_list_panel_says_the_deferred_items_stay()
+    {
+        using var harness = Harness.Create();
+        var reading = harness.Inbox.SeedList("Reading");
+        harness.Inbox.Seed("First", listId: reading.Id, capturedAt: harness.Inbox.Now.AddMinutes(2));
+        harness.Inbox.Seed("Second", listId: reading.Id, capturedAt: harness.Inbox.Now.AddMinutes(1));
+        harness.Inbox.Seed("Later", listId: reading.Id, status: InboxStatus.Deferred);
+
+        var pane = await harness.RenderAsync();
+        await pane.Find($"[data-testid='inbox-nav-{InboxDesktopState.ListNavId(reading.Id)}']").ClickAsync(new());
+        await pane.Find("[data-testid='inbox-list-to-backlog']").ClickAsync(new());
+
+        Assert.Equal(
+            "The list stays; its 1 deferred item stays with it.",
+            pane.Find("[data-testid='inbox-route-panel-deferred']").TextContent.Trim());
     }
 
     /// <summary>Deferred items stay in the list when it is routed; the confirm

@@ -96,6 +96,7 @@ public sealed class HomeInboxWiringTests
         await component.Find("[data-testid='inbox-select-toggle']").ClickAsync(new());
         await component.InvokeAsync(() => inbox.SetSelectAllVisible(true));
         await component.Find("[data-testid='inbox-bulk-backlog']").ClickAsync(new());
+        await component.Find("[data-testid='inbox-route-panel-confirm']").ClickAsync(new());
 
         component.WaitForAssertion(() =>
         {

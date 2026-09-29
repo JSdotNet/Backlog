@@ -5,8 +5,10 @@
     bar the Tasks pane puts over its list, so the two panes pick things the
     same way (.devbook/domain/tasks/features.md#bulk-editing).
 
-    Archive and Move to backlog run on the press, as they do on the detail;
-    Move to backlog routes the selection as one batch, one plan. The other three open a
+    Archive runs on the press, as it does on the detail. Move to backlog
+    routes the selection as one batch, one plan: on the press for one item, and
+    through the Before you route panel (InboxRoutePanel) for two or more, where
+    the order, the dependencies and the repositories are decided first. The other three open a
     dialog, because each needs a choice first — which list, which tags, which
     repositories — and a dialog is where the detail already asks "Move to
     list". Every act waits while one is in flight; the answer is a toast from
@@ -137,7 +139,7 @@
         <AppButton Size="ButtonSize.Small"
                    Disabled="@State.RoutingInFlight"
                    Title="Route the selected items to the backlog together, as one plan"
-                   OnClick="() => State.BulkRouteToBacklogAsync()"
+                   OnClick="() => State.BeginBulkRouteAsync()"
                    TestId="inbox-bulk-backlog">Move to backlog</AppButton>
         <AppButton Size="ButtonSize.Small"
                    Disabled="@State.BulkRunning"
