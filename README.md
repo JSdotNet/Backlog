@@ -123,7 +123,7 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `src/Modules/Roadmap/Backlog.Modules.Roadmap.Abstractions` | The Roadmap module's published surface — the plan DTOs, `IRoadmapPlanning`, and `RoadmapFeatures` |
 | `src/Modules/Roadmap/Backlog.Modules.Roadmap.UI` | Roadmap Planning's desktop face — the band above the panes and its editor |
 | `src/Modules/Sessions/Backlog.Modules.Sessions.Abstractions` | Sessions' published surface — the session record, its states and groupings, and the `IAgentSessionSource` port |
-| `src/Modules/Sessions/Backlog.Modules.Sessions.UI` | Sessions' desktop face — the full-screen session list, and the readers over what Claude and Copilot leave in the user profile |
+| `src/Modules/Sessions/Backlog.Modules.Sessions.UI` | Sessions' desktop face — the full-screen session list over the readers `Backlog.Infrastructure.Sessions` provides |
 | `src/Modules/DevPc/Backlog.Modules.DevPc.Abstractions` | Dev PC Management's published surface — `DevPcFeatures` and the types its screens exchange |
 | `src/Modules/DevPc/Backlog.Modules.DevPc.UI` | Dev PC Management's desktop face — the tools surface |
 | `src/Modules/Dashboard/Backlog.Modules.Dashboard` | Dashboard module — the derivations behind the dashboard: productivity scoring, weekly bucketing, churn rates, month-to-date spend, and the session cache in front of the providers |
@@ -141,6 +141,7 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `src/Infrastructure/Backlog.Infrastructure.Sync` | Cross-cutting adapter — the client side of sync: device pairing and credentials, and the task, session and annotation sync workers with their local sync state |
 | `src/Infrastructure/Backlog.Infrastructure.Cosmos` | Cross-cutting adapter — the sync service's Cosmos DB replicas behind the Sync module's ports: tasks, session records, annotations, devices and pairing codes. See [ADR 0005](.devbook/arc42/adr/0005-azure-hosted-task-replica-for-multi-device-sync.md) |
 | `src/Infrastructure/Backlog.Infrastructure.BlobStorage` | Cross-cutting adapter — the sync service's attachment store, one private blob container behind `IAttachmentStore`. See [ADR 0014](.devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md) |
+| `src/Infrastructure/Backlog.Infrastructure.Sessions` | Cross-cutting adapter — the Sessions context's disk readers: the Claude and Copilot transcripts and session files in the user profile, the delivery-run stores and their telemetry, the delivery surface's writing half, and the composites behind `IAgentSessionSource` and `IAgentActivitySource`. Sees only the module's Abstractions; the hosts compose it |
 | `src/App/Backlog.Desktop.UI` | Desktop shell — layout, routes, settings, and the composition that decides which context panes are on screen |
 | `src/App/Backlog.Desktop` | Desktop channel — .NET MAUI Blazor Hybrid (Windows) |
 | `src/App/Backlog.Mobile.UI` | Shared Razor components for the mobile channel |
@@ -172,6 +173,8 @@ Development-time hosts live under `src/Harness/` so runnable project hosts stay 
 | `tests/Backlog.Infrastructure.Mcp.UnitTests` | Unit tests for the MCP tools — each tool group, chapter reading, and tool creation |
 | `tests/Backlog.Infrastructure.Sync.UnitTests` | Unit tests for the sync client — device pairing and credentials, the task, session and annotation sync workers, and replica merging |
 | `tests/Backlog.Infrastructure.Cosmos.UnitTests` | Unit tests for the Cosmos DB adapter — the replica documents, the task replica, and its registration |
+| `tests/Backlog.Infrastructure.BlobStorage.UnitTests` | Unit tests for the blob attachment store — the store against a fake container, and its registration per host environment |
+| `tests/Backlog.Infrastructure.Sessions.UnitTests` | Unit tests for the Sessions adapters — the session and activity sources and their composites, transcript work and activity runs, the delivery-run reader, and the delivery surface lifecycle |
 | `tests/Backlog.UI.Components.UnitTests` | Unit tests for the shared control library, rendered without an application behind it |
 | `tests/Backlog.Desktop.UI.UnitTests` | Unit tests for the desktop UI services, the context panes, and GitHub integration |
 | `tests/Backlog.Mobile.UI.UnitTests` | Unit tests for the mobile channel's components |
