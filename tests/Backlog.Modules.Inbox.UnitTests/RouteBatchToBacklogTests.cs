@@ -333,11 +333,175 @@ public sealed class RouteBatchToBacklogTests
         Assert.Equal(routed.Id, Assert.Single(result.Value.Failed).Id);
     }
 
+    // --- The panel's choices ----------------------------------------------------
+
+    [Fact]
+    public async Task The_proposals_tag_is_the_one_the_import_writes()
+    {
+        var store = new InMemoryInboxStore();
+        var target = new FakeBacklogTarget();
+        var item = Items.Manual();
+        store.Seed(item);
+
+        var result = await Route(store, target, [item.Id], choices: new InboxBatchRouteChoicesDto(PlanTag: " +inbox-batch-1a2b3c4d "));
+
+        Assert.Equal("+inbox-batch-1a2b3c4d", Assert.Single(target.BatchRequests).PlanTag);
+        Assert.Equal("+inbox-batch-1a2b3c4d", result.Value.PlanTag);
+    }
+
+    [Theory]
+    [InlineData("inbox-batch-1a2b3c4d")]
+    [InlineData("+2026-plan")]
+    [InlineData("+two words")]
+    public async Task A_tag_that_is_not_a_plan_tag_is_refused_before_tasks_is_asked(string tag)
+    {
+        var store = new InMemoryInboxStore();
+        var target = new FakeBacklogTarget();
+        var item = Items.Manual();
+        store.Seed(item);
+
+        var result = await Route(store, target, [item.Id], choices: new InboxBatchRouteChoicesDto(PlanTag: tag));
+
+        Assert.Equal("inbox.batch.plan_tag_invalid", result.Error.Code);
+        Assert.Empty(target.BatchRequests);
+        Assert.False(item.IsRouted);
+    }
+
+    [Fact]
+    public async Task A_repository_chosen_in_the_panel_is_where_the_item_goes_and_what_its_routing_records()
+    {
+        var store = new InMemoryInboxStore();
+        var target = new FakeBacklogTarget();
+        var moved = Items.Manual("Moved");
+        moved.SetRepoIds(["a/one"]);
+        var kept = Items.Manual("Kept");
+        kept.SetRepoIds(["a/one"]);
+        store.Seed(moved);
+        store.Seed(kept);
+        var choices = new InboxBatchRouteChoicesDto(Repositories: new Dictionary<Guid, IReadOnlyList<string>>
+        {
+            [moved.Id] = ["a/two", " a/three ", "A/TWO", ""],
+        });
+
+        await Route(store, target, [moved.Id, kept.Id], choices: choices);
+
+        var request = Assert.Single(target.BatchRequests);
+        Assert.Equal(["a/two", "a/three"], request.Items[0].RepoIds);
+        Assert.Equal(["a/one"], request.Items[1].RepoIds);
+        Assert.Equal(["a/two", "a/three"], moved.Routing!.RepoIds);
+        Assert.Equal(2, moved.Routing.TaskIds.Count);
+        Assert.Equal(["a/one"], moved.RepoIds);
+        Assert.Equal(["a/one"], kept.Routing!.RepoIds);
+    }
+
+    [Fact]
+    public async Task Confirmed_dependencies_go_to_the_target_as_facts_and_put_the_document_in_their_order()
+    {
+        var store = new InMemoryInboxStore();
+        var target = new FakeBacklogTarget();
+        var later = Items.Manual("Deploy the preview");
+        var first = Items.Manual("Set up the pipeline");
+        store.Seed(later);
+        store.Seed(first);
+        var task = new InboxTaskReferenceDto(Guid.CreateVersion7(), "0199a3f2-7c41-7d1a-9d0f-3d2c5e6f7a8b", "Earlier task", [], [], []);
+        var choices = new InboxBatchRouteChoicesDto(Dependencies:
+        [
+            new ProposedDependency(later.Id, DependencyTarget.ForItem(first.Id, first.Title), "set up the pipeline"),
+            new ProposedDependency(later.Id, DependencyTarget.ForTask(task), "#12"),
+        ]);
+
+        var result = await Route(store, target, [later.Id, first.Id], choices: choices);
+
+        var request = Assert.Single(target.BatchRequests);
+        Assert.Equal([first.Id, later.Id], request.Items.Select(item => item.InboxItemId));
+        Assert.Empty(request.Items[0].AfterItems ?? []);
+        Assert.Equal([first.Id], request.Items[1].AfterItems);
+        Assert.Equal(["0199a3f2-7c41-7d1a-9d0f-3d2c5e6f7a8b"], request.Items[1].AfterTasks);
+
+        // Named back in the order asked, whatever order the document took.
+        Assert.Equal([later.Id, first.Id], result.Value.Routed.Select(routed => routed.InboxItemId));
+    }
+
+    [Fact]
+    public async Task A_dependency_on_an_item_that_is_not_going_is_dropped()
+    {
+        var store = new InMemoryInboxStore();
+        var target = new FakeBacklogTarget();
+        var item = Items.Manual("Going");
+        var routed = Items.Manual("Already routed");
+        routed.RouteToBacklog([Guid.CreateVersion7()], [], Items.Noon);
+        store.Seed(item);
+        store.Seed(routed);
+        var choices = new InboxBatchRouteChoicesDto(Dependencies:
+        [
+            new ProposedDependency(item.Id, DependencyTarget.ForItem(routed.Id, routed.Title), "Already routed"),
+        ]);
+
+        await Route(store, target, [item.Id, routed.Id], choices: choices);
+
+        Assert.Empty(Assert.Single(Assert.Single(target.BatchRequests).Items).AfterItems ?? []);
+    }
+
+    [Fact]
+    public async Task A_loop_among_the_confirmed_dependencies_refuses_the_batch_and_names_it_by_titles()
+    {
+        var store = new InMemoryInboxStore();
+        var target = new FakeBacklogTarget();
+        var notes = Items.Manual("Write the release notes");
+        var ship = Items.Manual("Ship the release");
+        store.Seed(notes);
+        store.Seed(ship);
+        var choices = new InboxBatchRouteChoicesDto(Dependencies:
+        [
+            new ProposedDependency(notes.Id, DependencyTarget.ForItem(ship.Id, ship.Title), "ship the release"),
+            new ProposedDependency(ship.Id, DependencyTarget.ForItem(notes.Id, notes.Title), "Write the release notes"),
+        ]);
+
+        var result = await Route(store, target, [notes.Id, ship.Id], choices: choices);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal("inbox.batch.dependency_loop", result.Error.Code);
+        Assert.Contains("Write the release notes → Ship the release → Write the release notes", result.Error.Message, StringComparison.Ordinal);
+        Assert.Contains("nothing was routed", result.Error.Message, StringComparison.Ordinal);
+        Assert.Empty(target.BatchRequests);
+        Assert.Empty(store.ItemWrites);
+    }
+
+    /// <summary>A task edge's value is written into a metadata token as it is,
+    /// so one that is empty, has a space, or has a backtick would be a token that
+    /// reads back as something else. Refused whole, before Tasks is asked.</summary>
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("two words")]
+    [InlineData("tick`tock")]
+    [InlineData(null)]
+    public async Task A_task_dependency_whose_value_cannot_be_a_token_refuses_the_batch(string? after)
+    {
+        var store = new InMemoryInboxStore();
+        var target = new FakeBacklogTarget();
+        var item = Items.Manual("Waits");
+        store.Seed(item);
+        var choices = new InboxBatchRouteChoicesDto(Dependencies:
+        [
+            new ProposedDependency(item.Id, new DependencyTarget(DependencyTargetKind.Task, Guid.CreateVersion7(), "A task", after), "#12"),
+        ]);
+
+        var result = await Route(store, target, [item.Id], choices: choices);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal("inbox.batch.dependency_invalid", result.Error.Code);
+        Assert.Contains("A task", result.Error.Message, StringComparison.Ordinal);
+        Assert.Empty(target.BatchRequests);
+        Assert.False(item.IsRouted);
+    }
+
     private static Task<Result<InboxBatchRoutedDto>> Route(
         InMemoryInboxStore store,
         FakeBacklogTarget target,
         IReadOnlyList<Guid> ids,
-        Guid? listId = null) =>
+        Guid? listId = null,
+        InboxBatchRouteChoicesDto? choices = null) =>
         new RouteBatchToBacklogCommandHandler(store, store, target, new FakeTimeProvider(Decision))
-            .Handle(new RouteBatchToBacklogCommand(ids, listId), TestContext.Current.CancellationToken);
+            .Handle(new RouteBatchToBacklogCommand(ids, listId, choices), TestContext.Current.CancellationToken);
 }

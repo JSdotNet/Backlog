@@ -146,6 +146,33 @@ public static class InboxErrors
             : $"Tasks made only some of its entries, so it was not marked routed. The {made.Count} it made are in the backlog: "
                 + string.Join(", ", made.Select(id => id.ToString("D"))) + ".");
 
+    /// <summary>The dependencies confirmed for a batch go round in a loop — an
+    /// item that, through the others, waits on itself — so no item of the loop
+    /// could ever start. Refused whole, before Tasks is asked: the panel names the
+    /// same loops and keeps Confirm off, and this is the command not taking the
+    /// panel's word for it. Each loop is named by its titles, <c>A → B → A</c>.</summary>
+    public static Error BatchDependencyLoop(IReadOnlyList<string> loops) => Error.Validation(
+        "inbox.batch.dependency_loop",
+        $"These dependencies go round in a loop, so no item in it could start first: {string.Join("; ", loops)}. "
+            + "Turn one of them off and route again; nothing was routed.");
+
+    /// <summary>The plan tag handed back from the proposal is not one: a
+    /// <c>+</c> and a word, as <see cref="InboxPlanTag.For"/> writes it. Nothing
+    /// in the pane can type one, so this is a caller's mistake rather than a
+    /// person's, and it is refused rather than written on every entry.</summary>
+    public static Error BatchPlanTagInvalid(string planTag) => Error.Validation(
+        "inbox.batch.plan_tag_invalid",
+        $"{planTag} is not a plan tag; a plan tag is a + and a word, such as +reading-1a2b3c4d. Nothing was routed.");
+
+    /// <summary>A confirmed dependency on a task whose value cannot be written as
+    /// one <c>after:</c> token — empty, or holding a space or a backtick, either
+    /// of which would end the token early and leave the rest to read as
+    /// something else. Nothing in the pane produces one; the command refuses it
+    /// rather than write a token that means something else.</summary>
+    public static Error BatchDependencyInvalid(string taskTitle) => Error.Validation(
+        "inbox.batch.dependency_invalid",
+        $"The dependency on \"{taskTitle}\" cannot be written as an after: token. Nothing was routed.");
+
     /// <summary>The batch was imported and this item's entries exist, but the
     /// item could not be saved as routed. Named with the entries, because the
     /// item still looks unrouted and routing it again would make them twice.</summary>

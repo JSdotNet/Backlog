@@ -1176,10 +1176,155 @@ public sealed class InboxDesktopState
     /// <summary>Routes the open list's open items to the backlog as one batch,
     /// tagged after the list. The list stays; what it held leaves it for the
     /// backlog, and a routed row stays on screen marked, as a single route's does.</summary>
-    public Task<InboxBulkOutcome> RouteListToBacklogAsync() =>
-        SelectedListId is { } listId && !DeferredSelected
+    public Task<InboxBulkOutcome> RouteListToBacklogAsync()
+    {
+        ListRouteConfirmOpen = false;
+
+        return SelectedListId is { } listId && !DeferredSelected
             ? RouteBatchAsync(ListOpenItems, listId)
             : Task.FromResult(InboxBulkOutcome.Nothing);
+    }
+
+    /// <summary>Whether the list's plain "Move this list to the backlog?"
+    /// confirm is open — the question a list of one is asked, since it has
+    /// nothing to order. Held here rather than in the list component because
+    /// the panel's path can end in it too.</summary>
+    public bool ListRouteConfirmOpen { get; private set; }
+
+    /// <summary>Move list to backlog: the panel for two or more open items,
+    /// the plain confirm for one. A list route always asks first.</summary>
+    public Task<InboxBulkOutcome> AskListRouteAsync()
+    {
+        if (ListOpenItems.Count > 1) return BeginListRouteAsync();
+
+        OpenListRouteConfirm();
+        return Task.FromResult(InboxBulkOutcome.Nothing);
+    }
+
+    /// <summary>Cancel on the list's confirm: nothing is routed.</summary>
+    public void CancelListRouteConfirm()
+    {
+        if (!ListRouteConfirmOpen) return;
+
+        ListRouteConfirmOpen = false;
+        Changed?.Invoke();
+    }
+
+    private void OpenListRouteConfirm()
+    {
+        if (SelectedListId is null || DeferredSelected || ListOpenItems.Count == 0) return;
+
+        ListRouteConfirmOpen = true;
+        Changed?.Invoke();
+    }
+
+    // --- Before you route -------------------------------------------------------
+    //
+    // A batch of two or more items is decided in a panel before it goes: the
+    // order, the dependencies the module can see between the items and on the
+    // backlog, a repository per item, the shared tag, the count. One item has
+    // nothing to order and keeps the act it always had.
+
+    /// <summary>The batch the "Before you route" panel is showing, or null when
+    /// the panel is closed.</summary>
+    public InboxRouteDraft? RouteDraft { get; private set; }
+
+    /// <summary>The bulk bar's Move to backlog: the panel for two or more
+    /// routable items, the route itself for one.</summary>
+    public Task<InboxBulkOutcome> BeginBulkRouteAsync() => BeginRouteAsync(SelectedItems, listId: null);
+
+    /// <summary>Move list to backlog: the panel for the open list's items. The
+    /// list's own confirm asks about a list of one, so this is only reached with
+    /// two or more.</summary>
+    public Task<InboxBulkOutcome> BeginListRouteAsync() =>
+        SelectedListId is { } listId && !DeferredSelected
+            ? BeginRouteAsync(ListOpenItems, listId)
+            : Task.FromResult(InboxBulkOutcome.Nothing);
+
+    /// <summary>
+    /// Asks the module what the batch would do and opens the panel on its
+    /// answer. Fewer than two routable items — here, or in the module's answer
+    /// — is a batch with nothing to decide, so it routes at once as it always
+    /// did. The ask counts as a route in flight, so a second press while it is
+    /// out opens nothing twice.
+    /// </summary>
+    private async Task<InboxBulkOutcome> BeginRouteAsync(IReadOnlyList<InboxItemDto> picked, Guid? listId)
+    {
+        if (picked.Count == 0 || RoutingInFlight || RouteDraft is not null) return InboxBulkOutcome.Nothing;
+
+        var pending = picked.Where(item => RefuseDecided(item) is null).ToList();
+        if (pending.Count < 2) return await RouteOneOrAskAsync(picked, listId);
+
+        InboxBatchProposalDto proposal;
+
+        BulkRunning = true;
+        Changed?.Invoke();
+
+        try
+        {
+            var result = await _inbox.ProposeBatchAsync(Ids(pending), listId);
+            if (Report(result, BulkResultTestId))
+            {
+                // The list went while the pane was open; the reload takes the
+                // pane off it.
+                await ReloadAsync();
+                return InboxBulkOutcome.Nothing;
+            }
+
+            proposal = result.Value;
+        }
+        finally
+        {
+            BulkRunning = false;
+            Changed?.Invoke();
+        }
+
+        if (proposal.Items.Count < 2)
+        {
+            // The module sees fewer to route than the pane did: something was
+            // decided since the pane last looked. Read again first, so what
+            // follows counts what is really there.
+            await ReloadAsync();
+            return await RouteOneOrAskAsync(picked, listId);
+        }
+
+        RouteDraft = new InboxRouteDraft(proposal, listId, picked);
+        Changed?.Invoke();
+        return InboxBulkOutcome.Nothing;
+    }
+
+    /// <summary>A batch with nothing to order. A selection of one routes on
+    /// the press, as it always did; a list never routes unasked, so it gets
+    /// the list's plain confirm.</summary>
+    private async Task<InboxBulkOutcome> RouteOneOrAskAsync(IReadOnlyList<InboxItemDto> picked, Guid? listId)
+    {
+        if (listId is null) return await RouteBatchAsync(picked, listId);
+
+        OpenListRouteConfirm();
+        return InboxBulkOutcome.Nothing;
+    }
+
+    /// <summary>Cancel on the panel: it closes, and nothing is routed or changed.</summary>
+    public void CancelRoute()
+    {
+        if (RouteDraft is null) return;
+
+        RouteDraft = null;
+        Changed?.Invoke();
+    }
+
+    /// <summary>Confirm on the panel: routes the batch as one import with the
+    /// choices made — the tag the panel showed, the repositories, the
+    /// dependencies left on. Refused while a loop is on, as the panel's Confirm
+    /// is, so a keyboard reaching this anyway routes nothing.</summary>
+    public async Task<InboxBulkOutcome> ConfirmRouteAsync()
+    {
+        if (RouteDraft is not { CanConfirm: true } draft || RoutingInFlight) return InboxBulkOutcome.Nothing;
+
+        RouteDraft = null;
+
+        return await RouteBatchAsync(draft.Picked, draft.ListId, draft.Choices());
+    }
 
     /// <summary>
     /// One batch route, end to end — <see cref="RunBulkAsync"/>'s shape with the
@@ -1188,7 +1333,10 @@ public sealed class InboxDesktopState
     /// there" to skip, the sentence names the plan the batch became, and the shell
     /// hears of it once.
     /// </summary>
-    private async Task<InboxBulkOutcome> RouteBatchAsync(IReadOnlyList<InboxItemDto> picked, Guid? listId)
+    private async Task<InboxBulkOutcome> RouteBatchAsync(
+        IReadOnlyList<InboxItemDto> picked,
+        Guid? listId,
+        InboxBatchRouteChoicesDto? choices = null)
     {
         if (picked.Count == 0 || RoutingInFlight) return InboxBulkOutcome.Nothing;
 
@@ -1210,7 +1358,7 @@ public sealed class InboxDesktopState
 
             if (pending.Count > 0)
             {
-                var result = await _inbox.RouteToBacklogAsync(Ids(pending), listId);
+                var result = await _inbox.RouteToBacklogAsync(Ids(pending), listId, choices);
                 if (Report(result, BulkResultTestId))
                 {
                     // The list went while the dialog was open; the reload takes

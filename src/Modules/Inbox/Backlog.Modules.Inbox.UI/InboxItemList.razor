@@ -26,8 +26,11 @@
     are independent, as they are in the Tasks list.
 
     A list open in the column has one act of its own beside Select: Move list
-    to backlog, which routes every open row of the list as one batch after a
-    confirm. The list is left standing; only what it held goes.
+    to backlog, which routes every open row of the list as one batch. Two or
+    more rows open the Before you route panel (InboxRoutePanel), the same one
+    the bulk bar's Move to backlog opens; a list of one asks a plain confirm,
+    because there is nothing to order. The list is left standing; only what it
+    held goes.
 
     The rows also hear the digits that take the chosen item's suggestions, so a
     reader who has just clicked a row can take "2" without moving focus to the
@@ -123,7 +126,7 @@
                                    Title="@(open == 0
                                        ? $"Nothing open in {State.SliceName} to move."
                                        : $"Route the {InboxDesktopState.Counted(open, "open item", "open items")} here to the backlog as one plan")"
-                                   OnClick="() => _confirmListRoute = true"
+                                   OnClick="() => State.AskListRouteAsync()"
                                    TestId="inbox-list-to-backlog">Move list to backlog</AppButton>
                     }
                 </div>
@@ -135,15 +138,17 @@
             <InboxBulkBar State="@State" />
         }
 
-        <ConfirmDialog Open="@_confirmListRoute"
+        <ConfirmDialog Open="@State.ListRouteConfirmOpen"
                        Title="Move this list to the backlog?"
                        Message="@ListRouteMessage"
                        ConfirmText="Move to backlog"
                        OnConfirm="OnListRouteConfirmedAsync"
-                       OnCancel="() => _confirmListRoute = false"
+                       OnCancel="State.CancelListRouteConfirm"
                        TestId="inbox-list-to-backlog-dialog"
                        ConfirmTestId="inbox-list-to-backlog-confirm"
                        CancelTestId="inbox-list-to-backlog-cancel" />
+
+        <InboxRoutePanel State="@State" />
 
         var rows = State.VisibleItems;
 
@@ -268,8 +273,6 @@
     [Parameter, EditorRequired]
     public InboxDesktopState State { get; set; } = default!;
 
-    private bool _confirmListRoute;
-
     /// <summary>The count and the plan the batch will become. The tag's digits
     /// are minted by the module when it routes, so the preview shows the slug
     /// and leaves them out. Deferred items stay behind in the list, and when
@@ -284,12 +287,7 @@
             var deferred => $"; its {deferred} deferred items stay with it.",
         };
 
-    private async Task OnListRouteConfirmedAsync()
-    {
-        _confirmListRoute = false;
-
-        await State.RouteListToBacklogAsync();
-    }
+    private Task OnListRouteConfirmedAsync() => State.RouteListToBacklogAsync();
 
     /// <summary>A bare digit takes the chosen item's suggestion with that number,
     /// as it does in the detail.</summary>

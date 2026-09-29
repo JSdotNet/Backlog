@@ -97,6 +97,17 @@ internal sealed partial class InboxBacklogTarget(ITaskItems tasks, IRepositoryDi
     /// single route's save only resolves one, so a batch asks the registry the
     /// same read-only question the save does and never lets the import register.
     /// </para>
+    /// <para>
+    /// The dependencies the person confirmed become <c>after:</c> tokens, which
+    /// is why the document is written only once every item has been decided.
+    /// One on another item of the batch names every <c>id:</c> that item went
+    /// into the document under — all of its repositories' entries, since the
+    /// work waits on all of them — and one on an item left out names nothing and
+    /// is dropped, because an <c>after:</c> naming no entry would block the task
+    /// for good. One on a task already in the backlog is written as given: its
+    /// imported <c>id:</c> or its own id, both of which Tasks' import resolves
+    /// against the stored entries (ADR 0007).
+    /// </para>
     /// </summary>
     public async Task<InboxBatchTargetResultDto> CreateBatchTasksAsync(
         InboxBatchRouteRequestDto request,
@@ -104,9 +115,7 @@ internal sealed partial class InboxBacklogTarget(ITaskItems tasks, IRepositoryDi
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        var document = new StringBuilder();
-        var sources = new Dictionary<string, string>(StringComparer.Ordinal);
-        var sent = new List<(Guid Item, IReadOnlyList<string> ImportItemIds)>(request.Items.Count);
+        var sendable = new List<(InboxRouteRequestDto Item, IReadOnlyList<(string? Repo, string ImportItemId)> Entries)>(request.Items.Count);
         var refused = new List<(int Position, InboxBatchFailureDto Failure)>();
 
         for (var position = 0; position < request.Items.Count; position++)
@@ -121,21 +130,33 @@ internal sealed partial class InboxBacklogTarget(ITaskItems tasks, IRepositoryDi
 
             var itemId = item.InboxItemId.ToString("D");
             IReadOnlyList<string?> targets = item.RepoIds.Count == 0 ? [null] : [.. item.RepoIds];
-            var importItemIds = new List<string>(targets.Count);
-
-            foreach (var repo in targets)
-            {
-                var importItemId = ImportItemId(itemId, repo, targets.Count);
-                if (document.Length > 0) document.Append('\n');
-                document.Append(Compose(item, repo, request.PlanTag, importItemId));
-                sources[importItemId] = itemId;
-                importItemIds.Add(importItemId);
-            }
-
-            sent.Add((item.InboxItemId, importItemIds));
+            sendable.Add((item, [.. targets.Select(repo => (repo, ImportItemId(itemId, repo, targets.Count)))]));
         }
 
-        if (sent.Count == 0) return new InboxBatchTargetResultDto([], Ordered(refused));
+        if (sendable.Count == 0) return new InboxBatchTargetResultDto([], Ordered(refused));
+
+        var importItemIdsOf = sendable.ToDictionary(
+            entry => entry.Item.InboxItemId,
+            entry => entry.Entries.Select(written => written.ImportItemId).ToList());
+
+        var document = new StringBuilder();
+        var sources = new Dictionary<string, string>(StringComparer.Ordinal);
+        var sent = new List<(Guid Item, IReadOnlyList<string> ImportItemIds)>(sendable.Count);
+
+        foreach (var (item, entries) in sendable)
+        {
+            var itemId = item.InboxItemId.ToString("D");
+            var after = After(item, importItemIdsOf);
+
+            foreach (var (repo, importItemId) in entries)
+            {
+                if (document.Length > 0) document.Append('\n');
+                document.Append(Compose(item, repo, request.PlanTag, importItemId, after));
+                sources[importItemId] = itemId;
+            }
+
+            sent.Add((item.InboxItemId, importItemIdsOf[item.InboxItemId]));
+        }
 
         var imported = await tasks
             .ImportPlanAsync(document.ToString(), defaultRepo: null, repoMatches: null, sourceInboxId: null, sourceInboxIds: sources, cancellationToken: cancellationToken)
@@ -187,6 +208,26 @@ internal sealed partial class InboxBacklogTarget(ITaskItems tasks, IRepositoryDi
 
     private static string ImportItemId(string itemId, string? repo, int targets) =>
         targets > 1 ? $"{itemId}/{repo!.Trim()}" : itemId;
+
+    /// <summary>The <c>after:</c> values one item's entries carry: every
+    /// <c>id:</c> of each batch item it waits on that is in the document, then
+    /// each task value as given — each once, in that order.</summary>
+    private static List<string> After(InboxRouteRequestDto item, Dictionary<Guid, List<string>> importItemIdsOf)
+    {
+        var after = new List<string>();
+
+        foreach (var target in item.AfterItems ?? [])
+        {
+            if (target == item.InboxItemId || !importItemIdsOf.TryGetValue(target, out var ids)) continue;
+            after.AddRange(ids);
+        }
+
+        after.AddRange((item.AfterTasks ?? [])
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value.Trim()));
+
+        return [.. after.Distinct(StringComparer.Ordinal)];
+    }
 
     private static List<InboxBatchFailureDto> Ordered(List<(int Position, InboxBatchFailureDto Failure)> refused) =>
         [.. refused.OrderBy(entry => entry.Position).Select(entry => entry.Failure)];
@@ -262,7 +303,8 @@ internal sealed partial class InboxBacklogTarget(ITaskItems tasks, IRepositoryDi
         InboxRouteRequestDto request,
         string? repo,
         string? planTag = null,
-        string? importItemId = null)
+        string? importItemId = null,
+        IReadOnlyList<string>? after = null)
     {
         var text = new StringBuilder();
 
@@ -277,11 +319,12 @@ internal sealed partial class InboxBacklogTarget(ITaskItems tasks, IRepositoryDi
             text.Append(" `#").Append(tag).Append('`');
         }
 
-        // A batch's two tokens: the plan the entry belongs to, sigil and all,
-        // and the name it goes by inside the batch's document.
+        // A batch's tokens: the plan the entry belongs to, sigil and all, the
+        // name it goes by inside the batch's document, and what it comes after.
         if (!string.IsNullOrWhiteSpace(planTag)) text.Append(" `").Append(planTag.Trim()).Append('`');
         if (!string.IsNullOrWhiteSpace(repo)) text.Append(" `repo:").Append(repo.Trim()).Append('`');
         if (!string.IsNullOrWhiteSpace(importItemId)) text.Append(" `id:").Append(importItemId).Append('`');
+        foreach (var value in after ?? []) text.Append(" `after:").Append(value).Append('`');
 
         text.Append('\n');
 
