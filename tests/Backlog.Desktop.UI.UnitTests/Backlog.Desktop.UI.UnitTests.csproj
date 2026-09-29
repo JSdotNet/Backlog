@@ -30,6 +30,9 @@
          folder in Backlog.Desktop.UI to keep a namespace from, so its types say
          Backlog.Modules.DevPc.Abstractions. -->
     <Using Include="Backlog.Modules.DevPc.Abstractions" />
+    <!-- And its adapter's namespace: DevToolService, and the command lines and
+         refresh ordering that moved out of the abstractions with it. -->
+    <Using Include="Backlog.Infrastructure.DevPc" />
     <!-- Sessions publishes the session port, the DTOs behind it, the stale
          threshold and the grouping. Same shape as Dev PC Management above: a context
          that never had a folder in Backlog.Desktop.UI, so its types say
@@ -77,13 +80,17 @@
     <ProjectReference Include="..\..\src\Modules\Tasks\Backlog.Modules.Tasks\Backlog.Modules.Tasks.csproj" />
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.AzureFoundry\Backlog.Infrastructure.AzureFoundry.csproj" />
     <ProjectReference Include="..\..\src\Harness\Backlog.AzureFoundry.TestService\Backlog.AzureFoundry.TestService.csproj" />
-    <!-- The desktop web harness, for its IDevToolService adapter. The harness is
-         the only place a browser can reach the tools pane, so its adapter is the
-         only one a browser session ever exercises — and it answers from JSON
-         alone, which makes it testable here rather than only through Playwright.
-         Referencing a harness from a test project is allowed; only shipping
-         projects under src/ may not (HarnessIsNotDeployedTests). -->
+    <!-- The desktop web harness. Referencing a harness from a test project is
+         allowed; only shipping projects under src/ may not
+         (HarnessIsNotDeployedTests). -->
     <ProjectReference Include="..\..\src\Harness\Backlog.Desktop.WebHarness\Backlog.Desktop.WebHarness.csproj" />
+    <!-- Dev PC Management's adapter, for the catalog-only configuration the
+         harness composes. The harness is the only place a browser can reach the
+         tools pane, so that configuration is the only one a browser session ever
+         exercises — and it answers from JSON alone, which makes it testable here
+         rather than only through Playwright. Also the command lines and refresh
+         ordering the application and MCP tests check. -->
+    <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.DevPc\Backlog.Infrastructure.DevPc.csproj" />
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.Copilot\Backlog.Infrastructure.Copilot.csproj" />
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.GitHub\Backlog.Infrastructure.GitHub.csproj" />
     <ProjectReference Include="..\..\src\Infrastructure\Backlog.Infrastructure.FileSystem\Backlog.Infrastructure.FileSystem.csproj" />

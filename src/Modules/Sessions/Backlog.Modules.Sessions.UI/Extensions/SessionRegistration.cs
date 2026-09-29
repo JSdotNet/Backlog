@@ -19,8 +19,8 @@ namespace Backlog.Modules.Sessions.UI.Extensions;
 /// </para>
 /// <para>
 /// Both hosts call it, and both get the same adapters — unlike
-/// <c>IDevToolService</c>, where the desktop shells out to the CLIs and the
-/// harness reads the JSON only. There is nothing to differ about here: the sessions
+/// <c>IDevToolService</c>, where the desktop's adapter shells out to the CLIs and
+/// the harness configures the same adapter to read the JSON only. There is nothing to differ about here: the sessions
 /// are files in the profile of whoever is signed in, and the harness runs as the same
 /// person on the same machine, so a "local development" variant would be the same
 /// code reading the same folders.
