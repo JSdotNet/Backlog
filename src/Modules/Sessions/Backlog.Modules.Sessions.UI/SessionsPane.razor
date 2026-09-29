@@ -223,7 +223,7 @@
         </div>
     </div>
 
-    <div class="sessions-panel__content" id="sessions-content">
+    <div class="sessions-panel__content" id="sessions-content" aria-busy="@(_loading ? "true" : null)">
         @if (_recordsMessage is not null)
         {
             <Alert Message="@_recordsMessage" BaseClass="sessions-panel__notice" Role="status" TestId="sessions-records-updated" />
@@ -236,23 +236,40 @@
         {
             @* Named, not swallowed. One agent's folder being unreadable leaves the
                other agent's rows perfectly good, and the reader has to be able to
-               tell "no Copilot sessions" from "Copilot could not be read". *@
-            <Alert Message="@UnreadableMessage" BaseClass="sessions-panel__notice" Role="status" TestId="sessions-unreadable" />
+               tell "no Copilot sessions" from "Copilot could not be read".
+
+               An alert, and with a way back, because this is the one notice here
+               that is a failure: this section's read did not complete. The two
+               above it are news. .devbook/design/interaction-guidelines.md, Error
+               States, asks a section that failed for a Retry, and the Retry is the
+               read itself — the same one the header's Refresh runs. *@
+            <Alert Message="@UnreadableMessage"
+                   BaseClass="sessions-panel__notice"
+                   Role="alert"
+                   ActionLabel="Retry"
+                   OnAction="RefreshAsync"
+                   ActionTestId="sessions-unreadable-retry"
+                   TestId="sessions-unreadable" />
         }
 
         @* Total, not Shown: a refresh of a fully-filtered list has nothing on screen
-           and is not a first read, and this message would flash on every one of them.
+           and is not a first read, and this placeholder would flash on every one of
+           them.
 
-           The library's alert wearing this pane's own class, the same way the notice
-           above it does. This was a hand-rolled p carrying that class, which is the
-           copy nothing catches: the name is the pane's, so no rule about the
-           library's names could see it. Adopting it changes no markup and no CSS,
-           and it is how the line finally announces itself — a first read that says
-           nothing to a screen reader is the accessibility cost the library exists
-           to pay once. *@
+           Placeholder rows rather than a sentence: a table on its way is drawn in the
+           shape of one (.devbook/design/interaction-guidelines.md, Loading States).
+           This was the library's alert reading "Reading the sessions on this PC.",
+           which is the line a reader cannot tell from a pane that failed to draw.
+           Hidden in one piece, as every skeleton is; the content region's aria-busy
+           is what says the list is not there yet. *@
         @if (_loading && Total == 0)
         {
-            <Alert Message="Reading the sessions on this PC." BaseClass="sessions-panel__empty" Role="status" TestId="sessions-loading" />
+            <div class="sessions-panel__loading" data-testid="sessions-loading" aria-hidden="true">
+                @foreach (var width in SkeletonWidths)
+                {
+                    <Skeleton Shape="SkeletonShape.Block" Width="@width" />
+                }
+            </div>
         }
         else
         {
@@ -527,6 +544,10 @@
     private string? _environmentId;
 
     private bool _loading;
+
+    /// <summary>The first read's placeholder rows, of differing length so that
+    /// they read as rows rather than as a pattern.</summary>
+    private static readonly string[] SkeletonWidths = ["100%", "92%", "96%", "88%"];
 
     /// <summary>When the list was read, so "12 minutes ago" is measured against the
     /// reading rather than against the render. Neither strip re-reads anything: a

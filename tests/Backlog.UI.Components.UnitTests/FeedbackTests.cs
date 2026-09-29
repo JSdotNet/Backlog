@@ -81,6 +81,55 @@ public sealed class AlertTests
 
         Assert.Equal(string.Empty, alert.Markup.Trim());
     }
+
+    /// <summary>
+    /// A section that failed to load offers the way back inside the line that
+    /// says so (.devbook/design/interaction-guidelines.md, Error States): the
+    /// library's button, in the alert's own element, calling the host back.
+    /// </summary>
+    [Fact]
+    public void An_action_is_the_librarys_button_inside_the_line_and_calls_the_host_back()
+    {
+        using var context = new BunitContext();
+        var pressed = 0;
+
+        var alert = context.Render<Alert>(parameters => parameters
+            .Add(a => a.Message, "Could not read the folder.")
+            .Add(a => a.ActionLabel, "Retry")
+            .Add(a => a.ActionTestId, "alert-retry")
+            .Add(a => a.OnAction, () => pressed++));
+
+        var line = alert.Find("p");
+        Assert.Equal("alert", line.GetAttribute("role"));
+
+        var button = Assert.Single(line.QuerySelectorAll("button"));
+        Assert.Equal("Retry", button.TextContent.Trim());
+        Assert.Equal("alert-retry", button.GetAttribute("data-testid"));
+        Assert.Contains("btn", button.ClassList);
+
+        alert.Find("[data-testid='alert-retry']").Click();
+
+        Assert.Equal(1, pressed);
+    }
+
+    /// <summary>A label with nothing to call, or a callback with no label, draws
+    /// no button: a control that does nothing, or one nobody can name, is worse
+    /// than none. Every call site that predates the parameter draws what it did.</summary>
+    [Fact]
+    public void An_action_needs_both_a_label_and_a_callback()
+    {
+        using var context = new BunitContext();
+
+        var unlabelled = context.Render<Alert>(parameters => parameters
+            .Add(a => a.Message, "Could not read the folder.")
+            .Add(a => a.OnAction, () => { }));
+        var unwired = context.Render<Alert>(parameters => parameters
+            .Add(a => a.Message, "Could not read the folder.")
+            .Add(a => a.ActionLabel, "Retry"));
+
+        Assert.Empty(unlabelled.FindAll("button"));
+        Assert.Empty(unwired.FindAll("button"));
+    }
 }
 
 public sealed class SkeletonTests
