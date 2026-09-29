@@ -27,10 +27,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageVersion Include="Aspire.Hosting.AppHost" Version="13.5.3" />
-    <PackageVersion Include="Aspire.Hosting.Azure.CosmosDB" Version="13.5.3" />
-    <PackageVersion Include="Aspire.Hosting.Azure.Storage" Version="13.5.3" />
-    <PackageVersion Include="Aspire.Hosting.DevTunnels" Version="13.5.3" />
+    <PackageVersion Include="Aspire.Hosting.AppHost" Version="13.5.4" />
+    <PackageVersion Include="Aspire.Hosting.Azure.CosmosDB" Version="13.5.4" />
+    <PackageVersion Include="Aspire.Hosting.Azure.Storage" Version="13.5.4" />
+    <PackageVersion Include="Aspire.Hosting.DevTunnels" Version="13.5.4" />
     <!--
       The Azure sign-in the Foundry cost reader borrows: Azure CLI, Azure
       Developer CLI, or Visual Studio. Cost Management is a Resource Manager API
@@ -53,7 +53,7 @@
       Backlog.Infrastructure.Cosmos resolves. It moves with the hosting packages
       above for the same reason they move with each other.
     -->
-    <PackageVersion Include="Aspire.Microsoft.Azure.Cosmos" Version="13.5.3" />
+    <PackageVersion Include="Aspire.Microsoft.Azure.Cosmos" Version="13.5.4" />
 
     <!--
       The client-side half of the attachment store (local ADR 0014): it reads the
@@ -61,7 +61,7 @@
       the BlobContainerClient that Backlog.Infrastructure.BlobStorage resolves.
       Moves with the hosting packages above, like the Cosmos one.
     -->
-    <PackageVersion Include="Aspire.Azure.Storage.Blobs" Version="13.5.3" />
+    <PackageVersion Include="Aspire.Azure.Storage.Blobs" Version="13.5.4" />
 
     <!--
       Pinned to the version Aspire.Azure.Storage.Blobs 13.5.3 resolves
