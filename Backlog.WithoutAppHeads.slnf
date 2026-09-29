@@ -53,6 +53,7 @@
       "tests\\Backlog.Desktop.UI.UnitTests\\Backlog.Desktop.UI.UnitTests.csproj",
       "tests\\Backlog.EndToEndTests\\Backlog.EndToEndTests.csproj",
       "tests\\Backlog.HostComposition.UnitTests\\Backlog.HostComposition.UnitTests.csproj",
+      "tests\\Backlog.Infrastructure.BlobStorage.UnitTests\\Backlog.Infrastructure.BlobStorage.UnitTests.csproj",
       "tests\\Backlog.Infrastructure.Capture.UnitTests\\Backlog.Infrastructure.Capture.UnitTests.csproj",
       "tests\\Backlog.Infrastructure.Claude.UnitTests\\Backlog.Infrastructure.Claude.UnitTests.csproj",
       "tests\\Backlog.Infrastructure.Cosmos.UnitTests\\Backlog.Infrastructure.Cosmos.UnitTests.csproj",
