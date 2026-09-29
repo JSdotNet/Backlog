@@ -1,3 +1,4 @@
+using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Tasks.Abstractions;
 using Microsoft.AspNetCore.Components.Web;
 using Bunit;
@@ -228,6 +229,150 @@ public sealed class TasksPaneContextMenuTests
 
         Assert.Empty(pane.FindAll("[data-testid='entry-menu']"));
         Assert.Null(row.PreviewDueOn);
+    }
+
+    // --- Merging the row's pull request --------------------------------------
+
+    /// <summary>
+    /// The row's latest open pull request is offered to GitHub's auto-merge, and
+    /// choosing it asks GitHub and reads the pull request back: the next time the
+    /// menu opens it offers the way out, because that is what GitHub now holds.
+    /// </summary>
+    [Fact]
+    public async Task Merge_when_checks_pass_hands_the_pull_request_to_auto_merge()
+    {
+        using var host = await TasksPaneHost.CreateAsync("JSdotNet/Backlog");
+        var row = await host.WriteEntryAsync(Entry);
+        WithPullRequest(host, row, 710);
+        var pane = host.Render();
+
+        await OpenMenuAsync(pane, row);
+        Assert.Equal("Merge #710 when checks pass", Label(pane, "merge-pr"));
+
+        // Its own group, ahead of the one act that ends the row.
+        var items = pane.FindAll("[data-testid='entry-menu'] [role='menuitem']")
+            .Select(item => item.GetAttribute("data-testid")!["entry-menu-item-".Length..])
+            .ToList();
+        Assert.Equal(items.IndexOf("delete") - 1, items.IndexOf("merge-pr"));
+
+        await ChooseAsync(pane, "merge-pr");
+
+        Assert.Equal(["enable 710"], host.Client.MergeCalls);
+        Assert.Empty(pane.FindAll("[data-testid='entry-menu']"));
+        Assert.NotNull(pane.Find("[data-testid='row-pull-request-auto-merge']"));
+
+        await OpenMenuAsync(pane, row);
+        Assert.Equal("Cancel auto-merge for #710", Label(pane, "merge-pr"));
+        await ChooseAsync(pane, "merge-pr");
+
+        Assert.Equal(["enable 710", "disable 710"], host.Client.MergeCalls);
+    }
+
+    /// <summary>GitHub refuses to queue a pull request that can already merge, so
+    /// for one the menu offers the merge itself.</summary>
+    [Fact]
+    public async Task A_pull_request_that_can_already_merge_is_offered_merge_now()
+    {
+        using var host = await TasksPaneHost.CreateAsync("JSdotNet/Backlog");
+        var row = await host.WriteEntryAsync(Entry);
+        var pr = WithPullRequest(host, row, 710, mergeReady: true);
+        var pane = host.Render();
+
+        await OpenMenuAsync(pane, row);
+        Assert.Equal("Merge #710 now", Label(pane, "merge-pr"));
+        await ChooseAsync(pane, "merge-pr");
+
+        Assert.Equal(["merge 710"], host.Client.MergeCalls);
+        Assert.Equal(GitHubItemState.Merged, row.PullRequestStates[pr]);
+        Assert.Contains("entry-doc__work-link--merged", pane.Find("[data-testid='row-pull-request']").ClassList);
+    }
+
+    [Fact]
+    public async Task A_refused_merge_is_said_out_loud_and_the_row_keeps_working()
+    {
+        using var host = await TasksPaneHost.CreateAsync("JSdotNet/Backlog");
+        var row = await host.WriteEntryAsync(Entry);
+        WithPullRequest(host, row, 710);
+        host.Client.MergeFailure = new GitHubException("Pull request Auto merge is not allowed for this repository");
+        var pane = host.Render();
+
+        await OpenMenuAsync(pane, row);
+        await ChooseAsync(pane, "merge-pr");
+
+        var toast = Assert.Single(host.Toasts.Visible);
+        Assert.Contains("Allow auto-merge", toast.Message, StringComparison.Ordinal);
+
+        // Still answers: the next act goes through.
+        await OpenMenuAsync(pane, row);
+        await ChooseAsync(pane, "due-today");
+        Assert.Equal(Today, row.PreviewDueOn);
+    }
+
+    [Fact]
+    public async Task No_merge_is_offered_while_the_integration_is_off()
+    {
+        using var host = await TasksPaneHost.CreateAsync("JSdotNet/Backlog");
+        var row = await host.WriteEntryAsync(Entry);
+        WithPullRequest(host, row, 710);
+        host.Features.SetEnabled(TasksFeatures.GitHubIntegration, enabled: false);
+        var pane = host.Render();
+
+        await OpenMenuAsync(pane, row);
+
+        Assert.Empty(pane.FindAll("[data-testid='entry-menu-item-merge-pr']"));
+    }
+
+    [Fact]
+    public async Task No_merge_is_offered_while_no_repository_is_configured()
+    {
+        using var host = await TasksPaneHost.CreateAsync();
+        var row = await host.WriteEntryAsync(Entry);
+        WithPullRequest(host, row, 710);
+        var pane = host.Render();
+
+        await OpenMenuAsync(pane, row);
+
+        Assert.Empty(pane.FindAll("[data-testid='entry-menu-item-merge-pr']"));
+    }
+
+    /// <summary>A draft cannot merge, and one whose status nobody has read has no
+    /// act to name — so neither is offered.</summary>
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public async Task No_merge_is_offered_for_a_draft_or_an_unread_pull_request(bool draft, bool unread)
+    {
+        using var host = await TasksPaneHost.CreateAsync("JSdotNet/Backlog");
+        var row = await host.WriteEntryAsync(Entry);
+        WithPullRequest(host, row, 710, draft: draft);
+        if (unread) row.PullRequestStatuses = new Dictionary<EntryPullRequestLink, GitHubPullRequestStatus>();
+        var pane = host.Render();
+
+        await OpenMenuAsync(pane, row);
+
+        Assert.Empty(pane.FindAll("[data-testid='entry-menu-item-merge-pr']"));
+    }
+
+    /// <summary>A row with one recorded pull request, read, and the same status on
+    /// the fake so the re-read after an act answers.</summary>
+    private static EntryPullRequestLink WithPullRequest(
+        TasksPaneHost host,
+        EntryRow row,
+        int number,
+        bool mergeReady = false,
+        bool draft = false)
+    {
+        var pr = new EntryPullRequestLink("JSdotNet/Backlog", number);
+        var state = draft ? GitHubItemState.Draft : GitHubItemState.Open;
+        var status = new GitHubPullRequestStatus(
+            number, pr.Repository, $"PR_{number}", state, GitHubCheckState.Pending,
+            AutoMergeEnabled: false, MergeReady: mergeReady, GitHubMergeMethod.Merge);
+
+        host.Client.PullRequestStatuses[number] = status;
+        row.PullRequestLinks = [pr];
+        row.PullRequestStates = new Dictionary<EntryPullRequestLink, GitHubItemState> { [pr] = state };
+        row.PullRequestStatuses = new Dictionary<EntryPullRequestLink, GitHubPullRequestStatus> { [pr] = status };
+        return pr;
     }
 
     /// <summary>The menu's backdrop takes the focus when it opens, and it sits

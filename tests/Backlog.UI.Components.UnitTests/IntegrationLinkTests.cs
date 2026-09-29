@@ -148,6 +148,83 @@ public sealed class IntegrationLinkTests
         Assert.Contains("Backlog", named.Find("[data-testid='link']").TextContent, StringComparison.Ordinal);
     }
 
+    /// <summary>A pull request's check roll-up rides on the link as a small mark of
+    /// its own, after the label — and says itself in words as well as in ink,
+    /// because colour is never the only carrier.</summary>
+    [Theory]
+    [InlineData(IntegrationCheckState.Pending, "pending", "Checks pending")]
+    [InlineData(IntegrationCheckState.Passing, "passing", "Checks passing")]
+    [InlineData(IntegrationCheckState.Failing, "failing", "Checks failing")]
+    public void Checks_render_as_a_mark_that_says_its_state_in_words(IntegrationCheckState checks, string slug, string words)
+    {
+        using var context = new BunitContext();
+
+        var link = context.Render<IntegrationLink>(parameters => parameters
+            .Add(l => l.Link, Pull with { Checks = checks })
+            .Add(l => l.ChecksTestId, "checks"));
+
+        var mark = link.Find("[data-testid='checks']");
+
+        Assert.Contains("integration-link__checks", mark.ClassList);
+        Assert.Contains($"integration-link__checks--{slug}", mark.ClassList);
+        Assert.Equal(words, mark.GetAttribute("title"));
+        Assert.Equal(words, mark.QuerySelector(".sr-only")!.TextContent.Trim());
+        Assert.Equal("true", mark.QuerySelector("svg")!.GetAttribute("aria-hidden"));
+    }
+
+    /// <summary>After the label, so the number a reader scans for stays first and
+    /// the mark reads as something said about it.</summary>
+    [Fact]
+    public void The_checks_mark_follows_the_label()
+    {
+        using var context = new BunitContext();
+
+        var link = context.Render<IntegrationLink>(parameters => parameters
+            .Add(l => l.Link, Pull with { Checks = IntegrationCheckState.Passing, AutoMerge = true })
+            .Add(l => l.TestId, "link"));
+
+        var classes = link.Find("[data-testid='link']").Children.Select(child => child.ClassName ?? string.Empty).ToList();
+        var label = classes.FindIndex(name => name.Contains("integration-link__label", StringComparison.Ordinal));
+        var checks = classes.FindIndex(name => name.Contains("integration-link__checks", StringComparison.Ordinal));
+        var autoMerge = classes.FindIndex(name => name.Contains("integration-link__auto-merge", StringComparison.Ordinal));
+
+        Assert.True(label >= 0 && checks > label && autoMerge > checks);
+    }
+
+    /// <summary>No checks is a real state — a repository that runs none — and
+    /// draws nothing rather than a mark promising a result that never comes.</summary>
+    [Fact]
+    public void No_checks_and_no_auto_merge_draw_nothing()
+    {
+        using var context = new BunitContext();
+
+        var link = context.Render<IntegrationLink>(parameters => parameters
+            .Add(l => l.Link, Pull)
+            .Add(l => l.ChecksTestId, "checks")
+            .Add(l => l.AutoMergeTestId, "auto-merge"));
+
+        Assert.Empty(link.FindAll("[data-testid='checks']"));
+        Assert.Empty(link.FindAll("[data-testid='auto-merge']"));
+        Assert.Empty(link.FindAll(".integration-link__checks"));
+        Assert.Empty(link.FindAll(".integration-link__auto-merge"));
+    }
+
+    [Fact]
+    public void Auto_merge_renders_as_a_mark_that_says_so_in_words()
+    {
+        using var context = new BunitContext();
+
+        var link = context.Render<IntegrationLink>(parameters => parameters
+            .Add(l => l.Link, Pull with { AutoMerge = true })
+            .Add(l => l.AutoMergeTestId, "auto-merge"));
+
+        var mark = link.Find("[data-testid='auto-merge']");
+
+        Assert.Contains("integration-link__auto-merge", mark.ClassList);
+        Assert.Equal("Auto-merge on", mark.GetAttribute("title"));
+        Assert.Equal("Auto-merge on", mark.QuerySelector(".sr-only")!.TextContent.Trim());
+    }
+
     [Fact]
     public void A_session_reference_shows_a_session_state_and_never_an_artifact_one()
     {
