@@ -1,7 +1,7 @@
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Dashboard.Abstractions.Services;
 
-namespace Backlog.Modules.Dashboard.UI.Adapters;
+namespace Backlog.Infrastructure.GitHub.Dashboard;
 
 /// <summary>
 /// Answers <see cref="IRepositoryDirectory"/> from the repositories already

@@ -423,7 +423,10 @@ public static class MauiProgram
         // all the adapters hold. Every part reports itself unavailable with a reason until
         // the credential it needs exists, so this is safe to register unconditionally.
         builder.Services.AddDashboardModule();
-        builder.Services.AddDashboardAdapters();
+        builder.Services.AddGitHubDashboardAdapters();
+        builder.Services.AddClaudeDashboardAdapters();
+        builder.Services.AddAzureFoundryDashboardAdapters();
+        builder.Services.AddDashboardUi();
 
         // Tasks' own adapter, registered here rather than beside
         // AddTasksModule() above because it reads the GitHub settings store and

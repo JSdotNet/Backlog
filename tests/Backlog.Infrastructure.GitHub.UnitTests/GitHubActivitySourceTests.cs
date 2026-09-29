@@ -1,8 +1,8 @@
 using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Dashboard.Abstractions.Services;
-using Backlog.Modules.Dashboard.UI.Adapters;
+using Backlog.Infrastructure.GitHub.Dashboard;
 
-namespace Backlog.Desktop.UI.UnitTests;
+namespace Backlog.Infrastructure.GitHub.UnitTests;
 
 /// <summary>
 /// The activity adapter folds every configured repository into one report. A

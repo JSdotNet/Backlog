@@ -2,7 +2,7 @@ using Backlog.Infrastructure.GitHub;
 using Backlog.Modules.Dashboard.Abstractions.Insights;
 using Backlog.Modules.Dashboard.Abstractions.Services;
 
-namespace Backlog.Modules.Dashboard.UI.Adapters;
+namespace Backlog.Infrastructure.GitHub.Dashboard;
 
 /// <summary>
 /// Answers <see cref="ICopilotSpendSource"/> from GitHub's AI-credit usage report.
