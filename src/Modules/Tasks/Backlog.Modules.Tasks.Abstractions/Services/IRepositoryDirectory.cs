@@ -1,3 +1,5 @@
+using Backlog.SharedKernel.Results;
+
 namespace Backlog.Modules.Tasks.Abstractions.Services;
 
 /// <summary>One repository the registry knows about, in the terms Backlog
@@ -74,8 +76,16 @@ public interface IRepositoryDirectory
     /// it, so a plan can introduce a repository to the product just by mentioning
     /// it. Idempotent: a name the registry already knows is answered with what it
     /// already has rather than added a second time, because a plan naming the
-    /// same repository twice is one repository, not two.</summary>
-    TasksRepositoryRef Register(string name);
+    /// same repository twice is one repository, not two.
+    /// <para>
+    /// A failure when the registry could not keep the repository, carrying the
+    /// registry's own sentence. Guideline 0004's result object rather than an
+    /// exception, because it is an expected outcome — a registry file that cannot
+    /// be read or written — and because Import has to stop with that sentence
+    /// before it files a single entry against a repository that would not survive
+    /// a restart.
+    /// </para></summary>
+    Result<TasksRepositoryRef> Register(string name);
 
     /// <summary>Whether an <see cref="TasksRepositoryRef.Id"/> is one somebody
     /// removed and has not configured again. The start-up reconcile pass asks

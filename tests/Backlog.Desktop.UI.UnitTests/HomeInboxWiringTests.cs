@@ -70,6 +70,43 @@ public sealed class HomeInboxWiringTests
         Assert.Contains("Tasks", harness.ShellNavigation.LastEnabledPanes);
     }
 
+    /// <summary>A batch is one import, so the shell hears of it once — through
+    /// <c>BatchRouted</c>, not a <c>Routed</c> per item — and one reload shows
+    /// every entry it made.</summary>
+    [Fact]
+    public async Task Routing_a_batch_reloads_the_tasks_once_and_shows_every_entry()
+    {
+        using var harness = CreateHarness();
+        harness.Inbox.Seed("First of the batch");
+        harness.Inbox.Seed("Second of the batch");
+        harness.Inbox.OnRouted = (routed, _) =>
+        {
+            var order = harness.Entries.ListAsync().GetAwaiter().GetResult().Count;
+            var saved = harness.Entries.SaveFromTextAsync(null, $"# {routed.Title}\n`task` `!draft`\n", order).GetAwaiter().GetResult();
+            Assert.True(saved.IsSuccess);
+        };
+
+        var component = Render(harness);
+        await OpenInboxAsync(component);
+        var state = State(harness);
+        var inbox = harness.Context.Services.GetRequiredService<InboxDesktopState>();
+        var singles = 0;
+        inbox.Routed += _ => singles++;
+
+        await component.Find("[data-testid='inbox-select-toggle']").ClickAsync(new());
+        await component.InvokeAsync(() => inbox.SetSelectAllVisible(true));
+        await component.Find("[data-testid='inbox-bulk-backlog']").ClickAsync(new());
+        await component.Find("[data-testid='inbox-route-panel-confirm']").ClickAsync(new());
+
+        component.WaitForAssertion(() =>
+        {
+            Assert.NotEmpty(component.FindAll("[data-testid='backlog-pane']"));
+            Assert.Contains(state.Rows, row => row.PreviewTitle == "First of the batch");
+            Assert.Contains(state.Rows, row => row.PreviewTitle == "Second of the batch");
+        });
+        Assert.Equal(0, singles);
+    }
+
     /// <summary>
     /// The other writer from outside the pane: a sync pull lands another
     /// device's task in the same database. The timestamp poll that used to

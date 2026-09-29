@@ -1,6 +1,8 @@
 using System.Net;
 using System.Text.Json;
 
+using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
+using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Sync.Abstractions;
 using Backlog.Modules.Sync.Abstractions.DataTransferObjects;
 using Backlog.Modules.Tasks;
@@ -445,6 +447,111 @@ public sealed class TaskSyncWorkerTests
         Assert.Equal(0, fixture.SessionsResolved);
     }
 
+    // --- The roadmap's documents (local ADR 0018) -------------------------------
+
+    /// <summary>A plan saved or a pace set here is pushed after the same settle
+    /// delay a task write is, so the window in which two PCs overwrite each
+    /// other's plan is seconds rather than the five-minute tick.</summary>
+    [Fact]
+    public async Task A_roadmap_change_runs_a_cycle_after_the_settle_delay()
+    {
+        using var fixture = Fixture.Create(featureOn: true, paired: true, roadmap: new RecordingRoadmapReplication());
+
+        var first = fixture.NextCycle();
+        fixture.Clock.Advance(TaskSyncWorker.FirstCycleDelay);
+        await first.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+        Assert.Empty(fixture.PushedBodies);
+
+        fixture.Roadmap!.Held[RoadmapReplicaDocument.Plan] =
+            new RoadmapReplicaCopyDto("""{"version":1}""", Noon.AddMinutes(1));
+        fixture.Roadmap.RaiseChanged();
+
+        var settled = fixture.NextCycle();
+        fixture.Clock.Advance(TaskSyncWorker.ChangeSettleDelay);
+        await settled.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+
+        Assert.Equal("roadmap-plan", Assert.Single(Pushed(Assert.Single(fixture.PushedBodies))).Task.Type);
+    }
+
+    /// <summary>"Republish everything" offers the roadmap's documents again too.</summary>
+    [Fact]
+    public async Task Republishing_offers_the_roadmap_documents_again()
+    {
+        var roadmap = new RecordingRoadmapReplication();
+        roadmap.Held[RoadmapReplicaDocument.Plan] =
+            new RoadmapReplicaCopyDto("""{"version":1}""", Noon);
+
+        using var fixture = Fixture.Create(
+            featureOn: true,
+            paired: true,
+            initialState: Mine(Noon.AddHours(1), "cursor-1").WithDocumentWatermark(RoadmapReplicaDocuments.PlanType, Noon),
+            roadmap: roadmap);
+
+        var caughtUp = fixture.NextCycle();
+        fixture.Clock.Advance(TaskSyncWorker.FirstCycleDelay);
+        await caughtUp.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+        Assert.Empty(fixture.PushedBodies);
+
+        var republished = fixture.NextCycle();
+        fixture.Worker.RepublishEverything();
+        await republished.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+
+        Assert.Equal("roadmap-plan", Assert.Single(Pushed(Assert.Single(fixture.PushedBodies))).Task.Type);
+    }
+
+    /// <summary>ADR 0018, Consequences: the roadmap's first read follows a pull. On a
+    /// device that is not replicating there is no pull to wait for, so it returns at
+    /// once and runs nothing.</summary>
+    [Fact]
+    public async Task Catching_up_on_an_unpaired_device_returns_at_once_and_runs_nothing()
+    {
+        using var fixture = Fixture.Create(featureOn: true, paired: false);
+
+        await fixture.Worker.CatchUpAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken)
+            .WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, fixture.SessionsResolved);
+    }
+
+    /// <summary>A paired device runs its first cycle now rather than after the
+    /// start-up delay, and the read waits for it; once it has run, catching up
+    /// again costs nothing.</summary>
+    [Fact]
+    public async Task Catching_up_runs_the_first_cycle_now_and_waits_for_it()
+    {
+        using var fixture = Fixture.Create(featureOn: true, paired: true);
+
+        await fixture.Worker.CatchUpAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken)
+            .WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, fixture.SessionsResolved);
+        Assert.NotNull(fixture.Worker.LastSummary);
+
+        await fixture.Worker.CatchUpAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken)
+            .WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, fixture.SessionsResolved);
+    }
+
+    /// <summary>A slow cycle does not keep the roadmap blank: the read gives up after
+    /// the timeout and draws what the device holds.</summary>
+    [Fact]
+    public async Task Catching_up_gives_up_after_the_timeout()
+    {
+        using var fixture = Fixture.Create(featureOn: true, paired: true, gated: true);
+
+        var catchUp = fixture.Worker.CatchUpAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
+        await fixture.Gate.Entered.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+        Assert.False(catchUp.IsCompleted);
+
+        var cycle = fixture.NextCycle();
+        fixture.Clock.Advance(TimeSpan.FromSeconds(3));
+        await catchUp.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+
+        fixture.Gate.Release();
+        await cycle.WaitAsync(Fixture.Patience, TestContext.Current.CancellationToken);
+    }
+
     /// <summary>
     /// The other direction, and the one a restored or emptied machine needs: the
     /// cursor and the replica agree perfectly while this device holds nothing at
@@ -638,10 +745,12 @@ public sealed class TaskSyncWorkerTests
             InMemoryDeviceCredentialStore credentials,
             FakeTimeProvider clock,
             RepositoryGate gate,
-            List<string> pushedBodies)
+            List<string> pushedBodies,
+            RecordingRoadmapReplication? roadmap)
         {
             _http = http;
             _repository = repository;
+            Roadmap = roadmap;
 
             Handler = handler;
             Tasks = tasks;
@@ -658,10 +767,16 @@ public sealed class TaskSyncWorkerTests
                 credentials,
                 state,
                 clock,
-                changes: Changes);
+                changes: Changes,
+                roadmap: roadmap);
         }
 
         public TaskSyncWorker Worker { get; }
+
+        /// <summary>Roadmap's replication port, where a test composed one — the
+        /// merge, the session and the worker are handed the same one, as the
+        /// container hands them its singleton.</summary>
+        public RecordingRoadmapReplication? Roadmap { get; }
 
         /// <summary>What the host's repository would raise on a local write. The
         /// in-memory store here raises nothing of its own, so a test that wants a
@@ -699,7 +814,8 @@ public sealed class TaskSyncWorkerTests
             bool tasksThrow = false,
             Action<InMemoryTaskStore>? seed = null,
             TaskSyncState? initialState = null,
-            Func<HttpRequestMessage, int, HttpResponseMessage>? respond = null)
+            Func<HttpRequestMessage, int, HttpResponseMessage>? respond = null,
+            RecordingRoadmapReplication? roadmap = null)
         {
             var tasks = new InMemoryTaskStore();
             seed?.Invoke(tasks);
@@ -751,7 +867,8 @@ public sealed class TaskSyncWorkerTests
                 paired ? new InMemoryDeviceCredentialStore(Paired) : new InMemoryDeviceCredentialStore(),
                 new FakeTimeProvider(Noon),
                 gate,
-                pushedBodies);
+                pushedBodies,
+                roadmap);
         }
 
         /// <summary>
@@ -809,11 +926,12 @@ public sealed class TaskSyncWorkerTests
 
             return new TaskSyncSession(
                 new TaskSyncClient(_http),
-                new TaskReplicaMerge(_repository, changes: Changes),
+                new TaskReplicaMerge(_repository, changes: Changes, roadmap: Roadmap),
                 _repository,
                 State,
                 Credentials,
-                Clock);
+                Clock,
+                roadmap: Roadmap);
         }
     }
 

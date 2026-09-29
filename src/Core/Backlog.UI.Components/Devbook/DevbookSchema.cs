@@ -2,7 +2,7 @@ namespace Backlog.UI.Components.Devbook;
 
 /// <summary>
 /// The devbook metadata contract the product reads and writes against — contract
-/// 16 of the <c>devbook</c> plugin's <c>devbook-chapter-metadata.md</c>,
+/// 19 of the <c>devbook</c> plugin's <c>devbook-chapter-metadata.md</c>,
 /// <c>devbook-domain.md</c> and <c>devbook-annotations.md</c>.
 ///
 /// <para>One place for the facts every reader and writer has to agree on: which
@@ -21,7 +21,7 @@ namespace Backlog.UI.Components.Devbook;
 public static class DevbookSchema
 {
     /// <summary>The contract version these lists were taken from.</summary>
-    public const int ContractVersion = 16;
+    public const int ContractVersion = 19;
 
     /// <summary>The value an editorial folder rests at, spelled by omitting the
     /// field.</summary>

@@ -90,10 +90,11 @@ internal sealed class SelfAttributedTaskItems(ITaskItems inner, AsyncLocal<bool>
         string? defaultRepo = null,
         IReadOnlyDictionary<string, string>? repoMatches = null,
         string? sourceInboxId = null,
+        IReadOnlyDictionary<string, string>? sourceInboxIds = null,
         bool layOutOnRoadmap = false,
         CancellationToken cancellationToken = default)
     {
         _writingHere.Value = true;
-        return await inner.ImportPlanAsync(rawText, defaultRepo, repoMatches, sourceInboxId, layOutOnRoadmap, cancellationToken);
+        return await inner.ImportPlanAsync(rawText, defaultRepo, repoMatches, sourceInboxId, sourceInboxIds, layOutOnRoadmap, cancellationToken);
     }
 }

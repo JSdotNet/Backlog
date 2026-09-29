@@ -32,6 +32,7 @@ using Backlog.Modules.Dashboard.Extensions;
 using Backlog.Modules.Dashboard.UI.Extensions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sessions.UI.Extensions;
+using Backlog.Infrastructure.Sessions;
 using Backlog.Modules.Roadmap.UI;
 using Backlog.Modules.DevPc.UI;
 using Backlog.Infrastructure.GitHub;
@@ -150,8 +151,13 @@ builder.Services.AddTasksModule();
 // The same arrangement for the plan: the Roadmap module brings its use cases, and
 // the host picks the adapter. One document row in the same database the tasks use,
 // following the same folder.
-builder.Services.AddSingleton<IRoadmapPlanRepository>(sp =>
+// One instance behind both ports: the same row is the plan the module loads and
+// saves and the document that travels to the person's other devices (local ADR
+// 0018). The pace document's store is AddRoadmapCrossContextAdapters'.
+builder.Services.AddSingleton(sp =>
     new RootedSqliteRoadmapPlanRepository(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
+builder.Services.AddSingleton<IRoadmapPlanRepository>(sp => sp.GetRequiredService<RootedSqliteRoadmapPlanRepository>());
+builder.Services.AddSingleton<IRoadmapReplicaStore>(sp => sp.GetRequiredService<RootedSqliteRoadmapPlanRepository>());
 builder.Services.AddRoadmapModule();
 // The plan behind the shell's Ask AI port, after the module so the scoped
 // planning port it holds exists. The other areas register theirs beside
@@ -464,6 +470,9 @@ builder.Services.AddTasksAiContentSource();
 builder.Services.AddScoped<InboxDesktopState>();
 // The Inbox behind the shell's Ask AI port, beside the state it reads.
 builder.Services.AddInboxAiContentSource();
+// The Inbox's page on the settings screen: the routing rules. The shell draws
+// it only because it is registered here, and holds no copy of its own.
+builder.Services.AddInboxSettings();
 // The save-state band and the toast tray, both mounted by MainLayout under every
 // route. Scoped rather than singleton, and that is forced rather than tidy: this
 // host has one circuit per visitor, a singleton forwarding to a scoped
@@ -486,6 +495,7 @@ builder.Services.AddToolsAiContentSource();
 // tool service above there is nothing for a local-development variant to differ
 // about, and both hosts compose the same adapter.
 builder.Services.AddAgentSessionSource();
+builder.Services.AddSessionsAiContentSource();
 
 // Session replication, on top of AddSyncClient above and after the readers it
 // pushes from: it reads this machine's sessions through the port that call

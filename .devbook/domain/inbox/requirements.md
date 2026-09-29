@@ -639,3 +639,153 @@ The system SHALL keep the routing rules typed on the Repositories page only when
 - **Given** one rule in use
 - **When** the reader adds a second line with no `=>`
 - **Then** the page names line 2 and the one rule stays in use
+
+## Route a batch to Tasks
+
+```meta
+type: requirements
+status: draft
+related: [.devbook/domain/inbox/features.md#route-a-batch-to-tasks, .devbook/domain/inbox/domain.md#batch]
+```
+
+> The requirements of routing several Inbox Items to Tasks as one plan import.
+
+### Requirement: A batch is one plan
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteBatchToBacklogTests.A_selection_routes_as_one_inbox_batch_and_each_item_keeps_only_its_own_entries, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteBatchToBacklogTests.A_list_route_is_tagged_with_the_list_name_and_leaves_the_list_standing, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteBatchToBacklogTests.Every_batch_is_a_new_plan, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.The_list_confirm_says_the_deferred_items_stay_when_there_are_any, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.A_batch_is_one_document_whose_entries_parse_back_with_the_tag_the_id_and_the_repository]
+```
+
+The system SHALL route a batch through one plan import whose entries all carry a plan tag new to that batch: `+inbox-batch-` and eight hex digits for a selection, and the list's name with eight hex digits for a list.
+
+#### Scenario: Moving a selection
+
+- **Given** three open items are picked
+- **When** the reader chooses Move to backlog
+- **Then** one import creates their entries, all tagged `+inbox-batch-` and the same eight hex digits
+
+#### Scenario: Moving a list
+
+- **Given** the list "Reading list" holds two open items
+- **When** the reader confirms Move list to backlog
+- **Then** both items' entries are tagged `+reading-list-` and eight hex digits, and the list is still there
+
+#### Scenario: A list with deferred items
+
+- **Given** the list "Reading list" holds two open items and one deferred item
+- **When** the reader opens Move list to backlog
+- **Then** the confirmation says its 1 deferred item stays with the list, and confirming routes only the two open items
+
+### Requirement: Each item keeps its own routing
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteBatchToBacklogTests.Each_item_goes_with_its_own_facts_and_repositories, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.Each_item_gets_back_only_its_own_entries_in_repository_order, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.A_batch_names_each_entrys_own_item_as_its_source_and_nothing_else, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.An_item_the_import_answered_for_only_in_part_is_named_with_what_was_made_and_the_rest_are_routed, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteBatchToBacklogTests.A_save_that_fails_after_the_import_names_the_entries_already_made_and_keeps_the_rest]
+```
+
+The system SHALL create, for each item of a batch, the draft entries Route to Tasks would create for it alone — one per repository, each naming that item as its source — and record on each item only the entries it became.
+
+#### Scenario: Two repositories on one item
+
+- **Given** a batch of two items, one assigned to two repositories
+- **When** the batch is routed
+- **Then** that item records its two entries and the other item records its one
+
+### Requirement: A refused batch routes nothing
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteBatchToBacklogTests.A_refusal_from_tasks_routes_nothing_and_says_the_whole_batch_was_refused, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteBatchToBacklogTests.A_refusal_from_tasks_is_wrapped_only_for_the_items_that_were_sent, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.A_batch_tasks_refused_moves_nothing_and_the_toast_says_so_once, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.A_refusal_from_tasks_comes_back_as_tasks_gave_it_beside_the_items_left_out]
+```
+
+The system SHALL leave every item of a batch unrouted when the import refuses the batch, and say that the whole batch was refused and every item is still in the Inbox.
+
+#### Scenario: Tasks refuses the plan
+
+- **Given** three picked items
+- **When** the import refuses the document
+- **Then** all three are still open in the queue and the message says nothing was routed
+
+### Requirement: A decided item is left out and named
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteBatchToBacklogTests.Routed_archived_and_missing_items_are_refused_up_front_and_the_rest_still_go, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.A_decided_item_in_the_selection_is_named_and_never_sent_and_the_rest_still_go]
+```
+
+The system SHALL leave an already routed or archived item out of a batch before the import is asked, name it, and route the rest.
+
+#### Scenario: One routed item among three
+
+- **Given** three picked items, one already routed
+- **When** the reader chooses Move to backlog
+- **Then** the other two are routed and the routed one is named as refused
+
+### Requirement: An item the batch cannot carry is left out and named
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.Notes_that_would_split_or_merge_the_document_leave_only_that_item_out, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.With_every_item_left_out_tasks_is_not_asked, unit:dotnet:Backlog.Modules.Inbox.UnitTests.RouteBatchToBacklogTests.An_item_the_target_leaves_out_is_named_with_its_own_reason_and_the_rest_still_go, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.An_item_left_out_of_the_batch_is_named_like_any_refusal_and_the_rest_still_go]
+```
+
+The system SHALL leave out of a batch, and name with its reason, an item whose notes carry a top-level heading or an unclosed code fence, and route the rest.
+
+#### Scenario: A clipped article with its own heading
+
+- **Given** three picked items, one whose notes open with `# Summary`
+- **When** the reader chooses Move to backlog
+- **Then** the other two are routed and the third is named with the reason it was left out
+
+### Requirement: A batch never registers a repository
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.An_item_naming_a_repository_the_workspace_does_not_know_is_left_out_and_never_registered, unit:dotnet:Backlog.Infrastructure.FileSystem.UnitTests.InboxBacklogTargetTests.A_known_repository_is_known_whatever_its_case_or_spacing]
+```
+
+The system SHALL leave out of a batch, and name, an item assigned to a repository the workspace does not know, and never register that repository.
+
+#### Scenario: A repository removed since the item was assigned
+
+- **Given** two picked items, one assigned to a repository no longer in the workspace
+- **When** the batch is routed
+- **Then** the other item is routed, the first is named, and the repository is still not in the workspace
+
+### Requirement: One route at a time
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.A_batch_in_flight_holds_the_single_route, unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.A_single_route_in_flight_holds_the_batch_route]
+```
+
+The system SHALL not start a single route while a batch route is running, nor a batch route while a single route is running.
+
+#### Scenario: Moving the shown item during a batch
+
+- **Given** a batch is being routed
+- **When** the reader presses Move to backlog on the item the detail shows
+- **Then** nothing more is routed and the button stays disabled until the batch finishes
+
+### Requirement: Tasks is refreshed once per batch
+
+```meta
+type: requirement
+status: draft
+tests: [unit:dotnet:Backlog.Desktop.UI.UnitTests.InboxPaneTests.Move_to_backlog_across_the_selection_routes_it_as_one_batch_and_refreshes_tasks_once, unit:dotnet:Backlog.Desktop.UI.UnitTests.HomeInboxWiringTests]
+```
+
+The system SHALL refresh the Tasks pane once after a batch is routed, however many items it held.
+
+#### Scenario: Five items routed
+
+- **Given** five picked items
+- **When** they are routed as a batch
+- **Then** the Tasks pane reloads once and shows all their entries

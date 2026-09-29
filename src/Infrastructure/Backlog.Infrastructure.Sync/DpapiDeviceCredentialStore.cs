@@ -41,15 +41,10 @@ public sealed class DpapiDeviceCredentialStore : IDeviceCredentialStore
 
     private readonly string _path;
 
-    /// <summary>The per-user location, beside the app's other local state.</summary>
-    public DpapiDeviceCredentialStore()
-        : this(Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Backlog",
-            "device-credential.json"))
-    {
-    }
-
+    /// <summary>A store at <paramref name="path"/>. No default: which per-user
+    /// folder is the app's — Backlog.Debug for a debug head, Backlog for the
+    /// installed one — is the host's to say, and a default here would put a
+    /// debug head on the installed app's credential.</summary>
     public DpapiDeviceCredentialStore(string path)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);

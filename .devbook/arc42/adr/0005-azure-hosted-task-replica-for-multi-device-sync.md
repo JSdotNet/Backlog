@@ -1,7 +1,7 @@
 # ADR 0005: An Azure-hosted task replica carries multi-device sync; the local store stays canonical
 
 ```meta
-related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/09-architecture-decisions.md", ".devbook/arc42/11-risks-and-technical-debt.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/adr/guidelines/0012-authentication-external-identity-providers.md", ".devbook/arc42/adr/guidelines/0013-authorization-zero-trust.md", ".devbook/arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md", ".devbook/domain/capture/domain.md#capture", ".devbook/domain/sessions/dependencies.md", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/tasks/domain.md#task", ".devbook/domain/tasks/domain.md#device"]
+related: [".devbook/arc42/02-constraints.md#technical-constraints", ".devbook/arc42/07-deployment-view.md#cloud-deployment-azure", ".devbook/arc42/08-crosscutting-concepts.md#storage-and-sync", ".devbook/arc42/09-architecture-decisions.md", ".devbook/arc42/11-risks-and-technical-debt.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0006-additive-schema-bootstrapping-is-the-local-migration-mechanism.md", ".devbook/arc42/adr/0014-attachments-travel-through-a-blob-store-beside-the-replica.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/guidelines/0012-authentication-external-identity-providers.md", ".devbook/arc42/adr/guidelines/0013-authorization-zero-trust.md", ".devbook/arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md", ".devbook/domain/capture/domain.md#capture", ".devbook/domain/sessions/dependencies.md", ".devbook/domain/sessions/domain.md#session-log", ".devbook/domain/tasks/domain.md#task", ".devbook/domain/tasks/domain.md#device"]
 ```
 
 ## Status
@@ -215,7 +215,9 @@ rather than by a mitigation. What is still open is whether it **syncs**, and on 
 terms. The row carries `updated_at`, so it *can* replicate on the same terms as a
 task whenever this record's transport is built — which is the point of having added
 the column before anything needed it. It stays an open question below on those
-narrower grounds.
+narrower grounds. *Amended 2026-09-29: local ADR 0018 answers it. The
+plan, and the planning pace with it, ride the `tasks` container as two whole
+documents with kind tokens of their own, the way a capture does.*
 
 ## Context
 
@@ -1050,6 +1052,12 @@ Neutral:
   and on what terms — whether it becomes a third container, a document in one of the
   two, or stays local like the settings. Nothing here decides that; the point is that
   the decision is now free to be made on its merits rather than forced by a file.
+  *Amended 2026-09-29: answered by local ADR 0018. The plan replicates
+  as one whole document in the `tasks` container, under the kind token
+  `roadmap-plan`. Its JSON is carried in `ContentMd` and it is last-write-wins on
+  `roadmap_plan.updated_at`. The planning pace travels beside it as a second
+  document, `planning-pace`. No third container is added, and the replica still
+  does not look inside either payload.*
 - **Whether the sync slice adopts per-device filenames after all.** This record
   declines them now and states the terms on which they could land later — named
   from the pairing identity, new roots only. Whether that belt and braces earns its

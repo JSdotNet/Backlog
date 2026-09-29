@@ -121,6 +121,38 @@ The icon comes from the kind as well as the state: an open issue is a circle wit
         </div>
     </Story>
 
+    <Story Name="Checks and auto-merge ride on the pull request"
+           Description="`Checks` and `AutoMerge` on `IntegrationLinkRef` draw two small marks after the label: the head commit's check roll-up — a dot for pending, a tick for passing, a cross for failing — and a merge arrow while GitHub is holding the pull request to merge by itself.
+
+Marks rather than chips, because the state chip is already there and two more pills beside a number would out-shout it. Each says its words on its title and in an sr-only span, and the three check marks differ in shape as well as ink, so colour is never the only carrier. `None` draws nothing: a repository that runs no checks is not a pending one."
+           Code="@ChecksCode">
+        <div class="sb-stack" data-testid="references-checks">
+            @foreach (var checks in CheckStates)
+            {
+                <div class="sb-row">
+                    <IntegrationLink Link="@(IntegrationFixtures.PullRequest with { Checks = checks })"
+                                     TestId="@($"references-checks-{checks.ToString().ToLowerInvariant()}")"
+                                     ChecksTestId="@($"references-checks-{checks.ToString().ToLowerInvariant()}-mark")" />
+                    <span class="sb-state">@checks</span>
+                </div>
+            }
+            <div class="sb-row">
+                <IntegrationLink Link="@(IntegrationFixtures.PullRequest with { Checks = IntegrationCheckState.Pending, AutoMerge = true })"
+                                 TestId="references-checks-auto-merge"
+                                 ChecksTestId="references-checks-auto-merge-checks"
+                                 AutoMergeTestId="references-checks-auto-merge-mark" />
+                <span class="sb-state">Pending, with auto-merge on — GitHub merges it once the checks pass.</span>
+            </div>
+            <div class="sb-row">
+                <IntegrationLink Link="@(IntegrationFixtures.PullRequest with { Checks = IntegrationCheckState.Passing, AutoMerge = true })"
+                                 ShowTitle="false"
+                                 Density="IntegrationDensity.Compact"
+                                 TestId="references-checks-compact" />
+                <span class="sb-state">Compact: the marks stay, because they are already icon-sized.</span>
+            </div>
+        </div>
+    </Story>
+
     <Story Name="Two providers, two marks, one shape"
            Description="Claude and GitHub Copilot sessions are the same record with a different `Provider`.
 
@@ -362,6 +394,14 @@ It belongs on `IntegrationLink`, the only component in the family that emits an 
             [IntegrationSessionState.Failed] = "Ended without delivering. Filled, because it wants a retry."
         };
 
+    private static readonly IReadOnlyList<IntegrationCheckState> CheckStates =
+    [
+        IntegrationCheckState.None,
+        IntegrationCheckState.Pending,
+        IntegrationCheckState.Passing,
+        IntegrationCheckState.Failing
+    ];
+
     private static readonly IReadOnlyList<IntegrationDrift> Drifts =
     [
         IntegrationDrift.None,
@@ -455,6 +495,15 @@ It belongs on `IntegrationLink`, the only component in the family that emits an 
             : IntegrationSessionState.Stalled;
 
         <IntegrationStateChip Session="@state" />
+        """;
+
+    private const string ChecksCode = """
+        @* Both last on the record, so a reference built before either existed
+           still means what it did. None and false draw nothing. *@
+        var pull = IntegrationLinkRef.PullRequest("74", "PR #74", IntegrationArtifactState.Open)
+            with { Checks = IntegrationCheckState.Passing, AutoMerge = true };
+
+        <IntegrationLink Link="@pull" ChecksTestId="checks" AutoMergeTestId="auto-merge" />
         """;
 
     private const string ProvidersCode = """

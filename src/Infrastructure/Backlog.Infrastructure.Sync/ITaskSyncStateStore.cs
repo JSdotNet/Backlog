@@ -33,7 +33,41 @@ public sealed record TaskSyncState(
     DateTimeOffset PushWatermark,
     string? PullCursor,
     Guid? OwnerId = null,
-    Guid? DeviceId = null);
+    Guid? DeviceId = null)
+{
+    /// <summary>
+    /// Per whole document that rides the task feed but is not a row in the task
+    /// store — the roadmap plan and the planning pace (local ADR 0018) — the stamp of
+    /// the copy this device last had accepted, keyed by the document's kind token.
+    /// <para>
+    /// Its own marks rather than the task watermark, because neither document is
+    /// selected by <c>ListChangedSinceAsync</c>: each is one copy with one stamp, sent
+    /// when that stamp is later than its mark. Additive — a file written before it
+    /// has none, and reads as nothing sent yet, which re-sends each document once and
+    /// costs nothing under a replica that refuses what it already holds. Reset with
+    /// the rest of the state when the identity changes, so a new owner is sent them.
+    /// </para>
+    /// </summary>
+    public IReadOnlyDictionary<string, DateTimeOffset>? DocumentWatermarks { get; init; }
+
+    /// <summary>The mark for one document's kind token, or null when this device
+    /// has never had a copy of it accepted.</summary>
+    public DateTimeOffset? DocumentWatermark(string kind) =>
+        DocumentWatermarks is { } marks && marks.TryGetValue(kind, out var mark) ? mark : null;
+
+    /// <summary>This state with <paramref name="kind"/>'s mark moved to
+    /// <paramref name="mark"/>, every other mark kept.</summary>
+    public TaskSyncState WithDocumentWatermark(string kind, DateTimeOffset mark)
+    {
+        var marks = DocumentWatermarks is { } held
+            ? new Dictionary<string, DateTimeOffset>(held, StringComparer.Ordinal)
+            : new Dictionary<string, DateTimeOffset>(StringComparer.Ordinal);
+
+        marks[kind] = mark;
+
+        return this with { DocumentWatermarks = marks };
+    }
+}
 
 /// <summary>
 /// Where this device keeps its replication progress between runs.

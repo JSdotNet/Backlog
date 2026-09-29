@@ -3,7 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Backlog.Desktop.UI.Mcp;
 using Backlog.Modules.Sessions.Abstractions;
-using Backlog.Modules.Sessions.UI.Adapters;
+using Backlog.Infrastructure.Sessions;
 using Microsoft.Extensions.Time.Testing;
 
 namespace Backlog.Desktop.UI.UnitTests;

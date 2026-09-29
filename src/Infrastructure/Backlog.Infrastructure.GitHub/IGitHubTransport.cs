@@ -54,6 +54,13 @@ public sealed class GitHubException(string message, Exception? inner = null) : E
     /// can read it without parsing the sentence meant for a person.</summary>
     public System.Net.HttpStatusCode? Status { get; init; }
 
+    /// <summary>The <c>type</c> GitHub's GraphQL API put on the error —
+    /// <c>FORBIDDEN</c>, <c>NOT_FOUND</c>, <c>UNPROCESSABLE</c> — when the refusal
+    /// came back as an <c>errors</c> entry rather than an HTTP status. GraphQL
+    /// answers most refusals with a 200, so for those this is the only
+    /// machine-readable half; null for everything REST refused.</summary>
+    public string? ErrorType { get; init; }
+
     /// <summary>Whether GitHub said the thing asked for is not there. The
     /// Contents API answers this for a file that has not been committed yet,
     /// which is the one not-found a caller may have a plan for.</summary>

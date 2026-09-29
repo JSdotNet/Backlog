@@ -4,19 +4,19 @@ using Backlog.UI.Components.Devbook;
 namespace Backlog.Desktop.UI.UnitTests;
 
 /// <summary>
-/// A bounded context as contract 16 of <c>devbook-domain.md</c> writes one, read by
+/// A bounded context as contract 19 of <c>devbook-domain.md</c> writes one, read by
 /// <see cref="DomainDevbookStore"/>.
 ///
 /// <para>Four things changed from contract 9 and each is pinned here. The context's
 /// root document is <c>context.md</c>, which declares <c>index: root</c>, reads
-/// first, and is where the context's name comes from. There are five new files —
+/// first, and is where the context's name comes from. There are new files —
 /// <c>context.md</c>, <c>actors.md</c>, <c>skills.md</c>, <c>requirements.md</c>,
-/// <c>invariants.md</c> — and a split file <c>&lt;file&gt;.&lt;name&gt;.md</c> is the
-/// same kind as its base and reads directly after it. A file the convention does
-/// not name is an additional page whose type is its filename, which is what
-/// <c>naming.md</c> became. And <c>deployment</c> is stated twice, on the map's
-/// <c>bounded-context</c> chapter and on <c>context.md</c>, and the two must
-/// agree.</para>
+/// and since contract 17 the invariants subpage <c>domain.invariants.md</c> — and
+/// a split file <c>&lt;file&gt;.&lt;name&gt;.md</c> is the same kind as its base and
+/// reads directly after it. A file the convention does not name is an additional
+/// page whose type is its filename, which is what <c>naming.md</c> became. And
+/// <c>deployment</c> is stated twice, on the map's <c>bounded-context</c> chapter
+/// and on <c>context.md</c>, and the two must agree.</para>
 ///
 /// <para>The fixtures are the rule's own templates with the placeholders filled in,
 /// so a template that changes shape is a fixture to re-copy rather than a shape
@@ -88,9 +88,10 @@ public sealed class DomainDevbookContextFilesTests : IDisposable
         | Payments | Customer/Supplier | event | PaymentReceived | settles invoices |
         """;
 
-    /// <summary>The <c>requirements.md</c> template, filled in.</summary>
+    /// <summary>The <c>requirements.md</c> template, filled in. Titled by kind
+    /// since contract 18.</summary>
     private const string RequirementsFile = """
-        # Billing
+        # Requirements
 
         ```meta
         status: draft
@@ -127,16 +128,19 @@ public sealed class DomainDevbookContextFilesTests : IDisposable
         - **Then** it carries a number
         """;
 
-    /// <summary>The <c>invariants.md</c> template, filled in.</summary>
+    /// <summary>The <c>domain.invariants.md</c> template, filled in: titled by
+    /// kind, an invariant proved by its unit test and carrying no scenario
+    /// (contract 18), and a chapter that pairs with the shared value objects
+    /// rather than with an aggregate (contract 19).</summary>
     private const string InvariantsFile = """
-        # Billing
+        # Invariants
 
         ```meta
         status: draft
         type: invariants
         ```
 
-        > What each aggregate in this context enforces, one chapter per aggregate.
+        > What each aggregate on `domain.md` enforces, one chapter per aggregate.
 
         ## Invoice
 
@@ -156,15 +160,31 @@ public sealed class DomainDevbookContextFilesTests : IDisposable
         tests: unit:dotnet:Billing.Domain.Tests.InvoiceTests.IssuedIsFrozen
         ```
 
-        An issued invoice's lines never change.
+        An issued invoice's lines never change (`invoice-issued`).
 
         Enforced at: AddLine()
 
-        #### Scenario: Adding a line after issue
+        ## Shared Value Objects
 
-        - **Given** InvoiceIssued
-        - **When** AddLine
-        - **Then** the command is rejected
+        ```meta
+        status: draft
+        type: invariants
+        related: [.domain/billing/domain.md#shared-value-objects]
+        ```
+
+        > The invariants of the value objects more than one aggregate uses.
+
+        ### Invariant: An amount is never negative
+
+        ```meta
+        status: draft
+        type: invariant
+        tests: unit:dotnet:Billing.Domain.Tests.AmountTests.NeverNegative
+        ```
+
+        An amount is zero or more (`amount-negative`).
+
+        Enforced at: constructor
         """;
 
     [Fact]
@@ -172,20 +192,21 @@ public sealed class DomainDevbookContextFilesTests : IDisposable
     {
         var repo = TempDir();
         var context = WriteContext(repo,
-            "context.md", "domain.md", "domain.invoice.md", "actors.md", "features.md",
-            "requirements.md", "requirements.invoicing.md", "invariants.md", "invariants.invoice.md",
+            "context.md", "domain.md", "domain.invariants.md", "domain.invoice.md", "domain.invoice.invariants.md",
+            "actors.md", "features.md", "requirements.md", "requirements.invoicing.md",
             "model.md", "flow.md", "flow.issue.md", "dependencies.md", "go-live-takeover.md", "naming.md");
 
         var view = await Load(repo);
 
         // devbook-domain.md: context.md is the root and reads first, then the
         // listed files in the tree's order, a split file directly after the file
-        // it is named after, and the additional pages after all of them. None of
-        // this is filename order — `actors` would otherwise precede `context`.
+        // it is named after, an invariants subpage directly after its page, and
+        // the additional pages after all of them. None of this is filename order —
+        // `actors` would otherwise precede `context`.
         Assert.Equal(
             [
-                "context.md", "domain.md", "domain.invoice.md", "actors.md", "features.md",
-                "requirements.md", "requirements.invoicing.md", "invariants.md", "invariants.invoice.md",
+                "context.md", "domain.md", "domain.invariants.md", "domain.invoice.md", "domain.invoice.invariants.md",
+                "actors.md", "features.md", "requirements.md", "requirements.invoicing.md",
                 "model.md", "flow.md", "flow.issue.md", "dependencies.md", "go-live-takeover.md", "naming.md"
             ],
             Assert.Single(view.Contexts).Documents.Select(document => Path.GetFileName(document.Path)));
@@ -193,15 +214,33 @@ public sealed class DomainDevbookContextFilesTests : IDisposable
     }
 
     [Fact]
+    public async Task The_legacy_invariants_files_are_still_read_as_invariants_after_requirements()
+    {
+        // Contract 16's invariants.md and invariants.<name>.md still validate, with
+        // a warning, until 017-invariants-under-domain moves them. A repository
+        // that has not run it yet keeps its rules on screen, where they read before.
+        var repo = TempDir();
+        WriteContext(repo, "context.md", "domain.md", "requirements.md", "invariants.md", "invariants.invoice.md", "model.md");
+
+        var documents = Assert.Single((await Load(repo)).Contexts).Documents;
+
+        Assert.Equal(
+            ["context.md", "domain.md", "requirements.md", "invariants.md", "invariants.invoice.md", "model.md"],
+            documents.Select(document => Path.GetFileName(document.Path)));
+        Assert.All(documents.Where(document => Path.GetFileName(document.Path).StartsWith("invariants", StringComparison.Ordinal)),
+            document => Assert.Equal(DomainDevbookDocumentKind.Invariants, document.Kind));
+    }
+
+    [Fact]
     public async Task A_split_file_reads_in_its_base_files_place_when_the_base_is_gone()
     {
         var repo = TempDir();
-        WriteContext(repo, "context.md", "domain.md", "invariants.md", "model.order.md", "model.invoice.md", "flow.md");
+        WriteContext(repo, "context.md", "domain.order.md", "domain.order.invariants.md", "model.order.md", "model.invoice.md", "flow.md");
 
         var view = await Load(repo);
 
         Assert.Equal(
-            ["context.md", "domain.md", "invariants.md", "model.invoice.md", "model.order.md", "flow.md"],
+            ["context.md", "domain.order.md", "domain.order.invariants.md", "model.invoice.md", "model.order.md", "flow.md"],
             Assert.Single(view.Contexts).Documents.Select(document => Path.GetFileName(document.Path)));
     }
 
@@ -263,24 +302,28 @@ public sealed class DomainDevbookContextFilesTests : IDisposable
     [InlineData("features.md", DomainDevbookDocumentKind.Features)]
     [InlineData("skills.md", DomainDevbookDocumentKind.Skills)]
     [InlineData("requirements.md", DomainDevbookDocumentKind.Requirements)]
-    [InlineData("invariants.md", DomainDevbookDocumentKind.Invariants)]
+    [InlineData("domain.invariants.md", DomainDevbookDocumentKind.Invariants)]
     [InlineData("model.md", DomainDevbookDocumentKind.Model)]
     [InlineData("flow.md", DomainDevbookDocumentKind.Flow)]
     [InlineData("dependencies.md", DomainDevbookDocumentKind.Dependencies)]
     [InlineData("domain.order.md", DomainDevbookDocumentKind.Domain)]
     [InlineData("skills.flow-code.md", DomainDevbookDocumentKind.Skills)]
     [InlineData("requirements.checkout.md", DomainDevbookDocumentKind.Requirements)]
+    [InlineData("domain.order.invariants.md", DomainDevbookDocumentKind.Invariants)]
+    [InlineData("invariants.md", DomainDevbookDocumentKind.Invariants)]
     [InlineData("invariants.order.md", DomainDevbookDocumentKind.Invariants)]
     [InlineData("flow.flow-code.md", DomainDevbookDocumentKind.Flow)]
     [InlineData("naming.md", DomainDevbookDocumentKind.Page)]
     [InlineData("go-live-takeover.md", DomainDevbookDocumentKind.Page)]
     [InlineData("context.billing.md", DomainDevbookDocumentKind.Page)]
     [InlineData("index.md", DomainDevbookDocumentKind.Other)]
-    public void Every_contract_16_file_is_the_kind_its_name_says(string file, DomainDevbookDocumentKind kind)
+    public void Every_contract_19_file_is_the_kind_its_name_says(string file, DomainDevbookDocumentKind kind)
     {
         // context.md does not split — "it is the root document and what it holds
         // is small by construction" — so context.billing.md is a page, not a
-        // context file.
+        // context file. A trailing `.invariants` makes a domain page's subpage
+        // `type: invariants` rather than a split of domain.md, and contract 16's
+        // invariants.md and invariants.<name>.md are still read as what they were.
         Assert.Equal(kind, DomainDevbookStore.KindFromFile(file));
     }
 
@@ -295,6 +338,8 @@ public sealed class DomainDevbookContextFilesTests : IDisposable
         }
 
         Assert.Equal("domain", DomainDevbookFileTypes.Of("domain.order.md"));
+        Assert.Equal("invariants", DomainDevbookFileTypes.Of("domain.invariants.md"));
+        Assert.Equal("invariants", DomainDevbookFileTypes.Of("domain.order.invariants.md"));
         Assert.Equal("go-live-takeover", DomainDevbookFileTypes.Of("go-live-takeover.md"));
         Assert.True(DevbookSchema.IsKnownType(DevbookFolder.Domain, DevbookMetadataLevel.File, DomainDevbookFileTypes.Of("naming.md"), "naming.md"));
         Assert.Null(DomainDevbookFileTypes.Of("index.md"));
@@ -304,21 +349,38 @@ public sealed class DomainDevbookContextFilesTests : IDisposable
     public async Task Requirements_and_invariants_files_are_read_with_their_chapters_types()
     {
         var repo = TempDir();
-        WriteContext(repo, "context.md", "requirements.md", "invariants.md");
+        WriteContext(repo, "context.md", "requirements.md", "domain.invariants.md");
 
         var documents = Assert.Single((await Load(repo)).Contexts).Documents;
 
+        // Titled by kind since contract 18: the folder already names the context.
         var requirements = Assert.Single(documents, document => document.Kind == DomainDevbookDocumentKind.Requirements);
+        Assert.Equal("Requirements", requirements.Title);
         Assert.Equal("requirements", requirements.Metadata["type"]);
         var feature = Assert.Single(requirements.Sections);
         Assert.Equal("Invoicing", feature.Title);
         Assert.Equal("requirements", feature.Metadata["type"]);
 
         var invariants = Assert.Single(documents, document => document.Kind == DomainDevbookDocumentKind.Invariants);
-        var aggregate = Assert.Single(invariants.Sections);
-        Assert.Equal("Invoice", aggregate.Title);
-        Assert.Equal("invariants", aggregate.Metadata["type"]);
-        Assert.Contains(".domain/billing/domain.md#invoice", aggregate.Links);
+        Assert.Equal(".domain/billing/domain.invariants.md", invariants.Path);
+        Assert.Equal("Invariants", invariants.Title);
+        Assert.Equal("invariants", invariants.Metadata["type"]);
+
+        // Contract 19: a chapter pairs with an aggregate or with a shared grouping
+        // on domain.md, and either is read with its `related` link.
+        Assert.Collection(invariants.Sections,
+            aggregate =>
+            {
+                Assert.Equal("Invoice", aggregate.Title);
+                Assert.Equal("invariants", aggregate.Metadata["type"]);
+                Assert.Contains(".domain/billing/domain.md#invoice", aggregate.Links);
+            },
+            shared =>
+            {
+                Assert.Equal("Shared Value Objects", shared.Title);
+                Assert.Equal("invariants", shared.Metadata["type"]);
+                Assert.Contains(".domain/billing/domain.md#shared-value-objects", shared.Links);
+            });
     }
 
     [Fact]
@@ -432,7 +494,7 @@ public sealed class DomainDevbookContextFilesTests : IDisposable
             {
                 "context.md" => ContextFile,
                 "requirements.md" => RequirementsFile,
-                "invariants.md" => InvariantsFile,
+                "domain.invariants.md" or "invariants.md" => InvariantsFile,
                 _ => $"# Billing\n\n```meta\ntype: {DomainDevbookFileTypes.Of(file)}\n```\n\nThe {file} file.\n"
             };
             File.WriteAllText(Path.Combine(folder, file), text);

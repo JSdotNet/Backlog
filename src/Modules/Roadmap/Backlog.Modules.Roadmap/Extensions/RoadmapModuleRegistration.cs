@@ -9,7 +9,6 @@ using Backlog.Modules.Roadmap.Features.GetPlan;
 using Backlog.Modules.Roadmap.Features.ImportPlanItems;
 using Backlog.Modules.Roadmap.Features.PrioritiseItem;
 using Backlog.Modules.Roadmap.Features.RelengthenItem;
-using Backlog.Modules.Roadmap.Features.RelengthenPlan;
 using Backlog.Modules.Roadmap.Features.RemoveDependency;
 using Backlog.Modules.Roadmap.Features.RemoveItem;
 using Backlog.Modules.Roadmap.Features.RescheduleItem;
@@ -56,7 +55,6 @@ public static class RoadmapModuleRegistration
         // need IPlanningVelocity as Import does.
         services.AddScoped<IQueryHandler<ProposeRelengthQuery, RoadmapRelengthProposalDto?>, ProposeRelengthQueryHandler>();
         services.AddScoped<ICommandHandler<RelengthenItemCommand, Result<RoadmapRelengthResultDto>>, RelengthenItemCommandHandler>();
-        services.AddScoped<ICommandHandler<RelengthenPlanCommand, Result<IReadOnlyList<RoadmapItemDto>>>, RelengthenPlanCommandHandler>();
 
         // Placement reads "today"; a host that already registered a clock keeps its own.
         services.TryAddSingleton(TimeProvider.System);
@@ -71,6 +69,17 @@ public static class RoadmapModuleRegistration
         // One for the whole host, whatever scope a write or a listener comes from.
         services.TryAddSingleton<RoadmapPlanChanges>();
         services.AddScoped<IRoadmapPlanning, RoadmapPlanning>();
+
+        // The plan and the pace as the documents that travel between devices (local
+        // ADR 0018). A singleton, because it holds the plan's change notice and the
+        // pace settings' — both singletons — for a sync loop to hear. The stores are
+        // the host's: whichever it registers are the documents this head keeps, and a
+        // head that registers none keeps neither, so a copy of either reads as
+        // unreadable rather than failing the provider.
+        services.TryAddSingleton<IRoadmapReplication>(sp => new RoadmapReplication(
+            sp.GetServices<IRoadmapReplicaStore>(),
+            sp.GetRequiredService<RoadmapPlanChanges>(),
+            sp.GetService<IPlanningVelocitySettings>()));
 
         return services;
     }

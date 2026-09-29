@@ -166,6 +166,56 @@ public sealed class GhCliTransportTests
         Assert.Equal("repos/octo/demo", gh.OnlyCall[3]);
     }
 
+    /// <summary>
+    /// A GraphQL call names its repository after a <c>#</c> so the credential
+    /// resolver can tell whose call it is. That hint is routing, not a resource:
+    /// <c>gh api</c> recognises the literal <c>graphql</c> and sends it to the
+    /// host's GraphQL endpoint, and would treat anything longer as a REST path.
+    /// </summary>
+    [Fact]
+    public async Task A_graphql_call_is_sent_as_graphql_without_its_routing_hint()
+    {
+        using var gh = new GhStub().Answers("""{"data":{}}""");
+
+        await gh.Transport().SendAsync(
+            HttpMethod.Post,
+            "graphql#octo/demo",
+            new Dictionary<string, object?> { ["query"] = "{ viewer { login } }" },
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal("graphql", gh.OnlyCall[3]);
+    }
+
+    /// <summary>The same merge-info preview the token transport asks for, so the
+    /// two transports read <c>mergeStateStatus</c> from the same schema. A REST call
+    /// leaves the CLI's own Accept alone.</summary>
+    [Fact]
+    public async Task A_graphql_call_asks_for_the_merge_info_preview()
+    {
+        using var gh = new GhStub().Answers("""{"data":{}}""");
+
+        await gh.Transport().SendAsync(
+            HttpMethod.Post,
+            "graphql#octo/demo",
+            new Dictionary<string, object?> { ["query"] = "{ viewer { login } }" },
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        var call = gh.OnlyCall;
+        var accept = call.ToList().IndexOf("Accept: application/vnd.github.merge-info-preview+json, application/vnd.github+json");
+        Assert.True(accept > 0);
+        Assert.Equal("--header", call[accept - 1]);
+    }
+
+    [Fact]
+    public async Task A_rest_call_sends_no_accept_header_of_its_own()
+    {
+        using var gh = new GhStub().Answers("[]");
+
+        await gh.Transport().SendAsync(HttpMethod.Get, "repos/octo/demo/issues", cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.DoesNotContain(gh.OnlyCall, argument => argument.StartsWith("Accept:", StringComparison.Ordinal));
+    }
+
     [Fact]
     public async Task A_body_is_piped_in_rather_than_put_on_the_command_line()
     {

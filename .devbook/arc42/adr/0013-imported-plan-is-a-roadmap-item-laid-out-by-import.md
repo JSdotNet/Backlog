@@ -1,7 +1,7 @@
 # ADR 0013: An imported plan is one Roadmap Item; a `plan` entry is the same grammar, and the importer places it
 
 ```meta
-related: [".devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md", ".devbook/arc42/adr/0002-backlog-module-owns-the-entry-text-language.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md", ".devbook/domain/roadmap/domain.md#roadmap-item", ".devbook/domain/roadmap/domain.md#roadmap-item-gathering", ".devbook/domain/roadmap/features.md#laying-out-imported-plans", ".devbook/domain/roadmap/features.md#sequencing-work-into-tracks", ".devbook/domain/roadmap/dependencies.md", ".devbook/domain/tasks/features.md#import", ".devbook/domain/tasks/features.md#re-importing-an-updated-plan", ".devbook/domain/tasks/features.md#effort-registration", ".devbook/design/content-editing.md#structured-metadata-sigils", ".devbook/design/content-editing.md#scheduling-and-dependency-tokens"]
+related: [".devbook/arc42/adr/0007-import-reuses-the-entry-text-grammar.md", ".devbook/arc42/adr/0002-backlog-module-owns-the-entry-text-language.md", ".devbook/arc42/adr/0003-sqlite-is-the-canonical-local-task-store.md", ".devbook/arc42/adr/0018-roadmap-plan-and-pace-ride-the-task-feed.md", ".devbook/arc42/adr/guidelines/0014-persistence-and-repository-boundaries.md", ".devbook/domain/roadmap/domain.md#roadmap-item", ".devbook/domain/roadmap/domain.md#roadmap-item-gathering", ".devbook/domain/roadmap/features.md#laying-out-imported-plans", ".devbook/domain/roadmap/features.md#sequencing-work-into-tracks", ".devbook/domain/roadmap/dependencies.md", ".devbook/domain/tasks/features.md#import", ".devbook/domain/tasks/features.md#re-importing-an-updated-plan", ".devbook/domain/tasks/features.md#effort-registration", ".devbook/design/content-editing.md#structured-metadata-sigils", ".devbook/design/content-editing.md#scheduling-and-dependency-tokens"]
 ```
 
 ## Status
@@ -366,7 +366,12 @@ repository's own finished work, with the global pace for an item filed under
 none — [Deviations](#deviations). Amended 2026-09-27: an `effort`-placed window
 is no longer stored and left — it is re-projected from the effort still to do,
 from today, by itself; the rule is in
-[ruling 5](#5-placed_by_import-and-what-a-re-import-may-touch).* So
+[ruling 5](#5-placed_by_import-and-what-a-re-import-may-touch). Amended
+2026-09-29 by local ADR 0018: the pace is no longer per-device. The
+typed pace, the chosen source and the per-repository pairs travel between paired
+devices as a `planning-pace` document on the task feed, beside the plan. A pace
+that stayed behind would redraw a shared plan's effort-placed items differently on
+each device. The working week and the measured paces stay per device.* So
 `.devbook/domain/roadmap/domain.md`'s invariant stands with one word added to it: the
 total is plain arithmetic over registered points, and the *length* is plain
 arithmetic over that total and a factor the person set.
@@ -586,7 +591,9 @@ Changed on the owner's request, on 2026-09-26:
 - **[Ruling 4](#4-the-importer-places-the-window-velocity-is-the-readers)'s
   pace is kept per repository band**, because productivity differs from one
   project to the next. It stays a per-device reading preference, in the same
-  `planning-velocity.json`: the global `storyPointsPerWeek` and `source` are
+  `planning-velocity.json` (*amended 2026-09-29 by local ADR 0018: the
+  file stays, but its contents travel between paired devices as the
+  `planning-pace` document, and it gains an `updatedAt` stamp*): the global `storyPointsPerWeek` and `source` are
   kept, and an optional `repositories` object holds a pair per repository alias,
   compared without regard to case. A file without that object reads unchanged,
   and a repository with no entry reads the global typed pace and choice, so no

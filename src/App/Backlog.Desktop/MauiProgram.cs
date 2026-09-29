@@ -30,6 +30,7 @@ using Backlog.Modules.Dashboard.Extensions;
 using Backlog.Modules.Dashboard.UI.Extensions;
 using Backlog.Modules.Sessions.Abstractions;
 using Backlog.Modules.Sessions.UI.Extensions;
+using Backlog.Infrastructure.Sessions;
 using Backlog.Modules.Roadmap.UI;
 using Backlog.Modules.DevPc.UI;
 using Backlog.Infrastructure.AzureFoundry;
@@ -180,8 +181,13 @@ public static class MauiProgram
         // cases, and the host picks the adapter. One document row in the same
         // database the tasks use, following the same folder, so moving the storage
         // folder moves the plan with the backlog rather than leaving it behind.
-        builder.Services.AddSingleton<IRoadmapPlanRepository>(sp =>
+        // One instance behind both ports: the same row is the plan the module loads
+        // and saves and the document that travels to the person's other devices
+        // (local ADR 0018). The pace document's store is AddRoadmapCrossContextAdapters'.
+        builder.Services.AddSingleton(sp =>
             new RootedSqliteRoadmapPlanRepository(() => sp.GetRequiredService<WorkspaceSettingsStore>().RootDirectory));
+        builder.Services.AddSingleton<IRoadmapPlanRepository>(sp => sp.GetRequiredService<RootedSqliteRoadmapPlanRepository>());
+        builder.Services.AddSingleton<IRoadmapReplicaStore>(sp => sp.GetRequiredService<RootedSqliteRoadmapPlanRepository>());
         builder.Services.AddRoadmapModule();
         // The plan behind the shell's Ask AI port, after the module so the scoped
         // planning port it holds exists. The other areas register theirs beside
@@ -265,8 +271,13 @@ public static class MauiProgram
         // The device half of cloud sync. DPAPI is the store ADR 0005 asks for on
         // Windows, and this head is the Windows one; the credential lands beside the
         // app's other per-user state rather than in the backlog folder, because it
-        // belongs to this machine and not to the workspace.
-        builder.Services.AddSingleton<IDeviceCredentialStore>(_ => new DpapiDeviceCredentialStore());
+        // belongs to this machine and not to the workspace. Under the workspace's
+        // own app-data folder, like the log above - Backlog.Debug for a debug
+        // head - so a checkout run beside a paired installed app starts unpaired
+        // rather than syncing as that device. Every sync file below follows it.
+        builder.Services.AddSingleton<IDeviceCredentialStore>(_ => new DpapiDeviceCredentialStore(Path.Combine(
+            WorkspaceSettingsStore.DefaultAppDataDirectory,
+            "device-credential.json")));
         // And this device's replication progress, beside that credential and for
         // the same reason: LocalApplicationData, never the workspace root. The
         // watermark and the cursor describe how far *this machine* has got, and a
@@ -277,31 +288,25 @@ public static class MauiProgram
         // registers no store of its own, so a head that skips this line has the
         // session registered and unconstructable.
         builder.Services.AddSingleton<ITaskSyncStateStore>(_ => new FileTaskSyncStateStore(Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Backlog",
+            WorkspaceSettingsStore.DefaultAppDataDirectory,
             "task-sync-state.json")));
         // Session replication's two files, in that same folder and for the same
         // reasons - per-user, per-installation, never the workspace root. Two
         // stores rather than one because a session save that corrupted a shared
         // file would reset the task watermark above and re-push the whole machine;
         // one call because where they go is the only part the host knows.
-        builder.Services.AddSessionSyncStores(Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Backlog"));
+        builder.Services.AddSessionSyncStores(WorkspaceSettingsStore.DefaultAppDataDirectory);
         // And annotation replication's progress file, in that same folder for the
         // same reasons. The remarks themselves are the Devbook annotation store's,
         // under the storage folder with the rest of the person's data.
-        builder.Services.AddAnnotationSyncStore(Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Backlog"));
+        builder.Services.AddAnnotationSyncStore(WorkspaceSettingsStore.DefaultAppDataDirectory);
         // What the last backup did, in that same folder and for the same reason:
         // per-installation bookkeeping, never the workspace root. The worker
         // reads the repository and the schedule off the workspace settings and
         // uploads through the same GitHub client the feedback dialog commits
         // screenshots with.
         builder.Services.AddSingleton<IBackupStateStore>(_ => new FileBackupStateStore(Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Backlog",
+            WorkspaceSettingsStore.DefaultAppDataDirectory,
             "backup-state.json")));
         builder.Services.AddSingleton<BackupWorker>();
         // The loopback MCP listener local ADR 0012 decided. TryAdd rather than
@@ -331,7 +336,9 @@ public static class MauiProgram
         // workspace. Task replication is the second call and not part of the
         // first: it needs the ITaskRepository this head registers, and a head
         // without one composes only the pairing surface.
-        builder.Services.AddSingleton<SyncServiceSettingsStore>();
+        builder.Services.AddSingleton(_ => new SyncServiceSettingsStore(Path.Combine(
+            WorkspaceSettingsStore.DefaultAppDataDirectory,
+            "sync-service.json")));
         builder.Services.AddSingleton<SyncServiceEndpoint>();
         builder.Services.AddSyncClient(SyncServiceAddress);
         builder.Services.AddTaskSyncClient(SyncServiceAddress);
@@ -472,6 +479,9 @@ public static class MauiProgram
         builder.Services.AddSingleton<InboxDesktopState>();
         // The Inbox behind the shell's Ask AI port, beside the state it reads.
         builder.Services.AddInboxAiContentSource();
+        // The Inbox's page on the settings screen: the routing rules. The shell draws
+        // it only because it is registered here, and holds no copy of its own.
+        builder.Services.AddInboxSettings();
         // The band under every route reads the backlog's save state through the
         // library's own interface rather than reaching for the state class, so the
         // shell's footer never learns which module is the interesting one. Same
@@ -520,6 +530,7 @@ public static class MauiProgram
         // for a host to differ about and both hosts compose the same adapter. It
         // stamps what it finds with the device identity registered above.
         builder.Services.AddAgentSessionSource();
+        builder.Services.AddSessionsAiContentSource();
 
         // Session replication, on top of AddSyncClient above and after the readers
         // it pushes from: it reads this machine's sessions through the port that

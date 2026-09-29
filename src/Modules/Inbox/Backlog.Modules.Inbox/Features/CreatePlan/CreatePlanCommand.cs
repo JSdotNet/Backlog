@@ -1,5 +1,3 @@
-using System.Text;
-
 using Backlog.Modules.Inbox.Abstractions;
 using Backlog.Modules.Inbox.Abstractions.DataTransferObjects;
 using Backlog.Modules.Inbox.Abstractions.Services;
@@ -36,16 +34,6 @@ public sealed class CreatePlanCommandHandler(
     IInboxPlanDrafter? drafter = null)
     : ICommandHandler<CreatePlanCommand, Result<InboxRoutedDto>>
 {
-    /// <summary>The longest tag the slug becomes, suffix included. Long enough
-    /// to keep a title recognisable on the metadata line, short enough that the
-    /// line stays one.</summary>
-    private const int MaxPlanTagLength = 40;
-
-    /// <summary>How many hex digits of the item's id go on the end of the tag.
-    /// Thirty-two random bits: enough that two items in one inbox cannot share
-    /// a tag by accident, short enough that the title still reads.</summary>
-    private const int PlanTagSuffixLength = 8;
-
     public async Task<Result<InboxRoutedDto>> Handle(
         CreatePlanCommand command,
         CancellationToken cancellationToken = default)
@@ -99,52 +87,8 @@ public sealed class CreatePlanCommandHandler(
     private static bool LooksLikeAPlan(string markdown) =>
         markdown.Split('\n').Any(line => line.TrimStart('\r', ' ').StartsWith("# ", StringComparison.Ordinal));
 
-    /// <summary>
-    /// The title as a tag, with the item's id on the end: lower-case letters,
-    /// digits and hyphens, at most <see cref="MaxPlanTagLength"/> long, and
-    /// opening with a letter so it is a legal <c>#tag</c> on the metadata line
-    /// (the grammar reads a tag as <c>[A-Za-z][\w-]*</c>).
-    /// <para>
-    /// The suffix is what makes the tag the <em>item's</em> and not the
-    /// title's. On the Tasks side the tag is the plan's id (ADR 0007's
-    /// <c>import_plan_id</c>), and an import clears every not-started entry
-    /// under it before writing its own — so two items with one title, or two
-    /// whose titles both slug to nothing, would each tombstone the other's
-    /// plan. The last eight hex digits rather than the first: a version-7 guid
-    /// opens with a timestamp whose leading digits are shared by every id
-    /// minted in the same minute, and the random bits are at the tail.
-    /// </para>
-    /// <para>Internal so the shape can be pinned on its own.</para>
-    /// </summary>
-    internal static string PlanTag(string title, Guid itemId)
-    {
-        var suffix = itemId.ToString("N")[^PlanTagSuffixLength..];
-        var stemLength = MaxPlanTagLength - PlanTagSuffixLength - 1;
-
-        var slug = new StringBuilder(stemLength);
-        var pendingHyphen = false;
-
-        foreach (var character in (title ?? string.Empty).ToLowerInvariant())
-        {
-            if (char.IsAsciiLetterOrDigit(character))
-            {
-                if (pendingHyphen && slug.Length > 0) slug.Append('-');
-                pendingHyphen = false;
-                slug.Append(character);
-                if (slug.Length >= stemLength) break;
-            }
-            else
-            {
-                pendingHyphen = true;
-            }
-        }
-
-        var value = slug.ToString().TrimEnd('-');
-
-        if (value.Length == 0) return $"inbox-plan-{suffix}";
-        if (char.IsAsciiLetter(value[0])) return $"{value}-{suffix}";
-
-        const string prefix = "plan-";
-        return prefix + value[..Math.Min(value.Length, stemLength - prefix.Length)].TrimEnd('-') + "-" + suffix;
-    }
+    /// <summary>The item's plan tag: its title as a slug with the item's id on
+    /// the end — see <see cref="InboxPlanTag.For"/> for the shape and why the
+    /// id is there. Internal so the shape can be pinned on its own.</summary>
+    internal static string PlanTag(string title, Guid itemId) => InboxPlanTag.For(title, itemId);
 }

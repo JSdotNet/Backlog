@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The Sessions context's disk adapters: the readers of the Claude and Copilot
+    transcripts and session files in the signed-in profile, the delivery-run stores
+    and their telemetry, the delivery surface's writing half, the Archify runner that
+    draws a run, and the composites the hosts' registrations stand behind them.
+
+    They used to sit in Backlog.Modules.Sessions.UI/Adapters, which made the screen
+    project the adapter. They answer the module's published ports and nothing else,
+    so this project sees the module's abstractions and the shared kernel and no
+    screen, and the hosts compose it: ModuleBoundaryTests forbids any Sessions
+    project referencing src/Infrastructure, so the edge runs from here to the module
+    and never back.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Backlog.Infrastructure.Sessions</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- For AddAgentSessionSource() and AddAgentActivitySource(): the host composes
+         the readers, so the registration extension lives beside the adapters it
+         registers. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- What a session file says and what a row shows is where a timestamp, a
+         repository or a liveness state gets lost, so the readers are worth testing
+         directly rather than only through the pane. The desktop UI suite keeps the
+         tests that render the pane over them or drive them through the shell. -->
+    <InternalsVisibleTo Include="Backlog.Infrastructure.Sessions.UnitTests" />
+    <InternalsVisibleTo Include="Backlog.Desktop.UI.UnitTests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- IDeviceIdentitySource: which machine this installation is. The local readers
+         stamp what they find with it rather than with a hostname, because a name is
+         not an identity. -->
+    <ProjectReference Include="..\..\Core\Backlog.SharedKernel\Backlog.SharedKernel.csproj" />
+    <!-- The module's published surface: the ports these answer and the DTOs they
+         answer with. -->
+    <ProjectReference Include="..\..\Modules\Sessions\Backlog.Modules.Sessions.Abstractions\Backlog.Modules.Sessions.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>

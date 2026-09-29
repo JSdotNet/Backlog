@@ -52,21 +52,9 @@ public sealed class RouteToBacklogCommandHandler(
         // routing costs no entries. The same guard the aggregate applies below;
         // stated here because "route twice" is the one mistake a double-click
         // makes and it should make no entry.
-        if (item.IsRouted) return InboxErrors.InvalidTransition(
-            new InvalidInboxTransitionException(item.Status, "routed again").Message);
-        if (item.Status is InboxStatus.Archived) return InboxErrors.InvalidTransition(
-            new InvalidInboxTransitionException(item.Status, "routed").Message);
+        if (Refusal(item) is { } refused) return refused;
 
-        var request = new InboxRouteRequestDto(
-            item.Id,
-            item.Title,
-            item.BodyMd,
-            item.SourceUrl,
-            [.. item.Tags.Select(tag => tag.Name)],
-            [.. item.RepoIds],
-            item.Attachments.Count > 0 ? attachmentFiles?.FolderFor(item.Id) : null);
-
-        var created = await target.CreateTasksAsync(request, cancellationToken).ConfigureAwait(false);
+        var created = await target.CreateTasksAsync(RequestFor(item, attachmentFiles), cancellationToken).ConfigureAwait(false);
         if (created.IsFailure) return created.Error;
 
         item.RouteToBacklog(created.Value, [.. item.RepoIds], clock.GetUtcNow());
@@ -75,4 +63,30 @@ public sealed class RouteToBacklogCommandHandler(
 
         return new InboxRoutedDto(item.Id, created.Value);
     }
+
+    /// <summary>Why the item cannot be routed — already routed, or archived —
+    /// or null when it can. Shared with the batch route, so a selection refuses
+    /// an item for exactly the reasons a single route does.</summary>
+    internal static Error? Refusal(InboxItem item)
+    {
+        if (item.IsRouted) return InboxErrors.InvalidTransition(
+            new InvalidInboxTransitionException(item.Status, "routed again").Message);
+        if (item.Status is InboxStatus.Archived) return InboxErrors.InvalidTransition(
+            new InvalidInboxTransitionException(item.Status, "routed").Message);
+
+        return null;
+    }
+
+    /// <summary>The item's facts as Tasks is handed them, attachment folder
+    /// included. Shared with the batch route, so an item routed in a batch
+    /// becomes exactly the entries it would have become on its own.</summary>
+    internal static InboxRouteRequestDto RequestFor(InboxItem item, IInboxAttachmentFiles? attachmentFiles) =>
+        new(
+            item.Id,
+            item.Title,
+            item.BodyMd,
+            item.SourceUrl,
+            [.. item.Tags.Select(tag => tag.Name)],
+            [.. item.RepoIds],
+            item.Attachments.Count > 0 ? attachmentFiles?.FolderFor(item.Id) : null);
 }

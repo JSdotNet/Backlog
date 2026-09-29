@@ -28,10 +28,7 @@ public sealed class AppFeatureSettingsStore : IAppFeatureSettings
     public AppFeatureSettingsStore(IReadOnlyList<AppFeatureDefinition> features)
         : this(
             features,
-            Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "Backlog",
-                "features.json"))
+            Path.Combine(WorkspaceSettingsStore.DefaultAppDataDirectory, "features.json"))
     {
     }
 

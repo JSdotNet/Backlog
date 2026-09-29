@@ -25,8 +25,7 @@
                     tabindex="@(index == ActiveIndex ? 0 : -1)"
                     @onclick="() => SelectAsync(item)"
                     @onfocus="() => _activeIndex = index"
-                    @onkeydown="e => OnKeyDownAsync(e, index, item)"
-                    @onkeydown:preventDefault="_preventDefault">
+                    @onkeydown="e => OnKeyDownAsync(e, index, item)">
                 @if (!string.IsNullOrWhiteSpace(item.Icon))
                 {
                     <span class="menu-list__icon" aria-hidden="true">@item.Icon</span>
@@ -39,7 +38,6 @@
 
 @code {
     private int _activeIndex = -1;
-    private bool _preventDefault;
 
     [Parameter]
     public IReadOnlyList<MenuItem> Items { get; set; } = [];
@@ -83,10 +81,11 @@
     private Task SelectAsync(MenuItem item) =>
         item.Disabled || item.Separator ? Task.CompletedTask : OnItemSelected.InvokeAsync(item);
 
+    // Which of these keys keep their default is decided in components.js, on the
+    // `.menu-list__item` class: a flag set here would reach the browser only with
+    // the next render, after the default it meant to stop had already run.
     private Task OnKeyDownAsync(KeyboardEventArgs e, int index, MenuItem item)
     {
-        _preventDefault = e.Key is "ArrowDown" or "ArrowUp" or "Home" or "End" or " " or "Enter";
-
         if (e.Key is "Enter" or " ") return SelectAsync(item);
 
         var target = e.Key switch

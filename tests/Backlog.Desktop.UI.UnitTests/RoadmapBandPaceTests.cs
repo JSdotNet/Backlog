@@ -1,10 +1,14 @@
+using Backlog.Infrastructure.Sqlite;
+using Backlog.Infrastructure.Sqlite.Roadmap;
 using Backlog.Modules.Roadmap.Abstractions;
 using Backlog.Modules.Roadmap.Abstractions.DataTransferObjects;
 using Backlog.Modules.Roadmap.Abstractions.Services;
 using Backlog.Modules.Roadmap.UI;
+using Backlog.UI.Components.Roadmap;
 
 using Bunit;
 
+using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Backlog.Desktop.UI.UnitTests;
@@ -333,7 +337,7 @@ public sealed class RoadmapBandPaceTests : RoadmapBandHarness
     // --- A pace change redraws the bars sized by effort -------------------------
 
     [Fact]
-    public async Task Typing_Mine_relengthens_an_unfiled_plan_that_measured_nothing()
+    public async Task Typing_Mine_redraws_an_unfiled_plan_that_measured_nothing()
     {
         var plan = await UnfiledAsync("plan-a");
         Assert.Equal(5, Days(plan)); // nothing gathered at import: the default span
@@ -341,36 +345,40 @@ public sealed class RoadmapBandPaceTests : RoadmapBandHarness
         using var context = GatheringContext(14);
         var band = Banded(context);
 
+        // 14 points at Mine's 7 a week is two weeks.
+        band.WaitForAssertion(() => Assert.Equal((plan.Start, 14), DrawnWindow(band, plan.Id)));
+
         Manual(band).Change("14");
 
-        // 14 points at 14 a week is a week.
-        await WaitForDaysAsync("plan-a", 7);
-        Assert.Equal(plan.Start, (await StoredAsync("plan-a")).Start);
+        // 14 points at 14 a week is a week, from the same start.
+        band.WaitForAssertion(() => Assert.Equal((plan.Start, 7), DrawnWindow(band, plan.Id)));
     }
 
     [Fact]
-    public async Task Choosing_a_measured_default_pace_relengthens_an_unfiled_plan()
+    public async Task Choosing_a_measured_default_pace_redraws_an_unfiled_plan()
     {
         Finished.Add(new CompletedEffortDto(PaceToday, 56)); // 28 a week over two weeks, 7 over eight
-        await UnfiledAsync("plan-a");
+        var plan = await UnfiledAsync("plan-a");
 
         using var context = GatheringContext(14);
         var band = Banded(context);
 
-        // Two weeks is in use until another is chosen.
+        // Two weeks is in use until another is chosen: 14 points at 28 a week.
+        band.WaitForAssertion(() => Assert.Equal((plan.Start, 4), DrawnWindow(band, plan.Id)));
+
         Option(band, "eight-weeks", Default).Click();
 
         // 14 points at 7 a week is two weeks.
-        await WaitForDaysAsync("plan-a", 14);
+        band.WaitForAssertion(() => Assert.Equal((plan.Start, 14), DrawnWindow(band, plan.Id)));
     }
 
     [Fact]
-    public async Task Typing_Mine_relengthens_each_plan_at_its_own_pace()
+    public async Task Typing_Mine_redraws_each_plan_at_its_own_pace()
     {
         Configure("JSdotNet/Backlog", "JSdotNet/Site");
         Finished.Add(new CompletedEffortDto(PaceToday, 28) { RepositoryAliases = ["backlog"] }); // 14 a week
-        await ImportedAsync("plan-a", "backlog");
-        await ImportedAsync("plan-b", "site");
+        var backlog = await ImportedAsync("plan-a", "backlog");
+        var site = await ImportedAsync("plan-b", "site");
 
         using var context = GatheringContext(14);
         var band = Banded(context);
@@ -379,8 +387,11 @@ public sealed class RoadmapBandPaceTests : RoadmapBandHarness
 
         // Site measured nothing, so its 14 points go at Mine's 28 a week: three and a
         // half days, rounded up. Backlog's go at its own measured 14 a week: a week.
-        await WaitForDaysAsync("plan-b", 4);
-        await WaitForDaysAsync("plan-a", 7);
+        band.WaitForAssertion(() =>
+        {
+            Assert.Equal((site.Start, 4), DrawnWindow(band, site.Id));
+            Assert.Equal((backlog.Start, 7), DrawnWindow(band, backlog.Id));
+        });
         Assert.Equal(28m, PaceFile.StoryPointsPerWeek);
         Assert.False(PaceFile.KeepsOwnPace("site"));
     }
@@ -399,22 +410,74 @@ public sealed class RoadmapBandPaceTests : RoadmapBandHarness
         Manual(band).Change("14");
 
         band.WaitForAssertion(() => Assert.Equal(14m, PaceFile.StoryPointsPerWeek));
+        band.WaitForAssertion(() => Assert.Equal((plan.Start, 7), DrawnWindow(band, plan.Id)));
         Assert.Equal(7, Days(await StoredAsync("plan-a")));
     }
 
     [Fact]
-    public async Task Typing_Mine_while_every_band_measured_something_moves_no_plan()
+    public async Task Typing_Mine_while_every_band_measured_something_moves_no_bar()
     {
-        Finished.Add(new CompletedEffortDto(PaceToday, 14));
-        await UnfiledAsync("plan-a");
+        Finished.Add(new CompletedEffortDto(PaceToday, 14)); // 7 a week measured
+        var plan = await UnfiledAsync("plan-a");
 
         using var context = GatheringContext(14);
         var band = Banded(context);
+        band.WaitForAssertion(() => Assert.Equal((plan.Start, 14), DrawnWindow(band, plan.Id)));
 
         Manual(band).Change("100");
 
         band.WaitForAssertion(() => Assert.Equal(100m, PaceFile.StoryPointsPerWeek));
-        Assert.Equal(5, Days(await StoredAsync("plan-a")));
+        band.WaitForAssertion(() => Assert.Equal((plan.Start, 14), DrawnWindow(band, plan.Id)));
+    }
+
+    /// <summary>
+    /// A pace change is the pace's document and nothing else (local ADR 0018): the
+    /// plan's stored document and its <c>updated_at</c> are what they were, and no plan
+    /// change is announced — so a plan edit another PC made in the same interval is
+    /// never overwritten by a newer plan stamp from this one.
+    /// </summary>
+    [Fact]
+    public async Task A_pace_change_writes_nothing_to_the_plan()
+    {
+        Configure("JSdotNet/Backlog");
+        await ImportedAsync("plan-a", "backlog");
+        await UnfiledAsync("plan-b");
+        var before = await StoredPlanRowAsync();
+
+        using var context = GatheringContext(14);
+        var band = Banded(context);
+
+        var planChanges = 0;
+        Planning.Changed += () => Interlocked.Increment(ref planChanges);
+
+        Manual(band).Change("28");
+        band.WaitForAssertion(() => Assert.Equal(28m, PaceFile.StoryPointsPerWeek));
+
+        // The bar has been redrawn at the new pace — whatever the change set off has
+        // run — before the store is read. 14 points at 28 a week: four days.
+        var plan = await StoredAsync("plan-b");
+        band.WaitForAssertion(() => Assert.Equal((plan.Start, 4), DrawnWindow(band, plan.Id)));
+
+        Assert.Equal(before, await StoredPlanRowAsync());
+        Assert.Equal(0, Volatile.Read(ref planChanges));
+    }
+
+    /// <summary>
+    /// A pace that arrives from another PC — written into the pace file by the sync,
+    /// not typed here — redraws the bars as a typed one does.
+    /// </summary>
+    [Fact]
+    public async Task A_pace_that_arrives_from_elsewhere_redraws_the_bars()
+    {
+        var plan = await UnfiledAsync("plan-a");
+
+        using var context = GatheringContext(14);
+        var band = Banded(context);
+        band.WaitForAssertion(() => Assert.Equal((plan.Start, 14), DrawnWindow(band, plan.Id)));
+
+        _ = PaceFile.Set(14m);
+
+        band.WaitForAssertion(() => Assert.Equal((plan.Start, 7), DrawnWindow(band, plan.Id)));
     }
 
     /// <summary>A band whose every item gathers <paramref name="totalEffort"/> points,
@@ -449,17 +512,38 @@ public sealed class RoadmapBandPaceTests : RoadmapBandHarness
             (await Planning.GetPlanAsync(TestContext.Current.CancellationToken)).Items,
             item => item.Tag == tag);
 
-    /// <summary>The store is written after the band gathers and re-lengthens, which
-    /// lands a few renders after the change; polled rather than read once.</summary>
-    private async Task WaitForDaysAsync(string tag, int days)
+    /// <summary>Where the chart draws an item: the first day of its first bar and how
+    /// many days its bars cover, whether it is drawn whole or in segments.</summary>
+    private static (DateOnly Start, int Days) DrawnWindow(IRenderedComponent<RoadmapBand> band, Guid itemId)
     {
-        for (var attempt = 0; attempt < 100; attempt++)
-        {
-            if (Days(await StoredAsync(tag)) == days) return;
-            await Task.Delay(50, TestContext.Current.CancellationToken);
-        }
+        var bars = band.FindComponent<RoadmapTimeline>().Instance.Bars
+            .Where(bar => RoadmapPlanView.NodeIdOf(bar.Id) == itemId)
+            .ToList();
+        Assert.NotEmpty(bars);
 
-        Assert.Equal(days, Days(await StoredAsync(tag)));
+        var start = bars.Min(bar => bar.Start);
+        return (start, bars.Max(bar => bar.End).DayNumber - start.DayNumber + 1);
+    }
+
+    /// <summary>The plan's row as the store holds it — the document and its stamp —
+    /// read beneath the module, so nothing the module caches can answer instead.</summary>
+    private async Task<(string Document, string UpdatedAt)> StoredPlanRowAsync()
+    {
+        await using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource = SqliteTaskRepository.DatabasePathFor(Settings.RootDirectory),
+            Mode = SqliteOpenMode.ReadOnly,
+            Pooling = false
+        }.ToString());
+        await connection.OpenAsync(TestContext.Current.CancellationToken);
+
+        await using var read = connection.CreateCommand();
+        read.CommandText = "SELECT document, updated_at FROM roadmap_plan WHERE id = $id;";
+        read.Parameters.AddWithValue("$id", SqliteRoadmapPlanRepository.PlanRowId);
+
+        await using var row = await read.ExecuteReaderAsync(TestContext.Current.CancellationToken);
+        Assert.True(await row.ReadAsync(TestContext.Current.CancellationToken));
+        return (row.GetString(0), row.GetString(1));
     }
 
     private static int Days(RoadmapItemDto item) => item.End.DayNumber - item.Start.DayNumber + 1;
