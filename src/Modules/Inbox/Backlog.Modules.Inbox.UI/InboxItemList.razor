@@ -33,8 +33,17 @@
 <div class="inbox-pane__column inbox-pane__column--list" data-testid="inbox-pane-column-list">
     @if (!State.Loaded)
     {
-        @* Local-first: the snapshot is a database read away, so there is no
-           skeleton to draw — the list simply is not there yet. *@
+        @* Local-first, so this is usually on screen for a frame — but the snapshot
+           is still a read away, and a list on its way is drawn in the shape of one
+           rather than as nothing (.devbook/design/interaction-guidelines.md,
+           Loading States). Nothing is there for a reader to tell from a list that
+           failed to draw. Hidden in one piece, like every skeleton. *@
+        <div class="inbox-pane__loading" data-testid="inbox-loading" aria-hidden="true">
+            @foreach (var width in SkeletonWidths)
+            {
+                <Skeleton Shape="SkeletonShape.Block" Width="@width" />
+            }
+        </div>
     }
     else
     {
@@ -236,6 +245,10 @@
 </div>
 
 @code {
+    /// <summary>The first load's placeholder rows, of differing length so that
+    /// they read as rows rather than as a pattern.</summary>
+    private static readonly string[] SkeletonWidths = ["100%", "92%", "96%", "88%"];
+
     [Parameter, EditorRequired]
     public InboxDesktopState State { get; set; } = default!;
 

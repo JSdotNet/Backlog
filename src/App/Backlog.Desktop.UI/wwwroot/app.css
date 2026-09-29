@@ -960,6 +960,12 @@ h1, h2, h3 {
     container-name: backlog-list;
 }
 
+/* The first load's placeholder rows, spaced like the entry rows they stand in for. */
+.backlog-list__loading {
+    display: grid;
+    gap: var(--spacing-sm);
+}
+
 /*
   The two pickers a backlog row carries, in the row's action slot.
 
@@ -3640,6 +3646,13 @@ h1, h2, h3 {
     overflow: auto;
 }
 
+/* The first load's placeholder rows, spaced like the item rows they stand in for. */
+.inbox-pane__loading {
+    display: grid;
+    gap: var(--spacing-sm);
+    padding-block: var(--spacing-sm);
+}
+
 /* --- Kind chips ---------------------------------------------------------- */
 
 .inbox-pane__filters {
@@ -5081,6 +5094,12 @@ h1, h2, h3 {
     text-align: left;
 }
 
+/* The first read's spinner, in the middle of the surface the chart will fill. */
+.roadmap-band__loading {
+    display: flex;
+    padding: var(--spacing-xl);
+}
+
 /* The unplanned work, in its column. It scrolls on its own, so a long list never
    pushes the chart off the surface and the chart never hides the list. */
 .roadmap-band__shelf {
@@ -5704,10 +5723,10 @@ h1, h2, h3 {
     font-size: var(--font-size-sm);
 }
 
-.sessions-panel__empty {
-    margin: 0;
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
+/* The first read's placeholder rows, spaced like the table rows they stand in for. */
+.sessions-panel__loading {
+    display: grid;
+    gap: var(--spacing-sm);
 }
 
 /* The name column is the one that may take the width it needs; every other column

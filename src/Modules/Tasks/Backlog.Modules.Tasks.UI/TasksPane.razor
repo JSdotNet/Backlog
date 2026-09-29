@@ -77,7 +77,7 @@
                FixedWidthRemChanged="rem => _detailWidthRem = rem"
                MinRem="24">
         <Start>
-            <div class="backlog-list">
+            <div class="backlog-list" aria-busy="@(State.IsLoading ? "true" : null)">
                 @* Tags are the second label on an entry that already has one, so the
                    group is built from what people typed and sits in the middle.
                    Status narrows what is already in view, so it sits on the right. *@
@@ -334,7 +334,22 @@
                                   @onkeydown="OnSelectionBarKeyDown" />
                 }
 
-                @if (State.FilteredRows.Count == 0)
+                @if (State.IsLoading)
+                {
+                    @* The backlog is still being read. Placeholder rows in the
+                       list's shape rather than "Nothing here yet.", which is an
+                       answer the pane does not have yet
+                       (.devbook/design/interaction-guidelines.md, Loading States).
+                       Hidden in one piece, like every skeleton; aria-busy on the
+                       list half says it is on its way. *@
+                    <div class="backlog-list__loading" data-testid="backlog-loading" aria-hidden="true">
+                        @foreach (var width in SkeletonWidths)
+                        {
+                            <Skeleton Shape="SkeletonShape.Block" Width="@width" />
+                        }
+                    </div>
+                }
+                else if (State.FilteredRows.Count == 0)
                 {
                     @* "You have written nothing" and "your filters match nothing" are
                        different facts, and the second one became common the moment My
@@ -492,6 +507,10 @@
              OnItemSelected="OnRowMenuItemAsync" />
 
 @code {
+    /// <summary>The first load's placeholder rows, of differing length so that
+    /// they read as rows rather than as a pattern.</summary>
+    private static readonly string[] SkeletonWidths = ["100%", "94%", "97%", "90%", "95%"];
+
     /// <summary>
     /// How wide the open entry's panel is, in rem. The list takes the rest.
     /// <para>

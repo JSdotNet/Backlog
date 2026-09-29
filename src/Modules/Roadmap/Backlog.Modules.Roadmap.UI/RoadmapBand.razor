@@ -58,7 +58,21 @@
        aria-labelledby names. *@
     <div class="@BodyClass" data-testid="roadmap-band-body">
         <div class="roadmap-band__content" data-testid="roadmap-band-content">
-            @if (_view.HasAnythingToDraw)
+            @if (!_loaded)
+            {
+                @* The plan is still being read. The roadmap is a surface of its own
+                   with nothing to lay out until the plan says what is on it, so the
+                   spinner — and not "No roadmap yet", which is an answer the band
+                   does not have yet (.devbook/design/interaction-guidelines.md,
+                   Loading States). The header is drawn as it is with nothing
+                   planned, so the section's heading is there from the first frame. *@
+                <header class="roadmap-band__header">
+                    @BandHeading
+                </header>
+
+                <Spinner Label="Loading the roadmap" CssClass="roadmap-band__loading" TestId="roadmap-band-loading" />
+            }
+            else if (_view.HasAnythingToDraw)
             {
                 @* ShowSteps off: the roadmap reads plans, and a bar opening into a row
                    per task put the whole backlog back on a chart meant to show what is
@@ -150,6 +164,10 @@
     // change rather than patched in place: the plan decides what a reschedule did,
     // and a locally applied guess is one more thing that can disagree with it.
     private RoadmapTimelineModel _view = RoadmapTimelineModel.Empty;
+
+    /// <summary>Whether the first read has come back. Only the first: every later
+    /// load redraws over a chart that is already on screen.</summary>
+    private bool _loaded;
 
     // The plan itself as well as the view of it. The editor needs the items — their
     // titles, their dependencies — and a bar on the chart carries only what it takes
@@ -255,6 +273,7 @@
         Planning.Changed += OnPlanChanged;
         WorkChanges.Changed += OnWorkChanged;
         await Load();
+        _loaded = true;
     }
 
     public void Dispose()
