@@ -479,6 +479,7 @@
     private void SelectSection(string key)
     {
         FollowSectionWithAtlas(key);
+        _pendingChapter = null;
         _selectedSection = key;
         _folderOpenError = null;
         if (SectionUsesMenu)
@@ -491,6 +492,7 @@
     {
         if (!node.Available || node.Kind == DevbookMenuNodeKind.Message) return;
 
+        _pendingChapter = null;
         _selectedSection = node.AreaKey;
         if (IsSelectableMenuNode(node) || IsContextOverviewNode(node) || IsAreaOverviewNode(node))
         {
@@ -613,6 +615,11 @@
     /// menu.</summary>
     private string? _selectedC4View;
 
+    /// <summary>A reference pressed while the menu was loading, followed when the
+    /// load lands. Dropped by any selection the reader makes in between, which is
+    /// the newer request.</summary>
+    private DevbookChapterLink? _pendingChapter;
+
     private void SelectChapter(DevbookChapterLink target)
     {
         if (target is null) return;
@@ -625,6 +632,17 @@
             _selectedSection = target.AreaKey;
             _selectedC4View = target.Reference;
             _folderOpenError = null;
+            return;
+        }
+
+        // The containment check below asks the menu tree, and while the menu is
+        // loading that tree is the previous one — empty on first open. A panel
+        // draws its own content without waiting for the menu, so a reference can
+        // be pressed in that window, and refusing it then would read as a dead
+        // link. Held instead, and followed once the load lands.
+        if (_menuLoading)
+        {
+            _pendingChapter = target;
             return;
         }
 
@@ -838,6 +856,14 @@
         finally
         {
             _menuLoading = false;
+        }
+
+        // After the flag drops, so the reference goes through the same check a
+        // reference pressed now would.
+        if (_pendingChapter is { } pending)
+        {
+            _pendingChapter = null;
+            SelectChapter(pending);
         }
     }
 

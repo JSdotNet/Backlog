@@ -39,7 +39,7 @@ public sealed class DevbookPaneSectionReferenceTests : IDisposable
         // read, so waiting on the section is waiting for nothing.
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='design-chapter-file']")));
 
-        Reference(component, ".design/component-libraries.md#materialization").Click();
+        await ClickReferenceAsync(component, ".design/component-libraries.md#materialization");
 
         component.WaitForAssertion(() => Assert.Contains(
             "Component Libraries",
@@ -58,7 +58,7 @@ public sealed class DevbookPaneSectionReferenceTests : IDisposable
 
         // An instruction file's own folder is not a section, and it links into the
         // ones that are — which is the whole reason the panel needed the wiring.
-        Reference(component, ".design/color-scheme.md").Click();
+        await ClickReferenceAsync(component, ".design/color-scheme.md");
 
         component.WaitForAssertion(() => Assert.Equal("true", component.Find("#tab-design").GetAttribute("aria-selected")));
     }
@@ -71,14 +71,38 @@ public sealed class DevbookPaneSectionReferenceTests : IDisposable
         var component = harness.Render();
         await ClickTabAsync(component, "tech");
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='technology-layers-tab']")));
-        component.Find("[data-testid='technology-layers-tab']").Click();
+        await component.InvokeAsync(() => component.Find("[data-testid='technology-layers-tab']").Click());
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='technology-node']")));
 
         // It used to be an anchor whose href was the repository path itself, so a
         // relation on a node was a link straight out of the app.
-        Reference(component, ".arc42/03-context-and-scope.md").Click();
+        await ClickReferenceAsync(component, ".arc42/03-context-and-scope.md");
 
         component.WaitForAssertion(() => Assert.Equal("true", component.Find("#tab-arc42").GetAttribute("aria-selected")));
+    }
+
+    /// <summary>
+    /// A panel draws its own content without waiting for the pane's menu — the
+    /// Instructions panel opens on its first file and Technology has no menu at
+    /// all — so a reference can be on screen, and pressed, before the menu the
+    /// pane checks a target against has loaded. It used to be refused then, as a
+    /// target the menu had never heard of, and the reader's press went nowhere.
+    /// The two tests above lost that race whenever the suite ran under load.
+    /// </summary>
+    [Fact]
+    public async Task A_reference_pressed_before_the_menu_has_loaded_is_followed_once_it_has()
+    {
+        var menu = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var harness = CreateHarness(menu.Task);
+
+        var component = harness.Render();
+        await ClickTabAsync(component, "instructions");
+        component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='instructions-document']")));
+
+        await ClickReferenceAsync(component, ".design/color-scheme.md");
+        menu.SetResult();
+
+        component.WaitForAssertion(() => Assert.Equal("true", component.Find("#tab-design").GetAttribute("aria-selected")));
     }
 
     [Theory]
@@ -96,7 +120,7 @@ public sealed class DevbookPaneSectionReferenceTests : IDisposable
         if (section == "tech")
         {
             component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll("[data-testid='technology-layers-tab']")));
-            component.Find("[data-testid='technology-layers-tab']").Click();
+            await component.InvokeAsync(() => component.Find("[data-testid='technology-layers-tab']").Click());
         }
 
         component.WaitForAssertion(() => Assert.NotEmpty(component.FindAll($"[data-testid='{readyTestId}']")));
@@ -132,7 +156,16 @@ public sealed class DevbookPaneSectionReferenceTests : IDisposable
         component.FindAll("button.devbook-ref--action")
             .Single(button => string.Equals(button.GetAttribute("title"), raw, StringComparison.Ordinal));
 
-    private Harness CreateHarness()
+    /// <summary>Presses a reference, found and clicked in one dispatch for the
+    /// reason <see cref="ClickTabAsync"/> is: the menu and the panel are still
+    /// landing renders, and a button found on the test thread can have lost its
+    /// handler by the time a separate click reaches the renderer.</summary>
+    private static Task ClickReferenceAsync(IRenderedComponent<DevbookPane> component, string raw) =>
+        component.InvokeAsync(() => Reference(component, raw).Click());
+
+    /// <param name="menuLoad">When given, the pane's menu does not finish loading
+    /// until this completes; the panels read their folders as usual.</param>
+    private Harness CreateHarness(Task? menuLoad = null)
     {
         var root = Path.Combine(Path.GetTempPath(), "backlog-devbook-section-references", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(Path.Combine(root, ".design"));
@@ -256,7 +289,8 @@ public sealed class DevbookPaneSectionReferenceTests : IDisposable
         context.Services.AddSingleton(settings);
         context.Services.AddSingleton(gitHub);
         context.Services.AddSingleton<IAppFeatureSettings>(features);
-        context.Services.AddSingleton<IDevbookFolderSource>(new DevbookFolderSource(gitHub, settings));
+        var folders = new DevbookFolderSource(gitHub, settings);
+        context.Services.AddSingleton<IDevbookFolderSource>(folders);
         context.Services.AddSingleton(sp => new DomainDevbookStore(sp.GetRequiredService<IDevbookFolderSource>()));
         context.Services.AddSingleton<Arc42DevbookStore>();
         context.Services.AddSingleton<DesignDevbookProvider>();
@@ -265,7 +299,7 @@ public sealed class DevbookPaneSectionReferenceTests : IDisposable
         context.Services.AddSingleton<InstructionSourceDiscovery>();
         context.Services.AddSingleton(new DevbookCopilotCli(new UnavailableCopilotCliLauncher()));
         context.Services.AddSingleton<DevbookChapterWriter>();
-        context.Services.AddSingleton<DevbookMenu>();
+        context.Services.AddSingleton(new DevbookMenu(menuLoad is null ? folders : new HeldListingSource(folders, menuLoad)));
         context.Services.AddSingleton<DevbookScope>();
         // The pane publishes its open chapter here for the Ask AI source; a pane
         // rendered without it would fail on inject, as the application hosts would.
@@ -298,5 +332,38 @@ public sealed class DevbookPaneSectionReferenceTests : IDisposable
             Context.Render<DevbookPane>(parameters => parameters.Add(pane => pane.RepositoryAlias, RepositoryAlias));
 
         public async ValueTask DisposeAsync() => await Context.DisposeAsync();
+    }
+
+    /// <summary>The folder source as the menu sees it, with every listing held
+    /// until <paramref name="release"/> completes. Listing is the one call the menu
+    /// awaits, so this holds the menu and nothing else.</summary>
+    private sealed class HeldListingSource(IDevbookFolderSource inner, Task release) : IDevbookFolderSource
+    {
+        public event Action? Changed
+        {
+            add => inner.Changed += value;
+            remove => inner.Changed -= value;
+        }
+
+        public void NotifyContentChanged() => inner.NotifyContentChanged();
+
+        public IReadOnlyList<DevbookFolderSetting> Folders(string? repositoryAlias) => inner.Folders(repositoryAlias);
+
+        public DevbookFolderLocation Resolve(string key, string? repositoryAlias = null) => inner.Resolve(key, repositoryAlias);
+
+        public async Task<DevbookFolderLocation> PrepareListingAsync(string key, string? repositoryAlias = null, CancellationToken cancellationToken = default)
+        {
+            await release.WaitAsync(cancellationToken);
+            return await inner.PrepareListingAsync(key, repositoryAlias, cancellationToken);
+        }
+
+        public Task<DevbookFolderLocation> PrepareContentAsync(
+            string key,
+            string? repositoryAlias = null,
+            IReadOnlyCollection<string>? relativePaths = null,
+            CancellationToken cancellationToken = default) =>
+            inner.PrepareContentAsync(key, repositoryAlias, relativePaths, cancellationToken);
+
+        public IDevbookFileTree FileTree(DevbookFolderLocation location) => inner.FileTree(location);
     }
 }
