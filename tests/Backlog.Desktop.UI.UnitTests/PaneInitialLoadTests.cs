@@ -167,9 +167,10 @@ public sealed class PaneInitialLoadTests : IDisposable
             string? defaultRepo = null,
             IReadOnlyDictionary<string, string>? repoMatches = null,
             string? sourceInboxId = null,
+            IReadOnlyDictionary<string, string>? sourceInboxIds = null,
             bool layOutOnRoadmap = false,
             CancellationToken cancellationToken = default) =>
-            inner.ImportPlanAsync(rawText, defaultRepo, repoMatches, sourceInboxId, layOutOnRoadmap, cancellationToken);
+            inner.ImportPlanAsync(rawText, defaultRepo, repoMatches, sourceInboxId, sourceInboxIds, layOutOnRoadmap, cancellationToken);
     }
 
     private sealed class UnconnectedProbe : IGitHubConnectionProbe
