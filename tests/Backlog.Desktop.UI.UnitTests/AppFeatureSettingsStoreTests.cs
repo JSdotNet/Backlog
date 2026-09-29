@@ -383,6 +383,26 @@ public sealed class AppFeatureSettingsStoreTests
         }
     }
 
+    /// <summary>
+    /// The feature flags include Sync. A Debug head that read the installed app's
+    /// file would come up with Sync on because the installed app has it on, so
+    /// the default path sits under the same isolated folder as the workspace.
+    /// Read-only: the store creates the folder and reads the file, and writes
+    /// nothing until a flag is set.
+    /// </summary>
+    [Fact]
+    public void The_default_file_sits_under_the_default_app_data_folder()
+    {
+        var store = new AppFeatureSettingsStore(AppFeatures.All);
+
+        Assert.Equal(
+            Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                WorkspaceSettingsStore.DefaultAppDataFolderName,
+                "features.json"),
+            store.SettingsPath);
+    }
+
     private static string NewSettingsPath() =>
         Path.Combine(Path.GetTempPath(), "backlog-feature-tests", Guid.NewGuid().ToString("n"), "features.json");
 

@@ -79,6 +79,30 @@ public sealed class PackagedAppDataTests : IDisposable
         Assert.False(Directory.Exists(Path.Combine(AppData, "activity-cache")));
     }
 
+    /// <summary>The desktop head keeps every sync file in this same folder -
+    /// the credential, the sync URL, each replica's progress, the backup state
+    /// and the flags that switch Sync on - so an install that was paired before
+    /// the manifest changed is still paired, at the same position, after it.</summary>
+    [Theory]
+    [InlineData("device-credential.json")]
+    [InlineData("sync-service.json")]
+    [InlineData("task-sync-state.json")]
+    [InlineData("session-sync-state.json")]
+    [InlineData("replicated-sessions.json")]
+    [InlineData("annotation-sync-state.json")]
+    [InlineData("backup-state.json")]
+    [InlineData("features.json")]
+    public void The_sync_files_come_across(string fileName)
+    {
+        Write(Path.Combine(Redirected, "settings.json"), "{}");
+        Write(Path.Combine(Redirected, fileName), "{\"from\":\"redirected\"}");
+
+        var adoption = PackagedAppData.Adopt(Redirected, AppData);
+
+        Assert.Equal(AppDataAdoptionOutcome.Adopted, adoption.Outcome);
+        Assert.Equal("{\"from\":\"redirected\"}", File.ReadAllText(Path.Combine(AppData, fileName)));
+    }
+
     /// <summary>The default root was the markdown store's folder once, and a
     /// person who has used the app that long still has their own notes, images
     /// and folders beside the database — and the app's retired
